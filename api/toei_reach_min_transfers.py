@@ -25,7 +25,7 @@ from networkx.algorithms.simple_paths import shortest_simple_paths
 
 # -------------------- チューニング定数 --------------------
 BUS_RIDE_COST  = 1.0      # バス1区間
-RAIL_RIDE_COST = 0.6      # 鉄道1区間（バスより安く）
+RAIL_RIDE_COST = 0.2      # 鉄道1区間（バスより安く）
 BOARD_PENALTY = 30            # 路線に乗る（最初の乗車も含む）
 # ※ TRANSFER_PENALTY を大きくすると「乗換最小」優先が強まる
 TRANSFER_PENALTY = 500        # 同一地点で路線を変える
@@ -70,9 +70,9 @@ def tie_same_place_busstops(G, radius_m=80):
 
     added = 0
     for name, nodes in by_name.items():
-        if "春日" in name:
-            print("[DBG] group name:", name)
-            print("[DBG]  nodes:", [(n, d["lat"], d["lon"]) for n, d in nodes])
+        # if "春日" in name:
+        #     print("[DBG] group name:", name)
+        #     print("[DBG]  nodes:", [(n, d["lat"], d["lon"]) for n, d in nodes])
 
         # 近接なものだけ0コストで相互接続
         for i in range(len(nodes)):
@@ -82,8 +82,8 @@ def tie_same_place_busstops(G, radius_m=80):
                 # 駅とバス停など異種も含めたいならここでフィルタ
                 dist = haversine(di["lat"], di["lon"], dj["lat"], dj["lon"])
                 if dist <= radius_m:
-                    if "春日" in name:
-                        print(f"[DBG] tie {di['name']} ↔ {dj['name']} ({dist:.1f}m)")
+                    # if "春日" in name:
+                    #     print(f"[DBG] tie {di['name']} ↔ {dj['name']} ({dist:.1f}m)")
                     if not G.has_edge(ni, nj):
                         G.add_edge(ni, nj, w=0, etype="walk"); added += 1
                     if not G.has_edge(nj, ni):
@@ -246,25 +246,36 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
     #   春日（三田）↔春日（大江戸）が 136m くらい離れてるので、半径は 150m くらいに上げる
     walk_edges += tie_same_place_busstops(G, radius_m=150)
 
-
-
     # デバッグ: 春日駅と水道橋駅の接続を確認
-    print("\n[DBG] === 春日駅の詳細 ===")
-    for n, d in G.nodes(data=True):
-        if n[0] == "phys" and "春日" in d.get("name", ""):
-            if n[1].startswith("odpt.Station"):  # 駅だけ表示
-                print(f"物理ノード: {n[1]}")
-                print(f"  name: {d.get('name')}")
-                print(f"  座標: ({d['lat']}, {d['lon']})")
-                # このノードに接続されているライン層ノードを確認
-                out_count = 0
-                for successor in G.successors(n):
-                    if successor[0] == "line":
-                        sd = G.nodes[successor]
-                        print(f"  → ライン層: {sd.get('disp')} (line={sd.get('line')})")
-                        out_count += 1
-                if out_count == 0:
-                    print(f"  ⚠️ ライン層ノードが無い！")
+    # print("\n[DBG] === 春日駅の詳細 ===")
+    # for n, d in G.nodes(data=True):
+    #     if n[0] == "phys" and "春日" in d.get("name", ""):
+    #         if n[1].startswith("odpt.Station"):  # 駅だけ表示
+    #             print(f"物理ノード: {n[1]}")
+    #             print(f"  name: {d.get('name')}")
+    #             print(f"  座標: ({d['lat']}, {d['lon']})")
+    #             # このノードに接続されているライン層ノードを確認
+    #             out_count = 0
+    #             for successor in G.successors(n):
+    #                 if successor[0] == "line":
+    #                     sd = G.nodes[successor]
+    #                     print(f"  → ライン層: {sd.get('disp')} (line={sd.get('line')})")
+    #                     out_count += 1
+    #             if out_count == 0:
+    #                 print(f"  ⚠️ ライン層ノードが無い！")
+
+    # print("\n[DBG] === 水道橋まわり ===")
+    # for n, d in G.nodes(data=True):
+    #     if n[0] == "phys" and "水道橋" in d.get("name", ""):
+    #         print(f"phys: {n[1]}")
+    #         print(f"  name: {d.get('name')}")
+    #         print(f"  座標: ({d['lat']}, {d['lon']})")
+    #         for succ in G.successors(n):
+    #             if succ[0] == "line":
+    #                 sd = G.nodes[succ]
+    #                 print(f"  → ライン層: {sd.get('disp')} (line={sd.get('line')}, mode={sd.get('mode')})")
+
+
 
     return G, {
         "bus_ride":  bus_edges,
@@ -343,7 +354,8 @@ def main():
     print(f"[INFO] nodes={G.number_of_nodes()} edges={G.number_of_edges()} | "
           f"bus_ride={st['bus_ride']} rail_ride={st['rail_ride']} xfer_edges={st['xfer']} walk_edges={st['walk']}")
 
-    a_phys, ad = nearest_phys(G, alat, alon)
+    # A: 出発はバス停も駅もあり
+    a_phys, ad = nearest_phys(G, alat, alon, station_only=False)
 
     # (1) 乗車コストの再定義：最初だけ0、それ以外は=乗換
     # shortest_pathを呼ぶ直前、a_physが決まった後に入れる
@@ -357,7 +369,10 @@ def main():
                 data["w"] = TRANSFER_PENALTY  # 以降は重く＝実質乗換
 
 
-    b_phys, bd = nearest_phys(G, blat, blon)
+    # B: まずは駅だけ見る。500mより遠かったらバス停も含めて探し直し
+    b_phys, bd = nearest_phys(G, blat, blon, station_only=True)
+    if not b_phys or bd > 500:
+        b_phys, bd = nearest_phys(G, blat, blon, station_only=False)
 
     if a_phys is None or b_phys is None:
         print("[FAIL] 近傍地点が見つからない")

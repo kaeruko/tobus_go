@@ -285,96 +285,128 @@ async def _startup():
     G, STATS = build_graph(BUSSTOP, BUSROUTE, STATIONS, RAILWAYS, walk_radius=WALK_RAD)
     print("[server] graph ready:", STATS)
 
+    # ここを追加：素の重みを保存しておく
+    for u, v, data in G.edges(data=True):
+        data["base_w"] = float(data.get("w", 0.0))
+
 @app.get("/health")
 def health():
     return JSONResponse(content={"ok": True, "stats": STATS}, media_type="application/json; charset=utf-8")
 
-# -------------------- 経路検索（Flutter から呼ぶやつ） --------------------
+from networkx.algorithms.simple_paths import shortest_simple_paths
+
 @app.get("/route")
 def route(
-    alat: float = Query(...), alon: float = Query(...),
-    blat: float = Query(...), blon: float = Query(...),
-    pref: str = Query("fewTransfers")
+    alat: float = Query(...),
+    alon: float = Query(...),
+    blat: float = Query(...),
+    blon: float = Query(...),
+    pref: str = Query("fewTransfers"),
 ):
-    # まず駅で探す
+    if G is None:
+        raise HTTPException(500, "graph not ready")
+
+    # --- 近傍ノード探索 ---
+    # B はまず駅だけ探して、500m より遠かったらバス停も含めて探し直し
     b_phys, bd = nearest_phys(G, blat, blon, station_only=True)
-    
-    # 駅が見つからない、または遠すぎる場合はバス停も含めて探す
     if not b_phys or bd > 500:
         b_phys, bd = nearest_phys(G, blat, blon, station_only=False)
-    
+
+    # A はバス停も駅も OK
     a_phys, ad = nearest_phys(G, alat, alon, station_only=False)
-    
+
     if not a_phys or not b_phys:
         raise HTTPException(400, "nearby node not found")
 
-    print(f"[DBG] A_phys: {a_phys}, name={G.nodes[a_phys].get('name')}, {ad:.1f}m")
-    print(f"[DBG] B_phys: {b_phys}, name={G.nodes[b_phys].get('name')}, {bd:.1f}m")
+    print(
+        f"[DBG] /route A={a_phys}, name={G.nodes[a_phys].get('name')}, {ad:.1f}m",
+        flush=True,
+    )
+    print(
+        f"[DBG] /route B={b_phys}, name={G.nodes[b_phys].get('name')}, {bd:.1f}m",
+        flush=True,
+    )
 
     A_ID = a_phys[1]
-    
-    # ★ 動的に重み関数を定義（リクエストごとにA地点が変わるため）
+
+    # --- 重み関数（最初の乗車だけ無料・pref で鉄道優遇） ---
     def weight_func(u, v, data):
         base_w = float(data.get("w", 0.0))
         etype = data.get("etype")
-        
-        # 最初の乗車は無料、それ以降の board は乗換ペナルティ
+
+        # board: 最初の一回だけ無料、それ以降は乗換ペナルティ
         if etype == "board":
             if u == ("phys", A_ID):
-                return 0.0  # 最初の乗車は無料
-            
-            # ノード v (line layer) からモードを取得（保険付き）
+                return 0.0
+
             node = v if v[0] == "line" else u
             mode = G.nodes.get(node, {}).get("mode")
-            
-            # shortTime モードでは rail への乗換を優遇
+
+            pen = TRANSFER_PENALTY
             if pref == "shortTime" and mode == "rail":
-                return float(TRANSFER_PENALTY * 0.4)  # 鉄道は軽く
-            return float(TRANSFER_PENALTY)
-        
-        # xfer エッジ（line→line の直接乗換）も鉄道同士なら軽くする
+                pen *= 0.4
+            return float(pen)
+
+        # xfer: line→line 乗換も、pref=shortTime なら鉄道同士を軽く
         if etype == "xfer":
             mu = G.nodes[u].get("mode") if u[0] == "line" else None
             mv = G.nodes[v].get("mode") if v[0] == "line" else None
             base = base_w if base_w > 0 else float(TRANSFER_PENALTY)
-            
             if pref == "shortTime" and mu == "rail" and mv == "rail":
-                return base * 0.4
+                return float(base * 0.4)
             return base
-        
+
         return base_w
 
-    K = 3
-    cands = []
-    seen = set()
-    backup = []
-    
-    try:
-        # ★ shortest_simple_paths で複数候補を取得
-        for path in nx.shortest_simple_paths(G, a_phys, b_phys, weight=weight_func):
-            segs = segments_detailed(G, path)
+    K = 3                 # 欲しい候補数
+    MAX_PATHS = 200       # k-shortest を何本まで見るかの上限（無限に回らないため）
 
-            # 路線の組み合わせで重複排除
+    cands = []
+    backup = []
+    seen_sig = set()
+
+    try:
+        for idx, path in enumerate(
+            shortest_simple_paths(G, a_phys, b_phys, weight=weight_func)
+        ):
+            if idx >= MAX_PATHS:
+                print("[DBG] shortest_simple_paths hit MAX_PATHS", flush=True)
+                break
+
+            segs = segments_detailed(G, path)
+            met = summarize_with_walk(G, path)
+
+            # このパスの「路線列」をシグネチャにする
             sig_items = []
+            line_seq_for_view = []
+            seen_line_once = set()
+
             for s in segs:
                 if s.get("kind") in ("bus", "rail"):
-                    name = s.get("line") or s.get("title")
-                    sig_items.append(name)
-            sig = tuple(sig_items)
+                    lid = s.get("line") or s.get("title")
+                    if not lid:
+                        continue
+                    sig_items.append(lid)
+                    if lid not in seen_line_once:
+                        seen_line_once.add(lid)
+                        line_seq_for_view.append(lid)
 
-            if sig in seen:
+            sig = tuple(sig_items)
+            if not sig:
+                # 全部徒歩などは捨てる
                 continue
-            seen.add(sig)
-            
-            met = summarize_with_walk(G, path)
-            
+            if sig in seen_sig:
+                # 路線構成が同じものはスキップ
+                continue
+            seen_sig.add(sig)
+
             entry = {
-                "lines": list(sig),
+                "lines": line_seq_for_view,
                 **met,
                 "steps": segs,
             }
 
-            # CLI側と同じロジック：徒歩セグメントが300m以下の経路のみ本命として採用
+            # 徒歩 300m 以下の経路を本命候補、それ以外はバックアップ
             if met["walk_max_m"] <= MAX_WALK_SEG_M:
                 entry["id"] = f"C{len(cands)+1}"
                 cands.append(entry)
@@ -382,17 +414,21 @@ def route(
                     break
             else:
                 backup.append(entry)
-                
-    except nx.NetworkXNoPath:
-        cands = []
 
-    # 300m制約を満たす候補が見つからなかった場合の妥協案
+    except nx.NetworkXNoPath:
+        print("[DBG] NoPath", flush=True)
+
+    # 本命が無ければ徒歩長めルートから補充
     if not cands:
-        for i, e in enumerate(backup[:K], 1):
-            e["id"] = f"C{i}"
+        for idx, e in enumerate(backup[:K], 1):
+            e["id"] = f"C{idx}"
         cands = backup[:K]
 
-    return JSONResponse(content={"candidates": cands}, media_type="application/json; charset=utf-8")
+    return JSONResponse(
+        content={"candidates": cands},
+        media_type="application/json; charset=utf-8",
+    )
+
 
 # -------------------- Places ラッパ（Flutter の PlaceField 用） --------------------
 @app.get("/autocomplete")
