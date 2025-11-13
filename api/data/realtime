@@ -1,0 +1,4520 @@
+header {
+  gtfs_realtime_version: "2.0"
+  timestamp: 1762638913
+}
+entity {
+  id: "F561"
+  vehicle {
+    trip {
+      trip_id: "08501-1-09-100-0646"
+      schedule_relationship: SCHEDULED
+      route_id: "006"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6597595
+      longitude: 139.722397
+    }
+    current_stop_sequence: 4
+    timestamp: 1762638819
+    stop_id: "1130-01"
+    vehicle {
+      id: "F561"
+      label: "F561"
+    }
+  }
+}
+entity {
+  id: "D330"
+  vehicle {
+    trip {
+      trip_id: "08505-2-09-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "006"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6598549
+      longitude: 139.724625
+    }
+    current_stop_sequence: 6
+    timestamp: 1762638735
+    stop_id: "1130-03"
+    vehicle {
+      id: "D330"
+      label: "D330"
+    }
+  }
+}
+entity {
+  id: "E136"
+  vehicle {
+    trip {
+      trip_id: "72801-1-85-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "018"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.655632
+      longitude: 139.798401
+    }
+    current_stop_sequence: 8
+    timestamp: 1762638746
+    stop_id: "1021-02"
+    vehicle {
+      id: "E136"
+      label: "E136"
+    }
+  }
+}
+entity {
+  id: "K181"
+  vehicle {
+    trip {
+      trip_id: "72801-2-85-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "018"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6523743
+      longitude: 139.798401
+    }
+    current_stop_sequence: 21
+    timestamp: 1762638800
+    stop_id: "0619-01"
+    vehicle {
+      id: "K181"
+      label: "K181"
+    }
+  }
+}
+entity {
+  id: "G788"
+  vehicle {
+    trip {
+      trip_id: "72812-2-85-100-0651"
+      schedule_relationship: SCHEDULED
+      route_id: "018"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.626915
+      longitude: 139.77977
+    }
+    current_stop_sequence: 1
+    timestamp: 1762638675
+    stop_id: "2326-08"
+    vehicle {
+      id: "G788"
+      label: "G788"
+    }
+  }
+}
+entity {
+  id: "L316"
+  vehicle {
+    trip {
+      trip_id: "08004-1-09-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "024"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6584702
+      longitude: 139.707397
+    }
+    current_stop_sequence: 2
+    timestamp: 1762638825
+    stop_id: "0005-01"
+    vehicle {
+      id: "L316"
+      label: "L316"
+    }
+  }
+}
+entity {
+  id: "F550"
+  vehicle {
+    trip {
+      trip_id: "08004-2-09-100-0653"
+      schedule_relationship: SCHEDULED
+      route_id: "024"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.655159
+      longitude: 139.713974
+    }
+    current_stop_sequence: 2
+    timestamp: 1762638865
+    stop_id: "1323-01"
+    vehicle {
+      id: "F550"
+      label: "F550"
+    }
+  }
+}
+entity {
+  id: "A580"
+  vehicle {
+    trip {
+      trip_id: "73507-1-06-100-0635"
+      schedule_relationship: SCHEDULED
+      route_id: "023"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6771927
+      longitude: 139.75177
+    }
+    current_stop_sequence: 13
+    timestamp: 1762638813
+    stop_id: "0466-02"
+    vehicle {
+      id: "A580"
+      label: "A580"
+    }
+  }
+}
+entity {
+  id: "E533"
+  vehicle {
+    trip {
+      trip_id: "32301-1-45-100-0638"
+      schedule_relationship: SCHEDULED
+      route_id: "020"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.70858
+      longitude: 139.752472
+    }
+    current_stop_sequence: 13
+    timestamp: 1762638737
+    stop_id: "1384-01"
+    vehicle {
+      id: "E533"
+      label: "E533"
+    }
+  }
+}
+entity {
+  id: "E534"
+  vehicle {
+    trip {
+      trip_id: "32301-1-45-100-0620"
+      schedule_relationship: SCHEDULED
+      route_id: "020"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7011528
+      longitude: 139.812225
+    }
+    current_stop_sequence: 32
+    timestamp: 1762638856
+    stop_id: "2129-01"
+    vehicle {
+      id: "E534"
+      label: "E534"
+    }
+  }
+}
+entity {
+  id: "F634"
+  vehicle {
+    trip {
+      trip_id: "32301-2-45-100-0653"
+      schedule_relationship: SCHEDULED
+      route_id: "020"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6992302
+      longitude: 139.814758
+    }
+    current_stop_sequence: 2
+    timestamp: 1762638862
+    stop_id: "0441-01"
+    vehicle {
+      id: "F634"
+      label: "F634"
+    }
+  }
+}
+entity {
+  id: "G800"
+  vehicle {
+    trip {
+      trip_id: "32301-2-45-100-0634"
+      schedule_relationship: SCHEDULED
+      route_id: "020"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7076607
+      longitude: 139.775436
+    }
+    current_stop_sequence: 16
+    timestamp: 1762638844
+    stop_id: "0260-03"
+    vehicle {
+      id: "G800"
+      label: "G800"
+    }
+  }
+}
+entity {
+  id: "D335"
+  vehicle {
+    trip {
+      trip_id: "72301-2-85-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "026"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6754
+      longitude: 139.762711
+    }
+    current_stop_sequence: 3
+    timestamp: 1762638807
+    stop_id: "1570-01"
+    vehicle {
+      id: "D335"
+      label: "D335"
+    }
+  }
+}
+entity {
+  id: "E381"
+  vehicle {
+    trip {
+      trip_id: "08601-1-09-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "031"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6543541
+      longitude: 139.744263
+    }
+    current_stop_sequence: 19
+    timestamp: 1762638839
+    stop_id: "0022-05"
+    vehicle {
+      id: "E381"
+      label: "E381"
+    }
+  }
+}
+entity {
+  id: "E531"
+  vehicle {
+    trip {
+      trip_id: "08601-2-09-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "031"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6561813
+      longitude: 139.754791
+    }
+    current_stop_sequence: 4
+    timestamp: 1762638870
+    stop_id: "0919-03"
+    vehicle {
+      id: "E531"
+      label: "E531"
+    }
+  }
+}
+entity {
+  id: "A633"
+  vehicle {
+    trip {
+      trip_id: "52401-1-57-100-0646"
+      schedule_relationship: SCHEDULED
+      route_id: "038"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7207222
+      longitude: 139.791672
+    }
+    current_stop_sequence: 8
+    timestamp: 1762638899
+    stop_id: "0822-02"
+    vehicle {
+      id: "A633"
+      label: "A633"
+    }
+  }
+}
+entity {
+  id: "F643"
+  vehicle {
+    trip {
+      trip_id: "52401-1-57-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "038"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7062416
+      longitude: 139.814331
+    }
+    current_stop_sequence: 18
+    timestamp: 1762638895
+    stop_id: "1121-02"
+    vehicle {
+      id: "F643"
+      label: "F643"
+    }
+  }
+}
+entity {
+  id: "F647"
+  vehicle {
+    trip {
+      trip_id: "52401-2-57-100-0648"
+      schedule_relationship: SCHEDULED
+      route_id: "038"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7064
+      longitude: 139.814102
+    }
+    current_stop_sequence: 5
+    timestamp: 1762638831
+    stop_id: "1121-01"
+    vehicle {
+      id: "F647"
+      label: "F647"
+    }
+  }
+}
+entity {
+  id: "F644"
+  vehicle {
+    trip {
+      trip_id: "52401-2-57-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "038"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.724205
+      longitude: 139.790894
+    }
+    current_stop_sequence: 16
+    timestamp: 1762638810
+    stop_id: "1599-01"
+    vehicle {
+      id: "F644"
+      label: "F644"
+    }
+  }
+}
+entity {
+  id: "W434"
+  vehicle {
+    trip {
+      trip_id: "60101-1-65-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "036"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6818352
+      longitude: 139.82756
+    }
+    current_stop_sequence: 8
+    timestamp: 1762638861
+    stop_id: "0411-02"
+    vehicle {
+      id: "W434"
+      label: "W434"
+    }
+  }
+}
+entity {
+  id: "G789"
+  vehicle {
+    trip {
+      trip_id: "60101-1-65-100-0635"
+      schedule_relationship: SCHEDULED
+      route_id: "036"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6694717
+      longitude: 139.817139
+    }
+    current_stop_sequence: 14
+    timestamp: 1762638865
+    stop_id: "0989-04"
+    vehicle {
+      id: "G789"
+      label: "G789"
+    }
+  }
+}
+entity {
+  id: "G794"
+  vehicle {
+    trip {
+      trip_id: "60101-2-65-100-0644"
+      schedule_relationship: SCHEDULED
+      route_id: "036"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6707726
+      longitude: 139.825836
+    }
+    current_stop_sequence: 10
+    timestamp: 1762638897
+    stop_id: "1177-01"
+    vehicle {
+      id: "G794"
+      label: "G794"
+    }
+  }
+}
+entity {
+  id: "G790"
+  vehicle {
+    trip {
+      trip_id: "60101-2-65-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "036"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6959267
+      longitude: 139.825699
+    }
+    current_stop_sequence: 18
+    timestamp: 1762638806
+    stop_id: "0368-12"
+    vehicle {
+      id: "G790"
+      label: "G790"
+    }
+  }
+}
+entity {
+  id: "K261"
+  vehicle {
+    trip {
+      trip_id: "72508-1-81-100-0627"
+      schedule_relationship: SCHEDULED
+      route_id: "041"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6980286
+      longitude: 139.805115
+    }
+    current_stop_sequence: 23
+    timestamp: 1762638833
+    stop_id: "0375-01"
+    vehicle {
+      id: "K261"
+      label: "K261"
+    }
+  }
+}
+entity {
+  id: "F585"
+  vehicle {
+    trip {
+      trip_id: "72501-1-81-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "040"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6669846
+      longitude: 139.770355
+    }
+    current_stop_sequence: 5
+    timestamp: 1762638879
+    stop_id: "0945-01"
+    vehicle {
+      id: "F585"
+      label: "F585"
+    }
+  }
+}
+entity {
+  id: "E465"
+  vehicle {
+    trip {
+      trip_id: "72501-2-81-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "040"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6831322
+      longitude: 139.806595
+    }
+    current_stop_sequence: 12
+    timestamp: 1762638819
+    stop_id: "0675-04"
+    vehicle {
+      id: "E465"
+      label: "E465"
+    }
+  }
+}
+entity {
+  id: "F594"
+  vehicle {
+    trip {
+      trip_id: "72503-2-81-100-0635"
+      schedule_relationship: SCHEDULED
+      route_id: "040"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6579132
+      longitude: 139.786011
+    }
+    current_stop_sequence: 13
+    timestamp: 1762638882
+    stop_id: "1252-04"
+    vehicle {
+      id: "F594"
+      label: "F594"
+    }
+  }
+}
+entity {
+  id: "D363"
+  vehicle {
+    trip {
+      trip_id: "72507-1-81-100-0638"
+      schedule_relationship: SCHEDULED
+      route_id: "040"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6589241
+      longitude: 139.807251
+    }
+    current_stop_sequence: 12
+    timestamp: 1762638794
+    stop_id: "0168-01"
+    vehicle {
+      id: "D363"
+      label: "D363"
+    }
+  }
+}
+entity {
+  id: "D108"
+  vehicle {
+    trip {
+      trip_id: "72006-3-81-100-0638"
+      schedule_relationship: SCHEDULED
+      route_id: "045"
+    }
+    position {
+      latitude: 35.6401
+      longitude: 139.835114
+    }
+    current_stop_sequence: 11
+    timestamp: 1762638801
+    stop_id: "2038-01"
+    vehicle {
+      id: "D108"
+      label: "D108"
+    }
+  }
+}
+entity {
+  id: "L358"
+  vehicle {
+    trip {
+      trip_id: "72009-2-81-100-0649"
+      schedule_relationship: SCHEDULED
+      route_id: "045"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6656189
+      longitude: 139.824921
+    }
+    current_stop_sequence: 5
+    timestamp: 1762638858
+    stop_id: "0718-01"
+    vehicle {
+      id: "L358"
+      label: "L358"
+    }
+  }
+}
+entity {
+  id: "W407"
+  vehicle {
+    trip {
+      trip_id: "72106-1-81-100-0652"
+      schedule_relationship: SCHEDULED
+      route_id: "046"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.691906
+      longitude: 139.815552
+    }
+    current_stop_sequence: 3
+    timestamp: 1762638843
+    stop_id: "1533-01"
+    vehicle {
+      id: "W407"
+      label: "W407"
+    }
+  }
+}
+entity {
+  id: "Z508"
+  vehicle {
+    trip {
+      trip_id: "72106-1-81-100-0641"
+      schedule_relationship: SCHEDULED
+      route_id: "046"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.667469
+      longitude: 139.81105
+    }
+    current_stop_sequence: 13
+    timestamp: 1762638894
+    stop_id: "0990-02"
+    vehicle {
+      id: "Z508"
+      label: "Z508"
+    }
+  }
+}
+entity {
+  id: "W467"
+  vehicle {
+    trip {
+      schedule_relationship: ADDED
+      route_id: "046"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6431351
+      longitude: 139.802597
+    }
+    current_stop_sequence: 1
+    timestamp: 1762638593
+    stop_id: "1362-03"
+    vehicle {
+      id: "W467"
+      label: "W467"
+    }
+  }
+}
+entity {
+  id: "G705"
+  vehicle {
+    trip {
+      trip_id: "72106-2-81-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "046"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6892776
+      longitude: 139.810623
+    }
+    current_stop_sequence: 20
+    timestamp: 1762638879
+    stop_id: "0789-05"
+    vehicle {
+      id: "G705"
+      label: "G705"
+    }
+  }
+}
+entity {
+  id: "F141"
+  vehicle {
+    trip {
+      trip_id: "72112-1-81-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "046"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.658844
+      longitude: 139.807404
+    }
+    current_stop_sequence: 17
+    timestamp: 1762638821
+    stop_id: "0168-02"
+    vehicle {
+      id: "F141"
+      label: "F141"
+    }
+  }
+}
+entity {
+  id: "D112"
+  vehicle {
+    trip {
+      trip_id: "72112-2-81-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "046"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6586761
+      longitude: 139.79277
+    }
+    current_stop_sequence: 9
+    timestamp: 1762638794
+    stop_id: "1026-02"
+    vehicle {
+      id: "D112"
+      label: "D112"
+    }
+  }
+}
+entity {
+  id: "B782"
+  vehicle {
+    trip {
+      trip_id: "72201-1-81-100-0626"
+      schedule_relationship: SCHEDULED
+      route_id: "049"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6744957
+      longitude: 139.781967
+    }
+    current_stop_sequence: 23
+    timestamp: 1762638881
+    stop_id: "0689-02"
+    vehicle {
+      id: "B782"
+      label: "B782"
+    }
+  }
+}
+entity {
+  id: "B783"
+  vehicle {
+    trip {
+      trip_id: "72201-2-81-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "049"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6652603
+      longitude: 139.776199
+    }
+    current_stop_sequence: 11
+    timestamp: 1762638828
+    stop_id: "0947-02"
+    vehicle {
+      id: "B783"
+      label: "B783"
+    }
+  }
+}
+entity {
+  id: "K257"
+  vehicle {
+    trip {
+      trip_id: "73005-2-81-100-0653"
+      schedule_relationship: SCHEDULED
+      route_id: "050"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6467972
+      longitude: 139.80159
+    }
+    current_stop_sequence: 2
+    timestamp: 1762638879
+    stop_id: "0622-01"
+    vehicle {
+      id: "K257"
+      label: "K257"
+    }
+  }
+}
+entity {
+  id: "F670"
+  vehicle {
+    trip {
+      trip_id: "64401-2-69-100-0625"
+      schedule_relationship: SCHEDULED
+      route_id: "055"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7182922
+      longitude: 139.857819
+    }
+    current_stop_sequence: 20
+    timestamp: 1762638770
+    stop_id: "0695-09"
+    vehicle {
+      id: "F670"
+      label: "F670"
+    }
+  }
+}
+entity {
+  id: "D117"
+  vehicle {
+    trip {
+      trip_id: "69202-1-77-100-0641"
+      schedule_relationship: SCHEDULED
+      route_id: "057"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6446648
+      longitude: 139.868958
+    }
+    current_stop_sequence: 11
+    timestamp: 1762638814
+    stop_id: "2188-02"
+    vehicle {
+      id: "D117"
+      label: "D117"
+    }
+  }
+}
+entity {
+  id: "T223"
+  vehicle {
+    trip {
+      trip_id: "69201-1-77-100-0648"
+      schedule_relationship: SCHEDULED
+      route_id: "056"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6558075
+      longitude: 139.868652
+    }
+    current_stop_sequence: 5
+    timestamp: 1762638782
+    stop_id: "0721-02"
+    vehicle {
+      id: "T223"
+      label: "T223"
+    }
+  }
+}
+entity {
+  id: "K282"
+  vehicle {
+    trip {
+      trip_id: "69201-2-77-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "056"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6476898
+      longitude: 139.870529
+    }
+    current_stop_sequence: 3
+    timestamp: 1762638848
+    stop_id: "1394-03"
+    vehicle {
+      id: "K282"
+      label: "K282"
+    }
+  }
+}
+entity {
+  id: "X279"
+  vehicle {
+    trip {
+      trip_id: "72701-1-81-100-0652"
+      schedule_relationship: SCHEDULED
+      route_id: "052"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6431351
+      longitude: 139.802597
+    }
+    current_stop_sequence: 1
+    timestamp: 1762638725
+    stop_id: "1362-03"
+    vehicle {
+      id: "X279"
+      label: "X279"
+    }
+  }
+}
+entity {
+  id: "X274"
+  vehicle {
+    trip {
+      trip_id: "72701-2-81-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "052"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6526718
+      longitude: 139.798676
+    }
+    current_stop_sequence: 9
+    timestamp: 1762638843
+    stop_id: "0619-02"
+    vehicle {
+      id: "X274"
+      label: "X274"
+    }
+  }
+}
+entity {
+  id: "L352"
+  vehicle {
+    trip {
+      trip_id: "64602-2-69-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "059"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6786041
+      longitude: 139.843658
+    }
+    current_stop_sequence: 14
+    timestamp: 1762638862
+    stop_id: "0917-01"
+    vehicle {
+      id: "L352"
+      label: "L352"
+    }
+  }
+}
+entity {
+  id: "E500"
+  vehicle {
+    trip {
+      trip_id: "60001-1-65-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "058"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6727257
+      longitude: 139.826294
+    }
+    current_stop_sequence: 4
+    timestamp: 1762638845
+    stop_id: "1476-01"
+    vehicle {
+      id: "E500"
+      label: "E500"
+    }
+  }
+}
+entity {
+  id: "L345"
+  vehicle {
+    trip {
+      trip_id: "60001-2-65-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "058"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6968956
+      longitude: 139.829
+    }
+    current_stop_sequence: 2
+    timestamp: 1762638832
+    stop_id: "0766-02"
+    vehicle {
+      id: "L345"
+      label: "L345"
+    }
+  }
+}
+entity {
+  id: "L364"
+  vehicle {
+    trip {
+      trip_id: "68501-1-77-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "060"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6792908
+      longitude: 139.8564
+    }
+    current_stop_sequence: 7
+    timestamp: 1762638862
+    stop_id: "1424-01"
+    vehicle {
+      id: "L364"
+      label: "L364"
+    }
+  }
+}
+entity {
+  id: "Y494"
+  vehicle {
+    trip {
+      trip_id: "68501-1-77-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "060"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7018852
+      longitude: 139.867874
+    }
+    current_stop_sequence: 16
+    timestamp: 1762638805
+    stop_id: "0468-02"
+    vehicle {
+      id: "Y494"
+      label: "Y494"
+    }
+  }
+}
+entity {
+  id: "H975"
+  vehicle {
+    trip {
+      trip_id: "68501-2-77-100-0651"
+      schedule_relationship: SCHEDULED
+      route_id: "060"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7146072
+      longitude: 139.861969
+    }
+    current_stop_sequence: 2
+    timestamp: 1762638856
+    stop_id: "0697-02"
+    vehicle {
+      id: "H975"
+      label: "H975"
+    }
+  }
+}
+entity {
+  id: "G729"
+  vehicle {
+    trip {
+      trip_id: "68501-2-77-100-0636"
+      schedule_relationship: SCHEDULED
+      route_id: "060"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6839561
+      longitude: 139.864014
+    }
+    current_stop_sequence: 11
+    timestamp: 1762638844
+    stop_id: "2032-03"
+    vehicle {
+      id: "G729"
+      label: "G729"
+    }
+  }
+}
+entity {
+  id: "E484"
+  vehicle {
+    trip {
+      trip_id: "69301-1-77-100-0651"
+      schedule_relationship: SCHEDULED
+      route_id: "061"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6594238
+      longitude: 139.879776
+    }
+    current_stop_sequence: 3
+    timestamp: 1762638894
+    stop_id: "2394-01"
+    vehicle {
+      id: "E484"
+      label: "E484"
+    }
+  }
+}
+entity {
+  id: "B774"
+  vehicle {
+    trip {
+      trip_id: "69302-2-77-100-0648"
+      schedule_relationship: SCHEDULED
+      route_id: "061"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6469955
+      longitude: 139.87941
+    }
+    current_stop_sequence: 5
+    timestamp: 1762638842
+    stop_id: "1111-01"
+    vehicle {
+      id: "B774"
+      label: "B774"
+    }
+  }
+}
+entity {
+  id: "G768"
+  vehicle {
+    trip {
+      trip_id: "52101-1-57-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "062"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7242889
+      longitude: 139.816666
+    }
+    current_stop_sequence: 16
+    timestamp: 1762638832
+    stop_id: "1339-02"
+    vehicle {
+      id: "G768"
+      label: "G768"
+    }
+  }
+}
+entity {
+  id: "B796"
+  vehicle {
+    trip {
+      trip_id: "52101-2-57-100-0654"
+      schedule_relationship: SCHEDULED
+      route_id: "062"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6980743
+      longitude: 139.825241
+    }
+    current_stop_sequence: 1
+    timestamp: 1762638839
+    stop_id: "0369-06"
+    vehicle {
+      id: "B796"
+      label: "B796"
+    }
+  }
+}
+entity {
+  id: "G772"
+  vehicle {
+    trip {
+      trip_id: "52101-2-57-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "062"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7348137
+      longitude: 139.784073
+    }
+    current_stop_sequence: 17
+    timestamp: 1762638846
+    stop_id: "0064-02"
+    vehicle {
+      id: "G772"
+      label: "G772"
+    }
+  }
+}
+entity {
+  id: "B761"
+  vehicle {
+    trip {
+      trip_id: "60202-1-65-100-0654"
+      schedule_relationship: SCHEDULED
+      route_id: "063"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6943855
+      longitude: 139.815308
+    }
+    current_stop_sequence: 2
+    timestamp: 1762638901
+    stop_id: "0443-01"
+    vehicle {
+      id: "B761"
+      label: "B761"
+    }
+  }
+}
+entity {
+  id: "F619"
+  vehicle {
+    trip {
+      trip_id: "60202-1-65-100-0644"
+      schedule_relationship: SCHEDULED
+      route_id: "063"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.67836
+      longitude: 139.816055
+    }
+    current_stop_sequence: 8
+    timestamp: 1762638796
+    stop_id: "0809-01"
+    vehicle {
+      id: "F619"
+      label: "F619"
+    }
+  }
+}
+entity {
+  id: "L348"
+  vehicle {
+    trip {
+      trip_id: "60202-2-65-100-0646"
+      schedule_relationship: SCHEDULED
+      route_id: "063"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6865349
+      longitude: 139.815826
+    }
+    current_stop_sequence: 7
+    timestamp: 1762638872
+    stop_id: "0578-02"
+    vehicle {
+      id: "L348"
+      label: "L348"
+    }
+  }
+}
+entity {
+  id: "C258"
+  vehicle {
+    trip {
+      trip_id: "60204-1-65-100-0633"
+      schedule_relationship: SCHEDULED
+      route_id: "063"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6713791
+      longitude: 139.796936
+    }
+    current_stop_sequence: 17
+    timestamp: 1762638878
+    stop_id: "1376-01"
+    vehicle {
+      id: "C258"
+      label: "C258"
+    }
+  }
+}
+entity {
+  id: "K273"
+  vehicle {
+    trip {
+      trip_id: "60204-2-65-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "063"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6810417
+      longitude: 139.777679
+    }
+    current_stop_sequence: 4
+    timestamp: 1762638817
+    stop_id: "0335-02"
+    vehicle {
+      id: "K273"
+      label: "K273"
+    }
+  }
+}
+entity {
+  id: "B768"
+  vehicle {
+    trip {
+      trip_id: "65001-1-69-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "066"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6569252
+      longitude: 139.87999
+    }
+    current_stop_sequence: 4
+    timestamp: 1762638845
+    stop_id: "1082-01"
+    vehicle {
+      id: "B768"
+      label: "B768"
+    }
+  }
+}
+entity {
+  id: "E458"
+  vehicle {
+    trip {
+      trip_id: "64901-1-69-100-0646"
+      schedule_relationship: SCHEDULED
+      route_id: "067"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6644211
+      longitude: 139.85878
+    }
+    current_stop_sequence: 9
+    timestamp: 1762638842
+    stop_id: "1146-06"
+    vehicle {
+      id: "E458"
+      label: "E458"
+    }
+  }
+}
+entity {
+  id: "A644"
+  vehicle {
+    trip {
+      trip_id: "68801-1-77-100-0651"
+      schedule_relationship: SCHEDULED
+      route_id: "068"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6714096
+      longitude: 139.875443
+    }
+    current_stop_sequence: 3
+    timestamp: 1762638852
+    stop_id: "0462-02"
+    vehicle {
+      id: "A644"
+      label: "A644"
+    }
+  }
+}
+entity {
+  id: "E503"
+  vehicle {
+    trip {
+      trip_id: "68801-1-77-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "068"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6997795
+      longitude: 139.867798
+    }
+    current_stop_sequence: 17
+    timestamp: 1762638886
+    stop_id: "1280-01"
+    vehicle {
+      id: "E503"
+      label: "E503"
+    }
+  }
+}
+entity {
+  id: "H972"
+  vehicle {
+    trip {
+      trip_id: "68801-2-77-100-0647"
+      schedule_relationship: SCHEDULED
+      route_id: "068"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7069931
+      longitude: 139.867874
+    }
+    current_stop_sequence: 5
+    timestamp: 1762638784
+    stop_id: "0171-01"
+    vehicle {
+      id: "H972"
+      label: "H972"
+    }
+  }
+}
+entity {
+  id: "F665"
+  vehicle {
+    trip {
+      trip_id: "68801-2-77-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "068"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6807442
+      longitude: 139.887085
+    }
+    current_stop_sequence: 15
+    timestamp: 1762638787
+    stop_id: "2585-02"
+    vehicle {
+      id: "F665"
+      label: "F665"
+    }
+  }
+}
+entity {
+  id: "E452"
+  vehicle {
+    trip {
+      trip_id: "56208-1-61-100-0627"
+      schedule_relationship: SCHEDULED
+      route_id: "070"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.708725
+      longitude: 139.809097
+    }
+    current_stop_sequence: 18
+    timestamp: 1762638834
+    stop_id: "1120-02"
+    vehicle {
+      id: "E452"
+      label: "E452"
+    }
+  }
+}
+entity {
+  id: "C251"
+  vehicle {
+    trip {
+      trip_id: "56208-2-61-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "070"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7103119
+      longitude: 139.791458
+    }
+    current_stop_sequence: 7
+    timestamp: 1762638844
+    stop_id: "0035-06"
+    vehicle {
+      id: "C251"
+      label: "C251"
+    }
+  }
+}
+entity {
+  id: "K270"
+  vehicle {
+    trip {
+      trip_id: "56207-2-61-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "071"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7100143
+      longitude: 139.841873
+    }
+    current_stop_sequence: 17
+    timestamp: 1762638848
+    stop_id: "1343-02"
+    vehicle {
+      id: "K270"
+      label: "K270"
+    }
+  }
+}
+entity {
+  id: "B771"
+  vehicle {
+    trip {
+      trip_id: "64301-1-69-100-0633"
+      schedule_relationship: SCHEDULED
+      route_id: "074"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7038383
+      longitude: 139.805099
+    }
+    current_stop_sequence: 17
+    timestamp: 1762638822
+    stop_id: "1418-03"
+    vehicle {
+      id: "B771"
+      label: "B771"
+    }
+  }
+}
+entity {
+  id: "Z525"
+  vehicle {
+    trip {
+      trip_id: "64201-1-69-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "073"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6940269
+      longitude: 139.873718
+    }
+    current_stop_sequence: 11
+    timestamp: 1762638877
+    stop_id: "1138-03"
+    vehicle {
+      id: "Z525"
+      label: "Z525"
+    }
+  }
+}
+entity {
+  id: "Z524"
+  vehicle {
+    trip {
+      trip_id: "64201-2-69-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "073"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6923027
+      longitude: 139.87616
+    }
+    current_stop_sequence: 10
+    timestamp: 1762638880
+    stop_id: "1137-01"
+    vehicle {
+      id: "Z524"
+      label: "Z524"
+    }
+  }
+}
+entity {
+  id: "W396"
+  vehicle {
+    trip {
+      trip_id: "68105-1-77-100-0639"
+      schedule_relationship: SCHEDULED
+      route_id: "075"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6925583
+      longitude: 139.825958
+    }
+    current_stop_sequence: 13
+    timestamp: 1762638824
+    stop_id: "0755-01"
+    vehicle {
+      id: "W396"
+      label: "W396"
+    }
+  }
+}
+entity {
+  id: "V375"
+  vehicle {
+    trip {
+      trip_id: "69101-1-69-100-0651"
+      schedule_relationship: SCHEDULED
+      route_id: "076"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6797485
+      longitude: 139.862213
+    }
+    current_stop_sequence: 3
+    timestamp: 1762638802
+    stop_id: "2080-01"
+    vehicle {
+      id: "V375"
+      label: "V375"
+    }
+  }
+}
+entity {
+  id: "B770"
+  vehicle {
+    trip {
+      trip_id: "69101-2-69-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "076"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6660614
+      longitude: 139.86937
+    }
+    current_stop_sequence: 9
+    timestamp: 1762638801
+    stop_id: "0308-01"
+    vehicle {
+      id: "B770"
+      label: "B770"
+    }
+  }
+}
+entity {
+  id: "G730"
+  vehicle {
+    trip {
+      trip_id: "68001-1-77-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "078"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6786156
+      longitude: 139.867279
+    }
+    current_stop_sequence: 7
+    timestamp: 1762638896
+    stop_id: "0763-01"
+    vehicle {
+      id: "G730"
+      label: "G730"
+    }
+  }
+}
+entity {
+  id: "H973"
+  vehicle {
+    trip {
+      trip_id: "68001-1-77-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "078"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7021027
+      longitude: 139.863831
+    }
+    current_stop_sequence: 17
+    timestamp: 1762638779
+    stop_id: "0551-01"
+    vehicle {
+      id: "H973"
+      label: "H973"
+    }
+  }
+}
+entity {
+  id: "G728"
+  vehicle {
+    trip {
+      trip_id: "68001-2-77-100-0652"
+      schedule_relationship: SCHEDULED
+      route_id: "078"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6964722
+      longitude: 139.820801
+    }
+    current_stop_sequence: 3
+    timestamp: 1762638868
+    stop_id: "2218-02"
+    vehicle {
+      id: "G728"
+      label: "G728"
+    }
+  }
+}
+entity {
+  id: "H977"
+  vehicle {
+    trip {
+      trip_id: "68001-2-77-100-0632"
+      schedule_relationship: SCHEDULED
+      route_id: "078"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.684
+      longitude: 139.863892
+    }
+    current_stop_sequence: 18
+    timestamp: 1762638846
+    stop_id: "2032-05"
+    vehicle {
+      id: "H977"
+      label: "H977"
+    }
+  }
+}
+entity {
+  id: "F638"
+  vehicle {
+    trip {
+      trip_id: "32501-1-61-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "079"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7064
+      longitude: 139.814102
+    }
+    current_stop_sequence: 7
+    timestamp: 1762638783
+    stop_id: "1121-01"
+    vehicle {
+      id: "F638"
+      label: "F638"
+    }
+  }
+}
+entity {
+  id: "G786"
+  vehicle {
+    trip {
+      trip_id: "64102-1-69-100-0651"
+      schedule_relationship: SCHEDULED
+      route_id: "081"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6631432
+      longitude: 139.872696
+    }
+    current_stop_sequence: 1
+    timestamp: 1762638672
+    stop_id: "0307-04"
+    vehicle {
+      id: "G786"
+      label: "G786"
+    }
+  }
+}
+entity {
+  id: "E460"
+  vehicle {
+    trip {
+      trip_id: "64102-1-69-100-0625"
+      schedule_relationship: SCHEDULED
+      route_id: "081"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6821899
+      longitude: 139.802948
+    }
+    current_stop_sequence: 19
+    timestamp: 1762638887
+    stop_id: "0676-02"
+    vehicle {
+      id: "E460"
+      label: "E460"
+    }
+  }
+}
+entity {
+  id: "D338"
+  vehicle {
+    trip {
+      trip_id: "64001-1-69-100-0649"
+      schedule_relationship: SCHEDULED
+      route_id: "082"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6919098
+      longitude: 139.876556
+    }
+    current_stop_sequence: 5
+    timestamp: 1762638876
+    stop_id: "1137-02"
+    vehicle {
+      id: "D338"
+      label: "D338"
+    }
+  }
+}
+entity {
+  id: "M437"
+  vehicle {
+    trip {
+      trip_id: "64001-2-69-100-0644"
+      schedule_relationship: SCHEDULED
+      route_id: "082"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6994362
+      longitude: 139.849792
+    }
+    current_stop_sequence: 8
+    timestamp: 1762638832
+    stop_id: "0552-01"
+    vehicle {
+      id: "M437"
+      label: "M437"
+    }
+  }
+}
+entity {
+  id: "F658"
+  vehicle {
+    trip {
+      trip_id: "60501-1-77-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "083"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7069931
+      longitude: 139.867874
+    }
+    current_stop_sequence: 11
+    timestamp: 1762638798
+    stop_id: "0171-01"
+    vehicle {
+      id: "F658"
+      label: "F658"
+    }
+  }
+}
+entity {
+  id: "K291"
+  vehicle {
+    trip {
+      trip_id: "60502-2-77-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "083"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6994362
+      longitude: 139.849792
+    }
+    current_stop_sequence: 11
+    timestamp: 1762638723
+    stop_id: "0552-01"
+    vehicle {
+      id: "K291"
+      label: "K291"
+    }
+  }
+}
+entity {
+  id: "F151"
+  vehicle {
+    trip {
+      trip_id: "68602-1-77-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "085"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6537
+      longitude: 139.854034
+    }
+    current_stop_sequence: 5
+    timestamp: 1762638883
+    stop_id: "2449-02"
+    vehicle {
+      id: "F151"
+      label: "F151"
+    }
+  }
+}
+entity {
+  id: "G738"
+  vehicle {
+    trip {
+      trip_id: "68602-2-77-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "085"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6612778
+      longitude: 139.855347
+    }
+    current_stop_sequence: 7
+    timestamp: 1762638840
+    stop_id: "2065-01"
+    vehicle {
+      id: "G738"
+      label: "G738"
+    }
+  }
+}
+entity {
+  id: "G717"
+  vehicle {
+    trip {
+      trip_id: "64501-2-69-100-0638"
+      schedule_relationship: SCHEDULED
+      route_id: "087"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6867027
+      longitude: 139.826675
+    }
+    current_stop_sequence: 14
+    timestamp: 1762638827
+    stop_id: "0234-01"
+    vehicle {
+      id: "G717"
+      label: "G717"
+    }
+  }
+}
+entity {
+  id: "E134"
+  vehicle {
+    trip {
+      trip_id: "66004-1-69-100-0620"
+      schedule_relationship: SCHEDULED
+      route_id: "087"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6956902
+      longitude: 139.817535
+    }
+    current_stop_sequence: 26
+    timestamp: 1762638891
+    stop_id: "0493-01"
+    vehicle {
+      id: "E134"
+      label: "E134"
+    }
+  }
+}
+entity {
+  id: "E459"
+  vehicle {
+    trip {
+      trip_id: "68301-1-69-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "091"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6968117
+      longitude: 139.871338
+    }
+    current_stop_sequence: 12
+    timestamp: 1762638901
+    stop_id: "1433-05"
+    vehicle {
+      id: "E459"
+      label: "E459"
+    }
+  }
+}
+entity {
+  id: "L353"
+  vehicle {
+    trip {
+      trip_id: "68306-2-69-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "091"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7127533
+      longitude: 139.874207
+    }
+    current_stop_sequence: 13
+    timestamp: 1762638888
+    stop_id: "0931-02"
+    vehicle {
+      id: "L353"
+      label: "L353"
+    }
+  }
+}
+entity {
+  id: "E462"
+  vehicle {
+    trip {
+      trip_id: "68308-1-69-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "091"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7218552
+      longitude: 139.860489
+    }
+    current_stop_sequence: 16
+    timestamp: 1762638841
+    stop_id: "1289-02"
+    vehicle {
+      id: "E462"
+      label: "E462"
+    }
+  }
+}
+entity {
+  id: "V379"
+  vehicle {
+    trip {
+      trip_id: "68201-1-77-100-0639"
+      schedule_relationship: SCHEDULED
+      route_id: "092"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6615715
+      longitude: 139.863419
+    }
+    current_stop_sequence: 10
+    timestamp: 1762638891
+    stop_id: "1149-01"
+    vehicle {
+      id: "V379"
+      label: "V379"
+    }
+  }
+}
+entity {
+  id: "K290"
+  vehicle {
+    trip {
+      trip_id: "68202-1-77-100-0634"
+      schedule_relationship: SCHEDULED
+      route_id: "092"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6873779
+      longitude: 139.826401
+    }
+    current_stop_sequence: 13
+    timestamp: 1762638895
+    stop_id: "0234-02"
+    vehicle {
+      id: "K290"
+      label: "K290"
+    }
+  }
+}
+entity {
+  id: "X276"
+  vehicle {
+    trip {
+      trip_id: "68202-2-77-100-0636"
+      schedule_relationship: SCHEDULED
+      route_id: "092"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6729088
+      longitude: 139.840836
+    }
+    current_stop_sequence: 13
+    timestamp: 1762638772
+    stop_id: "1297-01"
+    vehicle {
+      id: "X276"
+      label: "X276"
+    }
+  }
+}
+entity {
+  id: "M467"
+  vehicle {
+    trip {
+      trip_id: "60301-1-65-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "093"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7022514
+      longitude: 139.825317
+    }
+    current_stop_sequence: 2
+    timestamp: 1762638855
+    stop_id: "0371-02"
+    vehicle {
+      id: "M467"
+      label: "M467"
+    }
+  }
+}
+entity {
+  id: "E447"
+  vehicle {
+    trip {
+      trip_id: "56101-1-61-100-0635"
+      schedule_relationship: SCHEDULED
+      route_id: "094"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7094231
+      longitude: 139.818024
+    }
+    current_stop_sequence: 15
+    timestamp: 1762638854
+    stop_id: "0279-01"
+    vehicle {
+      id: "E447"
+      label: "E447"
+    }
+  }
+}
+entity {
+  id: "E453"
+  vehicle {
+    trip {
+      trip_id: "56101-2-61-100-0641"
+      schedule_relationship: SCHEDULED
+      route_id: "094"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7122803
+      longitude: 139.824326
+    }
+    current_stop_sequence: 10
+    timestamp: 1762638880
+    stop_id: "1383-01"
+    vehicle {
+      id: "E453"
+      label: "E453"
+    }
+  }
+}
+entity {
+  id: "E418"
+  vehicle {
+    trip {
+      trip_id: "40602-2-49-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "097"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7623711
+      longitude: 139.755127
+    }
+    current_stop_sequence: 4
+    timestamp: 1762638896
+    stop_id: "1500-02"
+    vehicle {
+      id: "E418"
+      label: "E418"
+    }
+  }
+}
+entity {
+  id: "D325"
+  vehicle {
+    trip {
+      trip_id: "56002-1-61-100-0653"
+      schedule_relationship: SCHEDULED
+      route_id: "096"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7692337
+      longitude: 139.871429
+    }
+    current_stop_sequence: 1
+    timestamp: 1762638788
+    stop_id: "0332-01"
+    vehicle {
+      id: "D325"
+      label: "D325"
+    }
+  }
+}
+entity {
+  id: "A637"
+  vehicle {
+    trip {
+      trip_id: "56002-1-61-100-0625"
+      schedule_relationship: SCHEDULED
+      route_id: "096"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7154655
+      longitude: 139.80983
+    }
+    current_stop_sequence: 22
+    timestamp: 1762638788
+    stop_id: "1513-02"
+    vehicle {
+      id: "A637"
+      label: "A637"
+    }
+  }
+}
+entity {
+  id: "M414"
+  vehicle {
+    trip {
+      trip_id: "48201-1-53-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "101"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7618599
+      longitude: 139.791672
+    }
+    current_stop_sequence: 5
+    timestamp: 1762638779
+    stop_id: "1387-01"
+    vehicle {
+      id: "M414"
+      label: "M414"
+    }
+  }
+}
+entity {
+  id: "B745"
+  vehicle {
+    trip {
+      trip_id: "48201-1-53-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "101"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7202034
+      longitude: 139.783051
+    }
+    current_stop_sequence: 21
+    timestamp: 1762638876
+    stop_id: "0121-01"
+    vehicle {
+      id: "B745"
+      label: "B745"
+    }
+  }
+}
+entity {
+  id: "B750"
+  vehicle {
+    trip {
+      trip_id: "48201-2-53-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "101"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7224
+      longitude: 139.779358
+    }
+    current_stop_sequence: 9
+    timestamp: 1762638842
+    stop_id: "0137-01"
+    vehicle {
+      id: "B750"
+      label: "B750"
+    }
+  }
+}
+entity {
+  id: "E424"
+  vehicle {
+    trip {
+      trip_id: "40009-1-49-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "098"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7723656
+      longitude: 139.768967
+    }
+    current_stop_sequence: 18
+    timestamp: 1762638824
+    stop_id: "0508-04"
+    vehicle {
+      id: "E424"
+      label: "E424"
+    }
+  }
+}
+entity {
+  id: "K251"
+  vehicle {
+    trip {
+      trip_id: "40009-1-49-100-0621"
+      schedule_relationship: SCHEDULED
+      route_id: "098"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7784233
+      longitude: 139.788544
+    }
+    current_stop_sequence: 23
+    timestamp: 1762638843
+    stop_id: "1133-01"
+    vehicle {
+      id: "K251"
+      label: "K251"
+    }
+  }
+}
+entity {
+  id: "M403"
+  vehicle {
+    trip {
+      trip_id: "40101-2-49-100-0652"
+      schedule_relationship: SCHEDULED
+      route_id: "100"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.772583
+      longitude: 139.74231
+    }
+    current_stop_sequence: 3
+    timestamp: 1762638887
+    stop_id: "0728-01"
+    vehicle {
+      id: "M403"
+      label: "M403"
+    }
+  }
+}
+entity {
+  id: "V364"
+  vehicle {
+    trip {
+      trip_id: "40001-1-49-100-0653"
+      schedule_relationship: SCHEDULED
+      route_id: "099"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7315407
+      longitude: 139.714096
+    }
+    current_stop_sequence: 2
+    timestamp: 1762638875
+    stop_id: "2405-10"
+    vehicle {
+      id: "V364"
+      label: "V364"
+    }
+  }
+}
+entity {
+  id: "L325"
+  vehicle {
+    trip {
+      trip_id: "40001-1-49-100-0643"
+      schedule_relationship: SCHEDULED
+      route_id: "099"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7481117
+      longitude: 139.733124
+    }
+    current_stop_sequence: 10
+    timestamp: 1762638869
+    stop_id: "0878-02"
+    vehicle {
+      id: "L325"
+      label: "L325"
+    }
+  }
+}
+entity {
+  id: "F595"
+  vehicle {
+    trip {
+      trip_id: "40001-1-49-100-0633"
+      schedule_relationship: SCHEDULED
+      route_id: "099"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7639122
+      longitude: 139.752167
+    }
+    current_stop_sequence: 17
+    timestamp: 1762638894
+    stop_id: "1004-02"
+    vehicle {
+      id: "F595"
+      label: "F595"
+    }
+  }
+}
+entity {
+  id: "F615"
+  vehicle {
+    trip {
+      trip_id: "40001-2-49-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "099"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7779
+      longitude: 139.780579
+    }
+    current_stop_sequence: 4
+    timestamp: 1762638874
+    stop_id: "1134-02"
+    vehicle {
+      id: "F615"
+      label: "F615"
+    }
+  }
+}
+entity {
+  id: "G754"
+  vehicle {
+    trip {
+      trip_id: "40001-2-49-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "099"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7678261
+      longitude: 139.762314
+    }
+    current_stop_sequence: 10
+    timestamp: 1762638745
+    stop_id: "0504-02"
+    vehicle {
+      id: "G754"
+      label: "G754"
+    }
+  }
+}
+entity {
+  id: "G758"
+  vehicle {
+    trip {
+      trip_id: "40001-2-49-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "099"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7573624
+      longitude: 139.743103
+    }
+    current_stop_sequence: 16
+    timestamp: 1762638741
+    stop_id: "1001-01"
+    vehicle {
+      id: "G758"
+      label: "G758"
+    }
+  }
+}
+entity {
+  id: "C243"
+  vehicle {
+    trip {
+      trip_id: "40001-2-49-100-0620"
+      schedule_relationship: SCHEDULED
+      route_id: "099"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.743763
+      longitude: 139.727646
+    }
+    current_stop_sequence: 21
+    timestamp: 1762638900
+    stop_id: "1162-01"
+    vehicle {
+      id: "C243"
+      label: "C243"
+    }
+  }
+}
+entity {
+  id: "W431"
+  vehicle {
+    trip {
+      trip_id: "52201-1-57-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "102"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.71138
+      longitude: 139.798355
+    }
+    current_stop_sequence: 9
+    timestamp: 1762638878
+    stop_id: "0984-05"
+    vehicle {
+      id: "W431"
+      label: "W431"
+    }
+  }
+}
+entity {
+  id: "G777"
+  vehicle {
+    trip {
+      trip_id: "52203-2-57-100-0635"
+      schedule_relationship: SCHEDULED
+      route_id: "102"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.708
+      longitude: 139.795486
+    }
+    current_stop_sequence: 13
+    timestamp: 1762638725
+    stop_id: "0537-01"
+    vehicle {
+      id: "G777"
+      label: "G777"
+    }
+  }
+}
+entity {
+  id: "V359"
+  vehicle {
+    trip {
+      trip_id: "40401-1-49-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "105"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7382164
+      longitude: 139.760208
+    }
+    current_stop_sequence: 14
+    timestamp: 1762638899
+    stop_id: "0898-01"
+    vehicle {
+      id: "V359"
+      label: "V359"
+    }
+  }
+}
+entity {
+  id: "B744"
+  vehicle {
+    trip {
+      trip_id: "40403-1-49-100-0652"
+      schedule_relationship: SCHEDULED
+      route_id: "105"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7678261
+      longitude: 139.762314
+    }
+    current_stop_sequence: 2
+    timestamp: 1762638766
+    stop_id: "0504-02"
+    vehicle {
+      id: "B744"
+      label: "B744"
+    }
+  }
+}
+entity {
+  id: "F602"
+  vehicle {
+    trip {
+      trip_id: "40406-2-49-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "105"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7620964
+      longitude: 139.756226
+    }
+    current_stop_sequence: 12
+    timestamp: 1762638814
+    stop_id: "1500-03"
+    vehicle {
+      id: "F602"
+      label: "F602"
+    }
+  }
+}
+entity {
+  id: "G776"
+  vehicle {
+    trip {
+      trip_id: "52001-1-57-100-0653"
+      schedule_relationship: SCHEDULED
+      route_id: "109"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7348633
+      longitude: 139.801666
+    }
+    current_stop_sequence: 2
+    timestamp: 1762638835
+    stop_id: "2574-01"
+    vehicle {
+      id: "G776"
+      label: "G776"
+    }
+  }
+}
+entity {
+  id: "E441"
+  vehicle {
+    trip {
+      trip_id: "52001-1-57-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "109"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7097054
+      longitude: 139.790543
+    }
+    current_stop_sequence: 20
+    timestamp: 1762638894
+    stop_id: "0035-10"
+    vehicle {
+      id: "E441"
+      label: "E441"
+    }
+  }
+}
+entity {
+  id: "F641"
+  vehicle {
+    trip {
+      trip_id: "52001-2-57-100-0653"
+      schedule_relationship: SCHEDULED
+      route_id: "109"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7110481
+      longitude: 139.773956
+    }
+    current_stop_sequence: 2
+    timestamp: 1762638894
+    stop_id: "0133-06"
+    vehicle {
+      id: "F641"
+      label: "F641"
+    }
+  }
+}
+entity {
+  id: "M428"
+  vehicle {
+    trip {
+      trip_id: "52001-2-57-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "109"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7319183
+      longitude: 139.805832
+    }
+    current_stop_sequence: 16
+    timestamp: 1762638883
+    stop_id: "0388-03"
+    vehicle {
+      id: "M428"
+      label: "M428"
+    }
+  }
+}
+entity {
+  id: "C229"
+  vehicle {
+    trip {
+      trip_id: "48101-1-53-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "110"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7699242
+      longitude: 139.803574
+    }
+    current_stop_sequence: 19
+    timestamp: 1762638823
+    stop_id: "1045-02"
+    vehicle {
+      id: "C229"
+      label: "C229"
+    }
+  }
+}
+entity {
+  id: "F591"
+  vehicle {
+    trip {
+      trip_id: "48103-2-53-100-0654"
+      schedule_relationship: SCHEDULED
+      route_id: "110"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7498665
+      longitude: 139.804565
+    }
+    current_stop_sequence: 1
+    timestamp: 1762638842
+    stop_id: "0416-01"
+    vehicle {
+      id: "F591"
+      label: "F591"
+    }
+  }
+}
+entity {
+  id: "B748"
+  vehicle {
+    trip {
+      trip_id: "48103-2-53-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "110"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7883568
+      longitude: 139.802704
+    }
+    current_stop_sequence: 11
+    timestamp: 1762638900
+    stop_id: "1606-02"
+    vehicle {
+      id: "B748"
+      label: "B748"
+    }
+  }
+}
+entity {
+  id: "H955"
+  vehicle {
+    trip {
+      trip_id: "48401-1-53-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "107"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7380142
+      longitude: 139.763809
+    }
+    current_stop_sequence: 18
+    timestamp: 1762638755
+    stop_id: "2462-02"
+    vehicle {
+      id: "H955"
+      label: "H955"
+    }
+  }
+}
+entity {
+  id: "F590"
+  vehicle {
+    trip {
+      trip_id: "48401-2-53-100-0652"
+      schedule_relationship: SCHEDULED
+      route_id: "107"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7358704
+      longitude: 139.759323
+    }
+    current_stop_sequence: 3
+    timestamp: 1762638862
+    stop_id: "0352-02"
+    vehicle {
+      id: "F590"
+      label: "F590"
+    }
+  }
+}
+entity {
+  id: "F675"
+  vehicle {
+    trip {
+      trip_id: "48401-2-53-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "107"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7508888
+      longitude: 139.796387
+    }
+    current_stop_sequence: 19
+    timestamp: 1762638889
+    stop_id: "0817-01"
+    vehicle {
+      id: "F675"
+      label: "F675"
+    }
+  }
+}
+entity {
+  id: "H957"
+  vehicle {
+    trip {
+      trip_id: "48001-1-53-100-0637"
+      schedule_relationship: SCHEDULED
+      route_id: "116"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7781448
+      longitude: 139.763687
+    }
+    current_stop_sequence: 13
+    timestamp: 1762638842
+    stop_id: "0355-01"
+    vehicle {
+      id: "H957"
+      label: "H957"
+    }
+  }
+}
+entity {
+  id: "D344"
+  vehicle {
+    trip {
+      trip_id: "48001-2-53-100-0647"
+      schedule_relationship: SCHEDULED
+      route_id: "116"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.768055
+      longitude: 139.73465
+    }
+    current_stop_sequence: 6
+    timestamp: 1762638821
+    stop_id: "0403-02"
+    vehicle {
+      id: "D344"
+      label: "D344"
+    }
+  }
+}
+entity {
+  id: "K239"
+  vehicle {
+    trip {
+      trip_id: "36301-1-45-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "117"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7189713
+      longitude: 139.757462
+    }
+    current_stop_sequence: 7
+    timestamp: 1762638869
+    stop_id: "1408-02"
+    vehicle {
+      id: "K239"
+      label: "K239"
+    }
+  }
+}
+entity {
+  id: "K250"
+  vehicle {
+    trip {
+      trip_id: "40804-1-49-100-0643"
+      schedule_relationship: SCHEDULED
+      route_id: "118"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7700462
+      longitude: 139.748657
+    }
+    current_stop_sequence: 11
+    timestamp: 1762638880
+    stop_id: "2556-02"
+    vehicle {
+      id: "K250"
+      label: "K250"
+    }
+  }
+}
+entity {
+  id: "B741"
+  vehicle {
+    trip {
+      trip_id: "40807-2-49-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "118"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7557678
+      longitude: 139.737381
+    }
+    current_stop_sequence: 14
+    timestamp: 1762638789
+    stop_id: "0198-01"
+    vehicle {
+      id: "B741"
+      label: "B741"
+    }
+  }
+}
+entity {
+  id: "B728"
+  vehicle {
+    trip {
+      trip_id: "20101-1-33-100-0642"
+      schedule_relationship: SCHEDULED
+      route_id: "120"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7215538
+      longitude: 139.732437
+    }
+    current_stop_sequence: 8
+    timestamp: 1762638880
+    stop_id: "0244-04"
+    vehicle {
+      id: "B728"
+      label: "B728"
+    }
+  }
+}
+entity {
+  id: "A602"
+  vehicle {
+    trip {
+      trip_id: "20101-1-33-100-0620"
+      schedule_relationship: SCHEDULED
+      route_id: "120"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.712204
+      longitude: 139.768677
+    }
+    current_stop_sequence: 24
+    timestamp: 1762638704
+    stop_id: "0767-02"
+    vehicle {
+      id: "A602"
+      label: "A602"
+    }
+  }
+}
+entity {
+  id: "E397"
+  vehicle {
+    trip {
+      trip_id: "20101-2-33-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "120"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7334862
+      longitude: 139.75499
+    }
+    current_stop_sequence: 12
+    timestamp: 1762638848
+    stop_id: "1406-01"
+    vehicle {
+      id: "E397"
+      label: "E397"
+    }
+  }
+}
+entity {
+  id: "F632"
+  vehicle {
+    trip {
+      trip_id: "32402-1-45-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "121"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7238617
+      longitude: 139.737045
+    }
+    current_stop_sequence: 4
+    timestamp: 1762638864
+    stop_id: "0811-04"
+    vehicle {
+      id: "F632"
+      label: "F632"
+    }
+  }
+}
+entity {
+  id: "F608"
+  vehicle {
+    trip {
+      trip_id: "40301-2-49-100-0635"
+      schedule_relationship: SCHEDULED
+      route_id: "119"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7779236
+      longitude: 139.732483
+    }
+    current_stop_sequence: 14
+    timestamp: 1762638871
+    stop_id: "0663-02"
+    vehicle {
+      id: "F608"
+      label: "F608"
+    }
+  }
+}
+entity {
+  id: "H895"
+  vehicle {
+    trip {
+      trip_id: "40303-2-49-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "119"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7622604
+      longitude: 139.747772
+    }
+    current_stop_sequence: 3
+    timestamp: 1762638792
+    stop_id: "1003-02"
+    vehicle {
+      id: "H895"
+      label: "H895"
+    }
+  }
+}
+entity {
+  id: "C221"
+  vehicle {
+    trip {
+      trip_id: "44201-1-37-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "122"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7248573
+      longitude: 139.686172
+    }
+    current_stop_sequence: 7
+    timestamp: 1762638789
+    stop_id: "1487-01"
+    vehicle {
+      id: "C221"
+      label: "C221"
+    }
+  }
+}
+entity {
+  id: "F578"
+  vehicle {
+    trip {
+      trip_id: "44201-1-37-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "122"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7138557
+      longitude: 139.726044
+    }
+    current_stop_sequence: 20
+    timestamp: 1762638826
+    stop_id: "0799-02"
+    vehicle {
+      id: "F578"
+      label: "F578"
+    }
+  }
+}
+entity {
+  id: "E433"
+  vehicle {
+    trip {
+      trip_id: "44203-1-37-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "122"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6920815
+      longitude: 139.720901
+    }
+    current_stop_sequence: 18
+    timestamp: 1762638849
+    stop_id: "0028-01"
+    vehicle {
+      id: "E433"
+      label: "E433"
+    }
+  }
+}
+entity {
+  id: "C218"
+  vehicle {
+    trip {
+      trip_id: "36001-1-45-100-0649"
+      schedule_relationship: SCHEDULED
+      route_id: "126"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7418976
+      longitude: 139.725952
+    }
+    current_stop_sequence: 6
+    timestamp: 1762638879
+    stop_id: "1402-01"
+    vehicle {
+      id: "C218"
+      label: "C218"
+    }
+  }
+}
+entity {
+  id: "C225"
+  vehicle {
+    trip {
+      trip_id: "36001-1-45-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "126"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7276
+      longitude: 139.763565
+    }
+    current_stop_sequence: 22
+    timestamp: 1762638899
+    stop_id: "0834-01"
+    vehicle {
+      id: "C225"
+      label: "C225"
+    }
+  }
+}
+entity {
+  id: "T268"
+  vehicle {
+    trip {
+      trip_id: "36003-1-45-100-0626"
+      schedule_relationship: SCHEDULED
+      route_id: "126"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7252235
+      longitude: 139.791061
+    }
+    current_stop_sequence: 23
+    timestamp: 1762638803
+    stop_id: "1599-03"
+    vehicle {
+      id: "T268"
+      label: "T268"
+    }
+  }
+}
+entity {
+  id: "D905"
+  vehicle {
+    trip {
+      trip_id: "36005-2-45-100-0649"
+      schedule_relationship: SCHEDULED
+      route_id: "126"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7418098
+      longitude: 139.726105
+    }
+    current_stop_sequence: 5
+    timestamp: 1762638873
+    stop_id: "1402-02"
+    vehicle {
+      id: "D905"
+      label: "D905"
+    }
+  }
+}
+entity {
+  id: "L311"
+  vehicle {
+    trip {
+      trip_id: "16401-1-29-100-0615"
+      schedule_relationship: SCHEDULED
+      route_id: "125"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6726227
+      longitude: 139.751831
+    }
+    current_stop_sequence: 24
+    timestamp: 1762638758
+    stop_id: "0935-03"
+    vehicle {
+      id: "L311"
+      label: "L311"
+    }
+  }
+}
+entity {
+  id: "C213"
+  vehicle {
+    trip {
+      trip_id: "16001-3-29-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "127"
+    }
+    position {
+      latitude: 35.7122879
+      longitude: 139.699326
+    }
+    current_stop_sequence: 4
+    timestamp: 1762638827
+    stop_id: "0858-01"
+    vehicle {
+      id: "C213"
+      label: "C213"
+    }
+  }
+}
+entity {
+  id: "W446"
+  vehicle {
+    trip {
+      trip_id: "16001-3-29-100-0600"
+      schedule_relationship: SCHEDULED
+      route_id: "127"
+    }
+    position {
+      latitude: 35.7120323
+      longitude: 139.707306
+    }
+    current_stop_sequence: 36
+    timestamp: 1762638788
+    stop_id: "1009-01"
+    vehicle {
+      id: "W446"
+      label: "W446"
+    }
+  }
+}
+entity {
+  id: "G803"
+  vehicle {
+    trip {
+      trip_id: "36402-1-45-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "128"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7326431
+      longitude: 139.715103
+    }
+    current_stop_sequence: 3
+    timestamp: 1762638858
+    stop_id: "0998-02"
+    vehicle {
+      id: "G803"
+      label: "G803"
+    }
+  }
+}
+entity {
+  id: "G801"
+  vehicle {
+    trip {
+      trip_id: "36402-1-45-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "128"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7425499
+      longitude: 139.763168
+    }
+    current_stop_sequence: 18
+    timestamp: 1762638844
+    stop_id: "0902-04"
+    vehicle {
+      id: "G801"
+      label: "G801"
+    }
+  }
+}
+entity {
+  id: "L324"
+  vehicle {
+    trip {
+      trip_id: "36402-2-45-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "128"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7163582
+      longitude: 139.798691
+    }
+    current_stop_sequence: 4
+    timestamp: 1762638852
+    stop_id: "0043-01"
+    vehicle {
+      id: "L324"
+      label: "L324"
+    }
+  }
+}
+entity {
+  id: "H884"
+  vehicle {
+    trip {
+      trip_id: "36405-1-45-100-0618"
+      schedule_relationship: SCHEDULED
+      route_id: "128"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7241173
+      longitude: 139.797791
+    }
+    current_stop_sequence: 25
+    timestamp: 1762638824
+    stop_id: "1585-02"
+    vehicle {
+      id: "H884"
+      label: "H884"
+    }
+  }
+}
+entity {
+  id: "Z516"
+  vehicle {
+    trip {
+      trip_id: "36411-2-45-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "128"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7507172
+      longitude: 139.748154
+    }
+    current_stop_sequence: 9
+    timestamp: 1762638851
+    stop_id: "1400-01"
+    vehicle {
+      id: "Z516"
+      label: "Z516"
+    }
+  }
+}
+entity {
+  id: "C222"
+  vehicle {
+    trip {
+      trip_id: "44001-1-37-100-0637"
+      schedule_relationship: SCHEDULED
+      route_id: "129"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7228088
+      longitude: 139.690186
+    }
+    current_stop_sequence: 14
+    timestamp: 1762638860
+    stop_id: "1486-03"
+    vehicle {
+      id: "C222"
+      label: "C222"
+    }
+  }
+}
+entity {
+  id: "W470"
+  vehicle {
+    trip {
+      trip_id: "44002-2-37-100-0654"
+      schedule_relationship: SCHEDULED
+      route_id: "129"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7290535
+      longitude: 139.712234
+    }
+    current_stop_sequence: 1
+    timestamp: 1762638840
+    stop_id: "0087-02"
+    vehicle {
+      id: "W470"
+      label: "W470"
+    }
+  }
+}
+entity {
+  id: "W447"
+  vehicle {
+    trip {
+      trip_id: "16103-3-29-100-0639"
+      schedule_relationship: SCHEDULED
+      route_id: "131"
+    }
+    position {
+      latitude: 35.7101135
+      longitude: 139.730331
+    }
+    current_stop_sequence: 14
+    timestamp: 1762638898
+    stop_id: "0176-03"
+    vehicle {
+      id: "W447"
+      label: "W447"
+    }
+  }
+}
+entity {
+  id: "H870"
+  vehicle {
+    trip {
+      trip_id: "16103-3-29-100-0620"
+      schedule_relationship: SCHEDULED
+      route_id: "131"
+    }
+    position {
+      latitude: 35.7087
+      longitude: 139.773102
+    }
+    current_stop_sequence: 25
+    timestamp: 1762638769
+    stop_id: "0135-05"
+    vehicle {
+      id: "H870"
+      label: "H870"
+    }
+  }
+}
+entity {
+  id: "M381"
+  vehicle {
+    trip {
+      trip_id: "24201-1-21-100-0652"
+      schedule_relationship: SCHEDULED
+      route_id: "130"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6991806
+      longitude: 139.636429
+    }
+    current_stop_sequence: 3
+    timestamp: 1762638862
+    stop_id: "0779-01"
+    vehicle {
+      id: "M381"
+      label: "M381"
+    }
+  }
+}
+entity {
+  id: "A588"
+  vehicle {
+    trip {
+      trip_id: "12302-1-13-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "138"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6928215
+      longitude: 139.704926
+    }
+    current_stop_sequence: 3
+    timestamp: 1762638864
+    stop_id: "0715-01"
+    vehicle {
+      id: "A588"
+      label: "A588"
+    }
+  }
+}
+entity {
+  id: "F173"
+  vehicle {
+    trip {
+      trip_id: "00201-1-01-100-0652"
+      schedule_relationship: SCHEDULED
+      route_id: "141"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6342125
+      longitude: 139.716568
+    }
+    current_stop_sequence: 1
+    timestamp: 1762638725
+    stop_id: "1526-02"
+    vehicle {
+      id: "F173"
+      label: "F173"
+    }
+  }
+}
+entity {
+  id: "E519"
+  vehicle {
+    trip {
+      trip_id: "20202-2-33-100-0652"
+      schedule_relationship: SCHEDULED
+      route_id: "147"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6934738
+      longitude: 139.702545
+    }
+    current_stop_sequence: 2
+    timestamp: 1762638880
+    stop_id: "0334-01"
+    vehicle {
+      id: "E519"
+      label: "E519"
+    }
+  }
+}
+entity {
+  id: "K224"
+  vehicle {
+    trip {
+      trip_id: "16502-3-13-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "149"
+    }
+    position {
+      latitude: 35.6847496
+      longitude: 139.716034
+    }
+    current_stop_sequence: 11
+    timestamp: 1762638888
+    stop_id: "1060-01"
+    vehicle {
+      id: "K224"
+      label: "K224"
+    }
+  }
+}
+entity {
+  id: "K231"
+  vehicle {
+    trip {
+      trip_id: "24101-1-21-100-0642"
+      schedule_relationship: SCHEDULED
+      route_id: "148"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6974525
+      longitude: 139.671722
+    }
+    current_stop_sequence: 7
+    timestamp: 1762638847
+    stop_id: "1112-02"
+    vehicle {
+      id: "K231"
+      label: "K231"
+    }
+  }
+}
+entity {
+  id: "Z530"
+  vehicle {
+    trip {
+      trip_id: "24101-2-21-100-0635"
+      schedule_relationship: SCHEDULED
+      route_id: "148"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7583313
+      longitude: 139.694275
+    }
+    current_stop_sequence: 17
+    timestamp: 1762638846
+    stop_id: "1062-01"
+    vehicle {
+      id: "Z530"
+      label: "Z530"
+    }
+  }
+}
+entity {
+  id: "B724"
+  vehicle {
+    trip {
+      trip_id: "24102-1-21-100-0626"
+      schedule_relationship: SCHEDULED
+      route_id: "148"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6975212
+      longitude: 139.662064
+    }
+    current_stop_sequence: 24
+    timestamp: 1762638863
+    stop_id: "1091-01"
+    vehicle {
+      id: "B724"
+      label: "B724"
+    }
+  }
+}
+entity {
+  id: "G783"
+  vehicle {
+    trip {
+      trip_id: "24103-1-21-100-0633"
+      schedule_relationship: SCHEDULED
+      route_id: "148"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7565346
+      longitude: 139.690063
+    }
+    current_stop_sequence: 19
+    timestamp: 1762638893
+    stop_id: "1485-01"
+    vehicle {
+      id: "G783"
+      label: "G783"
+    }
+  }
+}
+entity {
+  id: "F570"
+  vehicle {
+    trip {
+      trip_id: "20005-3-33-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "152"
+    }
+    position {
+      latitude: 35.7077332
+      longitude: 139.709137
+    }
+    current_stop_sequence: 7
+    timestamp: 1762638886
+    stop_id: "0856-02"
+    vehicle {
+      id: "F570"
+      label: "F570"
+    }
+  }
+}
+entity {
+  id: "F562"
+  vehicle {
+    trip {
+      trip_id: "08301-1-09-100-0652"
+      schedule_relationship: SCHEDULED
+      route_id: "153"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.659359
+      longitude: 139.702057
+    }
+    current_stop_sequence: 1
+    timestamp: 1762638738
+    stop_id: "0636-03"
+    vehicle {
+      id: "F562"
+      label: "F562"
+    }
+  }
+}
+entity {
+  id: "G819"
+  vehicle {
+    trip {
+      trip_id: "08301-1-09-100-0641"
+      schedule_relationship: SCHEDULED
+      route_id: "153"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6444702
+      longitude: 139.725784
+    }
+    current_stop_sequence: 11
+    timestamp: 1762638849
+    stop_id: "0405-01"
+    vehicle {
+      id: "G819"
+      label: "G819"
+    }
+  }
+}
+entity {
+  id: "G815"
+  vehicle {
+    trip {
+      trip_id: "08206-1-13-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "154"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6619911
+      longitude: 139.735565
+    }
+    current_stop_sequence: 10
+    timestamp: 1762638792
+    stop_id: "1612-01"
+    vehicle {
+      id: "G815"
+      label: "G815"
+    }
+  }
+}
+entity {
+  id: "F170"
+  vehicle {
+    trip {
+      trip_id: "01009-3-01-100-0635"
+      schedule_relationship: SCHEDULED
+      route_id: "157"
+    }
+    position {
+      latitude: 35.598793
+      longitude: 139.754288
+    }
+    current_stop_sequence: 17
+    timestamp: 1762638859
+    stop_id: "2016-01"
+    vehicle {
+      id: "F170"
+      label: "F170"
+    }
+  }
+}
+entity {
+  id: "F567"
+  vehicle {
+    trip {
+      trip_id: "24302-1-21-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "158"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.693943
+      longitude: 139.69455
+    }
+    current_stop_sequence: 22
+    timestamp: 1762638754
+    stop_id: "0964-02"
+    vehicle {
+      id: "F567"
+      label: "F567"
+    }
+  }
+}
+entity {
+  id: "F566"
+  vehicle {
+    trip {
+      trip_id: "24302-2-21-100-0635"
+      schedule_relationship: SCHEDULED
+      route_id: "158"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.686882
+      longitude: 139.656052
+    }
+    current_stop_sequence: 17
+    timestamp: 1762638797
+    stop_id: "1620-02"
+    vehicle {
+      id: "F566"
+      label: "F566"
+    }
+  }
+}
+entity {
+  id: "Y487"
+  vehicle {
+    trip {
+      trip_id: "00401-1-01-100-0644"
+      schedule_relationship: SCHEDULED
+      route_id: "161"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6198425
+      longitude: 139.74646
+    }
+    current_stop_sequence: 11
+    timestamp: 1762638887
+    stop_id: "0960-02"
+    vehicle {
+      id: "Y487"
+      label: "Y487"
+    }
+  }
+}
+entity {
+  id: "W416"
+  vehicle {
+    trip {
+      trip_id: "00401-1-01-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "161"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6365395
+      longitude: 139.728439
+    }
+    current_stop_sequence: 19
+    timestamp: 1762638858
+    stop_id: "0683-02"
+    vehicle {
+      id: "W416"
+      label: "W416"
+    }
+  }
+}
+entity {
+  id: "B703"
+  vehicle {
+    trip {
+      trip_id: "01101-3-01-100-0653"
+      schedule_relationship: SCHEDULED
+      route_id: "160"
+    }
+    position {
+      latitude: 35.6061668
+      longitude: 139.735489
+    }
+    current_stop_sequence: 1
+    timestamp: 1762638792
+    stop_id: "0223-01"
+    vehicle {
+      id: "B703"
+      label: "B703"
+    }
+  }
+}
+entity {
+  id: "K216"
+  vehicle {
+    trip {
+      trip_id: "01101-3-01-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "160"
+    }
+    position {
+      latitude: 35.5973892
+      longitude: 139.752579
+    }
+    current_stop_sequence: 11
+    timestamp: 1762638885
+    stop_id: "2015-01"
+    vehicle {
+      id: "K216"
+      label: "K216"
+    }
+  }
+}
+entity {
+  id: "B714"
+  vehicle {
+    trip {
+      trip_id: "00807-1-06-100-0633"
+      schedule_relationship: SCHEDULED
+      route_id: "163"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6565247
+      longitude: 139.756592
+    }
+    current_stop_sequence: 16
+    timestamp: 1762638843
+    stop_id: "1238-02"
+    vehicle {
+      id: "B714"
+      label: "B714"
+    }
+  }
+}
+entity {
+  id: "F174"
+  vehicle {
+    trip {
+      trip_id: "01712-1-01-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "166"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.655674
+      longitude: 139.736938
+    }
+    current_stop_sequence: 15
+    timestamp: 1762638847
+    stop_id: "0111-01"
+    vehicle {
+      id: "F174"
+      label: "F174"
+    }
+  }
+}
+entity {
+  id: "V321"
+  vehicle {
+    trip {
+      trip_id: "01712-2-01-100-0640"
+      schedule_relationship: SCHEDULED
+      route_id: "166"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6474648
+      longitude: 139.736618
+    }
+    current_stop_sequence: 8
+    timestamp: 1762638861
+    stop_id: "1380-04"
+    vehicle {
+      id: "V321"
+      label: "V321"
+    }
+  }
+}
+entity {
+  id: "H861"
+  vehicle {
+    trip {
+      trip_id: "24002-1-06-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "169"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6794739
+      longitude: 139.719604
+    }
+    current_stop_sequence: 19
+    timestamp: 1762638897
+    stop_id: "0612-03"
+    vehicle {
+      id: "H861"
+      label: "H861"
+    }
+  }
+}
+entity {
+  id: "C215"
+  vehicle {
+    trip {
+      trip_id: "24002-2-21-100-0630"
+      schedule_relationship: SCHEDULED
+      route_id: "169"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6551094
+      longitude: 139.723236
+    }
+    current_stop_sequence: 19
+    timestamp: 1762638843
+    stop_id: "1176-02"
+    vehicle {
+      id: "C215"
+      label: "C215"
+    }
+  }
+}
+entity {
+  id: "F163"
+  vehicle {
+    trip {
+      trip_id: "04505-3-01-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "173"
+    }
+    position {
+      latitude: 35.6281
+      longitude: 139.756088
+    }
+    current_stop_sequence: 6
+    timestamp: 1762638839
+    stop_id: "0974-01"
+    vehicle {
+      id: "F163"
+      label: "F163"
+    }
+  }
+}
+entity {
+  id: "B773"
+  vehicle {
+    trip {
+      trip_id: "68901-1-77-100-0648"
+      schedule_relationship: SCHEDULED
+      route_id: "175"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6858826
+      longitude: 139.882584
+    }
+    current_stop_sequence: 5
+    timestamp: 1762638842
+    stop_id: "1445-07"
+    vehicle {
+      id: "B773"
+      label: "B773"
+    }
+  }
+}
+entity {
+  id: "F152"
+  vehicle {
+    trip {
+      trip_id: "68901-2-77-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "175"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.6479797
+      longitude: 139.871582
+    }
+    current_stop_sequence: 4
+    timestamp: 1762638899
+    stop_id: "1394-01"
+    vehicle {
+      id: "F152"
+      label: "F152"
+    }
+  }
+}
+entity {
+  id: "C266"
+  vehicle {
+    trip {
+      trip_id: "68907-1-77-100-0636"
+      schedule_relationship: SCHEDULED
+      route_id: "175"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6782875
+      longitude: 139.879166
+    }
+    current_stop_sequence: 15
+    timestamp: 1762638872
+    stop_id: "1171-01"
+    vehicle {
+      id: "C266"
+      label: "C266"
+    }
+  }
+}
+entity {
+  id: "E461"
+  vehicle {
+    trip {
+      trip_id: "69007-1-69-100-0653"
+      schedule_relationship: SCHEDULED
+      route_id: "176"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6479416
+      longitude: 139.863571
+    }
+    current_stop_sequence: 4
+    timestamp: 1762638892
+    stop_id: "2062-01"
+    vehicle {
+      id: "E461"
+      label: "E461"
+    }
+  }
+}
+entity {
+  id: "H987"
+  vehicle {
+    trip {
+      trip_id: "72602-1-81-100-0650"
+      schedule_relationship: SCHEDULED
+      route_id: "181"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6394424
+      longitude: 139.792801
+    }
+    current_stop_sequence: 4
+    timestamp: 1762638784
+    stop_id: "0077-01"
+    vehicle {
+      id: "H987"
+      label: "H987"
+    }
+  }
+}
+entity {
+  id: "B751"
+  vehicle {
+    trip {
+      trip_id: "72414-1-81-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "184"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.6649284
+      longitude: 139.772049
+    }
+    current_stop_sequence: 8
+    timestamp: 1762638899
+    stop_id: "0946-01"
+    vehicle {
+      id: "B751"
+      label: "B751"
+    }
+  }
+}
+entity {
+  id: "H874"
+  vehicle {
+    trip {
+      trip_id: "20004-3-33-100-0618"
+      schedule_relationship: SCHEDULED
+      route_id: "185"
+    }
+    position {
+      latitude: 35.6711845
+      longitude: 139.707336
+    }
+    current_stop_sequence: 25
+    timestamp: 1762638870
+    stop_id: "0758-01"
+    vehicle {
+      id: "H874"
+      label: "H874"
+    }
+  }
+}
+entity {
+  id: "F572"
+  vehicle {
+    trip {
+      trip_id: "20013-1-33-100-0648"
+      schedule_relationship: SCHEDULED
+      route_id: "185"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.715992
+      longitude: 139.712036
+    }
+    current_stop_sequence: 5
+    timestamp: 1762638845
+    stop_id: "0387-02"
+    vehicle {
+      id: "F572"
+      label: "F572"
+    }
+  }
+}
+entity {
+  id: "B733"
+  vehicle {
+    trip {
+      trip_id: "28102-3-25-100-0608"
+      schedule_relationship: SCHEDULED
+      route_id: "281"
+    }
+    position {
+      latitude: 35.823204
+      longitude: 139.28624
+    }
+    current_stop_sequence: 43
+    timestamp: 1762638852
+    stop_id: "0976-01"
+    vehicle {
+      id: "B733"
+      label: "B733"
+    }
+  }
+}
+entity {
+  id: "E406"
+  vehicle {
+    trip {
+      trip_id: "28108-3-25-100-0646"
+      schedule_relationship: SCHEDULED
+      route_id: "281"
+    }
+    position {
+      latitude: 35.789711
+      longitude: 139.270493
+    }
+    current_stop_sequence: 10
+    timestamp: 1762638864
+    stop_id: "1200-01"
+    vehicle {
+      id: "E406"
+      label: "E406"
+    }
+  }
+}
+entity {
+  id: "E415"
+  vehicle {
+    trip {
+      trip_id: "28007-2-25-100-0645"
+      schedule_relationship: SCHEDULED
+      route_id: "280"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7548637
+      longitude: 139.39978
+    }
+    current_stop_sequence: 10
+    timestamp: 1762638845
+    stop_id: "0744-02"
+    vehicle {
+      id: "E415"
+      label: "E415"
+    }
+  }
+}
+entity {
+  id: "A606"
+  vehicle {
+    trip {
+      trip_id: "28008-1-25-100-0605"
+      schedule_relationship: SCHEDULED
+      route_id: "280"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7579575
+      longitude: 139.402374
+    }
+    current_stop_sequence: 46
+    timestamp: 1762638891
+    stop_id: "1083-01"
+    vehicle {
+      id: "A606"
+      label: "A606"
+    }
+  }
+}
+entity {
+  id: "E413"
+  vehicle {
+    trip {
+      trip_id: "28008-2-25-100-0644"
+      schedule_relationship: SCHEDULED
+      route_id: "280"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7307091
+      longitude: 139.489563
+    }
+    current_stop_sequence: 7
+    timestamp: 1762638847
+    stop_id: "0455-02"
+    vehicle {
+      id: "E413"
+      label: "E413"
+    }
+  }
+}
+entity {
+  id: "E409"
+  vehicle {
+    trip {
+      trip_id: "28012-1-25-100-0632"
+      schedule_relationship: SCHEDULED
+      route_id: "280"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7307739
+      longitude: 139.497803
+    }
+    current_stop_sequence: 23
+    timestamp: 1762638838
+    stop_id: "0958-01"
+    vehicle {
+      id: "E409"
+      label: "E409"
+    }
+  }
+}
+entity {
+  id: "H877"
+  vehicle {
+    trip {
+      trip_id: "28303-2-25-100-0627"
+      schedule_relationship: SCHEDULED
+      route_id: "283"
+      direction_id: 0
+    }
+    position {
+      latitude: 35.7883186
+      longitude: 139.274567
+    }
+    current_stop_sequence: 22
+    timestamp: 1762638868
+    stop_id: "0205-01"
+    vehicle {
+      id: "H877"
+      label: "H877"
+    }
+  }
+}
+entity {
+  id: "H883"
+  vehicle {
+    trip {
+      trip_id: "28501-1-25-100-0644"
+      schedule_relationship: SCHEDULED
+      route_id: "285"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7848396
+      longitude: 139.22525
+    }
+    current_stop_sequence: 14
+    timestamp: 1762638890
+    stop_id: "0651-01"
+    vehicle {
+      id: "H883"
+      label: "H883"
+    }
+  }
+}
+entity {
+  id: "B732"
+  vehicle {
+    trip {
+      trip_id: "28604-1-25-100-0652"
+      schedule_relationship: SCHEDULED
+      route_id: "286"
+      direction_id: 1
+    }
+    position {
+      latitude: 35.7900314
+      longitude: 139.253265
+    }
+    current_stop_sequence: 5
+    timestamp: 1762638883
+    stop_id: "0353-01"
+    vehicle {
+      id: "B732"
+      label: "B732"
+    }
+  }
+}
+entity {
+  id: "H880"
+  vehicle {
+    trip {
+      trip_id: "28606-3-25-100-0637"
+      schedule_relationship: SCHEDULED
+      route_id: "286"
+    }
+    position {
+      latitude: 35.7880478
+      longitude: 139.28685
+    }
+    current_stop_sequence: 19
+    timestamp: 1762638844
+    stop_id: "0337-03"
+    vehicle {
+      id: "H880"
+      label: "H880"
+    }
+  }
+}
