@@ -24,15 +24,14 @@ import networkx as nx
 from networkx.algorithms.simple_paths import shortest_simple_paths
 
 # -------------------- チューニング定数 --------------------
-BUS_RIDE_COST  = 1.0      # バス1区間
-RAIL_RIDE_COST = 0.2      # 鉄道1区間（バスより安く）
-BOARD_PENALTY = 30            # 路線に乗る（最初の乗車も含む）
-# ※ TRANSFER_PENALTY を大きくすると「乗換最小」優先が強まる
-TRANSFER_PENALTY = 500        # 同一地点で路線を変える
-WALK_COST = 70                # 徒歩（近接ノード間の往来1本）
+# 時間ベースのコスト設計（分単位で設定）
+BUS_RIDE_COST = 2.0    # バス1停留所 ≒ 2分
+RAIL_RIDE_COST = 1.6   # 地下鉄1駅 ≒ 1.6分（バスより速め）
+WALK_SPEED_M_PER_MIN = 80.0  # 1分 ≒ 80m で計算
+WALK_COST = 1.0        # 1分歩く = 1.0 コスト
+TRANSFER_PENALTY = 4.0 # 乗り換え1回 ≒ 4分ペナルティ
 
-WALK_SPEED_M_PER_MIN = 80.0      # 1分 ≒ 80m で計算
-MAX_WALK_SEG_M = 300.0          # 1区間の徒歩は 300m まで許容
+MAX_WALK_SEG_M = 300.0  # 1区間の徒歩は 300m まで許容
 
 
 
@@ -169,7 +168,7 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
                 norm=_norm_line(display_name),    # 検証用キー（例: 上23 / 草64）
                 mode=mode,                        # "bus" or "rail"
             )
-            G.add_edge(("phys", phys_id), n, w=BOARD_PENALTY, etype="board")
+            G.add_edge(("phys", phys_id), n, w=TRANSFER_PENALTY, etype="board")
             G.add_edge(n, ("phys", phys_id), w=0, etype="alight")
         return n
 
@@ -276,6 +275,9 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
     #                 print(f"  → ライン層: {sd.get('disp')} (line={sd.get('line')}, mode={sd.get('mode')})")
 
 
+    # 基本の重みを base_w として保存
+    for u, v, data in G.edges(data=True):
+        data["base_w"] = float(data.get("w", 0.0))
 
     return G, {
         "bus_ride":  bus_edges,
@@ -304,8 +306,8 @@ def connect_walk_edges_phys(G, radius_m=300):
                 continue
             dist = haversine(d["lat"], d["lon"], dm["lat"], dm["lon"])
             if dist <= radius_m:
-                # 80m ≒ 1分、WALK_COST は「1分あたり」
-                walk_minutes = max(1.0, dist / 80.0)
+                # 距離を時間（分）に変換
+                walk_minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
                 w = WALK_COST * walk_minutes
                 if not G.has_edge(n, m):
                     G.add_edge(n, m, w=w, etype="walk"); added += 1
@@ -433,7 +435,7 @@ def main():
         if cur: segs.append(cur)
         return segs
 
-    def _summarize(G, path):
+    def summarize_with_walk(G, path):
         rides = walks = boards = xfers = 0
         total = 0.0
 

@@ -210,10 +210,11 @@ def segments_detailed(G, path):
     return out
 
 
-def summarize_with_walk(G, path):
+def summarize_with_walk(G, path, weight_func):
     """
     CLI側と同じロジックで徒歩制約に対応したサマライズ
     walk_max_m を計算して300m制約に使う
+    weight_func で見た値を使用
     """
     rides = walks = boards = xfers = 0
     total = 0.0
@@ -224,7 +225,7 @@ def summarize_with_walk(G, path):
 
     for u, v in zip(path, path[1:]):
         e = G.edges[u, v]
-        w = e["w"]
+        w = weight_func(u, v, e)
         total += w
         t = e.get("etype")
 
@@ -248,7 +249,7 @@ def summarize_with_walk(G, path):
     if walk_w_cur_seg > 0:
         walk_w_max_seg = max(walk_w_max_seg, walk_w_cur_seg)
 
-    # 重み → 分 → m に変換
+    # walk の重みは「分」を想定してるので、そのまま変換
     walk_total_min = walk_w_total / WALK_COST
     walk_max_min = walk_w_max_seg / WALK_COST
     walk_total_m = walk_total_min * WALK_SPEED_M_PER_MIN
@@ -293,8 +294,6 @@ async def _startup():
 def health():
     return JSONResponse(content={"ok": True, "stats": STATS}, media_type="application/json; charset=utf-8")
 
-from networkx.algorithms.simple_paths import shortest_simple_paths
-
 @app.get("/route")
 def route(
     alat: float = Query(...),
@@ -307,12 +306,10 @@ def route(
         raise HTTPException(500, "graph not ready")
 
     # --- 近傍ノード探索 ---
-    # B はまず駅だけ探して、500m より遠かったらバス停も含めて探し直し
     b_phys, bd = nearest_phys(G, blat, blon, station_only=True)
     if not b_phys or bd > 500:
         b_phys, bd = nearest_phys(G, blat, blon, station_only=False)
 
-    # A はバス停も駅も OK
     a_phys, ad = nearest_phys(G, alat, alon, station_only=False)
 
     if not a_phys or not b_phys:
@@ -329,103 +326,62 @@ def route(
 
     A_ID = a_phys[1]
 
-    # --- 重み関数（最初の乗車だけ無料・pref で鉄道優遇） ---
     def weight_func(u, v, data):
-        base_w = float(data.get("w", 0.0))
+        # 基本は build_graph で決めた"時間コスト"
+        base = float(data.get("base_w", data.get("w", 0.0)))
         etype = data.get("etype")
 
-        # board: 最初の一回だけ無料、それ以降は乗換ペナルティ
-        if etype == "board":
-            if u == ("phys", A_ID):
-                return 0.0
+        # 最初の乗車だけは無料（出発地点からの board）
+        if etype == "board" and u == ("phys", A_ID):
+            return 0.0
 
-            node = v if v[0] == "line" else u
-            mode = G.nodes.get(node, {}).get("mode")
+        # pref=shortTime なら、鉄道をちょい優遇
+        if pref == "shortTime":
+            node = None
+            if u[0] == "line":
+                node = u
+            elif v[0] == "line":
+                node = v
 
-            pen = TRANSFER_PENALTY
-            if pref == "shortTime" and mode == "rail":
-                pen *= 0.4
-            return float(pen)
+            if node:
+                mode = G.nodes[node].get("mode")
+                if mode == "rail":
+                    # 乗り換え/乗車の両方を少しだけ割引
+                    if etype in ("ride", "board", "xfer"):
+                        return base * 0.8
 
-        # xfer: line→line 乗換も、pref=shortTime なら鉄道同士を軽く
-        if etype == "xfer":
-            mu = G.nodes[u].get("mode") if u[0] == "line" else None
-            mv = G.nodes[v].get("mode") if v[0] == "line" else None
-            base = base_w if base_w > 0 else float(TRANSFER_PENALTY)
-            if pref == "shortTime" and mu == "rail" and mv == "rail":
-                return float(base * 0.4)
-            return base
-
-        return base_w
-
-    K = 3                 # 欲しい候補数
-    MAX_PATHS = 200       # k-shortest を何本まで見るかの上限（無限に回らないため）
-
-    cands = []
-    backup = []
-    seen_sig = set()
+        return base
 
     try:
-        for idx, path in enumerate(
-            shortest_simple_paths(G, a_phys, b_phys, weight=weight_func)
-        ):
-            if idx >= MAX_PATHS:
-                print("[DBG] shortest_simple_paths hit MAX_PATHS", flush=True)
-                break
-
-            segs = segments_detailed(G, path)
-            met = summarize_with_walk(G, path)
-
-            # このパスの「路線列」をシグネチャにする
-            sig_items = []
-            line_seq_for_view = []
-            seen_line_once = set()
-
-            for s in segs:
-                if s.get("kind") in ("bus", "rail"):
-                    lid = s.get("line") or s.get("title")
-                    if not lid:
-                        continue
-                    sig_items.append(lid)
-                    if lid not in seen_line_once:
-                        seen_line_once.add(lid)
-                        line_seq_for_view.append(lid)
-
-            sig = tuple(sig_items)
-            if not sig:
-                # 全部徒歩などは捨てる
-                continue
-            if sig in seen_sig:
-                # 路線構成が同じものはスキップ
-                continue
-            seen_sig.add(sig)
-
-            entry = {
-                "lines": line_seq_for_view,
-                **met,
-                "steps": segs,
-            }
-
-            # 徒歩 300m 以下の経路を本命候補、それ以外はバックアップ
-            if met["walk_max_m"] <= MAX_WALK_SEG_M:
-                entry["id"] = f"C{len(cands)+1}"
-                cands.append(entry)
-                if len(cands) >= K:
-                    break
-            else:
-                backup.append(entry)
-
+        path = nx.shortest_path(G, a_phys, b_phys, weight=weight_func)
     except nx.NetworkXNoPath:
-        print("[DBG] NoPath", flush=True)
+        return JSONResponse(
+            content={"candidates": []},
+            media_type="application/json; charset=utf-8",
+        )
 
-    # 本命が無ければ徒歩長めルートから補充
-    if not cands:
-        for idx, e in enumerate(backup[:K], 1):
-            e["id"] = f"C{idx}"
-        cands = backup[:K]
+    segs = segments_detailed(G, path)
+    met = summarize_with_walk(G, path, weight_func)
+
+    # 路線リスト（重複除去しつつ順序は保持）
+    line_names = []
+    seen_lines = set()
+    for s in segs:
+        if s.get("kind") in ("bus", "rail"):
+            lname = s.get("line") or s.get("title")
+            if lname and lname not in seen_lines:
+                seen_lines.add(lname)
+                line_names.append(lname)
+
+    entry = {
+        "id": "C1",
+        "lines": line_names,
+        **met,
+        "steps": segs,
+    }
 
     return JSONResponse(
-        content={"candidates": cands},
+        content={"candidates": [entry]},
         media_type="application/json; charset=utf-8",
     )
 
