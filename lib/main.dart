@@ -426,13 +426,16 @@ class Candidate {
 
 class StepSeg {
   final String kind;    // 'walk' | 'bus' | 'rail'
-  final String title;   // 路線名 or '徒歩'
-  final int edges;      // 停数目安
-  final int? minutes;   // およその所要
-  final int? meters;    // 徒歩距離
-  final int? fareYen;   // 料金（将来用）
-  final String? from;   // 開始名（JSON: from_）
-  final String? to;     // 終了名（JSON: to）
+  final String title;
+  final int edges;
+  final int? minutes;
+  final int? meters;
+  final int? fareYen;
+  final String? from;
+  final String? to;
+
+  // ★ 追加
+  final List<StopPoint> stops;
 
   StepSeg({
     required this.kind,
@@ -443,19 +446,30 @@ class StepSeg {
     this.fareYen,
     this.from,
     this.to,
-  });
+    List<StopPoint>? stops,
+  }) : stops = stops ?? const [];
 
-  factory StepSeg.fromJson(Map<String, dynamic> j) => StepSeg(
-    kind: j['kind']?.toString() ?? 'bus',
-    title: j['title']?.toString() ?? '',
-    edges: (j['edges'] as num? ?? 0).toInt(),
-    minutes: (j['minutes'] as num?)?.toInt(),
-    meters: (j['meters'] as num?)?.toInt(),
-    fareYen: (j['fareYen'] as num?)?.toInt(),
-    // ← ここがポイント：from_ / to を読む
-    from: j['from_']?.toString() ?? j['from']?.toString(),
-    to:   j['to']?.toString(),
-  );
+  factory StepSeg.fromJson(Map<String, dynamic> j) {
+    final rawStops = j['stops'] as List? ?? const [];
+    final stops = <StopPoint>[];
+    for (final v in rawStops) {
+      if (v is Map) {
+        stops.add(StopPoint.fromJson(Map<String, dynamic>.from(v)));
+      }
+    }
+
+    return StepSeg(
+      kind: j['kind']?.toString() ?? 'bus',
+      title: j['title']?.toString() ?? '',
+      edges: (j['edges'] as num? ?? 0).toInt(),
+      minutes: (j['minutes'] as num?)?.toInt(),
+      meters: (j['meters'] as num?)?.toInt(),
+      fareYen: (j['fareYen'] as num?)?.toInt(),
+      from: j['from_']?.toString() ?? j['from']?.toString(),
+      to: j['to']?.toString(),
+      stops: stops,
+    );
+  }
 
   String get mainTitle => kind == 'walk' ? '徒歩' : title;
   String? get subTitle {
@@ -723,7 +737,10 @@ class RouteDetailPage extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 itemCount: candidate.steps.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (_, i) => _stepTile(candidate.steps[i]),
+                itemBuilder: (context, i) {
+                  final seg = candidate.steps[i];
+                  return _stepTile(context, seg);  // ← context 渡す
+                },
               ),
             ),
           ],
@@ -752,17 +769,21 @@ class RouteDetailPage extends StatelessWidget {
       ],
     );
   }
-  // RouteDetailPage の中（またはトップレベル）に 1 つだけ置く
-  Widget _stepTile(StepSeg s) {
+  // RouteDetailPage 内
+  Widget _stepTile(BuildContext context, StepSeg s) {
     final isWalk = s.kind == 'walk';
     final right = s.minutes != null
         ? '約${s.minutes}分'
-        : (!isWalk && s.edges > 0 ? '${s.edges}停'
-          : (isWalk && s.meters != null ? '${s.meters}m' : ''));
+        : (!isWalk && s.edges > 0
+            ? '${s.edges}停'
+            : (isWalk && s.meters != null ? '${s.meters}m' : ''));
 
-    return Container(
+    final canShowStops = !isWalk && s.stops.isNotEmpty;
+
+    final content = Container(
       decoration: BoxDecoration(
-        color: CupertinoColors.systemGrey6, borderRadius: BorderRadius.circular(12),
+        color: CupertinoColors.systemGrey6,
+        borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(12),
       child: Row(
@@ -773,26 +794,66 @@ class RouteDetailPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(s.mainTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        s.mainTitle,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (canShowStops)
+                      const Icon(
+                        CupertinoIcons.chevron_right,
+                        size: 16,
+                        color: CupertinoColors.inactiveGray,
+                      ),
+                  ],
+                ),
                 if (s.subTitle != null) ...[
                   const SizedBox(height: 4),
-                  Text(s.subTitle!, style: const TextStyle(color: CupertinoColors.inactiveGray)),
+                  Text(
+                    s.subTitle!,
+                    style: const TextStyle(
+                      color: CupertinoColors.inactiveGray,
+                    ),
+                  ),
                 ],
               ],
             ),
           ),
           if (right.isNotEmpty)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: CupertinoColors.white, borderRadius: BorderRadius.circular(8),
+                color: CupertinoColors.white,
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Text(right, style: const TextStyle(fontSize: 12)),
             ),
         ],
       ),
     );
+
+    if (!canShowStops) return content;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        Navigator.of(context).push(
+          CupertinoPageRoute(
+            builder: (_) => SegmentStopsPage(segment: s),
+          ),
+        );
+      },
+      child: content,
+    );
   }
+
 
 
   Widget _miniChip(String text) => Container(
@@ -1134,30 +1195,146 @@ class _PlaceFieldState extends State<PlaceField> {
   }
 }
 
+class StopPoint {
+  final String name;
+  final bool isOrigin;      // 始発 or 乗車
+  final bool isDestination; // 終点 or 降車
 
-Widget _roundIcon(String kind) {
-  IconData icon;
-  Color color;
-  switch (kind) {
-    case 'walk':
-      icon = CupertinoIcons.paw_solid;
-      color = CupertinoColors.activeOrange;
-      break;
-    case 'rail':
-      icon = CupertinoIcons.tram_fill;
-      color = CupertinoColors.systemPurple;
-      break;
-    default:
-      icon = CupertinoIcons.bus;
-      color = CupertinoColors.activeBlue;
+  StopPoint({
+    required this.name,
+    this.isOrigin = false,
+    this.isDestination = false,
+  });
+
+  factory StopPoint.fromJson(Map<String, dynamic> j) {
+    return StopPoint(
+      name: j['name']?.toString() ?? '',
+      isOrigin: j['is_origin'] == true,
+      isDestination: j['is_destination'] == true,
+    );
   }
-  return Container(
-    width: 36,
-    height: 36,
-    decoration: BoxDecoration(
-      color: color.withOpacity(0.15),
-      shape: BoxShape.circle,
-    ),
-    child: Icon(icon, color: color),
-  );
+}
+
+class SegmentStopsPage extends StatelessWidget {
+  final StepSeg segment;
+  const SegmentStopsPage({super.key, required this.segment});
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(segment.title.isEmpty ? segment.mainTitle : segment.title),
+      ),
+      child: SafeArea(
+        child: ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          itemCount: segment.stops.length,
+          itemBuilder: (context, index) {
+            final stop = segment.stops[index];
+            final isFirst = index == 0;
+            final isLast = index == segment.stops.length - 1;
+            return _StopRow(
+              stop: stop,
+              isFirst: isFirst,
+              isLast: isLast,
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _StopRow extends StatelessWidget {
+  final StopPoint stop;
+  final bool isFirst;
+  final bool isLast;
+
+  const _StopRow({
+    required this.stop,
+    required this.isFirst,
+    required this.isLast,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final nameStyle = TextStyle(
+      fontSize: 16,
+      fontWeight:
+          (stop.isOrigin || stop.isDestination) ? FontWeight.w600 : FontWeight.w400,
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 左側の縦線＋丸
+        SizedBox(
+          width: 40,
+          child: Column(
+            children: [
+              if (!isFirst)
+                Container(
+                  width: 2,
+                  height: 12,
+                  color: CupertinoColors.systemGrey4,
+                ),
+              Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: CupertinoColors.activeGreen,
+                    width: 2,
+                  ),
+                  color: stop.isOrigin || stop.isDestination
+                      ? CupertinoColors.activeGreen
+                      : CupertinoColors.white,
+                ),
+              ),
+              if (!isLast)
+                Container(
+                  width: 2,
+                  height: 24,
+                  color: CupertinoColors.systemGrey4,
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        // 右側テキスト
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(stop.name, style: nameStyle),
+                if (stop.isOrigin || stop.isDestination) ...[
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: CupertinoColors.systemGrey5,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      stop.isOrigin
+                          ? '乗車'
+                          : (stop.isDestination ? '降車' : ''),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: CupertinoColors.inactiveGray,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

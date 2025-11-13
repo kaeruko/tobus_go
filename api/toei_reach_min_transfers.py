@@ -155,7 +155,7 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
     patterns = load_json(busroute_patterns_path)
     bus_edges = 0
     # 路線 → その地点のライン層ノードが必要になったら随時作る
-    def ensure_line_node(phys_id, line_id, display_name):
+    def ensure_line_node(phys_id, line_id, display_name, mode):
         n = ("line", phys_id, line_id)
         if n not in G:
             base = phys[phys_id]
@@ -163,11 +163,12 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
                 n,
                 lat=base["lat"], lon=base["lon"],
                 name=f"{base['name']}@{display_name}",
-                line=line_id, kind="line",
+                line=line_id,
+                kind="line",
                 disp=display_name,                # 表示用（例: 上２３ / 草６４）
-                norm=_norm_line(display_name)     # 検証用キー（例: 上23 / 草64）
+                norm=_norm_line(display_name),    # 検証用キー（例: 上23 / 草64）
+                mode=mode,                        # "bus" or "rail"
             )
-            # 乗る・降りる
             G.add_edge(("phys", phys_id), n, w=BOARD_PENALTY, etype="board")
             G.add_edge(n, ("phys", phys_id), w=0, etype="alight")
         return n
@@ -193,10 +194,11 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
             pid = o.get("odpt:busstopPole") or o.get("odpt:busStopPole")
             if pid in phys: seq.append(pid)
         for a, b in zip(seq, seq[1:]):
-            na = ensure_line_node(a, line_id, display_line)
-            nb = ensure_line_node(b, line_id, display_line)
+            na = ensure_line_node(a, line_id, display_line, "bus")
+            nb = ensure_line_node(b, line_id, display_line, "bus")
             G.add_edge(na, nb, w=BUS_RIDE_COST, etype="ride", line=line_id, mode="bus")
             bus_edges += 1
+
 
     # --- ライン層（鉄道）: railway 単位で ride エッジ（双方向） ---
     railways = load_json(railways_path)
@@ -212,8 +214,8 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
             pass
         seq = [o.get("odpt:station") for o in order if o.get("odpt:station") in phys]
         for a, b in zip(seq, seq[1:]):
-            na = ensure_line_node(a, line_id, display_line)
-            nb = ensure_line_node(b, line_id, display_line)
+            na = ensure_line_node(a, line_id, display_line, "rail")
+            nb = ensure_line_node(b, line_id, display_line, "rail")
             G.add_edge(na, nb, w=RAIL_RIDE_COST, etype="ride", line=line_id, mode="rail")
             G.add_edge(nb, na, w=RAIL_RIDE_COST, etype="ride", line=line_id, mode="rail")
             rail_edges += 2
@@ -301,34 +303,24 @@ def connect_walk_edges_phys(G, radius_m=300):
     return added
 
 
-def nearest_phys(G, lat, lon, prefer_station=True):
+def nearest_phys(G, lat, lon, station_only=False):
     """
-    prefer_station=True の場合、駅とバス停が同距離なら駅を優先
+    station_only=True の場合、駅だけを対象にする
     """
     best = None
     bestd = 1e30
-    best_is_station = False
     
     for n, d in G.nodes(data=True):
         if n[0] != "phys":
             continue
         
-        dist = haversine(lat, lon, d["lat"], d["lon"])
-        is_station = n[1].startswith("odpt.Station:")
+        # station_only の場合、バス停はスキップ
+        if station_only and not n[1].startswith("odpt.Station:"):
+            continue
         
-        # 駅優先ロジック
-        if prefer_station:
-            # 新しい候補が駅で、既存のベストがバス停の場合、距離が1.5倍以内なら駅を選ぶ
-            if is_station and not best_is_station and dist < bestd * 1.5:
-                best, bestd, best_is_station = n, dist, True
-            # 同じ種類（両方駅 or 両方バス停）なら距離で判定
-            elif is_station == best_is_station and dist < bestd:
-                best, bestd, best_is_station = n, dist, is_station
-            # 新しい候補がバス停で、既存のベストが駅の場合は無視
-        else:
-            # 駅優先なしの場合は単純に最短距離
-            if dist < bestd:
-                best, bestd, best_is_station = n, dist, is_station
+        dist = haversine(lat, lon, d["lat"], d["lon"])
+        if dist < bestd:
+            best, bestd = n, dist
     
     return best, bestd
 
