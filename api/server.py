@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Query, HTTPException
 from fastapi.responses import JSONResponse
 import networkx as nx
+from networkx.algorithms.simple_paths import shortest_simple_paths
 
 from toei_reach_min_transfers import (
     build_graph, nearest_phys, haversine, TRANSFER_PENALTY,
@@ -33,7 +34,7 @@ BUSSTOP    = os.getenv("BUSSTOP",   f"{DATA_DIR}/busstop_poles.json")
 BUSROUTE   = os.getenv("BUSROUTE",  f"{DATA_DIR}/busroute_patterns.json")
 STATIONS   = os.getenv("STATIONS",  f"{DATA_DIR}/stations.json")
 RAILWAYS   = os.getenv("RAILWAYS",  f"{DATA_DIR}/railways.json")
-WALK_RAD   = int(os.getenv("WALK_RADIUS", "300"))
+WALK_RAD   = int(os.getenv("WALK_RADIUS", "600"))
 
 app = FastAPI(title="Toei Route API")
 app.add_middleware(
@@ -352,36 +353,107 @@ def route(
 
         return base
 
+    # 複数候補の取得（CLI版と同様の処理）
+    def _segments_by_line(G, path):
+        """連続する同一路線（lineノードの norm）ごとに圧縮して返す。徒歩は 'walk'。"""
+        segs = []
+        cur = None
+        for u, v in zip(path, path[1:]):
+            et = G.edges[u, v].get("etype")
+            if et == "ride" or (v[0] == "line" and et == "board") or (u[0] == "line" and et in ("alight","xfer")):
+                line = None
+                if v[0] == "line":
+                    disp = G.nodes[v].get("disp") or G.nodes[v].get("name") or G.nodes[v].get("line")
+                    line = disp.translate(str.maketrans("０１２３４５６７８９　（）", "0123456789 ()")).replace(" ", "") if disp else None
+                elif u[0] == "line":
+                    disp = G.nodes[u].get("disp") or G.nodes[u].get("name") or G.nodes[u].get("line")
+                    line = disp.translate(str.maketrans("０１２３４５６７８９　（）", "0123456789 ()")).replace(" ", "") if disp else None
+                if line:
+                    if cur and cur["kind"] == "line" and cur["name"] == line:
+                        cur["edges"] += 1
+                    else:
+                        if cur: segs.append(cur)
+                        cur = {"kind":"line", "name": line, "edges": 1}
+            elif et == "walk":
+                if cur and cur["kind"] == "walk":
+                    cur["edges"] += 1
+                else:
+                    if cur: segs.append(cur)
+                    cur = {"kind":"walk", "name":"walk", "edges": 1}
+        if cur: segs.append(cur)
+        return segs
+
+    def _sig_from_segments(segs):
+        # 同じライン構成（徒歩は除く）は同一候補とみなして重複排除
+        return tuple(s["name"] for s in segs if s["kind"]=="line")
+
+    K = 3
+    cands = []
+    seen = set()
+
     try:
-        path = nx.shortest_path(G, a_phys, b_phys, weight=weight_func)
+        for path_k in shortest_simple_paths(G, a_phys, b_phys, weight=weight_func):
+            segs_by_line = _segments_by_line(G, path_k)
+            sig = _sig_from_segments(segs_by_line)
+            if sig in seen:
+                continue
+            seen.add(sig)
+
+            segs = segments_detailed(G, path_k)
+            met = summarize_with_walk(G, path_k, weight_func)
+
+            line_chain = " -> ".join(
+                s["title"] if s.get("kind") in ("bus", "rail") else "walk"
+                for s in segs
+            )
+            dbg_flag = ""
+            is_target = False
+            if ("上２３" in line_chain or "上23" in line_chain) and "大江戸線" in line_chain and "三田線" in line_chain:
+                dbg_flag = " [TARGET 上23→大江戸線→三田線]"
+                is_target = True
+
+            print(
+                f"[DBG] cand raw sig={sig} total={met['total']:.1f} "
+                f"walk_max={met['walk_max_m']:.1f}m walk_total={met['walk_total_m']:.1f}m "
+                f"boards={met['boards']} transfers={met['transfers']} lines={line_chain}{dbg_flag}",
+                flush=True,
+            )
+
+            if is_target:
+                debug_dump_walk_segments(G, path_k, label=str(sig))
+
+            # ★ ここで 300m 超えは即捨てる
+            if met["walk_max_m"] > MAX_WALK_SEG_M:
+                print("[DBG]  -> skip (walk_max_m > MAX_WALK_SEG_M)", flush=True)
+                continue
+
+            line_names = []
+            seen_lines = set()
+            for s in segs:
+                if s.get("kind") in ("bus", "rail"):
+                    lname = s.get("line") or s.get("title")
+                    if lname and lname not in seen_lines:
+                        seen_lines.add(lname)
+                        line_names.append(lname)
+
+            entry = {
+                "id": f"C{len(cands) + 1}",
+                "lines": line_names,
+                **met,
+                "steps": segs,
+            }
+
+            print("[DBG]  -> accept as candidate", flush=True)
+            cands.append(entry)
+            if len(cands) >= K:
+                break
+
     except nx.NetworkXNoPath:
-        return JSONResponse(
-            content={"candidates": []},
-            media_type="application/json; charset=utf-8",
-        )
+        pass
 
-    segs = segments_detailed(G, path)
-    met = summarize_with_walk(G, path, weight_func)
-
-    # 路線リスト（重複除去しつつ順序は保持）
-    line_names = []
-    seen_lines = set()
-    for s in segs:
-        if s.get("kind") in ("bus", "rail"):
-            lname = s.get("line") or s.get("title")
-            if lname and lname not in seen_lines:
-                seen_lines.add(lname)
-                line_names.append(lname)
-
-    entry = {
-        "id": "C1",
-        "lines": line_names,
-        **met,
-        "steps": segs,
-    }
-
+    # 妥協ルートは使わないので、そのまま返す
     return JSONResponse(
-        content={"candidates": [entry]},
+        content={"candidates": cands},
         media_type="application/json; charset=utf-8",
     )
 
@@ -407,3 +479,41 @@ async def details(place_id: str = Query(...)):
     async with httpx.AsyncClient(timeout=10.0) as cl:
         r = await cl.get(url, params=params)
     return JSONResponse(content=r.json(), media_type="application/json; charset=utf-8")
+
+
+def debug_dump_walk_segments(G, path, label=""):
+    print(f"[DBG] --- walk segments detail {label} ---", flush=True)
+
+    seg_idx = 0
+    cur_dist = 0.0
+    start_node = None
+
+    def flush_seg(end_node):
+        nonlocal seg_idx, cur_dist, start_node
+        if cur_dist <= 0 or start_node is None:
+            return
+        start_name = G.nodes[start_node].get("name")
+        end_name = G.nodes[end_node].get("name")
+        print(
+            f"[DBG] walk_seg {seg_idx}: {start_name} -> {end_name} ~{cur_dist:.1f}m",
+            flush=True,
+        )
+        seg_idx += 1
+        cur_dist = 0.0
+        start_node = None
+
+    for u, v in zip(path, path[1:]):
+        et = G.edges[u, v].get("etype")
+        if et == "walk":
+            if cur_dist == 0.0:
+                start_node = u
+            du = G.nodes[u]
+            dv = G.nodes[v]
+            d = haversine(du["lat"], du["lon"], dv["lat"], dv["lon"])
+            cur_dist += d
+        else:
+            if cur_dist > 0.0:
+                flush_seg(u)
+
+    if cur_dist > 0.0:
+        flush_seg(path[-1])

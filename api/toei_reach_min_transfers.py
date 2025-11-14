@@ -504,14 +504,32 @@ def main():
                 continue
             seen.add(sig)
 
-            met = _summarize(G, path_k)
+            met = summarize_with_walk(G, path_k)
+
+            # --- ここからデバッグ ---
+            line_chain = " -> ".join(
+                (s["name"] if s["kind"] == "line" else "walk")
+                for s in segs
+            )
+            dbg_flag = ""
+            if ("上23" in line_chain or "上２３" in line_chain) and "大江戸線" in line_chain and "三田線" in line_chain:
+                dbg_flag = " [TARGET 上23→大江戸線→三田線]"
+            print(
+                f"[DBG] cand raw sig={sig} total={met['total']:.1f} "
+                f"walk_max={met['walk_max_m']:.1f}m walk_total={met['walk_total_m']:.1f}m "
+                f"boards={met['boards']} transfers={met['transfers']} lines={line_chain}{dbg_flag}"
+            )
+            # --- ここまでデバッグ ---
+
             entry = (path_k, segs, met)
 
             if met["walk_max_m"] <= MAX_WALK_SEG_M:
+                print("[DBG]  -> accept as candidate")
                 cands.append(entry)
                 if len(cands) >= K:
                     break
             else:
+                print("[DBG]  -> put into backup (walk_max_m > MAX_WALK_SEG_M)")
                 backup.append(entry)
 
     except nx.NetworkXNoPath:
