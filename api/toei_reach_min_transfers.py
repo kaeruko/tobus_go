@@ -571,9 +571,15 @@ def main():
 
     # 表示（常にフル）
     def label(n):
-        d = G.nodes[n]
-        if n[0] == "phys": return f"phys|{d.get('name','')}"
-        return f"line|{d.get('name','')}"
+        if not isinstance(n, tuple):
+            return str(n)
+        kind = n[0]
+        node = G.nodes[n]
+        name = node.get("name") or node.get("disp") or node.get("line") or "?"
+        if node.get("bus_hub"):  # 圧縮時に bus_hub=True 付けておく
+            return f"hub|{name}"
+        return f"{kind}|{name}"
+
     print("[OK] 経路 weight=", sum(G.edges[u,v]["w"] for u,v in zip(path, path[1:])))
     print("[PATH]", " -> ".join(label(n) for n in path))
 
