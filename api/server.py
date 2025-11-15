@@ -11,11 +11,18 @@ from fastapi import Query, HTTPException
 from fastapi.responses import JSONResponse
 import networkx as nx
 from networkx.algorithms.simple_paths import shortest_simple_paths
+from route_common import find_k_candidates
+from toei_reach_min_transfers import MAX_WALK_SEG_M  # もしくは server 側に定数コピーでもOK
 
 from toei_reach_min_transfers import (
-    build_graph, nearest_phys, haversine, TRANSFER_PENALTY,
+    build_graph, nearest_phys, haversine, build_walk_capped_graph, TRANSFER_PENALTY,
     WALK_COST, WALK_SPEED_M_PER_MIN, MAX_WALK_SEG_M,
 )
+from networkx.algorithms.simple_paths import shortest_simple_paths
+
+from fastapi import Query, HTTPException
+from fastapi.responses import JSONResponse
+from networkx.algorithms.simple_paths import shortest_simple_paths
 
 from dotenv import load_dotenv
 
@@ -290,10 +297,97 @@ async def _startup():
     # ここを追加：素の重みを保存しておく
     for u, v, data in G.edges(data=True):
         data["base_w"] = float(data.get("w", 0.0))
+from networkx.algorithms.simple_paths import shortest_simple_paths
 
-@app.get("/health")
-def health():
-    return JSONResponse(content={"ok": True, "stats": STATS}, media_type="application/json; charset=utf-8")
+# ---------- 重み関数（時間ベース + 鉄道優遇） ----------
+def make_weight_func(G, A_ID: str, pref: str):
+    """
+    G: グラフ
+    A_ID: 出発 phys ノードの ID (a_phys[1])
+    pref: "fewTransfers" / "shortTime"
+    """
+    def _w(u, v, data):
+        base = float(data.get("base_w", data.get("w", 0.0)))
+        etype = data.get("etype")
+
+        # どのモードか（bus / rail / None）
+        node = None
+        if u[0] == "line":
+            node = u
+        elif v[0] == "line":
+            node = v
+        mode = G.nodes[node].get("mode") if node else None
+
+        # 最初の乗車だけ無料
+        if etype == "board" and u == ("phys", A_ID):
+            return 0.0
+
+        cost = base
+
+        # 「少ない乗換」モードのときは board/xfer に追加ペナルティ
+        if pref == "fewTransfers" and etype in ("board", "xfer") and not (
+            etype == "board" and u == ("phys", A_ID)
+        ):
+            cost += TRANSFER_PENALTY
+
+        # 鉄道はかなり優遇（時間も早い想定）
+        if mode == "rail":
+            factor = 0.5 if pref == "shortTime" else 0.6
+            if etype in ("ride", "board", "xfer"):
+                cost *= factor
+
+        # バス乗換は少し重めに
+        if mode == "bus" and etype in ("board", "xfer") and not (
+            etype == "board" and u == ("phys", A_ID)
+        ):
+            cost *= 1.2
+
+        return cost
+
+    return _w
+
+
+# ---------- デバッグ用（生の path から鉄道有無・路線チェーンを取る） ----------
+def has_rail(G, path):
+    for u, v in zip(path, path[1:]):
+        for n in (u, v):
+            if n[0] == "line" and G.nodes[n].get("mode") == "rail":
+                return True
+    return False
+
+
+def line_chain(G, path):
+    chain = []
+    seen = set()
+    for n in path:
+        if n[0] != "line":
+            continue
+        disp = (
+            G.nodes[n].get("disp")
+            or G.nodes[n].get("name")
+            or G.nodes[n].get("line")
+        )
+        if disp in seen:
+            continue
+        seen.add(disp)
+        chain.append(disp)
+    return " -> ".join(chain)
+
+
+# ---------- ライン構成シグネチャ（重複排除用） ----------
+def route_signature(steps):
+    """
+    steps: segments_detailed(G, path) の結果
+    バス/鉄道の line/title だけを抜き出してタプルにしたものをシグネチャとする。
+    例: ("上２３", "浅草線", "新宿線", "三田線")
+    """
+    sig = []
+    for s in steps:
+        if s.get("kind") in ("bus", "rail"):
+            lname = s.get("line") or s.get("title")
+            if lname:
+                sig.append(lname)
+    return tuple(sig)
 
 @app.get("/route")
 def route(
@@ -303,14 +397,24 @@ def route(
     blon: float = Query(...),
     pref: str = Query("fewTransfers"),
 ):
+    """
+    /route:
+      - グラフ G だけを使う（H/T* は使わない）
+      - base_w ベースの時間コスト + 鉄道かなり優遇
+      - 徒歩1セグメントは MAX_WALK_SEG_M 以内だけ正式候補
+      - rail を含む候補があれば rail だけを優先して返す
+      - ライン構成が同じ候補（上23→浅草線→新宿線→三田線 等）は1つにまとめる
+    """
     if G is None:
         raise HTTPException(500, "graph not ready")
 
-    # --- 近傍ノード探索 ---
+    # ---------- 近傍ノード ----------
+    # B: まずは駅だけ見る。500mより遠かったらバス停も含めて探し直し
     b_phys, bd = nearest_phys(G, blat, blon, station_only=True)
     if not b_phys or bd > 500:
         b_phys, bd = nearest_phys(G, blat, blon, station_only=False)
 
+    # A: 出発はバス停も駅もあり
     a_phys, ad = nearest_phys(G, alat, alon, station_only=False)
 
     if not a_phys or not b_phys:
@@ -327,133 +431,120 @@ def route(
 
     A_ID = a_phys[1]
 
-    def weight_func(u, v, data):
-        # 基本は build_graph で決めた"時間コスト"
-        base = float(data.get("base_w", data.get("w", 0.0)))
-        etype = data.get("etype")
+    # ---------- 重み関数（時間ベース + 鉄道優遇） ----------
+    weight_func = make_weight_func(G, A_ID, pref)
 
-        # 最初の乗車だけは無料（出発地点からの board）
-        if etype == "board" and u == ("phys", A_ID):
-            return 0.0
+    # ---------- デバッグ用: 生 base_w での上位経路 ----------
+    print("[DBG] raw G top 10 by base_w")
+    raw_gen = shortest_simple_paths(
+        G,
+        a_phys,
+        b_phys,
+        weight=lambda u, v, d: float(d.get("base_w", d.get("w", 0.0))),
+    )
+    for idx, path_raw in enumerate(raw_gen):
+        met_raw = summarize_with_walk(
+            G,
+            path_raw,
+            weight_func=lambda u, v, e: float(e.get("base_w", e.get("w", 0.0))),
+        )
+        print(
+            f"[RAW {idx:02d}] transfers={met_raw['transfers']} "
+            f"rail={has_rail(G, path_raw)} total={met_raw['total']:.1f} "
+            f"walk_max={met_raw['walk_max_m']:.1f}m "
+            f"| lines: {line_chain(G, path_raw)}",
+            flush=True,
+        )
+        if idx >= 9:
+            break
 
-        # pref=shortTime なら、鉄道をちょい優遇
-        if pref == "shortTime":
-            node = None
-            if u[0] == "line":
-                node = u
-            elif v[0] == "line":
-                node = v
+    # ---------- 候補探索（G だけ） ----------
+    K = 10          # API から返す候補数
+    MAX_PATHS = 200  # 無限ループ防止用
 
-            if node:
-                mode = G.nodes[node].get("mode")
-                if mode == "rail":
-                    # 乗り換え/乗車の両方を少しだけ割引
-                    if etype in ("ride", "board", "xfer"):
-                        return base * 0.8
+    candidates: list[dict] = []
+    backup: list[dict] = []
+    seen_sigs: set[tuple] = set()
 
-        return base
+    gen = shortest_simple_paths(G, a_phys, b_phys, weight=weight_func)
 
-    # 複数候補の取得（CLI版と同様の処理）
-    def _segments_by_line(G, path):
-        """連続する同一路線（lineノードの norm）ごとに圧縮して返す。徒歩は 'walk'。"""
-        segs = []
-        cur = None
-        for u, v in zip(path, path[1:]):
-            et = G.edges[u, v].get("etype")
-            if et == "ride" or (v[0] == "line" and et == "board") or (u[0] == "line" and et in ("alight","xfer")):
-                line = None
-                if v[0] == "line":
-                    disp = G.nodes[v].get("disp") or G.nodes[v].get("name") or G.nodes[v].get("line")
-                    line = disp.translate(str.maketrans("０１２３４５６７８９　（）", "0123456789 ()")).replace(" ", "") if disp else None
-                elif u[0] == "line":
-                    disp = G.nodes[u].get("disp") or G.nodes[u].get("name") or G.nodes[u].get("line")
-                    line = disp.translate(str.maketrans("０１２３４５６７８９　（）", "0123456789 ()")).replace(" ", "") if disp else None
-                if line:
-                    if cur and cur["kind"] == "line" and cur["name"] == line:
-                        cur["edges"] += 1
-                    else:
-                        if cur: segs.append(cur)
-                        cur = {"kind":"line", "name": line, "edges": 1}
-            elif et == "walk":
-                if cur and cur["kind"] == "walk":
-                    cur["edges"] += 1
-                else:
-                    if cur: segs.append(cur)
-                    cur = {"kind":"walk", "name":"walk", "edges": 1}
-        if cur: segs.append(cur)
-        return segs
+    for idx, path in enumerate(gen):
+        if idx >= MAX_PATHS:
+            break
 
-    def _sig_from_segments(segs):
-        # 同じライン構成（徒歩は除く）は同一候補とみなして重複排除
-        return tuple(s["name"] for s in segs if s["kind"]=="line")
+        # 区間分解（bus / rail / walk ごとのまとまり）
+        segs = segments_detailed(G, path)
 
-    K = 3
-    cands = []
-    seen = set()
+        # ライン構成のシグネチャ（例: ("上２３","浅草線","新宿線","三田線")）
+        sig = route_signature(segs)
 
-    try:
-        for path_k in shortest_simple_paths(G, a_phys, b_phys, weight=weight_func):
-            segs_by_line = _segments_by_line(G, path_k)
-            sig = _sig_from_segments(segs_by_line)
-            if sig in seen:
-                continue
-            seen.add(sig)
+        # 同じライン構成（上23→浅草線→新宿線→三田線 等）は 1 回きり
+        if sig in seen_sigs:
+            continue
+        seen_sigs.add(sig)
 
-            segs = segments_detailed(G, path_k)
-            met = summarize_with_walk(G, path_k, weight_func)
+        # メトリクス集計（total / transfers / walk_max_m / ...）
+        met = summarize_with_walk(G, path, weight_func)
 
-            line_chain = " -> ".join(
-                s["title"] if s.get("kind") in ("bus", "rail") else "walk"
-                for s in segs
-            )
-            dbg_flag = ""
-            is_target = False
-            if ("上２３" in line_chain or "上23" in line_chain) and "大江戸線" in line_chain and "三田線" in line_chain:
-                dbg_flag = " [TARGET 上23→大江戸線→三田線]"
-                is_target = True
+        rail_flag = any(s.get("kind") == "rail" for s in segs)
+        lc = " -> ".join(
+            s["title"] if s.get("kind") in ("bus", "rail") else "walk"
+            for s in segs
+        )
 
-            print(
-                f"[DBG] cand raw sig={sig} total={met['total']:.1f} "
-                f"walk_max={met['walk_max_m']:.1f}m walk_total={met['walk_total_m']:.1f}m "
-                f"boards={met['boards']} transfers={met['transfers']} lines={line_chain}{dbg_flag}",
-                flush=True,
-            )
+        print(
+            f"[DBG-CAND {idx:02d}] rail={rail_flag} total={met['total']:.1f} "
+            f"transfers={met['transfers']} walk_max={met['walk_max_m']:.1f}m "
+            f"| lines={lc}",
+            flush=True,
+        )
 
-            if is_target:
-                debug_dump_walk_segments(G, path_k, label=str(sig))
+        # ライン名（UI 用: 重複しないように）
+        line_names = []
+        seen_lines = set()
+        for s in segs:
+            if s.get("kind") in ("bus", "rail"):
+                lname = s.get("line") or s.get("title")
+                if lname and lname not in seen_lines:
+                    seen_lines.add(lname)
+                    line_names.append(lname)
 
-            # ★ ここで 300m 超えは即捨てる
-            if met["walk_max_m"] > MAX_WALK_SEG_M:
-                print("[DBG]  -> skip (walk_max_m > MAX_WALK_SEG_M)", flush=True)
-                continue
+        entry = {
+            "id": f"C{len(candidates) + len(backup) + 1}",
+            "lines": line_names,
+            **met,
+            "steps": segs,
+        }
 
-            line_names = []
-            seen_lines = set()
-            for s in segs:
-                if s.get("kind") in ("bus", "rail"):
-                    lname = s.get("line") or s.get("title")
-                    if lname and lname not in seen_lines:
-                        seen_lines.add(lname)
-                        line_names.append(lname)
-
-            entry = {
-                "id": f"C{len(cands) + 1}",
-                "lines": line_names,
-                **met,
-                "steps": segs,
-            }
-
-            print("[DBG]  -> accept as candidate", flush=True)
-            cands.append(entry)
-            if len(cands) >= K:
+        # 徒歩 1 セグメント MAX_WALK_SEG_M 以内なら正式候補、それ以外は backup
+        if met["walk_max_m"] <= MAX_WALK_SEG_M:
+            candidates.append(entry)
+            if len(candidates) >= K:
                 break
+        else:
+            backup.append(entry)
 
-    except nx.NetworkXNoPath:
-        pass
+    # 候補が1つもない場合は backup から時間順で拾う
+    if not candidates and backup:
+        backup_sorted = sorted(backup, key=lambda e: e["total"])
+        candidates = backup_sorted[:K]
 
-    # 妥協ルートは使わないので、そのまま返す
+    # ---------- 鉄道優先フィルタ ----------
+    def cand_has_rail(c):
+        return any(s.get("kind") == "rail" for s in c.get("steps", []))
+
+    rail_cands = [c for c in candidates if cand_has_rail(c)]
+
+    # rail を含む候補があるなら rail だけに絞る
+    if rail_cands:
+        rail_cands = sorted(rail_cands, key=lambda e: e["total"])
+        print(f"[DBG] rail candidates exist, choose top {K}", flush=True)
+        candidates = rail_cands[:K]
+    else:
+        print("[DBG] no rail candidate in final list", flush=True)
+
     return JSONResponse(
-        content={"candidates": cands},
+        content={"candidates": candidates},
         media_type="application/json; charset=utf-8",
     )
 

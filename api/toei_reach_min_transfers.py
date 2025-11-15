@@ -22,6 +22,7 @@
 import json, argparse, math, sys
 import networkx as nx
 from networkx.algorithms.simple_paths import shortest_simple_paths
+from route_common import find_k_candidates
 
 # -------------------- チューニング定数 --------------------
 # 時間ベースのコスト設計（分単位で設定）
@@ -31,8 +32,101 @@ WALK_SPEED_M_PER_MIN = 80.0  # 1分 ≒ 80m で計算
 WALK_COST = 1.0        # 1分歩く = 1.0 コスト
 TRANSFER_PENALTY = 4.0 # 乗り換え1回 ≒ 4分ペナルティ
 
-MAX_WALK_SEG_M = 300.0  # 1区間の徒歩は 300m まで許容
+MAX_WALK_SEG_M = 600.0  # 1区間の徒歩は 300m まで許容
 
+
+# ===== ここから: 上位3候補を出すロジック =====
+def _line_norm(s: str) -> str:
+    tbl = str.maketrans("０１２３４５６７８９　（）", "0123456789 ()")
+    return (s or "").translate(tbl).replace(" ", "")
+
+def _segments_by_line(G, path):
+    """連続する同一路線（lineノードの norm）ごとに圧縮して返す。徒歩は 'walk'。"""
+    segs = []
+    cur = None
+    for u, v in zip(path, path[1:]):
+        et = G.edges[u, v].get("etype")
+        if et == "ride" or (v[0] == "line" and et == "board") or (u[0] == "line" and et in ("alight","xfer")):
+            line = None
+            if v[0] == "line":
+                line = _line_norm(G.nodes[v].get("disp") or G.nodes[v].get("name") or G.nodes[v].get("line"))
+            elif u[0] == "line":
+                line = _line_norm(G.nodes[u].get("disp") or G.nodes[u].get("name") or G.nodes[u].get("line"))
+            if line:
+                if cur and cur["kind"] == "line" and cur["name"] == line:
+                    cur["edges"] += 1
+                else:
+                    if cur: segs.append(cur)
+                    cur = {"kind":"line", "name": line, "edges": 1}
+        elif et == "walk":
+            if cur and cur["kind"] == "walk":
+                cur["edges"] += 1
+            else:
+                if cur: segs.append(cur)
+                cur = {"kind":"walk", "name":"walk", "edges": 1}
+    if cur: segs.append(cur)
+    return segs
+
+def _sig_from_segments(segs): # 同じライン構成（徒歩は除く）は同一候補とみなして重複排除
+    return tuple(s["name"] for s in segs if s["kind"]=="line")  
+
+def summarize_with_walk(G, path):
+    rides = walks = boards = xfers = 0
+    total = 0.0
+
+    walk_w_total = 0.0
+    walk_w_cur_seg = 0.0
+    walk_w_max_seg = 0.0
+
+    for u, v in zip(path, path[1:]):
+        e = G.edges[u, v]
+        w = e["w"]
+        total += w
+        t = e.get("etype")
+
+        if t == "ride":
+            rides += 1
+        if t == "walk":
+            walks += 1
+            walk_w_total += w
+            walk_w_cur_seg += w
+        else:
+            if walk_w_cur_seg > 0:
+                walk_w_max_seg = max(walk_w_max_seg, walk_w_cur_seg)
+                walk_w_cur_seg = 0.0
+
+        if t == "board":
+            boards += 1
+        if t == "xfer":
+            xfers += 1
+
+    if walk_w_cur_seg > 0:
+        walk_w_max_seg = max(walk_w_max_seg, walk_w_cur_seg)
+
+    # 重み → 分 → m に変換
+    walk_total_min = walk_w_total / WALK_COST
+    walk_max_min = walk_w_max_seg / WALK_COST
+    walk_total_m = walk_total_min * WALK_SPEED_M_PER_MIN
+    walk_max_m = walk_max_min * WALK_SPEED_M_PER_MIN
+
+    transfers = max(0, boards - 1) + xfers
+
+    return dict(
+        total=total,
+        rides=rides,
+        walks=walks,
+        boards=boards,
+        xfers=xfers,
+        transfers=transfers,
+        walk_total_m=walk_total_m,
+        walk_max_m=walk_max_m,
+    )
+
+
+def sig_from_segments_cli(segs):
+    # いまの _sig_from_segments と同じ意味でOK
+    # kind=="line" の name の並びをタプルにする
+    return tuple(s["name"] for s in segs if s["kind"] == "line")
 
 
 def _norm_line(s):
@@ -59,34 +153,28 @@ def normalize_title(s: str) -> str:
 
     return t
 
-def tie_same_place_busstops(G, radius_m=80):
-    # "phys"ノードだけ対象。dc:title相当の name を使う
+def tie_same_place_busstops(G, radius_m=150):
     by_name = {}
     for n, d in G.nodes(data=True):
-        if n[0] != "phys": continue
-        key = normalize_title(d.get("name",""))
-        by_name.setdefault(key, []).append((n,d))
+        if n[0] != "phys":
+            continue
+        key = normalize_title(d.get("name", ""))
+        by_name.setdefault(key, []).append((n, d))
 
     added = 0
     for name, nodes in by_name.items():
-        # if "春日" in name:
-        #     print("[DBG] group name:", name)
-        #     print("[DBG]  nodes:", [(n, d["lat"], d["lon"]) for n, d in nodes])
-
-        # 近接なものだけ0コストで相互接続
         for i in range(len(nodes)):
             ni, di = nodes[i]
-            for j in range(i+1, len(nodes)):
+            for j in range(i + 1, len(nodes)):
                 nj, dj = nodes[j]
-                # 駅とバス停など異種も含めたいならここでフィルタ
                 dist = haversine(di["lat"], di["lon"], dj["lat"], dj["lon"])
                 if dist <= radius_m:
-                    # if "春日" in name:
-                    #     print(f"[DBG] tie {di['name']} ↔ {dj['name']} ({dist:.1f}m)")
+                    minutes = max(0.25, dist / WALK_SPEED_M_PER_MIN)
+                    w = WALK_COST * minutes
                     if not G.has_edge(ni, nj):
-                        G.add_edge(ni, nj, w=0, etype="walk"); added += 1
+                        G.add_edge(ni, nj, w=w, etype="walk", meters=dist); added += 1
                     if not G.has_edge(nj, ni):
-                        G.add_edge(nj, ni, w=0, etype="walk"); added += 1
+                        G.add_edge(nj, ni, w=w, etype="walk", meters=dist); added += 1
     return added
 
 
@@ -179,24 +267,35 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
                 or pat.get("odpt:busStopPoleOrder")
                 or [])
 
+    # 置き換え: バスの line_id は「系統ファミリ」キーにする
     for pat in patterns:
-        if not is_toei(pat.get("odpt:operator")): continue
-        line_id = pat.get("odpt:pattern") or get_id(pat) 
-        display_line = (pat.get("dc:title") or line_id).split()[0]
+        if not is_toei(pat.get("odpt:operator")): 
+            continue
+
+        raw_id = pat.get("odpt:pattern") or get_id(pat)
+        disp = (pat.get("dc:title") or raw_id).split()[0]  # 例: "上２３ 出入" -> "上２３"
+        norm = _norm_line(disp)                             # 例: "上23"
+        family_key = f"bus:{norm}"                          # ← ここが line_id
+
         orders = bus_orders(pat)
         try:
             orders = sorted(orders, key=lambda x: x.get("odpt:index", 0))
         except Exception:
             pass
+
         seq = []
         for o in orders:
             pid = o.get("odpt:busstopPole") or o.get("odpt:busStopPole")
-            if pid in phys: seq.append(pid)
+            if pid in phys:
+                seq.append(pid)
+
         for a, b in zip(seq, seq[1:]):
-            na = ensure_line_node(a, line_id, display_line, "bus")
-            nb = ensure_line_node(b, line_id, display_line, "bus")
-            G.add_edge(na, nb, w=BUS_RIDE_COST, etype="ride", line=line_id, mode="bus")
-            bus_edges += 1
+            na = ensure_line_node(a, family_key, disp, "bus")
+            nb = ensure_line_node(b, family_key, disp, "bus")
+            if not G.has_edge(na, nb):
+                G.add_edge(na, nb, w=BUS_RIDE_COST, etype="ride", line=family_key, mode="bus")
+                bus_edges += 1
+
 
 
     # --- ライン層（鉄道）: railway 単位で ride エッジ（双方向） ---
@@ -219,24 +318,6 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
             G.add_edge(nb, na, w=RAIL_RIDE_COST, etype="ride", line=line_id, mode="rail")
             rail_edges += 2
 
-    # --- 同一点での路線乗換（ライン層ノード間を直結） ---
-    xfer_edges = 0
-    # 物理id -> その地点に存在するライン層ノード一覧
-    phys_to_lines = {}
-    for n, d in G.nodes(data=True):
-        if n[0] == "line":
-            phys_to_lines.setdefault(n[1], []).append(n)
-    for pid, layers in phys_to_lines.items():
-        if len(layers) <= 1: continue
-        for i in range(len(layers)):
-            for j in range(len(layers)):
-                if i == j: continue
-                a, b = layers[i], layers[j]
-                if G.nodes[a].get("line") == G.nodes[b].get("line"): continue
-                if not G.has_edge(a, b):
-                    G.add_edge(a, b, w=TRANSFER_PENALTY, etype="xfer")
-                    xfer_edges += 1
-
     # --- 物理ノード間の徒歩 ---
     # 1) ふつうの「近い物理ノード」同士を徒歩で結ぶ（〜300m）
     walk_edges = connect_walk_edges_phys(G, radius_m=walk_radius)
@@ -245,74 +326,73 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
     #   春日（三田）↔春日（大江戸）が 136m くらい離れてるので、半径は 150m くらいに上げる
     walk_edges += tie_same_place_busstops(G, radius_m=150)
 
-    # デバッグ: 春日駅と水道橋駅の接続を確認
-    # print("\n[DBG] === 春日駅の詳細 ===")
-    # for n, d in G.nodes(data=True):
-    #     if n[0] == "phys" and "春日" in d.get("name", ""):
-    #         if n[1].startswith("odpt.Station"):  # 駅だけ表示
-    #             print(f"物理ノード: {n[1]}")
-    #             print(f"  name: {d.get('name')}")
-    #             print(f"  座標: ({d['lat']}, {d['lon']})")
-    #             # このノードに接続されているライン層ノードを確認
-    #             out_count = 0
-    #             for successor in G.successors(n):
-    #                 if successor[0] == "line":
-    #                     sd = G.nodes[successor]
-    #                     print(f"  → ライン層: {sd.get('disp')} (line={sd.get('line')})")
-    #                     out_count += 1
-    #             if out_count == 0:
-    #                 print(f"  ⚠️ ライン層ノードが無い！")
-
-    # print("\n[DBG] === 水道橋まわり ===")
-    # for n, d in G.nodes(data=True):
-    #     if n[0] == "phys" and "水道橋" in d.get("name", ""):
-    #         print(f"phys: {n[1]}")
-    #         print(f"  name: {d.get('name')}")
-    #         print(f"  座標: ({d['lat']}, {d['lon']})")
-    #         for succ in G.successors(n):
-    #             if succ[0] == "line":
-    #                 sd = G.nodes[succ]
-    #                 print(f"  → ライン層: {sd.get('disp')} (line={sd.get('line')}, mode={sd.get('mode')})")
-
-
     # 基本の重みを base_w として保存
     for u, v, data in G.edges(data=True):
         data["base_w"] = float(data.get("w", 0.0))
 
+
+    # build_graph の最後に追加（toei_reach_min_transfers.py）
+    cnt_bus_station = 0
+    for u, v, e in G.edges(data=True):
+        if e.get("etype") == "walk" and u[0] == v[0] == "phys":
+            is_u_sta = _is_station_id(u[1]); is_v_sta = _is_station_id(v[1])
+            if is_u_sta ^ is_v_sta:  # どちらか片方だけ駅
+                cnt_bus_station += 1
+    print(f"[DBG] walk edges bus↔station = {cnt_bus_station}")
+
     return G, {
         "bus_ride":  bus_edges,
         "rail_ride": rail_edges,
-        "xfer":      xfer_edges,
         "walk":      walk_edges,
     }
 
+def _is_station_id(pid: str) -> bool:
+    return isinstance(pid, str) and pid.startswith("odpt.Station:")
+
 def connect_walk_edges_phys(G, radius_m=300):
+    """
+    物理ノード間の徒歩を“種別ごと”に張る。
+      - バス↔バス:   上限 min(radius_m, 180m)
+      - バス↔駅  :   上限 min(radius_m, 600m)  ← 駅に触れやすくする
+      - 駅  ↔駅  :   上限 min(radius_m, 350m)
+    """
+    def pair_radius(a_is_sta, b_is_sta):
+        if a_is_sta and b_is_sta:  # 駅-駅
+            return min(radius_m, 350.0)
+        if a_is_sta or b_is_sta:   # バス-駅
+            return min(radius_m, 600.0)
+        return min(radius_m, 180.0)  # バス-バス
+
+    # 粗いグリッドで候補探索
     BIN_DEG = max(0.001, radius_m / 111000 * 1.2)
     bins = {}
     def key(lat, lon): return (int(lat // BIN_DEG), int(lon // BIN_DEG))
     phys_nodes = [(n, d) for n, d in G.nodes(data=True) if n[0] == "phys"]
     for n, d in phys_nodes:
         bins.setdefault(key(d["lat"], d["lon"]), []).append((n, d))
+
     def cand(lat, lon):
         i, j = key(lat, lon)
         for di in (-1, 0, 1):
             for dj in (-1, 0, 1):
                 for item in bins.get((i + di, j + dj), []):
                     yield item
+
     added = 0
     for n, d in phys_nodes:
+        n_is_sta = _is_station_id(n[1])
         for m, dm in cand(d["lat"], d["lon"]):
             if n == m:
                 continue
+            rad = pair_radius(n_is_sta, _is_station_id(m[1]))
             dist = haversine(d["lat"], d["lon"], dm["lat"], dm["lon"])
-            if dist <= radius_m:
-                # 距離を時間（分）に変換
-                walk_minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
-                w = WALK_COST * walk_minutes
+            if dist <= rad:
+                minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
+                w = WALK_COST * minutes
                 if not G.has_edge(n, m):
-                    G.add_edge(n, m, w=w, etype="walk"); added += 1
+                    G.add_edge(n, m, w=w, etype="walk", meters=dist); added += 1
                 if not G.has_edge(m, n):
-                    G.add_edge(m, n, w=w, etype="walk"); added += 1
+                    G.add_edge(m, n, w=w, etype="walk", meters=dist); added += 1
     return added
 
 
@@ -337,6 +417,58 @@ def nearest_phys(G, lat, lon, station_only=False):
     
     return best, bestd
 
+def find_k_candidates(G, a_phys, b_phys, K=3):
+    """
+    G 上で a_phys -> b_phys の最短経路を列挙しつつ、
+    - 路線並び(sig)が被るものは 1 本にまとめる
+    - 徒歩1セグメントの距離が MAX_WALK_SEG_M 以内のものを優先採用
+    をして、最大 K 個返す。
+
+    返り値: [{"path": path_k, "segments": segs, "metrics": met}, ...]
+    """
+    # ===== ここから: 上位3候補を出すロジック =====
+
+    # weight_func: 経路探索用の重み（CLI は単純に data["w"] ）
+    def weight_func(u, v, data):
+        return data["w"]
+
+    # summarize: path -> metrics
+    def summarize_cli(G_, path_):
+        return summarize_with_walk(G_, path_)
+
+    # K 候補を共通エンジンで取得
+    cands = find_k_candidates(
+        G,
+        a_phys,
+        b_phys,
+        weight_func=weight_func,
+        make_segments=_segments_by_line,
+        make_signature=sig_from_segments_cli,
+        summarize=summarize_cli,
+        max_walk_seg_m=MAX_WALK_SEG_M,
+        k=3,
+        debug=True,  # ここ true で [DBG-K] ログが出る
+    )
+
+    if cands:
+        print("[CANDIDATES] top 3 by total weight (distinct line sequences)")
+        for i, c in enumerate(cands, 1):
+            pth = c["path"]
+            segs = c["segments"]
+            met = c["metrics"]
+
+            line_chain = " -> ".join(
+                (s["name"] if s["kind"] == "line" else "walk")
+                + (f"({s['edges']})" if s["edges"] > 1 else "")
+                for s in segs
+            )
+            print(
+                f"[C{i}] total={met['total']} rides={met['rides']} walks={met['walks']} "
+                f"boards={met['boards']} transfers={met['transfers']} | lines: {line_chain}"
+            )
+    return cands
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--busstop-poles", required=True)
@@ -354,7 +486,7 @@ def main():
 
     G, st = build_graph(args.busstop_poles, args.busroute_patterns, args.stations, args.railways, walk_radius=args.walk)
     print(f"[INFO] nodes={G.number_of_nodes()} edges={G.number_of_edges()} | "
-          f"bus_ride={st['bus_ride']} rail_ride={st['rail_ride']} xfer_edges={st['xfer']} walk_edges={st['walk']}")
+          f"bus_ride={st['bus_ride']} rail_ride={st['rail_ride']} walk_edges={st['walk']}")
 
     # A: 出発はバス停も駅もあり
     a_phys, ad = nearest_phys(G, alat, alon, station_only=False)
@@ -403,96 +535,7 @@ def main():
     rides = sum(1 for u,v in zip(path, path[1:]) if G.edges[u,v].get("etype")=="ride")
     print(f"[INFO] rides={rides} walks={walks} boards={boards} xfers={xfers} -> transfers={transfers}")
 
-    # ===== ここから: 上位3候補を出すロジック =====
-    def _line_norm(s: str) -> str:
-        tbl = str.maketrans("０１２３４５６７８９　（）", "0123456789 ()")
-        return (s or "").translate(tbl).replace(" ", "")
-
-    def _segments_by_line(G, path):
-        """連続する同一路線（lineノードの norm）ごとに圧縮して返す。徒歩は 'walk'。"""
-        segs = []
-        cur = None
-        for u, v in zip(path, path[1:]):
-            et = G.edges[u, v].get("etype")
-            if et == "ride" or (v[0] == "line" and et == "board") or (u[0] == "line" and et in ("alight","xfer")):
-                line = None
-                if v[0] == "line":
-                    line = _line_norm(G.nodes[v].get("disp") or G.nodes[v].get("name") or G.nodes[v].get("line"))
-                elif u[0] == "line":
-                    line = _line_norm(G.nodes[u].get("disp") or G.nodes[u].get("name") or G.nodes[u].get("line"))
-                if line:
-                    if cur and cur["kind"] == "line" and cur["name"] == line:
-                        cur["edges"] += 1
-                    else:
-                        if cur: segs.append(cur)
-                        cur = {"kind":"line", "name": line, "edges": 1}
-            elif et == "walk":
-                if cur and cur["kind"] == "walk":
-                    cur["edges"] += 1
-                else:
-                    if cur: segs.append(cur)
-                    cur = {"kind":"walk", "name":"walk", "edges": 1}
-        if cur: segs.append(cur)
-        return segs
-
-    def summarize_with_walk(G, path):
-        rides = walks = boards = xfers = 0
-        total = 0.0
-
-        walk_w_total = 0.0
-        walk_w_cur_seg = 0.0
-        walk_w_max_seg = 0.0
-
-        for u, v in zip(path, path[1:]):
-            e = G.edges[u, v]
-            w = e["w"]
-            total += w
-            t = e.get("etype")
-
-            if t == "ride":
-                rides += 1
-            if t == "walk":
-                walks += 1
-                walk_w_total += w
-                walk_w_cur_seg += w
-            else:
-                if walk_w_cur_seg > 0:
-                    walk_w_max_seg = max(walk_w_max_seg, walk_w_cur_seg)
-                    walk_w_cur_seg = 0.0
-
-            if t == "board":
-                boards += 1
-            if t == "xfer":
-                xfers += 1
-
-        if walk_w_cur_seg > 0:
-            walk_w_max_seg = max(walk_w_max_seg, walk_w_cur_seg)
-
-        # 重み → 分 → m に変換
-        walk_total_min = walk_w_total / WALK_COST
-        walk_max_min = walk_w_max_seg / WALK_COST
-        walk_total_m = walk_total_min * WALK_SPEED_M_PER_MIN
-        walk_max_m = walk_max_min * WALK_SPEED_M_PER_MIN
-
-        transfers = max(0, boards - 1) + xfers
-
-        return dict(
-            total=total,
-            rides=rides,
-            walks=walks,
-            boards=boards,
-            xfers=xfers,
-            transfers=transfers,
-            walk_total_m=walk_total_m,
-            walk_max_m=walk_max_m,
-        )
-
-
-    def _sig_from_segments(segs):
-        # 同じライン構成（徒歩は除く）は同一候補とみなして重複排除
-        return tuple(s["name"] for s in segs if s["kind"]=="line")
-
-    K = 3
+    K = 10
     cands = []
     seen = set()
     backup = []
@@ -597,6 +640,81 @@ def main():
             except nx.NetworkXNoPath:
                 print(f"[AB] case{idx+1} allow={allowed} -> NoPath")
         print("[AB] end")
+
+
+def build_walk_capped_graph(
+    G, a_phys, b_phys,
+    max_walk_seg_m=MAX_WALK_SEG_M,   # 既定 300
+    bucket_m=50,
+    max_walk_busbus_m=180.0,         # 追加: バス↔バス
+    max_walk_with_station_m=600.0,   # 追加: 駅を含むとき
+):
+    H = nx.DiGraph()
+
+    buckets = list(range(0, int(max(max_walk_seg_m, max_walk_with_station_m)) + 1, int(bucket_m)))
+    def ride_state(n): return ("phys-ride", n[1])
+    def walk_state(n, b): return ("phys-walk", n[1], int(b))
+
+    # ノード展開
+    for n, d in G.nodes(data=True):
+        if n[0] == "phys":
+            H.add_node(ride_state(n), **d, base=n, last="ride")
+            for b in buckets:
+                H.add_node(walk_state(n, b), **d, base=n, last="walk")
+        else:
+            H.add_node(n, **d, base=n, last="ride")
+
+    # エッジ展開
+    for u, v, data in G.edges(data=True):
+        etype = data.get("etype")
+        w = float(data.get("base_w", data.get("w", 0.0)))
+
+        if etype == "walk" and u[0] == "phys" and v[0] == "phys":
+            # 距離
+            m = data.get("meters")
+            if m is None:
+                du, dv = G.nodes[u], G.nodes[v]
+                m = haversine(du["lat"], du["lon"], dv["lat"], dv["lon"])
+            m = int(round(m))
+
+            # 駅を含む徒歩は 600m、バス↔バスは 180m に制限
+            def is_sta(n): return isinstance(n, tuple) and n[0] == "phys" and str(n[1]).startswith("odpt.Station:")
+            cap = max_walk_with_station_m if (is_sta(u) or is_sta(v)) else max_walk_busbus_m
+
+            # ride→walk（新規徒歩開始）
+            if m <= cap:
+                H.add_edge(ride_state(u), walk_state(v, m), w=w, etype="walk")
+            # walk→walk（継続）
+            for b in buckets:
+                if b + m <= cap:
+                    H.add_edge(walk_state(u, b), walk_state(v, b + m), w=w, etype="walk")
+            continue
+
+        # 非徒歩（board/ride/alight/xfer）は徒歩バケットをリセットして ride 側へ
+        def to_state(x):
+            if x[0] == "phys":
+                return ride_state(x)
+            return x
+
+        if u[0] == "phys":
+            H.add_edge(ride_state(u), to_state(v), w=w, etype=etype)
+            for b in buckets:
+                H.add_edge(walk_state(u, b), to_state(v), w=w, etype=etype)
+        else:
+            H.add_edge(u, to_state(v), w=w, etype=etype)
+
+    # 仮想 SRC/DST
+    SRC = ("virtual", "SRC")
+    DST = ("virtual", "DST")
+    H.add_node(SRC); H.add_node(DST)
+    H.add_edge(SRC, ride_state(a_phys), w=0.0, etype="virtual")
+    H.add_edge(ride_state(b_phys), DST, w=0.0, etype="virtual")
+    for b in buckets:
+        H.add_edge(walk_state(b_phys, b), DST, w=0.0, etype="virtual")
+
+    return H, SRC, DST
+
+
 
 if __name__ == "__main__":
     main()
