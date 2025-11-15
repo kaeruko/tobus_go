@@ -80,6 +80,35 @@ class _HomePageState extends State<HomePage> {
   String? _bErr;
   bool _loading = false;
 
+  String? _routeJobId;
+  bool _polling = false;
+
+  Map<String, String> _buildRouteParams(
+    double alat,
+    double alon,
+    double blat,
+    double blon,
+  ) {
+    return {
+      'alat': '$alat',
+      'alon': '$alon',
+      'blat': '$blat',
+      'blon': '$blon',
+      'pref': pref == Preference.fewTransfers
+          ? 'fewTransfers'
+          : 'shortTime',
+    };
+  }
+
+  List<Candidate> _parseCandidatesFromJson(Map<String, dynamic> j) {
+    final raw = j['candidates'] as List?;
+    if (raw == null) return const [];
+
+    return raw
+        .map((e) => Candidate.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -110,44 +139,128 @@ class _HomePageState extends State<HomePage> {
   Future<void> _recompute() async {
     final a = _parseLatLon(_from.text);
     final b = _parseLatLon(_to.text);
+
     setState(() {
       _aErr = a == null ? '緯度,経度 で入力' : null;
       _bErr = b == null ? '緯度,経度 で入力' : null;
     });
+
     if (a == null || b == null) {
-      setState(() => candidates = []);
+      setState(() {
+        candidates = [];
+        _loading = false;
+      });
+      _cancelPolling(); // 進行中のジョブがあれば止める
       return;
     }
 
-    setState(() => _loading = true);
+    // 既存ジョブはキャンセルして、新しいジョブ開始
+    _cancelPolling();
+    await _startRouteJob(a.$1, a.$2, b.$1, b.$2);
+  }
+
+
+  Future<void> _startRouteJob(
+    double alat,
+    double alon,
+    double blat,
+    double blon,
+  ) async {
+    setState(() {
+      _loading = true;
+      candidates = [];
+    });
+
     try {
-      final uri = Uri.parse('$kApiBase/route').replace(
-        queryParameters: {
-          'alat': '${a.$1}',
-          'alon': '${a.$2}',
-          'blat': '${b.$1}',
-          'blon': '${b.$2}',
-          'pref': pref == Preference.fewTransfers
-              ? 'fewTransfers'
-              : 'shortTime',
-        },
-      );
-      debugPrint('CALL -> $uri');
-      final r = await http.get(uri);
-      debugPrint('RESP <- ${r.statusCode}');
+      final uri = Uri.parse('$kApiBase/route');
+      final params = _buildRouteParams(alat, alon, blat, blon);
+
+      // ★ ここで「今までのクエリ組み立て」をそのまま body に使ってる
+      final r = await http.post(uri, body: params);
+      if (r.statusCode != 200) {
+        throw Exception('HTTP ${r.statusCode}');
+      }
+
       final j = _jsonUtf8(r);
-      final list = ((j['candidates'] as List?) ?? [])
-          .map((e) => Candidate.fromJson(e as Map<String, dynamic>))
-          .toList();
-      setState(() => candidates = list);
+      final jobId = j['job_id']?.toString();
+      if (jobId == null || jobId.isEmpty) {
+        throw Exception('job_id が返ってきませんでした');
+      }
+
+      _routeJobId = jobId;
+      _polling = true;
+      _pollRoute(jobId); // 非同期ポーリング開始
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        candidates = [];
+        _loading = false;
         _aErr = 'APIエラー: $e';
       });
-    } finally {
-      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _pollRoute(String jobId) async {
+    // ジョブがキャンセルされていたり、別ジョブになっていたら終了
+    if (!_polling || !mounted) return;
+    if (_routeJobId != jobId) return;
+
+    try {
+      final uri = Uri.parse('$kApiBase/route').replace(
+        queryParameters: {'job_id': jobId},
+      );
+      final r = await http.get(uri);
+      if (r.statusCode != 200) {
+        throw Exception('HTTP ${r.statusCode}');
+      }
+
+      final j = _jsonUtf8(r);
+      final status = j['status']?.toString() ?? 'unknown';
+
+      if (!mounted || !_polling || _routeJobId != jobId) return;
+
+      if (status == 'pending' || status == 'running') {
+        // まだ計算中 → 少し待ってから再度ポーリング
+        Future.delayed(const Duration(seconds: 2), () {
+          _pollRoute(jobId);
+        });
+        return;
+      }
+
+      if (status == 'done') {
+        // ★ ここで「以前と同じ candidates パース」を使う
+        final result = j['result'];
+        List<Candidate> list = const [];
+        if (result is Map<String, dynamic>) {
+          list = _parseCandidatesFromJson(result);
+        }
+
+        setState(() {
+          candidates = list;
+          _loading = false;
+        });
+        _polling = false;
+        return;
+      }
+
+      // error / unknown
+      setState(() {
+        _loading = false;
+        _aErr = '経路計算に失敗しました ($status)';
+      });
+      _polling = false;
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _aErr = 'ポーリング中エラー: $e';
+      });
+      _polling = false;
+    }
+  }
+
+  void _cancelPolling() {
+    _polling = false;
+    _routeJobId = null;
   }
 
   @override
@@ -160,35 +273,29 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           children: [
             const SizedBox(height: 8),
+
             // 出発Aの検索バー
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: PlaceField(
                 label: '出発(検索)',
                 onPicked: (lat, lon, desc) {
-                  _from.text = '$lat,$lon';
+                  _from.text = '$lat,$lon'; // ここで内部的に lat,lon を持つ
                 },
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
+            // 出発側のスワップ＋地図ボタン（フォームは出さない）
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(
-                    child: _CupertinoCoordInput(
-                      label: '出発 -a (lat,lon)',
-                      controller: _from,
-                      error: _aErr,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
                   CupertinoButton(
                     padding: const EdgeInsets.all(8),
                     child: const Icon(CupertinoIcons.arrow_up_arrow_down),
                     onPressed: _swap,
                   ),
-                  const SizedBox(width: 8),
                   CupertinoButton(
                     padding: const EdgeInsets.all(8),
                     child: const Icon(CupertinoIcons.map_pin),
@@ -197,6 +304,9 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
+
+            const SizedBox(height: 8),
+
             // 到着Bの検索バー
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -207,28 +317,23 @@ class _HomePageState extends State<HomePage> {
                 },
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
+            // 到着側の地図ボタンだけ（フォームなし）
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _CupertinoCoordInput(
-                      label: '到着 -b (lat,lon)',
-                      controller: _to,
-                      error: _bErr,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  CupertinoButton(
-                    padding: const EdgeInsets.all(8),
-                    child: const Icon(CupertinoIcons.map_pin),
-                    onPressed: () => _openMap(false),
-                  ),
-                ],
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: CupertinoButton(
+                  padding: const EdgeInsets.all(8),
+                  child: const Icon(CupertinoIcons.map_pin),
+                  onPressed: () => _openMap(false),
+                ),
               ),
             ),
+
             const SizedBox(height: 4),
+
+            // 乗換少ない／時間短い
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: CupertinoSlidingSegmentedControl<Preference>(
@@ -246,35 +351,56 @@ class _HomePageState extends State<HomePage> {
                 },
               ),
             ),
+
             const SizedBox(height: 8),
+
+            // 結果リスト
             Expanded(
-              child: candidates.isEmpty
-                  ? const Center(child: Text('座標を「緯度,経度」で入力'))
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      itemCount: candidates.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, i) {
-                        final c = candidates[i];
-                        return GestureDetector(
-                          onTap: () {
-                            Navigator.of(context).push(
-                              CupertinoPageRoute(
-                                builder: (_) => RouteDetailPage(candidate: c),
-                              ),
+              child: _loading
+                  ? const Center(child: CupertinoActivityIndicator())
+                  : (candidates.isEmpty
+                      ? const Center(child: Text('出発と到着を選択'))
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                          itemCount: candidates.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, i) {
+                            final c = candidates[i];
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  CupertinoPageRoute(
+                                    builder: (_) =>
+                                        RouteDetailPage(candidate: c),
+                                  ),
+                                );
+                              },
+                              child: RouteCard(candidate: c, rank: i + 1),
                             );
                           },
-                          child: RouteCard(candidate: c, rank: i + 1),
-                        );
-                      },
-                    ),
+                        )),
             ),
           ],
         ),
       ),
     );
+
+
+
+  @override
+  void dispose() {
+    _from.removeListener(_recompute);
+    _to.removeListener(_recompute);
+    _from.dispose();
+    _to.dispose();
+    _polling = false;
+    _routeJobId = null;
+    super.dispose();
   }
+
 }
+
 
 (String, String)? _splitComma(String s) {
   final i = s.indexOf(',');
