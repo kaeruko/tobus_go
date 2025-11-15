@@ -398,7 +398,7 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
     print(f"[DBG] walk edges bus↔station = {cnt_bus_station}")
 
     # バス停ポールの圧縮（構内うろつき削除）
-    compress_bus_poles_into_hubs(G, debug=True)
+    compress_bus_poles_into_hubs(G, debug=False)
 
     return G, {
         "bus_ride":  bus_edges,

@@ -1,22 +1,13 @@
 # route_common.py
-from typing import Any, Callable, Dict, List, Hashable
-import networkx as nx
-from networkx.algorithms.simple_paths import shortest_simple_paths
 from collections import defaultdict
+from typing import Any, Callable, Dict, Hashable, List
 
-
-from typing import Any, Callable, Dict, List, Hashable, Optional
 import networkx as nx
 from networkx.algorithms.simple_paths import shortest_simple_paths
 
 
 def _sig_from_segments(segs):
     return tuple(s["name"] for s in segs if s["kind"] == "line")
-
-# route_common.py
-from typing import Any, Callable, Dict, Hashable, List
-import networkx as nx
-from networkx.algorithms.simple_paths import shortest_simple_paths
 
 def _debug_path_nodes(
     G: nx.DiGraph,
@@ -76,12 +67,6 @@ def fmt_node(G, n):
         coord = f" ({lat:.6f},{lon:.6f})"
 
     return f"{kind}|{name}|{oid}{coord}"
-
-
-from typing import Any, Callable, Dict, List, Hashable
-import networkx as nx
-from networkx.algorithms.simple_paths import shortest_simple_paths
-
 def find_k_candidates(
     G: nx.DiGraph,
     a_phys: Hashable,
@@ -182,14 +167,14 @@ def bus_cluster_key(phys_id: str) -> str | None:
     return ".".join(parts[:4])  # 末尾の枝番号を落とす
 
 
-def compress_bus_poles_into_hubs(G: nx.DiGraph, *, debug=False):
+def compress_bus_poles_into_hubs(G: nx.DiGraph, *, debug: bool = False) -> None:
     # 1) クラスタリング
     clusters = defaultdict(list)  # key -> [phys_node]
     for n in G.nodes:
         if not (isinstance(n, tuple) and n[0] == "phys"):
             continue
-        nid = G.nodes[n].get("sameAs")  # あなたのコードに合わせて sameAs を使用
-        key = bus_cluster_key(nid) if nid else None
+        phys_id = n[1]
+        key = bus_cluster_key(phys_id) if isinstance(phys_id, str) else None
         if key:
             clusters[key].append(n)
 
@@ -214,32 +199,41 @@ def compress_bus_poles_into_hubs(G: nx.DiGraph, *, debug=False):
             lon = sum(lons)/len(lons) if lons else None
             # 代表名（最初のノードの名前）
             rep_name = G.nodes[phys_nodes[0]].get("name", "?")
-            G.add_node(hub, name=f"{rep_name}(バス停)",
-                       lat=lat, lon=lon, kind="phys", kind_detail="bus_hub")
+            G.add_node(
+                hub,
+                name=f"{rep_name}(バス停)",
+                lat=lat,
+                lon=lon,
+                kind="phys",
+                kind_detail="bus_hub",
+                bus_hub=True,
+            )
 
         # 3) 旧エッジ → hub に付け替え（入出力とも）
         #   board/alight/xfer/walk を丸ごと移設。重複は min 重みで1本化。
         def add_or_relax(u, v, data):
             w = float(data.get("base_w", data.get("w", 0.0)))
+            data = dict(data)
+            data.setdefault("base_w", w)
+            data.setdefault("w", float(data.get("w", w)))
             if G.has_edge(u, v):
                 w0 = float(G[u][v].get("base_w", G[u][v].get("w", 0.0)))
                 if w < w0:  # より短い方を残す
                     G[u][v].update(data)
                     G[u][v]["base_w"] = w
+                    G[u][v]["w"] = data.get("w", w)
             else:
                 G.add_edge(u, v, **data)
 
         # OUT edges: p -> x  を hub -> x へ
         for p in phys_nodes:
             for _, x, data in list(G.out_edges(p, data=True)):
-                data2 = dict(data)
-                add_or_relax(hub, x, data2)
+                add_or_relax(hub, x, data)
 
         # IN edges: x -> p  を x -> hub へ
         for p in phys_nodes:
             for x, _, data in list(G.in_edges(p, data=True)):
-                data2 = dict(data)
-                add_or_relax(x, hub, data2)
+                add_or_relax(x, hub, data)
 
         # 4) クラスタ内の phys は削除（walkの内輪エッジごと消える）
         for p in phys_nodes:
