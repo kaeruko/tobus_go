@@ -14,8 +14,6 @@ from fastapi.responses import JSONResponse
 import networkx as nx
 from networkx.algorithms.simple_paths import shortest_simple_paths
 from route_common import find_k_candidates
-from toei_reach_min_transfers import MAX_WALK_SEG_M  # もしくは server 側に定数コピーでもOK
-
 from toei_reach_min_transfers import (
     build_graph, nearest_phys, haversine, build_walk_capped_graph, TRANSFER_PENALTY,
     WALK_COST, WALK_SPEED_M_PER_MIN, MAX_WALK_SEG_M, BUS_WAIT_PENALTY,
@@ -38,7 +36,7 @@ BUSSTOP    = os.getenv("BUSSTOP",   f"{DATA_DIR}/busstop_poles.json")
 BUSROUTE   = os.getenv("BUSROUTE",  f"{DATA_DIR}/busroute_patterns.json")
 STATIONS   = os.getenv("STATIONS",  f"{DATA_DIR}/stations.json")
 RAILWAYS   = os.getenv("RAILWAYS",  f"{DATA_DIR}/railways.json")
-WALK_RAD   = int(os.getenv("WALK_RADIUS", "600"))
+WALK_RAD   = int(os.getenv("WALK_RADIUS", "300"))
 
 app = FastAPI(title="Toei Route API")
 app.add_middleware(
@@ -294,15 +292,11 @@ async def _startup():
     # ここを追加：素の重みを保存しておく
     for u, v, data in G.edges(data=True):
         data["base_w"] = float(data.get("w", 0.0))
-from networkx.algorithms.simple_paths import shortest_simple_paths
 
-# ---------- 重み関数（時間ベース + 鉄道優遇） ----------
-def make_weight_func(G, A_ID: str, pref: str):
-    """
-    G: グラフ
-    A_ID: 出発 phys ノードの ID (a_phys[1])
-    pref: "fewTransfers" / "shortTime"
-    """
+# ---------- 評価用重み関数（pref 反映 + 鉄道優遇） ----------
+def make_pref_weight_func(G, A_ID: str, pref: str):
+    """候補評価時に pref を反映したコストを与える"""
+
     def _w(u, v, data):
         base = float(data.get("base_w", data.get("w", 0.0)))
         etype = data.get("etype")
@@ -331,11 +325,10 @@ def make_weight_func(G, A_ID: str, pref: str):
         ):
             cost += TRANSFER_PENALTY
 
-        # 鉄道はかなり優遇（時間も早い想定）
-        if mode == "rail":
+        # 鉄道は優遇（時間も早い想定）
+        if mode == "rail" and etype in ("ride", "board", "xfer"):
             factor = 0.5 if pref == "shortTime" else 0.6
-            if etype in ("ride", "board", "xfer"):
-                cost *= factor
+            cost *= factor
 
         # バス乗換は少し重めに
         if mode == "bus" and etype in ("board", "xfer") and not (
@@ -344,6 +337,34 @@ def make_weight_func(G, A_ID: str, pref: str):
             cost *= 1.2
 
         return cost
+
+    return _w
+
+
+# ---------- 候補列挙用重み関数（CLI と同一ロジック） ----------
+def make_enum_weight_func(G, A_ID: str):
+    """候補列挙時に CLI と同じコスト設計を与える"""
+
+    def _w(u, v, data):
+        base = float(data.get("base_w", data.get("w", 0.0)))
+        etype = data.get("etype")
+
+        node = None
+        if u[0] == "line":
+            node = u
+        elif v[0] == "line":
+            node = v
+        mode = G.nodes[node].get("mode") if node else None
+
+        if etype == "board":
+            if u == ("phys", A_ID):
+                return 0.0
+            cost = TRANSFER_PENALTY
+            if mode == "bus":
+                cost += BUS_WAIT_PENALTY
+            return cost
+
+        return base
 
     return _w
 
@@ -428,8 +449,9 @@ def compute_route_candidates(
 
     A_ID = a_phys[1]
 
-    # ---------- 重み関数（時間ベース + 鉄道優遇） ----------
-    weight_func = make_weight_func(G, A_ID, pref)
+    # ---------- 重み関数 ----------
+    enum_weight_func = make_enum_weight_func(G, A_ID)
+    score_weight_func = make_pref_weight_func(G, A_ID, pref)
 
     # ---------- デバッグ用: 生 base_w での上位経路 ----------
     print("[DBG] raw G top 10 by base_w")
@@ -465,18 +487,18 @@ def compute_route_candidates(
         return route_signature(steps)
 
     def summarize_server(G_, path_):
-        # server 版 summarize は重みとして weight_func を使う
-        return summarize_with_walk(G_, path_, weight_func)
+        # server 版 summarize は評価用 weight を使う
+        return summarize_with_walk(G_, path_, score_weight_func)
 
     # ---------- 候補探索（共通エンジン） ----------
     K = 10
-    MAX_PATHS = 500
+    MAX_PATHS = 5000
 
     raw_candidates = find_k_candidates(
         G,
         a_phys,
         b_phys,
-        weight_func=weight_func,
+        weight_func=enum_weight_func,
         make_segments=make_segments_server,
         make_signature=make_signature_server,
         summarize=summarize_server,
