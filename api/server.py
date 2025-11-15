@@ -5,9 +5,11 @@ import json
 import math
 import sys
 import httpx
+import asyncio
+import uuid
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import Query, HTTPException
+from fastapi import Query, HTTPException, Form
 from fastapi.responses import JSONResponse
 import networkx as nx
 from networkx.algorithms.simple_paths import shortest_simple_paths
@@ -18,15 +20,10 @@ from toei_reach_min_transfers import (
     build_graph, nearest_phys, haversine, build_walk_capped_graph, TRANSFER_PENALTY,
     WALK_COST, WALK_SPEED_M_PER_MIN, MAX_WALK_SEG_M, BUS_WAIT_PENALTY,
 )
-from networkx.algorithms.simple_paths import shortest_simple_paths
-
-from fastapi import Query, HTTPException
-from fastapi.responses import JSONResponse
-from networkx.algorithms.simple_paths import shortest_simple_paths
-
-from dotenv import load_dotenv
 
 load_dotenv()
+
+ROUTE_JOBS: dict[str, dict] = {}
 
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 
@@ -394,21 +391,16 @@ def route_signature(steps):
                 sig.append(lname)
     return tuple(sig)
 
-@app.get("/route")
-def route(
-    alat: float = Query(...),
-    alon: float = Query(...),
-    blat: float = Query(...),
-    blon: float = Query(...),
-    pref: str = Query("fewTransfers"),
-):
+def compute_route_candidates(
+    alat: float,
+    alon: float,
+    blat: float,
+    blon: float,
+    pref: str = "fewTransfers",
+) -> dict:
     """
-    /route:
-      - グラフ G だけを使う（H/T* は使わない）
-      - base_w ベースの時間コスト + 鉄道かなり優遇
-      - 徒歩1セグメントは MAX_WALK_SEG_M 以内だけ正式候補
-      - rail を含む候補があれば rail だけを優先して返す
-      - ライン構成が同じ候補（上23→浅草線→新宿線→三田線 等）は1つにまとめる
+    経路候補を同期で計算して { "candidates": [...] } を返す純粋関数。
+    もともとの /route エンドポイントの中身をそのままここに移している。
     """
     if G is None:
         raise HTTPException(500, "graph not ready")
@@ -545,8 +537,64 @@ def route(
     else:
         print("[DBG] no rail candidate in final list", flush=True)
 
+    # ここは JSONResponse ではなく「素の dict」を返す
+    return {"candidates": candidates}
+
+
+async def _run_route_job(job_id: str, alat: float, alon: float, blat: float, blon: float, pref: str):
+    loop = asyncio.get_running_loop()
+    ROUTE_JOBS[job_id]["status"] = "running"
+    try:
+        result = await loop.run_in_executor(
+            None,
+            compute_route_candidates,
+            alat,
+            alon,
+            blat,
+            blon,
+            pref,
+        )
+        ROUTE_JOBS[job_id]["status"] = "done"
+        ROUTE_JOBS[job_id]["result"] = result  # {"candidates":[...]}
+    except Exception as e:
+        ROUTE_JOBS[job_id]["status"] = "error"
+        ROUTE_JOBS[job_id]["error"] = str(e)
+
+
+@app.post("/route")
+async def route_start(
+    alat: float = Form(...),
+    alon: float = Form(...),
+    blat: float = Form(...),
+    blon: float = Form(...),
+    pref: str = Form("fewTransfers"),
+):
+    if G is None:
+        raise HTTPException(500, "graph not ready")
+
+    job_id = uuid.uuid4().hex
+    ROUTE_JOBS[job_id] = {
+        "status": "pending",
+    }
+
+    # バックグラウンドで計算開始
+    asyncio.create_task(_run_route_job(job_id, alat, alon, blat, blon, pref))
+
     return JSONResponse(
-        content={"candidates": candidates},
+        content={"job_id": job_id},
+        media_type="application/json; charset=utf-8",
+    )
+
+
+@app.get("/route")
+async def route_poll(job_id: str = Query(...)):
+    job = ROUTE_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(404, "job not found")
+
+    # job の中身は {status, result?, error?}
+    return JSONResponse(
+        content=job,
         media_type="application/json; charset=utf-8",
     )
 
