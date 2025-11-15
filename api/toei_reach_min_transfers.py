@@ -22,7 +22,9 @@
 import json, argparse, math, sys
 import networkx as nx
 from networkx.algorithms.simple_paths import shortest_simple_paths
-from route_common import find_k_candidates
+from route_common import find_k_candidates as common_find_k_candidates
+from route_common import _sig_from_segments
+from route_common import compress_bus_poles_into_hubs
 
 # -------------------- チューニング定数 --------------------
 # 時間ベースのコスト設計（分単位で設定）
@@ -31,6 +33,7 @@ RAIL_RIDE_COST = 1.6   # 地下鉄1駅 ≒ 1.6分（バスより速め）
 WALK_SPEED_M_PER_MIN = 80.0  # 1分 ≒ 80m で計算
 WALK_COST = 1.0        # 1分歩く = 1.0 コスト
 TRANSFER_PENALTY = 4.0 # 乗り換え1回 ≒ 4分ペナルティ
+BUS_WAIT_PENALTY = 15.0  # 2本目以降のバス乗車に追加する待ち時間ペナルティ（分相当）
 
 MAX_WALK_SEG_M = 600.0  # 1区間の徒歩は 300m まで許容
 
@@ -48,16 +51,22 @@ def _segments_by_line(G, path):
         et = G.edges[u, v].get("etype")
         if et == "ride" or (v[0] == "line" and et == "board") or (u[0] == "line" and et in ("alight","xfer")):
             line = None
+            mode = None
+            node = None
             if v[0] == "line":
-                line = _line_norm(G.nodes[v].get("disp") or G.nodes[v].get("name") or G.nodes[v].get("line"))
+                node = v
             elif u[0] == "line":
-                line = _line_norm(G.nodes[u].get("disp") or G.nodes[u].get("name") or G.nodes[u].get("line"))
+                node = u
+            if node:
+                nd = G.nodes[node]
+                line = _line_norm(nd.get("disp") or nd.get("name") or nd.get("line"))
+                mode = nd.get("mode")   # "bus" or "rail"
             if line:
-                if cur and cur["kind"] == "line" and cur["name"] == line:
+                if cur and cur["kind"] == "line" and cur["name"] == line and cur.get("mode") == mode:
                     cur["edges"] += 1
                 else:
                     if cur: segs.append(cur)
-                    cur = {"kind":"line", "name": line, "edges": 1}
+                    cur = {"kind":"line", "name": line, "mode": mode, "edges": 1}
         elif et == "walk":
             if cur and cur["kind"] == "walk":
                 cur["edges"] += 1
@@ -66,9 +75,6 @@ def _segments_by_line(G, path):
                 cur = {"kind":"walk", "name":"walk", "edges": 1}
     if cur: segs.append(cur)
     return segs
-
-def _sig_from_segments(segs): # 同じライン構成（徒歩は除く）は同一候補とみなして重複排除
-    return tuple(s["name"] for s in segs if s["kind"]=="line")  
 
 def summarize_with_walk(G, path):
     rides = walks = boards = xfers = 0
@@ -123,10 +129,61 @@ def summarize_with_walk(G, path):
     )
 
 
+def debug_dump_path(G, path, label=""):
+    """
+    1 本の path について、エッジごとの詳細と累積コストをダンプする。
+    - u, v ノード
+    - etype / line / mode
+    - base_w / w
+    - 累積 w
+    """
+    print("=" * 60)
+    print(f"[DEBUG PATH] {label}  (len={len(path)})")
+    total_w = 0.0
+
+    def node_label(n):
+        d = G.nodes[n]
+        if n[0] == "phys":
+            return f"phys|{d.get('name','')}"
+        else:
+            # line ノード
+            return f"line|{d.get('disp') or d.get('name','')}"
+
+    for i, (u, v) in enumerate(zip(path, path[1:])):
+        e = G.edges[u, v]
+        etype = e.get("etype")
+        base_w = float(e.get("base_w", e.get("w", 0.0)))
+        w = float(e.get("w", 0.0))
+        line = e.get("line") or "-"
+        mode = e.get("mode") \
+               or G.nodes[u].get("mode") \
+               or G.nodes[v].get("mode")
+        meters = e.get("meters")
+
+        total_w += w
+
+        print(
+            f"{i:02d}: {node_label(u)} -> {node_label(v)} | "
+            f"etype={etype} line={line} mode={mode} "
+            f"base_w={base_w:.2f} w={w:.2f} "
+            f"{'(%.1fm)' % meters if meters is not None else ''} "
+            f"cum={total_w:.2f}"
+        )
+
+    print(f"[DEBUG PATH] {label} TOTAL w={total_w:.6f}")
+    print("=" * 60)
+
+
 def sig_from_segments_cli(segs):
-    # いまの _sig_from_segments と同じ意味でOK
-    # kind=="line" の name の並びをタプルにする
-    return tuple(s["name"] for s in segs if s["kind"] == "line")
+    """
+    同じ鉄道パターン（浅草線→新宿線→三田線 など）は 1 本にまとめる。
+    バスの差分（門33 / 錦37 / 都08 など）は sig には入れない。
+    """
+    rails = []
+    for s in segs:
+        if s["kind"] == "line" and s.get("mode") == "rail":
+            rails.append(s["name"])
+    return tuple(rails)
 
 
 def _norm_line(s):
@@ -340,6 +397,9 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
                 cnt_bus_station += 1
     print(f"[DBG] walk edges bus↔station = {cnt_bus_station}")
 
+    # バス停ポールの圧縮（構内うろつき削除）
+    compress_bus_poles_into_hubs(G, debug=True)
+
     return G, {
         "bus_ride":  bus_edges,
         "rail_ride": rail_edges,
@@ -417,56 +477,39 @@ def nearest_phys(G, lat, lon, station_only=False):
     
     return best, bestd
 
-def find_k_candidates(G, a_phys, b_phys, K=3):
+def collect_candidates_cli(G, a_phys, b_phys, K=10, debug=True):
     """
-    G 上で a_phys -> b_phys の最短経路を列挙しつつ、
-    - 路線並び(sig)が被るものは 1 本にまとめる
-    - 徒歩1セグメントの距離が MAX_WALK_SEG_M 以内のものを優先採用
-    をして、最大 K 個返す。
-
-    返り値: [{"path": path_k, "segments": segs, "metrics": met}, ...]
+    CLI 用:
+      - weight は単純に data["w"]
+      - セグメントは _segments_by_line
+      - シグネチャは kind=="line" の name 並び
+      - summarize は summarize_with_walk
     """
-    # ===== ここから: 上位3候補を出すロジック =====
-
-    # weight_func: 経路探索用の重み（CLI は単純に data["w"] ）
     def weight_func(u, v, data):
         return data["w"]
 
-    # summarize: path -> metrics
-    def summarize_cli(G_, path_):
+    def make_segments(G_, path_):
+        return _segments_by_line(G_, path_)
+
+    def make_signature(segs):
+        return sig_from_segments_cli(segs)
+
+    def summarize(G_, path_):
         return summarize_with_walk(G_, path_)
 
-    # K 候補を共通エンジンで取得
-    cands = find_k_candidates(
+    return common_find_k_candidates(
         G,
         a_phys,
         b_phys,
-        weight_func=weight_func,
-        make_segments=_segments_by_line,
-        make_signature=sig_from_segments_cli,
-        summarize=summarize_cli,
+        weight_func=lambda u, v, data: data["w"],   # いま使ってる重み
+        make_segments=_segments_by_line,           # or segments_detailed 的な関数
+        make_signature=_sig_from_segments,         # 「レールだけ」版の sig 関数
+        summarize=lambda G_, path_: summarize_with_walk(G_, path_),
         max_walk_seg_m=MAX_WALK_SEG_M,
-        k=3,
-        debug=True,  # ここ true で [DBG-K] ログが出る
+        k=10,
+        max_paths=5000,
+        debug=False,                                # 一旦 True にして挙動を見ると良い
     )
-
-    if cands:
-        print("[CANDIDATES] top 3 by total weight (distinct line sequences)")
-        for i, c in enumerate(cands, 1):
-            pth = c["path"]
-            segs = c["segments"]
-            met = c["metrics"]
-
-            line_chain = " -> ".join(
-                (s["name"] if s["kind"] == "line" else "walk")
-                + (f"({s['edges']})" if s["edges"] > 1 else "")
-                for s in segs
-            )
-            print(
-                f"[C{i}] total={met['total']} rides={met['rides']} walks={met['walks']} "
-                f"boards={met['boards']} transfers={met['transfers']} | lines: {line_chain}"
-            )
-    return cands
 
 
 def main():
@@ -491,16 +534,23 @@ def main():
     # A: 出発はバス停も駅もあり
     a_phys, ad = nearest_phys(G, alat, alon, station_only=False)
 
-    # (1) 乗車コストの再定義：最初だけ0、それ以外は=乗換
-    # shortest_pathを呼ぶ直前、a_physが決まった後に入れる
+    # (1) 乗車コストの再定義：最初だけ0、それ以降は=乗換 + バス待ちペナルティ
     A_ID = a_phys[1]
 
     for u, v, data in list(G.edges(data=True)):
         if data.get("etype") == "board":
+            mode = G.nodes[v].get("mode") if v[0] == "line" else None
+
             if u == ("phys", A_ID):
-                data["w"] = 0             # 最初の乗車は無料
+                base = 0.0  # 最初の乗車は無料（待ち時間は出発時刻調整で吸収する想定）
             else:
-                data["w"] = TRANSFER_PENALTY  # 以降は重く＝実質乗換
+                base = TRANSFER_PENALTY
+
+                # バスに乗り換えるときは「待ち時間ペナルティ」を追加
+                if mode == "bus":
+                    base += BUS_WAIT_PENALTY
+
+            data["w"] = base
 
 
     # B: まずは駅だけ見る。500mより遠かったらバス停も含めて探し直し
@@ -535,62 +585,32 @@ def main():
     rides = sum(1 for u,v in zip(path, path[1:]) if G.edges[u,v].get("etype")=="ride")
     print(f"[INFO] rides={rides} walks={walks} boards={boards} xfers={xfers} -> transfers={transfers}")
 
+    # ===== ここから: 共通 find_k_candidates エンジンで候補取得 =====
     K = 10
-    cands = []
-    seen = set()
-    backup = []
-    try:
-        for path_k in shortest_simple_paths(G, a_phys, b_phys, weight=lambda u, v, d: d["w"]):
-            segs = _segments_by_line(G, path_k)
-            sig  = _sig_from_segments(segs)
-            if sig in seen:
-                continue
-            seen.add(sig)
-
-            met = summarize_with_walk(G, path_k)
-
-            # --- ここからデバッグ ---
-            line_chain = " -> ".join(
-                (s["name"] if s["kind"] == "line" else "walk")
-                for s in segs
-            )
-            dbg_flag = ""
-            if ("上23" in line_chain or "上２３" in line_chain) and "大江戸線" in line_chain and "三田線" in line_chain:
-                dbg_flag = " [TARGET 上23→大江戸線→三田線]"
-            print(
-                f"[DBG] cand raw sig={sig} total={met['total']:.1f} "
-                f"walk_max={met['walk_max_m']:.1f}m walk_total={met['walk_total_m']:.1f}m "
-                f"boards={met['boards']} transfers={met['transfers']} lines={line_chain}{dbg_flag}"
-            )
-            # --- ここまでデバッグ ---
-
-            entry = (path_k, segs, met)
-
-            if met["walk_max_m"] <= MAX_WALK_SEG_M:
-                print("[DBG]  -> accept as candidate")
-                cands.append(entry)
-                if len(cands) >= K:
-                    break
-            else:
-                print("[DBG]  -> put into backup (walk_max_m > MAX_WALK_SEG_M)")
-                backup.append(entry)
-
-    except nx.NetworkXNoPath:
-        pass
-
-    # もし 300m 以内の候補が一個も無ければ、妥協して長距離徒歩ルートから出す
-    if not cands:
-        cands = backup[:K]
+    cands = collect_candidates_cli(G, a_phys, b_phys, K=K, debug=True)
 
     if cands:
-        print("[CANDIDATES] top 3 by total weight (distinct line sequences)")
-        for i, (pth, segs, met) in enumerate(cands, 1):
+        print(f"[CANDIDATES] top {len(cands)} by total weight (distinct line sequences)")
+        for i, entry in enumerate(cands, 1):
+            pth = entry["path"]
+            segs = entry["segments"]
+            met = entry["metrics"]
+
             line_chain = " -> ".join(
-                (s["name"] if s["kind"]=="line" else "walk") + (f"({s['edges']})" if s["edges"]>1 else "")
+                (s["name"] if s["kind"]=="line" else "walk")
+                + (f"({s['edges']})" if s["edges"] > 1 else "")
                 for s in segs
             )
-            print(f"[C{i}] total={met['total']} rides={met['rides']} walks={met['walks']} "
-                  f"boards={met['boards']} transfers={met['transfers']} | lines: {line_chain}")
+            print(
+                f"[C{i}] total={met['total']} rides={met['rides']} walks={met['walks']} "
+                f"boards={met['boards']} transfers={met['transfers']} | lines: {line_chain}"
+            )
+
+        # ★ ここで気になる候補の詳細を見たい場合（例: C1, C2）
+        for i, entry in enumerate(cands, 1):
+            if i in (1, 2):  # 必要なら 3, 4 も追加
+                debug_dump_path(G, entry["path"], label=f"C{i}")
+
     # ===== ここまで =====
 
     # --- A/B実験: ab_test_lines指定時 ---
@@ -637,6 +657,8 @@ def main():
                 print(f"[AB] case{idx+1} allow={allowed} -> total={met['total']} "
                       f"rides={met['rides']} walks={met['walks']} boards={met['boards']} "
                       f"xfers={met['xfers']} transfers={met['transfers']}")
+                debug_dump_path(G, path_ab, label=f"AB case{idx+1} ({','.join(allowed)})")
+
             except nx.NetworkXNoPath:
                 print(f"[AB] case{idx+1} allow={allowed} -> NoPath")
         print("[AB] end")

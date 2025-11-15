@@ -16,7 +16,7 @@ from toei_reach_min_transfers import MAX_WALK_SEG_M  # もしくは server 側�
 
 from toei_reach_min_transfers import (
     build_graph, nearest_phys, haversine, build_walk_capped_graph, TRANSFER_PENALTY,
-    WALK_COST, WALK_SPEED_M_PER_MIN, MAX_WALK_SEG_M,
+    WALK_COST, WALK_SPEED_M_PER_MIN, MAX_WALK_SEG_M, BUS_WAIT_PENALTY,
 )
 from networkx.algorithms.simple_paths import shortest_simple_paths
 
@@ -320,9 +320,13 @@ def make_weight_func(G, A_ID: str, pref: str):
 
         # 最初の乗車だけ無料
         if etype == "board" and u == ("phys", A_ID):
-            return 0.0
+            cost = 0.0
+        else:
+            cost = base
 
-        cost = base
+        # バス待ちペナルティ（2本目以降のバス）
+        if etype == "board" and mode == "bus" and u != ("phys", A_ID):
+            cost += BUS_WAIT_PENALTY
 
         # 「少ない乗換」モードのときは board/xfer に追加ペナルティ
         if pref == "fewTransfers" and etype in ("board", "xfer") and not (
@@ -378,12 +382,13 @@ def line_chain(G, path):
 def route_signature(steps):
     """
     steps: segments_detailed(G, path) の結果
-    バス/鉄道の line/title だけを抜き出してタプルにしたものをシグネチャとする。
-    例: ("上２３", "浅草線", "新宿線", "三田線")
+    鉄道の line/title だけを抜き出してタプルにしたものをシグネチャとする。
+    バスは sig に入れない（バスの差分で重複排除しない）。
+    例: ("浅草線", "新宿線", "三田線")
     """
     sig = []
     for s in steps:
-        if s.get("kind") in ("bus", "rail"):
+        if s.get("kind") == "rail":
             lname = s.get("line") or s.get("title")
             if lname:
                 sig.append(lname)
@@ -458,48 +463,56 @@ def route(
         if idx >= 9:
             break
 
-    # ---------- 候補探索（G だけ） ----------
-    K = 10          # API から返す候補数
-    MAX_PATHS = 200  # 無限ループ防止用
+    # ---------- 共通エンジン用のラッパー ----------
+    def make_segments_server(G_, path_):
+        # API の steps は UI 用のリッチ版を使いたいのでこれ
+        return segments_detailed(G_, path_)
 
-    candidates: list[dict] = []
-    backup: list[dict] = []
-    seen_sigs: set[tuple] = set()
+    def make_signature_server(steps):
+        # ライン構成シグネチャ（上23→浅草線→新宿線→三田線 等）
+        return route_signature(steps)
 
-    gen = shortest_simple_paths(G, a_phys, b_phys, weight=weight_func)
+    def summarize_server(G_, path_):
+        # server 版 summarize は重みとして weight_func を使う
+        return summarize_with_walk(G_, path_, weight_func)
 
-    for idx, path in enumerate(gen):
-        if idx >= MAX_PATHS:
-            break
+    # ---------- 候補探索（共通エンジン） ----------
+    K = 10
+    MAX_PATHS = 500
 
-        # 区間分解（bus / rail / walk ごとのまとまり）
-        segs = segments_detailed(G, path)
+    raw_candidates = find_k_candidates(
+        G,
+        a_phys,
+        b_phys,
+        weight_func=weight_func,
+        make_segments=make_segments_server,
+        make_signature=make_signature_server,
+        summarize=summarize_server,
+        max_walk_seg_m=MAX_WALK_SEG_M,
+        k=K,
+        max_paths=MAX_PATHS,
+        debug=True,  # [DBG-K] ログ出したければ True
+    )
 
-        # ライン構成のシグネチャ（例: ("上２３","浅草線","新宿線","三田線")）
-        sig = route_signature(segs)
-
-        # 同じライン構成（上23→浅草線→新宿線→三田線 等）は 1 回きり
-        if sig in seen_sigs:
-            continue
-        seen_sigs.add(sig)
-
-        # メトリクス集計（total / transfers / walk_max_m / ...）
-        met = summarize_with_walk(G, path, weight_func)
+    # raw_candidates: [{ "path", "segments", "metrics" }, ...]
+    candidates = []
+    for idx, c in enumerate(raw_candidates, 1):
+        segs = c["segments"]
+        met  = c["metrics"]
 
         rail_flag = any(s.get("kind") == "rail" for s in segs)
         lc = " -> ".join(
             s["title"] if s.get("kind") in ("bus", "rail") else "walk"
             for s in segs
         )
-
         print(
-            f"[DBG-CAND {idx:02d}] rail={rail_flag} total={met['total']:.1f} "
+            f"[DBG-CAND-FINAL {idx:02d}] rail={rail_flag} total={met['total']:.1f} "
             f"transfers={met['transfers']} walk_max={met['walk_max_m']:.1f}m "
             f"| lines={lc}",
             flush=True,
         )
 
-        # ライン名（UI 用: 重複しないように）
+        # ライン名（UI 用）
         line_names = []
         seen_lines = set()
         for s in segs:
@@ -509,25 +522,14 @@ def route(
                     seen_lines.add(lname)
                     line_names.append(lname)
 
-        entry = {
-            "id": f"C{len(candidates) + len(backup) + 1}",
-            "lines": line_names,
-            **met,
-            "steps": segs,
-        }
-
-        # 徒歩 1 セグメント MAX_WALK_SEG_M 以内なら正式候補、それ以外は backup
-        if met["walk_max_m"] <= MAX_WALK_SEG_M:
-            candidates.append(entry)
-            if len(candidates) >= K:
-                break
-        else:
-            backup.append(entry)
-
-    # 候補が1つもない場合は backup から時間順で拾う
-    if not candidates and backup:
-        backup_sorted = sorted(backup, key=lambda e: e["total"])
-        candidates = backup_sorted[:K]
+        candidates.append(
+            {
+                "id": f"C{idx}",
+                "lines": line_names,
+                **met,
+                "steps": segs,
+            }
+        )
 
     # ---------- 鉄道優先フィルタ ----------
     def cand_has_rail(c):
