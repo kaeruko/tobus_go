@@ -491,7 +491,7 @@ def route(
         max_walk_seg_m=MAX_WALK_SEG_M,
         k=K,
         max_paths=MAX_PATHS,
-        debug=True,  # [DBG-K] ログ出したければ True
+        debug=False,  # [DBG-K] ログ出したければ True
     )
 
     # raw_candidates: [{ "path", "segments", "metrics" }, ...]
