@@ -11,6 +11,9 @@
   // シミュレータは 127.0.0.1。実機ならMacのLAN IPに置き換え
   const String kApiBase = 'http://127.0.0.1:8000';
 
+  // 簡易的なグローバル保存領域 (メモリのみ)
+  final List<Candidate> kSavedRoutes = [];
+
   void main() => runApp(const App());
 
   class App extends StatelessWidget {
@@ -41,6 +44,10 @@
               icon: Icon(CupertinoIcons.time),
               label: 'ライブ',
             ),
+            BottomNavigationBarItem(
+              icon: Icon(CupertinoIcons.bookmark),
+              label: 'My Route',
+            ),
           ],
         ),
         tabBuilder: (context, index) {
@@ -49,6 +56,8 @@
               return CupertinoTabView(builder: (context) => const HomePage());
             case 1:
               return CupertinoTabView(builder: (context) => const LivePage());
+            case 2:
+              return CupertinoTabView(builder: (context) => const MyRoutePage());
             default:
               return CupertinoTabView(builder: (context) => const HomePage());
           }
@@ -827,6 +836,43 @@
       return CupertinoPageScaffold(
         navigationBar: CupertinoNavigationBar(
           middle: Text(candidate.lines.join(' → ')),
+          trailing: CupertinoButton(
+            padding: EdgeInsets.zero,
+            child: const Icon(CupertinoIcons.bookmark),
+            onPressed: () {
+              if (kSavedRoutes.any((e) => e.id == candidate.id)) {
+                // 既に保存済みなら何もしないか、削除する？今回は追加のみ
+                showCupertinoDialog(
+                  context: context,
+                  builder: (ctx) => CupertinoAlertDialog(
+                    title: const Text('保存済み'),
+                    content: const Text('この経路は既にMy Routeに保存されています。'),
+                    actions: [
+                      CupertinoDialogAction(
+                        child: const Text('OK'),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                );
+              } else {
+                kSavedRoutes.add(candidate);
+                showCupertinoDialog(
+                  context: context,
+                  builder: (ctx) => CupertinoAlertDialog(
+                    title: const Text('保存しました'),
+                    content: const Text('My Routeに追加しました。'),
+                    actions: [
+                      CupertinoDialogAction(
+                        child: const Text('OK'),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                );
+              }
+            },
+          ),
         ),
         child: SafeArea(
           child: Column(
@@ -1462,6 +1508,46 @@
             ),
           ),
         ],
+      );
+    }
+  }
+
+  class MyRoutePage extends StatefulWidget {
+    const MyRoutePage({super.key});
+
+    @override
+    State<MyRoutePage> createState() => _MyRoutePageState();
+  }
+
+  class _MyRoutePageState extends State<MyRoutePage> {
+    @override
+    Widget build(BuildContext context) {
+      return CupertinoPageScaffold(
+        navigationBar: const CupertinoNavigationBar(
+          middle: Text('My Route'),
+        ),
+        child: SafeArea(
+          child: kSavedRoutes.isEmpty
+              ? const Center(child: Text('保存された経路はありません'))
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  itemCount: kSavedRoutes.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, i) {
+                    final c = kSavedRoutes[i];
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          CupertinoPageRoute(
+                            builder: (_) => RouteDetailPage(candidate: c),
+                          ),
+                        );
+                      },
+                      child: RouteCard(candidate: c, rank: i + 1),
+                    );
+                  },
+                ),
+        ),
       );
     }
   }
