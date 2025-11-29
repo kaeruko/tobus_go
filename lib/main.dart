@@ -132,10 +132,9 @@
     final _from = TextEditingController(
       text: '',
     );
-    final _to = TextEditingController(
-      text: '',
-    );
+    final _to = TextEditingController(text: '35.700, 139.800'); // 錦糸町あたり
     Preference pref = Preference.fewTransfers;
+    DateTime _startTime = DateTime.now();
     List<Candidate> candidates = [];
     String? _aErr;
     String? _bErr;
@@ -158,7 +157,37 @@
         'pref': pref == Preference.fewTransfers
             ? 'fewTransfers'
             : 'shortTime',
+        'time': '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
       };
+    }
+
+    void _showTimePicker() {
+      showCupertinoModalPopup(
+        context: context,
+        builder: (_) => Container(
+          height: 250,
+          color: CupertinoColors.systemBackground,
+          child: Column(
+            children: [
+              SizedBox(
+                height: 180,
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.time,
+                  initialDateTime: _startTime,
+                  use24hFormat: true,
+                  onDateTimeChanged: (val) {
+                    setState(() => _startTime = val);
+                  },
+                ),
+              ),
+              CupertinoButton(
+                child: const Text('完了'),
+                onPressed: () => Navigator.pop(context),
+              )
+            ],
+          ),
+        ),
+      );
     }
 
     List<Candidate> _parseCandidatesFromJson(Map<String, dynamic> j) {
@@ -397,7 +426,38 @@
                 ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
+              
+              // --- 時刻選択 ---
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: GestureDetector(
+                  onTap: _showTimePicker,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: CupertinoColors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: CupertinoColors.separator),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('出発時刻', style: TextStyle(fontSize: 14)),
+                        Text(
+                          '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: CupertinoColors.activeBlue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
 
               // 結果リスト
               Expanded(
@@ -555,6 +615,7 @@
     final int transfers;
     final int total;
     final List<StepSeg> steps;
+    final List<LatLng> points;
 
     Candidate({
       required this.id,
@@ -565,6 +626,7 @@
       required this.transfers,
       required this.total,
       required this.steps,
+      required this.points,
     });
 
 
@@ -591,6 +653,12 @@
         transfers: (j['transfers'] as num? ?? 0).toInt(),
         total: (j['total'] as num? ?? 0).toInt(),
         steps: _readSteps(j),
+        points: (j['points'] as List?)
+                ?.map((e) => (e is List && e.length >= 2)
+                    ? LatLng((e[0] as num).toDouble(), (e[1] as num).toDouble())
+                    : const LatLng(0, 0))
+                .toList() ??
+            const [],
       );
     }
 
@@ -605,6 +673,8 @@
     final int? fareYen;
     final String? from;
     final String? to;
+    final String? departureTime;
+    final String? arrivalTime;
 
     // ★ 追加
     final List<StopPoint> stops;
@@ -618,6 +688,8 @@
       this.fareYen,
       this.from,
       this.to,
+      this.departureTime,
+      this.arrivalTime,
       List<StopPoint>? stops,
     }) : stops = stops ?? const [];
 
@@ -639,6 +711,8 @@
         fareYen: (j['fareYen'] as num?)?.toInt(),
         from: j['from_']?.toString() ?? j['from']?.toString(),
         to: j['to']?.toString(),
+        departureTime: j['departure_time']?.toString(),
+        arrivalTime: j['arrival_time']?.toString(),
         stops: stops,
       );
     }
@@ -764,6 +838,7 @@
         transfers: transfers,
         total: total,
         steps: steps,
+        points: const [], // Mock data has no points
       );
     }
   }
@@ -923,7 +998,7 @@
                     _stat('総スコア', candidate.total.toString()),
                     _stat('乗換', candidate.transfers.toString()),
                     _stat('乗車区間', candidate.rides.toString()),
-                    _stat('徒歩', candidate.walks.toString()),
+                    _stat('徒歩', '${candidate.walks}m'),
                   ],
                 ),
               ),
@@ -933,11 +1008,42 @@
                 height: 200,
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: CupertinoColors.systemGrey5,
+                  color: CupertinoColors.systemGrey6,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                alignment: Alignment.center,
-                child: const Text('Map Preview (後で実装)'),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: candidate.points.isNotEmpty
+                          ? candidate.points.first
+                          : const LatLng(35.681236, 139.767125), // Default: Tokyo Station
+                      zoom: 13,
+                    ),
+                    polylines: {
+                      Polyline(
+                        polylineId: const PolylineId('route'),
+                        points: candidate.points,
+                        color: CupertinoColors.activeBlue,
+                        width: 5,
+                      ),
+                    },
+                    markers: {
+                      if (candidate.points.isNotEmpty) ...[
+                        Marker(
+                          markerId: const MarkerId('start'),
+                          position: candidate.points.first,
+                          infoWindow: const InfoWindow(title: 'Start'),
+                        ),
+                        Marker(
+                          markerId: const MarkerId('end'),
+                          position: candidate.points.last,
+                          infoWindow: const InfoWindow(title: 'End'),
+                        ),
+                      ],
+                    },
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
               // 区間一覧
@@ -989,41 +1095,48 @@
 
       final canShowStops = !isWalk && s.stops.isNotEmpty;
 
-      final content = Container(
-        decoration: BoxDecoration(
-          color: CupertinoColors.systemGrey6,
-          borderRadius: BorderRadius.circular(12),
-        ),
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(12),
-        child: Row(
+        decoration: BoxDecoration(
+          color: CupertinoColors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: CupertinoColors.systemGrey.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _roundIcon(s.kind),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            // ヘッダ行 (アイコン + タイトル + 時間)
+            Row(
+              children: [
+                _roundIcon(s.kind),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          s.mainTitle,
+                      Text(
+                        s.mainTitle,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (s.departureTime != null && s.arrivalTime != null)
+                        Text(
+                          '${s.departureTime} → ${s.arrivalTime}',
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 13,
+                            color: CupertinoColors.activeBlue,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ),
-                      if (canShowStops)
-                        const Icon(
-                          CupertinoIcons.chevron_right,
-                          size: 16,
-                          color: CupertinoColors.inactiveGray,
-                        ),
-                    ],
-                  ),
-                  if (s.subTitle != null) ...[
-                    const SizedBox(height: 4),
                     Text(
                       s.subTitle!,
                       style: const TextStyle(

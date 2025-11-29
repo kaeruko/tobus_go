@@ -290,6 +290,9 @@ def segments_detailed(G, path, tm, start_time_str="10:00"):
     
     # 直前の物理ノード（駅やバス停）を記録しておく
     last_phys = None
+    
+    # 時刻追跡用
+    curr_time = time_str_to_min(start_time_str)
 
     def flush():
         nonlocal cur
@@ -298,8 +301,14 @@ def segments_detailed(G, path, tm, start_time_str="10:00"):
             if cur["kind"] == "walk":
                 cur["minutes"] = max(1, int(cur.get("meters", 0) / WALK_SPEED_M_PER_MIN))
             elif cur["kind"] in ("bus", "rail"):
-                # エッジ数から簡易的に計算（より正確には arrival_time の差分を使うのが良いが、ここでは構造化を優先）
-                cur["minutes"] = max(1, int(cur.get("edges", 0) * 2.0))
+                # 到着時刻があればそれを使う
+                if cur.get("arrival_time"):
+                    dep_min = time_str_to_min(cur.get("departure_time"))
+                    arr_min = time_str_to_min(cur.get("arrival_time"))
+                    cur["minutes"] = max(1, int(arr_min - dep_min))
+                else:
+                    # フォールバック
+                    cur["minutes"] = max(1, int(cur.get("edges", 0) * 2.0))
             
             segs.append(cur)
             cur = None
@@ -322,6 +331,9 @@ def segments_detailed(G, path, tm, start_time_str="10:00"):
             cur["edges"] += 1
             cur["meters"] += edge.get("meters", 0)
             if v[0] == "phys": cur["to"] = G.nodes[v]["name"]
+            
+            # 時間加算
+            curr_time += (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
             continue
 
         # --- 乗り物 (Board / Ride / Alight / Xfer) ---
@@ -341,6 +353,18 @@ def segments_detailed(G, path, tm, start_time_str="10:00"):
             }
             # 乗車駅を追加
             cur["stops"].append({"name": from_name, "is_origin": True})
+            
+            # 出発時刻計算
+            phys_id = u[1]
+            if mode == "bus":
+                route_id = G.nodes[v].get("route_id")
+                stop_name = G.nodes[u].get("name")
+                dep = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=stop_name)
+                if dep: curr_time = dep
+            elif mode == "rail":
+                curr_time += 2.0 # 乗り換え待ち概算
+            
+            cur["departure_time"] = min_to_time_str(curr_time)
         
         elif etype == "ride":
             if cur and cur["kind"] in ("bus", "rail"):
@@ -355,6 +379,16 @@ def segments_detailed(G, path, tm, start_time_str="10:00"):
                 # 直前の駅と名前が違うなら追加
                 if not cur["stops"] or cur["stops"][-1]["name"] != stop_name:
                     cur["stops"].append({"name": stop_name})
+            
+            # 移動時間加算
+            if mode == "rail":
+                arr = tm.get_next_train_arrival(u[1], v[1], curr_time)
+                if arr: curr_time = arr
+                else: curr_time += edge.get("w", 2.0)
+            else:
+                dist = edge.get("meters", 0)
+                if dist > 0: curr_time += (dist / 250.0) + 0.8
+                else: curr_time += 2.5
 
         elif etype in ("alight", "xfer"):
             if cur and cur["kind"] in ("bus", "rail"):
@@ -367,10 +401,25 @@ def segments_detailed(G, path, tm, start_time_str="10:00"):
                         cur["stops"].append({"name": to_name, "is_destination": True})
                     else:
                         cur["stops"][-1]["is_destination"] = True
+                
+                cur["arrival_time"] = min_to_time_str(curr_time)
                 flush()
+            
+            curr_time += 1.0 # 下車/乗換コスト
 
     if cur: flush()
     return segs
+
+
+def path_to_coords(G, path):
+    """
+    パス(ノード列)を [lat, lon] のリストに変換する
+    """
+    points = []
+    for u in path:
+        d = G.nodes[u]
+        points.append([d["lat"], d["lon"]])
+    return points
 
 
 # -------------------- 統合検索ロジック --------------------
@@ -391,6 +440,10 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
             start_min = time_str_to_min(start_time)
             duration = int(arr_min - start_min)
             
+            # 統計情報の計算
+            num_rides = sum(1 for s in segs if s["kind"] in ("bus", "rail"))
+            walk_dist = sum(s["meters"] for s in segs if s["kind"] == "walk")
+
             candidates.append({
                 "id": "Fastest",
                 "lines": lines,
@@ -398,9 +451,16 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
                 "arrival_time": min_to_time_str(arr_min),
                 "steps": segs,
                 "score_label": f"{duration}分",
-                "cost_score": 0.0, # Timeモードではコスト計算していないので仮
-                "walk_m": sum(s["meters"] for s in segs if s["kind"] == "walk"),
-                "path": path  # CLIでのデバッグ表示用などに生パスも残す
+                "cost_score": 0.0,
+                "walk_m": walk_dist,
+                "path": path,
+                "points": path_to_coords(G, path),
+                # ★追加: main.dart の Candidate が期待するフィールド
+                "total": duration, # Timeモードは所要時間をスコアとする
+                "transfers": max(0, num_rides - 1),
+                "rides": num_rides,
+                "walks": int(walk_dist),
+                "boards": num_rides,
             })
 
     # 2. Costモード (楽な経路トップK)
@@ -429,6 +489,9 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
                 start_min = time_str_to_min(start_time)
                 duration = int(real_arr - start_min)
                 
+                # 統計情報の計算
+                num_rides = sum(1 for s in segs if s["kind"] in ("bus", "rail"))
+                
                 candidates.append({
                     "id": f"Comfort-{valid_count+1}",
                     "lines": lines,
@@ -438,7 +501,14 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
                     "score_label": f"楽さ {cand['cost']:.1f} (所要{duration}分)",
                     "cost_score": cand['cost'],
                     "walk_m": cand['walk_m'],
-                    "path": path
+                    "path": path,
+                    "points": path_to_coords(G, path),
+                    # ★追加: main.dart の Candidate が期待するフィールド
+                    "total": int(cand['cost']),
+                    "transfers": max(0, num_rides - 1),
+                    "rides": num_rides,
+                    "walks": int(cand['walk_m']),
+                    "boards": num_rides,
                 })
                 
                 valid_count += 1
