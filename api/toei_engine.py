@@ -279,6 +279,177 @@ def get_logical_signature(G, path):
                 current_line = None
     return tuple(sig)
 
+# -------------------- 共通ロジック: セグメント詳細化 --------------------
+# server.py から移動・共通化
+def segments_detailed(G, path, tm, start_time_str="10:00"):
+    """
+    パス(ノード列)を、UI表示やログ出力用の詳細セグメントリストに変換する
+    """
+    segs = []
+    cur = None
+    
+    # 直前の物理ノード（駅やバス停）を記録しておく
+    last_phys = None
+
+    def flush():
+        nonlocal cur
+        if cur:
+            # 分計算 (概算)
+            if cur["kind"] == "walk":
+                cur["minutes"] = max(1, int(cur.get("meters", 0) / WALK_SPEED_M_PER_MIN))
+            elif cur["kind"] in ("bus", "rail"):
+                # エッジ数から簡易的に計算（より正確には arrival_time の差分を使うのが良いが、ここでは構造化を優先）
+                cur["minutes"] = max(1, int(cur.get("edges", 0) * 2.0))
+            
+            segs.append(cur)
+            cur = None
+
+    for u, v in zip(path, path[1:]):
+        edge = G.edges[u, v]
+        etype = edge.get("etype")
+        
+        if u[0] == "phys": last_phys = u
+
+        # --- 徒歩 ---
+        if etype == "walk":
+            if not cur or cur["kind"] != "walk":
+                flush()
+                from_name = G.nodes[u]["name"] if u[0]=="phys" else "???"
+                cur = {
+                    "kind": "walk", "title": "徒歩", "edges": 0,
+                    "from_": from_name, "to": None, "meters": 0
+                }
+            cur["edges"] += 1
+            cur["meters"] += edge.get("meters", 0)
+            if v[0] == "phys": cur["to"] = G.nodes[v]["name"]
+            continue
+
+        # --- 乗り物 (Board / Ride / Alight / Xfer) ---
+        node = v if v[0] == "line" else (u if u[0] == "line" else None)
+        if not node: continue
+
+        line_id = G.nodes[node].get("line")
+        line_disp = G.nodes[node].get("disp") or "???"
+        mode = G.nodes[node].get("mode") # bus or rail
+
+        if etype == "board":
+            flush()
+            from_name = G.nodes[last_phys]["name"] if last_phys else "???"
+            cur = {
+                "kind": mode, "title": line_disp, "line": line_id,
+                "edges": 0, "from_": from_name, "to": None, "stops": []
+            }
+            # 乗車駅を追加
+            cur["stops"].append({"name": from_name, "is_origin": True})
+        
+        elif etype == "ride":
+            if cur and cur["kind"] in ("bus", "rail"):
+                cur["edges"] += 1
+                # 停車駅名（lineノードに対応する物理名を引くのは簡易実装）
+                # 厳密には v[1] が phys_id なのでそれを G から引く
+                stop_name = "???"
+                phys_key = ("phys", v[1]) if v[0] == "line" else ("phys", u[1])
+                if phys_key in G:
+                    stop_name = G.nodes[phys_key]["name"]
+                
+                # 直前の駅と名前が違うなら追加
+                if not cur["stops"] or cur["stops"][-1]["name"] != stop_name:
+                    cur["stops"].append({"name": stop_name})
+
+        elif etype in ("alight", "xfer"):
+            if cur and cur["kind"] in ("bus", "rail"):
+                to_phys = v if v[0] == "phys" else last_phys
+                if to_phys:
+                    to_name = G.nodes[to_phys]["name"]
+                    cur["to"] = to_name
+                    # 最後の駅
+                    if not cur["stops"] or cur["stops"][-1]["name"] != to_name:
+                        cur["stops"].append({"name": to_name, "is_destination": True})
+                    else:
+                        cur["stops"][-1]["is_destination"] = True
+                flush()
+
+    if cur: flush()
+    return segs
+
+
+# -------------------- 統合検索ロジック --------------------
+def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5):
+    """
+    ServerとCLI共通のエントリーポイント。
+    経路探索 -> 時刻表バリデーション -> セグメント化 -> 結果辞書のリスト作成 までを一気通貫で行う。
+    """
+    candidates = []
+    
+    # 1. Timeモード (最速経路1つ)
+    if mode == "time" or mode == "fast":
+        arr_min, path = find_fastest_path(G, tm, a_phys, b_phys, start_time_str=start_time)
+        if path:
+            segs = segments_detailed(G, path, tm, start_time)
+            lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
+            
+            start_min = time_str_to_min(start_time)
+            duration = int(arr_min - start_min)
+            
+            candidates.append({
+                "id": "Fastest",
+                "lines": lines,
+                "total_time": duration,
+                "arrival_time": min_to_time_str(arr_min),
+                "steps": segs,
+                "score_label": f"{duration}分",
+                "cost_score": 0.0, # Timeモードではコスト計算していないので仮
+                "walk_m": sum(s["meters"] for s in segs if s["kind"] == "walk"),
+                "path": path  # CLIでのデバッグ表示用などに生パスも残す
+            })
+
+    # 2. Costモード (楽な経路トップK)
+    else:
+        # ジェネレータを作成
+        path_gen = find_paths_generator(G, a_phys, b_phys, max_search=2000)
+        
+        valid_count = 0
+        dead_routes = set() # 過去に失敗したルートID (簡易的な学習)
+
+        for cand in path_gen:
+            path = cand["path"]
+            
+            # ブラックリスト(dead_routes) チェック
+            # (前のバリデーションで「バスがない」と判明した路線を含んでいたらスキップする等のロジックを入れる場所)
+            # 今回は簡易実装としてスキップ
+            
+            # 答え合わせ (時刻表チェック)
+            real_arr = calculate_real_arrival_time(G, tm, path, start_time)
+            
+            if real_arr is not None:
+                # 合格
+                segs = segments_detailed(G, path, tm, start_time)
+                lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
+                
+                start_min = time_str_to_min(start_time)
+                duration = int(real_arr - start_min)
+                
+                candidates.append({
+                    "id": f"Comfort-{valid_count+1}",
+                    "lines": lines,
+                    "total_time": duration,
+                    "arrival_time": min_to_time_str(real_arr),
+                    "steps": segs,
+                    "score_label": f"楽さ {cand['cost']:.1f} (所要{duration}分)",
+                    "cost_score": cand['cost'],
+                    "walk_m": cand['walk_m'],
+                    "path": path
+                })
+                
+                valid_count += 1
+                if valid_count >= limit:
+                    break
+            else:
+                # 不合格（終バス後など）
+                pass
+                
+    return candidates
+
 # -------------------- 探索ロジック --------------------
 
 # 1. これが本体（中身はさっきの高速ジェネレータ）
@@ -481,91 +652,36 @@ def main():
         sys.exit(1)
     print(f"[INFO] {G.nodes[a_phys]['name']} -> {G.nodes[b_phys]['name']}")
 
-    if args.mode == "cost":
-        print(f"[INFO] Mode: Cost Priority (Lazy Route)")
-        tm = TimetableManager()
-        print(f"[INFO] Loading Timetables for validation...")
-        tm.load_bus_timetables(args.bus_timetables)
-        tm.load_train_timetables(args.train_timetables)
-        tm.build_name_index(G)
+    tm = TimetableManager()
+    print(f"[INFO] Loading Timetables...")
+    tm.load_bus_timetables(args.bus_timetables)
+    tm.load_train_timetables(args.train_timetables)
+    tm.build_name_index(G)
 
-        # 重み設定 (変更なし)
-        A_ID = a_phys[1]
-        for u, v, data in G.edges(data=True):
-            if data.get("etype") == "board":
-                if u == ("phys", A_ID): data["w"] = 0.0
-                else:
-                    mode = G.nodes[v].get("mode") if v[0]=="line" else None
-                    base = TRANSFER_PENALTY
-                    if mode=="bus": base += BUS_WAIT_PENALTY
-                    data["w"] = base
-            if data.get("etype") == "alight" and data.get("mode") == "bus":
-                data["w"] = BUS_ALIGHT_PENALTY
-        
-        # ★ここから変更: ジェネレータを回す
-        print("[INFO] Searching and Validating routes incrementally...")
-        
-        # Generatorを作成 (max_search=1000にしておけば、事実上無限に探してくれる)
-        path_gen = find_paths_generator(G, a_phys, b_phys, max_search=1000)
-        
-        valid_routes = []
-        
-        # 1つずつ取り出してチェック
-        for cand in path_gen:
-            # 答え合わせ
-            real_arr = calculate_real_arrival_time(G, tm, cand["path"], args.start_time)
-            
-            if real_arr is not None:
-                # 合格！
-                cand["real_arr"] = real_arr
-                valid_routes.append(cand)
-                print(f"[FOUND] Valid Route #{len(valid_routes)} found! (Comfort: {cand['cost']:.1f})")
+    # ★共通関数を呼ぶだけにする
+    results = search_best_routes(
+        G, tm, a_phys, b_phys, 
+        mode=args.mode, 
+        start_time=args.start_time, 
+        limit=5
+    )
+
+    if not results:
+        print("No valid route found.")
+        return
+
+    # 結果表示
+    print(f"\n[INFO] Found {len(results)} Routes")
+    for i, res in enumerate(results, 1):
+        print("-" * 40)
+        print(f"#{i} {res['score_label']} / Arr: {res['arrival_time']}")
+        print(f"    Lines: {' -> '.join(res['lines'])}")
+        print(f"    Steps:")
+        for step in res['steps']:
+            if step['kind'] == 'walk':
+                print(f"      [徒歩] {step['meters']:.0f}m ({step['minutes']:.0f}分)")
             else:
-                # 不合格（終バス後など）
-                # print(f"[SKIP] Route candidate failed timetable check.") # ログがうるさければコメントアウト
-                pass
-
-            # 5つ揃ったら終了
-            if len(valid_routes) >= 5:
-                break
-        
-        # 最終結果表示
-        if valid_routes:
-            print(f"\n[INFO] Top {len(valid_routes)} Valid 'Lazy' Routes")
-            for i, sol in enumerate(valid_routes, 1):
-                real_arr = sol["real_arr"]
-                duration = int(real_arr - time_str_to_min(args.start_time))
-                time_info = f"{min_to_time_str(real_arr)} Arrival ({duration} min)"
-                
-                print("-" * 40)
-                print(f"#{i} [Comfort Score: {sol['cost']:.1f}] Real Time: {time_info}")
-                print(f"    Total Walk: {sol['walk_m']:.0f}m")
-                
-                curr_mode = None
-                for u, v in zip(sol["path"], sol["path"][1:]):
-                    e = G.edges[u, v]
-                    if e.get("etype") == "ride":
-                        name = G.nodes[u].get("disp")
-                        if name != curr_mode:
-                            print(f"    [乗車] {name}")
-                            curr_mode = name
-                    elif e.get("etype") == "walk":
-                        if curr_mode != "walk":
-                            print(f"    [徒歩] {int(e.get('meters',0))}m")
-                            curr_mode = "walk"
-        else:
-            print("No valid route found.")
-
-    elif args.mode == "time":
-        tm = TimetableManager()
-        print(f"[INFO] Loading Timetables...")
-        tm.load_bus_timetables(args.bus_timetables)
-        tm.load_train_timetables(args.train_timetables)
-        tm.build_name_index(G) # Timeモードでも名寄せ有効化
-        
-        arr, path = find_fastest_path(G, tm, a_phys, b_phys, args.start_time)
-        if path: print_time_mode_result(G, path, args.start_time, arr)
-        else: print("No route found (Time mode).")
+                print(f"      [{step['kind'].upper()}] {step['title']} ({step['from_']} -> {step['to']})")
 
 if __name__ == "__main__":
     main()

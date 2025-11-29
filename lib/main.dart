@@ -2,6 +2,7 @@
   import 'package:google_maps_flutter/google_maps_flutter.dart';
   import 'package:http/http.dart' as http;
   import 'package:flutter/cupertino.dart';
+  import 'package:flutter/foundation.dart';
 
   Map<String, dynamic> _jsonUtf8(http.Response r) {
     final body = utf8.decode(r.bodyBytes);
@@ -13,6 +14,57 @@
 
   // 簡易的なグローバル保存領域 (メモリのみ)
   final List<Candidate> kSavedRoutes = [];
+
+  // -------------------- API Client (共通化) --------------------
+  class ApiClient {
+    static void _log(String message) {
+      if (kDebugMode) {
+        print('[API] $message');
+      }
+    }
+
+    static Future<Map<String, dynamic>> get(String path, {Map<String, String>? params}) async {
+      final uri = Uri.parse('$kApiBase$path').replace(queryParameters: params);
+      _log('GET $uri');
+      
+      try {
+        final r = await http.get(uri);
+        _log('GET $uri -> ${r.statusCode}');
+        
+        if (r.statusCode != 200) {
+          throw Exception('HTTP ${r.statusCode}');
+        }
+        
+        final json = _jsonUtf8(r);
+        _log('Response: ${json.toString().substring(0, json.toString().length > 200 ? 200 : json.toString().length)}...');
+        return json;
+      } catch (e) {
+        _log('GET $uri -> ERROR: $e');
+        rethrow;
+      }
+    }
+
+    static Future<Map<String, dynamic>> post(String path, {Map<String, String>? body}) async {
+      final uri = Uri.parse('$kApiBase$path');
+      _log('POST $uri body=$body');
+      
+      try {
+        final r = await http.post(uri, body: body);
+        _log('POST $uri -> ${r.statusCode}');
+        
+        if (r.statusCode != 200) {
+          throw Exception('HTTP ${r.statusCode}');
+        }
+        
+        final json = _jsonUtf8(r);
+        _log('Response: ${json.toString().substring(0, json.toString().length > 200 ? 200 : json.toString().length)}...');
+        return json;
+      } catch (e) {
+        _log('POST $uri -> ERROR: $e');
+        rethrow;
+      }
+    }
+  }
 
   void main() => runApp(const App());
 
@@ -181,16 +233,9 @@
       });
 
       try {
-        final uri = Uri.parse('$kApiBase/route');
         final params = _buildRouteParams(alat, alon, blat, blon);
-
-        // ★ ここで「今までのクエリ組み立て」をそのまま body に使ってる
-        final r = await http.post(uri, body: params);
-        if (r.statusCode != 200) {
-          throw Exception('HTTP ${r.statusCode}');
-        }
-
-        final j = _jsonUtf8(r);
+        final j = await ApiClient.post('/route', body: params);
+        
         final jobId = j['job_id']?.toString();
         if (jobId == null || jobId.isEmpty) {
           throw Exception('job_id が返ってきませんでした');
@@ -214,15 +259,7 @@
       if (_routeJobId != jobId) return;
 
       try {
-        final uri = Uri.parse('$kApiBase/route').replace(
-          queryParameters: {'job_id': jobId},
-        );
-        final r = await http.get(uri);
-        if (r.statusCode != 200) {
-          throw Exception('HTTP ${r.statusCode}');
-        }
-
-        final j = _jsonUtf8(r);
+        final j = await ApiClient.get('/route', params: {'job_id': jobId});
         final status = j['status']?.toString() ?? 'unknown';
 
         if (!mounted || !_polling || _routeJobId != jobId) return;
@@ -236,7 +273,6 @@
         }
 
         if (status == 'done') {
-          // ★ ここで「以前と同じ candidates パース」を使う
           final result = j['result'];
           List<Candidate> list = const [];
           if (result is Map<String, dynamic>) {
@@ -1263,10 +1299,7 @@
 
       setState(() => _loading = true);
       try {
-        final r = await http.get(
-          Uri.parse('$kApiBase/autocomplete?q=${Uri.encodeComponent(q)}'),
-        );
-        final j = _jsonUtf8(r);
+        final j = await ApiClient.get('/autocomplete', params: {'q': q});
         final raw = j['predictions'] as List? ?? const [];
         setState(() {
           _loading = false;
@@ -1284,10 +1317,7 @@
       final placeId = p['place_id'] as String?;
       if (placeId == null) return;
 
-      final r = await http.get(
-        Uri.parse('$kApiBase/details?place_id=${Uri.encodeComponent(placeId)}'),
-      );
-      final j = _jsonUtf8(r);
+      final j = await ApiClient.get('/details', params: {'place_id': placeId});
       final res = j['result'] as Map<String, dynamic>?;
       final loc = (res?['geometry']?['location'] as Map?) ?? {};
       final lat = (loc['lat'] as num?)?.toDouble() ?? 0;
