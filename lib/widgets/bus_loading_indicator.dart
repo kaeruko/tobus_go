@@ -64,7 +64,7 @@ class _BusLoadingIndicatorState extends State<BusLoadingIndicator>
             },
           ),
         ),
-        const Text('検索中...', style: TextStyle(color: CupertinoColors.inactiveGray)),
+        const Text('しばらくお待ち下さい', style: TextStyle(color: CupertinoColors.inactiveGray)),
       ],
     );
   }
