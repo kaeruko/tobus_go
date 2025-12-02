@@ -1,7 +1,19 @@
 import 'package:flutter/cupertino.dart';
 import 'pages/root_tabs.dart';
 
-void main() => runApp(const App());
+import 'services/storage_service.dart';
+import 'data/global_state.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // 保存された経路を読み込む
+  final storage = StorageService();
+  final saved = await storage.loadRoutes();
+  kSavedRoutes.addAll(saved);
+
+  runApp(const App());
+}
 
 class App extends StatelessWidget {
   const App({super.key});

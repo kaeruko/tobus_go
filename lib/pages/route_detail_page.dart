@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/route_models.dart';
 import '../data/global_state.dart';
+import '../services/storage_service.dart';
 
 class RouteDetailPage extends StatelessWidget {
   final Candidate candidate;
@@ -32,6 +33,7 @@ class RouteDetailPage extends StatelessWidget {
               );
             } else {
               kSavedRoutes.add(candidate);
+              StorageService().saveRoutes(kSavedRoutes); // 保存
               showCupertinoDialog(
                 context: context,
                 builder: (ctx) => CupertinoAlertDialog(

@@ -10,6 +10,7 @@ class Candidate {
   final int total;
   final List<StepSeg> steps;
   final List<LatLng> points;
+  final String? preference;
 
   Candidate({
     required this.id,
@@ -21,6 +22,7 @@ class Candidate {
     required this.total,
     required this.steps,
     required this.points,
+    this.preference,
   });
 
   factory Candidate.fromJson(Map<String, dynamic> j) {
@@ -39,6 +41,7 @@ class Candidate {
                   : const LatLng(0, 0))
               .toList() ??
           const [],
+      preference: j['preference']?.toString(),
     );
   }
 
@@ -53,6 +56,21 @@ class Candidate {
       }
     }
     return out;
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'lines': lines,
+      'rides': rides,
+      'walks': walks,
+      'boards': boards,
+      'transfers': transfers,
+      'total': total,
+      'steps': steps.map((e) => e.toJson()).toList(),
+      'points': points.map((e) => [e.latitude, e.longitude]).toList(),
+      'preference': preference,
+    };
   }
 }
 
@@ -127,6 +145,22 @@ class StepSeg {
     }
     return null;
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'kind': kind,
+      'title': title,
+      'edges': edges,
+      'minutes': minutes,
+      'meters': meters,
+      'fareYen': fareYen,
+      'from_': from,
+      'to': to,
+      'departure_time': departureTime,
+      'arrival_time': arrivalTime,
+      'stops': stops.map((e) => e.toJson()).toList(),
+    };
+  }
 }
 
 class StopPoint {
@@ -142,5 +176,13 @@ class StopPoint {
       isOrigin: j['is_origin'] == true,
       isDestination: j['is_destination'] == true,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'is_origin': isOrigin,
+      'is_destination': isDestination,
+    };
   }
 }

@@ -84,9 +84,13 @@ class _HomePageState extends State<HomePage> {
     final raw = j['candidates'] as List?;
     if (raw == null) return const [];
 
-    return raw
-        .map((e) => Candidate.fromJson(e as Map<String, dynamic>))
-        .toList();
+    final currentPref = pref == Preference.fewTransfers ? 'fewTransfers' : 'shortTime';
+
+    return raw.map((e) {
+      final map = e as Map<String, dynamic>;
+      map['preference'] = currentPref;
+      return Candidate.fromJson(map);
+    }).toList();
   }
 
   @override
