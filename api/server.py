@@ -22,6 +22,7 @@ from toei_engine import (
 load_dotenv()
 
 # -------------------- 設定 & グローバル変数 --------------------
+ODPT_API_TOKEN = os.getenv("ODPT_API_TOKEN") # ★.envに追加してください
 ROUTE_JOBS: dict[str, dict] = {}
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 
@@ -46,6 +47,40 @@ app.add_middleware(
 G = None
 TM = None
 
+# ★追加: 定期実行タスク
+async def fetch_realtime_data_loop():
+    """
+    1分ごとに ODPT API からリアルタイム列車情報を取得し、
+    TimetableManager に反映させるバックグラウンドタスク
+    """
+    if not ODPT_API_TOKEN:
+        print("[WARN] ODPT_API_TOKEN not set. Realtime updates disabled.")
+        return
+
+    url = "https://api.odpt.org/api/v4/odpt:Train"
+    params = {
+        "odpt:operator": "odpt.Operator:Toei",
+        "acl:consumerKey": ODPT_API_TOKEN
+    }
+
+    while True:
+        try:
+            async with httpx.AsyncClient() as client:
+                # print("[server] Fetching realtime train data...")
+                r = await client.get(url, params=params)
+                if r.status_code == 200:
+                    data = r.json()
+                    # エンジン側の辞書を更新
+                    if TM:
+                        TM.update_delays(data)
+                else:
+                    print(f"[Error] API fetch failed: {r.status_code}")
+        except Exception as e:
+            print(f"[Error] Realtime fetch loop error: {e}")
+
+        # 60秒待機
+        await asyncio.sleep(60)
+
 @app.on_event("startup")
 async def _startup():
     global G, TM
@@ -60,6 +95,9 @@ async def _startup():
     
     print("[server] Building Name Index for Fuzzy Matching...")
     TM.build_name_index(G)
+    
+    # ★追加: バックグラウンドタスクの開始
+    asyncio.create_task(fetch_realtime_data_loop())
     
     print("[server] Ready!")
 

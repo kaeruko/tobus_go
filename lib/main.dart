@@ -9,7 +9,7 @@ class App extends StatelessWidget {
   Widget build(BuildContext context) {
     return const CupertinoApp(
       debugShowCheckedModeBanner: false,
-      title: 'Toei Route Demo',
+      title: '都営でGO',
       home: RootTabs(),
     );
   }

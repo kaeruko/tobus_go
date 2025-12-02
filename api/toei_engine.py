@@ -65,6 +65,24 @@ class TimetableManager:
         self.train_patterns = {}
         # ★追加: 名前からIDリストを引くための辞書
         self.name_to_pids = defaultdict(list)
+        
+        # ★追加: リアルタイム遅延情報を保持する辞書
+        # Key: 列車番号(train_number), Value: 遅延秒数(int)
+        self.realtime_delays = {}
+
+    # ★追加: 外部から遅延情報を更新するメソッド
+    def update_delays(self, train_data_list):
+        """
+        odpt:Train のリストを受け取り、遅延情報を更新する
+        """
+        count = 0
+        for t in train_data_list:
+            t_num = t.get("odpt:trainNumber")
+            delay = t.get("odpt:delay", 0)  # 秒単位
+            if t_num:
+                self.realtime_delays[t_num] = delay
+                count += 1
+        print(f"[INFO] Updated delays for {count} trains.")
 
     def load_bus_timetables(self, json_path):
         data = load_json(json_path)
@@ -96,6 +114,9 @@ class TimetableManager:
         data = load_json(json_path)
         count = 0
         for entry in data:
+            # ★変更: 列車番号を取得
+            train_num = entry.get("odpt:trainNumber")
+            
             objs = entry.get("odpt:trainTimetableObject", [])
             for i in range(len(objs) - 1):
                 curr = objs[i]
@@ -108,7 +129,10 @@ class TimetableManager:
                 if dep_sta and arr_sta:
                     if dep_sta not in self.train_patterns: self.train_patterns[dep_sta] = []
                     self.train_patterns[dep_sta].append({
-                        "dep": dep_time, "arr": arr_time, "next_sta": arr_sta
+                        "dep": dep_time, 
+                        "arr": arr_time, 
+                        "next_sta": arr_sta,
+                        "train_num": train_num  # ★追加: ここで列車番号を保持
                     })
             count += 1
         
@@ -171,9 +195,23 @@ class TimetableManager:
     def get_next_train_arrival(self, current_sta, next_sta, current_time_min):
         trains = self.train_patterns.get(current_sta)
         if not trains: return None
+        
         for t in trains:
-            if t["dep"] >= current_time_min and t["next_sta"] == next_sta:
-                return t["arr"]
+            # 基本ダイヤの時刻
+            base_dep = t["dep"]
+            base_arr = t["arr"]
+            
+            # ★変更: 遅延を考慮した時刻を計算
+            # 列車番号で遅延辞書を検索（なければ0秒）
+            delay_sec = self.realtime_delays.get(t["train_num"], 0)
+            delay_min = delay_sec / 60.0
+            
+            actual_dep = base_dep + delay_min
+            actual_arr = base_arr + delay_min
+
+            # 現在時刻以降に出発できるか？
+            if actual_dep >= current_time_min and t["next_sta"] == next_sta:
+                return actual_arr
         return None
 
 # -------------------- グラフ構築 --------------------
