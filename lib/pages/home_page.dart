@@ -356,7 +356,27 @@ class _HomePageState extends State<HomePage> {
             // 結果リスト
             Expanded(
               child: _loading
-                  ? const Center(child: BusLoadingIndicator())
+                  ? Center(
+                      child: Container(
+                        width: 160,
+                        height: 160,
+                        decoration: BoxDecoration(
+                          color: CupertinoColors.systemBackground,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: CupertinoColors.systemGrey.withValues(alpha: 0.2),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: BusLoadingIndicator(),
+                        ),
+                      ),
+                    )
                   : (candidates.isEmpty
                       ? const Center(child: Text('出発と到着を選択'))
                       : ListView.separated(

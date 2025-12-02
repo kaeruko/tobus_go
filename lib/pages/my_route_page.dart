@@ -51,11 +51,21 @@ class _MyRoutePageState extends State<MyRoutePage> {
     
     setState(() => _loading = true);
 
-    // 簡易的なローディング表示
+    // 簡易的なローディング表示 
     showCupertinoDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: BusLoadingIndicator()),
+      builder: (_) => Center(
+        child: Container(
+          width: 160,
+          height: 160,
+          decoration: BoxDecoration(
+            color: CupertinoColors.systemBackground,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const BusLoadingIndicator(),
+        ),
+      ),
     );
 
     try {
@@ -81,7 +91,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
 
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context); // ローディング閉じる
+      Navigator.of(context, rootNavigator: true).pop(); // ローディング閉じる
       setState(() => _loading = false);
       showCupertinoDialog(
         context: context,
@@ -113,7 +123,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
               .toList();
           
           if (!mounted) return;
-          Navigator.pop(context); // ローディング閉じる
+          Navigator.of(context, rootNavigator: true).pop(); // ローディング閉じる
           setState(() => _loading = false);
 
           if (list != null && list.isNotEmpty) {

@@ -61,24 +61,24 @@ def min_to_time_str(m):
 # -------------------- 時刻表マネージャー (名寄せ強化版) --------------------
 class TimetableManager:
     def __init__(self):
-        self.bus_departures = {}
-        self.train_patterns = {}
-        # ★追加: 名前からIDリストを引くための辞書
-        self.name_to_pids = defaultdict(list)
+        # key: pole_id, value: { route_id: [minutes, ...] }
+        self.bus_departures_weekday = {}
+        self.bus_departures_weekend = {}
         
-        # ★追加: リアルタイム遅延情報を保持する辞書
-        # Key: 列車番号(train_number), Value: 遅延秒数(int)
+        # key: station_id, value: [ {dep, arr, next_sta, train_id} ]
+        self.train_patterns_weekday = {}
+        self.train_patterns_weekend = {}
+        
+        # 名前インデックス (共通)
+        self.name_to_pids = defaultdict(list)
+        # リアルタイム遅延 (共通)
         self.realtime_delays = {}
 
-    # ★追加: 外部から遅延情報を更新するメソッド
     def update_delays(self, train_data_list):
-        """
-        odpt:Train のリストを受け取り、遅延情報を更新する
-        """
         count = 0
         for t in train_data_list:
             t_num = t.get("odpt:trainNumber")
-            delay = t.get("odpt:delay", 0)  # 秒単位
+            delay = t.get("odpt:delay", 0)
             if t_num:
                 self.realtime_delays[t_num] = delay
                 count += 1
@@ -90,6 +90,7 @@ class TimetableManager:
         for entry in data:
             pole_id = entry.get("odpt:busstopPole")
             route_id = entry.get("odpt:busroute")
+            calendar = entry.get("odpt:calendar", "")
             if not pole_id: continue
 
             times = []
@@ -99,25 +100,39 @@ class TimetableManager:
             times.sort()
             
             if not times: continue
-            if pole_id not in self.bus_departures: self.bus_departures[pole_id] = {}
-            if route_id not in self.bus_departures[pole_id]: self.bus_departures[pole_id][route_id] = []
+
+            # 振り分け
+            target_dict = self.bus_departures_weekend
+            if "Weekday" in calendar:
+                target_dict = self.bus_departures_weekday
             
-            self.bus_departures[pole_id][route_id].extend(times)
+            if pole_id not in target_dict: target_dict[pole_id] = {}
+            if route_id not in target_dict[pole_id]: target_dict[pole_id][route_id] = []
+            
+            target_dict[pole_id][route_id].extend(times)
             count += 1
         
-        for pid in self.bus_departures:
-            for rid in self.bus_departures[pid]:
-                self.bus_departures[pid][rid].sort()
+        # ソート
+        for d in [self.bus_departures_weekday, self.bus_departures_weekend]:
+            for pid in d:
+                for rid in d[pid]:
+                    d[pid][rid].sort()
         print(f"[DEBUG] Loaded Bus Timetables (Entries used: {count})")
 
     def load_train_timetables(self, json_path):
         data = load_json(json_path)
         count = 0
         for entry in data:
-            # ★変更: 列車番号を取得
             train_num = entry.get("odpt:trainNumber")
+            calendar = entry.get("odpt:calendar", "")
             
             objs = entry.get("odpt:trainTimetableObject", [])
+            
+            # 振り分け
+            target_dict = self.train_patterns_weekend
+            if "Weekday" in calendar:
+                target_dict = self.train_patterns_weekday
+
             for i in range(len(objs) - 1):
                 curr = objs[i]
                 next_stop = objs[i+1]
@@ -127,25 +142,23 @@ class TimetableManager:
                 arr_time = time_str_to_min(next_stop.get("odpt:arrivalTime"))
                 
                 if dep_sta and arr_sta:
-                    if dep_sta not in self.train_patterns: self.train_patterns[dep_sta] = []
-                    self.train_patterns[dep_sta].append({
+                    if dep_sta not in target_dict: target_dict[dep_sta] = []
+                    target_dict[dep_sta].append({
                         "dep": dep_time, 
                         "arr": arr_time, 
                         "next_sta": arr_sta,
-                        "train_num": train_num  # ★追加: ここで列車番号を保持
+                        "train_num": train_num
                     })
             count += 1
         
-        for sid in self.train_patterns:
-            self.train_patterns[sid].sort(key=lambda x: x["dep"])
+        for d in [self.train_patterns_weekday, self.train_patterns_weekend]:
+            for sid in d:
+                d[sid].sort(key=lambda x: x["dep"])
         print(f"[DEBUG] Loaded Train Timetables (Entries used: {count})")
 
-    # ★追加: グラフデータから「バス停名 -> IDリスト」の対応表を作る
     def build_name_index(self, G):
         print("[INFO] Building Name Index for fuzzy matching...")
         count = 0
-        jimbocho_count = 0
-        
         for n, d in G.nodes(data=True):
             if n[0] == "phys":
                 name = d.get("name")
@@ -153,15 +166,11 @@ class TimetableManager:
                 if name:
                     self.name_to_pids[name].append(pid)
                     count += 1
-                    if "神保町二丁目" in name:
-                        jimbocho_count += 1
-                        print(f"  [DEBUG-INDEX] Found: {name} -> {pid}")
+        print(f"[INFO] Index built. Total {count} nodes.")
 
-        print(f"[INFO] Index built. Total {count} nodes. (Jimbocho: {jimbocho_count})")
-
-    # TimetableManagerクラスの中
-    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None):
-        # ヘルパー: 辞書の中から route_id を探す
+    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, is_weekday=True):
+        target_dict = self.bus_departures_weekday if is_weekday else self.bus_departures_weekend
+        
         def find_times(routes_dict, target_rid):
             if target_rid in routes_dict: return routes_dict[target_rid]
             for r_key, t_list in routes_dict.items():
@@ -169,47 +178,39 @@ class TimetableManager:
                     return t_list
             return None
 
-        # 1. まずはIDそのもので探す
-        routes = self.bus_departures.get(pole_id)
+        routes = target_dict.get(pole_id)
         if routes:
             times = find_times(routes, route_id)
             if times:
                 idx = bisect.bisect_left(times, current_time_min)
                 if idx < len(times): return times[idx]
 
-        # 2. ★ここが修正点: 名前を使って、違うIDのポールも全部探す
-        # (IDが 458 でも 762 でも、名前が同じなら中身を見る)
         if pole_name and pole_name in self.name_to_pids:
             for alt_pid in self.name_to_pids[pole_name]:
                 if alt_pid == pole_id: continue 
-                
-                alt_routes = self.bus_departures.get(alt_pid)
+                alt_routes = target_dict.get(alt_pid)
                 if alt_routes:
                     times = find_times(alt_routes, route_id)
                     if times:
-                        # 見つかった！
                         idx = bisect.bisect_left(times, current_time_min)
                         if idx < len(times): return times[idx]
         return None
 
-    def get_next_train_arrival(self, current_sta, next_sta, current_time_min):
-        trains = self.train_patterns.get(current_sta)
+    def get_next_train_arrival(self, current_sta, next_sta, current_time_min, is_weekday=True):
+        target_dict = self.train_patterns_weekday if is_weekday else self.train_patterns_weekend
+        trains = target_dict.get(current_sta)
         if not trains: return None
         
         for t in trains:
-            # 基本ダイヤの時刻
             base_dep = t["dep"]
             base_arr = t["arr"]
             
-            # ★変更: 遅延を考慮した時刻を計算
-            # 列車番号で遅延辞書を検索（なければ0秒）
             delay_sec = self.realtime_delays.get(t["train_num"], 0)
             delay_min = delay_sec / 60.0
             
             actual_dep = base_dep + delay_min
             actual_arr = base_arr + delay_min
 
-            # 現在時刻以降に出発できるか？
             if actual_dep >= current_time_min and t["next_sta"] == next_sta:
                 return actual_arr
         return None
@@ -461,18 +462,63 @@ def path_to_coords(G, path):
 
 
 # -------------------- 統合検索ロジック --------------------
-def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5):
+# -------------------- 統合検索ロジック --------------------
+def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5):
+    """
+    日付を指定して検索し、結果が0件なら翌日以降も探すラッパー
+    """
+    # 現在日時を基準にする（簡易実装）
+    # 本来はリクエストパラメータで日付を受け取るべきだが、今回は「今日」からスタート
+    now = datetime.datetime.now()
+    
+    # start_time が "HH:MM" 形式なので、今日のその時間に設定
+    h, m = map(int, start_time.split(":"))
+    start_dt = now.replace(hour=h, minute=m, second=0, microsecond=0)
+    
+    # もし指定時刻が現在より過去なら、明日の検索とみなす？
+    # いや、My Routeの場合は「指定時刻」が重要なので、まずは今日の日付でトライ
+    
+    for day_offset in range(4): # 今日含めて4日間トライ
+        target_date = start_dt + datetime.timedelta(days=day_offset)
+        
+        # 2日目以降は、時刻を維持するか、始発にするか？
+        # ユーザーの要望は「次に使える経路」なので、同じ時刻で良いはず
+        # ただし、夜遅く(25:00とか)の場合は日付の扱いが難しいが、ここではシンプルに
+        # 「指定時刻」で検索する
+        
+        current_time_str = start_time
+        
+        # 検索実行
+        candidates = search_best_routes(G, tm, a_phys, b_phys, mode, current_time_str, limit, target_date)
+        
+        if candidates:
+            # 見つかった！
+            # 結果に日付情報を付与
+            for cand in candidates:
+                cand["departure_date"] = target_date.strftime("%Y-%m-%d")
+                cand["is_future_suggestion"] = (day_offset > 0)
+            return candidates
+
+    return []
+
+def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date=None):
     """
     ServerとCLI共通のエントリーポイント。
     経路探索 -> 時刻表バリデーション -> セグメント化 -> 結果辞書のリスト作成 までを一気通貫で行う。
     """
+    if target_date is None:
+        target_date = datetime.datetime.now()
+    
+    # 平日判定 (0-4: 月-金, 5-6: 土日)
+    is_weekday = target_date.weekday() < 5
+    
     candidates = []
     
     # 1. Timeモード (最速経路1つ)
     if mode == "time" or mode == "fast":
-        arr_min, path = find_fastest_path(G, tm, a_phys, b_phys, start_time_str=start_time)
+        arr_min, path = find_fastest_path(G, tm, a_phys, b_phys, start_time_str=start_time, is_weekday=is_weekday)
         if path:
-            segs = segments_detailed(G, path, tm, start_time)
+            segs = segments_detailed(G, path, tm, start_time, is_weekday=is_weekday)
             lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
             
             start_min = time_str_to_min(start_time)
@@ -493,8 +539,7 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
                 "walk_m": walk_dist,
                 "path": path,
                 "points": path_to_coords(G, path),
-                # ★追加: main.dart の Candidate が期待するフィールド
-                "total": duration, # Timeモードは所要時間をスコアとする
+                "total": duration,
                 "transfers": max(0, num_rides - 1),
                 "rides": num_rides,
                 "walks": int(walk_dist),
@@ -503,31 +548,23 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
 
     # 2. Costモード (楽な経路トップK)
     else:
-        # ジェネレータを作成
         path_gen = find_paths_generator(G, a_phys, b_phys, max_search=2000)
-        
         valid_count = 0
-        dead_routes = set() # 過去に失敗したルートID (簡易的な学習)
-
+        
         for cand in path_gen:
             path = cand["path"]
             
-            # ブラックリスト(dead_routes) チェック
-            # (前のバリデーションで「バスがない」と判明した路線を含んでいたらスキップする等のロジックを入れる場所)
-            # 今回は簡易実装としてスキップ
-            
             # 答え合わせ (時刻表チェック)
-            real_arr = calculate_real_arrival_time(G, tm, path, start_time)
+            real_arr = calculate_real_arrival_time(G, tm, path, start_time, is_weekday=is_weekday)
             
             if real_arr is not None:
                 # 合格
-                segs = segments_detailed(G, path, tm, start_time)
+                segs = segments_detailed(G, path, tm, start_time, is_weekday=is_weekday)
                 lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
                 
                 start_min = time_str_to_min(start_time)
                 duration = int(real_arr - start_min)
                 
-                # 統計情報の計算
                 num_rides = sum(1 for s in segs if s["kind"] in ("bus", "rail"))
                 
                 candidates.append({
@@ -541,7 +578,6 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
                     "walk_m": cand['walk_m'],
                     "path": path,
                     "points": path_to_coords(G, path),
-                    # ★追加: main.dart の Candidate が期待するフィールド
                     "total": int(cand['cost']),
                     "transfers": max(0, num_rides - 1),
                     "rides": num_rides,
@@ -552,49 +588,32 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
                 valid_count += 1
                 if valid_count >= limit:
                     break
-            else:
-                # 不合格（終バス後など）
-                pass
                 
     return candidates
 
 # -------------------- 探索ロジック --------------------
 
-# 1. これが本体（中身はさっきの高速ジェネレータ）
 def find_paths_generator(G, start_node, target_node, max_search=30000):
-    """
-    経路を1つずつ見つけては返すジェネレータ関数。
-    """
     pq = [(0.0, start_node, 0.0, [start_node])]
     count_visited = defaultdict(int)
     seen_logical_routes = set()
-    
     yielded_count = 0
 
     while pq:
         cost, u, walk_m, path = heapq.heappop(pq)
         
-        # ゴール判定
         if u == target_node:
             sig = get_logical_signature(G, path)
-            if sig in seen_logical_routes:
-                continue
+            if sig in seen_logical_routes: continue
             seen_logical_routes.add(sig)
-            
-            # 見つけた端から yield で返す
             yield {"cost": cost, "path": path, "walk_m": walk_m}
-            
             yielded_count += 1
-            if yielded_count >= max_search:
-                return
+            if yielded_count >= max_search: return
             continue
 
-        # 枝刈り
         walk_bucket = int(walk_m // 10)
         state_key = (u, walk_bucket)
-        
-        if count_visited[state_key] >= 20: 
-            continue
+        if count_visited[state_key] >= 20: continue
         count_visited[state_key] += 1
         
         for v in G[u]:
@@ -608,30 +627,11 @@ def find_paths_generator(G, start_node, target_node, max_search=30000):
                 if new_walk_m > MAX_WALK_SEG_M: continue
             heapq.heappush(pq, (cost + w, v, new_walk_m, path + [v]))
 
-
-# 2. これが「窓口」（server.py が呼ぶやつ）
-def find_top_k_paths(G, start_node, target_node, K=5):
-    """
-    ジェネレータを使って K個 のリストを作って返すラッパー関数。
-    これがあれば server.py はエラーにならない。
-    """
-    generator = find_paths_generator(G, start_node, target_node)
-    results = []
-    
-    # ジェネレータから K個 取り出す
-    for _ in range(K):
-        try:
-            results.append(next(generator))
-        except StopIteration:
-            break
-            
-    return results
-
-def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00"):
+def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", is_weekday=True):
     start_min = time_str_to_min(start_time_str)
     pq = [(start_min, start_node, [start_node])]
     visited_time = {}
-    print(f"[DEBUG] Search Start: {start_time_str} ({start_min})")
+    # print(f"[DEBUG] Search Start: {start_time_str} ({start_min}) Weekday={is_weekday}")
 
     while pq:
         curr_time, u, path = heapq.heappop(pq)
@@ -650,9 +650,8 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00"):
                 mode = G.nodes[v].get("mode")
                 if mode == "bus":
                     rid = G.nodes[v].get("route_id")
-                    # Time Modeでも名前検索(名寄せ)を有効化
                     stop_name = G.nodes[u].get("name")
-                    dep = tm.get_next_bus_departure(phys_id, rid, curr_time, pole_name=stop_name)
+                    dep = tm.get_next_bus_departure(phys_id, rid, curr_time, pole_name=stop_name, is_weekday=is_weekday)
                     if dep: arr = dep
                     else: continue
                 elif mode == "rail":
@@ -660,7 +659,7 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00"):
             elif etype == "ride":
                 mode = edge.get("mode")
                 if mode == "rail":
-                    real_arr = tm.get_next_train_arrival(u[1], v[1], curr_time)
+                    real_arr = tm.get_next_train_arrival(u[1], v[1], curr_time, is_weekday=is_weekday)
                     if real_arr: arr = real_arr
                     else: continue
                 else:
@@ -670,7 +669,7 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00"):
             heapq.heappush(pq, (arr, v, path + [v]))
     return None, None
 
-def calculate_real_arrival_time(G, tm, path, start_time_str="10:00"):
+def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", is_weekday=True):
     curr_time = time_str_to_min(start_time_str)
     
     for u, v in zip(path, path[1:]):
@@ -679,58 +678,126 @@ def calculate_real_arrival_time(G, tm, path, start_time_str="10:00"):
         
         if etype == "walk":
             curr_time += (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
-            
         elif etype == "board":
             phys_id = u[1]
             mode = G.nodes[v].get("mode")
             if mode == "bus":
                 route_id = G.nodes[v].get("route_id")
                 stop_name = G.nodes[u].get("name")
-                
-                # 名前検索(名寄せ)付きで時刻表を引く
-                dep = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=stop_name)
-                
-                if dep:
-                    curr_time = dep
-                else:
-                    # バスの便がない（終バス後など）
-                    return None 
-
+                dep = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=stop_name, is_weekday=is_weekday)
+                if dep: curr_time = dep
+                else: return None 
             elif mode == "rail":
                 curr_time += 2.0
-                
         elif etype == "ride":
             mode = edge.get("mode")
             if mode == "rail":
-                arr = tm.get_next_train_arrival(u[1], v[1], curr_time)
+                arr = tm.get_next_train_arrival(u[1], v[1], curr_time, is_weekday=is_weekday)
                 if arr: curr_time = arr
                 else: curr_time += edge.get("w", 2.0)
             else:
-                # バスの移動時間（距離ベース + 停車ロス）
                 dist = edge.get("meters", 0)
                 if dist > 0: curr_time += (dist / 250.0) + 0.8
                 else: curr_time += 2.5
-
         elif etype == "alight" or etype == "xfer":
             curr_time += 1.0
             
     return curr_time
 
-def print_time_mode_result(G, path, start_time_str, arr_time_min):
-    print(f"\n[RESULT] Time Mode")
-    print(f"Depart: {start_time_str} -> Arrive: {min_to_time_str(arr_time_min)}")
-    curr_mode = None
-    lines = []
-    for u, v in zip(path, path[1:]):
-        e = G.edges[u, v]
-        if e.get("etype") == "ride":
-            name = G.nodes[u].get("disp")
-            if name != curr_mode:
-                lines.append(name)
-                curr_mode = name
-    print(f"Route: {' -> '.join(lines)}")
+def segments_detailed(G, path, tm, start_time_str="10:00", is_weekday=True):
+    segs = []
+    cur = None
+    last_phys = None
+    curr_time = time_str_to_min(start_time_str)
 
-# -------------------- Main --------------------
+    def flush():
+        nonlocal cur
+        if cur:
+            if cur["kind"] == "walk":
+                cur["minutes"] = max(1, int(cur.get("meters", 0) / WALK_SPEED_M_PER_MIN))
+            elif cur["kind"] in ("bus", "rail"):
+                if cur.get("arrival_time"):
+                    dep_min = time_str_to_min(cur.get("departure_time"))
+                    arr_min = time_str_to_min(cur.get("arrival_time"))
+                    cur["minutes"] = max(1, int(arr_min - dep_min))
+                else:
+                    cur["minutes"] = max(1, int(cur.get("edges", 0) * 2.0))
+            segs.append(cur)
+            cur = None
+
+    for u, v in zip(path, path[1:]):
+        edge = G.edges[u, v]
+        etype = edge.get("etype")
+        if u[0] == "phys": last_phys = u
+
+        if etype == "walk":
+            if not cur or cur["kind"] != "walk":
+                flush()
+                from_name = G.nodes[u]["name"] if u[0]=="phys" else "???"
+                cur = { "kind": "walk", "title": "徒歩", "edges": 0, "from_": from_name, "to": None, "meters": 0 }
+            cur["edges"] += 1
+            cur["meters"] += edge.get("meters", 0)
+            if v[0] == "phys": cur["to"] = G.nodes[v]["name"]
+            curr_time += (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
+            continue
+
+        node = v if v[0] == "line" else (u if u[0] == "line" else None)
+        if not node: continue
+        line_id = G.nodes[node].get("line")
+        line_disp = G.nodes[node].get("disp") or "???"
+        mode = G.nodes[node].get("mode")
+
+        if etype == "board":
+            flush()
+            from_name = G.nodes[last_phys]["name"] if last_phys else "???"
+            cur = { "kind": mode, "title": line_disp, "line": line_id, "edges": 0, "from_": from_name, "to": None, "stops": [] }
+            cur["stops"].append({"name": from_name, "is_origin": True})
+            
+            phys_id = u[1]
+            if mode == "bus":
+                route_id = G.nodes[v].get("route_id")
+                stop_name = G.nodes[u].get("name")
+                dep = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=stop_name, is_weekday=is_weekday)
+                if dep: curr_time = dep
+            elif mode == "rail":
+                curr_time += 2.0
+            cur["departure_time"] = min_to_time_str(curr_time)
+        
+        elif etype == "ride":
+            if cur and cur["kind"] in ("bus", "rail"):
+                cur["edges"] += 1
+                stop_name = "???"
+                phys_key = ("phys", v[1]) if v[0] == "line" else ("phys", u[1])
+                if phys_key in G: stop_name = G.nodes[phys_key]["name"]
+                if not cur["stops"] or cur["stops"][-1]["name"] != stop_name:
+                    cur["stops"].append({"name": stop_name})
+            
+            if mode == "rail":
+                arr = tm.get_next_train_arrival(u[1], v[1], curr_time, is_weekday=is_weekday)
+                if arr: curr_time = arr
+                else: curr_time += edge.get("w", 2.0)
+            else:
+                dist = edge.get("meters", 0)
+                if dist > 0: curr_time += (dist / 250.0) + 0.8
+                else: curr_time += 2.5
+
+        elif etype in ("alight", "xfer"):
+            if cur and cur["kind"] in ("bus", "rail"):
+                to_phys = v if v[0] == "phys" else last_phys
+                if to_phys:
+                    to_name = G.nodes[to_phys]["name"]
+                    cur["to"] = to_name
+                    if not cur["stops"] or cur["stops"][-1]["name"] != to_name:
+                        cur["stops"].append({"name": to_name, "is_destination": True})
+                    else:
+                        cur["stops"][-1]["is_destination"] = True
+                cur["arrival_time"] = min_to_time_str(curr_time)
+                flush()
+            curr_time += 1.0
+
+    if cur: flush()
+    return segs
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--busstop-poles", required=True)
@@ -766,8 +833,8 @@ def main():
     tm.load_train_timetables(args.train_timetables)
     tm.build_name_index(G)
 
-    # ★共通関数を呼ぶだけにする
-    results = search_best_routes(
+    # ★変更: リトライ付き検索を呼び出す
+    results = search_best_routes_with_retry(
         G, tm, a_phys, b_phys, 
         mode=args.mode, 
         start_time=args.start_time, 
@@ -778,11 +845,12 @@ def main():
         print("No valid route found.")
         return
 
-    # 結果表示
     print(f"\n[INFO] Found {len(results)} Routes")
     for i, res in enumerate(results, 1):
         print("-" * 40)
         print(f"#{i} {res['score_label']} / Arr: {res['arrival_time']}")
+        if res.get("is_future_suggestion"):
+            print(f"  [WARNING] Future Suggestion: {res.get('departure_date')}")
         print(f"    Lines: {' -> '.join(res['lines'])}")
         print(f"    Steps:")
         for step in res['steps']:

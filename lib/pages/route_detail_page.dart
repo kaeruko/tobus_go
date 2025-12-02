@@ -55,6 +55,33 @@ class RouteDetailPage extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 8),
+            const SizedBox(height: 8),
+            if (candidate.isFutureSuggestion)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: CupertinoColors.activeOrange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: CupertinoColors.activeOrange),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(CupertinoIcons.exclamationmark_triangle_fill,
+                        color: CupertinoColors.activeOrange),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "ご指定の日時は運行終了または運休日のため、\n${candidate.departureDate?.toString().split(' ')[0]} の経路を表示しています。",
+                        style: const TextStyle(
+                            color: CupertinoColors.activeOrange,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             // サマリー
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),

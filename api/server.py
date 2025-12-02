@@ -119,10 +119,11 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00"):
 
     # ★変更点: 共通関数を一発呼ぶだけ！
     # toei_engine.py で実装した search_best_routes を使う
-    results = search_best_routes(
-        G, TM, a_phys, b_phys, 
-        mode=pref, 
-        start_time=start_time, 
+    # ★変更: リトライ付き検索を使用
+    results = toei_engine.search_best_routes_with_retry(
+        G, TM, a_phys, b_phys,
+        mode=pref, # pref_mode を pref に修正
+        start_time=start_time, # time_str を start_time に修正
         limit=5
     )
 

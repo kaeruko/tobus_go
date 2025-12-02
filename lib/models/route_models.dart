@@ -11,6 +11,8 @@ class Candidate {
   final List<StepSeg> steps;
   final List<LatLng> points;
   final String? preference;
+  final DateTime? departureDate;
+  final bool isFutureSuggestion;
 
   Candidate({
     required this.id,
@@ -23,6 +25,8 @@ class Candidate {
     required this.steps,
     required this.points,
     this.preference,
+    this.departureDate,
+    this.isFutureSuggestion = false,
   });
 
   factory Candidate.fromJson(Map<String, dynamic> j) {
@@ -42,6 +46,10 @@ class Candidate {
               .toList() ??
           const [],
       preference: j['preference']?.toString(),
+      departureDate: j['departure_date'] != null
+          ? DateTime.tryParse(j['departure_date'])
+          : null,
+      isFutureSuggestion: j['is_future_suggestion'] == true,
     );
   }
 
@@ -70,6 +78,8 @@ class Candidate {
       'steps': steps.map((e) => e.toJson()).toList(),
       'points': points.map((e) => [e.latitude, e.longitude]).toList(),
       'preference': preference,
+      'departure_date': departureDate?.toIso8601String(),
+      'is_future_suggestion': isFutureSuggestion,
     };
   }
 }
