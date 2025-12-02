@@ -3,6 +3,7 @@
 # toei_reach_final_v2.py
 
 import json, argparse, math, sys, heapq, bisect
+import datetime
 import networkx as nx
 from collections import defaultdict
 
@@ -475,11 +476,11 @@ def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time
     h, m = map(int, start_time.split(":"))
     start_dt = now.replace(hour=h, minute=m, second=0, microsecond=0)
     
-    # もし指定時刻が現在より過去なら、明日の検索とみなす？
-    # いや、My Routeの場合は「指定時刻」が重要なので、まずは今日の日付でトライ
-    
+    print(f"[DEBUG] search_best_routes_with_retry: Start from {start_dt}")
+
     for day_offset in range(4): # 今日含めて4日間トライ
         target_date = start_dt + datetime.timedelta(days=day_offset)
+        print(f"[DEBUG] Trying date: {target_date.date()} (offset={day_offset})")
         
         # 2日目以降は、時刻を維持するか、始発にするか？
         # ユーザーの要望は「次に使える経路」なので、同じ時刻で良いはず
@@ -588,6 +589,10 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
                 valid_count += 1
                 if valid_count >= limit:
                     break
+            else:
+                # 不合格（終バス後など）
+                # print(f"[DEBUG] Candidate rejected: {path}") # ログ多すぎるかも
+                pass
                 
     return candidates
 
@@ -598,10 +603,15 @@ def find_paths_generator(G, start_node, target_node, max_search=30000):
     count_visited = defaultdict(int)
     seen_logical_routes = set()
     yielded_count = 0
+    visited_count = 0
 
     while pq:
         cost, u, walk_m, path = heapq.heappop(pq)
+        visited_count += 1
+        if visited_count % 5000 == 0:
+            print(f"[DEBUG] find_paths_generator: visited={visited_count}, yielded={yielded_count}, pq_size={len(pq)}")
         
+        # ゴール判定
         if u == target_node:
             sig = get_logical_signature(G, path)
             if sig in seen_logical_routes: continue

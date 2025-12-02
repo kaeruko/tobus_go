@@ -54,7 +54,7 @@ class _HomePageState extends State<HomePage> {
   void _showTimePicker() {
     showCupertinoModalPopup(
       context: context,
-      builder: (_) => Container(
+      builder: (ctx) => Container(
         height: 250,
         color: CupertinoColors.systemBackground,
         child: Column(
@@ -71,7 +71,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             CupertinoButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(ctx),
               child: const Text('完了'),
             )
           ],
@@ -171,8 +171,20 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        // _aErr = 'APIエラー: $e';
       });
+      showCupertinoDialog(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('エラー'),
+          content: Text('経路検索を開始できませんでした: $e'),
+          actions: [
+            CupertinoDialogAction(
+              child: const Text('OK'),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
+      );
     }
   }
 
@@ -189,7 +201,7 @@ class _HomePageState extends State<HomePage> {
 
       if (status == 'pending' || status == 'running') {
         // まだ計算中 → 少し待ってから再度ポーリング
-        Future.delayed(const Duration(seconds: 50), () {
+        Future.delayed(const Duration(seconds: 10), () {
           _pollRoute(jobId);
         });
         return;
@@ -213,15 +225,39 @@ class _HomePageState extends State<HomePage> {
       // error / unknown
       setState(() {
         _loading = false;
-        // _aErr = '経路計算に失敗しました ($status)';
       });
+      showCupertinoDialog(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('エラー'),
+          content: Text('経路計算に失敗しました (Status: $status)'),
+          actions: [
+            CupertinoDialogAction(
+              child: const Text('OK'),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
+      );
       _polling = false;
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        // _aErr = 'ポーリング中エラー: $e';
       });
+      showCupertinoDialog(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('エラー'),
+          content: Text('経路検索中にエラーが発生しました: $e'),
+          actions: [
+            CupertinoDialogAction(
+              child: const Text('OK'),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
+      );
       _polling = false;
     }
   }

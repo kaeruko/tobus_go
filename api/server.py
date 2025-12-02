@@ -14,7 +14,8 @@ import httpx
 from toei_engine import (
     build_graph, nearest_phys, haversine,
     TimetableManager, 
-    search_best_routes,  # <--- これを使う
+    search_best_routes,
+    search_best_routes_with_retry, # <--- 追加
     time_str_to_min, min_to_time_str,
     MAX_WALK_SEG_M
 )
@@ -120,7 +121,7 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00"):
     # ★変更点: 共通関数を一発呼ぶだけ！
     # toei_engine.py で実装した search_best_routes を使う
     # ★変更: リトライ付き検索を使用
-    results = toei_engine.search_best_routes_with_retry(
+    results = search_best_routes_with_retry(
         G, TM, a_phys, b_phys,
         mode=pref, # pref_mode を pref に修正
         start_time=start_time, # time_str を start_time に修正
