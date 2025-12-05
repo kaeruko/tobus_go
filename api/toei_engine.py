@@ -355,6 +355,60 @@ def get_logical_signature(G, path):
                 current_line = None
     return tuple(sig)
 
+# -------------------- 共通ロジック: 時間計算ヘルパー --------------------
+def advance_time(G, tm, u, v, curr_time, is_weekday=True):
+    """
+    1 本のエッジ (u -> v) に対して、現在時刻 curr_time を
+    「実際の到着時刻」に進める。
+    乗れない（終バス後など）場合は None を返す。
+    """
+    edge = G.edges[u, v]
+    etype = edge.get("etype")
+
+    # 徒歩
+    if etype == "walk":
+        return curr_time + (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
+
+    # 乗車（board）
+    if etype == "board":
+        phys_id = u[1]
+        node = v if v[0] == "line" else u
+        mode = G.nodes[node].get("mode")
+
+        if mode == "bus":
+            route_id = G.nodes[node].get("route_id")
+            stop_name = G.nodes[u].get("name")
+            dep = tm.get_next_bus_departure(
+                phys_id, route_id, curr_time,
+                pole_name=stop_name,
+                is_weekday=is_weekday,
+            )
+            return dep  # dep が None のときは呼び出し側で弾く
+        elif mode == "rail":
+            # 電車の乗車時点ではざっくり乗り換え待ち 2 分
+            return curr_time + 2.0
+        return curr_time
+
+    # 走行（ride）
+    if etype == "ride":
+        mode = edge.get("mode")
+        if mode == "rail":
+            arr = tm.get_next_train_arrival(u[1], v[1], curr_time, is_weekday=is_weekday)
+            return arr  # arr が None のときは呼び出し側で弾く
+        elif mode == "bus":
+            dist = edge.get("meters", 0)
+            if dist > 0:
+                return curr_time + (dist / 250.0) + 0.8
+            else:
+                return curr_time + 2.5
+        return curr_time
+
+    # 降車/乗換
+    if etype in ("alight", "xfer"):
+        return curr_time + 1.0
+
+    return curr_time
+
 # -------------------- 共通ロジック: セグメント詳細化 --------------------
 # server.py から移動・共通化
 def segments_detailed(G, path, tm, start_time_str="10:00"):
@@ -395,6 +449,9 @@ def segments_detailed(G, path, tm, start_time_str="10:00"):
         
         if u[0] == "phys": last_phys = u
 
+        # Next time calculation using helper
+        next_time = advance_time(G, tm, u, v, curr_time, is_weekday=is_weekday)
+
         # --- 徒歩 ---
         if etype == "walk":
             if not cur or cur["kind"] != "walk":
@@ -409,7 +466,10 @@ def segments_detailed(G, path, tm, start_time_str="10:00"):
             if v[0] == "phys": cur["to"] = G.nodes[v]["name"]
             
             # 時間加算
-            curr_time += (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
+            if next_time is not None:
+                curr_time = next_time
+            else:
+                curr_time += (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN) # Fallback
             continue
 
         # --- 乗り物 (Board / Ride / Alight / Xfer) ---
@@ -430,41 +490,25 @@ def segments_detailed(G, path, tm, start_time_str="10:00"):
             # 乗車駅を追加
             cur["stops"].append({"name": from_name, "is_origin": True})
             
-            # 出発時刻計算
-            phys_id = u[1]
-            if mode == "bus":
-                route_id = G.nodes[v].get("route_id")
-                stop_name = G.nodes[u].get("name")
-                dep = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=stop_name)
-                if dep: curr_time = dep
-            elif mode == "rail":
-                curr_time += 2.0 # 乗り換え待ち概算
-            
+            # 出発時刻更新
+            if next_time: curr_time = next_time
             cur["departure_time"] = min_to_time_str(curr_time)
         
         elif etype == "ride":
             if cur and cur["kind"] in ("bus", "rail"):
                 cur["edges"] += 1
-                # 停車駅名（lineノードに対応する物理名を引くのは簡易実装）
-                # 厳密には v[1] が phys_id なのでそれを G から引く
+                # 停車駅名
                 stop_name = "???"
                 phys_key = ("phys", v[1]) if v[0] == "line" else ("phys", u[1])
                 if phys_key in G:
                     stop_name = G.nodes[phys_key]["name"]
                 
-                # 直前の駅と名前が違うなら追加
                 if not cur["stops"] or cur["stops"][-1]["name"] != stop_name:
                     cur["stops"].append({"name": stop_name})
             
             # 移動時間加算
-            if mode == "rail":
-                arr = tm.get_next_train_arrival(u[1], v[1], curr_time)
-                if arr: curr_time = arr
-                else: curr_time += edge.get("w", 2.0)
-            else:
-                dist = edge.get("meters", 0)
-                if dist > 0: curr_time += (dist / 250.0) + 0.8
-                else: curr_time += 2.5
+            if next_time: curr_time = next_time
+            else: curr_time += 2.0 # fallback
 
         elif etype in ("alight", "xfer"):
             if cur and cur["kind"] in ("bus", "rail"):
@@ -481,7 +525,8 @@ def segments_detailed(G, path, tm, start_time_str="10:00"):
                 cur["arrival_time"] = min_to_time_str(curr_time)
                 flush()
             
-            curr_time += 1.0 # 下車/乗換コスト
+            if next_time: curr_time = next_time
+            else: curr_time += 1.0
 
     if cur: flush()
     return segs
@@ -498,7 +543,6 @@ def path_to_coords(G, path):
     return points
 
 
-# -------------------- 統合検索ロジック --------------------
 # -------------------- 統合検索ロジック --------------------
 def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5):
     """
@@ -635,14 +679,15 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
 # -------------------- 探索ロジック --------------------
 
 def find_paths_generator(G, start_node, target_node, max_search=30000):
-    pq = [(0.0, start_node, 0.0, [start_node])]
+    # cost, node, total_walk_m, seg_walk_m, path
+    pq = [(0.0, start_node, 0.0, 0.0, [start_node])]
     count_visited = defaultdict(int)
     seen_logical_routes = set()
     yielded_count = 0
     visited_count = 0
 
     while pq:
-        cost, u, walk_m, path = heapq.heappop(pq)
+        cost, u, total_walk_m, seg_walk_m, path = heapq.heappop(pq)
         visited_count += 1
         if visited_count % 5000 == 0:
             print(f"[DEBUG] find_paths_generator: visited={visited_count}, yielded={yielded_count}, pq_size={len(pq)}")
@@ -652,12 +697,13 @@ def find_paths_generator(G, start_node, target_node, max_search=30000):
             sig = get_logical_signature(G, path)
             if sig in seen_logical_routes: continue
             seen_logical_routes.add(sig)
-            yield {"cost": cost, "path": path, "walk_m": walk_m}
+            # walk_m は total_walk_m を返す
+            yield {"cost": cost, "path": path, "walk_m": total_walk_m}
             yielded_count += 1
             if yielded_count >= max_search: return
             continue
 
-        walk_bucket = int(walk_m // 10)
+        walk_bucket = int(seg_walk_m // 10)
         state_key = (u, walk_bucket)
         if count_visited[state_key] >= 20: continue
         count_visited[state_key] += 1
@@ -666,12 +712,19 @@ def find_paths_generator(G, start_node, target_node, max_search=30000):
             edge = G[u][v]
             w = edge.get("w", 0.0)
             meters = edge.get("meters", 0.0)
-            new_walk_m = 0.0
+
+            new_total_walk_m = total_walk_m
+            new_seg_walk_m = seg_walk_m
+            
             if edge.get("etype") == "walk":
                 step_m = meters if meters > 0 else 1.0
-                new_walk_m = walk_m + step_m
-                if new_walk_m > MAX_WALK_SEG_M: continue
-            heapq.heappush(pq, (cost + w, v, new_walk_m, path + [v]))
+                new_seg_walk_m = seg_walk_m + step_m
+                if new_seg_walk_m > MAX_WALK_SEG_M: continue
+                new_total_walk_m = total_walk_m + step_m
+            else:
+                new_seg_walk_m = 0.0
+
+            heapq.heappush(pq, (cost + w, v, new_total_walk_m, new_seg_walk_m, path + [v]))
 
 def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", is_weekday=True):
     start_min = time_str_to_min(start_time_str)
@@ -686,67 +739,21 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", is
         visited_time[u] = curr_time
         
         for v in G[u]:
-            edge = G[u][v]
-            etype = edge.get("etype")
-            arr = curr_time
-            if etype == "walk":
-                arr += (edge.get("meters", 0) / 80.0)
-            elif etype == "board":
-                phys_id = u[1]
-                mode = G.nodes[v].get("mode")
-                if mode == "bus":
-                    rid = G.nodes[v].get("route_id")
-                    stop_name = G.nodes[u].get("name")
-                    dep = tm.get_next_bus_departure(phys_id, rid, curr_time, pole_name=stop_name, is_weekday=is_weekday)
-                    if dep: arr = dep
-                    else: continue
-                elif mode == "rail":
-                    arr += 2.0
-            elif etype == "ride":
-                mode = edge.get("mode")
-                if mode == "rail":
-                    real_arr = tm.get_next_train_arrival(u[1], v[1], curr_time, is_weekday=is_weekday)
-                    if real_arr: arr = real_arr
-                    else: continue
-                else:
-                    arr += edge.get("w", 2.0)
-            elif etype == "alight" or etype == "xfer":
-                arr += 1.0
-            heapq.heappush(pq, (arr, v, path + [v]))
+            # advance_time を利用
+            next_time = advance_time(G, tm, u, v, curr_time, is_weekday=is_weekday)
+            if next_time is None:
+                continue
+            heapq.heappush(pq, (next_time, v, path + [v]))
     return None, None
 
 def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", is_weekday=True):
     curr_time = time_str_to_min(start_time_str)
     
     for u, v in zip(path, path[1:]):
-        edge = G.edges[u, v]
-        etype = edge.get("etype")
-        
-        if etype == "walk":
-            curr_time += (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
-        elif etype == "board":
-            phys_id = u[1]
-            mode = G.nodes[v].get("mode")
-            if mode == "bus":
-                route_id = G.nodes[v].get("route_id")
-                stop_name = G.nodes[u].get("name")
-                dep = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=stop_name, is_weekday=is_weekday)
-                if dep: curr_time = dep
-                else: return None 
-            elif mode == "rail":
-                curr_time += 2.0
-        elif etype == "ride":
-            mode = edge.get("mode")
-            if mode == "rail":
-                arr = tm.get_next_train_arrival(u[1], v[1], curr_time, is_weekday=is_weekday)
-                if arr: curr_time = arr
-                else: curr_time += edge.get("w", 2.0)
-            else:
-                dist = edge.get("meters", 0)
-                if dist > 0: curr_time += (dist / 250.0) + 0.8
-                else: curr_time += 2.5
-        elif etype == "alight" or etype == "xfer":
-            curr_time += 1.0
+        next_time = advance_time(G, tm, u, v, curr_time, is_weekday=is_weekday)
+        if next_time is None:
+            return None
+        curr_time = next_time
             
     return curr_time
 
