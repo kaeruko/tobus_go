@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 # toei_reach_final_v2.py
 
-import json, argparse, math, sys, heapq, bisect
-import datetime
+import json, argparse, math, sys, heapq, bisect, datetime
 import networkx as nx
 from collections import defaultdict
 
@@ -283,16 +282,53 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
     return G
 
 def connect_walk_edges_phys(G, radius_m=300):
-    phys_nodes = [(n, d) for n, d in G.nodes(data=True) if n[0] == "phys"]
-    for i, (u, du) in enumerate(phys_nodes):
-        for j, (v, dv) in enumerate(phys_nodes):
-            if i >= j: continue
-            dist = haversine(du["lat"], du["lon"], dv["lat"], dv["lon"])
-            if dist <= radius_m:
-                minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
-                w = WALK_COST * minutes
-                G.add_edge(u, v, w=w, etype="walk", meters=dist)
-                G.add_edge(v, u, w=w, etype="walk", meters=dist)
+    """Connect physical nodes within the walking radius using a simple spatial index."""
+
+    phys_nodes = []
+    for idx, (n, d) in enumerate(G.nodes(data=True)):
+        if n[0] != "phys":
+            continue
+        phys_nodes.append((idx, n, d))
+
+    if not phys_nodes:
+        return
+
+    # Approximate conversion from degrees to meters around the reference latitude.
+    ref_lat = phys_nodes[0][2]["lat"]
+    ref_lon = phys_nodes[0][2]["lon"]
+    ref_lat_rad = math.radians(ref_lat)
+    meters_per_deg_lat = 111_320.0
+    meters_per_deg_lon = math.cos(ref_lat_rad) * 111_320.0
+
+    def to_local_meters(lat, lon):
+        return (
+            (lon - ref_lon) * meters_per_deg_lon,
+            (lat - ref_lat) * meters_per_deg_lat,
+        )
+
+    cell_size = float(radius_m)
+    grid = defaultdict(list)
+    indexed_nodes = []
+
+    for idx, node, data in phys_nodes:
+        x, y = to_local_meters(data["lat"], data["lon"])
+        cx, cy = int(x // cell_size), int(y // cell_size)
+        grid[(cx, cy)].append(idx)
+        indexed_nodes.append((idx, node, data, x, y, cx, cy))
+
+    for idx, u, du, ux, uy, ucx, ucy in indexed_nodes:
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for vidx in grid.get((ucx + dx, ucy + dy), []):
+                    if vidx <= idx:
+                        continue
+                    v, dv = phys_nodes[vidx][1], phys_nodes[vidx][2]
+                    dist = haversine(du["lat"], du["lon"], dv["lat"], dv["lon"])
+                    if dist <= radius_m:
+                        minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
+                        w = WALK_COST * minutes
+                        G.add_edge(u, v, w=w, etype="walk", meters=dist)
+                        G.add_edge(v, u, w=w, etype="walk", meters=dist)
 
 def nearest_phys(G, lat, lon, station_only=False):
     best, bestd = None, 1e30
