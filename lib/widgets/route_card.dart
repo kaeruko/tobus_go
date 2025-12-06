@@ -6,6 +6,24 @@ class RouteCard extends StatelessWidget {
   final int rank;
   const RouteCard({super.key, required this.candidate, required this.rank});
 
+  String get _origin {
+    // 最初のstepのfromを取得
+    if (candidate.steps.isNotEmpty) {
+      final firstStep = candidate.steps.first;
+      return firstStep.from ?? '出発地';
+    }
+    return '出発地';
+  }
+
+  String get _destination {
+    // 最後のstepのtoを取得
+    if (candidate.steps.isNotEmpty) {
+      final lastStep = candidate.steps.last;
+      return lastStep.to ?? '目的地';
+    }
+    return '目的地';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -37,6 +55,29 @@ class RouteCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // 出発地 → 行き先
+          Row(
+            children: [
+              const Icon(
+                CupertinoIcons.location_fill,
+                size: 14,
+                color: CupertinoColors.systemGreen,
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  '$_origin → $_destination',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: CupertinoColors.systemGrey,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

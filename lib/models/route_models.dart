@@ -175,6 +175,8 @@ class StepSeg {
       'to': to,
       'departure_time': departureTime,
       'arrival_time': arrivalTime,
+      'routeId': routeId,
+      'departureStopId': departureStopId,
       'stops': stops.map((e) => e.toJson()).toList(),
     };
   }

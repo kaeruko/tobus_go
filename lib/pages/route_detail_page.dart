@@ -18,7 +18,19 @@ class RouteDetailPage extends StatelessWidget {
           padding: EdgeInsets.zero,
           child: const Icon(CupertinoIcons.bookmark),
           onPressed: () {
-            if (kSavedRoutes.any((e) => e.id == candidate.id)) {
+            // 出発地と行き先も含めて重複チェック
+            final isDuplicate = kSavedRoutes.any((e) {
+              if (e.id != candidate.id) return false;
+              // IDが同じ場合、出発地と行き先も比較
+              if (e.points.isEmpty || candidate.points.isEmpty) return false;
+              final sameStart = e.points.first.latitude == candidate.points.first.latitude &&
+                                e.points.first.longitude == candidate.points.first.longitude;
+              final sameEnd = e.points.last.latitude == candidate.points.last.latitude &&
+                              e.points.last.longitude == candidate.points.last.longitude;
+              return sameStart && sameEnd;
+            });
+
+            if (isDuplicate) {
               showCupertinoDialog(
                 context: context,
                 builder: (ctx) => CupertinoAlertDialog(

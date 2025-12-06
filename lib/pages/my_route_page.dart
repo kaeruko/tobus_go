@@ -5,6 +5,7 @@ import 'route_detail_page.dart';
 import '../core/api_client.dart';
 import '../models/route_models.dart';
 import '../widgets/bus_loading_indicator.dart';
+import '../services/storage_service.dart';
 
 class MyRoutePage extends StatefulWidget {
   const MyRoutePage({super.key});
@@ -212,9 +213,52 @@ class _MyRoutePageState extends State<MyRoutePage> {
                       separatorBuilder: (_, __) => const SizedBox(height: 12),
                       itemBuilder: (context, i) {
                         final c = kSavedRoutes[i];
-                        return GestureDetector(
-                          onTap: () => _reSearchRoute(c),
-                          child: RouteCard(candidate: c, rank: i + 1),
+                        return Dismissible(
+                          key: Key(c.id + c.points.first.toString() + c.points.last.toString()),
+                          direction: DismissDirection.endToStart,
+                          confirmDismiss: (direction) async {
+                            // 削除確認ダイアログ
+                            return await showCupertinoDialog<bool>(
+                              context: context,
+                              builder: (ctx) => CupertinoAlertDialog(
+                                title: const Text('経路を削除'),
+                                content: const Text('この経路をMy Routeから削除しますか?'),
+                                actions: [
+                                  CupertinoDialogAction(
+                                    child: const Text('キャンセル'),
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                  ),
+                                  CupertinoDialogAction(
+                                    isDestructiveAction: true,
+                                    child: const Text('削除'),
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          onDismissed: (direction) {
+                            setState(() {
+                              kSavedRoutes.removeAt(i);
+                              StorageService().saveRoutes(kSavedRoutes);
+                            });
+                          },
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20),
+                            decoration: BoxDecoration(
+                              color: CupertinoColors.destructiveRed,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(
+                              CupertinoIcons.delete,
+                              color: CupertinoColors.white,
+                            ),
+                          ),
+                          child: GestureDetector(
+                            onTap: () => _reSearchRoute(c),
+                            child: RouteCard(candidate: c, rank: i + 1),
+                          ),
                         );
                       },
                     ),

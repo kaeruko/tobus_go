@@ -962,6 +962,8 @@ def segments_detailed(G, path, tm, start_time_str="10:00", is_weekday=True):
                         # 2. Fallback to name-based resolution (Smart/Stats based)
                         if not gtfs_stop_id:
                             gtfs_stop_id = tm.resolve_gtfs_stop_id(gtfs_route_id, from_name)
+                
+                print(f"[DEBUG] Board segment: line_disp='{line_disp}', gtfs_route_id='{gtfs_route_id}', gtfs_stop_id='{gtfs_stop_id}'")
 
             elif mode == "rail":
                 curr_time += 2.0
