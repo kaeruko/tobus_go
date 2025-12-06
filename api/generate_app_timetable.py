@@ -4,8 +4,10 @@ import os
 from collections import defaultdict
 
 # GTFSデータのパス
+# GTFSデータのパス
 GTFS_DIR = "data/ToeiBus-GTFS"
-OUTPUT_FILE = "data/app_timetable.json"
+# The app reads from assets/data, so we write there relative to api/ directory
+OUTPUT_FILE = "../assets/data/app_timetable.json"
 
 def load_csv(filename):
     path = os.path.join(GTFS_DIR, filename)
