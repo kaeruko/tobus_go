@@ -95,6 +95,8 @@ class StepSeg {
   final String? to;
   final String? departureTime;
   final String? arrivalTime;
+  final String routeId;
+  final String departureStopId;
   final List<StopPoint> stops;
 
   StepSeg({
@@ -108,6 +110,8 @@ class StepSeg {
     this.to,
     this.departureTime,
     this.arrivalTime,
+    this.routeId = '',
+    this.departureStopId = '',
     List<StopPoint>? stops,
   }) : stops = stops ?? const [];
 
@@ -130,6 +134,9 @@ class StepSeg {
       to: j['to']?.toString(),
       departureTime: j['departure_time']?.toString(),
       arrivalTime: j['arrival_time']?.toString(),
+      // TODO: Fetch real IDs from API when available
+      routeId: (j['kind'] == 'bus') ? '003' : '',
+      departureStopId: (j['kind'] == 'bus') ? '0737-01' : '',
       stops: stops,
     );
   }

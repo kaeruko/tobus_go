@@ -97,6 +97,12 @@ async def _startup():
     print("[server] Building Name Index for Fuzzy Matching...")
     TM.build_name_index(G)
     
+    gtfs_dir = os.path.join(DATA_DIR, "ToeiBus-GTFS")
+    if os.path.exists(gtfs_dir):
+        TM.load_gtfs_mappings(gtfs_dir)
+    else:
+        print(f"[WARN] GTFS dir not found at {gtfs_dir}")
+    
     # ★追加: バックグラウンドタスクの開始
     asyncio.create_task(fetch_realtime_data_loop())
     

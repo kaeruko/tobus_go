@@ -73,65 +73,65 @@ class _TimetableViewState extends State<TimetableView> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Card(
-      margin: const EdgeInsets.all(16.0),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    // Cardの中に入れるので、ここでのCardは削除してContainerやColumnだけにする
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ヘッダー (文字サイズを小さめに)
+        Row(
           children: [
-            // ヘッダー部分（時刻と曜日）
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "現在 ${testTimeFormat(_now)}",
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _dayType == 'Weekday' ? Colors.blue[100] : Colors.red[100],
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    "$dayTypeJaダイヤ",
-                    style: TextStyle(
-                      color: _dayType == 'Weekday' ? Colors.blue[800] : Colors.red[800],
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+            Icon(Icons.timer, size: 16, color: Colors.grey[600]),
+            const SizedBox(width: 4),
+            Text(
+              "次のバス ($dayTypeJaダイヤ)",
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
-            const SizedBox(height: 12),
-            const Text("【次のバス】", style: TextStyle(color: Colors.grey)),
-            const SizedBox(height: 8),
-            
-            // バス時刻リスト表示
-            if (_nextBuses.isEmpty)
-              const Text("本日の運行は終了しました", style: TextStyle(fontSize: 16))
-            else
-              Row(
-                children: _nextBuses.map((time) {
-                  // 先頭だけ大きく強調表示
-                  final isFirst = time == _nextBuses.first;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 16.0),
-                    child: Text(
-                      time,
-                      style: TextStyle(
-                        fontSize: isFirst ? 32 : 20,
-                        fontWeight: FontWeight.bold,
-                        color: isFirst ? Colors.black : Colors.black54,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
+            const Spacer(),
+            // 現在時刻
+            Text(
+              "現在 ${testTimeFormat(_now)}",
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
           ],
         ),
-      ),
+        const SizedBox(height: 8),
+        
+        // 時刻リスト (横並びで見やすく)
+        if (_nextBuses.isEmpty)
+          const Text("本日の運行終了", style: TextStyle(fontWeight: FontWeight.bold))
+        else
+          Row(
+            children: _nextBuses.map((time) {
+              final isFirst = time == _nextBuses.first;
+              return Container(
+                margin: const EdgeInsets.only(right: 12.0),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: isFirst ? BoxDecoration(
+                  color: Colors.green[100], // 先頭だけ色をつける
+                  borderRadius: BorderRadius.circular(4),
+                ) : null,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      time,
+                      style: TextStyle(
+                        fontSize: isFirst ? 20 : 16, // サイズ調整
+                        fontWeight: FontWeight.bold,
+                        color: isFirst ? Colors.green[900] : Colors.black87,
+                      ),
+                    ),
+                    if (isFirst) ...[
+                      const SizedBox(width: 2),
+                      const Text("発", style: TextStyle(fontSize: 10, color: Colors.green)),
+                    ]
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+      ],
     );
   }
 

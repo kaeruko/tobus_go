@@ -144,20 +144,10 @@ class RouteDetailPage extends StatelessWidget {
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                itemCount: candidate.steps.length + 1,
+                itemCount: candidate.steps.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, i) {
-                  if (i == 0) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.0),
-                      child: TimetableView(
-                        // Test IDs from app_timetable.json
-                        routeId: "003",
-                        stopId: "0737-01",
-                      ),
-                    );
-                  }
-                  final seg = candidate.steps[i - 1];
+                  final seg = candidate.steps[i];
                   return _stepTile(context, seg);
                 },
               ),
@@ -253,15 +243,30 @@ class RouteDetailPage extends StatelessWidget {
                   ],
                 ),
               ),
-              Text(
-                right,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: CupertinoColors.systemGrey,
+              if (right.isNotEmpty)
+                Text(
+                  right,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: CupertinoColors.systemGrey,
+                  ),
                 ),
-              ),
             ],
           ),
+          // Bus Timetable Embedding
+          if (s.kind == 'bus' && s.routeId.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Container(height: 1, color: CupertinoColors.systemGrey5),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: TimetableView(
+                routeId: s.routeId,
+                stopId: s.departureStopId,
+              ),
+            ),
+          ],
         ],
       ),
     );

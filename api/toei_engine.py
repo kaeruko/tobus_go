@@ -3,6 +3,7 @@
 # toei_reach_final_v2.py
 
 import json, argparse, math, sys, heapq, bisect, datetime
+import csv, os, glob
 import networkx as nx
 from collections import defaultdict
 
@@ -214,6 +215,66 @@ class TimetableManager:
             if actual_dep >= current_time_min and t["next_sta"] == next_sta:
                 return actual_arr
         return None
+
+    # -------------------- GTFS ID Resolution --------------------
+    def load_gtfs_mappings(self, gtfs_dir):
+        print(f"[INFO] Loading GTFS mappings from {gtfs_dir}...")
+        self.gtfs_route_map = {} # normalized_name -> route_id
+        self.gtfs_stop_map = {}  # stop_name -> list of stop_ids
+
+        # Load routes.txt
+        routes_path = os.path.join(gtfs_dir, "routes.txt")
+        if os.path.exists(routes_path):
+            with open(routes_path, 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    rid = row['route_id']
+                    short_name = row['route_short_name'] # e.g. "波01"
+                    # norm matches _line_norm in engine
+                    norm_name = _line_norm(short_name)
+                    self.gtfs_route_map[norm_name] = rid
+            print(f"[INFO] Loaded {len(self.gtfs_route_map)} routes from GTFS.")
+        else:
+            print(f"[WARN] routes.txt not found at {routes_path}")
+
+        # Load stops.txt
+        stops_path = os.path.join(gtfs_dir, "stops.txt")
+        if os.path.exists(stops_path):
+            with open(stops_path, 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    sid = row['stop_id']
+                    name = row['stop_name']
+                    if name not in self.gtfs_stop_map: self.gtfs_stop_map[name] = []
+                    self.gtfs_stop_map[name].append(sid)
+            print(f"[INFO] Loaded stops from GTFS.")
+        else:
+            print(f"[WARN] stops.txt not found at {stops_path}")
+
+    def resolve_gtfs_route_id(self, route_name_disp):
+        # route_name_disp e.g. "都02"
+        # normalize
+        norm = _line_norm(route_name_disp)
+        return self.gtfs_route_map.get(norm, "")
+
+    def resolve_gtfs_stop_id(self, gtfs_route_id, stop_name):
+        # Need to find a stop_id that is valid for this route_id.
+        # Since we don't have the full link here, we check if the ID exists in the loaded timetableData?
+        # But timetableData is loaded from ODPT JSONs which use ODPT IDs.
+        # We need to rely on the fact that app_timetable.json (frontend) uses these IDs.
+        # For now, we return the first ID that matches, preferring "-01" if available?
+        # Or better: just return the name? No, frontend needs ID.
+        # Simplistic heuristic: Return the first ID that ends with -01, else the first one.
+        candidates = self.gtfs_stop_map.get(stop_name, [])
+        if not candidates: return ""
+        
+        # Prefer ID matching common patterns or check validity if possible
+        # For Toei, they are usually 4 digits + suffix?
+        # Let's pick the one that ends in "-01" if exists
+        for c in candidates:
+            if c.endswith("-01"): return c
+        return candidates[0]
+
 
 # -------------------- グラフ構築 --------------------
 def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railways_path, walk_radius=300):
@@ -798,23 +859,41 @@ def segments_detailed(G, path, tm, start_time_str="10:00", is_weekday=True):
         if not node: continue
         line_id = G.nodes[node].get("line")
         line_disp = G.nodes[node].get("disp") or "???"
-        mode = G.nodes[node].get("mode")
+        mode = G.nodes[node].get("mode") # bus or rail
 
         if etype == "board":
             flush()
             from_name = G.nodes[last_phys]["name"] if last_phys else "???"
-            cur = { "kind": mode, "title": line_disp, "line": line_id, "edges": 0, "from_": from_name, "to": None, "stops": [] }
-            cur["stops"].append({"name": from_name, "is_origin": True})
-            
+            curr_stops = [{"name": from_name, "is_origin": True}]
+
             phys_id = u[1]
+            gtfs_route_id = ""
+            gtfs_stop_id = ""
+
             if mode == "bus":
-                route_id = G.nodes[v].get("route_id")
+                route_id = G.nodes[v].get("route_id") # ODPT Route ID (or internal)
                 stop_name = G.nodes[u].get("name")
+                
+                # Update Time
                 dep = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=stop_name, is_weekday=is_weekday)
                 if dep: curr_time = dep
+                
+                # Resolve GTFS IDs
+                if hasattr(tm, "resolve_gtfs_route_id"):
+                    gtfs_route_id = tm.resolve_gtfs_route_id(line_disp)
+                    if gtfs_route_id:
+                        gtfs_stop_id = tm.resolve_gtfs_stop_id(gtfs_route_id, from_name)
+
             elif mode == "rail":
                 curr_time += 2.0
-            cur["departure_time"] = min_to_time_str(curr_time)
+            
+            cur = {
+                "kind": mode, "title": line_disp, "line": line_id, 
+                "edges": 0, "from_": from_name, "to": None, "stops": curr_stops,
+                "routeId": gtfs_route_id,
+                "departureStopId": gtfs_stop_id,
+                "departure_time": min_to_time_str(curr_time)
+            }
         
         elif etype == "ride":
             if cur and cur["kind"] in ("bus", "rail"):
