@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'dart:async'; // 時計更新用
-import '../services/timetable_service.dart'; // さっき作ったファイル
+import 'dart:async';
+import '../services/timetable_service.dart';
 
 class TimetableView extends StatefulWidget {
   final String routeId;
   final String stopId;
+  // directionIdは削除（内部で全方向取得するため）
 
   const TimetableView({
     super.key,
@@ -18,7 +19,10 @@ class TimetableView extends StatefulWidget {
 
 class _TimetableViewState extends State<TimetableView> {
   final TimetableService _service = TimetableService();
-  List<String> _nextBuses = [];
+  
+  // 構造: [ {"destinationName": "上野行き", "times": ["12:10", "12:30"]}, ... ]
+  List<Map<String, dynamic>> _busGroups = [];
+  
   String _dayType = "";
   DateTime _now = DateTime.now();
   Timer? _timer;
@@ -28,13 +32,13 @@ class _TimetableViewState extends State<TimetableView> {
   void initState() {
     super.initState();
     _initData();
-    
-    // 1分ごとに画面を更新して「次のバス」を最新にする
-    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      setState(() {
-        _now = DateTime.now();
-        _updateBusInfo();
-      });
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _now = DateTime.now();
+          _updateBusInfo();
+        });
+      }
     });
   }
 
@@ -56,86 +60,89 @@ class _TimetableViewState extends State<TimetableView> {
   }
 
   void _updateBusInfo() {
-    // ウィジェットに渡されたIDを使って検索
-    _nextBuses = _service.getNextBuses(widget.routeId, widget.stopId);
+    // 変更点: 全方向のデータを取得するメソッドを呼ぶ
+    _busGroups = _service.getNextBusesAllDirections(widget.routeId, widget.stopId);
   }
 
   @override
   Widget build(BuildContext context) {
-    // 曜日を日本語表記にする用
     final dayTypeJa = {
-      'Weekday': '平日',
-      'Saturday': '土曜',
-      'Holiday': '休日'
+      'Weekday': '平日', 'Saturday': '土曜', 'Holiday': '休日'
     }[_dayType] ?? _dayType;
 
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+    if (_isLoading) return const SizedBox.shrink();
+    if (_busGroups.isEmpty) {
+      // データがない場合は何も表示しない（あるいは運行終了を表示）
+      return const SizedBox.shrink();
     }
 
-    // Cardの中に入れるので、ここでのCardは削除してContainerやColumnだけにする
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ヘッダー (文字サイズを小さめに)
+        // 全体のヘッダー
         Row(
           children: [
-            Icon(Icons.timer, size: 16, color: Colors.grey[600]),
+            Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
             const SizedBox(width: 4),
-            Text(
-              "次のバス ($dayTypeJaダイヤ)",
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-            ),
-            const Spacer(),
-            // 現在時刻
-            Text(
-              "現在 ${testTimeFormat(_now)}",
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-            ),
+            Text("次のバス ($dayTypeJa)", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         
-        // 時刻リスト (横並びで見やすく)
-        if (_nextBuses.isEmpty)
-          const Text("本日の運行終了", style: TextStyle(fontWeight: FontWeight.bold))
-        else
-          Row(
-            children: _nextBuses.map((time) {
-              final isFirst = time == _nextBuses.first;
-              return Container(
-                margin: const EdgeInsets.only(right: 12.0),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: isFirst ? BoxDecoration(
-                  color: Colors.green[100], // 先頭だけ色をつける
-                  borderRadius: BorderRadius.circular(4),
-                ) : null,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      time,
-                      style: TextStyle(
-                        fontSize: isFirst ? 20 : 16, // サイズ調整
-                        fontWeight: FontWeight.bold,
-                        color: isFirst ? Colors.green[900] : Colors.black87,
-                      ),
-                    ),
-                    if (isFirst) ...[
-                      const SizedBox(width: 2),
-                      const Text("発", style: TextStyle(fontSize: 10, color: Colors.green)),
-                    ]
-                  ],
+        // 行き先ごとにリストを表示
+        ..._busGroups.map((group) {
+          final destName = group['destinationName'] as String;
+          final times = group['times'] as List<String>;
+          
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // 行き先名バッジ
+                Container(
+                  constraints: const BoxConstraints(maxWidth: 100), // 幅制限
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.blue[100]!),
+                  ),
+                  child: Text(
+                    destName,
+                    style: TextStyle(fontSize: 11, color: Colors.blue[900], fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              );
-            }).toList(),
-          ),
+                const SizedBox(width: 8),
+                
+                // 時刻リスト
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: times.map((t) {
+                        final isFirst = t == times.first;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: Text(
+                            t,
+                            style: TextStyle(
+                              fontSize: isFirst ? 16 : 14,
+                              fontWeight: FontWeight.bold,
+                              color: isFirst ? Colors.black87 : Colors.grey[500],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
       ],
     );
-  }
-
-  String testTimeFormat(DateTime dt) {
-    return "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
   }
 }

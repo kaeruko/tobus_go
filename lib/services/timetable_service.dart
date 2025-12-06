@@ -2,67 +2,114 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 
 class TimetableService {
-  Map<String, dynamic>? _timetableData;
+  // シングルトンパターン（アプリ内で1つだけインスタンスを作る）
+  static final TimetableService _instance = TimetableService._internal();
+  factory TimetableService() => _instance;
+  TimetableService._internal();
 
-  // JSONファイルを読み込む
+  // データキャッシュ
+  Map<String, dynamic>? _timetableData;
+  Map<String, dynamic>? _directionNames; // route_directions.json用
+
   Future<void> loadTimetable() async {
-    // すでに読み込み済みなら何もしない
     if (_timetableData != null) return;
-    
+
     try {
+      // 1. 時刻表データの読み込み
       final jsonString = await rootBundle.loadString('assets/data/app_timetable.json');
       _timetableData = json.decode(jsonString);
     } catch (e) {
-      print("時刻表の読み込みに失敗したよ: $e");
+      print("時刻表JSONの読み込み失敗: $e");
       _timetableData = {};
+    }
+
+    try {
+      // 2. 行き先名リストの読み込み (作成した route_directions.json)
+      final dirString = await rootBundle.loadString('assets/data/route_directions.json');
+      _directionNames = json.decode(dirString);
+    } catch (e) {
+      print("行き先リストの読み込み失敗 (まだファイルがないかも?): $e");
+      _directionNames = {};
     }
   }
 
-  // 今日の曜日タイプを判定する (Weekday, Saturday, Holiday)
   String getTodayType() {
     final now = DateTime.now();
-    
-    // 単純な曜日判定（必要なら祝日判定ライブラリを入れてね）
+    // 祝日判定ロジックは別途必要ですが、まずは簡易的に土日判定
     if (now.weekday == DateTime.sunday) return "Holiday";
     if (now.weekday == DateTime.saturday) return "Saturday";
     return "Weekday";
   }
 
-  // 現在時刻と曜日をもとに、次のバス3本を取得する
-  List<String> getNextBuses(String routeId, String stopId) {
-    if (_timetableData == null) return [];
-
-    final dayType = getTodayType();
+  // 指定された系統・バス停における、全方向の次のバスを取得する
+  // 戻り値: [ { "directionId": "1", "name": "上野行き", "times": ["12:14", ...] }, ... ]
+  List<Map<String, dynamic>> getNextBusesAllDirections(String routeId, String stopId) {
+    print('[TimetableService] getNextBusesAllDirections呼び出し:');
+    print('  - routeId: $routeId');
+    print('  - stopId: $stopId');
     
-    // JSONの階層をたどって時刻リストを取得
-    // 例: data["RouteA"]["Stop1"]["Weekday"]
-    final routeData = _timetableData![routeId];
-    if (routeData == null) return [];
-    
-    final stopData = routeData[stopId];
-    if (stopData == null) return [];
-
-    final List<dynamic>? rawTimes = stopData[dayType];
-    if (rawTimes == null || rawTimes.isEmpty) return [];
-
-    // dynamicリストをStringリストに変換
-    final times = rawTimes.cast<String>();
-
-    // 現在時刻を取得して "HH:mm" 形式にする
-    final now = DateTime.now();
-    var hour = now.hour;
-    final minute = now.minute;
-
-    // バスの時刻表は深夜25時などの表記があるため、0~3時は24を足して調整する
-    if (hour < 3) {
-      hour += 24;
+    if (_timetableData == null) {
+      print('  - エラー: _timetableData is null');
+      return [];
     }
 
-    final currentStr = "${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}";
+    final dayType = getTodayType();
+    print('  - dayType: $dayType');
+    
+    final routeData = _timetableData![routeId];
+    if (routeData == null) {
+      print('  - エラー: routeId "$routeId" がapp_timetable.jsonに存在しません');
+      print('  - 利用可能なrouteId: ${_timetableData!.keys.take(5).join(", ")}...');
+      return [];
+    }
 
-    // 現在時刻より未来のものをフィルタリングして、先頭3つを返す
-    final nextTimes = times.where((t) => t.compareTo(currentStr) >= 0).take(3).toList();
+    final stopData = routeData[stopId]; // ここには方向ID (0, 1) がキーとして入っている
+    if (stopData == null || stopData is! Map) {
+      print('  - エラー: stopId "$stopId" がroute "$routeId" に存在しません');
+      print('  - 利用可能なstopId: ${routeData.keys.take(5).join(", ")}...');
+      return [];
+    }
 
-    return nextTimes;
+    print('  - stopDataの方向ID: ${stopData.keys.join(", ")}');
+    
+    // 現在時刻の準備
+    final now = DateTime.now();
+    var hour = now.hour;
+    if (hour < 3) hour += 24; // 25時対応
+    final currentStr = "${hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+
+    List<Map<String, dynamic>> results = [];
+
+    // 存在するすべての方向 (0, 1など) についてループ
+    stopData.forEach((directionId, dayMap) {
+      if (dayMap is! Map) return;
+      
+      // その方向の、今日のダイヤを取得
+      final rawTimes = dayMap[dayType];
+      if (rawTimes != null && rawTimes is List) {
+        final times = rawTimes.cast<String>();
+        
+        // 未来のバスを3本抽出
+        final nextTimes = times.where((t) => t.compareTo(currentStr) >= 0).take(3).toList();
+
+        if (nextTimes.isNotEmpty) {
+          // 行き先名を取得 (例: "上野松坂屋前")
+          String headsign = "方面$directionId"; // デフォルト
+          if (_directionNames != null && 
+              _directionNames![routeId] != null &&
+              _directionNames![routeId][directionId] != null) {
+            headsign = _directionNames![routeId][directionId];
+          }
+
+          results.add({
+            "directionId": directionId,
+            "destinationName": headsign,
+            "times": nextTimes,
+          });
+        }
+      }
+    });
+
+    return results;
   }
 }

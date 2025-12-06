@@ -251,29 +251,85 @@ class TimetableManager:
         else:
             print(f"[WARN] stops.txt not found at {stops_path}")
 
+        # --- Load app_timetable.json for smart resolution ---
+        # Assuming gtfs_dir is something like "data/ToeiBus-GTFS", parent is "data"
+        timetable_path = os.path.join(os.path.dirname(gtfs_dir), "app_timetable.json")
+        self.route_stop_stats = defaultdict(lambda: defaultdict(int)) # route_id -> stop_id -> total_trips
+
+        if os.path.exists(timetable_path):
+            print(f"[INFO] Loading app timetable stats from {timetable_path}...")
+            try:
+                with open(timetable_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    for rid, stops in data.items():
+                        for sid, dirs in stops.items():
+                            total = 0
+                            for _, days in dirs.items():
+                                for _, times in days.items():
+                                    total += len(times)
+                            self.route_stop_stats[rid][sid] = total
+                print(f"[INFO] Loaded stats for {len(self.route_stop_stats)} routes.")
+            except Exception as e:
+                print(f"[WARN] Failed to load app_timetable.json: {e}")
+        else:
+            print(f"[WARN] app_timetable.json not found at {timetable_path} (Smart ID resolution disabled)")
+
+    def convert_odpt_id_to_gtfs(self, odpt_id):
+        """
+        Convert ODPT BusstopPole ID to GTFS Stop ID.
+        Example: odpt.BusstopPole:Toei.HiraiNanachomeDaisanApato.2205.3 -> 2205-03
+        """
+        if not odpt_id: return ""
+        try:
+            parts = odpt_id.split('.')
+            if len(parts) >= 2:
+                # Last two parts are usually code ("2205") and suffix ("3")
+                code = parts[-2]
+                suffix = parts[-1]
+                if code.isdigit() and suffix.isdigit():
+                    gtfs_id = f"{code}-{int(suffix):02d}"
+                    return gtfs_id
+        except Exception as e:
+            print(f"[WARN] Failed to convert ODPT ID {odpt_id}: {e}")
+        return ""
+
     def resolve_gtfs_route_id(self, route_name_disp):
         # route_name_disp e.g. "都02"
         # normalize
         norm = _line_norm(route_name_disp)
-        return self.gtfs_route_map.get(norm, "")
+        result = self.gtfs_route_map.get(norm, "")
+        print(f"[DEBUG] resolve_gtfs_route_id: '{route_name_disp}' -> norm:'{norm}' -> routeId:'{result}'")
+        return result
 
     def resolve_gtfs_stop_id(self, gtfs_route_id, stop_name):
-        # Need to find a stop_id that is valid for this route_id.
-        # Since we don't have the full link here, we check if the ID exists in the loaded timetableData?
-        # But timetableData is loaded from ODPT JSONs which use ODPT IDs.
-        # We need to rely on the fact that app_timetable.json (frontend) uses these IDs.
-        # For now, we return the first ID that matches, preferring "-01" if available?
-        # Or better: just return the name? No, frontend needs ID.
-        # Simplistic heuristic: Return the first ID that ends with -01, else the first one.
         candidates = self.gtfs_stop_map.get(stop_name, [])
-        if not candidates: return ""
+        if not candidates:
+            print(f"[DEBUG] resolve_gtfs_stop_id: No candidates for stop_name='{stop_name}'")
+            return ""
+
+        # Smart Resolution: Check if candidates exist in known route stats
+        if gtfs_route_id and hasattr(self, 'route_stop_stats') and gtfs_route_id in self.route_stop_stats:
+            known_stops = self.route_stop_stats[gtfs_route_id]
+            # Valid candidates are those that exist in the timetable for this route and have trips
+            valid_candidates = [c for c in candidates if c in known_stops and known_stops[c] > 0]
+            
+            if valid_candidates:
+                # Sort by number of trips (descending)
+                valid_candidates.sort(key=lambda x: known_stops[x], reverse=True)
+                best = valid_candidates[0]
+                print(f"[DEBUG] resolve_gtfs_stop_id (smart): '{stop_name}' (Route {gtfs_route_id}) -> {best} (trips: {known_stops[best]})")
+                return best
+            else:
+                print(f"[DEBUG] resolve_gtfs_stop_id: Candidates {candidates} not found in timetable for Route {gtfs_route_id}")
         
-        # Prefer ID matching common patterns or check validity if possible
-        # For Toei, they are usually 4 digits + suffix?
-        # Let's pick the one that ends in "-01" if exists
+        # Fallback: Prefer ID matching common patterns
         for c in candidates:
-            if c.endswith("-01"): return c
-        return candidates[0]
+            if c.endswith("-01"):
+                print(f"[DEBUG] resolve_gtfs_stop_id (fallback): '{stop_name}' -> '{c}' (preferred -01)")
+                return c
+        result = candidates[0]
+        print(f"[DEBUG] resolve_gtfs_stop_id (fallback): '{stop_name}' -> '{result}' (first candidate)")
+        return result
 
 
 # -------------------- グラフ構築 --------------------
@@ -663,6 +719,12 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
             segs = segments_detailed(G, path, tm, start_time, is_weekday=is_weekday)
             lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
             
+            # デバッグログ: 経路セグメント詳細
+            print("[DEBUG] ========== Route Segments (Fastest) ==========")
+            for i, seg in enumerate(segs):
+                print(f"[DEBUG] Segment {i+1}: kind={seg['kind']}, title={seg.get('title', 'N/A')}, from={seg.get('from_', 'N/A')}, to={seg.get('to', 'N/A')}")
+            print("[DEBUG] ================================================")
+            
             start_min = time_str_to_min(start_time)
             duration = int(arr_min - start_min)
             
@@ -703,6 +765,12 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
                 # 合格
                 segs = segments_detailed(G, path, tm, start_time, is_weekday=is_weekday)
                 lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
+                
+                # デバッグログ: 経路セグメント詳細
+                print(f"[DEBUG] ========== Route Segments (Comfort-{valid_count+1}) ==========")
+                for i, seg in enumerate(segs):
+                    print(f"[DEBUG] Segment {i+1}: kind={seg['kind']}, title={seg.get('title', 'N/A')}, from={seg.get('from_', 'N/A')}, to={seg.get('to', 'N/A')}")
+                print("[DEBUG] ================================================")
                 
                 start_min = time_str_to_min(start_time)
                 duration = int(real_arr - start_min)
@@ -882,7 +950,14 @@ def segments_detailed(G, path, tm, start_time_str="10:00", is_weekday=True):
                 if hasattr(tm, "resolve_gtfs_route_id"):
                     gtfs_route_id = tm.resolve_gtfs_route_id(line_disp)
                     if gtfs_route_id:
-                        gtfs_stop_id = tm.resolve_gtfs_stop_id(gtfs_route_id, from_name)
+                        # 1. Try direct conversion from ODPT ID (Precise branch handling)
+                        gtfs_stop_id = tm.convert_odpt_id_to_gtfs(phys_id)
+                        if gtfs_stop_id:
+                            print(f"[DEBUG] Converted ODPT ID {phys_id} -> GTFS ID {gtfs_stop_id}")
+                        
+                        # 2. Fallback to name-based resolution (Smart/Stats based)
+                        if not gtfs_stop_id:
+                            gtfs_stop_id = tm.resolve_gtfs_stop_id(gtfs_route_id, from_name)
 
             elif mode == "rail":
                 curr_time += 2.0

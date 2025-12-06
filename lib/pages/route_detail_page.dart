@@ -259,12 +259,24 @@ class RouteDetailPage extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: Container(height: 1, color: CupertinoColors.systemGrey5),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4.0),
-              child: TimetableView(
-                routeId: s.routeId,
-                stopId: s.departureStopId,
-              ),
+            Builder(
+              builder: (context) {
+                // デバッグログ: TimetableViewに渡す値を確認
+                print('[RouteDetailPage] TimetableView呼び出し:');
+                print('  - StepSeg.title: ${s.title}');
+                print('  - StepSeg.from: ${s.from}');
+                print('  - StepSeg.to: ${s.to}');
+                print('  - StepSeg.routeId: ${s.routeId}');
+                print('  - StepSeg.departureStopId: ${s.departureStopId}');
+                
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  child: TimetableView(
+                    routeId: s.routeId,
+                    stopId: s.departureStopId,
+                  ),
+                );
+              },
             ),
           ],
         ],

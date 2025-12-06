@@ -134,9 +134,9 @@ class StepSeg {
       to: j['to']?.toString(),
       departureTime: j['departure_time']?.toString(),
       arrivalTime: j['arrival_time']?.toString(),
-      // TODO: Fetch real IDs from API when available
-      routeId: (j['kind'] == 'bus') ? '003' : '',
-      departureStopId: (j['kind'] == 'bus') ? '0737-01' : '',
+      // Use backend-provided GTFS IDs (empty string if not available)
+      routeId: j['routeId']?.toString() ?? '',
+      departureStopId: j['departureStopId']?.toString() ?? '',
       stops: stops,
     );
   }
