@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/route_models.dart';
 import '../data/global_state.dart';
 import '../services/storage_service.dart';
+import '../widgets/timetable_view.dart';
 
 class RouteDetailPage extends StatelessWidget {
   final Candidate candidate;
@@ -143,11 +144,21 @@ class RouteDetailPage extends StatelessWidget {
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                itemCount: candidate.steps.length,
+                itemCount: candidate.steps.length + 1,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, i) {
-                  final seg = candidate.steps[i];
-                  return _stepTile(context, seg);  // ← context 渡す
+                  if (i == 0) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8.0),
+                      child: TimetableView(
+                        // Test IDs from app_timetable.json
+                        routeId: "003",
+                        stopId: "0737-01",
+                      ),
+                    );
+                  }
+                  final seg = candidate.steps[i - 1];
+                  return _stepTile(context, seg);
                 },
               ),
             ),
