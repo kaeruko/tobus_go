@@ -92,6 +92,7 @@ async def _startup():
     print("[server] Loading Timetables (This may take a while)...")
     TM = TimetableManager()
     TM.load_bus_timetables(BUS_TBL)
+    TM.load_bus_route_patterns(BUSROUTE)
     TM.load_train_timetables(TRAIN_TBL)
     
     print("[server] Building Name Index for Fuzzy Matching...")

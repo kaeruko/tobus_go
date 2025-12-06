@@ -18,6 +18,15 @@ class _MyRoutePageState extends State<MyRoutePage> {
   DateTime _startTime = DateTime.now();
   bool _loading = false;
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 画面が表示される度にリストを更新
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   void _showTimePicker() {
     showCupertinoModalPopup(
       context: context,

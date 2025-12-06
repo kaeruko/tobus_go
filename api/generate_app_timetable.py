@@ -56,42 +56,43 @@ def main():
             service_dict[s_id]['removed'].add(date_val)
 
     # service_id をアプリ用の区分 (Weekday, Saturday, Holiday) に簡易分類
-    # ※ 本来は日付ごとに展開すべきですが、アプリの既存ロジックに合わせて簡易化します。
-    #    ただし、calendar_datesだけで運行する特殊ダイヤも考慮します。
-    service_to_daytype = {}
+    # 変更: 1つのservice_idが複数の区分に属することを許容する (例: 土休共通ダイヤ -> [Saturday, Holiday])
+    service_to_daytypes = defaultdict(list)
     for s_id, data in service_dict.items():
-        # 土曜フラグがあり、かつ日曜フラグがない -> Saturday
-        if data['flags'][5] and not data['flags'][6]:
-            service_to_daytype[s_id] = "Saturday"
-        # 日曜フラグがある -> Holiday
-        elif data['flags'][6]:
-            service_to_daytype[s_id] = "Holiday"
-        # 平日 (月〜金)
-        elif any(data['flags'][0:5]):
-            service_to_daytype[s_id] = "Weekday"
-        # フラグはないが例外追加がある場合 (臨時ダイヤなど) -> Holiday扱いにしておく
-        elif data['added']:
-            service_to_daytype[s_id] = "Holiday"
-        else:
-            service_to_daytype[s_id] = "Holiday"
+        # 平日フラグ (月〜金) のいずれかが立っている
+        if any(data['flags'][0:5]):
+            service_to_daytypes[s_id].append("Weekday")
+        
+        # 土曜フラグ
+        if data['flags'][5]:
+            service_to_daytypes[s_id].append("Saturday")
+        
+        # 日曜フラグ
+        if data['flags'][6]:
+            service_to_daytypes[s_id].append("Holiday")
+
+        # カレンダー登録がないが、例外追加(calendar_dates)のみで運行する場合
+        # 厳密には日付ごとに判定すべきだが、既存ロジックに合わせて簡易的に
+        # 「フラグが全くない場合は Holiday 扱い」としておく (臨時便など)
+        if not any(data['flags']) and data['added']:
+            service_to_daytypes[s_id].append("Holiday")
 
     # 2. 便情報の読み込み
     trips = load_csv("trips.txt")
     trip_info = {}
     for row in trips:
         s_id = row['service_id']
-        if s_id in service_to_daytype:
+        if s_id in service_to_daytypes:
             trip_info[row['trip_id']] = {
                 'route_id': row['route_id'],
-                'direction_id': row.get('direction_id', '0'), # 行き先ID (重要)
-                'day_type': service_to_daytype[s_id],
+                'direction_id': row.get('direction_id', '0'),
+                'day_types': service_to_daytypes[s_id], # リストで保持
                 'headsign': row['trip_headsign']
             }
 
     # 3. 通過時刻の集計
-    # 構造: data[route_id][direction_id][stop_id][day_type] = [times...]
-    # direction_id の階層を追加しました
-    timetable_data = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
+    # 構造: data[route_id][direction_id][stop_id][day_type][headsign] = [times...]
+    timetable_data = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list)))))
     stop_times = load_csv("stop_times.txt")
 
     print("時刻表を集計中...")
@@ -104,10 +105,17 @@ def main():
             info = trip_info[trip_id]
             route_id = info['route_id']
             direction = info['direction_id']
-            day_type = info['day_type']
+            day_types = info['day_types']
+            headsign = info['headsign']
             
             time_str = dep_time[:5] # HH:mm
-            timetable_data[route_id][direction][stop_id][day_type].append(time_str)
+            
+            # 各 day_type に同じ時刻を追加 (行き先別に集計)
+            # 行き先名が空の場合は "不明" とする
+            if not headsign: headsign = f"方面{direction}"
+
+            for dt in day_types:
+                timetable_data[route_id][direction][stop_id][dt][headsign].append(time_str)
 
     # 4. JSON書き出し
     final_json = {}
@@ -115,10 +123,6 @@ def main():
     for route_id, dirs in timetable_data.items():
         final_json[route_id] = {}
         for direction, stops in dirs.items():
-            # アプリ側でパースしやすいよう、route_idの下に direction をキーとして埋め込むか、
-            # あるいは stop_id キーの中に direction を含めるか。
-            # ここでは既存アプリの改修を最小限にするため、
-            # route_id -> stop_id -> direction_id -> day_type という構造にします
             for stop_id, days in stops.items():
                 if stop_id not in final_json[route_id]:
                     final_json[route_id][stop_id] = {}
@@ -126,9 +130,21 @@ def main():
                 # direction_id をキーに追加
                 final_json[route_id][stop_id][direction] = {}
                 
-                for day_type, times in days.items():
-                    sorted_times = sorted(list(set(times)))
-                    final_json[route_id][stop_id][direction][day_type] = sorted_times
+                for day_type, headsigns in days.items():
+                    # 行き先ごとのリストを作成
+                    # [ {"destination": "上野行き", "times": [...]}, {"destination": "車庫行き", "times": [...] } ]
+                    destination_groups = []
+                    for h_sign, t_list in headsigns.items():
+                        sorted_times = sorted(list(set(t_list)))
+                        destination_groups.append({
+                            "destination": h_sign,
+                            "times": sorted_times
+                        })
+                    
+                    # 行き先名でソート（一貫性のため）
+                    destination_groups.sort(key=lambda x: x["destination"])
+                    
+                    final_json[route_id][stop_id][direction][day_type] = destination_groups
 
     print(f"JSONを出力します: {OUTPUT_FILE}")
     with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:

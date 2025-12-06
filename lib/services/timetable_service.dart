@@ -85,27 +85,27 @@ class TimetableService {
       if (dayMap is! Map) return;
       
       // その方向の、今日のダイヤを取得
-      final rawTimes = dayMap[dayType];
-      if (rawTimes != null && rawTimes is List) {
-        final times = rawTimes.cast<String>();
-        
-        // 未来のバスを3本抽出
-        final nextTimes = times.where((t) => t.compareTo(currentStr) >= 0).take(3).toList();
+      // 変更: 新しい構造は [ {"destination": "...", "times": [...]}, ... ]
+      final rawData = dayMap[dayType];
+      
+      if (rawData != null && rawData is List) {
+        for (var group in rawData) {
+          if (group is! Map) continue;
+          if (!group.containsKey('destination') || !group.containsKey('times')) continue;
 
-        if (nextTimes.isNotEmpty) {
-          // 行き先名を取得 (例: "上野松坂屋前")
-          String headsign = "方面$directionId"; // デフォルト
-          if (_directionNames != null && 
-              _directionNames![routeId] != null &&
-              _directionNames![routeId][directionId] != null) {
-            headsign = _directionNames![routeId][directionId];
+          final destination = group['destination'] as String;
+          final times = (group['times'] as List).cast<String>();
+          
+          // 未来のバスを3本抽出
+          final nextTimes = times.where((t) => t.compareTo(currentStr) >= 0).take(3).toList();
+
+          if (nextTimes.isNotEmpty) {
+            results.add({
+              "directionId": directionId,
+              "destinationName": destination, // data/route_directions.jsonよりも、JSON内の具体的な行き先を優先
+              "times": nextTimes,
+            });
           }
-
-          results.add({
-            "directionId": directionId,
-            "destinationName": headsign,
-            "times": nextTimes,
-          });
         }
       }
     });

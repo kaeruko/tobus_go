@@ -62,9 +62,11 @@ def min_to_time_str(m):
 # -------------------- 時刻表マネージャー (名寄せ強化版) --------------------
 class TimetableManager:
     def __init__(self):
-        # key: pole_id, value: { route_id: [minutes, ...] }
+        # key: pole_id, value: { route_id: [{'dep': minutes, 'dest': dest_pole_id}, ...] }
+        # Value structure changed from list of minutes to list of dicts
         self.bus_departures_weekday = {}
         self.bus_departures_weekend = {}
+        self.route_stops_map = {} # route_id -> [stop_id1, stop_id2, ...]
         
         # key: station_id, value: [ {dep, arr, next_sta, train_id} ]
         self.train_patterns_weekday = {}
@@ -85,6 +87,25 @@ class TimetableManager:
                 count += 1
         print(f"[INFO] Updated delays for {count} trains.")
 
+    def load_bus_route_patterns(self, json_path):
+        data = load_json(json_path)
+        count = 0
+        for entry in data:
+            route_id = entry.get("odpt:busroute")
+            orders = entry.get("odpt:busstopPoleOrder") or []
+            try: orders = sorted(orders, key=lambda x: x.get("odpt:index", 0))
+            except: pass
+            
+            seq = [o.get("odpt:busstopPole") for o in orders]
+            # 一つのroute_idに複数のパターンがある場合があるが、
+            # ここでは最も長いものを代表として保持するか、あるいは
+            # パターンIDごとに持つのが理想だが、簡易的に上書きする（長い方優先などのロジックを入れる）
+            if route_id:
+                if route_id not in self.route_stops_map or len(seq) > len(self.route_stops_map[route_id]):
+                    self.route_stops_map[route_id] = seq
+                    count += 1
+        print(f"[DEBUG] Loaded Bus Patterns for {count} routes.")
+
     def load_bus_timetables(self, json_path):
         data = load_json(json_path)
         count = 0
@@ -94,11 +115,19 @@ class TimetableManager:
             calendar = entry.get("odpt:calendar", "")
             if not pole_id: continue
 
+            # [{'dep': 600, 'dest': 'pole_id_xyz'}]
             times = []
             for obj in entry.get("odpt:busstopPoleTimetableObject", []):
                 dep = obj.get("odpt:departureTime")
-                if dep: times.append(time_str_to_min(dep))
-            times.sort()
+                dest = obj.get("odpt:destinationBusstopPole")
+                if dep:
+                    times.append({
+                        "dep": time_str_to_min(dep),
+                        "dest": dest
+                    })
+            
+            # depでソート
+            times.sort(key=lambda x: x["dep"])
             
             if not times: continue
 
@@ -113,11 +142,11 @@ class TimetableManager:
             target_dict[pole_id][route_id].extend(times)
             count += 1
         
-        # ソート
+        # ソート ensures consistency after extend
         for d in [self.bus_departures_weekday, self.bus_departures_weekend]:
             for pid in d:
                 for rid in d[pid]:
-                    d[pid][rid].sort()
+                    d[pid][rid].sort(key=lambda x: x["dep"])
         print(f"[DEBUG] Loaded Bus Timetables (Entries used: {count})")
 
     def load_train_timetables(self, json_path):
@@ -169,32 +198,75 @@ class TimetableManager:
                     count += 1
         print(f"[INFO] Index built. Total {count} nodes.")
 
-    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, is_weekday=True):
+    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, is_weekday=True, target_pole_id=None):
         target_dict = self.bus_departures_weekday if is_weekday else self.bus_departures_weekend
         
-        def find_times(routes_dict, target_rid):
-            if target_rid in routes_dict: return routes_dict[target_rid]
+        def find_trips(routes_dict, target_rid):
+            if target_rid in routes_dict:
+                 # print(f"[DEBUG] Found exact match: {target_rid}")
+                 return routes_dict[target_rid]
             for r_key, t_list in routes_dict.items():
                 if target_rid in r_key or r_key in target_rid:
+                    print(f"[DEBUG] Fuzzy match: {target_rid} <-> {r_key}")
                     return t_list
+            print(f"[DEBUG] No match for {target_rid} in {list(routes_dict.keys())}")
             return None
 
-        routes = target_dict.get(pole_id)
-        if routes:
-            times = find_times(routes, route_id)
-            if times:
-                idx = bisect.bisect_left(times, current_time_min)
-                if idx < len(times): return times[idx]
+        # -------------------- Validate Trip Destination Logic --------------------
+        def is_valid_trip(trip, route_id):
+            if not target_pole_id: return True
+            dest_id = trip.get("dest")
+            if not dest_id: return True # Destination unknown, allow it (safe fallback)
+            
+            # Check route pattern
+            stops = self.route_stops_map.get(route_id)
+            if not stops: return True # No pattern known, allow it
+            
+            try:
+                target_idx = stops.index(target_pole_id)
+                dest_idx = stops.index(dest_id)
+                
+                # Destination must be at or after target stop
+                if dest_idx >= target_idx:
+                    return True
+                else:
+                    print(f"[DEBUG] REJECT Short Trip: route={route_id}, dest={dest_id}({dest_idx}) < target={target_pole_id}({target_idx})")
+                    return False
+            except ValueError:
+                return True
+        # -------------------------------------------------------------------------
 
-        if pole_name and pole_name in self.name_to_pids:
+        routes = target_dict.get(pole_id)
+        candidate_trips = None
+        
+        if routes:
+            candidate_trips = find_trips(routes, route_id)
+        else:
+            print(f"[DEBUG] No routes found for pole {pole_id} in {'weekday' if is_weekday else 'weekend'} dict")
+        
+        # Fallback to name search if ID lookup fails
+        if not candidate_trips and pole_name and pole_name in self.name_to_pids:
             for alt_pid in self.name_to_pids[pole_name]:
                 if alt_pid == pole_id: continue 
                 alt_routes = target_dict.get(alt_pid)
                 if alt_routes:
-                    times = find_times(alt_routes, route_id)
-                    if times:
-                        idx = bisect.bisect_left(times, current_time_min)
-                        if idx < len(times): return times[idx]
+                    candidate_trips = find_trips(alt_routes, route_id)
+                    if candidate_trips: break
+        
+        if candidate_trips:
+            # candidate_trips is sorted by 'dep'
+            # We can use bisect if it was list of ints, but it's list of dicts.
+            # Use linear scan or custom bisect. Linear scan is fine for small N (N<100 per hour usually).
+            # Actually full list is usually ~50-100 items for a whole day. Linear is fast enough.
+            
+            for trip in candidate_trips:
+                dep = trip["dep"]
+                if dep >= current_time_min:
+                    # Check connection
+                    if is_valid_trip(trip, route_id):
+                        return dep
+            # print(f"[DEBUG] No future bus found. Last dep={candidate_trips[-1]['dep']} vs current={current_time_min}")
+                    
         return None
 
     def get_next_train_arrival(self, current_sta, next_sta, current_time_min, is_weekday=True):
@@ -279,18 +351,36 @@ class TimetableManager:
         Convert ODPT BusstopPole ID to GTFS Stop ID.
         Example: odpt.BusstopPole:Toei.HiraiNanachomeDaisanApato.2205.3 -> 2205-03
         """
-        if not odpt_id: return ""
+        if not odpt_id:
+            print(f"[DEBUG] convert_odpt_id_to_gtfs: Empty odpt_id")
+            return ""
+        
+        print(f"[DEBUG] convert_odpt_id_to_gtfs: Input odpt_id='{odpt_id}'")
+        
         try:
             parts = odpt_id.split('.')
+            print(f"[DEBUG] convert_odpt_id_to_gtfs: parts={parts}")
+            
             if len(parts) >= 2:
                 # Last two parts are usually code ("2205") and suffix ("3")
                 code = parts[-2]
                 suffix = parts[-1]
+                print(f"[DEBUG] convert_odpt_id_to_gtfs: code='{code}', suffix='{suffix}'")
+                
                 if code.isdigit() and suffix.isdigit():
-                    gtfs_id = f"{code}-{int(suffix):02d}"
+                    # GTFS stop_id uses 4-digit code (zero-padded) + 2-digit suffix
+                    # Example: 665 -> 0665, 3 -> 03 => 0665-03
+                    gtfs_id = f"{code.zfill(4)}-{int(suffix):02d}"
+                    print(f"[DEBUG] convert_odpt_id_to_gtfs: SUCCESS -> '{gtfs_id}'")
                     return gtfs_id
+                else:
+                    print(f"[DEBUG] convert_odpt_id_to_gtfs: FAILED - code or suffix not digit")
+            else:
+                print(f"[DEBUG] convert_odpt_id_to_gtfs: FAILED - parts length < 2")
         except Exception as e:
             print(f"[WARN] Failed to convert ODPT ID {odpt_id}: {e}")
+        
+        print(f"[DEBUG] convert_odpt_id_to_gtfs: Returning empty string")
         return ""
 
     def resolve_gtfs_route_id(self, route_name_disp):
@@ -302,7 +392,11 @@ class TimetableManager:
         return result
 
     def resolve_gtfs_stop_id(self, gtfs_route_id, stop_name):
+        print(f"[DEBUG] resolve_gtfs_stop_id: gtfs_route_id='{gtfs_route_id}', stop_name='{stop_name}'")
+        
         candidates = self.gtfs_stop_map.get(stop_name, [])
+        print(f"[DEBUG] resolve_gtfs_stop_id: candidates={candidates}")
+        
         if not candidates:
             print(f"[DEBUG] resolve_gtfs_stop_id: No candidates for stop_name='{stop_name}'")
             return ""
@@ -310,8 +404,11 @@ class TimetableManager:
         # Smart Resolution: Check if candidates exist in known route stats
         if gtfs_route_id and hasattr(self, 'route_stop_stats') and gtfs_route_id in self.route_stop_stats:
             known_stops = self.route_stop_stats[gtfs_route_id]
+            print(f"[DEBUG] resolve_gtfs_stop_id: route_stop_stats available for route {gtfs_route_id}")
+            
             # Valid candidates are those that exist in the timetable for this route and have trips
             valid_candidates = [c for c in candidates if c in known_stops and known_stops[c] > 0]
+            print(f"[DEBUG] resolve_gtfs_stop_id: valid_candidates={valid_candidates}")
             
             if valid_candidates:
                 # Sort by number of trips (descending)
@@ -473,11 +570,12 @@ def get_logical_signature(G, path):
     return tuple(sig)
 
 # -------------------- 共通ロジック: 時間計算ヘルパー --------------------
-def advance_time(G, tm, u, v, curr_time, is_weekday=True):
+def advance_time(G, tm, u, v, curr_time, is_weekday=True, **kwargs):
     """
     1 本のエッジ (u -> v) に対して、現在時刻 curr_time を
     「実際の到着時刻」に進める。
     乗れない（終バス後など）場合は None を返す。
+    **kwargs: target_pole_id 等のオプション
     """
     edge = G.edges[u, v]
     etype = edge.get("etype")
@@ -487,6 +585,7 @@ def advance_time(G, tm, u, v, curr_time, is_weekday=True):
         return curr_time + (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
 
     # 乗車（board）
+    # 乗車（board）
     if etype == "board":
         phys_id = u[1]
         node = v if v[0] == "line" else u
@@ -495,10 +594,14 @@ def advance_time(G, tm, u, v, curr_time, is_weekday=True):
         if mode == "bus":
             route_id = G.nodes[node].get("route_id")
             stop_name = G.nodes[u].get("name")
+            
+            target_pole_id = kwargs.get("target_pole_id")
+
             dep = tm.get_next_bus_departure(
                 phys_id, route_id, curr_time,
                 pole_name=stop_name,
                 is_weekday=is_weekday,
+                target_pole_id=target_pole_id
             )
             return dep  # dep が None のときは呼び出し側で弾く
         elif mode == "rail":
@@ -715,6 +818,14 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
     # 1. Timeモード (最速経路1つ)
     if mode == "time" or mode == "fast":
         arr_min, path = find_fastest_path(G, tm, a_phys, b_phys, start_time_str=start_time, is_weekday=is_weekday)
+        
+        # Check validity (Short Trip check)
+        if path:
+            real_arr = calculate_real_arrival_time(G, tm, path, start_time, is_weekday=is_weekday)
+            if real_arr is None:
+                print(f"[WARN] Fastest path invalidated by timetable check (possibly short trip).")
+                path = None # Discard
+
         if path:
             segs = segments_detailed(G, path, tm, start_time, is_weekday=is_weekday)
             lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
@@ -807,7 +918,7 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
 
 # -------------------- 探索ロジック --------------------
 
-def find_paths_generator(G, start_node, target_node, max_search=30000):
+def find_paths_generator(G, start_node, target_node, max_search=30000, max_visited=100000):
     # cost, node, total_walk_m, seg_walk_m, path
     pq = [(0.0, start_node, 0.0, 0.0, [start_node])]
     count_visited = defaultdict(int)
@@ -818,6 +929,9 @@ def find_paths_generator(G, start_node, target_node, max_search=30000):
     while pq:
         cost, u, total_walk_m, seg_walk_m, path = heapq.heappop(pq)
         visited_count += 1
+        if visited_count > max_visited:
+            print(f"[WARN] Search exceeded max_visited ({max_visited}). Stopping.")
+            return
         if visited_count % 5000 == 0:
             print(f"[DEBUG] find_paths_generator: visited={visited_count}, yielded={yielded_count}, pq_size={len(pq)}")
         
@@ -878,8 +992,32 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", is
 def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", is_weekday=True):
     curr_time = time_str_to_min(start_time_str)
     
-    for u, v in zip(path, path[1:]):
-        next_time = advance_time(G, tm, u, v, curr_time, is_weekday=is_weekday)
+    for i in range(len(path) - 1):
+        u = path[i]
+        v = path[i+1]
+        
+        edge = G.edges[u, v]
+        etype = edge.get("etype")
+        target_pid = None
+        
+        # If boarding, look ahead for alight
+        if etype == "board" and edge.get("mode") == "bus":
+            # line_node is v
+            if v[0] == "line":
+                # Scan forward to find alight from this line
+                for j in range(i + 1, len(path) - 1):
+                    u2 = path[j]
+                    v2 = path[j+1]
+                    e2 = G.edges[u2, v2]
+                    # alight edge: line_node -> phys_node
+                    if e2.get("etype") == "alight":
+                        # We assume the first alight is the one.
+                        # Since line nodes are unique per route/direction usually, 
+                        # staying on graph path implies staying on line.
+                        target_pid = v2[1]
+                        break
+        
+        next_time = advance_time(G, tm, u, v, curr_time, is_weekday=is_weekday, target_pole_id=target_pid)
         if next_time is None:
             return None
         curr_time = next_time
