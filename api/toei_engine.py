@@ -896,6 +896,10 @@ def segments_detailed(G, path, tm, start_time_str="10:00", is_weekday=True):
         nonlocal cur
         if cur:
             if cur["kind"] == "walk":
+                # 0m 移動など実質的に位置が変わらない場合は捨てる
+                if cur.get("meters", 0) <= 0 or cur.get("from_") == cur.get("to"):
+                    cur = None
+                    return
                 cur["minutes"] = max(1, int(cur.get("meters", 0) / WALK_SPEED_M_PER_MIN))
             elif cur["kind"] in ("bus", "rail"):
                 if cur.get("arrival_time"):
