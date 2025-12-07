@@ -99,6 +99,10 @@ class TimetableManager:
                 count += 1
         print(f"[INFO] Updated delays for {count} trains.")
 
+    def get_delays_snapshot(self):
+        """Return a copy of current realtime delays for consistency during search"""
+        return self.realtime_delays.copy()
+
     def load_bus_route_patterns(self, json_path):
         data = load_json(json_path)
         count = 0
@@ -317,7 +321,7 @@ class TimetableManager:
                     
         return None
 
-    def get_next_train_arrival(self, current_sta, next_sta, current_time_min, day_type="weekday"):
+    def get_next_train_arrival(self, current_sta, next_sta, current_time_min, day_type="weekday", delays_snapshot=None):
         target_dict = self.train_patterns_weekday if day_type == "weekday" else self.train_patterns_weekend
         # For trains, we might need a similar split, but for now assuming weekend=holiday for trains
         # or we update load_train_timetables too? 
@@ -334,7 +338,9 @@ class TimetableManager:
             base_dep = t["dep"]
             base_arr = t["arr"]
             
-            delay_sec = self.realtime_delays.get(t["train_num"], 0)
+            # Use snapshot if provided, otherwise failover to live (though we should always have snapshot in search)
+            delays_source = delays_snapshot if delays_snapshot is not None else self.realtime_delays
+            delay_sec = delays_source.get(t["train_num"], 0)
             delay_min = delay_sec / 60.0
             
             actual_dep = base_dep + delay_min
@@ -629,7 +635,7 @@ def get_logical_signature(G, path):
     return tuple(sig)
 
 # -------------------- 共通ロジック: 時間計算ヘルパー --------------------
-def advance_time(G, tm, u, v, curr_time, day_type="weekday", **kwargs):
+def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=None, **kwargs):
     """
     1 本のエッジ (u -> v) に対して、現在時刻 curr_time を
     「実際の到着時刻」に進める。
@@ -672,7 +678,7 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", **kwargs):
     if etype == "ride":
         mode = edge.get("mode")
         if mode == "rail":
-            arr = tm.get_next_train_arrival(u[1], v[1], curr_time, day_type=day_type)
+            arr = tm.get_next_train_arrival(u[1], v[1], curr_time, day_type=day_type, delays_snapshot=delays_snapshot)
             return arr  # arr が None のときは呼び出し側で弾く
         elif mode == "bus":
             dist = edge.get("meters", 0)
@@ -690,155 +696,7 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", **kwargs):
 
 # -------------------- 共通ロジック: セグメント詳細化 --------------------
 # server.py から移動・共通化
-def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday"):
-    """
-    パス(ノード列)を、UI表示やログ出力用の詳細セグメントリストに変換する
-    """
-    segs = []
-    cur = None
-    
-    # 直前の物理ノード（駅やバス停）を記録しておく
-    last_phys = None
-    
-    # 時刻追跡用
-    curr_time = time_str_to_min(start_time_str)
 
-    def flush():
-        nonlocal cur
-        if cur:
-            # 分計算 (概算)
-            if cur["kind"] == "walk":
-                cur["minutes"] = max(1, int(cur.get("meters", 0) / WALK_SPEED_M_PER_MIN))
-            elif cur["kind"] in ("bus", "rail"):
-                # 到着時刻があればそれを使う
-                if cur.get("arrival_time"):
-                    dep_min = time_str_to_min(cur.get("departure_time"))
-                    arr_min = time_str_to_min(cur.get("arrival_time"))
-                    cur["minutes"] = max(1, int(arr_min - dep_min))
-                else:
-                    # フォールバック
-                    cur["minutes"] = max(1, int(cur.get("edges", 0) * 2.0))
-            
-            # print(f"[DEBUG INTERNAL] Flush Kind={cur.get('kind')} Keys={list(cur.keys())} Dep={cur.get('dep_time')} Arr={cur.get('arr_time')}")
-            segs.append(cur)
-            cur = None
-
-    for u, v in zip(path, path[1:]):
-        edge = G.edges[u, v]
-        etype = edge.get("etype")
-        
-        if u[0] == "phys": last_phys = u
-
-        # Next time calculation using helper
-        next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type)
-
-        # --- 徒歩 ---
-        if etype == "walk":
-            if not cur or cur["kind"] != "walk":
-                flush()
-                from_name = G.nodes[u]["name"] if u[0]=="phys" else "???"
-                cur = {
-                    "kind": "walk", "title": "徒歩", "edges": 0,
-                    "from_": from_name, "to": None, "meters": 0
-                }
-            cur["edges"] += 1
-            cur["meters"] += edge.get("meters", 0)
-            if v[0] == "phys": cur["to"] = G.nodes[v]["name"]
-            
-            # 時間加算
-            if next_time is not None:
-                curr_time = next_time
-            else:
-                curr_time += (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN) # Fallback
-            continue
-
-        # --- 乗り物 (Board / Ride / Alight / Xfer) ---
-        node = v if v[0] == "line" else (u if u[0] == "line" else None)
-        if not node: continue
-
-        line_id = G.nodes[node].get("line")
-        line_disp = G.nodes[node].get("disp") or "???"
-        mode = G.nodes[node].get("mode") # bus or rail
-
-        if etype == "board":
-            flush()
-            from_name = G.nodes[last_phys]["name"] if last_phys else "???"
-            # Get lat/lon for start stop
-            start_lat = G.nodes[last_phys]["lat"] if last_phys and "lat" in G.nodes[last_phys] else None
-            start_lon = G.nodes[last_phys]["lon"] if last_phys and "lon" in G.nodes[last_phys] else None
-
-            cur = {
-                "kind": mode, "title": line_disp, "line": line_id,
-                "edges": 0, "from_": from_name, "to": None, "stops": []
-            }
-            # 乗車駅を追加
-            cur["stops"].append({
-                "name": from_name, 
-                "is_origin": True,
-                "lat": start_lat,
-                "lon": start_lon
-            })
-            
-            # 出発時刻更新
-            if next_time: curr_time = next_time
-            cur["dep_time"] = min_to_time_str(curr_time)
-            cur["departure_time"] = min_to_time_str(curr_time)
-        
-        elif etype == "ride":
-            if cur and cur["kind"] in ("bus", "rail"):
-                cur["edges"] += 1
-                # 停車駅名
-                stop_name = "???"
-                phys_key = ("phys", v[1]) if v[0] == "line" else ("phys", u[1])
-                s_lat, s_lon = None, None
-                if phys_key in G:
-                    stop_name = G.nodes[phys_key]["name"]
-                    s_lat = G.nodes[phys_key].get("lat")
-                    s_lon = G.nodes[phys_key].get("lon")
-                
-                if not cur["stops"] or cur["stops"][-1]["name"] != stop_name:
-                    cur["stops"].append({
-                        "name": stop_name,
-                        "lat": s_lat,
-                        "lon": s_lon
-                    })
-            
-            # 移動時間加算
-            if next_time: curr_time = next_time
-            else: curr_time += 2.0 # fallback
-
-        elif etype in ("alight", "xfer"):
-            if cur and cur["kind"] in ("bus", "rail"):
-                to_phys = v if v[0] == "phys" else last_phys
-                if to_phys:
-                    to_name = G.nodes[to_phys]["name"]
-                    cur["to"] = to_name
-                    # Get coords
-                    e_lat = G.nodes[to_phys].get("lat")
-                    e_lon = G.nodes[to_phys].get("lon")
-
-                    # 最後の駅
-                    if not cur["stops"] or cur["stops"][-1]["name"] != to_name:
-                        cur["stops"].append({
-                            "name": to_name, 
-                            "is_destination": True,
-                            "lat": e_lat,
-                            "lon": e_lon
-                        })
-                    else:
-                        cur["stops"][-1]["is_destination"] = True
-                        cur["stops"][-1]["lat"] = e_lat
-                        cur["stops"][-1]["lon"] = e_lon
-                
-                cur["arr_time"] = min_to_time_str(curr_time)
-                cur["arrival_time"] = min_to_time_str(curr_time)
-                flush()
-            
-            if next_time: curr_time = next_time
-            else: curr_time += 1.0
-
-    if cur: flush()
-    return segs
 
 
 def path_to_coords(G, path):
@@ -876,7 +734,7 @@ def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time
     
     print(f"[DEBUG] search_best_routes_with_retry: Start from {start_dt}")
 
-    for day_offset in range(4): # 今日含めて4日間トライ
+    for day_offset in range(1): # 今日含めて4日間トライ
         target_date = start_dt + datetime.timedelta(days=day_offset)
         print(f"[DEBUG] Trying date: {target_date.date()} (offset={day_offset})")
         
@@ -924,19 +782,22 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
     
     candidates = []
     
+    # Snapshot delays at the start of search
+    delays_snapshot = tm.get_delays_snapshot()
+
     # 1. Timeモード (最速経路1つ)
     if mode == "time" or mode == "fast":
-        arr_min, path = find_fastest_path(G, tm, a_phys, b_phys, start_time_str=start_time, day_type=day_type)
+        arr_min, path = find_fastest_path(G, tm, a_phys, b_phys, start_time_str=start_time, day_type=day_type, delays_snapshot=delays_snapshot)
         
         # Check validity (Short Trip check)
         if path:
-            real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type)
+            real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot)
             if real_arr is None:
                 print(f"[WARN] Fastest path invalidated by timetable check (possibly short trip).")
                 path = None # Discard
 
         if path:
-            segs = segments_detailed(G, path, tm, start_time, day_type=day_type)
+            segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot)
             lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
             
             # デバッグログ: 経路セグメント詳細
@@ -982,18 +843,20 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
             # max_search=2000,
             max_visited=100000,
             max_travel_min=MAX_TRAVEL_MIN,
+            delays_snapshot=delays_snapshot,
         )
+
         valid_count = 0
         
         for cand in path_gen:
             path = cand["path"]
             
             # 答え合わせ (時刻表チェック)
-            real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type)
+            real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot)
             
             if real_arr is not None:
                 # 合格
-                segs = segments_detailed(G, path, tm, start_time, day_type=day_type)
+                segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot)
                 lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
                 
                 # デバッグログ: 経路セグメント詳細
@@ -1049,6 +912,7 @@ def find_paths_generator(
     max_search=30000,
     max_visited=100000,
     max_travel_min=MAX_TRAVEL_MIN,
+    delays_snapshot=None,
 ):
     """
     コスト最小パスを列挙するジェネレータ（時刻表込み）。
@@ -1164,7 +1028,7 @@ def find_paths_generator(
                 #      print(f"[DEBUG TRACE] Trying to board {r_name} ({r_id}) at {node_name} time={min_to_time_str(curr_time)}")
 
             # まず時間を進める（ここで終バス/終電がわかる）
-            next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type)
+            next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type, delays_snapshot=delays_snapshot)
             if next_time is None:
                 if etype == "board":
                      trace_target_node = v
@@ -1211,6 +1075,7 @@ def find_fastest_path(
     start_time_str="10:00",
     day_type="weekday",
     max_travel_min=MAX_TRAVEL_MIN,
+    delays_snapshot=None,
 ):
     start_min = time_str_to_min(start_time_str)
     pq = [(start_min, start_node, [start_node])]
@@ -1228,7 +1093,7 @@ def find_fastest_path(
         visited_time[u] = curr_time
         
         for v in G[u]:
-            next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type)
+            next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type, delays_snapshot=delays_snapshot)
             if next_time is None:
                 continue
             if next_time - start_min > max_travel_min:
@@ -1244,6 +1109,7 @@ def calculate_real_arrival_time(
     day_type="weekday",
     max_search=30000,
     max_travel_min=MAX_TRAVEL_MIN,
+    delays_snapshot=None,
 ):
     start_min = time_str_to_min(start_time_str)
     curr_time = start_min
@@ -1272,6 +1138,7 @@ def calculate_real_arrival_time(
             curr_time,
             day_type=day_type,
             target_pole_id=target_pid,
+            delays_snapshot=delays_snapshot,
         )
         if next_time is None:
             print(f"[DEBUG] Path REJECTED in calc_real_time: Cannot advance time at {u}->{v} (etype={etype})")
@@ -1286,7 +1153,8 @@ def calculate_real_arrival_time(
             
     return curr_time
 
-def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday"):
+def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", delays_snapshot=None):
+    print(f"[DEBUG_COORD] ENTER segments_detailed", flush=True)
     segs = []
     cur = None
     last_phys = None
@@ -1336,7 +1204,18 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday"):
         if etype == "board":
             flush()
             from_name = G.nodes[last_phys]["name"] if last_phys else "???"
-            curr_stops = [{"name": from_name, "is_origin": True}]
+            
+            # Get coords for Boarding Stop
+            start_lat = G.nodes[last_phys]["lat"] if last_phys and "lat" in G.nodes[last_phys] else None
+            start_lon = G.nodes[last_phys]["lon"] if last_phys and "lon" in G.nodes[last_phys] else None
+            
+            curr_stops = [{
+                "name": from_name, 
+                "is_origin": True,
+                "lat": start_lat,
+                "lon": start_lon
+            }]
+            print(f"[DEBUG_COORD] Board {from_name}: lat={start_lat}, lon={start_lon}")
 
             phys_id = u[1]
             gtfs_route_id = ""
@@ -1385,12 +1264,22 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday"):
                 cur["edges"] += 1
                 stop_name = "???"
                 phys_key = ("phys", v[1]) if v[0] == "line" else ("phys", u[1])
-                if phys_key in G: stop_name = G.nodes[phys_key]["name"]
+                
+                s_lat, s_lon = None, None
+                if phys_key in G: 
+                    stop_name = G.nodes[phys_key]["name"]
+                    s_lat = G.nodes[phys_key].get("lat")
+                    s_lon = G.nodes[phys_key].get("lon")
+
                 if not cur["stops"] or cur["stops"][-1]["name"] != stop_name:
-                    cur["stops"].append({"name": stop_name})
+                    cur["stops"].append({
+                        "name": stop_name,
+                        "lat": s_lat,
+                        "lon": s_lon
+                    })
             
             if mode == "rail":
-                arr = tm.get_next_train_arrival(u[1], v[1], curr_time, day_type=day_type)
+                arr = tm.get_next_train_arrival(u[1], v[1], curr_time, day_type=day_type, delays_snapshot=delays_snapshot)
                 if arr: curr_time = arr
                 else: curr_time += edge.get("w", 2.0)
             else:
@@ -1404,10 +1293,23 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday"):
                 if to_phys:
                     to_name = G.nodes[to_phys]["name"]
                     cur["to"] = to_name
+                    
+                    e_lat = G.nodes[to_phys].get("lat")
+                    e_lon = G.nodes[to_phys].get("lon")
+                    print(f"[DEBUG_COORD] Alight {to_name}: lat={e_lat}, lon={e_lon}")
+
                     if not cur["stops"] or cur["stops"][-1]["name"] != to_name:
-                        cur["stops"].append({"name": to_name, "is_destination": True})
+                        cur["stops"].append({
+                            "name": to_name, 
+                            "is_destination": True,
+                            "lat": e_lat,
+                            "lon": e_lon
+                        })
                     else:
                         cur["stops"][-1]["is_destination"] = True
+                        cur["stops"][-1]["lat"] = e_lat
+                        cur["stops"][-1]["lon"] = e_lon
+
                 cur["arrival_time"] = min_to_time_str(curr_time)
                 flush()
             curr_time += 1.0

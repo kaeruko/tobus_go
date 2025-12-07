@@ -422,15 +422,15 @@ class _StopRow extends StatelessWidget {
     );
 
     return GestureDetector(
-      onTap: () async {
+      onTap: () {
         if (stop.lat != null && stop.lon != null) {
-          final uri = Uri.parse(
-              'https://www.google.com/maps/search/?api=1&query=${stop.lat},${stop.lon}');
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          } else {
-             print('Could not launch stop url $uri');
-          }
+          Navigator.of(context).push(
+            CupertinoPageRoute(
+              builder: (_) => BusStopMapPage(stop: stop),
+            ),
+          );
+        } else {
+          print('[DEBUG] lat or lon is null');
         }
       },
       behavior: HitTestBehavior.opaque,
@@ -504,6 +504,48 @@ class _StopRow extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class BusStopMapPage extends StatelessWidget {
+  final StopPoint stop;
+
+  const BusStopMapPage({super.key, required this.stop});
+
+  @override
+  Widget build(BuildContext context) {
+    print('[DEBUG] Viewing map for: ${stop.name}, lat=${stop.lat}, lon=${stop.lon}');
+    final target = LatLng(stop.lat ?? 35.681236, stop.lon ?? 139.767125);
+
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(stop.name),
+      ),
+      child: Stack(
+        children: [
+          GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: target,
+              zoom: 16,
+            ),
+            markers: {
+              Marker(
+                markerId: MarkerId(stop.name),
+                position: target,
+                infoWindow: InfoWindow(title: stop.name),
+              ),
+            },
+            myLocationEnabled: true,
+            myLocationButtonEnabled: true,
+            zoomGesturesEnabled: true,
+            scrollGesturesEnabled: true,
+            rotateGesturesEnabled: true,
+            tiltGesturesEnabled: true,
+          ),
+          // 下部に住所や情報を出すパネルがあればここに配置
         ],
       ),
     );

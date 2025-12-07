@@ -20,6 +20,8 @@ from toei_engine import (
     time_str_to_min, min_to_time_str,
     MAX_WALK_SEG_M
 )
+import toei_engine
+print(f"[DEBUG_SERVER] Loaded toei_engine from: {toei_engine.__file__}")
 
 load_dotenv()
 
