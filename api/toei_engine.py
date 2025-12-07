@@ -690,7 +690,7 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", **kwargs):
 
 # -------------------- 共通ロジック: セグメント詳細化 --------------------
 # server.py から移動・共通化
-def segments_detailed(G, path, tm, start_time_str="10:00"):
+def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday"):
     """
     パス(ノード列)を、UI表示やログ出力用の詳細セグメントリストに変換する
     """
@@ -719,6 +719,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00"):
                     # フォールバック
                     cur["minutes"] = max(1, int(cur.get("edges", 0) * 2.0))
             
+            # print(f"[DEBUG INTERNAL] Flush Kind={cur.get('kind')} Keys={list(cur.keys())} Dep={cur.get('dep_time')} Arr={cur.get('arr_time')}")
             segs.append(cur)
             cur = None
 
@@ -729,7 +730,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00"):
         if u[0] == "phys": last_phys = u
 
         # Next time calculation using helper
-        next_time = advance_time(G, tm, u, v, curr_time, is_weekday=is_weekday)
+        next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type)
 
         # --- 徒歩 ---
         if etype == "walk":
@@ -762,15 +763,25 @@ def segments_detailed(G, path, tm, start_time_str="10:00"):
         if etype == "board":
             flush()
             from_name = G.nodes[last_phys]["name"] if last_phys else "???"
+            # Get lat/lon for start stop
+            start_lat = G.nodes[last_phys]["lat"] if last_phys and "lat" in G.nodes[last_phys] else None
+            start_lon = G.nodes[last_phys]["lon"] if last_phys and "lon" in G.nodes[last_phys] else None
+
             cur = {
                 "kind": mode, "title": line_disp, "line": line_id,
                 "edges": 0, "from_": from_name, "to": None, "stops": []
             }
             # 乗車駅を追加
-            cur["stops"].append({"name": from_name, "is_origin": True})
+            cur["stops"].append({
+                "name": from_name, 
+                "is_origin": True,
+                "lat": start_lat,
+                "lon": start_lon
+            })
             
             # 出発時刻更新
             if next_time: curr_time = next_time
+            cur["dep_time"] = min_to_time_str(curr_time)
             cur["departure_time"] = min_to_time_str(curr_time)
         
         elif etype == "ride":
@@ -779,11 +790,18 @@ def segments_detailed(G, path, tm, start_time_str="10:00"):
                 # 停車駅名
                 stop_name = "???"
                 phys_key = ("phys", v[1]) if v[0] == "line" else ("phys", u[1])
+                s_lat, s_lon = None, None
                 if phys_key in G:
                     stop_name = G.nodes[phys_key]["name"]
+                    s_lat = G.nodes[phys_key].get("lat")
+                    s_lon = G.nodes[phys_key].get("lon")
                 
                 if not cur["stops"] or cur["stops"][-1]["name"] != stop_name:
-                    cur["stops"].append({"name": stop_name})
+                    cur["stops"].append({
+                        "name": stop_name,
+                        "lat": s_lat,
+                        "lon": s_lon
+                    })
             
             # 移動時間加算
             if next_time: curr_time = next_time
@@ -795,12 +813,24 @@ def segments_detailed(G, path, tm, start_time_str="10:00"):
                 if to_phys:
                     to_name = G.nodes[to_phys]["name"]
                     cur["to"] = to_name
+                    # Get coords
+                    e_lat = G.nodes[to_phys].get("lat")
+                    e_lon = G.nodes[to_phys].get("lon")
+
                     # 最後の駅
                     if not cur["stops"] or cur["stops"][-1]["name"] != to_name:
-                        cur["stops"].append({"name": to_name, "is_destination": True})
+                        cur["stops"].append({
+                            "name": to_name, 
+                            "is_destination": True,
+                            "lat": e_lat,
+                            "lon": e_lon
+                        })
                     else:
                         cur["stops"][-1]["is_destination"] = True
+                        cur["stops"][-1]["lat"] = e_lat
+                        cur["stops"][-1]["lon"] = e_lon
                 
+                cur["arr_time"] = min_to_time_str(curr_time)
                 cur["arrival_time"] = min_to_time_str(curr_time)
                 flush()
             
@@ -823,17 +853,26 @@ def path_to_coords(G, path):
 
 
 # -------------------- 統合検索ロジック --------------------
-def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5):
+def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None):
     """
     日付を指定して検索し、結果が0件なら翌日以降も探すラッパー
     """
-    # 現在日時を基準にする（簡易実装）
-    # 本来はリクエストパラメータで日付を受け取るべきだが、今回は「今日」からスタート
     now = datetime.datetime.now()
     
-    # start_time が "HH:MM" 形式なので、今日のその時間に設定
+    # 日付指定がある場合はそれを使う
+    if target_date_str:
+        try:
+            d = datetime.datetime.strptime(target_date_str, "%Y-%m-%d")
+            base_date = d.replace(hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond)
+        except ValueError:
+            print(f"[WARN] Invalid target_date_str: {target_date_str}, using today")
+            base_date = now
+    else:
+        base_date = now
+    
+    # start_time が "HH:MM" 形式なので、その日に時間を合わせる
     h, m = map(int, start_time.split(":"))
-    start_dt = now.replace(hour=h, minute=m, second=0, microsecond=0)
+    start_dt = base_date.replace(hour=h, minute=m, second=0, microsecond=0)
     
     print(f"[DEBUG] search_best_routes_with_retry: Start from {start_dt}")
 
@@ -958,10 +997,12 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
                 lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
                 
                 # デバッグログ: 経路セグメント詳細
-                print(f"[DEBUG] ========== Route Segments (Comfort-{valid_count+1}) ==========")
-                for i, seg in enumerate(segs):
-                    print(f"[DEBUG] Segment {i+1}: kind={seg['kind']}, title={seg.get('title', 'N/A')}, from={seg.get('from_', 'N/A')}, to={seg.get('to', 'N/A')}")
-                print("[DEBUG] ================================================")
+                # print(f"[DEBUG] ========== Route Segments (Comfort-{valid_count+1}) ==========")
+                # for i, seg in enumerate(segs):
+                #    dep_s = seg.get('dep_time', 'N/A')
+                #    arr_s = seg.get('arr_time', 'N/A')
+                #    print(f"[DEBUG] Segment {i+1}: [{dep_s} - {arr_s}] kind={seg['kind']}, title={seg.get('title', 'N/A')}, from={seg.get('from_', 'N/A')}, to={seg.get('to', 'N/A')}")
+                # print("[DEBUG] ================================================")
                 
                 start_min = time_str_to_min(start_time)
                 duration = int(real_arr - start_min)

@@ -90,7 +90,7 @@ class RouteCard extends StatelessWidget {
             spacing: 6,
             runSpacing: -6,
             children: [
-              _chip('総スコア ${candidate.total}'),
+              _chip('所要 ${candidate.totalTime}分'),
               _chip('乗換 ${candidate.transfers}'),
               _chip('乗車区間 ${candidate.rides}'),
               _chip('徒歩 ${candidate.walks}'),

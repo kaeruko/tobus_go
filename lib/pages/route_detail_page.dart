@@ -1,67 +1,99 @@
 import 'package:flutter/cupertino.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/route_models.dart';
 import '../data/global_state.dart';
 import '../services/storage_service.dart';
 import '../widgets/timetable_view.dart';
 
-class RouteDetailPage extends StatelessWidget {
+class RouteDetailPage extends StatefulWidget {
   final Candidate candidate;
   const RouteDetailPage({super.key, required this.candidate});
+
+  @override
+  State<RouteDetailPage> createState() => _RouteDetailPageState();
+}
+
+class _RouteDetailPageState extends State<RouteDetailPage> {
+  bool get _isSaved {
+    return kSavedRoutes.any((e) {
+      if (e.id != widget.candidate.id) return false;
+      // IDが同じ場合、出発地と行き先も比較
+      if (e.points.isEmpty || widget.candidate.points.isEmpty) return false;
+      final sameStart = e.points.first.latitude == widget.candidate.points.first.latitude &&
+                        e.points.first.longitude == widget.candidate.points.first.longitude;
+      final sameEnd = e.points.last.latitude == widget.candidate.points.last.latitude &&
+                      e.points.last.longitude == widget.candidate.points.last.longitude;
+      return sameStart && sameEnd;
+    });
+  }
+
+  void _toggleBookmark() {
+    if (_isSaved) {
+      // 削除処理
+      showCupertinoDialog(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('ブックマークを削除'),
+          content: const Text('この経路をMy Routeから削除しますか?'),
+          actions: [
+            CupertinoDialogAction(
+              child: const Text('キャンセル'),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              child: const Text('削除'),
+              onPressed: () {
+                Navigator.pop(ctx);
+                setState(() {
+                  kSavedRoutes.removeWhere((e) {
+                    if (e.id != widget.candidate.id) return false;
+                    if (e.points.isEmpty || widget.candidate.points.isEmpty) return false;
+                    final sameStart = e.points.first.latitude == widget.candidate.points.first.latitude &&
+                                      e.points.first.longitude == widget.candidate.points.first.longitude;
+                    final sameEnd = e.points.last.latitude == widget.candidate.points.last.latitude &&
+                                    e.points.last.longitude == widget.candidate.points.last.longitude;
+                    return sameStart && sameEnd;
+                  });
+                  StorageService().saveRoutes(kSavedRoutes);
+                });
+              },
+            ),
+          ],
+        ),
+      );
+    } else {
+      // 追加処理
+      setState(() {
+        kSavedRoutes.add(widget.candidate);
+        StorageService().saveRoutes(kSavedRoutes);
+      });
+      showCupertinoDialog(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('保存しました'),
+          content: const Text('My Routeに追加しました。'),
+          actions: [
+            CupertinoDialogAction(
+              child: const Text('OK'),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
-        middle: Text(candidate.lines.join(' → ')),
+        middle: Text(widget.candidate.lines.join(' → ')),
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
-          child: const Icon(CupertinoIcons.bookmark),
-          onPressed: () {
-            // 出発地と行き先も含めて重複チェック
-            final isDuplicate = kSavedRoutes.any((e) {
-              if (e.id != candidate.id) return false;
-              // IDが同じ場合、出発地と行き先も比較
-              if (e.points.isEmpty || candidate.points.isEmpty) return false;
-              final sameStart = e.points.first.latitude == candidate.points.first.latitude &&
-                                e.points.first.longitude == candidate.points.first.longitude;
-              final sameEnd = e.points.last.latitude == candidate.points.last.latitude &&
-                              e.points.last.longitude == candidate.points.last.longitude;
-              return sameStart && sameEnd;
-            });
-
-            if (isDuplicate) {
-              showCupertinoDialog(
-                context: context,
-                builder: (ctx) => CupertinoAlertDialog(
-                  title: const Text('保存済み'),
-                  content: const Text('この経路は既にMy Routeに保存されています。'),
-                  actions: [
-                    CupertinoDialogAction(
-                      child: const Text('OK'),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-              );
-            } else {
-              kSavedRoutes.add(candidate);
-              StorageService().saveRoutes(kSavedRoutes); // 保存
-              showCupertinoDialog(
-                context: context,
-                builder: (ctx) => CupertinoAlertDialog(
-                  title: const Text('保存しました'),
-                  content: const Text('My Routeに追加しました。'),
-                  actions: [
-                    CupertinoDialogAction(
-                      child: const Text('OK'),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-              );
-            }
-          },
+          child: Icon(_isSaved ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark),
+          onPressed: _toggleBookmark,
         ),
       ),
       child: SafeArea(
@@ -69,7 +101,7 @@ class RouteDetailPage extends StatelessWidget {
           children: [
             const SizedBox(height: 8),
             const SizedBox(height: 8),
-            if (candidate.isFutureSuggestion)
+            if (widget.candidate.isFutureSuggestion)
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 padding: const EdgeInsets.all(12),
@@ -85,7 +117,7 @@ class RouteDetailPage extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        "ご指定の日時は運行終了または運休日のため、\n${candidate.departureDate?.toString().split(' ')[0]} の経路を表示しています。",
+                        "ご指定の日時は運行終了または運休日のため、\n${widget.candidate.departureDate?.toString().split(' ')[0]} の経路を表示しています。",
                         style: const TextStyle(
                             color: CupertinoColors.activeOrange,
                             fontWeight: FontWeight.bold,
@@ -101,10 +133,10 @@ class RouteDetailPage extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _stat('総スコア', candidate.total.toString()),
-                  _stat('乗換', candidate.transfers.toString()),
-                  _stat('乗車区間', candidate.rides.toString()),
-                  _stat('徒歩', '${candidate.walks}m'),
+                  _stat('所要時間', '${widget.candidate.totalTime}分'),
+                  _stat('乗換', widget.candidate.transfers.toString()),
+                  _stat('乗車区間', widget.candidate.rides.toString()),
+                  _stat('徒歩', '${widget.candidate.walks}m'),
                 ],
               ),
             ),
@@ -121,29 +153,29 @@ class RouteDetailPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 child: GoogleMap(
                   initialCameraPosition: CameraPosition(
-                    target: candidate.points.isNotEmpty
-                        ? candidate.points.first
+                    target: widget.candidate.points.isNotEmpty
+                        ? widget.candidate.points.first
                         : const LatLng(35.681236, 139.767125), // Default: Tokyo Station
                     zoom: 13,
                   ),
                   polylines: {
                     Polyline(
                       polylineId: const PolylineId('route'),
-                      points: candidate.points,
+                      points: widget.candidate.points,
                       color: CupertinoColors.activeBlue,
                       width: 5,
                     ),
                   },
                   markers: {
-                    if (candidate.points.isNotEmpty) ...[
+                    if (widget.candidate.points.isNotEmpty) ...[
                       Marker(
                         markerId: const MarkerId('start'),
-                        position: candidate.points.first,
+                        position: widget.candidate.points.first,
                         infoWindow: const InfoWindow(title: 'Start'),
                       ),
                       Marker(
                         markerId: const MarkerId('end'),
-                        position: candidate.points.last,
+                        position: widget.candidate.points.last,
                         infoWindow: const InfoWindow(title: 'End'),
                       ),
                     ],
@@ -156,10 +188,10 @@ class RouteDetailPage extends StatelessWidget {
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                itemCount: candidate.steps.length,
+                itemCount: widget.candidate.steps.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, i) {
-                  final seg = candidate.steps[i];
+                  final seg = widget.candidate.steps[i];
                   return _stepTile(context, seg);
                 },
               ),
@@ -389,77 +421,91 @@ class _StopRow extends StatelessWidget {
           (stop.isOrigin || stop.isDestination) ? FontWeight.w600 : FontWeight.w400,
     );
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 左側の縦線＋丸
-        SizedBox(
-          width: 40,
-          child: Column(
-            children: [
-              if (!isFirst)
-                Container(
-                  width: 2,
-                  height: 12,
-                  color: CupertinoColors.systemGrey4,
-                ),
-              Container(
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: CupertinoColors.activeGreen,
-                    width: 2,
-                  ),
-                  color: stop.isOrigin || stop.isDestination
-                      ? CupertinoColors.activeGreen
-                      : CupertinoColors.white,
-                ),
-              ),
-              if (!isLast)
-                Container(
-                  width: 2,
-                  height: 24,
-                  color: CupertinoColors.systemGrey4,
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        // 右側テキスト
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+    return GestureDetector(
+      onTap: () async {
+        if (stop.lat != null && stop.lon != null) {
+          final uri = Uri.parse(
+              'https://www.google.com/maps/search/?api=1&query=${stop.lat},${stop.lon}');
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } else {
+             print('Could not launch stop url $uri');
+          }
+        }
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 左側の縦線＋丸
+          SizedBox(
+            width: 40,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(stop.name, style: nameStyle),
-                if (stop.isOrigin || stop.isDestination) ...[
-                  const SizedBox(height: 2),
+                if (!isFirst)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: CupertinoColors.systemGrey5,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      stop.isOrigin
-                          ? '乗車'
-                          : (stop.isDestination ? '降車' : ''),
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: CupertinoColors.inactiveGray,
-                      ),
-                    ),
+                    width: 2,
+                    height: 12,
+                    color: CupertinoColors.systemGrey4,
                   ),
-                ],
+                Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: CupertinoColors.activeGreen,
+                      width: 2,
+                    ),
+                    color: stop.isOrigin || stop.isDestination
+                        ? CupertinoColors.activeGreen
+                        : CupertinoColors.white,
+                  ),
+                ),
+                if (!isLast)
+                  Container(
+                    width: 2,
+                    height: 24,
+                    color: CupertinoColors.systemGrey4,
+                  ),
               ],
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          // 右側テキスト
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(stop.name, style: nameStyle),
+                  if (stop.isOrigin || stop.isDestination) ...[
+                    const SizedBox(height: 2),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: CupertinoColors.systemGrey5,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        stop.isOrigin
+                            ? '乗車'
+                            : (stop.isDestination ? '降車' : ''),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: CupertinoColors.inactiveGray,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

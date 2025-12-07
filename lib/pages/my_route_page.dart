@@ -38,7 +38,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
             SizedBox(
               height: 180,
               child: CupertinoDatePicker(
-                mode: CupertinoDatePickerMode.time,
+                mode: CupertinoDatePickerMode.dateAndTime,
                 initialDateTime: _startTime,
                 use24hFormat: true,
                 onDateTimeChanged: (val) {
@@ -89,6 +89,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
         'blon': '${end.longitude}',
         'pref': original.preference ?? 'fewTransfers',
         'time': '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
+        'date': '${_startTime.year}-${_startTime.month.toString().padLeft(2, '0')}-${_startTime.day.toString().padLeft(2, '0')}',
       };
 
       final j = await ApiClient.post('/route', body: params);
@@ -184,7 +185,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
       child: SafeArea(
         child: Column(
           children: [
-            // 時刻選択
+            // 日時選択
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: GestureDetector(
@@ -199,9 +200,9 @@ class _MyRoutePageState extends State<MyRoutePage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('出発時刻', style: TextStyle(fontSize: 14)),
+                      const Text('出発日時', style: TextStyle(fontSize: 14)),
                       Text(
-                        '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
+                        '${_startTime.month}/${_startTime.day} ${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import httpx
+import datetime
 
 # ★計算エンジン（toei_engine.py）から必要なクラス・関数をインポート
 # ※ファイル名が違う場合は toei_engine の部分を書き換えてください
@@ -110,7 +111,43 @@ async def _startup():
     print("[server] Ready!")
 
 # -------------------- 計算ロジック --------------------
-def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00"):
+def determine_day_type(date_str):
+    """
+    日付文字列 (YYYY-MM-DD) から day_type を判定
+    Returns: "weekday", "saturday", or "holiday"
+    """
+    if not date_str:
+        # デフォルトは今日
+        target_date = datetime.date.today()
+    else:
+        try:
+            target_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            print(f"[WARN] Invalid date format: {date_str}, using today")
+            target_date = datetime.date.today()
+    
+    # 曜日判定 (0=月曜, 6=日曜)
+    weekday = target_date.weekday()
+    
+    # 祝日判定
+    try:
+        import japanese_holidays
+        is_holiday = japanese_holidays.is_holiday(target_date)
+    except ImportError:
+        print("[WARN] japanese_holidays not installed. Install with: pip install japanese-holidays")
+        is_holiday = False
+    
+    # 日曜日または祝日
+    if weekday == 6 or is_holiday:
+        return "holiday"
+    # 土曜日
+    elif weekday == 5:
+        return "saturday"
+    # 平日
+    else:
+        return "weekday"
+
+def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", date_str=None):
     if G is None or TM is None:
         raise HTTPException(500, "Server not ready")
 
@@ -123,7 +160,9 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00"):
     if not a_phys or not b_phys:
         return {"error": "Nearby stations/busstops not found", "candidates": []}
 
-    print(f"[JOB] Search {pref} from {start_time}")
+    # 日付から day_type を判定
+    day_type = determine_day_type(date_str)
+    print(f"[JOB] Search {pref} from {start_time}, date={date_str}, day_type={day_type}")
 
     # ★変更点: 共通関数を一発呼ぶだけ！
     # toei_engine.py で実装した search_best_routes を使う
@@ -132,6 +171,7 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00"):
         G, TM, a_phys, b_phys,
         mode=pref, # pref_mode を pref に修正
         start_time=start_time, # time_str を start_time に修正
+        target_date_str=date_str,  # 日付を渡す
         limit=5
     )
 
@@ -140,7 +180,7 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00"):
 
 # -------------------- API エンドポイント --------------------
 
-async def _run_route_job(job_id, alat, alon, blat, blon, pref, start_time):
+async def _run_route_job(job_id, alat, alon, blat, blon, pref, start_time, date_str):
     # スレッドプールで実行
     loop = asyncio.get_running_loop()
     ROUTE_JOBS[job_id]["status"] = "running"
@@ -148,7 +188,7 @@ async def _run_route_job(job_id, alat, alon, blat, blon, pref, start_time):
         result = await loop.run_in_executor(
             None,
             compute_route_candidates,
-            alat, alon, blat, blon, pref, start_time
+            alat, alon, blat, blon, pref, start_time, date_str
         )
         ROUTE_JOBS[job_id]["status"] = "done"
         ROUTE_JOBS[job_id]["result"] = result
@@ -165,12 +205,13 @@ async def route_start(
     blat: float = Form(...),
     blon: float = Form(...),
     pref: str = Form("cost"), # cost | time
-    time: str = Form("10:00") # 出発時刻
+    time: str = Form("10:00"), # 出発時刻
+    date: str = Form(None) # 出発日付 (YYYY-MM-DD形式、オプション)
 ):
     job_id = uuid.uuid4().hex
     ROUTE_JOBS[job_id] = {"status": "pending"}
     
-    asyncio.create_task(_run_route_job(job_id, alat, alon, blat, blon, pref, time))
+    asyncio.create_task(_run_route_job(job_id, alat, alon, blat, blon, pref, time, date))
     
     return {"job_id": job_id}
 

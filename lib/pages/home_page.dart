@@ -48,6 +48,7 @@ class _HomePageState extends State<HomePage> {
           ? 'fewTransfers'
           : 'shortTime',
       'time': '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
+      'date': '${_startTime.year}-${_startTime.month.toString().padLeft(2, '0')}-${_startTime.day.toString().padLeft(2, '0')}',
     };
   }
 
@@ -62,7 +63,7 @@ class _HomePageState extends State<HomePage> {
             SizedBox(
               height: 180,
               child: CupertinoDatePicker(
-                mode: CupertinoDatePickerMode.time,
+                mode: CupertinoDatePickerMode.dateAndTime,
                 initialDateTime: _startTime,
                 use24hFormat: true,
                 onDateTimeChanged: (val) {
@@ -411,7 +412,7 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 16),
             
-            // --- 時刻選択 ---
+            // --- 日時選択 ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: GestureDetector(
@@ -426,9 +427,9 @@ class _HomePageState extends State<HomePage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('出発時刻', style: TextStyle(fontSize: 14)),
+                      const Text('出発日時', style: TextStyle(fontSize: 14)),
                       Text(
-                        '${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
+                        '${_startTime.month}/${_startTime.day} ${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

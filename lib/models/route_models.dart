@@ -8,6 +8,7 @@ class Candidate {
   final int boards;
   final int transfers;
   final int total;
+  final int totalTime;
   final List<StepSeg> steps;
   final List<LatLng> points;
   final String? preference;
@@ -22,6 +23,7 @@ class Candidate {
     required this.boards,
     required this.transfers,
     required this.total,
+    required this.totalTime,
     required this.steps,
     required this.points,
     this.preference,
@@ -38,6 +40,7 @@ class Candidate {
       boards: (j['boards'] as num? ?? 0).toInt(),
       transfers: (j['transfers'] as num? ?? 0).toInt(),
       total: (j['total'] as num? ?? 0).toInt(),
+      totalTime: (j['total_time'] as num? ?? 0).toInt(),
       steps: _readSteps(j),
       points: (j['points'] as List?)
               ?.map((e) => (e is List && e.length >= 2)
@@ -75,6 +78,7 @@ class Candidate {
       'boards': boards,
       'transfers': transfers,
       'total': total,
+      'total_time': totalTime,
       'steps': steps.map((e) => e.toJson()).toList(),
       'points': points.map((e) => [e.latitude, e.longitude]).toList(),
       'preference': preference,
@@ -186,14 +190,24 @@ class StopPoint {
   final String name;
   final bool isOrigin;
   final bool isDestination;
+  final double? lat;
+  final double? lon;
 
-  StopPoint({required this.name, this.isOrigin = false, this.isDestination = false});
+  StopPoint({
+    required this.name,
+    this.isOrigin = false,
+    this.isDestination = false,
+    this.lat,
+    this.lon,
+  });
 
   factory StopPoint.fromJson(Map<String, dynamic> j) {
     return StopPoint(
       name: j['name']?.toString() ?? '',
       isOrigin: j['is_origin'] == true,
       isDestination: j['is_destination'] == true,
+      lat: (j['lat'] as num?)?.toDouble(),
+      lon: (j['lon'] as num?)?.toDouble(),
     );
   }
 
@@ -202,6 +216,8 @@ class StopPoint {
       'name': name,
       'is_origin': isOrigin,
       'is_destination': isDestination,
+      'lat': lat,
+      'lon': lon,
     };
   }
 }
