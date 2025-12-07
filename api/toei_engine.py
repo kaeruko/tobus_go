@@ -19,6 +19,10 @@ BUS_ALIGHT_PENALTY = 5.0
 
 MAX_WALK_SEG_M = 300.0
 
+# 追加: 経路として許容する最大所要時間・総徒歩距離
+MAX_TRAVEL_MIN = 240.0      # 例: 4 時間を上限
+MAX_TOTAL_WALK_M = 3000.0   # 例: 総徒歩 3km まで
+
 # -------------------- ユーティリティ --------------------
 def _line_norm(s: str) -> str:
     tbl = str.maketrans("０１２３４５６７８９　（）", "0123456789 ()")
@@ -64,8 +68,11 @@ class TimetableManager:
     def __init__(self):
         # key: pole_id, value: { route_id: [{'dep': minutes, 'dest': dest_pole_id}, ...] }
         # Value structure changed from list of minutes to list of dicts
+        # key: pole_id, value: { route_id: [{'dep': minutes, 'dest': dest_pole_id}, ...] }
+        # Value structure changed from list of minutes to list of dicts
         self.bus_departures_weekday = {}
-        self.bus_departures_weekend = {}
+        self.bus_departures_saturday = {}
+        self.bus_departures_holiday = {}
         self.route_stops_map = {} # route_id -> [stop_id1, stop_id2, ...]
         
         # key: station_id, value: [ {dep, arr, next_sta, train_id} ]
@@ -76,6 +83,11 @@ class TimetableManager:
         self.name_to_pids = defaultdict(list)
         # リアルタイム遅延 (共通)
         self.realtime_delays = {}
+        
+        # GTFS Mappings (Default empty)
+        self.gtfs_route_map = {}
+        self.gtfs_stop_map = {}
+        self.route_stop_stats = defaultdict(lambda: defaultdict(int))
 
     def update_delays(self, train_data_list):
         count = 0
@@ -131,19 +143,50 @@ class TimetableManager:
             
             if not times: continue
 
+
+
             # 振り分け
-            target_dict = self.bus_departures_weekend
-            if "Weekday" in calendar:
-                target_dict = self.bus_departures_weekday
+            targets = []
             
-            if pole_id not in target_dict: target_dict[pole_id] = {}
-            if route_id not in target_dict[pole_id]: target_dict[pole_id][route_id] = []
+            # Heuristic Mapping (Generalized Suffix Match)
+            # Weekday: Ends with -100 or -109 (based on logs) or has "Weekday"
+            is_wk = (
+                "Weekday" in calendar 
+                or calendar.endswith("-100") 
+                or calendar.endswith("-109")
+            )
             
-            target_dict[pole_id][route_id].extend(times)
+            # Saturday: Ends with -160 or has "Saturday"
+            is_sat = (
+                "Saturday" in calendar 
+                or calendar.endswith("-160")
+            )
+            
+            # Holiday: Ends with -170, -174 (To01 case), or has "Holiday"
+            is_hol = (
+                "Holiday" in calendar 
+                or calendar.endswith("-170") 
+                or calendar.endswith("-174")
+            )
+
+            if is_wk: targets.append(self.bus_departures_weekday)
+            if is_sat: targets.append(self.bus_departures_saturday)
+            if is_hol: targets.append(self.bus_departures_holiday)
+            
+            # If nothing matched, log for investigation (optional)
+            if not targets and "Specific" in calendar:
+                # print(f"[WARN] Unknown Specific Calendar: {calendar} for {route_id}")
+                pass
+            
+            for target_dict in targets:
+                if pole_id not in target_dict: target_dict[pole_id] = {}
+                if route_id not in target_dict[pole_id]: target_dict[pole_id][route_id] = []
+                target_dict[pole_id][route_id].extend(times)
+                
             count += 1
         
         # ソート ensures consistency after extend
-        for d in [self.bus_departures_weekday, self.bus_departures_weekend]:
+        for d in [self.bus_departures_weekday, self.bus_departures_saturday, self.bus_departures_holiday]:
             for pid in d:
                 for rid in d[pid]:
                     d[pid][rid].sort(key=lambda x: x["dep"])
@@ -198,8 +241,13 @@ class TimetableManager:
                     count += 1
         print(f"[INFO] Index built. Total {count} nodes.")
 
-    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, is_weekday=True, target_pole_id=None):
-        target_dict = self.bus_departures_weekday if is_weekday else self.bus_departures_weekend
+    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None):
+        if day_type == "saturday":
+            target_dict = self.bus_departures_saturday
+        elif day_type == "holiday":
+            target_dict = self.bus_departures_holiday
+        else:
+            target_dict = self.bus_departures_weekday
         
         def find_trips(routes_dict, target_rid):
             if target_rid in routes_dict:
@@ -209,7 +257,7 @@ class TimetableManager:
                 if target_rid in r_key or r_key in target_rid:
                     print(f"[DEBUG] Fuzzy match: {target_rid} <-> {r_key}")
                     return t_list
-            print(f"[DEBUG] No match for {target_rid} in {list(routes_dict.keys())}")
+            # print(f"[DEBUG] No match for {target_rid} in {list(routes_dict.keys())}")
             return None
 
         # -------------------- Validate Trip Destination Logic --------------------
@@ -241,9 +289,7 @@ class TimetableManager:
         
         if routes:
             candidate_trips = find_trips(routes, route_id)
-        else:
-            print(f"[DEBUG] No routes found for pole {pole_id} in {'weekday' if is_weekday else 'weekend'} dict")
-        
+
         # Fallback to name search if ID lookup fails
         if not candidate_trips and pole_name and pole_name in self.name_to_pids:
             for alt_pid in self.name_to_pids[pole_name]:
@@ -252,7 +298,9 @@ class TimetableManager:
                 if alt_routes:
                     candidate_trips = find_trips(alt_routes, route_id)
                     if candidate_trips: break
+
         
+        # Fallback to name search if ID lookup fails
         if candidate_trips:
             # candidate_trips is sorted by 'dep'
             # We can use bisect if it was list of ints, but it's list of dicts.
@@ -269,9 +317,17 @@ class TimetableManager:
                     
         return None
 
-    def get_next_train_arrival(self, current_sta, next_sta, current_time_min, is_weekday=True):
-        target_dict = self.train_patterns_weekday if is_weekday else self.train_patterns_weekend
+    def get_next_train_arrival(self, current_sta, next_sta, current_time_min, day_type="weekday"):
+        target_dict = self.train_patterns_weekday if day_type == "weekday" else self.train_patterns_weekend
+        # For trains, we might need a similar split, but for now assuming weekend=holiday for trains
+        # or we update load_train_timetables too? 
+        # For Toei subway, Sat/Hol are usually same.
         trains = target_dict.get(current_sta)
+        
+        if "Asakusa" in current_sta and "Honjo" in current_sta:
+             # print(f"[DEBUG TRAIN] Looking up {current_sta} -> {next_sta} at {current_time_min}. Found: {len(trains) if trains else 0} trips. DayType={day_type}")
+             pass
+
         if not trains: return None
         
         for t in trains:
@@ -371,30 +427,27 @@ class TimetableManager:
                     # GTFS stop_id uses 4-digit code (zero-padded) + 2-digit suffix
                     # Example: 665 -> 0665, 3 -> 03 => 0665-03
                     gtfs_id = f"{code.zfill(4)}-{int(suffix):02d}"
-                    print(f"[DEBUG] convert_odpt_id_to_gtfs: SUCCESS -> '{gtfs_id}'")
                     return gtfs_id
-                else:
-                    print(f"[DEBUG] convert_odpt_id_to_gtfs: FAILED - code or suffix not digit")
-            else:
-                print(f"[DEBUG] convert_odpt_id_to_gtfs: FAILED - parts length < 2")
         except Exception as e:
             print(f"[WARN] Failed to convert ODPT ID {odpt_id}: {e}")
         
-        print(f"[DEBUG] convert_odpt_id_to_gtfs: Returning empty string")
         return ""
 
     def resolve_gtfs_route_id(self, route_name_disp):
         # route_name_disp e.g. "都02"
         # normalize
         norm = _line_norm(route_name_disp)
-        result = self.gtfs_route_map.get(norm, "")
+        # Use getattr for safety against init issues
+        mapping = getattr(self, 'gtfs_route_map', {})
+        result = mapping.get(norm, "")
         print(f"[DEBUG] resolve_gtfs_route_id: '{route_name_disp}' -> norm:'{norm}' -> routeId:'{result}'")
         return result
 
     def resolve_gtfs_stop_id(self, gtfs_route_id, stop_name):
         print(f"[DEBUG] resolve_gtfs_stop_id: gtfs_route_id='{gtfs_route_id}', stop_name='{stop_name}'")
         
-        candidates = self.gtfs_stop_map.get(stop_name, [])
+        mapping = getattr(self, 'gtfs_stop_map', {})
+        candidates = mapping.get(stop_name, [])
         print(f"[DEBUG] resolve_gtfs_stop_id: candidates={candidates}")
         
         if not candidates:
@@ -471,11 +524,17 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
         try: orders = sorted(orders, key=lambda x: x.get("odpt:index", 0))
         except: pass
         seq = [o.get("odpt:busstopPole") for o in orders if o.get("odpt:busstopPole") in phys]
+        
+        if "T01" in route_id:
+             print(f"[DEBUG GRAPH] Processing T01: {route_id} Title='{disp}' Norm='{norm}' SeqLen={len(seq)}")
+        
         for a, b in zip(seq, seq[1:]):
             na = ensure_line_node(a, family_key, disp, "bus", route_id)
             nb = ensure_line_node(b, family_key, disp, "bus", route_id)
             if not G.has_edge(na, nb):
                 G.add_edge(na, nb, w=BUS_RIDE_COST, etype="ride", line=family_key, mode="bus")
+                if "T01" in route_id:
+                     print(f"[DEBUG GRAPH] Added T01 edge: {na} -> {nb}")
 
     railways = load_json(railways_path)
     for rw in railways:
@@ -570,7 +629,7 @@ def get_logical_signature(G, path):
     return tuple(sig)
 
 # -------------------- 共通ロジック: 時間計算ヘルパー --------------------
-def advance_time(G, tm, u, v, curr_time, is_weekday=True, **kwargs):
+def advance_time(G, tm, u, v, curr_time, day_type="weekday", **kwargs):
     """
     1 本のエッジ (u -> v) に対して、現在時刻 curr_time を
     「実際の到着時刻」に進める。
@@ -584,7 +643,6 @@ def advance_time(G, tm, u, v, curr_time, is_weekday=True, **kwargs):
     if etype == "walk":
         return curr_time + (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
 
-    # 乗車（board）
     # 乗車（board）
     if etype == "board":
         phys_id = u[1]
@@ -600,9 +658,10 @@ def advance_time(G, tm, u, v, curr_time, is_weekday=True, **kwargs):
             dep = tm.get_next_bus_departure(
                 phys_id, route_id, curr_time,
                 pole_name=stop_name,
-                is_weekday=is_weekday,
+                day_type=day_type,
                 target_pole_id=target_pole_id
             )
+
             return dep  # dep が None のときは呼び出し側で弾く
         elif mode == "rail":
             # 電車の乗車時点ではざっくり乗り換え待ち 2 分
@@ -613,7 +672,7 @@ def advance_time(G, tm, u, v, curr_time, is_weekday=True, **kwargs):
     if etype == "ride":
         mode = edge.get("mode")
         if mode == "rail":
-            arr = tm.get_next_train_arrival(u[1], v[1], curr_time, is_weekday=is_weekday)
+            arr = tm.get_next_train_arrival(u[1], v[1], curr_time, day_type=day_type)
             return arr  # arr が None のときは呼び出し側で弾く
         elif mode == "bus":
             dist = edge.get("meters", 0)
@@ -811,23 +870,34 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
         target_date = datetime.datetime.now()
     
     # 平日判定 (0-4: 月-金, 5-6: 土日)
-    is_weekday = target_date.weekday() < 5
+    # 平日判定 (0-4: 月-金, 5-6: 土日) - AND NOW HOLIDAY SUPPORT
+    # is_weekday = target_date.weekday() < 5
+    wd = target_date.weekday()
+    if wd == 5:
+        day_type = "saturday"
+    elif wd == 6:
+        day_type = "holiday"
+    else:
+        day_type = "weekday"
+    
+    # NOTE: Holidays on weekdays are not supported yet (needs holiday lib)
+    print(f"[DEBUG] search_best_routes: date={target_date.date()}, day_type={day_type}")
     
     candidates = []
     
     # 1. Timeモード (最速経路1つ)
     if mode == "time" or mode == "fast":
-        arr_min, path = find_fastest_path(G, tm, a_phys, b_phys, start_time_str=start_time, is_weekday=is_weekday)
+        arr_min, path = find_fastest_path(G, tm, a_phys, b_phys, start_time_str=start_time, day_type=day_type)
         
         # Check validity (Short Trip check)
         if path:
-            real_arr = calculate_real_arrival_time(G, tm, path, start_time, is_weekday=is_weekday)
+            real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type)
             if real_arr is None:
                 print(f"[WARN] Fastest path invalidated by timetable check (possibly short trip).")
                 path = None # Discard
 
         if path:
-            segs = segments_detailed(G, path, tm, start_time, is_weekday=is_weekday)
+            segs = segments_detailed(G, path, tm, start_time, day_type=day_type)
             lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
             
             # デバッグログ: 経路セグメント詳細
@@ -863,18 +933,28 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
 
     # 2. Costモード (楽な経路トップK)
     else:
-        path_gen = find_paths_generator(G, a_phys, b_phys, max_search=2000)
+        path_gen = find_paths_generator(
+            G,
+            tm,
+            a_phys,
+            b_phys,
+            start_time_str=start_time,
+            day_type=day_type,
+            # max_search=2000,
+            max_visited=100000,
+            max_travel_min=MAX_TRAVEL_MIN,
+        )
         valid_count = 0
         
         for cand in path_gen:
             path = cand["path"]
             
             # 答え合わせ (時刻表チェック)
-            real_arr = calculate_real_arrival_time(G, tm, path, start_time, is_weekday=is_weekday)
+            real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type)
             
             if real_arr is not None:
                 # 合格
-                segs = segments_detailed(G, path, tm, start_time, is_weekday=is_weekday)
+                segs = segments_detailed(G, path, tm, start_time, day_type=day_type)
                 lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
                 
                 # デバッグログ: 経路セグメント詳細
@@ -911,86 +991,221 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
                     break
             else:
                 # 不合格（終バス後など）
-                # print(f"[DEBUG] Candidate rejected: {path}") # ログ多すぎるかも
+                print(f"[DEBUG] Candidate rejected by timetable check: path_len={len(path)}") 
                 pass
                 
     return candidates
 
 # -------------------- 探索ロジック --------------------
 
-def find_paths_generator(G, start_node, target_node, max_search=30000, max_visited=100000):
-    # cost, node, total_walk_m, seg_walk_m, path
-    pq = [(0.0, start_node, 0.0, 0.0, [start_node])]
+def find_paths_generator(
+    G,
+    tm,
+    start_node,
+    target_node,
+    start_time_str="10:00",
+    day_type="weekday",
+    max_search=30000,
+    max_visited=100000,
+    max_travel_min=MAX_TRAVEL_MIN,
+):
+    """
+    コスト最小パスを列挙するジェネレータ（時刻表込み）。
+    - 状態に curr_time を持ち、advance_time で時間を進める
+    - 所要時間と総徒歩距離に上限をかけて枝刈りする
+    """
+    start_min = time_str_to_min(start_time_str)
+    print(f"[DEBUG] find_paths_generator START: {start_node} -> {target_node} @ {start_time_str} (min={start_min})")
+
+    print(f"[DEBUG] find_paths_generator START: {start_node} -> {target_node} @ {start_time_str} (min={start_min})")
+
+    # A* Heuristic Setup
+    try:
+        t_lat = G.nodes[target_node]["lat"]
+        t_lon = G.nodes[target_node]["lon"]
+    except KeyError:
+        print(f"[WARN] Target node {target_node} has no coordinates. A* fallback to Dijkstra.")
+        t_lat, t_lon = None, None
+
+    def heuristic(n):
+        if t_lat is None: return 0.0
+        # Use simple estimation: Distance (m) / Speed (m/min) (FASTEST possible speed ~100km/h = 1666m/min)
+        # 1600 is safe. 
+        # But we minimize COST. Cost ~ Time.
+        # So we want estimated MINIMUM Time remaining.
+        n_lat = G.nodes[n].get("lat")
+        n_lon = G.nodes[n].get("lon")
+        if n_lat is None or n_lon is None: return 0.0
+        dist = haversine(n_lat, n_lon, t_lat, t_lon)
+        # Greedy Heuristic: Use slower speed (e.g. Bus 18km/h ~ 300m/min)
+        # This overestimates cost for Trains, making search Greedy towards target.
+        return dist / 300.0
+
+    # priority queue の状態:
+    # (estimated_cost, cost, u, total_walk_m, seg_walk_m, curr_time, path)
+    # A* f_score = cost + h
+    start_h = heuristic(start_node)
+    pq = [(start_h, 0.0, start_node, 0.0, 0.0, start_min, [start_node])]
     count_visited = defaultdict(int)
     seen_logical_routes = set()
     yielded_count = 0
     visited_count = 0
 
     while pq:
-        cost, u, total_walk_m, seg_walk_m, path = heapq.heappop(pq)
+        _, cost, u, total_walk_m, seg_walk_m, curr_time, path = heapq.heappop(pq)
         visited_count += 1
+        
+        # DEBUG: Check if we think we reached target
+        # if u == target_node:
+        #      print(f"[DEBUG] Hit target_node {target_node} at {u}. Path len={len(path)}")
+            # ... (rest of logic)
+
+        # 安全装置（以前からの max_visited も残しておく）
         if visited_count > max_visited:
             print(f"[WARN] Search exceeded max_visited ({max_visited}). Stopping.")
             return
-        if visited_count % 5000 == 0:
-            print(f"[DEBUG] find_paths_generator: visited={visited_count}, yielded={yielded_count}, pq_size={len(pq)}")
-        
+
+        # 所要時間が上限を超えた状態はそこで打ち切り
+        if curr_time - start_min > max_travel_min:
+            continue
+
+        if visited_count % 10000 == 0:
+             # print(f"[DEBUG] find_paths_generator: visited={visited_count}, yielded={yielded_count}, pq_size={len(pq)}")
+             pass
+
         # ゴール判定
         if u == target_node:
             sig = get_logical_signature(G, path)
-            if sig in seen_logical_routes: continue
+            if sig in seen_logical_routes:
+                continue
             seen_logical_routes.add(sig)
-            # walk_m は total_walk_m を返す
-            yield {"cost": cost, "path": path, "walk_m": total_walk_m}
+
+            yield {
+                "cost": cost,
+                "path": path,
+                "walk_m": total_walk_m,  # 総徒歩距離
+            }
+            print(f"[DEBUG] Path found! cost={cost:.1f}, time={curr_time - start_min:.0f}min, walk={total_walk_m:.0f}m")
             yielded_count += 1
-            if yielded_count >= max_search: return
+            if yielded_count >= max_search:
+                return
             continue
 
+        # 「同じノード＋ほぼ同じ徒歩セグメント長」からの展開回数を制限
         walk_bucket = int(seg_walk_m // 10)
         state_key = (u, walk_bucket)
-        if count_visited[state_key] >= 20: continue
+        if count_visited[state_key] >= 20:
+            continue
         count_visited[state_key] += 1
-        
+
+        # Milestone Debugging
+        node_name = G.nodes[u].get("name", "") if u[0] == "phys" else ""
+        if "平井" in node_name or "本所吾妻橋" in node_name or "新橋" in node_name or "渋谷" in node_name:
+             # Reduce spam: only log the first time we reach this node or significant time updates
+             pass 
+             # print(f"[DEBUG MILESTONE] Reached {node_name} ({u}) at {min_to_time_str(curr_time)}")
+
         for v in G[u]:
             edge = G[u][v]
+            etype = edge.get("etype")
             w = edge.get("w", 0.0)
             meters = edge.get("meters", 0.0)
+            
+            if etype == "board":
+                mode = G.nodes[v].get("mode") 
+                
+                trace_target_node = v
+                r_id = str(G.nodes[trace_target_node].get("route_id") or "")
+                r_name = str(G.nodes[trace_target_node].get("disp") or "")
+                
+                # Removed verbose trace
+                # if "Ue23" in r_id or "Asakusa" in r_id or "T01" in r_id or "Shinjuku" in r_id:
+                #      print(f"[DEBUG TRACE] Trying to board {r_name} ({r_id}) at {node_name} time={min_to_time_str(curr_time)}")
+
+            # まず時間を進める（ここで終バス/終電がわかる）
+            next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type)
+            if next_time is None:
+                if etype == "board":
+                     trace_target_node = v
+                     r_id = str(G.nodes[trace_target_node].get("route_id") or "")
+                     if "Ue23" in r_id or "Asakusa" in r_id or "T01" in r_id:
+                         # print(f"[DEBUG FAIL] Failed to board {r_id} at {node_name}: 'No match' or too late")
+                         pass
+                continue
+
+            # ここでも「上限時間超え」は枝刈りしておくとさらに省メモリ
+            if next_time - start_min > max_travel_min:
+                continue
 
             new_total_walk_m = total_walk_m
             new_seg_walk_m = seg_walk_m
-            
+
             if edge.get("etype") == "walk":
                 step_m = meters if meters > 0 else 1.0
                 new_seg_walk_m = seg_walk_m + step_m
-                if new_seg_walk_m > MAX_WALK_SEG_M: continue
+                if new_seg_walk_m > MAX_WALK_SEG_M:
+                    # 1 セグメントの徒歩が長すぎる
+                    continue
+
                 new_total_walk_m = total_walk_m + step_m
+                if new_total_walk_m > MAX_TOTAL_WALK_M:
+                    # 総徒歩距離が上限超え
+                    continue
             else:
+                # 徒歩以外を踏んだら連続徒歩セグメントはリセット
                 new_seg_walk_m = 0.0
 
-            heapq.heappush(pq, (cost + w, v, new_total_walk_m, new_seg_walk_m, path + [v]))
+            new_cost = cost + w
+            new_h = heuristic(v)
+            heapq.heappush(
+                pq,
+                (new_cost + new_h, new_cost, v, new_total_walk_m, new_seg_walk_m, next_time, path + [v]),
+            )
 
-def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", is_weekday=True):
+def find_fastest_path(
+    G,
+    tm,
+    start_node,
+    target_node,
+    start_time_str="10:00",
+    day_type="weekday",
+    max_travel_min=MAX_TRAVEL_MIN,
+):
     start_min = time_str_to_min(start_time_str)
     pq = [(start_min, start_node, [start_node])]
     visited_time = {}
-    # print(f"[DEBUG] Search Start: {start_time_str} ({start_min}) Weekday={is_weekday}")
 
     while pq:
         curr_time, u, path = heapq.heappop(pq)
-        if u == target_node: return curr_time, path
-        if u in visited_time and visited_time[u] <= curr_time: continue
+        if curr_time - start_min > max_travel_min:
+            continue
+
+        if u == target_node:
+            return curr_time, path
+        if u in visited_time and visited_time[u] <= curr_time:
+            continue
         visited_time[u] = curr_time
         
         for v in G[u]:
-            # advance_time を利用
-            next_time = advance_time(G, tm, u, v, curr_time, is_weekday=is_weekday)
+            next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type)
             if next_time is None:
+                continue
+            if next_time - start_min > max_travel_min:
                 continue
             heapq.heappush(pq, (next_time, v, path + [v]))
     return None, None
 
-def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", is_weekday=True):
-    curr_time = time_str_to_min(start_time_str)
+def calculate_real_arrival_time(
+    G,
+    tm,
+    path,
+    start_time_str="10:00",
+    day_type="weekday",
+    max_search=30000,
+    max_travel_min=MAX_TRAVEL_MIN,
+):
+    start_min = time_str_to_min(start_time_str)
+    curr_time = start_min
     
     for i in range(len(path) - 1):
         u = path[i]
@@ -1000,31 +1215,37 @@ def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", is_weekday=
         etype = edge.get("etype")
         target_pid = None
         
-        # If boarding, look ahead for alight
+        # If boarding, look ahead for alight (短区間バスの除外ロジック)
         if etype == "board" and edge.get("mode") == "bus":
-            # line_node is v
             if v[0] == "line":
-                # Scan forward to find alight from this line
                 for j in range(i + 1, len(path) - 1):
                     u2 = path[j]
                     v2 = path[j+1]
                     e2 = G.edges[u2, v2]
-                    # alight edge: line_node -> phys_node
                     if e2.get("etype") == "alight":
-                        # We assume the first alight is the one.
-                        # Since line nodes are unique per route/direction usually, 
-                        # staying on graph path implies staying on line.
                         target_pid = v2[1]
                         break
         
-        next_time = advance_time(G, tm, u, v, curr_time, is_weekday=is_weekday, target_pole_id=target_pid)
+        next_time = advance_time(
+            G, tm, u, v,
+            curr_time,
+            day_type=day_type,
+            target_pole_id=target_pid,
+        )
         if next_time is None:
+            print(f"[DEBUG] Path REJECTED in calc_real_time: Cannot advance time at {u}->{v} (etype={etype})")
             return None
+        
+        if next_time - start_min > max_travel_min:
+            # 上限時間を超える経路は「現実的でない」とみなして不採用
+            print(f"[DEBUG] Path REJECTED in calc_real_time: Time limit exceeded at {u}->{v}. {next_time - start_min:.0f} > {max_travel_min}")
+            return None
+
         curr_time = next_time
             
     return curr_time
 
-def segments_detailed(G, path, tm, start_time_str="10:00", is_weekday=True):
+def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday"):
     segs = []
     cur = None
     last_phys = None
@@ -1085,7 +1306,11 @@ def segments_detailed(G, path, tm, start_time_str="10:00", is_weekday=True):
                 stop_name = G.nodes[u].get("name")
                 
                 # Update Time
-                dep = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=stop_name, is_weekday=is_weekday)
+                dep = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=stop_name, day_type=day_type)
+
+                if "Ue23" in route_id:
+                     print(f"[DEBUG TRACE] Boarding Ue23 at {stop_name} ({phys_id}): curr={min_to_time_str(curr_time)}, result={min_to_time_str(dep) if dep else 'None'}")
+
                 if dep: curr_time = dep
                 
                 # Resolve GTFS IDs
@@ -1124,7 +1349,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", is_weekday=True):
                     cur["stops"].append({"name": stop_name})
             
             if mode == "rail":
-                arr = tm.get_next_train_arrival(u[1], v[1], curr_time, is_weekday=is_weekday)
+                arr = tm.get_next_train_arrival(u[1], v[1], curr_time, day_type=day_type)
                 if arr: curr_time = arr
                 else: curr_time += edge.get("w", 2.0)
             else:
@@ -1183,7 +1408,9 @@ def main():
     tm.load_bus_timetables(args.bus_timetables)
     tm.load_train_timetables(args.train_timetables)
     tm.build_name_index(G)
-
+    
+    print("[server] Initialization Done.")
+    
     # ★変更: リトライ付き検索を呼び出す
     results = search_best_routes_with_retry(
         G, tm, a_phys, b_phys, 

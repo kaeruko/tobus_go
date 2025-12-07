@@ -23,7 +23,7 @@ class _HomePageState extends State<HomePage> {
   final _from = TextEditingController(
     text: '',
   );
-  final _to = TextEditingController(text: '35.700, 139.800'); // 錦糸町あたり
+  final _to = TextEditingController(text: '0');
   Preference pref = Preference.fewTransfers;
   DateTime _startTime = DateTime.now();
   List<Candidate> candidates = [];
@@ -81,8 +81,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   List<Candidate> _parseCandidatesFromJson(Map<String, dynamic> j) {
+    print('[DEBUG] _parseCandidatesFromJson input: $j');
     final raw = j['candidates'] as List?;
-    if (raw == null) return const [];
+    if (raw == null) {
+      print('[DEBUG] "candidates" key is null or missing');
+      return const [];
+    }
+    print('[DEBUG] raw candidates length: ${raw.length}');
 
     final currentPref = pref == Preference.fewTransfers ? 'fewTransfers' : 'shortTime';
 
@@ -96,9 +101,16 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    print('[DEBUG] initState called');
     _recompute();
-    _from.addListener(_recompute);
-    _to.addListener(_recompute);
+    _from.addListener(() {
+      print('[DEBUG] _from changed: ${_from.text}');
+      _recompute();
+    });
+    _to.addListener(() {
+      print('[DEBUG] _to changed: ${_to.text}');
+      _recompute();
+    });
   }
 
   void _swap() {
@@ -121,8 +133,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _recompute() async {
+    print('[DEBUG] _recompute called: from=${_from.text}, to=${_to.text}');
     final a = parseLatLon(_from.text);
-    final b = parseLatLon(_to.text);
+    final b = _to.text == '0' ? null : parseLatLon(_to.text);
+    print('[DEBUG] parseLatLon results: a=$a, b=$b');
 
     setState(() {
       // _aErr = a == null ? '緯度,経度 で入力' : null;
@@ -130,15 +144,21 @@ class _HomePageState extends State<HomePage> {
     });
 
     if (a == null || b == null) {
-      setState(() {
-        candidates = [];
-        _loading = false;
-      });
+      print('[DEBUG] Invalid coordinates, clearing candidates');
+      if (mounted) {
+        setState(() {
+          candidates = [];
+          _loading = false;
+          _hasSearched = false;
+        });
+      }
       _cancelPolling(); // 進行中のジョブがあれば止める
       return;
     }
 
     // 既存ジョブはキャンセルして、新しいジョブ開始
+    print('[DEBUG] Starting route job...');
+    setState(() => _hasSearched = true);
     _cancelPolling();
     await _startRouteJob(a.$1, a.$2, b.$1, b.$2);
   }
@@ -150,6 +170,7 @@ class _HomePageState extends State<HomePage> {
     double blat,
     double blon,
   ) async {
+    print('[DEBUG] _startRouteJob called: ($alat, $alon) -> ($blat, $blon)');
     setState(() {
       _loading = true;
       candidates = [];
@@ -157,17 +178,21 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final params = _buildRouteParams(alat, alon, blat, blon);
+      print('[DEBUG] Calling API /route with params: $params');
       final j = await ApiClient.post('/route', body: params);
+      print('[DEBUG] API response: $j');
       
       final jobId = j['job_id']?.toString();
       if (jobId == null || jobId.isEmpty) {
         throw Exception('job_id が返ってきませんでした');
       }
 
+      print('[DEBUG] Got job_id: $jobId, starting polling');
       _routeJobId = jobId;
       _polling = true;
       _pollRoute(jobId); // 非同期ポーリング開始
     } catch (e) {
+      print('[DEBUG] Error in _startRouteJob: $e');
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -189,13 +214,22 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _pollRoute(String jobId) async {
+    print('[DEBUG] _pollRoute called for jobId: $jobId');
     // ジョブがキャンセルされていたり、別ジョブになっていたら終了
-    if (!_polling || !mounted) return;
-    if (_routeJobId != jobId) return;
+    if (!_polling || !mounted) {
+      print('[DEBUG] Polling stopped: _polling=$_polling, mounted=$mounted');
+      return;
+    }
+    if (_routeJobId != jobId) {
+      print('[DEBUG] Job mismatch: current=$_routeJobId, requested=$jobId');
+      return;
+    }
 
     try {
+      print('[DEBUG] Polling /route for jobId: $jobId');
       final j = await ApiClient.get('/route', params: {'job_id': jobId});
       final status = j['status']?.toString() ?? 'unknown';
+      print('[DEBUG] Poll response status: $status');
 
       if (!mounted || !_polling || _routeJobId != jobId) return;
 
@@ -208,11 +242,18 @@ class _HomePageState extends State<HomePage> {
       }
 
       if (status == 'done') {
+        print('[DEBUG] Job done. Full response: $j');
         final result = j['result'];
+        print('[DEBUG] Result part: $result');
+        
         List<Candidate> list = const [];
         if (result is Map<String, dynamic>) {
           list = _parseCandidatesFromJson(result);
+        } else {
+          print('[DEBUG] result is NOT a Map<String, dynamic>: ${result.runtimeType}');
         }
+        
+        print('[DEBUG] Parsed candidates count: ${list.length}');
 
         setState(() {
           candidates = list;
@@ -267,6 +308,8 @@ class _HomePageState extends State<HomePage> {
     _routeJobId = null;
   }
 
+  bool _hasSearched = false;
+
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
@@ -284,7 +327,12 @@ class _HomePageState extends State<HomePage> {
               child: PlaceField(
                 label: '出発(検索)',
                 onPicked: (lat, lon, desc) {
-                  _from.text = '$lat,$lon'; // ここで内部的に lat,lon を持つ
+                  final txt = '$lat,$lon';
+                  if (_from.text == txt) {
+                    _recompute(); // 同じ場所でも再検索
+                  } else {
+                    _from.text = txt;
+                  }
                 },
               ),
             ),
@@ -317,7 +365,12 @@ class _HomePageState extends State<HomePage> {
               child: PlaceField(
                 label: '到着(検索)',
                 onPicked: (lat, lon, desc) {
-                  _to.text = '$lat,$lon';
+                  final txt = '$lat,$lon';
+                  if (_to.text == txt) {
+                    _recompute();
+                  } else {
+                    _to.text = txt;
+                  }
                 },
               ),
             ),
@@ -414,7 +467,14 @@ class _HomePageState extends State<HomePage> {
                       ),
                     )
                   : (candidates.isEmpty
-                      ? const Center(child: Text('出発と到着を選択'))
+                      ? Center(
+                          child: Text(
+                            _hasSearched ? '経路が見つかりませんでした' : '出発と到着を選択',
+                            style: TextStyle(
+                              color: _hasSearched ? CupertinoColors.systemRed : CupertinoColors.systemGrey,
+                            ),
+                          ),
+                        )
                       : ListView.separated(
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                           itemCount: candidates.length,
