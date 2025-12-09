@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import httpx
 import datetime
+import initialize_data # ★追加
 
 # ★計算エンジン（toei_engine.py）から必要なクラス・関数をインポート
 # ※ファイル名が違う場合は toei_engine の部分を書き換えてください
@@ -88,6 +89,17 @@ async def fetch_realtime_data_loop():
 @app.on_event("startup")
 async def _startup():
     global G, TM
+
+    # ★追加: データが存在しない場合、自動ダウンロードを実行
+    required_files = [
+        f"{DATA_DIR}/busstop_poles.json",
+        f"{DATA_DIR}/odpt_BusstopPoleTimetable.json",
+        f"{DATA_DIR}/ToeiBus-GTFS/routes.txt"
+    ]
+    if not all(os.path.exists(f) for f in required_files):
+        print("[server] Data files missing. Running initialization...")
+        initialize_data.main()
+    
     print("[server] Building Graph...")
     # エンジンの関数を使ってグラフ構築
     G = build_graph(BUSSTOP, BUSROUTE, STATIONS, RAILWAYS, walk_radius=WALK_RAD)

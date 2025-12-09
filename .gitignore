@@ -68,4 +68,4 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-api/data/odpt_*.json
+data/
