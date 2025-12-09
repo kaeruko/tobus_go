@@ -11,6 +11,10 @@ import httpx
 import datetime
 
 # ★計算エンジン（toei_engine.py）から必要なクラス・関数をインポート
+import datetime
+import boto3
+import zipfile
+import shutil
 import initialize_data # ★追加
 # ※ファイル名が違う場合は toei_engine の部分を書き換えてください
 from toei_engine import (
@@ -31,7 +35,15 @@ ODPT_API_TOKEN = os.getenv("ODPT_API_TOKEN") # ★.envに追加してくださ�
 ROUTE_JOBS: dict[str, dict] = {}
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 
-DATA_DIR   = os.getenv("DATA_DIR", "data")
+# S3のバケット名（環境変数で設定するのがベストだけど、一旦直書きでもOK）
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "my-toei-bucket")
+DATA_ZIP_NAME = "toei_data.zip"
+# Lambdaで書き込めるのは /tmp だけ
+LAMBDA_TMP_DIR = "/tmp/data"
+# パス設定を /tmp 配下を見るように上書き
+# ※ 環境変数で指定がない場合のデフォルト値を変更
+DATA_DIR   = os.getenv("DATA_DIR", LAMBDA_TMP_DIR)
+
 BUSSTOP    = os.getenv("BUSSTOP",   f"{DATA_DIR}/odpt_BusstopPole.json")
 BUSROUTE   = os.getenv("BUSROUTE",  f"{DATA_DIR}/odpt_BusroutePattern.json")
 STATIONS   = os.getenv("STATIONS",  f"{DATA_DIR}/odpt_Station.json")
@@ -41,6 +53,36 @@ BUS_TBL    = os.getenv("BUS_TBL",   f"{DATA_DIR}/odpt_BusstopPoleTimetable.json"
 TRAIN_TBL  = os.getenv("TRAIN_TBL", f"{DATA_DIR}/odpt_TrainTimetable.json")
 
 WALK_RAD   = int(os.getenv("WALK_RADIUS", "300"))
+
+def download_data_from_s3():
+    """S3からデータをダウンロードして展開する"""
+    s3 = boto3.client('s3')
+    zip_path = f"/tmp/{DATA_ZIP_NAME}"
+    
+    # すでに展開済みならスキップ（ウォームスタート対策）
+    if os.path.exists(f"{LAMBDA_TMP_DIR}/odpt_BusstopPole.json"):
+        print("[server] Data already exists in /tmp. Skipping download.")
+        return
+
+    print(f"[server] Downloading {DATA_ZIP_NAME} from S3 bucket {S3_BUCKET_NAME}...")
+    try:
+        # ダウンロード
+        s3.download_file(S3_BUCKET_NAME, DATA_ZIP_NAME, zip_path)
+        
+        # 解凍
+        print("[server] Unzipping data...")
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall("/tmp") # /tmp/data に展開されるはず
+            
+        print("[server] Data preparation complete!")
+        
+    except Exception as e:
+        print(f"[ERROR] Failed to download from S3: {e}")
+        # ここでコケたらアプリが動かないので例外を再送出してもいい
+        if not os.path.exists(f"{DATA_DIR}"): # ローカルフォールバックも考慮
+             print("[WARN] S3 download failed and no local data. Attempting local init...")
+             # エラーを投げずに initialize_data に任せる手もあるが、Lambda環境なら基本S3頼り
+             # raise e
 
 app = FastAPI(title="Toei Route API")
 app.add_middleware(
@@ -91,6 +133,9 @@ async def _startup():
     global G, TM
 
     # ★追加: データが存在しない場合、自動ダウンロードを実行
+    # Lambda環境ならS3から取る
+    download_data_from_s3()
+
     required_files = [
         f"{DATA_DIR}/odpt_BusstopPole.json",
         f"{DATA_DIR}/odpt_BusstopPoleTimetable.json",

@@ -1,4 +1,5 @@
 # server.py
+from mangum import Mangum
 import os
 import asyncio
 import uuid
@@ -253,3 +254,6 @@ async def details(place_id: str = Query(...)):
     async with httpx.AsyncClient(timeout=10.0) as cl:
         r = await cl.get(url, params=params)
     return r.json()
+
+
+handler = Mangum(app)
