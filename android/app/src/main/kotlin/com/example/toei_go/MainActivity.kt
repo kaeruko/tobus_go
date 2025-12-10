@@ -1,4 +1,4 @@
-package jp.cloxs.toei_go
+package jp.cloxs.toeigo
 
 import io.flutter.embedding.android.FlutterActivity
 

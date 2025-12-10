@@ -1,6 +1,6 @@
 {
-    "name": "toei_go",
-    "short_name": "toei_go",
+    "name": "toeigo",
+    "short_name": "toeigo",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

@@ -7,7 +7,7 @@ import io
 import time
 from dotenv import load_dotenv
 
-# 既存のスクリプトをインポート（同じディレクトリにある前提）
+# 既存のスクリプトをインポート(同じディレクトリにある前提)
 import fetch_robust
 import fetch_train_robust
 import generate_app_timetable
@@ -82,7 +82,7 @@ def main():
     download_json("odpt:Railway", "odpt_Railway.json")              # server.pyで使用
 
     print("\n=== 2. Timetables (Robust Fetch) ===")
-    # 時刻表データ（量が多いので既存のrobustスクリプトを再利用）
+    # 時刻表データ(量が多いので既存のrobustスクリプトを再利用)
     # ※ fetch_robust.py 側で引数処理などをしている場合は、直接関数を呼べるように少し修正が必要かもしれません。
     #   ここでは subprocess 的に実行するか、importしてロジックだけ呼ぶのが簡単です。
     

@@ -1,18 +1,14 @@
-# Dockerfile
-FROM python:3.11-slim
-
-# Lambdaの標準ディレクトリ
-WORKDIR /var/task
+# これ重要！AWS公式のLambda用イメージを使う
+FROM public.ecr.aws/lambda/python:3.11
 
 # 1. ライブラリをインストール
-# (api/requirements.txt ではなく、直下の requirements.txt を指す)
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Lambda用イメージでは ${LAMBDA_TASK_ROOT} (/var/task) に置く決まりがあります
+COPY requirements.txt ${LAMBDA_TASK_ROOT}
+RUN pip install -r requirements.txt
 
 # 2. プログラムとデータをコピー
-# (api/ フォルダではなく、今あるファイルをすべてコピー)
-COPY . .
+COPY . ${LAMBDA_TASK_ROOT}
 
 # 3. 実行コマンド
-# (api.server ではなく server になります)
-CMD ["server.handler"]
+# Lambda用イメージなら、これで正しく server.py の handler を呼んでくれます
+CMD [ "server.handler" ]

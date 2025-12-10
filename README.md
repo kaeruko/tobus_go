@@ -1,4 +1,4 @@
-# toei_go
+# toeigo
 
 A new Flutter project.
 

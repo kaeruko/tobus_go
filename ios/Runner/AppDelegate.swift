@@ -8,13 +8,9 @@ import GoogleMaps  // ← 追加
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Info.plist の GMSApiKey を読み出して Maps SDK に渡す
-    if let key = Bundle.main.object(forInfoDictionaryKey: "GMSApiKey") as? String {
-      GMSServices.provideAPIKey(key)
-      print("### GMSApiKey prefix=\(key.prefix(7))  bundle=\(Bundle.main.bundleIdentifier ?? "?")")
-    } else {
-      fatalError("GMSApiKey not found in Info.plist")
-    }
+    // Google Maps API Key setup
+    GMSServices.provideAPIKey("AIzaSyA4PyYy4K1z3SfWwyPlI2YKI7wyG-XVL6s")
+
 
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)

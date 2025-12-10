@@ -6,6 +6,3 @@ python-multipart
 jpholiday
 networkx
 mangum
-requests
-boto3
-mangum
