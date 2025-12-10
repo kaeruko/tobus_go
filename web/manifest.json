@@ -1,6 +1,6 @@
 {
-    "name": "toeigo",
-    "short_name": "toeigo",
+    "name": "都営でGO",
+    "short_name": "都営でGO",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
