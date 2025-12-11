@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import '../services/group_service.dart';
 import '../data/global_state.dart';
+import '../models/group_models.dart'; // ★追加
 import 'member_mode_page.dart'; // ★追加
 
 class SettingsPage extends StatefulWidget {
@@ -34,12 +35,27 @@ class _SettingsPageState extends State<SettingsPage> {
   // グループ作成(リーダー)
   Future<void> _createGroup() async {
     setState(() => _isLoading = true);
+    
     // ランダムな4桁の数字IDを生成
     final newGroupId = (Random().nextInt(9000) + 1000).toString();
     
-    // Firestoreに保存 (ルート情報はとりあえず空で作成)
-    // ※実際はここで kSavedRoutes の中身などを渡すと良い
-    await _groupService.createGroup(newGroupId, 'LeaderUser', {});
+    // ★追加: 保存されたルートがあればスケジュールを自動生成
+    List<ScheduleItem> initialSchedule = [];
+    Map<String, dynamic> routeData = {};
+    
+    if (kSavedRoutes.isNotEmpty) {
+      final targetRoute = kSavedRoutes.first; // 最初のルートを使用
+      routeData = targetRoute.toJson();
+      initialSchedule = createScheduleFromRoute(targetRoute);
+    }
+    
+    // Firestoreに保存
+    await _groupService.createGroup(
+      newGroupId, 
+      'LeaderUser', 
+      routeData,
+      schedule: initialSchedule, // ★スケジュールを渡す
+    );
 
     // スマホ本体にIDを保存
     final prefs = await SharedPreferences.getInstance();

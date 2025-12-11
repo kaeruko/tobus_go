@@ -37,7 +37,7 @@ class App extends StatelessWidget {
   const App({super.key});
   @override
   Widget build(BuildContext context) {
-    return const CupertinoApp(
+    return CupertinoApp(
       debugShowCheckedModeBanner: false,
       title: '都営でGO',
       localizationsDelegates: const [
@@ -48,7 +48,7 @@ class App extends StatelessWidget {
       supportedLocales: const [
         Locale('ja', 'JP'),
       ],
-      // ★ここで分岐！
+      // ★ここで分岐!
       home: kIsMemberMode ? const MemberModePage() : const RootTabs(),
     );
   }

@@ -23,6 +23,7 @@ class GroupService {
       'route': routeData,  // 経路情報を丸ごと保存
       'schedule': schedule?.map((e) => e.toJson()).toList() ?? [], // スケジュール
       'members': [],       // 最初は誰もいない
+      'alerts': [],        // アラート配列
       'createdAt': FieldValue.serverTimestamp(), // 作成日時
     });
   }
@@ -61,5 +62,26 @@ class GroupService {
   /// 画面側でこれを使うと、DBが更新された瞬間に画面も変わります
   Stream<DocumentSnapshot> streamGroup(String groupId) {
     return _db.collection('groups').doc(groupId).snapshots();
+  }
+
+  /// SOS状態を更新する
+  Future<void> sendSOS(String groupId, String memberId, String memberName) async {
+    await _db.collection('groups').doc(groupId).update({
+      'alerts': FieldValue.arrayUnion([
+        {
+          'memberId': memberId,
+          'memberName': memberName,
+          'time': DateTime.now().toIso8601String(),
+          'status': 'sos'
+        }
+      ])
+    });
+  }
+
+  /// アラートをクリアする
+  Future<void> clearAlerts(String groupId) async {
+    await _db.collection('groups').doc(groupId).update({
+      'alerts': [],
+    });
   }
 }
