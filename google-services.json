@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "381461947304",
+    "project_id": "toeigo",
+    "storage_bucket": "toeigo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:381461947304:android:f877e967930b15f7ed739d",
+        "android_client_info": {
+          "package_name": "jp.cloxs.toeigo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCA1PWswvHCDDVrveXzV6vWcTPZ1MWCCTs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

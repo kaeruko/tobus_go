@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'home_page.dart';
 import 'live_page.dart';
 import 'my_route_page.dart';
+import 'settings_page.dart'; // ★追加
 
 class RootTabs extends StatefulWidget {
   const RootTabs({super.key});
@@ -16,6 +17,7 @@ class _RootTabsState extends State<RootTabs> {
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(), // ★追加
   ];
 
   @override
@@ -45,6 +47,10 @@ class _RootTabsState extends State<RootTabs> {
             icon: Icon(CupertinoIcons.bookmark),
             label: 'My Route',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.settings),
+            label: '設定',
+          ), // ★追加
         ],
       ),
       tabBuilder: (context, index) {
@@ -63,6 +69,11 @@ class _RootTabsState extends State<RootTabs> {
             return CupertinoTabView(
               navigatorKey: _navigatorKeys[2],
               builder: (context) => const MyRoutePage(),
+            );
+          case 3: // ★追加
+            return CupertinoTabView(
+              navigatorKey: _navigatorKeys[3],
+              builder: (context) => const SettingsPage(),
             );
           default:
             return CupertinoTabView(
