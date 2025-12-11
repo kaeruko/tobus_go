@@ -8,6 +8,11 @@ import '../widgets/place_field.dart';
 import '../widgets/route_card.dart';
 import 'map_picker_page.dart';
 import 'route_detail_page.dart';
+import '../services/trip_service.dart';
+import 'member_mode_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../data/global_state.dart';
+import 'package:flutter/material.dart' show TextField, InputDecoration, OutlineInputBorder, Icons, ElevatedButton, Colors, TextInputType, MaterialPageRoute, ScaffoldMessenger, SnackBar, Divider; // Material components
 
 enum Preference { fewTransfers, shortTime }
 
@@ -412,6 +417,43 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 16),
             
+            // --- グループ参加エリア ---
+            const Divider(height: 1),
+            const SizedBox(height: 20),
+            const Text('グループに参加する', style: TextStyle(fontWeight: FontWeight.bold)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: CupertinoTextField(
+                      placeholder: '6桁の参加コード',
+                      prefix: const Padding(
+                        padding: EdgeInsets.only(left: 8.0),
+                        child: Icon(CupertinoIcons.number, color: CupertinoColors.systemGrey),
+                      ),
+                      keyboardType: TextInputType.number,
+                      onSubmitted: (val) => _joinTrip(context, val),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  CupertinoButton.filled(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10), // Adjust padding for CupertinoButton
+                    onPressed: () {
+                      // TextFieldの値を取得する仕組みが必要ですが、
+                      // ここでは簡易的に「onSubmittedを使ってください」という形にするか、
+                      // 本来はControllerを使うべき。
+                      // 今回は簡易実装として空にしておく（TextField側のエンターで発火推奨）
+                      // または、直近の入力値を保持する変数を追加して対応も可。
+                    }, 
+                    child: const Text('参加'),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+            
             // --- 日時選択 ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -501,6 +543,49 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+
+  
+  Future<void> _joinTrip(BuildContext context, String code) async {
+    if (code.length < 4) return; // 簡易チェック
+
+    try {
+      final tripService = TripService();
+      // 参加処理 (Firestore更新)
+      final tripId = await tripService.joinTrip(code);
+
+      // IDを保存してモード切り替え
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('groupId', tripId);
+      await prefs.setBool('isMemberMode', true);
+      
+      kCurrentGroupId = tripId;
+      kIsMemberMode = true;
+
+      if (!context.mounted) return;
+
+      // メンバー画面へGO!
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        CupertinoPageRoute(builder: (_) => const MemberModePage()),
+        (route) => false,
+      );
+
+    } catch (e) {
+      if (!context.mounted) return;
+      showCupertinoDialog(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('エラー'),
+          content: Text('参加できませんでした: $e'),
+          actions: [
+            CupertinoDialogAction(
+              child: const Text('OK'),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   @override

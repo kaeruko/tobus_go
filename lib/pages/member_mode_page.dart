@@ -149,9 +149,13 @@ class _MemberModePageState extends State<MemberModePage> {
                 icon: const Icon(Icons.list),
                 onPressed: () => _openSchedule(schedule),
               ),
-              // 抜けるための小さなボタン
-              IconButton(
+              // 抜けるためのボタン (文字付きで分かりやすく)
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red,
+                ),
                 icon: const Icon(Icons.exit_to_app),
+                label: const Text('終了'),
                 onPressed: () => showDialog(
                   context: context,
                   builder: (ctx) => AlertDialog(

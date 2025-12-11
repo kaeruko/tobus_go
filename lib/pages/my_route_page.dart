@@ -6,6 +6,10 @@ import '../core/api_client.dart';
 import '../models/route_models.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../services/storage_service.dart';
+import '../services/trip_service.dart';
+import '../models/group_models.dart'; // createScheduleFromRoute用
+import 'leader_mode_page.dart';
+import 'package:flutter/material.dart' show showDialog, AlertDialog, TextButton, ElevatedButton, ScaffoldMessenger, SnackBar, MaterialPageRoute; // Materialの機能を使うため
 
 class MyRoutePage extends StatefulWidget {
   const MyRoutePage({super.key});
@@ -267,6 +271,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
                           ),
                           child: GestureDetector(
                             onTap: () => _reSearchRoute(c),
+                            onLongPress: () => _showCreateTripDialog(context, c),
                             child: RouteCard(candidate: c, rank: i + 1),
                           ),
                         );
@@ -277,5 +282,48 @@ class _MyRoutePageState extends State<MyRoutePage> {
         ),
       ),
     );
+  }
+
+  // ダイアログを表示して作成処理へ
+  void _showCreateTripDialog(BuildContext context, Candidate route) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('グループを作成'),
+        content: const Text('このルートで引率を開始しますか？\n(参加コードが発行されます)'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('やめる')),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx); // ダイアログ閉じる
+              _createTrip(context, route);
+            },
+            child: const Text('作成する'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 作成実行
+  Future<void> _createTrip(BuildContext context, Candidate route) async {
+    try {
+      // 1. スケジュール自動生成
+      final schedule = createScheduleFromRoute(route);
+      
+      // 2. Trip作成 (Firestore保存)
+      final tripService = TripService();
+      final tripId = await tripService.createTrip(route, schedule);
+
+      if (!context.mounted) return;
+
+      // 3. リーダー画面へ遷移
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => LeaderModePage(tripId: tripId)),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e')));
+    }
   }
 }
