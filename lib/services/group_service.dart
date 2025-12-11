@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/group_models.dart';
 
 class GroupService {
   // Firestoreのデータベース本体
@@ -8,15 +9,42 @@ class GroupService {
   /// groupId: 参加用の4桁コードなど
   /// leaderId: 自分の端末IDなど
   /// routeData: 検索結果のJSONデータ
-  Future<void> createGroup(String groupId, String leaderId, Map<String, dynamic> routeData) async {
+  /// schedule: スケジュールリスト(オプション)
+  Future<void> createGroup(
+    String groupId, 
+    String leaderId, 
+    Map<String, dynamic> routeData,
+    {List<ScheduleItem>? schedule}
+  ) async {
     // "groups" という箱の中に、groupId の名前で書類を作る
     await _db.collection('groups').doc(groupId).set({
       'leaderId': leaderId,
       'status': 'waiting', // waiting, moving, goal
       'route': routeData,  // 経路情報を丸ごと保存
+      'schedule': schedule?.map((e) => e.toJson()).toList() ?? [], // スケジュール
       'members': [],       // 最初は誰もいない
       'createdAt': FieldValue.serverTimestamp(), // 作成日時
     });
+  }
+
+  /// スケジュールを更新する
+  Future<void> updateSchedule(String groupId, List<ScheduleItem> schedule) async {
+    await _db.collection('groups').doc(groupId).update({
+      'schedule': schedule.map((e) => e.toJson()).toList(),
+    });
+  }
+
+  /// スケジュールアイテムの完了状態を更新
+  Future<void> toggleScheduleItem(String groupId, int index, bool isCompleted) async {
+    final doc = await _db.collection('groups').doc(groupId).get();
+    final scheduleData = doc.data()?['schedule'] as List<dynamic>? ?? [];
+    
+    if (index < scheduleData.length) {
+      scheduleData[index]['isCompleted'] = isCompleted;
+      await _db.collection('groups').doc(groupId).update({
+        'schedule': scheduleData,
+      });
+    }
   }
 
   /// グループに参加する(メンバー用)

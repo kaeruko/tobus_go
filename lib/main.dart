@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart'; // MaterialLocalizationsのために必要
 import 'package:flutter_localizations/flutter_localizations.dart'; // 追加
+import 'package:shared_preferences/shared_preferences.dart'; // ★追加
 import 'pages/root_tabs.dart';
+import 'pages/member_mode_page.dart'; // ★追加
 
 import 'services/storage_service.dart';
 import 'data/global_state.dart';
@@ -23,6 +25,11 @@ void main() async {
   final saved = await storage.loadRoutes();
   kSavedRoutes.addAll(saved);
 
+  // ★起動時にモード判定
+  final prefs = await SharedPreferences.getInstance();
+  kCurrentGroupId = prefs.getString('groupId');
+  kIsMemberMode = prefs.getBool('isMemberMode') ?? false;
+
   runApp(const App());
 }
 
@@ -41,7 +48,8 @@ class App extends StatelessWidget {
       supportedLocales: const [
         Locale('ja', 'JP'),
       ],
-      home: RootTabs(),
+      // ★ここで分岐！
+      home: kIsMemberMode ? const MemberModePage() : const RootTabs(),
     );
   }
 }

@@ -5,3 +5,6 @@ final List<Candidate> kSavedRoutes = [];
 
 // ★追加: 現在参加中のグループID(nullなら一人モード)
 String? kCurrentGroupId;
+
+// ★追加: メンバーモードかどうか
+bool kIsMemberMode = false;

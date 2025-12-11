@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import '../services/group_service.dart';
 import '../data/global_state.dart';
+import 'member_mode_page.dart'; // ★追加
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -60,13 +61,25 @@ class _SettingsPageState extends State<SettingsPage> {
     // 本当はここでIDが存在するかチェックすると親切
     await _groupService.joinGroup(inputId, 'MemberUser', 'メンバー');
 
+    // 保存処理
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('groupId', inputId);
+    await prefs.setBool('isMemberMode', true); // ★これを保存！
 
     setState(() {
       kCurrentGroupId = inputId;
+      kIsMemberMode = true; // ★グローバル変数も更新
       _isLoading = false;
     });
+
+    // ★ここがポイント！
+    // 画面を「MemberModePage」に強制的に差し替える
+    if (mounted) {
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MemberModePage()),
+        (route) => false,
+      );
+    }
   }
 
   // グループ離脱
@@ -122,6 +135,36 @@ class _SettingsPageState extends State<SettingsPage> {
                         child: const Text('参加'),
                       ),
                     ],
+                  ),
+                  const Divider(height: 40),
+                  // --- デバッグ用ボタン ---
+                  const Text('デバッグ用', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  ElevatedButton(
+                    onPressed: () async {
+                      // Firebaseを使わず、ローカルにダミーIDを保存
+                      final debugGroupId = 'DEBUG_${Random().nextInt(9000) + 1000}';
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setString('groupId', debugGroupId);
+                      await prefs.setBool('isMemberMode', true); // ★追加
+                      
+                      setState(() {
+                        kCurrentGroupId = debugGroupId;
+                        kIsMemberMode = true; // ★追加
+                      });
+                      
+                      // ★メンバーモード画面に切り替え
+                      if (mounted) {
+                        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (_) => const MemberModePage()),
+                          (route) => false,
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('【DEBUG】即座にグループ参加状態にする'),
                   ),
                 ] 
                 // --- グループ参加中の場合 ---
