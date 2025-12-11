@@ -66,7 +66,8 @@ class GroupService {
 
   /// SOS状態を更新する
   Future<void> sendSOS(String groupId, String memberId, String memberName) async {
-    await _db.collection('groups').doc(groupId).update({
+    // updateではなくset(merge: true)を使うことで、ドキュメントがない場合(デバッグ時など)でも作成されるようにする
+    await _db.collection('groups').doc(groupId).set({
       'alerts': FieldValue.arrayUnion([
         {
           'memberId': memberId,
@@ -75,7 +76,7 @@ class GroupService {
           'status': 'sos'
         }
       ])
-    });
+    }, SetOptions(merge: true));
   }
 
   /// アラートをクリアする

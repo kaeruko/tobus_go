@@ -1,0 +1,144 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:math';
+import '../models/trip_models.dart';
+import '../models/route_models.dart'; // Candidateクラス用
+import '../models/group_models.dart'; // ScheduleItemクラス用
+import 'user_service.dart'; // ユーザーID取得用
+
+class TripService {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final UserService _userService = UserService();
+
+  // ---------------------------------------------------
+  // 1. 旅を作成する (リーダー用)
+  // ---------------------------------------------------
+  Future<String> createTrip(Candidate route, List<ScheduleItem> schedule) async {
+    final uid = _userService.currentUserId;
+    final userName = await _userService.getUserName();
+    if (uid == null) throw Exception("ユーザーIDが初期化されていません");
+
+    // 参加コード(6桁)の生成
+    // ※本番では衝突チェックが必要ですが、コンテスト用ならランダムで十分
+    final joinCode = (100000 + Random().nextInt(900000)).toString();
+
+    // リーダーとして自分を参加者リストに追加
+    final leader = Participant(
+      uid: uid,
+      name: userName,
+      isLeader: true,
+    );
+
+    // ドキュメントIDはFirestoreに自動生成させる
+    final tripRef = _db.collection('trips').doc();
+
+    // タイトルの自動生成（例：〇〇への遠足）
+    // ルート情報の最後（目的地）を取得
+    final destination = route.steps.isNotEmpty ? route.steps.last.to : "お出かけ";
+    final title = "$destination への遠足";
+
+    final trip = Trip(
+      id: tripRef.id,
+      joinCode: joinCode,
+      leaderId: uid,
+      title: title,
+      status: TripStatus.planning,
+      date: DateTime.now(),
+      route: route,
+      schedule: schedule,
+      participants: [leader],
+    );
+
+    // 保存
+    await tripRef.set(trip.toFirestore());
+    
+    return tripRef.id; // ドキュメントIDを返す（画面遷移用）
+  }
+
+  // ---------------------------------------------------
+  // 2. 旅に参加する (メンバー用)
+  // ---------------------------------------------------
+  Future<String> joinTrip(String joinCode) async {
+    final uid = _userService.currentUserId;
+    final userName = await _userService.getUserName();
+    if (uid == null) throw Exception("ユーザーIDが初期化されていません");
+
+    // joinCode で検索（完了していない旅に限る）
+    final snapshot = await _db.collection('trips')
+        .where('joinCode', isEqualTo: joinCode)
+        .where('status', isNotEqualTo: 'completed') 
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isEmpty) {
+      throw Exception("見つかりませんでした。コードを確認してください。");
+    }
+
+    final tripDoc = snapshot.docs.first;
+    final tripId = tripDoc.id;
+    
+    // 既に参加済みかチェック
+    // （配列内のオブジェクト検索は難しいので、クライアント側で判断しても良いですが、
+    // ここではシンプルに「既存リストになければ追加」を行います）
+    final data = tripDoc.data();
+    final participantsRaw = data['participants'] as List<dynamic>? ?? [];
+    
+    final isAlreadyJoined = participantsRaw.any((p) => p['uid'] == uid);
+
+    if (!isAlreadyJoined) {
+      final newMember = Participant(
+        uid: uid,
+        name: userName,
+        isLeader: false,
+      );
+      
+      // Firestoreの配列に追加 (arrayUnion)
+      await tripDoc.reference.update({
+        'participants': FieldValue.arrayUnion([newMember.toJson()])
+      });
+    }
+
+    return tripId; // ドキュメントIDを返す
+  }
+
+  // ---------------------------------------------------
+  // 3. リアルタイム監視 (共通)
+  // ---------------------------------------------------
+  Stream<Trip> streamTrip(String tripId) {
+    return _db.collection('trips').doc(tripId).snapshots().map((doc) {
+      if (!doc.exists) throw Exception("Trip deleted");
+      return Trip.fromFirestore(doc);
+    });
+  }
+
+  // ---------------------------------------------------
+  // 4. SOSを送る (メンバー用)
+  // ---------------------------------------------------
+  Future<void> sendSOS(String tripId) async {
+    final uid = _userService.currentUserId;
+    
+    // NOTE: participants配列の中の自分のデータを更新するのは
+    // Firestoreの仕様上少し面倒（配列ごっそり書き換えになる）なので、
+    // ここでは簡易的に「SOSコレクション」をサブコレクションとして作るか、
+    // あるいは「trip自体にアラートフラグを立てる」実装にします。
+    
+    // コンテスト向け実装：Tripの 'alerts' フィールドに追記する
+    await _db.collection('trips').doc(tripId).update({
+      'alerts': FieldValue.arrayUnion([{
+        'uid': uid,
+        'time': DateTime.now().toIso8601String(),
+        'status': 'sos'
+      }])
+    });
+  }
+
+  // ---------------------------------------------------
+  // 5. お出かけを終了する (リーダー用)
+  // ---------------------------------------------------
+  Future<void> completeTrip(String tripId) async {
+    // ステータスを完了にする
+    await _db.collection('trips').doc(tripId).update({
+      'status': 'completed',
+      'endedAt': FieldValue.serverTimestamp(),
+    });
+  }
+}

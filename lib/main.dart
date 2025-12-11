@@ -6,6 +6,7 @@ import 'pages/root_tabs.dart';
 import 'pages/member_mode_page.dart'; // ★追加
 
 import 'services/storage_service.dart';
+import 'services/user_service.dart'; // ★追加
 import 'data/global_state.dart';
 
 // ★追加1: Firebase関連のインポート
@@ -29,6 +30,9 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   kCurrentGroupId = prefs.getString('groupId');
   kIsMemberMode = prefs.getBool('isMemberMode') ?? false;
+
+  // ★ユーザーIDの初期化 (これをしないとIDがnullになる)
+  await UserService().initialize();
 
   runApp(const App());
 }

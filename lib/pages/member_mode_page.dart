@@ -109,16 +109,26 @@ class _MemberModePageState extends State<MemberModePage> {
 
         // データが来たらスケジュールを更新
         final data = snapshot.data!.data() as Map<String, dynamic>?;
-        if (data == null) {
-          return const Scaffold(
-            body: Center(child: Text('グループデータが見つかりません')),
-          );
-        }
-
-        final scheduleRaw = data['schedule'] as List<dynamic>? ?? [];
+        
+        // ★修正: データがない場合(デバッグIDなど)は空のリストではなくダミーを表示するか、
+        // 少なくとも「データなし」エラーで止まらないようにする
+        final scheduleRaw = (data != null && data.containsKey('schedule')) 
+            ? data['schedule'] as List<dynamic>
+            : [];
+            
         final schedule = scheduleRaw
             .map((e) => ScheduleItem.fromJson(e as Map<String, dynamic>))
             .toList();
+
+        // スケジュールが空の場合のダミーデータ(デバッグ用)
+        if (schedule.isEmpty) {
+          schedule.add(ScheduleItem(
+            time: '10:00',
+            title: 'えんそく開始',
+            description: 'リーダーがスケジュールを作るとここに表示されます',
+            type: ScheduleType.meeting,
+          ));
+        }
 
         // 次のタスクを計算
         final nextTask = schedule.firstWhere(
