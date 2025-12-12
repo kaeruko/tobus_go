@@ -1,6 +1,7 @@
 // lib/models/group_models.dart
 
 import 'route_models.dart';
+import 'leg_models.dart';
 
 enum ScheduleType {
   meeting,   // 集合
@@ -116,30 +117,79 @@ List<ScheduleItem> createScheduleFromRoute(
   return list;
 }
 
-List<ScheduleItem> createRoundTripSchedule({
-  required Candidate outbound,
-  required Candidate inbound,
-}) {
-  final outboundSchedule = createScheduleFromRoute(outbound, labelPrefix: '行き');
+List<ScheduleItem> createScheduleFromLegs(List<Leg> legs) {
+  final List<ScheduleItem> schedule = [];
 
-  final inboundStartTime =
-      inbound.departureDate != null ? _formatTime(inbound.departureDate!) : null;
-  final inboundSchedule = createScheduleFromRoute(
-    inbound,
-    startTime: inboundStartTime,
-    labelPrefix: '帰り',
-  );
+  Leg? outbound;
+  Leg? inbound;
 
-  return [
-    ...outboundSchedule,
-    ScheduleItem(
-      time: inboundStartTime ?? "??:??",
-      title: "帰りの集合",
-      description: "帰りの経路を開始する前に人数を確認しましょう",
-      type: ScheduleType.meeting,
-    ),
-    ...inboundSchedule,
-  ];
+  for (final leg in legs) {
+    if (leg.direction == LegDirection.outbound) {
+      outbound = leg;
+    } else if (leg.direction == LegDirection.inbound) {
+      inbound = leg;
+    }
+  }
+
+  if (outbound != null) {
+    schedule.addAll(
+      createScheduleFromRoute(outbound.candidate, labelPrefix: '行き'),
+    );
+  }
+
+  if (inbound != null) {
+    final inboundStartTime = inbound.candidate.departureDate != null
+        ? _formatTime(inbound.candidate.departureDate!)
+        : null;
+
+    if (outbound != null) {
+      schedule.add(
+        ScheduleItem(
+          time: inboundStartTime ?? "??:??",
+          title: "帰りの集合",
+          description: "帰りの経路を開始する前に人数を確認しましょう",
+          type: ScheduleType.meeting,
+        ),
+      );
+    }
+
+    schedule.addAll(
+      createScheduleFromRoute(
+        inbound.candidate,
+        startTime: inboundStartTime,
+        labelPrefix: '帰り',
+      ),
+    );
+  }
+
+  for (final leg in legs) {
+    if (leg == outbound || leg == inbound) continue;
+    final prefix = _labelForLeg(leg.direction);
+    schedule.addAll(
+      createScheduleFromRoute(
+        leg.candidate,
+        startTime: leg.candidate.departureDate != null
+            ? _formatTime(leg.candidate.departureDate!)
+            : null,
+        labelPrefix: prefix,
+      ),
+    );
+  }
+
+  return schedule;
+}
+
+String _labelForLeg(LegDirection direction) {
+  switch (direction) {
+    case LegDirection.outbound:
+      return '行き';
+    case LegDirection.inbound:
+      return '帰り';
+    case LegDirection.other:
+      return '移動';
+    case LegDirection.unknown:
+      return '経路';
+  }
 }
 
 // 時刻を "HH:mm" 形式にフォーマット

@@ -8,6 +8,7 @@ import '../widgets/bus_loading_indicator.dart';
 import '../services/storage_service.dart';
 import '../services/trip_draft_service.dart';
 import '../services/trip_service.dart';
+import '../models/leg_models.dart';
 import 'leader_mode_page.dart';
 import 'package:flutter/material.dart' show showDialog, AlertDialog, TextButton, ElevatedButton, ScaffoldMessenger, SnackBar, MaterialPageRoute, showModalBottomSheet, ListTile, Icons, Colors, Icon; // Materialの機能を使うため
 import 'package:shared_preferences/shared_preferences.dart';
@@ -404,7 +405,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
                       subtitle: Text(route.lines.join(' → ')),
                       onTap: () {
                         setState(() {
-                          _draftService.setRoute(TripDirection.outbound, route);
+                          _draftService.setRoute(LegDirection.outbound, route);
                         });
                         Navigator.pop(ctx);
                       },
@@ -415,7 +416,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
                       subtitle: Text(route.lines.join(' → ')),
                       onTap: () {
                         setState(() {
-                          _draftService.setRoute(TripDirection.inbound, route);
+                          _draftService.setRoute(LegDirection.inbound, route);
                         });
                         Navigator.pop(ctx);
                       },
