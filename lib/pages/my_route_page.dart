@@ -6,8 +6,8 @@ import '../core/api_client.dart';
 import '../models/route_models.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../services/storage_service.dart';
+import '../services/trip_draft_service.dart';
 import '../services/trip_service.dart';
-import '../models/group_models.dart'; // createScheduleFromRoute用
 import 'leader_mode_page.dart';
 import 'package:flutter/material.dart' show showDialog, AlertDialog, TextButton, ElevatedButton, ScaffoldMessenger, SnackBar, MaterialPageRoute, showModalBottomSheet, ListTile, Icons, Colors, Icon; // Materialの機能を使うため
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,6 +22,7 @@ class MyRoutePage extends StatefulWidget {
 class _MyRoutePageState extends State<MyRoutePage> {
   DateTime _startTime = DateTime.now();
   bool _loading = false;
+  final TripDraftService _draftService = TripDraftService();
 
   @override
   void didChangeDependencies() {
@@ -295,19 +296,40 @@ class _MyRoutePageState extends State<MyRoutePage> {
     );
   }
 
-  // ダイアログを表示して作成処理へ
-  void _showCreateTripDialog(BuildContext context, Candidate route) {
+  // ダイアログを表示して作成処理へ（往復が揃ったら有効）
+  void _showCreateTripDialog(BuildContext context) {
+    if (!_draftService.isComplete) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('帰りの経路を選択してください'),
+          content: const Text('行きと帰りをセットにするとグループ作成できます。'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('閉じる')),
+          ],
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('グループを作成'),
-        content: const Text('このルートで引率を開始しますか？\n(参加コードが発行されます)'),
+        title: const Text('この往復でグループを作成'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('行き: ${_draftService.outbound?.lines.join(' → ')}'),
+            Text('帰り: ${_draftService.inbound?.lines.join(' → ')}'),
+          ],
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('やめる')),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx); // ダイアログ閉じる
-              _createTrip(context, route);
+              await _createTrip(context);
             },
             child: const Text('作成する'),
           ),
@@ -317,14 +339,9 @@ class _MyRoutePageState extends State<MyRoutePage> {
   }
 
   // 作成実行
-  Future<void> _createTrip(BuildContext context, Candidate route) async {
+  Future<void> _createTrip(BuildContext context) async {
     try {
-      // 1. スケジュール自動生成
-      final schedule = createScheduleFromRoute(route);
-      
-      // 2. Trip作成 (Firestore保存)
-      final tripService = TripService();
-      final tripId = await tripService.createTrip([route], schedule);
+      final tripId = await _draftService.createTrip();
 
       if (!context.mounted) return;
 
@@ -333,7 +350,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
         context,
         MaterialPageRoute(builder: (_) => LeaderModePage(tripId: tripId)),
       );
-      } catch (e) {
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e')));
     }
   }
@@ -378,13 +395,62 @@ class _MyRoutePageState extends State<MyRoutePage> {
                   },
                 )
               else
-                ListTile(
-                  leading: const Icon(Icons.diversity_3, color: Colors.blue),
-                  title: const Text('このルートでグループを作成'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _showCreateTripDialog(context, route);
-                  },
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.north_east, color: Colors.blue),
+                      title: const Text('行きの経路に設定'),
+                      subtitle: Text(route.lines.join(' → ')),
+                      onTap: () {
+                        setState(() {
+                          _draftService.setRoute(TripDirection.outbound, route);
+                        });
+                        Navigator.pop(ctx);
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.south_west, color: Colors.green),
+                      title: const Text('帰りの経路に設定'),
+                      subtitle: Text(route.lines.join(' → ')),
+                      onTap: () {
+                        setState(() {
+                          _draftService.setRoute(TripDirection.inbound, route);
+                        });
+                        Navigator.pop(ctx);
+                      },
+                    ),
+                    ListTile(
+                      leading: Icon(Icons.refresh, color: Colors.orange.shade700),
+                      title: const Text('往復の選択をクリア'),
+                      onTap: () {
+                        setState(() {
+                          _draftService.reset();
+                        });
+                        Navigator.pop(ctx);
+                      },
+                    ),
+                    ListTile(
+                      enabled: _draftService.isComplete,
+                      leading: Icon(
+                        Icons.diversity_3,
+                        color:
+                            _draftService.isComplete ? Colors.blue : Colors.grey,
+                      ),
+                      title: const Text('往復が揃ったらグループ作成'),
+                      subtitle: Text(
+                        _draftService.isComplete
+                            ? '行き: ${_draftService.outbound?.lines.join(' → ')}\n帰り: ${_draftService.inbound?.lines.join(' → ')}'
+                            : 'まず行きと帰りの経路を両方選択してください',
+                      ),
+                      onTap: _draftService.isComplete
+                          ? () {
+                              Navigator.pop(ctx);
+                              _showCreateTripDialog(context);
+                            }
+                          : null,
+                    ),
+                  ],
                 ),
               // ----------------
             ],

@@ -54,14 +54,21 @@ class ScheduleItem {
 }
 
 // Candidate(検索結果)からスケジュールリストを作る便利関数
-List<ScheduleItem> createScheduleFromRoute(Candidate route, {String? startTime}) {
+List<ScheduleItem> createScheduleFromRoute(
+  Candidate route, {
+  String? startTime,
+  String? labelPrefix,
+}) {
   final list = <ScheduleItem>[];
+  final prefix = (labelPrefix != null && labelPrefix.isNotEmpty)
+      ? '$labelPrefix '
+      : '';
   
   // 1. 出発(集合)
   final departureTime = startTime ?? _formatTime(DateTime.now());
   list.add(ScheduleItem(
     time: departureTime,
-    title: "出発",
+    title: "${prefix}出発",
     description: "みんな揃っているか確認しましょう",
     type: ScheduleType.departure,
   ));
@@ -73,7 +80,7 @@ List<ScheduleItem> createScheduleFromRoute(Candidate route, {String? startTime})
       if ((step.minutes ?? 0) > 3) {
         list.add(ScheduleItem(
           time: step.departureTime ?? "??:??",
-          title: "歩く (${step.minutes}分)",
+          title: "${prefix}歩く (${step.minutes}分)",
           description: step.from ?? '',
           type: ScheduleType.walk,
         ));
@@ -82,14 +89,14 @@ List<ScheduleItem> createScheduleFromRoute(Candidate route, {String? startTime})
       // バス・電車
       list.add(ScheduleItem(
         time: step.departureTime ?? "??:??",
-        title: "${step.title} に乗る",
+        title: "${prefix}${step.title} に乗る",
         description: "${step.from ?? ''} から",
         type: ScheduleType.ride,
       ));
-      
+
       list.add(ScheduleItem(
         time: step.arrivalTime ?? "??:??",
-        title: "${step.to ?? ''} に着く",
+        title: "${prefix}${step.to ?? ''} に着く",
         description: step.edges > 0 ? "${step.edges}駅" : '',
         type: ScheduleType.arrival,
       ));
@@ -100,13 +107,39 @@ List<ScheduleItem> createScheduleFromRoute(Candidate route, {String? startTime})
   if (route.steps.isNotEmpty) {
     list.add(ScheduleItem(
       time: route.steps.last.arrivalTime ?? "??:??",
-      title: "目的地 到着",
+      title: "${prefix}目的地 到着",
       description: "お疲れ様でした!",
       type: ScheduleType.goal,
     ));
   }
 
   return list;
+}
+
+List<ScheduleItem> createRoundTripSchedule({
+  required Candidate outbound,
+  required Candidate inbound,
+}) {
+  final outboundSchedule = createScheduleFromRoute(outbound, labelPrefix: '行き');
+
+  final inboundStartTime =
+      inbound.departureDate != null ? _formatTime(inbound.departureDate!) : null;
+  final inboundSchedule = createScheduleFromRoute(
+    inbound,
+    startTime: inboundStartTime,
+    labelPrefix: '帰り',
+  );
+
+  return [
+    ...outboundSchedule,
+    ScheduleItem(
+      time: inboundStartTime ?? "??:??",
+      title: "帰りの集合",
+      description: "帰りの経路を開始する前に人数を確認しましょう",
+      type: ScheduleType.meeting,
+    ),
+    ...inboundSchedule,
+  ];
 }
 
 // 時刻を "HH:mm" 形式にフォーマット
