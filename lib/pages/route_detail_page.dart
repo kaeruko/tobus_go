@@ -5,9 +5,16 @@ import '../models/route_models.dart';
 import '../data/global_state.dart';
 import '../services/storage_service.dart';
 import '../widgets/timetable_view.dart';
+import '../models/group_models.dart';
+import '../services/trip_service.dart';
+import 'leader_mode_page.dart';
+import '../core/api_client.dart';
+import '../widgets/bus_loading_indicator.dart';
 
+// --- メインの画面 ---
 class RouteDetailPage extends StatefulWidget {
   final Candidate candidate;
+
   const RouteDetailPage({super.key, required this.candidate});
 
   @override
@@ -15,65 +22,287 @@ class RouteDetailPage extends StatefulWidget {
 }
 
 class _RouteDetailPageState extends State<RouteDetailPage> {
+  // 再検索用の日時
+  DateTime _searchTime = DateTime.now();
+
+  // 保存状態の判定ロジック
   bool get _isSaved {
-    return kSavedRoutes.any((e) {
-      if (e.id != widget.candidate.id) return false;
-      // IDが同じ場合、出発地と行き先も比較
-      if (e.points.isEmpty || widget.candidate.points.isEmpty) return false;
-      final sameStart = e.points.first.latitude == widget.candidate.points.first.latitude &&
-                        e.points.first.longitude == widget.candidate.points.first.longitude;
-      final sameEnd = e.points.last.latitude == widget.candidate.points.last.latitude &&
-                      e.points.last.longitude == widget.candidate.points.last.longitude;
-      return sameStart && sameEnd;
-    });
+    return kSavedRoutes.any((e) => _isSameRoute(e, widget.candidate));
+  }
+
+  // 経路が同じか判定するヘルパー
+  bool _isSameRoute(Candidate a, Candidate b) {
+    if (a.id != b.id) return false;
+    if (a.points.isEmpty || b.points.isEmpty) return false;
+    final sameStart = a.points.first.latitude == b.points.first.latitude &&
+                      a.points.first.longitude == b.points.first.longitude;
+    final sameEnd = a.points.last.latitude == b.points.last.latitude &&
+                    a.points.last.longitude == b.points.last.longitude;
+    return sameStart && sameEnd;
   }
 
   void _toggleBookmark() {
-    if (_isSaved) {
-      // 削除処理
-      showCupertinoDialog(
-        context: context,
-        builder: (ctx) => CupertinoAlertDialog(
-          title: const Text('ブックマークを削除'),
-          content: const Text('この経路をMy Routeから削除しますか?'),
-          actions: [
-            CupertinoDialogAction(
-              child: const Text('キャンセル'),
-              onPressed: () => Navigator.pop(ctx),
+    setState(() {
+      if (_isSaved) {
+        _showDeleteDialog();
+      } else {
+        kSavedRoutes.add(widget.candidate);
+        StorageService().saveRoutes(kSavedRoutes);
+        _showSavedDialog();
+      }
+    });
+  }
+
+  void _showDeleteDialog() {
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('ブックマークを削除'),
+        content: const Text('この経路をMy Routeから削除しますか?'),
+        actions: [
+          CupertinoDialogAction(child: const Text('キャンセル'), onPressed: () => Navigator.pop(ctx)),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: const Text('削除'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                kSavedRoutes.removeWhere((e) => _isSameRoute(e, widget.candidate));
+                StorageService().saveRoutes(kSavedRoutes);
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSavedDialog() {
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('保存しました'),
+        content: const Text('My Routeに追加しました。'),
+        actions: [
+          CupertinoDialogAction(child: const Text('OK'), onPressed: () => Navigator.pop(ctx)),
+        ],
+      ),
+    );
+  }
+
+  // --- 再検索機能 (既存維持) ---
+  void _showReSearchPicker() {
+    _searchTime = DateTime.now();
+    showCupertinoModalPopup(
+      context: context,
+      builder: (ctx) => Container(
+        height: 280,
+        color: CupertinoColors.systemBackground,
+        child: Column(
+          children: [
+            Container(
+              alignment: Alignment.centerRight,
+              child: CupertinoButton(
+                child: const Text('検索実行'),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _executeReSearch();
+                },
+              ),
             ),
-            CupertinoDialogAction(
-              isDestructiveAction: true,
-              child: const Text('削除'),
-              onPressed: () {
-                Navigator.pop(ctx);
-                setState(() {
-                  kSavedRoutes.removeWhere((e) {
-                    if (e.id != widget.candidate.id) return false;
-                    if (e.points.isEmpty || widget.candidate.points.isEmpty) return false;
-                    final sameStart = e.points.first.latitude == widget.candidate.points.first.latitude &&
-                                      e.points.first.longitude == widget.candidate.points.first.longitude;
-                    final sameEnd = e.points.last.latitude == widget.candidate.points.last.latitude &&
-                                    e.points.last.longitude == widget.candidate.points.last.longitude;
-                    return sameStart && sameEnd;
-                  });
-                  StorageService().saveRoutes(kSavedRoutes);
-                });
-              },
+            SizedBox(
+              height: 200,
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.dateAndTime,
+                initialDateTime: _searchTime,
+                use24hFormat: true,
+                onDateTimeChanged: (val) {
+                  _searchTime = val;
+                },
+              ),
             ),
           ],
         ),
-      );
-    } else {
-      // 追加処理
-      setState(() {
-        kSavedRoutes.add(widget.candidate);
-        StorageService().saveRoutes(kSavedRoutes);
-      });
+      ),
+    );
+  }
+
+  Future<void> _executeReSearch() async {
+    final original = widget.candidate;
+    if (original.points.isEmpty) return;
+
+    showCupertinoDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Center(
+        child: Container(
+          width: 160,
+          height: 160,
+          decoration: BoxDecoration(
+            color: CupertinoColors.systemBackground,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              BusLoadingIndicator(),
+              SizedBox(height: 16),
+              Text('再検索中...', style: TextStyle(fontSize: 14)),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final start = original.points.first;
+      final end = original.points.last;
+
+      final params = {
+        'alat': '${start.latitude}',
+        'alon': '${start.longitude}',
+        'blat': '${end.latitude}',
+        'blon': '${end.longitude}',
+        'pref': original.preference ?? 'fewTransfers',
+        'time': '${_searchTime.hour.toString().padLeft(2, '0')}:${_searchTime.minute.toString().padLeft(2, '0')}',
+        'date': '${_searchTime.year}-${_searchTime.month.toString().padLeft(2, '0')}-${_searchTime.day.toString().padLeft(2, '0')}',
+      };
+
+      final j = await ApiClient.post('/route', body: params);
+      final jobId = j['job_id']?.toString();
+      
+      if (jobId == null) throw Exception('Job ID missing');
+
+      await _poll(jobId);
+
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop(); // ローディング閉じる
       showCupertinoDialog(
         context: context,
         builder: (ctx) => CupertinoAlertDialog(
-          title: const Text('保存しました'),
-          content: const Text('My Routeに追加しました。'),
+          title: const Text('エラー'),
+          content: Text('再検索に失敗しました: $e'),
+          actions: [
+            CupertinoDialogAction(
+              child: const Text('OK'),
+              onPressed: () => Navigator.pop(ctx),
+            )
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<void> _poll(String jobId) async {
+    while (true) {
+      await Future.delayed(const Duration(seconds: 1));
+      try {
+        final j = await ApiClient.get('/route', params: {'job_id': jobId});
+        final status = j['status']?.toString();
+        
+        if (status == 'done') {
+          final result = j['result'];
+          final list = (result['candidates'] as List?)
+              ?.map((e) => Candidate.fromJson(e as Map<String, dynamic>))
+              .toList();
+          
+          if (!mounted) return;
+          Navigator.of(context, rootNavigator: true).pop(); // ローディング閉じる
+
+          if (list != null && list.isNotEmpty) {
+            // 新しい結果画面へ遷移（push）することで「戻る」が可能
+            Navigator.of(context).push(
+              CupertinoPageRoute(
+                builder: (_) => RouteDetailPage(candidate: list.first),
+              ),
+            );
+          } else {
+             showCupertinoDialog(
+              context: context,
+              builder: (ctx) => CupertinoAlertDialog(
+                content: const Text('指定された日時の経路が見つかりませんでした。'),
+                actions: [
+                  CupertinoDialogAction(
+                    child: const Text('OK'),
+                    onPressed: () => Navigator.pop(ctx),
+                  )
+                ],
+              ),
+            );
+          }
+          return;
+        } else if (status == 'error') {
+          throw Exception(j['error']);
+        }
+      } catch (e) {
+        rethrow;
+      }
+    }
+  }
+
+  // --- グループ作成機能 (既存維持) ---
+  void _showCreateTripDialog() {
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('グループを作成'),
+        content: const Text('このルートで引率を開始しますか？\n(参加コードが発行されます)'),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('キャンセル'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          CupertinoDialogAction(
+            child: const Text('作成する'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _createTrip();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _createTrip() async {
+    print('[DEBUG] _createTrip called. Widget mounted: $mounted');
+    try {
+      // 1. スケジュール自動生成
+      print('[DEBUG] Creating schedule from route...');
+      final schedule = createScheduleFromRoute(widget.candidate);
+      print('[DEBUG] Schedule created. Items: ${schedule.length}');
+
+      // 2. Trip作成 (Firestore保存)
+      print('[DEBUG] Initializing TripService...');
+      final tripService = TripService();
+      print('[DEBUG] Calling tripService.createTrip...');
+      final tripId = await tripService.createTrip(widget.candidate, schedule);
+      print('[DEBUG] Trip created. ID: $tripId');
+
+      if (!mounted) {
+        print('[DEBUG] Widget not mounted after createTrip. Aborting navigation.');
+        return;
+      }
+
+      // 3. リーダー画面へ遷移
+      print('[DEBUG] Navigating to LeaderModePage...');
+      Navigator.push(
+        context,
+        CupertinoPageRoute(builder: (_) {
+          print('[DEBUG] Building LeaderModePage route...'); 
+          return LeaderModePage(tripId: tripId);
+        }),
+      );
+      print('[DEBUG] Navigation pushed.');
+    } catch (e, stack) {
+      print('[DEBUG] Error in _createTrip: $e\n$stack');
+      if (!mounted) return;
+      showCupertinoDialog(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('エラー'),
+          content: Text('作成に失敗しました: $e'),
           actions: [
             CupertinoDialogAction(
               child: const Text('OK'),
@@ -90,110 +319,57 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         middle: Text(widget.candidate.lines.join(' → ')),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          child: Icon(_isSaved ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark),
-          onPressed: _toggleBookmark,
+        // ▼ 変更: 末尾にボタンを2つ並べる
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // グループ作成ボタン (旗アイコン)
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: _showCreateTripDialog,
+              child: const Icon(CupertinoIcons.flag_fill),
+            ),
+            // 再検索ボタン
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: _showReSearchPicker,
+              child: const Icon(CupertinoIcons.clock),
+            ),
+            // ブックマークボタン
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              child: Icon(_isSaved ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark),
+              onPressed: _toggleBookmark,
+            ),
+          ],
         ),
       ),
       child: SafeArea(
         child: Column(
           children: [
             const SizedBox(height: 8),
-            const SizedBox(height: 8),
+
+            // 注意書き（もしあれば）
             if (widget.candidate.isFutureSuggestion)
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: CupertinoColors.activeOrange.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: CupertinoColors.activeOrange),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(CupertinoIcons.exclamationmark_triangle_fill,
-                        color: CupertinoColors.activeOrange),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        "ご指定の日時は運行終了または運休日のため、\n${widget.candidate.departureDate?.toString().split(' ')[0]} の経路を表示しています。",
-                        style: const TextStyle(
-                            color: CupertinoColors.activeOrange,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            // サマリー
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _stat('所要時間', '${widget.candidate.totalTime}分'),
-                  _stat('乗換', widget.candidate.transfers.toString()),
-                  _stat('乗車区間', widget.candidate.rides.toString()),
-                  _stat('徒歩', '${widget.candidate.walks}m'),
-                ],
-              ),
-            ),
+              _FutureSuggestionAlert(date: widget.candidate.departureDate),
+            
+            // サマリー表示
+            RouteSummary(candidate: widget.candidate),
+            
             const SizedBox(height: 12),
-            // 地図プレースホルダ
-            Container(
-              height: 200,
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: CupertinoColors.systemGrey6,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: GoogleMap(
-                  initialCameraPosition: CameraPosition(
-                    target: widget.candidate.points.isNotEmpty
-                        ? widget.candidate.points.first
-                        : const LatLng(35.681236, 139.767125), // Default: Tokyo Station
-                    zoom: 13,
-                  ),
-                  polylines: {
-                    Polyline(
-                      polylineId: const PolylineId('route'),
-                      points: widget.candidate.points,
-                      color: CupertinoColors.activeBlue,
-                      width: 5,
-                    ),
-                  },
-                  markers: {
-                    if (widget.candidate.points.isNotEmpty) ...[
-                      Marker(
-                        markerId: const MarkerId('start'),
-                        position: widget.candidate.points.first,
-                        infoWindow: const InfoWindow(title: 'Start'),
-                      ),
-                      Marker(
-                        markerId: const MarkerId('end'),
-                        position: widget.candidate.points.last,
-                        infoWindow: const InfoWindow(title: 'End'),
-                      ),
-                    ],
-                  },
-                ),
-              ),
-            ),
+            
+            // 地図プレビュー
+            RouteMapPreview(points: widget.candidate.points),
+            
             const SizedBox(height: 12),
-            // 区間一覧
+            
+            // 区間リスト
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 itemCount: widget.candidate.steps.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (context, i) {
-                  final seg = widget.candidate.steps[i];
-                  return _stepTile(context, seg);
-                },
+                itemBuilder: (context, i) => RouteStepTile(segment: widget.candidate.steps[i]),
               ),
             ),
           ],
@@ -201,37 +377,121 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
       ),
     );
   }
+}
 
-  // ---- ここから下はこのクラス内のヘルパ ----
+// --- 以下、切り出したWidget群 (別ファイルにしてもOK) ---
+
+class _FutureSuggestionAlert extends StatelessWidget {
+  final DateTime? date;
+  const _FutureSuggestionAlert({required this.date});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: CupertinoColors.activeOrange.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CupertinoColors.activeOrange),
+      ),
+      child: Row(
+        children: [
+          const Icon(CupertinoIcons.exclamationmark_triangle_fill, color: CupertinoColors.activeOrange),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              "ご指定の日時は運行終了または運休日のため、\n${date?.toString().split(' ')[0]} の経路を表示しています。",
+              style: const TextStyle(
+                  color: CupertinoColors.activeOrange, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class RouteSummary extends StatelessWidget {
+  final Candidate candidate;
+  const RouteSummary({super.key, required this.candidate});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _stat('所要時間', '${candidate.totalTime}分'),
+          _stat('乗換', candidate.transfers.toString()),
+          _stat('乗車区間', candidate.rides.toString()),
+          _stat('徒歩', '${candidate.walks}m'),
+        ],
+      ),
+    );
+  }
 
   Widget _stat(String k, String v) {
     return Column(
       children: [
-        Text(
-          v,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
+        Text(v, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
         const SizedBox(height: 2),
-        Text(
-          k,
-          style: const TextStyle(
-            color: CupertinoColors.inactiveGray,
-            fontSize: 12,
-          ),
-        ),
+        Text(k, style: const TextStyle(color: CupertinoColors.inactiveGray, fontSize: 12)),
       ],
     );
   }
-  // RouteDetailPage 内
-  Widget _stepTile(BuildContext context, StepSeg s) {
-    final isWalk = s.kind == 'walk';
-    final right = s.minutes != null
-        ? '約${s.minutes}分'
-        : (!isWalk && s.edges > 0
-            ? '${s.edges}停'
-            : (isWalk && s.meters != null ? '${s.meters}m' : ''));
+}
 
-    final canShowStops = !isWalk && s.stops.isNotEmpty;
+class RouteMapPreview extends StatelessWidget {
+  final List<LatLng> points;
+  const RouteMapPreview({super.key, required this.points});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 200,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: CupertinoColors.systemGrey6,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: GoogleMap(
+          initialCameraPosition: CameraPosition(
+            target: points.isNotEmpty ? points.first : const LatLng(35.681236, 139.767125),
+            zoom: 13,
+          ),
+          polylines: {
+            Polyline(
+              polylineId: const PolylineId('route'),
+              points: points,
+              color: CupertinoColors.activeBlue,
+              width: 5,
+            ),
+          },
+          markers: {
+            if (points.isNotEmpty) ...[
+              Marker(markerId: const MarkerId('start'), position: points.first, infoWindow: const InfoWindow(title: 'Start')),
+              Marker(markerId: const MarkerId('end'), position: points.last, infoWindow: const InfoWindow(title: 'End')),
+            ],
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class RouteStepTile extends StatelessWidget {
+  final StepSeg segment;
+  const RouteStepTile({super.key, required this.segment});
+
+  @override
+  Widget build(BuildContext context) {
+    final isWalk = segment.kind == 'walk';
+    final rightText = _getRightText(isWalk);
+    final canShowStops = !isWalk && segment.stops.isNotEmpty;
 
     final content = Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -250,77 +510,37 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ヘッダ行 (アイコン + タイトル + 時間)
           Row(
             children: [
-              _roundIcon(s.kind),
+              _RoundIcon(kind: segment.kind),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      s.mainTitle,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (s.departureTime != null && s.arrivalTime != null)
-                      Text(
-                        '${s.departureTime} → ${s.arrivalTime}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: CupertinoColors.activeBlue,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    if (s.subTitle != null) ...[
+                    Text(segment.mainTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    if (segment.departureTime != null && segment.arrivalTime != null)
+                      Text('${segment.departureTime} → ${segment.arrivalTime}',
+                          style: const TextStyle(fontSize: 13, color: CupertinoColors.activeBlue, fontWeight: FontWeight.w600)),
+                    if (segment.subTitle != null) ...[
                       const SizedBox(height: 4),
-                      Text(
-                        s.subTitle!,
-                        style: const TextStyle(
-                          color: CupertinoColors.inactiveGray,
-                        ),
-                      ),
+                      Text(segment.subTitle!, style: const TextStyle(color: CupertinoColors.inactiveGray)),
                     ],
                   ],
                 ),
               ),
-              if (right.isNotEmpty)
-                Text(
-                  right,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: CupertinoColors.systemGrey,
-                  ),
-                ),
+              if (rightText.isNotEmpty)
+                Text(rightText, style: const TextStyle(fontSize: 13, color: CupertinoColors.systemGrey)),
             ],
           ),
-          // Bus Timetable Embedding
-          if (s.kind == 'bus' && s.routeId.isNotEmpty) ...[
+          if (segment.kind == 'bus' && segment.routeId.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: Container(height: 1, color: CupertinoColors.systemGrey5),
             ),
-            Builder(
-              builder: (context) {
-                // デバッグログ: TimetableViewに渡す値を確認
-                print('[RouteDetailPage] TimetableView呼び出し:');
-                print('  - StepSeg.title: ${s.title}');
-                print('  - StepSeg.from: ${s.from}');
-                print('  - StepSeg.to: ${s.to}');
-                print('  - StepSeg.routeId: ${s.routeId}');
-                print('  - StepSeg.departureStopId: ${s.departureStopId}');
-                
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                  child: TimetableView(
-                    routeId: s.routeId,
-                    stopId: s.departureStopId,
-                  ),
-                );
-              },
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: TimetableView(routeId: segment.routeId, stopId: segment.departureStopId),
             ),
           ],
         ],
@@ -331,19 +551,25 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () {
-        Navigator.of(context).push(
-          CupertinoPageRoute(
-            builder: (_) => SegmentStopsPage(segment: s),
-          ),
-        );
-      },
+      onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => SegmentStopsPage(segment: segment))),
       child: content,
     );
   }
 
-  // 左の丸アイコン
-  Widget _roundIcon(String kind) {
+  String _getRightText(bool isWalk) {
+    if (segment.minutes != null) return '約${segment.minutes}分';
+    if (!isWalk && segment.edges > 0) return '${segment.edges}停';
+    if (isWalk && segment.meters != null) return '${segment.meters}m';
+    return '';
+  }
+}
+
+class _RoundIcon extends StatelessWidget {
+  final String kind;
+  const _RoundIcon({required this.kind});
+
+  @override
+  Widget build(BuildContext context) {
     IconData icon;
     Color color;
     switch (kind) {
@@ -360,17 +586,15 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
         color = CupertinoColors.activeBlue;
     }
     return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        shape: BoxShape.circle,
-      ),
+      width: 36, height: 36,
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
       alignment: Alignment.center,
       child: Icon(icon, color: color),
     );
   }
 }
+
+// --- 以下のクラスは別ファイルへ移動推奨だが、今回はここに維持 ---
 
 class SegmentStopsPage extends StatelessWidget {
   final StepSeg segment;

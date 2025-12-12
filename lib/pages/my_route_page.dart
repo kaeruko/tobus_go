@@ -270,7 +270,17 @@ class _MyRoutePageState extends State<MyRoutePage> {
                             ),
                           ),
                           child: GestureDetector(
-                            onTap: () => _reSearchRoute(c),
+                            // ▼▼▼ 修正箇所ここから ▼▼▼
+                            onTap: () {
+                              // 再検索(_reSearchRoute)ではなく、直接詳細ページへ遷移します
+                              Navigator.of(context).push(
+                                CupertinoPageRoute(
+                                  builder: (_) => RouteDetailPage(candidate: c),
+                                ),
+                              );
+                            },
+                            // ▲▲▲ 修正箇所ここまで ▲▲▲
+                            
                             onLongPress: () => _showCreateTripDialog(context, c),
                             child: RouteCard(candidate: c, rank: i + 1),
                           ),

@@ -1,5 +1,5 @@
 // lib/pages/member_mode_page.dart
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/global_state.dart';
@@ -30,7 +30,7 @@ class _MemberModePageState extends State<MemberModePage> {
     // アプリのルートを通常モード(RootTabs)に差し替える
     if (context.mounted) {
       Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const RootTabs()),
+        CupertinoPageRoute(builder: (_) => const RootTabs()),
         (route) => false,
       );
     }
@@ -40,7 +40,7 @@ class _MemberModePageState extends State<MemberModePage> {
   void _openSchedule(List<ScheduleItem> schedule) {
     Navigator.push(
       context,
-      MaterialPageRoute(
+      CupertinoPageRoute(
         builder: (_) => SchedulePage(
           isLeader: false,
           initialSchedule: schedule,
@@ -53,20 +53,18 @@ class _MemberModePageState extends State<MemberModePage> {
   Future<void> _sendSOS() async {
     if (kCurrentGroupId == null) return;
 
-    showDialog(
+    showCupertinoDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => CupertinoAlertDialog(
         title: const Text('SOS'),
         content: const Text('引率者に通知を送りますか?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
+          CupertinoDialogAction(
             child: const Text('キャンセル'),
+            onPressed: () => Navigator.pop(ctx),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
             onPressed: () async {
               Navigator.pop(ctx);
               // SOS送信
@@ -77,8 +75,17 @@ class _MemberModePageState extends State<MemberModePage> {
               );
 
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('引率者に通知しました!')),
+                showCupertinoDialog(
+                  context: context,
+                  builder: (ctx2) => CupertinoAlertDialog(
+                    content: const Text('引率者に通知しました!'),
+                    actions: [
+                       CupertinoDialogAction(
+                         child: const Text('OK'),
+                         onPressed: () => Navigator.pop(ctx2),
+                       ),
+                    ],
+                  ),
                 );
               }
             },
@@ -92,8 +99,9 @@ class _MemberModePageState extends State<MemberModePage> {
   @override
   Widget build(BuildContext context) {
     if (kCurrentGroupId == null) {
-      return const Scaffold(
-        body: Center(child: Text('グループIDが設定されていません')),
+      return const CupertinoPageScaffold(
+        navigationBar: CupertinoNavigationBar(middle: Text('エラー')),
+        child: Center(child: Text('グループIDが設定されていません')),
       );
     }
 
@@ -102,9 +110,10 @@ class _MemberModePageState extends State<MemberModePage> {
       stream: _groupService.streamGroup(kCurrentGroupId!),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+           return const CupertinoPageScaffold(
+             navigationBar: CupertinoNavigationBar(middle: Text('読み込み中...')),
+             child: Center(child: CupertinoActivityIndicator()),
+           );
         }
 
         // データが来たらスケジュールを更新
@@ -131,6 +140,7 @@ class _MemberModePageState extends State<MemberModePage> {
         }
 
         // 次のタスクを計算
+        // 未完了の最初のものを探す、なければ最後のもの、それもなければデフォルト
         final nextTask = schedule.firstWhere(
           (item) => !item.isCompleted,
           orElse: () => schedule.isNotEmpty
@@ -138,110 +148,117 @@ class _MemberModePageState extends State<MemberModePage> {
               : ScheduleItem(time: '', title: 'スケジュールを確認してね'),
         );
 
-        return Scaffold(
-          backgroundColor: Colors.yellow[50],
-          appBar: AppBar(
-            title: const Text('えんそくモード'),
+        return CupertinoPageScaffold(
+          backgroundColor: const Color(0xFFFFFDE7), // Colors.yellow[50] replacement
+          navigationBar: CupertinoNavigationBar(
+            middle: const Text('えんそくモード'),
             automaticallyImplyLeading: false, // 戻るボタンを消す
-            actions: [
-              // スケジュール表示ボタン
-              IconButton(
-                icon: const Icon(Icons.list),
-                onPressed: () => _openSchedule(schedule),
-              ),
-              // 抜けるためのボタン (文字付きで分かりやすく)
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.red,
-                ),
-                icon: const Icon(Icons.exit_to_app),
-                label: const Text('終了'),
-                onPressed: () => showDialog(
+            leading: CupertinoButton(
+              padding: EdgeInsets.zero,
+              child: const Icon(CupertinoIcons.list_bullet),
+              onPressed: () => _openSchedule(schedule),
+            ),
+            trailing: CupertinoButton(
+               padding: EdgeInsets.zero,
+               child: const Text('終了', style: TextStyle(color: CupertinoColors.destructiveRed)),
+               onPressed: () => showCupertinoDialog(
                   context: context,
-                  builder: (ctx) => AlertDialog(
+                  builder: (ctx) => CupertinoAlertDialog(
                     title: const Text('モード終了'),
                     content: const Text('通常モードに戻りますか?'),
                     actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
+                      CupertinoDialogAction(
                         child: const Text('いいえ'),
+                        onPressed: () => Navigator.pop(ctx),
                       ),
-                      TextButton(
+                      CupertinoDialogAction(
+                        isDestructiveAction: true,
+                        child: const Text('はい'),
                         onPressed: () {
                           Navigator.pop(ctx);
                           _leaveGroup(context);
                         },
-                        child: const Text('はい'),
                       ),
                     ],
                   ),
-                ),
-              ),
-            ],
+               ),
+            ),
           ),
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text("つぎは", style: TextStyle(fontSize: 20)),
-                const SizedBox(height: 10),
-                // 次のタスクのタイトルを表示
-                Text(
-                  nextTask.title,
-                  style: const TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 10),
-                // 時刻を表示
-                if (nextTask.time.isNotEmpty)
-                  Text(
-                    nextTask.time,
-                    style: const TextStyle(fontSize: 24, color: Colors.grey),
-                  ),
-                const SizedBox(height: 10),
-                // 説明を表示
-                if (nextTask.description.isNotEmpty)
+          child: SafeArea(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text("つぎは", style: TextStyle(fontSize: 20)),
+                  const SizedBox(height: 10),
+                  // 次のタスクのタイトルを表示
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Text(
-                      nextTask.description,
-                      style: const TextStyle(fontSize: 18),
+                      nextTask.title,
+                      style: const TextStyle(
+                        fontSize: 32, // Slightly smaller than 40 to fit better
+                        fontWeight: FontWeight.bold,
+                        color: CupertinoColors.activeBlue,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ),
-
-                const SizedBox(height: 50),
-
-                // SOSボタン
-                SizedBox(
-                  width: 150,
-                  height: 150,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      shape: const CircleBorder(),
+                  const SizedBox(height: 10),
+                  // 時刻を表示
+                  if (nextTask.time.isNotEmpty)
+                    Text(
+                      nextTask.time,
+                      style: const TextStyle(fontSize: 24, color: CupertinoColors.systemGrey),
                     ),
-                    onPressed: _sendSOS,
-                    child: const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.sos, size: 50, color: Colors.white),
-                        Text(
-                          "たすけて",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
+                  const SizedBox(height: 10),
+                  // 説明を表示
+                  if (nextTask.description.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Text(
+                        nextTask.description,
+                        style: const TextStyle(fontSize: 18),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+            
+                  const SizedBox(height: 50),
+            
+                  // SOSボタン
+                  GestureDetector(
+                    onTap: _sendSOS,
+                    child: Container(
+                      width: 150,
+                      height: 150,
+                      decoration: const BoxDecoration(
+                        color: CupertinoColors.systemRed,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x42000000), 
+                            blurRadius: 10,
+                            offset: Offset(0, 4),
+                          )
+                        ]
+                      ),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(CupertinoIcons.speaker_2_fill, size: 50, color: CupertinoColors.white), // Similar to SOS
+                          Text(
+                            "たすけて",
+                            style: TextStyle(
+                              color: CupertinoColors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

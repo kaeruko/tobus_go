@@ -69,7 +69,7 @@ class Candidate {
     return out;
   }
 
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toJson({bool includePoints = true}) {
     return {
       'id': id,
       'lines': lines,
@@ -80,7 +80,9 @@ class Candidate {
       'total': total,
       'total_time': totalTime,
       'steps': steps.map((e) => e.toJson()).toList(),
-      'points': points.map((e) => [e.latitude, e.longitude]).toList(),
+      'points': includePoints 
+          ? points.map((e) => [e.latitude, e.longitude]).toList() 
+          : [],
       'preference': preference,
       'departure_date': departureDate?.toIso8601String(),
       'is_future_suggestion': isFutureSuggestion,

@@ -66,7 +66,8 @@ class Trip {
       'title': title,
       'status': status.name, // "planning" 等の文字列で保存
       'date': Timestamp.fromDate(date),
-      'route': route.toJson(),
+      // 軽量化のため points (ポリライン) は除外して保存
+      'route': route.toJson(includePoints: false),
       'schedule': schedule.map((e) => e.toJson()).toList(),
       'participants': participants.map((e) => e.toJson()).toList(),
     };

@@ -13,13 +13,18 @@ class TripService {
   // 1. 旅を作成する (リーダー用)
   // ---------------------------------------------------
   Future<String> createTrip(Candidate route, List<ScheduleItem> schedule) async {
+    print('[DEBUG] TripService.createTrip called');
     final uid = _userService.currentUserId;
+    print('[DEBUG] Current UID: $uid');
     final userName = await _userService.getUserName();
+    print('[DEBUG] Current UserName: $userName');
     if (uid == null) throw Exception("ユーザーIDが初期化されていません");
 
+    print('[DEBUG] User ID check passed.');
+
     // 参加コード(6桁)の生成
-    // ※本番では衝突チェックが必要ですが、コンテスト用ならランダムで十分
     final joinCode = (100000 + Random().nextInt(900000)).toString();
+    print('[DEBUG] Generated joinCode: $joinCode');
 
     // リーダーとして自分を参加者リストに追加
     final leader = Participant(
@@ -27,14 +32,16 @@ class TripService {
       name: userName,
       isLeader: true,
     );
+    print('[DEBUG] Created leader participant.');
 
     // ドキュメントIDはFirestoreに自動生成させる
     final tripRef = _db.collection('trips').doc();
+    print('[DEBUG] Generated tripRef ID: ${tripRef.id}');
 
-    // タイトルの自動生成（例：〇〇への遠足）
-    // ルート情報の最後（目的地）を取得
+    // タイトルの自動生成
     final destination = route.steps.isNotEmpty ? route.steps.last.to : "お出かけ";
     final title = "$destination への遠足";
+    print('[DEBUG] Generated title: $title');
 
     final trip = Trip(
       id: tripRef.id,
@@ -47,11 +54,22 @@ class TripService {
       schedule: schedule,
       participants: [leader],
     );
+    print('[DEBUG] Trip object created.');
 
-    // 保存
-    await tripRef.set(trip.toFirestore());
+    try {
+      print('[DEBUG] Converting trip to Firestore map...');
+      final tripMap = trip.toFirestore();
+      print('[DEBUG] key count: ${tripMap.keys.length}');
+      
+      print('[DEBUG] Saving to Firestore...');
+      await tripRef.set(tripMap);
+      print('[DEBUG] Saved to Firestore.');
+    } catch (e, stack) {
+      print('[DEBUG] Error saving to Firestore: $e\n$stack');
+      rethrow;
+    }
     
-    return tripRef.id; // ドキュメントIDを返す（画面遷移用）
+    return tripRef.id;
   }
 
   // ---------------------------------------------------

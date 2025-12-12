@@ -323,9 +323,12 @@ class _HomePageState extends State<HomePage> {
         middle: Text(widget.title),
       ),
       child: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 8),
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  const SizedBox(height: 8),
 
             // 出発Aの検索バー
             Padding(
@@ -414,45 +417,6 @@ class _HomePageState extends State<HomePage> {
                 },
               ),
             ),
-
-            const SizedBox(height: 16),
-            
-            // --- グループ参加エリア ---
-            const Divider(height: 1),
-            const SizedBox(height: 20),
-            const Text('グループに参加する', style: TextStyle(fontWeight: FontWeight.bold)),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: CupertinoTextField(
-                      placeholder: '6桁の参加コード',
-                      prefix: const Padding(
-                        padding: EdgeInsets.only(left: 8.0),
-                        child: Icon(CupertinoIcons.number, color: CupertinoColors.systemGrey),
-                      ),
-                      keyboardType: TextInputType.number,
-                      onSubmitted: (val) => _joinTrip(context, val),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  CupertinoButton.filled(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10), // Adjust padding for CupertinoButton
-                    onPressed: () {
-                      // TextFieldの値を取得する仕組みが必要ですが、
-                      // ここでは簡易的に「onSubmittedを使ってください」という形にするか、
-                      // 本来はControllerを使うべき。
-                      // 今回は簡易実装として空にしておく（TextField側のエンターで発火推奨）
-                      // または、直近の入力値を保持する変数を追加して対応も可。
-                    }, 
-                    child: const Text('参加'),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
             
             // --- 日時選択 ---
             Padding(
@@ -485,60 +449,74 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 24),
 
-            // 結果リスト
-            Expanded(
-              child: _loading
-                  ? Center(
-                      child: Container(
-                        width: 160,
-                        height: 160,
-                        decoration: BoxDecoration(
-                          color: CupertinoColors.systemBackground,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: CupertinoColors.systemGrey.withValues(alpha: 0.2),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: BusLoadingIndicator(),
-                        ),
-                      ),
-                    )
-                  : (candidates.isEmpty
-                      ? Center(
-                          child: Text(
-                            _hasSearched ? '経路が見つかりませんでした' : '出発と到着を選択',
-                            style: TextStyle(
-                              color: _hasSearched ? CupertinoColors.systemRed : CupertinoColors.systemGrey,
-                            ),
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                          itemCount: candidates.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (context, i) {
-                            final c = candidates[i];
-                            return GestureDetector(
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  CupertinoPageRoute(
-                                    builder: (_) =>
-                                        RouteDetailPage(candidate: c),
-                                  ),
-                                );
-                              },
-                              child: RouteCard(candidate: c, rank: i + 1),
-                            );
-                          },
-                        )),
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
+
+            // 結果リスト
+            if (_loading)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Container(
+                    width: 160,
+                    height: 160,
+                    decoration: BoxDecoration(
+                      color: CupertinoColors.systemBackground,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: CupertinoColors.systemGrey.withOpacity(0.2), // withValues(alpha:0.2) is newer, stick to existing or standard
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: BusLoadingIndicator(),
+                    ),
+                  ),
+                ),
+              )
+            else if (candidates.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Text(
+                    _hasSearched ? '経路が見つかりませんでした' : '出発と到着を選択',
+                    style: TextStyle(
+                      color: _hasSearched ? CupertinoColors.systemRed : CupertinoColors.systemGrey,
+                    ),
+                  ),
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) {
+                    final c = candidates[i];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            CupertinoPageRoute(
+                              builder: (_) => RouteDetailPage(candidate: c),
+                            ),
+                          );
+                        },
+                        child: RouteCard(candidate: c, rank: i + 1),
+                      ),
+                    );
+                  },
+                  childCount: candidates.length,
+                ),
+              ),
+              
+            // Bottom padding
+            const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
           ],
         ),
       ),
