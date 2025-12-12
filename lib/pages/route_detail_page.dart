@@ -563,33 +563,40 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
         ),
       ),
       child: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 8),
+        child: CustomScrollView(
+          slivers: [
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-            // 注意書き（もしあれば）
             if (widget.candidate.isFutureSuggestion)
-              _FutureSuggestionAlert(date: widget.candidate.departureDate),
+              SliverToBoxAdapter(
+                child: _FutureSuggestionAlert(date: widget.candidate.departureDate),
+              ),
 
-            // サマリー表示
-            RouteSummary(candidate: widget.candidate),
+            SliverToBoxAdapter(child: RouteSummary(candidate: widget.candidate)),
 
-            _roundTripComposer(),
+            SliverToBoxAdapter(child: _roundTripComposer()),
 
-            const SizedBox(height: 12),
-            
-            // 地図プレビュー
-            RouteMapPreview(points: widget.candidate.points),
-            
-            const SizedBox(height: 12),
-            
-            // 区間リスト
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                itemCount: widget.candidate.steps.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (context, i) => RouteStepTile(segment: widget.candidate.steps[i]),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
+            SliverToBoxAdapter(child: RouteMapPreview(points: widget.candidate.points)),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final itemIndex = index ~/ 2;
+                    if (index.isEven) {
+                      return RouteStepTile(segment: widget.candidate.steps[itemIndex]);
+                    }
+                    return const SizedBox(height: 8);
+                  },
+                  childCount: widget.candidate.steps.isEmpty
+                      ? 0
+                      : (widget.candidate.steps.length * 2) - 1,
+                ),
               ),
             ),
           ],
