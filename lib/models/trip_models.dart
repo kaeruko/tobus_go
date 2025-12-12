@@ -16,7 +16,7 @@ class Trip {
   final String title;       // 旅のタイトル (例: 上野公園へ遠足)
   final TripStatus status;
   final DateTime date;      // 実施日
-  final Candidate route;    // 経路情報
+  final List<Candidate> routes; // 経路情報 (行き、帰り...)
   final List<ScheduleItem> schedule; // しおり
   final List<Participant> participants; // 参加者リスト
 
@@ -27,7 +27,7 @@ class Trip {
     required this.title,
     required this.status,
     required this.date,
-    required this.route,
+    required this.routes,
     required this.schedule,
     required this.participants,
   });
@@ -35,6 +35,18 @@ class Trip {
   // Firestoreからデータを読み込む時の変換処理
   factory Trip.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    
+    // 経路情報の復元 (新: routes, 旧: route 対応)
+    List<Candidate> loadedRoutes = [];
+    if (data['routes'] != null) {
+      loadedRoutes = (data['routes'] as List<dynamic>)
+          .map((e) => Candidate.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } else if (data['route'] != null) {
+      // 旧データ互換
+      loadedRoutes = [Candidate.fromJson(data['route'] as Map<String, dynamic>)];
+    }
+
     return Trip(
       id: doc.id,
       joinCode: data['joinCode'] ?? '',
@@ -45,8 +57,7 @@ class Trip {
         orElse: () => TripStatus.planning,
       ),
       date: (data['date'] as Timestamp).toDate(),
-      // 経路情報はネストしたJSONから復元
-      route: Candidate.fromJson(data['route'] as Map<String, dynamic>),
+      routes: loadedRoutes,
       // スケジュール配列の復元
       schedule: (data['schedule'] as List<dynamic>? ?? [])
           .map((e) => ScheduleItem.fromJson(e as Map<String, dynamic>))
@@ -67,7 +78,7 @@ class Trip {
       'status': status.name, // "planning" 等の文字列で保存
       'date': Timestamp.fromDate(date),
       // 軽量化のため points (ポリライン) は除外して保存
-      'route': route.toJson(includePoints: false),
+      'routes': routes.map((e) => e.toJson(includePoints: false)).toList(),
       'schedule': schedule.map((e) => e.toJson()).toList(),
       'participants': participants.map((e) => e.toJson()).toList(),
     };

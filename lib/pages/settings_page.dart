@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:math';
-import '../services/group_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // 追加
 import '../data/global_state.dart';
-import '../models/group_models.dart'; // ★追加
-import 'member_mode_page.dart'; // ★追加
+import 'member_mode_page.dart';
+import 'leader_mode_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -14,205 +13,123 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  final _groupService = GroupService();
-  final _joinIdController = TextEditingController(); // 入力用
-  bool _isLoading = false;
+  bool _isStaffMode = false;
 
   @override
   void initState() {
     super.initState();
-    _loadGroupId();
+    _loadSettings();
   }
 
-  // 保存されたグループIDを読み込む
-  Future<void> _loadGroupId() async {
+  Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      kCurrentGroupId = prefs.getString('groupId');
+      _isStaffMode = prefs.getBool('isStaffMode') ?? false;
     });
   }
 
-  // グループ作成(リーダー)
-  Future<void> _createGroup() async {
-    setState(() => _isLoading = true);
-    
-    // ランダムな4桁の数字IDを生成
-    final newGroupId = (Random().nextInt(9000) + 1000).toString();
-    
-    // ★追加: 保存されたルートがあればスケジュールを自動生成
-    List<ScheduleItem> initialSchedule = [];
-    Map<String, dynamic> routeData = {};
-    
-    if (kSavedRoutes.isNotEmpty) {
-      final targetRoute = kSavedRoutes.first; // 最初のルートを使用
-      routeData = targetRoute.toJson();
-      initialSchedule = createScheduleFromRoute(targetRoute);
-    }
-    
-    // Firestoreに保存
-    await _groupService.createGroup(
-      newGroupId, 
-      'LeaderUser', 
-      routeData,
-      schedule: initialSchedule, // ★スケジュールを渡す
-    );
-
-    // スマホ本体にIDを保存
+  Future<void> _toggleStaffMode(bool value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('groupId', newGroupId);
-
+    await prefs.setBool('isStaffMode', value);
     setState(() {
-      kCurrentGroupId = newGroupId;
-      _isLoading = false;
+      _isStaffMode = value;
+      // グローバル変数を更新するならここで (今回は設定だけ)
     });
   }
 
-  // グループ参加(メンバー)
-  Future<void> _joinGroup() async {
-    final inputId = _joinIdController.text;
-    if (inputId.length != 4) return;
+  // ★追加: 最新のTripIDを取得してリーダー画面を開く
+  Future<void> _openLatestTripAsLeader() async {
+    try {
+      // 自分が作った最新のTripを探す
+      // (本来はuidで絞り込むべきですが、テスト用なので全件から最新を取得でもOK)
+      final snapshot = await FirebaseFirestore.instance
+          .collection('trips')
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .get();
 
-    setState(() => _isLoading = true);
-
-    // 本当はここでIDが存在するかチェックすると親切
-    await _groupService.joinGroup(inputId, 'MemberUser', 'メンバー');
-
-    // 保存処理
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('groupId', inputId);
-    await prefs.setBool('isMemberMode', true); // ★これを保存！
-
-    setState(() {
-      kCurrentGroupId = inputId;
-      kIsMemberMode = true; // ★グローバル変数も更新
-      _isLoading = false;
-    });
-
-    // ★ここがポイント！
-    // 画面を「MemberModePage」に強制的に差し替える
-    if (mounted) {
-      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const MemberModePage()),
-        (route) => false,
-      );
+      if (snapshot.docs.isNotEmpty) {
+        final tripId = snapshot.docs.first.id;
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => LeaderModePage(tripId: tripId)),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tripが見つかりません。まずは作成してください。')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e')));
     }
   }
 
-  // グループ離脱
-  Future<void> _leaveGroup() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('groupId');
-    setState(() {
-      kCurrentGroupId = null;
-    });
+  // ★追加: 最新のTripIDを取得してメンバー画面を開く
+  Future<void> _openLatestTripAsMember() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('trips')
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        final tripId = snapshot.docs.first.id;
+        
+        // グローバル変数を強制セット (デバッグ用)
+        kCurrentGroupId = tripId;
+        
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const MemberModePage()),
+          );
+        }
+      }
+    } catch (e) {
+      print(e);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('設定')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                const Text('グループ活動', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
-                
-                // --- グループ未参加の場合 ---
-                if (kCurrentGroupId == null) ...[
-                  const Text('引率者の方はこちら'),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.group_add),
-                    label: const Text('新しいグループを作成する'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: _createGroup,
-                  ),
-                  const Divider(height: 40),
-                  const Text('メンバーの方はこちら'),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _joinIdController,
-                          decoration: const InputDecoration(
-                            labelText: '4桁のIDを入力',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      ElevatedButton(
-                        onPressed: _joinGroup,
-                        child: const Text('参加'),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 40),
-                  // --- デバッグ用ボタン ---
-                  const Text('デバッグ用', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  ElevatedButton(
-                    onPressed: () async {
-                      // Firebaseを使わず、ローカルにダミーIDを保存
-                      final debugGroupId = 'DEBUG_${Random().nextInt(9000) + 1000}';
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.setString('groupId', debugGroupId);
-                      await prefs.setBool('isMemberMode', true); // ★追加
-                      
-                      setState(() {
-                        kCurrentGroupId = debugGroupId;
-                        kIsMemberMode = true; // ★追加
-                      });
-                      
-                      // ★メンバーモード画面に切り替え
-                      if (mounted) {
-                        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (_) => const MemberModePage()),
-                          (route) => false,
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('【DEBUG】即座にグループ参加状態にする'),
-                  ),
-                ] 
-                // --- グループ参加中の場合 ---
-                else ...[
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.green),
-                    ),
-                    child: Column(
-                      children: [
-                        const Text('現在参加中のグループID', style: TextStyle(color: Colors.green)),
-                        Text(
-                          kCurrentGroupId!,
-                          style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, letterSpacing: 5),
-                        ),
-                        const SizedBox(height: 10),
-                        const Text('このIDをメンバーに教えてください'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  OutlinedButton(
-                    onPressed: _leaveGroup,
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                    child: const Text('グループから抜ける(一人モードに戻る)'),
-                  ),
-                ],
-              ],
-            ),
+      body: ListView(
+        children: [
+          // --- 既存の設定 ---
+          SwitchListTile(
+            title: const Text('職員・管理者向け機能を有効にする'),
+            subtitle: const Text('報告書作成や詳細な管理機能を表示します'),
+            value: _isStaffMode,
+            onChanged: _toggleStaffMode,
+          ),
+          
+          const Divider(),
+          
+          // --- ★デバッグ用エリア (開発中のみ表示してもOK) ---
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('【デバッグメニュー】', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+          
+          ListTile(
+            leading: const Icon(Icons.star, color: Colors.green),
+            title: const Text('最新の旅を「リーダー」として開く'),
+            subtitle: const Text('最後に作成されたTripの管理画面を表示'),
+            onTap: _openLatestTripAsLeader,
+          ),
+          
+          ListTile(
+            leading: const Icon(Icons.person, color: Colors.blue),
+            title: const Text('最新の旅を「メンバー」として開く'),
+            subtitle: const Text('最後に作成されたTripの参加者画面を表示'),
+            onTap: _openLatestTripAsMember,
+          ),
+        ],
+      ),
     );
   }
 }

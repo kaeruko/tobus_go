@@ -12,7 +12,9 @@ class TripService {
   // ---------------------------------------------------
   // 1. 旅を作成する (リーダー用)
   // ---------------------------------------------------
-  Future<String> createTrip(Candidate route, List<ScheduleItem> schedule) async {
+  // 1. 旅を作成する (リーダー用)
+  // ---------------------------------------------------
+  Future<String> createTrip(List<Candidate> routes, List<ScheduleItem> schedule) async {
     print('[DEBUG] TripService.createTrip called');
     final uid = _userService.currentUserId;
     print('[DEBUG] Current UID: $uid');
@@ -38,8 +40,10 @@ class TripService {
     final tripRef = _db.collection('trips').doc();
     print('[DEBUG] Generated tripRef ID: ${tripRef.id}');
 
-    // タイトルの自動生成
-    final destination = route.steps.isNotEmpty ? route.steps.last.to : "お出かけ";
+    // タイトルの自動生成 (行きの目的地を採用)
+    final destination = (routes.isNotEmpty && routes.first.steps.isNotEmpty)
+        ? routes.first.steps.last.to
+        : "お出かけ";
     final title = "$destination への遠足";
     print('[DEBUG] Generated title: $title');
 
@@ -50,7 +54,7 @@ class TripService {
       title: title,
       status: TripStatus.planning,
       date: DateTime.now(),
-      route: route,
+      routes: routes,
       schedule: schedule,
       participants: [leader],
     );
@@ -153,6 +157,7 @@ class TripService {
   // 5. お出かけを開始する (リーダー用)
   // ---------------------------------------------------
   Future<void> startTrip(String tripId) async {
+    print('[DEBUG] startTrip called for $tripId'); // ログ推奨
     await _db.collection('trips').doc(tripId).update({
       'status': TripStatus.active.name,
       'startedAt': FieldValue.serverTimestamp(),

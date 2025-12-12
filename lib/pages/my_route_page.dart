@@ -323,7 +323,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
       
       // 2. Trip作成 (Firestore保存)
       final tripService = TripService();
-      final tripId = await tripService.createTrip(route, schedule);
+      final tripId = await tripService.createTrip([route], schedule);
 
       if (!context.mounted) return;
 

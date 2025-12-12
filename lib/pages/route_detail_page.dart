@@ -277,7 +277,8 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
       print('[DEBUG] Initializing TripService...');
       final tripService = TripService();
       print('[DEBUG] Calling tripService.createTrip...');
-      final tripId = await tripService.createTrip(widget.candidate, schedule);
+      // １つのルートをリストにして渡す
+      final tripId = await tripService.createTrip([widget.candidate], schedule);
       print('[DEBUG] Trip created. ID: $tripId');
 
       if (!mounted) {

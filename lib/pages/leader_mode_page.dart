@@ -78,10 +78,29 @@ class _LeaderModePageState extends State<LeaderModePage> {
         if (!snapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
         final trip = snapshot.data!;
-        
-        // カウントダウン計算
+
+        // ★デバッグ用ログを追加
+        print("--- Debug Time Check ---");
+        print("Trip Date: ${trip.date}");
+        if (trip.schedule.isNotEmpty) {
+          print("Schedule Time String: ${trip.schedule.first.time}");
+        }
+
         final startTime = _getStartTime(trip);
         final now = DateTime.now();
+
+        print("Calculated StartTime: $startTime");
+        print("Current Time: $now");
+
+        if (startTime != null) {
+          print("Diff: ${startTime.difference(now).inMinutes} minutes");
+        }
+        print("------------------------");
+        
+        // カウントダウン計算
+        // final startTime = _getStartTime(trip); // ← moved up
+
+        // final now = DateTime.now(); // ← 削除 (上で定義済み)
         Duration? diff;
         if (startTime != null) {
           diff = startTime.difference(now);
