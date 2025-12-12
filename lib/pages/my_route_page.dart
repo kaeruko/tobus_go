@@ -9,7 +9,8 @@ import '../services/storage_service.dart';
 import '../services/trip_service.dart';
 import '../models/group_models.dart'; // createScheduleFromRoute用
 import 'leader_mode_page.dart';
-import 'package:flutter/material.dart' show showDialog, AlertDialog, TextButton, ElevatedButton, ScaffoldMessenger, SnackBar, MaterialPageRoute; // Materialの機能を使うため
+import 'package:flutter/material.dart' show showDialog, AlertDialog, TextButton, ElevatedButton, ScaffoldMessenger, SnackBar, MaterialPageRoute, showModalBottomSheet, ListTile, Icons, Colors, Icon; // Materialの機能を使うため
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MyRoutePage extends StatefulWidget {
   const MyRoutePage({super.key});
@@ -281,7 +282,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
                             },
                             // ▲▲▲ 修正箇所ここまで ▲▲▲
                             
-                            onLongPress: () => _showCreateTripDialog(context, c),
+                            onLongPress: () => _showGroupMenu(context, c),
                             child: RouteCard(candidate: c, rank: i + 1),
                           ),
                         );
@@ -332,8 +333,64 @@ class _MyRoutePageState extends State<MyRoutePage> {
         context,
         MaterialPageRoute(builder: (_) => LeaderModePage(tripId: tripId)),
       );
-    } catch (e) {
+      } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e')));
     }
+  }
+
+  void _showGroupMenu(BuildContext context, Candidate route) {
+    // 現在グループに参加中（リーダー含む）かどうかチェック
+    final isAlreadyInGroup = kCurrentGroupId != null;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // --- 分岐処理 ---
+              if (isAlreadyInGroup)
+                ListTile(
+                  leading: const Icon(Icons.cancel, color: Colors.red),
+                  title: const Text('現在のグループを解散する'),
+                  subtitle: const Text('作成中のグループを削除します'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    // 本当に消すか確認ダイアログを出してから実行
+                    // ここでは簡易的に直実行しますが、本来は確認推奨
+                    try {
+                      await TripService().cancelTrip(kCurrentGroupId!);
+                      
+                      // ローカルの状態もリセット
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.remove('groupId');
+                      setState(() {
+                        kCurrentGroupId = null; // 画面再描画
+                      });
+                      
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('グループを解散しました')));
+                      }
+                    } catch (e) {
+                      print(e);
+                    }
+                  },
+                )
+              else
+                ListTile(
+                  leading: const Icon(Icons.diversity_3, color: Colors.blue),
+                  title: const Text('このルートでグループを作成'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showCreateTripDialog(context, route);
+                  },
+                ),
+              // ----------------
+            ],
+          ),
+        );
+      },
+    );
   }
 }

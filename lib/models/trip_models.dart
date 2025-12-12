@@ -7,6 +7,7 @@ enum TripStatus {
   planning,  // 計画中
   active,    // 実施中
   completed, // 完了 (履歴)
+  cancelled, // ★追加: 中止
 }
 
 class Trip {

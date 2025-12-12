@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'dart:async'; // Timer用
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
+import 'schedule_page.dart'; // 追加
 
 class LeaderModePage extends StatefulWidget {
   final String tripId;
@@ -115,6 +116,21 @@ class _LeaderModePageState extends State<LeaderModePage> {
             title: const Text('引率モード'),
             backgroundColor: Colors.green,
             actions: [
+              IconButton( // スケジュールボタン
+                icon: const Icon(Icons.list_alt),
+                tooltip: 'スケジュール管理',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SchedulePage(
+                        isLeader: true,
+                        initialSchedule: trip.schedule,
+                      ),
+                    ),
+                  );
+                },
+              ),
               IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.pop(context),

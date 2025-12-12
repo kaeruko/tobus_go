@@ -174,4 +174,12 @@ class TripService {
       'endedAt': FieldValue.serverTimestamp(),
     });
   }
+
+  // グループを解散・中止する (リーダー用)
+  Future<void> cancelTrip(String tripId) async {
+    await _db.collection('trips').doc(tripId).update({
+      'status': 'cancelled',
+      'endedAt': FieldValue.serverTimestamp(), // 一応終わった時間は記録
+    });
+  }
 }

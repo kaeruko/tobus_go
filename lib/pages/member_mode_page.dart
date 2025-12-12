@@ -1,10 +1,10 @@
-// lib/pages/member_mode_page.dart
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart'; // Material for AlertDialog
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/global_state.dart';
-import '../models/group_models.dart';
-import '../services/group_service.dart';
+import '../models/trip_models.dart';
+import '../services/trip_service.dart';
+import '../models/group_models.dart'; // ScheduleItem用
 import 'root_tabs.dart'; // 通常モードに戻るため
 import 'schedule_page.dart'; // スケジュール画面
 
@@ -16,7 +16,7 @@ class MemberModePage extends StatefulWidget {
 }
 
 class _MemberModePageState extends State<MemberModePage> {
-  final _groupService = GroupService();
+  final _tripService = TripService();
 
   // グループを抜けて通常モードに戻る処理
   Future<void> _leaveGroup(BuildContext context) async {
@@ -68,11 +68,7 @@ class _MemberModePageState extends State<MemberModePage> {
             onPressed: () async {
               Navigator.pop(ctx);
               // SOS送信
-              await _groupService.sendSOS(
-                kCurrentGroupId!,
-                'member_user', // TODO: 実際のユーザーIDを使用
-                'メンバー',
-              );
+              await _tripService.sendSOS(kCurrentGroupId!);
 
               if (mounted) {
                 showCupertinoDialog(
@@ -95,6 +91,26 @@ class _MemberModePageState extends State<MemberModePage> {
       ),
     );
   }
+  
+  void _showCancelledDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // 枠外タップで閉じさせない
+      builder: (ctx) => AlertDialog(
+        title: const Text('お知らせ'),
+        content: const Text('ホストによりグループが解散されました。'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx); // ダイアログ閉じる
+              _leaveGroup(context); // 退出処理（データ削除＆ホームへ）
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -106,8 +122,8 @@ class _MemberModePageState extends State<MemberModePage> {
     }
 
     // StreamBuilderでFirestoreを常時監視
-    return StreamBuilder<DocumentSnapshot>(
-      stream: _groupService.streamGroup(kCurrentGroupId!),
+    return StreamBuilder<Trip>(
+      stream: _tripService.streamTrip(kCurrentGroupId!),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
            return const CupertinoPageScaffold(
@@ -116,28 +132,20 @@ class _MemberModePageState extends State<MemberModePage> {
            );
         }
 
-        // データが来たらスケジュールを更新
-        final data = snapshot.data!.data() as Map<String, dynamic>?;
-        
-        // ★修正: データがない場合(デバッグIDなど)は空のリストではなくダミーを表示するか、
-        // 少なくとも「データなし」エラーで止まらないようにする
-        final scheduleRaw = (data != null && data.containsKey('schedule')) 
-            ? data['schedule'] as List<dynamic>
-            : [];
-            
-        final schedule = scheduleRaw
-            .map((e) => ScheduleItem.fromJson(e as Map<String, dynamic>))
-            .toList();
+        final trip = snapshot.data!;
 
-        // スケジュールが空の場合のダミーデータ(デバッグ用)
-        if (schedule.isEmpty) {
-          schedule.add(ScheduleItem(
-            time: '10:00',
-            title: 'えんそく開始',
-            description: 'リーダーがスケジュールを作るとここに表示されます',
-            type: ScheduleType.meeting,
-          ));
+        // ★追加: 中止されていたら強制退去
+        if (trip.status == TripStatus.cancelled) {
+          // ビルド完了後にダイアログを出すためのハック
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              _showCancelledDialog(context);
+            }
+          });
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
+            
+        final schedule = trip.schedule;
 
         // 次のタスクを計算
         // 未完了の最初のものを探す、なければ最後のもの、それもなければデフォルト
