@@ -150,7 +150,17 @@ class TripService {
   }
 
   // ---------------------------------------------------
-  // 5. お出かけを終了する (リーダー用)
+  // 5. お出かけを開始する (リーダー用)
+  // ---------------------------------------------------
+  Future<void> startTrip(String tripId) async {
+    await _db.collection('trips').doc(tripId).update({
+      'status': TripStatus.active.name,
+      'startedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ---------------------------------------------------
+  // 6. お出かけを終了する (リーダー用)
   // ---------------------------------------------------
   Future<void> completeTrip(String tripId) async {
     // ステータスを完了にする

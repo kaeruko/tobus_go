@@ -15,6 +15,7 @@ class LeaderModePage extends StatefulWidget {
 
 class _LeaderModePageState extends State<LeaderModePage> {
   Timer? _timer;
+  bool _autoStartTriggered = false;
 
   @override
   void initState() {
@@ -29,6 +30,24 @@ class _LeaderModePageState extends State<LeaderModePage> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
+  }
+
+  void _triggerAutoStart(TripService tripService, Trip trip) {
+    if (_autoStartTriggered) return;
+
+    _autoStartTriggered = true;
+
+    Future.microtask(() async {
+      try {
+        await tripService.startTrip(trip.id);
+      } catch (e) {
+        if (!mounted) return;
+        _autoStartTriggered = false;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('自動開始に失敗しました: $e')),
+        );
+      }
+    });
   }
 
   // スケジュールの最初から開始時刻を計算するヘルパー
@@ -66,6 +85,10 @@ class _LeaderModePageState extends State<LeaderModePage> {
         Duration? diff;
         if (startTime != null) {
           diff = startTime.difference(now);
+        }
+
+        if (trip.status == TripStatus.planning && diff != null && diff.inSeconds <= 0) {
+          _triggerAutoStart(tripService, trip);
         }
 
         return Scaffold(
@@ -119,36 +142,19 @@ class _LeaderModePageState extends State<LeaderModePage> {
                               'あと ${diff.inHours}時間 ${diff.inMinutes % 60}分',
                               style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.green),
                             ),
+                            const SizedBox(height: 12),
+                            const Text('予定時刻になると自動で「移動中」に切り替わります',
+                                style: TextStyle(color: Colors.grey)),
                           ] else ...[
                             const Text(
                               '出発予定時刻になりました',
                               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.orange),
                             ),
+                            const SizedBox(height: 8),
+                            const Text('旅を開始しています...', style: TextStyle(color: Colors.grey)),
+                            const SizedBox(height: 12),
+                            const CircularProgressIndicator(),
                           ],
-                          
-                          const SizedBox(height: 20),
-
-                          // 出発ボタン
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              icon: const Icon(Icons.flag), // 旗アイコン
-                              label: const Text('お出かけを開始する'), // 文言変更
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                              onPressed: () async {
-                                // ステータスを active に更新
-                                // ※TripServiceに updateStatus がなければ追加が必要
-                                // await tripService.startTrip(trip.id); 
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text('※全員揃ったら押してください', style: TextStyle(fontSize: 12, color: Colors.grey)),
                         ],
                       )
                     : Container(
