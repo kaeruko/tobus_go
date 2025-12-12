@@ -93,9 +93,13 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
   }
 
   void _setDirection(LegDirection direction) {
-    setState(() {
-      _draftService.setRoute(direction, widget.candidate);
-    });
+    try {
+      setState(() {
+        _draftService.setRoute(direction, widget.candidate);
+      });
+    } on StateError catch (e) {
+      _showDuplicateRouteAlert(e.message ?? '行きと同じ経路は帰りに設定できません');
+    }
   }
 
   bool _isSelectedFor(LegDirection direction) {
@@ -107,6 +111,22 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
   String _routeLabel(Candidate? candidate) {
     if (candidate == null) return '未選択';
     return candidate.lines.join(' → ');
+  }
+
+  void _showDuplicateRouteAlert(String message) {
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('別の経路を選択してください'),
+        content: Text(message),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('OK'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showDirectionSelector() {
@@ -214,22 +234,63 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
               ],
             ),
             const SizedBox(height: 8),
+            if (_draftService.outbound != null) ...[
+              _selectedOutboundSummary(_draftService.outbound!),
+              const SizedBox(height: 10),
+            ],
             _directionRow('行き', _draftService.outbound, LegDirection.outbound),
             const SizedBox(height: 10),
             _directionRow('帰り', _draftService.inbound, LegDirection.inbound),
             const SizedBox(height: 12),
-            if (_draftService.isComplete)
-              CupertinoButton.filled(
-                onPressed: _showCreateTripDialog,
-                child: const Text('往復が揃ったのでグループを作成'),
-              )
-            else
-              const Text(
-                '帰りの経路を選ぶとグループ作成の導線が表示されます。',
-                style: TextStyle(color: CupertinoColors.systemGrey),
-              ),
+            CupertinoButton(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              onPressed: _startReturnSearch,
+              child: const Text('帰りを探す（出発地/到着地を入れ替え）'),
+            ),
+            const SizedBox(height: 12),
+            CupertinoButton.filled(
+              onPressed: _draftService.isComplete ? _showCreateTripDialog : null,
+              child: const Text('グループ作成'),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _draftService.isComplete
+                  ? '往復が揃いました。グループを作成できます。'
+                  : '帰りの経路を選ぶと作成できます',
+              style: const TextStyle(color: CupertinoColors.systemGrey),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _selectedOutboundSummary(Candidate candidate) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: CupertinoColors.systemGrey6,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '行きに設定中',
+            style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            candidate.lines.join(' → '),
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '所要時間 ${candidate.totalTime}分・乗換 ${candidate.transfers}回',
+            style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
+          ),
+        ],
       ),
     );
   }
@@ -271,7 +332,12 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
     );
   }
 
-  Future<void> _executeReSearch() async {
+  Future<void> _startReturnSearch() async {
+    if (widget.candidate.points.length < 2) return;
+    await _executeReSearch(reverse: true);
+  }
+
+  Future<void> _executeReSearch({bool reverse = false}) async {
     final original = widget.candidate;
     if (original.points.isEmpty) return;
 
@@ -299,8 +365,8 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
     );
 
     try {
-      final start = original.points.first;
-      final end = original.points.last;
+      final start = reverse ? original.points.last : original.points.first;
+      final end = reverse ? original.points.first : original.points.last;
 
       final params = {
         'alat': '${start.latitude}',
