@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math';
 import '../models/trip_models.dart';
-import '../models/route_models.dart'; // Candidateクラス用
 import '../models/group_models.dart'; // ScheduleItemクラス用
+import '../models/leg_models.dart';
 import 'user_service.dart'; // ユーザーID取得用
 
 class TripService {
@@ -14,7 +14,7 @@ class TripService {
   // ---------------------------------------------------
   // 1. 旅を作成する (リーダー用)
   // ---------------------------------------------------
-  Future<String> createTrip(List<Candidate> routes, List<ScheduleItem> schedule) async {
+  Future<String> createTrip(List<Leg> legs, List<ScheduleItem> schedule) async {
     print('[DEBUG] TripService.createTrip called');
     final uid = _userService.currentUserId;
     print('[DEBUG] Current UID: $uid');
@@ -41,8 +41,9 @@ class TripService {
     print('[DEBUG] Generated tripRef ID: ${tripRef.id}');
 
     // タイトルの自動生成 (行きの目的地を採用)
-    final destination = (routes.isNotEmpty && routes.first.steps.isNotEmpty)
-        ? routes.first.steps.last.to
+    final destination =
+        (legs.isNotEmpty && legs.first.candidate.steps.isNotEmpty)
+            ? legs.first.candidate.steps.last.to
         : "お出かけ";
     final title = "$destination への遠足";
     print('[DEBUG] Generated title: $title');
@@ -54,7 +55,7 @@ class TripService {
       title: title,
       status: TripStatus.planning,
       date: DateTime.now(),
-      routes: routes,
+      legs: legs,
       schedule: schedule,
       participants: [leader],
     );

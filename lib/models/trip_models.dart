@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'route_models.dart';
 import 'group_models.dart'; // ScheduleItemを利用
+import 'leg_models.dart';
 
 // 旅の状態
 enum TripStatus {
@@ -17,7 +18,7 @@ class Trip {
   final String title;       // 旅のタイトル (例: 上野公園へ遠足)
   final TripStatus status;
   final DateTime date;      // 実施日
-  final List<Candidate> routes; // 経路情報 (行き、帰り...)
+  final List<Leg> legs; // 経路情報 (行き、帰り...)
   final List<ScheduleItem> schedule; // しおり
   final List<Participant> participants; // 参加者リスト
 
@@ -28,7 +29,7 @@ class Trip {
     required this.title,
     required this.status,
     required this.date,
-    required this.routes,
+    required this.legs,
     required this.schedule,
     required this.participants,
   });
@@ -37,15 +38,30 @@ class Trip {
   factory Trip.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     
-    // 経路情報の復元 (新: routes, 旧: route 対応)
-    List<Candidate> loadedRoutes = [];
-    if (data['routes'] != null) {
-      loadedRoutes = (data['routes'] as List<dynamic>)
-          .map((e) => Candidate.fromJson(e as Map<String, dynamic>))
+    // 経路情報の復元 (新: legs, 旧: routes/route 対応)
+    List<Leg> loadedLegs = [];
+    if (data['legs'] != null) {
+      loadedLegs = (data['legs'] as List<dynamic>)
+          .map((e) => Leg.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } else if (data['routes'] != null) {
+      // routes 配列から direction 情報がない場合は unknown で補完
+      loadedLegs = (data['routes'] as List<dynamic>)
+          .map((e) => Leg(
+                direction: LegDirection.unknown,
+                status: LegStatus.confirmed,
+                candidate: Candidate.fromJson(e as Map<String, dynamic>),
+              ))
           .toList();
     } else if (data['route'] != null) {
-      // 旧データ互換
-      loadedRoutes = [Candidate.fromJson(data['route'] as Map<String, dynamic>)];
+      // 旧データ互換 (単一路線)
+      loadedLegs = [
+        Leg(
+          direction: LegDirection.unknown,
+          status: LegStatus.confirmed,
+          candidate: Candidate.fromJson(data['route'] as Map<String, dynamic>),
+        ),
+      ];
     }
 
     return Trip(
@@ -58,7 +74,7 @@ class Trip {
         orElse: () => TripStatus.planning,
       ),
       date: (data['date'] as Timestamp).toDate(),
-      routes: loadedRoutes,
+      legs: loadedLegs,
       // スケジュール配列の復元
       schedule: (data['schedule'] as List<dynamic>? ?? [])
           .map((e) => ScheduleItem.fromJson(e as Map<String, dynamic>))
@@ -79,7 +95,7 @@ class Trip {
       'status': status.name, // "planning" 等の文字列で保存
       'date': Timestamp.fromDate(date),
       // 軽量化のため points (ポリライン) は除外して保存
-      'routes': routes.map((e) => e.toJson(includePoints: false)).toList(),
+      'legs': legs.map((e) => e.toJson(includePoints: false)).toList(),
       'schedule': schedule.map((e) => e.toJson()).toList(),
       'participants': participants.map((e) => e.toJson()).toList(),
     };
