@@ -17,9 +17,20 @@ class TripDraft {
   Candidate? get outbound => _candidateFor(LegDirection.outbound);
   Candidate? get inbound => _candidateFor(LegDirection.inbound);
 
-  bool get isComplete => outbound != null && inbound != null;
+  bool get isComplete {
+    final ob = outbound;
+    final ib = inbound;
+    if (ob == null || ib == null) return false;
+    return ob.id != ib.id;
+  }
 
   void setLeg(LegDirection direction, Candidate route) {
+    final oppositeDirection =
+        direction == LegDirection.outbound ? LegDirection.inbound : LegDirection.outbound;
+    final oppositeCandidate = _candidateFor(oppositeDirection);
+    if (oppositeCandidate != null && oppositeCandidate.id == route.id) {
+      throw StateError('行きと同じ経路は帰りに設定できません');
+    }
     final existingIndex = legs.indexWhere((e) => e.direction == direction);
     final newLeg = LegDraft(direction: direction, candidate: route);
     if (existingIndex >= 0) {
