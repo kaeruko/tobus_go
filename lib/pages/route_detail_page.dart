@@ -6,6 +6,7 @@ import '../data/global_state.dart';
 import '../services/storage_service.dart';
 import '../widgets/timetable_view.dart';
 import '../models/group_models.dart';
+import '../models/leg_models.dart';
 import '../services/trip_draft_service.dart';
 import 'leader_mode_page.dart';
 import '../core/api_client.dart';
@@ -91,15 +92,15 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
     );
   }
 
-  void _setDirection(TripDirection direction) {
+  void _setDirection(LegDirection direction) {
     setState(() {
       _draftService.setRoute(direction, widget.candidate);
     });
   }
 
-  bool _isSelectedFor(TripDirection direction) {
+  bool _isSelectedFor(LegDirection direction) {
     final target =
-        direction == TripDirection.outbound ? _draftService.outbound : _draftService.inbound;
+        direction == LegDirection.outbound ? _draftService.outbound : _draftService.inbound;
     return target?.id == widget.candidate.id;
   }
 
@@ -117,18 +118,18 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(ctx);
-              _setDirection(TripDirection.outbound);
+              _setDirection(LegDirection.outbound);
             },
-            child: Text(_isSelectedFor(TripDirection.outbound)
+            child: Text(_isSelectedFor(LegDirection.outbound)
                 ? '行きに設定済み'
                 : '行きの経路に設定'),
           ),
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(ctx);
-              _setDirection(TripDirection.inbound);
+              _setDirection(LegDirection.inbound);
             },
-            child: Text(_isSelectedFor(TripDirection.inbound)
+            child: Text(_isSelectedFor(LegDirection.inbound)
                 ? '帰りに設定済み'
                 : '帰りの経路に設定'),
           ),
@@ -151,7 +152,7 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
     );
   }
 
-  Widget _directionRow(String label, Candidate? candidate, TripDirection direction) {
+  Widget _directionRow(String label, Candidate? candidate, LegDirection direction) {
     final isCurrent = _isSelectedFor(direction);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,9 +214,9 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
               ],
             ),
             const SizedBox(height: 8),
-            _directionRow('行き', _draftService.outbound, TripDirection.outbound),
+            _directionRow('行き', _draftService.outbound, LegDirection.outbound),
             const SizedBox(height: 10),
-            _directionRow('帰り', _draftService.inbound, TripDirection.inbound),
+            _directionRow('帰り', _draftService.inbound, LegDirection.inbound),
             const SizedBox(height: 12),
             if (_draftService.isComplete)
               CupertinoButton.filled(
