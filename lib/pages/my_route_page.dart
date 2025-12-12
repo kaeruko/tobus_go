@@ -63,9 +63,9 @@ class _MyRoutePageState extends State<MyRoutePage> {
     );
   }
 
-  Future<void> _reSearchRoute(Candidate original) async {
+  Future<void> _reSearchRoute(Candidate original, {bool reverse = false}) async {
     if (original.points.isEmpty) return;
-    
+
     setState(() => _loading = true);
 
     // 簡易的なローディング表示 
@@ -86,8 +86,8 @@ class _MyRoutePageState extends State<MyRoutePage> {
     );
 
     try {
-      final start = original.points.first;
-      final end = original.points.last;
+      final start = reverse ? original.points.last : original.points.first;
+      final end = reverse ? original.points.first : original.points.last;
       
       final params = {
         'alat': '${start.latitude}',
@@ -178,6 +178,36 @@ class _MyRoutePageState extends State<MyRoutePage> {
             child: const Text('OK'),
             onPressed: () => Navigator.pop(ctx),
           )
+        ],
+      ),
+    );
+  }
+
+  void _startReturnSearch(Candidate candidate) {
+    _reSearchRoute(candidate, reverse: true);
+  }
+
+  void _setRouteForDirection(LegDirection direction, Candidate route) {
+    try {
+      setState(() {
+        _draftService.setRoute(direction, route);
+      });
+    } on StateError catch (e) {
+      _showDuplicateError(e.message ?? '行きと同じ経路は帰りに設定できません');
+    }
+  }
+
+  void _showDuplicateError(String message) {
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('別の経路を選択してください'),
+        content: Text(message),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('OK'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
         ],
       ),
     );
@@ -283,9 +313,24 @@ class _MyRoutePageState extends State<MyRoutePage> {
                               );
                             },
                             // ▲▲▲ 修正箇所ここまで ▲▲▲
-                            
+
                             onLongPress: () => _showGroupMenu(context, c),
-                            child: RouteCard(candidate: c, rank: i + 1),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                RouteCard(candidate: c, rank: i + 1),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: CupertinoButton(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                    onPressed: () => _startReturnSearch(c),
+                                    child: const Text('帰りを探す（出発地/到着地を入れ替え）'),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -404,9 +449,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
                       title: const Text('行きの経路に設定'),
                       subtitle: Text(route.lines.join(' → ')),
                       onTap: () {
-                        setState(() {
-                          _draftService.setRoute(LegDirection.outbound, route);
-                        });
+                        _setRouteForDirection(LegDirection.outbound, route);
                         Navigator.pop(ctx);
                       },
                     ),
@@ -415,10 +458,17 @@ class _MyRoutePageState extends State<MyRoutePage> {
                       title: const Text('帰りの経路に設定'),
                       subtitle: Text(route.lines.join(' → ')),
                       onTap: () {
-                        setState(() {
-                          _draftService.setRoute(LegDirection.inbound, route);
-                        });
+                        _setRouteForDirection(LegDirection.inbound, route);
                         Navigator.pop(ctx);
+                      },
+                    ),
+                    ListTile(
+                      leading: Icon(Icons.swap_calls, color: Colors.orange.shade700),
+                      title: const Text('帰りを探す（出発地/到着地を入れ替え）'),
+                      subtitle: const Text('行きと逆方向で再検索します'),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _startReturnSearch(route);
                       },
                     ),
                     ListTile(
@@ -438,15 +488,15 @@ class _MyRoutePageState extends State<MyRoutePage> {
                         color:
                             _draftService.isComplete ? Colors.blue : Colors.grey,
                       ),
-                      title: const Text('往復が揃ったらグループ作成'),
-                      subtitle: Text(
-                        _draftService.isComplete
-                            ? '行き: ${_draftService.outbound?.lines.join(' → ')}\n帰り: ${_draftService.inbound?.lines.join(' → ')}'
-                            : 'まず行きと帰りの経路を両方選択してください',
-                      ),
-                      onTap: _draftService.isComplete
-                          ? () {
-                              Navigator.pop(ctx);
+                        title: const Text('往復が揃ったらグループ作成'),
+                        subtitle: Text(
+                          _draftService.isComplete
+                              ? '行き: ${_draftService.outbound?.lines.join(' → ')}\n帰り: ${_draftService.inbound?.lines.join(' → ')}'
+                              : '帰りの経路を選ぶと作成できます',
+                        ),
+                        onTap: _draftService.isComplete
+                            ? () {
+                                Navigator.pop(ctx);
                               _showCreateTripDialog(context);
                             }
                           : null,
