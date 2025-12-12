@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math';
 import '../models/trip_models.dart';
 import '../models/group_models.dart'; // ScheduleItemクラス用
+import '../models/leg_models.dart';
 import 'user_service.dart'; // ユーザーID取得用
 
 class TripService {
