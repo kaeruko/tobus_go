@@ -139,7 +139,12 @@ class _MyRoutePageState extends State<MyRoutePage> {
           final list = (result['candidates'] as List?)
               ?.map((e) => Candidate.fromJson(e as Map<String, dynamic>))
               .toList();
-          
+          RouteMeta? meta;
+          final metaJson = result['meta'];
+          if (metaJson is Map<String, dynamic>) {
+            meta = RouteMeta.fromJson(metaJson);
+          }
+
           if (!mounted) return;
           Navigator.of(context, rootNavigator: true).pop(); // ローディング閉じる
           setState(() => _loading = false);
@@ -153,6 +158,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
                 builder: (_) => RouteDetailPage(
                   candidate: list.first,
                   isReturnSelection: startReturnFlow,
+                  meta: meta,
                 ),
               ),
             );

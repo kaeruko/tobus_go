@@ -34,6 +34,7 @@ class _HomePageState extends State<HomePage> {
   Preference pref = Preference.fewTransfers;
   DateTime _startTime = DateTime.now();
   List<Candidate> candidates = [];
+  RouteMeta? _routeMeta;
 
   bool _loading = false;
 
@@ -180,6 +181,7 @@ class _HomePageState extends State<HomePage> {
           candidates = [];
           _loading = false;
           _hasSearched = false;
+          _routeMeta = null;
         });
       }
       _cancelPolling(); // 進行中のジョブがあれば止める
@@ -205,6 +207,7 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _loading = true;
       candidates = [];
+      _routeMeta = null;
     });
 
     try {
@@ -277,18 +280,24 @@ class _HomePageState extends State<HomePage> {
         print('[DEBUG] Job done. Full response: $j');
         final result = j['result'];
         print('[DEBUG] Result part: $result');
-        
+
         List<Candidate> list = const [];
+        RouteMeta? meta;
         if (result is Map<String, dynamic>) {
+          final metaJson = result['meta'];
+          if (metaJson is Map<String, dynamic>) {
+            meta = RouteMeta.fromJson(metaJson);
+          }
           list = _parseCandidatesFromJson(result);
         } else {
           print('[DEBUG] result is NOT a Map<String, dynamic>: ${result.runtimeType}');
         }
-        
+
         print('[DEBUG] Parsed candidates count: ${list.length}');
 
         setState(() {
           candidates = list;
+          _routeMeta = meta;
           _loading = false;
         });
         _polling = false;
@@ -298,6 +307,7 @@ class _HomePageState extends State<HomePage> {
       // error / unknown
       setState(() {
         _loading = false;
+        _routeMeta = null;
       });
       showCupertinoDialog(
         context: context,
@@ -317,6 +327,7 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
       setState(() {
         _loading = false;
+        _routeMeta = null;
       });
       showCupertinoDialog(
         context: context,
@@ -487,6 +498,14 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
 
+            if (_routeMeta?.destinationReachable == false)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: _FallbackNotice(meta: _routeMeta!),
+                ),
+              ),
+
             // 結果リスト
             if (_loading)
               SliverFillRemaining(
@@ -536,11 +555,11 @@ class _HomePageState extends State<HomePage> {
                         onTap: () {
                           Navigator.of(context).push(
                             CupertinoPageRoute(
-                              builder: (_) => RouteDetailPage(candidate: c),
+                              builder: (_) => RouteDetailPage(candidate: c, meta: _routeMeta),
                             ),
                           );
                         },
-                        child: RouteCard(candidate: c, rank: i + 1),
+                        child: RouteCard(candidate: c, rank: i + 1, meta: _routeMeta),
                       ),
                     );
                   },
@@ -608,5 +627,73 @@ class _HomePageState extends State<HomePage> {
     _polling = false;
     _routeJobId = null;
     super.dispose();
+  }
+}
+
+class _FallbackNotice extends StatelessWidget {
+  final RouteMeta meta;
+  const _FallbackNotice({required this.meta});
+
+  @override
+  Widget build(BuildContext context) {
+    final stopName = meta.fallbackNodeName ?? '最寄り停留所';
+    final walkMinutes = meta.fallbackWalkMinutes;
+    final distance = meta.fallbackDistanceM;
+    String walkText;
+    if (walkMinutes != null) {
+      walkText = '徒歩約${walkMinutes}分';
+    } else if (distance != null) {
+      final formatted = distance >= 1000
+          ? '${(distance / 1000).toStringAsFixed(1)}km'
+          : '${distance.toStringAsFixed(0)}m';
+      walkText = '徒歩${formatted}程度';
+    } else {
+      walkText = '徒歩圏内';
+    }
+
+    final limitText = meta.walkLimitM != null
+        ? '（徒歩上限${meta.walkLimitM}m内で探索）'
+        : '';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: CupertinoColors.systemYellow.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: CupertinoColors.systemYellow),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(CupertinoIcons.exclamationmark_triangle_fill,
+                  color: CupertinoColors.systemOrange),
+              SizedBox(width: 8),
+              Text(
+                '目的地までの都営経路が見つかりません',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: CupertinoColors.activeOrange,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '都営だけでは${meta.destinationLabel}の近くまで行けません。最寄りは「$stopName」で、ここから$walkText。',
+            style: const TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'それでもこの経路を使いますか？$limitText',
+            style: const TextStyle(
+              color: CupertinoColors.inactiveGray,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

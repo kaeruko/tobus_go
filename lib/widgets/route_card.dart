@@ -4,7 +4,8 @@ import '../models/route_models.dart';
 class RouteCard extends StatelessWidget {
   final Candidate candidate;
   final int rank;
-  const RouteCard({super.key, required this.candidate, required this.rank});
+  final RouteMeta? meta;
+  const RouteCard({super.key, required this.candidate, required this.rank, this.meta});
 
   String get _origin {
     // 最初のstepのfromを取得
@@ -19,6 +20,12 @@ class RouteCard extends StatelessWidget {
   }
 
   String get _destination {
+    if (meta?.destinationReachable == false) {
+      final stopName = meta?.fallbackNodeName ?? '最寄り停留所';
+      final walk = meta?.fallbackWalkMinutes;
+      final suffix = walk != null ? '（目的地まで徒歩約${walk}分）' : '';
+      return stopName + suffix;
+    }
     // 最後のstepのtoを取得
     if (candidate.destinationName != null && candidate.destinationName!.isNotEmpty) {
       return candidate.destinationName!;

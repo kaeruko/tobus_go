@@ -1,5 +1,37 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+class RouteMeta {
+  final bool destinationReachable;
+  final String destinationLabel;
+  final String? fallbackNodeName;
+  final double? fallbackDistanceM;
+  final int? walkLimitM;
+
+  RouteMeta({
+    required this.destinationReachable,
+    required this.destinationLabel,
+    this.fallbackNodeName,
+    this.fallbackDistanceM,
+    this.walkLimitM,
+  });
+
+  factory RouteMeta.fromJson(Map<String, dynamic> json) {
+    return RouteMeta(
+      destinationReachable: json['destination_reachable'] == true,
+      destinationLabel: json['destination_label']?.toString() ?? '目的地',
+      fallbackNodeName: json['fallback_node_name']?.toString(),
+      fallbackDistanceM: (json['fallback_distance_m'] as num?)?.toDouble(),
+      walkLimitM: (json['walk_limit_m'] as num?)?.toInt(),
+    );
+  }
+
+  int? get fallbackWalkMinutes {
+    if (fallbackDistanceM == null) return null;
+    // Assume about 80m per minute walking speed
+    return (fallbackDistanceM! / 80).ceil();
+  }
+}
+
 class Candidate {
   final String id;
   final List<String> lines;

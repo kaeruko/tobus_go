@@ -16,8 +16,9 @@ import '../widgets/bus_loading_indicator.dart';
 class RouteDetailPage extends StatefulWidget {
   final Candidate candidate;
   final bool isReturnSelection;
+  final RouteMeta? meta;
 
-  const RouteDetailPage({super.key, required this.candidate, this.isReturnSelection = false});
+  const RouteDetailPage({super.key, required this.candidate, this.isReturnSelection = false, this.meta});
 
   @override
   State<RouteDetailPage> createState() => _RouteDetailPageState();
@@ -343,6 +344,11 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
           final list = (result['candidates'] as List?)
               ?.map((e) => Candidate.fromJson(e as Map<String, dynamic>))
               .toList();
+          RouteMeta? meta;
+          final metaJson = result['meta'];
+          if (metaJson is Map<String, dynamic>) {
+            meta = RouteMeta.fromJson(metaJson);
+          }
           
           if (!mounted) return;
           Navigator.of(context, rootNavigator: true).pop(); // ローディング閉じる
@@ -354,6 +360,7 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
                 builder: (_) => RouteDetailPage(
                   candidate: list.first,
                   isReturnSelection: startReturnFlow,
+                  meta: meta,
                 ),
               ),
             );
@@ -495,7 +502,16 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
                 child: _FutureSuggestionAlert(date: widget.candidate.departureDate),
               ),
 
-            SliverToBoxAdapter(child: _EndpointSummary(candidate: widget.candidate)),
+            if (widget.meta?.destinationReachable == false)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: _FallbackDestinationNotice(meta: widget.meta!),
+                ),
+              ),
+
+            SliverToBoxAdapter(
+                child: _EndpointSummary(candidate: widget.candidate, meta: widget.meta)),
 
             SliverToBoxAdapter(child: RouteSummary(candidate: widget.candidate)),
 
@@ -566,7 +582,8 @@ class _FutureSuggestionAlert extends StatelessWidget {
 
 class _EndpointSummary extends StatelessWidget {
   final Candidate candidate;
-  const _EndpointSummary({required this.candidate});
+  final RouteMeta? meta;
+  const _EndpointSummary({required this.candidate, this.meta});
 
   String get _origin {
     if (candidate.originName != null && candidate.originName!.isNotEmpty) {
@@ -579,6 +596,12 @@ class _EndpointSummary extends StatelessWidget {
   }
 
   String get _destination {
+    if (meta?.destinationReachable == false) {
+      final stop = meta?.fallbackNodeName ?? '最寄り停留所';
+      final minutes = meta?.fallbackWalkMinutes;
+      final suffix = minutes != null ? '（目的地まで徒歩約${minutes}分）' : '';
+      return stop + suffix;
+    }
     if (candidate.destinationName != null && candidate.destinationName!.isNotEmpty) {
       return candidate.destinationName!;
     }
@@ -625,6 +648,56 @@ class _EndpointSummary extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FallbackDestinationNotice extends StatelessWidget {
+  final RouteMeta meta;
+  const _FallbackDestinationNotice({required this.meta});
+
+  @override
+  Widget build(BuildContext context) {
+    final stop = meta.fallbackNodeName ?? '最寄り停留所';
+    final minutes = meta.fallbackWalkMinutes;
+    final walkText = minutes != null
+        ? '徒歩約${minutes}分'
+        : (meta.fallbackDistanceM != null
+            ? '徒歩${meta.fallbackDistanceM!.toStringAsFixed(0)}m程度'
+            : '徒歩圏内');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: CupertinoColors.systemYellow.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: CupertinoColors.systemYellow),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(CupertinoIcons.exclamationmark_triangle_fill,
+                  color: CupertinoColors.systemOrange),
+              SizedBox(width: 8),
+              Text(
+                '目的地付近までの経路のみ表示しています',
+                style: TextStyle(
+                  color: CupertinoColors.activeOrange,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '都営だけでは${meta.destinationLabel}に到達できません。最寄りは「$stop」で、ここから$walkTextです。',
+            style: const TextStyle(fontSize: 14),
+          ),
+        ],
+      ),
     );
   }
 }
