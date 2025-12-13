@@ -610,7 +610,6 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
 
             SliverToBoxAdapter(child: RouteSummary(candidate: widget.candidate)),
 
-            SliverToBoxAdapter(child: _roundTripComposer()),
 
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
@@ -635,6 +634,10 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
                 ),
               ),
             ),
+            
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(child: _roundTripComposer()),
+            const SliverToBoxAdapter(child: SizedBox(height: 48)),
           ],
         ),
       ),
