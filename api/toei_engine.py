@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# toei_reach_final_v2.py
+# toei_engine.py
 
 import json, argparse, math, sys, heapq, bisect, datetime
 import csv, os, glob
@@ -752,7 +752,7 @@ def path_to_coords(G, path):
 
 
 # -------------------- 統合検索ロジック --------------------
-def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None):
+def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None):
     """
     日付を指定して検索し、結果が0件なら翌日以降も探すラッパー
     """
@@ -775,31 +775,25 @@ def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time
     
     print(f"[DEBUG] search_best_routes_with_retry: Start from {start_dt}")
 
-    for day_offset in range(1): # 今日含めて4日間トライ
-        target_date = start_dt + datetime.timedelta(days=day_offset)
-        print(f"[DEBUG] Trying date: {target_date.date()} (offset={day_offset})")
+    target_date = start_dt + datetime.timedelta(days=day_offset)
+    print(f"[DEBUG] Trying date: {target_date.date()} (offset={day_offset})")
         
-        # 2日目以降は、時刻を維持するか、始発にするか？
-        # ユーザーの要望は「次に使える経路」なので、同じ時刻で良いはず
-        # ただし、夜遅く(25:00とか)の場合は日付の扱いが難しいが、ここではシンプルに
-        # 「指定時刻」で検索する
-        
-        current_time_str = start_time
-        
-        # 検索実行
-        candidates = search_best_routes(G, tm, a_phys, b_phys, mode, current_time_str, limit, target_date, target_node=target_node)
-        
-        if candidates:
-            # 見つかった！
-            # 結果に日付情報を付与
-            for cand in candidates:
-                cand["departure_date"] = target_date.strftime("%Y-%m-%d")
-                cand["is_future_suggestion"] = (day_offset > 0)
-            return candidates
+    current_time_str = start_time
+    
+    # 検索実行
+    candidates = search_best_routes(G, tm, a_phys, b_phys, mode, current_time_str, limit, target_date, target_node=target_node, day_type=day_type)
+    
+    if candidates:
+        # 見つかった！
+        # 結果に日付情報を付与
+        for cand in candidates:
+            cand["departure_date"] = target_date.strftime("%Y-%m-%d")
+            cand["is_future_suggestion"] = (day_offset > 0)
+        return candidates
 
     return []
 
-def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None):
+def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None, day_type=None):
     """
     ServerとCLI共通のエントリーポイント。
     経路探索 -> 時刻表バリデーション -> セグメント化 -> 結果辞書のリスト作成 までを一気通貫で行う。
@@ -809,14 +803,14 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
     
     # 平日判定 (0-4: 月-金, 5-6: 土日)
     # 平日判定 (0-4: 月-金, 5-6: 土日) - AND NOW HOLIDAY SUPPORT
-    # is_weekday = target_date.weekday() < 5
-    wd = target_date.weekday()
-    if wd == 5:
-        day_type = "saturday"
-    elif wd == 6:
-        day_type = "holiday"
-    else:
-        day_type = "weekday"
+    if day_type is None:
+        wd = target_date.weekday()
+        if wd == 5:
+            day_type = "saturday"
+        elif wd == 6:
+            day_type = "holiday"
+        else:
+            day_type = "weekday"
     
     # NOTE: Holidays on weekdays are not supported yet (needs holiday lib)
     target = target_node or b_phys
@@ -1251,7 +1245,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             segs.append(cur)
             cur = None
 
-    for u, v in zip(path, path[1:]):
+    for i, (u, v) in enumerate(zip(path, path[1:])):
         edge = G.edges[u, v]
         etype = edge.get("etype")
         if u[0] == "phys": last_phys = u
@@ -1297,8 +1291,19 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 route_id = G.nodes[v].get("route_id") # ODPT Route ID (or internal)
                 stop_name = G.nodes[u].get("name")
                 
+                # Lookahead for target_pole_id
+                target_pid = None
+                if v[0] == "line":
+                     for j in range(i + 1, len(path) - 1):
+                        u2 = path[j]
+                        v2 = path[j+1]
+                        e2 = G.edges[u2, v2]
+                        if e2.get("etype") == "alight":
+                            target_pid = v2[1]
+                            break
+
                 # Update Time
-                dep = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=stop_name, day_type=day_type)
+                dep = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=stop_name, day_type=day_type, target_pole_id=target_pid)
 
                 if "Ue23" in route_id:
                      print(f"[DEBUG TRACE] Boarding Ue23 at {stop_name} ({phys_id}): curr={min_to_time_str(curr_time)}, result={min_to_time_str(dep) if dep else 'None'}")

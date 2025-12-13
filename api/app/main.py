@@ -212,9 +212,7 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
 
     # A/B地点の特定
     a_phys, ad = nearest_phys(G, alat, alon, station_only=False)
-    b_phys, bd = nearest_phys(G, blat, blon, station_only=True)
-    if not b_phys or bd > 500:
-        b_phys, bd = nearest_phys(G, blat, blon, station_only=False)
+    b_phys, bd = nearest_phys(G, blat, blon, station_only=False)
 
     if not a_phys or not b_phys:
         return {"error": "Nearby stations/busstops not found", "candidates": []}
@@ -233,43 +231,22 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
     day_type = determine_day_type(date_str)
     print(f"[JOB] Search {pref} from {start_time}, date={date_str}, day_type={day_type}")
 
-    # ★変更点: 共通関数を一発呼ぶだけ！
-    # toei_engine.py で実装した search_best_routes を使う
-    # ★変更: リトライ付き検索を使用
-    target_node = dest_node if destination_reachable else b_phys
-    target_graph = virtual_graph if destination_reachable else G
-    results = search_best_routes_with_retry(
-        target_graph,
-        TM,
-        a_phys,
-        b_phys,
-        mode=pref, # pref_mode を pref に修正
-        start_time=start_time, # time_str を start_time に修正
-        target_date_str=date_str,  # 日付を渡す
-        limit=5,
-        target_node=target_node,
-    )
-
-    if not results and destination_reachable:
-        print(
-            f"[DEBUG_DEST] Virtual destination search produced no candidates. Fallback to nearest node {b_phys}."
-        )
-        destination_reachable = False
-        target_node = b_phys
-        target_graph = G
+    results = []
+    if destination_reachable:
         results = search_best_routes_with_retry(
-            target_graph,
+            virtual_graph,
             TM,
             a_phys,
             b_phys,
-            mode=pref,
-            start_time=start_time,
-            target_date_str=date_str,
+            mode=pref, # pref_mode を pref に修正
+            start_time=start_time, # time_str を start_time に修正
+            target_date_str=date_str,  # 日付を渡す
             limit=5,
-            target_node=target_node,
+            target_node=dest_node,
+            day_type=day_type,
         )
-    else:
-        for cand in results:
+
+    for cand in results:
             steps = cand.get("steps") or []
             if not steps:
                 continue
