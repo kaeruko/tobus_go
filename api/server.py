@@ -17,7 +17,7 @@ from toei_engine import (
     build_graph, nearest_phys, haversine,
     TimetableManager,
     search_best_routes,
-    search_best_routes_with_retry, # <--- 追加
+    search_best_routes_once,
     add_virtual_destination_node,
     time_str_to_min, min_to_time_str,
     MAX_WALK_SEG_M
@@ -185,7 +185,7 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
     # ★変更: リトライ付き検索を使用
     target_node = dest_node if destination_reachable else b_phys
     target_graph = virtual_graph if destination_reachable else G
-    results = search_best_routes_with_retry(
+    results = search_best_routes_once(
         target_graph,
         TM,
         a_phys,
@@ -204,7 +204,7 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
         destination_reachable = False
         target_node = b_phys
         target_graph = G
-        results = search_best_routes_with_retry(
+        results = search_best_routes_once(
             target_graph,
             TM,
             a_phys,
@@ -226,6 +226,10 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
                 f"[DEBUG_DEST] Candidate {cand.get('id')} last_kind={last.get('kind')} "
                 f"to={last.get('to')} meters={meters}"
             )
+            
+    for cand in results:
+        cand["origin_coords"] = [alat, alon]
+        cand["destination_coords"] = [blat, blon]
 
     fallback_distance_m = None
     fallback_node_name = None

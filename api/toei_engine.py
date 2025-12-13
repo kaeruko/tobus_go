@@ -1235,7 +1235,10 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 if cur.get("meters", 0) <= 0 or cur.get("from_") == cur.get("to"):
                     cur = None
                     return
-                cur["minutes"] = max(1, int(cur.get("meters", 0) / WALK_SPEED_M_PER_MIN))
+                cur["minutes"] = max(
+                    1,
+                    math.ceil(cur.get("meters", 0) / WALK_SPEED_M_PER_MIN)
+                )
             elif cur["kind"] in ("bus", "rail"):
                 if cur.get("arrival_time"):
                     dep_min = time_str_to_min(cur.get("departure_time"))

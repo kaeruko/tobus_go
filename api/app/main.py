@@ -265,6 +265,9 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
         )
 
     for cand in results:
+        cand["origin_coords"] = [alat, alon]
+        cand["destination_coords"] = [blat, blon]
+        
         steps = cand.get("steps") or []
         if not steps:
             continue

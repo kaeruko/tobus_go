@@ -54,6 +54,8 @@ class RouteDetailPage extends StatefulWidget {
 class _RouteDetailPageState extends State<RouteDetailPage> {
   // 再検索用の日時
   DateTime _searchTime = DateTime.now();
+  // 帰り検索用の日時 (デフォルトは現在時刻だが、ユーザー操作で変更可能)
+  DateTime _returnSearchTime = DateTime.now();
   final TripDraftService _draftService = TripDraftService();
 
   bool get _isReturnSelection => widget.isReturnSelection;
@@ -170,47 +172,46 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _isReturnSelection ? '帰りの経路を決める' : '往復の経路を決める',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
             if (_isReturnSelection && outbound != null) ...[
               _selectedOutboundSummary(outbound),
               const SizedBox(height: 12),
             ],
             if (_isReturnSelection) ...[
-              CupertinoButton.filled(
-                onPressed: () => _setDirection(LegDirection.inbound),
-                child: const Text('この経路を帰りに設定'),
-              ),
-              const SizedBox(height: 12),
-              CupertinoButton.filled(
-                onPressed: _draftService.isComplete ? _showCreateTripDialog : null,
-                child: const Text('グループ作成'),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _draftService.isComplete
-                    ? '往復が揃いました。グループを作成できます。'
-                    : '帰りの経路を選ぶと作成できます',
-                style: const TextStyle(color: CupertinoColors.systemGrey),
+              SizedBox(
+                width: double.infinity,
+                child: CupertinoButton(
+                  onPressed: () {
+                    _setDirection(LegDirection.inbound);
+                    if (_draftService.isComplete) {
+                      _showCreateTripDialog();
+                    }
+                  },
+                  child: const Text('グループ作成', style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.underline,
+                  )),
+                ),
               ),
             ] else ...[
-              CupertinoButton(
+              // 時刻選択行を追加
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                   const Text('出発時刻', style: TextStyle(color: CupertinoColors.systemGrey)),
+                   CupertinoButton(
+                     padding: EdgeInsets.zero,
+                     child: Text(
+                       '${_returnSearchTime.month}/${_returnSearchTime.day} ${_returnSearchTime.hour.toString().padLeft(2, '0')}:${_returnSearchTime.minute.toString().padLeft(2, '0')}',
+                       style: const TextStyle(fontSize: 16),
+                     ),
+                     onPressed: _showReturnTimePicker,
+                   )
+                ],
+              ),
+               CupertinoButton(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 onPressed: _startReturnSearch,
                 child: const Text('帰りを探す（出発地/到着地を入れ替え）'),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                '帰りの経路を選ぶと作成できます',
-                style: TextStyle(color: CupertinoColors.systemGrey),
               ),
             ],
           ],
@@ -230,10 +231,6 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '行きに設定中',
-            style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
-          ),
           const SizedBox(height: 4),
           Text(
             candidate.lines.join(' → '),
@@ -286,16 +283,57 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
     );
   }
 
+  void _showReturnTimePicker() {
+    // 初期値は現在あるいは保持している値
+    if (_returnSearchTime.isBefore(DateTime.now())) {
+       _returnSearchTime = DateTime.now();
+    }
+    showCupertinoModalPopup(
+      context: context,
+      builder: (ctx) => Container(
+        height: 280,
+        color: CupertinoColors.systemBackground,
+        child: Column(
+          children: [
+            Container(
+              alignment: Alignment.centerRight,
+              child: CupertinoButton(
+                child: const Text('決定'),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  // 画面更新して時刻を表示に反映
+                  setState(() {});
+                },
+              ),
+            ),
+            SizedBox(
+              height: 200,
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.dateAndTime,
+                initialDateTime: _returnSearchTime,
+                use24hFormat: true,
+                onDateTimeChanged: (val) {
+                  _returnSearchTime = val;
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _startReturnSearch() async {
     if (widget.candidate.points.length < 2) return;
     setState(() {
       _draftService.reset();
       _draftService.setRoute(LegDirection.outbound, widget.candidate);
     });
-    await _executeReSearch(reverse: true, startReturnFlow: true);
+    // 帰りの検索は _returnSearchTime を使用
+    await _executeReSearch(reverse: true, startReturnFlow: true, overrideTime: _returnSearchTime);
   }
 
-  Future<void> _executeReSearch({bool reverse = false, bool startReturnFlow = false}) async {
+  Future<void> _executeReSearch({bool reverse = false, bool startReturnFlow = false, DateTime? overrideTime}) async {
     final original = widget.candidate;
     if (original.points.isEmpty) return;
 
@@ -326,19 +364,24 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
     );
 
     try {
-      final start = reverse ? original.points.last : original.points.first;
-      final end = reverse ? original.points.first : original.points.last;
+      final start = reverse
+          ? (original.destinationCoords ?? original.points.last)
+          : (original.originCoords ?? original.points.first);
+      final end = reverse
+          ? (original.originCoords ?? original.points.first)
+          : (original.destinationCoords ?? original.points.last);
 
       print('[DEBUG] startReturnFlow=$startReturnFlow reverse=$reverse fromDesc=$originLabel toDesc=$destinationLabel fromCoord=${start.latitude},${start.longitude} toCoord=${end.latitude},${end.longitude}');
 
+      final targetTime = overrideTime ?? _searchTime;
       final params = {
         'alat': '${start.latitude}',
         'alon': '${start.longitude}',
         'blat': '${end.latitude}',
         'blon': '${end.longitude}',
         'pref': original.preference ?? 'fewTransfers',
-        'time': '${_searchTime.hour.toString().padLeft(2, '0')}:${_searchTime.minute.toString().padLeft(2, '0')}',
-        'date': '${_searchTime.year}-${_searchTime.month.toString().padLeft(2, '0')}-${_searchTime.day.toString().padLeft(2, '0')}',
+        'time': '${targetTime.hour.toString().padLeft(2, '0')}:${targetTime.minute.toString().padLeft(2, '0')}',
+        'date': '${targetTime.year}-${targetTime.month.toString().padLeft(2, '0')}-${targetTime.day.toString().padLeft(2, '0')}',
       };
 
       final j = await ApiClient.post('/route', body: params);

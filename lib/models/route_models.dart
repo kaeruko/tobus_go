@@ -48,6 +48,8 @@ class Candidate {
   final String? preference;
   final DateTime? departureDate;
   final bool isFutureSuggestion;
+  final LatLng? originCoords;
+  final LatLng? destinationCoords;
 
   Candidate({
     required this.id,
@@ -65,6 +67,8 @@ class Candidate {
     this.preference,
     this.departureDate,
     this.isFutureSuggestion = false,
+    this.originCoords,
+    this.destinationCoords,
   });
 
   factory Candidate.fromJson(Map<String, dynamic> j) {
@@ -91,6 +95,12 @@ class Candidate {
           ? DateTime.tryParse(j['departure_date'])
           : null,
       isFutureSuggestion: j['is_future_suggestion'] == true,
+      originCoords: (j['origin_coords'] is List && j['origin_coords'].length >= 2)
+          ? LatLng((j['origin_coords'][0] as num).toDouble(), (j['origin_coords'][1] as num).toDouble())
+          : null,
+      destinationCoords: (j['destination_coords'] is List && j['destination_coords'].length >= 2)
+          ? LatLng((j['destination_coords'][0] as num).toDouble(), (j['destination_coords'][1] as num).toDouble())
+          : null,
     );
   }
 
@@ -126,6 +136,8 @@ class Candidate {
       'preference': preference,
       'departure_date': departureDate?.toIso8601String(),
       'is_future_suggestion': isFutureSuggestion,
+      'origin_coords': originCoords != null ? [originCoords!.latitude, originCoords!.longitude] : null,
+      'destination_coords': destinationCoords != null ? [destinationCoords!.latitude, destinationCoords!.longitude] : null,
     };
   }
 }
@@ -190,15 +202,6 @@ class StepSeg {
   String get mainTitle => kind == 'walk' ? '徒歩' : title;
   String? get subTitle {
     if (from != null && to != null) {
-      if (kind == 'walk') {
-        String extra = '';
-        if (minutes != null) {
-          extra = '（約$minutes分）';
-        } else if (meters != null) {
-          extra = '（約${meters}m）';
-        }
-        return '$from → $to$extra';
-      }
       return '$from → $to';
     }
     if (kind == 'walk') {

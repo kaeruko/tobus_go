@@ -355,16 +355,6 @@ class _MyRoutePageState extends State<MyRoutePage> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 RouteCard(candidate: c, rank: i + 1),
-                                const SizedBox(height: 8),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: CupertinoButton(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 8),
-                                    onPressed: () => _startReturnSearch(c),
-                                    child: const Text('帰りを探す（出発地/到着地を入れ替え）'),
-                                  ),
-                                ),
                               ],
                             ),
                           ),
