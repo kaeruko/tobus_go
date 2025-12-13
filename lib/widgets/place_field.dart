@@ -78,6 +78,10 @@ class _PlaceFieldState extends State<PlaceField> {
         res?['name']?.toString() ??
         widget.label;
 
+    print(
+      '[DEBUG] PlaceField onPicked label=${widget.label}, placeId=$placeId, desc=$desc, lat=$lat, lon=$lon',
+    );
+
     // ここで onChanged が走らないようにする
     _suppressChange = true;
     _ctrl.text = desc;
