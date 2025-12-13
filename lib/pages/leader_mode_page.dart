@@ -124,6 +124,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => SchedulePage(
+                        tripId: trip.id,
                         isLeader: true,
                         initialSchedule: trip.schedule,
                       ),

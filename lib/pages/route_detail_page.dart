@@ -57,6 +57,9 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
   // 帰り検索用の日時 (デフォルトは現在時刻だが、ユーザー操作で変更可能)
   DateTime _returnSearchTime = DateTime.now();
   final TripDraftService _draftService = TripDraftService();
+  
+  // 帰り検索フォームの表示フラグ
+  bool _isReturnSearchVisible = false;
 
   bool get _isReturnSelection => widget.isReturnSelection;
 
@@ -193,26 +196,101 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
                 ),
               ),
             ] else ...[
-              // 時刻選択行を追加
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                   const Text('出発時刻', style: TextStyle(color: CupertinoColors.systemGrey)),
-                   CupertinoButton(
-                     padding: EdgeInsets.zero,
-                     child: Text(
-                       '${_returnSearchTime.month}/${_returnSearchTime.day} ${_returnSearchTime.hour.toString().padLeft(2, '0')}:${_returnSearchTime.minute.toString().padLeft(2, '0')}',
-                       style: const TextStyle(fontSize: 16),
-                     ),
-                     onPressed: _showReturnTimePicker,
-                   )
-                ],
-              ),
-               CupertinoButton(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                onPressed: _startReturnSearch,
-                child: const Text('帰りを探す（出発地/到着地を入れ替え）'),
-              ),
+              // 帰り検索フォーム（初期状態は隠す）
+              if (!_isReturnSearchVisible)
+                Center(
+                  child: CupertinoButton(
+                    onPressed: () {
+                      setState(() {
+                        _isReturnSearchVisible = true;
+                      });
+                    },
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    color: CupertinoColors.activeBlue,
+                    borderRadius: BorderRadius.circular(24),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(CupertinoIcons.arrow_2_circlepath, color: CupertinoColors.white, size: 20),
+                        SizedBox(width: 8),
+                        Text('帰りも検索する', style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                )
+              else ...[
+                // 閉じるボタンを行の右端に配置
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('帰りの出発時刻', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      minSize: 0,
+                      child: const Icon(CupertinoIcons.xmark_circle_fill, color: CupertinoColors.systemGrey),
+                      onPressed: () {
+                        setState(() {
+                          _isReturnSearchVisible = false;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // 経路反転の表示
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.systemGrey6,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(CupertinoIcons.arrow_swap, color: CupertinoColors.systemGrey, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${_destinationLabel(widget.candidate)} → ${_originLabel(widget.candidate)}',
+                          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // 時刻選択行
+                GestureDetector(
+                  onTap: _showReturnTimePicker,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: CupertinoColors.systemBackground,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: CupertinoColors.systemGrey4),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                         const Text('出発時刻', style: TextStyle(color: CupertinoColors.label)),
+                         Text(
+                           '${_returnSearchTime.month}/${_returnSearchTime.day} ${_returnSearchTime.hour.toString().padLeft(2, '0')}:${_returnSearchTime.minute.toString().padLeft(2, '0')}',
+                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: CupertinoColors.activeBlue),
+                         ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: CupertinoButton.filled(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    onPressed: _startReturnSearch,
+                    child: const Text('この条件で検索', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
             ],
           ],
         ),
@@ -610,7 +688,6 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
 
             SliverToBoxAdapter(child: RouteSummary(candidate: widget.candidate)),
 
-
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
             SliverToBoxAdapter(child: RouteMapPreview(points: widget.candidate.points)),
@@ -634,8 +711,6 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
                 ),
               ),
             ),
-            
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
             SliverToBoxAdapter(child: _roundTripComposer()),
             const SliverToBoxAdapter(child: SizedBox(height: 48)),
           ],

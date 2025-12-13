@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import '../models/group_models.dart';
+import '../services/trip_service.dart'; // 保存用にインポート
 
 class SchedulePage extends StatefulWidget {
-  final bool isLeader; // リーダーならタップして完了にできる
+  final String tripId; // ★保存に必要なので追加
+  final bool isLeader;
   final List<ScheduleItem> initialSchedule;
 
   const SchedulePage({
     super.key,
+    required this.tripId, // ★追加
     required this.isLeader,
     required this.initialSchedule,
   });
@@ -17,27 +20,22 @@ class SchedulePage extends StatefulWidget {
 
 class _SchedulePageState extends State<SchedulePage> {
   late List<ScheduleItem> _schedule;
-  
-  // 自動スクロールのために、各行に「目印（Key）」をつける
   final Map<int, GlobalKey> _itemKeys = {};
+  final TripService _tripService = TripService(); // サービスインスタンス
 
   @override
   void initState() {
     super.initState();
-    _schedule = widget.initialSchedule;
-
-    // 画面の描画が終わった直後に、自動スクロールを実行
+    // リストをコピーして変更可能にする
+    _schedule = List.from(widget.initialSchedule);
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToCurrentTask();
     });
   }
 
-  // 「今のタスク」の場所までスクロールする
   void _scrollToCurrentTask() {
-    // 完了していない最初のタスクを探す
     int currentIndex = _schedule.indexWhere((item) => !item.isCompleted);
-    
-    // 全部完了していたら最後尾へ、見つからなければ何もしない
     if (currentIndex == -1 && _schedule.isNotEmpty) {
       currentIndex = _schedule.length - 1;
     } else if (currentIndex == -1) {
@@ -45,27 +43,117 @@ class _SchedulePageState extends State<SchedulePage> {
     }
 
     final key = _itemKeys[currentIndex];
-    // そのキーの場所までスクロール
     if (key?.currentContext != null) {
       Scrollable.ensureVisible(
         key!.currentContext!,
-        duration: const Duration(milliseconds: 600), // 0.6秒かけて移動
+        duration: const Duration(milliseconds: 600),
         curve: Curves.easeInOut,
-        alignment: 0.5, // 画面の真ん中に持ってくる（0.0なら上端、1.0なら下端）
+        alignment: 0.5,
       );
     }
   }
 
+  // ★ スケジュール追加・保存処理
+  Future<void> _addScheduleItem(String time, String title, String desc) async {
+    final newItem = ScheduleItem(
+      time: time,
+      title: title,
+      description: desc,
+      isCompleted: false,
+    );
+
+    setState(() {
+      _schedule.add(newItem);
+      // 時刻順にソート (HH:MM 文字列比較でOK)
+      _schedule.sort((a, b) => a.time.compareTo(b.time));
+    });
+
+    // Firestore保存
+    await _tripService.updateSchedule(widget.tripId, _schedule);
+  }
+
+  // ★ スケジュール削除・保存処理
+  Future<void> _deleteScheduleItem(int index) async {
+    setState(() {
+      _schedule.removeAt(index);
+    });
+    // Firestore保存
+    await _tripService.updateSchedule(widget.tripId, _schedule);
+  }
+
+  // ★ 追加ダイアログの表示
+  void _showAddDialog() {
+    String time = "${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}";
+    String title = "";
+    String desc = "";
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text("予定を追加"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 時刻選択
+                ListTile(
+                  title: Text("時刻: $time"),
+                  trailing: const Icon(Icons.access_time),
+                  onTap: () async {
+                    final t = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay.now(),
+                    );
+                    if (t != null) {
+                      // ダイアログ内の再描画が必要なためStatefulBuilderを使うか、
+                      // 簡易的にNavigatorを閉じて再表示する手もあるが、
+                      // ここでは簡易実装として変数を更新するだけにしておく（本来はState管理が必要）
+                      // ※ 厳密にやるならこのDialog自体をStatefulWidgetにするのがベスト
+                      time = "${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}";
+                      (ctx as Element).markNeedsBuild(); // 強制再描画(荒技)
+                    }
+                  },
+                ),
+                TextField(
+                  decoration: const InputDecoration(labelText: "タイトル (例: 昼食)"),
+                  onChanged: (v) => title = v,
+                ),
+                TextField(
+                  decoration: const InputDecoration(labelText: "詳細 (任意)"),
+                  onChanged: (v) => desc = v,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("キャンセル"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (title.isNotEmpty) {
+                  _addScheduleItem(time, title, desc);
+                  Navigator.pop(ctx);
+                }
+              },
+              child: const Text("追加"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 現在のタスク（未完了の先頭）のインデックス
     int currentIndex = _schedule.indexWhere((item) => !item.isCompleted);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('スケジュール'),
         actions: [
-          // 「今ここ」ボタン（手動で戻れるように）
           IconButton(
             icon: const Icon(Icons.center_focus_strong),
             tooltip: '現在地へ移動',
@@ -73,27 +161,31 @@ class _SchedulePageState extends State<SchedulePage> {
           ),
         ],
       ),
+      // ★ リーダーの場合のみ追加ボタンを表示
+      floatingActionButton: widget.isLeader
+          ? FloatingActionButton.extended(
+              onPressed: _showAddDialog,
+              icon: const Icon(Icons.add),
+              label: const Text("予定を追加"),
+              backgroundColor: Colors.orange,
+            )
+          : null,
+      
       body: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 80), // FABとかぶらないように下を空ける
         itemCount: _schedule.length,
         itemBuilder: (context, index) {
           final item = _schedule[index];
-          
-          // 今のタスクかどうか
           final isCurrent = (index == currentIndex);
-          
-          // 完了済みかどうか
           final isDone = item.isCompleted;
 
-          // Keyを生成して登録
           if (!_itemKeys.containsKey(index)) {
             _itemKeys[index] = GlobalKey();
           }
 
-          return Card(
-            key: _itemKeys[index], // ここにKeyをセット
-            
-            // ★見た目の工夫: 現在地なら色と枠線をつける
+          // カードの中身
+          final cardContent = Card(
+            key: _itemKeys[index],
             elevation: isCurrent ? 4 : 1,
             color: isCurrent ? Colors.orange.shade50 : (isDone ? Colors.grey.shade100 : Colors.white),
             shape: isCurrent 
@@ -102,16 +194,15 @@ class _SchedulePageState extends State<SchedulePage> {
                     borderRadius: BorderRadius.circular(12),
                   )
                 : null,
-            
             margin: const EdgeInsets.only(bottom: 12),
             child: InkWell(
-              // リーダーならタップして進捗を切り替えられる（実際はFirestore更新処理が必要）
               onTap: widget.isLeader
-                  ? () {
+                  ? () async {
                       setState(() {
                         item.isCompleted = !item.isCompleted;
                       });
-                      // TODO: ここで TripService().toggleScheduleItem(...) を呼ぶ
+                      // 進捗変更も保存
+                      await _tripService.updateSchedule(widget.tripId, _schedule);
                     }
                   : null,
               borderRadius: BorderRadius.circular(12),
@@ -119,7 +210,7 @@ class _SchedulePageState extends State<SchedulePage> {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    // 1. 左側：時刻
+                    // 時刻
                     Column(
                       children: [
                         Text(
@@ -137,8 +228,7 @@ class _SchedulePageState extends State<SchedulePage> {
                       ],
                     ),
                     const SizedBox(width: 16),
-                    
-                    // 2. 真ん中：内容
+                    // 内容
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -160,12 +250,11 @@ class _SchedulePageState extends State<SchedulePage> {
                         ],
                       ),
                     ),
-                    
-                    // 3. 右側：アイコン
+                    // アイコン
                     if (isDone)
                       const Icon(Icons.check_circle, color: Colors.green)
                     else if (isCurrent)
-                      const Icon(Icons.directions_walk, color: Colors.orange) // 進行中アイコン
+                      const Icon(Icons.directions_walk, color: Colors.orange)
                     else
                       const Icon(Icons.radio_button_unchecked, color: Colors.grey),
                   ],
@@ -173,6 +262,40 @@ class _SchedulePageState extends State<SchedulePage> {
               ),
             ),
           );
+
+          // ★ リーダーならスワイプで削除可能にする
+          if (widget.isLeader) {
+            return Dismissible(
+              key: Key("${item.time}_${item.title}"), // 一意なキーが必要
+              direction: DismissDirection.endToStart,
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20),
+                color: Colors.red,
+                child: const Icon(Icons.delete, color: Colors.white),
+              ),
+              confirmDismiss: (direction) async {
+                return await showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text("削除しますか？"),
+                    content: Text("「${item.title}」をスケジュールから削除します。"),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("キャンセル")),
+                      TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("削除", style: TextStyle(color: Colors.red))),
+                    ],
+                  ),
+                );
+              },
+              onDismissed: (direction) {
+                _deleteScheduleItem(index);
+              },
+              child: cardContent,
+            );
+          }
+
+          // リーダーでなければ通常のカードのみ
+          return cardContent;
         },
       ),
     );

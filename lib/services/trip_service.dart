@@ -183,4 +183,16 @@ class TripService {
       'endedAt': FieldValue.serverTimestamp(), // 一応終わった時間は記録
     });
   }
+
+  // ---------------------------------------------------
+  // 7. スケジュールを更新する (リーダー用)
+  // ---------------------------------------------------
+  Future<void> updateSchedule(String tripId, List<ScheduleItem> newSchedule) async {
+    // 時間順に並び替えてから保存するのが親切
+    newSchedule.sort((a, b) => a.time.compareTo(b.time));
+
+    await _db.collection('trips').doc(tripId).update({
+      'schedule': newSchedule.map((e) => e.toJson()).toList(),
+    });
+  }
 }

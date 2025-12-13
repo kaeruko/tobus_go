@@ -37,11 +37,12 @@ class _MemberModePageState extends State<MemberModePage> {
   }
 
   // スケジュール画面を開く
-  void _openSchedule(List<ScheduleItem> schedule) {
+  void _openSchedule(String tripId, List<ScheduleItem> schedule) {
     Navigator.push(
       context,
       CupertinoPageRoute(
         builder: (_) => SchedulePage(
+          tripId: tripId,
           isLeader: false,
           initialSchedule: schedule,
         ),
@@ -164,7 +165,7 @@ class _MemberModePageState extends State<MemberModePage> {
             leading: CupertinoButton(
               padding: EdgeInsets.zero,
               child: const Icon(CupertinoIcons.list_bullet),
-              onPressed: () => _openSchedule(schedule),
+              onPressed: () => _openSchedule(trip.id, schedule),
             ),
             trailing: CupertinoButton(
                padding: EdgeInsets.zero,
