@@ -120,8 +120,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
                 icon: const Icon(Icons.list_alt),
                 tooltip: 'スケジュール管理',
                 onPressed: () {
-                  Navigator.push(
-                    context,
+                  Navigator.of(context, rootNavigator: true).push(
                     MaterialPageRoute(
                       builder: (_) => SchedulePage(
                         tripId: trip.id,

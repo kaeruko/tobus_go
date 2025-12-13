@@ -8,7 +8,10 @@ import '../widgets/timetable_view.dart';
 import '../models/group_models.dart';
 import '../models/leg_models.dart';
 import '../services/trip_draft_service.dart';
+import '../services/trip_service.dart';
+import '../models/trip_models.dart';
 import 'leader_mode_page.dart';
+import 'group_detail_page.dart';
 import '../core/api_client.dart';
 import '../widgets/bus_loading_indicator.dart';
 
@@ -57,11 +60,40 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
   // 帰り検索用の日時 (デフォルトは現在時刻だが、ユーザー操作で変更可能)
   DateTime _returnSearchTime = DateTime.now();
   final TripDraftService _draftService = TripDraftService();
+  final TripService _tripService = TripService(); // 追加
   
+  Trip? _activeTrip; // アクティブな旅の情報
+  bool _isLoadingTrip = true;
+
   // 帰り検索フォームの表示フラグ
   bool _isReturnSearchVisible = false;
 
   bool get _isReturnSelection => widget.isReturnSelection;
+  
+  @override
+  void initState() {
+    super.initState();
+    _checkActiveTrip();
+  }
+
+  Future<void> _checkActiveTrip() async {
+    try {
+      final trip = await _tripService.getActiveTrip();
+      if (mounted) {
+        setState(() {
+          _activeTrip = trip;
+          _isLoadingTrip = false;
+        });
+      }
+    } catch (e) {
+      print("Error checking active trip: $e");
+      if (mounted) {
+        setState(() {
+          _isLoadingTrip = false;
+        });
+      }
+    }
+  }
 
   // 保存状態の判定ロジック
   bool get _isSaved {
@@ -180,21 +212,58 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
               const SizedBox(height: 12),
             ],
             if (_isReturnSelection) ...[
-              SizedBox(
-                width: double.infinity,
-                child: CupertinoButton(
-                  onPressed: () {
-                    _setDirection(LegDirection.inbound);
-                    if (_draftService.isComplete) {
-                      _showCreateTripDialog();
-                    }
-                  },
-                  child: const Text('グループ作成', style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.underline,
-                  )),
+              if (_isLoadingTrip)
+                const Center(child: CupertinoActivityIndicator())
+              else if (_activeTrip != null) ...[
+                // アクティブな旅がある場合
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.activeGreen.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: CupertinoColors.activeGreen),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        "現在進行中のグループがあります",
+                        style: TextStyle(color: CupertinoColors.activeGreen, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: CupertinoButton.filled(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              CupertinoPageRoute(builder: (_) => GroupDetailPage(trip: _activeTrip!)),
+                            );
+                          },
+                          child: const Text('グループ詳細を見る'),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              ] else ...[
+                // 通常の作成ボタン
+                SizedBox(
+                  width: double.infinity,
+                  child: CupertinoButton(
+                    onPressed: () {
+                      _setDirection(LegDirection.inbound);
+                      if (_draftService.isComplete) {
+                        _showCreateTripDialog();
+                      }
+                    },
+                    child: const Text('グループ作成', style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline,
+                    )),
+                  ),
                 ),
-              ),
+              ],
             ] else ...[
               // 帰り検索フォーム（初期状態は隠す）
               if (!_isReturnSearchVisible)

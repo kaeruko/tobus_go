@@ -55,17 +55,35 @@ class _SchedulePageState extends State<SchedulePage> {
 
   // ★ スケジュール追加・保存処理
   Future<void> _addScheduleItem(String time, String title, String desc) async {
+    // legIndexを推測する
+    int legIndex = 0;
+    // 既に帰り(legIndex=1)の予定がある場合、その最小時刻より後なら帰り扱いにする単純ロジック
+    final returnItems = _schedule.where((s) => s.legIndex == 1).toList();
+    if (returnItems.isNotEmpty) {
+      // "00:00"などが混ざると厄介だが、文字列比較で簡易判定
+      final minReturnTime = returnItems.map((e) => e.time).reduce((a, b) => a.compareTo(b) < 0 ? a : b);
+      if (time.compareTo(minReturnTime) >= 0) {
+        legIndex = 1;
+      }
+    }
+
     final newItem = ScheduleItem(
       time: time,
       title: title,
       description: desc,
       isCompleted: false,
+      legIndex: legIndex,
     );
 
     setState(() {
       _schedule.add(newItem);
-      // 時刻順にソート (HH:MM 文字列比較でOK)
-      _schedule.sort((a, b) => a.time.compareTo(b.time));
+      // legIndex優先、そのあと時刻順
+      _schedule.sort((a, b) {
+        if (a.legIndex != b.legIndex) {
+          return a.legIndex.compareTo(b.legIndex);
+        }
+        return a.time.compareTo(b.time);
+      });
     });
 
     // Firestore保存
@@ -81,17 +99,20 @@ class _SchedulePageState extends State<SchedulePage> {
     await _tripService.updateSchedule(widget.tripId, _schedule);
   }
 
-  // ★ 追加ダイアログの表示
-  void _showAddDialog() {
-    String time = "${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}";
-    String title = "";
-    String desc = "";
+  // ★ スケジュール追加・編集ダイアログの表示
+  void _showScheduleDialog({int? index, ScheduleItem? item}) {
+    final isEditing = (index != null && item != null);
+    String time = isEditing
+        ? item.time
+        : "${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}";
+    String title = isEditing ? item.title : "";
+    String desc = isEditing ? item.description : "";
 
     showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text("予定を追加"),
+          title: Text(isEditing ? "予定を編集" : "予定を追加"),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -101,26 +122,29 @@ class _SchedulePageState extends State<SchedulePage> {
                   title: Text("時刻: $time"),
                   trailing: const Icon(Icons.access_time),
                   onTap: () async {
+                    // 現在設定されている時刻を初期値にする
+                    final parts = time.split(':');
+                    final initHour = int.tryParse(parts[0]) ?? DateTime.now().hour;
+                    final initMinute = int.tryParse(parts[1]) ?? DateTime.now().minute;
+
                     final t = await showTimePicker(
                       context: context,
-                      initialTime: TimeOfDay.now(),
+                      initialTime: TimeOfDay(hour: initHour, minute: initMinute),
                     );
                     if (t != null) {
-                      // ダイアログ内の再描画が必要なためStatefulBuilderを使うか、
-                      // 簡易的にNavigatorを閉じて再表示する手もあるが、
-                      // ここでは簡易実装として変数を更新するだけにしておく（本来はState管理が必要）
-                      // ※ 厳密にやるならこのDialog自体をStatefulWidgetにするのがベスト
                       time = "${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}";
-                      (ctx as Element).markNeedsBuild(); // 強制再描画(荒技)
+                      (ctx as Element).markNeedsBuild(); // 強制再描画
                     }
                   },
                 ),
                 TextField(
                   decoration: const InputDecoration(labelText: "タイトル (例: 昼食)"),
+                  controller: TextEditingController(text: title), // 初期値
                   onChanged: (v) => title = v,
                 ),
                 TextField(
                   decoration: const InputDecoration(labelText: "詳細 (任意)"),
+                  controller: TextEditingController(text: desc), // 初期値
                   onChanged: (v) => desc = v,
                 ),
               ],
@@ -134,16 +158,46 @@ class _SchedulePageState extends State<SchedulePage> {
             ElevatedButton(
               onPressed: () {
                 if (title.isNotEmpty) {
-                  _addScheduleItem(time, title, desc);
+                  if (isEditing) {
+                    _editScheduleItem(index!, time, title, desc);
+                  } else {
+                    _addScheduleItem(time, title, desc);
+                  }
                   Navigator.pop(ctx);
                 }
               },
-              child: const Text("追加"),
+              child: Text(isEditing ? "保存" : "追加"),
             ),
           ],
         );
       },
     );
+  }
+
+  // ★ 既存スケジュールの編集
+  Future<void> _editScheduleItem(int index, String time, String title, String desc) async {
+    final oldItem = _schedule[index];
+    final newItem = ScheduleItem(
+      time: time,
+      title: title,
+      description: desc,
+      type: oldItem.type, // タイプは維持
+      legIndex: oldItem.legIndex, // legIndexも維持（必要ならここも編集可能にするが一旦維持）
+      isCompleted: oldItem.isCompleted,
+    );
+
+    setState(() {
+      _schedule[index] = newItem;
+      // ソートし直し
+      _schedule.sort((a, b) {
+        if (a.legIndex != b.legIndex) {
+          return a.legIndex.compareTo(b.legIndex);
+        }
+        return a.time.compareTo(b.time);
+      });
+    });
+
+    await _tripService.updateSchedule(widget.tripId, _schedule);
   }
 
   @override
@@ -164,7 +218,7 @@ class _SchedulePageState extends State<SchedulePage> {
       // ★ リーダーの場合のみ追加ボタンを表示
       floatingActionButton: widget.isLeader
           ? FloatingActionButton.extended(
-              onPressed: _showAddDialog,
+              onPressed: () => _showScheduleDialog(),
               icon: const Icon(Icons.add),
               label: const Text("予定を追加"),
               backgroundColor: Colors.orange,
@@ -203,6 +257,11 @@ class _SchedulePageState extends State<SchedulePage> {
                       });
                       // 進捗変更も保存
                       await _tripService.updateSchedule(widget.tripId, _schedule);
+                    }
+                  : null,
+              onLongPress: widget.isLeader
+                  ? () {
+                      _showScheduleDialog(index: index, item: item);
                     }
                   : null,
               borderRadius: BorderRadius.circular(12),

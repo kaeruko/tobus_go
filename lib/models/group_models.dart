@@ -18,6 +18,7 @@ class ScheduleItem {
   final String title;       // "施設集合"
   final String description; // "玄関前"
   final ScheduleType type;  // アイコン出し分け用
+  final int legIndex;       // 行き=0, 帰り=1, 寄り道/その他=適宜
   bool isCompleted;         // チェック済みか
 
   ScheduleItem({
@@ -25,6 +26,7 @@ class ScheduleItem {
     required this.title,
     this.description = '',
     this.type = ScheduleType.event,
+    this.legIndex = 0,
     this.isCompleted = false,
   });
 
@@ -38,6 +40,7 @@ class ScheduleItem {
         (e) => e.name == (json['type'] as String?),
         orElse: () => ScheduleType.event,
       ),
+      legIndex: json['legIndex'] as int? ?? 0,
       isCompleted: json['isCompleted'] as bool? ?? false,
     );
   }
@@ -49,6 +52,7 @@ class ScheduleItem {
       'title': title,
       'description': description,
       'type': type.name, // "meeting" などの文字列になる
+      'legIndex': legIndex,
       'isCompleted': isCompleted,
     };
   }
@@ -59,6 +63,7 @@ List<ScheduleItem> createScheduleFromRoute(
   Candidate route, {
   String? startTime,
   String? labelPrefix,
+  int legIndex = 0,
 }) {
   final list = <ScheduleItem>[];
   final prefix = (labelPrefix != null && labelPrefix.isNotEmpty)
@@ -72,6 +77,7 @@ List<ScheduleItem> createScheduleFromRoute(
     title: "${prefix}出発",
     description: "みんな揃っているか確認しましょう",
     type: ScheduleType.departure,
+    legIndex: legIndex,
   ));
 
   // 2. 移動工程(Steps)を変換
@@ -84,6 +90,7 @@ List<ScheduleItem> createScheduleFromRoute(
           title: "${prefix}歩く (${step.minutes}分)",
           description: step.from ?? '',
           type: ScheduleType.walk,
+          legIndex: legIndex,
         ));
       }
     } else {
@@ -93,6 +100,7 @@ List<ScheduleItem> createScheduleFromRoute(
         title: "${prefix}${step.title} に乗る",
         description: "${step.from ?? ''} から",
         type: ScheduleType.ride,
+        legIndex: legIndex,
       ));
 
       list.add(ScheduleItem(
@@ -100,6 +108,7 @@ List<ScheduleItem> createScheduleFromRoute(
         title: "${prefix}${step.to ?? ''} に着く",
         description: step.edges > 0 ? "${step.edges}駅" : '',
         type: ScheduleType.arrival,
+        legIndex: legIndex,
       ));
     }
   }
@@ -111,6 +120,7 @@ List<ScheduleItem> createScheduleFromRoute(
       title: "${prefix}目的地 到着",
       description: "お疲れ様でした!",
       type: ScheduleType.goal,
+      legIndex: legIndex,
     ));
   }
 
@@ -133,7 +143,7 @@ List<ScheduleItem> createScheduleFromLegs(List<Leg> legs) {
 
   if (outbound != null) {
     schedule.addAll(
-      createScheduleFromRoute(outbound.candidate, labelPrefix: '行き'),
+      createScheduleFromRoute(outbound.candidate, labelPrefix: '行き', legIndex: 0),
     );
   }
 
@@ -149,6 +159,7 @@ List<ScheduleItem> createScheduleFromLegs(List<Leg> legs) {
           title: "帰りの集合",
           description: "帰りの経路を開始する前に人数を確認しましょう",
           type: ScheduleType.meeting,
+          legIndex: 1,
         ),
       );
     }
@@ -158,6 +169,7 @@ List<ScheduleItem> createScheduleFromLegs(List<Leg> legs) {
         inbound.candidate,
         startTime: inboundStartTime,
         labelPrefix: '帰り',
+        legIndex: 1,
       ),
     );
   }
@@ -172,6 +184,7 @@ List<ScheduleItem> createScheduleFromLegs(List<Leg> legs) {
             ? _formatTime(leg.candidate.departureDate!)
             : null,
         labelPrefix: prefix,
+        legIndex: 0, // その他は一旦0
       ),
     );
   }

@@ -38,8 +38,7 @@ class _MemberModePageState extends State<MemberModePage> {
 
   // スケジュール画面を開く
   void _openSchedule(String tripId, List<ScheduleItem> schedule) {
-    Navigator.push(
-      context,
+    Navigator.of(context, rootNavigator: true).push(
       CupertinoPageRoute(
         builder: (_) => SchedulePage(
           tripId: tripId,

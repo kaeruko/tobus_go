@@ -21,6 +21,7 @@ class Trip {
   final List<Leg> legs; // 経路情報 (行き、帰り...)
   final List<ScheduleItem> schedule; // しおり
   final List<Participant> participants; // 参加者リスト
+  final List<String> memberIds; // ★検索用: 参加者のUIDリスト
 
   Trip({
     required this.id,
@@ -32,6 +33,7 @@ class Trip {
     required this.legs,
     required this.schedule,
     required this.participants,
+    required this.memberIds,
   });
 
   // Firestoreからデータを読み込む時の変換処理
@@ -83,6 +85,7 @@ class Trip {
       participants: (data['participants'] as List<dynamic>? ?? [])
           .map((e) => Participant.fromJson(e as Map<String, dynamic>))
           .toList(),
+      memberIds: (data['memberIds'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
     );
   }
 
@@ -98,6 +101,7 @@ class Trip {
       'legs': legs.map((e) => e.toJson(includePoints: false)).toList(),
       'schedule': schedule.map((e) => e.toJson()).toList(),
       'participants': participants.map((e) => e.toJson()).toList(),
+      'memberIds': memberIds,
     };
   }
 }

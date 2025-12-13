@@ -58,6 +58,7 @@ class TripService {
       legs: legs,
       schedule: schedule,
       participants: [leader],
+      memberIds: [uid], // リーダーのIDを追加
     );
     print('[DEBUG] Trip object created.');
 
@@ -100,8 +101,6 @@ class TripService {
     final tripId = tripDoc.id;
     
     // 既に参加済みかチェック
-    // （配列内のオブジェクト検索は難しいので、クライアント側で判断しても良いですが、
-    // ここではシンプルに「既存リストになければ追加」を行います）
     final data = tripDoc.data();
     final participantsRaw = data['participants'] as List<dynamic>? ?? [];
     
@@ -114,13 +113,33 @@ class TripService {
         isLeader: false,
       );
       
-      // Firestoreの配列に追加 (arrayUnion)
+      // Firestoreの配列に追加 (participants と memberIds 両方更新)
       await tripDoc.reference.update({
-        'participants': FieldValue.arrayUnion([newMember.toJson()])
+        'participants': FieldValue.arrayUnion([newMember.toJson()]),
+        'memberIds': FieldValue.arrayUnion([uid])
       });
     }
 
     return tripId; // ドキュメントIDを返す
+  }
+
+  // ---------------------------------------------------
+  // ★ アクティブな旅を取得する
+  // ---------------------------------------------------
+  Future<Trip?> getActiveTrip() async {
+    final uid = _userService.currentUserId;
+    if (uid == null) return null;
+
+    final snapshot = await _db.collection('trips')
+        .where('memberIds', arrayContains: uid)
+        .where('status', whereIn: ['planning', 'active']) // 計画中か実施中のもの
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isNotEmpty) {
+      return Trip.fromFirestore(snapshot.docs.first);
+    }
+    return null;
   }
 
   // ---------------------------------------------------
@@ -188,8 +207,13 @@ class TripService {
   // 7. スケジュールを更新する (リーダー用)
   // ---------------------------------------------------
   Future<void> updateSchedule(String tripId, List<ScheduleItem> newSchedule) async {
-    // 時間順に並び替えてから保存するのが親切
-    newSchedule.sort((a, b) => a.time.compareTo(b.time));
+    // 時間順(Group優先)に並び替えてから保存するのが親切
+    newSchedule.sort((a, b) {
+      if (a.legIndex != b.legIndex) {
+        return a.legIndex.compareTo(b.legIndex);
+      }
+      return a.time.compareTo(b.time);
+    });
 
     await _db.collection('trips').doc(tripId).update({
       'schedule': newSchedule.map((e) => e.toJson()).toList(),
