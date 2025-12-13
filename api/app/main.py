@@ -21,7 +21,7 @@ from toei_engine import (
     build_graph, nearest_phys, haversine,
     TimetableManager,
     search_best_routes,
-    search_best_routes_with_retry, # <--- 追加
+    search_best_routes_once, # <--- 追加
     add_virtual_destination_node,
     time_str_to_min, min_to_time_str,
     MAX_WALK_SEG_M
@@ -212,7 +212,9 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
 
     # A/B地点の特定
     a_phys, ad = nearest_phys(G, alat, alon, station_only=False)
-    b_phys, bd = nearest_phys(G, blat, blon, station_only=False)
+    b_phys, bd = nearest_phys(G, blat, blon, station_only=True)
+    if not b_phys or bd > 500:
+        b_phys, bd = nearest_phys(G, blat, blon, station_only=False)
 
     if not a_phys or not b_phys:
         return {"error": "Nearby stations/busstops not found", "candidates": []}
@@ -233,7 +235,7 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
 
     results = []
     if destination_reachable:
-        results = search_best_routes_with_retry(
+        results = search_best_routes_once(
             virtual_graph,
             TM,
             a_phys,
@@ -246,16 +248,32 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
             day_type=day_type,
         )
 
+    if not results:
+        print(f"[DEBUG_DEST] Fallback to nearest node {b_phys}.")
+        # destination_reachable = False # Meta用に更新してもいいが、metaは初期判定のままでも可
+        results = search_best_routes_once(
+            G,
+            TM,
+            a_phys,
+            b_phys,
+            mode=pref,
+            start_time=start_time,
+            target_date_str=date_str,
+            limit=5,
+            target_node=b_phys,
+            day_type=day_type,
+        )
+
     for cand in results:
-            steps = cand.get("steps") or []
-            if not steps:
-                continue
-            last = steps[-1]
-            meters = last.get("meters") or last.get("distance") or 0
-            print(
-                f"[DEBUG_DEST] Candidate {cand.get('id')} last_kind={last.get('kind')} "
-                f"to={last.get('to')} meters={meters}"
-            )
+        steps = cand.get("steps") or []
+        if not steps:
+            continue
+        last = steps[-1]
+        meters = last.get("meters") or last.get("distance") or 0
+        print(
+            f"[DEBUG_DEST] Candidate {cand.get('id')} last_kind={last.get('kind')} "
+            f"to={last.get('to')} meters={meters}"
+        )
 
     fallback_distance_m = None
     fallback_node_name = None

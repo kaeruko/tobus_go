@@ -752,7 +752,7 @@ def path_to_coords(G, path):
 
 
 # -------------------- 統合検索ロジック --------------------
-def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None):
+def search_best_routes_once(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None):
     """
     日付を指定して検索し、結果が0件なら翌日以降も探すラッパー
     """
@@ -773,11 +773,12 @@ def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time
     h, m = map(int, start_time.split(":"))
     start_dt = base_date.replace(hour=h, minute=m, second=0, microsecond=0)
     
-    print(f"[DEBUG] search_best_routes_with_retry: Start from {start_dt}")
+    print(f"[DEBUG] search_best_routes_once: Start from {start_dt}")
 
-    target_date = start_dt + datetime.timedelta(days=day_offset)
-    print(f"[DEBUG] Trying date: {target_date.date()} (offset={day_offset})")
-        
+    # 単発検索（リトライなし）
+    target_date = start_dt
+    print(f"[DEBUG] Trying date: {target_date.date()}")
+    
     current_time_str = start_time
     
     # 検索実行
@@ -788,7 +789,7 @@ def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time
         # 結果に日付情報を付与
         for cand in candidates:
             cand["departure_date"] = target_date.strftime("%Y-%m-%d")
-            cand["is_future_suggestion"] = (day_offset > 0)
+            cand["is_future_suggestion"] = False
         return candidates
 
     return []
@@ -1189,7 +1190,7 @@ def calculate_real_arrival_time(
         target_pid = None
         
         # If boarding, look ahead for alight (短区間バスの除外ロジック)
-        if etype == "board" and edge.get("mode") == "bus":
+        if etype == "board" and G.nodes[v].get("mode") == "bus":
             if v[0] == "line":
                 for j in range(i + 1, len(path) - 1):
                     u2 = path[j]
@@ -1432,13 +1433,14 @@ def main():
     tm = TimetableManager()
     print(f"[INFO] Loading Timetables...")
     tm.load_bus_timetables(args.bus_timetables)
+    tm.load_bus_route_patterns(args.busroute_patterns)
     tm.load_train_timetables(args.train_timetables)
     tm.build_name_index(G)
     
     print("[server] Initialization Done.")
     
     # ★変更: リトライ付き検索を呼び出す
-    results = search_best_routes_with_retry(
+    results = search_best_routes_once(
         virtual_graph, tm, a_phys, b_phys,
         mode=args.mode,
         start_time=args.start_time,
@@ -1448,7 +1450,7 @@ def main():
 
     if not results:
         print(f"[DEBUG_DEST] Virtual destination search produced no candidates. Falling back to nearest node {b_phys}.")
-        results = search_best_routes_with_retry(
+        results = search_best_routes_once(
             G,
             tm,
             a_phys,
