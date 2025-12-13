@@ -8,6 +8,9 @@ class RouteCard extends StatelessWidget {
 
   String get _origin {
     // 最初のstepのfromを取得
+    if (candidate.originName != null && candidate.originName!.isNotEmpty) {
+      return candidate.originName!;
+    }
     if (candidate.steps.isNotEmpty) {
       final firstStep = candidate.steps.first;
       return firstStep.from ?? '出発地';
@@ -17,6 +20,9 @@ class RouteCard extends StatelessWidget {
 
   String get _destination {
     // 最後のstepのtoを取得
+    if (candidate.destinationName != null && candidate.destinationName!.isNotEmpty) {
+      return candidate.destinationName!;
+    }
     if (candidate.steps.isNotEmpty) {
       final lastStep = candidate.steps.last;
       return lastStep.to ?? '目的地';

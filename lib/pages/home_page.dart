@@ -29,6 +29,8 @@ class _HomePageState extends State<HomePage> {
     text: '',
   );
   final _to = TextEditingController(text: '0');
+  String? _fromDesc;
+  String? _toDesc;
   Preference pref = Preference.fewTransfers;
   DateTime _startTime = DateTime.now();
   List<Candidate> candidates = [];
@@ -99,6 +101,8 @@ class _HomePageState extends State<HomePage> {
 
     return raw.map((e) {
       final map = e as Map<String, dynamic>;
+      map['origin_name'] = _fromDesc;
+      map['destination_name'] = _toDesc;
       map['preference'] = currentPref;
       return Candidate.fromJson(map);
     }).toList();
@@ -123,6 +127,9 @@ class _HomePageState extends State<HomePage> {
     final a = _from.text;
     _from.text = _to.text;
     _to.text = a;
+    final aDesc = _fromDesc;
+    _fromDesc = _toDesc;
+    _toDesc = aDesc;
   }
 
   Future<void> _openMap(bool forA) async {
@@ -133,8 +140,10 @@ class _HomePageState extends State<HomePage> {
     final s = "${res.latitude},${res.longitude}";
     if (forA) {
       _from.text = s;
+      _fromDesc = '地図で選んだ地点';
     } else {
       _to.text = s;
+      _toDesc = '地図で選んだ地点';
     }
   }
 
@@ -337,6 +346,7 @@ class _HomePageState extends State<HomePage> {
                 label: '出発(検索)',
                 onPicked: (lat, lon, desc) {
                   final txt = '$lat,$lon';
+                  setState(() => _fromDesc = desc);
                   if (_from.text == txt) {
                     _recompute(); // 同じ場所でも再検索
                   } else {
@@ -375,6 +385,7 @@ class _HomePageState extends State<HomePage> {
                 label: '到着(検索)',
                 onPicked: (lat, lon, desc) {
                   final txt = '$lat,$lon';
+                  setState(() => _toDesc = desc);
                   if (_to.text == txt) {
                     _recompute();
                   } else {

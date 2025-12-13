@@ -11,6 +11,8 @@ class Candidate {
   final int totalTime;
   final List<StepSeg> steps;
   final List<LatLng> points;
+  final String? originName;
+  final String? destinationName;
   final String? preference;
   final DateTime? departureDate;
   final bool isFutureSuggestion;
@@ -26,6 +28,8 @@ class Candidate {
     required this.totalTime,
     required this.steps,
     required this.points,
+    this.originName,
+    this.destinationName,
     this.preference,
     this.departureDate,
     this.isFutureSuggestion = false,
@@ -48,6 +52,8 @@ class Candidate {
                   : const LatLng(0, 0))
               .toList() ??
           const [],
+      originName: j['origin_name']?.toString(),
+      destinationName: j['destination_name']?.toString(),
       preference: j['preference']?.toString(),
       departureDate: j['departure_date'] != null
           ? DateTime.tryParse(j['departure_date'])
@@ -80,9 +86,11 @@ class Candidate {
       'total': total,
       'total_time': totalTime,
       'steps': steps.map((e) => e.toJson()).toList(),
-      'points': includePoints 
-          ? points.map((e) => [e.latitude, e.longitude]).toList() 
+      'points': includePoints
+          ? points.map((e) => [e.latitude, e.longitude]).toList()
           : [],
+      'origin_name': originName,
+      'destination_name': destinationName,
       'preference': preference,
       'departure_date': departureDate?.toIso8601String(),
       'is_future_suggestion': isFutureSuggestion,

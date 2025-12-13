@@ -495,6 +495,8 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
                 child: _FutureSuggestionAlert(date: widget.candidate.departureDate),
               ),
 
+            SliverToBoxAdapter(child: _EndpointSummary(candidate: widget.candidate)),
+
             SliverToBoxAdapter(child: RouteSummary(candidate: widget.candidate)),
 
             SliverToBoxAdapter(child: _roundTripComposer()),
@@ -558,6 +560,71 @@ class _FutureSuggestionAlert extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _EndpointSummary extends StatelessWidget {
+  final Candidate candidate;
+  const _EndpointSummary({required this.candidate});
+
+  String get _origin {
+    if (candidate.originName != null && candidate.originName!.isNotEmpty) {
+      return candidate.originName!;
+    }
+    if (candidate.steps.isNotEmpty) {
+      return candidate.steps.first.from ?? '出発地';
+    }
+    return '出発地';
+  }
+
+  String get _destination {
+    if (candidate.destinationName != null && candidate.destinationName!.isNotEmpty) {
+      return candidate.destinationName!;
+    }
+    if (candidate.steps.isNotEmpty) {
+      return candidate.steps.last.to ?? '目的地';
+    }
+    return '目的地';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: CupertinoColors.systemGrey6,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _row(CupertinoIcons.location_solid, '出発', _origin),
+            const SizedBox(height: 6),
+            _row(CupertinoIcons.flag, '目的地', _destination),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _row(IconData icon, String label, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: CupertinoColors.activeBlue),
+        const SizedBox(width: 8),
+        Text(label, style: const TextStyle(color: CupertinoColors.systemGrey, fontSize: 12)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }
