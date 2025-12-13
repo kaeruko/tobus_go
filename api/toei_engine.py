@@ -609,6 +609,47 @@ def connect_walk_edges_phys(G, radius_m=300):
                         G.add_edge(u, v, w=w, etype="walk", meters=dist)
                         G.add_edge(v, u, w=w, etype="walk", meters=dist)
 
+def add_virtual_destination_node(G, lat, lon, name="目的地", walk_radius=300):
+    """Return a copy of G with a temporary destination phys node connected by walk edges.
+
+    Args:
+        G: Base graph (will not be mutated).
+        lat/lon: Target coordinates.
+        name: Label for the destination node.
+        walk_radius: Maximum distance for connecting walk edges.
+
+    Returns:
+        (G_with_dest, dest_node, connection_count)
+    """
+
+    dest_id = f"dest:{lat:.6f},{lon:.6f}"
+    dest_node = ("phys", dest_id)
+
+    G2 = G.copy()
+    if dest_node in G2:
+        G2.remove_node(dest_node)
+
+    G2.add_node(dest_node, lat=lat, lon=lon, name=name, kind="phys")
+
+    connection_count = 0
+    for n, d in G.nodes(data=True):
+        if n[0] != "phys":
+            continue
+
+        dist = haversine(lat, lon, d.get("lat"), d.get("lon"))
+        if dist <= walk_radius:
+            minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
+            w = WALK_COST * minutes
+            G2.add_edge(dest_node, n, w=w, etype="walk", meters=dist)
+            G2.add_edge(n, dest_node, w=w, etype="walk", meters=dist)
+            connection_count += 1
+
+    print(
+        f"[DEBUG_DEST] Added virtual destination {dest_node} lat={lat} lon={lon} "
+        f"connections={connection_count} walk_radius={walk_radius}"
+    )
+    return G2, dest_node, connection_count
+
 def nearest_phys(G, lat, lon, station_only=False):
     best, bestd = None, 1e30
     for n, d in G.nodes(data=True):
@@ -711,7 +752,7 @@ def path_to_coords(G, path):
 
 
 # -------------------- 統合検索ロジック --------------------
-def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None):
+def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None):
     """
     日付を指定して検索し、結果が0件なら翌日以降も探すラッパー
     """
@@ -746,7 +787,7 @@ def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time
         current_time_str = start_time
         
         # 検索実行
-        candidates = search_best_routes(G, tm, a_phys, b_phys, mode, current_time_str, limit, target_date)
+        candidates = search_best_routes(G, tm, a_phys, b_phys, mode, current_time_str, limit, target_date, target_node=target_node)
         
         if candidates:
             # 見つかった！
@@ -758,7 +799,7 @@ def search_best_routes_with_retry(G, tm, a_phys, b_phys, mode="cost", start_time
 
     return []
 
-def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date=None):
+def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None):
     """
     ServerとCLI共通のエントリーポイント。
     経路探索 -> 時刻表バリデーション -> セグメント化 -> 結果辞書のリスト作成 までを一気通貫で行う。
@@ -778,7 +819,8 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
         day_type = "weekday"
     
     # NOTE: Holidays on weekdays are not supported yet (needs holiday lib)
-    print(f"[DEBUG] search_best_routes: date={target_date.date()}, day_type={day_type}")
+    target = target_node or b_phys
+    print(f"[DEBUG] search_best_routes: date={target_date.date()}, day_type={day_type}, target={target}")
     
     candidates = []
     
@@ -787,7 +829,15 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
 
     # 1. Timeモード (最速経路1つ)
     if mode == "time" or mode == "fast":
-        arr_min, path = find_fastest_path(G, tm, a_phys, b_phys, start_time_str=start_time, day_type=day_type, delays_snapshot=delays_snapshot)
+        arr_min, path = find_fastest_path(
+            G,
+            tm,
+            a_phys,
+            target,
+            start_time_str=start_time,
+            day_type=day_type,
+            delays_snapshot=delays_snapshot,
+        )
         
         # Check validity (Short Trip check)
         if path:
@@ -837,7 +887,7 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
             G,
             tm,
             a_phys,
-            b_phys,
+            target,
             start_time_str=start_time,
             day_type=day_type,
             # max_search=2000,
@@ -1078,27 +1128,49 @@ def find_fastest_path(
     delays_snapshot=None,
 ):
     start_min = time_str_to_min(start_time_str)
-    pq = [(start_min, start_node, [start_node])]
+    pq = [(start_min, start_node, [start_node], 0.0, 0.0)]
     visited_time = {}
 
     while pq:
-        curr_time, u, path = heapq.heappop(pq)
+        curr_time, u, path, total_walk_m, seg_walk_m = heapq.heappop(pq)
         if curr_time - start_min > max_travel_min:
             continue
 
         if u == target_node:
             return curr_time, path
-        if u in visited_time and visited_time[u] <= curr_time:
+
+        state_key = (u, int(seg_walk_m // 10))
+        if state_key in visited_time and visited_time[state_key] <= curr_time:
             continue
-        visited_time[u] = curr_time
-        
+        visited_time[state_key] = curr_time
+
         for v in G[u]:
+            edge = G[u][v]
+            etype = edge.get("etype")
+            meters = edge.get("meters", 0.0)
+
             next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type, delays_snapshot=delays_snapshot)
             if next_time is None:
                 continue
             if next_time - start_min > max_travel_min:
                 continue
-            heapq.heappush(pq, (next_time, v, path + [v]))
+
+            new_total_walk = total_walk_m
+            new_seg_walk = seg_walk_m
+
+            if etype == "walk":
+                step_m = meters if meters > 0 else 1.0
+                new_seg_walk = seg_walk_m + step_m
+                if new_seg_walk > MAX_WALK_SEG_M:
+                    continue
+
+                new_total_walk = total_walk_m + step_m
+                if new_total_walk > MAX_TOTAL_WALK_M:
+                    continue
+            else:
+                new_seg_walk = 0.0
+
+            heapq.heappush(pq, (next_time, v, path + [v], new_total_walk, new_seg_walk))
     return None, None
 
 def calculate_real_arrival_time(
@@ -1346,6 +1418,12 @@ def main():
         sys.exit(1)
     print(f"[INFO] {G.nodes[a_phys]['name']} -> {G.nodes[b_phys]['name']}")
 
+    virtual_graph, dest_node, conn_count = add_virtual_destination_node(
+        G, blat, blon, name="目的地", walk_radius=args.walk
+    )
+    if conn_count == 0:
+        print(f"[DEBUG_DEST] No nearby Toei nodes within walk radius {args.walk}m for destination.")
+
     tm = TimetableManager()
     print(f"[INFO] Loading Timetables...")
     tm.load_bus_timetables(args.bus_timetables)
@@ -1356,15 +1434,39 @@ def main():
     
     # ★変更: リトライ付き検索を呼び出す
     results = search_best_routes_with_retry(
-        G, tm, a_phys, b_phys, 
-        mode=args.mode, 
-        start_time=args.start_time, 
-        limit=5
+        virtual_graph, tm, a_phys, b_phys,
+        mode=args.mode,
+        start_time=args.start_time,
+        limit=5,
+        target_node=dest_node,
     )
+
+    if not results:
+        print(f"[DEBUG_DEST] Virtual destination search produced no candidates. Falling back to nearest node {b_phys}.")
+        results = search_best_routes_with_retry(
+            G,
+            tm,
+            a_phys,
+            b_phys,
+            mode=args.mode,
+            start_time=args.start_time,
+            limit=5,
+        )
 
     if not results:
         print("No valid route found.")
         return
+    else:
+        for cand in results:
+            steps = cand.get("steps") or []
+            if not steps:
+                continue
+            last = steps[-1]
+            meters = last.get("meters") or last.get("distance") or 0
+            print(
+                f"[DEBUG_DEST] Candidate {cand.get('id')} last_kind={last.get('kind')} "
+                f"to={last.get('to')} meters={meters}"
+            )
 
     print(f"\n[INFO] Found {len(results)} Routes")
     for i, res in enumerate(results, 1):

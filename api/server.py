@@ -15,9 +15,10 @@ import datetime
 # ※ファイル名が違う場合は toei_engine の部分を書き換えてください
 from toei_engine import (
     build_graph, nearest_phys, haversine,
-    TimetableManager, 
+    TimetableManager,
     search_best_routes,
     search_best_routes_with_retry, # <--- 追加
+    add_virtual_destination_node,
     time_str_to_min, min_to_time_str,
     MAX_WALK_SEG_M
 )
@@ -165,6 +166,14 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
     if not a_phys or not b_phys:
         return {"error": "Nearby stations/busstops not found", "candidates": []}
 
+    virtual_graph, dest_node, conn_count = add_virtual_destination_node(
+        G, blat, blon, name="目的地", walk_radius=WALK_RAD
+    )
+    if conn_count == 0:
+        print(
+            f"[DEBUG_DEST] No nearby Toei nodes within walk radius {WALK_RAD}m for destination."
+        )
+
     # 日付から day_type を判定
     day_type = determine_day_type(date_str)
     print(f"[JOB] Search {pref} from {start_time}, date={date_str}, day_type={day_type}")
@@ -173,12 +182,42 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
     # toei_engine.py で実装した search_best_routes を使う
     # ★変更: リトライ付き検索を使用
     results = search_best_routes_with_retry(
-        G, TM, a_phys, b_phys,
+        virtual_graph,
+        TM,
+        a_phys,
+        b_phys,
         mode=pref, # pref_mode を pref に修正
         start_time=start_time, # time_str を start_time に修正
         target_date_str=date_str,  # 日付を渡す
-        limit=5
+        limit=5,
+        target_node=dest_node,
     )
+
+    if not results:
+        print(
+            f"[DEBUG_DEST] Virtual destination search produced no candidates. Fallback to nearest node {b_phys}."
+        )
+        results = search_best_routes_with_retry(
+            G,
+            TM,
+            a_phys,
+            b_phys,
+            mode=pref,
+            start_time=start_time,
+            target_date_str=date_str,
+            limit=5,
+        )
+    else:
+        for cand in results:
+            steps = cand.get("steps") or []
+            if not steps:
+                continue
+            last = steps[-1]
+            meters = last.get("meters") or last.get("distance") or 0
+            print(
+                f"[DEBUG_DEST] Candidate {cand.get('id')} last_kind={last.get('kind')} "
+                f"to={last.get('to')} meters={meters}"
+            )
 
     return {"candidates": results}
 
