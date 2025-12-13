@@ -9,8 +9,8 @@ import '../services/storage_service.dart';
 import '../services/trip_draft_service.dart';
 import '../services/trip_service.dart';
 import '../models/leg_models.dart';
-import 'leader_mode_page.dart';
-import 'package:flutter/material.dart' show showDialog, AlertDialog, TextButton, ElevatedButton, ScaffoldMessenger, SnackBar, MaterialPageRoute, showModalBottomSheet, ListTile, Icons, Colors, Icon; // Materialの機能を使うため
+import 'package:flutter/material.dart'
+    show showModalBottomSheet, ListTile, Icons, Colors, Icon, ScaffoldMessenger, SnackBar; // Materialの機能を使うため
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MyRoutePage extends StatefulWidget {
@@ -63,7 +63,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
     );
   }
 
-  Future<void> _reSearchRoute(Candidate original, {bool reverse = false}) async {
+  Future<void> _reSearchRoute(Candidate original, {bool reverse = false, bool startReturnFlow = false}) async {
     if (original.points.isEmpty) return;
 
     setState(() => _loading = true);
@@ -105,7 +105,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
       if (jobId == null) throw Exception('Job ID missing');
 
       // ポーリング開始
-      await _poll(jobId);
+      await _poll(jobId, startReturnFlow: startReturnFlow);
 
     } catch (e) {
       if (!mounted) return;
@@ -127,7 +127,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
     }
   }
 
-  Future<void> _poll(String jobId) async {
+  Future<void> _poll(String jobId, {bool startReturnFlow = false}) async {
     while (true) {
       await Future.delayed(const Duration(seconds: 1));
       try {
@@ -150,7 +150,10 @@ class _MyRoutePageState extends State<MyRoutePage> {
             if (!mounted) return;
             Navigator.of(context).push(
               CupertinoPageRoute(
-                builder: (_) => RouteDetailPage(candidate: list.first),
+                builder: (_) => RouteDetailPage(
+                  candidate: list.first,
+                  isReturnSelection: startReturnFlow,
+                ),
               ),
             );
           } else {
@@ -184,33 +187,11 @@ class _MyRoutePageState extends State<MyRoutePage> {
   }
 
   void _startReturnSearch(Candidate candidate) {
-    _reSearchRoute(candidate, reverse: true);
-  }
-
-  void _setRouteForDirection(LegDirection direction, Candidate route) {
-    try {
-      setState(() {
-        _draftService.setRoute(direction, route);
-      });
-    } on StateError catch (e) {
-      _showDuplicateError(e.message ?? '行きと同じ経路は帰りに設定できません');
-    }
-  }
-
-  void _showDuplicateError(String message) {
-    showCupertinoDialog(
-      context: context,
-      builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('別の経路を選択してください'),
-        content: Text(message),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('OK'),
-            onPressed: () => Navigator.pop(ctx),
-          ),
-        ],
-      ),
-    );
+    setState(() {
+      _draftService.reset();
+      _draftService.setRoute(LegDirection.outbound, candidate);
+    });
+    _reSearchRoute(candidate, reverse: true, startReturnFlow: true);
   }
 
   @override
@@ -342,65 +323,6 @@ class _MyRoutePageState extends State<MyRoutePage> {
     );
   }
 
-  // ダイアログを表示して作成処理へ（往復が揃ったら有効）
-  void _showCreateTripDialog(BuildContext context) {
-    if (!_draftService.isComplete) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('帰りの経路を選択してください'),
-          content: const Text('行きと帰りをセットにするとグループ作成できます。'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('閉じる')),
-          ],
-        ),
-      );
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('この往復でグループを作成'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('行き: ${_draftService.outbound?.lines.join(' → ')}'),
-            Text('帰り: ${_draftService.inbound?.lines.join(' → ')}'),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('やめる')),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx); // ダイアログ閉じる
-              await _createTrip(context);
-            },
-            child: const Text('作成する'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 作成実行
-  Future<void> _createTrip(BuildContext context) async {
-    try {
-      final tripId = await _draftService.createTrip();
-
-      if (!context.mounted) return;
-
-      // 3. リーダー画面へ遷移
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => LeaderModePage(tripId: tripId)),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e')));
-    }
-  }
-
   void _showGroupMenu(BuildContext context, Candidate route) {
     // 現在グループに参加中（リーダー含む）かどうかチェック
     final isAlreadyInGroup = kCurrentGroupId != null;
@@ -433,7 +355,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
                       });
                       
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('グループを解散しました')));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('グループを解散しました')));
                       }
                     } catch (e) {
                       print(e);
@@ -445,21 +367,13 @@ class _MyRoutePageState extends State<MyRoutePage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     ListTile(
-                      leading: const Icon(Icons.north_east, color: Colors.blue),
-                      title: const Text('行きの経路に設定'),
-                      subtitle: Text(route.lines.join(' → ')),
+                      leading: Icon(Icons.swap_calls, color: Colors.orange.shade700),
+                      title: const Text('帰りを探す（出発地/到着地を入れ替え）'),
+                      subtitle: const Text('行きと逆方向で再検索します'),
                       onTap: () {
-                        _setRouteForDirection(LegDirection.outbound, route);
+
                         Navigator.pop(ctx);
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.south_west, color: Colors.green),
-                      title: const Text('帰りの経路に設定'),
-                      subtitle: Text(route.lines.join(' → ')),
-                      onTap: () {
-                        _setRouteForDirection(LegDirection.inbound, route);
-                        Navigator.pop(ctx);
+                        _startReturnSearch(route);
                       },
                     ),
                     ListTile(
@@ -480,26 +394,6 @@ class _MyRoutePageState extends State<MyRoutePage> {
                         });
                         Navigator.pop(ctx);
                       },
-                    ),
-                    ListTile(
-                      enabled: _draftService.isComplete,
-                      leading: Icon(
-                        Icons.diversity_3,
-                        color:
-                            _draftService.isComplete ? Colors.blue : Colors.grey,
-                      ),
-                        title: const Text('往復が揃ったらグループ作成'),
-                        subtitle: Text(
-                          _draftService.isComplete
-                              ? '行き: ${_draftService.outbound?.lines.join(' → ')}\n帰り: ${_draftService.inbound?.lines.join(' → ')}'
-                              : '帰りの経路を選ぶと作成できます',
-                        ),
-                        onTap: _draftService.isComplete
-                            ? () {
-                                Navigator.pop(ctx);
-                              _showCreateTripDialog(context);
-                            }
-                          : null,
                     ),
                   ],
                 ),

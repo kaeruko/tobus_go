@@ -15,8 +15,9 @@ import '../widgets/bus_loading_indicator.dart';
 // --- メインの画面 ---
 class RouteDetailPage extends StatefulWidget {
   final Candidate candidate;
+  final bool isReturnSelection;
 
-  const RouteDetailPage({super.key, required this.candidate});
+  const RouteDetailPage({super.key, required this.candidate, this.isReturnSelection = false});
 
   @override
   State<RouteDetailPage> createState() => _RouteDetailPageState();
@@ -26,6 +27,8 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
   // 再検索用の日時
   DateTime _searchTime = DateTime.now();
   final TripDraftService _draftService = TripDraftService();
+
+  bool get _isReturnSelection => widget.isReturnSelection;
 
   // 保存状態の判定ロジック
   bool get _isSaved {
@@ -102,12 +105,6 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
     }
   }
 
-  bool _isSelectedFor(LegDirection direction) {
-    final target =
-        direction == LegDirection.outbound ? _draftService.outbound : _draftService.inbound;
-    return target?.id == widget.candidate.id;
-  }
-
   String _routeLabel(Candidate? candidate) {
     if (candidate == null) return '未選択';
     return candidate.lines.join(' → ');
@@ -129,85 +126,8 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
     );
   }
 
-  void _showDirectionSelector() {
-    showCupertinoModalPopup(
-      context: context,
-      builder: (ctx) => CupertinoActionSheet(
-        title: const Text('この経路を往復のどちらに使いますか？'),
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _setDirection(LegDirection.outbound);
-            },
-            child: Text(_isSelectedFor(LegDirection.outbound)
-                ? '行きに設定済み'
-                : '行きの経路に設定'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _setDirection(LegDirection.inbound);
-            },
-            child: Text(_isSelectedFor(LegDirection.inbound)
-                ? '帰りに設定済み'
-                : '帰りの経路に設定'),
-          ),
-          CupertinoActionSheetAction(
-            isDestructiveAction: true,
-            onPressed: () {
-              Navigator.pop(ctx);
-              setState(() {
-                _draftService.reset();
-              });
-            },
-            child: const Text('往復の選択をクリア'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('閉じる'),
-        ),
-      ),
-    );
-  }
-
-  Widget _directionRow(String label, Candidate? candidate, LegDirection direction) {
-    final isCurrent = _isSelectedFor(direction);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _routeLabel(candidate),
-                style: TextStyle(
-                  color: candidate == null
-                      ? CupertinoColors.systemGrey
-                      : CupertinoColors.label,
-                ),
-              ),
-            ],
-          ),
-        ),
-        CupertinoButton(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          color: isCurrent ? CupertinoColors.activeBlue : null,
-          onPressed: () => _setDirection(direction),
-          child: Text(isCurrent ? 'この経路に設定済み' : '$labelに設定'),
-        ),
-      ],
-    );
-  }
-
   Widget _roundTripComposer() {
+    final outbound = _draftService.outbound;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Container(
@@ -222,43 +142,46 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  '往復の経路を決める',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  onPressed: _showDirectionSelector,
-                  child: const Icon(CupertinoIcons.arrow_right_arrow_left_circle),
+                Text(
+                  _isReturnSelection ? '帰りの経路を決める' : '往復の経路を決める',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            if (_draftService.outbound != null) ...[
-              _selectedOutboundSummary(_draftService.outbound!),
-              const SizedBox(height: 10),
+            if (_isReturnSelection && outbound != null) ...[
+              _selectedOutboundSummary(outbound),
+              const SizedBox(height: 12),
             ],
-            _directionRow('行き', _draftService.outbound, LegDirection.outbound),
-            const SizedBox(height: 10),
-            _directionRow('帰り', _draftService.inbound, LegDirection.inbound),
-            const SizedBox(height: 12),
-            CupertinoButton(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              onPressed: _startReturnSearch,
-              child: const Text('帰りを探す（出発地/到着地を入れ替え）'),
-            ),
-            const SizedBox(height: 12),
-            CupertinoButton.filled(
-              onPressed: _draftService.isComplete ? _showCreateTripDialog : null,
-              child: const Text('グループ作成'),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              _draftService.isComplete
-                  ? '往復が揃いました。グループを作成できます。'
-                  : '帰りの経路を選ぶと作成できます',
-              style: const TextStyle(color: CupertinoColors.systemGrey),
-            ),
+            if (_isReturnSelection) ...[
+              CupertinoButton.filled(
+                onPressed: () => _setDirection(LegDirection.inbound),
+                child: const Text('この経路を帰りに設定'),
+              ),
+              const SizedBox(height: 12),
+              CupertinoButton.filled(
+                onPressed: _draftService.isComplete ? _showCreateTripDialog : null,
+                child: const Text('グループ作成'),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _draftService.isComplete
+                    ? '往復が揃いました。グループを作成できます。'
+                    : '帰りの経路を選ぶと作成できます',
+                style: const TextStyle(color: CupertinoColors.systemGrey),
+              ),
+            ] else ...[
+              CupertinoButton(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                onPressed: _startReturnSearch,
+                child: const Text('帰りを探す（出発地/到着地を入れ替え）'),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                '帰りの経路を選ぶと作成できます',
+                style: TextStyle(color: CupertinoColors.systemGrey),
+              ),
+            ],
           ],
         ),
       ),
@@ -311,7 +234,7 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
                 child: const Text('検索実行'),
                 onPressed: () {
                   Navigator.pop(ctx);
-                  _executeReSearch();
+                  _executeReSearch(startReturnFlow: _isReturnSelection);
                 },
               ),
             ),
@@ -334,10 +257,14 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
 
   Future<void> _startReturnSearch() async {
     if (widget.candidate.points.length < 2) return;
-    await _executeReSearch(reverse: true);
+    setState(() {
+      _draftService.reset();
+      _draftService.setRoute(LegDirection.outbound, widget.candidate);
+    });
+    await _executeReSearch(reverse: true, startReturnFlow: true);
   }
 
-  Future<void> _executeReSearch({bool reverse = false}) async {
+  Future<void> _executeReSearch({bool reverse = false, bool startReturnFlow = false}) async {
     final original = widget.candidate;
     if (original.points.isEmpty) return;
 
@@ -383,7 +310,7 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
       
       if (jobId == null) throw Exception('Job ID missing');
 
-      await _poll(jobId);
+      await _poll(jobId, startReturnFlow: startReturnFlow);
 
     } catch (e) {
       if (!mounted) return;
@@ -404,7 +331,7 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
     }
   }
 
-  Future<void> _poll(String jobId) async {
+  Future<void> _poll(String jobId, {bool startReturnFlow = false}) async {
     while (true) {
       await Future.delayed(const Duration(seconds: 1));
       try {
@@ -424,7 +351,10 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
             // 新しい結果画面へ遷移（push）することで「戻る」が可能
             Navigator.of(context).push(
               CupertinoPageRoute(
-                builder: (_) => RouteDetailPage(candidate: list.first),
+                builder: (_) => RouteDetailPage(
+                  candidate: list.first,
+                  isReturnSelection: startReturnFlow,
+                ),
               ),
             );
           } else {
@@ -537,16 +467,9 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         middle: Text(widget.candidate.lines.join(' → ')),
-        // ▼ 変更: 末尾にボタンを2つ並べる
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 行き/帰りの割り当てボタン
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              onPressed: _showDirectionSelector,
-              child: const Icon(CupertinoIcons.arrow_right_arrow_left_circle),
-            ),
             // 再検索ボタン
             CupertinoButton(
               padding: EdgeInsets.zero,
