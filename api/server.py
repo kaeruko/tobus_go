@@ -166,10 +166,12 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
     if not a_phys or not b_phys:
         return {"error": "Nearby stations/busstops not found", "candidates": []}
 
+    destination_label = "目的地"
     virtual_graph, dest_node, conn_count = add_virtual_destination_node(
-        G, blat, blon, name="目的地", walk_radius=WALK_RAD
+        G, blat, blon, name=destination_label, walk_radius=WALK_RAD
     )
-    if conn_count == 0:
+    destination_reachable = conn_count > 0
+    if not destination_reachable:
         print(
             f"[DEBUG_DEST] No nearby Toei nodes within walk radius {WALK_RAD}m for destination."
         )
@@ -181,8 +183,10 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
     # ★変更点: 共通関数を一発呼ぶだけ！
     # toei_engine.py で実装した search_best_routes を使う
     # ★変更: リトライ付き検索を使用
+    target_node = dest_node if destination_reachable else b_phys
+    target_graph = virtual_graph if destination_reachable else G
     results = search_best_routes_with_retry(
-        virtual_graph,
+        target_graph,
         TM,
         a_phys,
         b_phys,
@@ -190,15 +194,18 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
         start_time=start_time, # time_str を start_time に修正
         target_date_str=date_str,  # 日付を渡す
         limit=5,
-        target_node=dest_node,
+        target_node=target_node,
     )
 
-    if not results:
+    if not results and destination_reachable:
         print(
             f"[DEBUG_DEST] Virtual destination search produced no candidates. Fallback to nearest node {b_phys}."
         )
+        destination_reachable = False
+        target_node = b_phys
+        target_graph = G
         results = search_best_routes_with_retry(
-            G,
+            target_graph,
             TM,
             a_phys,
             b_phys,
@@ -206,6 +213,7 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
             start_time=start_time,
             target_date_str=date_str,
             limit=5,
+            target_node=target_node,
         )
     else:
         for cand in results:
@@ -219,7 +227,24 @@ def compute_route_candidates(alat, alon, blat, blon, pref, start_time="10:00", d
                 f"to={last.get('to')} meters={meters}"
             )
 
-    return {"candidates": results}
+    fallback_distance_m = None
+    fallback_node_name = None
+    if b_phys in G:
+        fallback_node_name = G.nodes[b_phys].get("name")
+        b_lat = G.nodes[b_phys].get("lat")
+        b_lon = G.nodes[b_phys].get("lon")
+        if b_lat is not None and b_lon is not None:
+            fallback_distance_m = haversine(blat, blon, b_lat, b_lon)
+
+    meta = {
+        "destination_reachable": destination_reachable,
+        "destination_label": destination_label,
+        "fallback_node_name": fallback_node_name,
+        "fallback_distance_m": fallback_distance_m,
+        "walk_limit_m": MAX_WALK_SEG_M,
+    }
+
+    return {"candidates": results, "meta": meta}
 
 
 # -------------------- API エンドポイント --------------------
