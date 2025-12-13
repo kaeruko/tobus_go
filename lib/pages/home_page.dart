@@ -12,6 +12,8 @@ import '../services/trip_service.dart';
 import 'member_mode_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/global_state.dart';
+import '../models/trip_models.dart'; // 追加
+import 'group_detail_page.dart';    // 追加
 import 'package:flutter/material.dart' show TextField, InputDecoration, OutlineInputBorder, Icons, ElevatedButton, Colors, TextInputType, MaterialPageRoute, ScaffoldMessenger, SnackBar, Divider; // Material components
 
 enum Preference { fewTransfers, shortTime }
@@ -40,6 +42,10 @@ class _HomePageState extends State<HomePage> {
 
   String? _routeJobId;
   bool _polling = false;
+
+  // ★ 追加: 進行中の旅データ
+  Trip? _activeTrip;
+  bool _isLoadingTrip = false;
 
   Map<String, String> _buildRouteParams(
     double alat,
@@ -129,6 +135,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     print('[DEBUG] initState called');
     _recompute();
+    _checkActiveTrip(); // ★ 追加: 起動時にチェック
     _from.addListener(() {
       print('[DEBUG] _from changed: ${_from.text}');
       _recompute();
@@ -137,6 +144,27 @@ class _HomePageState extends State<HomePage> {
       print('[DEBUG] _to changed: ${_to.text}');
       _recompute();
     });
+  }
+
+  // ★ 追加: 現在進行中のグループがあるか確認する
+  Future<void> _checkActiveTrip() async {
+    setState(() => _isLoadingTrip = true);
+    try {
+      final trip = await TripService().getActiveTrip();
+      
+      // 完了・中止していない場合のみ表示
+      if (trip != null && trip.status != TripStatus.completed && trip.status != TripStatus.cancelled) {
+        if (mounted) {
+          setState(() {
+            _activeTrip = trip;
+          });
+        }
+      }
+    } catch (e) {
+      print("[DEBUG] Failed to load active trip: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingTrip = false);
+    }
   }
 
   void _swap() {
@@ -362,6 +390,28 @@ class _HomePageState extends State<HomePage> {
       child: SafeArea(
         child: CustomScrollView(
           slivers: [
+            // ★ 追加: 進行中の旅があればトップに表示
+            if (_activeTrip != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: _ActiveTripCard(
+                    trip: _activeTrip!,
+                    onTap: () {
+                      // 詳細画面へ遷移
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (_) => GroupDetailPage(trip: _activeTrip!),
+                        ),
+                      ).then((_) {
+                        // 戻ってきたら状態を再確認（解散したかもしれないので）
+                        _checkActiveTrip();
+                      });
+                    },
+                  ),
+                ),
+              ),
             SliverToBoxAdapter(
               child: Column(
                 children: [
@@ -693,6 +743,86 @@ class _FallbackNotice extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ★ 追加: ホーム画面に表示する「進行中の旅」カード
+class _ActiveTripCard extends StatelessWidget {
+  final Trip trip;
+  final VoidCallback onTap;
+
+  const _ActiveTripCard({required this.trip, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          // 目立つようにグラデーションや色をつける
+          gradient: LinearGradient(
+            colors: [Colors.orange.shade400, Colors.deepOrange.shade400],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.orange.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.directions_bus_filled, color: Colors.white, size: 32),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "現在進行中のグループ",
+                    style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    trip.title,
+                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          trip.status == TripStatus.planning ? "計画中" : "移動中",
+                          style: const TextStyle(color: Colors.white, fontSize: 10),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "${trip.participants.length}人が参加中",
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
+          ],
+        ),
       ),
     );
   }
