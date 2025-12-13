@@ -1,3 +1,5 @@
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+
 import '../models/route_models.dart';
 import '../models/leg_models.dart';
 
@@ -21,14 +23,14 @@ class TripDraft {
     final ob = outbound;
     final ib = inbound;
     if (ob == null || ib == null) return false;
-    return ob.id != ib.id;
+    return !_isSameCandidate(ob, ib);
   }
 
   void setLeg(LegDirection direction, Candidate route) {
     final oppositeDirection =
         direction == LegDirection.outbound ? LegDirection.inbound : LegDirection.outbound;
     final oppositeCandidate = _candidateFor(oppositeDirection);
-    if (oppositeCandidate != null && oppositeCandidate.id == route.id) {
+    if (oppositeCandidate != null && _isSameCandidate(oppositeCandidate, route)) {
       throw StateError('行きと同じ経路は帰りに設定できません');
     }
     final existingIndex = legs.indexWhere((e) => e.direction == direction);
@@ -45,6 +47,18 @@ class TripDraft {
   }
 
   List<Leg> toLegs() => legs.map((e) => e.toLeg()).toList();
+
+  bool _isSameCandidate(Candidate a, Candidate b) {
+    if (a.id != b.id) return false;
+    if (a.points.isEmpty || b.points.isEmpty) return true;
+    final sameStart = _isSameLatLng(a.points.first, b.points.first);
+    final sameEnd = _isSameLatLng(a.points.last, b.points.last);
+    return sameStart && sameEnd;
+  }
+
+  bool _isSameLatLng(LatLng a, LatLng b) {
+    return a.latitude == b.latitude && a.longitude == b.longitude;
+  }
 
   Candidate? _candidateFor(LegDirection direction) {
     try {
