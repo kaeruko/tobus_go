@@ -25,6 +25,33 @@ class _MyRoutePageState extends State<MyRoutePage> {
   bool _loading = false;
   final TripDraftService _draftService = TripDraftService();
 
+  bool _isPlaceholder(String? value) {
+    const placeholders = {'出発地', '目的地'};
+    if (value == null) return true;
+    final trimmed = value.trim();
+    return trimmed.isEmpty || placeholders.contains(trimmed);
+  }
+
+  String _originLabel(Candidate candidate) {
+    if (!_isPlaceholder(candidate.originName)) {
+      return candidate.originName!;
+    }
+    if (candidate.steps.isNotEmpty && !_isPlaceholder(candidate.steps.first.from)) {
+      return candidate.steps.first.from!;
+    }
+    return '出発地';
+  }
+
+  String _destinationLabel(Candidate candidate) {
+    if (!_isPlaceholder(candidate.destinationName)) {
+      return candidate.destinationName!;
+    }
+    if (candidate.steps.isNotEmpty && !_isPlaceholder(candidate.steps.last.to)) {
+      return candidate.steps.last.to!;
+    }
+    return '目的地';
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -68,7 +95,10 @@ class _MyRoutePageState extends State<MyRoutePage> {
 
     setState(() => _loading = true);
 
-    // 簡易的なローディング表示 
+    final originLabel = reverse ? _destinationLabel(original) : _originLabel(original);
+    final destinationLabel = reverse ? _originLabel(original) : _destinationLabel(original);
+
+    // 簡易的なローディング表示
     showCupertinoDialog(
       context: context,
       barrierDismissible: false,
@@ -88,7 +118,9 @@ class _MyRoutePageState extends State<MyRoutePage> {
     try {
       final start = reverse ? original.points.last : original.points.first;
       final end = reverse ? original.points.first : original.points.last;
-      
+
+      print('[DEBUG] MyRoutePage startReturnFlow=$startReturnFlow reverse=$reverse fromDesc=$originLabel toDesc=$destinationLabel fromCoord=${start.latitude},${start.longitude} toCoord=${end.latitude},${end.longitude}');
+
       final params = {
         'alat': '${start.latitude}',
         'alon': '${start.longitude}',
@@ -105,7 +137,12 @@ class _MyRoutePageState extends State<MyRoutePage> {
       if (jobId == null) throw Exception('Job ID missing');
 
       // ポーリング開始
-      await _poll(jobId, startReturnFlow: startReturnFlow);
+      await _poll(
+        jobId,
+        startReturnFlow: startReturnFlow,
+        originLabel: originLabel,
+        destinationLabel: destinationLabel,
+      );
 
     } catch (e) {
       if (!mounted) return;
@@ -127,18 +164,30 @@ class _MyRoutePageState extends State<MyRoutePage> {
     }
   }
 
-  Future<void> _poll(String jobId, {bool startReturnFlow = false}) async {
+  Future<void> _poll(
+    String jobId, {
+    bool startReturnFlow = false,
+    required String originLabel,
+    required String destinationLabel,
+  }) async {
     while (true) {
       await Future.delayed(const Duration(seconds: 1));
       try {
         final j = await ApiClient.get('/route', params: {'job_id': jobId});
         final status = j['status']?.toString();
-        
+
         if (status == 'done') {
           final result = j['result'];
-          final list = (result['candidates'] as List?)
-              ?.map((e) => Candidate.fromJson(e as Map<String, dynamic>))
-              .toList();
+          final list = (result['candidates'] as List?)?.map((e) {
+            final map = Map<String, dynamic>.from(e as Map<String, dynamic>);
+            map['origin_name'] = originLabel;
+            map['destination_name'] = destinationLabel;
+            final candidate = Candidate.fromJson(map);
+            final firstStep = candidate.steps.isNotEmpty ? candidate.steps.first : null;
+            final lastStep = candidate.steps.isNotEmpty ? candidate.steps.last : null;
+            print('[DEBUG] MyRoutePage Parsed candidate originName=${candidate.originName} destinationName=${candidate.destinationName} firstStep.from=${firstStep?.from} lastStep.to=${lastStep?.to}');
+            return candidate;
+          }).toList();
           RouteMeta? meta;
           final metaJson = result['meta'];
           if (metaJson is Map<String, dynamic>) {

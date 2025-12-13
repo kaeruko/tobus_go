@@ -12,6 +12,33 @@ import 'leader_mode_page.dart';
 import '../core/api_client.dart';
 import '../widgets/bus_loading_indicator.dart';
 
+bool _isPlaceholder(String? value) {
+  const placeholders = {'出発地', '目的地'};
+  if (value == null) return true;
+  final trimmed = value.trim();
+  return trimmed.isEmpty || placeholders.contains(trimmed);
+}
+
+String _originLabelOf(Candidate candidate) {
+  if (!_isPlaceholder(candidate.originName)) {
+    return candidate.originName!;
+  }
+  if (candidate.steps.isNotEmpty && !_isPlaceholder(candidate.steps.first.from)) {
+    return candidate.steps.first.from!;
+  }
+  return '出発地';
+}
+
+String _destinationLabelOf(Candidate candidate) {
+  if (!_isPlaceholder(candidate.destinationName)) {
+    return candidate.destinationName!;
+  }
+  if (candidate.steps.isNotEmpty && !_isPlaceholder(candidate.steps.last.to)) {
+    return candidate.steps.last.to!;
+  }
+  return '目的地';
+}
+
 // --- メインの画面 ---
 class RouteDetailPage extends StatefulWidget {
   final Candidate candidate;
@@ -35,6 +62,9 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
   bool get _isSaved {
     return kSavedRoutes.any((e) => _isSameRoute(e, widget.candidate));
   }
+
+  String _originLabel(Candidate candidate) => _originLabelOf(candidate);
+  String _destinationLabel(Candidate candidate) => _destinationLabelOf(candidate);
 
   // 経路が同じか判定するヘルパー
   bool _isSameRoute(Candidate a, Candidate b) {
@@ -269,6 +299,9 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
     final original = widget.candidate;
     if (original.points.isEmpty) return;
 
+    final originLabel = reverse ? _destinationLabel(original) : _originLabel(original);
+    final destinationLabel = reverse ? _originLabel(original) : _destinationLabel(original);
+
     showCupertinoDialog(
       context: context,
       barrierDismissible: false,
@@ -296,6 +329,8 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
       final start = reverse ? original.points.last : original.points.first;
       final end = reverse ? original.points.first : original.points.last;
 
+      print('[DEBUG] startReturnFlow=$startReturnFlow reverse=$reverse fromDesc=$originLabel toDesc=$destinationLabel fromCoord=${start.latitude},${start.longitude} toCoord=${end.latitude},${end.longitude}');
+
       final params = {
         'alat': '${start.latitude}',
         'alon': '${start.longitude}',
@@ -308,10 +343,15 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
 
       final j = await ApiClient.post('/route', body: params);
       final jobId = j['job_id']?.toString();
-      
+
       if (jobId == null) throw Exception('Job ID missing');
 
-      await _poll(jobId, startReturnFlow: startReturnFlow);
+      await _poll(
+        jobId,
+        startReturnFlow: startReturnFlow,
+        originLabel: originLabel,
+        destinationLabel: destinationLabel,
+      );
 
     } catch (e) {
       if (!mounted) return;
@@ -332,18 +372,30 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
     }
   }
 
-  Future<void> _poll(String jobId, {bool startReturnFlow = false}) async {
+  Future<void> _poll(
+    String jobId, {
+    bool startReturnFlow = false,
+    required String originLabel,
+    required String destinationLabel,
+  }) async {
     while (true) {
       await Future.delayed(const Duration(seconds: 1));
       try {
         final j = await ApiClient.get('/route', params: {'job_id': jobId});
         final status = j['status']?.toString();
-        
+
         if (status == 'done') {
           final result = j['result'];
-          final list = (result['candidates'] as List?)
-              ?.map((e) => Candidate.fromJson(e as Map<String, dynamic>))
-              .toList();
+          final list = (result['candidates'] as List?)?.map((e) {
+            final map = Map<String, dynamic>.from(e as Map<String, dynamic>);
+            map['origin_name'] = originLabel;
+            map['destination_name'] = destinationLabel;
+            final candidate = Candidate.fromJson(map);
+            final firstStep = candidate.steps.isNotEmpty ? candidate.steps.first : null;
+            final lastStep = candidate.steps.isNotEmpty ? candidate.steps.last : null;
+            print('[DEBUG] Parsed candidate originName=${candidate.originName} destinationName=${candidate.destinationName} firstStep.from=${firstStep?.from} lastStep.to=${lastStep?.to}');
+            return candidate;
+          }).toList();
           RouteMeta? meta;
           final metaJson = result['meta'];
           if (metaJson is Map<String, dynamic>) {
@@ -586,13 +638,7 @@ class _EndpointSummary extends StatelessWidget {
   const _EndpointSummary({required this.candidate, this.meta});
 
   String get _origin {
-    if (candidate.originName != null && candidate.originName!.isNotEmpty) {
-      return candidate.originName!;
-    }
-    if (candidate.steps.isNotEmpty) {
-      return candidate.steps.first.from ?? '出発地';
-    }
-    return '出発地';
+    return _originLabelOf(candidate);
   }
 
   String get _destination {
@@ -602,13 +648,7 @@ class _EndpointSummary extends StatelessWidget {
       final suffix = minutes != null ? '（目的地まで徒歩約${minutes}分）' : '';
       return stop + suffix;
     }
-    if (candidate.destinationName != null && candidate.destinationName!.isNotEmpty) {
-      return candidate.destinationName!;
-    }
-    if (candidate.steps.isNotEmpty) {
-      return candidate.steps.last.to ?? '目的地';
-    }
-    return '目的地';
+    return _destinationLabelOf(candidate);
   }
 
   @override
