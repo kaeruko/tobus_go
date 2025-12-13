@@ -99,13 +99,28 @@ class _HomePageState extends State<HomePage> {
 
     final currentPref = pref == Preference.fewTransfers ? 'fewTransfers' : 'shortTime';
 
-    return raw.map((e) {
+    final list = raw.map((e) {
       final map = e as Map<String, dynamic>;
       map['origin_name'] = _fromDesc;
       map['destination_name'] = _toDesc;
       map['preference'] = currentPref;
       return Candidate.fromJson(map);
     }).toList();
+
+    for (var i = 0; i < list.length; i++) {
+      final candidate = list[i];
+      final lastStep = candidate.steps.isNotEmpty ? candidate.steps.last : null;
+      final lastKind = lastStep?.kind ?? '(none)';
+      final buffer = StringBuffer(
+        '[DEBUG] Candidate[$i] destinationName=${candidate.destinationName} lastStep.to=${lastStep?.to} lastStep.kind=$lastKind',
+      );
+      if (lastStep != null && lastStep.kind != 'walk') {
+        buffer.write(', lastStep.edges=${lastStep.edges}, lastStep.minutes=${lastStep.minutes}');
+      }
+      print(buffer.toString());
+    }
+
+    return list;
   }
 
   @override
@@ -173,6 +188,7 @@ class _HomePageState extends State<HomePage> {
 
     // 既存ジョブはキャンセルして、新しいジョブ開始
     print('[DEBUG] Starting route job...');
+    print('[DEBUG] [RouteRequest] destination lat=${b.$1}, lon=${b.$2}');
     setState(() => _hasSearched = true);
     _cancelPolling();
     await _startRouteJob(a.$1, a.$2, b.$1, b.$2);
@@ -193,6 +209,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final params = _buildRouteParams(alat, alon, blat, blon);
+      print('[DEBUG] [RouteRequest] about to call /route with destination lat=$blat, lon=$blon');
       print('[DEBUG] Calling API /route with params: $params');
       final j = await ApiClient.post('/route', body: params);
       print('[DEBUG] API response: $j');
@@ -384,13 +401,18 @@ class _HomePageState extends State<HomePage> {
               child: PlaceField(
                 label: '到着(検索)',
                 onPicked: (lat, lon, desc) {
+                  print(
+                    '[DEBUG] Destination onPicked received desc=$desc, lat=$lat, lon=$lon',
+                  );
                   final txt = '$lat,$lon';
                   setState(() => _toDesc = desc);
+                  print('[DEBUG] _toDesc updated: $_toDesc');
                   if (_to.text == txt) {
                     _recompute();
                   } else {
                     _to.text = txt;
                   }
+                  print('[DEBUG] _to.text updated: ${_to.text}');
                 },
               ),
             ),
