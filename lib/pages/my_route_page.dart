@@ -25,22 +25,29 @@ class _MyRoutePageState extends State<MyRoutePage> {
   bool _loading = false;
   final TripDraftService _draftService = TripDraftService();
 
+  bool _isPlaceholder(String? value) {
+    const placeholders = {'出発地', '目的地'};
+    if (value == null) return true;
+    final trimmed = value.trim();
+    return trimmed.isEmpty || placeholders.contains(trimmed);
+  }
+
   String _originLabel(Candidate candidate) {
-    if (candidate.originName != null && candidate.originName!.isNotEmpty) {
+    if (!_isPlaceholder(candidate.originName)) {
       return candidate.originName!;
     }
-    if (candidate.steps.isNotEmpty) {
-      return candidate.steps.first.from ?? '出発地';
+    if (candidate.steps.isNotEmpty && !_isPlaceholder(candidate.steps.first.from)) {
+      return candidate.steps.first.from!;
     }
     return '出発地';
   }
 
   String _destinationLabel(Candidate candidate) {
-    if (candidate.destinationName != null && candidate.destinationName!.isNotEmpty) {
+    if (!_isPlaceholder(candidate.destinationName)) {
       return candidate.destinationName!;
     }
-    if (candidate.steps.isNotEmpty) {
-      return candidate.steps.last.to ?? '目的地';
+    if (candidate.steps.isNotEmpty && !_isPlaceholder(candidate.steps.last.to)) {
+      return candidate.steps.last.to!;
     }
     return '目的地';
   }
