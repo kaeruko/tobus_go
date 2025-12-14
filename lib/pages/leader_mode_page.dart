@@ -3,6 +3,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../widgets/route_map_preview.dart';
 import '../models/trip_models.dart';
 import '../models/group_models.dart';
 import '../models/leg_models.dart';
@@ -185,9 +187,22 @@ class _LeaderModePageState extends State<LeaderModePage> {
         final lastEntryAt = _findLastPlannedAt(trip.schedule);
         final scheduleStart = meetingEntry?.plannedAt ?? trip.plannedDepartureAt;
         final scheduleEnd = lastEntryAt ?? trip.plannedDepartureAt ?? trip.date;
-        final titlePrefix = (goalEntry?.label.isNotEmpty ?? false)
-            ? goalEntry!.label
-            : (trip.title.isNotEmpty ? trip.title : '目的地');
+        String titlePrefix;
+        String? destName;
+        if (trip.legs.isNotEmpty) {
+          final outboundLeg = trip.legs.firstWhere(
+              (l) => l.direction == LegDirection.outbound,
+              orElse: () => trip.legs.first);
+          destName = outboundLeg.candidate.destinationName;
+        }
+
+        if (destName != null && destName.isNotEmpty) {
+          titlePrefix = '目的地($destName)';
+        } else {
+          titlePrefix = (goalEntry?.label.isNotEmpty ?? false)
+              ? goalEntry!.label
+              : (trip.title.isNotEmpty ? trip.title : '目的地');
+        }
 
         return Scaffold(
           appBar: AppBar(
@@ -350,7 +365,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
           const SizedBox(height: 12),
           _buildGuideLink(context, trip),
           const SizedBox(height: 16),
-          _buildMapCard(),
+          _buildMapCard(trip),
           const SizedBox(height: 16),
           _buildMemberCard(trip),
           const SizedBox(height: 12),
@@ -411,50 +426,43 @@ class _LeaderModePageState extends State<LeaderModePage> {
     );
   }
 
-  Widget _buildMapCard() {
+  Widget _buildMapCard(Trip trip) {
+    // 優先的に「行き」のルートポイントを取得する
+    List<LatLng> points = [];
+    if (trip.legs.isNotEmpty) {
+      final outbound = trip.legs.firstWhere(
+        (l) => l.direction == LegDirection.outbound,
+        orElse: () => trip.legs.first,
+      );
+      points = outbound.candidate.points;
+    }
+
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 1,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.map, color: Colors.blue.shade700),
-                const SizedBox(width: 8),
-                const Text(
-                  '地図 (Map)',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Icon(Icons.map, color: Colors.blue.shade700),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '地図 (Map)',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 12),
-            Container(
-              height: 200,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.blue.shade50, Colors.blue.shade100],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.route, size: 48, color: Colors.blueGrey),
-                    SizedBox(height: 8),
-                    Text('ルートの全体像をここに表示'),
-                  ],
-                ),
-              ),
-            ),
+            RouteMapPreview(points: points),
           ],
         ),
       ),

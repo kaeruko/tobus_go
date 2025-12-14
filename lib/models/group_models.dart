@@ -130,6 +130,24 @@ List<ScheduleEntry> createScheduleFromRoute(
       .cast<String?>()
       .toList();
   final normalizedTimes = normalizeCrossDay(departureBase, stepClocks);
+
+  // Back-fill missing times if the start is missing (e.g. initial walk)
+  final firstValidIndex = stepClocks.indexWhere((s) => s != null && s.contains(':'));
+  if (firstValidIndex > 0) {
+    for (var k = firstValidIndex - 1; k >= 0; k--) {
+      // k+1 is always valid boundary because we start < firstValidIndex <= length
+      if (k % 2 != 0) {
+        // Arrival time (index k) -> Match next departure time (index k+1)
+        normalizedTimes[k] = normalizedTimes[k + 1];
+      } else {
+        // Departure time (index k) -> Arrival time (index k+1) - duration
+        final step = route.steps[k ~/ 2];
+        final duration = step.minutes ?? 0;
+        normalizedTimes[k] = normalizedTimes[k + 1].subtract(Duration(minutes: duration));
+      }
+    }
+  }
+
   final firstStepDeparture =
       normalizedTimes.isNotEmpty ? normalizedTimes.first : departureBase;
   final departureAt = firstStepDeparture.subtract(departureLeadTime);
@@ -259,13 +277,30 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
         (outbound?.candidate.departureDate?.add(Duration(minutes: outbound.candidate.totalTime)) ??
             DateTime.now());
 
+    final inboundStepClocks = inbound.candidate.steps
+        .expand((s) => [s.departureTime, s.arrivalTime])
+        .cast<String?>()
+        .toList();
+
     final inboundNormalizedTimes = normalizeCrossDay(
       inboundStartDate,
-      inbound.candidate.steps
-          .expand((s) => [s.departureTime, s.arrivalTime])
-          .cast<String?>()
-          .toList(),
+      inboundStepClocks,
     );
+
+    // Back-fill missing times for inbound leg as well
+    final inboundFirstValidIndex = inboundStepClocks.indexWhere((s) => s != null && s.contains(':'));
+    if (inboundFirstValidIndex > 0) {
+      for (var k = inboundFirstValidIndex - 1; k >= 0; k--) {
+        if (k % 2 != 0) {
+          inboundNormalizedTimes[k] = inboundNormalizedTimes[k + 1];
+        } else {
+          final step = inbound.candidate.steps[k ~/ 2];
+          final duration = step.minutes ?? 0;
+          inboundNormalizedTimes[k] = inboundNormalizedTimes[k + 1].subtract(Duration(minutes: duration));
+        }
+      }
+    }
+
     final inboundFirstDeparture = inboundNormalizedTimes.isNotEmpty
         ? inboundNormalizedTimes.first
         : inboundStartDate;

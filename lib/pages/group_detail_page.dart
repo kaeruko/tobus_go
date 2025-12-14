@@ -48,50 +48,7 @@ class GroupDetailPage extends StatelessWidget {
     }
   }
 
-  Future<void> _handleCancelTrip(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('グループを解散'),
-        content: const Text('本当に解散しますか？\nメンバー全員の画面も終了状態になります。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('キャンセル'),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('解散する'),
-          ),
-        ],
-      ),
-    );
 
-    if (confirmed != true) return;
-
-    try {
-      await TripService().cancelTrip(trip.id);
-
-      // ローカルの状態もリセット
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('groupId');
-      kCurrentGroupId = null;
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('グループを解散しました')),
-        );
-        Navigator.pop(context); // 詳細画面を閉じる
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: $e')),
-        );
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -213,21 +170,7 @@ class GroupDetailPage extends StatelessWidget {
 
             const SizedBox(height: 40),
 
-            // 5. アクションボタン (スクロール内に入れていたものを削除し、解散ボタンを追加)
-            if (isLeader) ...[
-              const Divider(),
-              Center(
-                child: TextButton.icon(
-                  onPressed: () => _handleCancelTrip(context),
-                  icon: const Icon(Icons.delete_forever, size: 20),
-                  label: const Text('このグループを解散する'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
+
             // 下部の余白確保 (FABやBottomBarとかぶらないように)
             const SizedBox(height: 80), 
           ],

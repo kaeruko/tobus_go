@@ -24,6 +24,8 @@ class _RootTabsState extends State<RootTabs> {
     GlobalKey<NavigatorState>(),
   ];
 
+  final ValueNotifier<int> _tabNotifier = ValueNotifier(0);
+
   @override
   void initState() {
     super.initState();
@@ -71,6 +73,7 @@ class _RootTabsState extends State<RootTabs> {
           }
           setState(() {
             _currentIndex = index;
+            _tabNotifier.value = index;
           });
         },
         items: tabs,
@@ -82,18 +85,18 @@ class _RootTabsState extends State<RootTabs> {
 
         if (_canShowHistory) {
            switch (index) {
-            case 0: return _buildPage(0, const HomePage());
+            case 0: return _buildPage(0, HomePage(tabIndexListenable: _tabNotifier));
             case 1: return _buildPage(1, const MyRoutePage());
             case 2: return _buildPage(2, const HistoryPage()); // 履歴
             case 3: return _buildPage(3, const SettingsPage());
-            default: return _buildPage(0, const HomePage());
+            default: return _buildPage(0, HomePage(tabIndexListenable: _tabNotifier));
           }
         } else {
            switch (index) {
-            case 0: return _buildPage(0, const HomePage());
+            case 0: return _buildPage(0, HomePage(tabIndexListenable: _tabNotifier));
             case 1: return _buildPage(1, const MyRoutePage());
             case 2: return _buildPage(2, const SettingsPage()); // 設定が3番目に来る
-            default: return _buildPage(0, const HomePage());
+            default: return _buildPage(0, HomePage(tabIndexListenable: _tabNotifier));
           }
         }
       },
