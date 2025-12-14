@@ -6,13 +6,16 @@ import '../models/route_models.dart';
 
 // ナビゲーションの結果（画面表示用）
 class NavigationState {
-  final String mainText;    // "あと 3駅"
-  final String subText;     // "つぎは 〇〇"
+  final String mainText; // "あと 3駅"
+  final String subText; // "つぎは 〇〇"
   final Color color;
   final bool isMoving;
-  
+  final String statusLabel;
+  final String? nextStopName;
+  final int? remainingStops;
+
   // ★追加: 現在の進行状況を保存しておくためのインデックス
-  final int currentStepIndex; 
+  final int currentStepIndex;
   final int nextStopIndex;
 
   NavigationState({
@@ -21,6 +24,9 @@ class NavigationState {
     required this.color,
     required this.currentStepIndex,
     required this.nextStopIndex,
+    required this.statusLabel,
+    this.nextStopName,
+    this.remainingStops,
     this.isMoving = true,
   });
 }
@@ -31,17 +37,16 @@ class TripNavigator {
 
   /// 前回の状態(lastState)と現在地(gps)を受け取り、新しい状態を返す
   static NavigationState updateState(
-    Trip trip, 
-    LatLng currentPos, 
+    Trip trip,
+    LatLng currentPos,
     int lastStepIndex, // 前回どこまで進んでいたか
     int lastStopIndex, // 前回どのバス停を目指していたか
   ) {
-    
     // 1. 完了チェック
     if (trip.status == TripStatus.completed) {
       return _completedState();
     }
-    
+
     // legsから全てのstepを展開して1つのリストにする
     final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
 
@@ -61,28 +66,30 @@ class TripNavigator {
       if (step.kind == 'walk') {
         // 次のステップがあるなら、そのステップの出発地（＝今のステップの目的地）との距離を測る
         if (currentStep + 1 < allSteps.length) {
-            final nextStep = allSteps[currentStep + 1];
-            // 次のステップの最初のストップ（乗り場）
-            if (nextStep.stops.isNotEmpty) {
-                final targetStop = nextStep.stops.first;
-                final targetLat = targetStop.lat ?? 0;
-                final targetLon = targetStop.lon ?? 0;
-                 final distance = Geolocator.distanceBetween(
-                    currentPos.latitude, currentPos.longitude,
-                    targetLat, targetLon
-                );
-                
-                // 次の乗り場に近づいたらステップを進める
-                if (distance < _arrivalRadius) {
-                    currentStep++;
-                    nextStop = 0;
-                }
+          final nextStep = allSteps[currentStep + 1];
+          // 次のステップの最初のストップ（乗り場）
+          if (nextStep.stops.isNotEmpty) {
+            final targetStop = nextStep.stops.first;
+            final targetLat = targetStop.lat ?? 0;
+            final targetLon = targetStop.lon ?? 0;
+            final distance = Geolocator.distanceBetween(
+              currentPos.latitude,
+              currentPos.longitude,
+              targetLat,
+              targetLon,
+            );
+
+            // 次の乗り場に近づいたらステップを進める
+            if (distance < _arrivalRadius) {
+              currentStep++;
+              nextStop = 0;
             }
+          }
         } else {
-             // 最後の徒歩（目的地への移動）
-             // ここでは簡易的に現状維持
+          // 最後の徒歩（目的地への移動）
+          // ここでは簡易的に現状維持
         }
-      } 
+      }
       // 乗り物(bus/rail)の場合
       else {
         // ターゲット（次の駅）の座標を取得
@@ -93,15 +100,17 @@ class TripNavigator {
 
           // 距離を計測
           final distance = Geolocator.distanceBetween(
-            currentPos.latitude, currentPos.longitude,
-            targetLat, targetLon
+            currentPos.latitude,
+            currentPos.longitude,
+            targetLat,
+            targetLon,
           );
 
           // ★ここがポイント！
           // 「ターゲットの半径内に入った」＝「到着/通過した」とみなす
           if (distance < _arrivalRadius) {
             // 次の駅へターゲットを更新（経路を潰す）
-            nextStop++; 
+            nextStop++;
           }
         } else {
           // この区間の駅を全部消化した＝乗り換え地点に到着！
@@ -117,14 +126,14 @@ class TripNavigator {
 
     // 3. 画面表示の生成
     // 更新された currentStep / nextStop を使って文字を作る
-    
+
     // 範囲外チェック
     if (currentStep >= allSteps.length) {
       return _arrivedState();
     }
 
     final step = allSteps[currentStep];
-    
+
     if (step.kind == 'walk') {
       return NavigationState(
         mainText: "徒歩で移動中",
@@ -132,6 +141,9 @@ class TripNavigator {
         color: const Color(0xFF81D4FA),
         currentStepIndex: currentStep,
         nextStopIndex: nextStop,
+        statusLabel: "歩行中",
+        nextStopName: step.to,
+        isMoving: false,
       );
     } else {
       // バス・電車
@@ -139,24 +151,28 @@ class TripNavigator {
       // 例: 全5駅、次はindex=0(1駅目) -> 残り5駅
       //     全5駅、次はindex=4(5駅目/最後) -> 残り1駅
       final remainingStops = step.stops.length - nextStop;
-      
+
       // 次のバス停名
       String nextStopName = "";
       if (nextStop < step.stops.length) {
-          nextStopName = step.stops[nextStop].name;
+        nextStopName = step.stops[nextStop].name;
       }
 
       // 残りが0以下または次が最後の駅（降りる駅）の場合
       // バスの降りるボタン等は、最後の駅の一つ前を出た後に押すが、
       // ここでは「最後の駅を目指している」状態になったら「まもなく降車」とする
       if (remainingStops <= 1) {
-        final destinationName = step.to ?? (step.stops.isNotEmpty ? step.stops.last.name : "目的地");
+        final destinationName =
+            step.to ?? (step.stops.isNotEmpty ? step.stops.last.name : "目的地");
         return NavigationState(
           mainText: "まもなく降車",
           subText: "$destinationName で降ります",
           color: const Color(0xFFFFAB91), // 赤
           currentStepIndex: currentStep,
           nextStopIndex: nextStop,
+          statusLabel: "到着まもなく",
+          nextStopName: destinationName,
+          remainingStops: remainingStops,
         );
       } else {
         // まだ乗っている
@@ -166,6 +182,9 @@ class TripNavigator {
           color: const Color(0xFF81D4FA), // 青
           currentStepIndex: currentStep,
           nextStopIndex: nextStop,
+          statusLabel: "移動中",
+          nextStopName: nextStopName,
+          remainingStops: remainingStops,
         );
       }
     }
@@ -173,17 +192,31 @@ class TripNavigator {
 
   // --- Helper States ---
   static NavigationState _completedState() => NavigationState(
-    mainText: "終了", subText: "お疲れ様でした", color: Colors.grey, 
-    currentStepIndex: 999, nextStopIndex: 999
-  );
-  
+        mainText: "終了",
+        subText: "お疲れ様でした",
+        color: Colors.grey,
+        currentStepIndex: 999,
+        nextStopIndex: 999,
+        statusLabel: "旅は完了",
+      );
+
   static NavigationState _errorState() => NavigationState(
-    mainText: "エラー", subText: "ルートがありません", color: Colors.red, 
-    currentStepIndex: 0, nextStopIndex: 0
-  );
+        mainText: "エラー",
+        subText: "ルートがありません",
+        color: Colors.red,
+        currentStepIndex: 0,
+        nextStopIndex: 0,
+        statusLabel: "案内できません",
+      );
 
   static NavigationState _arrivedState() => NavigationState(
-    mainText: "到着", subText: "目的地周辺です", color: Colors.orange, 
-    currentStepIndex: 999, nextStopIndex: 999
-  );
+        mainText: "到着",
+        subText: "目的地周辺です",
+        color: Colors.orange,
+        currentStepIndex: 999,
+        nextStopIndex: 999,
+        statusLabel: "到着",
+        nextStopName: "目的地",
+        remainingStops: 0,
+      );
 }
