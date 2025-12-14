@@ -2,80 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/trip_models.dart';
 import '../models/group_models.dart';
-import 'trip_navigator.dart';
-
-/// 予定の進捗状況だけを持つクラス
-class ScheduleProgress {
-  final int activeIndex;
-  final ScheduleEntry? activeEntry;
-  final List<ScheduleEntry> upcomingEntries;
-  final int completedCount;
-  final String activeLabel;
-
-  const ScheduleProgress({
-    required this.activeIndex,
-    required this.activeEntry,
-    required this.upcomingEntries,
-    required this.completedCount,
-    required this.activeLabel,
-  });
-}
-
-
+import 'trip_navigator.dart'; // RouteNavState
+import 'schedule_resolver.dart';
 
 class TripCoordinator {
-  /// スケジュールの進捗を計算する
-  static ScheduleProgress computeScheduleProgress({
-    required List<ScheduleEntry> scheduleSorted,
-    required DateTime now,
-  }) {
-    final activeIndexRaw = scheduleSorted.indexWhere((e) => !e.isCompleted);
-    var activeIndex = activeIndexRaw;
-
-    if (activeIndex >= 0 && activeIndex + 1 < scheduleSorted.length) {
-      final current = scheduleSorted[activeIndex];
-      final next = scheduleSorted[activeIndex + 1];
-
-      // "集合" (meeting) の場合、かつ次の予定（出発など）の時間が過ぎている場合はスキップ
-      if (current.itemKind == ScheduleEntryKind.meeting && now.isAfter(next.plannedAt)) {
-        activeIndex++;
-      }
-    }
-
-    final activeEntry = activeIndex >= 0 ? scheduleSorted[activeIndex] : null;
-
-    var activeLabel = 'いま';
-    if (activeEntry != null) {
-      final diff = activeEntry.plannedAt.difference(now);
-      // 20分以上先なら "つぎ"
-      if (diff.inMinutes > 20) {
-        activeLabel = 'つぎ';
-      }
-    }
-
-    final upcomingEntries = (activeIndex >= 0 ? scheduleSorted.skip(activeIndex + 1) : scheduleSorted)
-        .take(3)
-        .toList();
-    
-    // activeIndexより前はすべて完了扱いとみなす
-    final completedCount = activeIndex >= 0 ? activeIndex : scheduleSorted.length;
-
-    return ScheduleProgress(
-      activeIndex: activeIndex,
-      activeEntry: activeEntry,
-      upcomingEntries: upcomingEntries,
-      completedCount: completedCount,
-      activeLabel: activeLabel,
-    );
-  }
-
   /// 最終的なナビゲーション状態を構築する
+  ///
+  /// 優先順位:
+  /// 1. TripStatus (completed/cancelled)
+  /// 2. 移動中 (routeState.isMoving) -> ナビ表示
+  /// 3. 非移動時 -> スケジュール表示 (開始前 / 集合 / 出発)
+  /// 4. その他 -> ルート情報 (待機/到着)
   static NavigationState buildMemberNavigationState({
     required Trip trip,
-    required LatLng currentPos,
-    required int lastStepIndex,
-    required int lastStopIndex,
-    required List<ScheduleEntry> scheduleSorted,
+    required ScheduleResolveResult scheduleState,
+    required RouteNavState routeState,
     required DateTime now,
   }) {
     // 1. TripStatus Check
@@ -102,17 +43,32 @@ class TripCoordinator {
       );
     }
 
-    // 2. Schedule Check
-    final sched = computeScheduleProgress(
-      scheduleSorted: scheduleSorted,
-      now: now,
-    );
+    // 2. 移動中ならルートナビ優先
+    // (ただし、RouteNavState が error や arrived の場合は移動中とみなさない判定が必要だが、
+    //  TripNavigator側で isMoving=false になっているはず)
+    if (routeState.isMoving) {
+      // 例外: もしスケジュールが「開始20分前」以前なら、移動してても「開始前」と出したい？
+      // いや、移動し始めているなら移動案内の方が親切か。
+      // ここでは原則通り「移動中はナビ」とする。
+      return NavigationState(
+        mainText: routeState.mainText,
+        subText: routeState.subText,
+        color: routeState.color,
+        currentStepIndex: routeState.currentStepIndex,
+        nextStopIndex: routeState.nextStopIndex,
+        statusLabel: routeState.statusLabel,
+        nextStopName: routeState.nextStopName,
+        remainingStops: routeState.remainingStops,
+        isMoving: true,
+      );
+    }
 
-    final entry = sched.activeEntry;
+    // 3. 移動していない場合 -> スケジュールを確認
+    final entry = scheduleState.activeEntry;
     if (entry != null) {
       final diff = entry.plannedAt.difference(now);
 
-      // 開始時間よりだいぶ前（20分以上）の場合は、開始日時を案内
+      // A. 開始前 (20分以上前)
       if (diff.inMinutes > 20) {
         final dateStr = "${entry.plannedAt.month}月${entry.plannedAt.day}日";
         final timeStr = "${entry.plannedAt.hour.toString().padLeft(2, '0')}:${entry.plannedAt.minute.toString().padLeft(2, '0')}";
@@ -128,45 +84,51 @@ class TripCoordinator {
           mainText: "$dateStr $timeStr 開始",
           subText: "開始まで $remainder",
           color: Colors.white,
-          currentStepIndex: lastStepIndex,
-          nextStopIndex: lastStopIndex,
+          currentStepIndex: routeState.currentStepIndex,
+          nextStopIndex: routeState.nextStopIndex,
           statusLabel: "開始前",
           isMoving: false,
         );
       }
 
-      // "集合" (meeting) の場合
+      // B. 集合 (Meeting)
       if (entry.itemKind == ScheduleEntryKind.meeting) {
         return NavigationState(
-          mainText: entry.label, // 例: "行き 集合"
+          mainText: entry.label,
           subText: entry.description.isNotEmpty ? entry.description : "集合場所へ向かいましょう",
           color: const Color(0xFFC8E6C9), // 薄い緑
-          currentStepIndex: lastStepIndex,
-          nextStopIndex: lastStopIndex,
+          currentStepIndex: routeState.currentStepIndex,
+          nextStopIndex: routeState.nextStopIndex,
           statusLabel: "集合",
+          isMoving: false,
+        );
+      }
+      
+      // C. 出発 (Departure) - まだ移動開始していない（isMoving=false）場合
+      if (entry.itemKind == ScheduleEntryKind.departure) {
+         return NavigationState(
+          mainText: entry.label,
+          subText: "出発の準備をしましょう",
+          color: const Color(0xFFFFF59D), // 薄い黄色
+          currentStepIndex: routeState.currentStepIndex,
+          nextStopIndex: routeState.nextStopIndex,
+          statusLabel: "出発",
           isMoving: false,
         );
       }
     }
 
-    // 3. Route Navigation
-    final route = TripNavigator.updateRouteOnly(
-      trip: trip,
-      currentPos: currentPos,
-      lastStepIndex: lastStepIndex,
-      lastStopIndex: lastStopIndex,
-    );
-
+    // 4. どれにも当てはまらない場合（到着済み、あるいはスケジュール空） -> ルート側の静的ステータス
     return NavigationState(
-      mainText: route.mainText,
-      subText: route.subText,
-      color: route.color,
-      currentStepIndex: route.currentStepIndex,
-      nextStopIndex: route.nextStopIndex,
-      statusLabel: route.statusLabel,
-      nextStopName: route.nextStopName,
-      remainingStops: route.remainingStops,
-      isMoving: route.isMoving,
+      mainText: routeState.mainText,
+      subText: routeState.subText,
+      color: routeState.color,
+      currentStepIndex: routeState.currentStepIndex,
+      nextStopIndex: routeState.nextStopIndex,
+      statusLabel: routeState.statusLabel,
+      nextStopName: routeState.nextStopName,
+      remainingStops: routeState.remainingStops,
+      isMoving: false,
     );
   }
 }

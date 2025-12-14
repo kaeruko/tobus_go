@@ -13,6 +13,8 @@ import '../models/group_models.dart';
 import 'group_detail_page.dart';
 import '../logic/trip_navigator.dart'; // Keep for type definitions if needed, or rely on coordinator
 import '../logic/trip_coordinator.dart'; // Added
+import '../logic/schedule_resolver.dart'; 
+import 'settings_page.dart'; // Added for debug link
 import '../providers/app_session_provider.dart';
 import '../providers/trip_provider.dart';
 import '../providers/location_provider.dart';
@@ -194,28 +196,38 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                 : const LatLng(35.6812, 139.7671)); // Default Tokyo Station if waiting for GPS
 
         // Calculate view state using CURRENT progress indices
-        // Calculate view state using CURRENT progress indices
-        final navState = TripCoordinator.buildMemberNavigationState(
-          trip: trip,
-          currentPos: currentPos,
-          lastStepIndex: navProgress.currentStepIndex,
-          lastStopIndex: navProgress.nextStopIndex,
+        // 1. Resolve Schedule (Window + Active)
+        final scheduleResolved = ScheduleResolver.resolve(
           scheduleSorted: _sortedSchedule(trip.schedule),
           now: appClock.now(),
         );
 
-        // Schedule View Logic using Coordinator
-        // Note: sortedSchedule is called above, might want to optimize to call once.
-        final schedule = _sortedSchedule(trip.schedule);
-        final schedProgress = TripCoordinator.computeScheduleProgress(
-          scheduleSorted: schedule,
+        // 2. Resolve Route Navigation (Pure Route State)
+        final routeState = TripNavigator.updateRouteOnly(
+          trip: trip,
+          currentPos: currentPos,
+          lastStepIndex: navProgress.currentStepIndex,
+          lastStopIndex: navProgress.nextStopIndex,
+        );
+
+        // 3. Coordinate Final Display State
+        final navState = TripCoordinator.buildMemberNavigationState(
+          trip: trip,
+          scheduleState: scheduleResolved,
+          routeState: routeState,
           now: appClock.now(),
         );
 
-        final activeEntry = schedProgress.activeEntry;
-        final upcomingEntries = schedProgress.upcomingEntries;
-        final completedCount = schedProgress.completedCount;
-        final activeLabel = schedProgress.activeLabel;
+        // Prepare data for UI list
+        final activeEntry = scheduleResolved.activeEntry;
+        // Use the window provided by resolver instead of manual skip/take
+        final upcomingEntries = scheduleResolved.window; 
+        // Note: The UI widget _SchedulePeek might check 'upcoming' but here we pass the 'window' 
+        // which includes prev/active/next. We might need to adjust _SchedulePeek or passing upcomingEntries.
+        // User request said: "Simple screen is Fixed Window (Prev 1 + Now 1 + Next 3)".
+        // So we should pass `scheduleResolved.window` to the list widget.
+        final completedCount = scheduleResolved.completedCount;
+        final activeLabel = scheduleResolved.activeLabel;
 
         // タイトル生成ロジック (LeaderModePageと同期)
         String displayTitle = trip.title;
@@ -259,6 +271,16 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
               tooltip: 'たびのしおり',
             ),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.settings),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsPage(),
+                    ),
+                  );
+                },
+              ),
               TextButton(
                 onPressed: () => showCupertinoDialog(
                   context: context,
@@ -299,7 +321,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                   const SizedBox(height: 14),
                   _SchedulePeek(
                     activeEntry: activeEntry,
-                    upcomingEntries: upcomingEntries,
+                    windowEntries: upcomingEntries, // Now holding valid window list
                     completedCount: completedCount,
                     activeLabel: activeLabel,
                   ),
@@ -504,13 +526,13 @@ class _StatusChip extends StatelessWidget {
 
 class _SchedulePeek extends StatelessWidget {
   final ScheduleEntry? activeEntry;
-  final List<ScheduleEntry> upcomingEntries;
+  final List<ScheduleEntry> windowEntries; // Changed from upcomingEntries
   final int completedCount;
   final String activeLabel;
 
   const _SchedulePeek({
     required this.activeEntry,
-    required this.upcomingEntries,
+    required this.windowEntries,
     required this.completedCount,
     this.activeLabel = 'いま',
   });
@@ -587,39 +609,34 @@ class _SchedulePeek extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          if (activeEntry != null) ...[
-            _ScheduleRow(
-              label: activeEntry!.label,
-              description: activeEntry!.description,
-              timeLabel: timeText(activeEntry!),
-              icon: _kindIcon(activeEntry!.itemKind),
-              pill: activeLabel,
-              highlighted: true,
-            ),
-            const SizedBox(height: 12),
-            const Divider(),
-            const SizedBox(height: 12),
-          ] else
+          if (windowEntries.isEmpty && activeEntry == null)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Text('すべての予定を完了しました。お疲れさまです。'),
-            ),
-          Column(
-            children: upcomingEntries
-                .map(
-                  (e) => Padding(
+            )
+          else
+            Column(
+              children: windowEntries.map((e) {
+                // Highlight if it's the active entry
+                // Note: Object identity might not persist if copies are made, but assuming from same list.
+                // Or check properties. ActiveEntry came from resolver which used the same list so identity should hold if passed correctly.
+                final isActive = activeEntry != null && e == activeEntry;
+                // Or compare unique fields if ScheduleEntry has ID (it doesn't seem to have ID in snippets viewed, only trip has ID).
+                // Equality of plannedAt and label is reasonable fallback if identity fails.
+                
+                return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: _ScheduleRow(
                       label: e.label,
                       description: e.description,
                       timeLabel: timeText(e),
                       icon: _kindIcon(e.itemKind),
-                      pill: _kindLabel(e.itemKind),
+                      pill: isActive ? activeLabel : _kindLabel(e.itemKind),
+                      highlighted: isActive,
                     ),
-                  ),
-                )
-                .toList(),
-          ),
+                  );
+              }).toList(),
+            ),
         ],
       ),
     );
