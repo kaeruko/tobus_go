@@ -10,8 +10,25 @@ import 'schedule_page.dart'; // スケジュール表示用(簡易)
 
 class GroupDetailPage extends StatelessWidget {
   final Trip trip;
-  
+
   const GroupDetailPage({super.key, required this.trip});
+
+  DateTime _resolveStartDateTime() {
+    final scheduledStart = trip.schedule.isNotEmpty
+        ? trip.schedule
+            .map((entry) => entry.plannedAt)
+            .reduce((a, b) => a.isBefore(b) ? a : b)
+        : null;
+    return trip.plannedDepartureAt ?? scheduledStart ?? trip.date;
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final month = dateTime.month.toString().padLeft(2, '0');
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$month/$day $hour:$minute';
+  }
 
   Future<void> _navigateToMode(BuildContext context) async {
     final uid = UserService().currentUserId;
@@ -101,7 +118,10 @@ class GroupDetailPage extends StatelessWidget {
             const SizedBox(height: 8),
             _InfoRow(icon: Icons.person, label: "リーダー", value: trip.participants.firstWhere((p) => p.isLeader, orElse: () => trip.participants.first).name),
             const SizedBox(height: 8),
-            _InfoRow(icon: Icons.calendar_today, label: "実施日", value: "${trip.date.month}/${trip.date.day}"),
+            _InfoRow(
+                icon: Icons.calendar_today,
+                label: "実施日",
+                value: _formatDateTime(_resolveStartDateTime())),
 
             const SizedBox(height: 24),
 
