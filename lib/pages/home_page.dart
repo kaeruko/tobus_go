@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../core/api_client.dart';
 import '../core/utils.dart';
@@ -13,20 +14,21 @@ import 'member_mode_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/global_state.dart';
 import '../models/trip_models.dart'; // 追加
-import 'group_detail_page.dart';    // 追加
+import 'leader_mode_page.dart';
 import 'package:flutter/material.dart' show TextField, InputDecoration, OutlineInputBorder, Icons, ElevatedButton, Colors, TextInputType, MaterialPageRoute, ScaffoldMessenger, SnackBar, Divider; // Material components
 
 enum Preference { fewTransfers, shortTime }
 
 class HomePage extends StatefulWidget {
   final String title;
-  const HomePage({super.key, this.title = '都営でGO'});
+  final ValueListenable<int>? tabIndexListenable;
+  const HomePage({super.key, this.title = '都営でGO', this.tabIndexListenable});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomePage> createState() => HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class HomePageState extends State<HomePage> {
   final _from = TextEditingController(
     text: '',
   );
@@ -136,6 +138,7 @@ class _HomePageState extends State<HomePage> {
     print('[DEBUG] initState called');
     _recompute();
     _checkActiveTrip(); // ★ 追加: 起動時にチェック
+    widget.tabIndexListenable?.addListener(_handleTabChange);
     _from.addListener(() {
       print('[DEBUG] _from changed: ${_from.text}');
       _recompute();
@@ -146,24 +149,39 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  @override
+  void didUpdateWidget(covariant HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tabIndexListenable != widget.tabIndexListenable) {
+      oldWidget.tabIndexListenable?.removeListener(_handleTabChange);
+      widget.tabIndexListenable?.addListener(_handleTabChange);
+    }
+  }
+
   // ★ 追加: 現在進行中のグループがあるか確認する
   Future<void> _checkActiveTrip() async {
     setState(() => _isLoadingTrip = true);
     try {
       final trip = await TripService().getActiveTrip();
-      
-      // 完了・中止していない場合のみ表示
-      if (trip != null && trip.status != TripStatus.completed && trip.status != TripStatus.cancelled) {
-        if (mounted) {
-          setState(() {
-            _activeTrip = trip;
-          });
-        }
+
+      if (mounted) {
+        final shouldShow = trip != null &&
+            trip.status != TripStatus.completed &&
+            trip.status != TripStatus.cancelled;
+        setState(() {
+          _activeTrip = shouldShow ? trip : null;
+        });
       }
     } catch (e) {
       print("[DEBUG] Failed to load active trip: $e");
     } finally {
       if (mounted) setState(() => _isLoadingTrip = false);
+    }
+  }
+
+  void _handleTabChange() {
+    if (widget.tabIndexListenable?.value == 0) {
+      _checkActiveTrip();
     }
   }
 
@@ -402,7 +420,7 @@ class _HomePageState extends State<HomePage> {
                       Navigator.push(
                         context,
                         CupertinoPageRoute(
-                          builder: (_) => GroupDetailPage(trip: _activeTrip!),
+                          builder: (_) => LeaderModePage(tripId: _activeTrip!.id),
                         ),
                       ).then((_) {
                         // 戻ってきたら状態を再確認（解散したかもしれないので）
@@ -672,6 +690,7 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     _from.removeListener(_recompute);
     _to.removeListener(_recompute);
+    widget.tabIndexListenable?.removeListener(_handleTabChange);
     _from.dispose();
     _to.dispose();
     _polling = false;

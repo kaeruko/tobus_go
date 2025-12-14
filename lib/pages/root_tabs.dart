@@ -92,7 +92,7 @@ class _RootTabsState extends State<RootTabs> {
            switch (index) {
             case 0: return _buildPage(0, const HomePage());
             case 1: return _buildPage(1, const MyRoutePage());
-            case 2: return _buildPage(2, const SettingsPage()); // 設定が2番目に来る
+            case 2: return _buildPage(2, const SettingsPage()); // 設定が3番目に来る
             default: return _buildPage(0, const HomePage());
           }
         }
@@ -107,4 +107,3 @@ class _RootTabsState extends State<RootTabs> {
     );
   }
 }
-

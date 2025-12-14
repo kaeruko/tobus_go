@@ -112,6 +112,12 @@ List<ScheduleEntry> createScheduleFromRoute(
   DateTime? startDateTime,
   String? labelPrefix,
   int legIndex = 0,
+  bool includeMeeting = false,
+  String meetingLabel = '集合',
+  String meetingDescription = '出発前に集合しましょう',
+  Duration meetingLeadTime = const Duration(minutes: 10),
+  Duration departureLeadTime = Duration.zero,
+  DateTime? meetingAt,
 }) {
   final list = <ScheduleEntry>[];
   final prefix = (labelPrefix != null && labelPrefix.isNotEmpty)
@@ -124,11 +130,29 @@ List<ScheduleEntry> createScheduleFromRoute(
       .cast<String?>()
       .toList();
   final normalizedTimes = normalizeCrossDay(departureBase, stepClocks);
+  final firstStepDeparture =
+      normalizedTimes.isNotEmpty ? normalizedTimes.first : departureBase;
+  final departureAt = firstStepDeparture.subtract(departureLeadTime);
   var timeCursorIndex = 0;
+
+  if (includeMeeting) {
+    final meetingTitle = prefix.isNotEmpty ? '$prefix$meetingLabel' : meetingLabel;
+    final plannedMeeting = meetingAt ?? departureAt.subtract(meetingLeadTime);
+    list.add(
+      ScheduleEntry(
+        plannedAt: plannedMeeting.isAfter(departureAt) ? departureAt : plannedMeeting,
+        label: meetingTitle,
+        description: meetingDescription,
+        itemKind: ScheduleEntryKind.meeting,
+        legIndex: legIndex,
+        generatedBy: ScheduleEntrySource.route,
+      ),
+    );
+  }
 
   list.add(
     ScheduleEntry(
-      plannedAt: departureBase,
+      plannedAt: departureAt,
       label: '${prefix}出発',
       description: 'みんな揃っているか確認しましょう',
       itemKind: ScheduleEntryKind.departure,
@@ -223,6 +247,9 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
         startDateTime: outbound.candidate.departureDate,
         labelPrefix: '行き',
         legIndex: 0,
+        includeMeeting: true,
+        meetingLabel: '集合',
+        meetingDescription: '出発の10分前に集合しましょう',
       ),
     );
   }
@@ -232,18 +259,18 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
         (outbound?.candidate.departureDate?.add(Duration(minutes: outbound.candidate.totalTime)) ??
             DateTime.now());
 
-    if (outbound != null) {
-      schedule.add(
-        ScheduleEntry(
-          plannedAt: inboundStartDate,
-          label: '帰りの集合',
-          description: '帰りの経路を開始する前に人数を確認しましょう',
-          itemKind: ScheduleEntryKind.meeting,
-          legIndex: 1,
-          generatedBy: ScheduleEntrySource.route,
-        ),
-      );
-    }
+    final inboundNormalizedTimes = normalizeCrossDay(
+      inboundStartDate,
+      inbound.candidate.steps
+          .expand((s) => [s.departureTime, s.arrivalTime])
+          .cast<String?>()
+          .toList(),
+    );
+    final inboundFirstDeparture = inboundNormalizedTimes.isNotEmpty
+        ? inboundNormalizedTimes.first
+        : inboundStartDate;
+    final inboundDepartureAt =
+        inboundFirstDeparture.subtract(const Duration(minutes: 10));
 
     schedule.addAll(
       createScheduleFromRoute(
@@ -251,6 +278,11 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
         startDateTime: inboundStartDate,
         labelPrefix: '帰り',
         legIndex: 1,
+        includeMeeting: true,
+        meetingLabel: '帰りの集合',
+        meetingDescription: '帰りの経路を開始する前に人数を確認しましょう',
+        departureLeadTime: const Duration(minutes: 10),
+        meetingAt: _roundDownToHalfHour(inboundDepartureAt),
       ),
     );
   }
@@ -288,4 +320,10 @@ String _labelForLeg(LegDirection direction) {
 
 String formatClock(DateTime dt) {
   return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+}
+
+DateTime _roundDownToHalfHour(DateTime dt) {
+  final minute = dt.minute;
+  final roundedMinute = minute >= 30 ? 30 : 0;
+  return DateTime(dt.year, dt.month, dt.day, dt.hour, roundedMinute);
 }

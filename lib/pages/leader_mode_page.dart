@@ -7,6 +7,7 @@ import '../models/trip_models.dart';
 import '../models/group_models.dart';
 import '../models/leg_models.dart';
 import '../services/trip_service.dart';
+import 'group_detail_page.dart';
 import 'schedule_page.dart';
 
 class LeaderModePage extends StatefulWidget {
@@ -180,10 +181,13 @@ class _LeaderModePageState extends State<LeaderModePage> {
         final trip = snapshot.data!;
 
         final meetingEntry = _findFirstByKind(trip.schedule, ScheduleEntryKind.meeting);
+        final goalEntry = _findFirstByKind(trip.schedule, ScheduleEntryKind.goal);
         final lastEntryAt = _findLastPlannedAt(trip.schedule);
         final scheduleStart = meetingEntry?.plannedAt ?? trip.plannedDepartureAt;
         final scheduleEnd = lastEntryAt ?? trip.plannedDepartureAt ?? trip.date;
-        final titlePrefix = trip.title.isNotEmpty ? trip.title : '目的地';
+        final titlePrefix = (goalEntry?.label.isNotEmpty ?? false)
+            ? goalEntry!.label
+            : (trip.title.isNotEmpty ? trip.title : '目的地');
 
         return Scaffold(
           appBar: AppBar(
@@ -343,12 +347,38 @@ class _LeaderModePageState extends State<LeaderModePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildScheduleShortcut(context, trip),
+          const SizedBox(height: 12),
+          _buildGuideLink(context, trip),
           const SizedBox(height: 16),
           _buildMapCard(),
           const SizedBox(height: 16),
           _buildMemberCard(trip),
           const SizedBox(height: 12),
         ],
+      ),
+    );
+  }
+
+  Widget _buildGuideLink(BuildContext context, Trip trip) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: const Icon(Icons.menu_book, color: Colors.orange),
+        title: const Text(
+          'おでかけのしおり',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: const Text('グループ詳細や参加コードを確認'),
+        trailing: const Icon(Icons.arrow_forward_ios,
+            size: 16, color: Colors.orange),
+        onTap: () {
+          Navigator.of(context, rootNavigator: true).push(
+            MaterialPageRoute(
+              builder: (_) => GroupDetailPage(trip: trip),
+            ),
+          );
+        },
       ),
     );
   }
