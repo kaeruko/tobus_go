@@ -116,6 +116,8 @@ List<ScheduleEntry> createScheduleFromRoute(
   String meetingLabel = '集合',
   String meetingDescription = '出発前に集合しましょう',
   Duration meetingLeadTime = const Duration(minutes: 10),
+  Duration departureLeadTime = Duration.zero,
+  DateTime? meetingAt,
 }) {
   final list = <ScheduleEntry>[];
   final prefix = (labelPrefix != null && labelPrefix.isNotEmpty)
@@ -128,14 +130,17 @@ List<ScheduleEntry> createScheduleFromRoute(
       .cast<String?>()
       .toList();
   final normalizedTimes = normalizeCrossDay(departureBase, stepClocks);
-  final departureAt = normalizedTimes.isNotEmpty ? normalizedTimes.first : departureBase;
+  final firstStepDeparture =
+      normalizedTimes.isNotEmpty ? normalizedTimes.first : departureBase;
+  final departureAt = firstStepDeparture.subtract(departureLeadTime);
   var timeCursorIndex = 0;
 
   if (includeMeeting) {
     final meetingTitle = prefix.isNotEmpty ? '$prefix$meetingLabel' : meetingLabel;
+    final plannedMeeting = meetingAt ?? departureAt.subtract(meetingLeadTime);
     list.add(
       ScheduleEntry(
-        plannedAt: departureAt.subtract(meetingLeadTime),
+        plannedAt: plannedMeeting.isAfter(departureAt) ? departureAt : plannedMeeting,
         label: meetingTitle,
         description: meetingDescription,
         itemKind: ScheduleEntryKind.meeting,
@@ -254,6 +259,19 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
         (outbound?.candidate.departureDate?.add(Duration(minutes: outbound.candidate.totalTime)) ??
             DateTime.now());
 
+    final inboundNormalizedTimes = normalizeCrossDay(
+      inboundStartDate,
+      inbound.candidate.steps
+          .expand((s) => [s.departureTime, s.arrivalTime])
+          .cast<String?>()
+          .toList(),
+    );
+    final inboundFirstDeparture = inboundNormalizedTimes.isNotEmpty
+        ? inboundNormalizedTimes.first
+        : inboundStartDate;
+    final inboundDepartureAt =
+        inboundFirstDeparture.subtract(const Duration(minutes: 10));
+
     schedule.addAll(
       createScheduleFromRoute(
         inbound.candidate,
@@ -263,6 +281,8 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
         includeMeeting: true,
         meetingLabel: '帰りの集合',
         meetingDescription: '帰りの経路を開始する前に人数を確認しましょう',
+        departureLeadTime: const Duration(minutes: 10),
+        meetingAt: _roundDownToHalfHour(inboundDepartureAt),
       ),
     );
   }
@@ -300,4 +320,10 @@ String _labelForLeg(LegDirection direction) {
 
 String formatClock(DateTime dt) {
   return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+}
+
+DateTime _roundDownToHalfHour(DateTime dt) {
+  final minute = dt.minute;
+  final roundedMinute = minute >= 30 ? 30 : 0;
+  return DateTime(dt.year, dt.month, dt.day, dt.hour, roundedMinute);
 }
