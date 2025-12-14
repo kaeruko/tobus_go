@@ -6,7 +6,6 @@ import '../services/trip_service.dart';
 import '../services/user_service.dart';
 import 'leader_mode_page.dart';
 import 'member_mode_page.dart';
-import 'schedule_page.dart'; // スケジュール表示用(簡易)
 
 class GroupDetailPage extends StatelessWidget {
   final Trip trip;
@@ -147,28 +146,8 @@ class GroupDetailPage extends StatelessWidget {
             const SizedBox(height: 24),
 
             // 4. しおり（簡易）
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text("しおり (予定)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                TextButton(
-                  onPressed: () {
-                    // スケジュール全画面へ (閲覧モードとして開く)
-                     Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SchedulePage(
-                            tripId: trip.id,
-                            isLeader: false, // 閲覧のみなのでfalse扱いでも良いが、保存ボタンが出ないように制御必要
-                            initialSchedule: trip.schedule,
-                          ),
-                        ),
-                      );
-                  },
-                  child: const Text("すべて見る"),
-                ),
-              ],
-            ),
+            const Text("しおり (予定)",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ...previewSchedule.map((item) {
               return ListTile(
                 leading: Text(
