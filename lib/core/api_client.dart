@@ -6,6 +6,7 @@ import '../constants.dart';
 class ApiClient {
   static Map<String, dynamic> _jsonUtf8(http.Response r) {
     final body = utf8.decode(r.bodyBytes);
+    _log('Response body (${body.length} chars): ${_truncate(body)}');
     return json.decode(body) as Map<String, dynamic>;
   }
 
@@ -13,6 +14,14 @@ class ApiClient {
     if (kDebugMode) {
       print('[API] $message');
     }
+  }
+
+  static String _truncate(String body, {int max = 1000}) {
+    if (body.length <= max) {
+      return body;
+    }
+
+    return '${body.substring(0, max)}...(+${body.length - max} chars)';
   }
 
   static Future<Map<String, dynamic>> get(String path, {Map<String, String>? params}) async {
