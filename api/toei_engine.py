@@ -245,81 +245,183 @@ class TimetableManager:
                     count += 1
         print(f"[INFO] Index built. Total {count} nodes.")
 
-    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None):
+    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
+        if not debug:
+            debug = os.getenv("DEBUG_BUS") == "1"
+
         if day_type == "saturday":
             target_dict = self.bus_departures_saturday
         elif day_type == "holiday":
             target_dict = self.bus_departures_holiday
         else:
             target_dict = self.bus_departures_weekday
-        
+
         def find_trips(routes_dict, target_rid):
             if target_rid in routes_dict:
-                 # print(f"[DEBUG] Found exact match: {target_rid}")
-                 return routes_dict[target_rid]
+                return routes_dict[target_rid]
             for r_key, t_list in routes_dict.items():
                 if target_rid in r_key or r_key in target_rid:
-                    print(f"[DEBUG] Fuzzy match: {target_rid} <-> {r_key}")
+                    if debug:
+                        print(f"[DEBUG_BUS] Fuzzy match route_id={target_rid} matched_key={r_key}")
                     return t_list
-            # print(f"[DEBUG] No match for {target_rid} in {list(routes_dict.keys())}")
             return None
 
-        # -------------------- Validate Trip Destination Logic --------------------
-        def is_valid_trip(trip, route_id):
-            if not target_pole_id: return True
+        def is_valid_trip(trip, rid):
+            if not target_pole_id:
+                return True
             dest_id = trip.get("dest")
-            if not dest_id: return True # Destination unknown, allow it (safe fallback)
-            
-            # Check route pattern
-            stops = self.route_stops_map.get(route_id)
-            if not stops: return True # No pattern known, allow it
-            
+            if not dest_id:
+                return True
+
+            stops = self.route_stops_map.get(rid)
+            if not stops:
+                return True
+
             try:
                 target_idx = stops.index(target_pole_id)
                 dest_idx = stops.index(dest_id)
-                
-                # Destination must be at or after target stop
                 if dest_idx >= target_idx:
                     return True
-                else:
-                    print(f"[DEBUG] REJECT Short Trip: route={route_id}, dest={dest_id}({dest_idx}) < target={target_pole_id}({target_idx})")
-                    return False
+                if debug:
+                    print(f"[DEBUG_BUS] REJECT short trip route_id={rid} dest={dest_id} dest_idx={dest_idx} target={target_pole_id} target_idx={target_idx}")
+                return False
             except ValueError:
                 return True
-        # -------------------------------------------------------------------------
 
         routes = target_dict.get(pole_id)
         candidate_trips = None
-        
+
         if routes:
             candidate_trips = find_trips(routes, route_id)
 
-        # Fallback to name search if ID lookup fails
         if not candidate_trips and pole_name and pole_name in self.name_to_pids:
             for alt_pid in self.name_to_pids[pole_name]:
-                if alt_pid == pole_id: continue 
+                if alt_pid == pole_id:
+                    continue
                 alt_routes = target_dict.get(alt_pid)
-                if alt_routes:
-                    candidate_trips = find_trips(alt_routes, route_id)
-                    if candidate_trips: break
+                if not alt_routes:
+                    continue
+                candidate_trips = find_trips(alt_routes, route_id)
+                if candidate_trips:
+                    if debug:
+                        print(f"[DEBUG_BUS] Fallback pole_id={pole_id} alt_pid={alt_pid} pole_name={pole_name}")
+                    break
 
-        
-        # Fallback to name search if ID lookup fails
-        if candidate_trips:
-            # candidate_trips is sorted by 'dep'
-            # We can use bisect if it was list of ints, but it's list of dicts.
-            # Use linear scan or custom bisect. Linear scan is fine for small N (N<100 per hour usually).
-            # Actually full list is usually ~50-100 items for a whole day. Linear is fast enough.
-            
-            for trip in candidate_trips:
-                dep = trip["dep"]
-                if dep >= current_time_min:
-                    # Check connection
-                    if is_valid_trip(trip, route_id):
-                        return dep
-            # print(f"[DEBUG] No future bus found. Last dep={candidate_trips[-1]['dep']} vs current={current_time_min}")
-                    
+        if not candidate_trips:
+            if debug:
+                print(f"[DEBUG_BUS] No timetable pole_id={pole_id} route_id={route_id} day_type={day_type}")
+            return None
+
+        if debug:
+            now_str = min_to_time_str(current_time_min)
+            sample = candidate_trips[: min(40, len(candidate_trips))]
+            counts = {}
+            for tr in sample:
+                d = tr.get("dest") or "unknown"
+                counts[d] = counts.get(d, 0) + 1
+            print(f"[DEBUG_BUS] Candidates pole_id={pole_id} route_id={route_id} day_type={day_type} now={now_str} target_pole_id={target_pole_id} candidates={len(candidate_trips)} sample_dest_counts={counts}")
+
+        for trip in candidate_trips:
+            dep = trip.get("dep")
+            if dep is None:
+                continue
+            if dep >= current_time_min:
+                if is_valid_trip(trip, route_id):
+                    if debug:
+                        dest_id = trip.get("dest")
+                        print(f"[DEBUG_BUS] PICK dep={min_to_time_str(dep)} dest={dest_id}")
+                    return dep
+
+        if debug:
+            print(f"[DEBUG_BUS] No future dep pole_id={pole_id} route_id={route_id} now={min_to_time_str(current_time_min)}")
         return None
+
+    def get_future_bus_trips(self, pole_id, route_id, current_time_min, limit=10, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
+        if not debug:
+            debug = os.getenv("DEBUG_BUS") == "1"
+
+        if day_type == "saturday":
+            target_dict = self.bus_departures_saturday
+        elif day_type == "holiday":
+            target_dict = self.bus_departures_holiday
+        else:
+            target_dict = self.bus_departures_weekday
+
+        def find_trips(routes_dict, target_rid):
+            if target_rid in routes_dict:
+                return routes_dict[target_rid]
+            for r_key, t_list in routes_dict.items():
+                if target_rid in r_key or r_key in target_rid:
+                    if debug:
+                        print(f"[DEBUG_BUS] Fuzzy match route_id={target_rid} matched_key={r_key}")
+                    return t_list
+            return None
+
+        def is_valid_trip(trip, rid):
+            if not target_pole_id:
+                return True
+            dest_id = trip.get("dest")
+            if not dest_id:
+                return True
+
+            stops = self.route_stops_map.get(rid)
+            if not stops:
+                return True
+
+            try:
+                target_idx = stops.index(target_pole_id)
+                dest_idx = stops.index(dest_id)
+                if dest_idx >= target_idx:
+                    return True
+                if debug:
+                    print(f"[DEBUG_BUS] REJECT short trip route_id={rid} dest={dest_id} dest_idx={dest_idx} target={target_pole_id} target_idx={target_idx}")
+                return False
+            except ValueError:
+                return True
+
+        routes = target_dict.get(pole_id) or {}
+        candidate_trips = find_trips(routes, route_id)
+
+        if not candidate_trips and pole_name and pole_name in self.name_to_pids:
+            for alt_pid in self.name_to_pids[pole_name]:
+                if alt_pid == pole_id:
+                    continue
+                alt_routes = target_dict.get(alt_pid) or {}
+                candidate_trips = find_trips(alt_routes, route_id)
+                if candidate_trips:
+                    if debug:
+                        print(f"[DEBUG_BUS] Fallback pole_id={pole_id} alt_pid={alt_pid} pole_name={pole_name}")
+                    break
+
+        if not candidate_trips:
+            if debug:
+                print(f"[DEBUG_BUS] No timetable pole_id={pole_id} route_id={route_id} day_type={day_type}")
+            return []
+
+        out = []
+        rejected = 0
+        for trip in candidate_trips:
+            dep = trip.get("dep")
+            if dep is None:
+                continue
+            if dep < current_time_min:
+                continue
+            if is_valid_trip(trip, route_id):
+                out.append(trip)
+                if len(out) >= limit:
+                    break
+            else:
+                rejected += 1
+
+        if debug:
+            now_str = min_to_time_str(current_time_min)
+            dests = {}
+            for tr in out:
+                d = tr.get("dest") or "unknown"
+                dests[d] = dests.get(d, 0) + 1
+            print(f"[DEBUG_BUS] Future pole_id={pole_id} route_id={route_id} day_type={day_type} now={now_str} target_pole_id={target_pole_id} future={len(out)} rejected={rejected} dest_counts={dests}")
+
+        return out
 
     def get_next_train_arrival(self, current_sta, next_sta, current_time_min, day_type="weekday", delays_snapshot=None):
         target_dict = self.train_patterns_weekday if day_type == "weekday" else self.train_patterns_weekend
@@ -1332,9 +1434,13 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             elif mode == "rail":
                 curr_time += 2.0
             
+            odpt_route_id = route_id if mode == "bus" else ""
+            departure_pole_id = phys_id if mode == "bus" else ""
             cur = {
                 "kind": mode, "title": line_disp, "line": line_id, 
                 "edges": 0, "from_": from_name, "to": None, "stops": curr_stops,
+                "odptRouteId": odpt_route_id,
+                "departurePoleId": departure_pole_id,
                 "routeId": gtfs_route_id,
                 "departureStopId": gtfs_stop_id,
                 "departure_time": min_to_time_str(curr_time)
@@ -1374,6 +1480,16 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 if to_phys:
                     to_name = G.nodes[to_phys]["name"]
                     cur["to"] = to_name
+
+                    if cur.get("kind") == "bus":
+                        arrival_pole_id = to_phys[1]
+                        cur["arrivalPoleId"] = arrival_pole_id
+                        arrival_stop_id = ""
+                        if cur.get("routeId") and hasattr(tm, "convert_odpt_id_to_gtfs"):
+                            arrival_stop_id = tm.convert_odpt_id_to_gtfs(arrival_pole_id)
+                            if not arrival_stop_id and hasattr(tm, "resolve_gtfs_stop_id"):
+                                arrival_stop_id = tm.resolve_gtfs_stop_id(cur["routeId"], to_name)
+                        cur["arrivalStopId"] = arrival_stop_id
                     
                     e_lat = G.nodes[to_phys].get("lat")
                     e_lon = G.nodes[to_phys].get("lon")

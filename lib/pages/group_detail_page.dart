@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/trip_models.dart';
 import '../models/group_models.dart';
 import '../services/trip_service.dart';
 import '../services/user_service.dart';
+import '../data/global_state.dart';
 import 'leader_mode_page.dart';
 import 'member_mode_page.dart';
 import 'schedule_page.dart'; // スケジュール表示用(簡易)
@@ -30,10 +32,57 @@ class GroupDetailPage extends StatelessWidget {
     }
   }
 
+  Future<void> _handleCancelTrip(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('グループを解散'),
+        content: const Text('本当に解散しますか？\nメンバー全員の画面も終了状態になります。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('解散する'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await TripService().cancelTrip(trip.id);
+
+      // ローカルの状態もリセット
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('groupId');
+      kCurrentGroupId = null;
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('グループを解散しました')),
+        );
+        Navigator.pop(context); // 詳細画面を閉じる
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // スケジュールの概要（最初の3件くらい）
     final previewSchedule = trip.schedule.take(3).toList();
+    final uid = UserService().currentUserId;
+    final isLeader = (uid == trip.leaderId);
 
     return Scaffold(
       appBar: AppBar(
@@ -165,23 +214,43 @@ class GroupDetailPage extends StatelessWidget {
 
             const SizedBox(height: 40),
 
-            // 5. アクションボタン
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                onPressed: () => _navigateToMode(context),
-                icon: const Icon(Icons.play_arrow),
-                label: const Text("グループモードを開く", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            // 5. アクションボタン (スクロール内に入れていたものを削除し、解散ボタンを追加)
+            if (isLeader) ...[
+              const Divider(),
+              Center(
+                child: TextButton.icon(
+                  onPressed: () => _handleCancelTrip(context),
+                  icon: const Icon(Icons.delete_forever, size: 20),
+                  label: const Text('このグループを解散する'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 40),
+              const SizedBox(height: 20),
+            ],
+            // 下部の余白確保 (FABやBottomBarとかぶらないように)
+            const SizedBox(height: 80), 
           ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: () => _navigateToMode(context),
+              icon: const Icon(Icons.play_arrow),
+              label: const Text("グループモードを開く", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
         ),
       ),
     );

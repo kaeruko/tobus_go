@@ -313,5 +313,77 @@ async def details(place_id: str = Query(...)):
         r = await cl.get(url, params=params)
     return r.json()
 
+@app.get("/bus/next")
+async def bus_next(
+    pole_id: str = Query(...),
+    route_id: str = Query(...),
+    time: str = Query(None),
+    date: str = Query(None),
+    target_pole_id: str = Query(None),
+    limit: int = Query(5),
+    debug: bool = Query(True),
+):
+    if G is None or TM is None:
+        raise HTTPException(500, "Server not ready")
+
+    day_type = determine_day_type(date)
+
+    if not time:
+        now = datetime.datetime.now()
+        time = f"{now.hour:02d}:{now.minute:02d}"
+
+    curr_min = time_str_to_min(time)
+
+    pole_name = None
+    if ("phys", pole_id) in G:
+        pole_name = G.nodes[("phys", pole_id)].get("name")
+
+    if not hasattr(TM, "get_future_bus_trips"):
+        raise HTTPException(500, "TimetableManager missing get_future_bus_trips")
+
+    trips = TM.get_future_bus_trips(
+        pole_id,
+        route_id,
+        curr_min,
+        limit=max(1, limit) * 20,
+        pole_name=pole_name,
+        day_type=day_type,
+        target_pole_id=target_pole_id,
+        debug=debug,
+    )
+
+    groups = {}
+    for t in trips:
+        dest = t.get("dest") or "unknown"
+        groups.setdefault(dest, []).append(min_to_time_str(t["dep"]))
+
+    destinations = []
+    for dest_id, times in groups.items():
+        dest_name = None
+        if dest_id != "unknown" and ("phys", dest_id) in G:
+            dest_name = G.nodes[("phys", dest_id)].get("name")
+        destinations.append(
+            {
+                "destination_pole_id": None if dest_id == "unknown" else dest_id,
+                "destination_name": dest_name,
+                "times": times[: max(1, limit)],
+            }
+        )
+
+    if debug:
+        print(
+            f"[DEBUG_BUS_NEXT] pole_id={pole_id} pole_name={pole_name} route_id={route_id} "
+            f"day_type={day_type} now={time} target_pole_id={target_pole_id} groups={len(destinations)}"
+        )
+
+    return {
+        "pole_id": pole_id,
+        "pole_name": pole_name,
+        "route_id": route_id,
+        "day_type": day_type,
+        "time": time,
+        "target_pole_id": target_pole_id,
+        "destinations": destinations,
+    }
 
 handler = Mangum(app)
