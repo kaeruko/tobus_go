@@ -219,4 +219,42 @@ class TripService {
       'schedule': newSchedule.map((e) => e.toJson()).toList(),
     });
   }
+
+  // ---------------------------------------------------
+  // 8. 履歴関連
+  // ---------------------------------------------------
+
+  // 自分がリーダーとして作成した旅があるかどうかチェック
+  Future<bool> hasCreatedTrip() async {
+    final uid = _userService.currentUserId;
+    if (uid == null) return false;
+
+    // 一回でもリーダーになったことがあるか
+    final snapshot = await _db.collection('trips')
+        .where('leaderId', isEqualTo: uid)
+        .limit(1)
+        .get();
+    
+    return snapshot.docs.isNotEmpty;
+  }
+
+  // 完了した旅（履歴）を取得する
+  Future<List<Trip>> getCompletedTrips() async {
+     final uid = _userService.currentUserId;
+    if (uid == null) return [];
+
+    final snapshot = await _db.collection('trips')
+        .where('memberIds', arrayContains: uid)
+        .where('status', isEqualTo: 'completed')
+        .get();
+
+    final trips = snapshot.docs
+        .map((doc) => Trip.fromFirestore(doc))
+        .toList();
+    
+    // Dart側でソート（新しい順）
+    trips.sort((a, b) => b.date.compareTo(a.date));
+    
+    return trips;
+  }
 }

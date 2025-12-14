@@ -41,7 +41,11 @@ class TripNavigator {
     if (trip.status == TripStatus.completed) {
       return _completedState();
     }
-    if (trip.route.steps.isEmpty) {
+    
+    // legsから全てのstepを展開して1つのリストにする
+    final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
+
+    if (allSteps.isEmpty) {
       return _errorState();
     }
 
@@ -50,14 +54,14 @@ class TripNavigator {
     int nextStop = lastStopIndex;
 
     // 現在のステップ（区間）を取得
-    if (currentStep < trip.route.steps.length) {
-      final step = trip.route.steps[currentStep];
+    if (currentStep < allSteps.length) {
+      final step = allSteps[currentStep];
 
       // もし徒歩(walk)なら、シンプルに「区間のゴール」に近づいたかだけで判定
       if (step.kind == 'walk') {
         // 次のステップがあるなら、そのステップの出発地（＝今のステップの目的地）との距離を測る
-        if (currentStep + 1 < trip.route.steps.length) {
-            final nextStep = trip.route.steps[currentStep + 1];
+        if (currentStep + 1 < allSteps.length) {
+            final nextStep = allSteps[currentStep + 1];
             // 次のステップの最初のストップ（乗り場）
             if (nextStep.stops.isNotEmpty) {
                 final targetStop = nextStep.stops.first;
@@ -115,11 +119,11 @@ class TripNavigator {
     // 更新された currentStep / nextStop を使って文字を作る
     
     // 範囲外チェック
-    if (currentStep >= trip.route.steps.length) {
+    if (currentStep >= allSteps.length) {
       return _arrivedState();
     }
 
-    final step = trip.route.steps[currentStep];
+    final step = allSteps[currentStep];
     
     if (step.kind == 'walk') {
       return NavigationState(
