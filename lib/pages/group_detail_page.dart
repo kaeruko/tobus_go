@@ -5,7 +5,7 @@ import '../models/trip_models.dart';
 import '../models/group_models.dart';
 import '../services/trip_service.dart';
 import '../services/user_service.dart';
-import '../data/global_state.dart';
+
 import 'leader_mode_page.dart';
 import 'member_mode_page.dart';
 

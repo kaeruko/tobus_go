@@ -1,29 +1,31 @@
 import 'package:flutter/cupertino.dart';
-import '../data/global_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/saved_routes_provider.dart';
 import '../widgets/route_card.dart';
 import 'route_detail_page.dart';
 import '../core/api_client.dart';
 import '../models/route_models.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../services/storage_service.dart';
-import '../services/trip_draft_service.dart';
+import '../services/storage_service.dart';
+import '../providers/trip_draft_provider.dart';
 import '../services/trip_service.dart';
 import '../models/leg_models.dart';
 import 'package:flutter/material.dart'
     show showModalBottomSheet, ListTile, Icons, Colors, Icon, ScaffoldMessenger, SnackBar; // Materialの機能を使うため
 import 'package:shared_preferences/shared_preferences.dart';
 
-class MyRoutePage extends StatefulWidget {
+class MyRoutePage extends ConsumerStatefulWidget {
   const MyRoutePage({super.key});
 
   @override
-  State<MyRoutePage> createState() => _MyRoutePageState();
+  ConsumerState<MyRoutePage> createState() => _MyRoutePageState();
 }
 
-class _MyRoutePageState extends State<MyRoutePage> {
+class _MyRoutePageState extends ConsumerState<MyRoutePage> {
   DateTime _startTime = DateTime.now();
   bool _loading = false;
-  final TripDraftService _draftService = TripDraftService();
+  // TripDraftService removed
 
   bool _isPlaceholder(String? value) {
     const placeholders = {'出発地', '目的地'};
@@ -242,15 +244,15 @@ class _MyRoutePageState extends State<MyRoutePage> {
   }
 
   void _startReturnSearch(Candidate candidate) {
-    setState(() {
-      _draftService.reset();
-      _draftService.setRoute(LegDirection.outbound, candidate);
-    });
+    final notifier = ref.read(tripDraftProvider.notifier);
+    notifier.reset();
+    notifier.setRoute(LegDirection.outbound, candidate);
     _reSearchRoute(candidate, reverse: true, startReturnFlow: true);
   }
 
   @override
   Widget build(BuildContext context) {
+    final savedRoutes = ref.watch(savedRoutesProvider);
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
         middle: Text('My Route'),
@@ -288,14 +290,14 @@ class _MyRoutePageState extends State<MyRoutePage> {
               ),
             ),
             Expanded(
-              child: kSavedRoutes.isEmpty
+              child: savedRoutes.isEmpty
                   ? const Center(child: Text('保存された経路はありません'))
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                      itemCount: kSavedRoutes.length,
+                      itemCount: savedRoutes.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 12),
                       itemBuilder: (context, i) {
-                        final c = kSavedRoutes[i];
+                        final c = savedRoutes[i];
                         return Dismissible(
                           key: Key(c.id + c.points.first.toString() + c.points.last.toString()),
                           direction: DismissDirection.endToStart,
@@ -321,10 +323,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
                             );
                           },
                           onDismissed: (direction) {
-                            setState(() {
-                              kSavedRoutes.removeAt(i);
-                              StorageService().saveRoutes(kSavedRoutes);
-                            });
+                            ref.read(savedRoutesProvider.notifier).removeAt(i);
                           },
                           background: Container(
                             alignment: Alignment.centerRight,
@@ -434,9 +433,7 @@ class _MyRoutePageState extends State<MyRoutePage> {
                       leading: Icon(Icons.refresh, color: Colors.orange.shade700),
                       title: const Text('往復の選択をクリア'),
                       onTap: () {
-                        setState(() {
-                          _draftService.reset();
-                        });
+                        ref.read(tripDraftProvider.notifier).reset();
                         Navigator.pop(ctx);
                       },
                     ),

@@ -1,48 +1,67 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart'; // Material for AlertDialog & Scaffold
-import 'package:google_maps_flutter/google_maps_flutter.dart'; // LatLng
-import 'package:shared_preferences/shared_preferences.dart';
-import '../data/global_state.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/trip_models.dart';
-import '../services/trip_service.dart';
+import '../services/trip_service.dart'; // For sendSOS
 import '../models/group_models.dart';
-import 'root_tabs.dart'; // 通常モードに戻るため
-import 'schedule_page.dart'; // スケジュール画面
-import '../logic/trip_navigator.dart'; // ★Navigation Logic
+import 'schedule_page.dart';
+import '../logic/trip_navigator.dart';
+import '../providers/app_session_provider.dart';
+import '../providers/trip_provider.dart';
+import '../providers/location_provider.dart';
+import '../providers/member_nav_progress_provider.dart';
 
-class MemberModePage extends StatefulWidget {
+import 'dart:async'; // StreamSubscription
+
+class MemberModePage extends ConsumerStatefulWidget {
   const MemberModePage({super.key});
 
   @override
-  State<MemberModePage> createState() => _MemberModePageState();
+  ConsumerState<MemberModePage> createState() => _MemberModePageState();
 }
 
-class _MemberModePageState extends State<MemberModePage> {
+class _MemberModePageState extends ConsumerState<MemberModePage> {
+  // Service for SOS only, data is via provider
   final _tripService = TripService();
   
-  // ★進捗状態を保持する変数
-  int _currentStepIndex = 0;
-  int _nextStopIndex = 0;
+  StreamSubscription? _tripSub;
+  StreamSubscription? _locSub;
 
-  // グループを抜けて通常モードに戻る処理
-  Future<void> _leaveGroup(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('groupId');
-    await prefs.setBool('isMemberMode', false); // フラグを消す
+  @override
+  void initState() {
+    super.initState();
+    // Manual subscription to keep side-effects out of build, as requested
+    _tripSub = ref.read(tripStreamProvider.stream).listen((trip) {
+      if (trip != null) {
+        final posAsync = ref.read(locationStreamProvider);
+        if (posAsync.hasValue) {
+            final pos = posAsync.value!;
+            ref.read(memberNavProgressProvider.notifier).updateProgress(trip, LatLng(pos.latitude, pos.longitude));
+        }
+      }
+    });
 
-    kCurrentGroupId = null;
-    kIsMemberMode = false;
-
-    // アプリのルートを通常モード(RootTabs)に差し替える
-    if (context.mounted) {
-      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-        CupertinoPageRoute(builder: (_) => const RootTabs()),
-        (route) => false,
-      );
-    }
+    _locSub = ref.read(locationStreamProvider.stream).listen((pos) {
+      final tripAsync = ref.read(tripStreamProvider);
+      if (tripAsync.hasValue && tripAsync.value != null) {
+          ref.read(memberNavProgressProvider.notifier).updateProgress(tripAsync.value!, LatLng(pos.latitude, pos.longitude));
+      }
+    });
   }
 
-  // スケジュール画面を開く
+  @override
+  void dispose() {
+    _tripSub?.cancel();
+    _locSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _leaveGroup() async {
+    await ref.read(appSessionProvider.notifier).leaveMemberMode();
+    // RootGate will handle the switch
+  }
+
   void _openSchedule(String tripId, List<ScheduleEntry> schedule) {
     Navigator.of(context, rootNavigator: true).push(
       CupertinoPageRoute(
@@ -55,10 +74,7 @@ class _MemberModePageState extends State<MemberModePage> {
     );
   }
 
-  // SOS送信
-  Future<void> _sendSOS() async {
-    if (kCurrentGroupId == null) return;
-
+  Future<void> _sendSOS(String tripId) async {
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
@@ -73,8 +89,7 @@ class _MemberModePageState extends State<MemberModePage> {
             isDestructiveAction: true,
             onPressed: () async {
               Navigator.pop(ctx);
-              // SOS送信
-              await _tripService.sendSOS(kCurrentGroupId!);
+              await _tripService.sendSOS(tripId);
 
               if (mounted) {
                 showCupertinoDialog(
@@ -97,87 +112,66 @@ class _MemberModePageState extends State<MemberModePage> {
       ),
     );
   }
-  
-  void _showCancelledDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false, // 枠外タップで閉じさせない
-      builder: (ctx) => AlertDialog(
-        title: const Text('お知らせ'),
-        content: const Text('ホストによりグループが解散されました。'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx); // ダイアログ閉じる
-              _leaveGroup(context); // 退出処理（データ削除＆ホームへ）
-            },
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
-    if (kCurrentGroupId == null) {
-      return const Scaffold(
-        appBar: CupertinoNavigationBar(middle: Text('エラー')),
-        body: Center(child: Text('グループIDが設定されていません')),
-      );
-    }
+    // Listeners are now in initState
+    
+    final tripAsync = ref.watch(tripStreamProvider);
+    final locationAsync = ref.watch(locationStreamProvider);
+    final navProgress = ref.watch(memberNavProgressProvider);
 
-    // StreamBuilderでFirestoreを常時監視
-    return StreamBuilder<Trip>(
-      stream: _tripService.streamTrip(kCurrentGroupId!),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-           return const Scaffold(
-             body: Center(child: CircularProgressIndicator()),
-           );
+    return tripAsync.when(
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (err, stack) => Scaffold(
+        appBar: const CupertinoNavigationBar(middle: Text('エラー')),
+        body: Center(child: Text('エラー: $err')),
+      ),
+      data: (trip) {
+        if (trip == null) {
+          return const Scaffold(
+            appBar: CupertinoNavigationBar(middle: Text('エラー')),
+            body: Center(child: Text('グループが見つかりません')),
+          );
         }
 
-        final trip = snapshot.data!;
-
-        // 中止されていたら強制退去
         if (trip.status == TripStatus.cancelled) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) {
-              _showCancelledDialog(context);
-            }
-          });
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return Scaffold(
+             appBar: AppBar(title: const Text('お知らせ'), backgroundColor: Colors.red),
+             body: Center(
+               child: Column(
+                 mainAxisAlignment: MainAxisAlignment.center,
+                 children: [
+                   const Text('ホストによりグループが解散されました。', style: TextStyle(fontSize: 18)),
+                   const SizedBox(height: 20),
+                   ElevatedButton(
+                     onPressed: _leaveGroup,
+                     child: const Text('OK'),
+                   ),
+                 ],
+               ),
+             ),
+          );
         }
-            
-        final schedule = trip.schedule;
 
-        // ★ TripNavigatorを使用して状態を判定
-        // TODO: GPS統合時はここで本物のGPS座標を渡す
-        final currentGpsLocation = const LatLng(35.6812, 139.7671); // 東京駅(仮)
-        
-        // ロジックを呼ぶ
+        final schedule = trip.schedule;
+        final currentPos = locationAsync.value != null 
+            ? LatLng(locationAsync.value!.latitude, locationAsync.value!.longitude)
+            : const LatLng(35.6812, 139.7671); // Default Tokyo Station if waiting for GPS
+
+        // Calculate view state using CURRENT progress indices
         final navState = TripNavigator.updateState(
-          trip, 
-          currentGpsLocation, 
-          _currentStepIndex, 
-          _nextStopIndex
+          trip,
+          currentPos,
+          navProgress.currentStepIndex,
+          navProgress.nextStopIndex,
         );
 
-        // ★重要: 計算結果のインデックスを保存（これが「経路を潰す」動作になる）
-        // build中にsetStateは呼べないので、次回のために変数を更新しておく
-        if (navState.currentStepIndex != _currentStepIndex || 
-            navState.nextStopIndex != _nextStopIndex) {
-            
-            // 状態が進んだ！
-            _currentStepIndex = navState.currentStepIndex;
-            _nextStopIndex = navState.nextStopIndex;
-        }
-
         return Scaffold(
-          backgroundColor: navState.color, // ★背景色が状態によって変わる！
+          backgroundColor: navState.color,
           appBar: AppBar(
             title: const Text('えんそくモード', style: TextStyle(color: Colors.black)),
-            backgroundColor: navState.color, // AppBarも色を合わせる
+            backgroundColor: navState.color,
             elevation: 0,
             iconTheme: const IconThemeData(color: Colors.black),
             leading: IconButton(
@@ -201,7 +195,7 @@ class _MemberModePageState extends State<MemberModePage> {
                          child: const Text('はい'),
                          onPressed: () {
                            Navigator.pop(ctx);
-                           _leaveGroup(context);
+                           _leaveGroup();
                          },
                        ),
                      ],
@@ -212,61 +206,60 @@ class _MemberModePageState extends State<MemberModePage> {
             ],
           ),
           body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  navState.subText,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  navState.mainText,
-                  style: const TextStyle(
-                    fontSize: 48, 
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    shadows: [Shadow(blurRadius: 4, color: Colors.black26, offset: Offset(2, 2))],
-                  ),
-                ),
-          
-                const SizedBox(height: 50),
-          
-                // SOSボタン (既存のデザインを維持)
-                GestureDetector(
-                  onTap: _sendSOS,
-                  child: Container(
-                    width: 150,
-                    height: 150,
-                    decoration: const BoxDecoration(
-                      color: CupertinoColors.systemRed,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0x42000000), 
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
-                        )
-                      ]
-                    ),
-                    child: const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(CupertinoIcons.speaker_2_fill, size: 50, color: CupertinoColors.white), // Similar to SOS
-                        Text(
-                          "たすけて",
-                          style: TextStyle(
-                            color: CupertinoColors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+             child: Column(
+               mainAxisAlignment: MainAxisAlignment.center,
+               children: [
+                 Text(
+                   navState.subText,
+                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                 ),
+                 const SizedBox(height: 20),
+                 Text(
+                   navState.mainText,
+                   style: const TextStyle(
+                     fontSize: 48, 
+                     fontWeight: FontWeight.bold,
+                     color: Colors.white,
+                     shadows: [Shadow(blurRadius: 4, color: Colors.black26, offset: Offset(2, 2))],
+                   ),
+                 ),
+           
+                 const SizedBox(height: 50),
+           
+                 GestureDetector(
+                   onTap: () => _sendSOS(trip.id),
+                   child: Container(
+                     width: 150,
+                     height: 150,
+                     decoration: const BoxDecoration(
+                       color: CupertinoColors.systemRed,
+                       shape: BoxShape.circle,
+                       boxShadow: [
+                         BoxShadow(
+                           color: Color(0x42000000), 
+                           blurRadius: 10,
+                           offset: Offset(0, 4),
+                         )
+                       ]
+                     ),
+                     child: const Column(
+                       mainAxisAlignment: MainAxisAlignment.center,
+                       children: [
+                         Icon(CupertinoIcons.speaker_2_fill, size: 50, color: CupertinoColors.white),
+                         Text(
+                           "たすけて",
+                           style: TextStyle(
+                             color: CupertinoColors.white,
+                             fontWeight: FontWeight.bold,
+                           ),
+                         ),
+                       ],
+                     ),
+                   ),
+                 ),
+               ],
+             ),
+           ),
         );
       },
     );

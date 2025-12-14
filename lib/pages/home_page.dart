@@ -13,23 +13,24 @@ import 'route_detail_page.dart';
 import '../services/trip_service.dart';
 import 'member_mode_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../data/global_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/app_session_provider.dart';
 import '../models/trip_models.dart'; // 追加
 import 'leader_mode_page.dart';
 import 'package:flutter/material.dart' show TextField, InputDecoration, OutlineInputBorder, Icons, ElevatedButton, Colors, TextInputType, MaterialPageRoute, ScaffoldMessenger, SnackBar, Divider; // Material components
 
 enum Preference { fewTransfers, shortTime }
 
-class HomePage extends StatefulWidget {
+class HomePage extends ConsumerStatefulWidget {
   final String title;
   final ValueListenable<int>? tabIndexListenable;
   const HomePage({super.key, this.title = '都営でGO', this.tabIndexListenable});
 
   @override
-  State<HomePage> createState() => HomePageState();
+  ConsumerState<HomePage> createState() => HomePageState();
 }
 
-class HomePageState extends State<HomePage> {
+class HomePageState extends ConsumerState<HomePage> {
   final _from = TextEditingController(
     text: '',
   );
@@ -651,23 +652,17 @@ class HomePageState extends State<HomePage> {
     try {
       final tripService = TripService();
       // 参加処理 (Firestore更新)
+      // 参加処理 (Firestore更新)
       final tripId = await tripService.joinTrip(code);
 
       // IDを保存してモード切り替え
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('groupId', tripId);
-      await prefs.setBool('isMemberMode', true);
-      
-      kCurrentGroupId = tripId;
-      kIsMemberMode = true;
-
       if (!context.mounted) return;
+      await ref.read(appSessionProvider.notifier).enterMemberMode(tripId);
 
-      // メンバー画面へGO!
-      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-        CupertinoPageRoute(builder: (_) => const MemberModePage()),
-        (route) => false,
-      );
+      // メンバー画面へGO! (RootGateが切り替えるので、ここでは何もしなくて良い)
+      // Stackに残っているダイアログ等は RootGate の再構築で消えるはずだが、
+      // 万が一残る場合は RootGate 側で key を変える等の対応が必要。
+      // 現状はシンプルに何もしない。
 
     } catch (e) {
       if (!context.mounted) return;

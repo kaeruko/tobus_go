@@ -1,13 +1,13 @@
 import 'package:flutter/cupertino.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/route_models.dart';
-import '../data/global_state.dart';
-import '../services/storage_service.dart';
+import '../providers/saved_routes_provider.dart';
 import '../widgets/timetable_view.dart';
 import '../models/group_models.dart';
 import '../models/leg_models.dart';
-import '../services/trip_draft_service.dart';
+import '../providers/trip_draft_provider.dart';
 import '../services/trip_service.dart';
 import '../models/trip_models.dart';
 import 'leader_mode_page.dart';
@@ -44,7 +44,7 @@ String _destinationLabelOf(Candidate candidate) {
 }
 
 // --- メインの画面 ---
-class RouteDetailPage extends StatefulWidget {
+class RouteDetailPage extends ConsumerStatefulWidget {
   final Candidate candidate;
   final bool isReturnSelection;
   final RouteMeta? meta;
@@ -52,15 +52,15 @@ class RouteDetailPage extends StatefulWidget {
   const RouteDetailPage({super.key, required this.candidate, this.isReturnSelection = false, this.meta});
 
   @override
-  State<RouteDetailPage> createState() => _RouteDetailPageState();
+  ConsumerState<RouteDetailPage> createState() => _RouteDetailPageState();
 }
 
-class _RouteDetailPageState extends State<RouteDetailPage> {
+class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   // 再検索用の日時
   DateTime _searchTime = DateTime.now();
   // 帰り検索用の日時 (デフォルトは現在時刻だが、ユーザー操作で変更可能)
   DateTime _returnSearchTime = DateTime.now();
-  final TripDraftService _draftService = TripDraftService();
+  // TripDraftService removed
   final TripService _tripService = TripService(); // 追加
   
   Trip? _activeTrip; // アクティブな旅の情報
@@ -96,9 +96,9 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
     }
   }
 
-  // 保存状態の判定ロジック
-  bool get _isSaved {
-    return kSavedRoutes.any((e) => _isSameRoute(e, widget.candidate));
+  // 保存状態の判定ロジック (helper)
+  bool _checkIsSaved(List<Candidate> savedRoutes) {
+    return savedRoutes.any((e) => _isSameRoute(e, widget.candidate));
   }
 
   String _originLabel(Candidate candidate) => _originLabelOf(candidate);
@@ -115,16 +115,13 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
     return sameStart && sameEnd;
   }
 
-  void _toggleBookmark() {
-    setState(() {
-      if (_isSaved) {
-        _showDeleteDialog();
-      } else {
-        kSavedRoutes.add(widget.candidate);
-        StorageService().saveRoutes(kSavedRoutes);
-        _showSavedDialog();
-      }
-    });
+  void _toggleBookmark(bool isSaved) {
+    if (isSaved) {
+      _showDeleteDialog();
+    } else {
+      ref.read(savedRoutesProvider.notifier).add(widget.candidate);
+      _showSavedDialog();
+    }
   }
 
   void _showDeleteDialog() {
@@ -140,10 +137,7 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
             child: const Text('削除'),
             onPressed: () {
               Navigator.pop(ctx);
-              setState(() {
-                kSavedRoutes.removeWhere((e) => _isSameRoute(e, widget.candidate));
-                StorageService().saveRoutes(kSavedRoutes);
-              });
+              ref.read(savedRoutesProvider.notifier).removeWhere((e) => _isSameRoute(e, widget.candidate));
             },
           ),
         ],
@@ -166,11 +160,9 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
 
   void _setDirection(LegDirection direction) {
     try {
-      setState(() {
-        _draftService.setRoute(direction, widget.candidate);
-      });
+      ref.read(tripDraftProvider.notifier).setRoute(direction, widget.candidate);
     } on StateError catch (e) {
-      _showDuplicateRouteAlert(e.message ?? '行きと同じ経路は帰りに設定できません');
+      _showDuplicateRouteAlert(e.message);
     }
   }
 
@@ -196,7 +188,8 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
   }
 
   Widget _roundTripComposer() {
-    final outbound = _draftService.outbound;
+    final draftState = ref.watch(tripDraftProvider);
+    final outbound = draftState.outbound;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Container(
@@ -254,7 +247,7 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
                   child: CupertinoButton(
                     onPressed: () {
                       _setDirection(LegDirection.inbound);
-                      if (_draftService.isComplete) {
+                      if (ref.read(tripDraftProvider).isComplete) {
                         _showCreateTripDialog();
                       }
                     },
@@ -480,10 +473,13 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
 
   Future<void> _startReturnSearch() async {
     if (widget.candidate.points.length < 2) return;
-    setState(() {
-      _draftService.reset();
-      _draftService.setRoute(LegDirection.outbound, widget.candidate);
-    });
+    if (widget.candidate.points.length < 2) return;
+    
+    // Reset and set outbound
+    final notifier = ref.read(tripDraftProvider.notifier);
+    notifier.reset();
+    notifier.setRoute(LegDirection.outbound, widget.candidate);
+    
     // 帰りの検索は _returnSearchTime を使用
     await _executeReSearch(reverse: true, startReturnFlow: true, overrideTime: _returnSearchTime);
   }
@@ -640,7 +636,8 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
 
   // --- グループ作成機能 (行き・帰りが揃った時だけ表示) ---
   void _showCreateTripDialog() {
-    if (!_draftService.isComplete) {
+    final draftState = ref.read(tripDraftProvider);
+    if (!draftState.isComplete) {
       showCupertinoDialog(
         context: context,
         builder: (ctx) => CupertinoAlertDialog(
@@ -661,7 +658,7 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
         title: const Text('この往復でグループを作成'),
-        content: Text('行き: ${_routeLabel(_draftService.outbound)}\n帰り: ${_routeLabel(_draftService.inbound)}'),
+        content: Text('行き: ${_routeLabel(draftState.outbound)}\n帰り: ${_routeLabel(draftState.inbound)}'),
         actions: [
           CupertinoDialogAction(
             child: const Text('キャンセル'),
@@ -682,7 +679,7 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
   Future<void> _createTrip() async {
     print('[DEBUG] _createTrip called. Widget mounted: $mounted');
     try {
-      final tripId = await _draftService.createTrip();
+      final tripId = await ref.read(tripDraftProvider.notifier).createTrip();
       print('[DEBUG] Trip created. ID: $tripId');
 
       if (!mounted) {
@@ -721,6 +718,9 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final savedRoutes = ref.watch(savedRoutesProvider);
+    final isSaved = _checkIsSaved(savedRoutes);
+
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         middle: Text(widget.candidate.lines.join(' → ')),
@@ -736,8 +736,8 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
             // ブックマークボタン
             CupertinoButton(
               padding: EdgeInsets.zero,
-              child: Icon(_isSaved ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark),
-              onPressed: _toggleBookmark,
+              child: Icon(isSaved ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark),
+              onPressed: () => _toggleBookmark(isSaved),
             ),
           ],
         ),

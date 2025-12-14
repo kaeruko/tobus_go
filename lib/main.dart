@@ -1,44 +1,39 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart'; // MaterialLocalizationsのために必要
-import 'package:flutter_localizations/flutter_localizations.dart'; // 追加
-import 'package:shared_preferences/shared_preferences.dart'; // ★追加
-import 'pages/root_tabs.dart';
-import 'pages/member_mode_page.dart'; // ★追加
-
-import 'services/storage_service.dart';
-import 'services/user_service.dart'; // ★追加
-import 'data/global_state.dart';
-
-// ★追加1: Firebase関連のインポート
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart'; // 自動生成されたファイル
+import 'firebase_options.dart';
+
+import 'root_gate.dart';
+import 'providers/app_session_provider.dart';
+import 'root_gate.dart';
+import 'providers/app_session_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ★追加2: Firebaseを初期化(今の機種に合わせた設定で起動)
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Initialize ProviderContainer to load AppSession before app starts
+  final container = ProviderContainer();
+  await container.read(appSessionProvider.notifier).initialize();
+
+  // Saved Routes are now loaded by the provider on demand.
   
-  // 保存された経路を読み込む
-  final storage = StorageService();
-  final saved = await storage.loadRoutes();
-  kSavedRoutes.addAll(saved);
-
-  // ★起動時にモード判定
-  final prefs = await SharedPreferences.getInstance();
-  kCurrentGroupId = prefs.getString('groupId');
-  kIsMemberMode = prefs.getBool('isMemberMode') ?? false;
-
-  // ★ユーザーIDの初期化 (これをしないとIDがnullになる)
-  await UserService().initialize();
-
-  runApp(const App());
+  runApp(
+    UncontrolledProviderScope(
+      container: container,
+      child: const App(),
+    ),
+  );
 }
 
 class App extends StatelessWidget {
   const App({super.key});
+  
   @override
   Widget build(BuildContext context) {
     return CupertinoApp(
@@ -53,8 +48,7 @@ class App extends StatelessWidget {
         Locale('ja', 'JP'),
       ],
       builder: (context, child) => ScaffoldMessenger(child: child!),
-      // ★ここで分岐!
-      home: kIsMemberMode ? const MemberModePage() : const RootTabs(),
+      home: const RootGate(),
     );
   }
 }

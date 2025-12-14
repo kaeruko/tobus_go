@@ -3,18 +3,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // 追加
 import 'package:flutter/services.dart';
 import '../services/user_service.dart';
-import '../data/global_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/app_session_provider.dart';
 import 'member_mode_page.dart';
 import 'leader_mode_page.dart';
 
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _isStaffMode = false;
   String? _userId;
   String _userName = '';
@@ -96,6 +97,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
       if (snapshot.docs.isNotEmpty) {
         final tripId = snapshot.docs.first.id;
+        
+        // update session (optional but good for consistency)
+        await ref.read(appSessionProvider.notifier).updateTripId(tripId);
+
         if (mounted) {
           Navigator.push(
             context,
@@ -124,14 +129,13 @@ class _SettingsPageState extends State<SettingsPage> {
       if (snapshot.docs.isNotEmpty) {
         final tripId = snapshot.docs.first.id;
         
-        // グローバル変数を強制セット (デバッグ用)
-        kCurrentGroupId = tripId;
+        // Note: enterMemberMode will update session and persist it.
+        await ref.read(appSessionProvider.notifier).enterMemberMode(tripId);
         
+        // RootGate will handle the switch. SettingsPage remains on top until closed by user or we could pop.
+        // Consistency with HomePage change: do not force pop.
         if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const MemberModePage()),
-          );
+           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('メンバーモードに切り替わりました')));
         }
       }
     } catch (e) {
