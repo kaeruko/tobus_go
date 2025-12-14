@@ -212,4 +212,19 @@ class TripService {
 
     return trips;
   }
+
+  // アクティブ（計画中または移動中）な旅を取得する
+  Future<Trip?> getActiveTrip() async {
+    final uid = _userService.currentUserId;
+    if (uid == null) return null;
+
+    final snapshot = await _db.collection('trips')
+        .where('memberIds', arrayContains: uid)
+        .where('travelPhase', whereIn: [TravelPhase.planning.name, TravelPhase.active.name])
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isEmpty) return null;
+    return Trip.fromFirestore(snapshot.docs.first);
+  }
 }

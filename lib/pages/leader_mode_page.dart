@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/trip_models.dart';
 import '../models/group_models.dart';
+import '../models/leg_models.dart';
 import '../services/trip_service.dart';
 import 'schedule_page.dart';
 
@@ -169,6 +170,8 @@ class _LeaderModePageState extends State<LeaderModePage> {
                   ],
                 ),
               ),
+              Padding(
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
                     if (trip.travelPhase == TravelPhase.planning) ...[
@@ -228,6 +231,33 @@ class _LeaderModePageState extends State<LeaderModePage> {
                       Text('状態: ${trip.travelPhase.name}', style: const TextStyle(fontSize: 18, color: Colors.grey)),
                     ],
                   ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context, rootNavigator: true).push(
+                        MaterialPageRoute(
+                          builder: (_) => SchedulePage(
+                            tripId: trip.id,
+                            isLeader: true,
+                            initialSchedule: trip.schedule,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.list_alt),
+                    label: const Text('スケジュールを確認・編集'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               const Divider(),

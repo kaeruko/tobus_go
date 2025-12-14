@@ -121,8 +121,7 @@ List<ScheduleEntry> createScheduleFromRoute(
   final departureBase = startDateTime ?? route.departureDate ?? DateTime.now();
   final stepClocks = route.steps
       .expand((s) => [s.departureTime, s.arrivalTime])
-      .where((t) => t != null)
-      .cast<String>()
+      .cast<String?>()
       .toList();
   final normalizedTimes = normalizeCrossDay(departureBase, stepClocks);
   var timeCursorIndex = 0;
