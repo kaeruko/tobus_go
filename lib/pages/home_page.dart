@@ -13,7 +13,7 @@ import 'member_mode_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/global_state.dart';
 import '../models/trip_models.dart'; // 追加
-import 'group_detail_page.dart';    // 追加
+import 'leader_mode_page.dart';
 import 'package:flutter/material.dart' show TextField, InputDecoration, OutlineInputBorder, Icons, ElevatedButton, Colors, TextInputType, MaterialPageRoute, ScaffoldMessenger, SnackBar, Divider; // Material components
 
 enum Preference { fewTransfers, shortTime }
@@ -402,7 +402,7 @@ class _HomePageState extends State<HomePage> {
                       Navigator.push(
                         context,
                         CupertinoPageRoute(
-                          builder: (_) => GroupDetailPage(trip: _activeTrip!),
+                          builder: (_) => LeaderModePage(tripId: _activeTrip!.id),
                         ),
                       ).then((_) {
                         // 戻ってきたら状態を再確認（解散したかもしれないので）
