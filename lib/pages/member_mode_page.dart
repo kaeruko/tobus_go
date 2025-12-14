@@ -172,6 +172,16 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
 
         final activeIndex = schedule.indexWhere((item) => !item.isCompleted);
         final activeEntry = activeIndex >= 0 ? schedule[activeIndex] : null;
+
+        // "いま" か "つぎ" か判定 (20分以上先なら "つぎ")
+        String activeLabel = 'いま';
+        if (activeEntry != null) {
+          final diff = activeEntry.plannedAt.difference(appClock.now());
+          if (diff.inMinutes > 20) {
+            activeLabel = 'つぎ';
+          }
+        }
+
         final upcomingEntries = (activeIndex >= 0 ? schedule.skip(activeIndex + 1) : schedule)
             .take(3)
             .toList();
@@ -186,7 +196,10 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
               orElse: () => trip.legs.first);
           final destName = outboundLeg.candidate.destinationName;
           if (destName != null && destName.isNotEmpty && destName != '目的地') {
-             displayTitle = "$destName への遠足";
+             // 住所などが含まれる長い名称の場合、最後の部分（施設名など）を採用する
+             // 例: "日本、東京都中央区銀座7 銀座駅" -> "銀座駅"
+             final simpleName = destName.split(' ').last;
+             displayTitle = "$simpleName への遠足";
           }
         }
 
@@ -412,12 +425,14 @@ class _StatusChip extends StatelessWidget {
   final IconData icon;
   final Color color;
   final Color? background;
+  final bool truncateStart;
 
   const _StatusChip({
     required this.label,
     required this.icon,
     required this.color,
     this.background,
+    this.truncateStart = false,
   });
 
   @override
@@ -434,11 +449,21 @@ class _StatusChip extends StatelessWidget {
           Icon(icon, size: 16, color: color),
           const SizedBox(width: 6),
           Flexible(
-            child: Text(
-              label,
-              style: TextStyle(color: color, fontWeight: FontWeight.bold),
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: truncateStart
+                ? Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: Text(
+                      label,
+                      style: TextStyle(color: color, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.left, // RTLでも左寄せに見せる
+                    ),
+                  )
+                : Text(
+                    label,
+                    style: TextStyle(color: color, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
           ),
         ],
       ),
@@ -450,11 +475,13 @@ class _SchedulePeek extends StatelessWidget {
   final ScheduleEntry? activeEntry;
   final List<ScheduleEntry> upcomingEntries;
   final int completedCount;
+  final String activeLabel;
 
   const _SchedulePeek({
     required this.activeEntry,
     required this.upcomingEntries,
     required this.completedCount,
+    this.activeLabel = 'いま',
   });
 
   String _kindLabel(ScheduleEntryKind kind) {
@@ -535,7 +562,7 @@ class _SchedulePeek extends StatelessWidget {
               description: activeEntry!.description,
               timeLabel: timeText(activeEntry!),
               icon: _kindIcon(activeEntry!.itemKind),
-              pill: 'いま',
+              pill: activeLabel,
               highlighted: true,
             ),
             const SizedBox(height: 12),
