@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // 追加
+import 'package:flutter/services.dart';
+import '../services/user_service.dart';
 import '../data/global_state.dart';
 import 'member_mode_page.dart';
 import 'leader_mode_page.dart';
@@ -14,6 +16,8 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _isStaffMode = false;
+  String? _userId;
+  String _userName = '';
 
   @override
   void initState() {
@@ -23,9 +27,51 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    
+    // ユーザー情報の取得
+    await UserService().initialize();
+    final name = await UserService().getUserName();
+    final uid = UserService().currentUserId;
+
     setState(() {
       _isStaffMode = prefs.getBool('isStaffMode') ?? false;
+      _userName = name;
+      _userId = uid;
     });
+  }
+
+  Future<void> _updateUserName() async {
+    final controller = TextEditingController(text: _userName);
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ユーザー名の変更'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: '新しい名前'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                await UserService().updateUserName(newName);
+                setState(() {
+                  _userName = newName;
+                });
+              }
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _toggleStaffMode(bool value) async {
@@ -99,6 +145,41 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: AppBar(title: const Text('設定')),
       body: ListView(
         children: [
+          // --- ユーザー情報 ---
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+            child: Text('ユーザー情報',
+                style: TextStyle(
+                    color: Colors.blueGrey,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.account_circle),
+            title: const Text('ユーザー名'),
+            subtitle: Text(_userName.isEmpty ? 'ゲスト' : _userName),
+            trailing: const Icon(Icons.edit, size: 20),
+            onTap: _updateUserName,
+          ),
+          ListTile(
+            leading: const Icon(Icons.fingerprint),
+            title: const Text('ユーザーID'),
+            subtitle: Text(_userId ?? '読み込み中...',
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+            trailing: IconButton(
+              icon: const Icon(Icons.copy, size: 20),
+              onPressed: () {
+                if (_userId != null) {
+                  Clipboard.setData(ClipboardData(text: _userId!));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('IDをコピーしました')),
+                  );
+                }
+              },
+            ),
+          ),
+          const Divider(),
+
           // --- 既存の設定 ---
           SwitchListTile(
             title: const Text('職員・管理者向け機能を有効にする'),
