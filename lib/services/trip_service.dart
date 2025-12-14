@@ -227,4 +227,17 @@ class TripService {
     if (snapshot.docs.isEmpty) return null;
     return Trip.fromFirestore(snapshot.docs.first);
   }
+
+  // 計画中・進行中の全ての旅を取得する（重複チェック用）
+  Future<List<Trip>> getFutureTrips() async {
+    final uid = _userService.currentUserId;
+    if (uid == null) return [];
+
+    final snapshot = await _db.collection('trips')
+        .where('memberIds', arrayContains: uid)
+        .where('travelPhase', whereIn: [TravelPhase.planning.name, TravelPhase.active.name])
+        .get();
+
+    return snapshot.docs.map((d) => Trip.fromFirestore(d)).toList();
+  }
 }

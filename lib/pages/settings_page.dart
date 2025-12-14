@@ -3,9 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // 追加
 import 'package:flutter/services.dart';
 import '../services/user_service.dart';
+import '../services/trip_service.dart'; // Added
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_session_provider.dart';
-import 'member_mode_page.dart';
+// import 'member_mode_page.dart'; // Unused
 import 'leader_mode_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -87,53 +88,98 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   // ★追加: 最新のTripIDを取得してリーダー画面を開く
   Future<void> _openLatestTripAsLeader() async {
     try {
-      // 自分が作った最新のTripを探す
-      // (本来はuidで絞り込むべきですが、テスト用なので全件から最新を取得でもOK)
-      final snapshot = await FirebaseFirestore.instance
-          .collection('trips')
-          .orderBy('createdAt', descending: true)
-          .limit(1)
-          .get();
+      String? tripId;
+      
+      // 1. まず現在のアクティブなTripを確認
+      final sessionTripId = ref.read(appSessionProvider).currentTripId;
+      if (sessionTripId != null) {
+        tripId = sessionTripId;
+      } else {
+        // 2. セッションになくてもFirestore上でアクティブなものがあるか確認
+        final activeTrip = await TripService().getActiveTrip();
+        if (activeTrip != null) {
+          tripId = activeTrip.id;
+        }
+      }
 
-      if (snapshot.docs.isNotEmpty) {
-        final tripId = snapshot.docs.first.id;
-        
+      // 3. アクティブなものがなければ、自分がメンバーになっている最新の旅を探す
+      if (tripId == null) {
+        final uid = UserService().currentUserId;
+        if (uid != null) {
+          final snapshot = await FirebaseFirestore.instance
+              .collection('trips')
+              .where('memberIds', arrayContains: uid)
+              .orderBy('date', descending: true)
+              .limit(1)
+              .get();
+          
+          if (snapshot.docs.isNotEmpty) {
+            tripId = snapshot.docs.first.id;
+          }
+        }
+      }
+      
+      if (tripId != null) {
         // update session (optional but good for consistency)
         await ref.read(appSessionProvider.notifier).updateTripId(tripId);
 
         if (mounted) {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => LeaderModePage(tripId: tripId)),
+            MaterialPageRoute(builder: (_) => LeaderModePage(tripId: tripId!)),
           );
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tripが見つかりません。まずは作成してください。')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Tripが見つかりません。まずは作成してください。')),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e')));
+      }
     }
   }
 
   // ★追加: 最新のTripIDを取得してメンバー画面を開く
   Future<void> _openLatestTripAsMember() async {
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('trips')
-          .orderBy('createdAt', descending: true)
-          .limit(1)
-          .get();
+      String? tripId;
+      
+      // 1. まず現在のアクティブなTripを確認
+      final sessionTripId = ref.read(appSessionProvider).currentTripId;
+      if (sessionTripId != null) {
+        tripId = sessionTripId;
+      } else {
+        final activeTrip = await TripService().getActiveTrip();
+        if (activeTrip != null) {
+          tripId = activeTrip.id;
+        }
+      }
 
-      if (snapshot.docs.isNotEmpty) {
-        final tripId = snapshot.docs.first.id;
-        
+      // 2. なければ最新の履歴から
+      if (tripId == null) {
+        final uid = UserService().currentUserId;
+        if (uid != null) {
+          final snapshot = await FirebaseFirestore.instance
+              .collection('trips')
+              .where('memberIds', arrayContains: uid)
+              .orderBy('date', descending: true)
+              .limit(1)
+              .get();
+          
+          if (snapshot.docs.isNotEmpty) {
+            tripId = snapshot.docs.first.id;
+          }
+        }
+      }
+
+      if (tripId != null) {
         // Note: enterMemberMode will update session and persist it.
         await ref.read(appSessionProvider.notifier).enterMemberMode(tripId);
         
-        // RootGate will handle the switch. SettingsPage remains on top until closed by user or we could pop.
-        // Consistency with HomePage change: do not force pop.
         if (mounted) {
            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('メンバーモードに切り替わりました')));
         }

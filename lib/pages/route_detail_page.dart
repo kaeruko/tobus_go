@@ -64,6 +64,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   final TripService _tripService = TripService(); // 追加
   
   Trip? _activeTrip; // アクティブな旅の情報
+  Trip? _conflictingTrip; // 期間が重複する旅
   bool _isLoadingTrip = true;
 
   // 帰り検索フォームの表示フラグ
@@ -79,10 +80,43 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
 
   Future<void> _checkActiveTrip() async {
     try {
-      final trip = await _tripService.getActiveTrip();
+      final activeTrip = await _tripService.getActiveTrip();
+      final futureTrips = await _tripService.getFutureTrips();
+      
+      Trip? overlap;
+      
+      // グループ作成直前（帰りの選択中）の場合のみ重複チェックを行う
+      if (widget.isReturnSelection) {
+        final draft = ref.read(tripDraftProvider);
+        final outbound = draft.outbound;
+        
+        if (outbound != null && outbound.departureDate != null) {
+          final start = outbound.departureDate!;
+          // 帰りの到着時刻（または出発+所要時間）を終了時刻とする
+          final returnArrival = widget.candidate.departureDate?.add(Duration(minutes: widget.candidate.totalTime)) 
+              ?? start.add(const Duration(hours: 3)); // フォールバック
+          
+          final end = returnArrival;
+
+          // 自分以外のTripとの重複を確認 (activeTripと同じIDなら除外したいが、activeTripは既に別枠で表示されるため、ここでは「active以外」もチェックすべき)
+          // ただし _activeTrip != null の場合はUI側でそちらが優先表示されるため、実質的には activeTrip == null のケースで overlap が効く
+          
+          for (final trip in futureTrips) {
+             // 既に完了・キャンセル済みは除外 (getFutureTripsは planning/active のみ返すはずだが念のため)
+             if (trip.status == TripStatus.completed || trip.status == TripStatus.cancelled) continue;
+             
+             if (_isOverlap(trip, start, end)) {
+               overlap = trip;
+               break; 
+             }
+          }
+        }
+      }
+
       if (mounted) {
         setState(() {
-          _activeTrip = trip;
+          _activeTrip = activeTrip;
+          _conflictingTrip = overlap;
           _isLoadingTrip = false;
         });
       }
@@ -94,6 +128,35 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
         });
       }
     }
+  }
+
+  bool _isOverlap(Trip trip, DateTime newStart, DateTime newEnd) {
+    final tripStart = trip.plannedDepartureAt ?? trip.date;
+    final tripEnd = _getTripEndTime(trip);
+    
+    // Overlap logic: (StartA < EndB) and (EndA > StartB)
+    return newStart.isBefore(tripEnd) && newEnd.isAfter(tripStart);
+  }
+
+  DateTime _getTripEndTime(Trip trip) {
+    // スケジュールの最後
+    if (trip.schedule.isNotEmpty) {
+      // 最後の予定 + 余裕を見て30分? 
+      // 厳密にはスケジュールのdurationが不明な場合が多いが、plannedAtを基準にする
+       final last = trip.schedule.map((e) => e.plannedAt).reduce((a, b) => a.isAfter(b) ? a : b);
+       return last.add(const Duration(minutes: 60)); // 仮で1時間
+    }
+    
+    // 経路情報から推測
+    if (trip.legs.isNotEmpty) {
+      // 最後のLeg
+      // LegにはCandidateがあるはず
+      // しかしTripモデルのLeg構造を要確認。
+      // ここでは簡易的に、出発 + 3時間としておく、もしくは
+      // 正確には trip.legs.last.candidate... だがデータ構造が深い
+    }
+    
+    return (trip.plannedDepartureAt ?? trip.date).add(const Duration(hours: 3)); // デフォルト3時間
   }
 
   // 保存状態の判定ロジック (helper)
@@ -235,6 +298,37 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                             );
                           },
                           child: const Text('グループ詳細を見る'),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              ] else if (_conflictingTrip != null) ...[
+                // ★追加: 期間が重複する旅がある場合
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.systemRed.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: CupertinoColors.systemRed),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        "期間がかぶるおでかけがあります\n(${_conflictingTrip!.title})",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: CupertinoColors.systemRed, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: CupertinoButton(
+                          color: CupertinoColors.systemGrey,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          onPressed: null, // Disabled
+                          child: const Text('作成できません', style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                          )),
                         ),
                       ),
                     ],

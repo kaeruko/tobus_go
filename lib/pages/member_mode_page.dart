@@ -27,33 +27,6 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   @override
   void initState() {
     super.initState();
-
-    // Use ref.listen for side-effects (Riverpod-native way)
-    ref.listen(tripStreamProvider, (prev, next) {
-      next.whenData((trip) {
-        if (trip != null) {
-          final posAsync = ref.read(locationStreamProvider);
-          if (posAsync.hasValue) {
-            final pos = posAsync.value!;
-            ref
-                .read(memberNavProgressProvider.notifier)
-                .updateProgress(trip, LatLng(pos.latitude, pos.longitude));
-          }
-        }
-      });
-    });
-
-    ref.listen(locationStreamProvider, (prev, next) {
-      next.whenData((pos) {
-        final tripAsync = ref.read(tripStreamProvider);
-        if (tripAsync.hasValue && tripAsync.value != null) {
-          ref.read(memberNavProgressProvider.notifier).updateProgress(
-                tripAsync.value!,
-                LatLng(pos.latitude, pos.longitude),
-              );
-        }
-      });
-    });
   }
 
   Future<void> _leaveGroup() async {
@@ -120,7 +93,32 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Listeners are now in initState
+    // Listeners are now in build
+    ref.listen(tripStreamProvider, (prev, next) {
+      next.whenData((trip) {
+        if (trip != null) {
+          final posAsync = ref.read(locationStreamProvider);
+          if (posAsync.hasValue) {
+            final pos = posAsync.value!;
+            ref
+                .read(memberNavProgressProvider.notifier)
+                .updateProgress(trip, LatLng(pos.latitude, pos.longitude));
+          }
+        }
+      });
+    });
+
+    ref.listen(locationStreamProvider, (prev, next) {
+      next.whenData((pos) {
+        final tripAsync = ref.read(tripStreamProvider);
+        if (tripAsync.hasValue && tripAsync.value != null) {
+          ref.read(memberNavProgressProvider.notifier).updateProgress(
+                tripAsync.value!,
+                LatLng(pos.latitude, pos.longitude),
+              );
+        }
+      });
+    });
 
     final tripAsync = ref.watch(tripStreamProvider);
     final locationAsync = ref.watch(locationStreamProvider);
