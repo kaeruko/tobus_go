@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/saved_routes_provider.dart';
+import '../providers/app_session_provider.dart';
 import '../widgets/route_card.dart';
 import 'route_detail_page.dart';
 import '../core/api_client.dart';
@@ -369,7 +370,8 @@ class _MyRoutePageState extends ConsumerState<MyRoutePage> {
 
   void _showGroupMenu(BuildContext context, Candidate route) {
     // 現在グループに参加中（リーダー含む）かどうかチェック
-    final isAlreadyInGroup = kCurrentGroupId != null;
+    final appSession = ref.watch(appSessionProvider);
+    final isAlreadyInGroup = appSession.currentTripId != null;
 
     showModalBottomSheet(
       context: context,
@@ -389,17 +391,16 @@ class _MyRoutePageState extends ConsumerState<MyRoutePage> {
                     // 本当に消すか確認ダイアログを出してから実行
                     // ここでは簡易的に直実行しますが、本来は確認推奨
                     try {
-                      await TripService().cancelTrip(kCurrentGroupId!);
+                      final currentId = appSession.currentTripId;
+                      if (currentId != null) {
+                        await TripService().cancelTrip(currentId);
+                      }
                       
-                      // ローカルの状態もリセット
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.remove('groupId');
-                      setState(() {
-                        kCurrentGroupId = null; // 画面再描画
-                      });
+                      // ローカルの状態もリセット (AppSession経由で)
+                      await ref.read(appSessionProvider.notifier).leaveMemberMode(); // Clears ID and Mode
                       
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('グループを解散しました')));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('グループを解散しました')));
                       }
                     } catch (e) {
                       print(e);

@@ -12,7 +12,6 @@ import '../providers/trip_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/member_nav_progress_provider.dart';
 
-import 'dart:async'; // StreamSubscription
 
 class MemberModePage extends ConsumerStatefulWidget {
   const MemberModePage({super.key});
@@ -25,36 +24,31 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   // Service for SOS only, data is via provider
   final _tripService = TripService();
   
-  StreamSubscription? _tripSub;
-  StreamSubscription? _locSub;
-
   @override
   void initState() {
     super.initState();
-    // Manual subscription to keep side-effects out of build, as requested
-    _tripSub = ref.read(tripStreamProvider.stream).listen((trip) {
-      if (trip != null) {
-        final posAsync = ref.read(locationStreamProvider);
-        if (posAsync.hasValue) {
-            final pos = posAsync.value!;
-            ref.read(memberNavProgressProvider.notifier).updateProgress(trip, LatLng(pos.latitude, pos.longitude));
-        }
-      }
+    
+    // Use ref.listen for side-effects (Riverpod-native way)
+    ref.listen(tripStreamProvider, (prev, next) {
+       next.whenData((trip) {
+         if (trip != null) {
+           final posAsync = ref.read(locationStreamProvider);
+           if (posAsync.hasValue) {
+              final pos = posAsync.value!;
+              ref.read(memberNavProgressProvider.notifier).updateProgress(trip, LatLng(pos.latitude, pos.longitude));
+           }
+         }
+       });
     });
 
-    _locSub = ref.read(locationStreamProvider.stream).listen((pos) {
-      final tripAsync = ref.read(tripStreamProvider);
-      if (tripAsync.hasValue && tripAsync.value != null) {
-          ref.read(memberNavProgressProvider.notifier).updateProgress(tripAsync.value!, LatLng(pos.latitude, pos.longitude));
-      }
+    ref.listen(locationStreamProvider, (prev, next) {
+       next.whenData((pos) {
+         final tripAsync = ref.read(tripStreamProvider);
+         if (tripAsync.hasValue && tripAsync.value != null) {
+            ref.read(memberNavProgressProvider.notifier).updateProgress(tripAsync.value!, LatLng(pos.latitude, pos.longitude));
+         }
+       });
     });
-  }
-
-  @override
-  void dispose() {
-    _tripSub?.cancel();
-    _locSub?.cancel();
-    super.dispose();
   }
 
   Future<void> _leaveGroup() async {

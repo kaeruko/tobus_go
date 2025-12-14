@@ -45,7 +45,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   geolocator: ^14.0.2
-  flutter_riverpod: ^3.0.3
+  flutter_riverpod: ^2.6.1
 
 dev_dependencies:
   flutter_test:

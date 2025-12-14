@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../widgets/route_map_preview.dart';
+import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../models/group_models.dart';
 import '../models/leg_models.dart';

@@ -49,9 +49,9 @@ class UserService {
     await prefs.setString(_keyUserName, name);
     
     if (_currentUserId != null) {
-      await FirebaseFirestore.instance.collection('users').doc(_currentUserId).update({
+      await FirebaseFirestore.instance.collection('users').doc(_currentUserId).set({
         'displayName': name,
-      });
+      }, SetOptions(merge: true));
     }
   }
 }
