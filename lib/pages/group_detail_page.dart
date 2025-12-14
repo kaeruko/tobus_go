@@ -152,11 +152,12 @@ class GroupDetailPage extends StatelessWidget {
             ...previewSchedule.map((item) {
               return ListTile(
                 leading: Text(
-                  item.time,
+                  formatClock(item.plannedAt),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                title: Text(item.title),
-                subtitle: Text(item.description, maxLines: 1, overflow: TextOverflow.ellipsis),
+                title: Text(item.label),
+                subtitle: Text(item.description,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
                 contentPadding: EdgeInsets.zero,
                 dense: true,
               );
