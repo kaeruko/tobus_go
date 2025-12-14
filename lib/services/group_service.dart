@@ -14,7 +14,7 @@ class GroupService {
     String groupId, 
     String leaderId, 
     Map<String, dynamic> routeData,
-    {List<ScheduleItem>? schedule}
+    {List<ScheduleEntry>? schedule}
   ) async {
     // "groups" という箱の中に、groupId の名前で書類を作る
     await _db.collection('groups').doc(groupId).set({
@@ -29,7 +29,7 @@ class GroupService {
   }
 
   /// スケジュールを更新する
-  Future<void> updateSchedule(String groupId, List<ScheduleItem> schedule) async {
+  Future<void> updateSchedule(String groupId, List<ScheduleEntry> schedule) async {
     await _db.collection('groups').doc(groupId).update({
       'schedule': schedule.map((e) => e.toJson()).toList(),
     });

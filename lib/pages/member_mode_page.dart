@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/global_state.dart';
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
-import '../models/group_models.dart'; // ScheduleItem用
+import '../models/group_models.dart';
 import 'root_tabs.dart'; // 通常モードに戻るため
 import 'schedule_page.dart'; // スケジュール画面
 import '../logic/trip_navigator.dart'; // ★Navigation Logic
@@ -43,7 +43,7 @@ class _MemberModePageState extends State<MemberModePage> {
   }
 
   // スケジュール画面を開く
-  void _openSchedule(String tripId, List<ScheduleItem> schedule) {
+  void _openSchedule(String tripId, List<ScheduleEntry> schedule) {
     Navigator.of(context, rootNavigator: true).push(
       CupertinoPageRoute(
         builder: (_) => SchedulePage(

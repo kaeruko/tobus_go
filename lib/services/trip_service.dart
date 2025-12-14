@@ -1,95 +1,67 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math';
 import '../models/trip_models.dart';
-import '../models/group_models.dart'; // ScheduleItemクラス用
+import '../models/group_models.dart';
 import '../models/leg_models.dart';
-import 'user_service.dart'; // ユーザーID取得用
+import 'user_service.dart';
 
 class TripService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final UserService _userService = UserService();
 
-  // ---------------------------------------------------
-  // 1. 旅を作成する (リーダー用)
-  // ---------------------------------------------------
-  // 1. 旅を作成する (リーダー用)
-  // ---------------------------------------------------
-  Future<String> createTrip(List<Leg> legs, List<ScheduleItem> schedule) async {
-    print('[DEBUG] TripService.createTrip called');
+  Future<String> createTrip(List<Leg> legs, List<ScheduleEntry> schedule) async {
     final uid = _userService.currentUserId;
-    print('[DEBUG] Current UID: $uid');
     final userName = await _userService.getUserName();
-    print('[DEBUG] Current UserName: $userName');
     if (uid == null) throw Exception("ユーザーIDが初期化されていません");
 
-    print('[DEBUG] User ID check passed.');
-
-    // 参加コード(6桁)の生成
     final joinCode = (100000 + Random().nextInt(900000)).toString();
-    print('[DEBUG] Generated joinCode: $joinCode');
 
-    // リーダーとして自分を参加者リストに追加
     final leader = Participant(
       uid: uid,
       name: userName,
       isLeader: true,
     );
-    print('[DEBUG] Created leader participant.');
 
-    // ドキュメントIDはFirestoreに自動生成させる
     final tripRef = _db.collection('trips').doc();
-    print('[DEBUG] Generated tripRef ID: ${tripRef.id}');
 
-    // タイトルの自動生成 (行きの目的地を採用)
     final destination =
         (legs.isNotEmpty && legs.first.candidate.steps.isNotEmpty)
             ? legs.first.candidate.steps.last.to
-        : "お出かけ";
+            : "お出かけ";
     final title = "$destination への遠足";
-    print('[DEBUG] Generated title: $title');
+
+    sortScheduleEntries(schedule);
 
     final trip = Trip(
       id: tripRef.id,
       joinCode: joinCode,
       leaderId: uid,
       title: title,
-      status: TripStatus.planning,
+      travelPhase: TravelPhase.planning,
       date: DateTime.now(),
+      plannedDepartureAt:
+          schedule.isNotEmpty ? schedule.first.plannedAt : DateTime.now(),
+      actualDepartureAt: null,
       legs: legs,
       schedule: schedule,
       participants: [leader],
-      memberIds: [uid], // リーダーのIDを追加
+      memberIds: [uid],
     );
-    print('[DEBUG] Trip object created.');
 
-    try {
-      print('[DEBUG] Converting trip to Firestore map...');
-      final tripMap = trip.toFirestore();
-      print('[DEBUG] key count: ${tripMap.keys.length}');
-      
-      print('[DEBUG] Saving to Firestore...');
-      await tripRef.set(tripMap);
-      print('[DEBUG] Saved to Firestore.');
-    } catch (e, stack) {
-      print('[DEBUG] Error saving to Firestore: $e\n$stack');
-      rethrow;
-    }
-    
+    await tripRef.set(trip.toFirestore());
+
     return tripRef.id;
   }
 
-  // ---------------------------------------------------
-  // 2. 旅に参加する (メンバー用)
-  // ---------------------------------------------------
   Future<String> joinTrip(String joinCode) async {
     final uid = _userService.currentUserId;
     final userName = await _userService.getUserName();
     if (uid == null) throw Exception("ユーザーIDが初期化されていません");
 
-    // joinCode で検索（完了していない旅に限る）
-    final snapshot = await _db.collection('trips')
+    final snapshot = await _db
+        .collection('trips')
         .where('joinCode', isEqualTo: joinCode)
-        .where('status', isNotEqualTo: 'completed') 
+        .where('travelPhase', isNotEqualTo: TravelPhase.completed.name)
         .limit(1)
         .get();
 
@@ -99,11 +71,10 @@ class TripService {
 
     final tripDoc = snapshot.docs.first;
     final tripId = tripDoc.id;
-    
-    // 既に参加済みかチェック
+
     final data = tripDoc.data();
     final participantsRaw = data['participants'] as List<dynamic>? ?? [];
-    
+
     final isAlreadyJoined = participantsRaw.any((p) => p['uid'] == uid);
 
     if (!isAlreadyJoined) {
@@ -112,39 +83,16 @@ class TripService {
         name: userName,
         isLeader: false,
       );
-      
-      // Firestoreの配列に追加 (participants と memberIds 両方更新)
+
       await tripDoc.reference.update({
         'participants': FieldValue.arrayUnion([newMember.toJson()]),
         'memberIds': FieldValue.arrayUnion([uid])
       });
     }
 
-    return tripId; // ドキュメントIDを返す
+    return tripId;
   }
 
-  // ---------------------------------------------------
-  // ★ アクティブな旅を取得する
-  // ---------------------------------------------------
-  Future<Trip?> getActiveTrip() async {
-    final uid = _userService.currentUserId;
-    if (uid == null) return null;
-
-    final snapshot = await _db.collection('trips')
-        .where('memberIds', arrayContains: uid)
-        .where('status', whereIn: ['planning', 'active']) // 計画中か実施中のもの
-        .limit(1)
-        .get();
-
-    if (snapshot.docs.isNotEmpty) {
-      return Trip.fromFirestore(snapshot.docs.first);
-    }
-    return null;
-  }
-
-  // ---------------------------------------------------
-  // 3. リアルタイム監視 (共通)
-  // ---------------------------------------------------
   Stream<Trip> streamTrip(String tripId) {
     return _db.collection('trips').doc(tripId).snapshots().map((doc) {
       if (!doc.exists) throw Exception("Trip deleted");
@@ -152,109 +100,116 @@ class TripService {
     });
   }
 
-  // ---------------------------------------------------
-  // 4. SOSを送る (メンバー用)
-  // ---------------------------------------------------
   Future<void> sendSOS(String tripId) async {
     final uid = _userService.currentUserId;
-    
-    // NOTE: participants配列の中の自分のデータを更新するのは
-    // Firestoreの仕様上少し面倒（配列ごっそり書き換えになる）なので、
-    // ここでは簡易的に「SOSコレクション」をサブコレクションとして作るか、
-    // あるいは「trip自体にアラートフラグを立てる」実装にします。
-    
-    // コンテスト向け実装：Tripの 'alerts' フィールドに追記する
+
     await _db.collection('trips').doc(tripId).update({
-      'alerts': FieldValue.arrayUnion([{
-        'uid': uid,
-        'time': DateTime.now().toIso8601String(),
-        'status': 'sos'
-      }])
+      'alerts': FieldValue.arrayUnion([
+        {
+          'uid': uid,
+          'sentAt': DateTime.now().toIso8601String(),
+          'status': 'sos'
+        }
+      ])
     });
   }
 
-  // ---------------------------------------------------
-  // 5. お出かけを開始する (リーダー用)
-  // ---------------------------------------------------
-  Future<void> startTrip(String tripId) async {
-    print('[DEBUG] startTrip called for $tripId'); // ログ推奨
+  Future<void> startTrip(String tripId, DateTime departureTime) async {
     await _db.collection('trips').doc(tripId).update({
-      'status': TripStatus.active.name,
-      'startedAt': FieldValue.serverTimestamp(),
+      'travelPhase': TravelPhase.active.name,
+      'actualDepartureAt': Timestamp.fromDate(departureTime),
+      'plannedDepartureAt': FieldValue.delete(),
     });
   }
 
-  // ---------------------------------------------------
-  // 6. お出かけを終了する (リーダー用)
-  // ---------------------------------------------------
   Future<void> completeTrip(String tripId) async {
-    // ステータスを完了にする
     await _db.collection('trips').doc(tripId).update({
-      'status': 'completed',
+      'travelPhase': TravelPhase.completed.name,
       'endedAt': FieldValue.serverTimestamp(),
     });
   }
 
-  // グループを解散・中止する (リーダー用)
   Future<void> cancelTrip(String tripId) async {
     await _db.collection('trips').doc(tripId).update({
-      'status': 'cancelled',
-      'endedAt': FieldValue.serverTimestamp(), // 一応終わった時間は記録
+      'travelPhase': TravelPhase.cancelled.name,
+      'endedAt': FieldValue.serverTimestamp(),
     });
   }
 
-  // ---------------------------------------------------
-  // 7. スケジュールを更新する (リーダー用)
-  // ---------------------------------------------------
-  Future<void> updateSchedule(String tripId, List<ScheduleItem> newSchedule) async {
-    // 時間順(Group優先)に並び替えてから保存するのが親切
-    newSchedule.sort((a, b) {
-      if (a.legIndex != b.legIndex) {
-        return a.legIndex.compareTo(b.legIndex);
-      }
-      return a.time.compareTo(b.time);
-    });
+  Future<void> updateSchedule(String tripId, List<ScheduleEntry> newSchedule) async {
+    sortScheduleEntries(newSchedule);
 
     await _db.collection('trips').doc(tripId).update({
       'schedule': newSchedule.map((e) => e.toJson()).toList(),
     });
   }
 
-  // ---------------------------------------------------
-  // 8. 履歴関連
-  // ---------------------------------------------------
+  List<ScheduleEntry> applyRerouteOutwardOnly(
+    List<ScheduleEntry> current,
+    List<ScheduleEntry> newOutward,
+  ) {
+    final retained = current.where((entry) {
+      if (entry.legIndex != 0) return true;
+      if (entry.locked) return true;
+      if (entry.generatedBy != ScheduleEntrySource.route) return true;
+      return false;
+    }).toList();
 
-  // 自分がリーダーとして作成した旅があるかどうかチェック
+    retained.addAll(newOutward
+        .where((entry) => entry.legIndex == 0)
+        .map((e) => ScheduleEntry(
+              plannedAt: e.plannedAt,
+              label: e.label,
+              description: e.description,
+              itemKind: e.itemKind,
+              legIndex: 0,
+              generatedBy: ScheduleEntrySource.route,
+              locked: e.locked,
+              isCompleted: false,
+            )));
+
+    sortScheduleEntries(retained);
+
+    for (var i = 1; i < retained.length; i++) {
+      assert(!retained[i].plannedAt.isBefore(retained[i - 1].plannedAt),
+          'Schedule order regressed around ${retained[i].label}');
+    }
+
+    // Debug log for cross-day ordering (e.g., 00:00 entries)
+    for (final entry in retained) {
+      print('[DEBUG] schedule ${entry.legIndex} ${entry.label} at ${entry.plannedAt.toIso8601String()}');
+    }
+
+    return retained;
+  }
+
   Future<bool> hasCreatedTrip() async {
     final uid = _userService.currentUserId;
     if (uid == null) return false;
 
-    // 一回でもリーダーになったことがあるか
-    final snapshot = await _db.collection('trips')
+    final snapshot = await _db
+        .collection('trips')
         .where('leaderId', isEqualTo: uid)
         .limit(1)
         .get();
-    
+
     return snapshot.docs.isNotEmpty;
   }
 
-  // 完了した旅（履歴）を取得する
   Future<List<Trip>> getCompletedTrips() async {
-     final uid = _userService.currentUserId;
+    final uid = _userService.currentUserId;
     if (uid == null) return [];
 
-    final snapshot = await _db.collection('trips')
+    final snapshot = await _db
+        .collection('trips')
         .where('memberIds', arrayContains: uid)
-        .where('status', isEqualTo: 'completed')
+        .where('travelPhase', isEqualTo: TravelPhase.completed.name)
         .get();
 
-    final trips = snapshot.docs
-        .map((doc) => Trip.fromFirestore(doc))
-        .toList();
-    
-    // Dart側でソート（新しい順）
+    final trips = snapshot.docs.map((doc) => Trip.fromFirestore(doc)).toList();
+
     trips.sort((a, b) => b.date.compareTo(a.date));
-    
+
     return trips;
   }
 }

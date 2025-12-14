@@ -1,134 +1,210 @@
 // lib/models/group_models.dart
 
-import 'route_models.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'leg_models.dart';
+import 'route_models.dart';
 
-enum ScheduleType {
-  meeting,   // 集合
-  departure, // 出発
-  ride,      // 乗車(バス・電車)
-  walk,      // 徒歩
-  arrival,   // 到着(経由地)
-  goal,      // 目的地
-  event,     // その他イベント(食事など)
+enum ScheduleEntryKind {
+  meeting,
+  departure,
+  ride,
+  walk,
+  arrival,
+  goal,
+  event,
 }
 
-class ScheduleItem {
-  final String time;        // "10:00" 形式
-  final String title;       // "施設集合"
-  final String description; // "玄関前"
-  final ScheduleType type;  // アイコン出し分け用
-  final int legIndex;       // 行き=0, 帰り=1, 寄り道/その他=適宜
-  bool isCompleted;         // チェック済みか
+enum ScheduleEntrySource {
+  route,
+  manual,
+}
 
-  ScheduleItem({
-    required this.time,
-    required this.title,
+class ScheduleEntry {
+  final DateTime plannedAt;
+  final String label;
+  final String description;
+  final ScheduleEntryKind itemKind;
+  final int legIndex;
+  final ScheduleEntrySource generatedBy;
+  bool isCompleted;
+  final bool locked;
+
+  ScheduleEntry({
+    required this.plannedAt,
+    required this.label,
     this.description = '',
-    this.type = ScheduleType.event,
+    this.itemKind = ScheduleEntryKind.event,
     this.legIndex = 0,
+    this.generatedBy = ScheduleEntrySource.manual,
+    this.locked = false,
     this.isCompleted = false,
   });
 
-  // JSONから復元
-  factory ScheduleItem.fromJson(Map<String, dynamic> json) {
-    return ScheduleItem(
-      time: json['time'] as String? ?? '',
-      title: json['title'] as String? ?? '',
+  factory ScheduleEntry.fromJson(Map<String, dynamic> json) {
+    return ScheduleEntry(
+      plannedAt: (json['plannedAt'] as Timestamp).toDate(),
+      label: json['label'] as String? ?? '',
       description: json['description'] as String? ?? '',
-      type: ScheduleType.values.firstWhere(
-        (e) => e.name == (json['type'] as String?),
-        orElse: () => ScheduleType.event,
+      itemKind: ScheduleEntryKind.values.firstWhere(
+        (e) => e.name == (json['itemKind'] as String?),
+        orElse: () => ScheduleEntryKind.event,
       ),
       legIndex: json['legIndex'] as int? ?? 0,
+      generatedBy: ScheduleEntrySource.values.firstWhere(
+        (e) => e.name == (json['generatedBy'] as String?),
+        orElse: () => ScheduleEntrySource.manual,
+      ),
+      locked: json['locked'] as bool? ?? false,
       isCompleted: json['isCompleted'] as bool? ?? false,
     );
   }
 
-  // JSONへ変換
   Map<String, dynamic> toJson() {
     return {
-      'time': time,
-      'title': title,
+      'plannedAt': Timestamp.fromDate(plannedAt),
+      'label': label,
       'description': description,
-      'type': type.name, // "meeting" などの文字列になる
+      'itemKind': itemKind.name,
       'legIndex': legIndex,
+      'generatedBy': generatedBy.name,
+      'locked': locked,
       'isCompleted': isCompleted,
     };
   }
 }
 
-// Candidate(検索結果)からスケジュールリストを作る便利関数
-List<ScheduleItem> createScheduleFromRoute(
+/// Sort entries by leg then time using DateTime.
+void sortScheduleEntries(List<ScheduleEntry> entries) {
+  entries.sort((a, b) {
+    if (a.legIndex != b.legIndex) {
+      return a.legIndex.compareTo(b.legIndex);
+    }
+    return a.plannedAt.compareTo(b.plannedAt);
+  });
+}
+
+/// Normalize a sequence of HH:mm strings so that times after midnight roll into the next day.
+List<DateTime> normalizeCrossDay(DateTime baseDate, List<String?> clocks) {
+  final results = <DateTime>[];
+  var cursor = DateTime(baseDate.year, baseDate.month, baseDate.day, 0, 0);
+
+  for (final clock in clocks) {
+    if (clock == null || !clock.contains(':')) {
+      results.add(cursor);
+      continue;
+    }
+    final parts = clock.split(':');
+    final hour = int.tryParse(parts[0]) ?? 0;
+    final minute = int.tryParse(parts[1]) ?? 0;
+    var candidate = DateTime(cursor.year, cursor.month, cursor.day, hour, minute);
+    if (results.isNotEmpty && candidate.isBefore(results.last)) {
+      candidate = candidate.add(const Duration(days: 1));
+    }
+    cursor = candidate;
+    results.add(candidate);
+  }
+
+  return results;
+}
+
+List<ScheduleEntry> createScheduleFromRoute(
   Candidate route, {
-  String? startTime,
+  DateTime? startDateTime,
   String? labelPrefix,
   int legIndex = 0,
 }) {
-  final list = <ScheduleItem>[];
+  final list = <ScheduleEntry>[];
   final prefix = (labelPrefix != null && labelPrefix.isNotEmpty)
       ? '$labelPrefix '
       : '';
-  
-  // 1. 出発(集合)
-  final departureTime = startTime ?? _formatTime(DateTime.now());
-  list.add(ScheduleItem(
-    time: departureTime,
-    title: "${prefix}出発",
-    description: "みんな揃っているか確認しましょう",
-    type: ScheduleType.departure,
-    legIndex: legIndex,
-  ));
 
-  // 2. 移動工程(Steps)を変換
+  final departureBase = startDateTime ?? route.departureDate ?? DateTime.now();
+  final stepClocks = route.steps
+      .expand((s) => [s.departureTime, s.arrivalTime])
+      .where((t) => t != null)
+      .cast<String>()
+      .toList();
+  final normalizedTimes = normalizeCrossDay(departureBase, stepClocks);
+  var timeCursorIndex = 0;
+
+  list.add(
+    ScheduleEntry(
+      plannedAt: departureBase,
+      label: '${prefix}出発',
+      description: 'みんな揃っているか確認しましょう',
+      itemKind: ScheduleEntryKind.departure,
+      legIndex: legIndex,
+      generatedBy: ScheduleEntrySource.route,
+    ),
+  );
+
   for (final step in route.steps) {
     if (step.kind == 'walk') {
-      // 徒歩は長ければ入れる、短ければ省略など調整
       if ((step.minutes ?? 0) > 3) {
-        list.add(ScheduleItem(
-          time: step.departureTime ?? "??:??",
-          title: "${prefix}歩く (${step.minutes}分)",
-          description: step.from ?? '',
-          type: ScheduleType.walk,
-          legIndex: legIndex,
-        ));
+        final departAt = normalizedTimes[timeCursorIndex];
+        timeCursorIndex += 2; // walk has dep/arr pairs
+        list.add(
+          ScheduleEntry(
+            plannedAt: departAt,
+            label: '${prefix}歩く (${step.minutes}分)',
+            description: step.from ?? '',
+            itemKind: ScheduleEntryKind.walk,
+            legIndex: legIndex,
+            generatedBy: ScheduleEntrySource.route,
+          ),
+        );
+      } else {
+        timeCursorIndex += 2;
       }
     } else {
-      // バス・電車
-      list.add(ScheduleItem(
-        time: step.departureTime ?? "??:??",
-        title: "${prefix}${step.title} に乗る",
-        description: "${step.from ?? ''} から",
-        type: ScheduleType.ride,
-        legIndex: legIndex,
-      ));
+      final departAt = normalizedTimes[timeCursorIndex];
+      final arriveAt = normalizedTimes[timeCursorIndex + 1];
+      timeCursorIndex += 2;
 
-      list.add(ScheduleItem(
-        time: step.arrivalTime ?? "??:??",
-        title: "${prefix}${step.to ?? ''} に着く",
-        description: step.edges > 0 ? "${step.edges}駅" : '',
-        type: ScheduleType.arrival,
-        legIndex: legIndex,
-      ));
+      list.add(
+        ScheduleEntry(
+          plannedAt: departAt,
+          label: '${prefix}${step.title} に乗る',
+          description: '${step.from ?? ''} から',
+          itemKind: ScheduleEntryKind.ride,
+          legIndex: legIndex,
+          generatedBy: ScheduleEntrySource.route,
+        ),
+      );
+
+      list.add(
+        ScheduleEntry(
+          plannedAt: arriveAt,
+          label: '${prefix}${step.to ?? ''} に着く',
+          description: step.edges > 0 ? '${step.edges}駅' : '',
+          itemKind: ScheduleEntryKind.arrival,
+          legIndex: legIndex,
+          generatedBy: ScheduleEntrySource.route,
+        ),
+      );
     }
   }
 
-  // 3. 到着(ゴール)
   if (route.steps.isNotEmpty) {
-    list.add(ScheduleItem(
-      time: route.steps.last.arrivalTime ?? "??:??",
-      title: "${prefix}目的地 到着",
-      description: "お疲れ様でした!",
-      type: ScheduleType.goal,
-      legIndex: legIndex,
-    ));
+    list.add(
+      ScheduleEntry(
+        plannedAt: normalizedTimes.isNotEmpty
+            ? normalizedTimes.last
+            : departureBase,
+        label: '${prefix}目的地 到着',
+        description: 'お疲れ様でした!',
+        itemKind: ScheduleEntryKind.goal,
+        legIndex: legIndex,
+        generatedBy: ScheduleEntrySource.route,
+      ),
+    );
   }
 
   return list;
 }
 
-List<ScheduleItem> createScheduleFromLegs(List<Leg> legs) {
-  final List<ScheduleItem> schedule = [];
+List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
+  final List<ScheduleEntry> schedule = [];
 
   Leg? outbound;
   Leg? inbound;
@@ -143,23 +219,29 @@ List<ScheduleItem> createScheduleFromLegs(List<Leg> legs) {
 
   if (outbound != null) {
     schedule.addAll(
-      createScheduleFromRoute(outbound.candidate, labelPrefix: '行き', legIndex: 0),
+      createScheduleFromRoute(
+        outbound.candidate,
+        startDateTime: outbound.candidate.departureDate,
+        labelPrefix: '行き',
+        legIndex: 0,
+      ),
     );
   }
 
   if (inbound != null) {
-    final inboundStartTime = inbound.candidate.departureDate != null
-        ? _formatTime(inbound.candidate.departureDate!)
-        : null;
+    final inboundStartDate = inbound.candidate.departureDate ??
+        (outbound?.candidate.departureDate?.add(Duration(minutes: outbound.candidate.totalTime)) ??
+            DateTime.now());
 
     if (outbound != null) {
       schedule.add(
-        ScheduleItem(
-          time: inboundStartTime ?? "??:??",
-          title: "帰りの集合",
-          description: "帰りの経路を開始する前に人数を確認しましょう",
-          type: ScheduleType.meeting,
+        ScheduleEntry(
+          plannedAt: inboundStartDate,
+          label: '帰りの集合',
+          description: '帰りの経路を開始する前に人数を確認しましょう',
+          itemKind: ScheduleEntryKind.meeting,
           legIndex: 1,
+          generatedBy: ScheduleEntrySource.route,
         ),
       );
     }
@@ -167,7 +249,7 @@ List<ScheduleItem> createScheduleFromLegs(List<Leg> legs) {
     schedule.addAll(
       createScheduleFromRoute(
         inbound.candidate,
-        startTime: inboundStartTime,
+        startDateTime: inboundStartDate,
         labelPrefix: '帰り',
         legIndex: 1,
       ),
@@ -177,18 +259,18 @@ List<ScheduleItem> createScheduleFromLegs(List<Leg> legs) {
   for (final leg in legs) {
     if (leg == outbound || leg == inbound) continue;
     final prefix = _labelForLeg(leg.direction);
+    final startDateTime = leg.candidate.departureDate ?? DateTime.now();
     schedule.addAll(
       createScheduleFromRoute(
         leg.candidate,
-        startTime: leg.candidate.departureDate != null
-            ? _formatTime(leg.candidate.departureDate!)
-            : null,
+        startDateTime: startDateTime,
         labelPrefix: prefix,
-        legIndex: 0, // その他は一旦0
+        legIndex: 0,
       ),
     );
   }
 
+  sortScheduleEntries(schedule);
   return schedule;
 }
 
@@ -205,7 +287,6 @@ String _labelForLeg(LegDirection direction) {
   }
 }
 
-// 時刻を "HH:mm" 形式にフォーマット
-String _formatTime(DateTime dt) {
+String formatClock(DateTime dt) {
   return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 }

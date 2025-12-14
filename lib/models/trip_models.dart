@@ -1,103 +1,105 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'route_models.dart';
-import 'group_models.dart'; // ScheduleItemを利用
+import 'group_models.dart';
 import 'leg_models.dart';
 
-// 旅の状態
+enum TravelPhase {
+  planning,
+  active,
+  completed,
+  cancelled,
+}
+
+// 旧コード互換用
 enum TripStatus {
-  planning,  // 計画中
-  active,    // 実施中
-  completed, // 完了 (履歴)
-  cancelled, // ★追加: 中止
+  planning,
+  active,
+  completed,
+  cancelled,
 }
 
 class Trip {
-  final String id;          // FirestoreのDocument ID (6桁コードまたはUUID)
-  final String joinCode;    // 参加用6桁コード (検索用)
-  final String leaderId;    // 作成者のUID
-  final String title;       // 旅のタイトル (例: 上野公園へ遠足)
-  final TripStatus status;
-  final DateTime date;      // 実施日
-  final List<Leg> legs; // 経路情報 (行き、帰り...)
-  final List<ScheduleItem> schedule; // しおり
-  final List<Participant> participants; // 参加者リスト
-  final List<String> memberIds; // ★検索用: 参加者のUIDリスト
+  final String id;
+  final String joinCode;
+  final String leaderId;
+  final String title;
+  final TravelPhase travelPhase;
+  final DateTime date;
+  final DateTime? plannedDepartureAt;
+  final DateTime? actualDepartureAt;
+  final List<Leg> legs;
+  final List<ScheduleEntry> schedule;
+  final List<Participant> participants;
+  final List<String> memberIds;
+
+  TripStatus get status => TripStatus.values[travelPhase.index];
 
   Trip({
     required this.id,
     required this.joinCode,
     required this.leaderId,
     required this.title,
-    required this.status,
+    required this.travelPhase,
     required this.date,
+    required this.plannedDepartureAt,
+    required this.actualDepartureAt,
     required this.legs,
     required this.schedule,
     required this.participants,
     required this.memberIds,
   });
 
-  // Firestoreからデータを読み込む時の変換処理
   factory Trip.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    
-    // 経路情報の復元 (新: legs, 旧: routes/route 対応)
+
     List<Leg> loadedLegs = [];
     if (data['legs'] != null) {
       loadedLegs = (data['legs'] as List<dynamic>)
           .map((e) => Leg.fromJson(e as Map<String, dynamic>))
           .toList();
-    } else if (data['routes'] != null) {
-      // routes 配列から direction 情報がない場合は unknown で補完
-      loadedLegs = (data['routes'] as List<dynamic>)
-          .map((e) => Leg(
-                direction: LegDirection.unknown,
-                status: LegStatus.confirmed,
-                candidate: Candidate.fromJson(e as Map<String, dynamic>),
-              ))
-          .toList();
-    } else if (data['route'] != null) {
-      // 旧データ互換 (単一路線)
-      loadedLegs = [
-        Leg(
-          direction: LegDirection.unknown,
-          status: LegStatus.confirmed,
-          candidate: Candidate.fromJson(data['route'] as Map<String, dynamic>),
-        ),
-      ];
     }
+
+    final phaseName = data['travelPhase'] as String? ?? data['status'] as String?;
 
     return Trip(
       id: doc.id,
       joinCode: data['joinCode'] ?? '',
       leaderId: data['leaderId'] ?? '',
       title: data['title'] ?? '',
-      status: TripStatus.values.firstWhere(
-        (e) => e.name == (data['status'] as String?),
-        orElse: () => TripStatus.planning,
+      travelPhase: TravelPhase.values.firstWhere(
+        (e) => e.name == phaseName,
+        orElse: () => TravelPhase.planning,
       ),
       date: (data['date'] as Timestamp).toDate(),
+      plannedDepartureAt:
+          (data['plannedDepartureAt'] as Timestamp?)?.toDate(),
+      actualDepartureAt: (data['actualDepartureAt'] as Timestamp?)?.toDate(),
       legs: loadedLegs,
-      // スケジュール配列の復元
       schedule: (data['schedule'] as List<dynamic>? ?? [])
-          .map((e) => ScheduleItem.fromJson(e as Map<String, dynamic>))
+          .map((e) => ScheduleEntry.fromJson(e as Map<String, dynamic>))
           .toList(),
-      // 参加者配列の復元
       participants: (data['participants'] as List<dynamic>? ?? [])
           .map((e) => Participant.fromJson(e as Map<String, dynamic>))
           .toList(),
-      memberIds: (data['memberIds'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
+      memberIds:
+          (data['memberIds'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
     );
   }
 
-  // Firestoreに保存する時の変換処理
   Map<String, dynamic> toFirestore() {
     return {
       'joinCode': joinCode,
       'leaderId': leaderId,
       'title': title,
-      'status': status.name, // "planning" 等の文字列で保存
+      'travelPhase': travelPhase.name,
+      'status': travelPhase.name,
       'date': Timestamp.fromDate(date),
-      // 軽量化のため points (ポリライン) は除外して保存
+      'plannedDepartureAt': plannedDepartureAt != null
+          ? Timestamp.fromDate(plannedDepartureAt!)
+          : null,
+      'actualDepartureAt': actualDepartureAt != null
+          ? Timestamp.fromDate(actualDepartureAt!)
+          : null,
       'legs': legs.map((e) => e.toJson(includePoints: false)).toList(),
       'schedule': schedule.map((e) => e.toJson()).toList(),
       'participants': participants.map((e) => e.toJson()).toList(),
@@ -106,16 +108,13 @@ class Trip {
   }
 }
 
-// 参加者クラス (メンバー + 実績データ)
 class Participant {
-  final String uid;       // ユーザーID
-  final String name;      // その時の表示名
-  final bool isLeader;    // リーダーかどうか
-  
-  // --- 以下、完了後に埋まる実績データ (一般モードではnull) ---
-  final int? stepCount;   // 推定歩数
-  final int? sosCount;    // SOS回数
-  final String? memo;     // 職員メモ
+  final String uid;
+  final String name;
+  final bool isLeader;
+  final int? stepCount;
+  final int? sosCount;
+  final String? memo;
 
   Participant({
     required this.uid,
