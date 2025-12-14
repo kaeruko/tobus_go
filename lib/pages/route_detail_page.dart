@@ -432,10 +432,16 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
   }
 
   void _showReturnTimePicker() {
-    // 初期値は現在あるいは保持している値
-    if (_returnSearchTime.isBefore(DateTime.now())) {
-       _returnSearchTime = DateTime.now();
+    // 行きの到着時刻を計算
+    // departureDateがnullの場合は現在時刻を基準にする(通常はセットされているはず)
+    final baseTime = widget.candidate.departureDate ?? DateTime.now();
+    final arrivalTime = baseTime.add(Duration(minutes: widget.candidate.totalTime));
+
+    // 初期値が到着時刻より前の場合は、到着時刻に合わせる
+    if (_returnSearchTime.isBefore(arrivalTime)) {
+       _returnSearchTime = arrivalTime;
     }
+
     showCupertinoModalPopup(
       context: context,
       builder: (ctx) => Container(
@@ -459,6 +465,7 @@ class _RouteDetailPageState extends State<RouteDetailPage> {
               child: CupertinoDatePicker(
                 mode: CupertinoDatePickerMode.dateAndTime,
                 initialDateTime: _returnSearchTime,
+                minimumDate: arrivalTime, // 到着時刻より前は選べないようにする
                 use24hFormat: true,
                 onDateTimeChanged: (val) {
                   _returnSearchTime = val;

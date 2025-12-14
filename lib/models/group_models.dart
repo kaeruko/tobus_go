@@ -317,7 +317,7 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
         meetingLabel: '帰りの集合',
         meetingDescription: '帰りの経路を開始する前に人数を確認しましょう',
         departureLeadTime: const Duration(minutes: 10),
-        meetingAt: _roundDownToHalfHour(inboundDepartureAt),
+        meetingAt: _roundDownToHalfHour(inboundDepartureAt.subtract(const Duration(minutes: 15))),
       ),
     );
   }
