@@ -771,6 +771,8 @@ class _LeaderModePageState extends State<LeaderModePage> {
         ],
       ),
     );
+  }
+
   Future<void> _confirmCancel(BuildContext context, Trip trip) async {
     final confirmed = await showDialog<bool>(
       context: context,
