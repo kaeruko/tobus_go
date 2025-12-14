@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'home_page.dart';
 import 'live_page.dart';
 import 'my_route_page.dart';
@@ -16,6 +17,7 @@ class RootTabs extends StatefulWidget {
 class _RootTabsState extends State<RootTabs> {
   int _currentIndex = 0;
   bool _canShowHistory = false; // 履歴タブを表示するかどうか
+  final ValueNotifier<int> _tabIndexNotifier = ValueNotifier<int>(0);
 
   // ナビゲーターキー (最大5つ分確保しておく)
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
@@ -30,6 +32,12 @@ class _RootTabsState extends State<RootTabs> {
   void initState() {
     super.initState();
     _checkHistoryPermission();
+  }
+
+  @override
+  void dispose() {
+    _tabIndexNotifier.dispose();
+    super.dispose();
   }
 
   Future<void> _checkHistoryPermission() async {
@@ -78,6 +86,7 @@ class _RootTabsState extends State<RootTabs> {
           setState(() {
             _currentIndex = index;
           });
+          _tabIndexNotifier.value = index;
         },
         items: tabs,
       ),
@@ -88,7 +97,7 @@ class _RootTabsState extends State<RootTabs> {
 
         if (_canShowHistory) {
            switch (index) {
-            case 0: return _buildPage(0, const HomePage());
+            case 0: return _buildPage(0, HomePage(tabIndexListenable: _tabIndexNotifier));
             case 1: return _buildPage(1, const LivePage());
             case 2: return _buildPage(2, const MyRoutePage());
             case 3: return _buildPage(3, const HistoryPage()); // 履歴
@@ -97,7 +106,7 @@ class _RootTabsState extends State<RootTabs> {
           }
         } else {
            switch (index) {
-            case 0: return _buildPage(0, const HomePage());
+            case 0: return _buildPage(0, HomePage(tabIndexListenable: _tabIndexNotifier));
             case 1: return _buildPage(1, const LivePage());
             case 2: return _buildPage(2, const MyRoutePage());
             case 3: return _buildPage(3, const SettingsPage()); // 設定が3番目に来る
