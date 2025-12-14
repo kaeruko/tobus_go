@@ -112,6 +112,10 @@ List<ScheduleEntry> createScheduleFromRoute(
   DateTime? startDateTime,
   String? labelPrefix,
   int legIndex = 0,
+  bool includeMeeting = false,
+  String meetingLabel = '集合',
+  String meetingDescription = '出発前に集合しましょう',
+  Duration meetingLeadTime = const Duration(minutes: 10),
 }) {
   final list = <ScheduleEntry>[];
   final prefix = (labelPrefix != null && labelPrefix.isNotEmpty)
@@ -124,11 +128,26 @@ List<ScheduleEntry> createScheduleFromRoute(
       .cast<String?>()
       .toList();
   final normalizedTimes = normalizeCrossDay(departureBase, stepClocks);
+  final departureAt = normalizedTimes.isNotEmpty ? normalizedTimes.first : departureBase;
   var timeCursorIndex = 0;
+
+  if (includeMeeting) {
+    final meetingTitle = prefix.isNotEmpty ? '$prefix$meetingLabel' : meetingLabel;
+    list.add(
+      ScheduleEntry(
+        plannedAt: departureAt.subtract(meetingLeadTime),
+        label: meetingTitle,
+        description: meetingDescription,
+        itemKind: ScheduleEntryKind.meeting,
+        legIndex: legIndex,
+        generatedBy: ScheduleEntrySource.route,
+      ),
+    );
+  }
 
   list.add(
     ScheduleEntry(
-      plannedAt: departureBase,
+      plannedAt: departureAt,
       label: '${prefix}出発',
       description: 'みんな揃っているか確認しましょう',
       itemKind: ScheduleEntryKind.departure,
@@ -223,6 +242,9 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
         startDateTime: outbound.candidate.departureDate,
         labelPrefix: '行き',
         legIndex: 0,
+        includeMeeting: true,
+        meetingLabel: '集合',
+        meetingDescription: '出発の10分前に集合しましょう',
       ),
     );
   }
@@ -232,25 +254,15 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
         (outbound?.candidate.departureDate?.add(Duration(minutes: outbound.candidate.totalTime)) ??
             DateTime.now());
 
-    if (outbound != null) {
-      schedule.add(
-        ScheduleEntry(
-          plannedAt: inboundStartDate,
-          label: '帰りの集合',
-          description: '帰りの経路を開始する前に人数を確認しましょう',
-          itemKind: ScheduleEntryKind.meeting,
-          legIndex: 1,
-          generatedBy: ScheduleEntrySource.route,
-        ),
-      );
-    }
-
     schedule.addAll(
       createScheduleFromRoute(
         inbound.candidate,
         startDateTime: inboundStartDate,
         labelPrefix: '帰り',
         legIndex: 1,
+        includeMeeting: true,
+        meetingLabel: '帰りの集合',
+        meetingDescription: '帰りの経路を開始する前に人数を確認しましょう',
       ),
     );
   }
