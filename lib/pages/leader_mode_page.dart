@@ -192,18 +192,38 @@ class _LeaderModePageState extends State<LeaderModePage> {
                           ],
                         ],
                       )
-                    : Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(color: Colors.blue, borderRadius: BorderRadius.circular(8)),
-                        child: const Column(
-                          children: [
-                            Icon(Icons.directions_walk, color: Colors.white, size: 40),
-                            SizedBox(height: 8),
-                            Text('移動中', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                            Text('安全運転で行きましょう', style: TextStyle(color: Colors.white)),
-                          ],
-                        ),
+                    : Column(
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(color: Colors.blue, borderRadius: BorderRadius.circular(8)),
+                            child: const Column(
+                              children: [
+                                Icon(Icons.directions_walk, color: Colors.white, size: 40),
+                                SizedBox(height: 8),
+                                Text('移動中', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                                Text('安全運転で行きましょう', style: TextStyle(color: Colors.white)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          // ★追加: お出かけ終了ボタン
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.check_circle),
+                              label: const Text('お出かけを終了する', style: TextStyle(fontSize: 16)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey.shade600,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onPressed: () => _showCompleteDialog(context, trip),
+                            ),
+                          ),
+                        ],
                       ),
               ),
 
@@ -237,6 +257,48 @@ class _LeaderModePageState extends State<LeaderModePage> {
           ),
         );
       },
+    );
+  }
+
+  void _showCompleteDialog(BuildContext context, Trip trip) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('お出かけ終了'),
+        content: const Text('本当に終了しますか?\nメンバーの画面も「終了」に切り替わります。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx); // ダイアログを閉じる
+              try {
+                // 終了処理を実行
+                await TripService().completeTrip(trip.id);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('お出かけを終了しました')),
+                  );
+                  Navigator.pop(context); // リーダー画面を閉じる
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('終了処理に失敗しました: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('終了する'),
+          ),
+        ],
+      ),
     );
   }
 }
