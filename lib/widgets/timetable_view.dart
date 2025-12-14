@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import '../core/app_clock.dart';
 import '../services/timetable_service.dart';
 
 class TimetableView extends StatefulWidget {
@@ -22,9 +23,9 @@ class _TimetableViewState extends State<TimetableView> {
   
   // 構造: [ {"destinationName": "上野行き", "times": ["12:10", "12:30"]}, ... ]
   List<Map<String, dynamic>> _busGroups = [];
-  
+
   String _dayType = "";
-  DateTime _now = DateTime.now();
+  DateTime _now = appClock.now();
   Timer? _timer;
   bool _isLoading = true;
 
@@ -35,7 +36,7 @@ class _TimetableViewState extends State<TimetableView> {
     _timer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) {
         setState(() {
-          _now = DateTime.now();
+          _now = appClock.now();
           _updateBusInfo();
         });
       }

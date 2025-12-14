@@ -4,6 +4,7 @@ import '../providers/saved_routes_provider.dart';
 import '../providers/app_session_provider.dart';
 import '../widgets/route_card.dart';
 import 'route_detail_page.dart';
+import '../core/app_clock.dart';
 import '../core/api_client.dart';
 import '../models/route_models.dart';
 import '../widgets/bus_loading_indicator.dart';
@@ -24,7 +25,7 @@ class MyRoutePage extends ConsumerStatefulWidget {
 }
 
 class _MyRoutePageState extends ConsumerState<MyRoutePage> {
-  DateTime _startTime = DateTime.now();
+  DateTime _startTime = appClock.now();
   bool _loading = false;
   // TripDraftService removed
 

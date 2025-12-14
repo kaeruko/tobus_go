@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../core/app_clock.dart';
 import '../widgets/route_map_preview.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
@@ -85,7 +86,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
     setState(() => _starting = true);
 
     try {
-      final now = DateTime.now();
+      final now = appClock.now();
       final planned = trip.plannedDepartureAt ??
           (trip.schedule.isNotEmpty ? trip.schedule.first.plannedAt : now);
       final deltaMinutes = now.difference(planned).inMinutes;
@@ -591,7 +592,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
 
   Widget _buildActionArea(
       Trip trip, TripService service, DateTime? meetingAt) {
-    final now = DateTime.now();
+    final now = appClock.now();
     final canStart =
         meetingAt != null ? !now.isBefore(meetingAt) && !_starting : false;
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/app_clock.dart';
 import '../models/group_models.dart';
 import '../services/trip_service.dart';
 
@@ -83,7 +84,7 @@ class _SchedulePageState extends State<SchedulePage> {
 
   void _showScheduleDialog({int? index, ScheduleEntry? item}) {
     final isEditing = (index != null && item != null);
-    DateTime base = item?.plannedAt ?? (_schedule.isNotEmpty ? _schedule.last.plannedAt : DateTime.now());
+    DateTime base = item?.plannedAt ?? (_schedule.isNotEmpty ? _schedule.last.plannedAt : appClock.now());
     TimeOfDay selected = TimeOfDay.fromDateTime(base);
     String label = item?.label ?? '';
     String desc = item?.description ?? '';

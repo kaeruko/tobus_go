@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import '../core/app_clock.dart';
 
 class TimetableService {
   // シングルトンパターン（アプリ内で1つだけインスタンスを作る）
@@ -34,7 +35,7 @@ class TimetableService {
   }
 
   String getTodayType() {
-    final now = DateTime.now();
+    final now = appClock.now();
     // 祝日判定ロジックは別途必要ですが、まずは簡易的に土日判定
     if (now.weekday == DateTime.sunday) return "Holiday";
     if (now.weekday == DateTime.saturday) return "Saturday";
@@ -73,7 +74,7 @@ class TimetableService {
     print('  - stopDataの方向ID: ${stopData.keys.join(", ")}');
     
     // 現在時刻の準備
-    final now = DateTime.now();
+    final now = appClock.now();
     var hour = now.hour;
     if (hour < 3) hour += 24; // 25時対応
     final currentStr = "${hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";

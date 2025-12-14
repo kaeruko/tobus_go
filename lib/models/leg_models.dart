@@ -1,3 +1,4 @@
+import '../core/app_clock.dart';
 import 'route_models.dart';
 
 // 経路の方向
@@ -62,7 +63,7 @@ class LegDraft {
       direction: direction,
       status: status == LegStatus.draft ? LegStatus.confirmed : status,
       candidate: candidate,
-      confirmedAt: DateTime.now(),
+      confirmedAt: appClock.now(),
     );
   }
 }

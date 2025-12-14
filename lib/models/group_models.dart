@@ -1,6 +1,7 @@
 // lib/models/group_models.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/app_clock.dart';
 import 'leg_models.dart';
 import 'route_models.dart';
 
@@ -124,7 +125,7 @@ List<ScheduleEntry> createScheduleFromRoute(
       ? '$labelPrefix '
       : '';
 
-  final departureBase = startDateTime ?? route.departureDate ?? DateTime.now();
+  final departureBase = startDateTime ?? route.departureDate ?? appClock.now();
   final stepClocks = route.steps
       .expand((s) => [s.departureTime, s.arrivalTime])
       .cast<String?>()
@@ -275,7 +276,7 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
   if (inbound != null) {
     final inboundStartDate = inbound.candidate.departureDate ??
         (outbound?.candidate.departureDate?.add(Duration(minutes: outbound.candidate.totalTime)) ??
-            DateTime.now());
+            appClock.now());
 
     final inboundStepClocks = inbound.candidate.steps
         .expand((s) => [s.departureTime, s.arrivalTime])
@@ -325,7 +326,7 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
   for (final leg in legs) {
     if (leg == outbound || leg == inbound) continue;
     final prefix = _labelForLeg(leg.direction);
-    final startDateTime = leg.candidate.departureDate ?? DateTime.now();
+    final startDateTime = leg.candidate.departureDate ?? appClock.now();
     schedule.addAll(
       createScheduleFromRoute(
         leg.candidate,

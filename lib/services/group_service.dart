@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/app_clock.dart';
 import '../models/group_models.dart';
 
 class GroupService {
@@ -72,7 +73,7 @@ class GroupService {
         {
           'memberId': memberId,
           'memberName': memberName,
-          'time': DateTime.now().toIso8601String(),
+          'time': appClock.now().toIso8601String(),
           'status': 'sos'
         }
       ])

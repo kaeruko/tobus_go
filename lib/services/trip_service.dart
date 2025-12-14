@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math';
+import '../core/app_clock.dart';
 import '../models/trip_models.dart';
 import '../models/group_models.dart';
 import '../models/leg_models.dart';
@@ -38,9 +39,9 @@ class TripService {
       leaderId: uid,
       title: title,
       travelPhase: TravelPhase.planning,
-      date: DateTime.now(),
+      date: appClock.now(),
       plannedDepartureAt:
-          schedule.isNotEmpty ? schedule.first.plannedAt : DateTime.now(),
+          schedule.isNotEmpty ? schedule.first.plannedAt : appClock.now(),
       actualDepartureAt: null,
       legs: legs,
       schedule: schedule,
@@ -107,7 +108,7 @@ class TripService {
       'alerts': FieldValue.arrayUnion([
         {
           'uid': uid,
-          'sentAt': DateTime.now().toIso8601String(),
+          'sentAt': appClock.now().toIso8601String(),
           'status': 'sos'
         }
       ])

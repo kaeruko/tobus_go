@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../core/app_clock.dart';
 import '../core/api_client.dart';
 import '../core/utils.dart';
 import '../models/route_models.dart';
@@ -121,7 +122,7 @@ class HomePageState extends ConsumerState<HomePage> {
     final activeTripAsync = ref.watch(activeTripProvider);
     final notifier = ref.read(routeSearchProvider.notifier);
 
-    final startTime = rs.startTime ?? DateTime.now();
+    final startTime = rs.startTime ?? appClock.now();
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(

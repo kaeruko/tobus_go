@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/app_clock.dart';
 import '../models/route_models.dart';
 import '../providers/saved_routes_provider.dart';
 import '../widgets/timetable_view.dart';
@@ -57,9 +58,9 @@ class RouteDetailPage extends ConsumerStatefulWidget {
 
 class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   // 再検索用の日時
-  DateTime _searchTime = DateTime.now();
+  DateTime _searchTime = appClock.now();
   // 帰り検索用の日時 (デフォルトは現在時刻だが、ユーザー操作で変更可能)
-  DateTime _returnSearchTime = DateTime.now();
+  DateTime _returnSearchTime = appClock.now();
   // TripDraftService removed
   final TripService _tripService = TripService(); // 追加
   
@@ -483,7 +484,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
 
   // --- 再検索機能 (既存維持) ---
   void _showReSearchPicker() {
-    _searchTime = DateTime.now();
+    _searchTime = appClock.now();
     showCupertinoModalPopup(
       context: context,
       builder: (ctx) => Container(
@@ -521,7 +522,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   void _showReturnTimePicker() {
     // 行きの到着時刻を計算
     // departureDateがnullの場合は現在時刻を基準にする(通常はセットされているはず)
-    final baseTime = widget.candidate.departureDate ?? DateTime.now();
+    final baseTime = widget.candidate.departureDate ?? appClock.now();
     final arrivalTime = baseTime.add(Duration(minutes: widget.candidate.totalTime));
 
     // 初期値が到着時刻より前の場合は、到着時刻に合わせる
