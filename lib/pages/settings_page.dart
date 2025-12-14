@@ -137,9 +137,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         if (mounted) {
            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('メンバーモードに切り替わりました')));
         }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('参加可能なTripが見つかりません')),
+          );
+        }
       }
     } catch (e) {
-      print(e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e')),
+        );
+      }
     }
   }
 
