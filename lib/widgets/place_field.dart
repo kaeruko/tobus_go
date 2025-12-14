@@ -3,14 +3,14 @@ import '../core/api_client.dart';
 
 class PlaceField extends StatefulWidget {
   final String label;
-  final void Function(double lat, double lon, String desc) onPicked;
-  final String? initialText;
+  final String value;
+  final void Function(String value, String desc) onChanged;
 
   const PlaceField({
     super.key,
     required this.label,
-    required this.onPicked,
-    this.initialText,
+    required this.value,
+    required this.onChanged,
   });
 
   @override
@@ -18,49 +18,83 @@ class PlaceField extends StatefulWidget {
 }
 
 class _PlaceFieldState extends State<PlaceField> {
-  final _ctrl = TextEditingController();
+  late TextEditingController _ctrl;
   List<Map<String, dynamic>> _preds = [];
   bool _loading = false;
-  bool _suppressChange = false;
-
+  
   @override
   void initState() {
     super.initState();
-    if (widget.initialText != null) {
-      _ctrl.text = widget.initialText!;
+    _ctrl = TextEditingController(text: widget.value);
+    _ctrl.addListener(_onInputChanged);
+  }
+
+  @override
+  void didUpdateWidget(PlaceField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != _ctrl.text) {
+      // External change (e.g. swap), update text and keep selection if possible
+      // Note: This might reset cursor position, but acceptable for now.
+      _ctrl.text = widget.value;
     }
-    _ctrl.addListener(_onChanged);
   }
 
   @override
   void dispose() {
-    _ctrl.removeListener(_onChanged);
+    _ctrl.removeListener(_onInputChanged);
     _ctrl.dispose();
     super.dispose();
   }
 
-  Future<void> _onChanged() async {
-    if (_suppressChange) return; 
+  Future<void> _onInputChanged() async {
+    final text = _ctrl.text;
+    
+    // Notify parent immediately of raw text change (so they can enable search button etc)
+    // We pass empty desc for raw input
+    // NOTE: If we want to strictly follow "onChanged triggers search", 
+    // we might want to debounce or only trigger on selection.
+    // But user plan says "onChanged で文字列をそのまま返す".
+    // We should allow typing free text.
+    // However, to avoid spamming the parent's setter (and re-render loops), 
+    // usually we only call onChanged when helpful.
+    // But for a controlled component, we MUST call onChanged to update the state.
+    // Wait, if we call onChanged, parent updates state, which passes back new value, 
+    // which updates _ctrl.text.
+    // To avoid cursor jumping, we only update _ctrl.text in didUpdateWidget if it differs effectively.
+    
+    // For now, let's just implement the autocomplete logic here.
+    // We will call widget.onChanged only when user "commits" or types?
+    // User instruction: "onChanged で文字列をそのまま返す"
+    // So yes, sync content.
+    if (widget.value != text) {
+        widget.onChanged(text, ''); 
+    }
 
-    final q = _ctrl.text.trim();
+    final q = text.trim();
     if (q.isEmpty) {
-      setState(() => _preds = []);
+      if (mounted) setState(() => _preds = []);
       return;
     }
 
-    setState(() => _loading = true);
+    // Debounce or just load?
+    // For simplicity, just load.
+    if (mounted) setState(() => _loading = true);
     try {
       final j = await ApiClient.get('/autocomplete', params: {'q': q});
       final raw = j['predictions'] as List? ?? const [];
-      setState(() {
-        _loading = false;
-        _preds = raw.cast<Map<String, dynamic>>();
-      });
+      if (mounted) {
+        setState(() {
+            _loading = false;
+            _preds = raw.cast<Map<String, dynamic>>();
+        });
+      }
     } catch (_) {
-      setState(() {
-        _loading = false;
-        _preds = [];
-      });
+      if (mounted) {
+        setState(() {
+            _loading = false;
+            _preds = [];
+        });
+      }
     }
   }
 
@@ -73,22 +107,20 @@ class _PlaceFieldState extends State<PlaceField> {
     final loc = (res?['geometry']?['location'] as Map?) ?? {};
     final lat = (loc['lat'] as num?)?.toDouble() ?? 0;
     final lon = (loc['lng'] as num?)?.toDouble() ?? 0;
-    final desc =
-        p['description']?.toString() ??
-        res?['name']?.toString() ??
-        widget.label;
-
-    print(
-      '[DEBUG] PlaceField onPicked label=${widget.label}, placeId=$placeId, desc=$desc, lat=$lat, lon=$lon',
-    );
-
-    // ここで onChanged が走らないようにする
-    _suppressChange = true;
-    _ctrl.text = desc;
-    _suppressChange = false;
-
-    setState(() => _preds = []); // 候補を閉じる
-    widget.onPicked(lat, lon, desc); // HomePage 側で _to.text をセット
+    
+    final name = p['description']?.toString() ?? res?['name']?.toString() ?? '';
+    
+    // "35.6812,139.7671"
+    final val = '$lat,$lon';
+    
+    setState(() => _preds = []);
+    
+    // Update text to value (coordinates) because "Destruction is fine"
+    // Ideally we'd show `name` but store `val`. 
+    // But complying with "Stateless/Single Source of Truth", we show what's in state.
+    _ctrl.text = val; 
+    
+    widget.onChanged(val, name);
   }
 
   @override
@@ -110,6 +142,7 @@ class _PlaceFieldState extends State<PlaceField> {
           controller: _ctrl,
           placeholder: '場所名・住所で検索',
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          // clearButtonMode: OverlayVisibilityMode.editing, 
         ),
         if (_loading)
           const Padding(
@@ -118,7 +151,7 @@ class _PlaceFieldState extends State<PlaceField> {
           ),
         if (_preds.isNotEmpty)
           ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 220), // ← 高さ制限
+            constraints: const BoxConstraints(maxHeight: 220),
             child: Container(
               margin: const EdgeInsets.only(top: 6),
               decoration: BoxDecoration(
