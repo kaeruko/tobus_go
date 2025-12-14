@@ -121,7 +121,6 @@ class HomePageState extends ConsumerState<HomePage> {
     final rs = ref.watch(routeSearchProvider);
     final activeTripAsync = ref.watch(activeTripProvider);
     final notifier = ref.read(routeSearchProvider.notifier);
-
     final startTime = rs.startTime ?? appClock.now();
 
     return CupertinoPageScaffold(

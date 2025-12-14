@@ -7,10 +7,11 @@ import 'firebase_options.dart';
 
 import 'root_gate.dart';
 import 'providers/app_session_provider.dart';
-import 'root_gate.dart';
-import 'providers/app_session_provider.dart';
+import 'core/app_clock.dart';
 
 void main() async {
+  appClock.setOffset(Duration(hours: 8));
+
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(

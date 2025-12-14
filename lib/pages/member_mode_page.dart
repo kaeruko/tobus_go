@@ -1,12 +1,16 @@
+import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../core/app_clock.dart';
 import '../models/trip_models.dart';
+import '../models/leg_models.dart';
 import '../services/trip_service.dart'; // For sendSOS
 import '../models/group_models.dart';
-import 'schedule_page.dart';
+import 'group_detail_page.dart';
 import '../logic/trip_navigator.dart';
 import '../providers/app_session_provider.dart';
 import '../providers/trip_provider.dart';
@@ -34,14 +38,10 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
     // RootGate will handle the switch
   }
 
-  void _openSchedule(String tripId, List<ScheduleEntry> schedule) {
+  void _openGroupDetail(Trip trip) {
     Navigator.of(context, rootNavigator: true).push(
       CupertinoPageRoute(
-        builder: (_) => SchedulePage(
-          tripId: tripId,
-          isLeader: false,
-          initialSchedule: schedule,
-        ),
+        builder: (_) => GroupDetailPage(trip: trip),
       ),
     );
   }
@@ -177,6 +177,19 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
             .toList();
         final completedCount = schedule.where((e) => e.isCompleted).length;
 
+        // タイトル生成ロジック (LeaderModePageと同期)
+        String displayTitle = trip.title;
+        // もしタイトルがデフォルトっぽい場合、またはより良い名前が取れる場合は上書き
+        if (trip.legs.isNotEmpty) {
+          final outboundLeg = trip.legs.firstWhere(
+              (l) => l.direction == LegDirection.outbound,
+              orElse: () => trip.legs.first);
+          final destName = outboundLeg.candidate.destinationName;
+          if (destName != null && destName.isNotEmpty && destName != '目的地') {
+             displayTitle = "$destName への遠足";
+          }
+        }
+
         return Scaffold(
           backgroundColor: navState.color,
           appBar: AppBar(
@@ -189,7 +202,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
               children: [
                 const Text('えんそくモード', style: TextStyle(color: Colors.black54, fontSize: 14)),
                 Text(
-                  trip.title,
+                  displayTitle,
                   style: const TextStyle(
                     color: Colors.black,
                     fontWeight: FontWeight.bold,
@@ -198,9 +211,9 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
               ],
             ),
             leading: IconButton(
-              icon: const Icon(CupertinoIcons.list_bullet, color: Colors.black87),
-              onPressed: () => _openSchedule(trip.id, schedule),
-              tooltip: 'スケジュールを開く',
+              icon: const Icon(CupertinoIcons.doc_text, color: Colors.black87),
+              onPressed: () => _openGroupDetail(trip),
+              tooltip: 'たびのしおり',
             ),
             actions: [
               TextButton(
@@ -237,7 +250,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                 children: [
                   _CurrentStatusCard(
                     navState: navState,
-                    tripTitle: trip.title,
+                    tripTitle: displayTitle,
                     locationAsync: locationAsync,
                   ),
                   const SizedBox(height: 14),
@@ -255,7 +268,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           ),
           bottomNavigationBar: _MemberActionBar(
             onHelp: () => _sendSOS(trip.id),
-            onOpenSchedule: () => _openSchedule(trip.id, schedule),
+            onOpenDetail: () => _openGroupDetail(trip),
             onExit: _leaveGroup,
           ),
         );
@@ -310,6 +323,10 @@ class _CurrentStatusCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          const Align(
+            alignment: Alignment.centerRight,
+            child: _LiveClock(),
+          ),
           Text(
             navState.mainText,
             style: const TextStyle(
@@ -416,9 +433,12 @@ class _StatusChip extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: color),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(color: color, fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
@@ -670,12 +690,12 @@ class _HelperNotice extends StatelessWidget {
 
 class _MemberActionBar extends StatelessWidget {
   final VoidCallback onHelp;
-  final VoidCallback onOpenSchedule;
+  final VoidCallback onOpenDetail;
   final VoidCallback onExit;
 
   const _MemberActionBar({
     required this.onHelp,
-    required this.onOpenSchedule,
+    required this.onOpenDetail,
     required this.onExit,
   });
 
@@ -710,12 +730,12 @@ class _MemberActionBar extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: onOpenSchedule,
-                    icon: const Icon(CupertinoIcons.list_bullet),
+                    onPressed: onOpenDetail,
+                    icon: const Icon(CupertinoIcons.doc_text),
                     label: const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Text(
-                        '予定をみる',
+                        'たびのしおり',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -744,6 +764,60 @@ class _MemberActionBar extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _LiveClock extends StatefulWidget {
+  const _LiveClock();
+
+  @override
+  State<_LiveClock> createState() => _LiveClockState();
+}
+
+class _LiveClockState extends State<_LiveClock> {
+  late final Timer _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = appClock.now();
+    final timeStr = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(CupertinoIcons.clock, size: 16, color: Colors.black54),
+          const SizedBox(width: 4),
+          Text(
+            timeStr,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              fontFeatures: [FontFeature.tabularFigures()],
+              color: Colors.black87,
+            ),
+          ),
+        ],
       ),
     );
   }

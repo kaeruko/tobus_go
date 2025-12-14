@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart'; // 距離計算用
+import '../core/app_clock.dart';
 import '../models/trip_models.dart';
-import '../models/route_models.dart';
+import '../models/group_models.dart';
 
 // ナビゲーションの結果（画面表示用）
 class NavigationState {
@@ -45,6 +46,51 @@ class TripNavigator {
     // 1. 完了チェック
     if (trip.status == TripStatus.completed) {
       return _completedState();
+    }
+
+    // ★追加: 集合などのスケジュールイベントを優先表示
+    // まだ完了していない最初のスケジュールを確認
+    final activeScheduleIndex = trip.schedule.indexWhere((e) => !e.isCompleted);
+    if (activeScheduleIndex >= 0) {
+      final entry = trip.schedule[activeScheduleIndex];
+      final now = appClock.now();
+      final diff = entry.plannedAt.difference(now);
+
+      // 開始時間よりだいぶ前（20分以上）の場合は、開始日時を案内
+      if (diff.inMinutes > 20) {
+        final dateStr = "${entry.plannedAt.month}月${entry.plannedAt.day}日";
+        final timeStr = "${entry.plannedAt.hour.toString().padLeft(2, '0')}:${entry.plannedAt.minute.toString().padLeft(2, '0')}";
+
+        String remainder;
+        if (diff.inHours > 0) {
+          remainder = "あと ${diff.inHours}時間${diff.inMinutes % 60}分";
+        } else {
+          remainder = "あと ${diff.inMinutes}分";
+        }
+
+        return NavigationState(
+          mainText: "$dateStr $timeStr 開始",
+          subText: "開始まで $remainder",
+          color: Colors.white,
+          currentStepIndex: lastStepIndex,
+          nextStopIndex: lastStopIndex,
+          statusLabel: "開始前",
+          isMoving: false,
+        );
+      }
+
+      // "集合" (meeting) の場合、かつ直前（20分以内）ならナビゲーションよりも集合案内を優先
+      if (entry.itemKind == ScheduleEntryKind.meeting) {
+        return NavigationState(
+          mainText: entry.label, // 例: "行き 集合"
+          subText: entry.description.isNotEmpty ? entry.description : "集合場所へ向かいましょう",
+          color: const Color(0xFFC8E6C9), // 薄い緑 (Green 100程度)
+          currentStepIndex: lastStepIndex,
+          nextStopIndex: lastStopIndex,
+          statusLabel: "集合",
+          isMoving: false,
+        );
+      }
     }
 
     // legsから全てのstepを展開して1つのリストにする
