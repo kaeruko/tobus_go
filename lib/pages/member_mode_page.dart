@@ -28,6 +28,28 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   // Service for SOS only, data is via provider
   final _tripService = TripService();
 
+  LatLng? _currentPositionForNav() {
+    final override = ref.read(locationOverrideProvider);
+    if (override != null) {
+      return override;
+    }
+
+    final posAsync = ref.read(locationStreamProvider);
+    if (posAsync.hasValue) {
+      final pos = posAsync.value!;
+      return LatLng(pos.latitude, pos.longitude);
+    }
+
+    return null;
+  }
+
+  void _refreshProgressWithTrip(Trip trip) {
+    final current = _currentPositionForNav();
+    if (current != null) {
+      ref.read(memberNavProgressProvider.notifier).updateProgress(trip, current);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -97,18 +119,15 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
     ref.listen(tripStreamProvider, (prev, next) {
       next.whenData((trip) {
         if (trip != null) {
-          final posAsync = ref.read(locationStreamProvider);
-          if (posAsync.hasValue) {
-            final pos = posAsync.value!;
-            ref
-                .read(memberNavProgressProvider.notifier)
-                .updateProgress(trip, LatLng(pos.latitude, pos.longitude));
-          }
+          _refreshProgressWithTrip(trip);
         }
       });
     });
 
     ref.listen(locationStreamProvider, (prev, next) {
+      if (ref.read(locationOverrideProvider) != null) {
+        return;
+      }
       next.whenData((pos) {
         final tripAsync = ref.read(tripStreamProvider);
         if (tripAsync.hasValue && tripAsync.value != null) {
@@ -120,8 +139,16 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
       });
     });
 
+    ref.listen(locationOverrideProvider, (previous, next) {
+      final tripAsync = ref.read(tripStreamProvider);
+      if (tripAsync.hasValue && tripAsync.value != null) {
+        _refreshProgressWithTrip(tripAsync.value!);
+      }
+    });
+
     final tripAsync = ref.watch(tripStreamProvider);
     final locationAsync = ref.watch(locationStreamProvider);
+    final manualOverride = ref.watch(locationOverrideProvider);
     final navProgress = ref.watch(memberNavProgressProvider);
 
     return tripAsync.when(
@@ -158,9 +185,10 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         }
 
         final schedule = _sortedSchedule(trip.schedule);
-        final currentPos = locationAsync.value != null
-            ? LatLng(locationAsync.value!.latitude, locationAsync.value!.longitude)
-            : const LatLng(35.6812, 139.7671); // Default Tokyo Station if waiting for GPS
+        final currentPos = manualOverride ??
+            (locationAsync.value != null
+                ? LatLng(locationAsync.value!.latitude, locationAsync.value!.longitude)
+                : const LatLng(35.6812, 139.7671)); // Default Tokyo Station if waiting for GPS
 
         // Calculate view state using CURRENT progress indices
         final navState = TripNavigator.updateState(

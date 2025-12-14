@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // 追加
 import 'package:flutter/services.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../services/user_service.dart';
 import '../services/trip_service.dart'; // Added
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_session_provider.dart';
+import '../providers/location_provider.dart';
+import '../widgets/place_field.dart';
 // import 'member_mode_page.dart'; // Unused
 import 'leader_mode_page.dart';
 
@@ -20,11 +23,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _isStaffMode = false;
   String? _userId;
   String _userName = '';
+  String _manualLocationInput = '';
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
+
+    ref.listen<LatLng?>(locationOverrideProvider, (prev, next) {
+      setState(() {
+        _manualLocationInput = next != null ? '${next.latitude},${next.longitude}' : '';
+      });
+    });
   }
 
   Future<void> _loadSettings() async {
@@ -83,6 +93,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       _isStaffMode = value;
       // グローバル変数を更新するならここで (今回は設定だけ)
     });
+  }
+
+  void _updateManualLocation(String value, String desc) {
+    setState(() => _manualLocationInput = value);
+
+    final parts = value.split(',');
+    if (parts.length != 2) {
+      return;
+    }
+
+    final lat = double.tryParse(parts[0].trim());
+    final lon = double.tryParse(parts[1].trim());
+    if (lat == null || lon == null) {
+      return;
+    }
+
+    ref.read(locationOverrideProvider.notifier).setOverride(LatLng(lat, lon));
+  }
+
+  Future<void> _clearManualLocation() async {
+    await ref.read(locationOverrideProvider.notifier).clearOverride();
   }
 
   // ★追加: 最新のTripIDを取得してリーダー画面を開く
@@ -201,6 +232,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final manualOverride = ref.watch(locationOverrideProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('設定')),
       body: ListView(
@@ -247,9 +280,53 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             value: _isStaffMode,
             onChanged: _toggleStaffMode,
           ),
-          
+
           const Divider(),
-          
+
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+            child: Text(
+              '現在地を手動入力',
+              style: TextStyle(
+                color: Colors.blueGrey,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                PlaceField(
+                  label: '位置を検索して設定',
+                  value: _manualLocationInput,
+                  onChanged: _updateManualLocation,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        manualOverride != null
+                            ? '現在の設定: ${manualOverride.latitude.toStringAsFixed(5)}, ${manualOverride.longitude.toStringAsFixed(5)}'
+                            : '現在の設定: GPSの値を使用中',
+                      ),
+                    ),
+                    TextButton(
+                      onPressed:
+                          manualOverride != null ? _clearManualLocation : null,
+                      child: const Text('クリアしてGPSに戻す'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(),
+
           // --- ★デバッグ用エリア (開発中のみ表示してもOK) ---
           const Padding(
             padding: EdgeInsets.all(16),
