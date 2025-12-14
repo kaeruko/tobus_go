@@ -212,6 +212,11 @@ class _LeaderModePageState extends State<LeaderModePage> {
             backgroundColor: Colors.green,
             actions: [
               IconButton(
+                icon: const Icon(Icons.delete_forever),
+                tooltip: 'おでかけを中止',
+                onPressed: () => _confirmCancel(context, trip),
+              ),
+              IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.pop(context),
               ),
@@ -766,5 +771,48 @@ class _LeaderModePageState extends State<LeaderModePage> {
         ],
       ),
     );
+  Future<void> _confirmCancel(BuildContext context, Trip trip) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('おでかけを中止しますか？'),
+        content: const Text(
+            'この操作は取り消せません。\n'
+            '中止すると、参加者全員の画面で「解散」と表示され、旅が終了します。'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('中止する'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await TripService().cancelTrip(trip.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('おでかけを中止しました')),
+          );
+          Navigator.pop(context); // Close the leader page
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('エラーが発生しました: $e')),
+          );
+        }
+      }
+    }
   }
 }
