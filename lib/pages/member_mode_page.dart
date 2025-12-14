@@ -11,7 +11,8 @@ import '../models/leg_models.dart';
 import '../services/trip_service.dart'; // For sendSOS
 import '../models/group_models.dart';
 import 'group_detail_page.dart';
-import '../logic/trip_navigator.dart';
+import '../logic/trip_navigator.dart'; // Keep for type definitions if needed, or rely on coordinator
+import '../logic/trip_coordinator.dart'; // Added
 import '../providers/app_session_provider.dart';
 import '../providers/trip_provider.dart';
 import '../providers/location_provider.dart';
@@ -53,6 +54,37 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   @override
   void initState() {
     super.initState();
+    
+    // Listeners moved to initState (manual management)
+    ref.listenManual(tripStreamProvider, (prev, next) {
+      next.whenData((trip) {
+        if (trip != null) {
+          _refreshProgressWithTrip(trip);
+        }
+      });
+    });
+
+    ref.listenManual(locationStreamProvider, (prev, next) {
+      if (ref.read(locationOverrideProvider) != null) {
+        return;
+      }
+      next.whenData((pos) {
+        final tripAsync = ref.read(tripStreamProvider);
+        if (tripAsync.hasValue && tripAsync.value != null) {
+          ref.read(memberNavProgressProvider.notifier).updateProgress(
+                tripAsync.value!,
+                LatLng(pos.latitude, pos.longitude),
+              );
+        }
+      });
+    });
+
+    ref.listenManual(locationOverrideProvider, (previous, next) {
+      final tripAsync = ref.read(tripStreamProvider);
+      if (tripAsync.hasValue && tripAsync.value != null) {
+        _refreshProgressWithTrip(tripAsync.value!);
+      }
+    });
   }
 
   Future<void> _leaveGroup() async {
@@ -115,36 +147,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Listeners are now in build
-    ref.listen(tripStreamProvider, (prev, next) {
-      next.whenData((trip) {
-        if (trip != null) {
-          _refreshProgressWithTrip(trip);
-        }
-      });
-    });
 
-    ref.listen(locationStreamProvider, (prev, next) {
-      if (ref.read(locationOverrideProvider) != null) {
-        return;
-      }
-      next.whenData((pos) {
-        final tripAsync = ref.read(tripStreamProvider);
-        if (tripAsync.hasValue && tripAsync.value != null) {
-          ref.read(memberNavProgressProvider.notifier).updateProgress(
-                tripAsync.value!,
-                LatLng(pos.latitude, pos.longitude),
-              );
-        }
-      });
-    });
-
-    ref.listen(locationOverrideProvider, (previous, next) {
-      final tripAsync = ref.read(tripStreamProvider);
-      if (tripAsync.hasValue && tripAsync.value != null) {
-        _refreshProgressWithTrip(tripAsync.value!);
-      }
-    });
 
     final tripAsync = ref.watch(tripStreamProvider);
     final locationAsync = ref.watch(locationStreamProvider);
@@ -191,29 +194,28 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                 : const LatLng(35.6812, 139.7671)); // Default Tokyo Station if waiting for GPS
 
         // Calculate view state using CURRENT progress indices
-        final navState = TripNavigator.updateState(
-          trip,
-          currentPos,
-          navProgress.currentStepIndex,
-          navProgress.nextStopIndex,
+        // Calculate view state using CURRENT progress indices
+        final navState = TripCoordinator.buildMemberNavigationState(
+          trip: trip,
+          currentPos: currentPos,
+          lastStepIndex: navProgress.currentStepIndex,
+          lastStopIndex: navProgress.nextStopIndex,
+          scheduleSorted: _sortedSchedule(trip.schedule),
+          now: appClock.now(),
         );
 
-        final activeIndex = schedule.indexWhere((item) => !item.isCompleted);
-        final activeEntry = activeIndex >= 0 ? schedule[activeIndex] : null;
+        // Schedule View Logic using Coordinator
+        // Note: sortedSchedule is called above, might want to optimize to call once.
+        final schedule = _sortedSchedule(trip.schedule);
+        final schedProgress = TripCoordinator.computeScheduleProgress(
+          scheduleSorted: schedule,
+          now: appClock.now(),
+        );
 
-        // "いま" か "つぎ" か判定 (20分以上先なら "つぎ")
-        String activeLabel = 'いま';
-        if (activeEntry != null) {
-          final diff = activeEntry.plannedAt.difference(appClock.now());
-          if (diff.inMinutes > 20) {
-            activeLabel = 'つぎ';
-          }
-        }
-
-        final upcomingEntries = (activeIndex >= 0 ? schedule.skip(activeIndex + 1) : schedule)
-            .take(3)
-            .toList();
-        final completedCount = schedule.where((e) => e.isCompleted).length;
+        final activeEntry = schedProgress.activeEntry;
+        final upcomingEntries = schedProgress.upcomingEntries;
+        final completedCount = schedProgress.completedCount;
+        final activeLabel = schedProgress.activeLabel;
 
         // タイトル生成ロジック (LeaderModePageと同期)
         String displayTitle = trip.title;
@@ -241,7 +243,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('えんそくモード', style: TextStyle(color: Colors.black54, fontSize: 14)),
+                const Text('おでかけモード', style: TextStyle(color: Colors.black54, fontSize: 14)),
                 Text(
                   displayTitle,
                   style: const TextStyle(
@@ -299,6 +301,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                     activeEntry: activeEntry,
                     upcomingEntries: upcomingEntries,
                     completedCount: completedCount,
+                    activeLabel: activeLabel,
                   ),
                   const SizedBox(height: 14),
                   _HelperNotice(onHelp: () => _sendSOS(trip.id)),

@@ -59,7 +59,7 @@ class HomePageState extends ConsumerState<HomePage> {
     }
   }
 
-  void _swap() {
+  void _swapRouteEndpoints() {
     final rs = ref.read(routeSearchProvider);
     final notifier = ref.read(routeSearchProvider.notifier);
 
@@ -181,7 +181,7 @@ class HomePageState extends ConsumerState<HomePage> {
                         CupertinoButton(
                           padding: const EdgeInsets.all(8),
                           child: const Icon(CupertinoIcons.arrow_up_arrow_down),
-                          onPressed: _swap,
+                          onPressed: _swapRouteEndpoints,
                         ),
                         CupertinoButton(
                           padding: const EdgeInsets.all(8),

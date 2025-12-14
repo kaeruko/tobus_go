@@ -5,7 +5,9 @@ import '../core/app_clock.dart';
 import '../models/trip_models.dart';
 import '../models/group_models.dart';
 
-// ナビゲーションの結果（画面表示用）
+// ナビゲーションの結果（画面表示用、最終形）
+// Coordinatorがこれを組み立てるが、型定義はここにあっても良いし、Coordinatorに移動しても良い。
+// MemberModePageが使っているので、既存の場所にあるとimport変更が少なくて済む。
 class NavigationState {
   final String mainText; // "あと 3駅"
   final String subText; // "つぎは 〇〇"
@@ -32,72 +34,55 @@ class NavigationState {
   });
 }
 
+/// 経路ナビの進捗状況だけを持つクラス
+class RouteNavState {
+  final int currentStepIndex;
+  final int nextStopIndex;
+  final String statusLabel; // "移動中", "歩行中" etc
+  final String mainText;    // "あと 3駅", "徒歩で移動中"
+  final String subText;     // "つぎは 〇〇", "目的地まで"
+  final Color color;        // 背景色
+  final String? nextStopName;
+  final int? remainingStops;
+  final bool isMoving;
+
+  const RouteNavState({
+    required this.currentStepIndex,
+    required this.nextStopIndex,
+    required this.statusLabel,
+    required this.mainText,
+    required this.subText,
+    required this.color,
+    this.nextStopName,
+    this.remainingStops,
+    this.isMoving = true,
+  });
+}
+
 class TripNavigator {
   // 通過判定の距離（メートル）
   static const double _arrivalRadius = 80.0; // 少し広めに設定
 
-  /// 前回の状態(lastState)と現在地(gps)を受け取り、新しい状態を返す
-  static NavigationState updateState(
-    Trip trip,
-    LatLng currentPos,
-    int lastStepIndex, // 前回どこまで進んでいたか
-    int lastStopIndex, // 前回どのバス停を目指していたか
-  ) {
-    // 1. 完了チェック
+  /// 前回の状態(lastState)と現在地(gps)を受け取り、新しい経路状態を返す
+  ///
+  /// ★ここでは「スケジュール(集合など)」は見ない。純粋に「経路上のどこにいるか」だけを返す。
+  /// 画面表示用に NavigationState ではなく RouteNavState を返す。
+  static RouteNavState updateRouteOnly({
+    required Trip trip,
+    required LatLng currentPos,
+    required int lastStepIndex, // 前回どこまで進んでいたか
+    required int lastStopIndex, // 前回どのバス停を目指していたか
+  }) {
+    // 1. 完了チェック（一応ここでも見るが、基本はNavigatorState側で制御）
     if (trip.status == TripStatus.completed) {
-      return _completedState();
-    }
-
-    // ★追加: 集合などのスケジュールイベントを優先表示
-    // まだ完了していない最初のスケジュールを確認
-    final activeScheduleIndex = trip.schedule.indexWhere((e) => !e.isCompleted);
-    if (activeScheduleIndex >= 0) {
-      final entry = trip.schedule[activeScheduleIndex];
-      final now = appClock.now();
-      final diff = entry.plannedAt.difference(now);
-
-      // 開始時間よりだいぶ前（20分以上）の場合は、開始日時を案内
-      if (diff.inMinutes > 20) {
-        final dateStr = "${entry.plannedAt.month}月${entry.plannedAt.day}日";
-        final timeStr = "${entry.plannedAt.hour.toString().padLeft(2, '0')}:${entry.plannedAt.minute.toString().padLeft(2, '0')}";
-
-        String remainder;
-        if (diff.inHours > 0) {
-          remainder = "あと ${diff.inHours}時間${diff.inMinutes % 60}分";
-        } else {
-          remainder = "あと ${diff.inMinutes}分";
-        }
-
-        return NavigationState(
-          mainText: "$dateStr $timeStr 開始",
-          subText: "開始まで $remainder",
-          color: Colors.white,
-          currentStepIndex: lastStepIndex,
-          nextStopIndex: lastStopIndex,
-          statusLabel: "開始前",
-          isMoving: false,
-        );
-      }
-
-      // "集合" (meeting) の場合、かつ直前（20分以内）ならナビゲーションよりも集合案内を優先
-      if (entry.itemKind == ScheduleEntryKind.meeting) {
-        return NavigationState(
-          mainText: entry.label, // 例: "行き 集合"
-          subText: entry.description.isNotEmpty ? entry.description : "集合場所へ向かいましょう",
-          color: const Color(0xFFC8E6C9), // 薄い緑 (Green 100程度)
-          currentStepIndex: lastStepIndex,
-          nextStopIndex: lastStopIndex,
-          statusLabel: "集合",
-          isMoving: false,
-        );
-      }
+      return _completedRouteState();
     }
 
     // legsから全てのstepを展開して1つのリストにする
     final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
 
     if (allSteps.isEmpty) {
-      return _errorState();
+      return _errorRouteState();
     }
 
     // 2. 「今のターゲット」の判定更新
@@ -167,7 +152,7 @@ class TripNavigator {
       }
     } else {
       // 全ステップ終了＝目的地到着
-      return _arrivedState();
+      return _arrivedRouteState();
     }
 
     // 3. 画面表示の生成
@@ -175,13 +160,13 @@ class TripNavigator {
 
     // 範囲外チェック
     if (currentStep >= allSteps.length) {
-      return _arrivedState();
+      return _arrivedRouteState();
     }
 
     final step = allSteps[currentStep];
 
     if (step.kind == 'walk') {
-      return NavigationState(
+      return RouteNavState(
         mainText: "徒歩で移動中",
         subText: "目的地まで歩きましょう",
         color: const Color(0xFF81D4FA),
@@ -210,7 +195,7 @@ class TripNavigator {
       if (remainingStops <= 1) {
         final destinationName =
             step.to ?? (step.stops.isNotEmpty ? step.stops.last.name : "目的地");
-        return NavigationState(
+        return RouteNavState(
           mainText: "まもなく降車",
           subText: "$destinationName で降ります",
           color: const Color(0xFFFFAB91), // 赤
@@ -222,7 +207,7 @@ class TripNavigator {
         );
       } else {
         // まだ乗っている
-        return NavigationState(
+        return RouteNavState(
           mainText: "あと $remainingStops 駅",
           subText: "つぎは $nextStopName",
           color: const Color(0xFF81D4FA), // 青
@@ -237,7 +222,7 @@ class TripNavigator {
   }
 
   // --- Helper States ---
-  static NavigationState _completedState() => NavigationState(
+  static RouteNavState _completedRouteState() => const RouteNavState(
         mainText: "終了",
         subText: "お疲れ様でした",
         color: Colors.grey,
@@ -246,7 +231,7 @@ class TripNavigator {
         statusLabel: "旅は完了",
       );
 
-  static NavigationState _errorState() => NavigationState(
+  static RouteNavState _errorRouteState() => const RouteNavState(
         mainText: "エラー",
         subText: "ルートがありません",
         color: Colors.red,
@@ -255,7 +240,7 @@ class TripNavigator {
         statusLabel: "案内できません",
       );
 
-  static NavigationState _arrivedState() => NavigationState(
+  static RouteNavState _arrivedRouteState() => const RouteNavState(
         mainText: "到着",
         subText: "目的地周辺です",
         color: Colors.orange,
