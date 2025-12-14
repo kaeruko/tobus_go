@@ -31,6 +31,14 @@ class GroupDetailPage extends StatelessWidget {
     return '$month/$day $hour:$minute';
   }
 
+  String _formatScheduleTime(DateTime dt, bool showDate) {
+    var time = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    if (showDate) {
+      return '${dt.month}/${dt.day} $time';
+    }
+    return time;
+  }
+
   Future<void> _navigateToMode(BuildContext context) async {
     final uid = UserService().currentUserId;
     final isLeader = (uid == trip.leaderId);
@@ -52,14 +60,13 @@ class GroupDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // スケジュールの概要（最初の3件くらい）
-    final previewSchedule = trip.schedule.take(3).toList();
-    final uid = UserService().currentUserId;
-    final isLeader = (uid == trip.leaderId);
+    final showDate = trip.schedule.isNotEmpty &&
+        (trip.schedule.first.plannedAt.day != trip.schedule.last.plannedAt.day ||
+            trip.schedule.first.plannedAt.month != trip.schedule.last.plannedAt.month);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('グループ詳細'),
+        title: const Text('おでかけのしおり'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -151,13 +158,13 @@ class GroupDetailPage extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // 4. しおり（簡易）
+            // 4. しおり（全件表示）
             const Text("しおり (予定)",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ...previewSchedule.map((item) {
+            ...trip.schedule.map((item) {
               return ListTile(
                 leading: Text(
-                  formatClock(item.plannedAt),
+                  _formatScheduleTime(item.plannedAt, showDate),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 title: Text(item.label),
@@ -185,7 +192,7 @@ class GroupDetailPage extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: () => _navigateToMode(context),
               icon: const Icon(Icons.play_arrow),
-              label: const Text("グループモードを開く", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              label: const Text("おでかけ編集", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange,
                 foregroundColor: Colors.white,

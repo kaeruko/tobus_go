@@ -11,6 +11,7 @@ import '../models/leg_models.dart';
 import '../services/trip_service.dart';
 import 'group_detail_page.dart';
 import 'schedule_page.dart';
+import 'route_detail_page.dart';
 
 class LeaderModePage extends StatefulWidget {
   final String tripId;
@@ -197,7 +198,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
         }
 
         if (destName != null && destName.isNotEmpty) {
-          titlePrefix = '目的地($destName)';
+          titlePrefix = destName;
         } else {
           titlePrefix = (goalEntry?.label.isNotEmpty ?? false)
               ? goalEntry!.label
@@ -206,7 +207,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('引率モード'),
+            title: const Text('おでかけ編集'),
             backgroundColor: Colors.green,
             actions: [
               IconButton(
@@ -365,7 +366,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
           const SizedBox(height: 12),
           _buildGuideLink(context, trip),
           const SizedBox(height: 16),
-          _buildMapCard(trip),
+          _buildMapCard(context, trip),
           const SizedBox(height: 16),
           _buildMemberCard(trip),
           const SizedBox(height: 12),
@@ -426,15 +427,17 @@ class _LeaderModePageState extends State<LeaderModePage> {
     );
   }
 
-  Widget _buildMapCard(Trip trip) {
+  Widget _buildMapCard(BuildContext context, Trip trip) {
     // 優先的に「行き」のルートポイントを取得する
     List<LatLng> points = [];
+    Candidate? candidate;
     if (trip.legs.isNotEmpty) {
       final outbound = trip.legs.firstWhere(
         (l) => l.direction == LegDirection.outbound,
         orElse: () => trip.legs.first,
       );
       points = outbound.candidate.points;
+      candidate = outbound.candidate;
     }
 
     return Card(
@@ -463,6 +466,23 @@ class _LeaderModePageState extends State<LeaderModePage> {
             ),
             const SizedBox(height: 12),
             RouteMapPreview(points: points),
+            if (candidate != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => RouteDetailPage(candidate: candidate!),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.list, size: 18),
+                  label: const Text('目的地までの乗り換え'),
+                ),
+              ),
+            ],
           ],
         ),
       ),

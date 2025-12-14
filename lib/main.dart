@@ -52,6 +52,7 @@ class App extends StatelessWidget {
       supportedLocales: const [
         Locale('ja', 'JP'),
       ],
+      builder: (context, child) => ScaffoldMessenger(child: child!),
       // ★ここで分岐!
       home: kIsMemberMode ? const MemberModePage() : const RootTabs(),
     );

@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../core/api_client.dart';
 import '../core/utils.dart';
 import '../models/route_models.dart';
+import '../models/leg_models.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/place_field.dart';
 import '../widgets/route_card.dart';
@@ -776,6 +777,18 @@ class _ActiveTripCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String displayTitle = trip.title;
+    if (trip.legs.isNotEmpty) {
+      final outbound = trip.legs.firstWhere(
+        (l) => l.direction == LegDirection.outbound,
+        orElse: () => trip.legs.first,
+      );
+      final dest = outbound.candidate.destinationName;
+      if (dest != null && dest.isNotEmpty) {
+        displayTitle = '$dest への遠足';
+      }
+    }
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -810,7 +823,7 @@ class _ActiveTripCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    trip.title,
+                    displayTitle,
                     style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
