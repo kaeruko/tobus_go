@@ -694,7 +694,7 @@ class _MemberActionBar extends StatelessWidget {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: onHelp,
-                    icon: const Icon(CupertinoIcons.sos),
+                    icon: const Icon(CupertinoIcons.phone),
                     label: const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Text(
