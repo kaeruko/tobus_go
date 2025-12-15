@@ -106,6 +106,24 @@ class Trip {
       'memberIds': memberIds,
     };
   }
+  String get displayTitle {
+    // タイトル生成ロジック
+    // もしタイトルがデフォルトっぽい場合、またはより良い名前が取れる場合は上書き
+    if (legs.isNotEmpty) {
+      final outboundLeg = legs.firstWhere(
+            (l) => l.direction == LegDirection.outbound,
+        orElse: () => legs.first,
+      );
+      final destName = outboundLeg.candidate.destinationName;
+      if (destName != null && destName.isNotEmpty && destName != '目的地') {
+        // 住所などが含まれる長い名称の場合、最後の部分（施設名など）を採用する
+        // 例: "日本、東京都中央区銀座7 銀座駅" -> "銀座駅"
+        final simpleName = destName.split(' ').last;
+        return "$simpleName への遠足";
+      }
+    }
+    return title;
+  }
 }
 
 class Participant {

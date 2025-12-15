@@ -11,6 +11,7 @@ import '../providers/location_provider.dart';
 import '../widgets/place_field.dart';
 import 'leader_mode_page.dart';
 import '../core/app_clock.dart'; // 追加
+import '../providers/minute_ticker_provider.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -162,6 +163,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           TextButton(
             onPressed: () {
               AppClock.instance.resetOffset();
+              ref.invalidate(minuteTickerProvider); // Force immediate time update
               setState(() {}); // 画面更新
               Navigator.pop(context);
             },
@@ -176,6 +178,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               final h = int.tryParse(hController.text) ?? 0;
               final m = int.tryParse(mController.text) ?? 0;
               AppClock.instance.setOffset(Duration(hours: h, minutes: m));
+              ref.invalidate(minuteTickerProvider); // Force immediate time update
               setState(() {}); // 画面更新
               Navigator.pop(context);
             },

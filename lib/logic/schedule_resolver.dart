@@ -26,6 +26,7 @@ class ScheduleResolver {
     required DateTime now,
     Trip? trip,
     int? currentStepIndex,
+    int? nextStopIndex,
     int prevCount = 1,
     int nextCount = 3,
     Duration nextThreshold = const Duration(minutes: 20),
@@ -35,7 +36,7 @@ class ScheduleResolver {
 
     // 0. If progress is available, use it to determine active index
     if (trip != null && currentStepIndex != null && currentStepIndex >= 0) {
-      active = _findActiveIndexByProgress(scheduleSorted, trip, currentStepIndex);
+      active = _findActiveIndexByProgress(scheduleSorted, trip, currentStepIndex, nextStopIndex);
     }
     
     // Fallback to time-based if progress didn't find a match or wasn't provided
@@ -114,9 +115,10 @@ class ScheduleResolver {
   static int _findActiveIndexByProgress(
     List<ScheduleEntry> schedule, 
     Trip trip, 
-    int currentStepIndex
+    int currentStepIndex,
+    int? nextStopIndex,
   ) {
-    debugPrint('[ScheduleResolver] currentStepIndex: $currentStepIndex');
+    debugPrint('[ScheduleResolver] currentStepIndex: $currentStepIndex, nextStopIndex: $nextStopIndex');
 
     // 1. Flatten all steps to match TripNavigator logic
     var allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
@@ -126,96 +128,44 @@ class ScheduleResolver {
       return schedule.length - 1; 
     }
 
-    // 2. Iterate schedule and map to steps
-    // Since schedule entries are more granular or sometimes aggregated (though usually 1-to-1 or 2-to-1 for ride),
-    // we need to be careful.
-    //
-    // Schedule Generation Logic (from GroupModels):
-    // - Walk (>3min): 1 Entry (Walk) -> consumes 'walk' step.
-    // - Walk (<=3min): No Entry -> consumes 'walk' step.
-    // - Ride: 2 Entries (Ride + Arrival) -> consumes 'transit' step.
-    //
-    // We strictly simulate the generation process to assign step indices to schedule entries.
-    
-    int stepCursor = 0;
-    
-    // We build a map of entryIndex -> stepIndex (or range)
-    // Actually we just need to find the first entry that covers currentStepIndex.
-    
+    // 2. Iterate schedule and map to steps using routeStepIndex
     for (int i = 0; i < schedule.length; i++) {
       final entry = schedule[i];
       
-      // Only Route-generated entries consume steps
-      if (entry.generatedBy != ScheduleEntrySource.route) {
-        continue;
-      }
-      
-      if (stepCursor >= allSteps.length) break;
-      final step = allSteps[stepCursor];
-      debugPrint('[ScheduleResolver] Checking Entry $i: ${entry.label} (${entry.itemKind}) vs Step $stepCursor (${step.kind})');
-
-      // Logic must match createScheduleFromRoute exactly-ish
-      if (entry.itemKind == ScheduleEntryKind.walk) {
-        // This corresponds to a walk step
-        if (step.kind == 'walk') {
-          // Found matching walk step
-          if (stepCursor == currentStepIndex) {
-            debugPrint('[ScheduleResolver] MATCH! Entry $i is active (Walk)');
+      // Only check entries that have a route step assigned
+      if (entry.routeStepIndex != null) {
+        if (entry.routeStepIndex == currentStepIndex) {
+          // Match found by index. Now refine by role.
+          debugPrint('[ScheduleResolver] Found potential match at index $i (Role: ${entry.routeRole})');
+          
+          if (entry.routeRole == 'walk') {
+            // Walk step always matches the Walk entry
             return i;
-          }
-          stepCursor++;
-        } else {
-          // Mismatch in sequence? (Schedule says walk, route says ride?)
-          debugPrint('[ScheduleResolver] Mismatch! Schedule=Walk, Step=${step.kind}');
-          // Should not happen if data is consistent.
-          // Adjust cursor to find next walk? No, just continue or break?
-          // Let's assume strict consistency for now.
-        }
-      } else if (entry.itemKind == ScheduleEntryKind.ride) {
-        // This corresponds to a transit step (start)
-        if (step.kind != 'walk') {
-          // Ride + Arrival pair both cover this step
-          // If we are in this step, we return the Ride entry (i)
-          if (stepCursor == currentStepIndex) {
-            debugPrint('[ScheduleResolver] MATCH! Entry $i is active (Ride)');
-            return i;
-          }
-          // logic continues to next entry (Arrival) ...
-          // IMPORTANT: The step is NOT consumed yet, Arrival needs to see it too.
-        } else {
-           debugPrint('[ScheduleResolver] Mismatch! Schedule=Ride, Step=Walk');
-        }
-      } else if (entry.itemKind == ScheduleEntryKind.arrival) {
-        // This corresponds to a transit step (end)
-        if (step.kind != 'walk') {
-          if (stepCursor == currentStepIndex) {
-            // We are still in the transit step.
-            // But we already returned 'Ride' in the previous iteration if it existed?
-            // Wait, if we returned in Ride, we wouldn't be here.
-            
-            // However! 'Ride' corresponds to 'Navigating to next stop'.
-            // 'Arrival' corresponds to 'Getting off'.
-            // TripNavigator doesn't distinguish nicely, it just gives 'currentStepIndex'.
-            // But it gives 'remainingStops'.
-            // If we wanted to be precise: 
-            //   if remainingStops <= 1 -> return Arrival entry
-            //   else -> return Ride entry
-            // But we don't have remainingStops passed in yet.
-            // For now, let's map 'Transit Step' -> 'Ride Entry'.
-            // So if we fell through to Arrival (because Ride wasn't there? or we already passed Ride?),
-            // Actually, in the loop:
-            // i=Ride, matches step -> return i.
-            // So we never reach Arrival for the same step unless we didn't return.
-            // So Arrival will only be 'active' if we increment stepCursor? 
-            // No, Arrival consumes the step.
-            debugPrint('[ScheduleResolver] Arrival check. Step matches.');
-            stepCursor++;
+          } else if (entry.routeRole == 'ride') {
+             // Ride entry. Check if we should switch to Arrival.
+             // If we are close to the end (remainingStops <= 1), we prefer 'Arrival'.
+             // So if remaining <= 1, we SKIP this 'ride' entry and hope to find 'arrival' next.
+             
+             final step = allSteps[currentStepIndex];
+             // Calculate remaining stops roughly
+             final remainingStops = step.stops.length - (nextStopIndex ?? 0);
+             debugPrint('[ScheduleResolver] Ride Check: remaining stops $remainingStops');
+             
+             if (remainingStops <= 1) {
+               // We are arriving. Skip 'Ride' entry to pick up 'Arrival' entry.
+               debugPrint('[ScheduleResolver] -> Skipping Ride entry to find Arrival');
+               continue;
+             } else {
+               // We are riding.
+               return i;
+             }
+          } else if (entry.routeRole == 'arrival') {
+             // Arrival entry.
+             // If we skipped 'Ride' above, we land here.
+             // Or if we just hit this (e.g. data anomaly), we accept it.
+             return i;
           }
         }
-      } else if (entry.itemKind == ScheduleEntryKind.goal) {
-          // Goal matches end of everything?
-      } else {
-        // Departure, Meeting, etc do not consume steps.
       }
     }
 

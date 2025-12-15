@@ -88,6 +88,7 @@ class TripNavigator {
     // 2. 「今のターゲット」の判定更新
     int currentStep = lastStepIndex;
     int nextStop = lastStopIndex;
+    debugPrint('[TripNavigator] Update Route: Pos=$currentPos LastStep=$lastStepIndex LastStop=$lastStopIndex');
 
     // 現在のステップ（区間）を取得
     if (currentStep < allSteps.length) {
@@ -123,32 +124,36 @@ class TripNavigator {
       }
       // 乗り物(bus/rail)の場合
       else {
-        // ターゲット（次の駅）の座標を取得
-        if (nextStop < step.stops.length) {
-          final targetStop = step.stops[nextStop];
-          final targetLat = targetStop.lat ?? 0;
-          final targetLon = targetStop.lon ?? 0;
+          // ターゲット（次の駅）の座標を取得
+          if (nextStop < step.stops.length) {
+            final targetStop = step.stops[nextStop];
+            final targetLat = targetStop.lat ?? 0;
+            final targetLon = targetStop.lon ?? 0;
 
-          // 距離を計測
-          final distance = Geolocator.distanceBetween(
-            currentPos.latitude,
-            currentPos.longitude,
-            targetLat,
-            targetLon,
-          );
+            // 距離を計測
+            final distance = Geolocator.distanceBetween(
+              currentPos.latitude,
+              currentPos.longitude,
+              targetLat,
+              targetLon,
+            );
+            
+            debugPrint('[TripNavigator] Check Step:$currentStep Stop:$nextStop(${targetStop.name}) Dist:${distance.toStringAsFixed(1)}m (Threshold:$_arrivalRadius) | Cur:${currentPos.latitude.toStringAsFixed(6)},${currentPos.longitude.toStringAsFixed(6)} Tgt:${targetLat.toStringAsFixed(6)},${targetLon.toStringAsFixed(6)}');
 
-          // ★ここがポイント！
-          // 「ターゲットの半径内に入った」＝「到着/通過した」とみなす
-          if (distance < _arrivalRadius) {
-            // 次の駅へターゲットを更新（経路を潰す）
-            nextStop++;
+            // ★ここがポイント！
+            // 「ターゲットの半径内に入った」＝「到着/通過した」とみなす
+            if (distance < _arrivalRadius) {
+              debugPrint('[TripNavigator] -> Arrived at ${targetStop.name}. Next stop.');
+              // 次の駅へターゲットを更新（経路を潰す）
+              nextStop++;
+            }
+          } else {
+            // この区間の駅を全部消化した＝乗り換え地点に到着！
+            // 次のステップへ進む
+            debugPrint('[TripNavigator] -> Step$currentStep Completed. Moving to next step.');
+            currentStep++;
+            nextStop = 0; // 次の路線の最初の駅へ
           }
-        } else {
-          // この区間の駅を全部消化した＝乗り換え地点に到着！
-          // 次のステップへ進む
-          currentStep++;
-          nextStop = 0; // 次の路線の最初の駅へ
-        }
       }
     } else {
       // 全ステップ終了＝目的地到着
@@ -166,6 +171,17 @@ class TripNavigator {
     final step = allSteps[currentStep];
 
     if (step.kind == 'walk') {
+      String? nextName;
+
+      if (currentStep + 1 < allSteps.length) {
+        final nextStep = allSteps[currentStep + 1];
+        if (nextStep.stops.isNotEmpty) {
+          nextName = nextStep.stops.first.name;
+        }
+      }
+
+      nextName ??= step.to;
+
       return RouteNavState(
         mainText: "徒歩で移動中",
         subText: "目的地まで歩きましょう",
@@ -173,7 +189,7 @@ class TripNavigator {
         currentStepIndex: currentStep,
         nextStopIndex: nextStop,
         statusLabel: "歩行中",
-        nextStopName: step.to,
+        nextStopName: nextName,
         isMoving: false,
       );
     } else {

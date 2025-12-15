@@ -31,6 +31,9 @@ class ScheduleEntry {
   final ScheduleEntrySource generatedBy;
   final bool locked;
 
+  final int? routeStepIndex;
+  final String? routeRole;
+
   ScheduleEntry({
     String? id,
     required this.plannedAt,
@@ -40,6 +43,8 @@ class ScheduleEntry {
     this.legIndex = 0,
     this.generatedBy = ScheduleEntrySource.manual,
     this.locked = false,
+    this.routeStepIndex,
+    this.routeRole,
   }) : id = id ?? const Uuid().v4();
 
   factory ScheduleEntry.fromJson(Map<String, dynamic> json) {
@@ -64,6 +69,8 @@ class ScheduleEntry {
         orElse: () => ScheduleEntrySource.manual,
       ),
       locked: json['locked'] as bool? ?? false,
+      routeStepIndex: json['routeStepIndex'] as int?,
+      routeRole: json['routeRole'] as String?,
     );
   }
 
@@ -77,6 +84,8 @@ class ScheduleEntry {
       'legIndex': legIndex,
       'generatedBy': generatedBy.name,
       'locked': locked,
+      'routeStepIndex': routeStepIndex,
+      'routeRole': routeRole,
     };
   }
 }
@@ -187,6 +196,7 @@ List<ScheduleEntry> createScheduleFromRoute(
     ),
   );
 
+  var stepIndex = 0;
   for (final step in route.steps) {
     if (step.kind == 'walk') {
       if ((step.minutes ?? 0) > 3) {
@@ -200,6 +210,8 @@ List<ScheduleEntry> createScheduleFromRoute(
             itemKind: ScheduleEntryKind.walk,
             legIndex: legIndex,
             generatedBy: ScheduleEntrySource.route,
+            routeStepIndex: stepIndex,
+            routeRole: 'walk',
           ),
         );
       } else {
@@ -218,6 +230,8 @@ List<ScheduleEntry> createScheduleFromRoute(
           itemKind: ScheduleEntryKind.ride,
           legIndex: legIndex,
           generatedBy: ScheduleEntrySource.route,
+          routeStepIndex: stepIndex,
+          routeRole: 'ride',
         ),
       );
 
@@ -229,18 +243,27 @@ List<ScheduleEntry> createScheduleFromRoute(
           itemKind: ScheduleEntryKind.arrival,
           legIndex: legIndex,
           generatedBy: ScheduleEntrySource.route,
+          routeStepIndex: stepIndex,
+          routeRole: 'arrival',
         ),
       );
     }
+    stepIndex++;
   }
 
   if (route.steps.isNotEmpty) {
+    // 目的地名を取得 (例: "銀座駅")
+    String goalLabel = '目的地';
+    if (route.destinationName != null && route.destinationName!.isNotEmpty) {
+      goalLabel = route.destinationName!.split(' ').last; 
+    }
+
     list.add(
       ScheduleEntry(
         plannedAt: normalizedTimes.isNotEmpty
             ? normalizedTimes.last
             : departureBase,
-        label: '${prefix}目的地 到着',
+        label: '${prefix}$goalLabel 到着',
         description: 'お疲れ様でした!',
         itemKind: ScheduleEntryKind.goal,
         legIndex: legIndex,
