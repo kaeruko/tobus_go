@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import '../core/app_clock.dart';
+import '../core/app_clock.dart'; // Still needed for add dialog datetime
 import '../models/group_models.dart';
 import '../services/trip_service.dart';
-import '../logic/schedule_resolver.dart';
 
 class SchedulePage extends StatefulWidget {
   final String tripId;
@@ -22,7 +21,6 @@ class SchedulePage extends StatefulWidget {
 
 class _SchedulePageState extends State<SchedulePage> {
   late List<ScheduleEntry> _schedule;
-  final Map<String, GlobalKey> _itemKeys = {};
   final TripService _tripService = TripService();
 
   @override
@@ -30,29 +28,6 @@ class _SchedulePageState extends State<SchedulePage> {
     super.initState();
     _schedule = List.from(widget.initialSchedule);
     sortScheduleEntries(_schedule);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToCurrentTask();
-    });
-  }
-
-  void _scrollToCurrentTask() {
-    final resolved = ScheduleResolver.resolve(
-      scheduleSorted: _schedule, 
-      now: appClock.now(),
-    );
-    final activeEntry = resolved.activeEntry;
-
-    if (activeEntry != null) {
-      final key = _itemKeys[activeEntry.id];
-      if (key?.currentContext != null) {
-        Scrollable.ensureVisible(
-          key!.currentContext!,
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeInOut,
-          alignment: 0.5,
-        );
-      }
-    }
   }
 
   Future<void> _addScheduleEntry(
@@ -196,22 +171,9 @@ class _SchedulePageState extends State<SchedulePage> {
 
   @override
   Widget build(BuildContext context) {
-    final resolved = ScheduleResolver.resolve(
-      scheduleSorted: _schedule,
-      now: appClock.now(),
-    );
-    final activeIndex = resolved.activeIndex;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('スケジュール'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.center_focus_strong),
-            tooltip: '現在地へ移動',
-            onPressed: _scrollToCurrentTask,
-          ),
-        ],
       ),
       floatingActionButton: widget.isLeader
           ? FloatingActionButton.extended(
@@ -226,35 +188,16 @@ class _SchedulePageState extends State<SchedulePage> {
         itemCount: _schedule.length,
         itemBuilder: (context, index) {
           final item = _schedule[index];
-          // Determine status based on resolver
-          // - Active: index == activeIndex
-          // - Completed: index < activeIndex
-          // - Future: index > activeIndex
-          final isActive = (index == activeIndex);
-          final isCompleted = (activeIndex != -1 && index < activeIndex); // If activeIndex is -1 (all future), nothing completed?
-                                                                          // Or if activeIndex -1 means NO ACTIVE, wait.
-                                                                          // Resolver says: active=-1 if empty. active=0 if all future.
-                                                                          // So if active=0, index<0 false. No completion. correct.
           
-          if (!_itemKeys.containsKey(item.id)) {
-            _itemKeys[item.id] = GlobalKey();
-          }
-
           final cardContent = Card(
-            key: _itemKeys[item.id],
-            elevation: isActive ? 4 : 1,
-            color: isActive
-                ? Colors.orange.shade50
-                : (isCompleted ? Colors.grey.shade100 : Colors.white),
-            shape: isActive
-                ? RoundedRectangleBorder(
-                    side: const BorderSide(color: Colors.orange, width: 2),
-                    borderRadius: BorderRadius.circular(12),
-                  )
-                : null,
+            elevation: 1,
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             margin: const EdgeInsets.only(bottom: 12),
             child: InkWell(
-              onTap: null, // Removed tap to complete
+              onTap: null, 
               onLongPress: widget.isLeader
                   ? () {
                       _showScheduleDialog(index: index, item: item);
@@ -269,20 +212,12 @@ class _SchedulePageState extends State<SchedulePage> {
                       children: [
                         Text(
                           formatClock(item.plannedAt),
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
-                            color: isCompleted ? Colors.grey : Colors.black,
+                            color: Colors.black,
                           ),
                         ),
-                        if (isActive) ...[
-                          const SizedBox(height: 4),
-                          Text(resolved.activeLabel, // Use label from resolver
-                              style: const TextStyle(
-                                  color: Colors.orange,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 10)),
-                        ]
                       ],
                     ),
                     const SizedBox(width: 16),
@@ -292,41 +227,22 @@ class _SchedulePageState extends State<SchedulePage> {
                         children: [
                           Text(
                             item.label,
-                            style: TextStyle(
-                              fontSize: isActive ? 18 : 16,
-                              fontWeight:
-                                  isActive ? FontWeight.bold : FontWeight.normal,
-                              color: isCompleted ? Colors.grey : Colors.black,
-                              // No strict strikethrough logic requested, but "Finished" look.
-                              // User: "Card appearance... active before dim grey... active emphasize... future normal"
-                              // "Check mark or strikethrough remove or separate display"
-                              // Let's keep strikethrough for completed as visual cue, or remove if user prefers "Shiori reader".
-                              // User: "Check mark or strikethrough: Delete OR change to display use"
-                              // "Example: Before active is light grey".
-                              // I'll stick to color grey for completed and NO strikethrough to make it cleaner "log".
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.normal,
+                              color: Colors.black,
                             ),
                           ),
                           if (item.description.isNotEmpty)
                             Text(
                               item.description,
                               style: TextStyle(
-                                  color: isCompleted
-                                      ? Colors.grey
-                                      : Colors.grey.shade700),
+                                  color: Colors.grey.shade700),
                             ),
                         ],
                       ),
                     ),
-                    if (isCompleted)
-                      // Small dot or check to indicate past? Or just nothing?
-                      // User said "Check mark ... delete".
-                      // I will replace with a simple small dot if needed, or nothing.
-                      // Let's keep it clean. Just greyed out is enough.
-                      const SizedBox.shrink() 
-                    else if (isActive)
-                      const Icon(Icons.directions_walk, color: Colors.orange)
-                    else
-                      const Icon(Icons.circle_outlined, color: Colors.grey, size: 12), // Future dot
+                    const Icon(Icons.circle_outlined, color: Colors.grey, size: 12),
                   ],
                 ),
               ),

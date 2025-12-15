@@ -203,6 +203,8 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         final scheduleResolved = ScheduleResolver.resolve(
           scheduleSorted: _sortedSchedule(trip.schedule),
           now: now,
+          trip: trip,
+          currentStepIndex: navProgress.currentStepIndex,
         );
 
         // 2. Resolve Route Navigation (Pure Route State)

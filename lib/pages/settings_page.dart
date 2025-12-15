@@ -29,7 +29,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   void initState() {
     super.initState();
     _loadSettings();
-    // ref.listen は build メソッド内に移動済み
+    
+    // Initialize manual input with current override if exists
+    final override = ref.read(locationOverrideProvider);
+    if (override != null) {
+      _manualLocationInput = '${override.latitude},${override.longitude}';
+    }
   }
 
   Future<void> _loadSettings() async {

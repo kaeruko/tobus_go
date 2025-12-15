@@ -6,7 +6,8 @@ import '../core/app_clock.dart';
 Stream<DateTime> _minuteTick() async* {
   yield appClock.now();
   yield* Stream.periodic(
-    const Duration(minutes: 1),
+    // const Duration(minutes: 1),
+    const Duration(seconds: 20),
     (_) => appClock.now(),
   );
 }
