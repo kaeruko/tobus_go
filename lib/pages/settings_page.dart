@@ -115,7 +115,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final currentOffset = AppClock.instance.offset;
     // 初期値設定
     final hController = TextEditingController(text: currentOffset.inHours.toString());
-    final mController = TextEditingController(text: (currentOffset.inMinutes % 60).toString());
+    final mController = TextEditingController(text: (currentOffset.inMinutes.remainder(60)).toString());
 
     await showDialog(
       context: context,

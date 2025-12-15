@@ -36,18 +36,7 @@ class GroupService {
     });
   }
 
-  /// スケジュールアイテムの完了状態を更新
-  Future<void> toggleScheduleItem(String groupId, int index, bool isCompleted) async {
-    final doc = await _db.collection('groups').doc(groupId).get();
-    final scheduleData = doc.data()?['schedule'] as List<dynamic>? ?? [];
-    
-    if (index < scheduleData.length) {
-      scheduleData[index]['isCompleted'] = isCompleted;
-      await _db.collection('groups').doc(groupId).update({
-        'schedule': scheduleData,
-      });
-    }
-  }
+
 
   /// グループに参加する(メンバー用)
   Future<void> joinGroup(String groupId, String memberId, String memberName) async {

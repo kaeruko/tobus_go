@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/app_clock.dart';
 import '../models/group_models.dart';
 import '../services/trip_service.dart';
+import '../logic/schedule_resolver.dart';
 
 class SchedulePage extends StatefulWidget {
   final String tripId;
@@ -21,7 +22,7 @@ class SchedulePage extends StatefulWidget {
 
 class _SchedulePageState extends State<SchedulePage> {
   late List<ScheduleEntry> _schedule;
-  final Map<int, GlobalKey> _itemKeys = {};
+  final Map<String, GlobalKey> _itemKeys = {};
   final TripService _tripService = TripService();
 
   @override
@@ -35,21 +36,22 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   void _scrollToCurrentTask() {
-    int currentIndex = _schedule.indexWhere((item) => !item.isCompleted);
-    if (currentIndex == -1 && _schedule.isNotEmpty) {
-      currentIndex = _schedule.length - 1;
-    } else if (currentIndex == -1) {
-      return;
-    }
+    final resolved = ScheduleResolver.resolve(
+      scheduleSorted: _schedule, 
+      now: appClock.now(),
+    );
+    final activeEntry = resolved.activeEntry;
 
-    final key = _itemKeys[currentIndex];
-    if (key?.currentContext != null) {
-      Scrollable.ensureVisible(
-        key!.currentContext!,
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeInOut,
-        alignment: 0.5,
-      );
+    if (activeEntry != null) {
+      final key = _itemKeys[activeEntry.id];
+      if (key?.currentContext != null) {
+        Scrollable.ensureVisible(
+          key!.currentContext!,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOut,
+          alignment: 0.5,
+        );
+      }
     }
   }
 
@@ -174,6 +176,7 @@ class _SchedulePageState extends State<SchedulePage> {
     ScheduleEntry oldItem,
   ) async {
     final updated = ScheduleEntry(
+      id: oldItem.id, // Keep ID
       plannedAt: plannedAt,
       label: label,
       description: desc,
@@ -181,7 +184,6 @@ class _SchedulePageState extends State<SchedulePage> {
       legIndex: legIndex,
       generatedBy: oldItem.generatedBy,
       locked: oldItem.locked,
-      isCompleted: oldItem.isCompleted,
     );
 
     setState(() {
@@ -194,7 +196,11 @@ class _SchedulePageState extends State<SchedulePage> {
 
   @override
   Widget build(BuildContext context) {
-    int currentIndex = _schedule.indexWhere((item) => !item.isCompleted);
+    final resolved = ScheduleResolver.resolve(
+      scheduleSorted: _schedule,
+      now: appClock.now(),
+    );
+    final activeIndex = resolved.activeIndex;
 
     return Scaffold(
       appBar: AppBar(
@@ -220,20 +226,27 @@ class _SchedulePageState extends State<SchedulePage> {
         itemCount: _schedule.length,
         itemBuilder: (context, index) {
           final item = _schedule[index];
-          final isCurrent = (index == currentIndex);
-          final isDone = item.isCompleted;
-
-          if (!_itemKeys.containsKey(index)) {
-            _itemKeys[index] = GlobalKey();
+          // Determine status based on resolver
+          // - Active: index == activeIndex
+          // - Completed: index < activeIndex
+          // - Future: index > activeIndex
+          final isActive = (index == activeIndex);
+          final isCompleted = (activeIndex != -1 && index < activeIndex); // If activeIndex is -1 (all future), nothing completed?
+                                                                          // Or if activeIndex -1 means NO ACTIVE, wait.
+                                                                          // Resolver says: active=-1 if empty. active=0 if all future.
+                                                                          // So if active=0, index<0 false. No completion. correct.
+          
+          if (!_itemKeys.containsKey(item.id)) {
+            _itemKeys[item.id] = GlobalKey();
           }
 
           final cardContent = Card(
-            key: _itemKeys[index],
-            elevation: isCurrent ? 4 : 1,
-            color: isCurrent
+            key: _itemKeys[item.id],
+            elevation: isActive ? 4 : 1,
+            color: isActive
                 ? Colors.orange.shade50
-                : (isDone ? Colors.grey.shade100 : Colors.white),
-            shape: isCurrent
+                : (isCompleted ? Colors.grey.shade100 : Colors.white),
+            shape: isActive
                 ? RoundedRectangleBorder(
                     side: const BorderSide(color: Colors.orange, width: 2),
                     borderRadius: BorderRadius.circular(12),
@@ -241,14 +254,7 @@ class _SchedulePageState extends State<SchedulePage> {
                 : null,
             margin: const EdgeInsets.only(bottom: 12),
             child: InkWell(
-              onTap: widget.isLeader
-                  ? () async {
-                      setState(() {
-                        item.isCompleted = !item.isCompleted;
-                      });
-                      await _tripService.updateSchedule(widget.tripId, _schedule);
-                    }
-                  : null,
+              onTap: null, // Removed tap to complete
               onLongPress: widget.isLeader
                   ? () {
                       _showScheduleDialog(index: index, item: item);
@@ -266,13 +272,13 @@ class _SchedulePageState extends State<SchedulePage> {
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
-                            color: isDone ? Colors.grey : Colors.black,
+                            color: isCompleted ? Colors.grey : Colors.black,
                           ),
                         ),
-                        if (isCurrent) ...[
+                        if (isActive) ...[
                           const SizedBox(height: 4),
-                          const Text('NOW',
-                              style: TextStyle(
+                          Text(resolved.activeLabel, // Use label from resolver
+                              style: const TextStyle(
                                   color: Colors.orange,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 10)),
@@ -287,32 +293,40 @@ class _SchedulePageState extends State<SchedulePage> {
                           Text(
                             item.label,
                             style: TextStyle(
-                              fontSize: isCurrent ? 18 : 16,
+                              fontSize: isActive ? 18 : 16,
                               fontWeight:
-                                  isCurrent ? FontWeight.bold : FontWeight.normal,
-                              color: isDone ? Colors.grey : Colors.black,
-                              decoration:
-                                  isDone ? TextDecoration.lineThrough : null,
+                                  isActive ? FontWeight.bold : FontWeight.normal,
+                              color: isCompleted ? Colors.grey : Colors.black,
+                              // No strict strikethrough logic requested, but "Finished" look.
+                              // User: "Card appearance... active before dim grey... active emphasize... future normal"
+                              // "Check mark or strikethrough remove or separate display"
+                              // Let's keep strikethrough for completed as visual cue, or remove if user prefers "Shiori reader".
+                              // User: "Check mark or strikethrough: Delete OR change to display use"
+                              // "Example: Before active is light grey".
+                              // I'll stick to color grey for completed and NO strikethrough to make it cleaner "log".
                             ),
                           ),
                           if (item.description.isNotEmpty)
                             Text(
                               item.description,
                               style: TextStyle(
-                                  color: isDone
+                                  color: isCompleted
                                       ? Colors.grey
                                       : Colors.grey.shade700),
                             ),
                         ],
                       ),
                     ),
-                    if (isDone)
-                      const Icon(Icons.check_circle, color: Colors.green)
-                    else if (isCurrent)
+                    if (isCompleted)
+                      // Small dot or check to indicate past? Or just nothing?
+                      // User said "Check mark ... delete".
+                      // I will replace with a simple small dot if needed, or nothing.
+                      // Let's keep it clean. Just greyed out is enough.
+                      const SizedBox.shrink() 
+                    else if (isActive)
                       const Icon(Icons.directions_walk, color: Colors.orange)
                     else
-                      const Icon(Icons.radio_button_unchecked,
-                          color: Colors.grey),
+                      const Icon(Icons.circle_outlined, color: Colors.grey, size: 12), // Future dot
                   ],
                 ),
               ),
@@ -321,7 +335,7 @@ class _SchedulePageState extends State<SchedulePage> {
 
           if (widget.isLeader) {
             return Dismissible(
-              key: Key('${item.plannedAt.toIso8601String()}_${item.label}'),
+              key: Key('dismiss_${item.id}'),
               direction: DismissDirection.endToStart,
               background: Container(
                 alignment: Alignment.centerRight,

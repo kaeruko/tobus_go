@@ -179,7 +179,6 @@ class TripService {
               legIndex: 0,
               generatedBy: ScheduleEntrySource.route,
               locked: e.locked,
-              isCompleted: false,
             )));
 
     sortScheduleEntries(retained);

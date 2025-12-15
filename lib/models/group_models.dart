@@ -1,6 +1,7 @@
 // lib/models/group_models.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:uuid/uuid.dart';
 import '../core/app_clock.dart';
 import 'leg_models.dart';
 import 'route_models.dart';
@@ -21,16 +22,17 @@ enum ScheduleEntrySource {
 }
 
 class ScheduleEntry {
+  final String id;
   final DateTime plannedAt;
   final String label;
   final String description;
   final ScheduleEntryKind itemKind;
   final int legIndex;
   final ScheduleEntrySource generatedBy;
-  bool isCompleted;
   final bool locked;
 
   ScheduleEntry({
+    String? id,
     required this.plannedAt,
     required this.label,
     this.description = '',
@@ -38,13 +40,19 @@ class ScheduleEntry {
     this.legIndex = 0,
     this.generatedBy = ScheduleEntrySource.manual,
     this.locked = false,
-    this.isCompleted = false,
-  });
+  }) : id = id ?? const Uuid().v4();
 
   factory ScheduleEntry.fromJson(Map<String, dynamic> json) {
+    final plannedAt = (json['plannedAt'] as Timestamp).toDate();
+    final label = json['label'] as String? ?? '';
+    
+    // Generate deterministic ID for legacy data to ensure UI stability
+    final fallbackId = '${plannedAt.millisecondsSinceEpoch}_${label.hashCode}';
+
     return ScheduleEntry(
-      plannedAt: (json['plannedAt'] as Timestamp).toDate(),
-      label: json['label'] as String? ?? '',
+      id: json['id'] as String? ?? fallbackId,
+      plannedAt: plannedAt,
+      label: label,
       description: json['description'] as String? ?? '',
       itemKind: ScheduleEntryKind.values.firstWhere(
         (e) => e.name == (json['itemKind'] as String?),
@@ -56,12 +64,12 @@ class ScheduleEntry {
         orElse: () => ScheduleEntrySource.manual,
       ),
       locked: json['locked'] as bool? ?? false,
-      isCompleted: json['isCompleted'] as bool? ?? false,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'plannedAt': Timestamp.fromDate(plannedAt),
       'label': label,
       'description': description,
@@ -69,7 +77,6 @@ class ScheduleEntry {
       'legIndex': legIndex,
       'generatedBy': generatedBy.name,
       'locked': locked,
-      'isCompleted': isCompleted,
     };
   }
 }

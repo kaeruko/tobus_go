@@ -15,10 +15,12 @@ import '../logic/trip_navigator.dart'; // Keep for type definitions if needed, o
 import '../logic/trip_coordinator.dart'; // Added
 import '../logic/schedule_resolver.dart'; 
 import 'settings_page.dart'; // Added for debug link
+import 'route_detail_page.dart';
 import '../providers/app_session_provider.dart';
 import '../providers/trip_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/member_nav_progress_provider.dart';
+import '../providers/minute_ticker_provider.dart';
 
 class MemberModePage extends ConsumerStatefulWidget {
   const MemberModePage({super.key});
@@ -149,12 +151,14 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
 
   @override
   Widget build(BuildContext context) {
-
-
     final tripAsync = ref.watch(tripStreamProvider);
     final locationAsync = ref.watch(locationStreamProvider);
     final manualOverride = ref.watch(locationOverrideProvider);
     final navProgress = ref.watch(memberNavProgressProvider);
+    
+    // 1分ごとに更新される現在時刻を取得（スケジュール自動更新用）
+    final nowTick = ref.watch(minuteTickerProvider);
+    final now = nowTick.value ?? appClock.now();
 
     return tripAsync.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
@@ -195,11 +199,10 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                 ? LatLng(locationAsync.value!.latitude, locationAsync.value!.longitude)
                 : const LatLng(35.6812, 139.7671)); // Default Tokyo Station if waiting for GPS
 
-        // Calculate view state using CURRENT progress indices
         // 1. Resolve Schedule (Window + Active)
         final scheduleResolved = ScheduleResolver.resolve(
           scheduleSorted: _sortedSchedule(trip.schedule),
-          now: appClock.now(),
+          now: now,
         );
 
         // 2. Resolve Route Navigation (Pure Route State)
@@ -215,7 +218,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           trip: trip,
           scheduleState: scheduleResolved,
           routeState: routeState,
-          now: appClock.now(),
+          now: now,
         );
 
         // Prepare data for UI list
@@ -272,6 +275,11 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
             ),
             actions: [
               IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () => _refreshProgressWithTrip(trip),
+                tooltip: '手動更新',
+              ),
+              IconButton(
                 icon: const Icon(Icons.settings),
                 onPressed: () {
                   Navigator.of(context).push(
@@ -317,6 +325,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                     navState: navState,
                     tripTitle: displayTitle,
                     locationAsync: locationAsync,
+                    trip: trip,
                   ),
                   const SizedBox(height: 14),
                   _SchedulePeek(
@@ -347,11 +356,13 @@ class _CurrentStatusCard extends StatelessWidget {
   final NavigationState navState;
   final String tripTitle;
   final AsyncValue<Position> locationAsync;
+  final Trip trip;
 
   const _CurrentStatusCard({
     required this.navState,
     required this.tripTitle,
     required this.locationAsync,
+    required this.trip,
   });
 
   @override
@@ -417,6 +428,19 @@ class _CurrentStatusCard extends StatelessWidget {
                   icon: CupertinoIcons.bus,
                   color: const Color(0xFF0D47A1),
                   background: const Color(0xFFE3F2FD),
+                  onTap: () {
+                    final candidate = trip.legs
+                        .firstWhere(
+                          (l) => l.direction == LegDirection.outbound,
+                          orElse: () => trip.legs.first,
+                        )
+                        .candidate;
+                    Navigator.of(context).push(
+                      CupertinoPageRoute(
+                        builder: (_) => RouteDetailPage(candidate: candidate),
+                      ),
+                    );
+                  },
                 ),
               if (navState.nextStopName != null && navState.nextStopName!.isNotEmpty)
                 _StatusChip(
@@ -479,6 +503,7 @@ class _StatusChip extends StatelessWidget {
   final Color color;
   final Color? background;
   final bool truncateStart;
+  final VoidCallback? onTap;
 
   const _StatusChip({
     required this.label,
@@ -486,39 +511,43 @@ class _StatusChip extends StatelessWidget {
     required this.color,
     this.background,
     this.truncateStart = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: background ?? Colors.black12,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 6),
-          Flexible(
-            child: truncateStart
-                ? Directionality(
-                    textDirection: TextDirection.rtl,
-                    child: Text(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: background ?? Colors.black12,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 6),
+            Flexible(
+              child: truncateStart
+                  ? Directionality(
+                      textDirection: TextDirection.rtl,
+                      child: Text(
+                        label,
+                        style: TextStyle(color: color, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.left, // RTLでも左寄せに見せる
+                      ),
+                    )
+                  : Text(
                       label,
                       style: TextStyle(color: color, fontWeight: FontWeight.bold),
                       overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.left, // RTLでも左寄せに見せる
                     ),
-                  )
-                : Text(
-                    label,
-                    style: TextStyle(color: color, fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
