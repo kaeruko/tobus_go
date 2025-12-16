@@ -96,30 +96,46 @@ class TripNavigator {
     // ★GPSベースのステップ推定
     // 複数のLegがある場合、ユーザーが実際にどのステップにいるかをGPSで推定する
     // これにより、画面消し後やLeg切り替え時にも正しいステップに復帰できる
-    final estimatedStep = _estimateCurrentStepIndex(
+    final (estimatedStep, estimatedDist) = _estimateCurrentStepIndexWithDistance(
       allSteps: allSteps,
       currentPos: currentPos,
       lastStepIndex: lastStepIndex,
     );
     
-    if (estimatedStep != currentStep) {
-      debugPrint('[TripNavigator] GPS estimation corrected step: $currentStep -> $estimatedStep');
+    // 推定を採用する条件: 距離が近いときだけ（120m以内）
+    // これによりstep推定の揺れを抑える
+    if (estimatedStep != currentStep && estimatedDist < 120) {
+      debugPrint('[TripNavigator] GPS estimation corrected step: $currentStep -> $estimatedStep (dist: ${estimatedDist.toStringAsFixed(0)}m)');
       currentStep = estimatedStep;
-      nextStop = 0; // 新しいステップの最初から
-    }
 
-    // ★バス・電車ステップの場合、停留所インデックスもGPSで推定する
-    if (currentStep < allSteps.length) {
-      final step = allSteps[currentStep];
-      if (step.kind != 'walk') {
-        final estimatedStop = _estimateNextStopIndex(
-          step: step,
-          currentPos: currentPos,
-          lastStopIndex: nextStop,
-        );
-        if (estimatedStop != nextStop) {
-          debugPrint('[TripNavigator] GPS estimation corrected stop: $nextStop -> $estimatedStop');
-          nextStop = estimatedStop;
+      // ★重要: nextStopを0にリセットせず、現在地から推定する
+      if (currentStep < allSteps.length) {
+        final step = allSteps[currentStep];
+        if (step.kind != 'walk') {
+          nextStop = _estimateNextStopIndex(
+            step: step,
+            currentPos: currentPos,
+            lastStopIndex: 0, // 新しいstepなので0から探す
+          );
+          debugPrint('[TripNavigator] -> Estimated nextStop for new step: $nextStop');
+        } else {
+          nextStop = 0;
+        }
+      }
+    } else {
+      // step変更なし: 既存のstepで停留所インデックスを更新
+      if (currentStep < allSteps.length) {
+        final step = allSteps[currentStep];
+        if (step.kind != 'walk') {
+          final estimatedStop = _estimateNextStopIndex(
+            step: step,
+            currentPos: currentPos,
+            lastStopIndex: nextStop,
+          );
+          if (estimatedStop != nextStop) {
+            debugPrint('[TripNavigator] GPS estimation corrected stop: $nextStop -> $estimatedStop');
+            nextStop = estimatedStop;
+          }
         }
       }
     }
@@ -161,25 +177,33 @@ class TripNavigator {
           // ターゲット（次の駅）の座標を取得
           if (nextStop < step.stops.length) {
             final targetStop = step.stops[nextStop];
-            final targetLat = targetStop.lat ?? 0;
-            final targetLon = targetStop.lon ?? 0;
+            final targetLat = targetStop.lat;
+            final targetLon = targetStop.lon;
 
-            // 距離を計測
-            final distance = Geolocator.distanceBetween(
-              currentPos.latitude,
-              currentPos.longitude,
-              targetLat,
-              targetLon,
+            // ★デバッグ強化: step情報とtargetStop座標を詳細出力
+            debugPrint(
+              '[TripNavigator] Target step=$currentStep kind=${step.kind} from=${step.from} to=${step.to} '
+              'stopIndex=$nextStop/${step.stops.length} name=${targetStop.name} lat=$targetLat lon=$targetLon cur=$currentPos'
             );
-            
-            debugPrint('[TripNavigator] Check Step:$currentStep Stop:$nextStop(${targetStop.name}) Dist:${distance.toStringAsFixed(1)}m (Threshold:$_arrivalRadius) | Cur:${currentPos.latitude.toStringAsFixed(6)},${currentPos.longitude.toStringAsFixed(6)} Tgt:${targetLat.toStringAsFixed(6)},${targetLon.toStringAsFixed(6)}');
 
-            // ★ここがポイント！
-            // 「ターゲットの半径内に入った」＝「到着/通過した」とみなす
-            if (distance < _arrivalRadius) {
-              debugPrint('[TripNavigator] -> Arrived at ${targetStop.name}. Next stop.');
-              // 次の駅へターゲットを更新（経路を潰す）
-              nextStop++;
+            if (targetLat != null && targetLon != null) {
+              // 距離を計測
+              final distance = Geolocator.distanceBetween(
+                currentPos.latitude,
+                currentPos.longitude,
+                targetLat,
+                targetLon,
+              );
+              
+              debugPrint('[TripNavigator] DistanceToTarget=${distance.toStringAsFixed(1)}m (Threshold:$_arrivalRadius)');
+
+              // ★ここがポイント！
+              // 「ターゲットの半径内に入った」＝「到着/通過した」とみなす
+              if (distance < _arrivalRadius) {
+                debugPrint('[TripNavigator] -> Arrived at ${targetStop.name}. Next stop.');
+                // 次の駅へターゲットを更新（経路を潰す）
+                nextStop++;
+              }
             }
           } else {
             // この区間の駅を全部消化した＝乗り換え地点に到着！
@@ -307,13 +331,13 @@ class TripNavigator {
       );
 
   /// GPSに基づいて、ユーザーが実際にいるステップを推定する
-  /// 各ステップの停留所との距離を計算し、最も近いステップを返す
-  static int _estimateCurrentStepIndex({
+  /// 各ステップの停留所との距離を計算し、最も近いステップと距離を返す
+  static (int, double) _estimateCurrentStepIndexWithDistance({
     required List<StepSeg> allSteps,
     required LatLng currentPos,
     required int lastStepIndex,
   }) {
-    if (allSteps.isEmpty) return lastStepIndex;
+    if (allSteps.isEmpty) return (lastStepIndex, double.infinity);
 
     int bestStepIndex = lastStepIndex;
     double minDistance = double.infinity;
@@ -366,11 +390,11 @@ class TripNavigator {
     // それ以外は前回値を維持（GPSブレ対策）
     if (bestStepIndex < lastStepIndex && minDistance > 500) {
       debugPrint('[TripNavigator] Estimate rejected (far backward): best=$bestStepIndex last=$lastStepIndex dist=${minDistance.toStringAsFixed(0)}m');
-      return lastStepIndex;
+      return (lastStepIndex, double.infinity);
     }
 
     debugPrint('[TripNavigator] Estimated step: $bestStepIndex (dist: ${minDistance.toStringAsFixed(0)}m)');
-    return bestStepIndex;
+    return (bestStepIndex, minDistance);
   }
 
   /// バス・電車ステップ内の「次に目指すべき停留所インデックス」をGPSで推定する
