@@ -51,7 +51,8 @@ class TripCoordinator {
     // ride または walk の時だけルートナビを使う
     final shouldUseRouteNav = entry == null
       ? true
-      : (entry.routeRole == 'ride' || entry.routeRole == 'walk');
+      : (entry.itemKind == ScheduleEntryKind.ride ||
+         entry.itemKind == ScheduleEntryKind.walk);
 
     if (routeState.isMoving && shouldUseRouteNav) {
       // 通常の移動案内
