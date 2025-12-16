@@ -47,20 +47,26 @@ class TripCoordinator {
     // (ただし、RouteNavState が error や arrived の場合は移動中とみなさない判定が必要だが、
     //  TripNavigator側で isMoving=false になっているはず)
     if (routeState.isMoving) {
-      // 例外: もしスケジュールが「開始20分前」以前なら、移動してても「開始前」と出したい？
-      // いや、移動し始めているなら移動案内の方が親切か。
-      // ここでは原則通り「移動中はナビ」とする。
-      return NavigationState(
-        mainText: routeState.mainText,
-        subText: routeState.subText,
-        color: routeState.color,
-        currentStepIndex: routeState.currentStepIndex,
-        nextStopIndex: routeState.nextStopIndex,
-        statusLabel: routeState.statusLabel,
-        nextStopName: routeState.nextStopName,
-        remainingStops: routeState.remainingStops,
-        isMoving: true,
-      );
+      // 例外: スケジュールが「到着」「ゴール」でアクティブなら、そちらを優先する
+      // (徒歩で移動中判定だが、時間的には到着している場合など)
+      final entry = scheduleState.activeEntry;
+      if (entry != null && 
+         (entry.itemKind == ScheduleEntryKind.arrival || entry.itemKind == ScheduleEntryKind.goal)) {
+          // Fall through to Step 3 (Schedule Logic)
+      } else {
+        // 通常の移動案内
+        return NavigationState(
+          mainText: routeState.mainText,
+          subText: routeState.subText,
+          color: routeState.color,
+          currentStepIndex: routeState.currentStepIndex,
+          nextStopIndex: routeState.nextStopIndex,
+          statusLabel: routeState.statusLabel,
+          nextStopName: routeState.nextStopName,
+          remainingStops: routeState.remainingStops,
+          isMoving: true,
+        );
+      }
     }
 
     // 3. 移動していない場合 -> スケジュールを確認
@@ -116,6 +122,19 @@ class TripCoordinator {
           currentStepIndex: routeState.currentStepIndex,
           nextStopIndex: routeState.nextStopIndex,
           statusLabel: "出発",
+          isMoving: false,
+        );
+      }
+
+      // D. 到着 / ゴール (Arrival / Goal)
+      if (entry.itemKind == ScheduleEntryKind.arrival || entry.itemKind == ScheduleEntryKind.goal) {
+         return NavigationState(
+          mainText: entry.label,
+          subText: entry.description.isNotEmpty ? entry.description : "到着しました",
+          color: const Color(0xFFFFCC80), // オレンジ
+          currentStepIndex: routeState.currentStepIndex,
+          nextStopIndex: routeState.nextStopIndex,
+          statusLabel: "到着",
           isMoving: false,
         );
       }

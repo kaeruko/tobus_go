@@ -1,8 +1,10 @@
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart'; // 距離計算用
 import '../core/app_clock.dart';
 import '../models/trip_models.dart';
+import '../models/route_models.dart'; // StepSeg
 import '../models/group_models.dart';
 
 // ナビゲーションの結果（画面表示用、最終形）
@@ -91,6 +93,37 @@ class TripNavigator {
     int nextStop = lastStopIndex;
     debugPrint('[TripNavigator] Update Route: Pos=$currentPos LastStep=$lastStepIndex LastStop=$lastStopIndex');
 
+    // ★GPSベースのステップ推定
+    // 複数のLegがある場合、ユーザーが実際にどのステップにいるかをGPSで推定する
+    // これにより、画面消し後やLeg切り替え時にも正しいステップに復帰できる
+    final estimatedStep = _estimateCurrentStepIndex(
+      allSteps: allSteps,
+      currentPos: currentPos,
+      lastStepIndex: lastStepIndex,
+    );
+    
+    if (estimatedStep != currentStep) {
+      debugPrint('[TripNavigator] GPS estimation corrected step: $currentStep -> $estimatedStep');
+      currentStep = estimatedStep;
+      nextStop = 0; // 新しいステップの最初から
+    }
+
+    // ★バス・電車ステップの場合、停留所インデックスもGPSで推定する
+    if (currentStep < allSteps.length) {
+      final step = allSteps[currentStep];
+      if (step.kind != 'walk') {
+        final estimatedStop = _estimateNextStopIndex(
+          step: step,
+          currentPos: currentPos,
+          lastStopIndex: nextStop,
+        );
+        if (estimatedStop != nextStop) {
+          debugPrint('[TripNavigator] GPS estimation corrected stop: $nextStop -> $estimatedStop');
+          nextStop = estimatedStop;
+        }
+      }
+    }
+
     // 現在のステップ（区間）を取得
     if (currentStep < allSteps.length) {
       final step = allSteps[currentStep];
@@ -176,7 +209,12 @@ class TripNavigator {
 
       if (currentStep + 1 < allSteps.length) {
         final nextStep = allSteps[currentStep + 1];
-        if (nextStep.stops.isNotEmpty) {
+
+        // まず乗車地点名 (from) を優先
+        final from = nextStep.from;
+        if (from != null && from.isNotEmpty) {
+          nextName = from;
+        } else if (nextStep.stops.isNotEmpty) {
           nextName = nextStep.stops.first.name;
         }
       }
@@ -191,7 +229,7 @@ class TripNavigator {
         nextStopIndex: nextStop,
         statusLabel: "歩行中",
         nextStopName: nextName,
-        isMoving: false,
+        isMoving: true, // 徒歩も移動中扱い
       );
     } else {
       // バス・電車
@@ -267,4 +305,115 @@ class TripNavigator {
         nextStopName: "目的地",
         remainingStops: 0,
       );
+
+  /// GPSに基づいて、ユーザーが実際にいるステップを推定する
+  /// 各ステップの停留所との距離を計算し、最も近いステップを返す
+  static int _estimateCurrentStepIndex({
+    required List<StepSeg> allSteps,
+    required LatLng currentPos,
+    required int lastStepIndex,
+  }) {
+    if (allSteps.isEmpty) return lastStepIndex;
+
+    int bestStepIndex = lastStepIndex;
+    double minDistance = double.infinity;
+
+    for (int i = 0; i < allSteps.length; i++) {
+      final step = allSteps[i];
+      
+      // 徒歩ステップの場合、次のステップの最初の停留所を目標とする
+      if (step.kind == 'walk') {
+        // 次のステップがあれば、その最初の停留所との距離を計算
+        if (i + 1 < allSteps.length) {
+          final nextStep = allSteps[i + 1];
+          if (nextStep.stops.isNotEmpty) {
+            final target = nextStep.stops.first;
+            final lat = target.lat;
+            final lon = target.lon;
+            if (lat != null && lon != null) {
+              final d = Geolocator.distanceBetween(
+                currentPos.latitude, currentPos.longitude,
+                lat, lon,
+              );
+              if (d < minDistance) {
+                minDistance = d;
+                bestStepIndex = i;
+              }
+            }
+          }
+        }
+      }
+      // バス・電車ステップの場合、全停留所との距離を計算
+      else if (step.stops.isNotEmpty) {
+        for (final stop in step.stops) {
+          final lat = stop.lat;
+          final lon = stop.lon;
+          if (lat == null || lon == null) continue;
+          final d = Geolocator.distanceBetween(
+            currentPos.latitude, currentPos.longitude,
+            lat, lon,
+          );
+          if (d < minDistance) {
+            minDistance = d;
+            bestStepIndex = i;
+          }
+        }
+      }
+    }
+
+    // 推定されたステップが前に戻る（巻き戻り）場合、
+    // 距離がかなり近い（500m以内）場合のみ許可する
+    // それ以外は前回値を維持（GPSブレ対策）
+    if (bestStepIndex < lastStepIndex && minDistance > 500) {
+      debugPrint('[TripNavigator] Estimate rejected (far backward): best=$bestStepIndex last=$lastStepIndex dist=${minDistance.toStringAsFixed(0)}m');
+      return lastStepIndex;
+    }
+
+    debugPrint('[TripNavigator] Estimated step: $bestStepIndex (dist: ${minDistance.toStringAsFixed(0)}m)');
+    return bestStepIndex;
+  }
+
+  /// バス・電車ステップ内の「次に目指すべき停留所インデックス」をGPSで推定する
+  static int _estimateNextStopIndex({
+    required StepSeg step,
+    required LatLng currentPos,
+    required int lastStopIndex,
+  }) {
+    if (step.stops.isEmpty) return lastStopIndex;
+
+    int bestIndex = lastStopIndex;
+    double minDist = double.infinity;
+
+    for (int i = 0; i < step.stops.length; i++) {
+      final stop = step.stops[i];
+      final lat = stop.lat;
+      final lon = stop.lon;
+      if (lat == null || lon == null) continue;
+
+      final d = Geolocator.distanceBetween(
+        currentPos.latitude,
+        currentPos.longitude,
+        lat,
+        lon,
+      );
+
+      if (d < minDist) {
+        minDist = d;
+        bestIndex = i;
+      }
+    }
+
+    // 到着判定: 近い停留所に80m以内にいる場合、その次を目標にする
+    if (minDist < _arrivalRadius) {
+      final next = (bestIndex + 1).clamp(0, step.stops.length);
+      debugPrint('[TripNavigator] Near stop $bestIndex (${minDist.toStringAsFixed(0)}m), targeting next: $next');
+      return next;
+    }
+
+    // 巻き戻り防止: 後ろに戻らない
+    if (bestIndex < lastStopIndex) return lastStopIndex;
+
+    debugPrint('[TripNavigator] Estimated next stop: $bestIndex (dist: ${minDist.toStringAsFixed(0)}m)');
+    return bestIndex;
+  }
 }
