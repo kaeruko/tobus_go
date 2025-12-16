@@ -44,33 +44,32 @@ class TripCoordinator {
     }
 
     // 2. 移動中ならルートナビ優先
-    // (ただし、RouteNavState が error や arrived の場合は移動中とみなさない判定が必要だが、
-    //  TripNavigator側で isMoving=false になっているはず)
-    if (routeState.isMoving) {
-      // 例外: スケジュールが「到着」「ゴール」でアクティブなら、そちらを優先する
-      // (徒歩で移動中判定だが、時間的には到着している場合など)
-      final entry = scheduleState.activeEntry;
-      if (entry != null && 
-         (entry.itemKind == ScheduleEntryKind.arrival || entry.itemKind == ScheduleEntryKind.goal)) {
-          // Fall through to Step 3 (Schedule Logic)
-      } else {
-        // 通常の移動案内
-        return NavigationState(
-          mainText: routeState.mainText,
-          subText: routeState.subText,
-          color: routeState.color,
-          currentStepIndex: routeState.currentStepIndex,
-          nextStopIndex: routeState.nextStopIndex,
-          statusLabel: routeState.statusLabel,
-          nextStopName: routeState.nextStopName,
-          remainingStops: routeState.remainingStops,
-          isMoving: true,
-        );
-      }
+    // ただし、スケジュールが待機系（集合、出発、到着、ゴール）ならスケジュールを最優先
+    final entry = scheduleState.activeEntry;
+    
+    // スケジュールが待機系ならスケジュールを最優先
+    // ride または walk の時だけルートナビを使う
+    final shouldUseRouteNav = entry == null
+      ? true
+      : (entry.routeRole == 'ride' || entry.routeRole == 'walk');
+
+    if (routeState.isMoving && shouldUseRouteNav) {
+      // 通常の移動案内
+      return NavigationState(
+        mainText: routeState.mainText,
+        subText: routeState.subText,
+        color: routeState.color,
+        currentStepIndex: routeState.currentStepIndex,
+        nextStopIndex: routeState.nextStopIndex,
+        statusLabel: routeState.statusLabel,
+        nextStopName: routeState.nextStopName,
+        remainingStops: routeState.remainingStops,
+        isMoving: true,
+      );
     }
 
     // 3. 移動していない場合 -> スケジュールを確認
-    final entry = scheduleState.activeEntry;
+    // entry は既に上で定義済み
     if (entry != null) {
       final diff = entry.plannedAt.difference(now);
 
