@@ -200,7 +200,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
         }
 
         if (destName != null && destName.isNotEmpty) {
-          titlePrefix = destName;
+          titlePrefix = Trip.extractSimpleName(destName);
         } else {
           titlePrefix = (goalEntry?.label.isNotEmpty ?? false)
               ? goalEntry!.label

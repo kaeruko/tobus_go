@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../core/app_clock.dart';
 import 'leg_models.dart';
 import 'route_models.dart';
+import 'trip_models.dart';
 
 enum ScheduleEntryKind {
   meeting,
@@ -205,8 +206,8 @@ List<ScheduleEntry> createScheduleFromRoute(
         list.add(
           ScheduleEntry(
             plannedAt: departAt,
-            label: '${prefix}歩く (${step.minutes}分)',
-            description: step.from ?? '',
+            label: '${prefix}${step.from ?? ''}まで歩く (${step.minutes}分)',
+            description: '',
             itemKind: ScheduleEntryKind.walk,
             legIndex: legIndex,
             generatedBy: ScheduleEntrySource.route,
@@ -222,11 +223,13 @@ List<ScheduleEntry> createScheduleFromRoute(
       final arriveAt = normalizedTimes[timeCursorIndex + 1];
       timeCursorIndex += 2;
 
+      final transportIcon = _emojiForKind(step.kind);
+
       list.add(
         ScheduleEntry(
           plannedAt: departAt,
-          label: '${prefix}${step.title} に乗る',
-          description: '${step.from ?? ''} から',
+          label: '$transportIcon$prefix${step.title} ${step.from ?? ''}に乗る',
+          description: '',
           itemKind: ScheduleEntryKind.ride,
           legIndex: legIndex,
           generatedBy: ScheduleEntrySource.route,
@@ -238,8 +241,8 @@ List<ScheduleEntry> createScheduleFromRoute(
       list.add(
         ScheduleEntry(
           plannedAt: arriveAt,
-          label: '${prefix}${step.to ?? ''} に着く',
-          description: step.edges > 0 ? '${step.edges}駅' : '',
+          label: '$transportIcon$prefix${step.title} ${step.to ?? ''}に着く',
+          description: '',
           itemKind: ScheduleEntryKind.arrival,
           legIndex: legIndex,
           generatedBy: ScheduleEntrySource.route,
@@ -294,11 +297,11 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
       createScheduleFromRoute(
         outbound.candidate,
         startDateTime: outbound.candidate.departureDate,
-        labelPrefix: '行き',
+        labelPrefix: '➡️',
         legIndex: 0,
         includeMeeting: true,
-        meetingLabel: '集合',
-        meetingDescription: '出発の10分前に集合しましょう',
+        meetingLabel: '${Trip.extractSimpleName(outbound.candidate.originName ?? '')}集合',
+        meetingDescription: 'みんな揃っているか確認しましょう',
       ),
     );
   }
@@ -342,7 +345,7 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
       createScheduleFromRoute(
         inbound.candidate,
         startDateTime: inboundStartDate,
-        labelPrefix: '帰り',
+        labelPrefix: '⬅️',
         legIndex: 1,
         includeMeeting: true,
         meetingLabel: '帰りの集合',
@@ -371,12 +374,18 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
   return schedule;
 }
 
+String _emojiForKind(String kind) {
+  if (kind == 'bus') return '🚌';
+  if (kind == 'subway' || kind == 'train') return '🚞';
+  return '🚐'; // default/other
+}
+
 String _labelForLeg(LegDirection direction) {
   switch (direction) {
     case LegDirection.outbound:
-      return '行き';
+      return '➡️';
     case LegDirection.inbound:
-      return '帰り';
+      return '⬅️';
     case LegDirection.other:
       return '移動';
     case LegDirection.unknown:

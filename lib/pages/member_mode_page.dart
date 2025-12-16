@@ -810,7 +810,7 @@ class _MemberActionBar extends StatelessWidget {
                     label: const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Text(
-                        'ヘルプ / 連絡する',
+                        'ヘルプ / 連絡',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
