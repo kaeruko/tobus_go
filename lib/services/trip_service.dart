@@ -25,24 +25,7 @@ class TripService {
 
     final tripRef = _db.collection('trips').doc();
 
-    String destination = "お出かけ";
-    if (legs.isNotEmpty) {
-      // LeaderModePageと同じロジック: 行きの便を優先
-      final outboundLeg = legs.firstWhere(
-        (l) => l.direction == LegDirection.outbound,
-        orElse: () => legs.first,
-      );
-      final c = outboundLeg.candidate;
-      
-      if (c.destinationName != null &&
-          c.destinationName!.isNotEmpty &&
-          c.destinationName != '目的地') {
-        destination = c.destinationName!;
-      } else if (c.steps.isNotEmpty && c.steps.last.to != null) {
-        destination = c.steps.last.to!;
-      }
-    }
-    final title = "$destination への遠足";
+    final title = Trip.generateDisplayTitle(legs, "お出かけ への遠足");
 
     sortScheduleEntries(schedule);
 

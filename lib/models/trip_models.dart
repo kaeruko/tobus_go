@@ -106,9 +106,8 @@ class Trip {
       'memberIds': memberIds,
     };
   }
-  String get displayTitle {
+  static String generateDisplayTitle(List<Leg> legs, String fallbackTitle) {
     // タイトル生成ロジック
-    // もしタイトルがデフォルトっぽい場合、またはより良い名前が取れる場合は上書き
     if (legs.isNotEmpty) {
       final outboundLeg = legs.firstWhere(
             (l) => l.direction == LegDirection.outbound,
@@ -122,8 +121,10 @@ class Trip {
         return "$simpleName への遠足";
       }
     }
-    return title;
+    return fallbackTitle;
   }
+
+  String get displayTitle => generateDisplayTitle(legs, title);
 }
 
 class Participant {

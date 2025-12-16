@@ -73,7 +73,7 @@ class TimetableManager:
         self.bus_departures_weekday = {}
         self.bus_departures_saturday = {}
         self.bus_departures_holiday = {}
-        self.route_stops_map = {} # route_id -> [stop_id1, stop_id2, ...]
+        self.route_patterns_map = defaultdict(list) # route_id -> [ [stop1, stop2...], [stop1...] ]
         
         # key: station_id, value: [ {dep, arr, next_sta, train_id} ]
         self.train_patterns_weekday = {}
@@ -109,18 +109,26 @@ class TimetableManager:
         for entry in data:
             route_id = entry.get("odpt:busroute")
             orders = entry.get("odpt:busstopPoleOrder") or []
-            try: orders = sorted(orders, key=lambda x: x.get("odpt:index", 0))
-            except: pass
-            
-            seq = [o.get("odpt:busstopPole") for o in orders]
-            # 一つのroute_idに複数のパターンがある場合があるが、
-            # ここでは最も長いものを代表として保持するか、あるいは
-            # パターンIDごとに持つのが理想だが、簡易的に上書きする（長い方優先などのロジックを入れる）
-            if route_id:
-                if route_id not in self.route_stops_map or len(seq) > len(self.route_stops_map[route_id]):
-                    self.route_stops_map[route_id] = seq
-                    count += 1
-        print(f"[DEBUG] Loaded Bus Patterns for {count} routes.")
+            try:
+                orders = sorted(orders, key=lambda x: x.get("odpt:index", 0))
+            except:
+                pass
+
+            seq = [o.get("odpt:busstopPole") for o in orders if o.get("odpt:busstopPole")]
+            if not route_id or not seq:
+                continue
+
+            key = tuple(seq)
+            exists = False
+            for s in self.route_patterns_map[route_id]:
+                if tuple(s) == key:
+                    exists = True
+                    break
+            if not exists:
+                self.route_patterns_map[route_id].append(seq)
+                count += 1
+
+        print(f"[DEBUG] Loaded Bus Patterns for {count} patterns.")
 
     def load_bus_timetables(self, json_path):
         data = load_json(json_path)
@@ -245,7 +253,7 @@ class TimetableManager:
                     count += 1
         print(f"[INFO] Index built. Total {count} nodes.")
 
-    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
+    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=True):
         if not debug:
             debug = os.getenv("DEBUG_BUS") == "1"
 
@@ -266,29 +274,53 @@ class TimetableManager:
                     return t_list
             return None
 
-        def is_valid_trip(trip, rid):
+        def is_valid_trip(trip, rid, board_pole_id):
             if not target_pole_id:
                 return True
+
             dest_id = trip.get("dest")
             if not dest_id:
                 return True
 
-            stops = self.route_stops_map.get(rid)
-            if not stops:
+            patterns = self.route_patterns_map.get(rid) or []
+            if not patterns:
                 return True
 
-            try:
-                target_idx = stops.index(target_pole_id)
-                dest_idx = stops.index(dest_id)
-                if dest_idx >= target_idx:
+            any_directional_pattern = False
+
+            for stops in patterns:
+                if board_pole_id not in stops:
+                    continue
+                if dest_id not in stops:
+                    continue
+
+                b = stops.index(board_pole_id)
+                d = stops.index(dest_id)
+
+                if d < b:
+                    continue
+
+                any_directional_pattern = True
+
+                if target_pole_id not in stops:
+                    continue
+
+                t = stops.index(target_pole_id)
+                if b <= t <= d:
                     return True
+
+            if any_directional_pattern:
                 if debug:
-                    print(f"[DEBUG_BUS] REJECT short trip route_id={rid} dest={dest_id} dest_idx={dest_idx} target={target_pole_id} target_idx={target_idx}")
+                    print(f"[DEBUG_BUS] REJECT cannot reach target rid={rid} board={board_pole_id} target={target_pole_id} dest={dest_id}")
                 return False
-            except ValueError:
-                return True
+
+            return True
 
         routes = target_dict.get(pole_id)
+        candidate_trips = None
+
+        if routes:
+            candidate_trips = find_trips(routes, route_id)
         candidate_trips = None
 
         if routes:
@@ -326,7 +358,7 @@ class TimetableManager:
             if dep is None:
                 continue
             if dep >= current_time_min:
-                if is_valid_trip(trip, route_id):
+                if is_valid_trip(trip, route_id, pole_id):
                     if debug:
                         dest_id = trip.get("dest")
                         print(f"[DEBUG_BUS] PICK dep={min_to_time_str(dep)} dest={dest_id}")
@@ -357,27 +389,47 @@ class TimetableManager:
                     return t_list
             return None
 
-        def is_valid_trip(trip, rid):
+        def is_valid_trip(trip, rid, board_pole_id):
             if not target_pole_id:
                 return True
+
             dest_id = trip.get("dest")
             if not dest_id:
                 return True
 
-            stops = self.route_stops_map.get(rid)
-            if not stops:
+            patterns = self.route_patterns_map.get(rid) or []
+            if not patterns:
                 return True
 
-            try:
-                target_idx = stops.index(target_pole_id)
-                dest_idx = stops.index(dest_id)
-                if dest_idx >= target_idx:
+            any_directional_pattern = False
+
+            for stops in patterns:
+                if board_pole_id not in stops:
+                    continue
+                if dest_id not in stops:
+                    continue
+
+                b = stops.index(board_pole_id)
+                d = stops.index(dest_id)
+
+                if d < b:
+                    continue
+
+                any_directional_pattern = True
+
+                if target_pole_id not in stops:
+                    continue
+
+                t = stops.index(target_pole_id)
+                if b <= t <= d:
                     return True
+
+            if any_directional_pattern:
                 if debug:
-                    print(f"[DEBUG_BUS] REJECT short trip route_id={rid} dest={dest_id} dest_idx={dest_idx} target={target_pole_id} target_idx={target_idx}")
+                    print(f"[DEBUG_BUS] REJECT cannot reach target rid={rid} board={board_pole_id} target={target_pole_id} dest={dest_id}")
                 return False
-            except ValueError:
-                return True
+
+            return True
 
         routes = target_dict.get(pole_id) or {}
         candidate_trips = find_trips(routes, route_id)
@@ -406,7 +458,7 @@ class TimetableManager:
                 continue
             if dep < current_time_min:
                 continue
-            if is_valid_trip(trip, route_id):
+            if is_valid_trip(trip, route_id, pole_id):
                 out.append(trip)
                 if len(out) >= limit:
                     break

@@ -6,6 +6,8 @@ import '../models/route_models.dart';
 class RouteSearchState {
   final String from;
   final String to;
+  final String fromName;
+  final String toName;
   final String? pref;
   final DateTime? startTime;
   final bool isLoading;
@@ -18,6 +20,8 @@ class RouteSearchState {
   const RouteSearchState({
     this.from = '',
     this.to = '',
+    this.fromName = '',
+    this.toName = '',
     this.pref,
     this.startTime,
     this.isLoading = false,
@@ -31,6 +35,8 @@ class RouteSearchState {
   RouteSearchState copyWith({
     String? from,
     String? to,
+    String? fromName,
+    String? toName,
     String? pref,
     DateTime? startTime,
     bool? isLoading,
@@ -43,6 +49,8 @@ class RouteSearchState {
     return RouteSearchState(
       from: from ?? this.from,
       to: to ?? this.to,
+      fromName: fromName ?? this.fromName,
+      toName: toName ?? this.toName,
       pref: pref ?? this.pref,
       startTime: startTime ?? this.startTime,
       isLoading: isLoading ?? this.isLoading,
@@ -60,12 +68,12 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
 
   int _generation = 0;
 
-  void setFrom(String from) {
-    state = state.copyWith(from: from);
+  void setFrom(String from, {String? name}) {
+    state = state.copyWith(from: from, fromName: name ?? from);
   }
 
-  void setTo(String to) {
-    state = state.copyWith(to: to);
+  void setTo(String to, {String? name}) {
+    state = state.copyWith(to: to, toName: name ?? to);
   }
 
   void setPref(String pref) {
@@ -94,18 +102,46 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     );
 
     try {
-      final body = {
-        'from': state.from,
-        'to': state.to,
-      };
-      if (state.pref != null) {
-        body['preference'] = state.pref!;
-      }
-      if (state.startTime != null) {
-        body['start_time'] = state.startTime!.toIso8601String();
+      final fromParts = state.from.split(',');
+      final toParts = state.to.split(',');
+
+      if (fromParts.length != 2 || toParts.length != 2) {
+        state = state.copyWith(isLoading: false, errorMessage: "出発地または到着地が不正です (lat,lon形式である必要があります)");
+        return;
       }
 
-      final r = await ApiClient.post('/jobs', body: body);
+      final alat = double.tryParse(fromParts[0].trim());
+      final alon = double.tryParse(fromParts[1].trim());
+      final blat = double.tryParse(toParts[0].trim());
+      final blon = double.tryParse(toParts[1].trim());
+
+      if (alat == null || alon == null || blat == null || blon == null) {
+        state = state.copyWith(isLoading: false, errorMessage: "座標のパースに失敗しました");
+        return;
+      }
+
+      final body = {
+        'alat': alat.toString(),
+        'alon': alon.toString(),
+        'blat': blat.toString(),
+        'blon': blon.toString(),
+        'pref': state.pref ?? 'fewTransfers', // default to fewTransfers if null? or cost? server default is cost
+      };
+
+      if (state.startTime != null) {
+        // "10:00"
+        final h = state.startTime!.hour.toString().padLeft(2, '0');
+        final m = state.startTime!.minute.toString().padLeft(2, '0');
+        body['time'] = "$h:$m";
+        
+        // "YYYY-MM-DD"
+        final y = state.startTime!.year.toString();
+        final mo = state.startTime!.month.toString().padLeft(2, '0');
+        final d = state.startTime!.day.toString().padLeft(2, '0');
+        body['date'] = "$y-$mo-$d";
+      }
+
+      final r = await ApiClient.post('/route', body: body);
       final jobId = r['job_id'] as String;
 
       // Check if cancelled
@@ -131,19 +167,28 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
       if (_generation != generation) return;
 
       try {
-        final r = await ApiClient.get('/jobs/$jobId');
+        final r = await ApiClient.get('/route', params: {'job_id': jobId});
 
         if (_generation != generation) return;
 
         final status = r['status'] as String;
-        if (status == 'computing') {
+        if (status == 'computing' || status == 'running' || status == 'pending') {
             // continue polling
             continue;
         } else if (status == 'done') {
             final result = r['result'] as Map<String, dynamic>;
             final meta = RouteMeta.fromJson(result['meta'] as Map<String, dynamic>);
             final candidates = (result['candidates'] as List)
-                .map((e) => Candidate.fromJson(e as Map<String, dynamic>))
+                .map((e) {
+                  final map = Map<String, dynamic>.from(e as Map);
+                  if (map['destination_name'] == null || map['destination_name'] == '') {
+                    map['destination_name'] = state.toName;
+                  }
+                  if (map['origin_name'] == null || map['origin_name'] == '') {
+                    map['origin_name'] = state.fromName;
+                  }
+                  return Candidate.fromJson(map);
+                })
                 .toList();
 
             state = state.copyWith(

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import '../core/app_clock.dart';
+import '../core/api_client.dart';
 
 class TimetableService {
   // シングルトンパターン（アプリ内で1つだけインスタンスを作る）
@@ -42,7 +43,51 @@ class TimetableService {
     return "Weekday";
   }
 
-  // 指定された系統・バス停における、全方向の次のバスを取得する
+  // 指定された系統・バス停における、全方向の次のバスを取得する (API版)
+  // 戻り値: [ { "directionId": "1", "name": "上野行き", "times": ["12:14", ...] }, ... ]
+  Future<List<Map<String, dynamic>>> getNextBusesFromApi(String routeId, String poleId, {String? targetPoleId}) async {
+    print('[TimetableService] getNextBusesFromApi呼び出し:');
+    print('  - routeId: $routeId');
+    print('  - poleId: $poleId');
+    print('  - targetPoleId: $targetPoleId');
+
+    try {
+      final params = {
+        'pole_id': poleId,
+        'route_id': routeId,
+        'limit': '3',
+        'debug': 'true',
+      };
+      if (targetPoleId != null && targetPoleId.isNotEmpty) {
+        params['target_pole_id'] = targetPoleId;
+      }
+
+      final json = await ApiClient.get('/bus/next', params: params);
+      final destinations = json['destinations'] as List?;
+      if (destinations == null) return [];
+
+      List<Map<String, dynamic>> results = [];
+      for (var dest in destinations) {
+        if (dest is! Map) continue;
+        final name = dest['destination_name']?.toString() ?? '行き先不明';
+        final times = (dest['times'] as List?)?.map((e) => e.toString()).toList() ?? [];
+
+        if (times.isNotEmpty) {
+          results.add({
+            "destinationName": name,
+            "times": times,
+          });
+        }
+      }
+      return results;
+
+    } catch (e) {
+      print('[TimetableService] API呼び出し失敗: $e');
+      return [];
+    }
+  }
+
+  // 指定された系統・バス停における、全方向の次のバスを取得する (ローカル版 - 旧)
   // 戻り値: [ { "directionId": "1", "name": "上野行き", "times": ["12:14", ...] }, ... ]
   List<Map<String, dynamic>> getNextBusesAllDirections(String routeId, String stopId) {
     print('[TimetableService] getNextBusesAllDirections呼び出し:');

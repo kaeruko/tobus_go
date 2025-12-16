@@ -4,12 +4,14 @@ import '../core/api_client.dart';
 class PlaceField extends StatefulWidget {
   final String label;
   final String value;
+  final String displayValue;
   final void Function(String value, String desc) onChanged;
 
   const PlaceField({
     super.key,
     required this.label,
     required this.value,
+    required this.displayValue,
     required this.onChanged,
   });
 
@@ -21,21 +23,27 @@ class _PlaceFieldState extends State<PlaceField> {
   late TextEditingController _ctrl;
   List<Map<String, dynamic>> _preds = [];
   bool _loading = false;
+  bool _isSyncing = false;
   
   @override
   void initState() {
     super.initState();
-    _ctrl = TextEditingController(text: widget.value);
+    _ctrl = TextEditingController(text: widget.displayValue);
     _ctrl.addListener(_onInputChanged);
   }
 
   @override
   void didUpdateWidget(PlaceField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.value != _ctrl.text) {
+    if (widget.displayValue != _ctrl.text) {
       // External change (e.g. swap), update text and keep selection if possible
       // Note: This might reset cursor position, but acceptable for now.
-      _ctrl.text = widget.value;
+      _isSyncing = true;
+      try {
+        _ctrl.text = widget.displayValue;
+      } finally {
+        _isSyncing = false;
+      }
     }
   }
 
@@ -47,6 +55,7 @@ class _PlaceFieldState extends State<PlaceField> {
   }
 
   Future<void> _onInputChanged() async {
+    if (_isSyncing) return;
     final text = _ctrl.text;
     
     // Notify parent immediately of raw text change (so they can enable search button etc)
@@ -118,7 +127,12 @@ class _PlaceFieldState extends State<PlaceField> {
     // Update text to value (coordinates) because "Destruction is fine"
     // Ideally we'd show `name` but store `val`. 
     // But complying with "Stateless/Single Source of Truth", we show what's in state.
-    _ctrl.text = val; 
+    _isSyncing = true;
+    try {
+      _ctrl.text = name; // Update to name instead of val! 
+    } finally {
+      _isSyncing = false;
+    } 
     
     widget.onChanged(val, name);
   }

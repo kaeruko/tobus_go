@@ -1125,7 +1125,11 @@ class RouteStepTile extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4.0),
-              child: TimetableView(routeId: segment.routeId, stopId: segment.departureStopId),
+              child: TimetableView(
+                routeId: segment.routeId,
+                stopId: segment.departureStopId,
+                targetPoleId: segment.arrivalPoleId, // ターゲット(降車)バス停を渡す
+              ),
             ),
           ],
         ],

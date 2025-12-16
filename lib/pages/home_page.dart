@@ -63,8 +63,8 @@ class HomePageState extends ConsumerState<HomePage> {
     final rs = ref.read(routeSearchProvider);
     final notifier = ref.read(routeSearchProvider.notifier);
 
-    notifier.setFrom(rs.to);
-    notifier.setTo(rs.from);
+    notifier.setFrom(rs.to, name: rs.toName);
+    notifier.setTo(rs.from, name: rs.fromName);
     notifier.triggerSearch();
   }
 
@@ -77,9 +77,9 @@ class HomePageState extends ConsumerState<HomePage> {
     
     final notifier = ref.read(routeSearchProvider.notifier);
     if (forA) {
-      notifier.setFrom(s);
+      notifier.setFrom(s, name: '地図で選択した場所');
     } else {
-      notifier.setTo(s);
+      notifier.setTo(s, name: '地図で選択した場所');
     }
     notifier.triggerSearch();
   }
@@ -114,6 +114,15 @@ class HomePageState extends ConsumerState<HomePage> {
         ),
       ),
     );
+  }
+
+  bool _isCoordinate(String s) {
+    if (s.isEmpty) return false;
+    final parts = s.split(',');
+    if (parts.length != 2) return false;
+    final lat = double.tryParse(parts[0].trim());
+    final lon = double.tryParse(parts[1].trim());
+    return lat != null && lon != null;
   }
 
   @override
@@ -164,9 +173,12 @@ class HomePageState extends ConsumerState<HomePage> {
                     child: PlaceField(
                       label: '出発(検索)',
                       value: rs.from,
+                      displayValue: rs.fromName,
                       onChanged: (val, desc) {
-                        notifier.setFrom(val);
-                        notifier.triggerSearch();
+                        notifier.setFrom(val, name: desc.isNotEmpty ? desc : val);
+                        if (_isCoordinate(val)) {
+                          notifier.triggerSearch();
+                        }
                       },
                     ),
                   ),
@@ -200,9 +212,12 @@ class HomePageState extends ConsumerState<HomePage> {
                     child: PlaceField(
                       label: '到着(検索)',
                       value: rs.to,
+                      displayValue: rs.toName,
                       onChanged: (val, desc) {
-                        notifier.setTo(val);
-                        notifier.triggerSearch();
+                        notifier.setTo(val, name: desc.isNotEmpty ? desc : val);
+                        if (_isCoordinate(val)) {
+                          notifier.triggerSearch();
+                        }
                       },
                     ),
                   ),
@@ -454,17 +469,7 @@ class _ActiveTripCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String displayTitle = trip.title;
-    if (trip.legs.isNotEmpty) {
-      final outbound = trip.legs.firstWhere(
-        (l) => l.direction == LegDirection.outbound,
-        orElse: () => trip.legs.first,
-      );
-      final dest = outbound.candidate.destinationName;
-      if (dest != null && dest.isNotEmpty) {
-        displayTitle = '$dest への遠足';
-      }
-    }
+    final displayTitle = trip.displayTitle;
 
     return GestureDetector(
       onTap: onTap,

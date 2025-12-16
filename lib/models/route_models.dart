@@ -155,6 +155,7 @@ class StepSeg {
   final String? arrivalTime;
   final String routeId;
   final String departureStopId;
+  final String arrivalPoleId;
   final List<StopPoint> stops;
 
   StepSeg({
@@ -170,6 +171,7 @@ class StepSeg {
     this.arrivalTime,
     this.routeId = '',
     this.departureStopId = '',
+    this.arrivalPoleId = '',
     List<StopPoint>? stops,
   }) : stops = stops ?? const [];
 
@@ -195,6 +197,7 @@ class StepSeg {
       // Use backend-provided GTFS IDs (empty string if not available)
       routeId: j['routeId']?.toString() ?? '',
       departureStopId: j['departureStopId']?.toString() ?? '',
+      arrivalPoleId: j['arrivalPoleId']?.toString() ?? '',
       stops: stops,
     );
   }
@@ -226,6 +229,7 @@ class StepSeg {
       'arrival_time': arrivalTime,
       'routeId': routeId,
       'departureStopId': departureStopId,
+      'arrivalPoleId': arrivalPoleId,
       'stops': stops.map((e) => e.toJson()).toList(),
     };
   }

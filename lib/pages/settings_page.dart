@@ -376,6 +376,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 PlaceField(
                   label: '位置を検索して設定',
                   value: _manualLocationInput,
+                  displayValue: _manualLocationInput,
                   onChanged: _updateManualLocation,
                 ),
                 const SizedBox(height: 12),

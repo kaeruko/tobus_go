@@ -52,7 +52,6 @@ RAILWAYS   = os.getenv("RAILWAYS",  f"{DATA_DIR}/odpt_Railway.json")
 # 時刻表パス
 BUS_TBL    = os.getenv("BUS_TBL",   f"{DATA_DIR}/odpt_BusstopPoleTimetable.json")
 TRAIN_TBL  = os.getenv("TRAIN_TBL", f"{DATA_DIR}/odpt_TrainTimetable.json")
-
 WALK_RAD   = int(os.getenv("WALK_RADIUS", "300"))
 
 def download_data_from_s3():

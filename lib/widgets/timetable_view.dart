@@ -6,12 +6,13 @@ import '../services/timetable_service.dart';
 class TimetableView extends StatefulWidget {
   final String routeId;
   final String stopId;
-  // directionIdは削除（内部で全方向取得するため）
+  final String? targetPoleId; // 追加
 
   const TimetableView({
     super.key,
     required this.routeId,
     required this.stopId,
+    this.targetPoleId,
   });
 
   @override
@@ -50,19 +51,32 @@ class _TimetableViewState extends State<TimetableView> {
   }
 
   Future<void> _initData() async {
-    await _service.loadTimetable();
+    // API版ではloadTimetable不要だが、念のため呼んでおくか、あるいは不要なら削除
+    // await _service.loadTimetable(); 
     if (mounted) {
       setState(() {
         _dayType = _service.getTodayType();
-        _isLoading = false;
-        _updateBusInfo();
+        _inputDate(); // APIからデータ取得
       });
     }
   }
 
-  void _updateBusInfo() {
-    // 変更点: 全方向のデータを取得するメソッドを呼ぶ
-    _busGroups = _service.getNextBusesAllDirections(widget.routeId, widget.stopId);
+  Future<void> _inputDate() async {
+    setState(() => _isLoading = true);
+    await _updateBusInfo();
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _updateBusInfo() async {
+    // 変更点: API版のメソッドを非同期で呼ぶ
+    final groups = await _service.getNextBusesFromApi(widget.routeId, widget.stopId, targetPoleId: widget.targetPoleId);
+    if (mounted) {
+      setState(() {
+         _busGroups = groups;
+      });
+    }
   }
 
   @override
