@@ -43,6 +43,17 @@ class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
       );
     }
   }
+
+  /// GPS補正後のインデックスを直接設定する
+  /// MemberModePageでrouteStateの補正結果を反映するために使用
+  void setIndices({required int stepIndex, required int stopIndex}) {
+    if (stepIndex != state.currentStepIndex || stopIndex != state.nextStopIndex) {
+      state = MemberNavState(
+        currentStepIndex: stepIndex,
+        nextStopIndex: stopIndex,
+      );
+    }
+  }
   
   void reset() {
     state = MemberNavState.initial();

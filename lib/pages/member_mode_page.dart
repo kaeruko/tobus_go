@@ -78,12 +78,25 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
       }
       next.whenData((pos) {
         final tripAsync = ref.read(tripStreamProvider);
-        if (tripAsync.hasValue && tripAsync.value != null) {
-          ref.read(memberNavProgressProvider.notifier).updateProgress(
-                tripAsync.value!,
-                LatLng(pos.latitude, pos.longitude),
-              );
-        }
+        if (!tripAsync.hasValue || tripAsync.value == null) return;
+
+        final trip = tripAsync.value!;
+        final currentPos = LatLng(pos.latitude, pos.longitude);
+        final nav = ref.read(memberNavProgressProvider);
+
+        // TripNavigatorを直接呼び出してGPS補正を適用
+        final routeState = TripNavigator.updateRouteOnly(
+          trip: trip,
+          currentPos: currentPos,
+          lastStepIndex: nav.currentStepIndex,
+          lastStopIndex: nav.nextStopIndex,
+        );
+
+        // 補正後のインデックスをnavProgressに書き戻す
+        ref.read(memberNavProgressProvider.notifier).setIndices(
+          stepIndex: routeState.currentStepIndex,
+          stopIndex: routeState.nextStopIndex,
+        );
       });
     });
 
@@ -203,21 +216,21 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                 ? LatLng(locationAsync.value!.latitude, locationAsync.value!.longitude)
                 : const LatLng(35.6812, 139.7671)); // Default Tokyo Station if waiting for GPS
 
-        // 1. Resolve Schedule (Window + Active)
-        final scheduleResolved = ScheduleResolver.resolve(
-          scheduleSorted: _sortedSchedule(trip.schedule),
-          now: now,
-          trip: trip,
-          currentStepIndex: navProgress.currentStepIndex,
-          nextStopIndex: navProgress.nextStopIndex,
-        );
-
-        // 2. Resolve Route Navigation (Pure Route State)
+        // 1. Resolve Route Navigation (Pure Route State) - 先に実行してGPS補正を適用
         final routeState = TripNavigator.updateRouteOnly(
           trip: trip,
           currentPos: currentPos,
           lastStepIndex: navProgress.currentStepIndex,
           lastStopIndex: navProgress.nextStopIndex,
+        );
+
+        // 2. Resolve Schedule (Window + Active) - routeStateの補正後インデックスを使用
+        final scheduleResolved = ScheduleResolver.resolve(
+          scheduleSorted: _sortedSchedule(trip.schedule),
+          now: now,
+          trip: trip,
+          currentStepIndex: routeState.currentStepIndex,
+          nextStopIndex: routeState.nextStopIndex,
         );
 
         // 3. Coordinate Final Display State
