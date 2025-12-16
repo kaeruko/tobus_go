@@ -136,6 +136,7 @@ List<ScheduleEntry> createScheduleFromRoute(
   Duration meetingLeadTime = const Duration(minutes: 10),
   Duration departureLeadTime = Duration.zero,
   DateTime? meetingAt,
+  int baseStepIndex = 0, // ★追加: ステップ番号のオフセット
 }) {
   final list = <ScheduleEntry>[];
   final prefix = (labelPrefix != null && labelPrefix.isNotEmpty)
@@ -197,7 +198,7 @@ List<ScheduleEntry> createScheduleFromRoute(
     ),
   );
 
-  var stepIndex = 0;
+  var stepIndex = baseStepIndex; // ★変更: 0からではなくオフセットから開始
   for (final step in route.steps) {
     if (step.kind == 'walk') {
       if ((step.minutes ?? 0) > 3) {
@@ -292,6 +293,14 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
     }
   }
 
+  // Calculate base step indices for each leg to ensure global uniqueness matching TripNavigator
+  int currentStepBase = 0;
+  final Map<Leg, int> legBaseIndices = {};
+  for (final leg in legs) {
+    legBaseIndices[leg] = currentStepBase;
+    currentStepBase += leg.candidate.steps.length;
+  }
+
   if (outbound != null) {
     schedule.addAll(
       createScheduleFromRoute(
@@ -302,6 +311,7 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
         includeMeeting: true,
         meetingLabel: '${Trip.extractSimpleName(outbound.candidate.originName ?? '')}集合',
         meetingDescription: 'みんな揃っているか確認しましょう',
+        baseStepIndex: legBaseIndices[outbound] ?? 0, // Pass offset
       ),
     );
   }
@@ -352,6 +362,7 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
         meetingDescription: '帰りの経路を開始する前に人数を確認しましょう',
         departureLeadTime: const Duration(minutes: 10),
         meetingAt: _roundDownToHalfHour(inboundDepartureAt.subtract(const Duration(minutes: 15))),
+        baseStepIndex: legBaseIndices[inbound] ?? 0, // Pass offset
       ),
     );
   }
@@ -366,6 +377,7 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
         startDateTime: startDateTime,
         labelPrefix: prefix,
         legIndex: 0,
+        baseStepIndex: legBaseIndices[leg] ?? 0, // Pass offset
       ),
     );
   }

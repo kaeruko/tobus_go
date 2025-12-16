@@ -80,6 +80,7 @@ class TripNavigator {
 
     // legsから全てのstepを展開して1つのリストにする
     final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
+    debugPrint('[TripNavigator] Update: Legs=${trip.legs.length}, TotalSteps=${allSteps.length}, CurStep=$lastStepIndex');
 
     if (allSteps.isEmpty) {
       return _errorRouteState();

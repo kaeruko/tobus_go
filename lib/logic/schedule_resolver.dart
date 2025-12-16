@@ -122,6 +122,13 @@ class ScheduleResolver {
 
     // 1. Flatten all steps to match TripNavigator logic
     var allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
+
+    // ★追加: ステップが空（ルート未生成など）の場合は「完了」ではなく「判定不能(-1)」を返す
+    // 以前は 0 >= 0 で完了扱いになっていた
+    if (allSteps.isEmpty) {
+      return -1;
+    }
+
     if (currentStepIndex >= allSteps.length) {
       debugPrint('[ScheduleResolver] Completed route. Step $currentStepIndex >= ${allSteps.length}');
       // Completed route? return the last schedule item (Goal/Arrival)
@@ -136,7 +143,7 @@ class ScheduleResolver {
       if (entry.routeStepIndex != null) {
         if (entry.routeStepIndex == currentStepIndex) {
           // Match found by index. Now refine by role.
-          debugPrint('[ScheduleResolver] Found potential match at index $i (Role: ${entry.routeRole})');
+          debugPrint('[ScheduleResolver] Found potential match at index $i (Role: ${entry.routeRole}) for Step $currentStepIndex');
           
           if (entry.routeRole == 'walk') {
             // Walk step always matches the Walk entry

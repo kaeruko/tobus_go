@@ -84,7 +84,7 @@ class TripCoordinator {
         final mainLabel = entry.label.isNotEmpty ? entry.label : "予定";
 
         return NavigationState(
-          mainText: "$mainLabel 開始",
+          mainText: "$mainLabel",
           subText: "開始まで $remainder",
           color: Colors.white,
           currentStepIndex: routeState.currentStepIndex,

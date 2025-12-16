@@ -59,6 +59,9 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   void initState() {
     super.initState();
     
+    // Reset navigation state to ensure we start fresh (clears any stale debug/previous trip state)
+    ref.read(memberNavProgressProvider.notifier).reset();
+
     // Listeners moved to initState (manual management)
     ref.listenManual(tripStreamProvider, (prev, next) {
       next.whenData((trip) {
