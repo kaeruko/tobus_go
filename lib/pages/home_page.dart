@@ -167,6 +167,37 @@ class HomePageState extends ConsumerState<HomePage> {
                 children: [
                   const SizedBox(height: 8),
 
+                  // Date Time
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    child: GestureDetector(
+                      onTap: () => _showTimePicker(startTime),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: CupertinoColors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: CupertinoColors.separator),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('出発日時', style: TextStyle(fontSize: 14)),
+                            Text(
+                              '${startTime.month}/${startTime.day} ${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: CupertinoColors.activeBlue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
                   // From
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -254,36 +285,7 @@ class HomePageState extends ConsumerState<HomePage> {
                       },
                     ),
                   ),
-                  
-                  // Date Time
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: GestureDetector(
-                      onTap: () => _showTimePicker(startTime),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: CupertinoColors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: CupertinoColors.separator),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('出発日時', style: TextStyle(fontSize: 14)),
-                            Text(
-                              '${startTime.month}/${startTime.day} ${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: CupertinoColors.activeBlue,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+
 
                   // Search Button (Optional but useful if auto-search fails or purely manual)
                   Padding(

@@ -361,6 +361,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                     onPressed: () {
                       setState(() {
                         _isReturnSearchVisible = true;
+                        _returnSearchTime = appClock.now().add(Duration(minutes: widget.candidate.totalTime));
                       });
                     },
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),

@@ -80,13 +80,16 @@ class TripCoordinator {
           remainder = "あと ${diff.inMinutes}分";
         }
 
+        // Use label to clarify WHAT is starting (e.g. "Meeting Start" vs "Trip Start")
+        final mainLabel = entry.label.isNotEmpty ? entry.label : "予定";
+
         return NavigationState(
-          mainText: "$dateStr $timeStr 開始",
+          mainText: "$mainLabel 開始",
           subText: "開始まで $remainder",
           color: Colors.white,
           currentStepIndex: routeState.currentStepIndex,
           nextStopIndex: routeState.nextStopIndex,
-          statusLabel: "開始前",
+          statusLabel: entry.itemKind == ScheduleEntryKind.meeting ? "集合前" : "開始前",
           isMoving: false,
         );
       }
