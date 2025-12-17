@@ -1660,5 +1660,81 @@ def main():
             else:
                 print(f"      [{step['kind'].upper()}] {step['title']} ({step['from_']} -> {step['to']})")
 
+
+# -------------------- 新機能: 一本で行ける場所検索 --------------------
+
+def get_reachable_stops(G, tm, lat, lon, limit_dist=1000):
+    """
+    GPS座標から最寄りのバス停・駅を特定し、そこから乗り換えなしで行ける
+    すべてのバス停・駅のリストを返す。
+    """
+    # 1. 最寄りの物理ノード（バス停/駅）を探す
+    start_node, dist = nearest_phys(G, lat, lon)
+    
+    if not start_node or dist > limit_dist:
+        return {
+            "found": False,
+            "message": "近くに都営交通のバス停・駅が見つかりませんでした。"
+        }
+
+    start_id = start_node[1]  # "odpt.BusstopPole:..."
+    start_info = G.nodes[start_node]
+    
+    # 到達可能なバス停を格納する辞書 (id -> info)
+    reachable_map = {}
+    
+    # 2. そのバス停を通るすべての路線パターンを走査
+    # tm.route_patterns_map: { route_id: [ [stopA, stopB, ...], [stopC, ...] ] }
+    for route_id, patterns in tm.route_patterns_map.items():
+        for seq in patterns:
+            # このパターンに現在地が含まれているか？
+            if start_id in seq:
+                idx = seq.index(start_id)
+                
+                # 終点の場合はスキップ
+                if idx == len(seq) - 1:
+                    continue
+
+                # 現在地より「後」にあるバス停はすべて到達可能
+                future_stops = seq[idx+1:]
+                
+                # 路線情報の取得（グラフのノードから情報を拝借）
+                # ※厳密には patterns に紐付く方向幕情報などがほしいが、
+                # ここでは簡易的に route_id を使う
+                
+                for next_stop_id in future_stops:
+                    # 既に登録済みならスキップ（複数路線で行ける場合など）
+                    if next_stop_id in reachable_map:
+                        continue
+                        
+                    node_key = ("phys", next_stop_id)
+                    if node_key in G:
+                        node_data = G.nodes[node_key]
+                        reachable_map[next_stop_id] = {
+                            "id": next_stop_id,
+                            "name": node_data.get("name"),
+                            "lat": node_data.get("lat"),
+                            "lon": node_data.get("lon"),
+                            # どの路線で行けるか（代表の1つを入れておく、またはリスト化する）
+                            "via_route": route_id 
+                        }
+
+    # リストに変換してソート（必要なら距離順や名前順に）
+    reachable_list = list(reachable_map.values())
+    
+    return {
+        "found": True,
+        "nearest_stop": {
+            "id": start_id,
+            "name": start_info.get("name"),
+            "lat": start_info.get("lat"),
+            "lon": start_info.get("lon"),
+            "dist_m": dist
+        },
+        "reachable_stops": reachable_list,
+        "count": len(reachable_list)
+    }
+
+
 if __name__ == "__main__":
     main()

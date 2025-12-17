@@ -15,6 +15,7 @@ from toei_engine import (
     time_str_to_min,
     min_to_time_str,
     MAX_WALK_SEG_M,
+    get_reachable_stops,
 )
 
 ROUTE_JOBS: dict[str, dict] = {}
@@ -256,3 +257,23 @@ def register_routes(app):
             "target_pole_id": target_pole_id,
             "destinations": destinations,
         }
+
+    @router.get("/reachable")
+    async def find_reachable_places(
+        lat: float = Query(..., description="現在地の緯度"),
+        lon: float = Query(..., description="現在地の経度")
+    ):
+        # アプリケーションの状態から G と tm を取得する処理が必要
+        # 例: app.state.graph, app.state.timetable_manager
+        # ここでは変数として利用可能と仮定
+        from ...server import G, tm  # server.pyなどでグローバルに持っている場合
+
+        if not G or not tm:
+            raise HTTPException(status_code=503, detail="Server not initialized")
+
+        result = get_reachable_stops(G, tm, lat, lon)
+        
+        if not result["found"]:
+            raise HTTPException(status_code=404, detail=result["message"])
+            
+        return result
