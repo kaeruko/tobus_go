@@ -72,11 +72,11 @@ class _RootTabsState extends ConsumerState<RootTabs> {
       ),
       const BottomNavigationBarItem(
         icon: Icon(CupertinoIcons.compass),
-        label: '探索',
+        label: 'みつける',
       ),
        const BottomNavigationBarItem(
         icon: Icon(CupertinoIcons.bookmark),
-        label: 'My Route',
+        label: 'お気に入り',
       ),
       if (_canShowHistory)
         const BottomNavigationBarItem(
