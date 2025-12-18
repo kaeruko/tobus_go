@@ -1123,7 +1123,7 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
             target,
             start_time_str=start_time,
             day_type=day_type,
-            # max_search=2000,
+            max_search=30000,
             max_visited=100000,
             max_travel_min=MAX_TRAVEL_MIN,
             delays_snapshot=delays_snapshot,
@@ -1193,24 +1193,18 @@ def find_paths_generator(
     start_time_str="10:00",
     day_type="weekday",
     max_search=30000,
-    max_visited=15000,  # ★さらに削減: 30000 -> 15000
+    max_visited=15000,
     max_travel_min=MAX_TRAVEL_MIN,
     delays_snapshot=None,
-    time_limit_sec=15.0, # ★追加: 探索のタイムアウト時間
+    time_limit_sec=15.0,
     virtual_dest_connections=None,
     target_coords=None,
 ):
-    """
-    コスト最小パスを列挙するジェネレータ（メモリ最適化版）。
-    path をリストのコピーではなく (node, parent) のタプルチェーンで管理する。
-    """
     import time
-    start_cpu_time = time.time() # 開始時間を記録
+    start_clock = time.monotonic()
 
     start_min = time_str_to_min(start_time_str)
-    # print(f"[DEBUG] find_paths_generator START: {start_node} -> {target_node} @ {start_time_str} (min={start_min})")
 
-    # A* Heuristic Setup
     t_lat, t_lon = None, None
     if target_coords:
         t_lat, t_lon = target_coords
@@ -1219,56 +1213,53 @@ def find_paths_generator(
             t_lat = G.nodes[target_node]["lat"]
             t_lon = G.nodes[target_node]["lon"]
         except KeyError:
-            # print(f"[WARN] Target node {target_node} has no coordinates. A* fallback to Dijkstra.")
             pass
 
     def heuristic(n):
-        if t_lat is None: return 0.0
+        if t_lat is None:
+            return 0.0
         n_lat = G.nodes[n].get("lat")
         n_lon = G.nodes[n].get("lon")
-        if n_lat is None or n_lon is None: return 0.0
+        if n_lat is None or n_lon is None:
+            return 0.0
         dist = haversine(n_lat, n_lon, t_lat, t_lon)
-        # ★変更: 少し強めのヒューリスティック係数 (探索をゴール方向に誘導)
-        # Bus speed approx 300m/min. Using 400.0 makes it admissible but slightly aggressive.
         return dist / 400.0
 
-    # priority queue の状態:
-    # (estimated_cost, cost, u, total_walk_m, seg_walk_m, curr_time, path_chain)
-    # path_chain は (current_node, parent_chain) のタプル
     start_h = heuristic(start_node)
-    
-    # ★変更: path を [start_node] ではなく (start_node, None) にする
     pq = [(start_h, 0.0, start_node, 0.0, 0.0, start_min, (start_node, None))]
-    
+
     count_visited = defaultdict(int)
+    best_cost = {}
     seen_logical_routes = set()
     yielded_count = 0
     visited_count = 0
 
     while pq:
-        # ★追加: タイムアウトチェック
-        if visited_count % 1000 == 0:
-            if time.time() - start_cpu_time > time_limit_sec:
+        if visited_count > 0 and visited_count % 1000 == 0:
+            if time.monotonic() - start_clock > time_limit_sec:
                 print(f"[WARN] Search timed out after {time_limit_sec}s. Yielded {yielded_count} paths.")
                 return
 
         _, cost, u, total_walk_m, seg_walk_m, curr_time, path_chain = heapq.heappop(pq)
         visited_count += 1
-        
-        # 安全装置
+
         if visited_count > max_visited:
-            print(f"[WARN] Search exceeded max_visited ({max_visited}). Stopping.")
+            print(f"[WARN] Search exceeded max_visited {max_visited}. Stopping.")
             return
 
-        # 所要時間が上限を超えた状態はそこで打ち切り
         if curr_time - start_min > max_travel_min:
             continue
 
-        # ゴール判定
+        walk_bucket = int(seg_walk_m // 10)
+        state_key = (u, walk_bucket)
+
+        prev_best = best_cost.get(state_key)
+        if prev_best is not None and cost >= prev_best:
+            continue
+        best_cost[state_key] = cost
+
         if u == target_node:
-            # ★変更: ここでリストに復元する
             full_path = reconstruct_path(path_chain)
-            
             sig = get_logical_signature(G, full_path)
             if sig in seen_logical_routes:
                 continue
@@ -1279,31 +1270,40 @@ def find_paths_generator(
                 "path": full_path,
                 "walk_m": total_walk_m,
             }
-            # print(f"[DEBUG] Path found! cost={cost:.1f}, time={curr_time - start_min:.0f}min")
             yielded_count += 1
             if yielded_count >= max_search:
                 return
             continue
 
-        # 「同じノード＋ほぼ同じ徒歩セグメント長」からの展開回数を制限
-        walk_bucket = int(seg_walk_m // 10)
-        state_key = (u, walk_bucket)
         if count_visited[state_key] >= 20:
             continue
         count_visited[state_key] += 1
 
+        if virtual_dest_connections and target_node and target_node[0] == "phys" and str(target_node[1]).startswith("dest:"):
+            for nid, vw, vmeters in virtual_dest_connections:
+                if nid == u:
+                    next_time_v = curr_time + (vmeters / WALK_SPEED_M_PER_MIN)
+                    if next_time_v - start_min <= max_travel_min:
+                        new_total_v = total_walk_m + vmeters
+                        new_seg_v = vmeters
+                        if new_total_v <= MAX_TOTAL_WALK_M and new_seg_v <= MAX_WALK_SEG_M:
+                            new_cost_v = cost + vw
+                            heapq.heappush(
+                                pq,
+                                (new_cost_v + heuristic(target_node), new_cost_v, target_node,
+                                 new_total_v, new_seg_v, next_time_v, (target_node, path_chain)),
+                            )
+                    break
+
+
         for v in G[u]:
             edge = G[u][v]
-            # etype = edge.get("etype")
             w = edge.get("w", 0.0)
             meters = edge.get("meters", 0.0)
-            
-            # 時間を進める
+
             next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type, delays_snapshot=delays_snapshot)
             if next_time is None:
                 continue
-
-            # 上限時間超えチェック
             if next_time - start_min > max_travel_min:
                 continue
 
@@ -1323,9 +1323,7 @@ def find_paths_generator(
 
             new_cost = cost + w
             new_h = heuristic(v)
-            
-            # ★変更: タプルチェーンを作る (v, parent_chain)
-            # これでリストコピーが発生せずメモリ消費が O(1) になる
+
             heapq.heappush(
                 pq,
                 (new_cost + new_h, new_cost, v, new_total_walk_m, new_seg_walk_m, next_time, (v, path_chain)),

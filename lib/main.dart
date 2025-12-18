@@ -10,7 +10,7 @@ import 'providers/app_session_provider.dart';
 import 'core/app_clock.dart';
 
 void main() async {
-  appClock.setOffset(Duration(hours: -7, minutes: 0));
+  appClock.setOffset(Duration(hours: 0, minutes: 0));
 
   WidgetsFlutterBinding.ensureInitialized();
 
