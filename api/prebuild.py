@@ -2,16 +2,19 @@ import os
 import sys
 import pickle
 import time
-from dotenv import load_dotenv
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # 既存モジュールをインポート
 import initialize_data
 from toei_engine import build_graph, TimetableManager, SpatialIndex
 from app.runtime import _paths  # パス設定を再利用
 
-load_dotenv()
-
-OUTPUT_FILE = "data/app_data.pkl"
+OUTPUT_FILE = "api/data/app_data.pkl"
 
 def main():
     print("=== Pre-building Assets for Lambda ===")
@@ -19,13 +22,13 @@ def main():
 
     # 1. データのダウンロード (initialize_data.py のロジック)
     # 必要なら強制的にデータを取得させる
-    if not os.path.exists("data/odpt_BusstopPole.json"):
+    if not os.path.exists("api/data/odpt_BusstopPole.json"):
         print("Data missing. Fetching...")
         initialize_data.main()
 
     # 2. パス設定の取得
     # 環境変数がセットされていない場合を考慮してデフォルトを使用
-    os.environ["DATA_DIR"] = "data"
+    os.environ["DATA_DIR"] = "api/data"
     p = _paths()
 
     print("Building Graph (NetworkX)...")

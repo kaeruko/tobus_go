@@ -221,11 +221,11 @@ class TimetableManager:
             targets = []
             
             # Heuristic Mapping (Generalized Suffix Match)
-            # Weekday: Ends with -100 or -109 (based on logs) or has "Weekday"
+            # Weekday: Ends with -170 or -174 (To01 case), or has "Weekday"
             is_wk = (
                 "Weekday" in calendar 
-                or calendar.endswith("-100") 
-                or calendar.endswith("-109")
+                or calendar.endswith("-170") 
+                or calendar.endswith("-174")
             )
             
             # Saturday: Ends with -160 or has "Saturday"
@@ -234,11 +234,11 @@ class TimetableManager:
                 or calendar.endswith("-160")
             )
             
-            # Holiday: Ends with -170, -174 (To01 case), or has "Holiday"
+            # Holiday: Ends with -100, -109, or has "Holiday"
             is_hol = (
                 "Holiday" in calendar 
-                or calendar.endswith("-170") 
-                or calendar.endswith("-174")
+                or calendar.endswith("-100") 
+                or calendar.endswith("-109")
             )
 
             if is_wk: targets.append(self.bus_departures_weekday)
@@ -313,10 +313,20 @@ class TimetableManager:
                     count += 1
         print(f"[INFO] Index built. Total {count} nodes.")
 
-    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=True):
+    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
         if not debug:
-            debug = os.getenv("DEBUG_BUS") == "1"
+            dbg_env = os.getenv("DEBUG_BUS", "0")
+            if dbg_env == "1":
+                debug = True
+            elif dbg_env != "0" and pole_name and dbg_env in pole_name:
+                debug = True
 
+        if not debug:
+            return self._get_next_bus_departure_impl(pole_id, route_id, current_time_min, pole_name, day_type, target_pole_id, debug=False)
+        
+        return self._get_next_bus_departure_impl(pole_id, route_id, current_time_min, pole_name, day_type, target_pole_id, debug=True)
+
+    def _get_next_bus_departure_impl(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
         if day_type == "saturday":
             target_dict = self.bus_departures_saturday
         elif day_type == "holiday":
@@ -330,7 +340,7 @@ class TimetableManager:
             for r_key, t_list in routes_dict.items():
                 if target_rid in r_key or r_key in target_rid:
                     if debug:
-                        print(f"[DEBUG_BUS] Fuzzy match route_id={target_rid} matched_key={r_key}")
+                        print(f"[🚌BUS] 🔎 Fuzzy match: target={target_rid} matched={r_key}")
                     return t_list
             return None
 
@@ -371,33 +381,56 @@ class TimetableManager:
 
             if any_directional_pattern:
                 if debug:
-                    print(f"[DEBUG_BUS] REJECT cannot reach target rid={rid} board={board_pole_id} target={target_pole_id} dest={dest_id}")
+                    print(f"[🚌BUS] ❌ REJECT: Direction mismatch (Total {len(patterns)} patterns checked). rid={rid} board={board_pole_id} target={target_pole_id} dest={dest_id}")
                 return False
 
+            if target_pole_id and patterns:
+                # 路線パターンは存在するが、このトリップの目的地(dest_id)がいずれのパターンにも含まれない場合
+                # （入庫便など、通常の路線図に載らない特殊なパターンの可能性が高い）
+                if debug:
+                    print(f"[🚌BUS] ❌ REJECT: Trip destination {dest_id} is not in any pattern of {rid}. Cannot guarantee it stops at {target_pole_id}.")
+                return False
+
+            if debug:
+                print(f"[🚌BUS] ⚠️ WARNING: No patterns at all for rid={rid}. Assuming OK. board={board_pole_id} dest={dest_id}")
             return True
+
+        if debug:
+            print(f"\n[🚌BUS] ────────── SEARCH START ──────────")
+            print(f"[🚌BUS] 📍 Boarding: {pole_name} (ID: {pole_id})")
+            print(f"[🚌BUS] 🆔 Route: {route_id} | Day: {day_type}")
 
         routes = target_dict.get(pole_id)
         candidate_trips = None
 
         if routes:
             candidate_trips = find_trips(routes, route_id)
+            if debug and candidate_trips:
+                print(f"[🚌BUS] ✅ Direct Match: ID={pole_id}")
 
         if not candidate_trips and pole_name and pole_name in self.name_to_pids:
+            if debug:
+                print(f"[🚌BUS] 🔄 ID Mismatch. Falling back to name match: '{pole_name}'")
+                print(f"[🚌BUS]    Alternatives: {self.name_to_pids[pole_name]}")
             for alt_pid in self.name_to_pids[pole_name]:
                 if alt_pid == pole_id:
                     continue
                 alt_routes = target_dict.get(alt_pid)
                 if not alt_routes:
+                    if debug:
+                        print(f"[🚌BUS]    ❌ Skip ID={alt_pid} (No timetable for {day_type})")
                     continue
                 candidate_trips = find_trips(alt_routes, route_id)
                 if candidate_trips:
                     if debug:
-                        print(f"[DEBUG_BUS] Fallback pole_id={pole_id} alt_pid={alt_pid} pole_name={pole_name}")
+                        print(f"[🚌BUS]    ✅ Match Found! Using ID={alt_pid}")
                     break
+                elif debug:
+                    print(f"[🚌BUS]    ❌ Skip ID={alt_pid} (Route {route_id} not found)")
 
         if not candidate_trips:
             if debug:
-                print(f"[DEBUG_BUS] No timetable pole_id={pole_id} route_id={route_id} day_type={day_type}")
+                print(f"[🚌BUS] ❌ FINAL FAIL: No timetable for Route={route_id} at Bus Stop={pole_name}")
             return None
 
         if debug:
@@ -407,7 +440,7 @@ class TimetableManager:
             for tr in sample:
                 d = tr.get("dest") or "unknown"
                 counts[d] = counts.get(d, 0) + 1
-            print(f"[DEBUG_BUS] Candidates pole_id={pole_id} route_id={route_id} day_type={day_type} now={now_str} target_pole_id={target_pole_id} candidates={len(candidate_trips)} sample_dest_counts={counts}")
+            print(f"[🚌BUS] 📊 Stats: Now={now_str} | Target={target_pole_id} | Trips={len(candidate_trips)} | Targets={counts}")
 
         for trip in candidate_trips:
             dep = trip.get("dep")
@@ -417,11 +450,11 @@ class TimetableManager:
                 if is_valid_trip(trip, route_id, pole_id):
                     if debug:
                         dest_id = trip.get("dest")
-                        print(f"[DEBUG_BUS] PICK dep={min_to_time_str(dep)} dest={dest_id}")
+                        print(f"[🚌BUS] ⭐ PICKED: Departure={min_to_time_str(dep)} | Destination={dest_id}")
                     return dep
 
         if debug:
-            print(f"[DEBUG_BUS] No future dep pole_id={pole_id} route_id={route_id} now={min_to_time_str(current_time_min)}")
+            print(f"[🚌BUS] ❌ NO UPCOMING: Current time {min_to_time_str(current_time_min)} exceeded all departures for this route.")
         return None
 
     def get_future_bus_trips(self, pole_id, route_id, current_time_min, limit=10, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
@@ -936,13 +969,39 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=Non
             route_id = G.nodes[node].get("route_id")
             stop_name = G.nodes[u].get("name")
             
+            # target_pole_ids が渡された場合、それぞれに対して方向チェックを行う
+            target_pole_ids = kwargs.get("target_pole_ids") or set()
             target_pole_id = kwargs.get("target_pole_id")
-
+            
+            # 単一の target_pole_id が指定されている場合はそれを使用
+            if target_pole_id:
+                dep = tm.get_next_bus_departure(
+                    phys_id, route_id, curr_time,
+                    pole_name=stop_name,
+                    day_type=day_type,
+                    target_pole_id=target_pole_id
+                )
+                return dep
+            
+            # target_pole_ids が指定されている場合、いずれかに到達できればOK
+            if target_pole_ids:
+                for tpid in target_pole_ids:
+                    dep = tm.get_next_bus_departure(
+                        phys_id, route_id, curr_time,
+                        pole_name=stop_name,
+                        day_type=day_type,
+                        target_pole_id=tpid
+                    )
+                    if dep is not None:
+                        return dep
+                return None  # どのターゲットにも到達できない
+            
+            # ターゲット指定なしの場合（後方互換）
             dep = tm.get_next_bus_departure(
                 phys_id, route_id, curr_time,
                 pole_name=stop_name,
                 day_type=day_type,
-                target_pole_id=target_pole_id
+                target_pole_id=None
             )
 
             return dep  # dep が None のときは呼び出し側で弾く
@@ -1228,6 +1287,51 @@ def find_paths_generator(
     start_h = heuristic(start_node)
     pq = [(start_h, 0.0, start_node, 0.0, 0.0, start_min, (start_node, None))]
 
+    # 目的地のバス停ID群を取得（方向フィルタリング用）
+    # virtual_dest_connections がある場合 => それらのバス停に到達できればOK
+    # そうでない場合 => target_node が物理ノードならそのIDを使う
+    # 注意: 駅ID (odpt.Station:...) はバス路線パターンに含まれないため除外
+    target_pole_ids = set()
+    if virtual_dest_connections:
+        for nid, _, _ in virtual_dest_connections:
+            if nid[0] == "phys":
+                pid = nid[1]
+                # バス停IDのみ追加（駅IDは除外）
+                if isinstance(pid, str) and pid.startswith("odpt.BusstopPole:"):
+                    target_pole_ids.add(pid)
+    elif target_node and target_node[0] == "phys":
+        pid = target_node[1]
+        if isinstance(pid, str) and pid.startswith("odpt.BusstopPole:"):
+            target_pole_ids.add(pid)
+
+    # 方向フィルタ用の救済
+    # virtual_dest_connections が駅しかないケースでも目的地付近のバス停ポールを拾って target_pole_ids を埋める
+    if not target_pole_ids and t_lat is not None and t_lon is not None:
+        R_FALLBACK_M = 800.0
+        if hasattr(G, "spatial_index") and G.spatial_index:
+            cands = G.spatial_index.nearby_candidates(t_lat, t_lon, R_FALLBACK_M)
+            for nid, nlat, nlon in cands:
+                if nid[0] != "phys":
+                    continue
+                pid = nid[1]
+                if isinstance(pid, str) and pid.startswith("odpt.BusstopPole:"):
+                    if haversine(t_lat, t_lon, nlat, nlon) <= R_FALLBACK_M:
+                        target_pole_ids.add(pid)
+        else:
+            for n, d in G.nodes(data=True):
+                if n[0] != "phys":
+                    continue
+                pid = n[1]
+                if not (isinstance(pid, str) and pid.startswith("odpt.BusstopPole:")):
+                    continue
+                if haversine(t_lat, t_lon, d["lat"], d["lon"]) <= R_FALLBACK_M:
+                    target_pole_ids.add(pid)
+
+    if target_pole_ids:
+        print(f"[DEBUG_TARGET] target_pole_ids size={len(target_pole_ids)} sample={list(sorted(target_pole_ids))[:5]}")
+    else:
+        print(f"[DEBUG_TARGET] target_pole_ids is EMPTY (Target coordinates: {t_lat}, {t_lon})")
+
     count_visited = defaultdict(int)
     best_cost = {}
     seen_logical_routes = set()
@@ -1301,7 +1405,7 @@ def find_paths_generator(
             w = edge.get("w", 0.0)
             meters = edge.get("meters", 0.0)
 
-            next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type, delays_snapshot=delays_snapshot)
+            next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type, delays_snapshot=delays_snapshot, target_pole_ids=target_pole_ids)
             if next_time is None:
                 continue
             if next_time - start_min > max_travel_min:
