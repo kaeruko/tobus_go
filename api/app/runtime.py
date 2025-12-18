@@ -1,14 +1,15 @@
 import os
 import asyncio
-import zipfile
-import boto3
+import pickle
+import time
 import httpx
 
 import initialize_data
 from toei_engine import build_graph, TimetableManager
 
-DATA_ZIP_NAME = "toei_data.zip"
 LAMBDA_TMP_DIR = "/tmp/data"
+# 事前ビルドされたファイルのパス（コンテナ内の配置場所）
+PREBUILT_DATA_PATH = os.getenv("PREBUILT_DATA_PATH", "data/app_data.pkl")
 
 def _env_int(key: str, default: int) -> int:
     v = os.getenv(key)
@@ -26,31 +27,6 @@ def _paths() -> dict:
         "TRAIN_TBL": os.getenv("TRAIN_TBL", f"{data_dir}/odpt_TrainTimetable.json"),
         "WALK_RAD": _env_int("WALK_RADIUS", 300),
     }
-
-def download_data_from_s3_if_needed() -> None:
-    bucket = os.getenv("S3_BUCKET_NAME")
-    if not bucket:
-        return
-
-    data_dir = os.getenv("DATA_DIR", LAMBDA_TMP_DIR)
-    os.makedirs(data_dir, exist_ok=True)
-
-    marker = f"{data_dir}/odpt_BusstopPole.json"
-    if os.path.exists(marker):
-        return
-
-    try:
-        s3 = boto3.client("s3")
-        zip_path = f"/tmp/{DATA_ZIP_NAME}"
-        print(f"[INFO] Downloading {bucket}/{DATA_ZIP_NAME} to {zip_path}")
-        s3.download_file(bucket, DATA_ZIP_NAME, zip_path)
-
-        print(f"[INFO] Extracting {zip_path} to /tmp")
-        with zipfile.ZipFile(zip_path, "r") as z:
-            z.extractall("/tmp")
-    except Exception as e:
-        print(f"[ERROR] Failed to download/extract from S3: {e}")
-        # Initialize data fallback will run next if files are missing
 
 async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
     token = os.getenv("ODPT_API_TOKEN")
@@ -71,26 +47,59 @@ async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
                     tm.update_delays(r.json())
         except Exception:
             pass
-
         await asyncio.sleep(60)
 
 async def setup_on_startup(app, mode: str) -> None:
+    """
+    アプリケーション起動時の初期化処理
+    事前ビルド済みデータ(app_data.pkl)があればそれを高速ロードする
+    """
+    start_time = time.time()
+    
+    # 完全に準備が整うまで、loading_status は starting のままにする
+    # (routes.py で 503 を返すために必要)
+    app.state.loading_status = "starting"
+
+    # 1. 高速起動パス: Pickleファイルからのロード
+    if os.path.exists(PREBUILT_DATA_PATH):
+        print(f"[INFO] Loading prebuilt data from {PREBUILT_DATA_PATH}...")
+        try:
+            with open(PREBUILT_DATA_PATH, "rb") as f:
+                data = pickle.load(f)
+            
+            app.state.G = data["G"]
+            app.state.TM = data["TM"]
+            app.state.WALK_RAD = data.get("WALK_RAD", 300)
+            
+            print(f"[INFO] Data loaded in {time.time() - start_time:.2f}s")
+            
+            # リアルタイムデータの取得タスクを開始
+            asyncio.create_task(fetch_realtime_data_loop(app.state.TM))
+            
+            app.state.loading_status = "ready"
+            return
+        except Exception as e:
+            print(f"[WARNING] Failed to load prebuilt data: {e}. Falling back to slow load.")
+
+    # 2. 低速起動パス (フォールバック): 生データから構築
+    # Lambda環境かつデータがない場合のみダウンロード/生成
     if mode == "lambda":
         os.environ["DATA_DIR"] = os.getenv("DATA_DIR", LAMBDA_TMP_DIR)
-
-        download_data_from_s3_if_needed()
-
         data_dir = os.getenv("DATA_DIR", LAMBDA_TMP_DIR)
+        
         required = [
             f"{data_dir}/odpt_BusstopPole.json",
             f"{data_dir}/odpt_BusstopPoleTimetable.json",
             f"{data_dir}/ToeiBus-GTFS/routes.txt",
         ]
+        
         if not all(os.path.exists(p) for p in required):
+            print("[INFO] Data missing, running initialization...")
             initialize_data.main(data_dir=data_dir)
 
     p = _paths()
 
+    print("[INFO] Building Graph from raw JSON...")
     g = build_graph(
         p["BUSSTOP"],
         p["BUSROUTE"],
@@ -113,4 +122,7 @@ async def setup_on_startup(app, mode: str) -> None:
     app.state.TM = tm
     app.state.WALK_RAD = p["WALK_RAD"]
 
+    print(f"[INFO] Slow initialization finished in {time.time() - start_time:.2f}s")
     asyncio.create_task(fetch_realtime_data_loop(tm))
+    
+    app.state.loading_status = "ready"

@@ -149,6 +149,9 @@ def register_routes(app):
 
     @app.post("/route")
     async def route_start(req: RouteRequest):
+        if getattr(app.state, "loading_status", "starting") != "ready":
+             raise HTTPException(503, "Server is warming up (loading data). Please try again in 1-2 minutes.")
+
         job_id = uuid.uuid4().hex
         ROUTE_JOBS[job_id] = {"status": "pending"}
         asyncio.create_task(_run_route_job(app, job_id, req.alat, req.alon, req.blat, req.blon, req.pref, req.time, req.date))
@@ -187,7 +190,8 @@ def register_routes(app):
 
     @app.get("/healthz")
     async def healthz():
-        return {"ok": True}
+        status = getattr(app.state, "loading_status", "unknown")
+        return {"ok": True, "status": status}
 
     @app.post("/route/experience")
     async def route_experience(
@@ -205,6 +209,9 @@ def register_routes(app):
         limit: int = Query(5),
         debug: bool = Query(True),
     ):
+        if getattr(app.state, "loading_status", "starting") != "ready":
+             raise HTTPException(503, "Server is warming up (loading data).")
+
         g = app.state.G
         tm = app.state.TM
         if g is None or tm is None:
@@ -266,10 +273,13 @@ def register_routes(app):
         lat: float = Query(..., description="現在地の緯度"),
         lon: float = Query(..., description="現在地の経度")
     ):
+        if getattr(app.state, "loading_status", "starting") != "ready":
+             raise HTTPException(503, "Server is warming up (loading data).")
+
         # 修正箇所: serverからインポートせず、app.stateから取得する
         G = app.state.G
         tm = app.state.TM
-
+        
         if G is None or tm is None:
             raise HTTPException(status_code=503, detail="Server not initialized")
 

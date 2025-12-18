@@ -63,6 +63,22 @@ def min_to_time_str(m):
     mn = int(m % 60)
     return f"{h:02d}:{mn:02d}"
 
+def _create_int_dd():
+    return defaultdict(int)
+
+def reconstruct_path(chain):
+    """
+    (current_node, parent_chain) の形式のタプルチェーンから
+    [node1, node2, ..., current_node] のリストを復元する
+    """
+    path = []
+    curr = chain
+    while curr:
+        node, parent = curr
+        path.append(node)
+        curr = parent
+    return path[::-1]  # 逆順になおす
+
 # -------------------- 時刻表マネージャー (名寄せ強化版) --------------------
 class TimetableManager:
     def __init__(self):
@@ -542,7 +558,7 @@ class TimetableManager:
         # --- Load app_timetable.json for smart resolution ---
         # Assuming gtfs_dir is something like "data/ToeiBus-GTFS", parent is "data"
         timetable_path = os.path.join(os.path.dirname(gtfs_dir), "app_timetable.json")
-        self.route_stop_stats = defaultdict(lambda: defaultdict(int)) # route_id -> stop_id -> total_trips
+        self.route_stop_stats = defaultdict(_create_int_dd) # route_id -> stop_id -> total_trips
 
         if os.path.exists(timetable_path):
             print(f"[INFO] Loading app timetable stats from {timetable_path}...")
@@ -1109,62 +1125,52 @@ def find_paths_generator(
     start_time_str="10:00",
     day_type="weekday",
     max_search=30000,
-    max_visited=100000,
+    max_visited=30000,  # ★変更: 10万から3万へ削減 (メモリ保護)
     max_travel_min=MAX_TRAVEL_MIN,
     delays_snapshot=None,
 ):
     """
-    コスト最小パスを列挙するジェネレータ（時刻表込み）。
-    - 状態に curr_time を持ち、advance_time で時間を進める
-    - 所要時間と総徒歩距離に上限をかけて枝刈りする
+    コスト最小パスを列挙するジェネレータ（メモリ最適化版）。
+    path をリストのコピーではなく (node, parent) のタプルチェーンで管理する。
     """
     start_min = time_str_to_min(start_time_str)
-    print(f"[DEBUG] find_paths_generator START: {start_node} -> {target_node} @ {start_time_str} (min={start_min})")
-
-    print(f"[DEBUG] find_paths_generator START: {start_node} -> {target_node} @ {start_time_str} (min={start_min})")
+    # print(f"[DEBUG] find_paths_generator START: {start_node} -> {target_node} @ {start_time_str} (min={start_min})")
 
     # A* Heuristic Setup
     try:
         t_lat = G.nodes[target_node]["lat"]
         t_lon = G.nodes[target_node]["lon"]
     except KeyError:
-        print(f"[WARN] Target node {target_node} has no coordinates. A* fallback to Dijkstra.")
+        # print(f"[WARN] Target node {target_node} has no coordinates. A* fallback to Dijkstra.")
         t_lat, t_lon = None, None
 
     def heuristic(n):
         if t_lat is None: return 0.0
-        # Use simple estimation: Distance (m) / Speed (m/min) (FASTEST possible speed ~100km/h = 1666m/min)
-        # 1600 is safe. 
-        # But we minimize COST. Cost ~ Time.
-        # So we want estimated MINIMUM Time remaining.
         n_lat = G.nodes[n].get("lat")
         n_lon = G.nodes[n].get("lon")
         if n_lat is None or n_lon is None: return 0.0
         dist = haversine(n_lat, n_lon, t_lat, t_lon)
         # Greedy Heuristic: Use slower speed (e.g. Bus 18km/h ~ 300m/min)
-        # This overestimates cost for Trains, making search Greedy towards target.
         return dist / 300.0
 
     # priority queue の状態:
-    # (estimated_cost, cost, u, total_walk_m, seg_walk_m, curr_time, path)
-    # A* f_score = cost + h
+    # (estimated_cost, cost, u, total_walk_m, seg_walk_m, curr_time, path_chain)
+    # path_chain は (current_node, parent_chain) のタプル
     start_h = heuristic(start_node)
-    pq = [(start_h, 0.0, start_node, 0.0, 0.0, start_min, [start_node])]
+    
+    # ★変更: path を [start_node] ではなく (start_node, None) にする
+    pq = [(start_h, 0.0, start_node, 0.0, 0.0, start_min, (start_node, None))]
+    
     count_visited = defaultdict(int)
     seen_logical_routes = set()
     yielded_count = 0
     visited_count = 0
 
     while pq:
-        _, cost, u, total_walk_m, seg_walk_m, curr_time, path = heapq.heappop(pq)
+        _, cost, u, total_walk_m, seg_walk_m, curr_time, path_chain = heapq.heappop(pq)
         visited_count += 1
         
-        # DEBUG: Check if we think we reached target
-        # if u == target_node:
-        #      print(f"[DEBUG] Hit target_node {target_node} at {u}. Path len={len(path)}")
-            # ... (rest of logic)
-
-        # 安全装置（以前からの max_visited も残しておく）
+        # 安全装置
         if visited_count > max_visited:
             print(f"[WARN] Search exceeded max_visited ({max_visited}). Stopping.")
             return
@@ -1173,23 +1179,22 @@ def find_paths_generator(
         if curr_time - start_min > max_travel_min:
             continue
 
-        if visited_count % 10000 == 0:
-             # print(f"[DEBUG] find_paths_generator: visited={visited_count}, yielded={yielded_count}, pq_size={len(pq)}")
-             pass
-
         # ゴール判定
         if u == target_node:
-            sig = get_logical_signature(G, path)
+            # ★変更: ここでリストに復元する
+            full_path = reconstruct_path(path_chain)
+            
+            sig = get_logical_signature(G, full_path)
             if sig in seen_logical_routes:
                 continue
             seen_logical_routes.add(sig)
 
             yield {
                 "cost": cost,
-                "path": path,
-                "walk_m": total_walk_m,  # 総徒歩距離
+                "path": full_path,
+                "walk_m": total_walk_m,
             }
-            print(f"[DEBUG] Path found! cost={cost:.1f}, time={curr_time - start_min:.0f}min, walk={total_walk_m:.0f}m")
+            # print(f"[DEBUG] Path found! cost={cost:.1f}, time={curr_time - start_min:.0f}min")
             yielded_count += 1
             if yielded_count >= max_search:
                 return
@@ -1202,42 +1207,18 @@ def find_paths_generator(
             continue
         count_visited[state_key] += 1
 
-        # Milestone Debugging
-        node_name = G.nodes[u].get("name", "") if u[0] == "phys" else ""
-        if "平井" in node_name or "本所吾妻橋" in node_name or "新橋" in node_name or "渋谷" in node_name:
-             # Reduce spam: only log the first time we reach this node or significant time updates
-             pass 
-             # print(f"[DEBUG MILESTONE] Reached {node_name} ({u}) at {min_to_time_str(curr_time)}")
-
         for v in G[u]:
             edge = G[u][v]
-            etype = edge.get("etype")
+            # etype = edge.get("etype")
             w = edge.get("w", 0.0)
             meters = edge.get("meters", 0.0)
             
-            if etype == "board":
-                mode = G.nodes[v].get("mode") 
-                
-                trace_target_node = v
-                r_id = str(G.nodes[trace_target_node].get("route_id") or "")
-                r_name = str(G.nodes[trace_target_node].get("disp") or "")
-                
-                # Removed verbose trace
-                # if "Ue23" in r_id or "Asakusa" in r_id or "T01" in r_id or "Shinjuku" in r_id:
-                #      print(f"[DEBUG TRACE] Trying to board {r_name} ({r_id}) at {node_name} time={min_to_time_str(curr_time)}")
-
-            # まず時間を進める（ここで終バス/終電がわかる）
+            # 時間を進める
             next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type, delays_snapshot=delays_snapshot)
             if next_time is None:
-                if etype == "board":
-                     trace_target_node = v
-                     r_id = str(G.nodes[trace_target_node].get("route_id") or "")
-                     if "Ue23" in r_id or "Asakusa" in r_id or "T01" in r_id:
-                         # print(f"[DEBUG FAIL] Failed to board {r_id} at {node_name}: 'No match' or too late")
-                         pass
                 continue
 
-            # ここでも「上限時間超え」は枝刈りしておくとさらに省メモリ
+            # 上限時間超えチェック
             if next_time - start_min > max_travel_min:
                 continue
 
@@ -1248,22 +1229,21 @@ def find_paths_generator(
                 step_m = meters if meters > 0 else 1.0
                 new_seg_walk_m = seg_walk_m + step_m
                 if new_seg_walk_m > MAX_WALK_SEG_M:
-                    # 1 セグメントの徒歩が長すぎる
                     continue
-
                 new_total_walk_m = total_walk_m + step_m
                 if new_total_walk_m > MAX_TOTAL_WALK_M:
-                    # 総徒歩距離が上限超え
                     continue
             else:
-                # 徒歩以外を踏んだら連続徒歩セグメントはリセット
                 new_seg_walk_m = 0.0
 
             new_cost = cost + w
             new_h = heuristic(v)
+            
+            # ★変更: タプルチェーンを作る (v, parent_chain)
+            # これでリストコピーが発生せずメモリ消費が O(1) になる
             heapq.heappush(
                 pq,
-                (new_cost + new_h, new_cost, v, new_total_walk_m, new_seg_walk_m, next_time, path + [v]),
+                (new_cost + new_h, new_cost, v, new_total_walk_m, new_seg_walk_m, next_time, (v, path_chain)),
             )
 
 def find_fastest_path(
@@ -1276,17 +1256,23 @@ def find_fastest_path(
     max_travel_min=MAX_TRAVEL_MIN,
     delays_snapshot=None,
 ):
+    """
+    最速パス探索（メモリ最適化版）
+    """
     start_min = time_str_to_min(start_time_str)
-    pq = [(start_min, start_node, [start_node], 0.0, 0.0)]
+    # ★変更: path をタプルチェーンに
+    pq = [(start_min, start_node, (start_node, None), 0.0, 0.0)]
     visited_time = {}
 
     while pq:
-        curr_time, u, path, total_walk_m, seg_walk_m = heapq.heappop(pq)
+        curr_time, u, path_chain, total_walk_m, seg_walk_m = heapq.heappop(pq)
+        
         if curr_time - start_min > max_travel_min:
             continue
 
         if u == target_node:
-            return curr_time, path
+            # ★変更: 復元して返す
+            return curr_time, reconstruct_path(path_chain)
 
         state_key = (u, int(seg_walk_m // 10))
         if state_key in visited_time and visited_time[state_key] <= curr_time:
@@ -1312,14 +1298,15 @@ def find_fastest_path(
                 new_seg_walk = seg_walk_m + step_m
                 if new_seg_walk > MAX_WALK_SEG_M:
                     continue
-
                 new_total_walk = total_walk_m + step_m
                 if new_total_walk > MAX_TOTAL_WALK_M:
                     continue
             else:
                 new_seg_walk = 0.0
 
-            heapq.heappush(pq, (next_time, v, path + [v], new_total_walk, new_seg_walk))
+            # ★変更: タプルチェーンで push
+            heapq.heappush(pq, (next_time, v, (v, path_chain), new_total_walk, new_seg_walk))
+            
     return None, None
 
 def calculate_real_arrival_time(
