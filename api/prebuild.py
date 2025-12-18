@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 # 既存モジュールをインポート
 import initialize_data
-from toei_engine import build_graph, TimetableManager
+from toei_engine import build_graph, TimetableManager, SpatialIndex
 from app.runtime import _paths  # パス設定を再利用
 
 load_dotenv()
@@ -51,11 +51,15 @@ def main():
         tm.load_gtfs_mappings(gtfs_dir)
 
     # 3. 成果物を辞書にまとめてPickle化
+    print("Building Spatial Index...")
+    si = SpatialIndex(g)
+
     print(f"Serializing to {OUTPUT_FILE} ...")
     
     export_data = {
         "G": g,
         "TM": tm,
+        "SI": si,
         "WALK_RAD": p["WALK_RAD"]
     }
 

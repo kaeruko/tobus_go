@@ -10,7 +10,7 @@ from fastapi import HTTPException, Form, Query, Body
 from toei_engine import (
     nearest_phys,
     haversine,
-    add_virtual_destination_node,
+    get_virtual_connections,
     search_best_routes_once,
     time_str_to_min,
     min_to_time_str,
@@ -48,29 +48,28 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
     tm = app.state.TM
     walk_rad = app.state.WALK_RAD
 
-    if g is None or tm is None:
-        raise HTTPException(500, "Server not ready")
-
-    a_phys, _ = nearest_phys(g, alat, alon, station_only=False)
-    b_phys, bd = nearest_phys(g, blat, blon, station_only=True)
+    si = app.state.SI
+    
+    a_phys, _ = nearest_phys(g, alat, alon, station_only=False, spatial_index=si)
+    b_phys, bd = nearest_phys(g, blat, blon, station_only=True, spatial_index=si)
     if not b_phys or bd > 500:
-        b_phys, _ = nearest_phys(g, blat, blon, station_only=False)
+        b_phys, _ = nearest_phys(g, blat, blon, station_only=False, spatial_index=si)
 
     if not a_phys or not b_phys:
         return {"error": "Nearby stations or busstops not found", "candidates": []}
 
     destination_label = "目的地"
-    virtual_graph, dest_node, conn_count = add_virtual_destination_node(
-        g, blat, blon, name=destination_label, walk_radius=walk_rad
+    dest_node, virtual_connections = get_virtual_connections(
+        g, blat, blon, name=destination_label, walk_radius=walk_rad, spatial_index=si
     )
-    destination_reachable = conn_count > 0
+    destination_reachable = len(virtual_connections) > 0
 
     day_type = determine_day_type(date_str)
 
     results = []
     if destination_reachable:
         results = search_best_routes_once(
-            virtual_graph,
+            g, # Use original graph! No copy!
             tm,
             a_phys,
             b_phys,
@@ -80,6 +79,8 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
             limit=5,
             target_node=dest_node,
             day_type=day_type,
+            virtual_dest_connections=virtual_connections,
+            target_coords=[blat, blon],
         )
 
     if not results:
@@ -94,6 +95,8 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
             limit=5,
             target_node=b_phys,
             day_type=day_type,
+            virtual_dest_connections=None,
+            target_coords=None,
         )
 
     for cand in results:

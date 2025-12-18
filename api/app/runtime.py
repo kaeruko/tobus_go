@@ -69,8 +69,13 @@ async def setup_on_startup(app, mode: str) -> None:
             
             app.state.G = data["G"]
             app.state.TM = data["TM"]
+            app.state.SI = data.get("SI")
             app.state.WALK_RAD = data.get("WALK_RAD", 300)
             
+            if not app.state.SI:
+                from toei_engine import SpatialIndex
+                app.state.SI = SpatialIndex(app.state.G)
+
             print(f"[INFO] Data loaded in {time.time() - start_time:.2f}s")
             
             # リアルタイムデータの取得タスクを開始
@@ -113,6 +118,10 @@ async def setup_on_startup(app, mode: str) -> None:
     tm.load_bus_route_patterns(p["BUSROUTE"])
     tm.load_train_timetables(p["TRAIN_TBL"])
     tm.build_name_index(g)
+
+    from toei_engine import SpatialIndex
+    si = SpatialIndex(g)
+    app.state.SI = si
 
     gtfs_dir = os.path.join(p["DATA_DIR"], "ToeiBus-GTFS")
     if os.path.exists(gtfs_dir):

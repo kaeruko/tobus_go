@@ -79,6 +79,50 @@ def reconstruct_path(chain):
         curr = parent
     return path[::-1]  # 逆順になおす
 
+# -------------------- 空間インデックス (Grid Index) --------------------
+REF_LAT = 35.681236  # Tokyo Station
+REF_LON = 139.767125
+METERS_PER_DEG_LAT = 111_132.954
+METERS_PER_DEG_LON = 91_387.818 # approx at Tokyo
+
+def to_local_meters(lat, lon):
+    y = (lat - REF_LAT) * METERS_PER_DEG_LAT
+    x = (lon - REF_LON) * METERS_PER_DEG_LON
+    return x, y
+
+class SpatialIndex:
+    def __init__(self, G=None, cell_size_m=500.0):
+        self.cell_size_m = cell_size_m
+        self.grid = defaultdict(list)
+        if G:
+            self.build(G)
+
+    def build(self, G):
+        print(f"[INFO] Building SpatialIndex (cell={self.cell_size_m}m)...")
+        count = 0
+        for n, d in G.nodes(data=True):
+            if n[0] == "phys" and "lat" in d and "lon" in d:
+                x, y = to_local_meters(d["lat"], d["lon"])
+                cx = int(x // self.cell_size_m)
+                cy = int(y // self.cell_size_m)
+                self.grid[(cx, cy)].append((n, d["lat"], d["lon"]))
+                count += 1
+        print(f"[INFO] Indexed {count} phys nodes.")
+
+    def nearby_candidates(self, lat, lon, radius_m):
+        x, y = to_local_meters(lat, lon)
+        cx = int(x // self.cell_size_m)
+        cy = int(y // self.cell_size_m)
+        
+        candidates = []
+        # Check 3x3 cells
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                cell = (cx + dx, cy + dy)
+                for item in self.grid.get(cell, []):
+                    candidates.append(item)
+        return candidates
+
 # -------------------- 時刻表マネージャー (名寄せ強化版) --------------------
 class TimetableManager:
     def __init__(self):
@@ -333,10 +377,6 @@ class TimetableManager:
             return True
 
         routes = target_dict.get(pole_id)
-        candidate_trips = None
-
-        if routes:
-            candidate_trips = find_trips(routes, route_id)
         candidate_trips = None
 
         if routes:
@@ -779,54 +819,80 @@ def connect_walk_edges_phys(G, radius_m=300):
                         G.add_edge(u, v, w=w, etype="walk", meters=dist)
                         G.add_edge(v, u, w=w, etype="walk", meters=dist)
 
-def add_virtual_destination_node(G, lat, lon, name="目的地", walk_radius=300):
-    """Return a copy of G with a temporary destination phys node connected by walk edges.
-
-    Args:
-        G: Base graph (will not be mutated).
-        lat/lon: Target coordinates.
-        name: Label for the destination node.
-        walk_radius: Maximum distance for connecting walk edges.
-
-    Returns:
-        (G_with_dest, dest_node, connection_count)
+def get_virtual_connections(G, lat, lon, name="目的地", walk_radius=300, spatial_index=None):
     """
-
+    仮想目的地への接続情報を返す (G.copy()を回避するため)。
+    
+    Returns:
+        dest_node_id (tuple): ("phys", "dest:...")
+        connections (list): [(phys_node_id, weight, meters), ...]
+    """
     dest_id = f"dest:{lat:.6f},{lon:.6f}"
     dest_node = ("phys", dest_id)
+    
+    connections = []
+    
+    # Use Spatial Index if available
+    candidates = []
+    if spatial_index:
+        candidates = spatial_index.nearby_candidates(lat, lon, walk_radius)
+        # candidates are lists of (node_id, lat, lon)
+        
+        # Convert to format for loop
+        # Note: spatial_index candidates are (nid, lat, lon)
+        # We need G loop style if we want to share logic, 
+        # but here we just iterate candidates.
+        for nid, nlat, nlon in candidates:
+             dist = haversine(lat, lon, nlat, nlon)
+             if dist <= walk_radius:
+                 minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
+                 w = WALK_COST * minutes
+                 connections.append((nid, w, dist))
+    
+    else:
+        # Fallback to full scan
+        for n, d in G.nodes(data=True):
+            if n[0] != "phys": continue
+            dist = haversine(lat, lon, d.get("lat"), d.get("lon"))
+            if dist <= walk_radius:
+                minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
+                w = WALK_COST * minutes
+                connections.append((n, w, dist))
+                
+    count = len(connections)
+    print(f"[DEBUG_DEST] Found {count} virtual connections for {dest_node} (radius={walk_radius}m)")
+    return dest_node, connections
 
-    G2 = G.copy()
-    if dest_node in G2:
-        G2.remove_node(dest_node)
-
-    G2.add_node(dest_node, lat=lat, lon=lon, name=name, kind="phys")
-
-    connection_count = 0
-    for n, d in G.nodes(data=True):
-        if n[0] != "phys":
-            continue
-
-        dist = haversine(lat, lon, d.get("lat"), d.get("lon"))
-        if dist <= walk_radius:
-            minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
-            w = WALK_COST * minutes
-            G2.add_edge(dest_node, n, w=w, etype="walk", meters=dist)
-            G2.add_edge(n, dest_node, w=w, etype="walk", meters=dist)
-            connection_count += 1
-
-    print(
-        f"[DEBUG_DEST] Added virtual destination {dest_node} lat={lat} lon={lon} "
-        f"connections={connection_count} walk_radius={walk_radius}"
-    )
-    return G2, dest_node, connection_count
-
-def nearest_phys(G, lat, lon, station_only=False):
+def nearest_phys(G, lat, lon, station_only=False, spatial_index=None):
     best, bestd = None, 1e30
-    for n, d in G.nodes(data=True):
+    
+    candidates = []
+    if spatial_index:
+        # Use simple radius (e.g. 1000m) for finding nearest
+        raw_candidates = spatial_index.nearby_candidates(lat, lon, 1000)
+        if not raw_candidates:
+             # Retry wider if empty (fallback to all just in case, or wider radius)
+             candidates = G.nodes(data=True) 
+        else:
+             candidates = []
+             for nid, nlat, nlon in raw_candidates:
+                 # Reconstruct data tuple expected by loop
+                 candidates.append((nid, G.nodes[nid]))
+    else:
+        candidates = G.nodes(data=True)
+
+    for n, d in candidates:
         if n[0] != "phys": continue
         if station_only and not is_station_id(n[1]): continue
+        
+        # Grid returns nlat/nlon, but 'd' has it too.
+        # If using G.nodes(data=True) 'd' is full dict. 
+        # If using grid, we constructed (n, node_data).
+        
+        # Simplified loop:
         dist = haversine(lat, lon, d["lat"], d["lon"])
         if dist < bestd: best, bestd = n, dist
+        
     return best, bestd
 
 # -------------------- 探索ロジック --------------------
@@ -922,7 +988,7 @@ def path_to_coords(G, path):
 
 
 # -------------------- 統合検索ロジック --------------------
-def search_best_routes_once(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None):
+def search_best_routes_once(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None):
     """
     日付を指定して検索し、結果が0件なら翌日以降も探すラッパー
     """
@@ -952,7 +1018,7 @@ def search_best_routes_once(G, tm, a_phys, b_phys, mode="cost", start_time="10:0
     current_time_str = start_time
     
     # 検索実行
-    candidates = search_best_routes(G, tm, a_phys, b_phys, mode, current_time_str, limit, target_date, target_node=target_node, day_type=day_type)
+    candidates = search_best_routes(G, tm, a_phys, b_phys, mode, current_time_str, limit, target_date, target_node=target_node, day_type=day_type, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
     
     if candidates:
         # 見つかった！
@@ -964,7 +1030,7 @@ def search_best_routes_once(G, tm, a_phys, b_phys, mode="cost", start_time="10:0
 
     return []
 
-def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None, day_type=None):
+def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None):
     """
     ServerとCLI共通のエントリーポイント。
     経路探索 -> 時刻表バリデーション -> セグメント化 -> 結果辞書のリスト作成 までを一気通貫で行う。
@@ -1002,6 +1068,8 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
             start_time_str=start_time,
             day_type=day_type,
             delays_snapshot=delays_snapshot,
+            virtual_dest_connections=virtual_dest_connections,
+            target_coords=target_coords,
         )
         
         # Check validity (Short Trip check)
@@ -1125,24 +1193,34 @@ def find_paths_generator(
     start_time_str="10:00",
     day_type="weekday",
     max_search=30000,
-    max_visited=30000,  # ★変更: 10万から3万へ削減 (メモリ保護)
+    max_visited=15000,  # ★さらに削減: 30000 -> 15000
     max_travel_min=MAX_TRAVEL_MIN,
     delays_snapshot=None,
+    time_limit_sec=15.0, # ★追加: 探索のタイムアウト時間
+    virtual_dest_connections=None,
+    target_coords=None,
 ):
     """
     コスト最小パスを列挙するジェネレータ（メモリ最適化版）。
     path をリストのコピーではなく (node, parent) のタプルチェーンで管理する。
     """
+    import time
+    start_cpu_time = time.time() # 開始時間を記録
+
     start_min = time_str_to_min(start_time_str)
     # print(f"[DEBUG] find_paths_generator START: {start_node} -> {target_node} @ {start_time_str} (min={start_min})")
 
     # A* Heuristic Setup
-    try:
-        t_lat = G.nodes[target_node]["lat"]
-        t_lon = G.nodes[target_node]["lon"]
-    except KeyError:
-        # print(f"[WARN] Target node {target_node} has no coordinates. A* fallback to Dijkstra.")
-        t_lat, t_lon = None, None
+    t_lat, t_lon = None, None
+    if target_coords:
+        t_lat, t_lon = target_coords
+    else:
+        try:
+            t_lat = G.nodes[target_node]["lat"]
+            t_lon = G.nodes[target_node]["lon"]
+        except KeyError:
+            # print(f"[WARN] Target node {target_node} has no coordinates. A* fallback to Dijkstra.")
+            pass
 
     def heuristic(n):
         if t_lat is None: return 0.0
@@ -1150,8 +1228,9 @@ def find_paths_generator(
         n_lon = G.nodes[n].get("lon")
         if n_lat is None or n_lon is None: return 0.0
         dist = haversine(n_lat, n_lon, t_lat, t_lon)
-        # Greedy Heuristic: Use slower speed (e.g. Bus 18km/h ~ 300m/min)
-        return dist / 300.0
+        # ★変更: 少し強めのヒューリスティック係数 (探索をゴール方向に誘導)
+        # Bus speed approx 300m/min. Using 400.0 makes it admissible but slightly aggressive.
+        return dist / 400.0
 
     # priority queue の状態:
     # (estimated_cost, cost, u, total_walk_m, seg_walk_m, curr_time, path_chain)
@@ -1167,6 +1246,12 @@ def find_paths_generator(
     visited_count = 0
 
     while pq:
+        # ★追加: タイムアウトチェック
+        if visited_count % 1000 == 0:
+            if time.time() - start_cpu_time > time_limit_sec:
+                print(f"[WARN] Search timed out after {time_limit_sec}s. Yielded {yielded_count} paths.")
+                return
+
         _, cost, u, total_walk_m, seg_walk_m, curr_time, path_chain = heapq.heappop(pq)
         visited_count += 1
         
@@ -1650,24 +1735,16 @@ def main():
 
 # -------------------- 新機能: 一本で行ける場所検索 --------------------
 
-def get_reachable_stops(G, tm, lat, lon, limit_dist=1000):
+def get_reachable_stops(G, tm, lat, lon, limit_dist=1000, spatial_index=None):
     """
     GPS座標から最寄りのバス停・駅を特定し、そこから乗り換えなしで行ける
     すべてのバス停・駅のリストを返す。
     """
     # 1. 最寄りの物理ノード（バス停/駅）を探す
-    # 修正: 単一の最寄りだけだと「片方向」しか拾えないため、
-    # 周辺(例えば200m以内)にあるすべての「phys」ノードを始点候補とする。
-    
     start_candidates = []
     
-    # 全探索は重いので、nearest_physでまず中心を決めて、そこからの距離でフィルタするか、
-    # あるいはspatial index的なものがあれば良いが、ここでは簡易的に全physノードを走査するか、
-    # または nearest_phys で取れたノードの周辺を探す。
-    
-    # 今回はシンプルに:
     # まず「一番近いノード」を見つける (基準点)
-    nearest_node, nearest_dist = nearest_phys(G, lat, lon)
+    nearest_node, nearest_dist = nearest_phys(G, lat, lon, spatial_index=spatial_index)
     
     if not nearest_node or nearest_dist > limit_dist:
         return {
@@ -1675,24 +1752,23 @@ def get_reachable_stops(G, tm, lat, lon, limit_dist=1000):
             "message": "近くに都営交通のバス停・駅が見つかりませんでした。"
         }
     
-    # 基準点が見つかったら、その「周辺」にある他のポールも探す。
-    # ここでは simple に、limit_dist (デフォルト1000m) ではなく、
-    # 「最寄りバス停とみなす範囲（例: 150m）」にあるノードを全部 start_candidates に入れる。
-    # ユーザーが指定した lat/lon からの距離で判定する。
+    SEARCH_RADIUS_M = 500.0  # 500m以内のポールはすべて「現在地」とみなす
     
-    SEARCH_RADIUS_M = 500.0  # 150m以内のポールはすべて「現在地」とみなす
-    
-    for n in G.nodes():
-        if n[0] != "phys": continue
-        
-        d = G.nodes[n]
-        n_lat = d.get("lat")
-        n_lon = d.get("lon")
-        
-        if n_lat and n_lon:
-            dist = haversine(lat, lon, n_lat, n_lon)
+    if spatial_index:
+        raw_candidates = spatial_index.nearby_candidates(lat, lon, SEARCH_RADIUS_M)
+        for nid, nlat, nlon in raw_candidates:
+            dist = haversine(lat, lon, nlat, nlon)
             if dist <= SEARCH_RADIUS_M:
-                start_candidates.append(n[1]) # IDを追加
+                start_candidates.append(nid[1])
+    else:
+        for n, d in G.nodes(data=True):
+            if n[0] != "phys": continue
+            n_lat = d.get("lat")
+            n_lon = d.get("lon")
+            if n_lat and n_lon:
+                dist = haversine(lat, lon, n_lat, n_lon)
+                if dist <= SEARCH_RADIUS_M:
+                    start_candidates.append(n[1]) # IDを追加
 
     # 万が一何もなければ（nearest_physで見つかってるのでありえないが）nearestを入れる
     if not start_candidates:
