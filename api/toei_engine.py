@@ -313,7 +313,7 @@ class TimetableManager:
                     count += 1
         print(f"[INFO] Index built. Total {count} nodes.")
 
-    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
+    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", debug=False):
         if not debug:
             dbg_env = os.getenv("DEBUG_BUS", "0")
             if dbg_env == "1":
@@ -322,11 +322,11 @@ class TimetableManager:
                 debug = True
 
         if not debug:
-            return self._get_next_bus_departure_impl(pole_id, route_id, current_time_min, pole_name, day_type, target_pole_id, debug=False)
+            return self._get_next_bus_departure_impl(pole_id, route_id, current_time_min, pole_name, day_type, debug=False)
         
-        return self._get_next_bus_departure_impl(pole_id, route_id, current_time_min, pole_name, day_type, target_pole_id, debug=True)
+        return self._get_next_bus_departure_impl(pole_id, route_id, current_time_min, pole_name, day_type, debug=True)
 
-    def _get_next_bus_departure_impl(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
+    def _get_next_bus_departure_impl(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", debug=False):
         if day_type == "saturday":
             target_dict = self.bus_departures_saturday
         elif day_type == "holiday":
@@ -440,7 +440,7 @@ class TimetableManager:
             for tr in sample:
                 d = tr.get("dest") or "unknown"
                 counts[d] = counts.get(d, 0) + 1
-            print(f"[🚌BUS] 📊 Stats: Now={now_str} | Target={target_pole_id} | Trips={len(candidate_trips)} | Targets={counts}")
+            print(f"[🚌BUS] 📊 Stats: Now={now_str} | Trips={len(candidate_trips)} | Targets={counts}")
 
         for trip in candidate_trips:
             dep = trip.get("dep")
@@ -969,42 +969,13 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=Non
             route_id = G.nodes[node].get("route_id")
             stop_name = G.nodes[u].get("name")
             
-            # target_pole_ids が渡された場合、それぞれに対して方向チェックを行う
-            target_pole_ids = kwargs.get("target_pole_ids") or set()
-            target_pole_id = kwargs.get("target_pole_id")
-            
-            # 単一の target_pole_id が指定されている場合はそれを使用
-            if target_pole_id:
-                dep = tm.get_next_bus_departure(
-                    phys_id, route_id, curr_time,
-                    pole_name=stop_name,
-                    day_type=day_type,
-                    target_pole_id=target_pole_id
-                )
-                return dep
-            
-            # target_pole_ids が指定されている場合、いずれかに到達できればOK
-            if target_pole_ids:
-                for tpid in target_pole_ids:
-                    dep = tm.get_next_bus_departure(
-                        phys_id, route_id, curr_time,
-                        pole_name=stop_name,
-                        day_type=day_type,
-                        target_pole_id=tpid
-                    )
-                    if dep is not None:
-                        return dep
-                return None  # どのターゲットにも到達できない
-            
-            # ターゲット指定なしの場合（後方互換）
+            # ターゲット指定なしで検索（方向フィルタリングは探索の終了条件側で解決する）
             dep = tm.get_next_bus_departure(
                 phys_id, route_id, curr_time,
                 pole_name=stop_name,
-                day_type=day_type,
-                target_pole_id=None
+                day_type=day_type
             )
-
-            return dep  # dep が None のときは呼び出し側で弾く
+            return dep
         elif mode == "rail":
             # 電車の乗車時点ではざっくり乗り換え待ち 2 分
             return curr_time + 2.0
@@ -1244,6 +1215,19 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
 
 # -------------------- 探索ロジック --------------------
 
+def pole_base(pid: str) -> str:
+    """
+    Extracts the logical stop ID from a pole ID.
+    e.g. odpt.BusstopPole:Toei.HiraiNanachome.1350.1 -> odpt.BusstopPole:Toei.HiraiNanachome.1350
+    """
+    if not (isinstance(pid, str) and pid.startswith("odpt.BusstopPole:")):
+        return pid
+    parts = pid.split(".")
+    if len(parts) < 2:
+        return pid
+    return ".".join(parts[:-1])
+
+
 def find_paths_generator(
     G,
     tm,
@@ -1287,38 +1271,24 @@ def find_paths_generator(
     start_h = heuristic(start_node)
     pq = [(start_h, 0.0, start_node, 0.0, 0.0, start_min, (start_node, None))]
 
-    # 目的地のバス停ID群を取得（方向フィルタリング用）
-    # 目的地が特定のポール（例: 平井七丁目.2）でも、その反対側（.1）など同じ停留所名のポールを
-    # すべてターゲットに含めることで、方向フィルタリングを正しく機能させる。
-    target_pole_ids = set()
+    # ゴール判定用ノード集合の構築
+    # 目的地が特定のポール（例: 平井七丁目.2）でも、同じ停留所の別ポール（.1など）に
+    # 到着すればゴールと見なす。ただし仮想（座標）目的地の時は拡張しない。
+    target_goal_nodes = {target_node}
+    if target_node and target_node[0] == "phys":
+        pid = target_node[1]
+        if isinstance(pid, str) and pid.startswith("odpt.BusstopPole:"):
+            base = pole_base(pid)
+            for n in G.nodes:
+                if n[0] == "phys" and isinstance(n[1], str) and n[1].startswith("odpt.BusstopPole:"):
+                    if pole_base(n[1]) == base:
+                        target_goal_nodes.add(n)
     
-    # helper: ポールの名前から同じ停留所の全ポールを取得
-    def add_poles_by_name(pid):
-        if not (isinstance(pid, str) and pid.startswith("odpt.BusstopPole:")):
-            return
-        # G.nodes[( "phys", pid )] から名前を取得
-        node_id = ("phys", pid)
-        if node_id in G.nodes:
-            name = G.nodes[node_id].get("name")
-            if name and tm and hasattr(tm, "name_to_pids"):
-                for p in tm.name_to_pids.get(name, []):
-                    if p.startswith("odpt.BusstopPole:"):
-                        target_pole_ids.add(p)
-        target_pole_ids.add(pid)
+    if len(target_goal_nodes) > 1:
+        print(f"[DEBUG_TARGET] Expanded target_goal_nodes: {len(target_goal_nodes)} poles included.")
 
-    if virtual_dest_connections:
-        for nid, _, _ in virtual_dest_connections:
-            if nid[0] == "phys":
-                add_poles_by_name(nid[1])
-    elif target_node and target_node[0] == "phys":
-        add_poles_by_name(target_node[1])
-
-    if target_pole_ids:
-        print(f"[DEBUG_TARGET] target_pole_ids size={len(target_pole_ids)} sample={list(sorted(target_pole_ids))[:5]}")
-    else:
-        # 救済なし：ここで空の場合は、方向フィルタリングが「Target=None」としてスキップされる。
-        # データ不備に気づきやすくするため、あえて座標からの自動補完は行わない。
-        print(f"[DEBUG_TARGET] target_pole_ids is EMPTY (Target coordinates: {t_lat}, {t_lon})")
+    if target_goal_nodes:
+        print(f"[DEBUG_TARGET] target_goal_nodes size={len(target_goal_nodes)}")
 
 
     count_visited = defaultdict(int)
@@ -1351,7 +1321,7 @@ def find_paths_generator(
             continue
         best_cost[state_key] = cost
 
-        if u == target_node:
+        if u in target_goal_nodes: # Modified: Check against target_goal_nodes
             full_path = reconstruct_path(path_chain)
             sig = get_logical_signature(G, full_path)
             if sig in seen_logical_routes:
@@ -1368,9 +1338,10 @@ def find_paths_generator(
                 return
             continue
 
-        if count_visited[state_key] >= 20:
-            continue
-        count_visited[state_key] += 1
+        # Removed aggressive pruning:
+        # if count_visited[state_key] >= 20:
+        #     continue
+        # count_visited[state_key] += 1
 
         if virtual_dest_connections and target_node and target_node[0] == "phys" and str(target_node[1]).startswith("dest:"):
             for nid, vw, vmeters in virtual_dest_connections:
@@ -1394,7 +1365,7 @@ def find_paths_generator(
             w = edge.get("w", 0.0)
             meters = edge.get("meters", 0.0)
 
-            next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type, delays_snapshot=delays_snapshot, target_pole_ids=target_pole_ids)
+            next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type, delays_snapshot=delays_snapshot)
             if next_time is None:
                 continue
             if next_time - start_min > max_travel_min:
@@ -1431,6 +1402,8 @@ def find_fastest_path(
     day_type="weekday",
     max_travel_min=MAX_TRAVEL_MIN,
     delays_snapshot=None,
+    virtual_dest_connections=None, # Added for consistency, though not used in fastest path logic
+    target_coords=None, # Added for consistency, though not used in fastest path logic
 ):
     """
     最速パス探索（メモリ最適化版）
@@ -1439,6 +1412,27 @@ def find_fastest_path(
     # ★変更: path をタプルチェーンに
     pq = [(start_min, start_node, (start_node, None), 0.0, 0.0)]
     visited_time = {}
+
+    # 目的地のバス停ID群を取得（方向フィルタリング用）
+    target_pole_ids = set()
+    def add_poles_by_name(pid):
+        if not (isinstance(pid, str) and pid.startswith("odpt.BusstopPole:")):
+            return
+        node_id = ("phys", pid)
+        if node_id in G.nodes:
+            name = G.nodes[node_id].get("name")
+            if name and tm and hasattr(tm, "name_to_pids"):
+                for p in tm.name_to_pids.get(name, []):
+                    if p.startswith("odpt.BusstopPole:"):
+                        target_pole_ids.add(p)
+        target_pole_ids.add(pid)
+
+    if virtual_dest_connections:
+        for nid, _, _ in virtual_dest_connections:
+            if nid[0] == "phys":
+                add_poles_by_name(nid[1])
+    elif target_node and target_node[0] == "phys":
+        add_poles_by_name(target_node[1])
 
     while pq:
         curr_time, u, path_chain, total_walk_m, seg_walk_m = heapq.heappop(pq)
@@ -1460,7 +1454,7 @@ def find_fastest_path(
             etype = edge.get("etype")
             meters = edge.get("meters", 0.0)
 
-            next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type, delays_snapshot=delays_snapshot)
+            next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type, delays_snapshot=delays_snapshot, target_pole_ids=target_pole_ids)
             if next_time is None:
                 continue
             if next_time - start_min > max_travel_min:
