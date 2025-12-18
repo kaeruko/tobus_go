@@ -16,7 +16,7 @@ load_dotenv()
 
 # 設定
 ODPT_API_TOKEN = os.getenv("ODPT_API_TOKEN")
-DATA_DIR = "data"
+DATA_DIR = os.getenv("DATA_DIR", "data")
 GTFS_DIR = os.path.join(DATA_DIR, "ToeiBus-GTFS")
 API_URL_BASE = "https://api.odpt.org/api/v4"
 
@@ -46,6 +46,7 @@ def download_json(endpoint, save_filename, params=None):
         print(f"OK ({len(data)} records)")
     except Exception as e:
         print(f"Failed: {e}")
+        raise e
 
 def download_and_extract_gtfs():
     """ 都営バスGTFS(ZIP)をダウンロードして解凍 """

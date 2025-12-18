@@ -1,10 +1,9 @@
 import os
 import asyncio
 import zipfile
-import boto3
 import httpx
 
-import initialize_data
+
 from toei_engine import build_graph, TimetableManager
 
 DATA_ZIP_NAME = "toei_data.zip"
@@ -26,25 +25,6 @@ def _paths() -> dict:
         "TRAIN_TBL": os.getenv("TRAIN_TBL", f"{data_dir}/odpt_TrainTimetable.json"),
         "WALK_RAD": _env_int("WALK_RADIUS", 300),
     }
-
-def download_data_from_s3_if_needed() -> None:
-    bucket = os.getenv("S3_BUCKET_NAME")
-    if not bucket:
-        return
-
-    data_dir = os.getenv("DATA_DIR", LAMBDA_TMP_DIR)
-    os.makedirs(data_dir, exist_ok=True)
-
-    marker = f"{data_dir}/odpt_BusstopPole.json"
-    if os.path.exists(marker):
-        return
-
-    s3 = boto3.client("s3")
-    zip_path = f"/tmp/{DATA_ZIP_NAME}"
-    s3.download_file(bucket, DATA_ZIP_NAME, zip_path)
-
-    with zipfile.ZipFile(zip_path, "r") as z:
-        z.extractall("/tmp")
 
 async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
     token = os.getenv("ODPT_API_TOKEN")
@@ -72,15 +52,18 @@ async def setup_on_startup(app, mode: str) -> None:
     if mode == "lambda":
         os.environ["DATA_DIR"] = os.getenv("DATA_DIR", LAMBDA_TMP_DIR)
 
-        download_data_from_s3_if_needed()
-
+        # データが存在しない場合は initialize_data.main() でAPIから取得
         data_dir = os.getenv("DATA_DIR", LAMBDA_TMP_DIR)
         required = [
             f"{data_dir}/odpt_BusstopPole.json",
             f"{data_dir}/odpt_BusstopPoleTimetable.json",
             f"{data_dir}/ToeiBus-GTFS/routes.txt",
         ]
+        
         if not all(os.path.exists(p) for p in required):
+            print("[INFO] Data missing, running initialization...")
+            # initialize_data.py は ODPT_API_TOKEN 環境変数が必要です
+            import initialize_data
             initialize_data.main()
 
     p = _paths()
