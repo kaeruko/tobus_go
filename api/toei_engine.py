@@ -1288,49 +1288,38 @@ def find_paths_generator(
     pq = [(start_h, 0.0, start_node, 0.0, 0.0, start_min, (start_node, None))]
 
     # 目的地のバス停ID群を取得（方向フィルタリング用）
-    # virtual_dest_connections がある場合 => それらのバス停に到達できればOK
-    # そうでない場合 => target_node が物理ノードならそのIDを使う
-    # 注意: 駅ID (odpt.Station:...) はバス路線パターンに含まれないため除外
+    # 目的地が特定のポール（例: 平井七丁目.2）でも、その反対側（.1）など同じ停留所名のポールを
+    # すべてターゲットに含めることで、方向フィルタリングを正しく機能させる。
     target_pole_ids = set()
+    
+    # helper: ポールの名前から同じ停留所の全ポールを取得
+    def add_poles_by_name(pid):
+        if not (isinstance(pid, str) and pid.startswith("odpt.BusstopPole:")):
+            return
+        # G.nodes[( "phys", pid )] から名前を取得
+        node_id = ("phys", pid)
+        if node_id in G.nodes:
+            name = G.nodes[node_id].get("name")
+            if name and tm and hasattr(tm, "name_to_pids"):
+                for p in tm.name_to_pids.get(name, []):
+                    if p.startswith("odpt.BusstopPole:"):
+                        target_pole_ids.add(p)
+        target_pole_ids.add(pid)
+
     if virtual_dest_connections:
         for nid, _, _ in virtual_dest_connections:
             if nid[0] == "phys":
-                pid = nid[1]
-                # バス停IDのみ追加（駅IDは除外）
-                if isinstance(pid, str) and pid.startswith("odpt.BusstopPole:"):
-                    target_pole_ids.add(pid)
+                add_poles_by_name(nid[1])
     elif target_node and target_node[0] == "phys":
-        pid = target_node[1]
-        if isinstance(pid, str) and pid.startswith("odpt.BusstopPole:"):
-            target_pole_ids.add(pid)
-
-    # 方向フィルタ用の救済
-    # virtual_dest_connections が駅しかないケースでも目的地付近のバス停ポールを拾って target_pole_ids を埋める
-    if not target_pole_ids and t_lat is not None and t_lon is not None:
-        R_FALLBACK_M = 800.0
-        if hasattr(G, "spatial_index") and G.spatial_index:
-            cands = G.spatial_index.nearby_candidates(t_lat, t_lon, R_FALLBACK_M)
-            for nid, nlat, nlon in cands:
-                if nid[0] != "phys":
-                    continue
-                pid = nid[1]
-                if isinstance(pid, str) and pid.startswith("odpt.BusstopPole:"):
-                    if haversine(t_lat, t_lon, nlat, nlon) <= R_FALLBACK_M:
-                        target_pole_ids.add(pid)
-        else:
-            for n, d in G.nodes(data=True):
-                if n[0] != "phys":
-                    continue
-                pid = n[1]
-                if not (isinstance(pid, str) and pid.startswith("odpt.BusstopPole:")):
-                    continue
-                if haversine(t_lat, t_lon, d["lat"], d["lon"]) <= R_FALLBACK_M:
-                    target_pole_ids.add(pid)
+        add_poles_by_name(target_node[1])
 
     if target_pole_ids:
         print(f"[DEBUG_TARGET] target_pole_ids size={len(target_pole_ids)} sample={list(sorted(target_pole_ids))[:5]}")
     else:
+        # 救済なし：ここで空の場合は、方向フィルタリングが「Target=None」としてスキップされる。
+        # データ不備に気づきやすくするため、あえて座標からの自動補完は行わない。
         print(f"[DEBUG_TARGET] target_pole_ids is EMPTY (Target coordinates: {t_lat}, {t_lon})")
+
 
     count_visited = defaultdict(int)
     best_cost = {}
