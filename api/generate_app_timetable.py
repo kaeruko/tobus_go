@@ -4,8 +4,9 @@ import os
 from collections import defaultdict
 
 # GTFSデータのパス
-GTFS_DIR = "data/ToeiBus-GTFS"
-OUTPUT_FILE = "data/app_timetable.json"
+DATA_DIR = os.getenv("DATA_DIR", "data")
+GTFS_DIR = os.path.join(DATA_DIR, "ToeiBus-GTFS")
+OUTPUT_FILE = os.path.join(DATA_DIR, "app_timetable.json")
 
 def load_csv(filename):
     path = os.path.join(GTFS_DIR, filename)
@@ -172,7 +173,7 @@ def main():
             final_directions[rid][did] = most_common_headsign
 
     # アプリ用のファイルとして保存
-    DIR_OUTPUT = "data/route_directions.json"
+    DIR_OUTPUT = os.path.join(DATA_DIR, "route_directions.json")
     with open(DIR_OUTPUT, 'w', encoding='utf-8') as f:
         json.dump(final_directions, f, ensure_ascii=False, separators=(',', ':'))
     print(f"行き先リストを出力しました: {DIR_OUTPUT}")

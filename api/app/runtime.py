@@ -39,12 +39,18 @@ def download_data_from_s3_if_needed() -> None:
     if os.path.exists(marker):
         return
 
-    s3 = boto3.client("s3")
-    zip_path = f"/tmp/{DATA_ZIP_NAME}"
-    s3.download_file(bucket, DATA_ZIP_NAME, zip_path)
+    try:
+        s3 = boto3.client("s3")
+        zip_path = f"/tmp/{DATA_ZIP_NAME}"
+        print(f"[INFO] Downloading {bucket}/{DATA_ZIP_NAME} to {zip_path}")
+        s3.download_file(bucket, DATA_ZIP_NAME, zip_path)
 
-    with zipfile.ZipFile(zip_path, "r") as z:
-        z.extractall("/tmp")
+        print(f"[INFO] Extracting {zip_path} to /tmp")
+        with zipfile.ZipFile(zip_path, "r") as z:
+            z.extractall("/tmp")
+    except Exception as e:
+        print(f"[ERROR] Failed to download/extract from S3: {e}")
+        # Initialize data fallback will run next if files are missing
 
 async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
     token = os.getenv("ODPT_API_TOKEN")
@@ -81,7 +87,7 @@ async def setup_on_startup(app, mode: str) -> None:
             f"{data_dir}/ToeiBus-GTFS/routes.txt",
         ]
         if not all(os.path.exists(p) for p in required):
-            initialize_data.main()
+            initialize_data.main(data_dir=data_dir)
 
     p = _paths()
 
