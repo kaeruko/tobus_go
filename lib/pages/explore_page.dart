@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../providers/explore_provider.dart';
 import '../providers/location_provider.dart';
 import '../models/explore_models.dart';
+import 'experience_page.dart';
 
 class ExplorePage extends ConsumerWidget {
   const ExplorePage({super.key});
@@ -34,10 +35,12 @@ class ExplorePage extends ConsumerWidget {
                   onPressed: locationAsync.valueOrNull == null
                       ? null // 位置情報が取れるまでボタン無効
                       : () {
-                          final pos = locationAsync.value!;
-                          ref.read(exploreProvider.notifier).search(
-                                LatLng(pos.latitude, pos.longitude),
-                              );
+                          final override = ref.read(locationOverrideProvider);
+                          final pos = override ?? LatLng(
+                            locationAsync.value!.latitude,
+                            locationAsync.value!.longitude,
+                          );
+                          ref.read(exploreProvider.notifier).search(pos);
                         },
                   icon: const Icon(Icons.explore),
                   label: const Text('周辺を探索する'),
@@ -128,8 +131,12 @@ class ExplorePage extends ConsumerWidget {
             ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
-              // TODO: ここをタップしたら、その場所周辺のスポット紹介(Step2)へ遷移する
-              // 例: Navigator.push(...)
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ExperiencePage(stop: stop),
+                ),
+              );
             },
           );
         }),

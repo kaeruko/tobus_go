@@ -32,6 +32,29 @@ class ExploreNotifier extends StateNotifier<AsyncValue<ReachableResponse?>> {
       state = AsyncError(e, st);
     }
   }
+
+  Future<ExperienceResponse?> fetchExperiences(ReachableStop stop) async {
+    try {
+      final json = await ApiClient.post(
+        '/route/experience',
+        body: [
+          // API expects a list of stops
+          {
+            "stop_id": stop.id,
+            "stop_name": stop.name,
+            "lat": stop.lat,
+            "lon": stop.lon,
+          }
+        ],
+      );
+      return ExperienceResponse.fromJson(json);
+    } catch (e) {
+      // Handle error gracefully or rethrow depending on UI strategy
+      // For now, logging might be enough, return null to indicate failure
+      print('Fetch experience failed: $e');
+      return null;
+    }
+  }
   
   void reset() {
     state = const AsyncData(null);

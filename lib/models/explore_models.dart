@@ -77,3 +77,69 @@ class ReachableResponse {
     );
   }
 }
+
+class ExperienceGroup {
+  final List<String> tags;
+  final String description;
+  final ReachableStop representativeStop;
+  final int stopCount;
+  final List<ReachableStop> stops;
+
+  ExperienceGroup({
+    required this.tags,
+    required this.description,
+    required this.representativeStop,
+    required this.stopCount,
+    required this.stops,
+  });
+
+    factory ExperienceGroup.fromJson(Map<String, dynamic> json) {
+    // representative_stop uses similar structure to ReachableStop but might lack viaRoute
+    // Backend: "representative_stop": {"stop_id":..., "stop_name":..., "lat":..., "lon":...}
+    final repData = json['representative_stop'] as Map<String, dynamic>;
+    
+    // Convert backend specific keys to ReachableStop keys if needed, or construct directly
+    final representativeStop = ReachableStop(
+      id: repData['stop_id'] as String? ?? '',
+      name: repData['stop_name'] as String? ?? '',
+      lat: (repData['lat'] as num?)?.toDouble() ?? 0.0,
+      lon: (repData['lon'] as num?)?.toDouble() ?? 0.0,
+      viaRoute: '', // Not provided in experience context
+    );
+
+    final stopsList = (json['stops'] as List<dynamic>?)?.map((s) {
+       final m = s as Map<String, dynamic>;
+       // backend stops list only has id and name
+       // we might not need full ReachableStop here, but for reusing model...
+       return ReachableStop(
+         id: m['stop_id'] ?? '', 
+         name: m['stop_name'] ?? '', 
+         lat: 0, 
+         lon: 0, 
+         viaRoute: ''
+       );
+    }).toList() ?? [];
+
+    return ExperienceGroup(
+      tags: (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      description: json['description'] as String? ?? '',
+      representativeStop: representativeStop,
+      stopCount: json['stop_count'] as int? ?? 0,
+      stops: stopsList,
+    );
+  }
+}
+
+class ExperienceResponse {
+  final List<ExperienceGroup> groups;
+
+  ExperienceResponse({required this.groups});
+
+  factory ExperienceResponse.fromJson(Map<String, dynamic> json) {
+    return ExperienceResponse(
+      groups: (json['groups'] as List<dynamic>?)
+          ?.map((e) => ExperienceGroup.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [],
+    );
+  }
+}

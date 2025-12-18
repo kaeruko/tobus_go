@@ -6,34 +6,40 @@ import 'my_route_page.dart';
 import 'settings_page.dart';
 import '../services/trip_service.dart';
 import 'history_page.dart';
-import 'explore_page.dart'; // インポート済み
+import 'explore_page.dart';
+import '../providers/navigation_provider.dart';
 
-class RootTabs extends StatefulWidget {
+class RootTabs extends ConsumerStatefulWidget {
   const RootTabs({super.key});
 
   @override
-  State<RootTabs> createState() => _RootTabsState();
+  ConsumerState<RootTabs> createState() => _RootTabsState();
 }
 
-class _RootTabsState extends State<RootTabs> {
-  int _currentIndex = 0;
-  bool _canShowHistory = false; // 履歴タブを表示するかどうか
+class _RootTabsState extends ConsumerState<RootTabs> {
+  bool _canShowHistory = false;
+  late CupertinoTabController _controller;
 
-  // ナビゲーターキー (最大5つ分確保しておく: Home, Explore, MyRoute, History, Settings)
+  // ナビゲーターキー
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
-    GlobalKey<NavigatorState>(), // ★追加
+    GlobalKey<NavigatorState>(),
   ];
-
-  final ValueNotifier<int> _tabNotifier = ValueNotifier(0);
 
   @override
   void initState() {
     super.initState();
+    _controller = CupertinoTabController();
     _checkHistoryPermission();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   Future<void> _checkHistoryPermission() async {
@@ -47,15 +53,25 @@ class _RootTabsState extends State<RootTabs> {
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = ref.watch(tabIndexProvider);
+    print('[RootTabs] build called, currentIndex=$currentIndex');
+
+    // Sync controller with provider state
+    if (_controller.index != currentIndex) {
+       // Microtask to avoid build-phase setState issues in controller
+       Future.microtask(() {
+         if (mounted) _controller.index = currentIndex;
+       });
+    }
+
     // 表示するタブのリストを構築
     final tabs = <BottomNavigationBarItem>[
       const BottomNavigationBarItem(
         icon: Icon(CupertinoIcons.search),
         label: '検索',
       ),
-      // ★追加: 探索タブ
       const BottomNavigationBarItem(
-        icon: Icon(CupertinoIcons.compass), // コンパスアイコンなどが探索っぽい
+        icon: Icon(CupertinoIcons.compass),
         label: '探索',
       ),
        const BottomNavigationBarItem(
@@ -74,41 +90,33 @@ class _RootTabsState extends State<RootTabs> {
     ];
 
     return CupertinoTabScaffold(
+      controller: _controller,
       tabBar: CupertinoTabBar(
-        currentIndex: _currentIndex,
         onTap: (index) {
-          if (index == _currentIndex) {
+          if (index == _controller.index) {
             _navigatorKeys[index].currentState?.popUntil((route) => route.isFirst);
           }
-          setState(() {
-            _currentIndex = index;
-            _tabNotifier.value = index;
-          });
+          ref.read(tabIndexProvider.notifier).state = index;
         },
         items: tabs,
       ),
       tabBuilder: (context, index) {
-        // インデックスとページの対応付けを修正
-        // Exploreが入ったので、それ以降のインデックスが1つずつずれます
-
         if (_canShowHistory) {
-          // 履歴あり: 0:Home, 1:Explore, 2:MyRoute, 3:History, 4:Setting
            switch (index) {
-            case 0: return _buildPage(0, HomePage(tabIndexListenable: _tabNotifier));
-            case 1: return _buildPage(1, const ExplorePage()); // ★追加
+            case 0: return _buildPage(0, const HomePage());
+            case 1: return _buildPage(1, const ExplorePage());
             case 2: return _buildPage(2, const MyRoutePage());
             case 3: return _buildPage(3, const HistoryPage());
             case 4: return _buildPage(4, const SettingsPage());
-            default: return _buildPage(0, HomePage(tabIndexListenable: _tabNotifier));
+            default: return _buildPage(0, const HomePage());
           }
         } else {
-          // 履歴なし: 0:Home, 1:Explore, 2:MyRoute, 3:Setting
            switch (index) {
-            case 0: return _buildPage(0, HomePage(tabIndexListenable: _tabNotifier));
-            case 1: return _buildPage(1, const ExplorePage()); // ★追加
+            case 0: return _buildPage(0, const HomePage());
+            case 1: return _buildPage(1, const ExplorePage());
             case 2: return _buildPage(2, const MyRoutePage());
             case 3: return _buildPage(3, const SettingsPage());
-            default: return _buildPage(0, HomePage(tabIndexListenable: _tabNotifier));
+            default: return _buildPage(0, const HomePage());
           }
         }
       },

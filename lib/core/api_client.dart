@@ -35,12 +35,22 @@ class ApiClient {
     }
   }
 
-  static Future<Map<String, dynamic>> post(String path, {Map<String, String>? body}) async {
+  static Future<Map<String, dynamic>> post(String path, {dynamic body}) async {
     final uri = Uri.parse('$kApiBase$path');
-    _log('POST $uri body=$body');
+    
+    // Convert body to JSON string if it's Map or List
+    String? bodyString;
+    Map<String, String> headers = {};
+    
+    if (body != null) {
+      headers['Content-Type'] = 'application/json';
+      bodyString = json.encode(body);
+    }
+
+    _log('POST $uri body=$bodyString');
     
     try {
-      final r = await http.post(uri, body: body);
+      final r = await http.post(uri, body: bodyString, headers: headers);
       _log('POST $uri -> ${r.statusCode}');
       
       if (r.statusCode != 200) {

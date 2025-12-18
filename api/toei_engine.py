@@ -1669,55 +1669,88 @@ def get_reachable_stops(G, tm, lat, lon, limit_dist=1000):
     すべてのバス停・駅のリストを返す。
     """
     # 1. 最寄りの物理ノード（バス停/駅）を探す
-    start_node, dist = nearest_phys(G, lat, lon)
+    # 修正: 単一の最寄りだけだと「片方向」しか拾えないため、
+    # 周辺(例えば200m以内)にあるすべての「phys」ノードを始点候補とする。
     
-    if not start_node or dist > limit_dist:
+    start_candidates = []
+    
+    # 全探索は重いので、nearest_physでまず中心を決めて、そこからの距離でフィルタするか、
+    # あるいはspatial index的なものがあれば良いが、ここでは簡易的に全physノードを走査するか、
+    # または nearest_phys で取れたノードの周辺を探す。
+    
+    # 今回はシンプルに:
+    # まず「一番近いノード」を見つける (基準点)
+    nearest_node, nearest_dist = nearest_phys(G, lat, lon)
+    
+    if not nearest_node or nearest_dist > limit_dist:
         return {
             "found": False,
             "message": "近くに都営交通のバス停・駅が見つかりませんでした。"
         }
+    
+    # 基準点が見つかったら、その「周辺」にある他のポールも探す。
+    # ここでは simple に、limit_dist (デフォルト1000m) ではなく、
+    # 「最寄りバス停とみなす範囲（例: 150m）」にあるノードを全部 start_candidates に入れる。
+    # ユーザーが指定した lat/lon からの距離で判定する。
+    
+    SEARCH_RADIUS_M = 500.0  # 150m以内のポールはすべて「現在地」とみなす
+    
+    for n in G.nodes():
+        if n[0] != "phys": continue
+        
+        d = G.nodes[n]
+        n_lat = d.get("lat")
+        n_lon = d.get("lon")
+        
+        if n_lat and n_lon:
+            dist = haversine(lat, lon, n_lat, n_lon)
+            if dist <= SEARCH_RADIUS_M:
+                start_candidates.append(n[1]) # IDを追加
 
-    start_id = start_node[1]  # "odpt.BusstopPole:..."
-    start_info = G.nodes[start_node]
+    # 万が一何もなければ（nearest_physで見つかってるのでありえないが）nearestを入れる
+    if not start_candidates:
+        start_candidates.append(nearest_node[1])
+
+    nearest_info = G.nodes[nearest_node]
     
     # 到達可能なバス停を格納する辞書 (id -> info)
     reachable_map = {}
     
-    # 2. そのバス停を通るすべての路線パターンを走査
-    # tm.route_patterns_map: { route_id: [ [stopA, stopB, ...], [stopC, ...] ] }
-    for route_id, patterns in tm.route_patterns_map.items():
-        for seq in patterns:
-            # このパターンに現在地が含まれているか？
-            if start_id in seq:
-                idx = seq.index(start_id)
-                
-                # 終点の場合はスキップ
-                if idx == len(seq) - 1:
-                    continue
-
-                # 現在地より「後」にあるバス停はすべて到達可能
-                future_stops = seq[idx+1:]
-                
-                # 路線情報の取得（グラフのノードから情報を拝借）
-                # ※厳密には patterns に紐付く方向幕情報などがほしいが、
-                # ここでは簡易的に route_id を使う
-                
-                for next_stop_id in future_stops:
-                    # 既に登録済みならスキップ（複数路線で行ける場合など）
-                    if next_stop_id in reachable_map:
+    # 2. 候補となるすべてのバス停（ポール）について、通る路線を走査
+    for start_id in start_candidates:
+        for route_id, patterns in tm.route_patterns_map.items():
+            for seq in patterns:
+                # このパターンに現在地が含まれているか？
+                if start_id in seq:
+                    idx = seq.index(start_id)
+                    
+                    # 終点の場合はスキップ
+                    if idx == len(seq) - 1:
                         continue
-                        
-                    node_key = ("phys", next_stop_id)
-                    if node_key in G:
-                        node_data = G.nodes[node_key]
-                        reachable_map[next_stop_id] = {
-                            "id": next_stop_id,
-                            "name": node_data.get("name"),
-                            "lat": node_data.get("lat"),
-                            "lon": node_data.get("lon"),
-                            # どの路線で行けるか（代表の1つを入れておく、またはリスト化する）
-                            "via_route": route_id 
-                        }
+
+                    # 現在地より「後」にあるバス停はすべて到達可能
+                    future_stops = seq[idx+1:]
+                    
+                    for next_stop_id in future_stops:
+                        # 既に登録済みならスキップ（複数路線で行ける場合など）
+                        if next_stop_id in reachable_map:
+                            continue
+                            
+                        # 自分自身（候補に入っているポール）への移動は除外
+                        if next_stop_id in start_candidates:
+                            continue
+
+                        node_key = ("phys", next_stop_id)
+                        if node_key in G:
+                            node_data = G.nodes[node_key]
+                            reachable_map[next_stop_id] = {
+                                "id": next_stop_id,
+                                "name": node_data.get("name"),
+                                "lat": node_data.get("lat"),
+                                "lon": node_data.get("lon"),
+                                # どの路線で行けるか（代表の1つを入れておく、またはリスト化する）
+                                "via_route": route_id 
+                            }
 
     # リストに変換してソート（必要なら距離順や名前順に）
     reachable_list = list(reachable_map.values())
@@ -1725,11 +1758,11 @@ def get_reachable_stops(G, tm, lat, lon, limit_dist=1000):
     return {
         "found": True,
         "nearest_stop": {
-            "id": start_id,
-            "name": start_info.get("name"),
-            "lat": start_info.get("lat"),
-            "lon": start_info.get("lon"),
-            "dist_m": dist
+            "id": nearest_node[1],
+            "name": nearest_info.get("name"),
+            "lat": nearest_info.get("lat"),
+            "lon": nearest_info.get("lon"),
+            "dist_m": nearest_dist
         },
         "reachable_stops": reachable_list,
         "count": len(reachable_list)

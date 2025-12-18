@@ -3,7 +3,7 @@ import httpx
 import uuid
 import asyncio
 import datetime
-from app.services.route_experience import build_route_experiences
+from app.services.bus_stop_experience import build_route_experiences
 
 from fastapi import HTTPException, Form, Query, Body
 
@@ -136,19 +136,22 @@ async def _run_route_job(app, job_id, alat, alon, blat, blon, pref, start_time, 
         ROUTE_JOBS[job_id]["error"] = str(e)
 
 def register_routes(app):
+    from pydantic import BaseModel
+
+    class RouteRequest(BaseModel):
+        alat: float
+        alon: float
+        blat: float
+        blon: float
+        pref: str = "cost"
+        time: str = "10:00"
+        date: str | None = None
+
     @app.post("/route")
-    async def route_start(
-        alat: float = Form(...),
-        alon: float = Form(...),
-        blat: float = Form(...),
-        blon: float = Form(...),
-        pref: str = Form("cost"), # cost | time
-        time: str = Form("10:00"), # 出発時刻
-        date: str = Form(None) # 出発日付 (YYYY-MM-DD形式、オプション)
-    ):
+    async def route_start(req: RouteRequest):
         job_id = uuid.uuid4().hex
         ROUTE_JOBS[job_id] = {"status": "pending"}
-        asyncio.create_task(_run_route_job(app, job_id, alat, alon, blat, blon, pref, time, date))
+        asyncio.create_task(_run_route_job(app, job_id, req.alat, req.alon, req.blat, req.blon, req.pref, req.time, req.date))
         return {"job_id": job_id}
 
     @app.get("/route")
@@ -258,22 +261,24 @@ def register_routes(app):
             "destinations": destinations,
         }
 
-    @router.get("/reachable")
+    @app.get("/explore/reachable")
     async def find_reachable_places(
         lat: float = Query(..., description="現在地の緯度"),
         lon: float = Query(..., description="現在地の経度")
     ):
-        # アプリケーションの状態から G と tm を取得する処理が必要
-        # 例: app.state.graph, app.state.timetable_manager
-        # ここでは変数として利用可能と仮定
-        from ...server import G, tm  # server.pyなどでグローバルに持っている場合
+        # 修正箇所: serverからインポートせず、app.stateから取得する
+        G = app.state.G
+        tm = app.state.TM
 
-        if not G or not tm:
+        if G is None or tm is None:
             raise HTTPException(status_code=503, detail="Server not initialized")
 
+        # toei_engine からインポートした関数を使用
         result = get_reachable_stops(G, tm, lat, lon)
         
-        if not result["found"]:
-            raise HTTPException(status_code=404, detail=result["message"])
+        # if not result["found"]:
+        #     # 404を返すとクライアントがException扱いしてしまうため、
+        #     # 200 OK で found:False を返すように変更
+        #     pass
             
         return result
