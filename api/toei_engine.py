@@ -313,7 +313,7 @@ class TimetableManager:
                     count += 1
         print(f"[INFO] Index built. Total {count} nodes.")
 
-    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", debug=False):
+    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
         if not debug:
             dbg_env = os.getenv("DEBUG_BUS", "0")
             if dbg_env == "1":
@@ -322,11 +322,11 @@ class TimetableManager:
                 debug = True
 
         if not debug:
-            return self._get_next_bus_departure_impl(pole_id, route_id, current_time_min, pole_name, day_type, debug=False)
+            return self._get_next_bus_departure_impl(pole_id, route_id, current_time_min, pole_name, day_type, target_pole_id=target_pole_id, debug=False)
         
-        return self._get_next_bus_departure_impl(pole_id, route_id, current_time_min, pole_name, day_type, debug=True)
+        return self._get_next_bus_departure_impl(pole_id, route_id, current_time_min, pole_name, day_type, target_pole_id=target_pole_id, debug=True)
 
-    def _get_next_bus_departure_impl(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", debug=False):
+    def _get_next_bus_departure_impl(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
         if day_type == "saturday":
             target_dict = self.bus_departures_saturday
         elif day_type == "holiday":
@@ -969,11 +969,13 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=Non
             route_id = G.nodes[node].get("route_id")
             stop_name = G.nodes[u].get("name")
             
-            # ターゲット指定なしで検索（方向フィルタリングは探索の終了条件側で解決する）
+            # ターゲット指定があれば渡す
+            target_pid = kwargs.get("target_pole_id")
             dep = tm.get_next_bus_departure(
                 phys_id, route_id, curr_time,
                 pole_name=stop_name,
-                day_type=day_type
+                day_type=day_type,
+                target_pole_id=target_pid
             )
             return dep
         elif mode == "rail":
@@ -1035,11 +1037,11 @@ def search_best_routes_once(G, tm, a_phys, b_phys, mode="cost", start_time="10:0
     else:
         base_date = now
     
-    # start_time が "HH:MM" 形式なので、その日に時間を合わせる
+    print(f"[DEBUG_TIME] search_best_routes_once: Received start_time={start_time}, target_date_str={target_date_str}")
     h, m = map(int, start_time.split(":"))
     start_dt = base_date.replace(hour=h, minute=m, second=0, microsecond=0)
     
-    print(f"[DEBUG] search_best_routes_once: Start from {start_dt}")
+    print(f"[DEBUG_TIME] search_best_routes_once: Calculated start_dt={start_dt}")
 
     # 単発検索（リトライなし）
     target_date = start_dt
@@ -1065,6 +1067,7 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
     ServerとCLI共通のエントリーポイント。
     経路探索 -> 時刻表バリデーション -> セグメント化 -> 結果辞書のリスト作成 までを一気通貫で行う。
     """
+    print(f"[DEBUG_TIME] search_best_routes: start_time_str={start_time}")
     if target_date is None:
         target_date = datetime.datetime.now()
     
@@ -1246,6 +1249,7 @@ def find_paths_generator(
     import time
     start_clock = time.monotonic()
 
+    print(f"[DEBUG_TIME] find_paths_generator: start_time_str={start_time_str}")
     start_min = time_str_to_min(start_time_str)
 
     t_lat, t_lon = None, None
@@ -1532,7 +1536,7 @@ def calculate_real_arrival_time(
     return curr_time
 
 def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", delays_snapshot=None):
-    print(f"[DEBUG_COORD] ENTER segments_detailed", flush=True)
+    print(f"[DEBUG_TIME] segments_detailed: start_time_str={start_time_str}", flush=True)
     segs = []
     cur = None
     last_phys = None
@@ -1623,7 +1627,11 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 if "Ue23" in route_id:
                      print(f"[DEBUG TRACE] Boarding Ue23 at {stop_name} ({phys_id}): curr={min_to_time_str(curr_time)}, result={min_to_time_str(dep) if dep else 'None'}")
 
-                if dep: curr_time = dep
+                # 過去便で巻き戻さない
+                if dep is not None and dep + 1e-6 >= curr_time:
+                    curr_time = dep
+                else:
+                    print(f"[WARN_TIME] dep rollback blocked start={min_to_time_str(time_str_to_min(start_time_str))} curr={min_to_time_str(curr_time)} dep={min_to_time_str(dep) if dep is not None else 'None'} stop={stop_name} rid={route_id} pid={phys_id}")
                 
                 # Resolve GTFS IDs
                 if hasattr(tm, "resolve_gtfs_route_id"):

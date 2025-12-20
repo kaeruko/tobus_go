@@ -136,18 +136,19 @@ List<ScheduleEntry> createScheduleFromRoute(
   Duration departureLeadTime = Duration.zero,
   DateTime? meetingAt,
   int baseStepIndex = 0, // ★追加: ステップ番号のオフセット
+  bool shiftToStart = false, // ★追加: 開始時刻に合わせて予定全体をスライドさせるか
 }) {
   final list = <ScheduleEntry>[];
   final prefix = (labelPrefix != null && labelPrefix.isNotEmpty)
       ? '$labelPrefix '
       : '';
 
-  final departureBase = startDateTime ?? route.departureDate ?? appClock.now();
+  var departureBase = startDateTime ?? route.departureDate ?? appClock.now();
   final stepClocks = route.steps
       .expand((s) => [s.departureTime, s.arrivalTime])
       .cast<String?>()
       .toList();
-  final normalizedTimes = normalizeCrossDay(departureBase, stepClocks);
+  var normalizedTimes = normalizeCrossDay(departureBase, stepClocks);
 
   // Back-fill missing times if the start is missing (e.g. initial walk)
   final firstValidIndex = stepClocks.indexWhere((s) => s != null && s.contains(':'));
@@ -163,6 +164,15 @@ List<ScheduleEntry> createScheduleFromRoute(
         final duration = step.minutes ?? 0;
         normalizedTimes[k] = normalizedTimes[k + 1].subtract(Duration(minutes: duration));
       }
+    }
+  }
+
+  // ★追加: 開始時刻に合わせてスライドさせる処理
+  if (shiftToStart && normalizedTimes.isNotEmpty) {
+    final firstPlanned = normalizedTimes.first;
+    final diff = departureBase.difference(firstPlanned);
+    if (diff != Duration.zero) {
+      normalizedTimes = normalizedTimes.map((t) => t.add(diff)).toList();
     }
   }
 

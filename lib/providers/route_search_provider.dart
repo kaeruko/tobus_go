@@ -120,26 +120,17 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
         return;
       }
 
+      final searchTime = state.startTime ?? DateTime.now();
+
       final body = {
         'alat': alat.toString(),
         'alon': alon.toString(),
         'blat': blat.toString(),
         'blon': blon.toString(),
-        'pref': state.pref ?? 'fewTransfers', // default to fewTransfers if null? or cost? server default is cost
+        'pref': state.pref ?? 'fewTransfers',
+        'start_time': "${searchTime.hour.toString().padLeft(2, '0')}:${searchTime.minute.toString().padLeft(2, '0')}",
+        'target_date_str': "${searchTime.year}-${searchTime.month.toString().padLeft(2, '0')}-${searchTime.day.toString().padLeft(2, '0')}",
       };
-
-      if (state.startTime != null) {
-        // "10:00"
-        final h = state.startTime!.hour.toString().padLeft(2, '0');
-        final m = state.startTime!.minute.toString().padLeft(2, '0');
-        body['time'] = "$h:$m";
-        
-        // "YYYY-MM-DD"
-        final y = state.startTime!.year.toString();
-        final mo = state.startTime!.month.toString().padLeft(2, '0');
-        final d = state.startTime!.day.toString().padLeft(2, '0');
-        body['date'] = "$y-$mo-$d";
-      }
 
       final r = await ApiClient.post('/route', body: body);
       final jobId = r['job_id'] as String;

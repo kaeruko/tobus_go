@@ -147,8 +147,8 @@ def register_routes(app):
         blat: float
         blon: float
         pref: str = "cost"
-        time: str = "10:00"
-        date: str | None = None
+        start_time: str = "10:00"
+        target_date_str: str | None = None
 
     @app.post("/route")
     async def route_start(req: RouteRequest):
@@ -157,7 +157,7 @@ def register_routes(app):
 
         job_id = uuid.uuid4().hex
         ROUTE_JOBS[job_id] = {"status": "pending"}
-        asyncio.create_task(_run_route_job(app, job_id, req.alat, req.alon, req.blat, req.blon, req.pref, req.time, req.date))
+        asyncio.create_task(_run_route_job(app, job_id, req.alat, req.alon, req.blat, req.blon, req.pref, req.start_time, req.target_date_str))
         return {"job_id": job_id}
 
     @app.get("/route")

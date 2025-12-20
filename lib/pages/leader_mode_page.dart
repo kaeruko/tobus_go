@@ -155,6 +155,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
       startDateTime: departure,
       labelPrefix: '行き',
       legIndex: 0,
+      shiftToStart: true,
     );
 
     final updatedSchedule =
