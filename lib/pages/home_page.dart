@@ -13,6 +13,7 @@ import 'map_picker_page.dart';
 import 'route_detail_page.dart';
 import '../services/trip_service.dart';
 import 'member_mode_page.dart';
+import '../providers/effective_location_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/app_session_provider.dart';
@@ -66,6 +67,20 @@ class HomePageState extends ConsumerState<HomePage> {
     notifier.setFrom(rs.to, name: rs.toName);
     notifier.setTo(rs.from, name: rs.fromName);
     notifier.triggerSearch();
+  }
+
+  Future<void> _useEffectiveLocation() async {
+    try {
+      final effective = await ref.read(effectiveLocationProvider.future);
+      final notifier = ref.read(routeSearchProvider.notifier);
+      notifier.setFrom(effective.loc, name: effective.name);
+      notifier.triggerSearch();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('現在地の取得に失敗しました: $e')),
+      );
+    }
   }
 
   Future<void> _openMap(bool forA) async {
@@ -221,10 +236,20 @@ class HomePageState extends ConsumerState<HomePage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        CupertinoButton(
-                          padding: const EdgeInsets.all(8),
-                          child: const Icon(CupertinoIcons.arrow_up_arrow_down),
-                          onPressed: _swapRouteEndpoints,
+                        Row(
+                          children: [
+                            CupertinoButton(
+                                padding: const EdgeInsets.all(8),
+                                child: const Icon(CupertinoIcons.arrow_up_arrow_down),
+                                onPressed: _swapRouteEndpoints,
+                            ),
+                            if (kDebugMode)
+                              CupertinoButton(
+                                  padding: const EdgeInsets.all(8),
+                                  child: const Icon(CupertinoIcons.location_fill),
+                                  onPressed: _useEffectiveLocation,
+                              ),
+                          ],
                         ),
                         CupertinoButton(
                           padding: const EdgeInsets.all(8),
