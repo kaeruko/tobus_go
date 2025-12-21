@@ -147,266 +147,273 @@ class HomePageState extends ConsumerState<HomePage> {
     final notifier = ref.read(routeSearchProvider.notifier);
     final startTime = rs.startTime ?? appClock.now();
 
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: Text(widget.title),
-      ),
-      child: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            // Active Trip Card
-            if (activeTripAsync.value != null && 
-                activeTripAsync.value!.status != TripStatus.completed &&
-                activeTripAsync.value!.status != TripStatus.cancelled)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: _ActiveTripCard(
-                    trip: activeTripAsync.value!,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        CupertinoPageRoute(
-                          builder: (_) => LeaderModePage(tripId: activeTripAsync.value!.id),
-                        ),
-                      ).then((_) {
-                        ref.read(activeTripProvider.notifier).refresh();
-                      });
-                    },
-                  ),
-                ),
-              ),
-
-            SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  const SizedBox(height: 8),
-
-                  // Date Time
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: GestureDetector(
-                      onTap: () => _showTimePicker(startTime),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: CupertinoColors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: CupertinoColors.separator),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('出発日時', style: TextStyle(fontSize: 14)),
-                            Text(
-                              '${startTime.month}/${startTime.day} ${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: CupertinoColors.activeBlue,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // From
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: PlaceField(
-                      label: '出発(検索)',
-                      value: rs.from,
-                      displayValue: rs.fromName,
-                      onChanged: (val, desc) {
-                        notifier.setFrom(val, name: desc.isNotEmpty ? desc : val);
-                        if (_isCoordinate(val)) {
-                          notifier.triggerSearch();
-                        }
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () {
+        // 画面タップでフォーカス解除してキーボードを閉じる
+        FocusManager.instance.primaryFocus?.unfocus();
+      },
+      child: CupertinoPageScaffold(
+        navigationBar: CupertinoNavigationBar(
+          middle: Text(widget.title),
+        ),
+        child: SafeArea(
+          child: CustomScrollView(
+            slivers: [
+              // Active Trip Card
+              if (activeTripAsync.value != null && 
+                  activeTripAsync.value!.status != TripStatus.completed &&
+                  activeTripAsync.value!.status != TripStatus.cancelled)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: _ActiveTripCard(
+                      trip: activeTripAsync.value!,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          CupertinoPageRoute(
+                            builder: (_) => LeaderModePage(tripId: activeTripAsync.value!.id),
+                          ),
+                        ).then((_) {
+                          ref.read(activeTripProvider.notifier).refresh();
+                        });
                       },
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  
-                  // Swap & Map
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            CupertinoButton(
-                                padding: const EdgeInsets.all(8),
-                                child: const Icon(CupertinoIcons.arrow_up_arrow_down),
-                                onPressed: _swapRouteEndpoints,
-                            ),
-                            if (kDebugMode)
+                ),
+
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 8),
+
+                    // Date Time
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      child: GestureDetector(
+                        onTap: () => _showTimePicker(startTime),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: CupertinoColors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: CupertinoColors.separator),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('出発日時', style: TextStyle(fontSize: 14)),
+                              Text(
+                                '${startTime.month}/${startTime.day} ${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: CupertinoColors.activeBlue,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // From
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: PlaceField(
+                        label: '出発(検索)',
+                        value: rs.from,
+                        displayValue: rs.fromName,
+                        onChanged: (val, desc) {
+                          notifier.setFrom(val, name: desc.isNotEmpty ? desc : val);
+                          if (_isCoordinate(val)) {
+                            notifier.triggerSearch();
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    
+                    // Swap & Map
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
                               CupertinoButton(
                                   padding: const EdgeInsets.all(8),
-                                  child: const Icon(CupertinoIcons.location_fill),
-                                  onPressed: _useEffectiveLocation,
+                                  child: const Icon(CupertinoIcons.arrow_up_arrow_down),
+                                  onPressed: _swapRouteEndpoints,
                               ),
-                          ],
-                        ),
-                        CupertinoButton(
+                              if (kDebugMode)
+                                CupertinoButton(
+                                    padding: const EdgeInsets.all(8),
+                                    child: const Icon(CupertinoIcons.location_fill),
+                                    onPressed: _useEffectiveLocation,
+                                ),
+                            ],
+                          ),
+                          CupertinoButton(
+                            padding: const EdgeInsets.all(8),
+                            child: const Icon(CupertinoIcons.map_pin),
+                            onPressed: () => _openMap(true),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // To
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: PlaceField(
+                        label: '到着(検索)',
+                        value: rs.to,
+                        displayValue: rs.toName,
+                        onChanged: (val, desc) {
+                          notifier.setTo(val, name: desc.isNotEmpty ? desc : val);
+                          if (_isCoordinate(val)) {
+                            notifier.triggerSearch();
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    
+                    // Map (To)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: CupertinoButton(
                           padding: const EdgeInsets.all(8),
                           child: const Icon(CupertinoIcons.map_pin),
-                          onPressed: () => _openMap(true),
+                          onPressed: () => _openMap(false),
                         ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // To
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: PlaceField(
-                      label: '到着(検索)',
-                      value: rs.to,
-                      displayValue: rs.toName,
-                      onChanged: (val, desc) {
-                        notifier.setTo(val, name: desc.isNotEmpty ? desc : val);
-                        if (_isCoordinate(val)) {
-                          notifier.triggerSearch();
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  
-                  // Map (To)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: CupertinoButton(
-                        padding: const EdgeInsets.all(8),
-                        child: const Icon(CupertinoIcons.map_pin),
-                        onPressed: () => _openMap(false),
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 8),
+                    const SizedBox(height: 8),
 
-                  // Preference
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: CupertinoSlidingSegmentedControl<String>(
-                      groupValue: rs.pref ?? 'fewTransfers',
-                      children: const {
-                        'fewTransfers': Text('乗換少ない優先'),
-                        'shortTime': Text('時間短い優先'),
-                      },
-                      onValueChanged: (v) {
-                        if (v == null) return;
-                        notifier.setPref(v);
-                        notifier.triggerSearch();
-                      },
-                    ),
-                  ),
-
-
-                  // Search Button (Optional but useful if auto-search fails or purely manual)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: SizedBox(
-                        width: double.infinity,
-                        child: CupertinoButton.filled(
-                            onPressed: () {
-                                notifier.triggerSearch();
-                            },
-                            child: const Text("検索"),
-                        ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-
-            if (rs.meta?.destinationReachable == false)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: _FallbackNotice(meta: rs.meta!),
-                ),
-              ),
-
-             // Loading / Results / Error
-             if (rs.isLoading)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: Container(
-                    width: 160,
-                    height: 160,
-                    decoration: BoxDecoration(
-                      color: CupertinoColors.systemBackground,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: CupertinoColors.systemGrey.withOpacity(0.2),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: BusLoadingIndicator(),
-                    ),
-                  ),
-                ),
-              )
-            else if (rs.errorMessage != null)
-                 SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: Text('エラー: ${rs.errorMessage}', style: const TextStyle(color: CupertinoColors.destructiveRed))),
-                 )
-            else if (rs.candidates.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: Text(
-                    rs.hasSearched ? '経路が見つかりませんでした' : '出発と到着を選択',
-                    style: TextStyle(
-                      color: rs.hasSearched ? CupertinoColors.systemRed : CupertinoColors.systemGrey,
-                    ),
-                  ),
-                ),
-              )
-            else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) {
-                    final c = rs.candidates[i];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            CupertinoPageRoute(
-                              builder: (_) => RouteDetailPage(candidate: c, meta: rs.meta),
-                            ),
-                          );
+                    // Preference
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: CupertinoSlidingSegmentedControl<String>(
+                        groupValue: rs.pref ?? 'fewTransfers',
+                        children: const {
+                          'fewTransfers': Text('乗換少ない優先'),
+                          'shortTime': Text('時間短い優先'),
                         },
-                        child: RouteCard(candidate: c, rank: i + 1, meta: rs.meta),
+                        onValueChanged: (v) {
+                          if (v == null) return;
+                          notifier.setPref(v);
+                          notifier.triggerSearch();
+                        },
                       ),
-                    );
-                  },
-                  childCount: rs.candidates.length,
+                    ),
+
+
+                    // Search Button (Optional but useful if auto-search fails or purely manual)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: SizedBox(
+                          width: double.infinity,
+                          child: CupertinoButton.filled(
+                              onPressed: () {
+                                  notifier.triggerSearch();
+                              },
+                              child: const Text("検索"),
+                          ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+                  ],
                 ),
               ),
 
-             const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
-          ],
+              if (rs.meta?.destinationReachable == false)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    child: _FallbackNotice(meta: rs.meta!),
+                  ),
+                ),
+
+               // Loading / Results / Error
+               if (rs.isLoading)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Container(
+                      width: 160,
+                      height: 160,
+                      decoration: BoxDecoration(
+                        color: CupertinoColors.systemBackground,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: CupertinoColors.systemGrey.withOpacity(0.2),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: BusLoadingIndicator(),
+                      ),
+                    ),
+                  ),
+                )
+              else if (rs.errorMessage != null)
+                   SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: Text('エラー: ${rs.errorMessage}', style: const TextStyle(color: CupertinoColors.destructiveRed))),
+                   )
+              else if (rs.candidates.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Text(
+                      rs.hasSearched ? '経路が見つかりませんでした' : '出発と到着を選択',
+                      style: TextStyle(
+                        color: rs.hasSearched ? CupertinoColors.systemRed : CupertinoColors.systemGrey,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, i) {
+                      final c = rs.candidates[i];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              CupertinoPageRoute(
+                                builder: (_) => RouteDetailPage(candidate: c, meta: rs.meta),
+                              ),
+                            );
+                          },
+                          child: RouteCard(candidate: c, rank: i + 1, meta: rs.meta),
+                        ),
+                      );
+                    },
+                    childCount: rs.candidates.length,
+                  ),
+                ),
+
+               const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
+            ],
+          ),
         ),
       ),
     );
