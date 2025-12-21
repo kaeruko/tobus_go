@@ -5,6 +5,7 @@ import '../core/app_clock.dart';
 import 'leg_models.dart';
 import 'route_models.dart';
 import 'trip_models.dart';
+import '../utils/string_utils.dart';
 
 enum ScheduleEntryKind {
   meeting,
@@ -319,7 +320,7 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
         labelPrefix: '➡️',
         legIndex: 0,
         includeMeeting: true,
-        meetingLabel: '${Trip.extractSimpleName(outbound.candidate.originName ?? '')}集合',
+        meetingLabel: '${StringUtils.extractSimpleName(outbound.candidate.originName ?? '')}集合',
         meetingDescription: 'みんな揃っているか確認しましょう',
         baseStepIndex: legBaseIndices[outbound] ?? 0, // Pass offset
       ),

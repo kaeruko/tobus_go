@@ -17,7 +17,7 @@ TRANSFER_PENALTY = 5.0
 BUS_WAIT_PENALTY = 15.0
 BUS_ALIGHT_PENALTY = 5.0
 
-MAX_WALK_SEG_M = 300.0
+MAX_WALK_SEG_M = 1000.0
 
 # 追加: 経路として許容する最大所要時間・総徒歩距離
 MAX_TRAVEL_MIN = 240.0      # 例: 4 時間を上限
@@ -933,8 +933,13 @@ def get_logical_signature(G, path):
     sig = []
     current_line = None
     for u, v in zip(path, path[1:]):
-        e = G.edges[u, v]
-        etype = e.get("etype")
+        if G.has_edge(u, v):
+            e = G.edges[u, v]
+            etype = e.get("etype")
+        else:
+            # Virtual edge (walk)
+            etype = "walk"
+
         if etype == "ride":
             current_line = G.nodes[u].get("norm") or G.nodes[u].get("disp")
         elif etype == "alight":
@@ -1014,8 +1019,17 @@ def path_to_coords(G, path):
     """
     points = []
     for u in path:
-        d = G.nodes[u]
-        points.append([d["lat"], d["lon"]])
+        if u[0] == "phys" and str(u[1]).startswith("dest:"):
+            # dest:LAT,LON
+            try:
+                parts = str(u[1]).split(":")[1].split(",")
+                lat, lon = float(parts[0]), float(parts[1])
+                points.append([lat, lon])
+            except:
+                print(f"[WARN] Failed to parse virtual node coords: {u}")
+        elif u in G.nodes:
+            d = G.nodes[u]
+            points.append([d["lat"], d["lon"]])
     return points
 
 
@@ -1107,7 +1121,7 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
         
         # Check validity (Short Trip check)
         if path:
-            real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot)
+            real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
             if real_arr is None:
                 print(f"[WARN] Fastest path invalidated by timetable check (possibly short trip).")
                 path = None # Discard
@@ -1160,6 +1174,8 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
             max_visited=100000,
             max_travel_min=MAX_TRAVEL_MIN,
             delays_snapshot=delays_snapshot,
+            virtual_dest_connections=virtual_dest_connections,
+            target_coords=target_coords,
         )
 
         valid_count = 0
@@ -1168,7 +1184,7 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
             path = cand["path"]
             
             # 答え合わせ (時刻表チェック)
-            real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot)
+            real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
             
             if real_arr is not None:
                 # 合格
@@ -1263,10 +1279,18 @@ def find_paths_generator(
             pass
 
     def heuristic(n):
+        if n == target_node:
+            return 0.0
         if t_lat is None:
             return 0.0
-        n_lat = G.nodes[n].get("lat")
-        n_lon = G.nodes[n].get("lon")
+        
+        node_data = G.nodes.get(n)
+        if not node_data:
+            return 0.0
+
+        n_lat = node_data.get("lat")
+        n_lon = node_data.get("lon")
+        
         if n_lat is None or n_lon is None:
             return 0.0
         dist = haversine(n_lat, n_lon, t_lat, t_lon)
@@ -1453,6 +1477,27 @@ def find_fastest_path(
             continue
         visited_time[state_key] = curr_time
 
+        # Virtual Edge Logic
+        if virtual_dest_connections and u[0] == "phys" and target_node and target_node[0] == "phys" and str(target_node[1]).startswith("dest:"):
+             for nid, vw, vmeters in virtual_dest_connections:
+                 if nid == u:
+                     # Found virtual connection u -> target_node
+                     v_time = curr_time + (vmeters / WALK_SPEED_M_PER_MIN)
+                     if v_time - start_min > max_travel_min:
+                         continue
+                     
+                     if (u, int((seg_walk_m + vmeters)//10)) in visited_time and visited_time[(u, int((seg_walk_m + vmeters)//10))] <= v_time:
+                         pass
+                     
+                     # Check walk limit
+                     new_seg_v = seg_walk_m + vmeters
+                     new_total_v = total_walk_m + vmeters
+                     if new_seg_v > MAX_WALK_SEG_M or new_total_v > MAX_TOTAL_WALK_M:
+                         continue
+                         
+                     # Push to PQ
+                     heapq.heappush(pq, (v_time, target_node, (target_node, path_chain), new_total_v, new_seg_v))
+
         for v in G[u]:
             edge = G[u][v]
             etype = edge.get("etype")
@@ -1492,6 +1537,7 @@ def calculate_real_arrival_time(
     max_search=30000,
     max_travel_min=MAX_TRAVEL_MIN,
     delays_snapshot=None,
+    virtual_dest_connections=None,
 ):
     start_min = time_str_to_min(start_time_str)
     curr_time = start_min
@@ -1500,7 +1546,19 @@ def calculate_real_arrival_time(
         u = path[i]
         v = path[i+1]
         
-        edge = G.edges[u, v]
+        edge = None
+        if G.has_edge(u, v):
+            edge = G.edges[u, v]
+        elif virtual_dest_connections and u[0] == "phys" and v[0] == "phys" and str(v[1]).startswith("dest:"):
+             for nid, w, dist in virtual_dest_connections:
+                 if nid == u:
+                     edge = {"etype": "walk", "meters": dist, "w": w}
+                     break
+        
+        if not edge:
+            # Should not happen in a valid path
+            return None
+
         etype = edge.get("etype")
         target_pid = None
         
@@ -1510,18 +1568,24 @@ def calculate_real_arrival_time(
                 for j in range(i + 1, len(path) - 1):
                     u2 = path[j]
                     v2 = path[j+1]
+                    if not G.has_edge(u2, v2):
+                        continue
                     e2 = G.edges[u2, v2]
                     if e2.get("etype") == "alight":
                         target_pid = v2[1]
                         break
         
-        next_time = advance_time(
-            G, tm, u, v,
-            curr_time,
-            day_type=day_type,
-            target_pole_id=target_pid,
-            delays_snapshot=delays_snapshot,
-        )
+        if not G.has_edge(u, v) and edge.get("etype") == "walk":
+             # Virtual walk
+             next_time = curr_time + (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
+        else:
+            next_time = advance_time(
+                G, tm, u, v,
+                curr_time,
+                day_type=day_type,
+                target_pole_id=target_pid,
+                delays_snapshot=delays_snapshot,
+            )
         if next_time is None:
             print(f"[DEBUG] Path REJECTED in calc_real_time: Cannot advance time at {u}->{v} (etype={etype})")
             return None
@@ -1537,6 +1601,14 @@ def calculate_real_arrival_time(
 
 def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", delays_snapshot=None, virtual_dest_connections=None):
     print(f"[DEBUG_TIME] segments_detailed: start_time_str={start_time_str}", flush=True)
+    print(f"[USER_DEBUG] segments_detailed called with path len={len(path)}")
+    if virtual_dest_connections:
+        print(f"[USER_DEBUG] virtual_dest_connections keys: {list(virtual_dest_connections.keys()) if isinstance(virtual_dest_connections, dict) else 'list'}")
+        if isinstance(virtual_dest_connections, list):
+             print(f"[USER_DEBUG] virtual_dest_connections list: {virtual_dest_connections}")
+    else:
+        print("[USER_DEBUG] virtual_dest_connections is None or empty")
+
     segs = []
     cur = None
     last_phys = None
@@ -1565,6 +1637,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             cur = None
 
     for i, (u, v) in enumerate(zip(path, path[1:])):
+        print(f"[USER_DEBUG] Loop {i}: {u} -> {v}")
         # 仮想エッジ対応
         edge = None
         if G.has_edge(u, v):
@@ -1596,7 +1669,13 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 cur = { "kind": "walk", "title": "徒歩", "edges": 0, "from_": from_name, "to": None, "meters": 0 }
             cur["edges"] += 1
             cur["meters"] += edge.get("meters", 0)
-            if v[0] == "phys": cur["to"] = G.nodes[v]["name"]
+            if v[0] == "phys":
+                if str(v[1]).startswith("dest:"):
+                    cur["to"] = "目的地"
+                elif v in G.nodes:
+                    cur["to"] = G.nodes[v]["name"]
+                else:
+                    cur["to"] = str(v[1])
             curr_time += (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
             continue
 
@@ -1636,6 +1715,8 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                      for j in range(i + 1, len(path) - 1):
                         u2 = path[j]
                         v2 = path[j+1]
+                        if not G.has_edge(u2, v2):
+                            continue
                         e2 = G.edges[u2, v2]
                         if e2.get("etype") == "alight":
                             target_pid = v2[1]
@@ -1646,6 +1727,23 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
 
                 if "Ue23" in route_id:
                      print(f"[DEBUG TRACE] Boarding Ue23 at {stop_name} ({phys_id}): curr={min_to_time_str(curr_time)}, result={min_to_time_str(dep) if dep else 'None'}")
+
+                # 待ち時間の計算と挿入
+                if dep is not None and dep > curr_time:
+                    wait_min = int(dep - curr_time)
+                    if wait_min > 0:
+                        flush() # 前のセグメント（徒歩など）を確定
+                        segs.append({
+                            "kind": "wait",
+                            "title": "待ち時間",
+                            "minutes": wait_min,
+                            "edges": 0,
+                            "from_": from_name,
+                            "to": from_name, 
+                            "meters": 0,
+                            "departure_time": min_to_time_str(curr_time),
+                            "arrival_time": min_to_time_str(dep)
+                        })
 
                 # 過去便で巻き戻さない
                 if dep is not None and dep + 1e-6 >= curr_time:
@@ -1669,6 +1767,19 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 print(f"[DEBUG] Board segment: line_disp='{line_disp}', gtfs_route_id='{gtfs_route_id}', gtfs_stop_id='{gtfs_stop_id}'")
 
             elif mode == "rail":
+                wait_min = 2 # 暫定固定
+                flush() # 前の徒歩などを確定
+                segs.append({
+                     "kind": "wait",
+                     "title": "待ち時間",
+                     "minutes": wait_min,
+                     "edges": 0,
+                     "from_": from_name,
+                     "to": from_name,
+                     "meters": 0,
+                     "departure_time": min_to_time_str(curr_time),
+                     "arrival_time": min_to_time_str(curr_time + wait_min)
+                })
                 curr_time += 2.0
             
             odpt_route_id = route_id if mode == "bus" else ""

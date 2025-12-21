@@ -362,10 +362,47 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                     onPressed: () {
                       setState(() {
                         _isReturnSearchVisible = true;
-                        final outboundDeparture = widget.candidate.departureDate ?? appClock.now();
-                        // 滞在時間を「行きにかかった時間」と同じだけ確保すると仮定
-                        // 帰りの出発時刻 = 行きの出発時刻 + 行きの所要時間(到着) + 滞在時間(=行きの所要時間)
-                        _returnSearchTime = outboundDeparture.add(Duration(minutes: widget.candidate.totalTime * 2));
+                        
+                        // 帰りの出発時刻の計算:
+                        // 1. 行きの「到着時刻」を算出
+                        DateTime baseDate = widget.candidate.departureDate ?? appClock.now();
+                        // Time component is likely 00:00 in departureDate, so we need to add the time from the last transit step.
+                        
+                        DateTime? arrivalTime;
+                        int trailingWalkMinutes = 0;
+                        
+                        // 後ろからスキャンして、時刻な有効なステップ(バス/電車)を探す
+                        for (final step in widget.candidate.steps.reversed) {
+                          if (step.arrivalTime != null && step.arrivalTime!.contains(':')) {
+                            final parts = step.arrivalTime!.split(':');
+                            final h = int.parse(parts[0]);
+                            final m = int.parse(parts[1]);
+                            arrivalTime = DateTime(baseDate.year, baseDate.month, baseDate.day, h, m);
+                            break;
+                          } else {
+                            // 時刻がないステップ（最後の徒歩など）は時間を加算
+                            trailingWalkMinutes += (step.minutes ?? 0);
+                          }
+                        }
+
+                        if (arrivalTime != null) {
+                           // 到着時刻 ＋ 最後の徒歩
+                           final finalArrival = arrivalTime.add(Duration(minutes: trailingWalkMinutes));
+                           // ＋ 滞在時間（＝行きの所要時間）
+                           _returnSearchTime = finalArrival.add(Duration(minutes: widget.candidate.totalTime));
+                        } else {
+                           // 時刻が取れない場合は、現在時刻＋(所要時間*2)等のフォールバック
+                           final startTime = widget.candidate.departureDate ?? appClock.now(); 
+                           // Note: departureDate usually doesn't have time, so this might default to midnight if not careful,
+                           // but this is a fallback for walk-only paths likely.
+                           // Try to use appClock.now() if departureDate is midnight? 
+                           // For now, simple fallback:
+                           if (startTime.hour == 0 && startTime.minute == 0) {
+                              _returnSearchTime = appClock.now().add(const Duration(hours: 2));
+                           } else {
+                              _returnSearchTime = startTime.add(Duration(minutes: widget.candidate.totalTime * 2));
+                           }
+                        }
                       });
                     },
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -1044,19 +1081,61 @@ class RouteSummary extends StatelessWidget {
   final Candidate candidate;
   const RouteSummary({super.key, required this.candidate});
 
+  String _formatTime(String? timeStr) {
+    if (timeStr == null) return '--:--';
+    return timeStr;
+  }
+
+  String _calcStartTime(String? arrivalStr, int durationMin) {
+    if (arrivalStr == null || !arrivalStr.contains(':')) return '--:--';
+    try {
+      final parts = arrivalStr.split(':');
+      final h = int.parse(parts[0]);
+      final m = int.parse(parts[1]);
+      final arr = DateTime(2020, 1, 1, h, m);
+      final start = arr.subtract(Duration(minutes: durationMin));
+      return '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return '--:--';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _stat('所要時間', '${candidate.totalTime}分'),
-          _stat('乗換', candidate.transfers.toString()),
-          _stat('乗車区間', candidate.rides.toString()),
-          _stat('徒歩', '${candidate.walks}m'),
-        ],
-      ),
+    final arr = candidate.arrivalTime;
+    final start = _calcStartTime(arr, candidate.totalTime);
+
+    return Column(
+      children: [
+        // New Time Display Row
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(start, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: CupertinoColors.activeBlue)),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12.0),
+                child: Icon(CupertinoIcons.arrow_right, color: CupertinoColors.systemGrey),
+              ),
+              Text(arr ?? '--:--', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: CupertinoColors.black)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _stat('所要時間', '${candidate.totalTime}分'),
+              _stat('乗換', candidate.transfers.toString()),
+              _stat('乗車区間', candidate.rides.toString()),
+              _stat('徒歩', '${candidate.walks}m'),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -1170,6 +1249,10 @@ class _RoundIcon extends StatelessWidget {
       case 'walk':
         icon = CupertinoIcons.paw_solid;
         color = CupertinoColors.activeOrange;
+        break;
+      case 'wait':
+        icon = CupertinoIcons.clock;
+        color = CupertinoColors.systemGrey;
         break;
       case 'rail':
         icon = CupertinoIcons.tram_fill;

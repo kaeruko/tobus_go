@@ -78,10 +78,13 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
     )
     destination_reachable = len(virtual_connections) > 0
 
+    print(f"[USER_DEBUG] virtual_connections count: {len(virtual_connections)}")
+    
     day_type = determine_day_type(date_str)
 
     results = []
     if destination_reachable:
+        print(f"[USER_DEBUG] Attempting first search with virtual destination: {dest_node}")
         results = search_best_routes_once(
             g, # Use original graph! No copy!
             tm,
@@ -96,8 +99,10 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
             virtual_dest_connections=virtual_connections,
             target_coords=[blat, blon],
         )
+        print(f"[USER_DEBUG] First search results count: {len(results)}")
 
     if not results:
+        print("[USER_DEBUG] First search failed or destination unreachable. Falling back to physical node search.")
         results = search_best_routes_once(
             g,
             tm,

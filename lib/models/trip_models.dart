@@ -111,6 +111,9 @@ class Trip {
       'participants': participants.map((e) => e.toJson()).toList(),
       'memberIds': memberIds,
       'completedLegIndex': completedLegIndex,
+    };
+  }
+
   static String generateDisplayTitle(List<Leg> legs, String fallbackTitle) {
     // タイトル生成ロジック
     if (legs.isNotEmpty) {
@@ -123,7 +126,7 @@ class Trip {
         // 住所などが含まれる長い名称の場合、最後の部分（施設名など）を採用する
         // 例: "日本、東京都中央区銀座7 銀座駅" -> "銀座駅"
         final simpleName = StringUtils.extractSimpleName(destName);
-        return "$simpleName への遠足";
+        return "$simpleName へのおでかけ";
       }
     }
     return fallbackTitle;

@@ -1,4 +1,5 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../utils/string_utils.dart';
 
 class RouteMeta {
   final bool destinationReachable;
@@ -50,6 +51,7 @@ class Candidate {
   final bool isFutureSuggestion;
   final LatLng? originCoords;
   final LatLng? destinationCoords;
+  final String? arrivalTime;
 
   Candidate({
     required this.id,
@@ -69,9 +71,13 @@ class Candidate {
     this.isFutureSuggestion = false,
     this.originCoords,
     this.destinationCoords,
+    this.arrivalTime,
   });
 
   factory Candidate.fromJson(Map<String, dynamic> j) {
+    final originName = j['origin_name']?.toString();
+    final destinationName = j['destination_name']?.toString();
+
     return Candidate(
       id: j['id']?.toString() ?? '',
       lines: (j['lines'] is List) ? List<String>.from(j['lines']) : const [],
@@ -81,15 +87,15 @@ class Candidate {
       transfers: (j['transfers'] as num? ?? 0).toInt(),
       total: (j['total'] as num? ?? 0).toInt(),
       totalTime: (j['total_time'] as num? ?? 0).toInt(),
-      steps: _readSteps(j),
+      steps: _readSteps(j, originName, destinationName),
       points: (j['points'] as List?)
               ?.map((e) => (e is List && e.length >= 2)
                   ? LatLng((e[0] as num).toDouble(), (e[1] as num).toDouble())
                   : const LatLng(0, 0))
               .toList() ??
           const [],
-      originName: j['origin_name']?.toString(),
-      destinationName: j['destination_name']?.toString(),
+      originName: originName,
+      destinationName: destinationName,
       preference: j['preference']?.toString(),
       departureDate: j['departure_date'] != null
           ? DateTime.tryParse(j['departure_date'])
@@ -101,16 +107,31 @@ class Candidate {
       destinationCoords: (j['destination_coords'] is List && j['destination_coords'].length >= 2)
           ? LatLng((j['destination_coords'][0] as num).toDouble(), (j['destination_coords'][1] as num).toDouble())
           : null,
+      arrivalTime: j['arrival_time']?.toString(),
     );
   }
 
-  static List<StepSeg> _readSteps(Map<String, dynamic> j) {
+  static List<StepSeg> _readSteps(Map<String, dynamic> j, String? originName, String? destinationName) {
     final out = <StepSeg>[];
     final raw = j['steps'];
+    
+    final simpleOrigin = originName != null ? StringUtils.extractSimpleName(originName) : null;
+    final simpleDest = destinationName != null ? StringUtils.extractSimpleName(destinationName) : null;
+
     if (raw is List) {
       for (final item in raw) {
         if (item is Map) {
-          out.add(StepSeg.fromJson(Map<String, dynamic>.from(item)));
+          final map = Map<String, dynamic>.from(item);
+          // "現在地" / "目的地" の置換ロジック
+          if ((map['from_'] == '現在地' || map['from'] == '現在地') && simpleOrigin != null) {
+            map['from_'] = simpleOrigin;
+            map['from'] = simpleOrigin;
+          }
+          if (map['to'] == '目的地' && simpleDest != null) {
+            map['to'] = simpleDest;
+          }
+
+          out.add(StepSeg.fromJson(map));
         }
       }
     }
@@ -138,6 +159,7 @@ class Candidate {
       'is_future_suggestion': isFutureSuggestion,
       'origin_coords': originCoords != null ? [originCoords!.latitude, originCoords!.longitude] : null,
       'destination_coords': destinationCoords != null ? [destinationCoords!.latitude, destinationCoords!.longitude] : null,
+      'arrival_time': arrivalTime,
     };
   }
 }
@@ -204,6 +226,9 @@ class StepSeg {
 
   String get mainTitle => kind == 'walk' ? '徒歩' : title;
   String? get subTitle {
+    if (kind == 'wait' && from != null) {
+      return '$from で待機';
+    }
     if (from != null && to != null) {
       return '$from → $to';
     }

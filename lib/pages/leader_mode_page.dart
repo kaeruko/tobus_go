@@ -14,6 +14,7 @@ import '../services/trip_service.dart';
 import 'group_detail_page.dart';
 import 'schedule_page.dart';
 import 'route_detail_page.dart';
+import '../utils/string_utils.dart';
 
 class LeaderModePage extends StatefulWidget {
   final String tripId;
@@ -201,7 +202,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
         }
 
         if (destName != null && destName.isNotEmpty) {
-          titlePrefix = Trip.extractSimpleName(destName);
+          titlePrefix = StringUtils.extractSimpleName(destName);
         } else {
           titlePrefix = (goalEntry?.label.isNotEmpty ?? false)
               ? goalEntry!.label
