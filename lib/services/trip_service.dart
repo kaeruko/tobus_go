@@ -141,6 +141,12 @@ class TripService {
     });
   }
 
+  Future<void> updateCompletedLegIndex(String tripId, int index) async {
+    await _db.collection('trips').doc(tripId).update({
+      'completedLegIndex': index,
+    });
+  }
+
   List<ScheduleEntry> applyRerouteOutwardOnly(
     List<ScheduleEntry> current,
     List<ScheduleEntry> newOutward,

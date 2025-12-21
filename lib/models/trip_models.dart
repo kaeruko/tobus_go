@@ -31,8 +31,11 @@ class Trip {
   final List<ScheduleEntry> schedule;
   final List<Participant> participants;
   final List<String> memberIds;
+  final int completedLegIndex;
 
   TripStatus get status => TripStatus.values[travelPhase.index];
+
+  int get activeLegIndex => completedLegIndex + 1;
 
   Trip({
     required this.id,
@@ -47,6 +50,7 @@ class Trip {
     required this.schedule,
     required this.participants,
     required this.memberIds,
+    this.completedLegIndex = -1,
   });
 
   factory Trip.fromFirestore(DocumentSnapshot doc) {
@@ -83,6 +87,7 @@ class Trip {
           .toList(),
       memberIds:
           (data['memberIds'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
+      completedLegIndex: data['completedLegIndex'] as int? ?? -1,
     );
   }
 
@@ -104,6 +109,7 @@ class Trip {
       'schedule': schedule.map((e) => e.toJson()).toList(),
       'participants': participants.map((e) => e.toJson()).toList(),
       'memberIds': memberIds,
+      'completedLegIndex': completedLegIndex,
     };
   }
   static String extractSimpleName(String fullName) {

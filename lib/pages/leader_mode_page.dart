@@ -659,6 +659,8 @@ class _LeaderModePageState extends State<LeaderModePage> {
     }
 
     if (trip.travelPhase == TravelPhase.active) {
+      final isOutboundMode = trip.completedLegIndex == -1;
+
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -678,12 +680,12 @@ class _LeaderModePageState extends State<LeaderModePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
-              children: const [
-                Icon(Icons.location_on, color: Colors.green),
-                SizedBox(width: 8),
+              children: [
+                const Icon(Icons.location_on, color: Colors.green),
+                const SizedBox(width: 8),
                 Text(
-                  '移動中（位置共有ON）',
-                  style: TextStyle(
+                  isOutboundMode ? '往路 移動中' : '復路 移動中',
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
@@ -691,22 +693,40 @@ class _LeaderModePageState extends State<LeaderModePage> {
               ],
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _showCompleteDialog(context, trip),
-                icon: const Icon(Icons.check_circle),
-                label: const Text('お出かけを終了する'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.grey.shade700,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+            if (isOutboundMode)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _handleArrivedAtGoal(context, trip, service),
+                  icon: const Icon(Icons.flag),
+                  label: const Text('目的地に到着（帰り支度）'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade600,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _showCompleteDialog(context, trip),
+                  icon: const Icon(Icons.check_circle),
+                  label: const Text('お出かけを終了する'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       );
@@ -731,6 +751,38 @@ class _LeaderModePageState extends State<LeaderModePage> {
         style: const TextStyle(color: Colors.grey),
       ),
     );
+  }
+
+  Future<void> _handleArrivedAtGoal(BuildContext context, Trip trip, TripService service) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('目的地に到着'),
+        content: const Text('往路（行き）が完了しましたか？\n「はい」を押すと、帰りのナビゲーションが準備されます。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('いいえ')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('はい')),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      try {
+        // 往路(0)完了としてインデックスを0に更新（activeLegIndexは1になる）
+        await service.updateCompletedLegIndex(trip.id, 0);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('到着を記録しました。帰りもお気をつけて！')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('更新に失敗しました: $e')),
+          );
+        }
+      }
+    }
   }
 
   void _showCompleteDialog(BuildContext context, Trip trip) {

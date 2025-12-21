@@ -139,6 +139,12 @@ class ScheduleResolver {
     for (int i = 0; i < schedule.length; i++) {
       final entry = schedule[i];
       
+      // ★重要: 現在アクティブなLeg (activeLegIndex) に属するエントリーのみを対象とする
+      // これにより、物理的に同じ場所にいても「帰り」の予定が先にアクティブになるのを防ぐ
+      if (entry.legIndex != trip.activeLegIndex) {
+        continue;
+      }
+
       // Only check entries that have a route step assigned
       if (entry.routeStepIndex != null) {
         if (entry.routeStepIndex == currentStepIndex) {

@@ -93,13 +93,28 @@ class TripNavigator {
     int nextStop = lastStopIndex;
     debugPrint('[TripNavigator] Update Route: Pos=$currentPos LastStep=$lastStepIndex LastStop=$lastStopIndex');
 
+    // ★現在アクティブなLegの範囲（開始・終了インデックス）を計算
+    final activeLegIndex = trip.activeLegIndex;
+    int legStartStepIndex = 0;
+    for (int i = 0; i < activeLegIndex; i++) {
+      if (i < trip.legs.length) {
+        legStartStepIndex += trip.legs[i].candidate.steps.length;
+      }
+    }
+    final currentLegStepCount = activeLegIndex < trip.legs.length
+        ? trip.legs[activeLegIndex].candidate.steps.length
+        : 0;
+    final legEndStepIndex = legStartStepIndex + currentLegStepCount;
+
     // ★GPSベースのステップ推定
     // 複数のLegがある場合、ユーザーが実際にどのステップにいるかをGPSで推定する
-    // これにより、画面消し後やLeg切り替え時にも正しいステップに復帰できる
+    // 現在アクティブなLegの範囲内に限定する
     final (estimatedStep, estimatedDist) = _estimateCurrentStepIndexWithDistance(
       allSteps: allSteps,
       currentPos: currentPos,
       lastStepIndex: lastStepIndex,
+      minSearchIndex: legStartStepIndex,
+      maxSearchIndex: legEndStepIndex,
     );
     
     // 推定を採用する条件: 距離が近いときだけ（120m以内）
@@ -340,13 +355,17 @@ class TripNavigator {
     required List<StepSeg> allSteps,
     required LatLng currentPos,
     required int lastStepIndex,
+    int minSearchIndex = 0,
+    int? maxSearchIndex,
   }) {
     if (allSteps.isEmpty) return (lastStepIndex, double.infinity);
 
     int bestStepIndex = lastStepIndex;
     double minDistance = double.infinity;
 
-    for (int i = 0; i < allSteps.length; i++) {
+    final end = maxSearchIndex ?? allSteps.length;
+
+    for (int i = minSearchIndex; i < end; i++) {
       final step = allSteps[i];
       
       // 徒歩ステップの場合、次のステップの最初の停留所を目標とする

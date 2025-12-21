@@ -436,12 +436,11 @@ class _CurrentStatusCard extends StatelessWidget {
                   color: const Color(0xFF0D47A1),
                   background: const Color(0xFFE3F2FD),
                   onTap: () {
-                    final candidate = trip.legs
-                        .firstWhere(
-                          (l) => l.direction == LegDirection.outbound,
-                          orElse: () => trip.legs.first,
-                        )
-                        .candidate;
+                    final activeIndex = trip.activeLegIndex;
+                    final candidate = (activeIndex < trip.legs.length) 
+                        ? trip.legs[activeIndex].candidate 
+                        : trip.legs.first.candidate;
+                        
                     Navigator.of(context).push(
                       CupertinoPageRoute(
                         builder: (_) => RouteDetailPage(candidate: candidate),

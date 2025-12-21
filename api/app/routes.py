@@ -50,13 +50,26 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
 
     si = app.state.SI
     
-    a_phys, _ = nearest_phys(g, alat, alon, station_only=False, spatial_index=si)
+    # nearest_phys returns (node_id, distance_in_meters)
+    a_phys, a_dist = nearest_phys(g, alat, alon, station_only=False, spatial_index=si)
     b_phys, bd = nearest_phys(g, blat, blon, station_only=True, spatial_index=si)
     if not b_phys or bd > 500:
         b_phys, _ = nearest_phys(g, blat, blon, station_only=False, spatial_index=si)
 
     if not a_phys or not b_phys:
         return {"error": "Nearby stations or busstops not found", "candidates": []}
+
+    # ★追加: 最寄りバス停までの徒歩時間を計算
+    import math
+    initial_walk_min = 0
+    if a_dist and a_dist > 0:
+        initial_walk_min = max(1, math.ceil(a_dist / 80.0))
+    
+    # ★追加: 検索開始時刻を徒歩分だけ遅らせる
+    active_start_time = start_time
+    if initial_walk_min > 0:
+        s_min = time_str_to_min(start_time)
+        active_start_time = min_to_time_str(s_min + initial_walk_min)
 
     destination_label = "目的地"
     dest_node, virtual_connections = get_virtual_connections(
@@ -74,7 +87,7 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
             a_phys,
             b_phys,
             mode=pref,
-            start_time=start_time,
+            start_time=active_start_time, # ★変更
             target_date_str=date_str,
             limit=5,
             target_node=dest_node,
@@ -90,7 +103,7 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
             a_phys,
             b_phys,
             mode=pref,
-            start_time=start_time,
+            start_time=active_start_time, # ★変更
             target_date_str=date_str,
             limit=5,
             target_node=b_phys,
@@ -100,6 +113,24 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
         )
 
     for cand in results:
+        # ★追加: 徒歩ステップを先頭に挿入
+        if initial_walk_min > 0:
+            start_node_name = g.nodes[a_phys]["name"]
+            walk_step = {
+                "kind": "walk",
+                "title": "徒歩",
+                "edges": 0,
+                # "出発地" だと漠然としているので "現在地" に統一すると分かりやすいかも
+                "from_": "現在地", 
+                "to": start_node_name,
+                "meters": int(a_dist),
+                "minutes": int(initial_walk_min)
+            }
+            cand["steps"].insert(0, walk_step)
+            cand["walk_m"] += a_dist
+            cand["total_time"] += initial_walk_min
+            cand["points"].insert(0, [alat, alon])
+        
         cand["origin_coords"] = [alat, alon]
         cand["destination_coords"] = [blat, blon]
 

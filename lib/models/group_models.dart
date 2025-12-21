@@ -310,6 +310,7 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
     currentStepBase += leg.candidate.steps.length;
   }
 
+
   if (outbound != null) {
     schedule.addAll(
       createScheduleFromRoute(
