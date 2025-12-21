@@ -16,6 +16,7 @@ import 'group_detail_page.dart';
 import '../core/api_client.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/route_map_preview.dart';
+import '../utils/string_utils.dart';
 
 bool _isPlaceholder(String? value) {
   const placeholders = {'出発地', '目的地'};
@@ -362,7 +363,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                       setState(() {
                         _isReturnSearchVisible = true;
                         final outboundDeparture = widget.candidate.departureDate ?? appClock.now();
-                        _returnSearchTime = outboundDeparture.add(Duration(minutes: widget.candidate.totalTime));
+                        // 滞在時間を「行きにかかった時間」と同じだけ確保すると仮定
+                        // 帰りの出発時刻 = 行きの出発時刻 + 行きの所要時間(到着) + 滞在時間(=行きの所要時間)
+                        _returnSearchTime = outboundDeparture.add(Duration(minutes: widget.candidate.totalTime * 2));
                       });
                     },
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -933,7 +936,7 @@ class _EndpointSummary extends StatelessWidget {
   const _EndpointSummary({required this.candidate, this.meta});
 
   String get _origin {
-    return _originLabelOf(candidate);
+    return StringUtils.extractSimpleName(_originLabelOf(candidate));
   }
 
   String get _destination {
@@ -943,7 +946,7 @@ class _EndpointSummary extends StatelessWidget {
       final suffix = minutes != null ? '（目的地まで徒歩約${minutes}分）' : '';
       return stop + suffix;
     }
-    return _destinationLabelOf(candidate);
+    return StringUtils.extractSimpleName(_destinationLabelOf(candidate));
   }
 
   @override

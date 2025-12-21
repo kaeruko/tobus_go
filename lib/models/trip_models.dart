@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'route_models.dart';
 import 'group_models.dart';
 import 'leg_models.dart';
+import '../utils/string_utils.dart';
 
 enum TravelPhase {
   planning,
@@ -110,13 +111,6 @@ class Trip {
       'participants': participants.map((e) => e.toJson()).toList(),
       'memberIds': memberIds,
       'completedLegIndex': completedLegIndex,
-    };
-  }
-  static String extractSimpleName(String fullName) {
-    if (fullName.isEmpty) return fullName;
-    return fullName.split(RegExp(r'[\s　]+')).last;
-  }
-
   static String generateDisplayTitle(List<Leg> legs, String fallbackTitle) {
     // タイトル生成ロジック
     if (legs.isNotEmpty) {
@@ -128,7 +122,7 @@ class Trip {
       if (destName != null && destName.isNotEmpty && destName != '目的地') {
         // 住所などが含まれる長い名称の場合、最後の部分（施設名など）を採用する
         // 例: "日本、東京都中央区銀座7 銀座駅" -> "銀座駅"
-        final simpleName = extractSimpleName(destName);
+        final simpleName = StringUtils.extractSimpleName(destName);
         return "$simpleName への遠足";
       }
     }

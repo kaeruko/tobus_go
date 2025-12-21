@@ -116,21 +116,35 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
     for cand in results:
         # ★追加: 徒歩ステップを先頭に挿入
         if initial_walk_min > 0:
-            start_node_name = g.nodes[a_phys]["name"]
-            walk_step = {
-                "kind": "walk",
-                "title": "徒歩",
-                "edges": 0,
-                # "出発地" だと漠然としているので "現在地" に統一すると分かりやすいかも
-                "from_": "現在地", 
-                "to": start_node_name,
-                "meters": int(a_dist),
-                "minutes": int(initial_walk_min)
-            }
-            cand["steps"].insert(0, walk_step)
-            cand["walk_m"] += a_dist
-            cand["total_time"] += initial_walk_min
-            cand["points"].insert(0, [alat, alon])
+            a_node_name = g.nodes[a_phys]["name"]
+            
+            # 先頭が徒歩ならマージする
+            if cand["steps"] and cand["steps"][0]["kind"] == "walk":
+                first = cand["steps"][0]
+                first["from_"] = "現在地" # タイトル上書き
+                # to はそのまま (例: 押上)
+                first["minutes"] += int(initial_walk_min)
+                first["meters"] += int(a_dist)
+                # edges (曲がり角など) は加算しないか、適当に+1するか。ここではGPS徒歩を1エッジとみなして+1
+                first["edges"] = first.get("edges", 0) + 1
+                
+                cand["points"].insert(0, [alat, alon])
+                cand["total_time"] += initial_walk_min
+                cand["walk_m"] += a_dist
+            else:
+                walk_step = {
+                    "kind": "walk",
+                    "title": "徒歩",
+                    "edges": 0,
+                    "from_": "現在地", 
+                    "to": a_node_name,
+                    "meters": int(a_dist),
+                    "minutes": int(initial_walk_min)
+                }
+                cand["steps"].insert(0, walk_step)
+                cand["points"].insert(0, [alat, alon])
+                cand["total_time"] += initial_walk_min
+                cand["walk_m"] += a_dist
         
         cand["origin_coords"] = [alat, alon]
         cand["destination_coords"] = [blat, blon]

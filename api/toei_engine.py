@@ -1581,7 +1581,9 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                        break
         
         if not edge:
-            print(f"[WARN] Edge not found {u} -> {v} in segments_detailed. Skipping.")
+            print(f"[WARN] Edge not found {u} -> {v} in segments_detailed. Skipping. u_phys={u[0]=='phys'} v_starts_dest={str(v[1]).startswith('dest:')} has_vconn={bool(virtual_dest_connections)}")
+            if virtual_dest_connections:
+                print(f"[DEBUG_VIRTUAL] Connections available: {virtual_dest_connections}")
             continue
 
         etype = edge.get("etype")
