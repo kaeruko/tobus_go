@@ -627,8 +627,8 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
         'blat': '${end.latitude}',
         'blon': '${end.longitude}',
         'pref': original.preference ?? 'fewTransfers',
-        'time': '${targetTime.hour.toString().padLeft(2, '0')}:${targetTime.minute.toString().padLeft(2, '0')}',
-        'date': '${targetTime.year}-${targetTime.month.toString().padLeft(2, '0')}-${targetTime.day.toString().padLeft(2, '0')}',
+        'start_time': '${targetTime.hour.toString().padLeft(2, '0')}:${targetTime.minute.toString().padLeft(2, '0')}',
+        'target_date_str': '${targetTime.year}-${targetTime.month.toString().padLeft(2, '0')}-${targetTime.day.toString().padLeft(2, '0')}',
       };
 
       final j = await ApiClient.post('/route', body: params);

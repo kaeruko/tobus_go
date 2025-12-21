@@ -1037,7 +1037,7 @@ def search_best_routes_once(G, tm, a_phys, b_phys, mode="cost", start_time="10:0
     else:
         base_date = now
     
-    print(f"[DEBUG_TIME] search_best_routes_once: Received start_time={start_time}, target_date_str={target_date_str}")
+    print(f"[USER_DEBUG] search_best_routes_once: Received start_time={start_time}, target_date_str={target_date_str}")
     h, m = map(int, start_time.split(":"))
     start_dt = base_date.replace(hour=h, minute=m, second=0, microsecond=0)
     
@@ -1113,7 +1113,7 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
                 path = None # Discard
 
         if path:
-            segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot)
+            segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
             lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
             
             # デバッグログ: 経路セグメント詳細
@@ -1172,7 +1172,7 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
             
             if real_arr is not None:
                 # 合格
-                segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot)
+                segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
                 lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
                 
                 # デバッグログ: 経路セグメント詳細
@@ -1535,7 +1535,7 @@ def calculate_real_arrival_time(
             
     return curr_time
 
-def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", delays_snapshot=None):
+def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", delays_snapshot=None, virtual_dest_connections=None):
     print(f"[DEBUG_TIME] segments_detailed: start_time_str={start_time_str}", flush=True)
     segs = []
     cur = None
@@ -1565,7 +1565,25 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             cur = None
 
     for i, (u, v) in enumerate(zip(path, path[1:])):
-        edge = G.edges[u, v]
+        # 仮想エッジ対応
+        edge = None
+        if G.has_edge(u, v):
+            edge = G.edges[u, v]
+        else:
+            # Gにない場合、仮想目的地の接続を確認
+            if virtual_dest_connections and u[0] == "phys" and v[0] == "phys" and str(v[1]).startswith("dest:"):
+               # u -> v(dest)
+               for nid, w, dist in virtual_dest_connections:
+                   if nid == u:
+                       # 仮想エッジを合成
+                       edge = {"etype": "walk", "meters": dist, "w": w}
+                       print(f"[DEBUG_VIRTUAL] Synthesized virtual edge {u} -> {v} meters={dist}")
+                       break
+        
+        if not edge:
+            print(f"[WARN] Edge not found {u} -> {v} in segments_detailed. Skipping.")
+            continue
+
         etype = edge.get("etype")
         if u[0] == "phys": last_phys = u
 

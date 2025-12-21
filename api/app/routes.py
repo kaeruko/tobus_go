@@ -44,6 +44,7 @@ def determine_day_type(date_str: str | None) -> str:
     return "weekday"
 
 def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:00", date_str=None):
+    print(f"[USER_DEBUG] compute_route_candidates: start_time={start_time}, date_str={date_str}")
     g = app.state.G
     tm = app.state.TM
     walk_rad = app.state.WALK_RAD
@@ -183,6 +184,7 @@ def register_routes(app):
 
     @app.post("/route")
     async def route_start(req: RouteRequest):
+        print(f"[USER_DEBUG] /route called. StartTime={req.start_time}, Date={req.target_date_str}")
         if getattr(app.state, "loading_status", "starting") != "ready":
              raise HTTPException(503, "Server is warming up (loading data). Please try again in 1-2 minutes.")
 
