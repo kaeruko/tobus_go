@@ -6,6 +6,7 @@ class PlaceField extends StatefulWidget {
   final String value;
   final String displayValue;
   final void Function(String value, String desc) onChanged;
+  final VoidCallback? onCurrentLocationPressed;
 
   const PlaceField({
     super.key,
@@ -13,6 +14,7 @@ class PlaceField extends StatefulWidget {
     required this.value,
     required this.displayValue,
     required this.onChanged,
+    this.onCurrentLocationPressed,
   });
 
   @override
@@ -156,7 +158,15 @@ class _PlaceFieldState extends State<PlaceField> {
           controller: _ctrl,
           placeholder: '場所名・住所で検索',
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          // clearButtonMode: OverlayVisibilityMode.editing, 
+          // clearButtonMode: OverlayVisibilityMode.editing,
+          suffix: widget.onCurrentLocationPressed != null
+              ? CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: widget.onCurrentLocationPressed,
+                  child: const Icon(CupertinoIcons.location_fill),
+                )
+              : null,
+          suffixMode: OverlayVisibilityMode.always,
         ),
         if (_loading)
           const Padding(

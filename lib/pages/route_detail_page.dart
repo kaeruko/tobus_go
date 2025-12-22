@@ -562,6 +562,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   }
 
   void _showReturnTimePicker() {
+    FocusScope.of(context).unfocus();
     // 行きの到着時刻を計算
     // departureDateがnullの場合は現在時刻を基準にする(通常はセットされているはず)
     final baseTime = widget.candidate.departureDate ?? appClock.now();
@@ -879,8 +880,10 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
           ],
         ),
       ),
-      child: SafeArea(
-        child: CustomScrollView(
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          child: CustomScrollView(
           slivers: [
             const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
@@ -929,6 +932,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
             const SliverToBoxAdapter(child: SizedBox(height: 48)),
           ],
         ),
+      ),
       ),
     );
   }

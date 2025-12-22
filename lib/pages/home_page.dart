@@ -232,6 +232,7 @@ class HomePageState extends ConsumerState<HomePage> {
                             notifier.triggerSearch();
                           }
                         },
+                        onCurrentLocationPressed: _useEffectiveLocation,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -249,12 +250,7 @@ class HomePageState extends ConsumerState<HomePage> {
                                   child: const Icon(CupertinoIcons.arrow_up_arrow_down),
                                   onPressed: _swapRouteEndpoints,
                               ),
-                              if (kDebugMode)
-                                CupertinoButton(
-                                    padding: const EdgeInsets.all(8),
-                                    child: const Icon(CupertinoIcons.location_fill),
-                                    onPressed: _useEffectiveLocation,
-                                ),
+
                             ],
                           ),
                           CupertinoButton(
