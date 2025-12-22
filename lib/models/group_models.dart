@@ -229,6 +229,42 @@ List<ScheduleEntry> createScheduleFromRoute(
       } else {
         timeCursorIndex += 2;
       }
+    } else if (step.kind == 'wait') {
+      final startAt = normalizedTimes[timeCursorIndex];
+      final endAt = normalizedTimes[timeCursorIndex + 1];
+      timeCursorIndex += 2;
+
+      // Start of Wait
+      list.add(
+        ScheduleEntry(
+          plannedAt: startAt,
+          label: step.startLabel != null
+              ? '$prefix${step.startLabel} ${step.place ?? ''}'
+              : '${prefix}待ち時間',
+          description: '',
+          itemKind: ScheduleEntryKind.event,
+          legIndex: legIndex,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepIndex: stepIndex,
+          routeRole: 'wait_start',
+        ),
+      );
+
+      // End of Wait
+      list.add(
+        ScheduleEntry(
+          plannedAt: endAt,
+          label: step.endLabel != null
+              ? '$prefix${step.endLabel} ${step.place ?? ''}'
+              : '${prefix}移動開始',
+          description: '',
+          itemKind: ScheduleEntryKind.event,
+          legIndex: legIndex,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepIndex: stepIndex,
+          routeRole: 'wait_end',
+        ),
+      );
     } else {
       final departAt = normalizedTimes[timeCursorIndex];
       final arriveAt = normalizedTimes[timeCursorIndex + 1];
@@ -400,6 +436,7 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
 String _emojiForKind(String kind) {
   if (kind == 'bus') return '🚌';
   if (kind == 'subway' || kind == 'train') return '🚞';
+  if (kind == 'wait') return '⏳';
   return '🚐'; // default/other
 }
 

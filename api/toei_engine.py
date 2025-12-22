@@ -1733,6 +1733,8 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     wait_min = int(dep - curr_time)
                     if wait_min > 0:
                         flush() # 前のセグメント（徒歩など）を確定
+
+                        # その後に待ち時間
                         segs.append({
                             "kind": "wait",
                             "title": "待ち時間",
@@ -1742,7 +1744,10 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                             "to": from_name, 
                             "meters": 0,
                             "departure_time": min_to_time_str(curr_time),
-                            "arrival_time": min_to_time_str(dep)
+                            "arrival_time": min_to_time_str(dep),
+                            "startLabel": "待ち時間開始",
+                            "endLabel": "待ち時間終了",
+                            "place": from_name,
                         })
 
                 # 過去便で巻き戻さない

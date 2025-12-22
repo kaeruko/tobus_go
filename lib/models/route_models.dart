@@ -179,6 +179,9 @@ class StepSeg {
   final String departureStopId;
   final String arrivalPoleId;
   final List<StopPoint> stops;
+  final String? startLabel;
+  final String? endLabel;
+  final String? place;
 
   StepSeg({
     required this.kind,
@@ -194,6 +197,9 @@ class StepSeg {
     this.routeId = '',
     this.departureStopId = '',
     this.arrivalPoleId = '',
+    this.startLabel,
+    this.endLabel,
+    this.place,
     List<StopPoint>? stops,
   }) : stops = stops ?? const [];
 
@@ -221,13 +227,20 @@ class StepSeg {
       departureStopId: j['departureStopId']?.toString() ?? '',
       arrivalPoleId: j['arrivalPoleId']?.toString() ?? '',
       stops: stops,
+      startLabel: j['startLabel']?.toString(),
+      endLabel: j['endLabel']?.toString(),
+      place: j['place']?.toString(),
     );
   }
 
   String get mainTitle => kind == 'walk' ? '徒歩' : title;
   String? get subTitle {
-    if (kind == 'wait' && from != null) {
-      return '$from で待機';
+    if (kind == 'wait') {
+      // Use labels if available
+      if (startLabel != null || endLabel != null) {
+        return place ?? from ?? '待機場所';
+      }
+      if (from != null) return '$from で待機';
     }
     if (from != null && to != null) {
       return '$from → $to';
@@ -256,6 +269,9 @@ class StepSeg {
       'departureStopId': departureStopId,
       'arrivalPoleId': arrivalPoleId,
       'stops': stops.map((e) => e.toJson()).toList(),
+      'startLabel': startLabel,
+      'endLabel': endLabel,
+      'place': place,
     };
   }
 }
