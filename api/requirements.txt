@@ -7,3 +7,4 @@ jpholiday
 networkx
 mangum
 requests
+boto3
