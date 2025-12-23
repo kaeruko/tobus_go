@@ -561,17 +561,19 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     );
   }
 
-  void _showReturnTimePicker() {
-    FocusScope.of(context).unfocus();
-    // 行きの到着時刻を計算
-    // departureDateがnullの場合は現在時刻を基準にする(通常はセットされているはず)
+  // 置き換え
+  Future<void> _showReturnTimePicker() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Future.delayed(const Duration(milliseconds: 200));
+
     final baseTime = widget.candidate.departureDate ?? appClock.now();
     final arrivalTime = baseTime.add(Duration(minutes: widget.candidate.totalTime));
 
-    // 初期値が到着時刻より前の場合は、到着時刻に合わせる
     if (_returnSearchTime.isBefore(arrivalTime)) {
-       _returnSearchTime = arrivalTime;
+      _returnSearchTime = arrivalTime;
     }
+
+    if (!mounted) return;
 
     showCupertinoModalPopup(
       context: context,
@@ -586,7 +588,6 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                 child: const Text('決定'),
                 onPressed: () {
                   Navigator.pop(ctx);
-                  // 画面更新して時刻を表示に反映
                   setState(() {});
                 },
               ),
@@ -596,7 +597,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               child: CupertinoDatePicker(
                 mode: CupertinoDatePickerMode.dateAndTime,
                 initialDateTime: _returnSearchTime,
-                minimumDate: arrivalTime, // 到着時刻より前は選べないようにする
+                minimumDate: arrivalTime,
                 use24hFormat: true,
                 onDateTimeChanged: (val) {
                   _returnSearchTime = val;
@@ -608,6 +609,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       ),
     );
   }
+
 
   Future<void> _startReturnSearch() async {
     if (widget.candidate.points.length < 2) return;
@@ -881,10 +883,12 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
         ),
       ),
       child: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: SafeArea(
           child: CustomScrollView(
-          slivers: [
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            slivers: [
             const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
             if (widget.candidate.isFutureSuggestion)

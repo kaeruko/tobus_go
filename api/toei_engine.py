@@ -1746,7 +1746,6 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                             "departure_time": min_to_time_str(curr_time),
                             "arrival_time": min_to_time_str(dep),
                             "startLabel": "待ち時間開始",
-                            "endLabel": "待ち時間終了",
                             "place": from_name,
                         })
 

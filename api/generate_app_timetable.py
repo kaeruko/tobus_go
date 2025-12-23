@@ -17,6 +17,12 @@ def load_csv(filename):
         return list(csv.DictReader(f))
 
 def main():
+    global DATA_DIR, GTFS_DIR, OUTPUT_FILE
+    DATA_DIR = os.getenv("DATA_DIR", "data")
+    GTFS_DIR = os.path.join(DATA_DIR, "ToeiBus-GTFS")
+    OUTPUT_FILE = os.path.join(DATA_DIR, "app_timetable.json")
+
+    print(f"DataDir: {DATA_DIR}")
     print("GTFSデータを読み込んでいます...")
 
     # 1. Service ID の日付マッピングを作成 (calendar.txt + calendar_dates.txt)
