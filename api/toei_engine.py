@@ -266,9 +266,14 @@ class TimetableManager:
                 for rid in d[pid]:
                     d[pid][rid].sort(key=lambda x: x["dep"])
         print(f"[DEBUG] Loaded Bus Timetables (Entries used: {count})")
-        
+        self.build_gtfs_reverse_map()
+
+    def build_gtfs_reverse_map(self):
         # Build Reverse ID Map (GTFS -> ODPT)
         print("[INFO] Building reverse ID map (GTFS -> ODPT)...")
+        if not hasattr(self, "gtfs_id_to_odpt_id"):
+            self.gtfs_id_to_odpt_id = {}
+
         mapped_count = 0
         all_pole_ids = set()
         for d in [self.bus_departures_weekday, self.bus_departures_saturday, self.bus_departures_holiday]:
@@ -278,7 +283,6 @@ class TimetableManager:
             gtfs_id = self.convert_odpt_id_to_gtfs(pid)
             if gtfs_id:
                 # If multiple ODPT IDs map to the same GTFS ID (rare/unexpected for single pole), last one wins.
-                # Ideally they should be distinct or equivalent.
                 self.gtfs_id_to_odpt_id[gtfs_id] = pid
                 mapped_count += 1
         print(f"[INFO] Mapped {mapped_count} GTFS IDs.")
@@ -1779,7 +1783,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                             "meters": 0,
                             "departure_time": min_to_time_str(curr_time),
                             "arrival_time": min_to_time_str(dep),
-                            "startLabel": "待ち時間開始",
+                            "startLabel": "待ち時間",
                             "place": from_name,
                         })
 
@@ -1929,9 +1933,14 @@ def main():
         sys.exit(1)
     print(f"[INFO] {G.nodes[a_phys]['name']} -> {G.nodes[b_phys]['name']}")
 
-    virtual_graph, dest_node, conn_count = add_virtual_destination_node(
+    print(f"[INFO] {G.nodes[a_phys]['name']} -> {G.nodes[b_phys]['name']}")
+
+    # Fixed: Use get_virtual_connections (non-mutating)
+    dest_node, connections = get_virtual_connections(
         G, blat, blon, name="目的地", walk_radius=args.walk
     )
+    conn_count = len(connections)
+
     if conn_count == 0:
         print(f"[DEBUG_DEST] No nearby Toei nodes within walk radius {args.walk}m for destination.")
 
@@ -1946,11 +1955,12 @@ def main():
     
     # ★変更: リトライ付き検索を呼び出す
     results = search_best_routes_once(
-        virtual_graph, tm, a_phys, b_phys,
+        G, tm, a_phys, b_phys,
         mode=args.mode,
         start_time=args.start_time,
         limit=5,
         target_node=dest_node,
+        virtual_dest_connections=connections,
     )
 
     if not results:
@@ -1993,6 +2003,8 @@ def main():
                 print(f"      [徒歩] {step['meters']:.0f}m ({step['minutes']:.0f}分)")
             else:
                 print(f"      [{step['kind'].upper()}] {step['title']} ({step['from_']} -> {step['to']})")
+                if 'stops' in step:
+                    print(f"        Stops ({len(step['stops'])}): {', '.join([s['name'] for s in step['stops']])}")
 
 
 # -------------------- 新機能: 一本で行ける場所検索 --------------------

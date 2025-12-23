@@ -155,27 +155,19 @@ class ScheduleResolver {
             // Walk step always matches the Walk entry
             return i;
           } else if (entry.routeRole == 'ride') {
-             // Ride entry. Check if we should switch to Arrival.
-             // If we are close to the end (remainingStops <= 1), we prefer 'Arrival'.
-             // So if remaining <= 1, we SKIP this 'ride' entry and hope to find 'arrival' next.
-             
-             final step = allSteps[currentStepIndex];
-             // Calculate remaining stops roughly
-             final remainingStops = step.stops.length - (nextStopIndex ?? 0);
-             debugPrint('[ScheduleResolver] Ride Check: remaining stops $remainingStops');
-             
-             if (remainingStops <= 1) {
-               // We are arriving. Skip 'Ride' entry to pick up 'Arrival' entry.
-               debugPrint('[ScheduleResolver] -> Skipping Ride entry to find Arrival');
-               continue;
-             } else {
-               // We are riding.
-               return i;
-             }
+             // Ride entry. 
+             // 以前は remainingStops <= 1 の時に Arrival に切り替えていたが、
+             // それだと「次到着します」の赤いナビ画面（Ride状態）が表示されず、
+             // いきなり「到着しました」のスケジュール画面（Arrival状態）になってしまう。
+             // そのため、ここは最後まで Ride として判定し、TripNavigator 側で「到着」を出すようにする。
+             debugPrint('[ScheduleResolver] Ride entry matched. Keeping independent of remaining stops to show Navigation UI.');
+             return i;
           } else if (entry.routeRole == 'arrival') {
              // Arrival entry.
-             // If we skipped 'Ride' above, we land here.
-             // Or if we just hit this (e.g. data anomaly), we accept it.
+             // Ride が終わって Step が進んだらここに来るはずだが、
+             // 同じ StepIndex で複数の Entry (Ride, Arrival) がある場合、
+             // 上の Ride で return しているのでここは基本通らない。
+             // ただし、もし Ride エントリがない場合はここでマッチする。
              return i;
           }
         }

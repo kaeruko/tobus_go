@@ -201,7 +201,7 @@ class TripNavigator {
         // ★デバッグ強化: step情報とtargetStop座標を詳細出力
         debugPrint(
           '[TripNavigator] Target step=$currentStep kind=${step.kind} from=${step.from} to=${step.to} '
-          'stopIndex=$nextStop/${step.stops.length} name=${targetStop.name} lat=$targetLat lon=$targetLon cur=$currentPos'
+          'stopIndex=$nextStop/${step.stops.length} name=${targetStop.name} lat=$targetLat,$targetLon cur=$currentPos'
         );
 
         if (targetLat != null && targetLon != null) {
@@ -277,45 +277,48 @@ class TripNavigator {
       //     全5駅、次はindex=4(5駅目/最後) -> 残り1駅
       final remainingStops = stepForDisplay.stops.length - nextStop;
 
-      // 次のバス停名
-      String nextStopName = "";
-      if (nextStop < stepForDisplay.stops.length) {
-        nextStopName = stepForDisplay.stops[nextStop].name;
-      }
+          // 次のバス停名
+          String nextStopName = "";
+          bool isTargetDestination = false;
+          if (nextStop < stepForDisplay.stops.length) {
+            final target = stepForDisplay.stops[nextStop];
+            nextStopName = target.name;
+            isTargetDestination = target.isDestination;
+          }
 
-      // 残りが0以下または次が最後の駅（降りる駅）の場合
-      // バスの降りるボタン等は、最後の駅の一つ前を出た後に押すが、
-      // ここでは「最後の駅を目指している」状態になったら「まもなく降車」とする
-      if (remainingStops <= 1) {
-        final destinationName =
-            stepForDisplay.to ?? (stepForDisplay.stops.isNotEmpty ? stepForDisplay.stops.last.name : "目的地");
-        debugPrint('[TripNavigator] RETURN curStep=$currentStep nextStop=$nextStop kind=${stepForDisplay.kind} remaining=$remainingStops (arriving)');
-        return RouteNavState(
-          mainText: "まもなく降車",
-          subText: "$destinationName で降ります",
-          color: const Color(0xFFFFAB91), // 赤
-          currentStepIndex: currentStep,
-          nextStopIndex: nextStop,
-          statusLabel: "到着まもなく",
-          nextStopName: destinationName,
-          remainingStops: remainingStops,
-          isMoving: true,
-        );
-      } else {
-        // まだ乗っている
-        debugPrint('[TripNavigator] RETURN curStep=$currentStep nextStop=$nextStop kind=${stepForDisplay.kind} remaining=$remainingStops next=$nextStopName');
-        return RouteNavState(
-          mainText: "あと $remainingStops 駅",
-          subText: "つぎは $nextStopName",
-          color: const Color(0xFF81D4FA), // 青
-          currentStepIndex: currentStep,
-          nextStopIndex: nextStop,
-          statusLabel: "移動中",
-          nextStopName: nextStopName,
-          remainingStops: remainingStops,
-          isMoving: true,
-        );
-      }
+          // 残りが0以下または次が最後の駅（降りる駅）の場合
+          // バスの降りるボタン等は、最後の駅の一つ前を出た後に押すが、
+          // ここでは「最後の駅を目指している」状態になったら「次到着します」とする
+          if (remainingStops <= 1 || isTargetDestination) {
+            final destinationName =
+                stepForDisplay.to ?? (stepForDisplay.stops.isNotEmpty ? stepForDisplay.stops.last.name : "目的地");
+            debugPrint('[TripNavigator] RETURN curStep=$currentStep nextStop=$nextStop kind=${stepForDisplay.kind} remaining=$remainingStops (arriving)');
+            return RouteNavState(
+              mainText: "次到着します",
+              subText: destinationName,
+              color: const Color(0xFFFFAB91), // 赤
+              currentStepIndex: currentStep,
+              nextStopIndex: nextStop,
+              statusLabel: "到着まもなく",
+              nextStopName: destinationName,
+              remainingStops: remainingStops,
+              isMoving: true,
+            );
+          } else {
+            // まだ乗っている
+            debugPrint('[TripNavigator] RETURN curStep=$currentStep nextStop=$nextStop kind=${stepForDisplay.kind} remaining=$remainingStops next=$nextStopName');
+            return RouteNavState(
+              mainText: "あと $remainingStops 駅",
+              subText: "つぎは $nextStopName",
+              color: const Color(0xFF81D4FA), // 青
+              currentStepIndex: currentStep,
+              nextStopIndex: nextStop,
+              statusLabel: "移動中",
+              nextStopName: nextStopName,
+              remainingStops: remainingStops,
+              isMoving: true,
+            );
+          }
     }
   }
 
