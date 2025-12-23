@@ -207,11 +207,17 @@ def register_routes(app):
         if getattr(app.state, "loading_status", "starting") != "ready":
              raise HTTPException(503, "Server is warming up (loading data). Please try again in 1-2 minutes.")
 
-        job_id = uuid.uuid4().hex
-        ROUTE_JOBS[job_id] = {"status": "pending"}
-        asyncio.create_task(_run_route_job(app, job_id, req.alat, req.alon, req.blat, req.blon, req.pref, req.start_time, req.target_date_str))
-        return {"job_id": job_id}
+        # Lambda対策: Jobポーリング方式をやめて同期的に結果を返す
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            None,
+            compute_route_candidates,
+            app,
+            req.alat, req.alon, req.blat, req.blon, req.pref, req.start_time, req.target_date_str,
+        )
+        return result
 
+    # @app.get("/route") <- ポーリングエンドポイントは実質無効化（残しておいても良いが使わない）
     @app.get("/route")
     async def route_poll(job_id: str = Query(...)):
         job = ROUTE_JOBS.get(job_id)
