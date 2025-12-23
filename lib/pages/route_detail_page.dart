@@ -675,21 +675,58 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
         'target_date_str': '${targetTime.year}-${targetTime.month.toString().padLeft(2, '0')}-${targetTime.day.toString().padLeft(2, '0')}',
       };
 
-      final j = await ApiClient.post('/route', body: params);
-      final jobId = j['job_id']?.toString();
+      // Changed: Await the response synchronously (no job_id polling)
+      final result = await ApiClient.post('/route', body: params);
 
-      if (jobId == null) throw Exception('Job ID missing');
+      // Parse result immediately
+      final candidatesList = result['candidates'] as List? ?? [];
+      final metaMap = result['meta'] as Map<String, dynamic>? ?? {};
 
-      await _poll(
-        jobId,
-        startReturnFlow: startReturnFlow,
-        originLabel: originLabel,
-        destinationLabel: destinationLabel,
-      );
+      final list = candidatesList.map((e) {
+        final map = Map<String, dynamic>.from(e as Map<String, dynamic>);
+        map['origin_name'] = originLabel;
+        map['destination_name'] = destinationLabel;
+        final candidate = Candidate.fromJson(map);
+        return candidate;
+      }).toList();
+
+      RouteMeta? meta;
+      if (metaMap.isNotEmpty) {
+        meta = RouteMeta.fromJson(metaMap);
+      }
+
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop(); // Close loading
+
+      if (list.isNotEmpty) {
+        // Push new result page
+        Navigator.of(context).push(
+          CupertinoPageRoute(
+            builder: (_) => RouteDetailPage(
+              candidate: list.first,
+              isReturnSelection: startReturnFlow,
+              meta: meta,
+            ),
+          ),
+        );
+      } else {
+         showCupertinoDialog(
+          context: context,
+          builder: (ctx) => CupertinoAlertDialog(
+            content: const Text('指定された日時の経路が見つかりませんでした。'),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('OK'),
+                onPressed: () => Navigator.pop(ctx),
+              )
+            ],
+          ),
+        );
+      }
 
     } catch (e) {
       if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop(); // ローディング閉じる
+      Navigator.of(context, rootNavigator: true).pop(); // Close loading
       showCupertinoDialog(
         context: context,
         builder: (ctx) => CupertinoAlertDialog(
@@ -703,74 +740,6 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
           ],
         ),
       );
-    }
-  }
-
-  Future<void> _poll(
-    String jobId, {
-    bool startReturnFlow = false,
-    required String originLabel,
-    required String destinationLabel,
-  }) async {
-    while (true) {
-      await Future.delayed(const Duration(seconds: 1));
-      try {
-        final j = await ApiClient.get('/route', params: {'job_id': jobId});
-        final status = j['status']?.toString();
-
-        if (status == 'done') {
-          final result = j['result'];
-          final list = (result['candidates'] as List?)?.map((e) {
-            final map = Map<String, dynamic>.from(e as Map<String, dynamic>);
-            map['origin_name'] = originLabel;
-            map['destination_name'] = destinationLabel;
-            final candidate = Candidate.fromJson(map);
-            final firstStep = candidate.steps.isNotEmpty ? candidate.steps.first : null;
-            final lastStep = candidate.steps.isNotEmpty ? candidate.steps.last : null;
-            print('[DEBUG] Parsed candidate originName=${candidate.originName} destinationName=${candidate.destinationName} firstStep.from=${firstStep?.from} lastStep.to=${lastStep?.to}');
-            return candidate;
-          }).toList();
-          RouteMeta? meta;
-          final metaJson = result['meta'];
-          if (metaJson is Map<String, dynamic>) {
-            meta = RouteMeta.fromJson(metaJson);
-          }
-          
-          if (!mounted) return;
-          Navigator.of(context, rootNavigator: true).pop(); // ローディング閉じる
-
-          if (list != null && list.isNotEmpty) {
-            // 新しい結果画面へ遷移（push）することで「戻る」が可能
-            Navigator.of(context).push(
-              CupertinoPageRoute(
-                builder: (_) => RouteDetailPage(
-                  candidate: list.first,
-                  isReturnSelection: startReturnFlow,
-                  meta: meta,
-                ),
-              ),
-            );
-          } else {
-             showCupertinoDialog(
-              context: context,
-              builder: (ctx) => CupertinoAlertDialog(
-                content: const Text('指定された日時の経路が見つかりませんでした。'),
-                actions: [
-                  CupertinoDialogAction(
-                    child: const Text('OK'),
-                    onPressed: () => Navigator.pop(ctx),
-                  )
-                ],
-              ),
-            );
-          }
-          return;
-        } else if (status == 'error') {
-          throw Exception(j['error']);
-        }
-      } catch (e) {
-        rethrow;
-      }
     }
   }
 
