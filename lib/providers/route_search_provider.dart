@@ -132,82 +132,41 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
         'target_date_str': "${searchTime.year}-${searchTime.month.toString().padLeft(2, '0')}-${searchTime.day.toString().padLeft(2, '0')}",
       };
 
+      // Changed: POST returns result directly (synchronously)
+      // No more job polling.
       final r = await ApiClient.post('/route', body: body);
-      final jobId = r['job_id'] as String;
 
-      // Check if cancelled
+      // Check for cancellation
       if (_generation != currentGen) return;
 
-      state = state.copyWith(jobId: jobId);
+      // Parse result immediately
+      final candidatesList = r['candidates'] as List? ?? [];
+      final metaMap = r['meta'] as Map<String, dynamic>? ?? {};
 
-      _poll(jobId, currentGen);
+      final meta = RouteMeta.fromJson(metaMap);
+      final candidates = candidatesList
+          .map((e) {
+            final map = Map<String, dynamic>.from(e as Map);
+            if (map['destination_name'] == null || map['destination_name'] == '') {
+              map['destination_name'] = state.toName;
+            }
+            if (map['origin_name'] == null || map['origin_name'] == '') {
+              map['origin_name'] = state.fromName;
+            }
+            return Candidate.fromJson(map);
+          })
+          .toList();
+
+      state = state.copyWith(
+          isLoading: false,
+          meta: meta,
+          candidates: candidates,
+      );
     } catch (e, st) {
       if (_generation != currentGen) return;
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
       // Log error if needed
-      print('[RouteSearch] Error starting job: $e $st');
-    }
-  }
-
-  Future<void> _poll(String jobId, int generation) async {
-    while (true) {
-      if (_generation != generation) return;
-
-      await Future.delayed(const Duration(milliseconds: 600));
-
-      if (_generation != generation) return;
-
-      try {
-        final r = await ApiClient.get('/route', params: {'job_id': jobId});
-
-        if (_generation != generation) return;
-
-        final status = r['status'] as String;
-        if (status == 'computing' || status == 'running' || status == 'pending') {
-            // continue polling
-            continue;
-        } else if (status == 'done') {
-            final result = r['result'] as Map<String, dynamic>;
-            final meta = RouteMeta.fromJson(result['meta'] as Map<String, dynamic>);
-            final candidates = (result['candidates'] as List)
-                .map((e) {
-                  final map = Map<String, dynamic>.from(e as Map);
-                  if (map['destination_name'] == null || map['destination_name'] == '') {
-                    map['destination_name'] = state.toName;
-                  }
-                  if (map['origin_name'] == null || map['origin_name'] == '') {
-                    map['origin_name'] = state.fromName;
-                  }
-                  return Candidate.fromJson(map);
-                })
-                .toList();
-
-            state = state.copyWith(
-                isLoading: false,
-                meta: meta,
-                candidates: candidates,
-            );
-            return;
-        } else if (status == 'error') {
-            final msg = r['error'] ?? 'Unknown error';
-            state = state.copyWith(
-                isLoading: false,
-                errorMessage: msg.toString(),
-            );
-            return;
-        } else {
-            // Unknown status, stop polling to avoid infinite loop
-            state = state.copyWith(
-                isLoading: false,
-                errorMessage: 'Unknown job status: $status',
-            );
-            return;
-        }
-      } catch (e) {
-        if (_generation != generation) return;
-        state = state.copyWith(isLoading: false, errorMessage: e.toString());
-        return;
-      }
+      print('[RouteSearch] Error executing search: $e $st');
     }
   }
 }
