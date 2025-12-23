@@ -148,6 +148,9 @@ class TimetableManager:
         self.gtfs_route_map = {}
         self.gtfs_stop_map = {}
         self.route_stop_stats = defaultdict(lambda: defaultdict(int))
+        
+        # GTFS ID (e.g. 0276-03) -> ODPT ID (e.g. odpt.BusstopPole:Toei...)
+        self.gtfs_id_to_odpt_id = {}
 
     def update_delays(self, train_data_list):
         count = 0
@@ -263,6 +266,22 @@ class TimetableManager:
                 for rid in d[pid]:
                     d[pid][rid].sort(key=lambda x: x["dep"])
         print(f"[DEBUG] Loaded Bus Timetables (Entries used: {count})")
+        
+        # Build Reverse ID Map (GTFS -> ODPT)
+        print("[INFO] Building reverse ID map (GTFS -> ODPT)...")
+        mapped_count = 0
+        all_pole_ids = set()
+        for d in [self.bus_departures_weekday, self.bus_departures_saturday, self.bus_departures_holiday]:
+            all_pole_ids.update(d.keys())
+            
+        for pid in all_pole_ids:
+            gtfs_id = self.convert_odpt_id_to_gtfs(pid)
+            if gtfs_id:
+                # If multiple ODPT IDs map to the same GTFS ID (rare/unexpected for single pole), last one wins.
+                # Ideally they should be distinct or equivalent.
+                self.gtfs_id_to_odpt_id[gtfs_id] = pid
+                mapped_count += 1
+        print(f"[INFO] Mapped {mapped_count} GTFS IDs.")
 
     def load_train_timetables(self, json_path):
         data = load_json(json_path)
@@ -519,6 +538,21 @@ class TimetableManager:
                 return False
 
             return True
+
+            return True
+
+        # GTFS ID Resolution
+        if pole_id not in target_dict and pole_id in self.gtfs_id_to_odpt_id:
+            old_id = pole_id
+            pole_id = self.gtfs_id_to_odpt_id[pole_id]
+            if debug:
+                 print(f"[DEBUG_BUS] Resolved GTFS ID {old_id} -> ODPT ID {pole_id}")
+
+        if target_pole_id and target_pole_id in self.gtfs_id_to_odpt_id:
+             old_target = target_pole_id
+             target_pole_id = self.gtfs_id_to_odpt_id[target_pole_id]
+             if debug:
+                 print(f"[DEBUG_BUS] Resolved Target GTFS ID {old_target} -> ODPT ID {target_pole_id}")
 
         routes = target_dict.get(pole_id) or {}
         candidate_trips = find_trips(routes, route_id)
