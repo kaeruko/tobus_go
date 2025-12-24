@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 # toei_engine.py
 
-import json, argparse, math, sys, heapq, bisect, datetime
-import csv, os, glob
+import json, argparse, math, sys, heapq, datetime
+import os
 import networkx as nx
 from collections import defaultdict
 
@@ -14,8 +14,6 @@ WALK_COST = 1.5
 WALK_SPEED_M_PER_MIN = 80.0 
 
 TRANSFER_PENALTY = 5.0
-BUS_WAIT_PENALTY = 15.0
-BUS_ALIGHT_PENALTY = 5.0
 
 MAX_WALK_SEG_M = 1000.0
 
@@ -47,7 +45,13 @@ def is_toei(op):
 def load_json(path):
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    if isinstance(data, dict) and "result" in data: return data["result"]
+    
+    # Restore safety check for wrapped result
+    if isinstance(data, dict):
+        if "result" in data and isinstance(data["result"], list):
+            return data["result"]
+        return [data]
+
     return data if isinstance(data, list) else [data]
 
 def get_id(o): return o.get("owl:sameAs") or o.get("@id") or o.get("id")
@@ -115,43 +119,80 @@ class SpatialIndex:
         cy = int(y // self.cell_size_m)
         
         candidates = []
-        # Check 3x3 cells
-        for dx in [-1, 0, 1]:
-            for dy in [-1, 0, 1]:
+        # Dynamic search range based on radius
+        # Typically 1 cell is enough for radius < cell_size, but safe to cover ceil
+        range_val = int(math.ceil(radius_m / self.cell_size_m))
+        
+        for dx in range(-range_val, range_val + 1):
+            for dy in range(-range_val, range_val + 1):
                 cell = (cx + dx, cy + dy)
                 for item in self.grid.get(cell, []):
                     candidates.append(item)
         return candidates
 
+def pole_base(pid: str) -> str:
+    if not (isinstance(pid, str) and "BusstopPole:" in pid):
+        return pid
+    # Expect: ...BusstopPole:Name.123.1 -> ...BusstopPole:Name.123
+    # If just ...BusstopPole:Name.123 -> ...BusstopPole:Name.123
+    parts = pid.rsplit(".", 1)
+    if len(parts) == 2 and parts[1].isdigit() and len(parts[1]) <= 2: # simple heuristic for suffix like .1, .2
+         return parts[0]
+    return pid
+
+def route_base(rid: str) -> str:
+    if not isinstance(rid, str): return rid
+    # Expect: ...Busroute:Toei.Nishiki27-3 -> ...Busroute:Toei.Nishiki27
+    return rid.split("-")[0]
+
 # -------------------- 時刻表マネージャー (名寄せ強化版) --------------------
 class TimetableManager:
     def __init__(self):
         # key: pole_id, value: { route_id: [{'dep': minutes, 'dest': dest_pole_id}, ...] }
-        # Value structure changed from list of minutes to list of dicts
-        # key: pole_id, value: { route_id: [{'dep': minutes, 'dest': dest_pole_id}, ...] }
-        # Value structure changed from list of minutes to list of dicts
         self.bus_departures_weekday = {}
         self.bus_departures_saturday = {}
         self.bus_departures_holiday = {}
+        
+        # ID-based indexes (pole_base -> [pole_id, ...])
+        self.pole_base_index_weekday = defaultdict(list)
+        self.pole_base_index_saturday = defaultdict(list)
+        self.pole_base_index_holiday = defaultdict(list)
+        
+        # Optimization Cache: (day_type_key, pole_id, route_id) -> effective_pole_id
+        self._resolved_pole_cache = {}
+        
+        # Controlled Debugging
+        self._debug_once = set()
+        self._debug_counts = defaultdict(int)
+
         self.route_patterns_map = defaultdict(list) # route_id -> [ [stop1, stop2...], [stop1...] ]
         
         # key: station_id, value: [ {dep, arr, next_sta, train_id} ]
         self.train_patterns_weekday = {}
         self.train_patterns_weekend = {}
         
-        # 名前インデックス (共通)
+        # 名前インデックス (共通 - used for graph building hints maybe, but less for timetable now)
         self.name_to_pids = defaultdict(list)
         # リアルタイム遅延 (共通)
         self.realtime_delays = {}
-        
-        # GTFS Mappings (Default empty)
-        self.gtfs_route_map = {}
-        self.gtfs_stop_map = {}
-        self.route_stop_stats = defaultdict(lambda: defaultdict(int))
-        
-        # GTFS ID (e.g. 0276-03) -> ODPT ID (e.g. odpt.BusstopPole:Toei...)
-        self.gtfs_id_to_odpt_id = {}
 
+    def debug_once(self, key, msg):
+        self._debug_counts[key] += 1
+        if key not in self._debug_once:
+            self._debug_once.add(key)
+            print(msg)
+            
+    def _build_pole_base_index_for(self, departures_dict, out_index):
+        out_index.clear()
+        for pid in departures_dict.keys():
+            out_index[pole_base(pid)].append(pid)
+
+    def finalize_indexes(self):
+        self._build_pole_base_index_for(self.bus_departures_weekday, self.pole_base_index_weekday)
+        self._build_pole_base_index_for(self.bus_departures_saturday, self.pole_base_index_saturday)
+        self._build_pole_base_index_for(self.bus_departures_holiday, self.pole_base_index_holiday)
+        print("[INFO] Bus ID-based indexes finalized.")
+        
     def update_delays(self, train_data_list):
         count = 0
         for t in train_data_list:
@@ -160,7 +201,7 @@ class TimetableManager:
             if t_num:
                 self.realtime_delays[t_num] = delay
                 count += 1
-        print(f"[INFO] Updated delays for {count} trains.")
+        # print(f"[INFO] Updated delays for {count} trains.")
 
     def get_delays_snapshot(self):
         """Return a copy of current realtime delays for consistency during search"""
@@ -218,26 +259,18 @@ class TimetableManager:
             
             if not times: continue
 
-
-
             # 振り分け
             targets = []
             
-            # Heuristic Mapping (Generalized Suffix Match)
-            # Weekday: Ends with -170 or -174 (To01 case), or has "Weekday"
             is_wk = (
                 "Weekday" in calendar 
                 or calendar.endswith("-170") 
                 or calendar.endswith("-174")
             )
-            
-            # Saturday: Ends with -160 or has "Saturday"
             is_sat = (
                 "Saturday" in calendar 
                 or calendar.endswith("-160")
             )
-            
-            # Holiday: Ends with -100, -109, or has "Holiday"
             is_hol = (
                 "Holiday" in calendar 
                 or calendar.endswith("-100") 
@@ -247,11 +280,6 @@ class TimetableManager:
             if is_wk: targets.append(self.bus_departures_weekday)
             if is_sat: targets.append(self.bus_departures_saturday)
             if is_hol: targets.append(self.bus_departures_holiday)
-            
-            # If nothing matched, log for investigation (optional)
-            if not targets and "Specific" in calendar:
-                # print(f"[WARN] Unknown Specific Calendar: {calendar} for {route_id}")
-                pass
             
             for target_dict in targets:
                 if pole_id not in target_dict: target_dict[pole_id] = {}
@@ -265,27 +293,8 @@ class TimetableManager:
             for pid in d:
                 for rid in d[pid]:
                     d[pid][rid].sort(key=lambda x: x["dep"])
+        self.finalize_indexes()
         print(f"[DEBUG] Loaded Bus Timetables (Entries used: {count})")
-        self.build_gtfs_reverse_map()
-
-    def build_gtfs_reverse_map(self):
-        # Build Reverse ID Map (GTFS -> ODPT)
-        print("[INFO] Building reverse ID map (GTFS -> ODPT)...")
-        if not hasattr(self, "gtfs_id_to_odpt_id"):
-            self.gtfs_id_to_odpt_id = {}
-
-        mapped_count = 0
-        all_pole_ids = set()
-        for d in [self.bus_departures_weekday, self.bus_departures_saturday, self.bus_departures_holiday]:
-            all_pole_ids.update(d.keys())
-            
-        for pid in all_pole_ids:
-            gtfs_id = self.convert_odpt_id_to_gtfs(pid)
-            if gtfs_id:
-                # If multiple ODPT IDs map to the same GTFS ID (rare/unexpected for single pole), last one wins.
-                self.gtfs_id_to_odpt_id[gtfs_id] = pid
-                mapped_count += 1
-        print(f"[INFO] Mapped {mapped_count} GTFS IDs.")
 
     def load_train_timetables(self, json_path):
         data = load_json(json_path)
@@ -344,143 +353,120 @@ class TimetableManager:
             elif dbg_env != "0" and pole_name and dbg_env in pole_name:
                 debug = True
 
-        if not debug:
-            return self._get_next_bus_departure_impl(pole_id, route_id, current_time_min, pole_name, day_type, target_pole_id=target_pole_id, debug=False)
-        
-        return self._get_next_bus_departure_impl(pole_id, route_id, current_time_min, pole_name, day_type, target_pole_id=target_pole_id, debug=True)
-
-    def _get_next_bus_departure_impl(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
+        # Determine target dictionary and index
         if day_type == "saturday":
             target_dict = self.bus_departures_saturday
+            base_index = self.pole_base_index_saturday
         elif day_type == "holiday":
             target_dict = self.bus_departures_holiday
+            base_index = self.pole_base_index_holiday
         else:
             target_dict = self.bus_departures_weekday
+            base_index = self.pole_base_index_weekday
 
-        def find_trips(routes_dict, target_rid):
+        # Cache Check
+        cache_key = (day_type, pole_id, route_id)
+        cached_pid = self._resolved_pole_cache.get(cache_key)
+        
+        # Effective Pole ID to use
+        effective_pole_id = cached_pid if cached_pid else pole_id
+
+        def find_trips_smart(routes_dict, target_rid):
+            # 1. Exact match
             if target_rid in routes_dict:
                 return routes_dict[target_rid]
+            
+            # 2. Route Base match (e.g. Nishiki27 matches Nishiki27-2)
+            base = route_base(target_rid)
             for r_key, t_list in routes_dict.items():
-                if target_rid in r_key or r_key in target_rid:
+                if route_base(r_key) == base:
+                    # Log only once
                     if debug:
-                        print(f"[🚌BUS] 🔎 Fuzzy match: target={target_rid} matched={r_key}")
+                        self.debug_once(
+                            f"route_fuzzy:{target_rid}", 
+                            f"[BUS] Fuzzy Route Match: {target_rid} -> {r_key} (base={base})"
+                        )
                     return t_list
             return None
 
         def is_valid_trip(trip, rid, board_pole_id):
-            if not target_pole_id:
-                return True
-
+            if not target_pole_id: return True
             dest_id = trip.get("dest")
-            if not dest_id:
-                return True
+            if not dest_id: return True
 
             patterns = self.route_patterns_map.get(rid) or []
-            if not patterns:
-                return True
+            if not patterns: return True # Pattern missing, assume valid
 
             any_directional_pattern = False
-
             for stops in patterns:
-                if board_pole_id not in stops:
-                    continue
-                if dest_id not in stops:
-                    continue
+                # Check if both board and dest exist in this pattern
+                if board_pole_id not in stops: continue
+                if dest_id not in stops: continue
 
                 b = stops.index(board_pole_id)
                 d = stops.index(dest_id)
-
-                if d < b:
-                    continue
-
+                if d < b: continue # Wrong direction
+                
                 any_directional_pattern = True
-
-                if target_pole_id not in stops:
-                    continue
-
-                t = stops.index(target_pole_id)
-                if b <= t <= d:
-                    return True
+                
+                if target_pole_id:
+                    if target_pole_id not in stops: continue
+                    t = stops.index(target_pole_id)
+                    if b <= t <= d: return True # Valid intermediate
+                else:
+                    return True # Valid if no specific target check needed
 
             if any_directional_pattern:
-                if debug:
-                    print(f"[🚌BUS] ❌ REJECT: Direction mismatch (Total {len(patterns)} patterns checked). rid={rid} board={board_pole_id} target={target_pole_id} dest={dest_id}")
-                return False
+                return False # Found directional patterns but none matched
+            
+            return True # Fallback if no patterns contained these stops
 
-            if target_pole_id and patterns:
-                # 路線パターンは存在するが、このトリップの目的地(dest_id)がいずれのパターンにも含まれない場合
-                # （入庫便など、通常の路線図に載らない特殊なパターンの可能性が高い）
-                if debug:
-                    print(f"[🚌BUS] ❌ REJECT: Trip destination {dest_id} is not in any pattern of {rid}. Cannot guarantee it stops at {target_pole_id}.")
-                return False
-
-            if debug:
-                print(f"[🚌BUS] ⚠️ WARNING: No patterns at all for rid={rid}. Assuming OK. board={board_pole_id} dest={dest_id}")
-            return True
-
-        if debug:
-            print(f"\n[🚌BUS] ────────── SEARCH START ──────────")
-            print(f"[🚌BUS] 📍 Boarding: {pole_name} (ID: {pole_id})")
-            print(f"[🚌BUS] 🆔 Route: {route_id} | Day: {day_type}")
-
-        routes = target_dict.get(pole_id)
+        # Primary Lookup
+        routes = target_dict.get(effective_pole_id)
         candidate_trips = None
-
         if routes:
-            candidate_trips = find_trips(routes, route_id)
-            if debug and candidate_trips:
-                print(f"[🚌BUS] ✅ Direct Match: ID={pole_id}")
+            candidate_trips = find_trips_smart(routes, route_id)
 
-        if not candidate_trips and pole_name and pole_name in self.name_to_pids:
-            if debug:
-                print(f"[🚌BUS] 🔄 ID Mismatch. Falling back to name match: '{pole_name}'")
-                print(f"[🚌BUS]    Alternatives: {self.name_to_pids[pole_name]}")
-            for alt_pid in self.name_to_pids[pole_name]:
-                if alt_pid == pole_id:
-                    continue
+        # Fallback: Pole Base (Only if not cached or cache failed somehow)
+        if not candidate_trips and not cached_pid:
+            base = pole_base(pole_id)
+            candidates = base_index.get(base, [])
+            
+            for alt_pid in candidates:
+                if alt_pid == pole_id: continue
                 alt_routes = target_dict.get(alt_pid)
-                if not alt_routes:
+                if not alt_routes: continue
+                
+                alt_trips = find_trips_smart(alt_routes, route_id)
+                if alt_trips:
                     if debug:
-                        print(f"[🚌BUS]    ❌ Skip ID={alt_pid} (No timetable for {day_type})")
-                    continue
-                candidate_trips = find_trips(alt_routes, route_id)
-                if candidate_trips:
-                    if debug:
-                        print(f"[🚌BUS]    ✅ Match Found! Using ID={alt_pid}")
+                        self.debug_once(
+                            f"pole_fallback:{pole_id}:{route_id}", 
+                            f"[BUS] Pole Fallback: {pole_id} -> {alt_pid} (base={base})"
+                        )
+                    candidate_trips = alt_trips
+                    self._resolved_pole_cache[cache_key] = alt_pid
+                    effective_pole_id = alt_pid # Update for is_valid_trip check
                     break
-                elif debug:
-                    print(f"[🚌BUS]    ❌ Skip ID={alt_pid} (Route {route_id} not found)")
 
         if not candidate_trips:
-            if debug:
-                print(f"[🚌BUS] ❌ FINAL FAIL: No timetable for Route={route_id} at Bus Stop={pole_name}")
             return None
 
-        if debug:
-            now_str = min_to_time_str(current_time_min)
-            sample = candidate_trips[: min(40, len(candidate_trips))]
-            counts = {}
-            for tr in sample:
-                d = tr.get("dest") or "unknown"
-                counts[d] = counts.get(d, 0) + 1
-            print(f"[🚌BUS] 📊 Stats: Now={now_str} | Trips={len(candidate_trips)} | Targets={counts}")
-
+        # Determine the board_pole_id to use for validation
+        # If we fell back to alt_pid, we should strictly check against alt_pid patterns?
+        # Usually checking original ID is safer for graph consistency, but timetable logic needs ID with pattern.
+        # Let's use effective_pole_id for pattern check.
+        
         for trip in candidate_trips:
             dep = trip.get("dep")
-            if dep is None:
-                continue
+            if dep is None: continue
             if dep >= current_time_min:
-                if is_valid_trip(trip, route_id, pole_id):
-                    if debug:
-                        dest_id = trip.get("dest")
-                        print(f"[🚌BUS] ⭐ PICKED: Departure={min_to_time_str(dep)} | Destination={dest_id}")
+                if is_valid_trip(trip, route_id, effective_pole_id):
                     return dep
-
-        if debug:
-            print(f"[🚌BUS] ❌ NO UPCOMING: Current time {min_to_time_str(current_time_min)} exceeded all departures for this route.")
         return None
 
     def get_future_bus_trips(self, pole_id, route_id, current_time_min, limit=10, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
+        # Simplified for debugging/UI - Removed GTFS & double return bug
         if not debug:
             debug = os.getenv("DEBUG_BUS") == "1"
 
@@ -492,135 +478,63 @@ class TimetableManager:
             target_dict = self.bus_departures_weekday
 
         def find_trips(routes_dict, target_rid):
-            if target_rid in routes_dict:
-                return routes_dict[target_rid]
+            if target_rid in routes_dict: return routes_dict[target_rid]
             for r_key, t_list in routes_dict.items():
                 if target_rid in r_key or r_key in target_rid:
-                    if debug:
-                        print(f"[DEBUG_BUS] Fuzzy match route_id={target_rid} matched_key={r_key}")
                     return t_list
             return None
 
         def is_valid_trip(trip, rid, board_pole_id):
-            if not target_pole_id:
-                return True
-
+            if not target_pole_id: return True
             dest_id = trip.get("dest")
-            if not dest_id:
-                return True
-
+            if not dest_id: return True
             patterns = self.route_patterns_map.get(rid) or []
-            if not patterns:
-                return True
-
+            if not patterns: return True
             any_directional_pattern = False
-
             for stops in patterns:
-                if board_pole_id not in stops:
-                    continue
-                if dest_id not in stops:
-                    continue
-
+                if board_pole_id not in stops or dest_id not in stops: continue
                 b = stops.index(board_pole_id)
                 d = stops.index(dest_id)
-
-                if d < b:
-                    continue
-
+                if d < b: continue
                 any_directional_pattern = True
-
-                if target_pole_id not in stops:
-                    continue
-
+                if target_pole_id not in stops: continue
                 t = stops.index(target_pole_id)
-                if b <= t <= d:
-                    return True
-
-            if any_directional_pattern:
-                if debug:
-                    print(f"[DEBUG_BUS] REJECT cannot reach target rid={rid} board={board_pole_id} target={target_pole_id} dest={dest_id}")
-                return False
-
+                if b <= t <= d: return True
+            if any_directional_pattern: return False
             return True
-
-            return True
-
-        # GTFS ID Resolution
-        if pole_id not in target_dict and pole_id in self.gtfs_id_to_odpt_id:
-            old_id = pole_id
-            pole_id = self.gtfs_id_to_odpt_id[pole_id]
-            if debug:
-                 print(f"[DEBUG_BUS] Resolved GTFS ID {old_id} -> ODPT ID {pole_id}")
-
-        if target_pole_id and target_pole_id in self.gtfs_id_to_odpt_id:
-             old_target = target_pole_id
-             target_pole_id = self.gtfs_id_to_odpt_id[target_pole_id]
-             if debug:
-                 print(f"[DEBUG_BUS] Resolved Target GTFS ID {old_target} -> ODPT ID {target_pole_id}")
 
         routes = target_dict.get(pole_id) or {}
         candidate_trips = find_trips(routes, route_id)
 
         if not candidate_trips and pole_name and pole_name in self.name_to_pids:
             for alt_pid in self.name_to_pids[pole_name]:
-                if alt_pid == pole_id:
-                    continue
+                if alt_pid == pole_id: continue
                 alt_routes = target_dict.get(alt_pid) or {}
                 candidate_trips = find_trips(alt_routes, route_id)
-                if candidate_trips:
-                    if debug:
-                        print(f"[DEBUG_BUS] Fallback pole_id={pole_id} alt_pid={alt_pid} pole_name={pole_name}")
-                    break
+                if candidate_trips: break
 
-        if not candidate_trips:
-            if debug:
-                print(f"[DEBUG_BUS] No timetable pole_id={pole_id} route_id={route_id} day_type={day_type}")
-            return []
+        if not candidate_trips: return []
 
         out = []
-        rejected = 0
         for trip in candidate_trips:
             dep = trip.get("dep")
-            if dep is None:
-                continue
-            if dep < current_time_min:
-                continue
+            if dep is None: continue
+            if dep < current_time_min: continue
             if is_valid_trip(trip, route_id, pole_id):
                 out.append(trip)
-                if len(out) >= limit:
-                    break
-            else:
-                rejected += 1
-
-        if debug:
-            now_str = min_to_time_str(current_time_min)
-            dests = {}
-            for tr in out:
-                d = tr.get("dest") or "unknown"
-                dests[d] = dests.get(d, 0) + 1
-            print(f"[DEBUG_BUS] Future pole_id={pole_id} route_id={route_id} day_type={day_type} now={now_str} target_pole_id={target_pole_id} future={len(out)} rejected={rejected} dest_counts={dests}")
-
+                if len(out) >= limit: break
         return out
 
     def get_next_train_arrival(self, current_sta, next_sta, current_time_min, day_type="weekday", delays_snapshot=None):
         target_dict = self.train_patterns_weekday if day_type == "weekday" else self.train_patterns_weekend
-        # For trains, we might need a similar split, but for now assuming weekend=holiday for trains
-        # or we update load_train_timetables too? 
-        # For Toei subway, Sat/Hol are usually same.
         trains = target_dict.get(current_sta)
-        
-        if "Asakusa" in current_sta and "Honjo" in current_sta:
-             # print(f"[DEBUG TRAIN] Looking up {current_sta} -> {next_sta} at {current_time_min}. Found: {len(trains) if trains else 0} trips. DayType={day_type}")
-             pass
-
         if not trains: return None
+        
+        delays_source = delays_snapshot if delays_snapshot is not None else self.realtime_delays
         
         for t in trains:
             base_dep = t["dep"]
             base_arr = t["arr"]
-            
-            # Use snapshot if provided, otherwise failover to live (though we should always have snapshot in search)
-            delays_source = delays_snapshot if delays_snapshot is not None else self.realtime_delays
             delay_sec = delays_source.get(t["train_num"], 0)
             delay_min = delay_sec / 60.0
             
@@ -630,144 +544,6 @@ class TimetableManager:
             if actual_dep >= current_time_min and t["next_sta"] == next_sta:
                 return actual_arr
         return None
-
-    # -------------------- GTFS ID Resolution --------------------
-    def load_gtfs_mappings(self, gtfs_dir):
-        print(f"[INFO] Loading GTFS mappings from {gtfs_dir}...")
-        self.gtfs_route_map = {} # normalized_name -> route_id
-        self.gtfs_stop_map = {}  # stop_name -> list of stop_ids
-
-        # Load routes.txt
-        routes_path = os.path.join(gtfs_dir, "routes.txt")
-        if os.path.exists(routes_path):
-            with open(routes_path, 'r', encoding='utf-8-sig') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    rid = row['route_id']
-                    short_name = row['route_short_name'] # e.g. "波01"
-                    # norm matches _line_norm in engine
-                    norm_name = _line_norm(short_name)
-                    self.gtfs_route_map[norm_name] = rid
-            print(f"[INFO] Loaded {len(self.gtfs_route_map)} routes from GTFS.")
-        else:
-            print(f"[WARN] routes.txt not found at {routes_path}")
-
-        # Load stops.txt
-        stops_path = os.path.join(gtfs_dir, "stops.txt")
-        if os.path.exists(stops_path):
-            with open(stops_path, 'r', encoding='utf-8-sig') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    sid = row['stop_id']
-                    name = row['stop_name']
-                    if name not in self.gtfs_stop_map: self.gtfs_stop_map[name] = []
-                    self.gtfs_stop_map[name].append(sid)
-            print(f"[INFO] Loaded stops from GTFS.")
-        else:
-            print(f"[WARN] stops.txt not found at {stops_path}")
-
-        # --- Load app_timetable.json for smart resolution ---
-        # Assuming gtfs_dir is something like "data/ToeiBus-GTFS", parent is "data"
-        timetable_path = os.path.join(os.path.dirname(gtfs_dir), "app_timetable.json")
-        self.route_stop_stats = defaultdict(_create_int_dd) # route_id -> stop_id -> total_trips
-
-        if os.path.exists(timetable_path):
-            print(f"[INFO] Loading app timetable stats from {timetable_path}...")
-            try:
-                with open(timetable_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    for rid, stops in data.items():
-                        for sid, dirs in stops.items():
-                            total = 0
-                            for _, days in dirs.items():
-                                for _, times in days.items():
-                                    total += len(times)
-                            self.route_stop_stats[rid][sid] = total
-                print(f"[INFO] Loaded stats for {len(self.route_stop_stats)} routes.")
-            except Exception as e:
-                print(f"[WARN] Failed to load app_timetable.json: {e}")
-        else:
-            print(f"[WARN] app_timetable.json not found at {timetable_path} (Smart ID resolution disabled)")
-
-    def convert_odpt_id_to_gtfs(self, odpt_id):
-        """
-        Convert ODPT BusstopPole ID to GTFS Stop ID.
-        Example: odpt.BusstopPole:Toei.HiraiNanachomeDaisanApato.2205.3 -> 2205-03
-        """
-        if not odpt_id:
-            print(f"[DEBUG] convert_odpt_id_to_gtfs: Empty odpt_id")
-            return ""
-        
-        print(f"[DEBUG] convert_odpt_id_to_gtfs: Input odpt_id='{odpt_id}'")
-        
-        try:
-            parts = odpt_id.split('.')
-            print(f"[DEBUG] convert_odpt_id_to_gtfs: parts={parts}")
-            
-            if len(parts) >= 2:
-                # Last two parts are usually code ("2205") and suffix ("3")
-                code = parts[-2]
-                suffix = parts[-1]
-                print(f"[DEBUG] convert_odpt_id_to_gtfs: code='{code}', suffix='{suffix}'")
-                
-                if code.isdigit() and suffix.isdigit():
-                    # GTFS stop_id uses 4-digit code (zero-padded) + 2-digit suffix
-                    # Example: 665 -> 0665, 3 -> 03 => 0665-03
-                    gtfs_id = f"{code.zfill(4)}-{int(suffix):02d}"
-                    return gtfs_id
-        except Exception as e:
-            print(f"[WARN] Failed to convert ODPT ID {odpt_id}: {e}")
-        
-        return ""
-
-    def resolve_gtfs_route_id(self, route_name_disp):
-        # route_name_disp e.g. "都02"
-        # normalize
-        norm = _line_norm(route_name_disp)
-        # Use getattr for safety against init issues
-        mapping = getattr(self, 'gtfs_route_map', {})
-        result = mapping.get(norm, "")
-        print(f"[DEBUG] resolve_gtfs_route_id: '{route_name_disp}' -> norm:'{norm}' -> routeId:'{result}'")
-        return result
-
-    def resolve_gtfs_stop_id(self, gtfs_route_id, stop_name):
-        print(f"[DEBUG] resolve_gtfs_stop_id: gtfs_route_id='{gtfs_route_id}', stop_name='{stop_name}'")
-        
-        mapping = getattr(self, 'gtfs_stop_map', {})
-        candidates = mapping.get(stop_name, [])
-        print(f"[DEBUG] resolve_gtfs_stop_id: candidates={candidates}")
-        
-        if not candidates:
-            print(f"[DEBUG] resolve_gtfs_stop_id: No candidates for stop_name='{stop_name}'")
-            return ""
-
-        # Smart Resolution: Check if candidates exist in known route stats
-        if gtfs_route_id and hasattr(self, 'route_stop_stats') and gtfs_route_id in self.route_stop_stats:
-            known_stops = self.route_stop_stats[gtfs_route_id]
-            print(f"[DEBUG] resolve_gtfs_stop_id: route_stop_stats available for route {gtfs_route_id}")
-            
-            # Valid candidates are those that exist in the timetable for this route and have trips
-            valid_candidates = [c for c in candidates if c in known_stops and known_stops[c] > 0]
-            print(f"[DEBUG] resolve_gtfs_stop_id: valid_candidates={valid_candidates}")
-            
-            if valid_candidates:
-                # Sort by number of trips (descending)
-                valid_candidates.sort(key=lambda x: known_stops[x], reverse=True)
-                best = valid_candidates[0]
-                print(f"[DEBUG] resolve_gtfs_stop_id (smart): '{stop_name}' (Route {gtfs_route_id}) -> {best} (trips: {known_stops[best]})")
-                return best
-            else:
-                print(f"[DEBUG] resolve_gtfs_stop_id: Candidates {candidates} not found in timetable for Route {gtfs_route_id}")
-        
-        # Fallback: Prefer ID matching common patterns
-        for c in candidates:
-            if c.endswith("-01"):
-                print(f"[DEBUG] resolve_gtfs_stop_id (fallback): '{stop_name}' -> '{c}' (preferred -01)")
-                return c
-        result = candidates[0]
-        print(f"[DEBUG] resolve_gtfs_stop_id (fallback): '{stop_name}' -> '{result}' (first candidate)")
-        return result
-
 
 # -------------------- グラフ構築 --------------------
 def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railways_path, walk_radius=300):
@@ -812,16 +588,11 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
         except: pass
         seq = [o.get("odpt:busstopPole") for o in orders if o.get("odpt:busstopPole") in phys]
         
-        if "T01" in route_id:
-             print(f"[DEBUG GRAPH] Processing T01: {route_id} Title='{disp}' Norm='{norm}' SeqLen={len(seq)}")
-        
         for a, b in zip(seq, seq[1:]):
             na = ensure_line_node(a, family_key, disp, "bus", route_id)
             nb = ensure_line_node(b, family_key, disp, "bus", route_id)
             if not G.has_edge(na, nb):
                 G.add_edge(na, nb, w=BUS_RIDE_COST, etype="ride", line=family_key, mode="bus")
-                if "T01" in route_id:
-                     print(f"[DEBUG GRAPH] Added T01 edge: {na} -> {nb}")
 
     railways = load_json(railways_path)
     for rw in railways:
@@ -842,86 +613,40 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
     return G
 
 def connect_walk_edges_phys(G, radius_m=300):
-    """Connect physical nodes within the walking radius using a simple spatial index."""
-
+    # Use spatial index reuse logic
+    si = SpatialIndex(G)
+    
     phys_nodes = []
     for idx, (n, d) in enumerate(G.nodes(data=True)):
-        if n[0] != "phys":
-            continue
-        phys_nodes.append((idx, n, d))
+        if n[0] != "phys": continue
+        phys_nodes.append((n, d))
 
-    if not phys_nodes:
-        return
-
-    # Approximate conversion from degrees to meters around the reference latitude.
-    ref_lat = phys_nodes[0][2]["lat"]
-    ref_lon = phys_nodes[0][2]["lon"]
-    ref_lat_rad = math.radians(ref_lat)
-    meters_per_deg_lat = 111_320.0
-    meters_per_deg_lon = math.cos(ref_lat_rad) * 111_320.0
-
-    def to_local_meters(lat, lon):
-        return (
-            (lon - ref_lon) * meters_per_deg_lon,
-            (lat - ref_lat) * meters_per_deg_lat,
-        )
-
-    cell_size = float(radius_m)
-    grid = defaultdict(list)
-    indexed_nodes = []
-
-    for idx, node, data in phys_nodes:
-        x, y = to_local_meters(data["lat"], data["lon"])
-        cx, cy = int(x // cell_size), int(y // cell_size)
-        grid[(cx, cy)].append(idx)
-        indexed_nodes.append((idx, node, data, x, y, cx, cy))
-
-    for idx, u, du, ux, uy, ucx, ucy in indexed_nodes:
-        for dx in (-1, 0, 1):
-            for dy in (-1, 0, 1):
-                for vidx in grid.get((ucx + dx, ucy + dy), []):
-                    if vidx <= idx:
-                        continue
-                    v, dv = phys_nodes[vidx][1], phys_nodes[vidx][2]
-                    dist = haversine(du["lat"], du["lon"], dv["lat"], dv["lon"])
-                    if dist <= radius_m:
-                        minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
-                        w = WALK_COST * minutes
-                        G.add_edge(u, v, w=w, etype="walk", meters=dist)
-                        G.add_edge(v, u, w=w, etype="walk", meters=dist)
+    for u, du in phys_nodes:
+        candidates = si.nearby_candidates(du["lat"], du["lon"], radius_m)
+        for (v, lat, lon) in candidates:
+            if u == v: continue
+            dist = haversine(du["lat"], du["lon"], lat, lon)
+            if dist <= radius_m:
+                 if not G.has_edge(u, v):
+                     minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
+                     w = WALK_COST * minutes
+                     G.add_edge(u, v, w=w, etype="walk", meters=dist)
 
 def get_virtual_connections(G, lat, lon, name="目的地", walk_radius=300, spatial_index=None):
-    """
-    仮想目的地への接続情報を返す (G.copy()を回避するため)。
-    
-    Returns:
-        dest_node_id (tuple): ("phys", "dest:...")
-        connections (list): [(phys_node_id, weight, meters), ...]
-    """
     dest_id = f"dest:{lat:.6f},{lon:.6f}"
     dest_node = ("phys", dest_id)
-    
     connections = []
     
-    # Use Spatial Index if available
-    candidates = []
     if spatial_index:
         candidates = spatial_index.nearby_candidates(lat, lon, walk_radius)
-        # candidates are lists of (node_id, lat, lon)
-        
-        # Convert to format for loop
-        # Note: spatial_index candidates are (nid, lat, lon)
-        # We need G loop style if we want to share logic, 
-        # but here we just iterate candidates.
         for nid, nlat, nlon in candidates:
              dist = haversine(lat, lon, nlat, nlon)
              if dist <= walk_radius:
                  minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
                  w = WALK_COST * minutes
                  connections.append((nid, w, dist))
-    
     else:
-        # Fallback to full scan
+        # Fallback
         for n, d in G.nodes(data=True):
             if n[0] != "phys": continue
             dist = haversine(lat, lon, d.get("lat"), d.get("lon"))
@@ -930,40 +655,25 @@ def get_virtual_connections(G, lat, lon, name="目的地", walk_radius=300, spat
                 w = WALK_COST * minutes
                 connections.append((n, w, dist))
                 
-    count = len(connections)
-    print(f"[DEBUG_DEST] Found {count} virtual connections for {dest_node} (radius={walk_radius}m)")
     return dest_node, connections
 
 def nearest_phys(G, lat, lon, station_only=False, spatial_index=None):
     best, bestd = None, 1e30
-    
     candidates = []
     if spatial_index:
-        # Use simple radius (e.g. 1000m) for finding nearest
         raw_candidates = spatial_index.nearby_candidates(lat, lon, 1000)
-        if not raw_candidates:
-             # Retry wider if empty (fallback to all just in case, or wider radius)
-             candidates = G.nodes(data=True) 
-        else:
-             candidates = []
-             for nid, nlat, nlon in raw_candidates:
-                 # Reconstruct data tuple expected by loop
-                 candidates.append((nid, G.nodes[nid]))
+        # Flatten tuple from si
+        candidates = [(nid, G.nodes[nid]) for nid,_,_ in raw_candidates]
+        if not candidates: # fallback wider scan
+             candidates = G.nodes(data=True)
     else:
         candidates = G.nodes(data=True)
 
     for n, d in candidates:
         if n[0] != "phys": continue
         if station_only and not is_station_id(n[1]): continue
-        
-        # Grid returns nlat/nlon, but 'd' has it too.
-        # If using G.nodes(data=True) 'd' is full dict. 
-        # If using grid, we constructed (n, node_data).
-        
-        # Simplified loop:
         dist = haversine(lat, lon, d["lat"], d["lon"])
         if dist < bestd: best, bestd = n, dist
-        
     return best, bestd
 
 # -------------------- 探索ロジック --------------------
@@ -972,10 +682,9 @@ def get_logical_signature(G, path):
     current_line = None
     for u, v in zip(path, path[1:]):
         if G.has_edge(u, v):
-            e = G.edges[u, v]
+            e = G.get_edge_data(u, v)
             etype = e.get("etype")
         else:
-            # Virtual edge (walk)
             etype = "walk"
 
         if etype == "ride":
@@ -989,195 +698,115 @@ def get_logical_signature(G, path):
 
 # -------------------- 共通ロジック: 時間計算ヘルパー --------------------
 def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=None, **kwargs):
-    """
-    1 本のエッジ (u -> v) に対して、現在時刻 curr_time を
-    「実際の到着時刻」に進める。
-    乗れない（終バス後など）場合は None を返す。
-    **kwargs: target_pole_id 等のオプション
-    """
-    edge = G.edges[u, v]
-    etype = edge.get("etype")
+    if G.has_edge(u, v):
+        edge = G.edges[u, v]
+        etype = edge.get("etype")
+        meters = edge.get("meters", 0)
+    else:
+        # Virtual edge fallback
+        return curr_time # Should rarely happen here unless virtual logic changes
 
-    # 徒歩
     if etype == "walk":
-        return curr_time + (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
+        return curr_time + (meters / WALK_SPEED_M_PER_MIN)
 
-    # 乗車（board）
     if etype == "board":
-        phys_id = u[1]
         node = v if v[0] == "line" else u
         mode = G.nodes[node].get("mode")
 
         if mode == "bus":
             route_id = G.nodes[node].get("route_id")
             stop_name = G.nodes[u].get("name")
-            
-            # ターゲット指定があれば渡す
             target_pid = kwargs.get("target_pole_id")
             dep = tm.get_next_bus_departure(
-                phys_id, route_id, curr_time,
+                u[1], route_id, curr_time,
                 pole_name=stop_name,
                 day_type=day_type,
                 target_pole_id=target_pid
             )
             return dep
         elif mode == "rail":
-            # 電車の乗車時点ではざっくり乗り換え待ち 2 分
             return curr_time + 2.0
         return curr_time
 
-    # 走行（ride）
     if etype == "ride":
         mode = edge.get("mode")
         if mode == "rail":
             arr = tm.get_next_train_arrival(u[1], v[1], curr_time, day_type=day_type, delays_snapshot=delays_snapshot)
-            return arr  # arr が None のときは呼び出し側で弾く
+            return arr
         elif mode == "bus":
-            dist = edge.get("meters", 0)
-            if dist > 0:
-                return curr_time + (dist / 250.0) + 0.8
+            if meters > 0:
+                return curr_time + (meters / 250.0) + 0.8
             else:
                 return curr_time + 2.5
         return curr_time
 
-    # 降車/乗換
     if etype in ("alight", "xfer"):
         return curr_time + 1.0
 
     return curr_time
 
 # -------------------- 共通ロジック: セグメント詳細化 --------------------
-# server.py から移動・共通化
-
-
-
 def path_to_coords(G, path):
-    """
-    パス(ノード列)を [lat, lon] のリストに変換する
-    """
     points = []
     for u in path:
         if u[0] == "phys" and str(u[1]).startswith("dest:"):
-            # dest:LAT,LON
             try:
                 parts = str(u[1]).split(":")[1].split(",")
                 lat, lon = float(parts[0]), float(parts[1])
                 points.append([lat, lon])
-            except:
-                print(f"[WARN] Failed to parse virtual node coords: {u}")
+            except: pass
         elif u in G.nodes:
             d = G.nodes[u]
             points.append([d["lat"], d["lon"]])
     return points
 
-
-# -------------------- 統合検索ロジック --------------------
 def search_best_routes_once(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None):
-    """
-    日付を指定して検索し、結果が0件なら翌日以降も探すラッパー
-    """
     now = datetime.datetime.now()
-    
-    # 日付指定がある場合はそれを使う
     if target_date_str:
         try:
             d = datetime.datetime.strptime(target_date_str, "%Y-%m-%d")
-            base_date = d.replace(hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond)
-        except ValueError:
-            print(f"[WARN] Invalid target_date_str: {target_date_str}, using today")
+            base_date = d.replace(hour=now.hour, minute=now.minute, second=0, microsecond=0)
+        except:
             base_date = now
     else:
         base_date = now
     
-    print(f"[USER_DEBUG] search_best_routes_once: Received start_time={start_time}, target_date_str={target_date_str}")
     h, m = map(int, start_time.split(":"))
     start_dt = base_date.replace(hour=h, minute=m, second=0, microsecond=0)
     
-    print(f"[DEBUG_TIME] search_best_routes_once: Calculated start_dt={start_dt}")
-
-    # 単発検索（リトライなし）
-    target_date = start_dt
-    print(f"[DEBUG] Trying date: {target_date.date()}")
-    
-    current_time_str = start_time
-    
-    # 検索実行
-    candidates = search_best_routes(G, tm, a_phys, b_phys, mode, current_time_str, limit, target_date, target_node=target_node, day_type=day_type, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
+    candidates = search_best_routes(G, tm, a_phys, b_phys, mode, start_time, limit, start_dt, target_node=target_node, day_type=day_type, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
     
     if candidates:
-        # 見つかった！
-        # 結果に日付情報を付与
         for cand in candidates:
-            cand["departure_date"] = target_date.strftime("%Y-%m-%d")
+            cand["departure_date"] = start_dt.strftime("%Y-%m-%dT%H:%M:%S")
             cand["is_future_suggestion"] = False
         return candidates
-
     return []
 
 def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None):
-    """
-    ServerとCLI共通のエントリーポイント。
-    経路探索 -> 時刻表バリデーション -> セグメント化 -> 結果辞書のリスト作成 までを一気通貫で行う。
-    """
-    print(f"[DEBUG_TIME] search_best_routes: start_time_str={start_time}")
-    if target_date is None:
-        target_date = datetime.datetime.now()
-    
-    # 平日判定 (0-4: 月-金, 5-6: 土日)
-    # 平日判定 (0-4: 月-金, 5-6: 土日) - AND NOW HOLIDAY SUPPORT
+    if target_date is None: target_date = datetime.datetime.now()
     if day_type is None:
         wd = target_date.weekday()
-        if wd == 5:
-            day_type = "saturday"
-        elif wd == 6:
-            day_type = "holiday"
-        else:
-            day_type = "weekday"
+        if wd == 5: day_type = "saturday"
+        elif wd == 6: day_type = "holiday"
+        else: day_type = "weekday"
     
-    # NOTE: Holidays on weekdays are not supported yet (needs holiday lib)
     target = target_node or b_phys
-    print(f"[DEBUG] search_best_routes: date={target_date.date()}, day_type={day_type}, target={target}")
-    
     candidates = []
-    
-    # Snapshot delays at the start of search
     delays_snapshot = tm.get_delays_snapshot()
 
-    # 1. Timeモード (最速経路1つ)
     if mode == "time" or mode == "fast":
-        arr_min, path = find_fastest_path(
-            G,
-            tm,
-            a_phys,
-            target,
-            start_time_str=start_time,
-            day_type=day_type,
-            delays_snapshot=delays_snapshot,
-            virtual_dest_connections=virtual_dest_connections,
-            target_coords=target_coords,
-        )
-        
-        # Check validity (Short Trip check)
+        arr_min, path = find_fastest_path(G, tm, a_phys, target, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
         if path:
             real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
             if real_arr is None:
-                print(f"[WARN] Fastest path invalidated by timetable check (possibly short trip).")
-                path = None # Discard
+                path = None 
 
         if path:
             segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
             lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
-            
-            # デバッグログ: 経路セグメント詳細
-            print("[DEBUG] ========== Route Segments (Fastest) ==========")
-            for i, seg in enumerate(segs):
-                print(f"[DEBUG] Segment {i+1}: kind={seg['kind']}, title={seg.get('title', 'N/A')}, from={seg.get('from_', 'N/A')}, to={seg.get('to', 'N/A')}")
-            print("[DEBUG] ================================================")
-            
             start_min = time_str_to_min(start_time)
             duration = int(arr_min - start_min)
-            
-            # 統計情報の計算
             num_rides = sum(1 for s in segs if s["kind"] in ("bus", "rail"))
             walk_dist = sum(s["meters"] for s in segs if s["kind"] == "walk")
 
@@ -1198,48 +827,17 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
                 "walks": int(walk_dist),
                 "boards": num_rides,
             })
-
-    # 2. Costモード (楽な経路トップK)
     else:
-        path_gen = find_paths_generator(
-            G,
-            tm,
-            a_phys,
-            target,
-            start_time_str=start_time,
-            day_type=day_type,
-            max_search=30000,
-            max_visited=100000,
-            max_travel_min=MAX_TRAVEL_MIN,
-            delays_snapshot=delays_snapshot,
-            virtual_dest_connections=virtual_dest_connections,
-            target_coords=target_coords,
-        )
-
+        path_gen = find_paths_generator(G, tm, a_phys, target, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
         valid_count = 0
-        
         for cand in path_gen:
             path = cand["path"]
-            
-            # 答え合わせ (時刻表チェック)
             real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
-            
             if real_arr is not None:
-                # 合格
                 segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
                 lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
-                
-                # デバッグログ: 経路セグメント詳細
-                # print(f"[DEBUG] ========== Route Segments (Comfort-{valid_count+1}) ==========")
-                # for i, seg in enumerate(segs):
-                #    dep_s = seg.get('dep_time', 'N/A')
-                #    arr_s = seg.get('arr_time', 'N/A')
-                #    print(f"[DEBUG] Segment {i+1}: [{dep_s} - {arr_s}] kind={seg['kind']}, title={seg.get('title', 'N/A')}, from={seg.get('from_', 'N/A')}, to={seg.get('to', 'N/A')}")
-                # print("[DEBUG] ================================================")
-                
                 start_min = time_str_to_min(start_time)
                 duration = int(real_arr - start_min)
-                
                 num_rides = sum(1 for s in segs if s["kind"] in ("bus", "rail"))
                 
                 candidates.append({
@@ -1259,87 +857,41 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
                     "walks": int(cand['walk_m']),
                     "boards": num_rides,
                 })
-                
                 valid_count += 1
-                if valid_count >= limit:
-                    break
-            else:
-                # 不合格（終バス後など）
-                print(f"[DEBUG] Candidate rejected by timetable check: path_len={len(path)}") 
-                pass
-                
+                if valid_count >= limit: break
     return candidates
 
-# -------------------- 探索ロジック --------------------
-
 def pole_base(pid: str) -> str:
-    """
-    Extracts the logical stop ID from a pole ID.
-    e.g. odpt.BusstopPole:Toei.HiraiNanachome.1350.1 -> odpt.BusstopPole:Toei.HiraiNanachome.1350
-    """
     if not (isinstance(pid, str) and pid.startswith("odpt.BusstopPole:")):
         return pid
     parts = pid.split(".")
-    if len(parts) < 2:
-        return pid
+    if len(parts) < 2: return pid
     return ".".join(parts[:-1])
 
-
-def find_paths_generator(
-    G,
-    tm,
-    start_node,
-    target_node,
-    start_time_str="10:00",
-    day_type="weekday",
-    max_search=30000,
-    max_visited=15000,
-    max_travel_min=MAX_TRAVEL_MIN,
-    delays_snapshot=None,
-    time_limit_sec=15.0,
-    virtual_dest_connections=None,
-    target_coords=None,
-):
+def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_search=30000, max_visited=15000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, time_limit_sec=15.0, virtual_dest_connections=None, target_coords=None):
     import time
     start_clock = time.monotonic()
-
-    print(f"[DEBUG_TIME] find_paths_generator: start_time_str={start_time_str}")
     start_min = time_str_to_min(start_time_str)
 
     t_lat, t_lon = None, None
-    if target_coords:
-        t_lat, t_lon = target_coords
+    if target_coords: t_lat, t_lon = target_coords
     else:
         try:
             t_lat = G.nodes[target_node]["lat"]
             t_lon = G.nodes[target_node]["lon"]
-        except KeyError:
-            pass
+        except: pass
 
     def heuristic(n):
-        if n == target_node:
-            return 0.0
-        if t_lat is None:
-            return 0.0
-        
-        node_data = G.nodes.get(n)
-        if not node_data:
-            return 0.0
-
-        n_lat = node_data.get("lat")
-        n_lon = node_data.get("lon")
-        
-        if n_lat is None or n_lon is None:
-            return 0.0
-        dist = haversine(n_lat, n_lon, t_lat, t_lon)
+        if n == target_node: return 0.0
+        if t_lat is None: return 0.0
+        d = G.nodes.get(n)
+        if not d: return 0.0
+        dist = haversine(d.get("lat",0), d.get("lon",0), t_lat, t_lon)
         return dist / 400.0
 
     start_h = heuristic(start_node)
     pq = [(start_h, 0.0, start_node, 0.0, 0.0, start_min, (start_node, None))]
 
-    # ゴール判定用ノード集合の構築
-    # 目的地が特定のポール（例: 平井七丁目.2）でも、同じ停留所の別ポール（.1など）に
-    # 到着すればゴールと見なす。ただし仮想（座標）目的地の時は拡張しない。
     target_goal_nodes = {target_node}
     if target_node and target_node[0] == "phys":
         pid = target_node[1]
@@ -1349,15 +901,7 @@ def find_paths_generator(
                 if n[0] == "phys" and isinstance(n[1], str) and n[1].startswith("odpt.BusstopPole:"):
                     if pole_base(n[1]) == base:
                         target_goal_nodes.add(n)
-    
-    if len(target_goal_nodes) > 1:
-        print(f"[DEBUG_TARGET] Expanded target_goal_nodes: {len(target_goal_nodes)} poles included.")
 
-    if target_goal_nodes:
-        print(f"[DEBUG_TARGET] target_goal_nodes size={len(target_goal_nodes)}")
-
-
-    count_visited = defaultdict(int)
     best_cost = {}
     seen_logical_routes = set()
     yielded_count = 0
@@ -1366,48 +910,30 @@ def find_paths_generator(
     while pq:
         if visited_count > 0 and visited_count % 1000 == 0:
             if time.monotonic() - start_clock > time_limit_sec:
-                print(f"[WARN] Search timed out after {time_limit_sec}s. Yielded {yielded_count} paths.")
+                print(f"[WARN] Search timeout {yielded_count} paths.")
                 return
 
         _, cost, u, total_walk_m, seg_walk_m, curr_time, path_chain = heapq.heappop(pq)
         visited_count += 1
+        if visited_count > max_visited: return
 
-        if visited_count > max_visited:
-            print(f"[WARN] Search exceeded max_visited {max_visited}. Stopping.")
-            return
-
-        if curr_time - start_min > max_travel_min:
-            continue
+        if curr_time - start_min > max_travel_min: continue
 
         walk_bucket = int(seg_walk_m // 10)
         state_key = (u, walk_bucket)
-
         prev_best = best_cost.get(state_key)
-        if prev_best is not None and cost >= prev_best:
-            continue
+        if prev_best is not None and cost >= prev_best: continue
         best_cost[state_key] = cost
 
-        if u in target_goal_nodes: # Modified: Check against target_goal_nodes
+        if u in target_goal_nodes:
             full_path = reconstruct_path(path_chain)
             sig = get_logical_signature(G, full_path)
-            if sig in seen_logical_routes:
-                continue
+            if sig in seen_logical_routes: continue
             seen_logical_routes.add(sig)
-
-            yield {
-                "cost": cost,
-                "path": full_path,
-                "walk_m": total_walk_m,
-            }
+            yield {"cost": cost, "path": full_path, "walk_m": total_walk_m}
             yielded_count += 1
-            if yielded_count >= max_search:
-                return
+            if yielded_count >= max_search: return
             continue
-
-        # Removed aggressive pruning:
-        # if count_visited[state_key] >= 20:
-        #     continue
-        # count_visited[state_key] += 1
 
         if virtual_dest_connections and target_node and target_node[0] == "phys" and str(target_node[1]).startswith("dest:"):
             for nid, vw, vmeters in virtual_dest_connections:
@@ -1418,235 +944,119 @@ def find_paths_generator(
                         new_seg_v = vmeters
                         if new_total_v <= MAX_TOTAL_WALK_M and new_seg_v <= MAX_WALK_SEG_M:
                             new_cost_v = cost + vw
-                            heapq.heappush(
-                                pq,
-                                (new_cost_v + heuristic(target_node), new_cost_v, target_node,
-                                 new_total_v, new_seg_v, next_time_v, (target_node, path_chain)),
-                            )
+                            heapq.heappush(pq, (new_cost_v + heuristic(target_node), new_cost_v, target_node, new_total_v, new_seg_v, next_time_v, (target_node, path_chain)))
                     break
-
 
         for v in G[u]:
             edge = G[u][v]
             w = edge.get("w", 0.0)
             meters = edge.get("meters", 0.0)
-
-            next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type, delays_snapshot=delays_snapshot)
-            if next_time is None:
-                continue
-            if next_time - start_min > max_travel_min:
-                continue
+            next_time = advance_time(G, tm, u, v, curr_time, day_type, delays_snapshot)
+            if next_time is None or next_time - start_min > max_travel_min: continue
 
             new_total_walk_m = total_walk_m
             new_seg_walk_m = seg_walk_m
-
             if edge.get("etype") == "walk":
                 step_m = meters if meters > 0 else 1.0
-                new_seg_walk_m = seg_walk_m + step_m
-                if new_seg_walk_m > MAX_WALK_SEG_M:
-                    continue
-                new_total_walk_m = total_walk_m + step_m
-                if new_total_walk_m > MAX_TOTAL_WALK_M:
-                    continue
+                new_seg_walk_m += step_m
+                if new_seg_walk_m > MAX_WALK_SEG_M: continue
+                new_total_walk_m += step_m
+                if new_total_walk_m > MAX_TOTAL_WALK_M: continue
             else:
                 new_seg_walk_m = 0.0
 
             new_cost = cost + w
             new_h = heuristic(v)
+            heapq.heappush(pq, (new_cost + new_h, new_cost, v, new_total_walk_m, new_seg_walk_m, next_time, (v, path_chain)))
 
-            heapq.heappush(
-                pq,
-                (new_cost + new_h, new_cost, v, new_total_walk_m, new_seg_walk_m, next_time, (v, path_chain)),
-            )
-
-def find_fastest_path(
-    G,
-    tm,
-    start_node,
-    target_node,
-    start_time_str="10:00",
-    day_type="weekday",
-    max_travel_min=MAX_TRAVEL_MIN,
-    delays_snapshot=None,
-    virtual_dest_connections=None, # Added for consistency, though not used in fastest path logic
-    target_coords=None, # Added for consistency, though not used in fastest path logic
-):
-    """
-    最速パス探索（メモリ最適化版）
-    """
+def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None, target_coords=None):
     start_min = time_str_to_min(start_time_str)
-    # ★変更: path をタプルチェーンに
     pq = [(start_min, start_node, (start_node, None), 0.0, 0.0)]
     visited_time = {}
-
-    # 目的地のバス停ID群を取得（方向フィルタリング用）
+    
     target_pole_ids = set()
-    def add_poles_by_name(pid):
-        if not (isinstance(pid, str) and pid.startswith("odpt.BusstopPole:")):
-            return
+    def add_poles(pid):
         node_id = ("phys", pid)
         if node_id in G.nodes:
             name = G.nodes[node_id].get("name")
-            if name and tm and hasattr(tm, "name_to_pids"):
+            if name and tm:
                 for p in tm.name_to_pids.get(name, []):
-                    if p.startswith("odpt.BusstopPole:"):
-                        target_pole_ids.add(p)
+                    target_pole_ids.add(p)
         target_pole_ids.add(pid)
 
     if virtual_dest_connections:
-        for nid, _, _ in virtual_dest_connections:
-            if nid[0] == "phys":
-                add_poles_by_name(nid[1])
+        for nid,_,_ in virtual_dest_connections:
+            if nid[0] == "phys": add_poles(nid[1])
     elif target_node and target_node[0] == "phys":
-        add_poles_by_name(target_node[1])
+        add_poles(target_node[1])
 
     while pq:
-        curr_time, u, path_chain, total_walk_m, seg_walk_m = heapq.heappop(pq)
+        curr_time, u, path_chain, total_walk, seg_walk = heapq.heappop(pq)
+        if curr_time - start_min > max_travel_min: continue
         
-        if curr_time - start_min > max_travel_min:
-            continue
-
         if u == target_node:
-            # ★変更: 復元して返す
             return curr_time, reconstruct_path(path_chain)
 
-        state_key = (u, int(seg_walk_m // 10))
-        if state_key in visited_time and visited_time[state_key] <= curr_time:
-            continue
-        visited_time[state_key] = curr_time
+        state = (u, int(seg_walk // 10))
+        if state in visited_time and visited_time[state] <= curr_time: continue
+        visited_time[state] = curr_time
 
-        # Virtual Edge Logic
-        if virtual_dest_connections and u[0] == "phys" and target_node and target_node[0] == "phys" and str(target_node[1]).startswith("dest:"):
-             for nid, vw, vmeters in virtual_dest_connections:
-                 if nid == u:
-                     # Found virtual connection u -> target_node
-                     v_time = curr_time + (vmeters / WALK_SPEED_M_PER_MIN)
-                     if v_time - start_min > max_travel_min:
-                         continue
-                     
-                     if (u, int((seg_walk_m + vmeters)//10)) in visited_time and visited_time[(u, int((seg_walk_m + vmeters)//10))] <= v_time:
-                         pass
-                     
-                     # Check walk limit
-                     new_seg_v = seg_walk_m + vmeters
-                     new_total_v = total_walk_m + vmeters
-                     if new_seg_v > MAX_WALK_SEG_M or new_total_v > MAX_TOTAL_WALK_M:
-                         continue
-                         
-                     # Push to PQ
-                     heapq.heappush(pq, (v_time, target_node, (target_node, path_chain), new_total_v, new_seg_v))
+        if virtual_dest_connections and u[0] == "phys" and target_node and str(target_node[1]).startswith("dest:"):
+            for nid, vw, vmeters in virtual_dest_connections:
+                if nid == u:
+                    v_time = curr_time + (vmeters / WALK_SPEED_M_PER_MIN)
+                    new_seg = seg_walk + vmeters
+                    new_tot = total_walk + vmeters
+                    if v_time - start_min <= max_travel_min and new_seg <= MAX_WALK_SEG_M and new_tot <= MAX_TOTAL_WALK_M:
+                        heapq.heappush(pq, (v_time, target_node, (target_node, path_chain), new_tot, new_seg))
 
         for v in G[u]:
             edge = G[u][v]
             etype = edge.get("etype")
-            meters = edge.get("meters", 0.0)
+            meters = edge.get("meters", 0)
+            next_time = advance_time(G, tm, u, v, curr_time, day_type, delays_snapshot, target_pole_id=None) # target_pole_ids not easily passed to advance_time currently refactored
+            if next_time is None: continue
 
-            next_time = advance_time(G, tm, u, v, curr_time, day_type=day_type, delays_snapshot=delays_snapshot, target_pole_ids=target_pole_ids)
-            if next_time is None:
-                continue
-            if next_time - start_min > max_travel_min:
-                continue
-
-            new_total_walk = total_walk_m
-            new_seg_walk = seg_walk_m
-
-            if etype == "walk":
-                step_m = meters if meters > 0 else 1.0
-                new_seg_walk = seg_walk_m + step_m
-                if new_seg_walk > MAX_WALK_SEG_M:
-                    continue
-                new_total_walk = total_walk_m + step_m
-                if new_total_walk > MAX_TOTAL_WALK_M:
-                    continue
-            else:
-                new_seg_walk = 0.0
-
-            # ★変更: タプルチェーンで push
-            heapq.heappush(pq, (next_time, v, (v, path_chain), new_total_walk, new_seg_walk))
+            new_seg = seg_walk + (meters if etype == "walk" else 0) if etype == "walk" else 0
+            new_tot = total_walk + (meters if etype == "walk" else 0) if etype == "walk" else total_walk
+            if new_seg > MAX_WALK_SEG_M or new_tot > MAX_TOTAL_WALK_M: continue
             
+            heapq.heappush(pq, (next_time, v, (v, path_chain), new_tot, new_seg))
     return None, None
 
-def calculate_real_arrival_time(
-    G,
-    tm,
-    path,
-    start_time_str="10:00",
-    day_type="weekday",
-    max_search=30000,
-    max_travel_min=MAX_TRAVEL_MIN,
-    delays_snapshot=None,
-    virtual_dest_connections=None,
-):
+def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", day_type="weekday", max_search=30000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None):
     start_min = time_str_to_min(start_time_str)
     curr_time = start_min
-    
     for i in range(len(path) - 1):
-        u = path[i]
-        v = path[i+1]
-        
-        edge = None
-        if G.has_edge(u, v):
-            edge = G.edges[u, v]
-        elif virtual_dest_connections and u[0] == "phys" and v[0] == "phys" and str(v[1]).startswith("dest:"):
+        u, v = path[i], path[i+1]
+        edge = G.get_edge_data(u, v)
+        if not edge and virtual_dest_connections: # Check virtual
              for nid, w, dist in virtual_dest_connections:
-                 if nid == u:
-                     edge = {"etype": "walk", "meters": dist, "w": w}
-                     break
+                 if nid == u and v[0] == "phys" and str(v[1]).startswith("dest:"):
+                      edge = {"etype": "walk", "meters": dist}
+        if not edge: return None
         
-        if not edge:
-            # Should not happen in a valid path
-            return None
-
-        etype = edge.get("etype")
         target_pid = None
-        
-        # If boarding, look ahead for alight (短区間バスの除外ロジック)
-        if etype == "board" and G.nodes[v].get("mode") == "bus":
+        if edge.get("etype") == "board" and G.nodes[v].get("mode") == "bus":
             if v[0] == "line":
-                for j in range(i + 1, len(path) - 1):
-                    u2 = path[j]
-                    v2 = path[j+1]
-                    if not G.has_edge(u2, v2):
-                        continue
-                    e2 = G.edges[u2, v2]
-                    if e2.get("etype") == "alight":
-                        target_pid = v2[1]
-                        break
-        
+                for j in range(i+1, len(path)-1):
+                    u2, v2 = path[j], path[j+1]
+                    if G.has_edge(u2, v2):
+                         e2 = G.get_edge_data(u2, v2)
+                         if e2.get("etype") == "alight":
+                            target_pid = v2[1]
+                            break
+
         if not G.has_edge(u, v) and edge.get("etype") == "walk":
-             # Virtual walk
              next_time = curr_time + (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
         else:
-            next_time = advance_time(
-                G, tm, u, v,
-                curr_time,
-                day_type=day_type,
-                target_pole_id=target_pid,
-                delays_snapshot=delays_snapshot,
-            )
-        if next_time is None:
-            print(f"[DEBUG] Path REJECTED in calc_real_time: Cannot advance time at {u}->{v} (etype={etype})")
-            return None
-        
-        if next_time - start_min > max_travel_min:
-            # 上限時間を超える経路は「現実的でない」とみなして不採用
-            print(f"[DEBUG] Path REJECTED in calc_real_time: Time limit exceeded at {u}->{v}. {next_time - start_min:.0f} > {max_travel_min}")
-            return None
-
-        curr_time = next_time
+            next_time = advance_time(G, tm, u, v, curr_time, day_type, delays_snapshot, target_pole_id=target_pid)
             
+        if next_time is None or next_time - start_min > max_travel_min: return None
+        curr_time = next_time
     return curr_time
 
 def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", delays_snapshot=None, virtual_dest_connections=None):
-    print(f"[DEBUG_TIME] segments_detailed: start_time_str={start_time_str}", flush=True)
-    print(f"[USER_DEBUG] segments_detailed called with path len={len(path)}")
-    if virtual_dest_connections:
-        print(f"[USER_DEBUG] virtual_dest_connections keys: {list(virtual_dest_connections.keys()) if isinstance(virtual_dest_connections, dict) else 'list'}")
-        if isinstance(virtual_dest_connections, list):
-             print(f"[USER_DEBUG] virtual_dest_connections list: {virtual_dest_connections}")
-    else:
-        print("[USER_DEBUG] virtual_dest_connections is None or empty")
-
     segs = []
     cur = None
     last_phys = None
@@ -1656,47 +1066,27 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
         nonlocal cur
         if cur:
             if cur["kind"] == "walk":
-                # 0m 移動など実質的に位置が変わらない場合は捨てる
                 if cur.get("meters", 0) <= 0 or cur.get("from_") == cur.get("to"):
                     cur = None
                     return
-                cur["minutes"] = max(
-                    1,
-                    math.ceil(cur.get("meters", 0) / WALK_SPEED_M_PER_MIN)
-                )
+                cur["minutes"] = max(1, math.ceil(cur.get("meters", 0) / WALK_SPEED_M_PER_MIN))
             elif cur["kind"] in ("bus", "rail"):
                 if cur.get("arrival_time"):
-                    dep_min = time_str_to_min(cur.get("departure_time"))
-                    arr_min = time_str_to_min(cur.get("arrival_time"))
-                    cur["minutes"] = max(1, int(arr_min - dep_min))
+                    d = time_str_to_min(cur.get("departure_time"))
+                    a = time_str_to_min(cur.get("arrival_time"))
+                    cur["minutes"] = max(1, int(a - d))
                 else:
                     cur["minutes"] = max(1, int(cur.get("edges", 0) * 2.0))
             segs.append(cur)
             cur = None
 
     for i, (u, v) in enumerate(zip(path, path[1:])):
-        print(f"[USER_DEBUG] Loop {i}: {u} -> {v}")
-        # 仮想エッジ対応
-        edge = None
-        if G.has_edge(u, v):
-            edge = G.edges[u, v]
-        else:
-            # Gにない場合、仮想目的地の接続を確認
-            if virtual_dest_connections and u[0] == "phys" and v[0] == "phys" and str(v[1]).startswith("dest:"):
-               # u -> v(dest)
-               for nid, w, dist in virtual_dest_connections:
-                   if nid == u:
-                       # 仮想エッジを合成
-                       edge = {"etype": "walk", "meters": dist, "w": w}
-                       print(f"[DEBUG_VIRTUAL] Synthesized virtual edge {u} -> {v} meters={dist}")
-                       break
+        edge = G.get_edge_data(u, v)
+        if not edge and virtual_dest_connections:
+            for nid, w, dist in virtual_dest_connections:
+                 if nid == u: edge = {"etype": "walk", "meters": dist}
+        if not edge: continue
         
-        if not edge:
-            print(f"[WARN] Edge not found {u} -> {v} in segments_detailed. Skipping. u_phys={u[0]=='phys'} v_starts_dest={str(v[1]).startswith('dest:')} has_vconn={bool(virtual_dest_connections)}")
-            if virtual_dest_connections:
-                print(f"[DEBUG_VIRTUAL] Connections available: {virtual_dest_connections}")
-            continue
-
         etype = edge.get("etype")
         if u[0] == "phys": last_phys = u
 
@@ -1708,161 +1098,73 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             cur["edges"] += 1
             cur["meters"] += edge.get("meters", 0)
             if v[0] == "phys":
-                if str(v[1]).startswith("dest:"):
-                    cur["to"] = "目的地"
-                elif v in G.nodes:
-                    cur["to"] = G.nodes[v]["name"]
-                else:
-                    cur["to"] = str(v[1])
+                if str(v[1]).startswith("dest:"): cur["to"] = "目的地"
+                elif v in G.nodes: cur["to"] = G.nodes[v]["name"]
+                else: cur["to"] = str(v[1])
             curr_time += (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
             continue
 
         node = v if v[0] == "line" else (u if u[0] == "line" else None)
         if not node: continue
-        line_id = G.nodes[node].get("line")
         line_disp = G.nodes[node].get("disp") or "???"
-        mode = G.nodes[node].get("mode") # bus or rail
+        mode = G.nodes[node].get("mode")
 
         if etype == "board":
             flush()
             from_name = G.nodes[last_phys]["name"] if last_phys else "???"
+            curr_stops = [{"name": from_name, "is_origin": True}]
             
-            # Get coords for Boarding Stop
-            start_lat = G.nodes[last_phys]["lat"] if last_phys and "lat" in G.nodes[last_phys] else None
-            start_lon = G.nodes[last_phys]["lon"] if last_phys and "lon" in G.nodes[last_phys] else None
-            
-            curr_stops = [{
-                "name": from_name, 
-                "is_origin": True,
-                "lat": start_lat,
-                "lon": start_lon
-            }]
-            print(f"[DEBUG_COORD] Board {from_name}: lat={start_lat}, lon={start_lon}")
-
             phys_id = u[1]
-            gtfs_route_id = ""
-            gtfs_stop_id = ""
-
             if mode == "bus":
-                route_id = G.nodes[v].get("route_id") # ODPT Route ID (or internal)
-                stop_name = G.nodes[u].get("name")
-                
-                # Lookahead for target_pole_id
+                route_id = G.nodes[v].get("route_id")
                 target_pid = None
                 if v[0] == "line":
                      for j in range(i + 1, len(path) - 1):
-                        u2 = path[j]
-                        v2 = path[j+1]
-                        if not G.has_edge(u2, v2):
-                            continue
-                        e2 = G.edges[u2, v2]
-                        if e2.get("etype") == "alight":
-                            target_pid = v2[1]
-                            break
-
-                # Update Time
-                dep = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=stop_name, day_type=day_type, target_pole_id=target_pid)
-
-                if "Ue23" in route_id:
-                     print(f"[DEBUG TRACE] Boarding Ue23 at {stop_name} ({phys_id}): curr={min_to_time_str(curr_time)}, result={min_to_time_str(dep) if dep else 'None'}")
-
-                # 待ち時間の計算と挿入
-                if dep is not None and dep > curr_time:
+                        u2, v2 = path[j], path[j+1]
+                        if G.has_edge(u2, v2):
+                             e2 = G.get_edge_data(u2, v2)
+                             if e2.get("etype") == "alight":
+                                target_pid = v2[1]
+                                break
+                dep = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=from_name, day_type=day_type, target_pole_id=target_pid)
+                
+                if dep and dep > curr_time:
                     wait_min = int(dep - curr_time)
                     if wait_min > 0:
-                        flush() # 前のセグメント（徒歩など）を確定
-
-                        # その後に待ち時間
+                        flush()
                         segs.append({
-                            "kind": "wait",
-                            "title": "待ち時間",
-                            "minutes": wait_min,
-                            "edges": 0,
-                            "from_": from_name,
-                            "to": from_name, 
-                            "meters": 0,
+                            "kind": "wait", "title": "待ち時間", "minutes": wait_min,
+                            "edges": 0, "from_": from_name, "to": from_name, "meters": 0,
                             "departure_time": min_to_time_str(curr_time),
                             "arrival_time": min_to_time_str(dep),
-                            "startLabel": "待ち時間",
-                            "place": from_name,
+                            "startLabel": "待ち時間", "place": from_name
                         })
+                if dep and dep >= curr_time: curr_time = dep
+            else:
+                curr_time += 2.0 # Rail wait
 
-                # 過去便で巻き戻さない
-                if dep is not None and dep + 1e-6 >= curr_time:
-                    curr_time = dep
-                else:
-                    print(f"[WARN_TIME] dep rollback blocked start={min_to_time_str(time_str_to_min(start_time_str))} curr={min_to_time_str(curr_time)} dep={min_to_time_str(dep) if dep is not None else 'None'} stop={stop_name} rid={route_id} pid={phys_id}")
-                
-                # Resolve GTFS IDs
-                if hasattr(tm, "resolve_gtfs_route_id"):
-                    gtfs_route_id = tm.resolve_gtfs_route_id(line_disp)
-                    if gtfs_route_id:
-                        # 1. Try direct conversion from ODPT ID (Precise branch handling)
-                        gtfs_stop_id = tm.convert_odpt_id_to_gtfs(phys_id)
-                        if gtfs_stop_id:
-                            print(f"[DEBUG] Converted ODPT ID {phys_id} -> GTFS ID {gtfs_stop_id}")
-                        
-                        # 2. Fallback to name-based resolution (Smart/Stats based)
-                        if not gtfs_stop_id:
-                            gtfs_stop_id = tm.resolve_gtfs_stop_id(gtfs_route_id, from_name)
-                
-                print(f"[DEBUG] Board segment: line_disp='{line_disp}', gtfs_route_id='{gtfs_route_id}', gtfs_stop_id='{gtfs_stop_id}'")
-
-            elif mode == "rail":
-                wait_min = 2 # 暫定固定
-                flush() # 前の徒歩などを確定
-                segs.append({
-                     "kind": "wait",
-                     "title": "待ち時間",
-                     "minutes": wait_min,
-                     "edges": 0,
-                     "from_": from_name,
-                     "to": from_name,
-                     "meters": 0,
-                     "departure_time": min_to_time_str(curr_time),
-                     "arrival_time": min_to_time_str(curr_time + wait_min)
-                })
-                curr_time += 2.0
-            
-            odpt_route_id = route_id if mode == "bus" else ""
-            departure_pole_id = phys_id if mode == "bus" else ""
             cur = {
-                "kind": mode, "title": line_disp, "line": line_id, 
-                "edges": 0, "from_": from_name, "to": None, "stops": curr_stops,
-                "odptRouteId": odpt_route_id,
-                "departurePoleId": departure_pole_id,
-                "routeId": gtfs_route_id,
-                "departureStopId": gtfs_stop_id,
+                "kind": mode, "title": line_disp, "edges": 0, 
+                "from_": from_name, "to": None, "stops": curr_stops,
                 "departure_time": min_to_time_str(curr_time)
             }
-        
+
         elif etype == "ride":
             if cur and cur["kind"] in ("bus", "rail"):
                 cur["edges"] += 1
                 stop_name = "???"
                 phys_key = ("phys", v[1]) if v[0] == "line" else ("phys", u[1])
-                
-                s_lat, s_lon = None, None
-                if phys_key in G: 
-                    stop_name = G.nodes[phys_key]["name"]
-                    s_lat = G.nodes[phys_key].get("lat")
-                    s_lon = G.nodes[phys_key].get("lon")
-
+                if phys_key in G: stop_name = G.nodes[phys_key]["name"]
                 if not cur["stops"] or cur["stops"][-1]["name"] != stop_name:
-                    cur["stops"].append({
-                        "name": stop_name,
-                        "lat": s_lat,
-                        "lon": s_lon
-                    })
+                    cur["stops"].append({"name": stop_name})
             
             if mode == "rail":
-                arr = tm.get_next_train_arrival(u[1], v[1], curr_time, day_type=day_type, delays_snapshot=delays_snapshot)
+                arr = tm.get_next_train_arrival(u[1], v[1], curr_time, day_type, delays_snapshot)
                 if arr: curr_time = arr
                 else: curr_time += edge.get("w", 2.0)
             else:
                 dist = edge.get("meters", 0)
-                if dist > 0: curr_time += (dist / 250.0) + 0.8
-                else: curr_time += 2.5
+                curr_time += (dist/250.0 if dist>0 else 2.5) + 0.8
 
         elif etype in ("alight", "xfer"):
             if cur and cur["kind"] in ("bus", "rail"):
@@ -1870,40 +1172,18 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 if to_phys:
                     to_name = G.nodes[to_phys]["name"]
                     cur["to"] = to_name
-
-                    if cur.get("kind") == "bus":
-                        arrival_pole_id = to_phys[1]
-                        cur["arrivalPoleId"] = arrival_pole_id
-                        arrival_stop_id = ""
-                        if cur.get("routeId") and hasattr(tm, "convert_odpt_id_to_gtfs"):
-                            arrival_stop_id = tm.convert_odpt_id_to_gtfs(arrival_pole_id)
-                            if not arrival_stop_id and hasattr(tm, "resolve_gtfs_stop_id"):
-                                arrival_stop_id = tm.resolve_gtfs_stop_id(cur["routeId"], to_name)
-                        cur["arrivalStopId"] = arrival_stop_id
-                    
-                    e_lat = G.nodes[to_phys].get("lat")
-                    e_lon = G.nodes[to_phys].get("lon")
-                    print(f"[DEBUG_COORD] Alight {to_name}: lat={e_lat}, lon={e_lon}")
-
                     if not cur["stops"] or cur["stops"][-1]["name"] != to_name:
-                        cur["stops"].append({
-                            "name": to_name, 
-                            "is_destination": True,
-                            "lat": e_lat,
-                            "lon": e_lon
-                        })
+                        cur["stops"].append({"name": to_name, "is_destination": True})
                     else:
                         cur["stops"][-1]["is_destination"] = True
-                        cur["stops"][-1]["lat"] = e_lat
-                        cur["stops"][-1]["lon"] = e_lon
-
                 cur["arrival_time"] = min_to_time_str(curr_time)
                 flush()
             curr_time += 1.0
-
+            
     if cur: flush()
     return segs
 
+# -------------------- Main --------------------
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--busstop-poles", required=True)
@@ -1931,180 +1211,71 @@ def main():
     if not a_phys or not b_phys:
         print("[FAIL] Start/End not found")
         sys.exit(1)
-    print(f"[INFO] {G.nodes[a_phys]['name']} -> {G.nodes[b_phys]['name']}")
 
-    print(f"[INFO] {G.nodes[a_phys]['name']} -> {G.nodes[b_phys]['name']}")
-
-    # Fixed: Use get_virtual_connections (non-mutating)
-    dest_node, connections = get_virtual_connections(
-        G, blat, blon, name="目的地", walk_radius=args.walk
-    )
-    conn_count = len(connections)
-
-    if conn_count == 0:
-        print(f"[DEBUG_DEST] No nearby Toei nodes within walk radius {args.walk}m for destination.")
+    dest_node, connections = get_virtual_connections(G, blat, blon, name="目的地", walk_radius=args.walk)
 
     tm = TimetableManager()
-    print(f"[INFO] Loading Timetables...")
     tm.load_bus_timetables(args.bus_timetables)
     tm.load_bus_route_patterns(args.busroute_patterns)
     tm.load_train_timetables(args.train_timetables)
     tm.build_name_index(G)
     
-    print("[server] Initialization Done.")
-    
-    # ★変更: リトライ付き検索を呼び出す
-    results = search_best_routes_once(
-        G, tm, a_phys, b_phys,
-        mode=args.mode,
-        start_time=args.start_time,
-        limit=5,
-        target_node=dest_node,
-        virtual_dest_connections=connections,
-    )
+    results = search_best_routes_once(G, tm, a_phys, b_phys, mode=args.mode, start_time=args.start_time, limit=5, target_node=dest_node, virtual_dest_connections=connections)
 
     if not results:
-        print(f"[DEBUG_DEST] Virtual destination search produced no candidates. Falling back to nearest node {b_phys}.")
-        results = search_best_routes_once(
-            G,
-            tm,
-            a_phys,
-            b_phys,
-            mode=args.mode,
-            start_time=args.start_time,
-            limit=5,
-        )
+        results = search_best_routes_once(G, tm, a_phys, b_phys, mode=args.mode, start_time=args.start_time, limit=5)
 
     if not results:
         print("No valid route found.")
         return
-    else:
-        for cand in results:
-            steps = cand.get("steps") or []
-            if not steps:
-                continue
-            last = steps[-1]
-            meters = last.get("meters") or last.get("distance") or 0
-            print(
-                f"[DEBUG_DEST] Candidate {cand.get('id')} last_kind={last.get('kind')} "
-                f"to={last.get('to')} meters={meters}"
-            )
 
     print(f"\n[INFO] Found {len(results)} Routes")
     for i, res in enumerate(results, 1):
-        print("-" * 40)
-        print(f"#{i} {res['score_label']} / Arr: {res['arrival_time']}")
-        if res.get("is_future_suggestion"):
-            print(f"  [WARNING] Future Suggestion: {res.get('departure_date')}")
-        print(f"    Lines: {' -> '.join(res['lines'])}")
-        print(f"    Steps:")
-        for step in res['steps']:
-            if step['kind'] == 'walk':
-                print(f"      [徒歩] {step['meters']:.0f}m ({step['minutes']:.0f}分)")
-            else:
-                print(f"      [{step['kind'].upper()}] {step['title']} ({step['from_']} -> {step['to']})")
-                if 'stops' in step:
-                    print(f"        Stops ({len(step['stops'])}): {', '.join([s['name'] for s in step['stops']])}")
-
-
-# -------------------- 新機能: 一本で行ける場所検索 --------------------
+        print(f"#{i} {res['score_label']}")
 
 def get_reachable_stops(G, tm, lat, lon, limit_dist=1000, spatial_index=None):
-    """
-    GPS座標から最寄りのバス停・駅を特定し、そこから乗り換えなしで行ける
-    すべてのバス停・駅のリストを返す。
-    """
-    # 1. 最寄りの物理ノード（バス停/駅）を探す
-    start_candidates = []
-    
-    # まず「一番近いノード」を見つける (基準点)
     nearest_node, nearest_dist = nearest_phys(G, lat, lon, spatial_index=spatial_index)
-    
     if not nearest_node or nearest_dist > limit_dist:
-        return {
-            "found": False,
-            "message": "近くに都営交通のバス停・駅が見つかりませんでした。"
-        }
-    
-    SEARCH_RADIUS_M = 500.0  # 500m以内のポールはすべて「現在地」とみなす
+        return {"found": False, "message": "Not found"}
+
+    start_candidates = []
+    SEARCH_RADIUS_M = 500.0
     
     if spatial_index:
         raw_candidates = spatial_index.nearby_candidates(lat, lon, SEARCH_RADIUS_M)
-        for nid, nlat, nlon in raw_candidates:
-            dist = haversine(lat, lon, nlat, nlon)
-            if dist <= SEARCH_RADIUS_M:
-                start_candidates.append(nid[1])
+        for nid, _, _ in raw_candidates:
+             dist = haversine(lat, lon, G.nodes[nid]["lat"], G.nodes[nid]["lon"])
+             if dist <= SEARCH_RADIUS_M: start_candidates.append(nid[1])
     else:
+        # Fallback
         for n, d in G.nodes(data=True):
-            if n[0] != "phys": continue
-            n_lat = d.get("lat")
-            n_lon = d.get("lon")
-            if n_lat and n_lon:
-                dist = haversine(lat, lon, n_lat, n_lon)
-                if dist <= SEARCH_RADIUS_M:
-                    start_candidates.append(n[1]) # IDを追加
+             if n[0] == "phys":
+                 if haversine(lat, lon, d["lat"], d["lon"]) <= SEARCH_RADIUS_M:
+                     start_candidates.append(n[1])
 
-    # 万が一何もなければ（nearest_physで見つかってるのでありえないが）nearestを入れる
-    if not start_candidates:
-        start_candidates.append(nearest_node[1])
-
-    nearest_info = G.nodes[nearest_node]
+    if not start_candidates: start_candidates.append(nearest_node[1])
     
-    # 到達可能なバス停を格納する辞書 (id -> info)
     reachable_map = {}
-    
-    # 2. 候補となるすべてのバス停（ポール）について、通る路線を走査
     for start_id in start_candidates:
         for route_id, patterns in tm.route_patterns_map.items():
             for seq in patterns:
-                # このパターンに現在地が含まれているか？
                 if start_id in seq:
                     idx = seq.index(start_id)
-                    
-                    # 終点の場合はスキップ
-                    if idx == len(seq) - 1:
-                        continue
-
-                    # 現在地より「後」にあるバス停はすべて到達可能
+                    if idx == len(seq) - 1: continue
                     future_stops = seq[idx+1:]
-                    
                     for next_stop_id in future_stops:
-                        # 既に登録済みならスキップ（複数路線で行ける場合など）
-                        if next_stop_id in reachable_map:
-                            continue
-                            
-                        # 自分自身（候補に入っているポール）への移動は除外
-                        if next_stop_id in start_candidates:
-                            continue
-
+                        if next_stop_id in reachable_map: continue
+                        if next_stop_id in start_candidates: continue # Self
                         node_key = ("phys", next_stop_id)
                         if node_key in G:
                             node_data = G.nodes[node_key]
                             reachable_map[next_stop_id] = {
-                                "id": next_stop_id,
-                                "name": node_data.get("name"),
-                                "lat": node_data.get("lat"),
-                                "lon": node_data.get("lon"),
-                                # どの路線で行けるか（代表の1つを入れておく、またはリスト化する）
+                                "id": next_stop_id, "name": node_data.get("name"),
+                                "lat": node_data.get("lat"), "lon": node_data.get("lon"),
                                 "via_route": route_id 
                             }
-
-    # リストに変換してソート（必要なら距離順や名前順に）
     reachable_list = list(reachable_map.values())
-    
-    return {
-        "found": True,
-        "nearest_stop": {
-            "id": nearest_node[1],
-            "name": nearest_info.get("name"),
-            "lat": nearest_info.get("lat"),
-            "lon": nearest_info.get("lon"),
-            "dist_m": nearest_dist
-        },
-        "reachable_stops": reachable_list,
-        "count": len(reachable_list)
-    }
-
+    return {"found": True, "nearest_stop": {"id": nearest_node[1], "name": G.nodes[nearest_node]["name"]}, "reachable_stops": reachable_list, "count": len(reachable_list)}
 
 if __name__ == "__main__":
     main()

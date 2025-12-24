@@ -169,9 +169,10 @@ async def setup_on_startup(app, mode: str) -> None:
     si = SpatialIndex(g)
     app.state.SI = si
 
-    gtfs_dir = os.path.join(p["DATA_DIR"], "ToeiBus-GTFS")
-    if os.path.exists(gtfs_dir):
-        tm.load_gtfs_mappings(gtfs_dir)
+    # GTFS Logic Removed
+    # gtfs_dir = os.path.join(p["DATA_DIR"], "ToeiBus-GTFS")
+    # if os.path.exists(gtfs_dir):
+    #     tm.load_gtfs_mappings(gtfs_dir)
 
     app.state.G = g
     app.state.TM = tm

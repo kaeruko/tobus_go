@@ -48,10 +48,10 @@ def main():
     tm.load_train_timetables(p["TRAIN_TBL"])
     tm.build_name_index(g)
 
-    # GTFSのマッピングもあればロード
-    gtfs_dir = os.path.join(p["DATA_DIR"], "ToeiBus-GTFS")
-    if os.path.exists(gtfs_dir):
-        tm.load_gtfs_mappings(gtfs_dir)
+    # GTFS removed
+    # gtfs_dir = os.path.join(p["DATA_DIR"], "ToeiBus-GTFS")
+    # if os.path.exists(gtfs_dir):
+    #     tm.load_gtfs_mappings(gtfs_dir)
 
     # 3. 成果物を辞書にまとめてPickle化
     print("Building Spatial Index...")
