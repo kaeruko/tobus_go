@@ -30,8 +30,6 @@ class ScheduleEntry {
   final ScheduleEntryKind itemKind;
   final int legIndex;
   final ScheduleEntrySource generatedBy;
-  final bool locked;
-
   final int? routeStepIndex;
   final String? routeRole;
 
@@ -43,33 +41,22 @@ class ScheduleEntry {
     this.itemKind = ScheduleEntryKind.event,
     this.legIndex = 0,
     this.generatedBy = ScheduleEntrySource.manual,
-    this.locked = false,
     this.routeStepIndex,
     this.routeRole,
   }) : id = id ?? const Uuid().v4();
 
   factory ScheduleEntry.fromJson(Map<String, dynamic> json) {
     final plannedAt = (json['plannedAt'] as Timestamp).toDate();
-    final label = json['label'] as String? ?? '';
-    
-    // Generate deterministic ID for legacy data to ensure UI stability
-    final fallbackId = '${plannedAt.millisecondsSinceEpoch}_${label.hashCode}';
+    final label = json['label'] as String;
 
     return ScheduleEntry(
-      id: json['id'] as String? ?? fallbackId,
+      id: json['id'] as String,
       plannedAt: plannedAt,
       label: label,
-      description: json['description'] as String? ?? '',
-      itemKind: ScheduleEntryKind.values.firstWhere(
-        (e) => e.name == (json['itemKind'] as String?),
-        orElse: () => ScheduleEntryKind.event,
-      ),
-      legIndex: json['legIndex'] as int? ?? 0,
-      generatedBy: ScheduleEntrySource.values.firstWhere(
-        (e) => e.name == (json['generatedBy'] as String?),
-        orElse: () => ScheduleEntrySource.manual,
-      ),
-      locked: json['locked'] as bool? ?? false,
+      description: json['description'] as String? ?? '', // Optional field check remains for safety
+      itemKind: ScheduleEntryKind.values.byName(json['itemKind'] as String), // orElse removed
+      legIndex: json['legIndex'] as int, // Default removed
+      generatedBy: ScheduleEntrySource.values.byName(json['generatedBy'] as String), // orElse removed
       routeStepIndex: json['routeStepIndex'] as int?,
       routeRole: json['routeRole'] as String?,
     );
@@ -84,7 +71,6 @@ class ScheduleEntry {
       'itemKind': itemKind.name,
       'legIndex': legIndex,
       'generatedBy': generatedBy.name,
-      'locked': locked,
       'routeStepIndex': routeStepIndex,
       'routeRole': routeRole,
     };
@@ -97,7 +83,17 @@ void sortScheduleEntries(List<ScheduleEntry> entries) {
     if (a.legIndex != b.legIndex) {
       return a.legIndex.compareTo(b.legIndex);
     }
-    return a.plannedAt.compareTo(b.plannedAt);
+    final timeDiff = a.plannedAt.compareTo(b.plannedAt);
+    if (timeDiff != 0) {
+      return timeDiff;
+    }
+    // RouteStepIndex fallback (null sorts last)
+    final aIndex = a.routeStepIndex;
+    final bIndex = b.routeStepIndex;
+    if (aIndex == null && bIndex == null) return 0;
+    if (aIndex == null) return 1;
+    if (bIndex == null) return -1;
+    return aIndex.compareTo(bIndex);
   });
 }
 
@@ -168,8 +164,12 @@ List<ScheduleEntry> createScheduleFromRoute(
     }
   }
 
-  // ★追加: 開始時刻に合わせてスライドさせる処理
-  if (shiftToStart && normalizedTimes.isNotEmpty) {
+  // ★Fallback: 時刻が取得できない場合はアンカーから積み上げ
+  final bool isTimeValid = normalizedTimes.isNotEmpty;
+  DateTime cursorTime = departureBase;
+
+  // ★Shift: 開始時刻に合わせてスライド (時刻が有効な場合のみ)
+  if (isTimeValid && shiftToStart && normalizedTimes.isNotEmpty) {
     final firstPlanned = normalizedTimes.first;
     final diff = departureBase.difference(firstPlanned);
     if (diff != Duration.zero) {
@@ -178,7 +178,7 @@ List<ScheduleEntry> createScheduleFromRoute(
   }
 
   final firstStepDeparture =
-      normalizedTimes.isNotEmpty ? normalizedTimes.first : departureBase;
+      isTimeValid ? normalizedTimes.first : departureBase;
   final departureAt = firstStepDeparture.subtract(departureLeadTime);
   var timeCursorIndex = 0;
 
@@ -193,54 +193,86 @@ List<ScheduleEntry> createScheduleFromRoute(
         itemKind: ScheduleEntryKind.meeting,
         legIndex: legIndex,
         generatedBy: ScheduleEntrySource.route,
+        routeStepIndex: -1, // ★変更: ソート順安定化のため -1 を設定
       ),
     );
   }
 
-  list.add(
-    ScheduleEntry(
-      plannedAt: departureAt,
-      label: '${prefix}出発',
-      description: 'みんな揃っているか確認しましょう',
-      itemKind: ScheduleEntryKind.departure,
-      legIndex: legIndex,
-      generatedBy: ScheduleEntrySource.route,
-    ),
-  );
+  // NOTE: 出発(ScheduleEntryKind.departure)は削除されました
 
   var stepIndex = baseStepIndex; // ★変更: 0からではなくオフセットから開始
-  for (final step in route.steps) {
+  for (int i = 0; i < route.steps.length; i++) {
+    final step = route.steps[i];
+    
     if (step.kind == 'walk') {
-      if ((step.minutes ?? 0) > 3) {
-        final departAt = normalizedTimes[timeCursorIndex];
+      DateTime departAt;
+      if (isTimeValid) {
+        departAt = normalizedTimes[timeCursorIndex];
         timeCursorIndex += 2; // walk has dep/arr pairs
-        list.add(
-          ScheduleEntry(
-            plannedAt: departAt,
-            label: '${prefix}${step.from ?? ''}まで歩く (${step.minutes}分)',
-            description: '',
-            itemKind: ScheduleEntryKind.walk,
-            legIndex: legIndex,
-            generatedBy: ScheduleEntrySource.route,
-            routeStepIndex: stepIndex,
-            routeRole: 'walk',
-          ),
-        );
       } else {
-        timeCursorIndex += 2;
+        departAt = cursorTime;
+        cursorTime = cursorTime.add(Duration(minutes: step.minutes ?? 0));
       }
-    } else if (step.kind == 'wait') {
-      final startAt = normalizedTimes[timeCursorIndex];
-      final endAt = normalizedTimes[timeCursorIndex + 1];
-      timeCursorIndex += 2;
 
-      // Start of Wait
+      // ★Label: 目的地優先のラベル生成
+      String walkLabel;
+      final isFirstStep = (i == 0);
+      
+      // 優先順位: to > place > from
+      if (step.to != null && step.to!.isNotEmpty) {
+        walkLabel = isFirstStep 
+            ? '${step.to}まで歩く' // 最初のステップなら「〜まで歩く」を強調
+            : '${step.to}まで歩く';
+      } else if (step.place != null && step.place!.isNotEmpty) {
+         walkLabel = '${step.place}まで歩く';
+      } else {
+         walkLabel = '${step.from ?? ''}から歩く';
+      }
+      
+      // 分数表示
+      final minutes = step.minutes ?? 0;
+      final durationStr = minutes > 0 ? ' ($minutes分)' : '';
+
+      list.add(
+        ScheduleEntry(
+          plannedAt: departAt,
+          label: '$prefix$walkLabel$durationStr',
+          description: '',
+          itemKind: ScheduleEntryKind.walk,
+          legIndex: legIndex,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepIndex: stepIndex,
+          routeRole: 'walk',
+        ),
+      );
+    } else if (step.kind == 'wait') {
+      DateTime startAt;
+      DateTime endAt;
+      int durationMinutes = 0;
+
+      if (isTimeValid) {
+        startAt = normalizedTimes[timeCursorIndex];
+        endAt = normalizedTimes[timeCursorIndex + 1];
+        timeCursorIndex += 2;
+        durationMinutes = endAt.difference(startAt).inMinutes;
+      } else {
+        startAt = cursorTime;
+        durationMinutes = step.minutes ?? 0; // waitステップ自体に分数がなければ0
+        endAt = startAt.add(Duration(minutes: durationMinutes));
+        cursorTime = endAt;
+      }
+
+      // Wait (Duration)
+      final waitLabel = step.startLabel != null
+              ? '$prefix${step.startLabel} ${step.place ?? ''}'
+              : '${prefix}待ち時間';
+      
+      final durationStr = durationMinutes > 0 ? ' ($durationMinutes分)' : '';
+
       list.add(
         ScheduleEntry(
           plannedAt: startAt,
-          label: step.startLabel != null
-              ? '$prefix${step.startLabel} ${step.place ?? ''}'
-              : '${prefix}待ち時間',
+          label: '$waitLabel$durationStr',
           description: '',
           itemKind: ScheduleEntryKind.event,
           legIndex: legIndex,
@@ -249,26 +281,22 @@ List<ScheduleEntry> createScheduleFromRoute(
           routeRole: 'wait_start',
         ),
       );
-
-      // End of Wait
-      list.add(
-        ScheduleEntry(
-          plannedAt: endAt,
-          label: step.endLabel != null
-              ? '$prefix${step.endLabel} ${step.place ?? ''}'
-              : '${prefix}移動開始',
-          description: '',
-          itemKind: ScheduleEntryKind.event,
-          legIndex: legIndex,
-          generatedBy: ScheduleEntrySource.route,
-          routeStepIndex: stepIndex,
-          routeRole: 'wait_end',
-        ),
-      );
+      // NOTE: Wait End Entry removed.
+      
     } else {
-      final departAt = normalizedTimes[timeCursorIndex];
-      final arriveAt = normalizedTimes[timeCursorIndex + 1];
-      timeCursorIndex += 2;
+      DateTime departAt;
+      DateTime arriveAt;
+      
+      if (isTimeValid) {
+        departAt = normalizedTimes[timeCursorIndex];
+        arriveAt = normalizedTimes[timeCursorIndex + 1];
+        timeCursorIndex += 2;
+      } else {
+        departAt = cursorTime;
+        cursorTime = cursorTime.add(Duration(minutes: step.minutes ?? 0));
+        arriveAt = cursorTime; // Ride duration handling if separate step minutes vs arrival time? 
+        // For fallback, assuming step.minutes covers the ride.
+      }
 
       final transportIcon = _emojiForKind(step.kind);
 
@@ -308,16 +336,22 @@ List<ScheduleEntry> createScheduleFromRoute(
       goalLabel = route.destinationName!.split(' ').last; 
     }
 
+    DateTime goalTime;
+    if (isTimeValid) {
+      goalTime = normalizedTimes.isNotEmpty ? normalizedTimes.last : departureBase;
+    } else {
+      goalTime = cursorTime;
+    }
+
     list.add(
       ScheduleEntry(
-        plannedAt: normalizedTimes.isNotEmpty
-            ? normalizedTimes.last
-            : departureBase,
+        plannedAt: goalTime,
         label: '${prefix}$goalLabel 到着',
         description: 'お疲れ様でした!',
         itemKind: ScheduleEntryKind.goal,
         legIndex: legIndex,
         generatedBy: ScheduleEntrySource.route,
+        routeStepIndex: stepIndex, // Goal index
       ),
     );
   }
@@ -325,7 +359,7 @@ List<ScheduleEntry> createScheduleFromRoute(
   return list;
 }
 
-List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
+List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs, {DateTime? userSelectedStartTime}) {
   final List<ScheduleEntry> schedule = [];
 
   Leg? outbound;
@@ -346,76 +380,83 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
     legBaseIndices[leg] = currentStepBase;
     currentStepBase += leg.candidate.steps.length;
   }
+  
+  // Assign sequential leg indices for sorting
+  int currentLegSortIndex = 0;
+  final Map<Leg, int> legSortIndices = {};
 
 
   if (outbound != null) {
+    legSortIndices[outbound] = currentLegSortIndex++; // Outbound = 0
+    final startAt = userSelectedStartTime ?? outbound.candidate.departureDate ?? appClock.now();
+    
+    // Meeting is 10 mins before start
+    // If we use shiftToStart: true, the route's relative timeline starts at 0.
+    // We want the route start to align with `startAt`.
+    
+    // The previous logic was: departureAt = firstStepDeparture - departureLeadTime(0)
+    // Now we want the first step (User Start) to match `startAt`.
+    // And Meeting = startAt - 10 mins.
+    
     schedule.addAll(
       createScheduleFromRoute(
         outbound.candidate,
-        startDateTime: outbound.candidate.departureDate,
+        startDateTime: startAt,
         labelPrefix: '➡️',
-        legIndex: 0,
+        legIndex: legSortIndices[outbound]!,
         includeMeeting: true,
         meetingLabel: '${StringUtils.extractSimpleName(outbound.candidate.originName ?? '')}集合',
         meetingDescription: 'みんな揃っているか確認しましょう',
-        baseStepIndex: legBaseIndices[outbound] ?? 0, // Pass offset
+        meetingAt: startAt.subtract(const Duration(minutes: 10)), // Explicit meeting time
+        baseStepIndex: legBaseIndices[outbound] ?? 0,
+        shiftToStart: true, // Anchor to startAt
       ),
     );
   }
 
   if (inbound != null) {
-    final inboundStartDate = inbound.candidate.departureDate ??
-        (outbound?.candidate.departureDate?.add(Duration(minutes: outbound.candidate.totalTime)) ??
-            appClock.now());
-
-    final inboundStepClocks = inbound.candidate.steps
-        .expand((s) => [s.departureTime, s.arrivalTime])
-        .cast<String?>()
-        .toList();
-
-    final inboundNormalizedTimes = normalizeCrossDay(
-      inboundStartDate,
-      inboundStepClocks,
-    );
-
-    // Back-fill missing times for inbound leg as well
-    final inboundFirstValidIndex = inboundStepClocks.indexWhere((s) => s != null && s.contains(':'));
-    if (inboundFirstValidIndex > 0) {
-      for (var k = inboundFirstValidIndex - 1; k >= 0; k--) {
-        if (k % 2 != 0) {
-          inboundNormalizedTimes[k] = inboundNormalizedTimes[k + 1];
-        } else {
-          final step = inbound.candidate.steps[k ~/ 2];
-          final duration = step.minutes ?? 0;
-          inboundNormalizedTimes[k] = inboundNormalizedTimes[k + 1].subtract(Duration(minutes: duration));
-        }
-      }
+    legSortIndices[inbound] = currentLegSortIndex++; // Inbound = 1 typically
+    
+    // Inbound Anchor Calculation:
+    // Ideally calculated from Outbound Arrival + Stay Time, or User Return Time.
+    // Using existing candidate departure info as source, but treating it as the anchor.
+    // If we had a specific return anchor, we would use it here.
+    // Since we don't have explicit "stay time" passed in here, we rely on candidate.departureDate
+    // or calculate from outbound arrival if inbound is linked.
+    
+    DateTime inboundAnchor = inbound.candidate.departureDate ?? appClock.now();
+    if (outbound != null && inbound.candidate.departureDate == null) {
+        // Fallback if null
+        inboundAnchor = (outbound.candidate.departureDate?.add(Duration(minutes: outbound.candidate.totalTime + 120)) ?? appClock.now());
     }
 
-    final inboundFirstDeparture = inboundNormalizedTimes.isNotEmpty
-        ? inboundNormalizedTimes.first
-        : inboundStartDate;
-    final inboundDepartureAt =
-        inboundFirstDeparture.subtract(const Duration(minutes: 10));
+    // Inbound Meeting Logic (Maintained):
+    // Departure Lead = 10 mins (So "Departure" would be Anchor - 10)
+    // Meeting = RoundDown(Departure - 15) = RoundDown(Anchor - 25)
+    
+    final inboundDepartureAt = inboundAnchor.subtract(const Duration(minutes: 10));
+    final meetingAt = _roundDownToHalfHour(inboundDepartureAt.subtract(const Duration(minutes: 15)));
 
     schedule.addAll(
       createScheduleFromRoute(
         inbound.candidate,
-        startDateTime: inboundStartDate,
+        startDateTime: inboundAnchor,
         labelPrefix: '⬅️',
-        legIndex: 1,
+        legIndex: legSortIndices[inbound]!,
         includeMeeting: true,
         meetingLabel: '帰りの集合',
         meetingDescription: '帰りの経路を開始する前に人数を確認しましょう',
-        departureLeadTime: const Duration(minutes: 10),
-        meetingAt: _roundDownToHalfHour(inboundDepartureAt.subtract(const Duration(minutes: 15))),
-        baseStepIndex: legBaseIndices[inbound] ?? 0, // Pass offset
+        meetingAt: meetingAt,
+        baseStepIndex: legBaseIndices[inbound] ?? 0, 
+        shiftToStart: true, // Anchor to inboundAnchor
       ),
     );
   }
 
   for (final leg in legs) {
     if (leg == outbound || leg == inbound) continue;
+    legSortIndices[leg] = currentLegSortIndex++; // Other = 2+
+    
     final prefix = _labelForLeg(leg.direction);
     final startDateTime = leg.candidate.departureDate ?? appClock.now();
     schedule.addAll(
@@ -423,8 +464,9 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs) {
         leg.candidate,
         startDateTime: startDateTime,
         labelPrefix: prefix,
-        legIndex: 0,
-        baseStepIndex: legBaseIndices[leg] ?? 0, // Pass offset
+        legIndex: legSortIndices[leg]!,
+        baseStepIndex: legBaseIndices[leg] ?? 0, 
+        shiftToStart: true,
       ),
     );
   }

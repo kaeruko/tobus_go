@@ -46,7 +46,7 @@ class TripDraftNotifier extends StateNotifier<TripDraftState> {
         Leg(candidate: state.inbound!, direction: LegDirection.inbound, status: LegStatus.confirmed),
     ];
     
-    final schedule = createScheduleFromLegs(legs);
+    final schedule = createScheduleFromLegs(legs, userSelectedStartTime: state.outbound?.departureDate);
     
     final tripId = await TripService().createTrip(legs, schedule);
     

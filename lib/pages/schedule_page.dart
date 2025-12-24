@@ -158,7 +158,6 @@ class _SchedulePageState extends State<SchedulePage> {
       itemKind: oldItem.itemKind,
       legIndex: legIndex,
       generatedBy: oldItem.generatedBy,
-      locked: oldItem.locked,
     );
 
     setState(() {

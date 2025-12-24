@@ -153,7 +153,6 @@ class TripService {
   ) {
     final retained = current.where((entry) {
       if (entry.legIndex != 0) return true;
-      if (entry.locked) return true;
       if (entry.generatedBy != ScheduleEntrySource.route) return true;
       return false;
     }).toList();
@@ -167,7 +166,6 @@ class TripService {
               itemKind: e.itemKind,
               legIndex: 0,
               generatedBy: ScheduleEntrySource.route,
-              locked: e.locked,
             )));
 
     sortScheduleEntries(retained);
