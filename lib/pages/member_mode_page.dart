@@ -211,10 +211,11 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         }
 
         final schedule = _sortedSchedule(trip.schedule);
-        final currentPos = manualOverride ??
+        // Use nullable LatLng, do NOT fallback to Tokyo Station default
+        final LatLng? currentPos = manualOverride ??
             (locationAsync.value != null
                 ? LatLng(locationAsync.value!.latitude, locationAsync.value!.longitude)
-                : const LatLng(35.6812, 139.7671)); // Default Tokyo Station if waiting for GPS
+                : null); 
 
         // 1. Resolve Route Navigation (Pure Route State) - 先に実行してGPS補正を適用
         final routeState = TripNavigator.updateRouteOnly(

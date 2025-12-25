@@ -25,7 +25,7 @@ class MemberNavState {
 class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
   MemberNavProgressNotifier() : super(MemberNavState.initial());
 
-  void updateProgress(Trip trip, LatLng currentPos) {
+  void updateProgress(Trip trip, LatLng? currentPos) {
     // TripNavigator.updateRouteOnly calculates new state based on current pos
     final result = TripNavigator.updateRouteOnly(
       trip: trip,
