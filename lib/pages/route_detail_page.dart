@@ -388,19 +388,19 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                         if (arrivalTime != null) {
                            // 到着時刻 ＋ 最後の徒歩
                            final finalArrival = arrivalTime.add(Duration(minutes: trailingWalkMinutes));
-                           // ＋ 滞在時間（＝行きの所要時間）
-                           _returnSearchTime = finalArrival.add(Duration(minutes: widget.candidate.totalTime));
+                           // 帰りの出発時刻のデフォルトは、行きの到着時刻とする（滞在時間は加算しない）
+                           _returnSearchTime = finalArrival;
                         } else {
-                           // 時刻が取れない場合は、現在時刻＋(所要時間*2)等のフォールバック
+                           // 時刻が取れない場合は、現在時刻＋(所要時間)等のフォールバック
                            final startTime = widget.candidate.departureDate ?? appClock.now(); 
                            // Note: departureDate usually doesn't have time, so this might default to midnight if not careful,
                            // but this is a fallback for walk-only paths likely.
                            // Try to use appClock.now() if departureDate is midnight? 
                            // For now, simple fallback:
                            if (startTime.hour == 0 && startTime.minute == 0) {
-                              _returnSearchTime = appClock.now().add(const Duration(hours: 2));
+                              _returnSearchTime = appClock.now().add(const Duration(hours: 1));
                            } else {
-                              _returnSearchTime = startTime.add(Duration(minutes: widget.candidate.totalTime * 2));
+                              _returnSearchTime = startTime.add(Duration(minutes: widget.candidate.totalTime));
                            }
                         }
                       });

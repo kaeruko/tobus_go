@@ -176,6 +176,60 @@ class TimetableManager:
         # リアルタイム遅延 (共通)
         self.realtime_delays = {}
 
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        # Restore missing attributes from older pickles
+        if not hasattr(self, "pole_base_index_weekday"):
+            print("[INFO] Migrating TimetableManager: Initializing missing indexes...")
+            self.pole_base_index_weekday = defaultdict(list)
+            self.pole_base_index_saturday = defaultdict(list)
+            self.pole_base_index_holiday = defaultdict(list)
+            
+            # Rebuild indexes if data exists
+            if self.bus_departures_weekday:
+                self.finalize_indexes()
+
+        if not hasattr(self, "_resolved_pole_cache"):
+            self._resolved_pole_cache = {}
+
+        if not hasattr(self, "_debug_once"):
+            self._debug_once = set()
+            self._debug_counts = defaultdict(int)
+
+    def __getattr__(self, name):
+        # Fail-safe for missing attributes if __setstate__ didn't run or failed
+        if name.startswith("pole_base_index_"):
+            print(f"[WARN] Fail-safe init for {name}")
+            val = defaultdict(list)
+            setattr(self, name, val)
+            # Try to populate if it's one of the known indexes
+            if name == "pole_base_index_weekday" and self.bus_departures_weekday:
+                self.finalize_indexes()
+            elif name == "pole_base_index_saturday" and self.bus_departures_saturday:
+                self.finalize_indexes()
+            elif name == "pole_base_index_holiday" and self.bus_departures_holiday:
+                self.finalize_indexes()
+            return getattr(self, name)
+            
+        if name == "_resolved_pole_cache":
+            print(f"[WARN] Fail-safe init for {name}")
+            self._resolved_pole_cache = {}
+            return self._resolved_pole_cache
+            
+        if name == "_debug_once":
+            print(f"[WARN] Fail-safe init for {name}")
+            self._debug_once = set()
+            self._debug_counts = defaultdict(int)
+            return self._debug_once
+            
+        if name == "_debug_counts":
+            print(f"[WARN] Fail-safe init for {name}")
+            self._debug_counts = defaultdict(int)
+            self._debug_once = set()
+            return self._debug_counts
+            
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
     def debug_once(self, key, msg):
         self._debug_counts[key] += 1
         if key not in self._debug_once:
