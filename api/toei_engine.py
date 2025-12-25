@@ -7,7 +7,9 @@ import os
 import networkx as nx
 from collections import defaultdict
 
+
 # -------------------- チューニング定数 --------------------
+print("[INFO] toei_engine loaded: build=2025-12-26-1") # Deployment Verification Log
 BUS_RIDE_COST = 0.8
 RAIL_RIDE_COST = 0.8
 WALK_COST = 1.5
@@ -178,56 +180,102 @@ class TimetableManager:
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        # Restore missing attributes from older pickles
-        if not hasattr(self, "pole_base_index_weekday"):
-            print("[INFO] Migrating TimetableManager: Initializing missing indexes...")
+
+        # Restore missing attributes from older pickles and guard None values
+
+        need_rebuild_indexes = False
+
+        if (not hasattr(self, "pole_base_index_weekday")) or (self.pole_base_index_weekday is None):
+            need_rebuild_indexes = True
+        if (not hasattr(self, "pole_base_index_saturday")) or (self.pole_base_index_saturday is None):
+            need_rebuild_indexes = True
+        if (not hasattr(self, "pole_base_index_holiday")) or (self.pole_base_index_holiday is None):
+            need_rebuild_indexes = True
+
+        if need_rebuild_indexes:
+            print("[INFO] Migrating TimetableManager: Initializing missing or None indexes...")
             self.pole_base_index_weekday = defaultdict(list)
             self.pole_base_index_saturday = defaultdict(list)
             self.pole_base_index_holiday = defaultdict(list)
-            
-            # Rebuild indexes if data exists
-            if self.bus_departures_weekday:
-                self.finalize_indexes()
 
-        if not hasattr(self, "_resolved_pole_cache"):
+        if (not hasattr(self, "_resolved_pole_cache")) or (self._resolved_pole_cache is None):
             self._resolved_pole_cache = {}
 
-        if not hasattr(self, "_debug_once"):
+        if (not hasattr(self, "_debug_once")) or (self._debug_once is None):
             self._debug_once = set()
+
+        if (not hasattr(self, "_debug_counts")) or (self._debug_counts is None):
             self._debug_counts = defaultdict(int)
+
+        has_any_bus_data = False
+        if hasattr(self, "bus_departures_weekday") and self.bus_departures_weekday:
+            has_any_bus_data = True
+        if hasattr(self, "bus_departures_saturday") and self.bus_departures_saturday:
+            has_any_bus_data = True
+        if hasattr(self, "bus_departures_holiday") and self.bus_departures_holiday:
+            has_any_bus_data = True
+
+        if has_any_bus_data:
+            self.finalize_indexes()
 
     def __getattr__(self, name):
         # Fail-safe for missing attributes if __setstate__ didn't run or failed
+
         if name.startswith("pole_base_index_"):
             print(f"[WARN] Fail-safe init for {name}")
-            val = defaultdict(list)
-            setattr(self, name, val)
-            # Try to populate if it's one of the known indexes
-            if name == "pole_base_index_weekday" and self.bus_departures_weekday:
+
+            # CRITICAL FIX
+            # Use sequential if statements to ensure all missing indexes are detected
+
+            missing_any = False
+
+            if ("pole_base_index_weekday" not in self.__dict__) or (self.__dict__.get("pole_base_index_weekday") is None):
+                missing_any = True
+            if ("pole_base_index_saturday" not in self.__dict__) or (self.__dict__.get("pole_base_index_saturday") is None):
+                missing_any = True
+            if ("pole_base_index_holiday" not in self.__dict__) or (self.__dict__.get("pole_base_index_holiday") is None):
+                missing_any = True
+
+            if missing_any:
+                self.pole_base_index_weekday = defaultdict(list)
+                self.pole_base_index_saturday = defaultdict(list)
+                self.pole_base_index_holiday = defaultdict(list)
+
+            has_any_bus_data = False
+            if self.__dict__.get("bus_departures_weekday"):
+                has_any_bus_data = True
+            if self.__dict__.get("bus_departures_saturday"):
+                has_any_bus_data = True
+            if self.__dict__.get("bus_departures_holiday"):
+                has_any_bus_data = True
+
+            if has_any_bus_data:
                 self.finalize_indexes()
-            elif name == "pole_base_index_saturday" and self.bus_departures_saturday:
-                self.finalize_indexes()
-            elif name == "pole_base_index_holiday" and self.bus_departures_holiday:
-                self.finalize_indexes()
-            return getattr(self, name)
-            
+
+            return self.__dict__[name]
+
         if name == "_resolved_pole_cache":
             print(f"[WARN] Fail-safe init for {name}")
-            self._resolved_pole_cache = {}
-            return self._resolved_pole_cache
-            
+            val = {}
+            self.__dict__[name] = val
+            return val
+
         if name == "_debug_once":
             print(f"[WARN] Fail-safe init for {name}")
-            self._debug_once = set()
-            self._debug_counts = defaultdict(int)
-            return self._debug_once
-            
+            val = set()
+            self.__dict__[name] = val
+            if ("_debug_counts" not in self.__dict__) or (self.__dict__.get("_debug_counts") is None):
+                self._debug_counts = defaultdict(int)
+            return val
+
         if name == "_debug_counts":
             print(f"[WARN] Fail-safe init for {name}")
-            self._debug_counts = defaultdict(int)
-            self._debug_once = set()
-            return self._debug_counts
-            
+            val = defaultdict(int)
+            self.__dict__[name] = val
+            if ("_debug_once" not in self.__dict__) or (self.__dict__.get("_debug_once") is None):
+                self._debug_once = set()
+            return val
+
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     def debug_once(self, key, msg):
@@ -915,12 +963,7 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
                 if valid_count >= limit: break
     return candidates
 
-def pole_base(pid: str) -> str:
-    if not (isinstance(pid, str) and pid.startswith("odpt.BusstopPole:")):
-        return pid
-    parts = pid.split(".")
-    if len(parts) < 2: return pid
-    return ".".join(parts[:-1])
+
 
 def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_search=30000, max_visited=15000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, time_limit_sec=15.0, virtual_dest_connections=None, target_coords=None):
     import time
