@@ -6,6 +6,7 @@ import '../providers/explore_provider.dart';
 import '../providers/route_search_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/navigation_provider.dart';
+import '../constants.dart';
 
 class ExperiencePage extends ConsumerStatefulWidget {
   final ReachableStop stop;
@@ -65,11 +66,12 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
       return const Center(child: Text('おすすめのスポットが見つかりませんでした'));
     }
 
-    return ListView.builder(
+    return ListView(
       padding: const EdgeInsets.all(16),
-      itemCount: _data!.groups.length,
-      itemBuilder: (context, index) {
-        final group = _data!.groups[index];
+      children: [
+        _streetViewGallery(widget.stop),
+        const SizedBox(height: 16),
+        ..._data!.groups.map((group) {
         return Card(
           margin: const EdgeInsets.only(bottom: 16),
           elevation: 2,
@@ -130,6 +132,112 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
                   ],
                 ),
               ],
+            ),
+          ),
+        );
+      }),
+      ],
+    );
+  }
+
+  Uri _svUri(ReachableStop stop, {required int w, required int h, required int heading}) {
+    return Uri.parse('$kApiBase/streetview/thumb').replace(queryParameters: {
+      'lat': stop.lat.toString(),
+      'lon': stop.lon.toString(),
+      'w': w.toString(),
+      'h': h.toString(),
+      'radius': '150',
+      'fov': '90',
+      'heading': heading.toString(),
+      'pitch': '0',
+    });
+  }
+
+  Widget _svThumb(ReachableStop stop, {required int heading}) {
+    final uri = _svUri(stop, w: 240, h: 160, heading: heading);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: AspectRatio(
+        aspectRatio: 3 / 2,
+        child: Image.network(
+          uri.toString(),
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              color: Colors.grey.shade200,
+              child: const Icon(Icons.streetview),
+            );
+          },
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              color: Colors.grey.shade100,
+              child: const Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _streetViewGallery(ReachableStop stop) {
+    final headings = <int>[0, 90, 180, 270];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('周辺のようす', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 160,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: headings.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final heading = headings[index];
+              return GestureDetector(
+                onTap: () {
+                  _openStreetViewFull(stop, heading: heading);
+                },
+                child: _svThumb(stop, heading: heading),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _openStreetViewFull(ReachableStop stop, {required int heading}) {
+    final uri = _svUri(stop, w: 640, h: 360, heading: heading);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Image.network(
+                uri.toString(),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.grey.shade200,
+                    child: const Center(child: Icon(Icons.streetview, size: 40)),
+                  );
+                },
+              ),
             ),
           ),
         );

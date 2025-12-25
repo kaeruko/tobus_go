@@ -6,6 +6,9 @@ import datetime
 from app.services.bus_stop_experience import build_route_experiences
 
 from fastapi import HTTPException, Form, Query, Body
+from fastapi.responses import Response
+import time
+from typing import Optional
 
 from toei_engine import (
     nearest_phys,
@@ -19,6 +22,26 @@ from toei_engine import (
 )
 
 ROUTE_JOBS: dict[str, dict] = {}
+
+# 簡易TTLキャッシュ
+# key は パラメータを詰めた文字列
+# value は expires_at と bytes
+_sv_cache: dict[str, tuple[float, bytes]] = {}
+SV_CACHE_TTL_SEC = 60 * 60  # 1時間
+
+def _cache_get(key: str) -> Optional[bytes]:
+    hit = _sv_cache.get(key)
+    if not hit:
+        return None
+    expires_at, data = hit
+    if time.time() >= expires_at:
+        _sv_cache.pop(key, None)
+        return None
+    return data
+
+def _cache_set(key: str, data: bytes) -> None:
+    _sv_cache[key] = (time.time() + SV_CACHE_TTL_SEC, data)
+
 
 def determine_day_type(date_str: str | None) -> str:
     if not date_str:
@@ -353,3 +376,66 @@ def register_routes(app):
         #     pass
             
         return result
+
+    @app.get("/streetview/thumb")
+    async def streetview_thumb(
+        lat: float = Query(...),
+        lon: float = Query(...),
+        w: int = Query(120, ge=32, le=640),
+        h: int = Query(120, ge=32, le=640),
+        radius: int = Query(80, ge=1, le=5000),
+        fov: int = Query(90, ge=10, le=120),
+        heading: int = Query(0, ge=0, le=360),
+        pitch: int = Query(0, ge=-90, le=90),
+    ):
+        google_maps_api_key = os.getenv("GOOGLE_MAPS_API_KEY", "")
+        if not google_maps_api_key:
+            raise HTTPException(500, "GOOGLE_MAPS_API_KEY is missing")
+
+        # キャッシュキー
+        cache_key = f"{lat:.6f},{lon:.6f}|{w}x{h}|r{radius}|f{fov}|hd{heading}|p{pitch}"
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return Response(content=cached, media_type="image/jpeg")
+
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            # 1 metadata で近くにストビューがあるか確認して pano を取る
+            meta_url = "https://maps.googleapis.com/maps/api/streetview/metadata"
+            meta_params = {
+                "location": f"{lat},{lon}",
+                "radius": str(radius),
+                "key": google_maps_api_key,
+            }
+            meta = await client.get(meta_url, params=meta_params)
+            if meta.status_code != 200:
+                raise HTTPException(502, f"StreetView metadata upstream error {meta.status_code}")
+
+            meta_json = meta.json()
+            status = meta_json.get("status")
+            if status != "OK":
+                # 画像が無い場所
+                # Flutter 側で errorBuilder を効かせたいので 404 で返す
+                raise HTTPException(404, f"StreetView not found status={status}")
+
+            pano_id = meta_json.get("pano_id")
+            if not pano_id:
+                raise HTTPException(404, "StreetView pano_id not found")
+
+            # 2 pano 指定で画像を取得
+            img_url = "https://maps.googleapis.com/maps/api/streetview"
+            img_params = {
+                "size": f"{w}x{h}",
+                "pano": pano_id,
+                "fov": str(fov),
+                "heading": str(heading),
+                "pitch": str(pitch),
+                "key": google_maps_api_key,
+            }
+            img = await client.get(img_url, params=img_params)
+            if img.status_code != 200:
+                raise HTTPException(502, f"StreetView image upstream error {img.status_code}")
+
+            content = img.content
+            # Google 側の content type は jpeg 想定
+            _cache_set(cache_key, content)
+            return Response(content=content, media_type="image/jpeg")

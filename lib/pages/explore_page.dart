@@ -6,6 +6,7 @@ import '../providers/explore_provider.dart';
 import '../providers/location_provider.dart';
 import '../models/explore_models.dart';
 import 'experience_page.dart';
+import '../constants.dart';
 
 class ExplorePage extends ConsumerWidget {
   const ExplorePage({super.key});
@@ -93,6 +94,50 @@ class ExplorePage extends ConsumerWidget {
     );
   }
 
+  Widget _streetViewThumb(ReachableStop stop) {
+    final uri = Uri.parse('$kApiBase/streetview/thumb').replace(queryParameters: {
+      'lat': stop.lat.toString(),
+      'lon': stop.lon.toString(),
+      'w': '120',
+      'h': '120',
+      'radius': '80',
+      'fov': '90',
+      'heading': '0',
+      'pitch': '0',
+    });
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 72,
+        height: 72,
+        child: Image.network(
+          uri.toString(),
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              color: Colors.grey.shade200,
+              child: const Icon(Icons.directions_bus_outlined),
+            );
+          },
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              color: Colors.grey.shade100,
+              child: const Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _buildResultList(BuildContext context, ReachableResponse data) {
     return ListView(
       children: [
@@ -123,7 +168,7 @@ class ExplorePage extends ConsumerWidget {
         // 行ける場所リスト
         ...data.reachableStops.map((stop) {
           return ListTile(
-            leading: const Icon(Icons.directions_bus_outlined),
+            leading: _streetViewThumb(stop),
             title: Text(stop.name),
             subtitle: Text(
               '系統: ${stop.viaRoute.replaceAll("odpt.Busroute:Toei.", "")}',
