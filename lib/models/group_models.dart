@@ -359,7 +359,11 @@ List<ScheduleEntry> createScheduleFromRoute(
   return list;
 }
 
-List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs, {DateTime? userSelectedStartTime}) {
+List<ScheduleEntry> createScheduleFromLegs(
+  List<Leg> legs, {
+  DateTime? userSelectedStartTime,
+  DateTime? userSelectedReturnTime,
+}) {
   final List<ScheduleEntry> schedule = [];
 
   Leg? outbound;
@@ -424,8 +428,11 @@ List<ScheduleEntry> createScheduleFromLegs(List<Leg> legs, {DateTime? userSelect
     // Since we don't have explicit "stay time" passed in here, we rely on candidate.departureDate
     // or calculate from outbound arrival if inbound is linked.
     
-    DateTime inboundAnchor = inbound.candidate.departureDate ?? appClock.now();
-    if (outbound != null && inbound.candidate.departureDate == null) {
+    DateTime inboundAnchor = userSelectedReturnTime ?? 
+                             inbound.candidate.departureDate ?? 
+                             appClock.now();
+
+    if (outbound != null && inbound.candidate.departureDate == null && userSelectedReturnTime == null) {
         // Fallback if null
         inboundAnchor = (outbound.candidate.departureDate?.add(Duration(minutes: outbound.candidate.totalTime + 120)) ?? appClock.now());
     }

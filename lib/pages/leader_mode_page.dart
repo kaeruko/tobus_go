@@ -2,6 +2,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../core/app_clock.dart';
@@ -373,6 +374,9 @@ class _LeaderModePageState extends State<LeaderModePage> {
         children: [
           _buildScheduleShortcut(context, trip),
           const SizedBox(height: 12),
+          // 帰りの時間が遅れた場合の調整用UI
+          _buildScheduleAdjustment(context, trip), 
+          const SizedBox(height: 12),
           _buildGuideLink(context, trip),
           const SizedBox(height: 16),
           _buildMapCard(context, trip),
@@ -382,6 +386,111 @@ class _LeaderModePageState extends State<LeaderModePage> {
         ],
       ),
     );
+  }
+
+  Widget _buildScheduleAdjustment(BuildContext context, Trip trip) {
+    // 帰りの行程が存在する場合のみ表示
+    final hasInbound = trip.legs.any((leg) => leg.direction == LegDirection.inbound);
+    if (!hasInbound) return const SizedBox.shrink();
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: Colors.orange.shade50,
+      child: ListTile(
+        leading: const Icon(Icons.update, color: Colors.orange),
+        title: const Text(
+          '帰りの時間を変更',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: const Text('予定より遅れている場合はこちら'),
+        onTap: () => _showReturnTimeAdjustmentDialog(context, trip),
+      ),
+    );
+  }
+
+  Future<void> _showReturnTimeAdjustmentDialog(BuildContext context, Trip trip) async {
+    final service = TripService();
+    // デフォルトは現在時刻
+    DateTime initialDate = appClock.now();
+    
+    // 現在の帰りの出発時刻を探す (inbound Anchorに近いもの)
+    // createScheduleFromLegsでは inboundAnchor = UserSelectedReturnTime ?? InboundDeparture
+    // InboundDepartureは scheduleから推測するか、candidatesから取るか
+    // Candidatesは固定なので、scheduleの "帰りの集合" の10分後くらいが目安
+    final inboundMeeting = trip.schedule.firstWhere(
+      (e) => e.itemKind == ScheduleEntryKind.meeting && e.label.contains('帰り'),
+      orElse: () => ScheduleEntry(plannedAt: initialDate, label: ''),
+    );
+    
+    if (inboundMeeting.label.isNotEmpty) {
+      initialDate = inboundMeeting.plannedAt.add(const Duration(minutes: 10));
+    } else {
+        // Fallback: Inbound Leg Departure
+        for(final leg in trip.legs) {
+            if (leg.direction == LegDirection.inbound && leg.candidate.departureDate != null) {
+                initialDate = leg.candidate.departureDate!;
+                break;
+            }
+        }
+    }
+
+    // iOS style picker (Bottom Sheet)
+    DateTime newTime = initialDate;
+    await showModalBottomSheet(
+      context: context,
+      builder: (BuildContext builder) {
+        return SizedBox(
+          height: MediaQuery.of(context).copyWith().size.height / 3,
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                   TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('キャンセル'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await _updateReturnTime(trip, service, newTime);
+                    },
+                    child: const Text('決定', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.dateAndTime,
+                  initialDateTime: initialDate,
+                  onDateTimeChanged: (val) {
+                    newTime = val;
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _updateReturnTime(Trip trip, TripService service, DateTime newTime) async {
+      try {
+          await service.updateTripScheduleWithNewReturnTime(trip.id, newTime);
+          if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('帰りのスケジュールを更新しました')),
+              );
+          }
+      } catch (e) {
+          if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('更新に失敗しました: $e')),
+              );
+          }
+      }
   }
 
   Widget _buildGuideLink(BuildContext context, Trip trip) {

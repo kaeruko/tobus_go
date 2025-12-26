@@ -240,4 +240,17 @@ class TripService {
 
     return snapshot.docs.map((d) => Trip.fromFirestore(d)).toList();
   }
+
+  Future<void> updateTripScheduleWithNewReturnTime(String tripId, DateTime newReturnTime) async {
+    final doc = await _db.collection('trips').doc(tripId).get();
+    if (!doc.exists) throw Exception("Trip not found");
+    final trip = Trip.fromFirestore(doc);
+    
+    final newSchedule = createScheduleFromLegs(
+      trip.legs,
+      userSelectedReturnTime: newReturnTime,
+    );
+    
+    await updateSchedule(tripId, newSchedule);
+  }
 }

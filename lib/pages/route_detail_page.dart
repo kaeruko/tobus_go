@@ -87,7 +87,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       
       Trip? overlap;
       
-      // グループ作成直前（帰りの選択中）の場合のみ重複チェックを行う
+      // お出かけグループ作成直前（帰りの選択中）の場合のみ重複チェックを行う
       if (widget.isReturnSelection) {
         final draft = ref.read(tripDraftProvider);
         final outbound = draft.outbound;
@@ -285,7 +285,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                   child: Column(
                     children: [
                       const Text(
-                        "現在進行中のグループがあります",
+                        "現在進行中のお出かけグループがあります",
                         style: TextStyle(color: CupertinoColors.activeGreen, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
@@ -299,7 +299,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                               CupertinoPageRoute(builder: (_) => GroupDetailPage(trip: _activeTrip!)),
                             );
                           },
-                          child: const Text('グループ詳細を見る'),
+                          child: const Text('お出かけグループ詳細を見る'),
                         ),
                       ),
                     ],
@@ -347,7 +347,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                         _showCreateTripDialog();
                       }
                     },
-                    child: const Text('グループ作成', style: TextStyle(
+                    child: const Text('お出かけグループ作成', style: TextStyle(
                       fontWeight: FontWeight.bold,
                       decoration: TextDecoration.underline,
                     )),
@@ -743,7 +743,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     }
   }
 
-  // --- グループ作成機能 (行き・帰りが揃った時だけ表示) ---
+  // --- お出かけグループ作成機能 (行き・帰りが揃った時だけ表示) ---
   void _showCreateTripDialog() {
     final draftState = ref.read(tripDraftProvider);
     if (!draftState.isComplete) {
@@ -751,7 +751,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
         context: context,
         builder: (ctx) => CupertinoAlertDialog(
           title: const Text('帰りの経路を選択してください'),
-          content: const Text('行きと帰りが揃ってからグループ作成ができます。'),
+          content: const Text('行きと帰りが揃ってからお出かけグループ作成ができます。'),
           actions: [
             CupertinoDialogAction(
               child: const Text('OK'),
@@ -766,7 +766,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('この往復でグループを作成'),
+        title: const Text('この往復でお出かけグループを作成'),
         content: Text('行き: ${_routeLabel(draftState.outbound)}\n帰り: ${_routeLabel(draftState.inbound)}'),
         actions: [
           CupertinoDialogAction(
