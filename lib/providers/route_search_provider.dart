@@ -121,13 +121,14 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
       }
 
       final searchTime = state.startTime ?? DateTime.now();
+      final prefForApi = _normalizePreferenceForApi(state.pref);
 
       final body = {
         'alat': alat.toString(),
         'alon': alon.toString(),
         'blat': blat.toString(),
         'blon': blon.toString(),
-        'pref': state.pref ?? 'fewTransfers',
+        'pref': prefForApi,
         'start_time': "${searchTime.hour.toString().padLeft(2, '0')}:${searchTime.minute.toString().padLeft(2, '0')}",
         'target_date_str': "${searchTime.year}-${searchTime.month.toString().padLeft(2, '0')}-${searchTime.day.toString().padLeft(2, '0')}",
       };
@@ -168,6 +169,13 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
       // Log error if needed
       print('[RouteSearch] Error executing search: $e $st');
     }
+  }
+
+  String _normalizePreferenceForApi(String? pref) {
+    // UI uses 'fewTransfers' and 'shortTime'; backend expects 'time'/'fast' for fastest path.
+    if (pref == 'shortTime') return 'time';
+    if (pref == null || pref.isEmpty) return 'fewTransfers';
+    return pref;
   }
 }
 

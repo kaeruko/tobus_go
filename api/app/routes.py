@@ -66,8 +66,26 @@ def determine_day_type(date_str: str | None) -> str:
         return "saturday"
     return "weekday"
 
+
+def normalize_pref(pref: str | None) -> str:
+    """Map UI preference values to engine modes.
+
+    - "shortTime" is a frontend label for fastest search and should use the engine's
+      "time" mode (equivalent to "fast").
+    - Fallback to "cost" to keep previous default behavior if nothing is provided.
+    """
+
+    if not pref:
+        return "cost"
+    if pref == "shortTime":
+        return "time"
+    if pref == "fast":
+        return "time"
+    return pref
+
 def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:00", date_str=None):
     print(f"[USER_DEBUG] compute_route_candidates: start_time={start_time}, date_str={date_str}")
+    pref = normalize_pref(pref)
     g = app.state.G
     tm = app.state.TM
     walk_rad = app.state.WALK_RAD
@@ -236,7 +254,7 @@ def register_routes(app):
             None,
             compute_route_candidates,
             app,
-            req.alat, req.alon, req.blat, req.blon, req.pref, req.start_time, req.target_date_str,
+            req.alat, req.alon, req.blat, req.blon, normalize_pref(req.pref), req.start_time, req.target_date_str,
         )
         return result
 

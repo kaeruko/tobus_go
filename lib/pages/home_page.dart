@@ -23,6 +23,9 @@ import '../models/trip_models.dart';
 import 'leader_mode_page.dart';
 import 'package:flutter/material.dart' show TextField, InputDecoration, OutlineInputBorder, Icons, ElevatedButton, Colors, TextInputType, MaterialPageRoute, ScaffoldMessenger, SnackBar, Divider;
 
+// UI enum values differ from backend search modes:
+// - 'shortTime' is converted to 'time' on the API side
+// - 'fewTransfers' is passed through as-is (comfort/乗換少ない優先)
 enum Preference { fewTransfers, shortTime }
 
 class HomePage extends ConsumerStatefulWidget {
@@ -301,6 +304,8 @@ class HomePageState extends ConsumerState<HomePage> {
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: CupertinoSlidingSegmentedControl<String>(
                         groupValue: rs.pref ?? 'fewTransfers',
+                        // NOTE: Backend expects 'time'/'fast' for fastest route; see RouteSearchNotifier._normalizePreferenceForApi
+                        // for the mapping from this UI value to API param.
                         children: const {
                           'fewTransfers': Text('乗換少ない優先'),
                           'shortTime': Text('時間短い優先'),
