@@ -121,8 +121,8 @@ class ScheduleResolver {
     debugPrint('[ScheduleResolver] currentStepIndex: $currentStepIndex, nextStopIndex: $nextStopIndex');
 
     // 1. TripNavigator のロジックに合わせるため、すべてのステップをフラット化する
-    var allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
-
+    final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
+    
     // ★追加: ステップが空（ルート未生成など）の場合は「完了」ではなく「判定不能(-1)」を返す
     // 以前は 0 >= 0 で完了扱いになっていた
     if (allSteps.isEmpty) {
@@ -131,17 +131,32 @@ class ScheduleResolver {
 
     if (currentStepIndex >= allSteps.length) {
       debugPrint('[ScheduleResolver] Completed route. Step $currentStepIndex >= ${allSteps.length}');
-      // ルート完了？最後のアナウンス項目（到着/ゴール）を返す
-      return schedule.length - 1; 
+      return schedule.isEmpty ? -1 : schedule.length - 1;
     }
 
+    final activeLegRaw = trip.activeLegIndex;
+    final activeLeg = activeLegRaw < 0 ? 0 : (activeLegRaw >= trip.legs.length ? trip.legs.length - 1 : activeLegRaw);
+    final derivedLeg = _deriveLegIndexFromGlobalStep(trip, currentStepIndex);
+
+    // activeLeg から乖離しすぎている（2つ以上離れている）場合は、derivedLeg を信用せず activeLeg を基準にする
+    // これはGPSの誤検知でいきなり遠くのLegに飛ぶのを防ぐため
+    final bool tooFar = (derivedLeg - activeLeg).abs() > 1;
+    final int baseLeg = tooFar ? activeLeg : derivedLeg;
+
+    // 基準となるLegと、その次のLegまでを許可範囲とする
+    final allowLegA = baseLeg;
+    final allowLegB = (baseLeg + 1) < trip.legs.length ? (baseLeg + 1) : baseLeg;
+
+    // derived が allowLegB (つまり次) に進んでいるときは、そこも主対象として扱う
+    
     // 2. スケジュールを反復処理し、routeStepIndex を使用してステップにマッピングする
     for (int i = 0; i < schedule.length; i++) {
       final entry = schedule[i];
       
-      // ★重要: 現在アクティブなLeg (activeLegIndex) に属するエントリーのみを対象とする
-      // これにより、物理的に同じ場所にいても「帰り」の予定が先にアクティブになるのを防ぐ
-      if (entry.legIndex != trip.activeLegIndex) {
+      // ★重要: 基準Leg (allowLegA) または 次のLeg (allowLegB) に属するエントリーのみ許可する
+      final bool legOk = (entry.legIndex == allowLegA) || (entry.legIndex == allowLegB);
+      
+      if (!legOk) {
         continue;
       }
 
@@ -156,18 +171,13 @@ class ScheduleResolver {
             return i;
           } else if (entry.routeRole == 'ride') {
              // 乗車エントリ。 
-             // 以前は remainingStops <= 1 の時に Arrival に切り替えていたが、
-             // それだと「次到着します」の赤いナビ画面（Ride状態）が表示されず、
-             // いきなり「到着しました」のスケジュール画面（Arrival状態）になってしまう。
-             // そのため、ここは最後まで Ride として判定し、TripNavigator 側で「到着」を出すようにする。
              debugPrint('[ScheduleResolver] Ride entry matched. Keeping independent of remaining stops to show Navigation UI.');
              return i;
           } else if (entry.routeRole == 'arrival') {
              // 到着エントリ。
-             // Ride が終わって Step が進んだらここに来るはずだが、
-             // 同じ StepIndex で複数の Entry (Ride, Arrival) がある場合、
-             // 上の Ride で return しているのでここは基本通らない。
-             // ただし、もし Ride エントリがない場合はここでマッチする。
+             return i;
+          } else {
+             // role が未設定でも一致したら採用
              return i;
           }
         }
@@ -175,6 +185,24 @@ class ScheduleResolver {
     }
 
     return -1;
+  }
+
+  static int _deriveLegIndexFromGlobalStep(Trip trip, int globalStepIndex) {
+    // globalStepIndex がどの leg の step 範囲に入るかを返す
+    // legIndex は trip.legs の順番に対応する
+    var cursor = 0;
+    for (int leg = 0; leg < trip.legs.length; leg++) {
+      final count = trip.legs[leg].candidate.steps.length;
+      final start = cursor;
+      final end = cursor + count;
+      if (globalStepIndex >= start && globalStepIndex < end) {
+        return leg;
+      }
+      cursor = end;
+    }
+
+    // 範囲外は最後の leg に丸める
+    return trip.legs.isEmpty ? 0 : trip.legs.length - 1;
   }
 
   static List<ScheduleEntry> sortCopy(List<ScheduleEntry> entries) {

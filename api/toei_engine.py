@@ -682,9 +682,11 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
     for pat in patterns:
         if not is_toei(pat.get("odpt:operator")): continue
         route_id = pat.get("odpt:busroute")
-        disp = (pat.get("dc:title") or "???").split()[0]
-        norm = _norm_line(disp)
-        family_key = f"bus:{norm}"
+        full_title = pat.get("dc:title") or "???"
+        disp = full_title
+        short_title = full_title.split()[0]
+        norm = _norm_line(short_title)
+        family_key = f"bus:{norm}:{disp}"
         orders = pat.get("odpt:busstopPoleOrder") or []
         try: orders = sorted(orders, key=lambda x: x.get("odpt:index", 0))
         except: pass
@@ -1329,6 +1331,14 @@ def main():
     print(f"\n[INFO] Found {len(results)} Routes")
     for i, res in enumerate(results, 1):
         print(f"#{i} {res['score_label']}")
+        for step in res["steps"]:
+            kind = step.get("kind")
+            title = step.get("title")
+            dep = step.get("departure_time")
+            arr = step.get("arrival_time")
+            fro = step.get("from_")
+            to = step.get("to")
+            print(f"    [{kind}] {title} {fro} ({dep}) -> {to} ({arr})")
 
 def get_reachable_stops(G, tm, lat, lon, limit_dist=1000, spatial_index=None):
     nearest_node, nearest_dist = nearest_phys(G, lat, lon, spatial_index=spatial_index)

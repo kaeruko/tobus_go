@@ -96,29 +96,47 @@ class TripNavigator {
       debugPrint('[TripNavigator] Update: Legs=${trip.legs.length}, TotalSteps=${allSteps.length}, CurStep=$lastStepIndex, Pos=$currentPos');
 
       // ★現在アクティブなLegの範囲（開始・終了インデックス）を計算
-      final activeLegIndex = trip.activeLegIndex;
+      // activeLegIndex が異常値（負または範囲外）の場合に備えて丸める
+      int safeActiveLegIndex = trip.activeLegIndex;
+      if (safeActiveLegIndex < 0) safeActiveLegIndex = 0;
+      if (safeActiveLegIndex >= trip.legs.length) safeActiveLegIndex = trip.legs.length > 0 ? trip.legs.length - 1 : 0;
+
       int legStartStepIndex = 0;
-      for (int i = 0; i < activeLegIndex; i++) {
+      for (int i = 0; i < safeActiveLegIndex; i++) {
         if (i < trip.legs.length) {
           legStartStepIndex += trip.legs[i].candidate.steps.length;
         }
       }
-      final currentLegStepCount = activeLegIndex < trip.legs.length
-          ? trip.legs[activeLegIndex].candidate.steps.length
+      final currentLegStepCount = safeActiveLegIndex < trip.legs.length
+          ? trip.legs[safeActiveLegIndex].candidate.steps.length
           : 0;
-      final legEndStepIndex = legStartStepIndex + currentLegStepCount;
+      int searchLimitIndex = legStartStepIndex + currentLegStepCount;
+
+      // ★追加: 次の区間（Next Leg）も探索範囲に含める（Look Ahead）
+      // これにより、乗り換え地点などを見逃して次の区間に入っていても検知できるようにする
+      // ただし、誤判定を防ぐため「currentStepより進んでいること」を必須とする
+      if (safeActiveLegIndex + 1 < trip.legs.length) {
+        final nextLegStepCount = trip.legs[safeActiveLegIndex + 1].candidate.steps.length;
+        searchLimitIndex += nextLegStepCount;
+      }
+
+      // 上限ガード
+      if (searchLimitIndex > allSteps.length) {
+        searchLimitIndex = allSteps.length;
+      }
 
       // ★GPSベースのステップ推定
       final (estimatedStep, estimatedDist) = _estimateCurrentStepIndexWithDistance(
         allSteps: allSteps,
         currentPos: currentPos,
         lastStepIndex: lastStepIndex,
-        minSearchIndex: legStartStepIndex,
-        maxSearchIndex: legEndStepIndex,
+        minSearchIndex: legStartStepIndex, // 戻り方向は現在のLegの先頭まで
+        maxSearchIndex: searchLimitIndex,  // 進み方向は次のLegの末尾まで
       );
       
       // 推定を採用する条件: 距離が近いときだけ（120m以内）
-      if (estimatedStep != currentStep && estimatedDist < 120) {
+      // かつ、前進方向（estimatedStep > currentStep）のみ採用する（戻りは許容しない）
+      if (estimatedStep > currentStep && estimatedDist < 120) {
         debugPrint('[TripNavigator] GPS estimation corrected step: $currentStep -> $estimatedStep (dist: ${estimatedDist.toStringAsFixed(0)}m)');
         currentStep = estimatedStep;
 
@@ -135,7 +153,7 @@ class TripNavigator {
           }
         }
       } else {
-        // step変更なし: 既存のstepで停留所インデックスを更新
+        // step変更なし（または等しい、または戻り）: 既存のstepで停留所インデックスを更新
         if (currentStep < allSteps.length) {
           final step = allSteps[currentStep];
           if (step.kind != 'walk') {
@@ -213,6 +231,15 @@ class TripNavigator {
 
     // 3. 画面表示の生成
     // 更新された currentStep / nextStop を使って文字を作る
+
+    // UI表示生成前の最終安全弁: nextStop が範囲外にならないように丸める
+    // 特にステップの最後の方で remainingStops の計算が狂わないようにする
+    if (currentStep < allSteps.length) {
+      final step = allSteps[currentStep];
+      if (nextStop >= step.stops.length) {
+        nextStop = step.stops.length > 0 ? step.stops.length : 0;
+      }
+    }
 
     // 範囲外チェック
     if (currentStep >= allSteps.length) {
