@@ -174,7 +174,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
   String _normalizePreferenceForApi(String? pref) {
     // UI uses 'fewTransfers' and 'shortTime'; backend expects 'time'/'fast' for fastest path.
     if (pref == 'shortTime') return 'time';
-    if (pref == null || pref.isEmpty) return 'fewTransfers';
+    if (pref == null || pref.isEmpty) return 'cost';
     return pref;
   }
 }

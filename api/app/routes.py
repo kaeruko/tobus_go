@@ -72,16 +72,20 @@ def normalize_pref(pref: str | None) -> str:
 
     - "shortTime" is a frontend label for fastest search and should use the engine's
       "time" mode (equivalent to "fast").
-    - Fallback to "cost" to keep previous default behavior if nothing is provided.
+    - Unknown or missing values fall back to "cost" so the search engine always
+      receives a supported mode.
     """
 
     if not pref:
         return "cost"
-    if pref == "shortTime":
+    if pref in ("shortTime", "fast"):
         return "time"
-    if pref == "fast":
-        return "time"
-    return pref
+
+    # Only allow recognized modes to reach the engine
+    if pref in ("time", "cost", "fewTransfers"):
+        return pref
+
+    return "cost"
 
 def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:00", date_str=None):
     print(f"[USER_DEBUG] compute_route_candidates: start_time={start_time}, date_str={date_str}")
