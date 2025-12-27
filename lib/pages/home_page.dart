@@ -69,7 +69,12 @@ class HomePageState extends ConsumerState<HomePage> {
 
     notifier.setFrom(rs.to, name: rs.toName);
     notifier.setTo(rs.from, name: rs.fromName);
-    notifier.triggerSearch();
+
+    final after = ref.read(routeSearchProvider);
+    final ok = _isCoordinateOrEmpty(after.from) && _isCoordinateOrEmpty(after.to);
+    if (ok) {
+      notifier.triggerSearch();
+    }
   }
 
   Future<void> _useEffectiveLocation() async {
@@ -77,7 +82,10 @@ class HomePageState extends ConsumerState<HomePage> {
       final effective = await ref.read(effectiveLocationProvider.future);
       final notifier = ref.read(routeSearchProvider.notifier);
       notifier.setFrom(effective.loc, name: effective.name);
-      notifier.triggerSearch();
+      
+      if (_canAutoSearchAfterEditingFrom()) {
+        notifier.triggerSearch();
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -96,10 +104,15 @@ class HomePageState extends ConsumerState<HomePage> {
     final notifier = ref.read(routeSearchProvider.notifier);
     if (forA) {
       notifier.setFrom(s, name: '地図で選択した場所');
+      if (_canAutoSearchAfterEditingFrom()) {
+        notifier.triggerSearch();
+      }
     } else {
       notifier.setTo(s, name: '地図で選択した場所');
+      if (_canAutoSearchAfterEditingTo()) {
+        notifier.triggerSearch();
+      }
     }
-    notifier.triggerSearch();
   }
 
   void _showTimePicker(DateTime current) {
@@ -141,6 +154,33 @@ class HomePageState extends ConsumerState<HomePage> {
     final lat = double.tryParse(parts[0].trim());
     final lon = double.tryParse(parts[1].trim());
     return lat != null && lon != null;
+  }
+
+  bool _isCoordinateOrEmpty(String s) {
+    final t = s.trim();
+    if (t.isEmpty) return true;
+
+    final parts = t.split(',');
+    if (parts.length != 2) return false;
+
+    final lat = double.tryParse(parts[0].trim());
+    final lon = double.tryParse(parts[1].trim());
+    if (lat == null || lon == null) return false;
+
+    if (lat < -90 || lat > 90) return false;
+    if (lon < -180 || lon > 180) return false;
+
+    return true;
+  }
+
+  bool _canAutoSearchAfterEditingFrom() {
+    final rs = ref.read(routeSearchProvider);
+    return _isCoordinateOrEmpty(rs.to);
+  }
+
+  bool _canAutoSearchAfterEditingTo() {
+    final rs = ref.read(routeSearchProvider);
+    return _isCoordinateOrEmpty(rs.from);
   }
 
   @override
@@ -231,7 +271,7 @@ class HomePageState extends ConsumerState<HomePage> {
                         displayValue: rs.fromName,
                         onChanged: (val, desc) {
                           notifier.setFrom(val, name: desc.isNotEmpty ? desc : val);
-                          if (_isCoordinate(val)) {
+                          if (_isCoordinate(val) && _canAutoSearchAfterEditingFrom()) {
                             notifier.triggerSearch();
                           }
                         },
@@ -276,7 +316,7 @@ class HomePageState extends ConsumerState<HomePage> {
                         displayValue: rs.toName,
                         onChanged: (val, desc) {
                           notifier.setTo(val, name: desc.isNotEmpty ? desc : val);
-                          if (_isCoordinate(val)) {
+                          if (_isCoordinate(val) && _canAutoSearchAfterEditingTo()) {
                             notifier.triggerSearch();
                           }
                         },

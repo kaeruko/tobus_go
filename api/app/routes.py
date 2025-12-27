@@ -19,9 +19,11 @@ from toei_engine import (
     min_to_time_str,
     MAX_WALK_SEG_M,
     get_reachable_stops,
+    _rss_mb,
 )
 
 ROUTE_JOBS: dict[str, dict] = {}
+_ROUTE_LOCK = asyncio.Lock()
 
 # 簡易TTLキャッシュ
 # key は パラメータを詰めた文字列
@@ -88,6 +90,7 @@ def normalize_pref(pref: str | None) -> str:
     return "cost"
 
 def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:00", date_str=None):
+    print(f"[MEM] enter compute_route_candidates rss={_rss_mb():.1f}MB")
     print(f"[USER_DEBUG] compute_route_candidates: start_time={start_time}, date_str={date_str}")
     pref = normalize_pref(pref)
     g = app.state.G
@@ -198,6 +201,10 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
         
         cand["origin_coords"] = [alat, alon]
         cand["destination_coords"] = [blat, blon]
+        
+        # Cleanup large path data from response
+        if "path" in cand:
+            del cand["path"]
 
     fallback_distance_m = None
     fallback_node_name = None
@@ -216,6 +223,9 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
         "walk_limit_m": MAX_WALK_SEG_M,
     }
 
+    import gc
+    gc.collect()
+    print(f"[MEM] leave compute_route_candidates rss={_rss_mb():.1f}MB")
     return {"candidates": results, "meta": meta}
 
 async def _run_route_job(app, job_id, alat, alon, blat, blon, pref, start_time, date_str):
@@ -254,13 +264,18 @@ def register_routes(app):
 
         # Lambda対策: Jobポーリング方式をやめて同期的に結果を返す
         loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(
-            None,
-            compute_route_candidates,
-            app,
-            req.alat, req.alon, req.blat, req.blon, normalize_pref(req.pref), req.start_time, req.target_date_str,
-        )
-        return result
+        
+        # Prevent parallel execution of heavy search
+        async with _ROUTE_LOCK:
+             print(f"[USER_DEBUG] /route locked, start rss={_rss_mb():.1f}MB")
+             result = await loop.run_in_executor(
+                None,
+                compute_route_candidates,
+                app,
+                req.alat, req.alon, req.blat, req.blon, normalize_pref(req.pref), req.start_time, req.target_date_str,
+             )
+             print(f"[USER_DEBUG] /route unlocked, end rss={_rss_mb():.1f}MB")
+             return result
 
     # @app.get("/route") <- ポーリングエンドポイントは実質無効化（残しておいても良いが使わない）
     @app.get("/route")

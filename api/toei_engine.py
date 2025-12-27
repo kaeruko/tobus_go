@@ -4,6 +4,7 @@
 
 import json, argparse, math, sys, heapq, datetime
 import os
+import gc
 import networkx as nx
 from collections import defaultdict
 
@@ -24,6 +25,40 @@ MAX_TRAVEL_MIN = 240.0      # 例: 4 時間を上限
 MAX_TOTAL_WALK_M = 3000.0   # 例: 総徒歩 3km まで
 
 # -------------------- ユーティリティ --------------------
+def _rss_mb() -> float:
+    # Lambda linux 用 /proc/self/statm (more accurate/fast on Linux)
+    try:
+        with open("/proc/self/statm", "r") as f:
+            parts = f.read().strip().split()
+        if not parts:
+            return -1.0
+        # statm[1] is RSS in pages
+        rss_pages = int(parts[1])
+        # SC_PAGE_SIZE is usually 4096
+        page_size = os.sysconf("SC_PAGE_SIZE")
+        return (rss_pages * page_size) / (1024.0 * 1024.0)
+    except Exception:
+        # Fallback for Mac/Local dev
+        try:
+            import resource
+            r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            # Mac: bytes, Linux: KB. We prioritize Linux path above, so this is likely Mac.
+            # On Mac ru_maxrss is bytes. Wait, Python docs say:
+            # "on Linux, it is expressed in kilobytes... on MacOS X, it is expressed in bytes."
+            # But let's assume if statm failed, we are on Mac.
+            if sys.platform == "darwin":
+                return r / (1024.0 * 1024.0)
+            return r / 1024.0
+        except:
+            return -1.0
+
+def _mem_log(tag: str, extra: str = "") -> None:
+    rss = _rss_mb()
+    if extra:
+        print(f"[MEM] {tag} rss={rss:.1f}MB {extra}")
+    else:
+        print(f"[MEM] {tag} rss={rss:.1f}MB")
+
 def _line_norm(s: str) -> str:
     tbl = str.maketrans("０１２３４５６７８９　（）", "0123456789 ()")
     return (s or "").translate(tbl).replace(" ", "")
@@ -45,8 +80,10 @@ def is_toei(op):
     return isinstance(op, str) and "Toei" in op
 
 def load_json(path):
+    _mem_log("load_json begin", f"path={path}")
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
+    _mem_log("load_json end")
     
     # Restore safety check for wrapped result
     if isinstance(data, dict):
@@ -72,10 +109,32 @@ def min_to_time_str(m):
 def _create_int_dd():
     return defaultdict(int)
 
+# -------------------- Path Chain Logic (Integer Index Based) --------------------
+def _chain_new(chain_store, node, parent_idx):
+    """
+    Store (node, parent_idx) in the global/local list and return its index.
+    Replaces the nested tuple structure to save memory.
+    """
+    chain_store.append((node, parent_idx))
+    return len(chain_store) - 1
+
+def reconstruct_path_idx(chain_store, idx):
+    """
+    Reconstruct path list from the chain_store using index referencing.
+    """
+    path = []
+    cur = idx
+    # cur can be 0, so check is not None
+    while cur is not None:
+        node, parent = chain_store[cur]
+        path.append(node)
+        cur = parent
+    path.reverse()
+    return path
+
 def reconstruct_path(chain):
     """
-    (current_node, parent_chain) の形式のタプルチェーンから
-    [node1, node2, ..., current_node] のリストを復元する
+    Legacy tuple-based reconstructor. Kept for find_fastest_path until refactored.
     """
     path = []
     curr = chain
@@ -83,7 +142,7 @@ def reconstruct_path(chain):
         node, parent = curr
         path.append(node)
         curr = parent
-    return path[::-1]  # 逆順になおす
+    return path[::-1]
 
 # -------------------- 空間インデックス (Grid Index) --------------------
 REF_LAT = 35.681236  # Tokyo Station
@@ -324,6 +383,12 @@ class TimetableManager:
             if not route_id or not seq:
                 continue
 
+            # Need to handle potential duplicate patterns if simple keying
+            # But here we just append unique sequences for the route
+            if route_id not in self.route_patterns_map:
+                self.route_patterns_map[route_id] = []
+            
+            # Simple deduplication check in memory logic
             key = tuple(seq)
             exists = False
             for s in self.route_patterns_map[route_id]:
@@ -333,8 +398,11 @@ class TimetableManager:
             if not exists:
                 self.route_patterns_map[route_id].append(seq)
                 count += 1
-
-        print(f"[DEBUG] Loaded Bus Patterns for {count} patterns.")
+        
+        del data
+        import gc
+        gc.collect()
+        _mem_log("load_bus_route_patterns done", f"entries={count}")
 
     def load_bus_timetables(self, json_path):
         data = load_json(json_path)
@@ -389,6 +457,10 @@ class TimetableManager:
                 target_dict[pole_id][route_id].extend(times)
                 
             count += 1
+        
+        del data
+        gc.collect()
+        _mem_log("load_bus_timetables done", f"entries={count}")
         
         # ソート ensures consistency after extend
         for d in [self.bus_departures_weekday, self.bus_departures_saturday, self.bus_departures_holiday]:
@@ -714,6 +786,16 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
             G.add_edge(nb, na, w=RAIL_RIDE_COST, etype="ride", line=line_id, mode="rail")
 
     connect_walk_edges_phys(G, radius_m=walk_radius)
+    
+    # Aggressive GC
+    del poles
+    del stations
+    del patterns
+    del railways
+    import gc
+    gc.collect()
+    _mem_log("build_graph done")
+    
     return G
 
 def connect_walk_edges_phys(G, radius_m=300):
@@ -969,6 +1051,8 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
 
 def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_search=30000, max_visited=15000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, time_limit_sec=15.0, virtual_dest_connections=None, target_coords=None):
     import time
+    
+    _mem_log("find_paths_generator start")
     start_clock = time.monotonic()
     start_min = time_str_to_min(start_time_str)
 
@@ -989,7 +1073,20 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
         return dist / 400.0
 
     start_h = heuristic(start_node)
-    pq = [(start_h, 0.0, start_node, 0.0, 0.0, start_min, (start_node, None))]
+    
+    # key: (node, walk_bucket) -> cost
+    g_score = {}
+
+    # Path Chain Optimization: Use index referencing
+    chain_store = []
+    # Store initial node, parent is None
+    start_idx = _chain_new(chain_store, start_node, None)
+
+    # pq stores (f_score, cost, node, total_walk, seg_walk, curr_time, chain_idx)
+    pq = [(start_h, 0.0, start_node, 0.0, 0.0, start_min, start_idx)]
+    
+    # Initialize g_score for start
+    g_score[(start_node, 0)] = 0.0
 
     target_goal_nodes = {target_node}
     if target_node and target_node[0] == "phys":
@@ -1002,36 +1099,61 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
                         target_goal_nodes.add(n)
 
     best_cost = {}
-    seen_logical_routes = set()
+    seen_logical_routes = set() # Stores hash(sig)
     yielded_count = 0
     visited_count = 0
+    
+    # Safety Limits
+    MAX_PQ = 250000
+    MAX_GSCORE = 500000
+    MAX_BEST = 500000
 
     while pq:
-        if visited_count > 0 and visited_count % 1000 == 0:
+        # Check timeout more frequently (every 100 nodes)
+        if visited_count > 0 and visited_count % 100 == 0:
             if time.monotonic() - start_clock > time_limit_sec:
-                print(f"[WARN] Search timeout {yielded_count} paths.")
+                print(f"[WARN] Search timeout {yielded_count} paths found. Visited {visited_count} nodes.")
+                _mem_log("search_timeout")
                 return
+            
+            # Check Memory/Size Limits
+            if len(pq) > MAX_PQ or len(g_score) > MAX_GSCORE or len(best_cost) > MAX_BEST:
+                print(f"[WARN] Search structure too large. abort pq={len(pq)} g={len(g_score)} best={len(best_cost)}")
+                _mem_log("search_abort_size")
+                return
+                
+            if visited_count % 500 == 0:
+                 _mem_log("search tick", f"visited={visited_count} pq={len(pq)} g={len(g_score)} best={len(best_cost)} seen={len(seen_logical_routes)}")
 
-        _, cost, u, total_walk_m, seg_walk_m, curr_time, path_chain = heapq.heappop(pq)
+        _, cost, u, total_walk_m, seg_walk_m, curr_time, chain_idx = heapq.heappop(pq)
         visited_count += 1
-        if visited_count > max_visited: return
+        if visited_count > max_visited: 
+            _mem_log("search_max_visited")
+            return
 
         if curr_time - start_min > max_travel_min: continue
 
         walk_bucket = int(seg_walk_m // 10)
         state_key = (u, walk_bucket)
+        
+        # Check against closed set
         prev_best = best_cost.get(state_key)
         if prev_best is not None and cost >= prev_best: continue
         best_cost[state_key] = cost
 
         if u in target_goal_nodes:
-            full_path = reconstruct_path(path_chain)
+            full_path = reconstruct_path_idx(chain_store, chain_idx)
             sig = get_logical_signature(G, full_path)
-            if sig in seen_logical_routes: continue
-            seen_logical_routes.add(sig)
+            # Use hash for memory efficiency
+            hs = hash(sig)
+            if hs in seen_logical_routes: continue
+            seen_logical_routes.add(hs)
+            
             yield {"cost": cost, "path": full_path, "walk_m": total_walk_m}
             yielded_count += 1
-            if yielded_count >= max_search: return
+            if yielded_count >= max_search: 
+                _mem_log("search_max_yield")
+                return
             continue
 
         if virtual_dest_connections and target_node and target_node[0] == "phys" and str(target_node[1]).startswith("dest:"):
@@ -1043,7 +1165,14 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
                         new_seg_v = vmeters
                         if new_total_v <= MAX_TOTAL_WALK_M and new_seg_v <= MAX_WALK_SEG_M:
                             new_cost_v = cost + vw
-                            heapq.heappush(pq, (new_cost_v + heuristic(target_node), new_cost_v, target_node, new_total_v, new_seg_v, next_time_v, (target_node, path_chain)))
+                            # State check
+                            bucket_v = int(new_seg_v // 10)
+                            key_v = (target_node, bucket_v)
+                            # g_score logic
+                            if new_cost_v < g_score.get(key_v, float('inf')):
+                                g_score[key_v] = new_cost_v
+                                new_chain_idx = _chain_new(chain_store, target_node, chain_idx)
+                                heapq.heappush(pq, (new_cost_v + heuristic(target_node), new_cost_v, target_node, new_total_v, new_seg_v, next_time_v, new_chain_idx))
                     break
 
         for v in G[u]:
@@ -1065,13 +1194,33 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
                 new_seg_walk_m = 0.0
 
             new_cost = cost + w
-            new_h = heuristic(v)
-            heapq.heappush(pq, (new_cost + new_h, new_cost, v, new_total_walk_m, new_seg_walk_m, next_time, (v, path_chain)))
+            
+            # Open Set Optimization
+            new_bucket = int(new_seg_walk_m // 10)
+            new_key = (v, new_bucket)
+            if new_cost < g_score.get(new_key, float('inf')):
+                g_score[new_key] = new_cost
+                new_h = heuristic(v)
+                new_chain_idx = _chain_new(chain_store, v, chain_idx)
+                heapq.heappush(pq, (new_cost + new_h, new_cost, v, new_total_walk_m, new_seg_walk_m, next_time, new_chain_idx))
+    _mem_log("find_paths_generator end")
 
 def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None, target_coords=None):
+    import time
+    start_clock = time.monotonic()
+    
     start_min = time_str_to_min(start_time_str)
-    pq = [(start_min, start_node, (start_node, None), 0.0, 0.0)]
-    visited_time = {}
+    
+    # Path Chain Optimization
+    chain_store = []
+    start_idx = _chain_new(chain_store, start_node, None)
+    
+    # pq: (next_time, node, chain_idx, total_walk, seg_walk)
+    pq = [(start_min, start_node, start_idx, 0.0, 0.0)]
+    visited_time = {} # Closed Set
+    min_time = {}     # Open Set Optimization key=(u, bucket) -> time
+    
+    min_time[(start_node, 0)] = start_min
     
     target_pole_ids = set()
     def add_poles(pid):
@@ -1089,12 +1238,28 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
     elif target_node and target_node[0] == "phys":
         add_poles(target_node[1])
 
+    visited_count = 0
+    MAX_VISITED = 100000 
+    TIME_LIMIT_SEC = 15.0
+
     while pq:
-        curr_time, u, path_chain, total_walk, seg_walk = heapq.heappop(pq)
+        # Timeout & Failsafe
+        if visited_count > 0 and visited_count % 100 == 0:
+            if time.monotonic() - start_clock > TIME_LIMIT_SEC:
+                print(f"[WARN] Fastest path search timeout. Visited {visited_count}.")
+                return None, None
+            if len(pq) > 1000000:
+                print(f"[WARN] PQ exploded. Aborting.")
+                return None, None
+                
+        curr_time, u, chain_idx, total_walk, seg_walk = heapq.heappop(pq)
+        visited_count += 1
+        if visited_count > MAX_VISITED: return None, None
+        
         if curr_time - start_min > max_travel_min: continue
         
         if u == target_node:
-            return curr_time, reconstruct_path(path_chain)
+            return curr_time, reconstruct_path_idx(chain_store, chain_idx)
 
         state = (u, int(seg_walk // 10))
         if state in visited_time and visited_time[state] <= curr_time: continue
@@ -1107,20 +1272,33 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
                     new_seg = seg_walk + vmeters
                     new_tot = total_walk + vmeters
                     if v_time - start_min <= max_travel_min and new_seg <= MAX_WALK_SEG_M and new_tot <= MAX_TOTAL_WALK_M:
-                        heapq.heappush(pq, (v_time, target_node, (target_node, path_chain), new_tot, new_seg))
+                        # Open Set Opt
+                        n_bucket = int(new_seg // 10)
+                        n_key = (target_node, n_bucket)
+                        if v_time < min_time.get(n_key, float('inf')):
+                            min_time[n_key] = v_time
+                            new_chain_idx = _chain_new(chain_store, target_node, chain_idx)
+                            heapq.heappush(pq, (v_time, target_node, new_chain_idx, new_tot, new_seg))
+                    break
 
         for v in G[u]:
             edge = G[u][v]
             etype = edge.get("etype")
             meters = edge.get("meters", 0)
-            next_time = advance_time(G, tm, u, v, curr_time, day_type, delays_snapshot, target_pole_id=None) # target_pole_ids not easily passed to advance_time currently refactored
+            next_time = advance_time(G, tm, u, v, curr_time, day_type, delays_snapshot, target_pole_id=None) 
             if next_time is None: continue
 
             new_seg = seg_walk + (meters if etype == "walk" else 0) if etype == "walk" else 0
             new_tot = total_walk + (meters if etype == "walk" else 0) if etype == "walk" else total_walk
             if new_seg > MAX_WALK_SEG_M or new_tot > MAX_TOTAL_WALK_M: continue
             
-            heapq.heappush(pq, (next_time, v, (v, path_chain), new_tot, new_seg))
+            # Open Set Opt
+            n_bucket = int(new_seg // 10)
+            n_key = (v, n_bucket)
+            if next_time < min_time.get(n_key, float('inf')):
+                 min_time[n_key] = next_time
+                 new_chain_idx = _chain_new(chain_store, v, chain_idx)
+                 heapq.heappush(pq, (next_time, v, new_chain_idx, new_tot, new_seg))
     return None, None
 
 def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", day_type="weekday", max_search=30000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None):
