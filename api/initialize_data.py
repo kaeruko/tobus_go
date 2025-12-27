@@ -66,6 +66,38 @@ def download_and_extract_gtfs(data_dir, token):
     except Exception as e:
         print(f"GTFS Download Failed: {e}")
 
+def validate_train_timetable(data_dir):
+    path = os.path.join(data_dir, "odpt_TrainTimetable.json")
+    if not os.path.exists(path):
+        raise RuntimeError("odpt_TrainTimetable.json not found")
+
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    counts = {
+        "odpt.Calendar:Weekday": 0,
+        "odpt.Calendar:Saturday": 0,
+        "odpt.Calendar:Holiday": 0,
+        "odpt.Calendar:SaturdayHoliday": 0,
+    }
+
+    for t in data:
+        c = t.get("odpt:calendar")
+        if c in counts:
+            counts[c] += 1
+
+    print("[INFO] TrainTimetable counts")
+    for k, v in counts.items():
+        print(f"  {k}: {v}")
+
+    # Validation Logic:
+    # We need EITHER (Saturday AND Holiday) OR (SaturdayHoliday)
+    has_separate = (counts["odpt.Calendar:Saturday"] > 0 and counts["odpt.Calendar:Holiday"] > 0)
+    has_combined = (counts["odpt.Calendar:SaturdayHoliday"] > 0)
+    
+    if not (has_separate or has_combined):
+        raise RuntimeError("Weekend timetable is missing (Need Sat+Hol or SaturdayHoliday)")
+
 def main(data_dir=None, token=None):
     if data_dir is None:
         data_dir = DEFAULT_DATA_DIR
@@ -98,10 +130,14 @@ def main(data_dir=None, token=None):
         print(f"Bus Timetable Fetch Error: {e}")
 
     try:
-        print("--- Fetching Train Timetables ---")
-        fetch_train_robust.main()
+        print("--- Fetching Bus Timetables ---")
+        fetch_robust.main() 
     except Exception as e:
-        print(f"Train Timetable Fetch Error: {e}")
+        print(f"Bus Timetable Fetch Error: {e}")
+
+    print("--- Fetching Train Timetables ---")
+    fetch_train_robust.main()
+    validate_train_timetable(data_dir)
 
     print("\n=== 3. GTFS Data (ZIP) ===")
     download_and_extract_gtfs(data_dir, token)

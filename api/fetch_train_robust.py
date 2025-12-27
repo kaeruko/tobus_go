@@ -36,7 +36,8 @@ def main():
 
     # 2. 路線ごとにTrainTimetableをダウンロード
     all_timetables = []
-    calendars = ["odpt.Calendar:Weekday", "odpt.Calendar:Saturday", "odpt.Calendar:Holiday"]
+    # Note: Asakusa line and others often use 'SaturdayHoliday' combined
+    calendars = ["odpt.Calendar:Weekday", "odpt.Calendar:Saturday", "odpt.Calendar:Holiday", "odpt.Calendar:SaturdayHoliday"]
     
     for i, rail_id in enumerate(target_railways, 1):
         print(f"[{i}/{len(target_railways)}] Railway: {rail_id}")
