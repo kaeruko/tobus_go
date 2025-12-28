@@ -5,7 +5,7 @@ import asyncio
 import datetime
 from app.services.bus_stop_experience import build_route_experiences
 
-from fastapi import HTTPException, Form, Query, Body
+from fastapi import HTTPException, Form, Query, Body, BackgroundTasks
 from fastapi.responses import Response
 import time
 from typing import Optional
@@ -26,10 +26,11 @@ ROUTE_JOBS: dict[str, dict] = {}
 _ROUTE_LOCK = asyncio.Lock()
 
 # 簡易TTLキャッシュ
-# key は パラメータを詰めた文字列
-# value は expires_at と bytes
 _sv_cache: dict[str, tuple[float, bytes]] = {}
 SV_CACHE_TTL_SEC = 60 * 60  # 1時間
+
+ODPT_API_URL = "https://api.odpt.org/api/v4"
+ODPT_API_KEY = os.getenv("ODPT_API_KEY")
 
 def _cache_get(key: str) -> Optional[bytes]:
     hit = _sv_cache.get(key)
@@ -70,23 +71,12 @@ def determine_day_type(date_str: str | None) -> str:
 
 
 def normalize_pref(pref: str | None) -> str:
-    """Map UI preference values to engine modes.
-
-    - "shortTime" is a frontend label for fastest search and should use the engine's
-      "time" mode (equivalent to "fast").
-    - Unknown or missing values fall back to "cost" so the search engine always
-      receives a supported mode.
-    """
-
     if not pref:
         return "cost"
     if pref in ("shortTime", "fast"):
         return "time"
-
-    # Only allow recognized modes to reach the engine
     if pref in ("time", "cost", "fewTransfers"):
         return pref
-
     return "cost"
 
 def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:00", date_str=None):
@@ -96,10 +86,8 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
     g = app.state.G
     tm = app.state.TM
     walk_rad = app.state.WALK_RAD
-
     si = app.state.SI
     
-    # nearest_phys returns (node_id, distance_in_meters)
     a_phys, a_dist = nearest_phys(g, alat, alon, station_only=False, spatial_index=si)
     b_phys, bd = nearest_phys(g, blat, blon, station_only=True, spatial_index=si)
     if not b_phys or bd > 500:
@@ -108,13 +96,11 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
     if not a_phys or not b_phys:
         return {"error": "Nearby stations or busstops not found", "candidates": []}
 
-    # ★追加: 最寄りバス停までの徒歩時間を計算
     import math
     initial_walk_min = 0
     if a_dist and a_dist > 0:
         initial_walk_min = max(1, math.ceil(a_dist / 80.0))
     
-    # ★追加: 検索開始時刻を徒歩分だけ遅らせる
     active_start_time = start_time
     if initial_walk_min > 0:
         s_min = time_str_to_min(start_time)
@@ -125,21 +111,17 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
         g, blat, blon, name=destination_label, walk_radius=walk_rad, spatial_index=si
     )
     destination_reachable = len(virtual_connections) > 0
-
-    print(f"[USER_DEBUG] virtual_connections count: {len(virtual_connections)}")
-    
     day_type = determine_day_type(date_str)
 
     results = []
     if destination_reachable:
-        print(f"[USER_DEBUG] Attempting first search with virtual destination: {dest_node}")
         results = search_best_routes_once(
-            g, # Use original graph! No copy!
+            g, 
             tm,
             a_phys,
             b_phys,
             mode=pref,
-            start_time=active_start_time, # ★変更
+            start_time=active_start_time, 
             target_date_str=date_str,
             limit=5,
             target_node=dest_node,
@@ -147,17 +129,15 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
             virtual_dest_connections=virtual_connections,
             target_coords=[blat, blon],
         )
-        print(f"[USER_DEBUG] First search results count: {len(results)}")
 
     if not results:
-        print("[USER_DEBUG] First search failed or destination unreachable. Falling back to physical node search.")
         results = search_best_routes_once(
             g,
             tm,
             a_phys,
             b_phys,
             mode=pref,
-            start_time=active_start_time, # ★変更
+            start_time=active_start_time, 
             target_date_str=date_str,
             limit=5,
             target_node=b_phys,
@@ -167,18 +147,14 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
         )
 
     for cand in results:
-        # ★追加: 徒歩ステップを先頭に挿入
         if initial_walk_min > 0:
             a_node_name = g.nodes[a_phys]["name"]
             
-            # 先頭が徒歩ならマージする
             if cand["steps"] and cand["steps"][0]["kind"] == "walk":
                 first = cand["steps"][0]
-                first["from_"] = "現在地" # タイトル上書き
-                # to はそのまま (例: 押上)
+                first["from_"] = "現在地" 
                 first["minutes"] += int(initial_walk_min)
                 first["meters"] += int(a_dist)
-                # edges (曲がり角など) は加算しないか、適当に+1するか。ここではGPS徒歩を1エッジとみなして+1
                 first["edges"] = first.get("edges", 0) + 1
                 
                 cand["points"].insert(0, [alat, alon])
@@ -202,9 +178,7 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
         cand["origin_coords"] = [alat, alon]
         cand["destination_coords"] = [blat, blon]
         
-        # Cleanup large path data from response
-        if "path" in cand:
-            del cand["path"]
+        if "path" in cand: del cand["path"]
 
     fallback_distance_m = None
     fallback_node_name = None
@@ -228,21 +202,33 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
     print(f"[MEM] leave compute_route_candidates rss={_rss_mb():.1f}MB")
     return {"candidates": results, "meta": meta}
 
-async def _run_route_job(app, job_id, alat, alon, blat, blon, pref, start_time, date_str):
-    loop = asyncio.get_running_loop()
-    ROUTE_JOBS[job_id]["status"] = "running"
-    try:
-        result = await loop.run_in_executor(
-            None,
-            compute_route_candidates,
-            app,
-            alat, alon, blat, blon, pref, start_time, date_str,
-        )
-        ROUTE_JOBS[job_id]["status"] = "done"
-        ROUTE_JOBS[job_id]["result"] = result
-    except Exception as e:
-        ROUTE_JOBS[job_id]["status"] = "error"
-        ROUTE_JOBS[job_id]["error"] = str(e)
+async def _fetch_and_update_realtime(app_state):
+    tm = app_state.TM
+    if not tm: return
+
+    params = {
+        "acl:consumerKey": ODPT_API_KEY,
+        "odpt:operator": "odpt.Operator:Toei"
+    }
+    
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        # 1. Bus Realtime
+        try:
+            r_bus = await client.get(f"{ODPT_API_URL}/odpt:Bus", params=params)
+            if r_bus.status_code == 200:
+                tm.update_bus_realtime(r_bus.json())
+                print(f"[INFO] Updated Bus realtime data. {len(tm.bus_realtime_delays)} routes delayed.")
+        except Exception as e:
+            print(f"[WARN] Failed to update bus realtime: {e}")
+
+        # 2. Train Info Text
+        try:
+            r_train = await client.get(f"{ODPT_API_URL}/odpt:TrainInformation", params=params)
+            if r_train.status_code == 200:
+                tm.update_train_info_text(r_train.json())
+                print(f"[INFO] Updated Train info text. Suspended: {tm.train_service_suspended}")
+        except Exception as e:
+            print(f"[WARN] Failed to update train info: {e}")
 
 def register_routes(app):
     from pydantic import BaseModel
@@ -262,10 +248,7 @@ def register_routes(app):
         if getattr(app.state, "loading_status", "starting") != "ready":
              raise HTTPException(503, "Server is warming up (loading data). Please try again in 1-2 minutes.")
 
-        # Lambda対策: Jobポーリング方式をやめて同期的に結果を返す
         loop = asyncio.get_running_loop()
-        
-        # Prevent parallel execution of heavy search
         async with _ROUTE_LOCK:
              print(f"[USER_DEBUG] /route locked, start rss={_rss_mb():.1f}MB")
              result = await loop.run_in_executor(
@@ -280,7 +263,15 @@ def register_routes(app):
              print(f"[USER_DEBUG] /route unlocked, end rss={_rss_mb():.1f}MB, response_size={result_bytes} bytes, candidates={cand_count}")
              return result
 
-    # @app.get("/route") <- ポーリングエンドポイントは実質無効化（残しておいても良いが使わない）
+    @app.post("/realtime/update")
+    async def update_realtime_data(background_tasks: BackgroundTasks):
+        if not ODPT_API_KEY:
+            raise HTTPException(500, "ODPT_API_KEY not configured")
+        
+        # Trigger update in background to return quickly
+        background_tasks.add_task(_fetch_and_update_realtime, app.state)
+        return {"status": "accepted"}
+
     @app.get("/route")
     async def route_poll(job_id: str = Query(...)):
         job = ROUTE_JOBS.get(job_id)
@@ -400,21 +391,13 @@ def register_routes(app):
         if getattr(app.state, "loading_status", "starting") != "ready":
              raise HTTPException(503, "Server is warming up (loading data).")
 
-        # 修正箇所: serverからインポートせず、app.stateから取得する
         G = app.state.G
         tm = app.state.TM
         
         if G is None or tm is None:
             raise HTTPException(status_code=503, detail="Server not initialized")
 
-        # toei_engine からインポートした関数を使用
         result = get_reachable_stops(G, tm, lat, lon)
-        
-        # if not result["found"]:
-        #     # 404を返すとクライアントがException扱いしてしまうため、
-        #     # 200 OK で found:False を返すように変更
-        #     pass
-            
         return result
 
     @app.get("/streetview/thumb")
@@ -432,14 +415,12 @@ def register_routes(app):
         if not google_maps_api_key:
             raise HTTPException(500, "GOOGLE_MAPS_API_KEY is missing")
 
-        # キャッシュキー
         cache_key = f"{lat:.6f},{lon:.6f}|{w}x{h}|r{radius}|f{fov}|hd{heading}|p{pitch}"
         cached = _cache_get(cache_key)
         if cached is not None:
             return Response(content=cached, media_type="image/jpeg")
 
         async with httpx.AsyncClient(timeout=8.0) as client:
-            # 1 metadata で近くにストビューがあるか確認して pano を取る
             meta_url = "https://maps.googleapis.com/maps/api/streetview/metadata"
             meta_params = {
                 "location": f"{lat},{lon}",
@@ -453,15 +434,12 @@ def register_routes(app):
             meta_json = meta.json()
             status = meta_json.get("status")
             if status != "OK":
-                # 画像が無い場所
-                # Flutter 側で errorBuilder を効かせたいので 404 で返す
                 raise HTTPException(404, f"StreetView not found status={status}")
 
             pano_id = meta_json.get("pano_id")
             if not pano_id:
                 raise HTTPException(404, "StreetView pano_id not found")
 
-            # 2 pano 指定で画像を取得
             img_url = "https://maps.googleapis.com/maps/api/streetview"
             img_params = {
                 "size": f"{w}x{h}",
@@ -476,6 +454,5 @@ def register_routes(app):
                 raise HTTPException(502, f"StreetView image upstream error {img.status_code}")
 
             content = img.content
-            # Google 側の content type は jpeg 想定
             _cache_set(cache_key, content)
             return Response(content=content, media_type="image/jpeg")

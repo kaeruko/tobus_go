@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:toeigo/logic/trip_coordinator.dart';
-import 'package:toeigo/logic/trip_navigator.dart'; // RouteNavState
+import 'package:toeigo/logic/trip_navigator.dart'; 
+import 'package:toeigo/models/route_models.dart'; // StepSeg
 import 'package:toeigo/logic/schedule_resolver.dart';
 import 'package:toeigo/models/trip_models.dart';
 import 'package:toeigo/models/group_models.dart';
@@ -29,25 +30,20 @@ void main() {
       );
     }
 
-    final dummyRouteStateMoving = RouteNavState(
+    // Use RouteState (mutable) for testing input
+    final dummyStep = StepSeg(kind: 'walk', title: 'Walk', fromName: 'A', toName: 'B');
+    
+    final dummyRouteStateMoving = RouteState(
+      steps: [dummyStep],
       currentStepIndex: 0,
       nextStopIndex: 0,
-      statusLabel: 'Walking',
-      mainText: 'Walking',
-      subText: 'To next stop',
-      color: Colors.blue,
-      isMoving: true,
-    );
+    )..isMoving = true;
 
-    final dummyRouteStateNotMoving = RouteNavState(
+    final dummyRouteStateNotMoving = RouteState(
+      steps: [dummyStep],
       currentStepIndex: 0,
       nextStopIndex: 0,
-      statusLabel: 'Wait',
-      mainText: 'Wait',
-      subText: 'Waiting',
-      color: Colors.blue,
-      isMoving: false,
-    );
+    )..isMoving = false;
 
     test('buildMemberNavigationState prioritizes Route if Moving', () {
       final trip = createDummyTrip(status: TripStatus.active);
@@ -73,7 +69,7 @@ void main() {
       );
 
       expect(navState.isMoving, true);
-      expect(navState.mainText, 'Walking'); // Route state text
+      expect(navState.statusLabel, '移動中'); // Default for moving route logic
     });
 
     test('buildMemberNavigationState prioritizes Schedule if Not Moving', () {

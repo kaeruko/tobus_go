@@ -88,11 +88,17 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         final nav = ref.read(memberNavProgressProvider);
 
         // TripNavigatorを直接呼び出してGPS補正を適用
-        final routeState = TripNavigator.updateRouteOnly(
-          trip: trip,
-          currentPos: currentPos,
-          lastStepIndex: nav.currentStepIndex,
-          lastStopIndex: nav.nextStopIndex,
+        final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
+        final routeState = RouteState(
+          steps: allSteps,
+          currentStepIndex: nav.currentStepIndex,
+          nextStopIndex: nav.nextStopIndex,
+          isMoving: true,
+        );
+
+        TripNavigator.updateRouteOnly(
+           routeState,
+           currentPos,
         );
 
         // 補正後のインデックスをnavProgressに書き戻す
@@ -232,12 +238,20 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                 : null); 
 
         // 1. Resolve Route Navigation (Pure Route State) - 先に実行してGPS補正を適用
-        final routeState = TripNavigator.updateRouteOnly(
-          trip: trip,
-          currentPos: currentPos,
-          lastStepIndex: navProgress.currentStepIndex,
-          lastStopIndex: navProgress.nextStopIndex,
+        final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
+        final routeState = RouteState(
+          steps: allSteps,
+          currentStepIndex: navProgress.currentStepIndex,
+          nextStopIndex: navProgress.nextStopIndex,
+          isMoving: true, // Default active
         );
+        
+        if (currentPos != null) {
+          TripNavigator.updateRouteOnly(
+            routeState,
+            currentPos,
+          );
+        }
 
         // 2. Resolve Schedule (Window + Active) - routeStateの補正後インデックスを使用
         final scheduleResolved = ScheduleResolver.resolve(

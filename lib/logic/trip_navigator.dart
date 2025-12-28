@@ -9,6 +9,25 @@ import '../models/group_models.dart';
 // ナビゲーションの結果（画面表示用、最終形）
 // Coordinatorがこれを組み立てるが、型定義はここにあっても良いし、Coordinatorに移動しても良い。
 // MemberModePageが使っているので、既存の場所にあるとimport変更が少なくて済む。
+// Mutable state for navigation to ensure stability
+class RouteState {
+  List<StepSeg> steps;
+  int currentStepIndex;
+  int nextStopIndex;
+  bool isMoving;
+
+  RouteState({
+    required this.steps,
+    this.currentStepIndex = 0,
+    this.nextStopIndex = 0,
+    this.isMoving = false,
+  });
+
+  // Helper to get current step safely
+  StepSeg? get currentStep => (currentStepIndex >= 0 && currentStepIndex < steps.length) ? steps[currentStepIndex] : null;
+}
+
+// Result for UI (immutable)
 class NavigationState {
   final String mainText; // "あと 3駅"
   final String subText; // "つぎは 〇〇"
@@ -17,10 +36,9 @@ class NavigationState {
   final String statusLabel;
   final String? nextStopName;
   final int? remainingStops;
-
-  // ★追加: 現在の進行状況を保存しておくためのインデックス
   final int currentStepIndex;
   final int nextStopIndex;
+  final StepSeg? step; // ★追加: 現在のステップ情報自体も持たせる
 
   NavigationState({
     required this.mainText,
@@ -32,512 +50,184 @@ class NavigationState {
     this.nextStopName,
     this.remainingStops,
     this.isMoving = true,
+    this.step,
   });
-}
 
-/// 経路ナビの進捗状況だけを持つクラス
-class RouteNavState {
-  final int currentStepIndex;
-  final int nextStopIndex;
-  final String statusLabel; // "移動中", "歩行中" etc
-  final String mainText;    // "あと 3駅", "徒歩で移動中"
-  final String subText;     // "つぎは 〇〇", "目的地まで"
-  final Color color;        // 背景色
-  final String? nextStopName;
-  final int? remainingStops;
-  final bool isMoving;
-  final bool isArrived;
-  final bool isArriving;
+  // Factory factories for states
+  static NavigationState idle() => NavigationState(
+    mainText: "", subText: "", color: Colors.grey, currentStepIndex: 0, nextStopIndex: 0, statusLabel: "待機中", isMoving: false,
+  );
+  
+  static NavigationState waitingForDeparture({required DateTime plannedAt}) => NavigationState(
+    mainText: "出発前", subText: "${plannedAt.hour}:${plannedAt.minute.toString().padLeft(2, '0')} 出発予定", 
+    color: Colors.white, currentStepIndex: 0, nextStopIndex: 0, statusLabel: "開始前", isMoving: false,
+  );
 
-  const RouteNavState({
-    required this.currentStepIndex,
-    required this.nextStopIndex,
-    required this.statusLabel,
-    required this.mainText,
-    required this.subText,
-    required this.color,
-    this.nextStopName,
-    this.remainingStops,
-    this.isMoving = true,
-    this.isArrived = false,
-    this.isArriving = false,
-  });
+  static NavigationState navigating({
+    required StepSeg step,
+    required int stopIndex,
+    String? statusLabel,
+  }) {
+    // Generate text based on step
+    String mainText = "";
+    String subText = "";
+    Color color = Colors.blue;
+    String? nextName;
+    int? remaining;
+
+    if (step.kind == 'walk') {
+       mainText = "徒歩で移動中";
+       subText = "目的地へ";
+       color = const Color(0xFF81D4FA);
+       nextName = step.to;
+    } else {
+       // Ride
+       color = const Color(0xFF81D4FA);
+       remaining = step.stops.length - stopIndex;
+       if (stopIndex < step.stops.length) {
+         nextName = step.stops[stopIndex].name;
+       }
+       if (remaining <= 1) {
+         mainText = "次降ります";
+         subText = nextName ?? "";
+         color = const Color(0xFFFFAB91);
+       } else {
+         mainText = "あと $remaining 駅";
+         subText = "つぎは $nextName";
+       }
+    }
+
+    return NavigationState(
+      mainText: mainText,
+      subText: subText,
+      color: color,
+      currentStepIndex: 0, // Not vital for UI logic here if using specialized
+      nextStopIndex: stopIndex,
+      statusLabel: statusLabel ?? "移動中",
+      nextStopName: nextName,
+      remainingStops: remaining,
+      step: step,
+    );
+  }
 }
 
 class TripNavigator {
   // 通過判定の距離（メートル）
-  static const double _arrivalRadius = 80.0; // 少し広めに設定
+  static const double _arrivalRadius = 80.0;
 
-  /// 前回の状態(lastState)と現在地(gps)を受け取り、新しい経路状態を返す
-  ///
-  /// ★ここでは「スケジュール(集合など)」は見ない。純粋に「経路上のどこにいるか」だけを返す。
-  /// 画面表示用に NavigationState ではなく RouteNavState を返す。
-  static RouteNavState updateRouteOnly({
-    required Trip trip,
-    required LatLng? currentPos, // Nullable
-    required int lastStepIndex, // 前回どこまで進んでいたか
-    required int lastStopIndex, // 前回どのバス停を目指していたか
+  // メインの更新メソッド
+  static void updateRouteOnly(
+    RouteState state,
+    LatLng currentPos, {
+    // ★将来的にAPIからとった「現在バス停Index」をここに入れる想定
+    int? forceStopIndex, 
   }) {
-    // 1. 完了チェック
-    if (trip.status == TripStatus.completed) {
-      return _completedRouteState();
-    }
+    if (state.steps.isEmpty) return;
 
-    // legsから全てのstepを展開して1つのリストにする
-    final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
+    if (state.currentStepIndex >= state.steps.length) return;
 
-    // ★Debug: Check if steps have coordinates
-    if (currentPos != null) { // Only log when active update is happening to avoid spam
-      for (int i = 0; i < allSteps.length; i++) {
-        final s = allSteps[i];
-        final head = s.stops.isNotEmpty ? s.stops.first : null;
-        debugPrint('[Steps] i=$i kind=${s.kind} stops=${s.stops.length}'
-            ' head=${head?.name} lat=${head?.lat} lon=${head?.lon}');
-      }
-    }
+    // 1. 現在のステップを取得
+    final currentStep = state.steps[state.currentStepIndex];
 
-    if (allSteps.isEmpty) {
-      return _errorRouteState();
-    }
-
-    // 2. 「今のターゲット」の判定更新
-    int currentStep = lastStepIndex;
-    int nextStop = lastStopIndex;
+    // 2. ステップ自体の推定 (GPSジャンプ防止ロジック)
+    int nextStepIndex = state.currentStepIndex;
     
-    // GPSがある場合のみ更新ロジックを走らせる
-    if (currentPos != null) {
-      debugPrint('[TripNavigator] Update: Legs=${trip.legs.length}, TotalSteps=${allSteps.length}, CurStep=$lastStepIndex, Pos=$currentPos');
-
-      // ★現在アクティブなLegの範囲（開始・終了インデックス）を計算
-      // activeLegIndex が異常値（負または範囲外）の場合に備えて丸める
-      int safeActiveLegIndex = trip.activeLegIndex;
-      if (safeActiveLegIndex < 0) safeActiveLegIndex = 0;
-      if (safeActiveLegIndex >= trip.legs.length) safeActiveLegIndex = trip.legs.length > 0 ? trip.legs.length - 1 : 0;
-
-      int legStartStepIndex = 0;
-      for (int i = 0; i < safeActiveLegIndex; i++) {
-        if (i < trip.legs.length) {
-          legStartStepIndex += trip.legs[i].candidate.steps.length;
-        }
-      }
-      final currentLegStepCount = safeActiveLegIndex < trip.legs.length
-          ? trip.legs[safeActiveLegIndex].candidate.steps.length
-          : 0;
-      int searchLimitIndex = legStartStepIndex + currentLegStepCount;
-
-      // ★追加: 次の区間（Next Leg）も探索範囲に含める（Look Ahead）
-      // これにより、乗り換え地点などを見逃して次の区間に入っていても検知できるようにする
-      // ただし、誤判定を防ぐため「currentStepより進んでいること」を必須とする
-      if (safeActiveLegIndex + 1 < trip.legs.length) {
-        final nextLegStepCount = trip.legs[safeActiveLegIndex + 1].candidate.steps.length;
-        searchLimitIndex += nextLegStepCount;
-      }
-
-      // 上限ガード
-      if (searchLimitIndex > allSteps.length) {
-        searchLimitIndex = allSteps.length;
-      }
-
-      // ★Search Scope Constraint (Stopgap):
-      // Limit search to a small window around the last step to prevent jumping to distant legs (e.g. return trip)
-      // that share the same location.
-      // tightStart の上限は searchLimitIndex - 1 または allSteps.length - 1
-      final int maxStart = (searchLimitIndex > 0 ? searchLimitIndex : 1) - 1; 
-      // Clamp to ensure we don't start beyond what's possible
-      int tightStart = (lastStepIndex - 2).clamp(legStartStepIndex, allSteps.length > 0 ? allSteps.length - 1 : 0);
-      if (tightStart > maxStart) tightStart = maxStart; // Further restrict to current search limit
-      if (tightStart < 0) tightStart = 0;
-
-      int tightEnd = (lastStepIndex + 4).clamp(tightStart, searchLimitIndex);
-
-      // ★GPSベースのステップ推定
-      final (estimatedStep, estimatedDist) = _estimateCurrentStepIndexWithDistance(
-        allSteps: allSteps,
-        currentPos: currentPos,
-        lastStepIndex: lastStepIndex,
-        minSearchIndex: tightStart, // 戻り方向は現在のLegの先頭（または直近）まで
-        maxSearchIndex: tightEnd,  // 進み方向は直近の未来まで
-      );
+    if (currentStep.isRide) {
+      // ★変更点: Ride中は、GPS距離だけで安易にステップを変えない
+      // 現在のRideが終わった（降車した）と判定できた場合のみ、次のStepへ進む
       
-      // 推定を採用する条件: 距離が近いときだけ（120m以内）
-      // かつ、前進方向（estimatedStep > currentStep）のみ採用する（戻りは許容しない）
-      if (estimatedStep > currentStep && estimatedDist < 120) {
-        debugPrint('[TripNavigator] GPS estimation corrected step: $currentStep -> $estimatedStep (dist: ${estimatedDist.toStringAsFixed(0)}m)');
-        currentStep = estimatedStep;
-
-        if (currentStep < allSteps.length) {
-          final step = allSteps[currentStep];
-          if (step.kind != 'walk') {
-            nextStop = _estimateNextStopIndex(
-              step: step,
-              currentPos: currentPos,
-              lastStopIndex: 0, 
-            );
-          } else {
-            nextStop = 0;
-          }
-        }
-      } else {
-        // step変更なし（または等しい、または戻り）: 既存のstepで停留所インデックスを更新
-        if (currentStep < allSteps.length) {
-          final step = allSteps[currentStep];
-          if (step.kind != 'walk') {
-            final estimatedStop = _estimateNextStopIndex(
-              step: step,
-              currentPos: currentPos,
-              lastStopIndex: nextStop,
-            );
-            if (estimatedStop != nextStop) {
-              debugPrint('[TripNavigator] GPS estimation corrected stop: $nextStop -> $estimatedStop');
-              nextStop = estimatedStop;
-            }
-          }
+      if (state.nextStopIndex >= currentStep.stops.length - 1) {
+        // 既に「降りるバス停」をターゲットにしている場合
+        // 目的地（降車バス停）に十分近づいたら、降車完了として次のWalkへ
+        if (currentStep.stops.isNotEmpty) {
+           final distToDest = _distance(currentPos, currentStep.stops.last.point);
+           if (distToDest < 50.0) { // 50m以内なら降車判定
+             nextStepIndex = state.currentStepIndex + 1;
+           }
         }
       }
-
-      // ★重要: GPS補正後に step を取り直す
-      if (currentStep >= allSteps.length) {
-        return _arrivedRouteState();
-      }
-      final step = allSteps[currentStep];
-
-      // 徒歩(walk)判定
-      if (step.kind == 'walk') {
-        // 次の物理的な停留所（Waitをスキップした先のRide始点など）を探す
-        final targetStop = _findNextPhysicalStop(allSteps, currentStep);
-        
-        if (targetStop != null && targetStop.lat != null && targetStop.lon != null) {
-            final distance = Geolocator.distanceBetween(
-              currentPos.latitude,
-              currentPos.longitude,
-              targetStop.lat!,
-              targetStop.lon!,
-            );
-
-            if (distance < _arrivalRadius) {
-              currentStep++;
-              nextStop = 0;
-            }
-        } else {
-             // targetが見つからない、または座標がない場合
-             // ログは出すが、Infinityエラーにはならない（単に遷移しない）
-             // debugPrint('[TripNavigator] Walk arrival check failed: No next physical stop with coords');
-        }
-      }
-      // 乗り物(bus/rail)判定
-      else {
-        if (nextStop < step.stops.length) {
-          final targetStop = step.stops[nextStop];
-          final targetLat = targetStop.lat;
-          final targetLon = targetStop.lon;
-
-          if (targetLat != null && targetLon != null) {
-            final distance = Geolocator.distanceBetween(
-              currentPos.latitude,
-              currentPos.longitude,
-              targetLat,
-              targetLon,
-            );
-            
-            if (distance < _arrivalRadius) {
-              debugPrint('[TripNavigator] -> Arrived at ${targetStop.name}. Next stop.');
-              nextStop++;
-            }
-          }
-        } else {
-          debugPrint('[TripNavigator] -> Step$currentStep Completed. Moving to next step.');
-          currentStep++;
-          nextStop = 0; 
-        }
-      }
+      
+      // Ride中は「前のStepに戻る」や「全然違うStepに飛ぶ」判定は一切しない
     } else {
-      // GPSなし: 前回値を維持
-      // debugPrint('[TripNavigator] No GPS: Keeping state Step=$currentStep Stop=$nextStop');
+      // Walk中は従来どおり、GPS位置で最適なStepを探す（リルート的な挙動）
+      nextStepIndex = _estimateCurrentStepIndexWithDistance(state, currentPos);
     }
 
-    // 3. 画面表示の生成
-    // 更新された currentStep / nextStop を使って文字を作る
-
-    // UI表示生成前の最終安全弁: nextStop が範囲外にならないように丸める
-    // 特にステップの最後の方で remainingStops の計算が狂わないようにする
-    if (currentStep < allSteps.length) {
-      final step = allSteps[currentStep];
-      if (nextStop >= step.stops.length) {
-        nextStop = step.stops.length > 0 ? step.stops.length : 0;
-      }
+    // ステップが変わる場合の処理
+    if (nextStepIndex != state.currentStepIndex && 
+        nextStepIndex < state.steps.length) {
+      state.currentStepIndex = nextStepIndex;
+      state.nextStopIndex = 0; // 新しいStepになったらStopもリセット
     }
 
-    // 範囲外チェック
-    if (currentStep >= allSteps.length) {
-      return _arrivedRouteState();
-    }
-
-    final stepForDisplay = allSteps[currentStep];
-
-    if (stepForDisplay.kind == 'walk') {
-      String? nextName;
-
-      if (currentStep + 1 < allSteps.length) {
-        final nextStep = allSteps[currentStep + 1];
-
-        // まず乗車地点名 (from) を優先
-        final from = nextStep.from;
-        if (from != null && from.isNotEmpty) {
-          nextName = from;
-        } else if (nextStep.stops.isNotEmpty) {
-          nextName = nextStep.stops.first.name;
-        }
-      }
-
-      nextName ??= stepForDisplay.to;
-
-      debugPrint('[TripNavigator] RETURN curStep=$currentStep nextStop=$nextStop kind=walk nextName=$nextName');
-      return RouteNavState(
-        mainText: "徒歩で移動中",
-        subText: "目的地まで歩きましょう",
-        color: const Color(0xFF81D4FA),
-        currentStepIndex: currentStep,
-        nextStopIndex: nextStop,
-        statusLabel: "歩行中",
-        nextStopName: nextName,
-        isMoving: true, // 徒歩も移動中扱い
-        isArrived: false,
-        isArriving: false,
-      );
-    } else {
-      // バス・電車
-      // 残り駅数 = (全駅数) - (次に目指している駅のインデックス)
-      // 例: 全5駅、次はindex=0(1駅目) -> 残り5駅
-      //     全5駅、次はindex=4(5駅目/最後) -> 残り1駅
-      final remainingStops = stepForDisplay.stops.length - nextStop;
-
-          // 次のバス停名
-          String nextStopName = "";
-          bool isTargetDestination = false;
-          if (nextStop < stepForDisplay.stops.length) {
-            final target = stepForDisplay.stops[nextStop];
-            nextStopName = target.name;
-            isTargetDestination = target.isDestination;
-          }
-
-          // 残りが0以下または次が最後の駅（降りる駅）の場合
-          // バスの降りるボタン等は、最後の駅の一つ前を出た後に押すが、
-          // ここでは「最後の駅を目指している」状態になったら「次到着します」とする
-          if (remainingStops <= 1 || isTargetDestination) {
-            
-            // ★Debug: Target Info
-            if (nextStop < stepForDisplay.stops.length) {
-              final target = stepForDisplay.stops[nextStop];
-              double? d;
-              if (currentPos != null && target.lat != null && target.lon != null) {
-                d = Geolocator.distanceBetween(
-                  currentPos.latitude, currentPos.longitude,
-                  target.lat!, target.lon!);
-              }
-              debugPrint('[TripNavigator] ARRIVING CHECK: target=${target.name} lat=${target.lat} lon=${target.lon} dist=${d?.toStringAsFixed(0)}m remaining=$remainingStops');
-            }
-
-            final destinationName =
-                stepForDisplay.to ?? (stepForDisplay.stops.isNotEmpty ? stepForDisplay.stops.last.name : "目的地");
-            debugPrint('[TripNavigator] RETURN curStep=$currentStep nextStop=$nextStop kind=${stepForDisplay.kind} remaining=$remainingStops (arriving)');
-            return RouteNavState(
-              mainText: "次到着します",
-              subText: destinationName,
-              color: const Color(0xFFFFAB91), // 赤
-              currentStepIndex: currentStep,
-              nextStopIndex: nextStop,
-              statusLabel: "到着まもなく",
-              nextStopName: destinationName,
-              remainingStops: remainingStops,
-              isMoving: true,
-              isArrived: false,
-              isArriving: true,
-            );
-          } else {
-            // まだ乗っている
-            debugPrint('[TripNavigator] RETURN curStep=$currentStep nextStop=$nextStop kind=${stepForDisplay.kind} remaining=$remainingStops next=$nextStopName');
-            return RouteNavState(
-              mainText: "あと $remainingStops 駅",
-              subText: "つぎは $nextStopName",
-              color: const Color(0xFF81D4FA), // 青
-              currentStepIndex: currentStep,
-              nextStopIndex: nextStop,
-              statusLabel: "移動中",
-              nextStopName: nextStopName,
-              remainingStops: remainingStops,
-              isMoving: true,
-              isArrived: false,
-              isArriving: false,
-            );
-          }
-    }
+    // 3. Step内の進行 (StopIndexの更新)
+    // ここはRide中も動かす
+    _updateStopIndex(state, currentPos, forceStopIndex: forceStopIndex);
   }
 
-  // --- Helper States ---
-  static RouteNavState _completedRouteState() => const RouteNavState(
-        mainText: "終了",
-        subText: "お疲れ様でした",
-        color: Colors.grey,
-        currentStepIndex: 999,
-        nextStopIndex: 999,
-        statusLabel: "旅は完了",
-        isArrived: false, // 完了状態は到着とは区別する
-      );
+  // StopIndexを進めるロジック
+  static void _updateStopIndex(RouteState state, LatLng currentPos, {int? forceStopIndex}) {
+    if (state.currentStepIndex >= state.steps.length) return;
+    final step = state.steps[state.currentStepIndex];
+    if (step.stops.isEmpty) return;
 
-  static RouteNavState _errorRouteState() => const RouteNavState(
-        mainText: "エラー",
-        subText: "ルートがありません",
-        color: Colors.red,
-        currentStepIndex: 0,
-        nextStopIndex: 0,
-        statusLabel: "案内できません",
-        isArrived: false,
-      );
-
-  static RouteNavState _arrivedRouteState() => const RouteNavState(
-        mainText: "到着",
-        subText: "目的地周辺です",
-        color: Colors.orange,
-        currentStepIndex: 999,
-        nextStopIndex: 999,
-        statusLabel: "到着",
-        nextStopName: "目的地",
-        remainingStops: 0,
-        isArrived: true,
-      );
-
-  /// GPSに基づいて、ユーザーが実際にいるステップを推定する
-  /// 各ステップの停留所との距離を計算し、最も近いステップと距離を返す
-  static (int, double) _estimateCurrentStepIndexWithDistance({
-    required List<StepSeg> allSteps,
-    required LatLng currentPos,
-    required int lastStepIndex,
-    int minSearchIndex = 0,
-    int? maxSearchIndex,
-  }) {
-    if (allSteps.isEmpty) return (lastStepIndex, double.infinity);
-
-    int bestStepIndex = lastStepIndex;
-    double minDistance = double.infinity;
-
-    final end = maxSearchIndex ?? allSteps.length;
-
-    for (int i = minSearchIndex; i < end; i++) {
-      final step = allSteps[i];
-      // debugPrint('[TripNavigator] Checking step $i: kind=${step.kind}');
-      
-      // 徒歩ステップの場合、次のステップの最初の停留所を目標とする
-      if (step.kind == 'walk') {
-        // 次のステップ（Wait含む）以降の有効な座標を持つ停留所を探す
-        final target = _findNextPhysicalStop(allSteps, i);
-        
-        if (target != null && target.lat != null && target.lon != null) {
-              final d = Geolocator.distanceBetween(
-                currentPos.latitude, currentPos.longitude,
-                target.lat!, target.lon!,
-              );
-              // debugPrint('[TripNavigator] walk to next step start: $d m');
-              if (d < minDistance) {
-                minDistance = d;
-                bestStepIndex = i;
-              }
-        } else {
-             debugPrint('[TripNavigator] Step $i next target coords null (via _findNextPhysicalStop)');
-        }
-      }
-      // バス・電車ステップの場合、全停留所との距離を計算
-      else if (step.stops.isNotEmpty) {
-        for (final stop in step.stops) {
-          final lat = stop.lat;
-          final lon = stop.lon;
-          if (lat == null || lon == null) continue;
-          final d = Geolocator.distanceBetween(
-            currentPos.latitude, currentPos.longitude,
-            lat, lon,
-          );
-          if (d < minDistance) {
-            minDistance = d;
-            bestStepIndex = i;
-          }
-        }
-      }
+    // API等からの強制指定があればそれを優先（将来用）
+    if (forceStopIndex != null) {
+      state.nextStopIndex = forceStopIndex;
+      return;
     }
 
-    // 推定されたステップが前に戻る（巻き戻り）場合、
-    // 距離がかなり近い（500m以内）場合のみ許可する
-    // それ以外は前回値を維持（GPSブレ対策）
-    if (bestStepIndex < lastStepIndex && minDistance > 500) {
-      debugPrint('[TripNavigator] Estimate rejected (far backward): best=$bestStepIndex last=$lastStepIndex dist=${minDistance.toStringAsFixed(0)}m');
-      return (lastStepIndex, double.infinity);
-    }
+    // GPSによる判定: 次のバス停に近づいたか？
+    // 単純な距離判定だけでなく、「通過したか」も見るのが理想だが、
+    // まずは「一番近いバス停」を現在のバス停とする簡易ロジックで安定させる
+    
+    int bestIndex = state.nextStopIndex;
+    double minDistance = 999999;
 
-    debugPrint('[TripNavigator] Estimated step: $bestStepIndex (dist: ${minDistance.toStringAsFixed(0)}m)');
-    return (bestStepIndex, minDistance);
-  }
-
-  /// バス・電車ステップ内の「次に目指すべき停留所インデックス」をGPSで推定する
-  static int _estimateNextStopIndex({
-    required StepSeg step,
-    required LatLng currentPos,
-    required int lastStopIndex,
-  }) {
-    if (step.stops.isEmpty) return lastStopIndex;
-
-    int bestIndex = lastStopIndex;
-    double minDist = double.infinity;
-
-    for (int i = 0; i < step.stops.length; i++) {
-      final stop = step.stops[i];
-      final lat = stop.lat;
-      final lon = stop.lon;
-      if (lat == null || lon == null) continue;
-
-      final d = Geolocator.distanceBetween(
-        currentPos.latitude,
-        currentPos.longitude,
-        lat,
-        lon,
-      );
-
-      if (d < minDist) {
-        minDist = d;
+    // 検索範囲を「現在地〜最後」に絞る（戻らない）
+    for (int i = state.nextStopIndex; i < step.stops.length; i++) {
+      final dist = _distance(currentPos, step.stops[i].point);
+      if (dist < minDistance) {
+        minDistance = dist;
         bestIndex = i;
       }
     }
 
-    // 到着判定: 近い停留所に80m以内にいる場合、その次を目標にする
-    if (minDist < _arrivalRadius) {
-      final next = (bestIndex + 1).clamp(0, step.stops.length);
-      debugPrint('[TripNavigator] Near stop $bestIndex (${minDist.toStringAsFixed(0)}m), targeting next: $next');
-      return next;
+    // 「近づいた」と判定できる閾値（例: 50m）に入ったらIndex更新
+    // ただし、Ride中は「通り過ぎた」判定が難しいので、一番近いものを信じる
+    if (minDistance < 200) { // 少し広めに
+      state.nextStopIndex = bestIndex;
     }
-
-    // 巻き戻り防止: 後ろに戻らない
-    if (bestIndex < lastStopIndex) return lastStopIndex;
-
-    debugPrint('[TripNavigator] Estimated next stop: $bestIndex (dist: ${minDist.toStringAsFixed(0)}m)');
-    return bestIndex;
   }
 
-  /// 指定したインデックスの次のステップから、有効な座標を持つ最初の停留所を探す
-  /// (Waitステップなどは座標がないためスキップして、その次の乗車ステップなどを探す)
-  static StopPoint? _findNextPhysicalStop(List<StepSeg> allSteps, int currentStepIndex) {
-    if (currentStepIndex + 1 >= allSteps.length) return null;
+  static double _distance(LatLng p1, LatLng p2) {
+    return Geolocator.distanceBetween(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
+  }
 
-    for (int i = currentStepIndex + 1; i < allSteps.length; i++) {
-      final step = allSteps[i];
-      // stopsを持ち、かつ座標があるものを探す
-      if (step.stops.isNotEmpty) {
-        // 先頭のstopをチェック
-        final first = step.stops.first;
-        if (first.lat != null && first.lon != null) {
-          return first;
+  static int _estimateCurrentStepIndexWithDistance(RouteState state, LatLng currentPos) {
+    // 簡易実装: 現在のステップの前後を検索
+    // Walk中のみ呼ばれる前提なので、単純に最も近いWalkステップなどを探す
+    // ここでは単純化して実装
+    int bestIndex = state.currentStepIndex;
+    double minD = 999999;
+    
+    for(int i=0; i<state.steps.length; i++) {
+      final s = state.steps[i];
+      // Walkの場合、Stepの始点（前のStepの終点）や終点との距離を見るべきだが
+      // 簡易的に全Stopとの距離を見るか、from/toのpointを使う
+      // ここではStepSegにpointリストが無いモデルっぽいので、stopsを使う
+      if (s.stops.isNotEmpty) {
+        for(final sp in s.stops) {
+          final d = _distance(currentPos, sp.point);
+          if (d < minD) {
+            minD = d;
+            bestIndex = i;
+          }
         }
       }
-      // もしWaitステップなどならループ続行
-      // ただし、完全に無関係なステップが続くと遠くを参照しすぎるリスクはあるが、
-      // 基本的に Walk -> Wait -> Ride の順なので、Waitを飛ばしてRideの始点を見るのは正しい。
     }
-    return null;
+    
+    // 現在より大幅に進んでいる/戻っている場合は移動
+    return bestIndex;
   }
 }

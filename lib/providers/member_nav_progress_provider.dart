@@ -26,20 +26,31 @@ class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
   MemberNavProgressNotifier() : super(MemberNavState.initial());
 
   void updateProgress(Trip trip, LatLng? currentPos) {
-    // TripNavigator.updateRouteOnly calculates new state based on current pos
-    final result = TripNavigator.updateRouteOnly(
-      trip: trip,
-      currentPos: currentPos,
-      lastStepIndex: state.currentStepIndex,
-      lastStopIndex: state.nextStopIndex,
+    if (currentPos == null) return;
+    
+    // Construct mutable RouteState from current immutable state
+    // legsから全てのstepを展開して1つのリストにする
+    final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
+    
+    final routeState = RouteState(
+      steps: allSteps,
+      currentStepIndex: state.currentStepIndex,
+      nextStopIndex: state.nextStopIndex,
+      isMoving: true, // Defaulting to true for active update
+    );
+
+    // Call mutable update
+    TripNavigator.updateRouteOnly(
+       routeState,
+       currentPos,
     );
     
     // Only update if indices changed, to avoid unnecessary rebuilds downstream if used elsewhere
-    if (result.currentStepIndex != state.currentStepIndex || 
-        result.nextStopIndex != state.nextStopIndex) {
+    if (routeState.currentStepIndex != state.currentStepIndex || 
+        routeState.nextStopIndex != state.nextStopIndex) {
       state = MemberNavState(
-        currentStepIndex: result.currentStepIndex,
-        nextStopIndex: result.nextStopIndex,
+        currentStepIndex: routeState.currentStepIndex,
+        nextStopIndex: routeState.nextStopIndex,
       );
     }
   }

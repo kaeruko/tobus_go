@@ -165,94 +165,102 @@ class Candidate {
 }
 
 class StepSeg {
-  final String kind;
+  final String kind; // 'walk', 'bus', 'rail', 'wait'
   final String title;
-  final int edges;
-  final int? minutes;
-  final int? meters;
-  final int? fareYen;
-  final String? from;
-  final String? to;
+  final String? fromName;
+  final String? toName;
+  final List<StopPoint> stops;
+  final int minutes;
+  final double meters;
+  final int? fareYen; // keep existing optional fields
   final String? departureTime;
   final String? arrivalTime;
-  final String routeId;
-  final String departureStopId;
-  final String arrivalPoleId;
-  final List<StopPoint> stops;
   final String? startLabel;
   final String? endLabel;
   final String? place;
+  
+  final String? routeId;     // 系統ID
+  final String? tripId;      // 便ID (GTFS-RTとの紐付け用)
+  final String? directionId; // 方向ID
+
+  // Compatibility / Legacy fields
+  final int edges;
+  final String departureStopId;
+  final String arrivalPoleId;
 
   StepSeg({
     required this.kind,
     required this.title,
-    required this.edges,
-    this.minutes,
-    this.meters,
+    this.fromName,
+    this.toName,
+    this.stops = const [],
+    this.minutes = 0,
+    this.meters = 0.0,
     this.fareYen,
-    this.from,
-    this.to,
     this.departureTime,
     this.arrivalTime,
-    this.routeId = '',
-    this.departureStopId = '',
-    this.arrivalPoleId = '',
     this.startLabel,
     this.endLabel,
     this.place,
-    List<StopPoint>? stops,
-  }) : stops = stops ?? const [];
+    this.routeId,     // ★
+    this.tripId,      // ★
+    this.directionId, // ★
+    this.edges = 0,
+    this.departureStopId = '',
+    this.arrivalPoleId = '',
+  });
 
-  factory StepSeg.fromJson(Map<String, dynamic> j) {
-    final rawStops = j['stops'] as List? ?? const [];
-    final stops = <StopPoint>[];
-    for (final v in rawStops) {
-      if (v is Map) {
-        final sp = StopPoint.fromJson(Map<String, dynamic>.from(v));
-        stops.add(sp);
-        // Debug
-        if (sp.lat == null || sp.lon == null) {
-          print('[StepSeg] Stop ${sp.name} has null coords. Raw: $v');
-        }
-      }
-    }
+  bool get isRide => kind == 'bus' || kind == 'rail';
+
+  // Keep getters for compatibility if needed, or rely on public fields
+  String? get from => fromName;
+  String? get to => toName;
+
+  factory StepSeg.fromJson(Map<String, dynamic> json) {
+    var rawStops = json['stops'] as List? ?? [];
+    var parsedStops = rawStops.map((e) => StopPoint.fromJson(Map<String, dynamic>.from(e))).toList();
+
     return StepSeg(
-      kind: j['kind']?.toString() ?? 'bus',
-      title: j['title']?.toString() ?? '',
-      edges: (j['edges'] as num? ?? 0).toInt(),
-      minutes: (j['minutes'] as num?)?.toInt(),
-      meters: (j['meters'] as num?)?.toInt(),
-      fareYen: (j['fareYen'] as num?)?.toInt(),
-      from: j['from_']?.toString() ?? j['from']?.toString(),
-      to: j['to']?.toString(),
-      departureTime: j['departure_time']?.toString(),
-      arrivalTime: j['arrival_time']?.toString(),
-      // Use backend-provided GTFS IDs (empty string if not available)
-      routeId: j['routeId']?.toString() ?? '',
-      departureStopId: j['departureStopId']?.toString() ?? '',
-      arrivalPoleId: j['arrivalPoleId']?.toString() ?? '',
-      stops: stops,
-      startLabel: j['startLabel']?.toString(),
-      endLabel: j['endLabel']?.toString(),
-      place: j['place']?.toString(),
+      kind: json['kind'] ?? 'walk',
+      title: json['title'] ?? '',
+      fromName: json['from_'] ?? json['from'],
+      toName: json['to'],
+      stops: parsedStops,
+      minutes: json['minutes'] ?? 0,
+      meters: (json['meters'] as num?)?.toDouble() ?? 0.0,
+      fareYen: (json['fareYen'] as num?)?.toInt(),
+      departureTime: json['departure_time'],
+      arrivalTime: json['arrival_time'],
+      startLabel: json['startLabel'],
+      endLabel: json['endLabel'],
+      place: json['place'],
+      
+      // ★追加: IDパース
+      routeId: json['route_id'] ?? json['routeId'], // Handle both snake and camel if possible, user snippet used snake
+      tripId: json['trip_id'],
+      directionId: json['direction_id'],
+      
+      // Legacy
+      edges: (json['edges'] as num? ?? 0).toInt(),
+      departureStopId: json['departureStopId']?.toString() ?? '',
+      arrivalPoleId: json['arrivalPoleId']?.toString() ?? '',
     );
   }
-
+  
   String get mainTitle => kind == 'walk' ? '徒歩' : title;
   String? get subTitle {
     if (kind == 'wait') {
-      // Use labels if available
       if (startLabel != null || endLabel != null) {
-        return place ?? from ?? '待機場所';
+        return place ?? fromName ?? '待機場所';
       }
-      if (from != null) return '$from で待機';
+      if (fromName != null) return '$fromName で待機';
     }
-    if (from != null && to != null) {
-      return '$from → $to';
+    if (fromName != null && toName != null) {
+      return '$fromName → $toName';
     }
     if (kind == 'walk') {
-      if (meters != null)   return '徒歩 約${meters}m';
-      if (minutes != null)  return '徒歩 約$minutes分';
+      if (meters > 0)   return '徒歩 約${meters.toInt()}m';
+      if (minutes > 0)  return '徒歩 約$minutes分';
       return '徒歩';
     }
     return null;
@@ -262,57 +270,67 @@ class StepSeg {
     return {
       'kind': kind,
       'title': title,
-      'edges': edges,
+      'from_': fromName,
+      'to': toName,
+      'stops': stops.map((e) => e.toJson()).toList(),
       'minutes': minutes,
       'meters': meters,
       'fareYen': fareYen,
-      'from_': from,
-      'to': to,
       'departure_time': departureTime,
       'arrival_time': arrivalTime,
-      'routeId': routeId,
-      'departureStopId': departureStopId,
-      'arrivalPoleId': arrivalPoleId,
-      'stops': stops.map((e) => e.toJson()).toList(),
       'startLabel': startLabel,
       'endLabel': endLabel,
       'place': place,
+      'route_id': routeId,
+      'trip_id': tripId,
+      'direction_id': directionId,
+      'edges': edges,
+      'departureStopId': departureStopId,
+      'arrivalPoleId': arrivalPoleId,
     };
   }
 }
 
 class StopPoint {
   final String name;
+  final LatLng point;
   final bool isOrigin;
   final bool isDestination;
-  final double? lat;
-  final double? lon;
+  final String? stopId; // ★追加: 停留所ID (odpt:BusstopPole:...)
 
   StopPoint({
     required this.name,
+    required this.point,
     this.isOrigin = false,
     this.isDestination = false,
-    this.lat,
-    this.lon,
+    this.stopId, // ★追加
   });
 
-  factory StopPoint.fromJson(Map<String, dynamic> j) {
+  factory StopPoint.fromJson(Map<String, dynamic> json) {
     return StopPoint(
-      name: j['name']?.toString() ?? '',
-      isOrigin: j['is_origin'] == true,
-      isDestination: j['is_destination'] == true,
-      lat: (j['lat'] as num?)?.toDouble(),
-      lon: (j['lon'] as num?)?.toDouble(),
+      name: json['name'] ?? '',
+      point: LatLng(
+        (json['lat'] as num).toDouble(),
+        (json['lon'] as num).toDouble(),
+      ),
+      isOrigin: json['is_origin'] ?? false,
+      isDestination: json['is_destination'] ?? false,
+      stopId: json['id'], // ★追加: バックエンドが返すJSONのキーに合わせて調整
     );
   }
+
+  // Compatibility getters
+  double get lat => point.latitude;
+  double get lon => point.longitude;
 
   Map<String, dynamic> toJson() {
     return {
       'name': name,
       'is_origin': isOrigin,
       'is_destination': isDestination,
-      'lat': lat,
-      'lon': lon,
+      'lat': point.latitude,
+      'lon': point.longitude,
+      'id': stopId,
     };
   }
 }

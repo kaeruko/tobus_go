@@ -17,13 +17,11 @@ void main() {
           plannedAt: meetingTime,
           label: 'Meeting',
           itemKind: ScheduleEntryKind.meeting,
-          isCompleted: false,
         ),
         ScheduleEntry(
           plannedAt: departureTime,
           label: 'Departure',
           itemKind: ScheduleEntryKind.departure,
-          isCompleted: false,
         ),
       ];
 
@@ -54,13 +52,11 @@ void main() {
           plannedAt: meetingTime,
           label: 'Meeting',
           itemKind: ScheduleEntryKind.meeting,
-          isCompleted: false,
         ),
         ScheduleEntry(
           plannedAt: departureTime,
           label: 'Departure',
           itemKind: ScheduleEntryKind.departure,
-          isCompleted: false,
         ),
       ];
 
