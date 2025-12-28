@@ -69,4 +69,27 @@ class ApiClient {
       rethrow;
     }
   }
+  /// バスの現在位置情報を取得する
+  /// [routeId] 系統ID (例: odpt.Busroute:Toei.To02)
+  /// [tripId] 便ID (指定すると特定の車両を追跡できます)
+  static Future<Map<String, dynamic>> fetchBusLocation({
+    required String routeId,
+    String? tripId,
+  }) async {
+    final params = <String, String>{
+      'route_id': routeId,
+    };
+    
+    if (tripId != null) {
+      params['trip_id'] = tripId;
+    }
+
+    try {
+      return await get('/bus/location', params: params);
+    } catch (e) {
+      // エラー時はログを出して空のMapを返す（アプリをクラッシュさせないため）
+      _log('fetchBusLocation failed: $e');
+      return {};
+    }
+  }
 }

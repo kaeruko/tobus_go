@@ -233,6 +233,50 @@ async def _fetch_and_update_realtime(app_state):
 def register_routes(app):
     from pydantic import BaseModel
 
+    @app.get("/bus/location")
+    async def bus_location(
+        route_id: str = Query(...),
+        trip_id: str = Query(None)
+    ):
+        tm = app.state.TM
+        if not tm or not tm.latest_bus_positions:
+            return {}
+
+        # 該当する路線のバスを抽出
+        candidates = [
+            b for b in tm.latest_bus_positions 
+            if b.get("odpt:busroute") == route_id
+        ]
+
+        if not candidates:
+            return {}
+
+        target_bus = None
+
+        # trip_id が指定されていれば、その便を探す
+        if trip_id:
+            for bus in candidates:
+                if bus.get("odpt:busTimetable") == trip_id:
+                    target_bus = bus
+                    break
+        
+        # trip_id がない、または見つからない場合は、
+        # 簡易的に「リストの先頭（または最新）」を返す運用にするか、
+        # アプリ側で判断させるためにリスト全体を返しても良い。
+        # ここでは「一番確率が高い1台」として先頭を返す例:
+        if not target_bus and candidates:
+            target_bus = candidates[0]
+
+        if target_bus:
+            return {
+                "odpt:fromBusstopPole": target_bus.get("odpt:fromBusstopPole"),
+                "odpt:fromBusstopPoleTime": target_bus.get("odpt:fromBusstopPoleTime"),
+                "odpt:busTimetable": target_bus.get("odpt:busTimetable"),
+                # 他に必要なフィールドがあれば追加
+            }
+        
+        return {}
+
     class RouteRequest(BaseModel):
         alat: float
         alon: float

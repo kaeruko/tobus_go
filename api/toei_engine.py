@@ -238,6 +238,7 @@ class TimetableManager:
 
         # === Realtime Extensions ===
         self.bus_realtime_delays = defaultdict(float) # route_id -> avg_delay_min
+        self.latest_bus_positions = [] # Store raw realtime bus data
         self.train_status_text = {} # railway_id -> text
         self.train_service_suspended = set() # railway_id
 
@@ -245,6 +246,7 @@ class TimetableManager:
         self.__dict__.update(state)
         # Fail-safe initializations for backward compatibility of pickle
         if not hasattr(self, "bus_realtime_delays"): self.bus_realtime_delays = defaultdict(float)
+        if not hasattr(self, "latest_bus_positions"): self.latest_bus_positions = []
         if not hasattr(self, "train_status_text"): self.train_status_text = {}
         if not hasattr(self, "train_service_suspended"): self.train_service_suspended = set()
         
@@ -265,6 +267,7 @@ class TimetableManager:
             self.finalize_indexes()
 
     def update_bus_realtime(self, bus_data_list, day_type="weekday"):
+        self.latest_bus_positions = bus_data_list # Store raw data for location lookup
         if not bus_data_list: return
         route_delays = defaultdict(list)
         

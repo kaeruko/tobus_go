@@ -11,7 +11,8 @@ import '../models/leg_models.dart';
 import '../services/trip_service.dart'; // For sendSOS
 import '../models/group_models.dart';
 import 'group_detail_page.dart';
-import '../logic/trip_navigator.dart'; // Keep for type definitions if needed, or rely on coordinator
+import '../logic/trip_navigator.dart'; 
+import '../core/api_client.dart'; // Added
 import '../logic/trip_coordinator.dart'; // Added
 import '../logic/schedule_resolver.dart'; 
 import 'settings_page.dart'; // Added for debug link
@@ -32,6 +33,10 @@ class MemberModePage extends ConsumerStatefulWidget {
 class _MemberModePageState extends ConsumerState<MemberModePage> {
   // Service for SOS only, data is via provider
   final _tripService = TripService();
+  // ignore: unused_field
+  final TripNavigator _navigator = TripNavigator(); 
+  Timer? _realtimeTimer; 
+  int? _lastApiStopIndex; 
 
   LatLng? _currentPositionForNav() {
     final override = ref.read(locationOverrideProvider);
@@ -59,6 +64,11 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   void initState() {
     super.initState();
     
+    // 30秒ごとにバスロケ情報を確認
+    _realtimeTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _pollRealtimeData();
+    });
+
     // Reset any previous navigation state safely
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -86,7 +96,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         final trip = tripAsync.value!;
         final currentPos = LatLng(pos.latitude, pos.longitude);
         final nav = ref.read(memberNavProgressProvider);
-
+        
         // TripNavigatorを直接呼び出してGPS補正を適用
         final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
         final routeState = RouteState(
@@ -99,6 +109,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         TripNavigator.updateRouteOnly(
            routeState,
            currentPos,
+           forceStopIndex: _lastApiStopIndex, // ★APIから取れたIndexがあれば強制適用
         );
 
         // 補正後のインデックスをnavProgressに書き戻す
@@ -115,6 +126,56 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         _refreshProgressWithTrip(tripAsync.value!);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _realtimeTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _pollRealtimeData() async {
+    final navState = ref.read(memberNavProgressProvider);
+    
+    final tripAsync = ref.read(tripStreamProvider);
+    if (!tripAsync.hasValue || tripAsync.value == null) return;
+    final trip = tripAsync.value!;
+
+    final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
+    
+    // Check bounds
+    if (navState.currentStepIndex < 0 || navState.currentStepIndex >= allSteps.length) return;
+
+    // "isMoving" check: effectively if we are past the start (index > 0) or if we want to confirm active navigation
+    // But polling implies we are active. We can check if index > 0.
+    if (navState.currentStepIndex == 0) return; 
+
+    final currentStep = allSteps[navState.currentStepIndex];
+    
+    // バス/電車に乗っている時だけAPIを確認する
+    if (currentStep.isRide && currentStep.routeId != null) {
+      try {
+        final result = await ApiClient.fetchBusLocation(
+          routeId: currentStep.routeId!,
+          tripId: currentStep.tripId, 
+        );
+        final fromPoleId = result['odpt:fromBusstopPole'];
+        
+        if (fromPoleId != null) {
+          final index = currentStep.stops.indexWhere((s) => s.stopId == fromPoleId);
+          if (index != -1) {
+            setState(() {
+              _lastApiStopIndex = index;
+            });
+            // print("API Update: Bus is at index $index (${currentStep.stops[index].name})");
+          }
+        }
+      } catch (e) {
+        // print("Realtime poll failed: $e");
+      }
+    } else {
+      _lastApiStopIndex = null; // Walk中はリセット
+    }
   }
 
   Future<void> _leaveGroup() async {
@@ -230,7 +291,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           );
         }
 
-        final schedule = _sortedSchedule(trip.schedule);
+        // final schedule = _sortedSchedule(trip.schedule); // Unused
         // Use nullable LatLng, do NOT fallback to Tokyo Station default
         final LatLng? currentPos = manualOverride ??
             (locationAsync.value != null
@@ -250,6 +311,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           TripNavigator.updateRouteOnly(
             routeState,
             currentPos,
+            forceStopIndex: _lastApiStopIndex, // ★APIから取れたIndexがあれば強制適用
           );
         }
 

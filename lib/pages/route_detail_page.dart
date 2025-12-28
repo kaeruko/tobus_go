@@ -1179,7 +1179,7 @@ class RouteStepTile extends StatelessWidget {
                 Text(rightText, style: const TextStyle(fontSize: 13, color: CupertinoColors.systemGrey)),
             ],
           ),
-          if (segment.kind == 'bus' && segment.routeId.isNotEmpty) ...[
+          if (segment.kind == 'bus' && segment.routeId != null && segment.routeId!.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: Container(height: 1, color: CupertinoColors.systemGrey5),
@@ -1187,7 +1187,7 @@ class RouteStepTile extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4.0),
               child: TimetableView(
-                routeId: segment.routeId,
+                routeId: segment.routeId!,
                 stopId: segment.departureStopId,
                 targetPoleId: segment.arrivalPoleId, // ターゲット(降車)バス停を渡す
               ),
