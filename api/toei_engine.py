@@ -1376,7 +1376,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             origin_lat = G.nodes[last_phys].get("lat") if last_phys else None
             origin_lon = G.nodes[last_phys].get("lon") if last_phys else None
             
-            curr_stops = [{"name": from_name, "is_origin": True, "lat": origin_lat, "lon": origin_lon}]
+            curr_stops = [{"name": from_name, "is_origin": True, "lat": origin_lat, "lon": origin_lon, "id": last_phys[1] if last_phys else None}]
             
             phys_id = u[1]
             if mode == "bus":
@@ -1423,7 +1423,8 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     cur["stops"].append({
                         "name": stop_name,
                         "lat": G.nodes[phys_key].get("lat"),
-                        "lon": G.nodes[phys_key].get("lon")
+                        "lon": G.nodes[phys_key].get("lon"),
+                        "id": phys_key[1]
                     })
             
             if mode == "rail":
@@ -1448,12 +1449,14 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                             "name": to_name,
                             "is_destination": True,
                             "lat": stop_lat,
-                            "lon": stop_lon
+                            "lon": stop_lon,
+                            "id": to_phys[1]
                         })
                     else:
                         cur["stops"][-1]["is_destination"] = True
                         cur["stops"][-1]["lat"] = stop_lat
                         cur["stops"][-1]["lon"] = stop_lon
+                        cur["stops"][-1]["id"] = to_phys[1]
                 cur["arrival_time"] = min_to_time_str(curr_time)
                 flush()
             curr_time += 1.0

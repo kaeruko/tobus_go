@@ -7,7 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../core/app_clock.dart';
 import '../models/trip_models.dart';
-import '../models/leg_models.dart';
+
 import '../services/trip_service.dart'; // For sendSOS
 import '../models/group_models.dart';
 import 'group_detail_page.dart';
@@ -104,7 +104,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           steps: allSteps,
           currentStepIndex: nav.currentStepIndex,
           nextStopIndex: nav.nextStopIndex,
-          isMoving: nav.currentStepIndex > 0, // 0歩目(開始前)はfalse扱い、進んでいればtrue
+          isMoving: false,
         );
 
         TripNavigator.updateRouteOnly(
@@ -310,7 +310,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           steps: allSteps,
           currentStepIndex: navProgress.currentStepIndex,
           nextStopIndex: navProgress.nextStopIndex,
-          isMoving: navProgress.currentStepIndex > 0, // Default to false if at start
+          isMoving: false,
         );
         
         if (currentPos != null) {

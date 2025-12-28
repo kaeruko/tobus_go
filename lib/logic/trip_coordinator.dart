@@ -63,14 +63,27 @@ class TripCoordinator {
       );
     }
 
-    // 1. 既に移動中判定ならそのままナビゲーション
-    if (routeState != null && routeState.isMoving) {
-      if (routeState.currentStepIndex < routeState.steps.length) {
-         return NavigationState.navigating(
-           step: routeState.steps[routeState.currentStepIndex],
-           stopIndex: routeState.nextStopIndex,
-           statusLabel: "移動中",
-         );
+    // 1. ScheduleStateのActiveEntryに基づいて移動ナビゲーションを構築
+    final entry = scheduleState.activeEntry;
+
+    if (entry != null &&
+        (entry.itemKind == ScheduleEntryKind.walk ||
+         entry.itemKind == ScheduleEntryKind.ride)) {
+
+      final idx = entry.routeStepIndex;
+
+      if (routeState != null &&
+          idx != null &&
+          idx >= 0 &&
+          idx < routeState.steps.length) {
+
+        final step = routeState.steps[idx];
+
+        return NavigationState.navigating(
+          step: step,
+          stopIndex: routeState.nextStopIndex,
+          statusLabel: "移動中",
+        );
       }
     }
 
@@ -87,14 +100,20 @@ class TripCoordinator {
            bool isBusDelayed = false;
            if (step.isRide && realtimeBusLocationId != null && step.stops.isNotEmpty) {
              final boardingStopId = step.stops.first.stopId;
-             // バスがまだ乗車停にいない、かつ乗車区間内(乗車〜降車)にもいない場合
-             // -> まだ手前にいると判断して待機維持
-             bool isBusAtBoarding = (realtimeBusLocationId == boardingStopId);
-             bool isBusInRideSegment = step.stops.any((s) => s.stopId == realtimeBusLocationId);
+             
+             // ★IDがそもそも取れていない(null)場合は、判定不能なので
+             // 「遅延」とは見なさず、時刻通りに進める (shouldStart = true のまま)
+             if (boardingStopId != null) {
+               
+               // ★厳密一致で判定
+               bool isBusAtBoarding = (realtimeBusLocationId == boardingStopId);
+               bool isBusInRideSegment = step.stops.any((s) => s.stopId == realtimeBusLocationId);
 
-             if (!isBusAtBoarding && !isBusInRideSegment) {
-               isBusDelayed = true;
-               debugPrint("[TripCoordinator] Bus is delayed. Realtime: $realtimeBusLocationId vs Boarding: $boardingStopId");
+               // 乗車停にもおらず、区間内にもいない -> まだ手前にいると判断して待機維持
+               if (!isBusAtBoarding && !isBusInRideSegment) {
+                 isBusDelayed = true;
+                 debugPrint("[TripCoordinator] Bus is delayed. Realtime: $realtimeBusLocationId vs Boarding: $boardingStopId");
+               }
              }
            }
 

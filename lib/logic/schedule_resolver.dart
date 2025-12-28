@@ -87,6 +87,8 @@ class ScheduleResolver {
     int bestIndex = -1;
     double minScore = 99999.0; 
 
+    debugPrint('[ScheduleResolver] Resolving active step at $now');
+
     for (int i = 0; i < steps.length; i++) {
       final step = steps[i];
       final diffMin = step.plannedAt.difference(now).inMinutes;
@@ -110,6 +112,8 @@ class ScheduleResolver {
         }
       }
 
+      debugPrint('[ScheduleResolver] Step $i (${step.label}): diff=${diffMin}m, kind=${step.itemKind}, candidate=$isCandidate');
+
       if (isCandidate) {
         // 0に近いほど優先（絶対値で比較）
         double score = diffMin.abs().toDouble();
@@ -119,6 +123,8 @@ class ScheduleResolver {
         // 例: -2分(score 2.5) vs +2分(score 2) -> +2分が選ばれる = 「これから」を表示
         if (diffMin < 0) score += 0.5; 
 
+        debugPrint('  -> Score: $score (best: $minScore)');
+
         if (score < minScore) {
           minScore = score;
           bestIndex = i;
@@ -126,6 +132,7 @@ class ScheduleResolver {
       }
     }
     
+    debugPrint('[ScheduleResolver] Selected best index: $bestIndex');
     return bestIndex;
   }
 
