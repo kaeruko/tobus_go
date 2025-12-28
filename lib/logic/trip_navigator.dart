@@ -375,6 +375,7 @@ class TripNavigator {
 
     for (int i = minSearchIndex; i < end; i++) {
       final step = allSteps[i];
+      // debugPrint('[TripNavigator] Checking step $i: kind=${step.kind}');
       
       // 徒歩ステップの場合、次のステップの最初の停留所を目標とする
       if (step.kind == 'walk') {
@@ -390,10 +391,13 @@ class TripNavigator {
                 currentPos.latitude, currentPos.longitude,
                 lat, lon,
               );
+              // debugPrint('[TripNavigator] walk to next step start: $d m');
               if (d < minDistance) {
                 minDistance = d;
                 bestStepIndex = i;
               }
+            } else {
+               debugPrint('[TripNavigator] Step $i next step start coords null');
             }
           }
         }

@@ -38,7 +38,7 @@ class ScheduleResolver {
 
     // 0. 進行状況が利用可能な場合、それを使用してアクティブなインデックスを決定する
     if (trip != null && currentStepIndex != null && currentStepIndex >= 0) {
-      active = _findActiveIndexByProgress(scheduleSorted, trip, currentStepIndex, nextStopIndex);
+      active = _findActiveIndexByProgress(scheduleSorted, trip, currentStepIndex, nextStopIndex, now, nextThreshold);
       if (active != -1) {
         isProgressBased = true;
       }
@@ -122,6 +122,8 @@ class ScheduleResolver {
     Trip trip, 
     int currentStepIndex,
     int? nextStopIndex,
+    DateTime now,
+    Duration nextThreshold,
   ) {
     debugPrint('[ScheduleResolver] currentStepIndex: $currentStepIndex, nextStopIndex: $nextStopIndex');
 
@@ -168,7 +170,22 @@ class ScheduleResolver {
       // ルートステップが割り当てられているエントリのみをチェックする
       if (entry.routeStepIndex != null) {
         if (entry.routeStepIndex == currentStepIndex) {
-          // インデックスによる一致が見つかった。役割（role）によって洗練させる。
+          // インデックスによる一致が見つかった。
+          
+          final diff = entry.plannedAt.difference(now);
+          debugPrint('[ScheduleResolver] Checking match at index $i: plannedAt=${entry.plannedAt}, now=$now, diff=${diff.inMinutes}m, threshold=${nextThreshold.inMinutes}m');
+
+          // ★Safety Check: 未来すぎる予定はマッチさせない
+          // 特に Step 0 (開始地点) にいる場合、まだ開始前なのにマッチしてしまうのを防ぐ。
+          if (entry.plannedAt.isAfter(now)) {
+            // 閾値以上離れていて、かつ開始直後(Step 0)の場合は、まだ開始していないとみなす
+            if (diff > nextThreshold && currentStepIndex == 0) {
+              debugPrint('[ScheduleResolver] Ignoring match at index $i (Future: ${diff.inMinutes}m, Step: 0)');
+              continue; 
+            }
+          }
+
+          // 役割（role）によって洗練させる。
           debugPrint('[ScheduleResolver] Found potential match at index $i (Role: ${entry.routeRole}) for Step $currentStepIndex');
           
           if (entry.routeRole == 'walk') {

@@ -130,7 +130,16 @@ class HomePageState extends ConsumerState<HomePage> {
                 initialDateTime: current,
                 use24hFormat: true,
                 onDateTimeChanged: (val) {
-                   ref.read(routeSearchProvider.notifier).setStartTime(val);
+                   // If user picks a time that is already past for today, assume they mean tomorrow.
+                   // Only apply if the date part is effectively "Today".
+                   final now = DateTime.now();
+                   var selected = val;
+                   if (selected.year == now.year && selected.month == now.month && selected.day == now.day) {
+                     if (selected.isBefore(now)) {
+                       selected = selected.add(const Duration(days: 1));
+                     }
+                   }
+                   ref.read(routeSearchProvider.notifier).setStartTime(selected);
                 },
               ),
             ),
