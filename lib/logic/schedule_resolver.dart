@@ -157,6 +157,10 @@ class ScheduleResolver {
     // derived が allowLegB (つまり次) に進んでいるときは、そこも主対象として扱う
     
     // 2. スケジュールを反復処理し、routeStepIndex を使用してステップにマッピングする
+    int bestMatchIndex = -1;
+    Duration minTimeDiff = const Duration(days: 999);
+    bool foundCurrentOrPast = false;
+
     for (int i = 0; i < schedule.length; i++) {
       final entry = schedule[i];
       
@@ -173,37 +177,61 @@ class ScheduleResolver {
           // インデックスによる一致が見つかった。
           
           final diff = entry.plannedAt.difference(now);
-          debugPrint('[ScheduleResolver] Checking match at index $i: plannedAt=${entry.plannedAt}, now=$now, diff=${diff.inMinutes}m, threshold=${nextThreshold.inMinutes}m');
+          final absDiff = diff.abs();
+          
+          debugPrint('[ScheduleResolver] Checking match at index $i: plannedAt=${entry.plannedAt}, role=${entry.routeRole}, now=$now, diff=${diff.inMinutes}m');
 
-          // ★Safety Check: 未来すぎる予定はマッチさせない
-          // 特に Step 0 (開始地点) にいる場合、まだ開始前なのにマッチしてしまうのを防ぐ。
+          // ★Safety Check: 未来すぎる予定はマッチさせない (Step 0 ガード)
           if (entry.plannedAt.isAfter(now)) {
-            // 閾値以上離れていて、かつ開始直後(Step 0)の場合は、まだ開始していないとみなす
             if (diff > nextThreshold && currentStepIndex == 0) {
               debugPrint('[ScheduleResolver] Ignoring match at index $i (Future: ${diff.inMinutes}m, Step: 0)');
               continue; 
             }
           }
 
-          // 役割（role）によって洗練させる。
-          debugPrint('[ScheduleResolver] Found potential match at index $i (Role: ${entry.routeRole}) for Step $currentStepIndex');
+          // ★Time-based Selection Strategy:
+          // 同じステップに複数のエントリ(walk, wait, ride...)がある場合、現在時刻に最も近いものを選ぶ。
+          // ただし、「すでに時間を過ぎている(past)」ものを優先的に「現在」として扱いたい場合があるが、
+          // ここでは単純に「現在時刻との絶対差が最小」のものを選ぶ戦略とする。
+          // さらに improvement: もし diff が負(過去) と 正(未来) があるなら、
+          // "直近の過去" (いま実行中) を優先すべき。
           
-          if (entry.routeRole == 'walk') {
-            // 徒歩ステップは常に徒歩エントリに一致する
-            return i;
-          } else if (entry.routeRole == 'ride') {
-             // 乗車エントリ。 
-             debugPrint('[ScheduleResolver] Ride entry matched. Keeping independent of remaining stops to show Navigation UI.');
-             return i;
-          } else if (entry.routeRole == 'arrival') {
-             // 到着エントリ。
-             return i;
+          bool isPast = !entry.plannedAt.isAfter(now);
+          
+          // 暫定ロジック:
+          // 1. まだ Current/Past が見つかっていないなら、無条件で候補にする
+          // 2. すでに候補がある場合:
+          //    - 今回が Past で、既存が Future なら、今回を優先 (Past > Future)
+          //    - 両方 Past なら、より現在に近いほう (diffが0に近い)
+          //    - 両方 Future なら、より現在に近いほう
+          
+          if (bestMatchIndex == -1) {
+            bestMatchIndex = i;
+            minTimeDiff = absDiff;
+            foundCurrentOrPast = isPast;
           } else {
-             // role が未設定でも一致したら採用
-             return i;
+            if (isPast && !foundCurrentOrPast) {
+              // Future -> Past への乗り換え (優先度高)
+              bestMatchIndex = i;
+              minTimeDiff = absDiff;
+              foundCurrentOrPast = true;
+            } else if (isPast == foundCurrentOrPast) {
+              // 同じ属性なら時間が近いほう
+              if (absDiff < minTimeDiff) {
+                bestMatchIndex = i;
+                minTimeDiff = absDiff;
+              }
+            }
+            // 既存が Past で 今回が Future なら更新しない (Keep Past)
           }
         }
       }
+    }
+
+    if (bestMatchIndex != -1) {
+       final entry = schedule[bestMatchIndex];
+       debugPrint('[ScheduleResolver] Selected best match index: $bestMatchIndex (Role: ${entry.routeRole}, Diff: ${minTimeDiff.inMinutes}m)');
+       return bestMatchIndex;
     }
 
     return -1;

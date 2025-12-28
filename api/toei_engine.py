@@ -1571,7 +1571,10 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
         if etype == "board":
             flush()
             from_name = G.nodes[last_phys]["name"] if last_phys else "???"
-            curr_stops = [{"name": from_name, "is_origin": True}]
+            origin_lat = G.nodes[last_phys].get("lat") if last_phys else None
+            origin_lon = G.nodes[last_phys].get("lon") if last_phys else None
+            
+            curr_stops = [{"name": from_name, "is_origin": True, "lat": origin_lat, "lon": origin_lon}]
             
             phys_id = u[1]
             if mode == "bus":
@@ -1615,7 +1618,11 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 phys_key = ("phys", v[1]) if v[0] == "line" else ("phys", u[1])
                 if phys_key in G: stop_name = G.nodes[phys_key]["name"]
                 if not cur["stops"] or cur["stops"][-1]["name"] != stop_name:
-                    cur["stops"].append({"name": stop_name})
+                    cur["stops"].append({
+                        "name": stop_name,
+                        "lat": G.nodes[phys_key].get("lat"),
+                        "lon": G.nodes[phys_key].get("lon")
+                    })
             
             if mode == "rail":
                 arr = tm.get_next_train_arrival(u[1], v[1], curr_time, day_type, delays_snapshot)
@@ -1631,10 +1638,21 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 if to_phys:
                     to_name = G.nodes[to_phys]["name"]
                     cur["to"] = to_name
+                    stop_lat = G.nodes[to_phys].get("lat")
+                    stop_lon = G.nodes[to_phys].get("lon")
+                    
                     if not cur["stops"] or cur["stops"][-1]["name"] != to_name:
-                        cur["stops"].append({"name": to_name, "is_destination": True})
+                        cur["stops"].append({
+                            "name": to_name,
+                            "is_destination": True,
+                            "lat": stop_lat,
+                            "lon": stop_lon
+                        })
                     else:
                         cur["stops"][-1]["is_destination"] = True
+                        # Update lat/lon if missing (should match, but safe to set)
+                        cur["stops"][-1]["lat"] = stop_lat
+                        cur["stops"][-1]["lon"] = stop_lon
                 cur["arrival_time"] = min_to_time_str(curr_time)
                 flush()
             curr_time += 1.0

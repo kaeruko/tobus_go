@@ -82,6 +82,16 @@ class TripNavigator {
     // legsから全てのstepを展開して1つのリストにする
     final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
 
+    // ★Debug: Check if steps have coordinates
+    if (currentPos != null) { // Only log when active update is happening to avoid spam
+      for (int i = 0; i < allSteps.length; i++) {
+        final s = allSteps[i];
+        final head = s.stops.isNotEmpty ? s.stops.first : null;
+        debugPrint('[Steps] i=$i kind=${s.kind} stops=${s.stops.length}'
+            ' head=${head?.name} lat=${head?.lat} lon=${head?.lon}');
+      }
+    }
+
     if (allSteps.isEmpty) {
       return _errorRouteState();
     }
@@ -177,24 +187,25 @@ class TripNavigator {
 
       // 徒歩(walk)判定
       if (step.kind == 'walk') {
-        if (currentStep + 1 < allSteps.length) {
-          final nextStep = allSteps[currentStep + 1];
-          if (nextStep.stops.isNotEmpty) {
-            final targetStop = nextStep.stops.first;
-            final targetLat = targetStop.lat ?? 0;
-            final targetLon = targetStop.lon ?? 0;
+        // 次の物理的な停留所（Waitをスキップした先のRide始点など）を探す
+        final targetStop = _findNextPhysicalStop(allSteps, currentStep);
+        
+        if (targetStop != null && targetStop.lat != null && targetStop.lon != null) {
             final distance = Geolocator.distanceBetween(
               currentPos.latitude,
               currentPos.longitude,
-              targetLat,
-              targetLon,
+              targetStop.lat!,
+              targetStop.lon!,
             );
 
             if (distance < _arrivalRadius) {
               currentStep++;
               nextStop = 0;
             }
-          }
+        } else {
+             // targetが見つからない、または座標がない場合
+             // ログは出すが、Infinityエラーにはならない（単に遷移しない）
+             // debugPrint('[TripNavigator] Walk arrival check failed: No next physical stop with coords');
         }
       }
       // 乗り物(bus/rail)判定
@@ -379,27 +390,21 @@ class TripNavigator {
       
       // 徒歩ステップの場合、次のステップの最初の停留所を目標とする
       if (step.kind == 'walk') {
-        // 次のステップがあれば、その最初の停留所との距離を計算
-        if (i + 1 < allSteps.length) {
-          final nextStep = allSteps[i + 1];
-          if (nextStep.stops.isNotEmpty) {
-            final target = nextStep.stops.first;
-            final lat = target.lat;
-            final lon = target.lon;
-            if (lat != null && lon != null) {
+        // 次のステップ（Wait含む）以降の有効な座標を持つ停留所を探す
+        final target = _findNextPhysicalStop(allSteps, i);
+        
+        if (target != null && target.lat != null && target.lon != null) {
               final d = Geolocator.distanceBetween(
                 currentPos.latitude, currentPos.longitude,
-                lat, lon,
+                target.lat!, target.lon!,
               );
               // debugPrint('[TripNavigator] walk to next step start: $d m');
               if (d < minDistance) {
                 minDistance = d;
                 bestStepIndex = i;
               }
-            } else {
-               debugPrint('[TripNavigator] Step $i next step start coords null');
-            }
-          }
+        } else {
+             debugPrint('[TripNavigator] Step $i next target coords null (via _findNextPhysicalStop)');
         }
       }
       // バス・電車ステップの場合、全停留所との距離を計算
@@ -474,5 +479,27 @@ class TripNavigator {
 
     debugPrint('[TripNavigator] Estimated next stop: $bestIndex (dist: ${minDist.toStringAsFixed(0)}m)');
     return bestIndex;
+  }
+
+  /// 指定したインデックスの次のステップから、有効な座標を持つ最初の停留所を探す
+  /// (Waitステップなどは座標がないためスキップして、その次の乗車ステップなどを探す)
+  static StopPoint? _findNextPhysicalStop(List<StepSeg> allSteps, int currentStepIndex) {
+    if (currentStepIndex + 1 >= allSteps.length) return null;
+
+    for (int i = currentStepIndex + 1; i < allSteps.length; i++) {
+      final step = allSteps[i];
+      // stopsを持ち、かつ座標があるものを探す
+      if (step.stops.isNotEmpty) {
+        // 先頭のstopをチェック
+        final first = step.stops.first;
+        if (first.lat != null && first.lon != null) {
+          return first;
+        }
+      }
+      // もしWaitステップなどならループ続行
+      // ただし、完全に無関係なステップが続くと遠くを参照しすぎるリスクはあるが、
+      // 基本的に Walk -> Wait -> Ride の順なので、Waitを飛ばしてRideの始点を見るのは正しい。
+    }
+    return null;
   }
 }

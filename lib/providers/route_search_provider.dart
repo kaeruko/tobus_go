@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_client.dart';
 import '../models/route_models.dart';
@@ -142,6 +143,23 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
 
       // Parse result immediately
       final candidatesList = r['candidates'] as List? ?? [];
+
+      // ★DEBUG: Dump raw stops JSON for first candidate
+      if (candidatesList.isNotEmpty) {
+        final c = candidatesList.first;
+        final steps = c['steps'] as List?;
+        if (steps != null) {
+           for(var i=0; i<steps.length; i++) {
+             final s = steps[i];
+             final stops = s['stops'] as List?;
+             if (stops != null && stops.isNotEmpty) {
+               debugPrint('[API-RAW] Step $i stop0: ${stops[0]}');
+             } else {
+               debugPrint('[API-RAW] Step $i stops empty/null');
+             }
+           }
+        }
+      }
       final metaMap = r['meta'] as Map<String, dynamic>? ?? {};
 
       final meta = RouteMeta.fromJson(metaMap);
