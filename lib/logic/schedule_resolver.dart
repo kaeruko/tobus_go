@@ -34,9 +34,14 @@ class ScheduleResolver {
     int active = -1;
     String label = 'いま';
 
+    bool isProgressBased = false;
+
     // 0. 進行状況が利用可能な場合、それを使用してアクティブなインデックスを決定する
     if (trip != null && currentStepIndex != null && currentStepIndex >= 0) {
       active = _findActiveIndexByProgress(scheduleSorted, trip, currentStepIndex, nextStopIndex);
+      if (active != -1) {
+        isProgressBased = true;
+      }
     }
     
     // 進行状況で一致が見つからなかった場合、または提供されなかった場合は時間ベースにフォールバックする
@@ -50,7 +55,7 @@ class ScheduleResolver {
       } else {
         // まだ何も始まっていない。すべて未来。
         if (scheduleSorted.isNotEmpty) {
-          active = 0;
+          // active = 0; // 変更: 未来の予定は active=-1 のままにして、開始前状態として扱う
           final diff = scheduleSorted[0].plannedAt.difference(now);
           if (diff > nextThreshold) {
              label = 'そのうち';
@@ -83,7 +88,7 @@ class ScheduleResolver {
     }
 
     // 進行状況によってアクティブが決定された場合、「いま」（または同様のもの）を強制する
-    if (active != -1 && trip != null && currentStepIndex != null) {
+    if (isProgressBased) {
       label = 'いま';
     }
 

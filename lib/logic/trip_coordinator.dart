@@ -27,7 +27,7 @@ class TripCoordinator {
         color: Colors.grey,
         currentStepIndex: 999,
         nextStopIndex: 999,
-        statusLabel: "旅は完了",
+        statusLabel: "お出かけ終了",
         isMoving: false,
       );
     }
@@ -41,6 +41,53 @@ class TripCoordinator {
         statusLabel: "中止",
         isMoving: false,
       );
+    }
+
+    // ★開始前 ActiveIndex == -1 かつ 未来の予定がある
+    if (scheduleState.activeIndex == -1 && scheduleState.window.isNotEmpty) {
+      ScheduleEntry? futureEntry;
+      for (final e in scheduleState.window) {
+        if (e.plannedAt.isAfter(now)) {
+          futureEntry = e;
+          break;
+        }
+      }
+
+      if (futureEntry != null) {
+        final diff = futureEntry.plannedAt.difference(now);
+
+        // 日付ラベル 今日 明日 それ以外
+        final today = DateTime(now.year, now.month, now.day);
+        final targetDay = DateTime(futureEntry.plannedAt.year, futureEntry.plannedAt.month, futureEntry.plannedAt.day);
+        final dayDiff = targetDay.difference(today).inDays;
+
+        final dateStr = dayDiff == 0
+            ? "今日"
+            : dayDiff == 1
+                ? "明日"
+                : "${targetDay.month}月${targetDay.day}日";
+
+        final timeStr =
+            "${futureEntry.plannedAt.hour.toString().padLeft(2, '0')}:${futureEntry.plannedAt.minute.toString().padLeft(2, '0')}";
+
+        // 残り時間
+        final totalMin = diff.inMinutes;
+        final h = totalMin ~/ 60;
+        final m = totalMin % 60;
+        final remainder = h > 0 ? "あと${h}時間${m}分" : "あと${m}分";
+
+        final mainLabel = futureEntry.label.isNotEmpty ? futureEntry.label : "予定";
+
+        return NavigationState(
+          mainText: mainLabel,
+          subText: "$dateStr $timeStr 開始まで $remainder",
+          color: Colors.white,
+          currentStepIndex: routeState.currentStepIndex,
+          nextStopIndex: routeState.nextStopIndex,
+          statusLabel: "開始前",
+          isMoving: false,
+        );
+      }
     }
 
     // 2. 移動中ならルートナビ優先

@@ -401,6 +401,8 @@ class TimetableManager:
     def load_bus_route_patterns(self, json_path):
         data = load_json(json_path)
         count = 0
+        seen = defaultdict(set)
+        
         for entry in data:
             route_id = entry.get("odpt:busroute")
             orders = entry.get("odpt:busstopPoleOrder") or []
@@ -413,29 +415,17 @@ class TimetableManager:
             if not route_id or not seq:
                 continue
 
-            # Deduplication using set of tuples
+            # Optimized Deduplication (User Request #3)
             key = tuple(seq)
+            if key in seen[route_id]:
+                continue
+            seen[route_id].add(key)
+            
             if route_id not in self.route_patterns_map:
                 self.route_patterns_map[route_id] = []
             
-            # Simple deduplication check in memory logic
-            # Optimization: Use set if needed, but here just linear scan is O(N*M) where N is small usually
-            # But user requested optimization: O(n^2) removal
-            # Actually self.route_patterns_map[route_id] is a list of lists.
-            # Let's check existence efficiently? 
-            # With only a few patterns per route, linear scan is fine, but let's be safe against data explosion.
-            # We can't easily change the structure to set without breaking other logic that expects list of lists (ordered).
-            # But we can keep a parallel set for dedupe if we were building from scratch.
-            # Since this function is called once, local set is enough.
-            
-            exists = False
-            for s in self.route_patterns_map[route_id]:
-                if tuple(s) == key:
-                    exists = True
-                    break
-            if not exists:
-                self.route_patterns_map[route_id].append(seq)
-                count += 1
+            self.route_patterns_map[route_id].append(seq)
+            count += 1
         
         del data
         import gc
@@ -610,7 +600,7 @@ class TimetableManager:
 
     def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
         if not debug:
-            dbg_env = os.getenv("DEBUG_BUS")
+            dbg_env = os.getenv("DEBUG_BUS", "0")
             if dbg_env == "1":
                 debug = True
             elif dbg_env != "0" and pole_name and dbg_env in pole_name:
@@ -766,11 +756,13 @@ class TimetableManager:
             target_dict = self.bus_departures_weekday
 
         def find_trips(routes_dict, target_rid):
-            if target_rid in routes_dict: return routes_dict[target_rid]
+            if target_rid in routes_dict: return routes_dict[target_rid], target_rid
+            
+            base = route_base(target_rid)
             for r_key, t_list in routes_dict.items():
-                if target_rid in r_key or r_key in target_rid:
-                    return t_list
-            return None
+                if route_base(r_key) == base:
+                    return t_list, r_key
+            return None, None
 
         def is_valid_trip(trip, rid, board_pole_id):
             if not target_pole_id: return True
@@ -792,7 +784,8 @@ class TimetableManager:
             return True
 
         routes = target_dict.get(pole_id) or {}
-        candidate_trips = find_trips(routes, route_id)
+        effective_rid = route_id
+        candidate_trips, effective_rid = find_trips(routes, route_id)
 
         # Fallback with Pole Base (User Reqeust #4)
         if not candidate_trips:
@@ -805,7 +798,7 @@ class TimetableManager:
             for alt_pid in candidates:
                 if alt_pid == pole_id: continue
                 alt_routes = target_dict.get(alt_pid) or {}
-                candidate_trips = find_trips(alt_routes, route_id)
+                candidate_trips, effective_rid = find_trips(alt_routes, route_id)
                 if candidate_trips: break # Found fallback
 
         # Legacy Name Fallback (kept as requested, but might be redundant if pole base works)
@@ -813,7 +806,7 @@ class TimetableManager:
             for alt_pid in self.name_to_pids[pole_name]:
                 if alt_pid == pole_id: continue
                 alt_routes = target_dict.get(alt_pid) or {}
-                candidate_trips = find_trips(alt_routes, route_id)
+                candidate_trips, effective_rid = find_trips(alt_routes, route_id) 
                 if candidate_trips: break
 
         if not candidate_trips: return []
@@ -832,7 +825,7 @@ class TimetableManager:
         for i in range(lo, L):
             trip = candidate_trips[i]
             # dep guaranteed by sort/load
-            if is_valid_trip(trip, route_id, pole_id):
+            if is_valid_trip(trip, effective_rid, pole_id):
                 out.append(trip)
                 if len(out) >= limit: break
         return out
@@ -1312,7 +1305,7 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
 
         if curr_time - start_min > max_travel_min: continue
 
-        walk_bucket = int(seg_walk_m // 10)
+        walk_bucket = int(seg_walk_m // 25) # Coarser bucket
         state_key = (u, walk_bucket)
         
         # Check against closed set
@@ -1341,11 +1334,11 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
                     next_time_v = curr_time + (vmeters / WALK_SPEED_M_PER_MIN)
                     if next_time_v - start_min <= max_travel_min:
                         new_total_v = total_walk_m + vmeters
-                        new_seg_v = vmeters
+                        new_seg_v = seg_walk_m + vmeters
                         if new_total_v <= MAX_TOTAL_WALK_M and new_seg_v <= MAX_WALK_SEG_M:
                             new_cost_v = cost + vw
                             # State check
-                            bucket_v = int(new_seg_v // 10)
+                            bucket_v = int(new_seg_v // 25)
                             key_v = (target_node, bucket_v)
                             # g_score logic
                             if new_cost_v < g_score.get(key_v, float('inf')):
@@ -1375,7 +1368,7 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
             new_cost = cost + w
             
             # Open Set Optimization
-            new_bucket = int(new_seg_walk_m // 10)
+            new_bucket = int(new_seg_walk_m // 25) # Coarser bucket
             new_key = (v, new_bucket)
             if new_cost < g_score.get(new_key, float('inf')):
                 g_score[new_key] = new_cost
@@ -1440,7 +1433,7 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
         if u == target_node:
             return curr_time, reconstruct_path_idx(chain_store, chain_idx)
 
-        state = (u, int(seg_walk // 10))
+        state = (u, int(seg_walk // 25))
         if state in visited_time and visited_time[state] <= curr_time: continue
         visited_time[state] = curr_time
 
@@ -1452,7 +1445,7 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
                     new_tot = total_walk + vmeters
                     if v_time - start_min <= max_travel_min and new_seg <= MAX_WALK_SEG_M and new_tot <= MAX_TOTAL_WALK_M:
                         # Open Set Opt
-                        n_bucket = int(new_seg // 10)
+                        n_bucket = int(new_seg // 25)
                         n_key = (target_node, n_bucket)
                         if v_time < min_time.get(n_key, float('inf')):
                             min_time[n_key] = v_time
@@ -1469,16 +1462,16 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
 
             if edge.get("etype") == "walk":
                 step_m = meters if meters > 0 else 1.0
-                new_seg_walk_m = seg_walk_m + step_m
-                if new_seg_walk_m > MAX_WALK_SEG_M: continue
-                new_total_walk_m = total_walk_m + step_m
-                if new_total_walk_m > MAX_TOTAL_WALK_M: continue
+                new_seg = seg_walk + step_m
+                if new_seg > MAX_WALK_SEG_M: continue
+                new_tot = total_walk + step_m
+                if new_tot > MAX_TOTAL_WALK_M: continue
             else:
-                new_seg_walk_m = 0.0
-                new_total_walk_m = total_walk_m
+                new_seg = 0.0
+                new_tot = total_walk
             
             # Open Set Opt
-            n_bucket = int(new_seg // 10)
+            n_bucket = int(new_seg // 25) # Coarser bucket for OOM mitigation
             n_key = (v, n_bucket)
             if next_time < min_time.get(n_key, float('inf')):
                  min_time[n_key] = next_time
