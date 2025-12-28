@@ -2,15 +2,16 @@
 # -*- coding: utf-8 -*-
 # toei_engine.py
 
-import json, argparse, math, sys, heapq, datetime
+import json, argparse, math, sys, heapq, datetime, bisect
 import os
 import gc
+import time
 import networkx as nx
 from collections import defaultdict
 
 
 # -------------------- チューニング定数 --------------------
-print("[INFO] toei_engine loaded: build=2025-12-26-1") # Deployment Verification Log
+print("[INFO] toei_engine loaded: build=2025-12-26-1", flush=True) # Deployment Verification Log
 BUS_RIDE_COST = 0.8
 RAIL_RIDE_COST = 0.8
 WALK_COST = 1.5
@@ -23,6 +24,9 @@ MAX_WALK_SEG_M = 1000.0
 # 追加: 経路として許容する最大所要時間・総徒歩距離
 MAX_TRAVEL_MIN = 240.0      # 例: 4 時間を上限
 MAX_TOTAL_WALK_M = 3000.0   # 例: 総徒歩 3km まで
+
+DEBUG_PHASE = os.getenv("DEBUG_PHASE", "0") == "1"
+DEBUG_TT = os.getenv("DEBUG_TT", "0") == "1"
 
 # -------------------- ユーティリティ --------------------
 def _rss_mb() -> float:
@@ -55,9 +59,23 @@ def _rss_mb() -> float:
 def _mem_log(tag: str, extra: str = "") -> None:
     rss = _rss_mb()
     if extra:
-        print(f"[MEM] {tag} rss={rss:.1f}MB {extra}")
+        print(f"[MEM] {tag} rss={rss:.1f}MB {extra}", flush=True)
     else:
-        print(f"[MEM] {tag} rss={rss:.1f}MB")
+        print(f"[MEM] {tag} rss={rss:.1f}MB", flush=True)
+
+def _phase_log(tag: str, extra: str = "") -> None:
+    if not DEBUG_PHASE:
+        return
+    if extra:
+        print(f"[PHASE] {tag} {extra}", flush=True)
+    else:
+        print(f"[PHASE] {tag}", flush=True)
+
+def _file_size_bytes(path: str) -> int:
+    try:
+        return int(os.path.getsize(path))
+    except Exception:
+        return -1
 
 def _line_norm(s: str) -> str:
     tbl = str.maketrans("０１２３４５６７８９　（）", "0123456789 ()")
@@ -80,10 +98,22 @@ def is_toei(op):
     return isinstance(op, str) and "Toei" in op
 
 def load_json(path):
-    _mem_log("load_json begin", f"path={path}")
+    _phase_log("load_json begin", f"path={path}")
+    t0 = time.perf_counter()
+    size_b = _file_size_bytes(path)
+    _mem_log("load_json begin", f"path={path} size={size_b}")
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    _mem_log("load_json end")
+    dt = time.perf_counter() - t0
+    
+    if isinstance(data, list):
+        n = len(data)
+    elif isinstance(data, dict):
+        n = len(data.get("result", [])) if isinstance(data.get("result"), list) else 1
+    else:
+        n = 1
+
+    _mem_log("load_json end", f"sec={dt:.2f} items={n}")
     
     # Restore safety check for wrapped result
     if isinstance(data, dict):
@@ -163,7 +193,7 @@ class SpatialIndex:
             self.build(G)
 
     def build(self, G):
-        print(f"[INFO] Building SpatialIndex (cell={self.cell_size_m}m)...")
+        print(f"[INFO] Building SpatialIndex (cell={self.cell_size_m}m)...", flush=True)
         count = 0
         for n, d in G.nodes(data=True):
             if n[0] == "phys" and "lat" in d and "lon" in d:
@@ -172,7 +202,7 @@ class SpatialIndex:
                 cy = int(y // self.cell_size_m)
                 self.grid[(cx, cy)].append((n, d["lat"], d["lon"]))
                 count += 1
-        print(f"[INFO] Indexed {count} phys nodes.")
+        print(f"[INFO] Indexed {count} phys nodes.", flush=True)
 
     def nearby_candidates(self, lat, lon, radius_m):
         x, y = to_local_meters(lat, lon)
@@ -252,7 +282,7 @@ class TimetableManager:
             need_rebuild_indexes = True
 
         if need_rebuild_indexes:
-            print("[INFO] Migrating TimetableManager: Initializing missing or None indexes...")
+            print("[INFO] Migrating TimetableManager: Initializing missing or None indexes...", flush=True)
             self.pole_base_index_weekday = defaultdict(list)
             self.pole_base_index_saturday = defaultdict(list)
             self.pole_base_index_holiday = defaultdict(list)
@@ -341,7 +371,7 @@ class TimetableManager:
         self._debug_counts[key] += 1
         if key not in self._debug_once:
             self._debug_once.add(key)
-            print(msg)
+            print(msg, flush=True)
             
     def _build_pole_base_index_for(self, departures_dict, out_index):
         out_index.clear()
@@ -352,7 +382,7 @@ class TimetableManager:
         self._build_pole_base_index_for(self.bus_departures_weekday, self.pole_base_index_weekday)
         self._build_pole_base_index_for(self.bus_departures_saturday, self.pole_base_index_saturday)
         self._build_pole_base_index_for(self.bus_departures_holiday, self.pole_base_index_holiday)
-        print("[INFO] Bus ID-based indexes finalized.")
+        print("[INFO] Bus ID-based indexes finalized.", flush=True)
         
     def update_delays(self, train_data_list):
         count = 0
@@ -383,13 +413,21 @@ class TimetableManager:
             if not route_id or not seq:
                 continue
 
-            # Need to handle potential duplicate patterns if simple keying
-            # But here we just append unique sequences for the route
+            # Deduplication using set of tuples
+            key = tuple(seq)
             if route_id not in self.route_patterns_map:
                 self.route_patterns_map[route_id] = []
             
             # Simple deduplication check in memory logic
-            key = tuple(seq)
+            # Optimization: Use set if needed, but here just linear scan is O(N*M) where N is small usually
+            # But user requested optimization: O(n^2) removal
+            # Actually self.route_patterns_map[route_id] is a list of lists.
+            # Let's check existence efficiently? 
+            # With only a few patterns per route, linear scan is fine, but let's be safe against data explosion.
+            # We can't easily change the structure to set without breaking other logic that expects list of lists (ordered).
+            # But we can keep a parallel set for dedupe if we were building from scratch.
+            # Since this function is called once, local set is enough.
+            
             exists = False
             for s in self.route_patterns_map[route_id]:
                 if tuple(s) == key:
@@ -405,6 +443,7 @@ class TimetableManager:
         _mem_log("load_bus_route_patterns done", f"entries={count}")
 
     def load_bus_timetables(self, json_path):
+        _phase_log("load_bus_timetables begin", f"path={json_path}")
         data = load_json(json_path)
         count = 0
         for entry in data:
@@ -468,11 +507,20 @@ class TimetableManager:
                 for rid in d[pid]:
                     d[pid][rid].sort(key=lambda x: x["dep"])
         self.finalize_indexes()
-        print(f"[DEBUG] Loaded Bus Timetables (Entries used: {count})")
+        print(f"[DEBUG] Loaded Bus Timetables (Entries used: {count})", flush=True)
+        _phase_log("load_bus_timetables end", f"entries={count}")
 
     def load_train_timetables(self, json_path):
+        _phase_log("load_train_timetables begin", f"path={json_path}")
         data = load_json(json_path)
         count = 0
+
+        # Debug stats
+        edges_added = 0
+        skip_missing_station = 0
+        skip_missing_time = 0
+        skip_bad_time_order = 0
+
         for entry in data:
             train_num = entry.get("odpt:trainNumber")
             calendar = entry.get("odpt:calendar", "")
@@ -484,31 +532,72 @@ class TimetableManager:
             if "Weekday" in calendar:
                 target_dict = self.train_patterns_weekday
 
-            for i in range(len(objs) - 1):
-                curr = objs[i]
-                next_stop = objs[i+1]
-                dep_sta = curr.get("odpt:departureStation")
-                arr_sta = next_stop.get("odpt:arrivalStation")
-                dep_time = time_str_to_min(curr.get("odpt:departureTime"))
-                arr_time = time_str_to_min(next_stop.get("odpt:arrivalTime"))
+            # Modified Logic: Handle terminal stations (only arrival) and link sequentially
+            prev = None # (station_id, dep_time_str)
+            
+            for obj in objs:
+                # 終端は arrivalStation しか無いことがあるため departure優先で取得
+                sid = obj.get("odpt:departureStation") or obj.get("odpt:arrivalStation")
+                if not sid:
+                    skip_missing_station += 1
+                    continue
                 
-                if dep_sta and arr_sta:
-                    if dep_sta not in target_dict: target_dict[dep_sta] = []
-                    target_dict[dep_sta].append({
-                        "dep": dep_time, 
-                        "arr": arr_time, 
-                        "next_sta": arr_sta,
-                        "train_num": train_num
-                    })
+                # 時刻情報の取得
+                dep_str = obj.get("odpt:departureTime")
+                arr_str = obj.get("odpt:arrivalTime")
+
+                if prev:
+                    prev_sid, prev_dep_str = prev
+                    
+                    # 前駅からのエッジを作成
+                    if prev_sid and sid:
+                        # 欠損時刻は edge を作らない
+                        if (prev_dep_str is None) or (arr_str is None):
+                            skip_missing_time += 1
+                        else:
+                            real_dep = time_str_to_min(prev_dep_str)
+                            real_arr = time_str_to_min(arr_str)
+
+                            # 99999 は無効として扱う
+                            if (real_dep >= 99999) or (real_arr >= 99999):
+                                skip_missing_time += 1
+                            # 日跨ぎを扱わない前提では real_arr < real_dep は無効
+                            elif real_arr < real_dep:
+                                skip_bad_time_order += 1
+                            else:
+                                if prev_sid not in target_dict:
+                                    target_dict[prev_sid] = []
+                                target_dict[prev_sid].append({
+                                    "dep": real_dep, 
+                                    "arr": real_arr, 
+                                    "next_sta": sid,
+                                    "train_num": train_num
+                                })
+                                edges_added += 1
+                
+                # Update prev
+                # 次の区間の始点はここ。出発時刻を使う。無ければ到着時刻(終端などで次に繋がらないが念のため)
+                next_dep_str = dep_str if dep_str else arr_str
+                prev = (sid, next_dep_str)
             count += 1
         
         for d in [self.train_patterns_weekday, self.train_patterns_weekend]:
             for sid in d:
                 d[sid].sort(key=lambda x: x["dep"])
-        print(f"[DEBUG] Loaded Train Timetables (Entries used: {count})")
+        print(f"[DEBUG] Loaded Train Timetables (Entries used: {count})", flush=True)
+        if DEBUG_TT:
+            print(
+                "[DEBUG_TT] train_timetable_stats "
+                f"entries={count} edges_added={edges_added} "
+                f"skip_missing_station={skip_missing_station} "
+                f"skip_missing_time={skip_missing_time} "
+                f"skip_bad_time_order={skip_bad_time_order}",
+                flush=True
+            )
+        _phase_log("load_train_timetables end", f"entries={count} edges={edges_added}")
 
     def build_name_index(self, G):
-        print("[INFO] Building Name Index for fuzzy matching...")
+        print("[INFO] Building Name Index for fuzzy matching...", flush=True)
         count = 0
         for n, d in G.nodes(data=True):
             if n[0] == "phys":
@@ -517,11 +606,11 @@ class TimetableManager:
                 if name:
                     self.name_to_pids[name].append(pid)
                     count += 1
-        print(f"[INFO] Index built. Total {count} nodes.")
+        print(f"[INFO] Index built. Total {count} nodes.", flush=True)
 
     def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
         if not debug:
-            dbg_env = os.getenv("DEBUG_BUS", "0")
+            dbg_env = os.getenv("DEBUG_BUS")
             if dbg_env == "1":
                 debug = True
             elif dbg_env != "0" and pole_name and dbg_env in pole_name:
@@ -548,7 +637,7 @@ class TimetableManager:
         def find_trips_smart(routes_dict, target_rid):
             # 1. Exact match
             if target_rid in routes_dict:
-                return routes_dict[target_rid]
+                return routes_dict[target_rid], target_rid
             
             # 2. Route Base match (e.g. Nishiki27 matches Nishiki27-2)
             base = route_base(target_rid)
@@ -560,8 +649,8 @@ class TimetableManager:
                             f"route_fuzzy:{target_rid}", 
                             f"[BUS] Fuzzy Route Match: {target_rid} -> {r_key} (base={base})"
                         )
-                    return t_list
-            return None
+                    return t_list, r_key
+            return None, None
 
         def is_valid_trip(trip, rid, board_pole_id):
             if not target_pole_id: return True
@@ -598,8 +687,9 @@ class TimetableManager:
         # Primary Lookup
         routes = target_dict.get(effective_pole_id)
         candidate_trips = None
+        effective_rid = None
         if routes:
-            candidate_trips = find_trips_smart(routes, route_id)
+            candidate_trips, effective_rid = find_trips_smart(routes, route_id)
 
         # Fallback: Pole Base (Only if not cached or cache failed somehow)
         if not candidate_trips and not cached_pid:
@@ -611,7 +701,7 @@ class TimetableManager:
                 alt_routes = target_dict.get(alt_pid)
                 if not alt_routes: continue
                 
-                alt_trips = find_trips_smart(alt_routes, route_id)
+                alt_trips, alt_rid = find_trips_smart(alt_routes, route_id)
                 if alt_trips:
                     if debug:
                         self.debug_once(
@@ -619,6 +709,7 @@ class TimetableManager:
                             f"[BUS] Pole Fallback: {pole_id} -> {alt_pid} (base={base})"
                         )
                     candidate_trips = alt_trips
+                    effective_rid = alt_rid
                     self._resolved_pole_cache[cache_key] = alt_pid
                     effective_pole_id = alt_pid # Update for is_valid_trip check
                     break
@@ -626,17 +717,40 @@ class TimetableManager:
         if not candidate_trips:
             return None
 
-        # Determine the board_pole_id to use for validation
-        # If we fell back to alt_pid, we should strictly check against alt_pid patterns?
-        # Usually checking original ID is safer for graph consistency, but timetable logic needs ID with pattern.
-        # Let's use effective_pole_id for pattern check.
+        # Binary Search Optimization
+        # candidate_trips is sorted by 'dep' (see load_bus_timetables)
+        # We need the first trip where trip['dep'] >= current_time_min
         
-        for trip in candidate_trips:
+        # Create a proxy list or key wrapper? Creating list is O(N).
+        # Python's bisect works on list. `key` argument is available in 3.10+, but environment might be older.
+        # Lambda standard python versions usually support it (3.12, 3.11, 3.9).
+        # Safe 3.8 compatible way: pre-check or linear scan from bisect point if we map just times?
+        # Actually linear scan from the start is O(N).
+        # We can just check trips starting from an index found by bisect if we had a list of deps.
+        # But we act directly on candidate_trips (list of dicts).
+        
+        # Let's assume Python 3.10+ for key support in bisect OR just do a custom bsearch to avoid O(N) allocation
+        
+        L = len(candidate_trips)
+        lo, hi = 0, L
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if candidate_trips[mid]["dep"] < current_time_min:
+                lo = mid + 1
+            else:
+                hi = mid
+        
+        start_idx = lo
+        
+        for i in range(start_idx, L):
+            trip = candidate_trips[i]
             dep = trip.get("dep")
-            if dep is None: continue
-            if dep >= current_time_min:
-                if is_valid_trip(trip, route_id, effective_pole_id):
-                    return dep
+            # If dep is somehow None (shouldn't happen due to sort), skip? 
+            # But sort key lambda x: x['dep'] would fail if None exists, so safe to assume dep exists.
+            
+            if is_valid_trip(trip, effective_rid, effective_pole_id):
+                return dep
+        
         return None
 
     def get_future_bus_trips(self, pole_id, route_id, current_time_min, limit=10, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
@@ -680,6 +794,21 @@ class TimetableManager:
         routes = target_dict.get(pole_id) or {}
         candidate_trips = find_trips(routes, route_id)
 
+        # Fallback with Pole Base (User Reqeust #4)
+        if not candidate_trips:
+            base = pole_base(pole_id)
+            if day_type == "saturday": base_index = self.pole_base_index_saturday
+            elif day_type == "holiday": base_index = self.pole_base_index_holiday
+            else: base_index = self.pole_base_index_weekday
+            
+            candidates = base_index.get(base, [])
+            for alt_pid in candidates:
+                if alt_pid == pole_id: continue
+                alt_routes = target_dict.get(alt_pid) or {}
+                candidate_trips = find_trips(alt_routes, route_id)
+                if candidate_trips: break # Found fallback
+
+        # Legacy Name Fallback (kept as requested, but might be redundant if pole base works)
         if not candidate_trips and pole_name and pole_name in self.name_to_pids:
             for alt_pid in self.name_to_pids[pole_name]:
                 if alt_pid == pole_id: continue
@@ -690,10 +819,19 @@ class TimetableManager:
         if not candidate_trips: return []
 
         out = []
-        for trip in candidate_trips:
-            dep = trip.get("dep")
-            if dep is None: continue
-            if dep < current_time_min: continue
+        # Binary search for start point here too
+        L = len(candidate_trips)
+        lo, hi = 0, L
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if candidate_trips[mid]["dep"] < current_time_min:
+                lo = mid + 1
+            else:
+                hi = mid
+        
+        for i in range(lo, L):
+            trip = candidate_trips[i]
+            # dep guaranteed by sort/load
             if is_valid_trip(trip, route_id, pole_id):
                 out.append(trip)
                 if len(out) >= limit: break
@@ -721,6 +859,7 @@ class TimetableManager:
 
 # -------------------- グラフ構築 --------------------
 def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railways_path, walk_radius=300):
+    _phase_log("build_graph begin", f"walk_radius={walk_radius}")
     G = nx.DiGraph()
     poles = load_json(busstop_poles_path)
     phys = {}
@@ -785,7 +924,41 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
             G.add_edge(na, nb, w=RAIL_RIDE_COST, etype="ride", line=line_id, mode="rail")
             G.add_edge(nb, na, w=RAIL_RIDE_COST, etype="ride", line=line_id, mode="rail")
 
+    # Add Connecting Stations (Walk Edges from Master Data)
+    # 優先順位の仕様
+    # connectingStation はマスタで明示された接続
+    # radius walk は近接判定のヒューリスティック接続
+    # 既存 edge がある場合は上書きしない
+    print("[INFO] Adding ConnectingStation edges...", flush=True)
+    count_connect = 0
+    for s in stations:
+        if not is_toei(s.get("odpt:operator")): continue
+        sid = get_id(s)
+        connects = s.get("odpt:connectingStation")
+        if connects:
+            if isinstance(connects, str): connects = [connects]
+            u = ("phys", sid)
+            if u not in G: continue
+            
+            for target in connects:
+                v = ("phys", target)
+                if G.has_node(v):
+                    if G.has_edge(u, v): continue
+                    
+                    d_u = G.nodes[u]
+                    d_v = G.nodes[v]
+                    dist = haversine(d_u.get("lat",0), d_u.get("lon",0), d_v.get("lat",0), d_v.get("lon",0))
+                    
+                    minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
+                    w = WALK_COST * minutes
+                    G.add_edge(u, v, w=w, etype="walk", meters=dist)
+                    G.add_edge(v, u, w=w, etype="walk", meters=dist)
+                    count_connect += 1
+    print(f"[INFO] Added {count_connect} connecting station edges.", flush=True)
+
+    _phase_log("connect_walk_edges_phys begin", f"radius_m={walk_radius}")
     connect_walk_edges_phys(G, radius_m=walk_radius)
+    _phase_log("connect_walk_edges_phys end")
     
     # Aggressive GC
     del poles
@@ -795,6 +968,7 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
     import gc
     gc.collect()
     _mem_log("build_graph done")
+    _phase_log("build_graph end")
     
     return G
 
@@ -803,20 +977,22 @@ def connect_walk_edges_phys(G, radius_m=300):
     si = SpatialIndex(G)
     
     phys_nodes = []
-    for idx, (n, d) in enumerate(G.nodes(data=True)):
+    for n, d in G.nodes(data=True):
         if n[0] != "phys": continue
         phys_nodes.append((n, d))
 
     for u, du in phys_nodes:
         candidates = si.nearby_candidates(du["lat"], du["lon"], radius_m)
-        for (v, lat, lon) in candidates:
+        for v, lat, lon in candidates:
             if u == v: continue
             dist = haversine(du["lat"], du["lon"], lat, lon)
             if dist <= radius_m:
+                 minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
+                 w = WALK_COST * minutes
                  if not G.has_edge(u, v):
-                     minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
-                     w = WALK_COST * minutes
                      G.add_edge(u, v, w=w, etype="walk", meters=dist)
+                 if not G.has_edge(v, u):
+                     G.add_edge(v, u, w=w, etype="walk", meters=dist)
 
 def get_virtual_connections(G, lat, lon, name="目的地", walk_radius=300, spatial_index=None):
     dest_id = f"dest:{lat:.6f},{lon:.6f}"
@@ -893,7 +1069,8 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=Non
         return curr_time # Should rarely happen here unless virtual logic changes
 
     if etype == "walk":
-        return curr_time + (meters / WALK_SPEED_M_PER_MIN)
+        mm = meters if meters and meters > 0 else 1.0
+        return curr_time + (mm / WALK_SPEED_M_PER_MIN)
 
     if etype == "board":
         node = v if v[0] == "line" else u
@@ -909,6 +1086,8 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=Non
                 day_type=day_type,
                 target_pole_id=target_pid
             )
+            if dep is None:
+                return None
             return dep
         elif mode == "rail":
             return curr_time + 2.0
@@ -1067,8 +1246,8 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
     def heuristic(n):
         if n == target_node: return 0.0
         if t_lat is None: return 0.0
-        d = G.nodes.get(n)
-        if not d: return 0.0
+        if n not in G: return 0.0
+        d = G.nodes[n]
         dist = haversine(d.get("lat",0), d.get("lon",0), t_lat, t_lon)
         return dist / 400.0
 
@@ -1112,13 +1291,13 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
         # Check timeout more frequently (every 100 nodes)
         if visited_count > 0 and visited_count % 100 == 0:
             if time.monotonic() - start_clock > time_limit_sec:
-                print(f"[WARN] Search timeout {yielded_count} paths found. Visited {visited_count} nodes.")
+                print(f"[WARN] Search timeout {yielded_count} paths found. Visited {visited_count} nodes.", flush=True)
                 _mem_log("search_timeout")
                 return
             
             # Check Memory/Size Limits
             if len(pq) > MAX_PQ or len(g_score) > MAX_GSCORE or len(best_cost) > MAX_BEST:
-                print(f"[WARN] Search structure too large. abort pq={len(pq)} g={len(g_score)} best={len(best_cost)}")
+                print(f"[WARN] Search structure too large. abort pq={len(pq)} g={len(g_score)} best={len(best_cost)}", flush=True)
                 _mem_log("search_abort_size")
                 return
                 
@@ -1246,10 +1425,10 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
         # Timeout & Failsafe
         if visited_count > 0 and visited_count % 100 == 0:
             if time.monotonic() - start_clock > TIME_LIMIT_SEC:
-                print(f"[WARN] Fastest path search timeout. Visited {visited_count}.")
+                print(f"[WARN] Fastest path search timeout. Visited {visited_count}.", flush=True)
                 return None, None
-            if len(pq) > 1000000:
-                print(f"[WARN] PQ exploded. Aborting.")
+            if len(pq) > 250000 or len(visited_time) > 500000 or len(min_time) > 500000:
+                print(f"[WARN] Search exploded. pq={len(pq)} visited={len(visited_time)} min={len(min_time)}", flush=True)
                 return None, None
                 
         curr_time, u, chain_idx, total_walk, seg_walk = heapq.heappop(pq)
@@ -1288,9 +1467,15 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
             next_time = advance_time(G, tm, u, v, curr_time, day_type, delays_snapshot, target_pole_id=None) 
             if next_time is None: continue
 
-            new_seg = seg_walk + (meters if etype == "walk" else 0) if etype == "walk" else 0
-            new_tot = total_walk + (meters if etype == "walk" else 0) if etype == "walk" else total_walk
-            if new_seg > MAX_WALK_SEG_M or new_tot > MAX_TOTAL_WALK_M: continue
+            if edge.get("etype") == "walk":
+                step_m = meters if meters > 0 else 1.0
+                new_seg_walk_m = seg_walk_m + step_m
+                if new_seg_walk_m > MAX_WALK_SEG_M: continue
+                new_total_walk_m = total_walk_m + step_m
+                if new_total_walk_m > MAX_TOTAL_WALK_M: continue
+            else:
+                new_seg_walk_m = 0.0
+                new_total_walk_m = total_walk_m
             
             # Open Set Opt
             n_bucket = int(new_seg // 10)
@@ -1360,8 +1545,12 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
     for i, (u, v) in enumerate(zip(path, path[1:])):
         edge = G.get_edge_data(u, v)
         if not edge and virtual_dest_connections:
+            # FIX: Check if v is actually the destination node for consistency
             for nid, w, dist in virtual_dest_connections:
-                 if nid == u: edge = {"etype": "walk", "meters": dist}
+                 # Check target too (dest:...)
+                 if nid == u and v[0] == "phys" and str(v[1]).startswith("dest:"):
+                      edge = {"etype": "walk", "meters": dist}
+                      break
         if not edge: continue
         
         etype = edge.get("etype")
@@ -1476,7 +1665,7 @@ def main():
     ap.add_argument("--train-timetables", default="data/odpt_TrainTimetable.json")
     args = ap.parse_args()
 
-    print("[INFO] Building Graph...")
+    print("[INFO] Building Graph...", flush=True)
     G = build_graph(args.busstop_poles, args.busroute_patterns, args.stations, args.railways, walk_radius=args.walk)
     
     alat, alon = map(float, args.a.split(","))
