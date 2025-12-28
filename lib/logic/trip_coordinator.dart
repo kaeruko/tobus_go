@@ -21,6 +21,7 @@ class TripCoordinator {
     required ScheduleResolveResult scheduleState,
     required RouteState? routeState, // ★RouteNavState -> RouteState (mutable object passed for checking)
     required DateTime now,
+    String? realtimeBusLocationId, 
   }) {
     // 1. TripStatus Check
     if (trip.status == TripStatus.completed) {
@@ -81,12 +82,58 @@ class TripCoordinator {
         final departureDt = _parseTime(now, step.departureTime!);
         // 現在時刻が出発予定より1分以上過ぎているなら強制開始
         if (now.isAfter(departureDt.add(const Duration(minutes: 1)))) {
-           routeState.isMoving = true; // 状態更新
-           return NavigationState.navigating(
-             step: step,
-             stopIndex: routeState.nextStopIndex,
-             statusLabel: "定刻出発",
-           );
+           
+           // ★遅延チェック: バスが来ていないなら強制開始しない
+           bool isBusDelayed = false;
+           if (step.isRide && realtimeBusLocationId != null && step.stops.isNotEmpty) {
+             final boardingStopId = step.stops.first.stopId;
+             // バスがまだ乗車停にいない、かつ乗車区間内(乗車〜降車)にもいない場合
+             // -> まだ手前にいると判断して待機維持
+             bool isBusAtBoarding = (realtimeBusLocationId == boardingStopId);
+             bool isBusInRideSegment = step.stops.any((s) => s.stopId == realtimeBusLocationId);
+
+             if (!isBusAtBoarding && !isBusInRideSegment) {
+               isBusDelayed = true;
+               debugPrint("[TripCoordinator] Bus is delayed. Realtime: $realtimeBusLocationId vs Boarding: $boardingStopId");
+             }
+           }
+
+           if (!isBusDelayed) {
+             routeState.isMoving = true; // 状態更新
+             return NavigationState.navigating(
+               step: step,
+               stopIndex: routeState.nextStopIndex,
+               statusLabel: "定刻出発",
+             );
+           } else {
+             // 遅延中として待機ステータスを返す（後続の処理でWaiting扱いになるが明示的に）
+             // ただし、下流のロジックでWaitになるように fall-through するか、ここで返すか。
+             // ここで返さないと fall through して schedule check になる。
+             // Schedule Check で "Departure" (Wait) になればOK。
+             // ただし "Departure" のテキストを変えたいならここで return もあり。
+             // ユーザー要望: "API情報で...『待機中（遅延）』として扱います。"
+             // NavigationState.waitingForDeparture({bool isDelayed = false}) を作るか、既存のWaitingにフラグを足すか。
+             // 既存の NavigationState はクラス。
+             // ここでは NavigationState.waitingForDeparture というファクトリはない（ユーザーコードにはあったが）。
+             // なので、既存の "Departure" 表示ロジック（line 126あたり）に任せるか、カスタムで返すか。
+             // 下流の schedule check (line 95) は `activeEntry` 次第。
+             // ScheduleResolver は変更したので、activeEntry がちゃんと "Departure" になっていればOK。
+             // もし ScheduleResolver が "Ride" を返してたら？ (5分前判定)
+             // 1分過ぎてるなら "Ride" になっている可能性高い (diff < 0)。
+             
+             // ScheduleResolver が Ride を返している場合、下の処理には引っかからない (Kind != Departure)。
+             // なので、ここで NavigationState を返す必要がある。
+             
+             return NavigationState(
+               mainText: "遅延中",
+               subText: "バスが遅れているようです",
+               color: const Color(0xFFFFF59D), // 薄い黄色
+               currentStepIndex: routeState.currentStepIndex,
+               nextStopIndex: routeState.nextStopIndex,
+               statusLabel: "遅延",
+               isMoving: false,
+             );
+           }
         }
       }
     }

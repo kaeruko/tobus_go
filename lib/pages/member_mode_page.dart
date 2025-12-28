@@ -37,6 +37,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   final TripNavigator _navigator = TripNavigator(); 
   Timer? _realtimeTimer; 
   int? _lastApiStopIndex; 
+  String? _lastRealtimeBusId; // Added for delay detection 
 
   LatLng? _currentPositionForNav() {
     final override = ref.read(locationOverrideProvider);
@@ -162,12 +163,17 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         final fromPoleId = result['odpt:fromBusstopPole'];
         
         if (fromPoleId != null) {
+          // Keep API ID for coordinator check
+          setState(() {
+             _lastRealtimeBusId = fromPoleId;
+          });
+
           final index = currentStep.stops.indexWhere((s) => s.stopId == fromPoleId);
           if (index != -1) {
             setState(() {
               _lastApiStopIndex = index;
             });
-            // print("API Update: Bus is at index $index (${currentStep.stops[index].name})");
+            debugPrint("API Update: Bus is at index $index (${currentStep.stops[index].name}) / ID: $fromPoleId");
           }
         }
       } catch (e) {
@@ -330,6 +336,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           scheduleState: scheduleResolved,
           routeState: routeState,
           now: now,
+          realtimeBusLocationId: _lastRealtimeBusId,
         );
 
         // Prepare data for UI list
