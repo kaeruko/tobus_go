@@ -50,9 +50,14 @@ class ApiClient {
     _log('POST $uri body=$bodyString');
     
     try {
-      final r = await http.post(uri, body: bodyString, headers: headers);
-      _log('POST $uri -> ${r.statusCode}');
+      final r = await http.post(uri, body: bodyString, headers: headers).timeout(const Duration(seconds: 60));
+      _log('POST $uri -> status: ${r.statusCode}, size: ${r.bodyBytes.length} bytes');
       
+      if (r.body.isNotEmpty) {
+        final preview = r.body.length > 100 ? r.body.substring(0, 100) : r.body;
+        _log('Body (first 100): $preview');
+      }
+
       if (r.statusCode != 200) {
         throw Exception('HTTP ${r.statusCode}');
       }

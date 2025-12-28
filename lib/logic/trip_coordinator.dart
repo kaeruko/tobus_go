@@ -43,6 +43,19 @@ class TripCoordinator {
       );
     }
 
+    // 1b. Route Arrival Check (Prioritize GPS arrival over schedule)
+    if (routeState.isArrived) {
+      return NavigationState(
+        mainText: routeState.mainText, // "到着", "終了" etc
+        subText: routeState.subText,
+        color: routeState.color,
+        currentStepIndex: routeState.currentStepIndex,
+        nextStopIndex: routeState.nextStopIndex,
+        statusLabel: routeState.statusLabel,
+        isMoving: false,
+      );
+    }
+
     // ★開始前 ActiveIndex == -1 かつ 未来の予定がある
     if (scheduleState.activeIndex == -1 && scheduleState.window.isNotEmpty) {
       ScheduleEntry? futureEntry;

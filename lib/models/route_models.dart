@@ -208,7 +208,12 @@ class StepSeg {
     final stops = <StopPoint>[];
     for (final v in rawStops) {
       if (v is Map) {
-        stops.add(StopPoint.fromJson(Map<String, dynamic>.from(v)));
+        final sp = StopPoint.fromJson(Map<String, dynamic>.from(v));
+        stops.add(sp);
+        // Debug
+        if (sp.lat == null || sp.lon == null) {
+          print('[StepSeg] Stop ${sp.name} has null coords. Raw: $v');
+        }
       }
     }
     return StepSeg(

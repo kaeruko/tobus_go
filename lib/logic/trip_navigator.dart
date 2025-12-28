@@ -46,6 +46,8 @@ class RouteNavState {
   final String? nextStopName;
   final int? remainingStops;
   final bool isMoving;
+  final bool isArrived;
+  final bool isArriving;
 
   const RouteNavState({
     required this.currentStepIndex,
@@ -57,6 +59,8 @@ class RouteNavState {
     this.nextStopName,
     this.remainingStops,
     this.isMoving = true,
+    this.isArrived = false,
+    this.isArriving = false,
   });
 }
 
@@ -134,13 +138,25 @@ class TripNavigator {
         searchLimitIndex = allSteps.length;
       }
 
+      // ★Search Scope Constraint (Stopgap):
+      // Limit search to a small window around the last step to prevent jumping to distant legs (e.g. return trip)
+      // that share the same location.
+      // tightStart の上限は searchLimitIndex - 1 または allSteps.length - 1
+      final int maxStart = (searchLimitIndex > 0 ? searchLimitIndex : 1) - 1; 
+      // Clamp to ensure we don't start beyond what's possible
+      int tightStart = (lastStepIndex - 2).clamp(legStartStepIndex, allSteps.length > 0 ? allSteps.length - 1 : 0);
+      if (tightStart > maxStart) tightStart = maxStart; // Further restrict to current search limit
+      if (tightStart < 0) tightStart = 0;
+
+      int tightEnd = (lastStepIndex + 4).clamp(tightStart, searchLimitIndex);
+
       // ★GPSベースのステップ推定
       final (estimatedStep, estimatedDist) = _estimateCurrentStepIndexWithDistance(
         allSteps: allSteps,
         currentPos: currentPos,
         lastStepIndex: lastStepIndex,
-        minSearchIndex: legStartStepIndex, // 戻り方向は現在のLegの先頭まで
-        maxSearchIndex: searchLimitIndex,  // 進み方向は次のLegの末尾まで
+        minSearchIndex: tightStart, // 戻り方向は現在のLegの先頭（または直近）まで
+        maxSearchIndex: tightEnd,  // 進み方向は直近の未来まで
       );
       
       // 推定を採用する条件: 距離が近いときだけ（120m以内）
@@ -285,6 +301,8 @@ class TripNavigator {
         statusLabel: "歩行中",
         nextStopName: nextName,
         isMoving: true, // 徒歩も移動中扱い
+        isArrived: false,
+        isArriving: false,
       );
     } else {
       // バス・電車
@@ -306,6 +324,19 @@ class TripNavigator {
           // バスの降りるボタン等は、最後の駅の一つ前を出た後に押すが、
           // ここでは「最後の駅を目指している」状態になったら「次到着します」とする
           if (remainingStops <= 1 || isTargetDestination) {
+            
+            // ★Debug: Target Info
+            if (nextStop < stepForDisplay.stops.length) {
+              final target = stepForDisplay.stops[nextStop];
+              double? d;
+              if (currentPos != null && target.lat != null && target.lon != null) {
+                d = Geolocator.distanceBetween(
+                  currentPos.latitude, currentPos.longitude,
+                  target.lat!, target.lon!);
+              }
+              debugPrint('[TripNavigator] ARRIVING CHECK: target=${target.name} lat=${target.lat} lon=${target.lon} dist=${d?.toStringAsFixed(0)}m remaining=$remainingStops');
+            }
+
             final destinationName =
                 stepForDisplay.to ?? (stepForDisplay.stops.isNotEmpty ? stepForDisplay.stops.last.name : "目的地");
             debugPrint('[TripNavigator] RETURN curStep=$currentStep nextStop=$nextStop kind=${stepForDisplay.kind} remaining=$remainingStops (arriving)');
@@ -319,6 +350,8 @@ class TripNavigator {
               nextStopName: destinationName,
               remainingStops: remainingStops,
               isMoving: true,
+              isArrived: false,
+              isArriving: true,
             );
           } else {
             // まだ乗っている
@@ -333,6 +366,8 @@ class TripNavigator {
               nextStopName: nextStopName,
               remainingStops: remainingStops,
               isMoving: true,
+              isArrived: false,
+              isArriving: false,
             );
           }
     }
@@ -346,6 +381,7 @@ class TripNavigator {
         currentStepIndex: 999,
         nextStopIndex: 999,
         statusLabel: "旅は完了",
+        isArrived: false, // 完了状態は到着とは区別する
       );
 
   static RouteNavState _errorRouteState() => const RouteNavState(
@@ -355,6 +391,7 @@ class TripNavigator {
         currentStepIndex: 0,
         nextStopIndex: 0,
         statusLabel: "案内できません",
+        isArrived: false,
       );
 
   static RouteNavState _arrivedRouteState() => const RouteNavState(
@@ -366,6 +403,7 @@ class TripNavigator {
         statusLabel: "到着",
         nextStopName: "目的地",
         remainingStops: 0,
+        isArrived: true,
       );
 
   /// GPSに基づいて、ユーザーが実際にいるステップを推定する

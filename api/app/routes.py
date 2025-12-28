@@ -274,7 +274,10 @@ def register_routes(app):
                 app,
                 req.alat, req.alon, req.blat, req.blon, normalize_pref(req.pref), req.start_time, req.target_date_str,
              )
-             print(f"[USER_DEBUG] /route unlocked, end rss={_rss_mb():.1f}MB")
+             import json
+             result_bytes = len(json.dumps(result))
+             cand_count = len(result.get("candidates", []))
+             print(f"[USER_DEBUG] /route unlocked, end rss={_rss_mb():.1f}MB, response_size={result_bytes} bytes, candidates={cand_count}")
              return result
 
     # @app.get("/route") <- ポーリングエンドポイントは実質無効化（残しておいても良いが使わない）
