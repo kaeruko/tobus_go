@@ -241,6 +241,24 @@ class TripService {
     return snapshot.docs.map((d) => Trip.fromFirestore(d)).toList();
   }
 
+  Stream<Trip?> streamActiveTrip() {
+    final uid = _userService.currentUserId;
+    if (uid == null) return Stream.value(null);
+
+    final q = _db.collection('trips')
+        .where('memberIds', arrayContains: uid)
+        .where('travelPhase', whereIn: [
+          TravelPhase.planning.name,
+          TravelPhase.active.name,
+        ])
+        .limit(1);
+
+    return q.snapshots().map((snap) {
+      if (snap.docs.isEmpty) return null;
+      return Trip.fromFirestore(snap.docs.first);
+    });
+  }
+
   Future<void> updateTripScheduleWithNewReturnTime(String tripId, DateTime newReturnTime) async {
     final doc = await _db.collection('trips').doc(tripId).get();
     if (!doc.exists) throw Exception("Trip not found");
@@ -252,5 +270,11 @@ class TripService {
     );
     
     await updateSchedule(tripId, newSchedule);
+  }
+
+  Future<Trip?> getTrip(String tripId) async {
+    final doc = await _db.collection('trips').doc(tripId).get();
+    if (!doc.exists) return null;
+    return Trip.fromFirestore(doc);
   }
 }

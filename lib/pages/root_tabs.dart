@@ -56,15 +56,7 @@ class _RootTabsState extends ConsumerState<RootTabs> {
     final currentIndex = ref.watch(tabIndexProvider);
     print('[RootTabs] build called, currentIndex=$currentIndex');
 
-    // Sync controller with provider state
-    if (_controller.index != currentIndex) {
-       // Microtask to avoid build-phase setState issues in controller
-       Future.microtask(() {
-         if (mounted) _controller.index = currentIndex;
-       });
-    }
-
-    // 表示するタブのリストを構築
+    // 先に tabs を確定させる
     final tabs = <BottomNavigationBarItem>[
       const BottomNavigationBarItem(
         icon: Icon(CupertinoIcons.search),
@@ -74,7 +66,7 @@ class _RootTabsState extends ConsumerState<RootTabs> {
         icon: Icon(CupertinoIcons.compass),
         label: 'みつける',
       ),
-       const BottomNavigationBarItem(
+      const BottomNavigationBarItem(
         icon: Icon(CupertinoIcons.bookmark),
         label: 'お気に入り',
       ),
@@ -89,6 +81,29 @@ class _RootTabsState extends ConsumerState<RootTabs> {
       ),
     ];
 
+    // 安全な index に丸める
+    final maxIndex = tabs.length - 1;
+    final safeIndex = currentIndex < 0
+        ? 0
+        : (currentIndex > maxIndex ? maxIndex : currentIndex);
+
+    // controller を安全に同期
+    if (_controller.index != safeIndex) {
+      Future.microtask(() {
+        if (!mounted) return;
+        if (_controller.index != safeIndex) _controller.index = safeIndex;
+      });
+    }
+
+    // provider 側もズレてたら矯正（任意だけどおすすめ）
+    if (currentIndex != safeIndex) {
+      Future.microtask(() {
+        if (!mounted) return;
+        final now = ref.read(tabIndexProvider);
+        if (now != safeIndex) ref.read(tabIndexProvider.notifier).state = safeIndex;
+      });
+    }
+
     return CupertinoTabScaffold(
       controller: _controller,
       tabBar: CupertinoTabBar(
@@ -102,7 +117,7 @@ class _RootTabsState extends ConsumerState<RootTabs> {
       ),
       tabBuilder: (context, index) {
         if (_canShowHistory) {
-           switch (index) {
+          switch (index) {
             case 0: return _buildPage(0, const HomePage());
             case 1: return _buildPage(1, const ExplorePage());
             case 2: return _buildPage(2, const MyRoutePage());
@@ -111,7 +126,7 @@ class _RootTabsState extends ConsumerState<RootTabs> {
             default: return _buildPage(0, const HomePage());
           }
         } else {
-           switch (index) {
+          switch (index) {
             case 0: return _buildPage(0, const HomePage());
             case 1: return _buildPage(1, const ExplorePage());
             case 2: return _buildPage(2, const MyRoutePage());

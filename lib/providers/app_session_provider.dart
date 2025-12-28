@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/user_service.dart';
+import '../services/trip_service.dart';
+import '../models/trip_models.dart';
 
 enum AppMode { normal, member }
 
@@ -41,22 +43,51 @@ class AppSessionNotifier extends StateNotifier<AppSession> {
   static const _keyGroupId = 'groupId';
 
   Future<void> initialize() async {
-    // 1. UserService (Singleton) Initialization
     final userService = UserService();
     await userService.initialize();
     final userId = userService.currentUserId;
     final userName = await userService.getUserName();
 
-    // 2. SharedPreferences Loading
     final prefs = await SharedPreferences.getInstance();
     final isMemberMode = prefs.getBool(_keyIsMemberMode) ?? false;
     final groupId = prefs.getString(_keyGroupId);
 
+    var mode = isMemberMode ? AppMode.member : AppMode.normal;
+    String? tripId = groupId;
+
+    // member true なのに tripId 無しなら矯正
+    if (mode == AppMode.member && tripId == null) {
+      await prefs.setBool(_keyIsMemberMode, false);
+      mode = AppMode.normal;
+    }
+
+    // member 復元時のみ trip を検証
+    if (mode == AppMode.member && tripId != null) {
+      final trip = await TripService().getTrip(tripId);
+
+      final isActiveTrip = trip != null &&
+          (trip.travelPhase == TravelPhase.planning ||
+              trip.travelPhase == TravelPhase.active);
+
+      final isMember = trip != null &&
+          userId != null &&
+          trip.memberIds.contains(userId);
+
+      final invalid = !isActiveTrip || !isMember;
+
+      if (invalid) {
+        await prefs.remove(_keyGroupId);
+        await prefs.setBool(_keyIsMemberMode, false);
+        mode = AppMode.normal;
+        tripId = null;
+      }
+    }
+
     state = AppSession(
       userId: userId,
       userName: userName,
-      appMode: isMemberMode ? AppMode.member : AppMode.normal,
-      currentTripId: groupId,
+      appMode: mode,
+      currentTripId: tripId,
     );
   }
 

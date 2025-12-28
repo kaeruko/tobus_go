@@ -190,14 +190,25 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           );
         }
 
-        if (trip.status == TripStatus.cancelled) {
+        if (trip.status == TripStatus.cancelled ||
+            trip.status == TripStatus.completed) {
+          Future.microtask(() async {
+            if (mounted) {
+              await ref.read(appSessionProvider.notifier).leaveMemberMode();
+            }
+          });
+
+          final message = trip.status == TripStatus.cancelled
+              ? 'ホストによりグループが解散されました。'
+              : 'このグループは終了しました。';
+
           return Scaffold(
             appBar: AppBar(title: const Text('お知らせ'), backgroundColor: Colors.red),
             body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('ホストによりグループが解散されました。', style: TextStyle(fontSize: 18)),
+                  Text(message, style: const TextStyle(fontSize: 18)),
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: _leaveGroup,
