@@ -93,7 +93,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           steps: allSteps,
           currentStepIndex: nav.currentStepIndex,
           nextStopIndex: nav.nextStopIndex,
-          isMoving: true,
+          isMoving: nav.currentStepIndex > 0, // 0歩目(開始前)はfalse扱い、進んでいればtrue
         );
 
         TripNavigator.updateRouteOnly(
@@ -243,7 +243,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           steps: allSteps,
           currentStepIndex: navProgress.currentStepIndex,
           nextStopIndex: navProgress.nextStopIndex,
-          isMoving: true, // Default active
+          isMoving: navProgress.currentStepIndex > 0, // Default to false if at start
         );
         
         if (currentPos != null) {

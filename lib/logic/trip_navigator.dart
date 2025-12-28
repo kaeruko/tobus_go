@@ -123,68 +123,63 @@ class TripNavigator {
     int? forceStopIndex, 
   }) {
     if (state.steps.isEmpty) return;
-
     if (state.currentStepIndex >= state.steps.length) return;
 
-    // 1. 現在のステップを取得
     final currentStep = state.steps[state.currentStepIndex];
 
-    // 2. ステップ自体の推定 (GPSジャンプ防止ロジック)
     int nextStepIndex = state.currentStepIndex;
-    
+
+    // ============================================================
+    // 1. Step更新ロジック (Ride中はGPSジャンプをロックする)
+    // ============================================================
     if (currentStep.isRide) {
-      // ★変更点: Ride中は、GPS距離だけで安易にステップを変えない
-      // 現在のRideが終わった（降車した）と判定できた場合のみ、次のStepへ進む
-      
-      if (state.nextStopIndex >= currentStep.stops.length - 1) {
-        // 既に「降りるバス停」をターゲットにしている場合
-        // 目的地（降車バス停）に十分近づいたら、降車完了として次のWalkへ
-        if (currentStep.stops.isNotEmpty) {
-           final distToDest = _distance(currentPos, currentStep.stops.last.point);
-           if (distToDest < 50.0) { // 50m以内なら降車判定
-             nextStepIndex = state.currentStepIndex + 1;
-           }
+      // --- 乗車中 (Bus/Rail) ---
+      // 目的地（降車バス停/駅）に到着したかだけを監視する
+      if (currentStep.stops.isNotEmpty) {
+        final destStop = currentStep.stops.last;
+        final distToDest = _distance(currentPos, destStop.point);
+
+        // 目的地から50m以内なら「降車完了」とみなして次のStepへ
+        if (distToDest < 50.0) {
+          nextStepIndex = state.currentStepIndex + 1;
         }
       }
-      
-      // Ride中は「前のStepに戻る」や「全然違うStepに飛ぶ」判定は一切しない
+      // ※ここでは _estimateCurrentStepIndexWithDistance は呼ばない！
+      // これにより、バス乗車中に近くの駅を通っても勝手に切り替わらない。
     } else {
-      // Walk中は従来どおり、GPS位置で最適なStepを探す（リルート的な挙動）
+      // --- 徒歩中 (Walk) ---
+      // 従来どおり、GPS位置に基づいて最適なStepを探す（リルート的挙動）
       nextStepIndex = _estimateCurrentStepIndexWithDistance(state, currentPos);
     }
 
-    // ステップが変わる場合の処理
-    if (nextStepIndex != state.currentStepIndex && 
-        nextStepIndex < state.steps.length) {
+    // Stepが変わった場合の処理
+    if (nextStepIndex != state.currentStepIndex && nextStepIndex < state.steps.length) {
       state.currentStepIndex = nextStepIndex;
-      state.nextStopIndex = 0; // 新しいStepになったらStopもリセット
+      state.nextStopIndex = 0; // 新しいStepなのでStopIndexはリセット
+      // print("Step Changed: ${state.currentStepIndex} (${state.steps[nextStepIndex].title})");
     }
 
-    // 3. Step内の進行 (StopIndexの更新)
-    // ここはRide中も動かす
+    // ============================================================
+    // 2. Stop更新ロジック (Step内の進行)
+    // ============================================================
     _updateStopIndex(state, currentPos, forceStopIndex: forceStopIndex);
   }
 
-  // StopIndexを進めるロジック
   static void _updateStopIndex(RouteState state, LatLng currentPos, {int? forceStopIndex}) {
     if (state.currentStepIndex >= state.steps.length) return;
     final step = state.steps[state.currentStepIndex];
     if (step.stops.isEmpty) return;
 
-    // API等からの強制指定があればそれを優先（将来用）
     if (forceStopIndex != null) {
       state.nextStopIndex = forceStopIndex;
       return;
     }
 
-    // GPSによる判定: 次のバス停に近づいたか？
-    // 単純な距離判定だけでなく、「通過したか」も見るのが理想だが、
-    // まずは「一番近いバス停」を現在のバス停とする簡易ロジックで安定させる
-    
+    // 現在のターゲット以降のバス停の中から、最も近いものを探す
+    // (通り過ぎたものを戻らないように、検索開始位置を current にする)
     int bestIndex = state.nextStopIndex;
     double minDistance = 999999;
 
-    // 検索範囲を「現在地〜最後」に絞る（戻らない）
     for (int i = state.nextStopIndex; i < step.stops.length; i++) {
       final dist = _distance(currentPos, step.stops[i].point);
       if (dist < minDistance) {
@@ -193,10 +188,13 @@ class TripNavigator {
       }
     }
 
-    // 「近づいた」と判定できる閾値（例: 50m）に入ったらIndex更新
-    // ただし、Ride中は「通り過ぎた」判定が難しいので、一番近いものを信じる
-    if (minDistance < 200) { // 少し広めに
-      state.nextStopIndex = bestIndex;
+    // 200m以内なら「そのバス停付近にいる」とみなしてIndex更新
+    // (バスは速いので、検知範囲は徒歩より広めにとる)
+    if (minDistance < 200.0) {
+      if (bestIndex > state.nextStopIndex) {
+        state.nextStopIndex = bestIndex;
+        // print("Stop Updated: $bestIndex (${step.stops[bestIndex].name})");
+      }
     }
   }
 

@@ -315,7 +315,7 @@ class StopPoint {
       ),
       isOrigin: json['is_origin'] ?? false,
       isDestination: json['is_destination'] ?? false,
-      stopId: json['id'], // ★追加: バックエンドが返すJSONのキーに合わせて調整
+      stopId: json['stop_id'] ?? json['id'], // ★追加: バックエンドが返すJSONのキーに合わせて調整
     );
   }
 
