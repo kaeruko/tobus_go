@@ -213,7 +213,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               .get();
           
           if (snapshot.docs.isNotEmpty) {
-            tripId = snapshot.docs.first.id;
+            final doc = snapshot.docs.first;
+            final data = doc.data();
+            debugPrint("[Settings] Found Leader Trip: ${doc.id} | Status: ${data['travelPhase'] ?? data['status']} | Date: ${data['date']}");
+            tripId = doc.id;
           }
         }
       }
@@ -264,7 +267,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               .get();
           
           if (snapshot.docs.isNotEmpty) {
-            tripId = snapshot.docs.first.id;
+            final doc = snapshot.docs.first;
+            final data = doc.data();
+            debugPrint("[Settings] Found Member Trip: ${doc.id} | Status: ${data['travelPhase'] ?? data['status']} | Date: ${data['date']}");
+            tripId = doc.id;
           }
         }
       }

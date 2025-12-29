@@ -306,6 +306,14 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
 
         // 1. Resolve Route Navigation (Pure Route State) - 先に実行してGPS補正を適用
         final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
+        for (var i = 0; i < allSteps.length; i++) {
+          final s = allSteps[i];
+          debugPrint(
+            "[StepDump] i=$i kind=${s.kind} title=${s.title} from=${s.from} to=${s.to} place=${s.place} stops=${s.stops.length} firstStop=${s.stops.isNotEmpty ? s.stops.first.name : '-'}"
+          );
+        }
+
+
         final routeState = RouteState(
           steps: allSteps,
           currentStepIndex: navProgress.currentStepIndex,

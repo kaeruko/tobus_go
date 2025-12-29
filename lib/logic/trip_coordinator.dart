@@ -63,29 +63,34 @@ class TripCoordinator {
       );
     }
 
-    // 1. ScheduleStateのActiveEntryに基づいて移動ナビゲーションを構築
-    final entry = scheduleState.activeEntry;
+    // 1-C. [NEW] GPS Route Navigation Check (Prioritize GPS over schedule for movement)
+    // scheduleよりGPSの現在stepを優先する
+    if (routeState != null &&
+        routeState.currentStepIndex >= 0 &&
+        routeState.currentStepIndex < routeState.steps.length) {
+      final gpsStep = routeState.steps[routeState.currentStepIndex];
 
-    if (entry != null &&
-        (entry.itemKind == ScheduleEntryKind.walk ||
-         entry.itemKind == ScheduleEntryKind.ride)) {
-
-      final idx = entry.routeStepIndex;
-
-      if (routeState != null &&
-          idx != null &&
-          idx >= 0 &&
-          idx < routeState.steps.length) {
-
-        final step = routeState.steps[idx];
-
+      // walk なら絶対に徒歩表示
+      if (gpsStep.kind == 'walk') {
         return NavigationState.navigating(
-          step: step,
+          step: gpsStep,
           stopIndex: routeState.nextStopIndex,
           statusLabel: "移動中",
         );
       }
+
+      // ride なら乗車表示
+      if (gpsStep.isRide) {
+        return NavigationState.navigating(
+          step: gpsStep,
+          stopIndex: routeState.nextStopIndex,
+          statusLabel: "移動中",
+        );
+      }
+      // wait は移動表示じゃないのでここでは返さない (fall through)
     }
+
+    // (Old schedule-based navigation block removed)
 
     // ★重要: スケジュール時刻チェックによる強制開始
     if (routeState != null && routeState.currentStepIndex < routeState.steps.length) {
@@ -158,15 +163,15 @@ class TripCoordinator {
     }
 
     // 2. 移動していない場合 -> スケジュールを確認
-    final entry = scheduleState.activeEntry;
-    if (entry != null) {
-      final diff = entry.plannedAt.difference(now);
+    final scheduledEntry = scheduleState.activeEntry;
+    if (scheduledEntry != null) {
+      final diff = scheduledEntry.plannedAt.difference(now);
 
       // A. 開始前 (20分以上前)
       if (diff.inMinutes > 20) {
           final remainder = "あと ${diff.inHours}時間${diff.inMinutes % 60}分";
           return NavigationState(
-            mainText: entry.label,
+            mainText: scheduledEntry.label,
             subText: "開始まで $remainder",
             color: Colors.white,
             currentStepIndex: routeState?.currentStepIndex ?? 0,
@@ -177,10 +182,10 @@ class TripCoordinator {
       }
 
       // B. 集合 / 出発 / 到着 / ゴール
-      if (entry.itemKind == ScheduleEntryKind.meeting) {
+      if (scheduledEntry.itemKind == ScheduleEntryKind.meeting) {
         return NavigationState(
-          mainText: entry.label,
-          subText: entry.description.isNotEmpty ? entry.description : "集合場所へ向かいましょう",
+          mainText: scheduledEntry.label,
+          subText: scheduledEntry.description.isNotEmpty ? scheduledEntry.description : "集合場所へ向かいましょう",
           color: const Color(0xFFC8E6C9), // 薄い緑
           currentStepIndex: routeState?.currentStepIndex ?? 0,
           nextStopIndex: routeState?.nextStopIndex ?? 0,
@@ -188,10 +193,22 @@ class TripCoordinator {
           isMoving: false,
         );
       }
+
+      if (scheduledEntry.itemKind == ScheduleEntryKind.event) {
+        return NavigationState(
+          mainText: scheduledEntry.label,
+          subText: scheduledEntry.description.isNotEmpty ? scheduledEntry.description : "時間まで待機しましょう",
+          color: const Color(0xFFE1F5FE), // 薄い青
+          currentStepIndex: routeState?.currentStepIndex ?? 0,
+          nextStopIndex: routeState?.nextStopIndex ?? 0,
+          statusLabel: "待機",
+          isMoving: false,
+        );
+      }
       
-      if (entry.itemKind == ScheduleEntryKind.departure) {
+      if (scheduledEntry.itemKind == ScheduleEntryKind.departure) {
          return NavigationState(
-          mainText: entry.label,
+          mainText: scheduledEntry.label,
           subText: "出発の準備をしましょう",
           color: const Color(0xFFFFF59D), // 薄い黄色
           currentStepIndex: routeState?.currentStepIndex ?? 0,
@@ -201,10 +218,10 @@ class TripCoordinator {
         );
       }
 
-      if (entry.itemKind == ScheduleEntryKind.arrival || entry.itemKind == ScheduleEntryKind.goal) {
+      if (scheduledEntry.itemKind == ScheduleEntryKind.arrival || scheduledEntry.itemKind == ScheduleEntryKind.goal) {
          return NavigationState(
-          mainText: entry.label,
-          subText: entry.description.isNotEmpty ? entry.description : "到着しました",
+          mainText: scheduledEntry.label,
+          subText: scheduledEntry.description.isNotEmpty ? scheduledEntry.description : "到着しました",
           color: const Color(0xFFFFCC80), // オレンジ
           currentStepIndex: routeState?.currentStepIndex ?? 0,
           nextStopIndex: routeState?.nextStopIndex ?? 0,
