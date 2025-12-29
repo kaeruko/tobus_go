@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/trip_models.dart';
 import '../models/group_models.dart';
-import 'trip_navigator.dart'; // RouteNavState
+import '../models/route_models.dart'; // StepSeg
+import 'trip_navigator.dart';
 import 'schedule_resolver.dart';
 
+import 'package:geolocator/geolocator.dart'; // Add for distanceBetween
+
 class TripCoordinator {
-  // Helper to parse "HH:mm"
   static DateTime _parseTime(DateTime date, String timeStr) {
     final parts = timeStr.split(':');
     if (parts.length < 2) return date;
@@ -15,15 +17,184 @@ class TripCoordinator {
     return DateTime(date.year, date.month, date.day, h, m);
   }
 
-  /// 最終的なナビゲーション状態を構築する
+  static bool _realtimeSaysRideStarted({
+    required StepSeg step,
+    required String? realtimeBusLocationId,
+  }) {
+    if (!step.isRide) return false;
+    if (realtimeBusLocationId == null) return false;
+    if (step.stops.isEmpty) return false;
+
+    final boardingStopId = step.stops.first.stopId;
+    final isAtBoarding = boardingStopId != null && realtimeBusLocationId == boardingStopId;
+    final isInSegment = step.stops.any((s) => s.stopId == realtimeBusLocationId);
+
+    return isAtBoarding || isInSegment;
+  }
+
+  static StepSeg? _stepForEntry(RouteState? routeState, ScheduleEntry entry) {
+    if (routeState == null) return null;
+    final idx = entry.routeStepIndex;
+    if (idx == null) return null;
+    if (idx < 0) return null;
+    if (idx >= routeState.steps.length) return null;
+    return routeState.steps[idx];
+  }
+
+  static ScheduleEntry? _fallbackEntryBeforeRide({
+    required ScheduleResolveResult scheduleState,
+    required ScheduleEntry rideEntry,
+  }) {
+    if (scheduleState.window.isEmpty) return null;
+
+    int ridePos = -1;
+    for (int i = 0; i < scheduleState.window.length; i++) {
+      if (scheduleState.window[i].id == rideEntry.id) {
+        ridePos = i;
+        break;
+      }
+    }
+    if (ridePos <= 0) return null;
+
+    for (int j = ridePos - 1; j >= 0; j--) {
+      final e = scheduleState.window[j];
+
+      if (e.itemKind == ScheduleEntryKind.walk) return e;
+
+      if (e.itemKind == ScheduleEntryKind.event) {
+        if (e.generatedBy == ScheduleEntrySource.route && e.routeRole == 'wait_start') {
+          return e;
+        }
+      }
+
+      if (e.itemKind == ScheduleEntryKind.meeting) return e;
+    }
+    return scheduleState.window.first;
+  }
+
+  static ScheduleEntry _applyGpsGateForWalk({
+    required ScheduleEntry entry,
+    required RouteState? routeState,
+    required LatLng? currentPos,
+  }) {
+    if (entry.itemKind != ScheduleEntryKind.walk) return entry;
+    if (routeState == null) return entry;
+    if (currentPos == null) return entry;
+
+    final idx = entry.routeStepIndex;
+    if (idx == null || idx < 0 || idx >= routeState.steps.length) return entry;
+
+    final walkStep = routeState.steps[idx];
+    if (walkStep.kind != 'walk') return entry;
+
+    // walk の到着地点は、直後の ride の最初の stop を使う
+    // (Walk step may not have stops or destination geometry in this model)
+    if (idx + 1 >= routeState.steps.length) return entry;
+    final next = routeState.steps[idx + 1];
+    
+    // Check if next step is a ride/wait that has stops. 
+    // Wait steps might happen before ride, but typically walk leads to a location.
+    // If next step is wait/ride, try to get its first stop.
+    if (next.stops.isEmpty) return entry;
+    
+    final destPoint = next.stops.first.point; 
+    final distM = Geolocator.distanceBetween(
+      currentPos.latitude,
+      currentPos.longitude,
+      destPoint.latitude,
+      destPoint.longitude,
+    );
+    
+    debugPrint("[TripCoordinator] Walk GPS Check: dist=${distM.toStringAsFixed(1)}m limit=80m dest=${next.stops.first.name}");
+
+    // 80m 以内なら walk 終了とみなして次を表示
+    if (distM <= 80.0) {
+      // Return a dummy event entry that represents "Arrived" / "Wait" phase
+      // This will force the UI to show the next logical thing or a wait state
+      return ScheduleEntry(
+        id: entry.id, // Keep same ID or make dummy
+        plannedAt: entry.plannedAt,
+        label: '到着済み', // UI will typically see this or fall through logic
+        description: 'まもなく出発です',
+        itemKind: ScheduleEntryKind.event, // Change to event/wait
+        legIndex: entry.legIndex,
+        generatedBy: entry.generatedBy,
+        routeStepIndex: idx + 1, // Advance index ref if possible
+        routeRole: 'walk_done_by_gps',
+      );
+    }
+
+    return entry;
+  }
+
+  static NavigationState _navFromEntry({
+    required Trip trip,
+    required DateTime now,
+    required ScheduleEntry entry,
+    required RouteState? routeState,
+    required int stopIndex,
+  }) {
+    final step = _stepForEntry(routeState, entry);
+
+    if (entry.itemKind == ScheduleEntryKind.walk && step != null) {
+      return NavigationState.navigating(
+        step: step,
+        stopIndex: stopIndex,
+        statusLabel: "移動中",
+      );
+    }
+
+    if (entry.itemKind == ScheduleEntryKind.ride && step != null) {
+      return NavigationState.navigating(
+        step: step,
+        stopIndex: stopIndex,
+        statusLabel: "乗車中",
+      );
+    }
+
+    if (entry.itemKind == ScheduleEntryKind.meeting) {
+      return NavigationState(
+        mainText: entry.label,
+        subText: entry.description.isNotEmpty ? entry.description : "集合場所へ向かいましょう",
+        color: const Color(0xFFC8E6C9),
+        currentStepIndex: routeState?.currentStepIndex ?? 0,
+        nextStopIndex: stopIndex,
+        statusLabel: "集合",
+        isMoving: false,
+      );
+    }
+
+    if (entry.itemKind == ScheduleEntryKind.arrival || entry.itemKind == ScheduleEntryKind.goal) {
+      return NavigationState(
+        mainText: entry.label,
+        subText: entry.description.isNotEmpty ? entry.description : "到着しました",
+        color: const Color(0xFFFFCC80),
+        currentStepIndex: routeState?.currentStepIndex ?? 0,
+        nextStopIndex: stopIndex,
+        statusLabel: "到着",
+        isMoving: false,
+      );
+    }
+
+    return NavigationState(
+      mainText: entry.label,
+      subText: entry.description.isNotEmpty ? entry.description : "時間まで待機しましょう",
+      color: const Color(0xFFE1F5FE),
+      currentStepIndex: routeState?.currentStepIndex ?? 0,
+      nextStopIndex: stopIndex,
+      statusLabel: "待機",
+      isMoving: false,
+    );
+  }
+
   static NavigationState buildMemberNavigationState({
     required Trip trip,
     required ScheduleResolveResult scheduleState,
-    required RouteState? routeState, // ★RouteNavState -> RouteState (mutable object passed for checking)
+    required RouteState? routeState,
     required DateTime now,
-    String? realtimeBusLocationId, 
+    String? realtimeBusLocationId,
+    LatLng? currentPos, // Start accepting currentPos
   }) {
-    // 1. TripStatus Check
     if (trip.status == TripStatus.completed) {
       return NavigationState(
         mainText: "終了",
@@ -36,7 +207,7 @@ class TripCoordinator {
       );
     }
     if (trip.status == TripStatus.cancelled) {
-       return NavigationState(
+      return NavigationState(
         mainText: "中止",
         subText: "グループは解散されました",
         color: Colors.red,
@@ -47,221 +218,77 @@ class TripCoordinator {
       );
     }
 
-    // 1b. Route Arrival Check (Prioritize GPS arrival over schedule)
-    // routeState が null の場合は考慮しない
-    if (routeState != null && routeState.currentStepIndex >= routeState.steps.length) {
-      return NavigationState(
-        mainText: "到着",
-        subText: "目的地周辺です",
-        color: Colors.orange,
-        currentStepIndex: 999,
-        nextStopIndex: 999,
-        statusLabel: "到着",
-        nextStopName: "目的地",
-        remainingStops: 0,
-        isMoving: true,
-      );
+    final stopIndex = routeState?.nextStopIndex ?? 0;
+
+    final active = scheduleState.activeEntry;
+    if (active == null) {
+      return NavigationState.idle();
     }
 
-    // 1-C. [NEW] GPS Route Navigation Check (Prioritize GPS over schedule for movement)
-    // scheduleよりGPSの現在stepを優先する
-    if (routeState != null &&
-        routeState.currentStepIndex >= 0 &&
-        routeState.currentStepIndex < routeState.steps.length) {
-      final gpsStep = routeState.steps[routeState.currentStepIndex];
+    // ★ GPSゲートによるWalk早期終了判定
+    ScheduleEntry resolved = _applyGpsGateForWalk(
+      entry: active,
+      routeState: routeState,
+      currentPos: currentPos,
+    );
 
-      // walk なら絶対に徒歩表示
-      if (gpsStep.kind == 'walk') {
-        return NavigationState.navigating(
-          step: gpsStep,
-          stopIndex: routeState.nextStopIndex,
-          statusLabel: "移動中",
+    if (resolved.itemKind == ScheduleEntryKind.ride) {
+      final step = _stepForEntry(routeState, active);
+
+      bool rideStarted = false;
+      if (step != null) {
+        rideStarted = _realtimeSaysRideStarted(
+          step: step,
+          realtimeBusLocationId: realtimeBusLocationId,
         );
       }
 
-      // ride なら乗車表示
-      if (gpsStep.isRide) {
-        return NavigationState.navigating(
-          step: gpsStep,
-          stopIndex: routeState.nextStopIndex,
-          statusLabel: "移動中",
+      if (!rideStarted) {
+        final fallback = _fallbackEntryBeforeRide(
+          scheduleState: scheduleState,
+          rideEntry: resolved,
         );
-      }
-      // wait は移動表示じゃないのでここでは返さない (fall through)
-    }
-
-    // (Old schedule-based navigation block removed)
-
-    // ★重要: スケジュール時刻チェックによる強制開始
-    if (routeState != null && routeState.currentStepIndex < routeState.steps.length) {
-      final step = routeState.steps[routeState.currentStepIndex];
-      // 出発時間が設定されている場合
-      if (step.departureTime != null) {
-        final departureDt = _parseTime(now, step.departureTime!);
-        // 現在時刻が出発予定より1分以上過ぎているなら強制開始
-        if (now.isAfter(departureDt.add(const Duration(minutes: 1)))) {
-           
-           // ★遅延チェック: バスが来ていないなら強制開始しない
-           bool isBusDelayed = false;
-           if (step.isRide && realtimeBusLocationId != null && step.stops.isNotEmpty) {
-             final boardingStopId = step.stops.first.stopId;
-             
-             // ★IDがそもそも取れていない(null)場合は、判定不能なので
-             // 「遅延」とは見なさず、時刻通りに進める (shouldStart = true のまま)
-             if (boardingStopId != null) {
-               
-               // ★厳密一致で判定
-               bool isBusAtBoarding = (realtimeBusLocationId == boardingStopId);
-               bool isBusInRideSegment = step.stops.any((s) => s.stopId == realtimeBusLocationId);
-
-               // 乗車停にもおらず、区間内にもいない -> まだ手前にいると判断して待機維持
-               if (!isBusAtBoarding && !isBusInRideSegment) {
-                 isBusDelayed = true;
-                 debugPrint("[TripCoordinator] Bus is delayed. Realtime: $realtimeBusLocationId vs Boarding: $boardingStopId");
-               }
-             }
-           }
-
-           if (!isBusDelayed) {
-             routeState.isMoving = true; // 状態更新
-             return NavigationState.navigating(
-               step: step,
-               stopIndex: routeState.nextStopIndex,
-               statusLabel: "定刻出発",
-             );
-           } else {
-             // 遅延中として待機ステータスを返す（後続の処理でWaiting扱いになるが明示的に）
-             // ただし、下流のロジックでWaitになるように fall-through するか、ここで返すか。
-             // ここで返さないと fall through して schedule check になる。
-             // Schedule Check で "Departure" (Wait) になればOK。
-             // ただし "Departure" のテキストを変えたいならここで return もあり。
-             // ユーザー要望: "API情報で...『待機中（遅延）』として扱います。"
-             // NavigationState.waitingForDeparture({bool isDelayed = false}) を作るか、既存のWaitingにフラグを足すか。
-             // 既存の NavigationState はクラス。
-             // ここでは NavigationState.waitingForDeparture というファクトリはない（ユーザーコードにはあったが）。
-             // なので、既存の "Departure" 表示ロジック（line 126あたり）に任せるか、カスタムで返すか。
-             // 下流の schedule check (line 95) は `activeEntry` 次第。
-             // ScheduleResolver は変更したので、activeEntry がちゃんと "Departure" になっていればOK。
-             // もし ScheduleResolver が "Ride" を返してたら？ (5分前判定)
-             // 1分過ぎてるなら "Ride" になっている可能性高い (diff < 0)。
-             
-             // ScheduleResolver が Ride を返している場合、下の処理には引っかからない (Kind != Departure)。
-             // なので、ここで NavigationState を返す必要がある。
-             
-             return NavigationState(
-               mainText: "遅延中",
-               subText: "バスが遅れているようです",
-               color: const Color(0xFFFFF59D), // 薄い黄色
-               currentStepIndex: routeState.currentStepIndex,
-               nextStopIndex: routeState.nextStopIndex,
-               statusLabel: "遅延",
-               isMoving: false,
-             );
-           }
+        if (fallback != null) {
+          resolved = fallback;
         }
       }
     }
 
-    // 2. 移動していない場合 -> スケジュールを確認
-    final scheduledEntry = scheduleState.activeEntry;
-    if (scheduledEntry != null) {
-      final diff = scheduledEntry.plannedAt.difference(now);
+    debugPrint("[TripCoordinator] active=${active.label} kind=${active.itemKind} rt=${active.routeStepIndex} realtime=$realtimeBusLocationId");
+    debugPrint("[TripCoordinator] resolved=${resolved.label} kind=${resolved.itemKind} rt=${resolved.routeStepIndex}");
 
-      // A. 開始前 (20分以上前)
-      if (diff.inMinutes > 20) {
-          final remainder = "あと ${diff.inHours}時間${diff.inMinutes % 60}分";
-          return NavigationState(
-            mainText: scheduledEntry.label,
-            subText: "開始まで $remainder",
-            color: Colors.white,
-            currentStepIndex: routeState?.currentStepIndex ?? 0,
-            nextStopIndex: routeState?.nextStopIndex ?? 0,
-            statusLabel: "開始前",
-            isMoving: false,
-          );
-      }
-
-      // B. 集合 / 出発 / 到着 / ゴール
-      if (scheduledEntry.itemKind == ScheduleEntryKind.meeting) {
-        return NavigationState(
-          mainText: scheduledEntry.label,
-          subText: scheduledEntry.description.isNotEmpty ? scheduledEntry.description : "集合場所へ向かいましょう",
-          color: const Color(0xFFC8E6C9), // 薄い緑
-          currentStepIndex: routeState?.currentStepIndex ?? 0,
-          nextStopIndex: routeState?.nextStopIndex ?? 0,
-          statusLabel: "集合",
-          isMoving: false,
-        );
-      }
-
-      if (scheduledEntry.itemKind == ScheduleEntryKind.event) {
-        return NavigationState(
-          mainText: scheduledEntry.label,
-          subText: scheduledEntry.description.isNotEmpty ? scheduledEntry.description : "時間まで待機しましょう",
-          color: const Color(0xFFE1F5FE), // 薄い青
-          currentStepIndex: routeState?.currentStepIndex ?? 0,
-          nextStopIndex: routeState?.nextStopIndex ?? 0,
-          statusLabel: "待機",
-          isMoving: false,
-        );
-      }
-      
-      if (scheduledEntry.itemKind == ScheduleEntryKind.departure) {
-         return NavigationState(
-          mainText: scheduledEntry.label,
-          subText: "出発の準備をしましょう",
-          color: const Color(0xFFFFF59D), // 薄い黄色
-          currentStepIndex: routeState?.currentStepIndex ?? 0,
-          nextStopIndex: routeState?.nextStopIndex ?? 0,
-          statusLabel: "出発",
-          isMoving: false,
-        );
-      }
-
-      if (scheduledEntry.itemKind == ScheduleEntryKind.arrival || scheduledEntry.itemKind == ScheduleEntryKind.goal) {
-         return NavigationState(
-          mainText: scheduledEntry.label,
-          subText: scheduledEntry.description.isNotEmpty ? scheduledEntry.description : "到着しました",
-          color: const Color(0xFFFFCC80), // オレンジ
-          currentStepIndex: routeState?.currentStepIndex ?? 0,
-          nextStopIndex: routeState?.nextStopIndex ?? 0,
-          statusLabel: "到着",
-          isMoving: false,
-        );
-      }
+    if (resolved.itemKind == ScheduleEntryKind.walk ||
+        resolved.itemKind == ScheduleEntryKind.ride) {
+      return _navFromEntry(
+        trip: trip,
+        now: now,
+        entry: resolved,
+        routeState: routeState,
+        stopIndex: stopIndex,
+      );
     }
 
-    // 3. 未来の予定チェック (ActiveIndex = -1 fallback)
-    if (scheduleState.activeIndex == -1 && scheduleState.window.isNotEmpty) {
-      // ... (existing helper logic maintained below, but consolidated here for snippet match)
-      // Since specific logic for dates was complex, relying on the Schedule Check block (A.) 
-      // above handling future entries if they are set as 'activeEntry' by resolver would be cleaner.
-      // But Resolver sets activeEntry mainly for current window.
-      // Let's keep the fallback for strictly "Pre-Trip" state if entry is null.
-      
-       ScheduleEntry? futureEntry;
-       for (final e in scheduleState.window) {
-         if (e.plannedAt.isAfter(now)) {
-           futureEntry = e;
-           break;
-         }
-       }
-       if (futureEntry != null) {
-          final diff = futureEntry.plannedAt.difference(now);
-          final remainder = diff.inHours > 0 ? "あと${diff.inHours}時間${diff.inMinutes%60}分" : "あと${diff.inMinutes}分";
-          return NavigationState(
-            mainText: futureEntry.label,
-            subText: "開始まで $remainder",
-            color: Colors.white,
-            currentStepIndex: routeState?.currentStepIndex ?? 0,
-            nextStopIndex: routeState?.nextStopIndex ?? 0,
-            statusLabel: "開始前",
-            isMoving: false,
-          );
-       }
+    final diff = resolved.plannedAt.difference(now);
+
+    if (diff.inMinutes > 20) {
+      final remainder = "あと ${diff.inHours}時間${diff.inMinutes % 60}分";
+      return NavigationState(
+        mainText: resolved.label,
+        subText: "開始まで $remainder",
+        color: Colors.white,
+        currentStepIndex: routeState?.currentStepIndex ?? 0,
+        nextStopIndex: stopIndex,
+        statusLabel: "開始前",
+        isMoving: false,
+      );
     }
 
-    // 4. どれにも当てはまらない場合
-    return NavigationState.idle();
+    return _navFromEntry(
+      trip: trip,
+      now: now,
+      entry: resolved,
+      routeState: routeState,
+      stopIndex: stopIndex,
+    );
   }
 }

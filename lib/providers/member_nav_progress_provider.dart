@@ -25,27 +25,28 @@ class MemberNavState {
 class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
   MemberNavProgressNotifier() : super(MemberNavState.initial());
 
-  void updateProgress(Trip trip, LatLng? currentPos) {
+  /// GPS位置と、必要に応じてAPIからの強制補正(forceStopIndex)を用いて進捗を更新する
+  void updateProgress(Trip trip, LatLng? currentPos, {int? forceStopIndex}) {
     if (currentPos == null) return;
     
-    // Construct mutable RouteState from current immutable state
-    // legsから全てのstepを展開して1つのリストにする
     final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
     
+    // 計算用の可変Stateを作成
     final routeState = RouteState(
       steps: allSteps,
       currentStepIndex: state.currentStepIndex,
       nextStopIndex: state.nextStopIndex,
-      isMoving: true, // Defaulting to true for active update
+      isMoving: true,
     );
 
-    // Call mutable update
+    // TripNavigatorで計算（API補正値があればそれも考慮）
     TripNavigator.updateRouteOnly(
        routeState,
        currentPos,
+       forceStopIndex: forceStopIndex,
     );
     
-    // Only update if indices changed, to avoid unnecessary rebuilds downstream if used elsewhere
+    // 変更があればStateを更新
     if (routeState.currentStepIndex != state.currentStepIndex || 
         routeState.nextStopIndex != state.nextStopIndex) {
       state = MemberNavState(
@@ -55,8 +56,7 @@ class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
     }
   }
 
-  /// GPS補正後のインデックスを直接設定する
-  /// MemberModePageでrouteStateの補正結果を反映するために使用
+  /// 強制的にインデックスを指定する場合（デバッグや特定イベント用）
   void setIndices({required int stepIndex, required int stopIndex}) {
     if (stepIndex != state.currentStepIndex || stopIndex != state.nextStopIndex) {
       state = MemberNavState(

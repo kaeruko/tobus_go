@@ -191,20 +191,28 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _openLatestTripAsLeader() async {
     try {
+      debugPrint("[Settings] _openLatestTripAsLeader called");
       String? tripId;
       final sessionTripId = ref.read(appSessionProvider).currentTripId;
+      debugPrint("[Settings] sessionTripId: $sessionTripId");
+
       if (sessionTripId != null) {
         tripId = sessionTripId;
+        debugPrint("[Settings] Using sessionTripId: $tripId");
       } else {
         final activeTrip = await TripService().getActiveTrip();
+        debugPrint("[Settings] activeTrip from Service: ${activeTrip?.id}");
         if (activeTrip != null) {
           tripId = activeTrip.id;
+          debugPrint("[Settings] Using activeTripId: $tripId");
         }
       }
 
       if (tripId == null) {
         final uid = UserService().currentUserId;
+        debugPrint("[Settings] Current User ID: $uid");
         if (uid != null) {
+          debugPrint("[Settings] Querying Firestore for leader trips...");
           final snapshot = await FirebaseFirestore.instance
               .collection('trips')
               .where('memberIds', arrayContains: uid)
@@ -212,16 +220,20 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               .limit(1)
               .get();
           
+          debugPrint("[Settings] Snapshot docs count: ${snapshot.docs.length}");
           if (snapshot.docs.isNotEmpty) {
             final doc = snapshot.docs.first;
             final data = doc.data();
             debugPrint("[Settings] Found Leader Trip: ${doc.id} | Status: ${data['travelPhase'] ?? data['status']} | Date: ${data['date']}");
             tripId = doc.id;
           }
+        } else {
+           debugPrint("[Settings] UID is null, skipping Firestore query");
         }
       }
       
       if (tripId != null) {
+        debugPrint("[Settings] Attempting to open LeaderModePage for tripId: $tripId");
         await ref.read(appSessionProvider.notifier).updateTripId(tripId);
         if (mounted) {
           Navigator.push(
@@ -230,6 +242,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           );
         }
       } else {
+        debugPrint("[Settings] No tripId found for Leader Mode.");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Tripが見つかりません。まずは作成してください。')),
@@ -237,6 +250,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         }
       }
     } catch (e) {
+      debugPrint("[Settings] Error in _openLatestTripAsLeader: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e')));
       }
@@ -245,20 +259,28 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _openLatestTripAsMember() async {
     try {
+      debugPrint("[Settings] _openLatestTripAsMember called");
       String? tripId;
       final sessionTripId = ref.read(appSessionProvider).currentTripId;
+      debugPrint("[Settings] sessionTripId: $sessionTripId");
+
       if (sessionTripId != null) {
         tripId = sessionTripId;
+        debugPrint("[Settings] Using sessionTripId: $tripId");
       } else {
         final activeTrip = await TripService().getActiveTrip();
+        debugPrint("[Settings] activeTrip from Service: ${activeTrip?.id}");
         if (activeTrip != null) {
           tripId = activeTrip.id;
+          debugPrint("[Settings] Using activeTripId: $tripId");
         }
       }
 
       if (tripId == null) {
         final uid = UserService().currentUserId;
+        debugPrint("[Settings] Current User ID: $uid");
         if (uid != null) {
+          debugPrint("[Settings] Querying Firestore for member trips...");
           final snapshot = await FirebaseFirestore.instance
               .collection('trips')
               .where('memberIds', arrayContains: uid)
@@ -266,19 +288,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               .limit(1)
               .get();
           
+          debugPrint("[Settings] Snapshot docs count: ${snapshot.docs.length}");
           if (snapshot.docs.isNotEmpty) {
             final doc = snapshot.docs.first;
             final data = doc.data();
             debugPrint("[Settings] Found Member Trip: ${doc.id} | Status: ${data['travelPhase'] ?? data['status']} | Date: ${data['date']}");
             tripId = doc.id;
           }
+        } else {
+           debugPrint("[Settings] UID is null, skipping Firestore query");
         }
       }
 
       if (tripId != null) {
+        debugPrint("[Settings] Attempting to enter Member Mode for tripId: $tripId");
         await ref.read(appSessionProvider.notifier).enterMemberMode(tripId);
         if (mounted) {
            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('メンバーモードに切り替わりました')));
+           // SettingsPageを閉じて、RootGateの切り替えを表示させる
+           Navigator.of(context).pop(); 
         }
       } else {
         if (mounted) {
