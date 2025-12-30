@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import '../constants.dart';
 
 class ApiClient {
+  static http.Client httpClient = http.Client();
+
   static Map<String, dynamic> _jsonUtf8(http.Response r) {
     final body = utf8.decode(r.bodyBytes);
     return json.decode(body) as Map<String, dynamic>;
@@ -18,9 +20,9 @@ class ApiClient {
   static Future<Map<String, dynamic>> get(String path, {Map<String, String>? params}) async {
     final uri = Uri.parse('$kApiBase$path').replace(queryParameters: params);
     _log('GET $uri');
-    
+
     try {
-      final r = await http.get(uri);
+      final r = await httpClient.get(uri);
       _log('GET $uri -> ${r.statusCode}');
       
       if (r.statusCode != 200) {
@@ -48,9 +50,10 @@ class ApiClient {
     }
 
     _log('POST $uri body=$bodyString');
-    
+
     try {
-      final r = await http.post(uri, body: bodyString, headers: headers).timeout(const Duration(seconds: 60));
+      final r =
+          await httpClient.post(uri, body: bodyString, headers: headers).timeout(const Duration(seconds: 60));
       _log('POST $uri -> status: ${r.statusCode}, size: ${r.bodyBytes.length} bytes');
       
       if (r.body.isNotEmpty) {
@@ -72,6 +75,7 @@ class ApiClient {
   /// バスの現在位置情報を取得する
   /// [routeId] 系統ID (例: odpt.Busroute:Toei.To02)
   /// [tripId] 便ID (指定すると特定の車両を追跡できます)
+  /// 失敗時は例外を投げる
   static Future<Map<String, dynamic>> fetchBusLocation({
     required String routeId,
     String? tripId,
@@ -84,12 +88,6 @@ class ApiClient {
       params['trip_id'] = tripId;
     }
 
-    try {
-      return await get('/bus/location', params: params);
-    } catch (e) {
-      // エラー時はログを出して空のMapを返す（アプリをクラッシュさせないため）
-      _log('fetchBusLocation failed: $e');
-      return {};
-    }
+    return await get('/bus/location', params: params);
   }
 }
