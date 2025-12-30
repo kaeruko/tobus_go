@@ -4,7 +4,14 @@ import 'package:http/http.dart' as http;
 import '../constants.dart';
 
 class ApiClient {
-  static http.Client httpClient = http.Client();
+  static http.Client _httpClient = http.Client();
+
+  static http.Client get httpClient => _httpClient;
+
+  @visibleForTesting
+  static set httpClient(http.Client client) {
+    _httpClient = client;
+  }
 
   static Map<String, dynamic> _jsonUtf8(http.Response r) {
     final body = utf8.decode(r.bodyBytes);
@@ -22,7 +29,7 @@ class ApiClient {
     _log('GET $uri');
 
     try {
-      final r = await httpClient.get(uri);
+      final r = await _httpClient.get(uri);
       _log('GET $uri -> ${r.statusCode}');
       
       if (r.statusCode != 200) {
@@ -52,8 +59,9 @@ class ApiClient {
     _log('POST $uri body=$bodyString');
 
     try {
-      final r =
-          await httpClient.post(uri, body: bodyString, headers: headers).timeout(const Duration(seconds: 60));
+      final r = await _httpClient
+          .post(uri, body: bodyString, headers: headers)
+          .timeout(const Duration(seconds: 60));
       _log('POST $uri -> status: ${r.statusCode}, size: ${r.bodyBytes.length} bytes');
       
       if (r.body.isNotEmpty) {
