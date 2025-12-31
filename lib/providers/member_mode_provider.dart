@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../core/app_clock.dart';
 import '../core/api_client.dart';
 import '../models/trip_models.dart';
+import '../models/group_models.dart';
 import '../logic/trip_navigator.dart';
 import '../logic/trip_coordinator.dart';
 import '../logic/schedule_resolver.dart';
