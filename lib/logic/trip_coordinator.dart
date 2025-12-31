@@ -6,8 +6,6 @@ import '../models/route_models.dart'; // StepSeg
 import 'trip_navigator.dart';
 import 'schedule_resolver.dart';
 
-import 'package:geolocator/geolocator.dart'; // Add for distanceBetween
-
 class TripCoordinator {
   static DateTime _parseTime(DateTime date, String timeStr) {
     final parts = timeStr.split(':');
@@ -72,56 +70,47 @@ class TripCoordinator {
     return scheduleState.window.first;
   }
 
-  static ScheduleEntry _applyGpsGateForWalk({
+  static ScheduleEntry _resolveWalkToRideTransition({
     required ScheduleEntry entry,
+    required ScheduleResolveResult scheduleState,
     required RouteState? routeState,
-    required LatLng? currentPos,
+    required DateTime now,
+    String? realtimeBusLocationId,
   }) {
     if (entry.itemKind != ScheduleEntryKind.walk) return entry;
-    if (routeState == null) return entry;
-    if (currentPos == null) return entry;
 
-    final idx = entry.routeStepIndex;
-    if (idx == null || idx < 0 || idx >= routeState.steps.length) return entry;
+    ScheduleEntry? upcomingRide;
 
-    final walkStep = routeState.steps[idx];
-    if (walkStep.kind != 'walk') return entry;
+    for (final candidate in scheduleState.window) {
+      if (candidate.itemKind != ScheduleEntryKind.ride) continue;
+      if (candidate.legIndex != entry.legIndex) continue;
 
-    // walk の到着地点は、直後の ride の最初の stop を使う
-    // (Walk step may not have stops or destination geometry in this model)
-    if (idx + 1 >= routeState.steps.length) return entry;
-    final next = routeState.steps[idx + 1];
-    
-    // Check if next step is a ride/wait that has stops. 
-    // Wait steps might happen before ride, but typically walk leads to a location.
-    // If next step is wait/ride, try to get its first stop.
-    if (next.stops.isEmpty) return entry;
-    
-    final destPoint = next.stops.first.point; 
-    final distM = Geolocator.distanceBetween(
-      currentPos.latitude,
-      currentPos.longitude,
-      destPoint.latitude,
-      destPoint.longitude,
-    );
-    
-    debugPrint("[TripCoordinator] Walk GPS Check: dist=${distM.toStringAsFixed(1)}m limit=80m dest=${next.stops.first.name}");
+      // Ensure we only consider rides that are scheduled after or at the walk.
+      if (candidate.plannedAt.isBefore(entry.plannedAt)) continue;
+      if (entry.routeStepIndex != null &&
+          candidate.routeStepIndex != null &&
+          candidate.routeStepIndex! < entry.routeStepIndex!) {
+        continue;
+      }
 
-    // 80m 以内なら walk 終了とみなして次を表示
-    if (distM <= 80.0) {
-      // Return a dummy event entry that represents "Arrived" / "Wait" phase
-      // This will force the UI to show the next logical thing or a wait state
-      return ScheduleEntry(
-        id: entry.id, // Keep same ID or make dummy
-        plannedAt: entry.plannedAt,
-        label: '到着済み', // UI will typically see this or fall through logic
-        description: 'まもなく出発です',
-        itemKind: ScheduleEntryKind.event, // Change to event/wait
-        legIndex: entry.legIndex,
-        generatedBy: entry.generatedBy,
-        routeStepIndex: idx + 1, // Advance index ref if possible
-        routeRole: 'walk_done_by_gps',
-      );
+      upcomingRide = candidate;
+      break;
+    }
+
+    if (upcomingRide == null) return entry;
+
+    final rideStep = _stepForEntry(routeState, upcomingRide);
+    final rideHasStarted = rideStep != null &&
+        _realtimeSaysRideStarted(
+          step: rideStep,
+          realtimeBusLocationId: realtimeBusLocationId,
+        );
+
+    final timeUntilRide = upcomingRide.plannedAt.difference(now);
+    final rideWindowOpen = timeUntilRide <= const Duration(minutes: 5);
+
+    if (rideHasStarted || rideWindowOpen) {
+      return upcomingRide;
     }
 
     return entry;
@@ -225,15 +214,17 @@ class TripCoordinator {
       return NavigationState.idle();
     }
 
-    // ★ GPSゲートによるWalk早期終了判定
-    ScheduleEntry resolved = _applyGpsGateForWalk(
+    // ★ 徒歩から乗車への遷移は時刻とリアルタイム位置で判断
+    ScheduleEntry resolved = _resolveWalkToRideTransition(
       entry: active,
+      scheduleState: scheduleState,
       routeState: routeState,
-      currentPos: currentPos,
+      now: now,
+      realtimeBusLocationId: realtimeBusLocationId,
     );
 
     if (resolved.itemKind == ScheduleEntryKind.ride) {
-      final step = _stepForEntry(routeState, active);
+      final step = _stepForEntry(routeState, resolved);
 
       bool rideStarted = false;
       if (step != null) {
@@ -245,9 +236,10 @@ class TripCoordinator {
 
       if (!rideStarted) {
         final timeUntilRide = resolved.plannedAt.difference(now);
+        const rideLeadWindow = Duration(minutes: 5);
         const fallbackLeadWindow = Duration(minutes: 2);
 
-        if (timeUntilRide > Duration.zero) {
+        if (timeUntilRide > rideLeadWindow) {
           final fallback = _fallbackEntryBeforeRide(
             scheduleState: scheduleState,
             rideEntry: resolved,
@@ -256,8 +248,7 @@ class TripCoordinator {
             resolved = fallback;
           }
         } else if (timeUntilRide > -fallbackLeadWindow) {
-          // Small grace window before departure. Keep ride state to avoid jumping
-          // back to wait once the bus is due.
+          // Small grace window before departure. Keep ride state once the departure window opens.
         }
       }
     }
