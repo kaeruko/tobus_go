@@ -41,7 +41,16 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
 
   void _startPolling() {
     _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) => _pollRealtimeData());
+    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _pollRealtimeData().catchError((error, stackTrace) {
+        FlutterError.reportError(FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          context: const ErrorDescription('member realtime polling'),
+        ));
+        return Future.error(error, stackTrace);
+      });
+    });
   }
 
   /// 位置情報更新時のハンドラ
@@ -67,24 +76,22 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
 
     // 乗車中かつルートIDがある場合のみAPI確認
     if (currentStep.isRide && currentStep.routeId != null) {
-      try {
-        final result = await ApiClient.fetchBusLocation(
-          routeId: currentStep.routeId!,
-          tripId: currentStep.tripId,
-        );
-        final fromPoleId = result['odpt:fromBusstopPole'];
+      debugPrint('Polling realtime bus location for route ${currentStep.routeId}');
 
-        if (fromPoleId != null) {
-          final index = currentStep.stops.indexWhere((s) => s.stopId == fromPoleId);
-          // APIから取れた位置を保持
-          state = RealtimeBusState(
-            lastRealtimeBusId: fromPoleId,
-            lastApiStopIndex: (index != -1) ? index : state.lastApiStopIndex,
-          );
-          if (index != -1) debugPrint("API Update: Bus index $index / ID: $fromPoleId");
-        }
-      } catch (e) {
-        debugPrint("Realtime poll failed: $e");
+      final result = await ApiClient.fetchBusLocation(
+        routeId: currentStep.routeId!,
+        tripId: currentStep.tripId,
+      );
+      final fromPoleId = result['odpt:fromBusstopPole'];
+
+      if (fromPoleId != null) {
+        final index = currentStep.stops.indexWhere((s) => s.stopId == fromPoleId);
+        // APIから取れた位置を保持
+        state = RealtimeBusState(
+          lastRealtimeBusId: fromPoleId,
+          lastApiStopIndex: (index != -1) ? index : state.lastApiStopIndex,
+        );
+        debugPrint('[Realtime] bus stop index resolved: ${index != -1 ? index : 'unknown'} (ID: $fromPoleId)');
       }
     } else {
       // 徒歩中などはリセット
