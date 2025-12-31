@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../services/user_service.dart';
 import '../services/trip_service.dart';
+import '../models/trip_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_session_provider.dart';
 import '../providers/location_provider.dart';
@@ -265,9 +266,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       debugPrint("[Settings] sessionTripId: $sessionTripId");
 
       if (sessionTripId != null) {
-        tripId = sessionTripId;
-        debugPrint("[Settings] Using sessionTripId: $tripId");
-      } else {
+        // Verify the stored trip is still valid before reusing it
+        final sessionTrip = await TripService().getTrip(sessionTripId);
+        final uid = UserService().currentUserId;
+        final isActive = sessionTrip != null &&
+            (sessionTrip.travelPhase == TravelPhase.planning ||
+                sessionTrip.travelPhase == TravelPhase.active);
+        final isMember = sessionTrip != null &&
+            uid != null &&
+            sessionTrip.memberIds.contains(uid);
+
+        if (isActive && isMember) {
+          tripId = sessionTripId;
+          debugPrint("[Settings] Using sessionTripId: $tripId");
+        } else {
+          debugPrint(
+              "[Settings] Stored sessionTripId is invalid (active=$isActive, member=$isMember), clearing it");
+          await ref.read(appSessionProvider.notifier).leaveMemberMode();
+        }
+      }
+
+      if (tripId == null) {
         final activeTrip = await TripService().getActiveTrip();
         debugPrint("[Settings] activeTrip from Service: ${activeTrip?.id}");
         if (activeTrip != null) {
