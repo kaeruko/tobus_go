@@ -22,7 +22,7 @@ class RealtimeBusState {
   const RealtimeBusState({this.lastApiStopIndex, this.lastRealtimeBusId});
 }
 
-/// ビジネスロジック: APIポーリングと位置情報連携の仲介
+/// ビジネスロジック: APIポーリングと時間経過による進行管理
 class MemberModeController extends StateNotifier<RealtimeBusState> {
   final Ref _ref;
   Timer? _pollingTimer;
@@ -41,19 +41,21 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
 
   void _startPolling() {
     _pollingTimer?.cancel();
-    _pollRealtimeData();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) => _pollRealtimeData());
+    // 初回実行
+    _checkProgress();
+    // 30秒ごとに時間とAPIをチェックして進行させる
+    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) => _checkProgress());
   }
 
-  Future<void> pollNow() async => _pollRealtimeData();
+  Future<void> pollNow() async => _checkProgress();
 
-  Future<void> _pollRealtimeData() async {
+  Future<void> _checkProgress() async {
     final trip = _ref.read(tripStreamProvider).value;
     if (trip == null) return;
 
-    final schedule = ScheduleResolver.sortCopy(trip.schedule);
+    // 【重要】GPS位置を使わず、現在時刻のみで「本来いるべきスケジュール」を解決する
     final scheduleResolved = ScheduleResolver.resolve(
-      scheduleSorted: schedule,
+      scheduleSorted: ScheduleResolver.sortCopy(trip.schedule),
       now: appClock.now(),
       trip: trip,
       currentStepIndex: null,
@@ -63,52 +65,62 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
     final activeEntry = scheduleResolved.activeEntry;
     final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
     StepSeg? activeStep;
+    int? apiStopIndex;
 
+    // 1. アクティブなエントリーがあれば、それに対応するステップを特定
     if (activeEntry?.routeStepIndex != null) {
       final stepIndex = activeEntry!.routeStepIndex!;
       if (stepIndex >= 0 && stepIndex < allSteps.length) {
         activeStep = allSteps[stepIndex];
-        _ref.read(memberNavProgressProvider.notifier).updateFromSchedule(
-          trip,
-          activeEntry,
-          forceStopIndex: state.lastApiStopIndex,
-        );
       }
     }
 
-    // 乗車中かつルートIDがある場合のみAPI確認
+    // 2. 乗車中かつルートIDがある場合のみAPI確認 (Realtime基準)
     if (activeStep != null && activeStep.isRide && activeStep.routeId != null) {
       if (activeStep.tripId == null) {
-        throw StateError('tripId is required to poll realtime bus location');
-      }
-
-      final result = await ApiClient.fetchBusLocation(
-        routeId: activeStep.routeId!,
-        tripId: activeStep.tripId!,
-      );
-      final fromPoleId = result['odpt:fromBusstopPole'];
-
-      if (fromPoleId != null) {
-        final index = activeStep.stops.indexWhere((s) => s.stopId == fromPoleId);
-        // APIから取れた位置を保持
-        state = RealtimeBusState(
-          lastRealtimeBusId: fromPoleId,
-          lastApiStopIndex: (index != -1) ? index : state.lastApiStopIndex,
-        );
-        if (activeEntry != null) {
-          _ref.read(memberNavProgressProvider.notifier).updateFromSchedule(
-            trip,
-            activeEntry,
-            forceStopIndex: (index != -1) ? index : state.lastApiStopIndex,
+        // tripIdがない場合はAPI叩けないのでスキップ
+        debugPrint('Skip API poll: tripId is null');
+      } else {
+        try {
+          final result = await ApiClient.fetchBusLocation(
+            routeId: activeStep.routeId!,
+            tripId: activeStep.tripId!,
           );
+          final fromPoleId = result['odpt:fromBusstopPole'];
+
+          if (fromPoleId != null) {
+            final index = activeStep.stops.indexWhere((s) => s.stopId == fromPoleId);
+            if (index != -1) {
+              apiStopIndex = index;
+              // APIから取れた位置をStateに保持
+              state = RealtimeBusState(
+                lastRealtimeBusId: fromPoleId,
+                lastApiStopIndex: index,
+              );
+              debugPrint("API Update: Bus index $index / ID: $fromPoleId");
+            }
+          }
+        } catch (e) {
+          debugPrint('API Error: $e');
         }
-        if (index != -1) debugPrint("API Update: Bus index $index / ID: $fromPoleId");
       }
     } else {
-      // 徒歩中などはリセット
+      // 徒歩中などはAPI状態をリセット（あるいは前回の値を保持せずクリア）
       if (state.lastApiStopIndex != null) {
         state = const RealtimeBusState(lastApiStopIndex: null, lastRealtimeBusId: null);
       }
+    }
+
+    // 3. 進捗を更新 (時間基準 + API補正)
+    // activeEntry (時間基準) をベースにしつつ、API情報 (apiStopIndex) があればそれを強制適用する
+    if (activeEntry != null) {
+      _ref.read(memberNavProgressProvider.notifier).updateFromSchedule(
+        trip,
+        activeEntry,
+        // APIで位置が取れていればそのバス停インデックスを、取れていなければStateの前回値を優先
+        // どちらもなければnullになり、純粋な時間基準(updateFromScheduleのデフォルト挙動)になる
+        forceStopIndex: apiStopIndex ?? state.lastApiStopIndex,
+      );
     }
   }
 }

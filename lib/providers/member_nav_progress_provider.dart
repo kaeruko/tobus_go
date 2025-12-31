@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../logic/trip_navigator.dart';
+
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
 
@@ -25,37 +24,6 @@ class MemberNavState {
 
 class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
   MemberNavProgressNotifier() : super(MemberNavState.initial());
-
-  /// GPS位置と、必要に応じてAPIからの強制補正(forceStopIndex)を用いて進捗を更新する
-  void updateProgress(Trip trip, LatLng? currentPos, {int? forceStopIndex}) {
-    if (currentPos == null) return;
-    
-    final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
-    
-    // 計算用の可変Stateを作成
-    final routeState = RouteState(
-      steps: allSteps,
-      currentStepIndex: state.currentStepIndex,
-      nextStopIndex: state.nextStopIndex,
-      isMoving: true,
-    );
-
-    // TripNavigatorで計算（API補正値があればそれも考慮）
-    TripNavigator.updateRouteOnly(
-       routeState,
-       currentPos,
-       forceStopIndex: forceStopIndex,
-    );
-    
-    // 変更があればStateを更新
-    if (routeState.currentStepIndex != state.currentStepIndex || 
-        routeState.nextStopIndex != state.nextStopIndex) {
-      state = MemberNavState(
-        currentStepIndex: routeState.currentStepIndex,
-        nextStopIndex: routeState.nextStopIndex,
-      );
-    }
-  }
 
   /// スケジュールのアクティブ項目からインデックスを更新する
   void updateFromSchedule(Trip trip, ScheduleEntry? activeEntry, {int? forceStopIndex}) {
