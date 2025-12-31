@@ -112,9 +112,6 @@ class NavigationState {
 }
 
 class TripNavigator {
-  // 通過判定の距離（メートル）
-  static const double _arrivalRadius = 80.0;
-
   // メインの更新メソッド
   static void updateRouteOnly(
     RouteState state,
@@ -134,18 +131,18 @@ class TripNavigator {
     // ============================================================
     if (currentStep.isRide) {
       // --- 乗車中 (Bus/Rail) ---
-      // 目的地（降車バス停/駅）に到着したかだけを監視する
-      if (currentStep.stops.isNotEmpty) {
-        final destStop = currentStep.stops.last;
-        final distToDest = _distance(currentPos, destStop.point);
+      // APIなどから提供される現在の停留所Index(forceStopIndex)を使用して進捗を更新する。
+      _updateStopIndex(state, currentPos, forceStopIndex: forceStopIndex);
 
-        // 目的地から50m以内なら「降車完了」とみなして次のStepへ
-        if (distToDest < 50.0) {
+      // 目的地の停留所Indexに到達したら次のStepへ進む
+      if (currentStep.stops.isNotEmpty) {
+        final lastStopIndex = currentStep.stops.length - 1;
+        if (state.nextStopIndex >= lastStopIndex) {
           nextStepIndex = state.currentStepIndex + 1;
         }
       }
       // ※ここでは _estimateCurrentStepIndexWithDistance は呼ばない！
-      // これにより、バス乗車中に近くの駅を通っても勝手に切り替わらない。
+      // これにより、バス乗車中に近くの駅を通ってもGPSで勝手に切り替わらない。
     } else {
       // --- 徒歩中 (Walk) ---
       // 従来どおり、GPS位置に基づいて最適なStepを探す（リルート的挙動）
@@ -171,7 +168,12 @@ class TripNavigator {
     if (step.stops.isEmpty) return;
 
     if (forceStopIndex != null) {
-      state.nextStopIndex = forceStopIndex;
+      state.nextStopIndex = forceStopIndex.clamp(0, step.stops.length - 1);
+      return;
+    }
+
+    // バス乗車中はGPS距離ではなくリアルタイムの停留所情報に従う
+    if (step.isRide) {
       return;
     }
 
