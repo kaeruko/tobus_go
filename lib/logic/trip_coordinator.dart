@@ -244,12 +244,20 @@ class TripCoordinator {
       }
 
       if (!rideStarted) {
-        final fallback = _fallbackEntryBeforeRide(
-          scheduleState: scheduleState,
-          rideEntry: resolved,
-        );
-        if (fallback != null) {
-          resolved = fallback;
+        final timeUntilRide = resolved.plannedAt.difference(now);
+        const fallbackLeadWindow = Duration(minutes: 2);
+
+        if (timeUntilRide > Duration.zero) {
+          final fallback = _fallbackEntryBeforeRide(
+            scheduleState: scheduleState,
+            rideEntry: resolved,
+          );
+          if (fallback != null) {
+            resolved = fallback;
+          }
+        } else if (timeUntilRide > -fallbackLeadWindow) {
+          // Small grace window before departure. Keep ride state to avoid jumping
+          // back to wait once the bus is due.
         }
       }
     }
