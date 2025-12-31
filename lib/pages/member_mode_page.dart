@@ -72,7 +72,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                     navState: uiState.navState,
                     tripTitle: uiState.displayTitle,
                     currentPos: uiState.currentPos,
-                    trip: trip,
+                    onTapRemainingStops: () => _onTapRemainingStops(trip),
                   ),
                   const SizedBox(height: 14),
                   _SchedulePeek(
@@ -100,6 +100,19 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
 
   Future<void> _leaveGroup() async {
     await ref.read(appSessionProvider.notifier).leaveMemberMode();
+  }
+
+  void _onTapRemainingStops(Trip trip) {
+    final activeIndex = trip.activeLegIndex;
+    final candidate = (activeIndex >= 0 && activeIndex < trip.legs.length)
+        ? trip.legs[activeIndex].candidate
+        : (trip.legs.isNotEmpty ? trip.legs.first.candidate : null);
+
+    if (candidate != null) {
+      Navigator.of(context).push(
+        CupertinoPageRoute(builder: (_) => RouteDetailPage(candidate: candidate)),
+      );
+    }
   }
 
   void _openGroupDetail(Trip trip) {
@@ -197,13 +210,13 @@ class _CurrentStatusCard extends StatelessWidget {
   final NavigationState navState;
   final String tripTitle;
   final LatLng? currentPos;
-  final Trip trip;
+  final VoidCallback onTapRemainingStops;
 
   const _CurrentStatusCard({
     required this.navState,
     required this.tripTitle,
     required this.currentPos,
-    required this.trip,
+    required this.onTapRemainingStops,
   });
 
   @override
@@ -218,71 +231,82 @@ class _CurrentStatusCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 8, runSpacing: 8,
-            children: [
-              _StatusChip(label: navState.statusLabel, icon: CupertinoIcons.location_solid, color: Colors.black87),
-              _StatusChip(label: '旅程: $tripTitle', icon: CupertinoIcons.flag, color: Colors.black54),
-            ],
-          ),
+          _buildHeaderChips(),
           const SizedBox(height: 12),
           const Align(alignment: Alignment.centerRight, child: _LiveClock()),
           Text(navState.mainText, style: const TextStyle(fontSize: 46, fontWeight: FontWeight.w800, color: Colors.black)),
           const SizedBox(height: 8),
           Text(navState.subText, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8, runSpacing: 8,
-            children: [
-              if (navState.remainingStops != null)
-                _StatusChip(
-                  label: 'のこり ${navState.remainingStops} 停留所',
-                  icon: CupertinoIcons.bus,
-                  color: const Color(0xFF0D47A1),
-                  background: const Color(0xFFE3F2FD),
-                  onTap: () {
-                    final activeIndex = trip.activeLegIndex;
-                    final candidate = (activeIndex < trip.legs.length) 
-                        ? trip.legs[activeIndex].candidate 
-                        : trip.legs.first.candidate;
-                    Navigator.of(context).push(CupertinoPageRoute(builder: (_) => RouteDetailPage(candidate: candidate)));
-                  },
-                ),
-              if (navState.nextStopName != null && navState.nextStopName!.isNotEmpty)
-                _StatusChip(
-                  label: '次: ${navState.nextStopName}',
-                  icon: CupertinoIcons.arrow_right_circle_fill,
-                  color: const Color(0xFF1B5E20),
-                  background: const Color(0xFFE8F5E9),
-                ),
-            ],
-          ),
+          _buildNavInfoChips(),
           const SizedBox(height: 16),
-          _LocationStatus(hasPosition: currentPos != null),
+          _LocationStatus(
+            state: currentPos != null ? _LocationState.active : _LocationState.searching,
+          ),
         ],
       ),
     );
   }
+
+  Widget _buildHeaderChips() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _StatusChip(label: navState.statusLabel, icon: CupertinoIcons.location_solid, color: Colors.black87),
+        _StatusChip(label: '旅程: $tripTitle', icon: CupertinoIcons.flag, color: Colors.black54),
+      ],
+    );
+  }
+
+  Widget _buildNavInfoChips() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (navState.remainingStops != null)
+          _StatusChip(
+            label: 'のこり ${navState.remainingStops} 停留所',
+            icon: CupertinoIcons.bus,
+            color: const Color(0xFF0D47A1),
+            background: const Color(0xFFE3F2FD),
+            onTap: onTapRemainingStops,
+          ),
+        if (navState.nextStopName != null && navState.nextStopName!.isNotEmpty)
+          _StatusChip(
+            label: '次: ${navState.nextStopName}',
+            icon: CupertinoIcons.arrow_right_circle_fill,
+            color: const Color(0xFF1B5E20),
+            background: const Color(0xFFE8F5E9),
+          ),
+      ],
+    );
+  }
 }
 
+enum _LocationState { searching, active }
+
 class _LocationStatus extends StatelessWidget {
-  final bool hasPosition;
-  const _LocationStatus({required this.hasPosition});
+  final _LocationState state;
+  const _LocationStatus({required this.state});
 
   @override
   Widget build(BuildContext context) {
-    if (hasPosition) {
-      return Row(children: const [
-        Icon(CupertinoIcons.dot_radiowaves_left_right, color: Colors.teal),
-        SizedBox(width: 8),
-        Text('GPSで位置を確認中', style: TextStyle(color: Colors.black87)),
-      ]);
+    switch (state) {
+      case _LocationState.active:
+        return Row(children: const [
+          Icon(CupertinoIcons.dot_radiowaves_left_right, color: Colors.teal),
+          SizedBox(width: 8),
+          Text('GPSで位置を確認中', style: TextStyle(color: Colors.black87)),
+        ]);
+      case _LocationState.searching:
+      default:
+        return Row(children: const [
+          SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+          SizedBox(width: 8),
+          Text('現在地を測定しています...', style: TextStyle(color: Colors.black87)),
+        ]);
     }
-    return Row(children: const [
-      SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-      SizedBox(width: 8),
-      Text('現在地を測定しています...', style: TextStyle(color: Colors.black87)),
-    ]);
   }
 }
 
