@@ -12,7 +12,6 @@ import '../models/trip_models.dart';
 import '../services/trip_service.dart';
 import '../providers/app_session_provider.dart';
 import '../providers/trip_provider.dart';
-import '../providers/location_provider.dart';
 import '../providers/member_mode_provider.dart'; // 作成したProvider
 import '../providers/member_nav_progress_provider.dart';
 import 'group_detail_page.dart';
@@ -39,28 +38,6 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
     // ナビ状態リセット
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ref.read(memberNavProgressProvider.notifier).reset();
-    });
-
-    // 位置情報監視 -> コントローラーへ通知
-    ref.listenManual(locationStreamProvider, (prev, next) {
-      if (ref.read(locationOverrideProvider) != null) return;
-      next.whenData((pos) {
-        final trip = ref.read(tripStreamProvider).value;
-        if (trip != null) {
-          ref.read(memberModeControllerProvider.notifier).onLocationUpdated(
-            LatLng(pos.latitude, pos.longitude), 
-            trip
-          );
-        }
-      });
-    });
-    
-    // デバッグ用Override監視
-    ref.listenManual(locationOverrideProvider, (prev, next) {
-      final trip = ref.read(tripStreamProvider).value;
-      if (trip != null && next != null) {
-        ref.read(memberModeControllerProvider.notifier).onLocationUpdated(next, trip);
-      }
     });
   }
 
@@ -182,14 +159,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         IconButton(
           icon: const Icon(Icons.refresh),
           onPressed: () {
-            // 手動更新
-            final pos = ref.read(locationStreamProvider).value;
-            if (pos != null) {
-              ref.read(memberModeControllerProvider.notifier).onLocationUpdated(
-                LatLng(pos.latitude, pos.longitude), 
-                trip
-              );
-            }
+            ref.read(memberModeControllerProvider.notifier).pollNow();
           },
         ),
         IconButton(

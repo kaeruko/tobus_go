@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../core/app_clock.dart';
 import '../core/api_client.dart';
 import '../models/trip_models.dart';
 import '../models/group_models.dart';
-import '../logic/trip_navigator.dart';
+import '../models/route_models.dart';
 import '../logic/trip_coordinator.dart';
 import '../logic/schedule_resolver.dart';
 import 'trip_provider.dart';
@@ -42,49 +41,67 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
 
   void _startPolling() {
     _pollingTimer?.cancel();
+    _pollRealtimeData();
     _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) => _pollRealtimeData());
   }
 
-  /// 位置情報更新時のハンドラ
-  void onLocationUpdated(LatLng pos, Trip trip) {
-    // NavProgressProviderに進捗計算を依頼。
-    // APIから取得した最新のバス停情報(lastApiStopIndex)があれば渡して補正させる。
-    _ref.read(memberNavProgressProvider.notifier).updateProgress(
-      trip, 
-      pos, 
-      forceStopIndex: state.lastApiStopIndex
-    );
-  }
+  Future<void> pollNow() async => _pollRealtimeData();
 
   Future<void> _pollRealtimeData() async {
     final trip = _ref.read(tripStreamProvider).value;
-    final navState = _ref.read(memberNavProgressProvider);
     if (trip == null) return;
 
-    final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
-    if (navState.currentStepIndex <= 0 || navState.currentStepIndex >= allSteps.length) return;
+    final schedule = ScheduleResolver.sortCopy(trip.schedule);
+    final scheduleResolved = ScheduleResolver.resolve(
+      scheduleSorted: schedule,
+      now: appClock.now(),
+      trip: trip,
+      currentStepIndex: null,
+      nextStopIndex: null,
+    );
 
-    final currentStep = allSteps[navState.currentStepIndex];
+    final activeEntry = scheduleResolved.activeEntry;
+    final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
+    StepSeg? activeStep;
+
+    if (activeEntry?.routeStepIndex != null) {
+      final stepIndex = activeEntry!.routeStepIndex!;
+      if (stepIndex >= 0 && stepIndex < allSteps.length) {
+        activeStep = allSteps[stepIndex];
+        _ref.read(memberNavProgressProvider.notifier).updateFromSchedule(
+          trip,
+          activeEntry,
+          forceStopIndex: state.lastApiStopIndex,
+        );
+      }
+    }
 
     // 乗車中かつルートIDがある場合のみAPI確認
-    if (currentStep.isRide && currentStep.routeId != null) {
-      if (currentStep.tripId == null) {
+    if (activeStep != null && activeStep.isRide && activeStep.routeId != null) {
+      if (activeStep.tripId == null) {
         throw StateError('tripId is required to poll realtime bus location');
       }
 
       final result = await ApiClient.fetchBusLocation(
-        routeId: currentStep.routeId!,
-        tripId: currentStep.tripId!,
+        routeId: activeStep.routeId!,
+        tripId: activeStep.tripId!,
       );
       final fromPoleId = result['odpt:fromBusstopPole'];
 
       if (fromPoleId != null) {
-        final index = currentStep.stops.indexWhere((s) => s.stopId == fromPoleId);
+        final index = activeStep.stops.indexWhere((s) => s.stopId == fromPoleId);
         // APIから取れた位置を保持
         state = RealtimeBusState(
           lastRealtimeBusId: fromPoleId,
           lastApiStopIndex: (index != -1) ? index : state.lastApiStopIndex,
         );
+        if (activeEntry != null) {
+          _ref.read(memberNavProgressProvider.notifier).updateFromSchedule(
+            trip,
+            activeEntry,
+            forceStopIndex: (index != -1) ? index : state.lastApiStopIndex,
+          );
+        }
         if (index != -1) debugPrint("API Update: Bus index $index / ID: $fromPoleId");
       }
     } else {
@@ -148,7 +165,7 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((r
     
     // スケジュールの解決
     final scheduleResolved = ScheduleResolver.resolve(
-      scheduleSorted: trip.schedule..sort((a, b) => a.plannedAt.compareTo(b.plannedAt)),
+      scheduleSorted: ScheduleResolver.sortCopy(trip.schedule),
       now: now,
       trip: trip,
       currentStepIndex: routeState.currentStepIndex,

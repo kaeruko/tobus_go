@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../models/trip_models.dart';
 import '../logic/trip_navigator.dart';
+import '../models/group_models.dart';
+import '../models/trip_models.dart';
 
 class MemberNavState {
   final int currentStepIndex;
@@ -52,6 +53,35 @@ class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
       state = MemberNavState(
         currentStepIndex: routeState.currentStepIndex,
         nextStopIndex: routeState.nextStopIndex,
+      );
+    }
+  }
+
+  /// スケジュールのアクティブ項目からインデックスを更新する
+  void updateFromSchedule(Trip trip, ScheduleEntry? activeEntry, {int? forceStopIndex}) {
+    if (activeEntry?.routeStepIndex == null) return;
+
+    final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
+    final targetStepIndex = activeEntry!.routeStepIndex!;
+
+    if (targetStepIndex < 0 || targetStepIndex >= allSteps.length) return;
+
+    final step = allSteps[targetStepIndex];
+    final maxStopIndex = step.stops.isNotEmpty ? step.stops.length - 1 : 0;
+
+    int nextStopIndex = state.nextStopIndex;
+    if (forceStopIndex != null) {
+      nextStopIndex = forceStopIndex.clamp(0, maxStopIndex).toInt();
+    } else if (targetStepIndex != state.currentStepIndex) {
+      nextStopIndex = 0;
+    } else {
+      nextStopIndex = nextStopIndex.clamp(0, maxStopIndex).toInt();
+    }
+
+    if (state.currentStepIndex != targetStepIndex || state.nextStopIndex != nextStopIndex) {
+      state = MemberNavState(
+        currentStepIndex: targetStepIndex,
+        nextStopIndex: nextStopIndex,
       );
     }
   }
