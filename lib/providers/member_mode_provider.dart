@@ -5,15 +5,38 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../core/app_clock.dart';
 import '../core/api_client.dart';
-import '../models/trip_models.dart';
 import '../models/group_models.dart';
 import '../models/route_models.dart';
 import '../logic/trip_coordinator.dart';
+import '../logic/trip_navigator.dart';
 import '../logic/schedule_resolver.dart';
 import 'trip_provider.dart';
 import 'location_provider.dart';
 import 'member_nav_progress_provider.dart';
 import 'minute_ticker_provider.dart';
+
+/// スケジュール解決結果を共有するProvider
+/// 時間経過(ticker)またはTripの更新で再計算される
+final memberScheduleStateProvider = Provider.autoDispose<AsyncValue<ScheduleResolveResult>>((ref) {
+  final tripAsync = ref.watch(tripStreamProvider);
+  final nowTick = ref.watch(minuteTickerProvider);
+
+  return tripAsync.whenData((trip) {
+    if (trip == null) throw Exception("No Trip");
+    
+    // UI表示用には最新の時間を刻む (nowTickがまだなければ実時間)
+    final now = nowTick.value ?? appClock.now();
+    
+    return ScheduleResolver.resolve(
+      scheduleSorted: ScheduleResolver.sortCopy(trip.schedule),
+      now: now,
+      trip: trip,
+      // 以前のロジックでは currentStepIndex/nextStopIndex を渡していたが、
+      // 実際には ScheduleResolver 内で使われていないため省略する。
+      // 必要になったら MemberNavState から取得して渡す。
+    );
+  });
+});
 
 /// バスロケAPIの最新状態
 class RealtimeBusState {
@@ -53,14 +76,14 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
     final trip = _ref.read(tripStreamProvider).value;
     if (trip == null) return;
 
-    // 【重要】GPS位置を使わず、現在時刻のみで「本来いるべきスケジュール」を解決する
-    final scheduleResolved = ScheduleResolver.resolve(
-      scheduleSorted: ScheduleResolver.sortCopy(trip.schedule),
-      now: appClock.now(),
-      trip: trip,
-      currentStepIndex: null,
-      nextStopIndex: null,
-    );
+    // 【変更】共通のスケジュールProviderから結果を取得
+    // 自身がTimer内なので watch はできないが read で取得する。
+    // AutoDisposeなので、UIでwatchされていなければ再計算コストがかかるかもしれないが、ロジックは一元化される。
+    final scheduleAsync = _ref.read(memberScheduleStateProvider);
+    
+    // データがまだ無い、エラーなどの場合は何もしない
+    if (scheduleAsync.asData == null) return;
+    final scheduleResolved = scheduleAsync.asData!.value;
 
     final activeEntry = scheduleResolved.activeEntry;
     final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
@@ -79,13 +102,16 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
     if (activeStep != null && activeStep.isRide && activeStep.routeId != null) {
       if (activeStep.tripId == null) {
         // tripIdがない場合はAPI叩けないのでスキップ
-        debugPrint('Skip API poll: tripId is null');
+        debugPrint('[MemberModeController] Skip API poll: tripId is null');
       } else {
         try {
+          debugPrint('[MemberModeController] Fetching bus location for route=${activeStep.routeId}, trip=${activeStep.tripId}');
           final result = await ApiClient.fetchBusLocation(
             routeId: activeStep.routeId!,
             tripId: activeStep.tripId!,
           );
+          debugPrint('[MemberModeController] API Result: $result');
+          
           final fromPoleId = result['odpt:fromBusstopPole'];
 
           if (fromPoleId != null) {
@@ -97,14 +123,19 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
                 lastRealtimeBusId: fromPoleId,
                 lastApiStopIndex: index,
               );
-              debugPrint("API Update: Bus index $index / ID: $fromPoleId");
+              debugPrint("[MemberModeController] API Update success: Bus index $index / ID: $fromPoleId");
+            } else {
+               debugPrint("[MemberModeController] Bus pole $fromPoleId found in API but not in step stops");
             }
+          } else {
+            debugPrint("[MemberModeController] API returned null/empty fromBusstopPole");
           }
         } catch (e) {
-          debugPrint('API Error: $e');
+          debugPrint('[MemberModeController] API Error: $e');
         }
       }
     } else {
+      debugPrint('[MemberModeController] Not in ride mode or missing IDs. activeStep=$activeStep, isRide=${activeStep?.isRide}, routeId=${activeStep?.routeId}');
       // 徒歩中などはAPI状態をリセット（あるいは前回の値を保持せずクリア）
       if (state.lastApiStopIndex != null) {
         state = const RealtimeBusState(lastApiStopIndex: null, lastRealtimeBusId: null);
@@ -175,14 +206,27 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((r
       isMoving: false,
     );
     
-    // スケジュールの解決
-    final scheduleResolved = ScheduleResolver.resolve(
-      scheduleSorted: ScheduleResolver.sortCopy(trip.schedule),
-      now: now,
-      trip: trip,
-      currentStepIndex: routeState.currentStepIndex,
-      nextStopIndex: routeState.nextStopIndex,
-    );
+    // スケジュールの解決 (共通Providerから取得)
+    final scheduleAsync = ref.watch(memberScheduleStateProvider);
+    
+    // ロード中やエラー時はとりあえず空のUIを返すか、ローディング出すべきだが、
+    // ここではデータがある場合のみ進む (AsyncValueのハンドリング)
+    // 親が whenData ではないので、ここでもしデータがなければエラー扱いで良いかもしれない。
+    // ただし tripAsync.whenData の中なので、基本的には trip があれば schedule も計算できるはず。
+    if (!scheduleAsync.hasValue) {
+      // まだ計算できていない場合
+      return MemberUiState(
+        navState: NavigationState.idle(),
+        windowEntries: [],
+        activeEntry: null,
+        completedCount: 0,
+        activeLabel: "",
+        displayTitle: trip.displayTitle,
+        currentPos: currentPos,
+      );
+    }
+    
+    final scheduleResolved = scheduleAsync.value!;
 
     // ナビゲーション表示状態の構築
     final navDisplayState = TripCoordinator.buildMemberNavigationState(

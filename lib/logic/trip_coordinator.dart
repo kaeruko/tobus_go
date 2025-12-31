@@ -7,13 +7,6 @@ import 'trip_navigator.dart';
 import 'schedule_resolver.dart';
 
 class TripCoordinator {
-  static DateTime _parseTime(DateTime date, String timeStr) {
-    final parts = timeStr.split(':');
-    if (parts.length < 2) return date;
-    final h = int.tryParse(parts[0]) ?? 0;
-    final m = int.tryParse(parts[1]) ?? 0;
-    return DateTime(date.year, date.month, date.day, h, m);
-  }
 
   static bool _realtimeSaysRideStarted({
     required StepSeg step,
@@ -116,66 +109,6 @@ class TripCoordinator {
     return entry;
   }
 
-  static NavigationState _navFromEntry({
-    required Trip trip,
-    required DateTime now,
-    required ScheduleEntry entry,
-    required RouteState? routeState,
-    required int stopIndex,
-  }) {
-    final step = _stepForEntry(routeState, entry);
-
-    if (entry.itemKind == ScheduleEntryKind.walk && step != null) {
-      return NavigationState.navigating(
-        step: step,
-        stopIndex: stopIndex,
-        statusLabel: "移動中",
-      );
-    }
-
-    if (entry.itemKind == ScheduleEntryKind.ride && step != null) {
-      return NavigationState.navigating(
-        step: step,
-        stopIndex: stopIndex,
-        statusLabel: "乗車中",
-      );
-    }
-
-    if (entry.itemKind == ScheduleEntryKind.meeting) {
-      return NavigationState(
-        mainText: entry.label,
-        subText: entry.description.isNotEmpty ? entry.description : "集合場所へ向かいましょう",
-        color: const Color(0xFFC8E6C9),
-        currentStepIndex: routeState?.currentStepIndex ?? 0,
-        nextStopIndex: stopIndex,
-        statusLabel: "集合",
-        isMoving: false,
-      );
-    }
-
-    if (entry.itemKind == ScheduleEntryKind.arrival || entry.itemKind == ScheduleEntryKind.goal) {
-      return NavigationState(
-        mainText: entry.label,
-        subText: entry.description.isNotEmpty ? entry.description : "到着しました",
-        color: const Color(0xFFFFCC80),
-        currentStepIndex: routeState?.currentStepIndex ?? 0,
-        nextStopIndex: stopIndex,
-        statusLabel: "到着",
-        isMoving: false,
-      );
-    }
-
-    return NavigationState(
-      mainText: entry.label,
-      subText: entry.description.isNotEmpty ? entry.description : "時間まで待機しましょう",
-      color: const Color(0xFFE1F5FE),
-      currentStepIndex: routeState?.currentStepIndex ?? 0,
-      nextStopIndex: stopIndex,
-      statusLabel: "待機",
-      isMoving: false,
-    );
-  }
-
   static NavigationState buildMemberNavigationState({
     required Trip trip,
     required ScheduleResolveResult scheduleState,
@@ -184,6 +117,10 @@ class TripCoordinator {
     String? realtimeBusLocationId,
     LatLng? currentPos, // Start accepting currentPos
   }) {
+    // -------------------------------------------------------------
+    // 1. ツアー全体のステータスチェック
+    // -------------------------------------------------------------
+    // ツアーが終了または中止されている場合は、専用の画面を表示
     if (trip.status == TripStatus.completed) {
       return NavigationState(
         mainText: "終了",
@@ -207,14 +144,24 @@ class TripCoordinator {
       );
     }
 
+    // 現在のバス停番号（または0）
     final stopIndex = routeState?.nextStopIndex ?? 0;
 
+    // -------------------------------------------------------------
+    // 2. 現在アクティブなスケジュール項目の取得 (時間基準)
+    // -------------------------------------------------------------
+    // ScheduleResolverで計算された「今やるべきこと」を取得
     final active = scheduleState.activeEntry;
     if (active == null) {
+      // 何もない場合は待機状態
       return NavigationState.idle();
     }
 
-    // ★ 徒歩から乗車への遷移は時刻とリアルタイム位置で判断
+    // -------------------------------------------------------------
+    // 3. 徒歩 → 乗車 の切り替え判定 (時間 + リアルタイム位置)
+    // -------------------------------------------------------------
+    // 基本的には「徒歩」の時間帯でも、次の「乗車」が近づいている、あるいは
+    // 既にバスに乗っていると検知された場合は、表示を「乗車中」に切り替える。
     ScheduleEntry resolved = _resolveWalkToRideTransition(
       entry: active,
       scheduleState: scheduleState,
@@ -223,9 +170,13 @@ class TripCoordinator {
       realtimeBusLocationId: realtimeBusLocationId,
     );
 
+    // -------------------------------------------------------------
+    // 4. 乗車状態の詳細制御 (まだ早すぎる場合など)
+    // -------------------------------------------------------------
     if (resolved.itemKind == ScheduleEntryKind.ride) {
       final step = _stepForEntry(routeState, resolved);
 
+      // リアルタイム情報で「既に乗っている」か判定
       bool rideStarted = false;
       if (step != null) {
         rideStarted = _realtimeSaysRideStarted(
@@ -234,12 +185,17 @@ class TripCoordinator {
         );
       }
 
+      // まだ乗車が確認されていない場合
       if (!rideStarted) {
         final timeUntilRide = resolved.plannedAt.difference(now);
+        // 出発5分前: 乗車モードへの切り替え許容
         const rideLeadWindow = Duration(minutes: 5);
+        // 出発2分後まで: 遅れても許容
         const fallbackLeadWindow = Duration(minutes: 2);
 
         if (timeUntilRide > rideLeadWindow) {
+          // まだ出発まで5分以上ある場合、「乗る」と出すのは早すぎるので
+          // 一つ前の行動（例: バスターミナルで待機）に戻す
           final fallback = _fallbackEntryBeforeRide(
             scheduleState: scheduleState,
             rideEntry: resolved,
@@ -247,7 +203,9 @@ class TripCoordinator {
           if (fallback != null) {
             resolved = fallback;
           }
-        } else if (timeUntilRide > -fallbackLeadWindow) {
+        } 
+        // 既に出発時刻を過ぎているが、少しの遅れ(-2分)までは許容してそのまま表示
+        else if (timeUntilRide > -fallbackLeadWindow) {
           // Small grace window before departure. Keep ride state once the departure window opens.
         }
       }
@@ -256,38 +214,26 @@ class TripCoordinator {
     debugPrint("[TripCoordinator] active=${active.label} kind=${active.itemKind} rt=${active.routeStepIndex} realtime=$realtimeBusLocationId");
     debugPrint("[TripCoordinator] resolved=${resolved.label} kind=${resolved.itemKind} rt=${resolved.routeStepIndex}");
 
-    if (resolved.itemKind == ScheduleEntryKind.walk ||
-        resolved.itemKind == ScheduleEntryKind.ride) {
-      return _navFromEntry(
-        trip: trip,
-        now: now,
-        entry: resolved,
-        routeState: routeState,
-        stopIndex: stopIndex,
-      );
-    }
-
     final diff = resolved.plannedAt.difference(now);
 
+    // -------------------------------------------------------------
+    // 5. 長時間待機 (20分以上未来) の表示
+    // -------------------------------------------------------------
+    // かなり先の予定の場合は、詳細なナビではなく「あと◯時間」表示にする
     if (diff.inMinutes > 20) {
-      final remainder = "あと ${diff.inHours}時間${diff.inMinutes % 60}分";
-      return NavigationState(
-        mainText: resolved.label,
-        subText: "開始まで $remainder",
-        color: Colors.white,
-        currentStepIndex: routeState?.currentStepIndex ?? 0,
-        nextStopIndex: stopIndex,
-        statusLabel: "開始前",
-        isMoving: false,
-      );
+      return NavigationState.waitingLong(entry: resolved, diff: diff);
     }
 
-    return _navFromEntry(
+    // -------------------------------------------------------------
+    // 6. 最終的なナビゲーション状態の生成
+    // -------------------------------------------------------------
+    // 決定した resolved エントリーに基づいて、画面表示用オブジェクト(NavigationState)を作成
+    return NavigationState.fromEntry(
       trip: trip,
-      now: now,
       entry: resolved,
-      routeState: routeState,
+      step: _stepForEntry(routeState, resolved),
       stopIndex: stopIndex,
+      currentStepIndex: routeState?.currentStepIndex ?? 0,
     );
   }
 }

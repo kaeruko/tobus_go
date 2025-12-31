@@ -400,8 +400,13 @@ class TimetableManager:
             for obj in entry.get("odpt:busstopPoleTimetableObject", []):
                 dep = obj.get("odpt:departureTime")
                 dest = obj.get("odpt:destinationBusstopPole")
+                note = obj.get("odpt:note")
+                trip_id = obj.get("odpt:busstopPoleTimetableObject") # This is typically not where trip ID is. It is usually higher or not present?
+                # Actually, in ODPT v4, 'odpt:busstopPoleTimetableObject' is a list of objects.
+                # Each object has 'odpt:departureTime', 'odpt:destinationBusstopPole', and often 'odpt:trip'.
+                trip_id = obj.get("odpt:trip") # The trip ID
                 if dep:
-                    times.append({ "dep": time_str_to_min(dep), "dest": dest })
+                    times.append({ "dep": time_str_to_min(dep), "dest": dest, "trip": trip_id })
             times.sort(key=lambda x: x["dep"])
             if not times: continue
 
@@ -573,9 +578,10 @@ class TimetableManager:
             trip = candidate_trips[i]
             if is_valid_trip(trip, effective_rid, effective_pole_id):
                 # Add delay to scheduled departure
-                return trip["dep"] + delay_min
+                # Return tuple (adjusted_time, trip_id)
+                return trip["dep"] + delay_min, trip.get("trip")
         
-        return None
+        return None, None
 
     def get_future_bus_trips(self, pole_id, route_id, current_time_min, limit=10, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
         # Note: This method currently returns raw schedule for UI. 
@@ -903,6 +909,12 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=Non
             stop_name = G.nodes[u].get("name")
             target_pid = kwargs.get("target_pole_id")
             dep = tm.get_next_bus_departure(
+                u[1], route_id, curr_time,
+                pole_name=stop_name,
+                day_type=day_type,
+                target_pole_id=target_pid
+            )
+            dep, _ = tm.get_next_bus_departure(
                 u[1], route_id, curr_time,
                 pole_name=stop_name,
                 day_type=day_type,
@@ -1390,7 +1402,11 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                              if e2.get("etype") == "alight":
                                 target_pid = v2[1]
                                 break
-                dep = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=from_name, day_type=day_type, target_pole_id=target_pid)
+                                target_pid = v2[1]
+                                break
+                
+                # Unpack tuple
+                dep, trip_id_found = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=from_name, day_type=day_type, target_pole_id=target_pid)
                 
                 if dep and dep > curr_time:
                     wait_min = int(dep - curr_time)
@@ -1406,11 +1422,14 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 if dep and dep >= curr_time: curr_time = dep
             else:
                 curr_time += 2.0
+                trip_id_found = None # Reset for non-bus
 
             cur = {
                 "kind": mode, "title": line_disp, "edges": 0, 
                 "from_": from_name, "to": None, "stops": curr_stops,
-                "departure_time": min_to_time_str(curr_time)
+                "departure_time": min_to_time_str(curr_time),
+                "route_id": G.nodes[v].get("route_id"),
+                "trip_id": trip_id_found
             }
 
         elif etype == "ride":

@@ -1,6 +1,5 @@
 // lib/logic/schedule_resolver.dart
 import 'package:flutter/foundation.dart';
-import '../core/app_clock.dart';
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
 
@@ -21,6 +20,13 @@ class ScheduleResolveResult {
 }
 
 class ScheduleResolver {
+  /// スケジュールと現在時刻から、現在の進行状況（アクティブな項目）を解決する。
+  /// 
+  /// - [scheduleSorted]: 時系列順にソートされた全スケジュールリスト
+  /// - [now]: 現在時刻
+  /// - [trip]: 旅程データ (未使用、将来用)
+  /// - [prevCount]: UI表示用。アクティブ項目の「前」に何件含めるか
+  /// - [nextCount]: UI表示用。アクティブ項目の「後」に何件含めるか
   static ScheduleResolveResult resolve({
     required List<ScheduleEntry> scheduleSorted,
     required DateTime now,
@@ -34,7 +40,6 @@ class ScheduleResolver {
     int active = -1;
     String label = 'いま';
 
-    // 1. スコアリングによるアクティブ判定 (ユーザー要望のロジック)
     // 時間的な吸着範囲を厳密にして判定する
     active = _resolveActiveIndex(scheduleSorted, now);
 
@@ -81,6 +86,15 @@ class ScheduleResolver {
     );
   }
 
+  /// 現在時刻に基づいて、最も「アクティブ」とみなすべきスケジュール項目のインデックスを決定する。
+  /// 
+  /// **判定ロジック:**
+  /// 1. 各スケジュール項目について、現在時刻との差分(分)を計算する。
+  /// 2. 項目の種類（乗り物 or その他）に応じて「反応する時間枠（候補ウィンドウ）」を定義し、範囲外なら除外。
+  ///    - 乗り物: 出発5分前 〜 出発後60分
+  ///    - その他: 開始10分前 〜 開始後20分
+  /// 3. 候補に残ったものの中で、最も現在時刻に近い（スコアが低い）ものを選ぶ。
+  ///    - 同じような距離なら、少し未来のイベントを優先する（過去のイベントにはペナルティ +0.5）。
   static int _resolveActiveIndex(List<ScheduleEntry> steps, DateTime now) {
     if (steps.isEmpty) return -1;
 
@@ -136,23 +150,6 @@ class ScheduleResolver {
     return bestIndex;
   }
 
-  static int _deriveLegIndexFromGlobalStep(Trip trip, int globalStepIndex) {
-    // globalStepIndex がどの leg の step 範囲に入るかを返す
-    // legIndex は trip.legs の順番に対応する
-    var cursor = 0;
-    for (int leg = 0; leg < trip.legs.length; leg++) {
-      final count = trip.legs[leg].candidate.steps.length;
-      final start = cursor;
-      final end = cursor + count;
-      if (globalStepIndex >= start && globalStepIndex < end) {
-        return leg;
-      }
-      cursor = end;
-    }
-
-    // 範囲外は最後の leg に丸める
-    return trip.legs.isEmpty ? 0 : trip.legs.length - 1;
-  }
 
   static List<ScheduleEntry> sortCopy(List<ScheduleEntry> entries) {
     final copy = [...entries];
