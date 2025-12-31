@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../core/app_clock.dart';
 import '../core/api_client.dart';
 import '../models/trip_models.dart';
+import '../models/group_models.dart';
 import '../logic/trip_navigator.dart';
 import '../logic/trip_coordinator.dart';
 import '../logic/schedule_resolver.dart';
@@ -67,24 +68,24 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
 
     // 乗車中かつルートIDがある場合のみAPI確認
     if (currentStep.isRide && currentStep.routeId != null) {
-      try {
-        final result = await ApiClient.fetchBusLocation(
-          routeId: currentStep.routeId!,
-          tripId: currentStep.tripId,
-        );
-        final fromPoleId = result['odpt:fromBusstopPole'];
+      if (currentStep.tripId == null) {
+        throw StateError('tripId is required to poll realtime bus location');
+      }
 
-        if (fromPoleId != null) {
-          final index = currentStep.stops.indexWhere((s) => s.stopId == fromPoleId);
-          // APIから取れた位置を保持
-          state = RealtimeBusState(
-            lastRealtimeBusId: fromPoleId,
-            lastApiStopIndex: (index != -1) ? index : state.lastApiStopIndex,
-          );
-          if (index != -1) debugPrint("API Update: Bus index $index / ID: $fromPoleId");
-        }
-      } catch (e) {
-        debugPrint("Realtime poll failed: $e");
+      final result = await ApiClient.fetchBusLocation(
+        routeId: currentStep.routeId!,
+        tripId: currentStep.tripId!,
+      );
+      final fromPoleId = result['odpt:fromBusstopPole'];
+
+      if (fromPoleId != null) {
+        final index = currentStep.stops.indexWhere((s) => s.stopId == fromPoleId);
+        // APIから取れた位置を保持
+        state = RealtimeBusState(
+          lastRealtimeBusId: fromPoleId,
+          lastApiStopIndex: (index != -1) ? index : state.lastApiStopIndex,
+        );
+        if (index != -1) debugPrint("API Update: Bus index $index / ID: $fromPoleId");
       }
     } else {
       // 徒歩中などはリセット

@@ -82,19 +82,16 @@ class ApiClient {
   }
   /// バスの現在位置情報を取得する
   /// [routeId] 系統ID (例: odpt.Busroute:Toei.To02)
-  /// [tripId] 便ID (指定すると特定の車両を追跡できます)
+  /// [tripId] 便ID (必須。バックエンドは一致する便がない場合エラーを返す)
   /// 失敗時は例外を投げる
   static Future<Map<String, dynamic>> fetchBusLocation({
     required String routeId,
-    String? tripId,
+    required String tripId,
   }) async {
     final params = <String, String>{
       'route_id': routeId,
+      'trip_id': tripId,
     };
-    
-    if (tripId != null) {
-      params['trip_id'] = tripId;
-    }
 
     return await get('/bus/location', params: params);
   }
