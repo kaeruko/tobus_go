@@ -9,6 +9,13 @@ from fastapi import HTTPException, Form, Query, Body, BackgroundTasks
 from fastapi.responses import Response
 import time
 from typing import Optional
+import json
+import logging
+
+logger = logging.getLogger(__name__)
+
+def _busloc_log(ev: dict) -> None:
+    logger.info(json.dumps(ev, ensure_ascii=False))
 
 from toei_engine import (
     nearest_phys,
@@ -238,8 +245,20 @@ def register_routes(app):
         route_id: str = Query(...),
         trip_id: str = Query(...)
     ):
+        req_id = str(uuid.uuid4())
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+        base = {
+            "kind": "bus_location",
+            "req_id": req_id,
+            "now": now,
+            "route_id": route_id,
+            "trip_id": trip_id,
+        }
+
         tm = app.state.TM
         if not tm or not tm.latest_bus_positions:
+            _busloc_log({**base, "ok": False, "reason": "REALTIME_UNAVAILABLE"})
             raise HTTPException(
                 503,
                 detail={
@@ -248,13 +267,14 @@ def register_routes(app):
                 },
             )
 
-        # 該当する路線のバスを抽出
-        candidates = [
-            b for b in tm.latest_bus_positions
-            if b.get("odpt:busroute") == route_id
-        ]
+        candidates_all = tm.latest_bus_positions
+        base["candidates_total"] = len(candidates_all)
 
-        if not candidates:
+        candidates_route = [b for b in candidates_all if b.get("odpt:busroute") == route_id]
+        base["route_match_count"] = len(candidates_route)
+
+        if not candidates_route:
+            _busloc_log({**base, "ok": False, "reason": "NO_ROUTE_MATCH"})
             raise HTTPException(
                 404,
                 detail={
@@ -264,26 +284,54 @@ def register_routes(app):
                 },
             )
 
-        target_bus = next(
-            (bus for bus in candidates if bus.get("odpt:busTimetable") == trip_id),
-            None,
-        )
+        candidates_tt = [b for b in candidates_route if b.get("odpt:busTimetable") == trip_id]
+        base["timetable_match_count"] = len(candidates_tt)
 
-        if not target_bus:
+        if len(candidates_tt) == 0:
+            sample = candidates_route[0]
+        # [MODIFIED] Stage 2 Scoring Logic
+        # The frontend sends `trip_id` which now effectively contains `pattern_id` (from odpt:busroutePattern).
+        # We filter by route_id AND pattern_id.
+        pattern_id = trip_id 
+        
+        candidates_pattern = [b for b in candidates_route if b.get("odpt:busroutePattern") == pattern_id]
+        base["pattern_match_count"] = len(candidates_pattern)
+
+        if not candidates_pattern:
+             # Even if exact pattern match fails, we might want to return *some* bus on the route?
+             # For now, let's stick to pattern match as the "trip" identifier.
+            _busloc_log({
+                **base,
+                "ok": False,
+                "reason": "NO_PATTERN_MATCH",
+                "sample_has_pattern": "odpt:busroutePattern" in candidates_route[0] if candidates_route else False
+            })
             raise HTTPException(
                 404,
                 detail={
-                    "code": "bus_timetable_missing",
-                    "message": "No realtime bus position found for the specified trip_id",
-                    "trip_id": trip_id,
+                    "code": "bus_pattern_missing",
+                    "message": "No realtime bus position found for the specified pattern_id",
+                    "pattern_id": pattern_id,
                 },
             )
+
+        # If multiple buses are on the same pattern, we ideally want the one closest to the user.
+        # However, we don't have the user's stop location here easily (unless we add it to params).
+        # For now, just return the first one (or the one causing least confusion).
+        # To avoid 409 Conflict loops, we just pick the first one.
+        if len(candidates_pattern) > 1:
+            _busloc_log({**base, "ok": True, "reason": "MULTI_PATTERN_MATCH_PICK_FIRST", "count": len(candidates_pattern)})
+        
+        target_bus = candidates_pattern[0]
+        
+        # Logging success
+        _busloc_log({**base, "ok": True, "bus_id": target_bus.get("owl:sameAs")})
 
         return {
             "odpt:fromBusstopPole": target_bus.get("odpt:fromBusstopPole"),
             "odpt:fromBusstopPoleTime": target_bus.get("odpt:fromBusstopPoleTime"),
             "odpt:busTimetable": target_bus.get("odpt:busTimetable"),
-            # 他に必要なフィールドがあれば追加
+            "odpt:busroutePattern": target_bus.get("odpt:busroutePattern")
         }
 
     class RouteRequest(BaseModel):

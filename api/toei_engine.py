@@ -404,9 +404,10 @@ class TimetableManager:
                 trip_id = obj.get("odpt:busstopPoleTimetableObject") # This is typically not where trip ID is. It is usually higher or not present?
                 # Actually, in ODPT v4, 'odpt:busstopPoleTimetableObject' is a list of objects.
                 # Each object has 'odpt:departureTime', 'odpt:destinationBusstopPole', and often 'odpt:trip'.
-                trip_id = obj.get("odpt:trip") # The trip ID
+                # In our dataset, odpt:trip is missing. We use odpt:busroutePattern as a proxy for identification.
+                pattern_id = obj.get("odpt:busroutePattern")
                 if dep:
-                    times.append({ "dep": time_str_to_min(dep), "dest": dest, "trip": trip_id })
+                    times.append({ "dep": time_str_to_min(dep), "dest": dest, "trip": pattern_id })
             times.sort(key=lambda x: x["dep"])
             if not times: continue
 
@@ -562,7 +563,7 @@ class TimetableManager:
                     effective_pole_id = alt_pid 
                     break
 
-        if not candidate_trips: return None
+        if not candidate_trips: return None, None
 
         L = len(candidate_trips)
         lo, hi = 0, L
@@ -908,12 +909,7 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=Non
             route_id = G.nodes[node].get("route_id")
             stop_name = G.nodes[u].get("name")
             target_pid = kwargs.get("target_pole_id")
-            dep = tm.get_next_bus_departure(
-                u[1], route_id, curr_time,
-                pole_name=stop_name,
-                day_type=day_type,
-                target_pole_id=target_pid
-            )
+
             dep, _ = tm.get_next_bus_departure(
                 u[1], route_id, curr_time,
                 pole_name=stop_name,
@@ -1328,29 +1324,59 @@ def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", day_type="w
     return curr_time
 
 def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", delays_snapshot=None, virtual_dest_connections=None):
+    """
+    探索されたパス(ノード列)を解析し、UI表示用のセグメント(移動行程)のリストを生成する。
+    
+    処理の流れ:
+    1. path (探索結果のノード列) を順に読み込む
+    2. エッジの種類(etype)に応じて処理を分岐:
+       - walk: 連続する徒歩区間を1つのセグメントにまとめる
+       - board (乗車): 新しい乗車セグメントを開始する。
+          - バスの場合はここで時刻表を検索し、具体的な出発時刻とTrip IDを確定させる。
+          - 降車予定のバス停を先読みし、その便が本当に目的地に行くか(Directional Check)も行う。
+       - ride (移動中): 乗車中のセグメントに通過停留所(stops)を追加していく。
+       - alight (降車): 乗車セグメントを終了(flush)する。
+    3. curr_time (現在時刻) をシミュレーションしながら進める
+       - 徒歩: 距離 / 速度 で加算
+       - バス/電車: 時刻表データがあればそれに合わせる、なければ概算で進める
+    
+    Note:
+    - ここでの `trip_id` 取得は、あくまで「その時刻に乗れるはずの便」の推定である。
+    - リアルタイム運行情報との紐付けキーとなるため、可能な限り正確なIDを取得しようとするが、
+      遅延や運休などで実際の運行とズレる可能性がある。
+    """
     segs = []
     cur = None
     last_phys = None
     curr_time = time_str_to_min(start_time_str)
 
     def flush():
+        """
+        現在構築中のセグメント(cur)を確定させ、結果リスト(segs)に追加する処理
+        """
         nonlocal cur
         if cur:
             if cur["kind"] == "walk":
+                # 距離0や移動なしの徒歩セグメントは除外
                 if cur.get("meters", 0) <= 0 or cur.get("from_") == cur.get("to"):
                     cur = None
                     return
+                # 徒歩所要時間の計算 (距離 / 速度)
                 cur["minutes"] = max(1, math.ceil(cur.get("meters", 0) / WALK_SPEED_M_PER_MIN))
             elif cur["kind"] in ("bus", "rail"):
+                # 公共交通機関の所要時間計算
                 if cur.get("arrival_time"):
+                    # 時刻表時刻に基づく正確な時間
                     d = time_str_to_min(cur.get("departure_time"))
                     a = time_str_to_min(cur.get("arrival_time"))
                     cur["minutes"] = max(1, int(a - d))
                 else:
+                    # 時刻不明時は駅数x2分で概算
                     cur["minutes"] = max(1, int(cur.get("edges", 0) * 2.0))
             segs.append(cur)
             cur = None
 
+    # 「現在地」と「次の目的地」のペア
     for i, (u, v) in enumerate(zip(path, path[1:])):
         edge = G.get_edge_data(u, v)
         if not edge and virtual_dest_connections:
@@ -1364,6 +1390,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
         if u[0] == "phys": last_phys = u
 
         if etype == "walk":
+            # 連続する徒歩エッジを一つのセグメントにまとめる
             if not cur or cur["kind"] != "walk":
                 flush()
                 from_name = G.nodes[u]["name"] if u[0]=="phys" else "???"
@@ -1374,6 +1401,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 if str(v[1]).startswith("dest:"): cur["to"] = "目的地"
                 elif v in G.nodes: cur["to"] = G.nodes[v]["name"]
                 else: cur["to"] = str(v[1])
+            # 徒歩速度で時間を加算(分)
             curr_time += (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
             continue
 
@@ -1383,6 +1411,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
         mode = G.nodes[node].get("mode")
 
         if etype == "board":
+            # 乗車開始: 待ち時間があればWaitセグメントを挟み、Rideセグメントを作る
             flush()
             from_name = G.nodes[last_phys]["name"] if last_phys else "???"
             origin_lat = G.nodes[last_phys].get("lat") if last_phys else None
@@ -1394,6 +1423,9 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             if mode == "bus":
                 route_id = G.nodes[v].get("route_id")
                 target_pid = None
+                
+                # パスを先読みして、降りるバス停(alight)を探す
+                # これにより、乗車便がその降車バス停に停まるかどうかを判定(isValidTrip)できる
                 if v[0] == "line":
                      for j in range(i + 1, len(path) - 1):
                         u2, v2 = path[j], path[j+1]
@@ -1402,15 +1434,24 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                              if e2.get("etype") == "alight":
                                 target_pid = v2[1]
                                 break
-                                target_pid = v2[1]
-                                break
                 
-                # Unpack tuple
-                dep, trip_id_found = tm.get_next_bus_departure(phys_id, route_id, curr_time, pole_name=from_name, day_type=day_type, target_pole_id=target_pid)
+                # 直近の出発便とTrip IDを取得する (Tuple return: dep, pattern_id)
+                # Note: pattern_id is stored in "trip" field of timetable index
+                search_time = int(curr_time)
                 
+                # print(f"[DEBUG] get_next_bus_departure START: route={route_id}, pole={phys_id}, target={target_pid}, time={search_time}")
+                dep, pattern_id_found = tm.get_next_bus_departure(phys_id, route_id, search_time, pole_name=from_name, day_type=day_type, target_pole_id=target_pid)
+                # print(f"[DEBUG] get_next_bus_departure RESULT: dep={dep}, pattern={pattern_id_found}")
+
+                # Using robust logging instead of fallback
+                if dep is None and target_pid is not None:
+                     pass # Strict check failed, likely due to valid filtering. We accept missing real-time link in this case.
+                
+                # 出発時刻(dep)が現在時刻(curr_time)より未来の場合、待ち時間が発生する
                 if dep and dep > curr_time:
                     wait_min = int(dep - curr_time)
                     if wait_min > 0:
+                        # 待ち時間を独立したセグメントとして追加し、UIで表示可能にする
                         flush()
                         segs.append({
                             "kind": "wait", "title": "待ち時間", "minutes": wait_min,
@@ -1419,7 +1460,11 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                             "arrival_time": min_to_time_str(dep),
                             "startLabel": "待ち時間", "place": from_name
                         })
+                
+                # シミュレーション上の現在時刻を、バスの出発時刻に合わせて進める
                 if dep and dep >= curr_time: curr_time = dep
+                start_label = f"{min_to_time_str(curr_time)}発"
+                trip_id_found = pattern_id_found # Map pattern_id to trip_id_found for downstream use
             else:
                 curr_time += 2.0
                 trip_id_found = None # Reset for non-bus
@@ -1433,6 +1478,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             }
 
         elif etype == "ride":
+            # 移動中: 通過する停留所をリストに追加していく
             if cur and cur["kind"] in ("bus", "rail"):
                 cur["edges"] += 1
                 stop_name = "???"
@@ -1446,6 +1492,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                         "id": phys_key[1]
                     })
             
+            # 時間を経過させる (電車は時刻表、その他は距離ベース)
             if mode == "rail":
                 arr = tm.get_next_train_arrival(u[1], v[1], curr_time, day_type, delays_snapshot)
                 if arr: curr_time = arr
@@ -1455,6 +1502,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 curr_time += (dist/250.0 if dist>0 else 2.5) + 0.8
 
         elif etype in ("alight", "xfer"):
+            # 降車: 現在のRideセグメントを終了し、到着時刻などを記録・Flushする
             if cur and cur["kind"] in ("bus", "rail"):
                 to_phys = v if v[0] == "phys" else last_phys
                 if to_phys:

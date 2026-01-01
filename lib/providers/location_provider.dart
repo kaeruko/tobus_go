@@ -45,6 +45,24 @@ final locationOverrideProvider =
 );
 
 final locationStreamProvider = StreamProvider.autoDispose<Position>((ref) async* {
+  // Check override first
+  final override = ref.watch(locationOverrideProvider);
+  if (override != null) {
+    yield Position(
+      latitude: override.latitude,
+      longitude: override.longitude,
+      timestamp: DateTime.now(),
+      accuracy: 0.0,
+      altitude: 0.0,
+      heading: 0.0,
+      speed: 0.0,
+      speedAccuracy: 0.0,
+      altitudeAccuracy: 0.0, 
+      headingAccuracy: 0.0, 
+    );
+    return; // Don't stream real location if overridden
+  }
+
   // Check permissions (simplified, assuming handled elsewhere or best effort)
   final serviceEnabled = await Geolocator.isLocationServiceEnabled();
   if (!serviceEnabled) {

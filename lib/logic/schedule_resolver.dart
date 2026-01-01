@@ -115,13 +115,15 @@ class ScheduleResolver {
       // 吸着判定
       if (step.itemKind == ScheduleEntryKind.ride) {
         // 【修正】乗り物 (Bus/Rail) の場合
-        // 「出発5分前 〜 到着予定後(60分)」のみ反応させる
-        if (diffMin <= 5 && diffMin > -60) {
+        // 範囲を広げて、ギャップが生じないようにする
+        // 120分前(到着後かなり経過) 〜 60分後(出発かなり前) まで候補とする
+        if (diffMin <= 60 && diffMin > -120) {
           isCandidate = true;
         }
       } else {
         // 徒歩や待機
-        if (diffMin <= 10 && diffMin > -20) {
+        // 長い待機時間なども考慮し、広めに取る
+        if (diffMin <= 60 && diffMin > -120) {
           isCandidate = true;
         }
       }
