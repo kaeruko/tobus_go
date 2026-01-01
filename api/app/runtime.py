@@ -31,22 +31,39 @@ def _paths() -> dict:
 async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
     token = os.getenv("ODPT_API_TOKEN")
     if not token:
+        print("[WARN] ODPT_API_TOKEN not set. Realtime data will not be available.")
         return
 
-    url = "https://api.odpt.org/api/v4/odpt:Train"
-    params = {
+    url_train = "https://api.odpt.org/api/v4/odpt:Train"
+    url_bus = "https://api.odpt.org/api/v4/odpt:Bus"
+    
+    params_base = {
         "odpt:operator": "odpt.Operator:Toei",
         "acl:consumerKey": token,
     }
 
+    print("[INFO] Starting Realtime Data Fetch Loop (Train & Bus)...")
+
     while True:
         try:
             async with httpx.AsyncClient() as client:
-                r = await client.get(url, params=params)
-                if r.status_code == 200:
-                    tm.update_delays(r.json())
-        except Exception:
-            pass
+                # 1. Fetch Train Data
+                r_train = await client.get(url_train, params=params_base)
+                if r_train.status_code == 200:
+                    tm.update_delays(r_train.json())
+                
+                # 2. Fetch Bus Data
+                r_bus = await client.get(url_bus, params=params_base)
+                if r_bus.status_code == 200:
+                    data = r_bus.json()
+                    tm.update_bus_positions(data)
+                    # print(f"[DEBUG] Fetched {len(data)} bus positions")
+                else:
+                    print(f"[WARN] Failed to fetch bus data: {r_bus.status_code}")
+
+        except Exception as e:
+            print(f"[WARN] Realtime fetch error: {e}")
+        
         await asyncio.sleep(60)
 
 async def setup_on_startup(app, mode: str) -> None:
@@ -179,6 +196,22 @@ async def setup_on_startup(app, mode: str) -> None:
     app.state.WALK_RAD = p["WALK_RAD"]
 
     print(f"[INFO] Slow initialization finished in {time.time() - start_time:.2f}s")
+    
+    # [ADDED] Save the built data to pickle so next startup is fast
+    try:
+        print(f"[INFO] Saving prebuilt data to {PREBUILT_DATA_PATH}...")
+        save_data = {
+            "G": g,
+            "TM": tm,
+            "SI": si,
+            "WALK_RAD": p["WALK_RAD"]
+        }
+        with open(PREBUILT_DATA_PATH, "wb") as f:
+            pickle.dump(save_data, f)
+        print("[INFO] Prebuilt data saved successfully.")
+    except Exception as e:
+        print(f"[WARN] Failed to save prebuilt data: {e}")
+
     asyncio.create_task(fetch_realtime_data_loop(tm))
     
     app.state.loading_status = "ready"

@@ -13,6 +13,10 @@ import '../widgets/place_field.dart';
 import 'leader_mode_page.dart';
 import '../core/app_clock.dart'; // 追加
 import '../providers/minute_ticker_provider.dart';
+import '../core/api_client.dart';
+import '../models/leg_models.dart';
+import '../models/group_models.dart';
+import '../models/route_models.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -348,6 +352,103 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
+  Future<void> _createDebugTrip() async {
+    try {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('デバッグ用Tripを作成中...')),
+      );
+
+      final now = AppClock.instance.now();
+      final outboundTime = now.add(const Duration(minutes: 15));
+      final returnTime = now.add(const Duration(hours: 2));
+
+      // 1. Search outbound (Hirai -> Nakaibori)
+      final outboundBody = {
+        'alat': '35.715067',
+        'alon': '139.835156',
+        'blat': '35.713601',
+        'blon': '139.827539',
+        'pref': 'time', // fast
+        'start_time': "${outboundTime.hour.toString().padLeft(2, '0')}:${outboundTime.minute.toString().padLeft(2, '0')}",
+        'target_date_str': "${outboundTime.year}-${outboundTime.month.toString().padLeft(2, '0')}-${outboundTime.day.toString().padLeft(2, '0')}",
+      };
+
+      final rOut = await ApiClient.post('/route', body: outboundBody);
+      final cOutList = rOut['candidates'] as List? ?? [];
+      if (cOutList.isEmpty) throw Exception('行き(Outbound)のルートが見つかりません');
+      
+      final cOutMap = Map<String, dynamic>.from(cOutList.first as Map);
+      // Hack names if missing
+      cOutMap['origin_name'] = '平井七丁目第三アパート前';
+      cOutMap['destination_name'] = '中居堀';
+      final candidateOut = Candidate.fromJson(cOutMap);
+
+      // 2. Search inbound (Nakaibori -> Hirai)
+      final inboundBody = {
+        'alat': '35.713601',
+        'alon': '139.827539',
+        'blat': '35.715067',
+        'blon': '139.835156',
+        'pref': 'time',
+        'start_time': "${returnTime.hour.toString().padLeft(2, '0')}:${returnTime.minute.toString().padLeft(2, '0')}",
+        'target_date_str': "${returnTime.year}-${returnTime.month.toString().padLeft(2, '0')}-${returnTime.day.toString().padLeft(2, '0')}",
+      };
+
+      final rIn = await ApiClient.post('/route', body: inboundBody);
+      final cInList = rIn['candidates'] as List? ?? [];
+      if (cInList.isEmpty) throw Exception('帰り(Inbound)のルートが見つかりません');
+
+      final cInMap = Map<String, dynamic>.from(cInList.first as Map);
+      cInMap['origin_name'] = '中居堀';
+      cInMap['destination_name'] = '平井七丁目第三アパート前';
+      final candidateIn = Candidate.fromJson(cInMap);
+
+      // 3. Create Legs and Schedule
+      final legs = [
+        Leg(
+          direction: LegDirection.outbound,
+          status: LegStatus.confirmed,
+          candidate: candidateOut,
+          confirmedAt: now,
+        ),
+        Leg(
+          direction: LegDirection.inbound,
+          status: LegStatus.confirmed,
+          candidate: candidateIn,
+          confirmedAt: now,
+        ),
+      ];
+
+      final schedule = createScheduleFromLegs(
+        legs, 
+        userSelectedStartTime: outboundTime,
+        userSelectedReturnTime: returnTime,
+      );
+
+      // 4. Create Trip
+      final tripId = await TripService().createTrip(legs, schedule);
+
+      // 5. Open as Leader
+      if (mounted) {
+        await ref.read(appSessionProvider.notifier).updateTripId(tripId);
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => LeaderModePage(tripId: tripId)),
+        );
+      }
+
+    } catch (e) {
+      debugPrint('Diff debug trip failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // 修正: ref.listen は build メソッド内で呼び出す
@@ -471,6 +572,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   : 'Offset: +${currentOffset.inHours}h ${currentOffset.inMinutes % 60}m\nSimulated: ${_formatTime(simulatedTime)}',
             ),
             onTap: _updateTimeOffset,
+          ),
+
+          ListTile(
+            leading: const Icon(Icons.bug_report, color: Colors.purple),
+            title: const Text('Debug: 平井7-中居堀ルート作成'),
+            subtitle: const Text('行き:15分後, 帰り:2時間後\n平井七丁目第三アパート前 ⇔ 中居堀'),
+            onTap: _createDebugTrip,
           ),
 
           ListTile(

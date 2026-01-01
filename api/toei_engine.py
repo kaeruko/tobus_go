@@ -363,6 +363,21 @@ class TimetableManager:
                 self.realtime_delays[t_num] = delay
                 count += 1
 
+    def update_bus_positions(self, bus_data_list):
+        """
+        リアルタイムバスロケーション情報を更新する
+        routes.py の /bus/location で使用される
+        """
+        self.latest_bus_positions = bus_data_list
+        # Optional: Calculate delay statistics or indexing here if needed
+        # For now, just store the raw list as routes.py iterates it.
+        # However, for performance, we might want to index it by route_id?
+        # routes.py filters by route_id first.
+        # But latest_bus_positions is expected to be a list in routes.py currently?
+        # Let's check routes.py... "candidates_route = [b for b in tm.latest_bus_positions if b.get('odpt:busroute') == route_id]"
+        # Yes, it expects a list.
+        # print(f"[INFO] Updated {len(bus_data_list)} bus positions", flush=True)
+
     def get_delays_snapshot(self):
         return self.realtime_delays.copy()
 
