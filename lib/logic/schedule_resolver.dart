@@ -137,7 +137,26 @@ class ScheduleResolver {
         // 既に通過した（マイナス）ステップより、これから（プラス）のステップをやや優先
         // (diffMin < 0 の場合、スコアを少し悪くする = プラスの方が選ばれやすくなる)
         // 例: -2分(score 2.5) vs +2分(score 2) -> +2分が選ばれる = 「これから」を表示
-        if (diffMin < 0) score += 0.5; 
+        // 既に通過した（マイナス）ステップより、これから（プラス）のステップをやや優先
+        // (diffMin < 0 の場合、スコアを少し悪くする = プラスの方が選ばれやすくなる)
+        if (diffMin < 0) score += 0.5;
+
+        // 【追加】もし「乗車」ステップが過去(開始済み)で、次のステップが「到着」かつ未来(未到着)なら、
+        // 「乗車中」とみなして、スコアを大幅に良くする（現在のアクティブ項目として優先的に選ばせる）
+        if (step.itemKind == ScheduleEntryKind.ride && diffMin < 0) {
+           if (i + 1 < steps.length) {
+             final next = steps[i + 1];
+             if (next.itemKind == ScheduleEntryKind.arrival) {
+               final nextDiff = next.plannedAt.difference(now).inMinutes;
+               if (nextDiff > 0) { // まだ到着していない
+                  // どんなに過去でも「乗車中」なので最優先にする (0.0 or negative to beat others)
+                  // 0.1 とかにしておけば、現在時刻ピッタリ(0.0)のイベントがあれば負けるが、
+                  // 基本的に到着(nextDiff)よりは小さくなるはず。
+                  score = 0.1;
+               }
+             }
+           }
+        } 
 
         debugPrint('  -> Score: $score (best: $minScore)');
 

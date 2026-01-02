@@ -26,7 +26,7 @@ MAX_TRAVEL_MIN = 240.0      # 例: 4 時間を上限
 MAX_TOTAL_WALK_M = 3000.0   # 例: 総徒歩 3km まで
 
 DEBUG_PHASE = os.getenv("DEBUG_PHASE", "0") == "1"
-DEBUG_TT = os.getenv("DEBUG_TT", "0") == "1"
+
 
 # -------------------- ユーティリティ --------------------
 def _rss_mb() -> float:
@@ -125,8 +125,7 @@ def min_to_time_str(m):
     mn = int(m % 60)
     return f"{h:02d}:{mn:02d}"
 
-def _create_int_dd():
-    return defaultdict(int)
+
 
 # -------------------- Path Chain Logic (Integer Index Based) --------------------
 def _chain_new(chain_store, node, parent_idx):
@@ -143,14 +142,7 @@ def reconstruct_path_idx(chain_store, idx):
     path.reverse()
     return path
 
-def reconstruct_path(chain):
-    path = []
-    curr = chain
-    while curr:
-        node, parent = curr
-        path.append(node)
-        curr = parent
-    return path[::-1]
+
 
 # -------------------- 空間インデックス (Grid Index) --------------------
 REF_LAT = 35.681236  # Tokyo Station
@@ -241,6 +233,8 @@ class TimetableManager:
         self.latest_bus_positions = [] # Store raw realtime bus data
         self.train_status_text = {} # railway_id -> text
         self.train_service_suspended = set() # railway_id
+        self.latest_train_info = [] # Store raw realtime train info
+        self.latest_gtfsrt_vehicles = {} # vehicle_id -> {lat, lon, timestamp, etc}
 
     def __setstate__(self, state):
         self.__dict__.update(state)
@@ -249,6 +243,8 @@ class TimetableManager:
         if not hasattr(self, "latest_bus_positions"): self.latest_bus_positions = []
         if not hasattr(self, "train_status_text"): self.train_status_text = {}
         if not hasattr(self, "train_service_suspended"): self.train_service_suspended = set()
+        if not hasattr(self, "latest_train_info"): self.latest_train_info = []
+        if not hasattr(self, "latest_gtfsrt_vehicles"): self.latest_gtfsrt_vehicles = {}
         
         need_rebuild_indexes = False
         if (not hasattr(self, "pole_base_index_weekday")) or (self.pole_base_index_weekday is None): need_rebuild_indexes = True
@@ -265,6 +261,13 @@ class TimetableManager:
         
         if has_any_bus_data:
             self.finalize_indexes()
+
+    def update_gtfsrt_vehicles(self, vehicles_dict):
+        """
+        GTFS-RT由来の車両位置情報を更新する
+        PROD-ID -> {lat, lon, timestamp, trip_id, etc}
+        """
+        self.latest_gtfsrt_vehicles = vehicles_dict or {}
 
     def update_bus_realtime(self, bus_data_list, day_type="weekday"):
         self.latest_bus_positions = bus_data_list # Store raw data for location lookup
@@ -415,10 +418,6 @@ class TimetableManager:
             for obj in entry.get("odpt:busstopPoleTimetableObject", []):
                 dep = obj.get("odpt:departureTime")
                 dest = obj.get("odpt:destinationBusstopPole")
-                note = obj.get("odpt:note")
-                trip_id = obj.get("odpt:busstopPoleTimetableObject") # This is typically not where trip ID is. It is usually higher or not present?
-                # Actually, in ODPT v4, 'odpt:busstopPoleTimetableObject' is a list of objects.
-                # Each object has 'odpt:departureTime', 'odpt:destinationBusstopPole', and often 'odpt:trip'.
                 # In our dataset, odpt:trip is missing. We use odpt:busroutePattern as a proxy for identification.
                 pattern_id = obj.get("odpt:busroutePattern")
                 if dep:
@@ -994,6 +993,50 @@ def search_best_routes_once(G, tm, a_phys, b_phys, mode="cost", start_time="10:0
     return []
 
 def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None):
+    """
+    指定された出発地(a_phys)から目的地(b_phys)までの経路を探索し、候補リストを返す関数。
+    
+    Parameters:
+    -----------
+    G : networkx.DiGraph
+        交通ネットワークグラフ (物理ノードと論理ノード、エッジを含む)
+    tm : TimetableManager
+        時刻表データの管理クラス。バス・電車の時刻取得に使用。
+    a_phys : tuple ("phys", str)
+        出発地の物理ノードID
+    b_phys : tuple ("phys", str)
+        目的地の物理ノードID (デフォルトのターゲット)
+    mode : str
+        探索モード。"cost" (運賃・楽さ重視) または "time"/"fast" (所要時間重視)
+    start_time : str
+        出発時刻の文字列表現 ("HH:MM")
+    limit : int
+        返す経路候補の最大数
+    target_date : datetime, optional
+        探索基準日。曜日判定に使用される。指定がない場合は現在日時。
+    target_node : tuple, optional
+        探索上の正確なターゲットノード。b_physと同じことが多いが、特定バス停など詳細指定がある場合に利用。
+    day_type : str, optional
+        "weekday", "saturday", "holiday" のいずれか。指定がない場合は target_date から自動判定。
+    virtual_dest_connections : list, optional
+        任意の座標地点を目的地とする場合の、最寄りバス停/駅からの仮想接続エッジリスト。
+    target_coords : tuple (lat, lon), optional
+        目的地の緯度経度。ヒューリスティック計算などで使用。
+
+    Returns:
+    --------
+    list of dict
+        経路候補のリスト。各辞書は以下のキーを持つ:
+        - "id": 候補のID (Fastest, Comfort-1 など)
+        - "lines": 利用する路線名のリスト
+        - "total_time": 所要時間(分)
+        - "arrival_time": 到着時刻文字列
+        - "steps": 詳細な移動行程セグメントのリスト
+        - "path": 探索されたノードのリスト
+        - "points": 地図描画用の座標点リスト
+        ...など
+    """
+    # 1. 日付・曜日の設定
     if target_date is None: target_date = datetime.datetime.now()
     if day_type is None:
         wd = target_date.weekday()
@@ -1003,16 +1046,22 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
     
     target = target_node or b_phys
     candidates = []
+    # 遅延情報のスナップショットを取得 (探索中盤で遅延情報が変わると整合性が取れなくなるため固定化)
     delays_snapshot = tm.get_delays_snapshot()
 
+    # 2. 探索モードによる分岐
     if mode == "time" or mode == "fast":
+        # 時間優先モード (Fastest Path)
+        # ダイクストラ法ベースで最短時間の経路を1つだけ探索
         arr_min, path = find_fastest_path(G, tm, a_phys, target, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
         if path:
+            # 時刻表に基づいて到着時刻を再計算・検証
             real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
             if real_arr is None:
                 path = None 
 
         if path:
+            # 経路が見つかった場合、詳細セグメント(UI用データ)を生成
             segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
             lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
             start_min = time_str_to_min(start_time)
@@ -1038,12 +1087,16 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
                 "boards": num_rides,
             })
     else:
+        # コスト/楽さ優先モード (Comfort Path)
+        # A*探索などで複数の経路候補をジェネレータとして取得
         path_gen = find_paths_generator(G, tm, a_phys, target, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
         valid_count = 0
         for cand in path_gen:
             path = cand["path"]
+            # 各候補について到着時刻を計算
             real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
             if real_arr is not None:
+                # 詳細情報の構築
                 segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
                 lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
                 start_min = time_str_to_min(start_time)
@@ -1478,7 +1531,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 
                 # シミュレーション上の現在時刻を、バスの出発時刻に合わせて進める
                 if dep and dep >= curr_time: curr_time = dep
-                start_label = f"{min_to_time_str(curr_time)}発"
+
                 trip_id_found = pattern_id_found # Map pattern_id to trip_id_found for downstream use
             else:
                 curr_time += 2.0
@@ -1566,7 +1619,7 @@ def main():
     
     alat, alon = map(float, args.a.split(","))
     blat, blon = map(float, args.b.split(","))
-    a_phys, ad = nearest_phys(G, alat, alon)
+    a_phys, _ = nearest_phys(G, alat, alon)
     b_phys, bd = nearest_phys(G, blat, blon, station_only=True)
     if not b_phys or bd > 500: b_phys, bd = nearest_phys(G, blat, blon)
 
@@ -1604,10 +1657,39 @@ def main():
             print(f"    [{kind}] {title} {fro} ({dep}) -> {to} ({arr})")
 
 def get_reachable_stops(G, tm, lat, lon, limit_dist=1000, spatial_index=None):
+    """
+    指定された位置(lat, lon)から、乗り換えなしで到達可能なバス停・駅を検索して返す。
+    「このバス停からどこに行けるか？」を可視化する機能などに使用される。
+
+    Parameters:
+    -----------
+    G : networkx.DiGraph
+        交通ネットワークグラフ
+    tm : TimetableManager
+        路線パターン(route_patterns_map)を持つデータ管理クラス
+    lat, lon : float
+        検索中心となる緯度・経度
+    limit_dist : float
+        最寄りバス停までの最大許容距離(メートル)。これを超えるとNot foundとなる。
+    spatial_index : SpatialIndex, optional
+        高速な近傍探索のための空間インデックス
+
+    Returns:
+    --------
+    dict
+        - "found": bool
+        - "nearest_stop": 最寄りの出発地情報 {"id", "name"}
+        - "reachable_stops": 到達可能なバス停情報のリスト
+            [{"id", "name", "lat", "lon", "via_route"}, ...]
+        - "count": 到達可能な総数
+    """
+    # 1. まず最寄りの物理ノード(バス停/駅)を探す
     nearest_node, nearest_dist = nearest_phys(G, lat, lon, spatial_index=spatial_index)
     if not nearest_node or nearest_dist > limit_dist:
         return {"found": False, "message": "Not found"}
 
+    # 2. 検索半径(500m)以内にある出発候補バス停をすべて列挙する
+    #    (最寄り1つだと、交差点の反対側のバス停などを逃す可能性があるため)
     start_candidates = []
     SEARCH_RADIUS_M = 500.0
     
@@ -1622,19 +1704,27 @@ def get_reachable_stops(G, tm, lat, lon, limit_dist=1000, spatial_index=None):
                  if haversine(lat, lon, d["lat"], d["lon"]) <= SEARCH_RADIUS_M:
                      start_candidates.append(n[1])
 
+    # 候補が見つからない場合は最寄りノードをフォールバックとして使う
     if not start_candidates: start_candidates.append(nearest_node[1])
     
     reachable_map = {}
+    # 3. 出発バス停を通るすべての路線パターンを調べ、
+    #    そのバス停より「後」にある停留所を到達可能リストに追加する
     for start_id in start_candidates:
         for route_id, patterns in tm.route_patterns_map.items():
             for seq in patterns:
                 if start_id in seq:
                     idx = seq.index(start_id)
+                    # 終点の場合は次がないのでスキップ
                     if idx == len(seq) - 1: continue
+                    
+                    # 出発地より後ろにあるバス停をすべて収集
                     future_stops = seq[idx+1:]
                     for next_stop_id in future_stops:
+                        # 重複登録を防ぐ
                         if next_stop_id in reachable_map: continue
-                        if next_stop_id in start_candidates: continue # Self
+                        if next_stop_id in start_candidates: continue # 出発地周辺(自分自身や近隣)は除外
+                        
                         node_key = ("phys", next_stop_id)
                         if node_key in G:
                             node_data = G.nodes[node_key]

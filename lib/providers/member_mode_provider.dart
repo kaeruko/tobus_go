@@ -41,8 +41,14 @@ final memberScheduleStateProvider = Provider.autoDispose<AsyncValue<ScheduleReso
 /// バスロケAPIの最新状態
 class RealtimeBusState {
   final int? lastApiStopIndex;
-  final String? lastRealtimeBusId;
-  const RealtimeBusState({this.lastApiStopIndex, this.lastRealtimeBusId});
+  final String? lastRealtimeBusId; // Bus Stop Pole ID
+  final String? vehicleId;         // Physical Bus ID (odpt:bus)
+
+  const RealtimeBusState({
+    this.lastApiStopIndex,
+    this.lastRealtimeBusId,
+    this.vehicleId,
+  });
 }
 
 /// ビジネスロジック: APIポーリングと時間経過による進行管理
@@ -105,14 +111,16 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
         debugPrint('[MemberModeController] Skip API poll: tripId is null');
       } else {
         try {
-          debugPrint('[MemberModeController] Fetching bus location for route=${activeStep.routeId}, trip=${activeStep.tripId}');
+          debugPrint('[MemberModeController] Fetching bus location for route=${activeStep.routeId}, trip=${activeStep.tripId}, vehicle=${state.vehicleId}');
           final result = await ApiClient.fetchBusLocation(
             routeId: activeStep.routeId!,
             tripId: activeStep.tripId!,
+            vehicleId: state.vehicleId,
           );
           debugPrint('[MemberModeController] API Result: $result');
           
           final fromPoleId = result['odpt:fromBusstopPole'];
+          final vehicleId = result['odpt:bus']; // Get physical bus ID
 
           if (fromPoleId != null) {
             final index = activeStep.stops.indexWhere((s) => s.stopId == fromPoleId);
@@ -122,10 +130,21 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
               state = RealtimeBusState(
                 lastRealtimeBusId: fromPoleId,
                 lastApiStopIndex: index,
+                vehicleId: vehicleId, // Update/Keep vehicle ID
               );
-              debugPrint("[MemberModeController] API Update success: Bus index $index / ID: $fromPoleId");
+              debugPrint("[MemberModeController] API Update success: Bus index $index / ID: $fromPoleId / Vehicle: $vehicleId");
             } else {
-               debugPrint("[MemberModeController] Bus pole $fromPoleId found in API but not in step stops");
+               final availableStopIds = activeStep.stops.map((s) => s.stopId).toList();
+               debugPrint("[MemberModeController] Bus pole $fromPoleId found in API but not in step stops. Available: $availableStopIds");
+               // Even if not in current segment steps, we found the bus on the correct trip!
+               // It implies the bus is approaching the first stop of this segment (upstream).
+               // We update the ID so the coordinator knows we are tracking it, but keep index null (or 0?)
+               // If we set index null, progress bar relies on time.
+               state = RealtimeBusState(
+                 lastRealtimeBusId: fromPoleId,
+                 lastApiStopIndex: null, // Not in "this" segment's stop list
+                 vehicleId: vehicleId, // Lock onto this vehicle
+               );
             }
           } else {
             debugPrint("[MemberModeController] API returned null/empty fromBusstopPole");
@@ -152,7 +171,7 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
         // どちらもなければnullになり、純粋な時間基準(updateFromScheduleのデフォルト挙動)になる
         forceStopIndex: apiStopIndex ?? state.lastApiStopIndex,
       );
-    }
+     }
   }
 }
 

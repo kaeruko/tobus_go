@@ -61,6 +61,38 @@ async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
                 else:
                     print(f"[WARN] Failed to fetch bus data: {r_bus.status_code}")
 
+                # 3. Fetch GTFS-RT Bus Data (Protobuf)
+                # Use same token
+                url_gtfs = "https://api.odpt.org/api/v4/gtfs/realtime/ToeiBus"
+                r_gtfs = await client.get(url_gtfs, params={"acl:consumerKey": token})
+                if r_gtfs.status_code == 200:
+                    try:
+                        from google.transit import gtfs_realtime_pb2
+                        feed = gtfs_realtime_pb2.FeedMessage()
+                        feed.ParseFromString(r_gtfs.content)
+                        
+                        vehicles = {}
+                        for entity in feed.entity:
+                            if entity.HasField('vehicle'):
+                                v = entity.vehicle
+                                if v.HasField('position'):
+                                    vid = v.vehicle.id
+                                    lat = v.position.latitude
+                                    lon = v.position.longitude
+                                    ts = v.timestamp
+                                    vehicles[vid] = {
+                                        "lat": lat,
+                                        "lon": lon,
+                                        "ts": ts,
+                                        "trip_id": v.trip.trip_id if v.HasField('trip') else None
+                                    }
+                        tm.update_gtfsrt_vehicles(vehicles)
+                        # print(f"[DEBUG] Fetched {len(vehicles)} GTFS-RT vehicles")
+                    except Exception as e:
+                        print(f"[WARN] Failed to parse GTFS-RT: {e}")
+                else:
+                    print(f"[WARN] Failed to fetch GTFS-RT: {r_gtfs.status_code}")
+
         except Exception as e:
             print(f"[WARN] Realtime fetch error: {e}")
         

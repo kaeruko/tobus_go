@@ -87,11 +87,15 @@ class ApiClient {
   static Future<Map<String, dynamic>> fetchBusLocation({
     required String routeId,
     required String tripId,
+    String? vehicleId,
   }) async {
     final params = <String, String>{
       'route_id': routeId,
       'trip_id': tripId,
     };
+    if (vehicleId != null) {
+      params['vehicle_id'] = vehicleId;
+    }
 
     return await get('/bus/location', params: params);
   }

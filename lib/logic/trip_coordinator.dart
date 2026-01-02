@@ -170,6 +170,44 @@ class TripCoordinator {
       realtimeBusLocationId: realtimeBusLocationId,
     );
 
+    // [New Logic] Prevent premature "Arrival" if getting off
+    // If the time-based resolver says "Arrival", but we have realtime info saying the bus is NOT at the destination,
+    // we should revert to "Ride" (meaning we are still on the bus or waiting for it).
+    if (resolved.itemKind == ScheduleEntryKind.arrival && realtimeBusLocationId != null) {
+      // Find the destination stop ID for this arrival entry (if possible)
+      // We can look at the StepSeg associated with this arrival entry.
+      // Actually, 'Arrival' entry usually corresponds to the ALIGHTING action.
+      // The associated step in 'routeState' should be the Alight step or the Ride step?
+      // Usually Arrival is linked to the Ride step (same leg).
+      // Let's check if the realtime ID matches the destination.
+      
+      final step = _stepForEntry(routeState, resolved);
+      // For Arrival, the step might be the Ride step (stops list) or the Alight node?
+      // In ScheduleEntry, routeStepIndex usually points to the Ride segment if it's "Ride".
+      // For "Arrival", it might point to the same ride segment or the next?
+      // Let's assume we need to find the "Ride" entry for this leg to be safe.
+      
+      ScheduleEntry? rideEntry;
+      for (final e in scheduleState.window) {
+        if (e.legIndex == resolved.legIndex && e.itemKind == ScheduleEntryKind.ride) {
+          rideEntry = e;
+          break;
+        }
+      }
+
+      if (rideEntry != null) {
+         final rideStep = _stepForEntry(routeState, rideEntry);
+         if (rideStep != null && rideStep.stops.isNotEmpty) {
+            final destStopId = rideStep.stops.last.stopId;
+            // If the bus is NOT at the destination yet, force "Ride"
+            if (destStopId != null && realtimeBusLocationId != destStopId) {
+               resolved = rideEntry;
+               debugPrint("[TripCoordinator] Premature Arrival detected. Bus at $realtimeBusLocationId != Dest $destStopId. Reverting to Ride.");
+            }
+         }
+      }
+    }
+
     // -------------------------------------------------------------
     // 4. 乗車状態の詳細制御 (まだ早すぎる場合など)
     // -------------------------------------------------------------
@@ -193,9 +231,10 @@ class TripCoordinator {
         // 出発2分後まで: 遅れても許容
         const fallbackLeadWindow = Duration(minutes: 2);
 
-        if (timeUntilRide > rideLeadWindow) {
-          // まだ出発まで5分以上ある場合、「乗る」と出すのは早すぎるので
-          // 一つ前の行動（例: バスターミナルで待機）に戻す
+        if (timeUntilRide > rideLeadWindow && realtimeBusLocationId == null) {
+          // まだ出発まで5分以上あり、かつリアルタイム情報も取れていない場合は
+          // 「乗る」と出すのは早すぎるので、一つ前の行動（例: バスターミナルで待機）に戻す
+          // (もしリアルタイム情報があれば、バスが近づいている証拠なので、5分以上前でも乗車モード(地図表示)を維持する)
           final fallback = _fallbackEntryBeforeRide(
             scheduleState: scheduleState,
             rideEntry: resolved,

@@ -15,7 +15,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 def _busloc_log(ev: dict) -> None:
-    logger.info(json.dumps(ev, ensure_ascii=False))
+    print(json.dumps(ev, ensure_ascii=False), flush=True)
 
 from toei_engine import (
     nearest_phys,
@@ -243,10 +243,15 @@ def register_routes(app):
     @app.get("/bus/location")
     async def bus_location(
         route_id: str = Query(...),
-        trip_id: str = Query(...)
+        trip_id: str = Query(...),
+        vehicle_id: str = Query(None, description="Optional physical bus ID to track specific vehicle")
     ):
+        import uuid
+        from datetime import datetime
+        import pytz
+        
         req_id = str(uuid.uuid4())
-        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now = datetime.now(pytz.utc).isoformat()
 
         base = {
             "kind": "bus_location",
@@ -254,6 +259,7 @@ def register_routes(app):
             "now": now,
             "route_id": route_id,
             "trip_id": trip_id,
+            "vehicle_id": vehicle_id,
         }
 
         tm = app.state.TM
@@ -289,6 +295,25 @@ def register_routes(app):
 
         if len(candidates_tt) == 0:
             sample = candidates_route[0]
+
+        # [MODIFIED] Strategy:
+        # 1. If vehicle_id is provided, try to match it EXACTLY.
+        # 2. If valid vehicle found, return it.
+        # 3. If not found (or vehicle_id not provided), fall back to pattern matching.
+
+        target_vehicle = None
+        if vehicle_id:
+            # odpt:bus contains the unique physical bus ID e.g. "odpt.Bus:Toei.Ue23.56208.1.K270"
+            # Or sometimes it might be just the suffix? Let's check exact match first.
+            matches = [b for b in candidates_route if b.get("odpt:bus") == vehicle_id]
+            if matches:
+                target_vehicle = matches[0]
+                _busloc_log({**base, "ok": True, "reason": "VEHICLE_ID_MATCH", "bus_id": target_vehicle.get("odpt:bus")})
+                return target_vehicle
+            else:
+                # Vehicle lost? Fallback to pattern match but log it
+                _busloc_log({**base, "warn": "VEHICLE_ID_LOST_FALLBACK", "msg": f"Vehicle {vehicle_id} not found on route"})
+
         # [MODIFIED] Stage 2 Scoring Logic
         # The frontend sends `trip_id` which now effectively contains `pattern_id` (from odpt:busroutePattern).
         # We filter by route_id AND pattern_id.
@@ -296,15 +321,18 @@ def register_routes(app):
         
         candidates_pattern = [b for b in candidates_route if b.get("odpt:busroutePattern") == pattern_id]
         base["pattern_match_count"] = len(candidates_pattern)
-
+ 
         if not candidates_pattern:
-             # Even if exact pattern match fails, we might want to return *some* bus on the route?
-             # For now, let's stick to pattern match as the "trip" identifier.
+            # Even if exact pattern match fails, we might want to return *some* bus on the route?
+            # For now, let's stick to pattern match as the "trip" identifier.
+            available_patterns = list(set(b.get("odpt:busroutePattern") for b in candidates_route if b.get("odpt:busroutePattern")))
             _busloc_log({
                 **base,
                 "ok": False,
                 "reason": "NO_PATTERN_MATCH",
-                "sample_has_pattern": "odpt:busroutePattern" in candidates_route[0] if candidates_route else False
+                "sample_has_pattern": "odpt:busroutePattern" in candidates_route[0] if candidates_route else False,
+                "requested_pattern": pattern_id,
+                "available_patterns": available_patterns
             })
             raise HTTPException(
                 404,
@@ -312,6 +340,7 @@ def register_routes(app):
                     "code": "bus_pattern_missing",
                     "message": "No realtime bus position found for the specified pattern_id",
                     "pattern_id": pattern_id,
+                    "available_patterns": available_patterns, # Helpful for debugging on client too if visible
                 },
             )
 
@@ -327,12 +356,32 @@ def register_routes(app):
         # Logging success
         _busloc_log({**base, "ok": True, "bus_id": target_bus.get("owl:sameAs")})
 
-        return {
+        response = {
+            "odpt:bus": target_bus.get("odpt:bus"), # Essential for vehicle tracking
             "odpt:fromBusstopPole": target_bus.get("odpt:fromBusstopPole"),
             "odpt:fromBusstopPoleTime": target_bus.get("odpt:fromBusstopPoleTime"),
             "odpt:busTimetable": target_bus.get("odpt:busTimetable"),
-            "odpt:busroutePattern": target_bus.get("odpt:busroutePattern")
+            "odpt:busroutePattern": target_bus.get("odpt:busroutePattern"),
         }
+
+        # [ADDED] GTFS-RT Injection if available
+        bus_id = target_bus.get("odpt:bus")
+        if bus_id and tm.latest_gtfsrt_vehicles:
+            vehicle_data = tm.latest_gtfsrt_vehicles.get(bus_id)
+            if not vehicle_data:
+                # Try finding by suffix (bus number)
+                # odpt.Bus:Toei.Ue23.56208.1.K270 -> K270
+                parts = bus_id.split(".")
+                if len(parts) > 1:
+                   suffix = parts[-1]
+                   vehicle_data = tm.latest_gtfsrt_vehicles.get(suffix)
+
+            if vehicle_data:
+                response["vehicle_lat"] = vehicle_data["lat"]
+                response["vehicle_lon"] = vehicle_data["lon"]
+                response["vehicle_ts"] = vehicle_data["ts"]
+
+        return response
 
     class RouteRequest(BaseModel):
         alat: float
