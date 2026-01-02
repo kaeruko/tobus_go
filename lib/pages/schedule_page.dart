@@ -126,7 +126,7 @@ class _SchedulePageState extends State<SchedulePage> {
                   if (label.isNotEmpty) {
                     final date = DateTime(base.year, base.month, base.day, selected.hour, selected.minute);
                     if (isEditing) {
-                      _editScheduleEntry(index!, date, label, desc, legIndex, item!);
+                      _editScheduleEntry(index, date, label, desc, legIndex, item);
                     } else {
                       _addScheduleEntry(date, label, desc, legIndex);
                     }
@@ -188,6 +188,11 @@ class _SchedulePageState extends State<SchedulePage> {
         itemBuilder: (context, index) {
           final item = _schedule[index];
           
+          // RideとWalkは編集不可
+          final canEdit = widget.isLeader && 
+              item.itemKind != ScheduleEntryKind.ride && 
+              item.itemKind != ScheduleEntryKind.walk;
+
           final cardContent = Card(
             elevation: 1,
             color: Colors.white,
@@ -197,7 +202,7 @@ class _SchedulePageState extends State<SchedulePage> {
             margin: const EdgeInsets.only(bottom: 12),
             child: InkWell(
               onTap: null, 
-              onLongPress: widget.isLeader
+              onLongPress: canEdit
                   ? () {
                       _showScheduleDialog(index: index, item: item);
                     }
@@ -248,7 +253,7 @@ class _SchedulePageState extends State<SchedulePage> {
             ),
           );
 
-          if (widget.isLeader) {
+          if (canEdit) {
             return Dismissible(
               key: Key('dismiss_${item.id}'),
               direction: DismissDirection.endToStart,
