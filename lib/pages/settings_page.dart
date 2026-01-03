@@ -17,6 +17,7 @@ import '../core/api_client.dart';
 import '../models/leg_models.dart';
 import '../models/group_models.dart';
 import '../models/route_models.dart';
+import 'trip_list_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -554,39 +555,51 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
           ),
 
-          const Divider(),
-
-          // --- ★デバッグ用エリア ---
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('【デバッグメニュー】', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-          ),
-          
-          // ★ここに追加: 時間オフセット設定
-          ListTile(
-            leading: const Icon(Icons.access_time, color: Colors.orange),
-            title: const Text('時間オフセット設定'),
-            subtitle: Text(
-              currentOffset == Duration.zero
-                  ? '設定なし (現在時刻: ${_formatTime(simulatedTime)})'
-                  : 'Offset: +${currentOffset.inHours}h ${currentOffset.inMinutes % 60}m\nSimulated: ${_formatTime(simulatedTime)}',
+          if (_isStaffMode) ...[
+            const Divider(),
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('【デバッグ・管理者メニュー】', 
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             ),
-            onTap: _updateTimeOffset,
-          ),
+            
+            ListTile(
+              leading: const Icon(Icons.access_time, color: Colors.orange),
+              title: const Text('時間オフセット設定'),
+              subtitle: Text(
+                currentOffset == Duration.zero
+                    ? '設定なし (現在時刻: ${_formatTime(simulatedTime)})'
+                    : 'Offset: +${currentOffset.inHours}h ${currentOffset.inMinutes % 60}m\nSimulated: ${_formatTime(simulatedTime)}',
+              ),
+              onTap: _updateTimeOffset,
+            ),
 
-          ListTile(
-            leading: const Icon(Icons.bug_report, color: Colors.purple),
-            title: const Text('Debug: 平井7-中居堀ルート作成'),
-            subtitle: const Text('行き:15分後, 帰り:2時間後\n平井七丁目第三アパート前 ⇔ 中居堀'),
-            onTap: _createDebugTrip,
-          ),
+            ListTile(
+              leading: const Icon(Icons.bug_report, color: Colors.purple),
+              title: const Text('Debug: 平井7-中居堀ルート作成'),
+              subtitle: const Text('行き:15分後, 帰り:2時間後\n平井七丁目第三アパート前 ⇔ 中居堀'),
+              onTap: _createDebugTrip,
+            ),
 
-          ListTile(
-            leading: const Icon(Icons.star, color: Colors.green),
-            title: const Text('最新の旅を「リーダー」として開く'),
-            subtitle: const Text('最後に作成されたTripの管理画面を表示'),
-            onTap: _openLatestTripAsLeader,
-          ),
+            ListTile(
+              leading: const Icon(Icons.star, color: Colors.green),
+              title: const Text('最新の旅を「リーダー」として開く'),
+              subtitle: const Text('最後に作成されたTripの管理画面を表示'),
+              onTap: _openLatestTripAsLeader,
+            ),
+            
+            ListTile(
+              leading: const Icon(Icons.description, color: Colors.blueGrey),
+              title: const Text('お出かけ一覧・実施報告書'),
+              subtitle: const Text('過去の旅の確認と報告書作成'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TripListPage()),
+                );
+              },
+            ),
+          ],
           
           ListTile(
             leading: const Icon(Icons.person, color: Colors.blue),

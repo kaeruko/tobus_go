@@ -89,9 +89,16 @@ class Candidate {
       totalTime: (j['total_time'] as num? ?? 0).toInt(),
       steps: _readSteps(j, originName, destinationName),
       points: (j['points'] as List?)
-              ?.map((e) => (e is List && e.length >= 2)
-                  ? LatLng((e[0] as num).toDouble(), (e[1] as num).toDouble())
-                  : const LatLng(0, 0))
+              ?.map((e) {
+                if (e is List && e.length >= 2) {
+                   final lat = e[0] as num?;
+                   final lon = e[1] as num?;
+                   if (lat != null && lon != null) {
+                     return LatLng(lat.toDouble(), lon.toDouble());
+                   }
+                }
+                return const LatLng(0, 0);
+              })
               .toList() ??
           const [],
       originName: originName,
@@ -101,10 +108,10 @@ class Candidate {
           ? DateTime.tryParse(j['departure_date'])
           : null,
       isFutureSuggestion: j['is_future_suggestion'] == true,
-      originCoords: (j['origin_coords'] is List && j['origin_coords'].length >= 2)
+      originCoords: (j['origin_coords'] is List && j['origin_coords'].length >= 2 && j['origin_coords'][0] != null && j['origin_coords'][1] != null)
           ? LatLng((j['origin_coords'][0] as num).toDouble(), (j['origin_coords'][1] as num).toDouble())
           : null,
-      destinationCoords: (j['destination_coords'] is List && j['destination_coords'].length >= 2)
+      destinationCoords: (j['destination_coords'] is List && j['destination_coords'].length >= 2 && j['destination_coords'][0] != null && j['destination_coords'][1] != null)
           ? LatLng((j['destination_coords'][0] as num).toDouble(), (j['destination_coords'][1] as num).toDouble())
           : null,
       arrivalTime: j['arrival_time']?.toString(),
@@ -310,8 +317,8 @@ class StopPoint {
     return StopPoint(
       name: json['name'] ?? '',
       point: LatLng(
-        (json['lat'] as num).toDouble(),
-        (json['lon'] as num).toDouble(),
+        (json['lat'] as num?)?.toDouble() ?? 0.0,
+        (json['lon'] as num?)?.toDouble() ?? 0.0,
       ),
       isOrigin: json['is_origin'] ?? false,
       isDestination: json['is_destination'] ?? false,

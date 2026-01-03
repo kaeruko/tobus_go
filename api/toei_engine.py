@@ -503,81 +503,61 @@ class TimetableManager:
     def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
         if not debug:
             dbg_env = os.getenv("DEBUG_BUS", "0")
-            if dbg_env == "1": debug = True
-            elif dbg_env != "0" and pole_name and dbg_env in pole_name: debug = True
+            if dbg_env == "1":
+                debug = True
+            elif dbg_env != "0" and pole_name and dbg_env in pole_name:
+                debug = True
 
         if day_type == "saturday":
             target_dict = self.bus_departures_saturday
-            base_index = self.pole_base_index_saturday
         elif day_type == "holiday":
             target_dict = self.bus_departures_holiday
-            base_index = self.pole_base_index_holiday
         else:
             target_dict = self.bus_departures_weekday
-            base_index = self.pole_base_index_weekday
 
-        # Apply Realtime Delay Adjustment
         delay_min = self.bus_realtime_delays.get(route_id, 0.0)
         effective_search_time = current_time_min - delay_min
 
-        cache_key = (day_type, pole_id, route_id)
-        cached_pid = self._resolved_pole_cache.get(cache_key)
-        effective_pole_id = cached_pid if cached_pid else pole_id
+        routes_dict = target_dict.get(pole_id)
+        if not routes_dict:
+            return None, None
 
-        def find_trips_smart(routes_dict, target_rid):
-            if target_rid in routes_dict: return routes_dict[target_rid], target_rid
-            base = route_base(target_rid)
-            for r_key, t_list in routes_dict.items():
-                if route_base(r_key) == base:
-                    if debug: self.debug_once(f"route_fuzzy:{target_rid}", f"[BUS] Fuzzy Route Match: {target_rid} -> {r_key}")
-                    return t_list, r_key
+        candidate_trips = routes_dict.get(route_id)
+        if not candidate_trips:
             return None, None
 
         def is_valid_trip(trip, rid, board_pole_id):
-            if not target_pole_id: return True
+            if not target_pole_id:
+                return True
             dest_id = trip.get("dest")
-            if not dest_id: return True
+            if not dest_id:
+                return True
             patterns = self.route_patterns_map.get(rid) or []
-            if not patterns: return True
+            if not patterns:
+                return True
+
             any_directional_pattern = False
             for stops in patterns:
-                if board_pole_id not in stops: continue
-                if dest_id not in stops: continue
+                if board_pole_id not in stops:
+                    continue
+                if dest_id not in stops:
+                    continue
                 b = stops.index(board_pole_id)
                 d = stops.index(dest_id)
-                if d < b: continue
+                if d < b:
+                    continue
+
                 any_directional_pattern = True
-                if target_pole_id:
-                    if target_pole_id not in stops: continue
-                    t = stops.index(target_pole_id)
-                    if b <= t <= d: return True
-                else: return True
-            if any_directional_pattern: return False
+
+                if target_pole_id not in stops:
+                    continue
+                t = stops.index(target_pole_id)
+                if b <= t <= d:
+                    return True
+
+            if any_directional_pattern:
+                return False
             return True
-
-        routes = target_dict.get(effective_pole_id)
-        candidate_trips = None
-        effective_rid = None
-        if routes:
-            candidate_trips, effective_rid = find_trips_smart(routes, route_id)
-
-        if not candidate_trips and not cached_pid:
-            base = pole_base(pole_id)
-            candidates = base_index.get(base, [])
-            for alt_pid in candidates:
-                if alt_pid == pole_id: continue
-                alt_routes = target_dict.get(alt_pid)
-                if not alt_routes: continue
-                alt_trips, alt_rid = find_trips_smart(alt_routes, route_id)
-                if alt_trips:
-                    if debug: self.debug_once(f"pole_fallback:{pole_id}:{route_id}", f"[BUS] Pole Fallback: {pole_id} -> {alt_pid}")
-                    candidate_trips = alt_trips
-                    effective_rid = alt_rid
-                    self._resolved_pole_cache[cache_key] = alt_pid
-                    effective_pole_id = alt_pid 
-                    break
-
-        if not candidate_trips: return None, None
 
         L = len(candidate_trips)
         lo, hi = 0, L
@@ -587,70 +567,59 @@ class TimetableManager:
                 lo = mid + 1
             else:
                 hi = mid
-        
-        start_idx = lo
-        for i in range(start_idx, L):
+
+        for i in range(lo, L):
             trip = candidate_trips[i]
-            if is_valid_trip(trip, effective_rid, effective_pole_id):
-                # Add delay to scheduled departure
-                # Return tuple (adjusted_time, trip_id)
+            if is_valid_trip(trip, route_id, pole_id):
                 return trip["dep"] + delay_min, trip.get("trip")
-        
+
         return None, None
 
     def get_future_bus_trips(self, pole_id, route_id, current_time_min, limit=10, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
-        # Note: This method currently returns raw schedule for UI. 
-        # Ideally, it should also apply delay, but kept simple as per instruction focus on routing.
-        # If UI needs delay, we can apply it here too.
-        
         delay_min = self.bus_realtime_delays.get(route_id, 0.0)
         effective_search_time = current_time_min - delay_min
 
-        if not debug: debug = os.getenv("DEBUG_BUS") == "1"
-        if day_type == "saturday": target_dict = self.bus_departures_saturday
-        elif day_type == "holiday": target_dict = self.bus_departures_holiday
-        else: target_dict = self.bus_departures_weekday
+        if not debug:
+            debug = os.getenv("DEBUG_BUS") == "1"
 
-        def find_trips(routes_dict, target_rid):
-            if target_rid in routes_dict: return routes_dict[target_rid], target_rid
-            base = route_base(target_rid)
-            for r_key, t_list in routes_dict.items():
-                if route_base(r_key) == base: return t_list, r_key
-            return None, None
+        if day_type == "saturday":
+            target_dict = self.bus_departures_saturday
+        elif day_type == "holiday":
+            target_dict = self.bus_departures_holiday
+        else:
+            target_dict = self.bus_departures_weekday
+
+        routes_dict = target_dict.get(pole_id)
+        if not routes_dict:
+            return []
+
+        candidate_trips = routes_dict.get(route_id)
+        if not candidate_trips:
+            return []
 
         def is_valid_trip(trip, rid, board_pole_id):
-            if not target_pole_id: return True
+            if not target_pole_id:
+                return True
             dest_id = trip.get("dest")
-            if not dest_id: return True
+            if not dest_id:
+                return True
             patterns = self.route_patterns_map.get(rid) or []
-            if not patterns: return True
+            if not patterns:
+                return True
+
             for stops in patterns:
-                if board_pole_id not in stops or dest_id not in stops: continue
+                if board_pole_id not in stops or dest_id not in stops:
+                    continue
                 b = stops.index(board_pole_id)
                 d = stops.index(dest_id)
-                if d < b: continue
-                if target_pole_id not in stops: continue
+                if d < b:
+                    continue
+                if target_pole_id not in stops:
+                    continue
                 t = stops.index(target_pole_id)
-                if b <= t <= d: return True
+                if b <= t <= d:
+                    return True
             return True
-
-        routes = target_dict.get(pole_id) or {}
-        effective_rid = route_id
-        candidate_trips, effective_rid = find_trips(routes, route_id)
-
-        if not candidate_trips:
-            base = pole_base(pole_id)
-            if day_type == "saturday": base_index = self.pole_base_index_saturday
-            elif day_type == "holiday": base_index = self.pole_base_index_holiday
-            else: base_index = self.pole_base_index_weekday
-            candidates = base_index.get(base, [])
-            for alt_pid in candidates:
-                if alt_pid == pole_id: continue
-                alt_routes = target_dict.get(alt_pid) or {}
-                candidate_trips, effective_rid = find_trips(alt_routes, route_id)
-                if candidate_trips: break
-
-        if not candidate_trips: return []
 
         L = len(candidate_trips)
         lo, hi = 0, L
@@ -660,17 +629,14 @@ class TimetableManager:
                 lo = mid + 1
             else:
                 hi = mid
-        
+
         out = []
         for i in range(lo, L):
             trip = candidate_trips[i]
-            if is_valid_trip(trip, effective_rid, pole_id):
-                # Return trip with adjusted time? 
-                # For UI consistency, we probably should return the adjusted time object
-                # but legacy callers expect raw. We'll leave raw or shallow copy + adjust?
-                # Let's keep raw for now as `get_future_bus_trips` is used for timetable UI primarily.
+            if is_valid_trip(trip, route_id, pole_id):
                 out.append(trip)
-                if len(out) >= limit: break
+                if len(out) >= limit:
+                    break
         return out
 
     def get_next_train_arrival(self, current_sta, next_sta, current_time_min, day_type="weekday", delays_snapshot=None):
@@ -1156,14 +1122,6 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
     g_score[(start_node, 0)] = 0.0
 
     target_goal_nodes = {target_node}
-    if target_node and target_node[0] == "phys":
-        pid = target_node[1]
-        if isinstance(pid, str) and pid.startswith("odpt.BusstopPole:"):
-            base = pole_base(pid)
-            for n in G.nodes:
-                if n[0] == "phys" and isinstance(n[1], str) and n[1].startswith("odpt.BusstopPole:"):
-                    if pole_base(n[1]) == base:
-                        target_goal_nodes.add(n)
 
     best_cost = {}
     seen_logical_routes = set()
@@ -1205,14 +1163,9 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
 
         if u in target_goal_nodes:
             full_path = reconstruct_path_idx(chain_store, chain_idx)
-            sig = get_logical_signature(G, full_path)
-            hs = hash(sig)
-            if hs in seen_logical_routes: continue
-            seen_logical_routes.add(hs)
-            
             yield {"cost": cost, "path": full_path, "walk_m": total_walk_m}
             yielded_count += 1
-            if yielded_count >= max_search: 
+            if yielded_count >= max_search:
                 _mem_log("search_max_yield")
                 return
             continue
@@ -1279,12 +1232,6 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
     
     target_pole_ids = set()
     def add_poles(pid):
-        node_id = ("phys", pid)
-        if node_id in G.nodes:
-            name = G.nodes[node_id].get("name")
-            if name and tm:
-                for p in tm.name_to_pids.get(name, []):
-                    target_pole_ids.add(p)
         target_pole_ids.add(pid)
 
     if virtual_dest_connections:
@@ -1633,7 +1580,6 @@ def main():
     tm.load_bus_timetables(args.bus_timetables)
     tm.load_bus_route_patterns(args.busroute_patterns)
     tm.load_train_timetables(args.train_timetables)
-    tm.build_name_index(G)
     
     results = search_best_routes_once(G, tm, a_phys, b_phys, mode=args.mode, start_time=args.start_time, limit=5, target_node=dest_node, virtual_dest_connections=connections)
 

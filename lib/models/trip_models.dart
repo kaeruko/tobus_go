@@ -33,6 +33,7 @@ class Trip {
   final List<Participant> participants;
   final List<String> memberIds;
   final int completedLegIndex;
+  final String? staffNotes; // 追加
 
   TripStatus get status => TripStatus.values[travelPhase.index];
 
@@ -52,6 +53,7 @@ class Trip {
     required this.participants,
     required this.memberIds,
     this.completedLegIndex = -1,
+    this.staffNotes, // 追加
   });
 
   factory Trip.fromFirestore(DocumentSnapshot doc) {
@@ -89,6 +91,7 @@ class Trip {
       memberIds:
           (data['memberIds'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
       completedLegIndex: data['completedLegIndex'] as int? ?? -1,
+      staffNotes: data['staffNotes'] as String?, // 追加
     );
   }
 
@@ -111,6 +114,7 @@ class Trip {
       'participants': participants.map((e) => e.toJson()).toList(),
       'memberIds': memberIds,
       'completedLegIndex': completedLegIndex,
+      'staffNotes': staffNotes, // 追加
     };
   }
 

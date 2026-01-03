@@ -241,6 +241,28 @@ class TripService {
     return snapshot.docs.map((d) => Trip.fromFirestore(d)).toList();
   }
 
+  // 追加: ユーザーが関わる全てのTripを取得（日付降順）
+  Future<List<Trip>> getAllTrips() async {
+    final uid = _userService.currentUserId;
+    if (uid == null) return [];
+
+    final snapshot = await _db.collection('trips')
+        .where('memberIds', arrayContains: uid)
+        .get();
+
+    final trips = snapshot.docs.map((d) => Trip.fromFirestore(d)).toList();
+    // メモリ内でソート（Firestoreの複合インデックス作成回避のため）
+    trips.sort((a, b) => b.date.compareTo(a.date));
+    return trips;
+  }
+
+  // 追加: スタッフメモを更新
+  Future<void> updateTripNotes(String tripId, String notes) async {
+    await _db.collection('trips').doc(tripId).update({
+      'staffNotes': notes,
+    });
+  }
+
   Stream<Trip?> streamActiveTrip() {
     final uid = _userService.currentUserId;
     if (uid == null) return Stream.value(null);
