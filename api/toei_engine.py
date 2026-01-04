@@ -848,26 +848,6 @@ def nearest_phys(G, lat, lon, station_only=False, spatial_index=None):
         if dist < bestd: best, bestd = n, dist
     return best, bestd
 
-# -------------------- 探索ロジック --------------------
-def get_logical_signature(G, path):
-    sig = []
-    current_line = None
-    for u, v in zip(path, path[1:]):
-        if G.has_edge(u, v):
-            e = G.get_edge_data(u, v)
-            etype = e.get("etype")
-        else:
-            etype = "walk"
-
-        if etype == "ride":
-            current_line = G.nodes[u].get("norm") or G.nodes[u].get("disp")
-        elif etype == "alight":
-            stop_name = G.nodes[v].get("name")
-            if current_line:
-                sig.append((current_line, stop_name))
-                current_line = None
-    return tuple(sig)
-
 # -------------------- 共通ロジック: 時間計算ヘルパー --------------------
 def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=None, **kwargs):
     if G.has_edge(u, v):
