@@ -988,7 +988,7 @@ def search_best_routes_once(G, tm, a_phys, b_phys, mode="cost", start_time="10:0
     # 候補が見つからなかった場合は空リストを返す
     return []
 
-def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time, limit=5, target_date, target_node, day_type, virtual_dest_connections, target_coords):
+def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None):
     """
     指定された出発地(a_phys)から目的地(b_phys)までの経路を探索し、候補リストを返す関数。
     
@@ -1037,7 +1037,7 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time, limit=5, 
     if day_type is None:
         day_type = determine_day_type(target_date)
     
-    target = target_node or b_phys
+    target = target_node
     candidates = []
     # 遅延情報のスナップショットを取得 (探索中盤で遅延情報が変わると整合性が取れなくなるため固定化)
     delays_snapshot = tm.get_delays_snapshot()
@@ -1584,6 +1584,7 @@ def main():
     ap.add_argument("--walk", type=int, default=300)
     ap.add_argument("--mode", choices=["cost", "time"], default="cost")
     ap.add_argument("--start-time", default="10:00")
+    ap.add_argument("--date", default=None, help="YYYY-MM-DD")
     ap.add_argument("--bus-timetables", default="data/odpt_BusstopPoleTimetable.json")
     ap.add_argument("--train-timetables", default="data/odpt_TrainTimetable.json")
     args = ap.parse_args()
@@ -1608,10 +1609,25 @@ def main():
     tm.load_bus_route_patterns(args.busroute_patterns)
     tm.load_train_timetables(args.train_timetables)
     
-    results = search_best_routes_once(G, tm, a_phys, b_phys, mode=args.mode, start_time=args.start_time, limit=5, target_node=dest_node, virtual_dest_connections=connections)
+    results = search_best_routes_once(
+        G, tm, a_phys, b_phys, 
+        mode=args.mode, 
+        start_time=args.start_time, 
+        limit=5, 
+        target_node=dest_node, 
+        virtual_dest_connections=connections,
+        target_date_str=args.date
+    )
 
     if not results:
-        results = search_best_routes_once(G, tm, a_phys, b_phys, mode=args.mode, start_time=args.start_time, limit=5)
+        results = search_best_routes_once(
+            G, tm, a_phys, b_phys, 
+            mode=args.mode, 
+            start_time=args.start_time, 
+            limit=5,
+            target_node=b_phys,
+            target_date_str=args.date
+        )
 
     if not results:
         print("No valid route found.")
