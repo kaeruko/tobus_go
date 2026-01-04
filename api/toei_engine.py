@@ -2,6 +2,216 @@
 # -*- coding: utf-8 -*-
 # toei_engine.py
 
+# バス停情報 / Bus stop information
+# https://api-public.odpt.org/api/v4/odpt:BusstopPole?odpt:operator=odpt.Operator:Toei
+# [
+#   {
+#     "@id": "urn:ucode:_00001C0000000000000100000330C4F0",
+#     "@type": "odpt:BusstopPole",
+#     "title": {
+#       "en": "Shinjuku-Itchōme (Shinjuku 1)",
+#       "ja": "新宿一丁目(しんじゅくいっちょうめ)",
+#       "ja-Hrkt": "しんじゅくいっちょうめ"
+#     },
+#     "dc:date": "2026-01-02T03:16:30+09:00",
+#     "geo:lat": 35.687947,
+#     "@context": "http://vocab.odpt.org/context_odpt_BusstopPole.jsonld",
+#     "dc:title": "新宿一丁目(しんじゅくいっちょうめ)",
+#     "geo:long": 139.713199,
+#     "odpt:kana": "しんじゅくいっちょうめ",
+#     "odpt:note": "新宿一丁目",
+#     "owl:sameAs": "odpt.BusstopPole:Toei.ShinjukuItchome.711.3",
+#     "odpt:operator": [
+#       "odpt.Operator:Toei"
+#     ],
+#     "odpt:busroutePattern": [
+#       "odpt.BusroutePattern:Toei.Shina97.24001.1",
+#       "odpt.BusroutePattern:Toei.Shina97.24002.1",
+#       "odpt.BusroutePattern:Toei.Shina97.24004.1",
+#       "odpt.BusroutePattern:Toei.Shina97.24005.1"
+#     ],
+#     "odpt:busstopPoleNumber": "3",
+#     "odpt:busstopPoleTimetable": [
+#       "odpt.BusstopPoleTimetable:Toei.Shina97.ShinjukuItchome.711.3.ShinjukuStationNishiguchi.06-100",
+#       "odpt.BusstopPoleTimetable:Toei.Shina97.ShinjukuItchome.711.3.ShinjukuStationNishiguchi.06-160",
+#       "odpt.BusstopPoleTimetable:Toei.Shina97.ShinjukuItchome.711.3.ShinjukuStationNishiguchi.06-170",
+#       "odpt.BusstopPoleTimetable:Toei.Shina97.ShinjukuItchome.711.3.ShinjukuStationNishiguchi.06-301",
+#       "odpt.BusstopPoleTimetable:Toei.Shina97.ShinjukuItchome.711.3.ShinjukuStationNishiguchi.13-100",
+#       "odpt.BusstopPoleTimetable:Toei.Shina97.ShinjukuItchome.711.3.ShinjukuStationNishiguchi.13-160",
+#       "odpt.BusstopPoleTimetable:Toei.Shina97.ShinjukuItchome.711.3.ShinjukuStationNishiguchi.13-170",
+#       "odpt.BusstopPoleTimetable:Toei.Shina97.ShinjukuItchome.711.3.ShinjukuStationNishiguchi.21-100",
+#       "odpt.BusstopPoleTimetable:Toei.Shina97.ShinjukuItchome.711.3.ShinjukuStationNishiguchi.21-160",
+#       "odpt.BusstopPoleTimetable:Toei.Shina97.ShinjukuItchome.711.3.ShinjukuStationNishiguchi.21-170"
+#     ]
+#   },
+
+# ##################################
+# バス路線情報 / Bus route information
+# https://api-public.odpt.org/api/v4/odpt:BusroutePattern?odpt:operator=odpt.Operator:Toei
+
+# [
+#   {
+#     "@id": "urn:ucode:_00001C0000000000000100000322BD81",
+#     "@type": "odpt:BusroutePattern",
+#     "dc:date": "2026-01-02T03:16:30+09:00",
+#     "@context": "http://vocab.odpt.org/context_odpt_BusroutePattern.jsonld",
+#     "dc:title": "秋２６ 秋葉原駅前行",
+#     "odpt:note": "秋２６:旧葛西橋→秋葉原駅前:64103:1",
+#     "ug:region": {
+#       "type": "LineString",
+#       "coordinates": [
+#         [139.84005, 35.675472],
+#         [139.83926, 35.67558],
+# ...
+#         [139.77373, 35.699]
+#       ]
+#     },
+#     "owl:sameAs": "odpt.BusroutePattern:Toei.Aki26.64103.1",
+#     "odpt:pattern": "64103",
+#     "odpt:busroute": "odpt.Busroute:Toei.Aki26",
+#     "odpt:operator": "odpt.Operator:Toei",
+#     "odpt:direction": "1",
+#     "odpt:busstopPoleOrder": [
+#       {
+#         "odpt:note": "旧葛西橋",
+#         "odpt:index": 1,
+#         "odpt:busstopPole": "odpt.BusstopPole:Toei.KyuKasaibashi.430.4"
+#       },
+#       {
+#         "odpt:note": "東砂四丁目",
+#         "odpt:index": 2,
+#         "odpt:busstopPole": "odpt.BusstopPole:Toei.HigashisunaYonchome.1295.2"
+#       },
+#       {
+#         "odpt:note": "亀高橋",
+#         "odpt:index": 3,
+#         "odpt:busstopPole": "odpt.BusstopPole:Toei.Kametakabashi.377.4"
+#       },
+#       {
+#         "odpt:note": "北砂四丁目",
+#         "odpt:index": 4,
+#         "odpt:busstopPole": "odpt.BusstopPole:Toei.KitasunaYonchome.412.2"
+#       },
+#       {
+#         "odpt:note": "境川",
+#         "odpt:index": 5,
+#         "odpt:busstopPole": "odpt.BusstopPole:Toei.Sakaigawa.565.3"
+#       },
+#       {
+#         "odpt:note": "南砂一丁目",
+#         "odpt:index": 6,
+#         "odpt:busstopPole": "odpt.BusstopPole:Toei.MinamisunaItchome.1474.2"
+#       },
+#       ...
+#       {
+#         "odpt:note": "秋葉原駅前",
+#         "odpt:index": 24,
+#         "odpt:busstopPole": "odpt.BusstopPole:Toei.AkihabaraStation.27.4"
+#       }
+#     ]
+#   },
+
+# ##################################
+# バス関連リアルタイム情報(VehiclePosition)
+# https://api-public.odpt.org/api/v4/gtfs/realtime/ToeiBus
+# A666 35.67323303222656 139.7624053955078
+# A664 35.65372848510742 139.77987670898438
+# (バスIDと位置情報)
+
+
+# #########################
+# バス停時刻表 / Bus stop timetable
+
+# https://api-public.odpt.org/api/v4/odpt:BusstopPoleTimetable?odpt:operator=odpt.Operator:Toei
+# [
+#   {
+#     "@id": "urn:ucode:_00001C00000000000001000003C04DCE",
+#     "@type": "odpt:BusstopPoleTimetable",
+#     "dc:date": "2026-01-02T03:16:30+09:00",
+#     "@context": "http://vocab.odpt.org/context_odpt_BusstopPoleTimetable.jsonld",
+#     "dc:title": "都０１（Ｔ０１）:青山学院中等部前:渋谷駅前:",
+#     "odpt:note": "青山学院中等部前:0007-02:都０１（Ｔ０１）:渋谷駅前::09-173",
+#     "owl:sameAs": "odpt.BusstopPoleTimetable:Toei.T01.AoyamagakuinChutobu.7.2.ShibuyaStation.09-173",
+#     "odpt:busroute": "odpt.Busroute:Toei.T01",
+#     "odpt:calendar": "odpt.Calendar:Specific.Toei.09-173",
+#     "odpt:operator": "odpt.Operator:Toei",
+#     "odpt:busstopPole": "odpt.BusstopPole:Toei.AoyamagakuinChutobu.7.2",
+#     "odpt:busDirection": "odpt.BusDirection:Toei.ShibuyaStation",
+#     "odpt:busstopPoleTimetableObject": [
+#       {
+#         "odpt:isMidnight": false,
+#         "odpt:isNonStepBus": true,
+#         "odpt:departureTime": "06:43",
+#         "odpt:busroutePattern": "odpt.BusroutePattern:Toei.T01.8505.2",
+#         "odpt:destinationSign": "渋谷駅前",
+#         "odpt:busroutePatternOrder": 8,
+#         "odpt:destinationBusstopPole": "odpt.BusstopPole:Toei.ShibuyaStation.636.8"
+#       },
+#       {
+#         "odpt:isMidnight": false,
+#         "odpt:isNonStepBus": true,
+#         "odpt:departureTime": "06:58",
+#         "odpt:busroutePattern": "odpt.BusroutePattern:Toei.T01.8505.2",
+#         "odpt:destinationSign": "渋谷駅前",
+#         "odpt:busroutePatternOrder": 8,
+#         "odpt:destinationBusstopPole": "odpt.BusstopPole:Toei.ShibuyaStation.636.8"
+#       },
+#       {
+#         "odpt:isMidnight": false,
+#         "odpt:isNonStepBus": true,
+#         "odpt:departureTime": "07:08",
+#         "odpt:busroutePattern": "odpt.BusroutePattern:Toei.T01.8505.2",
+#         "odpt:destinationSign": "渋谷駅前",
+#         "odpt:busroutePatternOrder": 8,
+#         "odpt:destinationBusstopPole": "odpt.BusstopPole:Toei.ShibuyaStation.636.8"
+#       },
+
+# バス時刻表 / Bus timetable
+# https://api-public.odpt.org/api/v4/odpt:BusTimetable?odpt:operator=odpt.Operator:Toei
+
+# [
+#   {
+#     "@id": "urn:ucode:_00001C0000000000000100000338376B",
+#     "@type": "odpt:BusTimetable",
+#     "dc:date": "2026-01-02T03:16:30+09:00",
+#     "@context": "http://vocab.odpt.org/context_odpt_BusTimetable.jsonld",
+#     "dc:title": "都０２ 大塚駅前行",
+#     "odpt:note": "都０２:錦糸町駅前→大塚駅前:都０２ 大塚駅前行:32301:2:45-100",
+#     "owl:sameAs": "odpt.BusTimetable:Toei.T02.32301-2-45-100-0821",
+#     "odpt:calendar": "odpt.Calendar:Specific.Toei.45-100",
+#     "odpt:operator": "odpt.Operator:Toei",
+#     "odpt:busroutePattern": "odpt.BusroutePattern:Toei.T02.32301.2",
+#     "odpt:busTimetableObject": [
+#       {
+#         "odpt:note": "錦糸町駅前:442:11",
+#         "odpt:index": 1,
+#         "odpt:isMidnight": false,
+#         "odpt:arrivalTime": "08:21",
+#         "odpt:busstopPole": "odpt.BusstopPole:Toei.KinshichoStation.442.11",
+#         "odpt:isNonStepBus": true,
+#         "odpt:departureTime": "08:21",
+#         "odpt:destinationSign": "大塚駅前"
+#       },
+#       {
+#         "odpt:note": "錦糸公園前:441:1",
+#         "odpt:index": 2,
+#         "odpt:isMidnight": false,
+#         "odpt:arrivalTime": "08:22",
+#         "odpt:busstopPole": "odpt.BusstopPole:Toei.KinshiKoen.441.1",
+#         "odpt:isNonStepBus": true,
+#         "odpt:departureTime": "08:22",
+#         "odpt:destinationSign": "大塚駅前"
+#       },
+#       {
+#         "odpt:note": "太平二丁目:2129:2",
+#         "odpt:index": 3,
+#         "odpt:isMidnight": false,
+#         "odpt:arrivalTime": "08:23",
+#         "odpt:busstopPole": "odpt.BusstopPole:Toei.TaiheiNichome.2129.2",
+#         "odpt:isNonStepBus": true,
+#         "odpt:departureTime": "08:23",
+#         "odpt:destinationSign": "大塚駅前"
+#       },
 import json, argparse, math, sys, heapq, datetime, bisect
 import os
 import gc
@@ -953,7 +1163,7 @@ def path_to_coords(G, path):
             points.append([d["lat"], d["lon"]])
     return points
 
-def search_best_routes_once(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None):
+def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None):
     d = datetime.date.today()
     if target_date_str:
         try:
@@ -976,7 +1186,7 @@ def search_best_routes_once(G, tm, a_phys, b_phys, mode="cost", start_time="10:0
     
     # メインの探索ロジック(search_best_routes)を呼び出し
     # ここで graph探索(Dijkstra/A*) が走る
-    candidates = search_best_routes(G, tm, a_phys, b_phys, mode, start_time, limit, start_dt, target_node=target_node, day_type=day_type, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
+    candidates = search_best_routes(G, tm, a_phys, mode, start_time, limit, start_dt, target_node=target_node, day_type=day_type, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
     
     # 探索結果があれば、メタデータ（出発日時、提案タイプなど）を付与して返す
     if candidates:
@@ -988,7 +1198,7 @@ def search_best_routes_once(G, tm, a_phys, b_phys, mode="cost", start_time="10:0
     # 候補が見つからなかった場合は空リストを返す
     return []
 
-def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date, target_node, day_type, virtual_dest_connections, target_coords):
+def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date, target_node, day_type, virtual_dest_connections, target_coords):
     """
     指定された出発地(a_phys)から目的地(b_phys)までの経路を探索し、候補リストを返す関数。
     
@@ -1033,11 +1243,9 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
         ...など
     """
     # 1. 日付・曜日の設定
-    if target_date is None: target_date = datetime.datetime.now()
-    if day_type is None:
-        day_type = determine_day_type(target_date)
+    target_date = datetime.datetime.now()
+    day_type = determine_day_type(target_date)
     
-    target = target_node
     candidates = []
     # 遅延情報のスナップショットを取得 (探索中盤で遅延情報が変わると整合性が取れなくなるため固定化)
     delays_snapshot = tm.get_delays_snapshot()
@@ -1046,7 +1254,7 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
     if mode == "time" or mode == "fast":
         # 時間優先モード (Fastest Path)
         # ダイクストラ法ベースで最短時間の経路を1つだけ探索
-        arr_min, path = find_fastest_path(G, tm, a_phys, target, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
+        arr_min, path = find_fastest_path(G, tm, a_phys, target_node, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
         if path:
             # 時刻表に基づいて到着時刻を再計算・検証
             real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
@@ -1082,7 +1290,7 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
     else:
         # コスト/楽さ優先モード (Comfort Path)
         # A*探索などで複数の経路候補をジェネレータとして取得
-        path_gen = find_paths_generator(G, tm, a_phys, target, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
+        path_gen = find_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
         valid_count = 0
         for cand in path_gen:
             path = cand["path"]
@@ -1610,7 +1818,7 @@ def main():
     tm.load_train_timetables(args.train_timetables)
     
     results = search_best_routes_once(
-        G, tm, a_phys, b_phys, 
+        G, tm, a_phys, 
         mode=args.mode, 
         start_time=args.start_time, 
         limit=5, 
@@ -1621,7 +1829,7 @@ def main():
 
     if not results:
         results = search_best_routes_once(
-            G, tm, a_phys, b_phys, 
+            G, tm, a_phys, 
             mode=args.mode, 
             start_time=args.start_time, 
             limit=5,
