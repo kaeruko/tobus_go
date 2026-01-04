@@ -143,6 +143,44 @@ def reconstruct_path_idx(chain_store, idx):
     return path
 
 
+# -------------------- [追加] 共通化した日付判定ロジック --------------------
+def determine_day_type(target_date: datetime.date | datetime.datetime | str | None) -> str:
+    """
+    日付を受け取り、平日(weekday)/土曜(saturday)/休日(holiday) を判定して返す。
+    japanese_holidays があれば祝日判定も行う。
+    """
+    d = None
+    if target_date is None:
+        d = datetime.date.today()
+    elif isinstance(target_date, str):
+        try:
+            d = datetime.datetime.strptime(target_date, "%Y-%m-%d").date()
+        except ValueError:
+            d = datetime.date.today()
+    elif isinstance(target_date, datetime.datetime):
+        d = target_date.date()
+    elif isinstance(target_date, datetime.date):
+        d = target_date
+    else:
+        d = datetime.date.today()
+
+    weekday = d.weekday()
+
+    # 祝日判定
+    try:
+        import japanese_holidays
+        is_holiday = japanese_holidays.is_holiday(d)
+    except ImportError:
+        is_holiday = False
+
+    if weekday == 6 or is_holiday:
+        return "holiday"
+    if weekday == 5:
+        return "saturday"
+    return "weekday"
+
+
+
 
 # -------------------- 空間インデックス (Grid Index) --------------------
 REF_LAT = 35.681236  # Tokyo Station
@@ -916,29 +954,41 @@ def path_to_coords(G, path):
     return points
 
 def search_best_routes_once(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None):
-    now = datetime.datetime.now()
+    d = datetime.date.today()
     if target_date_str:
         try:
             d = datetime.datetime.strptime(target_date_str, "%Y-%m-%d")
-            base_date = d.replace(hour=now.hour, minute=now.minute, second=0, microsecond=0)
         except:
-            base_date = now
-    else:
-        base_date = now
+            d = datetime.date.today()
     
+    # Check if 'now' is defined globally (it seems used in original code). 
+    # Original code: base_date = d.replace(hour=now.hour, minute=now.minute, second=0, microsecond=0)
+    # 'now' is not passed in. Assuming 'datetime.datetime.now()' was meant or 'now' global exists?
+    # Checking file content again, I don't see 'now' defined in this scope.
+    # But line 958 used 'now.hour'. It might be a bug or 'now' is a global variable (unlikely good practice).
+    # I will replace 'now' with 'datetime.datetime.now()' to be safe.
+    
+    now_dt = datetime.datetime.now()
+    base_date = datetime.datetime.combine(d if isinstance(d, datetime.date) else d.date(), datetime.time(now_dt.hour, now_dt.minute))
+
     h, m = map(int, start_time.split(":"))
     start_dt = base_date.replace(hour=h, minute=m, second=0, microsecond=0)
     
+    # メインの探索ロジック(search_best_routes)を呼び出し
+    # ここで graph探索(Dijkstra/A*) が走る
     candidates = search_best_routes(G, tm, a_phys, b_phys, mode, start_time, limit, start_dt, target_node=target_node, day_type=day_type, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
     
+    # 探索結果があれば、メタデータ（出発日時、提案タイプなど）を付与して返す
     if candidates:
         for cand in candidates:
             cand["departure_date"] = start_dt.strftime("%Y-%m-%dT%H:%M:%S")
             cand["is_future_suggestion"] = False
         return candidates
+    
+    # 候補が見つからなかった場合は空リストを返す
     return []
 
-def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None):
+def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time, limit=5, target_date, target_node, day_type, virtual_dest_connections, target_coords):
     """
     指定された出発地(a_phys)から目的地(b_phys)までの経路を探索し、候補リストを返す関数。
     
@@ -985,10 +1035,7 @@ def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", l
     # 1. 日付・曜日の設定
     if target_date is None: target_date = datetime.datetime.now()
     if day_type is None:
-        wd = target_date.weekday()
-        if wd == 5: day_type = "saturday"
-        elif wd == 6: day_type = "holiday"
-        else: day_type = "weekday"
+        day_type = determine_day_type(target_date)
     
     target = target_node or b_phys
     candidates = []

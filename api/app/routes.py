@@ -27,6 +27,7 @@ from toei_engine import (
     MAX_WALK_SEG_M,
     get_reachable_stops,
     _rss_mb,
+    determine_day_type,
 )
 
 ROUTE_JOBS: dict[str, dict] = {}
@@ -53,28 +54,7 @@ def _cache_set(key: str, data: bytes) -> None:
     _sv_cache[key] = (time.time() + SV_CACHE_TTL_SEC, data)
 
 
-def determine_day_type(date_str: str | None) -> str:
-    if not date_str:
-        target_date = datetime.date.today()
-    else:
-        try:
-            target_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
-        except ValueError:
-            target_date = datetime.date.today()
 
-    weekday = target_date.weekday()
-
-    try:
-        import japanese_holidays
-        is_holiday = japanese_holidays.is_holiday(target_date)
-    except ImportError:
-        is_holiday = False
-
-    if weekday == 6 or is_holiday:
-        return "holiday"
-    if weekday == 5:
-        return "saturday"
-    return "weekday"
 
 
 def normalize_pref(pref: str | None) -> str:
@@ -87,32 +67,43 @@ def normalize_pref(pref: str | None) -> str:
     return "cost"
 
 def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:00", date_str=None):
+    # メモリ使用量と呼び出しパラメータのログ出力
     print(f"[MEM] enter compute_route_candidates rss={_rss_mb():.1f}MB")
     print(f"[USER_DEBUG] compute_route_candidates: start_time={start_time}, date_str={date_str}")
+    
+    # ユーザー設定の正規化、アプリケーション状態からのインスタンス取得
     pref = normalize_pref(pref)
     g = app.state.G
     tm = app.state.TM
     walk_rad = app.state.WALK_RAD
     si = app.state.SI
     
+    # 出発地(A)と目的地(B)の最寄り物理ノード(バス停/駅)を探索
+    # Aは駅以外も含む(station_only=False)、Bはまず駅中心に探す
     a_phys, a_dist = nearest_phys(g, alat, alon, station_only=False, spatial_index=si)
     b_phys, bd = nearest_phys(g, blat, blon, station_only=True, spatial_index=si)
+    
+    # Bが近くに見つからない場合や遠い場合は、バス停も含めて再探索
     if not b_phys or bd > 500:
         b_phys, _ = nearest_phys(g, blat, blon, station_only=False, spatial_index=si)
 
+    # どちらか一方でもノードが見つからなければエラーを返す
     if not a_phys or not b_phys:
         return {"error": "Nearby stations or busstops not found", "candidates": []}
 
+    # 出発地の最寄りノードまでの徒歩時間を概算(80m/min)
     import math
     initial_walk_min = 0
     if a_dist and a_dist > 0:
         initial_walk_min = max(1, math.ceil(a_dist / 80.0))
     
+    # 徒歩時間を考慮した実質的な出発時刻(active_start_time)を計算
     active_start_time = start_time
     if initial_walk_min > 0:
         s_min = time_str_to_min(start_time)
         active_start_time = min_to_time_str(s_min + initial_walk_min)
 
+    # 地点Bの正確な位置を「目的地」として設定し、仮想エッジ(virtual_connections)を取得
     destination_label = "目的地"
     dest_node, virtual_connections = get_virtual_connections(
         g, blat, blon, name=destination_label, walk_radius=walk_rad, spatial_index=si
@@ -121,6 +112,7 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
     day_type = determine_day_type(date_str)
 
     results = []
+    # 仮想目的地への到達が可能なら、目的地座標へのルート探索を実行
     if destination_reachable:
         results = search_best_routes_once(
             g, 
@@ -137,6 +129,7 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
             target_coords=[blat, blon],
         )
 
+    # 仮想目的地へのルートが見つからなかった場合、最寄り物理ノード(b_phys)までの探索へフォールバック
     if not results:
         results = search_best_routes_once(
             g,
@@ -153,10 +146,12 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
             target_coords=None,
         )
 
+    # 探索結果の後処理: 最初の徒歩区間の追加や座標情報の付与
     for cand in results:
         if initial_walk_min > 0:
             a_node_name = g.nodes[a_phys]["name"]
             
+            # 既存の最初のステップが徒歩なら統合、そうでなければ新規徒歩ステップ挿入
             if cand["steps"] and cand["steps"][0]["kind"] == "walk":
                 first = cand["steps"][0]
                 first["from_"] = "現在地" 
@@ -185,8 +180,10 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
         cand["origin_coords"] = [alat, alon]
         cand["destination_coords"] = [blat, blon]
         
+        # 不要な内部パスデータの削除
         if "path" in cand: del cand["path"]
 
+    # メタデータの作成: フォールバック情報など
     fallback_distance_m = None
     fallback_node_name = None
     if b_phys in g:
