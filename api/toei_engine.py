@@ -988,7 +988,7 @@ def search_best_routes_once(G, tm, a_phys, b_phys, mode="cost", start_time="10:0
     # 候補が見つからなかった場合は空リストを返す
     return []
 
-def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None):
+def search_best_routes(G, tm, a_phys, b_phys, mode="cost", start_time="10:00", limit=5, target_date, target_node, day_type, virtual_dest_connections, target_coords):
     """
     指定された出発地(a_phys)から目的地(b_phys)までの経路を探索し、候補リストを返す関数。
     
