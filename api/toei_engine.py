@@ -193,13 +193,9 @@ def pole_base(pid: str) -> str:
     if not (isinstance(pid, str) and "BusstopPole:" in pid):
         return pid
     parts = pid.rsplit(".", 1)
-    if len(parts) == 2 and parts[1].isdigit() and len(parts[1]) <= 2: 
+    if len(parts) == 2 and parts[1].isdigit() and len(parts[1]) <= 2:
          return parts[0]
     return pid
-
-def route_base(rid: str) -> str:
-    if not isinstance(rid, str): return rid
-    return rid.split("-")[0]
 
 # -------------------- 時刻表マネージャー (名寄せ強化版 + リアルタイム) --------------------
 class TimetableManager:
