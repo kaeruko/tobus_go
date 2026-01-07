@@ -630,7 +630,6 @@ class TimetableManager:
         data = load_json(json_path)
         count = 0
         seen = defaultdict(set)
-        seen_base = defaultdict(set)
         for entry in data:
             route_id = entry.get("odpt:busroute")
             orders = entry.get("odpt:busstopPoleOrder") or []
@@ -639,11 +638,9 @@ class TimetableManager:
             seq = [o.get("odpt:busstopPole") for o in orders if o.get("odpt:busstopPole")]
             if not route_id or not seq: continue
             key = tuple(seq)
-            base_key = tuple(pole_base(pid) for pid in seq)
-            if key in seen[route_id] or base_key in seen_base[route_id]:
+            if key in seen[route_id]:
                 continue
             seen[route_id].add(key)
-            seen_base[route_id].add(base_key)
             if route_id not in self.route_patterns_map: self.route_patterns_map[route_id] = []
             self.route_patterns_map[route_id].append(seq)
             count += 1
