@@ -438,11 +438,9 @@ class SpatialIndex:
         return candidates
 
 def pole_base(pid: str) -> str:
-    if not (isinstance(pid, str) and "BusstopPole:" in pid):
-        return pid
-    parts = pid.rsplit(".", 1)
-    if len(parts) == 2 and parts[1].isdigit() and len(parts[1]) <= 2:
-         return parts[0]
+    # NOTE: With normalization removed, pole_base_index_* and finalize_indexes()
+    # will effectively be non-merged indexes (harmless but less meaningful),
+    # and are candidates for future cleanup if normalization is fully removed.
     return pid
 
 # -------------------- 時刻表マネージャー (名寄せ強化版 + リアルタイム) --------------------
