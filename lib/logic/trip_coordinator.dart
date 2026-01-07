@@ -11,6 +11,7 @@ enum ScheduleDisplayHint {
 }
 
 class ResolvedScheduleState {
+  final ScheduleEntry? activeEntry;
   final ScheduleEntry resolvedEntry;
   final List<ScheduleEntry> windowEntries;
   final int completedCount;
@@ -19,6 +20,7 @@ class ResolvedScheduleState {
   final String resolutionReason;
 
   const ResolvedScheduleState({
+    required this.activeEntry,
     required this.resolvedEntry,
     required this.windowEntries,
     required this.completedCount,
@@ -38,8 +40,7 @@ class TripCoordinator {
       return resolvedEntry;
     }
 
-    final fallback = scheduleState.window
-        .firstWhere((entry) => entry.routeStepIndex != null, orElse: () => resolvedEntry);
+    final fallback = scheduleState.window.firstWhere((entry) => entry.routeStepIndex != null);
     if (fallback.id != resolvedEntry.id) {
       addReason("fallback_route_step_index");
     } else {
@@ -72,112 +73,6 @@ class TripCoordinator {
     return routeState.steps[idx];
   }
 
-  static ScheduleEntry? _fallbackEntryBeforeRide({
-    required ScheduleResolveResult scheduleState,
-    required ScheduleEntry rideEntry,
-  }) {
-    if (scheduleState.window.isEmpty) return null;
-
-    int ridePos = -1;
-    for (int i = 0; i < scheduleState.window.length; i++) {
-      if (scheduleState.window[i].id == rideEntry.id) {
-        ridePos = i;
-        break;
-      }
-    }
-    if (ridePos <= 0) return null;
-
-    for (int j = ridePos - 1; j >= 0; j--) {
-      final e = scheduleState.window[j];
-
-      if (e.itemKind == ScheduleEntryKind.walk) return e;
-
-      if (e.itemKind == ScheduleEntryKind.event) {
-        if (e.generatedBy == ScheduleEntrySource.route && e.routeRole == 'wait_start') {
-          return e;
-        }
-      }
-
-      if (e.itemKind == ScheduleEntryKind.meeting) return e;
-    }
-    return scheduleState.window.first;
-  }
-
-  static ({ScheduleEntry resolvedEntry, ScheduleDisplayHint displayHint, String resolutionReason})
-      _resolveWalkToRideTransition({
-    required ScheduleEntry entry,
-    required ScheduleResolveResult scheduleState,
-    required RouteState? routeState,
-    required DateTime now,
-    String? realtimeBusLocationId,
-  }) {
-    if (entry.itemKind != ScheduleEntryKind.walk) {
-      return (
-        resolvedEntry: entry,
-        displayHint: ScheduleDisplayHint.normal,
-        resolutionReason: "active_entry",
-      );
-    }
-
-    ScheduleEntry? upcomingRide;
-
-    for (final candidate in scheduleState.window) {
-      if (candidate.itemKind != ScheduleEntryKind.ride) continue;
-      if (candidate.legIndex != entry.legIndex) continue;
-
-      // Ensure we only consider rides that are scheduled after or at the walk.
-      if (candidate.plannedAt.isBefore(entry.plannedAt)) continue;
-      if (entry.routeStepIndex != null &&
-          candidate.routeStepIndex != null &&
-          candidate.routeStepIndex! < entry.routeStepIndex!) {
-        continue;
-      }
-
-      upcomingRide = candidate;
-      break;
-    }
-
-    if (upcomingRide == null) {
-      return (
-        resolvedEntry: entry,
-        displayHint: ScheduleDisplayHint.normal,
-        resolutionReason: "no_upcoming_ride",
-      );
-    }
-
-    final rideStep = _stepForEntry(routeState, upcomingRide);
-    final rideHasStarted = rideStep != null &&
-        _realtimeSaysRideStarted(
-          step: rideStep,
-          realtimeBusLocationId: realtimeBusLocationId,
-        );
-
-    final timeUntilRide = upcomingRide.plannedAt.difference(now);
-    final rideWindowOpen = timeUntilRide <= const Duration(minutes: 5);
-
-    if (rideHasStarted) {
-      return (
-        resolvedEntry: upcomingRide,
-        displayHint: ScheduleDisplayHint.normal,
-        resolutionReason: "ride_started",
-      );
-    }
-
-    if (rideWindowOpen) {
-      return (
-        resolvedEntry: upcomingRide,
-        displayHint: ScheduleDisplayHint.rideSoon,
-        resolutionReason: "ride_soon",
-      );
-    }
-
-    return (
-      resolvedEntry: entry,
-      displayHint: ScheduleDisplayHint.normal,
-      resolutionReason: "walk_active",
-    );
-  }
-
   static ResolvedScheduleState? resolveScheduleState({
     required ScheduleResolveResult scheduleState,
     required RouteState? routeState,
@@ -194,17 +89,10 @@ class TripCoordinator {
       resolutionReasons.add(reason);
     }
 
-    final initialDecision = _resolveWalkToRideTransition(
-      entry: active,
-      scheduleState: scheduleState,
-      routeState: routeState,
-      now: now,
-      realtimeBusLocationId: realtimeBusLocationId,
-    );
-    addReason(initialDecision.resolutionReason);
+    addReason("active_entry");
 
-    ScheduleEntry resolved = initialDecision.resolvedEntry;
-    ScheduleDisplayHint displayHint = initialDecision.displayHint;
+    ScheduleEntry resolved = active;
+    ScheduleDisplayHint displayHint = ScheduleDisplayHint.normal;
 
     // [New Logic] Prevent premature "Arrival" if getting off
     // If the time-based resolver says "Arrival", but we have realtime info saying the bus is NOT at the destination,
@@ -245,50 +133,6 @@ class TripCoordinator {
       }
     }
 
-    // -------------------------------------------------------------
-    // 4. 乗車状態の詳細制御 (まだ早すぎる場合など)
-    // -------------------------------------------------------------
-    if (resolved.itemKind == ScheduleEntryKind.ride) {
-      final step = _stepForEntry(routeState, resolved);
-
-      // リアルタイム情報で「既に乗っている」か判定
-      bool rideStarted = false;
-      if (step != null) {
-        rideStarted = _realtimeSaysRideStarted(
-          step: step,
-          realtimeBusLocationId: realtimeBusLocationId,
-        );
-      }
-
-      // まだ乗車が確認されていない場合
-      if (!rideStarted) {
-        final timeUntilRide = resolved.plannedAt.difference(now);
-        // 出発5分前: 乗車モードへの切り替え許容
-        const rideLeadWindow = Duration(minutes: 5);
-        // 出発2分後まで: 遅れても許容
-        const fallbackLeadWindow = Duration(minutes: 2);
-
-        if (timeUntilRide > rideLeadWindow && realtimeBusLocationId == null) {
-          // まだ出発まで5分以上あり、かつリアルタイム情報も取れていない場合は
-          // 「乗る」と出すのは早すぎるので、一つ前の行動（例: バスターミナルで待機）に戻す
-          // (もしリアルタイム情報があれば、バスが近づいている証拠なので、5分以上前でも乗車モード(地図表示)を維持する)
-          final fallback = _fallbackEntryBeforeRide(
-            scheduleState: scheduleState,
-            rideEntry: resolved,
-          );
-          if (fallback != null) {
-            resolved = fallback;
-            displayHint = ScheduleDisplayHint.normal;
-            addReason("ride_too_early_fallback");
-          }
-        } 
-        // 既に出発時刻を過ぎているが、少しの遅れ(-2分)までは許容してそのまま表示
-        else if (timeUntilRide > -fallbackLeadWindow) {
-          // Small grace window before departure. Keep ride state once the departure window opens.
-        }
-      }
-    }
-
     resolved = _ensureResolvedEntryHasRouteStepIndex(
       resolvedEntry: resolved,
       scheduleState: scheduleState,
@@ -301,6 +145,7 @@ class TripCoordinator {
     );
 
     return ResolvedScheduleState(
+      activeEntry: active,
       resolvedEntry: resolved,
       windowEntries: scheduleState.window,
       completedCount: completedCount,
@@ -388,7 +233,7 @@ class TripCoordinator {
     final resolved = resolvedScheduleState.resolvedEntry;
     final displayHint = resolvedScheduleState.displayHint;
 
-    debugPrint("[TripCoordinator] active=${scheduleState.activeEntry?.label} kind=${scheduleState.activeEntry?.itemKind} rt=${scheduleState.activeEntry?.routeStepIndex} realtime=$realtimeBusLocationId");
+    debugPrint("[TripCoordinator] active=${resolvedScheduleState.activeEntry?.label} kind=${resolvedScheduleState.activeEntry?.itemKind} rt=${resolvedScheduleState.activeEntry?.routeStepIndex} realtime=$realtimeBusLocationId");
     debugPrint("[TripCoordinator] resolved=${resolved.label} kind=${resolved.itemKind} rt=${resolved.routeStepIndex}");
     debugPrint("[TripCoordinator] displayHint=$displayHint reason=${resolvedScheduleState.resolutionReason}");
 

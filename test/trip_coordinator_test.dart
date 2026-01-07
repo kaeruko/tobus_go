@@ -50,7 +50,8 @@ void main() {
       final entry = ScheduleEntry(
         plannedAt: DateTime.now().add(const Duration(minutes: 30)), 
         label: 'Event', 
-        itemKind: ScheduleEntryKind.event
+        itemKind: ScheduleEntryKind.event,
+        routeStepIndex: 0,
       );
       
       final scheduleState = ScheduleResolveResult(
@@ -77,7 +78,8 @@ void main() {
       final entry = ScheduleEntry(
         plannedAt: DateTime.now().add(const Duration(minutes: 10)), // < 20 mins for Meeting
         label: 'Event', 
-        itemKind: ScheduleEntryKind.meeting
+        itemKind: ScheduleEntryKind.meeting,
+        routeStepIndex: 0,
       );
       
       final scheduleState = ScheduleResolveResult(
