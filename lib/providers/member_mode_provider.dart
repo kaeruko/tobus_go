@@ -155,7 +155,7 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
     }
 
     // 3. 進捗を更新 (時間基準 + API補正)
-    // activeEntry (時間基準) をベースにしつつ、API情報 (apiStopIndex) があればそれを強制適用する
+    // resolvedEntry (時間基準) をベースにしつつ、API情報 (apiStopIndex) があればそれを強制適用する
     if (resolvedEntry != null) {
       _ref.read(memberNavProgressProvider.notifier).updateFromSchedule(
         trip,
