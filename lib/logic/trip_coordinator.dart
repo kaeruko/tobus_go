@@ -4,18 +4,12 @@ import '../models/group_models.dart';
 import '../models/route_models.dart'; // StepSeg
 import 'trip_navigator.dart';
 
-enum ScheduleDisplayHint {
-  normal,
-  rideSoon,
-}
-
 class ResolvedScheduleState {
   final ScheduleEntry? activeEntry;
   final ScheduleEntry? resolvedEntry;
   final List<ScheduleEntry> windowEntries;
   final int completedCount;
   final String activeLabel;
-  final ScheduleDisplayHint displayHint;
   final String resolutionReason;
 
   const ResolvedScheduleState({
@@ -24,7 +18,6 @@ class ResolvedScheduleState {
     required this.windowEntries,
     required this.completedCount,
     required this.activeLabel,
-    required this.displayHint,
     required this.resolutionReason,
   });
 }
@@ -115,8 +108,6 @@ class TripCoordinator {
     }
 
     ScheduleEntry? resolved = active;
-    ScheduleDisplayHint displayHint = ScheduleDisplayHint.normal;
-
     if (active == null) {
       addReason("no_active_entry");
       return ResolvedScheduleState(
@@ -125,7 +116,6 @@ class TripCoordinator {
         windowEntries: windowEntries,
         completedCount: completedCount,
         activeLabel: activeLabel,
-        displayHint: displayHint,
         resolutionReason: resolutionReasons.join(" | "),
       );
     }
@@ -163,7 +153,6 @@ class TripCoordinator {
             // If the bus is NOT at the destination yet, force "Ride"
             if (destStopId != null && realtimeBusLocationId != destStopId) {
                resolved = rideEntry;
-               displayHint = ScheduleDisplayHint.normal;
                addReason("premature_arrival_revert");
                debugPrint("[TripCoordinator] Premature Arrival detected. Bus at $realtimeBusLocationId != Dest $destStopId. Reverting to Ride.");
             }
@@ -190,7 +179,6 @@ class TripCoordinator {
       windowEntries: windowEntries,
       completedCount: resolvedCompletedCount,
       activeLabel: activeLabel,
-      displayHint: displayHint,
       resolutionReason: resolutionReasons.join(" | "),
     );
   }
@@ -262,11 +250,10 @@ class TripCoordinator {
     }
 
     final resolved = resolvedState.resolvedEntry!;
-    final displayHint = resolvedState.displayHint;
 
     debugPrint("[TripCoordinator] active=${resolvedState.activeEntry?.label} kind=${resolvedState.activeEntry?.itemKind} rt=${resolvedState.activeEntry?.routeStepIndex} realtime=$realtimeBusLocationId");
     debugPrint("[TripCoordinator] resolved=${resolved.label} kind=${resolved.itemKind} rt=${resolved.routeStepIndex}");
-    debugPrint("[TripCoordinator] displayHint=$displayHint reason=${resolvedState.resolutionReason}");
+    debugPrint("[TripCoordinator] reason=${resolvedState.resolutionReason}");
 
     final diff = resolved.plannedAt.difference(now);
 
@@ -289,21 +276,6 @@ class TripCoordinator {
       stopIndex: stopIndex,
       currentStepIndex: routeState?.currentStepIndex ?? 0,
     );
-
-    if (displayHint == ScheduleDisplayHint.rideSoon && resolved.itemKind == ScheduleEntryKind.ride) {
-      return NavigationState(
-        mainText: "もうすぐ乗車",
-        subText: "まもなく乗車します",
-        color: baseState.color,
-        currentStepIndex: baseState.currentStepIndex,
-        nextStopIndex: baseState.nextStopIndex,
-        statusLabel: "もうすぐ乗車",
-        nextStopName: baseState.nextStopName,
-        remainingStops: baseState.remainingStops,
-        isMoving: baseState.isMoving,
-        step: baseState.step,
-      );
-    }
 
     return baseState;
   }
