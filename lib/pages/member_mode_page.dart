@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../core/app_clock.dart';
 import '../logic/trip_navigator.dart';
@@ -71,7 +70,6 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                   _CurrentStatusCard(
                     navState: uiState.navState,
                     tripTitle: uiState.displayTitle,
-                    currentPos: uiState.currentPos,
                     onTapRemainingStops: () => _onTapRemainingStops(trip),
                   ),
                   const SizedBox(height: 14),
@@ -209,13 +207,11 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
 class _CurrentStatusCard extends StatelessWidget {
   final NavigationState navState;
   final String tripTitle;
-  final LatLng? currentPos;
   final VoidCallback onTapRemainingStops;
 
   const _CurrentStatusCard({
     required this.navState,
     required this.tripTitle,
-    required this.currentPos,
     required this.onTapRemainingStops,
   });
 
@@ -239,10 +235,6 @@ class _CurrentStatusCard extends StatelessWidget {
           Text(navState.subText, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           _buildNavInfoChips(),
-          const SizedBox(height: 16),
-          _LocationStatus(
-            state: currentPos != null ? _LocationState.active : _LocationState.searching,
-          ),
         ],
       ),
     );
@@ -281,32 +273,6 @@ class _CurrentStatusCard extends StatelessWidget {
           ),
       ],
     );
-  }
-}
-
-enum _LocationState { searching, active }
-
-class _LocationStatus extends StatelessWidget {
-  final _LocationState state;
-  const _LocationStatus({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    switch (state) {
-      case _LocationState.active:
-        return Row(children: const [
-          Icon(CupertinoIcons.dot_radiowaves_left_right, color: Colors.teal),
-          SizedBox(width: 8),
-          Text('GPSで位置を確認中', style: TextStyle(color: Colors.black87)),
-        ]);
-      case _LocationState.searching:
-      default:
-        return Row(children: const [
-          SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-          SizedBox(width: 8),
-          Text('現在地を測定しています...', style: TextStyle(color: Colors.black87)),
-        ]);
-    }
   }
 }
 

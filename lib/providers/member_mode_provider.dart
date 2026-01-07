@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../core/app_clock.dart';
 import '../core/api_client.dart';
@@ -11,7 +10,6 @@ import '../logic/trip_coordinator.dart';
 import '../logic/trip_navigator.dart';
 import '../logic/schedule_resolver.dart';
 import 'trip_provider.dart';
-import 'location_provider.dart';
 import 'member_nav_progress_provider.dart';
 import 'minute_ticker_provider.dart';
 
@@ -187,7 +185,6 @@ class MemberUiState {
   final int completedCount;
   final String activeLabel;
   final String displayTitle;
-  final LatLng? currentPos;
 
   MemberUiState({
     required this.navState,
@@ -196,15 +193,12 @@ class MemberUiState {
     required this.completedCount,
     required this.activeLabel,
     required this.displayTitle,
-    this.currentPos,
   });
 }
 
 /// UI State Provider
 final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((ref) {
   final tripAsync = ref.watch(tripStreamProvider);
-  final locationAsync = ref.watch(locationStreamProvider);
-  final manualOverride = ref.watch(locationOverrideProvider);
   final navProgress = ref.watch(memberNavProgressProvider);
   final realtimeState = ref.watch(memberModeControllerProvider);
   final nowTick = ref.watch(minuteTickerProvider);
@@ -213,8 +207,6 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((r
     if (trip == null) throw Exception("No Trip");
 
     final now = nowTick.value ?? appClock.now();
-    final currentPos = manualOverride ??
-        (locationAsync.value != null ? LatLng(locationAsync.value!.latitude, locationAsync.value!.longitude) : null);
 
     // ルート情報の構築（表示用）
     final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
@@ -241,7 +233,6 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((r
         completedCount: 0,
         activeLabel: "",
         displayTitle: trip.displayTitle,
-        currentPos: currentPos,
       );
     }
     
@@ -263,7 +254,6 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((r
       completedCount: scheduleResolved.completedCount,
       activeLabel: scheduleResolved.activeLabel,
       displayTitle: trip.displayTitle,
-      currentPos: currentPos,
     );
   });
 });
