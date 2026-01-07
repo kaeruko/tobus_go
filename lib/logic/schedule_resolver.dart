@@ -41,6 +41,11 @@ class ScheduleResolver {
     String label = 'いま';
 
     // 時間的な吸着範囲を厳密にして判定する
+    debugPrint('[ScheduleResolver] resolve start: now=$now entries=${scheduleSorted.length}');
+    if (scheduleSorted.isNotEmpty) {
+      debugPrint('[ScheduleResolver] schedule head=${scheduleSorted.first.label} at ${scheduleSorted.first.plannedAt}');
+      debugPrint('[ScheduleResolver] schedule tail=${scheduleSorted.last.label} at ${scheduleSorted.last.plannedAt}');
+    }
     active = _resolveActiveIndex(scheduleSorted, now);
 
     // 判定されなかった場合 (active == -1)
@@ -61,6 +66,11 @@ class ScheduleResolver {
     }
 
     final activeEntry = (active >= 0 && active < scheduleSorted.length) ? scheduleSorted[active] : null;
+    debugPrint(
+      '[ScheduleResolver] resolved activeIndex=$active label=$label entry='
+      '${activeEntry?.label} kind=${activeEntry?.itemKind} plannedAt=${activeEntry?.plannedAt} '
+      'routeStepIndex=${activeEntry?.routeStepIndex}',
+    );
 
     // 2. 完了数のカウント
     final completedCount = (active >= 0) ? active : 0;
@@ -101,7 +111,7 @@ class ScheduleResolver {
     int bestIndex = -1;
     double minScore = 99999.0; 
 
-    debugPrint('[ScheduleResolver] Resolving active step at $now');
+    debugPrint('[ScheduleResolver] Resolving active step at $now (steps=${steps.length})');
 
     for (int i = 0; i < steps.length; i++) {
       final step = steps[i];
@@ -128,7 +138,11 @@ class ScheduleResolver {
         }
       }
 
-      debugPrint('[ScheduleResolver] Step $i (${step.label}): diff=${diffMin}m, kind=${step.itemKind}, candidate=$isCandidate');
+      debugPrint(
+        '[ScheduleResolver] Step $i (${step.label}): plannedAt=${step.plannedAt} '
+        'diff=${diffMin}m kind=${step.itemKind} candidate=$isCandidate '
+        'routeStepIndex=${step.routeStepIndex}',
+      );
 
       if (isCandidate) {
         // 0に近いほど優先（絶対値で比較）
@@ -163,6 +177,7 @@ class ScheduleResolver {
         if (score < minScore) {
           minScore = score;
           bestIndex = i;
+          debugPrint('[ScheduleResolver] New best -> index=$bestIndex score=$minScore label=${step.label}');
         }
       }
     }
