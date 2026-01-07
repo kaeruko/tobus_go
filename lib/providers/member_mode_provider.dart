@@ -181,7 +181,7 @@ final memberModeControllerProvider = StateNotifierProvider.autoDispose<MemberMod
 class MemberUiState {
   final NavigationState navState;
   final List<ScheduleEntry> windowEntries;
-  final ScheduleEntry? activeEntry;
+  final ScheduleEntry? resolvedEntry;
   final int completedCount;
   final String activeLabel;
   final String displayTitle;
@@ -189,7 +189,7 @@ class MemberUiState {
   MemberUiState({
     required this.navState,
     required this.windowEntries,
-    required this.activeEntry,
+    required this.resolvedEntry,
     required this.completedCount,
     required this.activeLabel,
     required this.displayTitle,
@@ -229,7 +229,7 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((r
       return MemberUiState(
         navState: NavigationState.idle(),
         windowEntries: [],
-        activeEntry: null,
+        resolvedEntry: null,
         completedCount: 0,
         activeLabel: "",
         displayTitle: trip.displayTitle,
@@ -237,6 +237,12 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((r
     }
     
     final scheduleResolved = scheduleAsync.value!;
+    final resolvedState = TripCoordinator.resolveScheduleState(
+      scheduleState: scheduleResolved,
+      routeState: routeState,
+      now: now,
+      realtimeBusLocationId: realtimeState.lastRealtimeBusId,
+    );
 
     // ナビゲーション表示状態の構築
     final navDisplayState = TripCoordinator.buildMemberNavigationState(
@@ -245,12 +251,13 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((r
       routeState: routeState,
       now: now,
       realtimeBusLocationId: realtimeState.lastRealtimeBusId,
+      resolvedState: resolvedState,
     );
 
     return MemberUiState(
       navState: navDisplayState,
       windowEntries: scheduleResolved.window,
-      activeEntry: scheduleResolved.activeEntry,
+      resolvedEntry: resolvedState?.resolvedEntry,
       completedCount: scheduleResolved.completedCount,
       activeLabel: scheduleResolved.activeLabel,
       displayTitle: trip.displayTitle,

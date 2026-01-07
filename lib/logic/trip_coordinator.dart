@@ -5,6 +5,21 @@ import '../models/route_models.dart'; // StepSeg
 import 'trip_navigator.dart';
 import 'schedule_resolver.dart';
 
+enum ScheduleDisplayHint {
+  normal,
+  rideSoon,
+}
+
+class ResolvedScheduleState {
+  final ScheduleEntry resolvedEntry;
+  final ScheduleDisplayHint displayHint;
+
+  const ResolvedScheduleState({
+    required this.resolvedEntry,
+    required this.displayHint,
+  });
+}
+
 class TripCoordinator {
 
   static bool _realtimeSaysRideStarted({
@@ -62,14 +77,19 @@ class TripCoordinator {
     return scheduleState.window.first;
   }
 
-  static ScheduleEntry _resolveWalkToRideTransition({
+  static ResolvedScheduleState _resolveWalkToRideTransition({
     required ScheduleEntry entry,
     required ScheduleResolveResult scheduleState,
     required RouteState? routeState,
     required DateTime now,
     String? realtimeBusLocationId,
   }) {
-    if (entry.itemKind != ScheduleEntryKind.walk) return entry;
+    if (entry.itemKind != ScheduleEntryKind.walk) {
+      return ResolvedScheduleState(
+        resolvedEntry: entry,
+        displayHint: ScheduleDisplayHint.normal,
+      );
+    }
 
     ScheduleEntry? upcomingRide;
 
@@ -89,7 +109,12 @@ class TripCoordinator {
       break;
     }
 
-    if (upcomingRide == null) return entry;
+    if (upcomingRide == null) {
+      return ResolvedScheduleState(
+        resolvedEntry: entry,
+        displayHint: ScheduleDisplayHint.normal,
+      );
+    }
 
     final rideStep = _stepForEntry(routeState, upcomingRide);
     final rideHasStarted = rideStep != null &&
@@ -101,72 +126,47 @@ class TripCoordinator {
     final timeUntilRide = upcomingRide.plannedAt.difference(now);
     final rideWindowOpen = timeUntilRide <= const Duration(minutes: 5);
 
-    if (rideHasStarted || rideWindowOpen) {
-      return upcomingRide;
+    if (rideHasStarted) {
+      return ResolvedScheduleState(
+        resolvedEntry: upcomingRide,
+        displayHint: ScheduleDisplayHint.normal,
+      );
     }
 
-    return entry;
+    if (rideWindowOpen) {
+      return ResolvedScheduleState(
+        resolvedEntry: upcomingRide,
+        displayHint: ScheduleDisplayHint.rideSoon,
+      );
+    }
+
+    return ResolvedScheduleState(
+      resolvedEntry: entry,
+      displayHint: ScheduleDisplayHint.normal,
+    );
   }
 
-  static NavigationState buildMemberNavigationState({
-    required Trip trip,
+  static ResolvedScheduleState? resolveScheduleState({
     required ScheduleResolveResult scheduleState,
     required RouteState? routeState,
     required DateTime now,
     String? realtimeBusLocationId,
   }) {
-    // -------------------------------------------------------------
-    // 1. ツアー全体のステータスチェック
-    // -------------------------------------------------------------
-    // ツアーが終了または中止されている場合は、専用の画面を表示
-    if (trip.status == TripStatus.completed) {
-      return NavigationState(
-        mainText: "終了",
-        subText: "お疲れ様でした",
-        color: Colors.grey,
-        currentStepIndex: 999,
-        nextStopIndex: 999,
-        statusLabel: "お出かけ終了",
-        isMoving: false,
-      );
-    }
-    if (trip.status == TripStatus.cancelled) {
-      return NavigationState(
-        mainText: "中止",
-        subText: "グループは解散されました",
-        color: Colors.red,
-        currentStepIndex: 999,
-        nextStopIndex: 999,
-        statusLabel: "中止",
-        isMoving: false,
-      );
-    }
-
-    // 現在のバス停番号（または0）
-    final stopIndex = routeState?.nextStopIndex ?? 0;
-
-    // -------------------------------------------------------------
-    // 2. 現在アクティブなスケジュール項目の取得 (時間基準)
-    // -------------------------------------------------------------
-    // ScheduleResolverで計算された「今やるべきこと」を取得
     final active = scheduleState.activeEntry;
     if (active == null) {
-      // 何もない場合は待機状態
-      return NavigationState.idle();
+      return null;
     }
 
-    // -------------------------------------------------------------
-    // 3. 徒歩 → 乗車 の切り替え判定 (時間 + リアルタイム位置)
-    // -------------------------------------------------------------
-    // 基本的には「徒歩」の時間帯でも、次の「乗車」が近づいている、あるいは
-    // 既にバスに乗っていると検知された場合は、表示を「乗車中」に切り替える。
-    ScheduleEntry resolved = _resolveWalkToRideTransition(
+    ResolvedScheduleState resolvedState = _resolveWalkToRideTransition(
       entry: active,
       scheduleState: scheduleState,
       routeState: routeState,
       now: now,
       realtimeBusLocationId: realtimeBusLocationId,
     );
+
+    ScheduleEntry resolved = resolvedState.resolvedEntry;
+    ScheduleDisplayHint displayHint = resolvedState.displayHint;
 
     // [New Logic] Prevent premature "Arrival" if getting off
     // If the time-based resolver says "Arrival", but we have realtime info saying the bus is NOT at the destination,
@@ -179,7 +179,6 @@ class TripCoordinator {
       // Usually Arrival is linked to the Ride step (same leg).
       // Let's check if the realtime ID matches the destination.
       
-      final step = _stepForEntry(routeState, resolved);
       // For Arrival, the step might be the Ride step (stops list) or the Alight node?
       // In ScheduleEntry, routeStepIndex usually points to the Ride segment if it's "Ride".
       // For "Arrival", it might point to the same ride segment or the next?
@@ -200,6 +199,7 @@ class TripCoordinator {
             // If the bus is NOT at the destination yet, force "Ride"
             if (destStopId != null && realtimeBusLocationId != destStopId) {
                resolved = rideEntry;
+               displayHint = ScheduleDisplayHint.normal;
                debugPrint("[TripCoordinator] Premature Arrival detected. Bus at $realtimeBusLocationId != Dest $destStopId. Reverting to Ride.");
             }
          }
@@ -239,6 +239,7 @@ class TripCoordinator {
           );
           if (fallback != null) {
             resolved = fallback;
+            displayHint = ScheduleDisplayHint.normal;
           }
         } 
         // 既に出発時刻を過ぎているが、少しの遅れ(-2分)までは許容してそのまま表示
@@ -248,8 +249,69 @@ class TripCoordinator {
       }
     }
 
-    debugPrint("[TripCoordinator] active=${active.label} kind=${active.itemKind} rt=${active.routeStepIndex} realtime=$realtimeBusLocationId");
+    return ResolvedScheduleState(
+      resolvedEntry: resolved,
+      displayHint: displayHint,
+    );
+  }
+
+  static NavigationState buildMemberNavigationState({
+    required Trip trip,
+    required ScheduleResolveResult scheduleState,
+    required RouteState? routeState,
+    required DateTime now,
+    String? realtimeBusLocationId,
+    ResolvedScheduleState? resolvedState,
+  }) {
+    // -------------------------------------------------------------
+    // 1. ツアー全体のステータスチェック
+    // -------------------------------------------------------------
+    // ツアーが終了または中止されている場合は、専用の画面を表示
+    if (trip.status == TripStatus.completed) {
+      return NavigationState(
+        mainText: "終了",
+        subText: "お疲れ様でした",
+        color: Colors.grey,
+        currentStepIndex: 999,
+        nextStopIndex: 999,
+        statusLabel: "お出かけ終了",
+        isMoving: false,
+      );
+    }
+    if (trip.status == TripStatus.cancelled) {
+      return NavigationState(
+        mainText: "中止",
+        subText: "グループは解散されました",
+        color: Colors.red,
+        currentStepIndex: 999,
+        nextStopIndex: 999,
+        statusLabel: "中止",
+        isMoving: false,
+      );
+    }
+
+    // 現在のバス停番号（または0）
+    final stopIndex = routeState?.nextStopIndex ?? 0;
+
+    final resolvedScheduleState = resolvedState ??
+        resolveScheduleState(
+          scheduleState: scheduleState,
+          routeState: routeState,
+          now: now,
+          realtimeBusLocationId: realtimeBusLocationId,
+        );
+
+    if (resolvedScheduleState == null) {
+      // 何もない場合は待機状態
+      return NavigationState.idle();
+    }
+
+    final resolved = resolvedScheduleState.resolvedEntry;
+    final displayHint = resolvedScheduleState.displayHint;
+
+    debugPrint("[TripCoordinator] active=${scheduleState.activeEntry?.label} kind=${scheduleState.activeEntry?.itemKind} rt=${scheduleState.activeEntry?.routeStepIndex} realtime=$realtimeBusLocationId");
     debugPrint("[TripCoordinator] resolved=${resolved.label} kind=${resolved.itemKind} rt=${resolved.routeStepIndex}");
+    debugPrint("[TripCoordinator] displayHint=$displayHint");
 
     final diff = resolved.plannedAt.difference(now);
 
@@ -265,12 +327,29 @@ class TripCoordinator {
     // 6. 最終的なナビゲーション状態の生成
     // -------------------------------------------------------------
     // 決定した resolved エントリーに基づいて、画面表示用オブジェクト(NavigationState)を作成
-    return NavigationState.fromEntry(
+    final baseState = NavigationState.fromEntry(
       trip: trip,
       entry: resolved,
       step: _stepForEntry(routeState, resolved),
       stopIndex: stopIndex,
       currentStepIndex: routeState?.currentStepIndex ?? 0,
     );
+
+    if (displayHint == ScheduleDisplayHint.rideSoon && resolved.itemKind == ScheduleEntryKind.ride) {
+      return NavigationState(
+        mainText: "もうすぐ乗車",
+        subText: "まもなく乗車します",
+        color: baseState.color,
+        currentStepIndex: baseState.currentStepIndex,
+        nextStopIndex: baseState.nextStopIndex,
+        statusLabel: "もうすぐ乗車",
+        nextStopName: baseState.nextStopName,
+        remainingStops: baseState.remainingStops,
+        isMoving: baseState.isMoving,
+        step: baseState.step,
+      );
+    }
+
+    return baseState;
   }
 }

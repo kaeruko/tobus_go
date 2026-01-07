@@ -74,7 +74,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                   ),
                   const SizedBox(height: 14),
                   _SchedulePeek(
-                    activeEntry: uiState.activeEntry,
+                    resolvedEntry: uiState.resolvedEntry,
                     windowEntries: uiState.windowEntries,
                     completedCount: uiState.completedCount,
                     activeLabel: uiState.activeLabel,
@@ -309,12 +309,12 @@ class _StatusChip extends StatelessWidget {
 }
 
 class _SchedulePeek extends StatelessWidget {
-  final ScheduleEntry? activeEntry;
+  final ScheduleEntry? resolvedEntry;
   final List<ScheduleEntry> windowEntries;
   final int completedCount;
   final String activeLabel;
 
-  const _SchedulePeek({required this.activeEntry, required this.windowEntries, required this.completedCount, required this.activeLabel});
+  const _SchedulePeek({required this.resolvedEntry, required this.windowEntries, required this.completedCount, required this.activeLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -336,14 +336,14 @@ class _SchedulePeek extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          if (windowEntries.isEmpty && activeEntry == null)
+          if (windowEntries.isEmpty && resolvedEntry == null)
             const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('すべての予定を完了しました。'))
           else
             Column(
               children: windowEntries.map((e) {
                 // インスタンスが異なっても内容で比較したい場合はモデルに==実装が必要ですが、
-                // ここではactiveEntry自体がwindowEntriesに含まれている前提、もしくは参照が同じであることを期待
-                final isActive = activeEntry != null && e == activeEntry;
+                // ここではresolvedEntry自体がwindowEntriesに含まれている前提、もしくは参照が同じであることを期待
+                final isActive = resolvedEntry != null && e == resolvedEntry;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: _ScheduleRow(entry: e, isActive: isActive, activeLabel: activeLabel),
