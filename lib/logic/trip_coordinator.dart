@@ -12,15 +12,41 @@ enum ScheduleDisplayHint {
 
 class ResolvedScheduleState {
   final ScheduleEntry resolvedEntry;
+  final List<ScheduleEntry> windowEntries;
+  final int completedCount;
+  final String activeLabel;
   final ScheduleDisplayHint displayHint;
+  final String resolutionReason;
 
   const ResolvedScheduleState({
     required this.resolvedEntry,
+    required this.windowEntries,
+    required this.completedCount,
+    required this.activeLabel,
     required this.displayHint,
+    required this.resolutionReason,
   });
 }
 
 class TripCoordinator {
+  static ScheduleEntry _ensureResolvedEntryHasRouteStepIndex({
+    required ScheduleEntry resolvedEntry,
+    required ScheduleResolveResult scheduleState,
+    required void Function(String) addReason,
+  }) {
+    if (resolvedEntry.routeStepIndex != null) {
+      return resolvedEntry;
+    }
+
+    final fallback = scheduleState.window
+        .firstWhere((entry) => entry.routeStepIndex != null, orElse: () => resolvedEntry);
+    if (fallback.id != resolvedEntry.id) {
+      addReason("fallback_route_step_index");
+    } else {
+      addReason("missing_route_step_index");
+    }
+    return fallback;
+  }
 
   static bool _realtimeSaysRideStarted({
     required StepSeg step,
@@ -77,7 +103,8 @@ class TripCoordinator {
     return scheduleState.window.first;
   }
 
-  static ResolvedScheduleState _resolveWalkToRideTransition({
+  static ({ScheduleEntry resolvedEntry, ScheduleDisplayHint displayHint, String resolutionReason})
+      _resolveWalkToRideTransition({
     required ScheduleEntry entry,
     required ScheduleResolveResult scheduleState,
     required RouteState? routeState,
@@ -85,9 +112,10 @@ class TripCoordinator {
     String? realtimeBusLocationId,
   }) {
     if (entry.itemKind != ScheduleEntryKind.walk) {
-      return ResolvedScheduleState(
+      return (
         resolvedEntry: entry,
         displayHint: ScheduleDisplayHint.normal,
+        resolutionReason: "active_entry",
       );
     }
 
@@ -110,9 +138,10 @@ class TripCoordinator {
     }
 
     if (upcomingRide == null) {
-      return ResolvedScheduleState(
+      return (
         resolvedEntry: entry,
         displayHint: ScheduleDisplayHint.normal,
+        resolutionReason: "no_upcoming_ride",
       );
     }
 
@@ -127,22 +156,25 @@ class TripCoordinator {
     final rideWindowOpen = timeUntilRide <= const Duration(minutes: 5);
 
     if (rideHasStarted) {
-      return ResolvedScheduleState(
+      return (
         resolvedEntry: upcomingRide,
         displayHint: ScheduleDisplayHint.normal,
+        resolutionReason: "ride_started",
       );
     }
 
     if (rideWindowOpen) {
-      return ResolvedScheduleState(
+      return (
         resolvedEntry: upcomingRide,
         displayHint: ScheduleDisplayHint.rideSoon,
+        resolutionReason: "ride_soon",
       );
     }
 
-    return ResolvedScheduleState(
+    return (
       resolvedEntry: entry,
       displayHint: ScheduleDisplayHint.normal,
+      resolutionReason: "walk_active",
     );
   }
 
@@ -157,16 +189,22 @@ class TripCoordinator {
       return null;
     }
 
-    ResolvedScheduleState resolvedState = _resolveWalkToRideTransition(
+    final resolutionReasons = <String>[];
+    void addReason(String reason) {
+      resolutionReasons.add(reason);
+    }
+
+    final initialDecision = _resolveWalkToRideTransition(
       entry: active,
       scheduleState: scheduleState,
       routeState: routeState,
       now: now,
       realtimeBusLocationId: realtimeBusLocationId,
     );
+    addReason(initialDecision.resolutionReason);
 
-    ScheduleEntry resolved = resolvedState.resolvedEntry;
-    ScheduleDisplayHint displayHint = resolvedState.displayHint;
+    ScheduleEntry resolved = initialDecision.resolvedEntry;
+    ScheduleDisplayHint displayHint = initialDecision.displayHint;
 
     // [New Logic] Prevent premature "Arrival" if getting off
     // If the time-based resolver says "Arrival", but we have realtime info saying the bus is NOT at the destination,
@@ -200,6 +238,7 @@ class TripCoordinator {
             if (destStopId != null && realtimeBusLocationId != destStopId) {
                resolved = rideEntry;
                displayHint = ScheduleDisplayHint.normal;
+               addReason("premature_arrival_revert");
                debugPrint("[TripCoordinator] Premature Arrival detected. Bus at $realtimeBusLocationId != Dest $destStopId. Reverting to Ride.");
             }
          }
@@ -240,6 +279,7 @@ class TripCoordinator {
           if (fallback != null) {
             resolved = fallback;
             displayHint = ScheduleDisplayHint.normal;
+            addReason("ride_too_early_fallback");
           }
         } 
         // 既に出発時刻を過ぎているが、少しの遅れ(-2分)までは許容してそのまま表示
@@ -249,10 +289,49 @@ class TripCoordinator {
       }
     }
 
+    resolved = _ensureResolvedEntryHasRouteStepIndex(
+      resolvedEntry: resolved,
+      scheduleState: scheduleState,
+      addReason: addReason,
+    );
+
+    final completedCount = _resolveCompletedCount(
+      scheduleState: scheduleState,
+      resolvedEntry: resolved,
+    );
+
     return ResolvedScheduleState(
       resolvedEntry: resolved,
+      windowEntries: scheduleState.window,
+      completedCount: completedCount,
+      activeLabel: scheduleState.activeLabel,
       displayHint: displayHint,
+      resolutionReason: resolutionReasons.join(" | "),
     );
+  }
+
+  static int _resolveCompletedCount({
+    required ScheduleResolveResult scheduleState,
+    required ScheduleEntry resolvedEntry,
+  }) {
+    final activeEntry = scheduleState.activeEntry;
+    if (activeEntry == null) {
+      return scheduleState.completedCount;
+    }
+
+    if (resolvedEntry.id == activeEntry.id) {
+      return scheduleState.completedCount;
+    }
+
+    final window = scheduleState.window;
+    final activePos = window.indexWhere((entry) => entry.id == activeEntry.id);
+    final resolvedPos = window.indexWhere((entry) => entry.id == resolvedEntry.id);
+    if (activePos == -1 || resolvedPos == -1) {
+      return scheduleState.completedCount;
+    }
+
+    final adjusted = scheduleState.completedCount + (resolvedPos - activePos);
+    return adjusted < 0 ? 0 : adjusted;
   }
 
   static NavigationState buildMemberNavigationState({
@@ -311,7 +390,7 @@ class TripCoordinator {
 
     debugPrint("[TripCoordinator] active=${scheduleState.activeEntry?.label} kind=${scheduleState.activeEntry?.itemKind} rt=${scheduleState.activeEntry?.routeStepIndex} realtime=$realtimeBusLocationId");
     debugPrint("[TripCoordinator] resolved=${resolved.label} kind=${resolved.itemKind} rt=${resolved.routeStepIndex}");
-    debugPrint("[TripCoordinator] displayHint=$displayHint");
+    debugPrint("[TripCoordinator] displayHint=$displayHint reason=${resolvedScheduleState.resolutionReason}");
 
     final diff = resolved.plannedAt.difference(now);
 

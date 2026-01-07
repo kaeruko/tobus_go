@@ -256,11 +256,11 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((r
 
     return MemberUiState(
       navState: navDisplayState,
-      windowEntries: scheduleResolved.window,
+      windowEntries: resolvedState?.windowEntries ?? scheduleResolved.window,
       resolvedEntry: resolvedState?.resolvedEntry,
-      completedCount: scheduleResolved.completedCount,
-      activeLabel: scheduleResolved.activeLabel,
+      completedCount: resolvedState?.completedCount ?? scheduleResolved.completedCount,
+      activeLabel: resolvedState?.activeLabel ?? scheduleResolved.activeLabel,
       displayTitle: trip.displayTitle,
     );
-  });
+    });
 });
