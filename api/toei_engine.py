@@ -462,6 +462,7 @@ class TimetableManager:
         self._debug_counts = defaultdict(int)
 
         self.route_patterns_map = defaultdict(list) 
+        self.pattern_stops_map = {}
         
         # key: station_id, value: [ {dep, arr, next_sta, train_id} ]
         self.train_patterns_weekday = {}
@@ -487,6 +488,7 @@ class TimetableManager:
         if not hasattr(self, "train_service_suspended"): self.train_service_suspended = set()
         if not hasattr(self, "latest_train_info"): self.latest_train_info = []
         if not hasattr(self, "latest_gtfsrt_vehicles"): self.latest_gtfsrt_vehicles = {}
+        if not hasattr(self, "pattern_stops_map"): self.pattern_stops_map = {}
         
         need_rebuild_indexes = False
         if (not hasattr(self, "pole_base_index_weekday")) or (self.pole_base_index_weekday is None): need_rebuild_indexes = True
@@ -632,11 +634,14 @@ class TimetableManager:
         seen = defaultdict(set)
         for entry in data:
             route_id = entry.get("odpt:busroute")
+            pattern_id = entry.get("odpt:busroutePattern") or entry.get("owl:sameAs")
             orders = entry.get("odpt:busstopPoleOrder") or []
             try: orders = sorted(orders, key=lambda x: x.get("odpt:index", 0))
             except: pass
             seq = [o.get("odpt:busstopPole") for o in orders if o.get("odpt:busstopPole")]
             if not route_id or not seq: continue
+            if pattern_id:
+                self.pattern_stops_map[pattern_id] = seq
             key = tuple(seq)
             if key in seen[route_id]:
                 continue
@@ -773,8 +778,24 @@ class TimetableManager:
             if not target_pole_id:
                 return True
             dest_id = trip.get("dest")
-            if not dest_id:
-                return True
+            pattern_id = trip.get("trip")
+            if pattern_id and pattern_id in self.pattern_stops_map:
+                stops = self.pattern_stops_map[pattern_id]
+                # Policy: when destination is missing or not in the pattern sequence, allow the trip.
+                if not dest_id or dest_id not in stops:
+                    return True
+                if board_pole_id not in stops:
+                    return True
+                b = stops.index(board_pole_id)
+                d = stops.index(dest_id)
+                if d < b:
+                    return False
+                # Policy: if target stop is not in the pattern sequence, treat it as invalid.
+                if target_pole_id not in stops:
+                    return False
+                t = stops.index(target_pole_id)
+                return b <= t <= d
+
             patterns = self.route_patterns_map.get(rid) or []
             if not patterns:
                 return True
