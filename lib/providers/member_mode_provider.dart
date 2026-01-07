@@ -75,26 +75,28 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
     final trip = _ref.read(tripStreamProvider).value;
     if (trip == null) return;
 
-    // 【変更】共通のスケジュールProviderから結果を取得
-    // 自身がTimer内なので watch はできないが read で取得する。
-    // AutoDisposeなので、UIでwatchされていなければ再計算コストがかかるかもしれないが、ロジックは一元化される。
-    final scheduleAsync = _ref.read(memberScheduleStateProvider);
-    
-    // データがまだ無い、エラーなどの場合は何もしない
-    if (scheduleAsync.asData == null) return;
-    final scheduleResolved = scheduleAsync.asData!.value;
-
-    final resolvedEntry = scheduleResolved.resolvedEntry;
+    final navProgress = _ref.read(memberNavProgressProvider);
     final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
+    final routeState = RouteState(
+      steps: allSteps,
+      currentStepIndex: navProgress.currentStepIndex,
+      nextStopIndex: navProgress.nextStopIndex,
+      isMoving: false,
+    );
+    final resolvedState = TripCoordinator.resolveScheduleState(
+      scheduleEntries: trip.schedule,
+      routeState: routeState,
+      now: appClock.now(),
+      realtimeBusLocationId: state.lastRealtimeBusId,
+    );
+    final resolvedEntry = resolvedState.resolvedEntry!;
     StepSeg? activeStep;
     int? apiStopIndex;
 
     // 1. アクティブなエントリーがあれば、それに対応するステップを特定
-    if (resolvedEntry?.routeStepIndex != null) {
-      final stepIndex = resolvedEntry!.routeStepIndex!;
-      if (stepIndex >= 0 && stepIndex < allSteps.length) {
-        activeStep = allSteps[stepIndex];
-      }
+    final stepIndex = resolvedEntry.routeStepIndex!;
+    if (stepIndex >= 0 && stepIndex < allSteps.length) {
+      activeStep = allSteps[stepIndex];
     }
 
     // 2. 乗車中かつルートIDがある場合のみAPI確認 (Realtime基準)
@@ -156,15 +158,13 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
 
     // 3. 進捗を更新 (時間基準 + API補正)
     // activeEntry (時間基準) をベースにしつつ、API情報 (apiStopIndex) があればそれを強制適用する
-    if (resolvedEntry != null) {
-      _ref.read(memberNavProgressProvider.notifier).updateFromSchedule(
-        trip,
-        resolvedEntry,
-        // APIで位置が取れていればそのバス停インデックスを、取れていなければStateの前回値を優先
-        // どちらもなければnullになり、純粋な時間基準(updateFromScheduleのデフォルト挙動)になる
-        forceStopIndex: apiStopIndex ?? state.lastApiStopIndex,
-      );
-     }
+    _ref.read(memberNavProgressProvider.notifier).updateFromSchedule(
+      trip,
+      resolvedEntry,
+      // APIで位置が取れていればそのバス停インデックスを、取れていなければStateの前回値を優先
+      // どちらもなければnullになり、純粋な時間基準(updateFromScheduleのデフォルト挙動)になる
+      forceStopIndex: apiStopIndex ?? state.lastApiStopIndex,
+    );
   }
 }
 
