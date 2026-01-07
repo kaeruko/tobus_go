@@ -89,17 +89,31 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
     if (scheduleAsync.asData == null) return;
     final scheduleResolved = scheduleAsync.asData!.value;
 
-    final activeEntry = scheduleResolved.activeEntry;
+    final navProgress = _ref.read(memberNavProgressProvider);
+    final now = appClock.now();
     final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
+    final routeState = RouteState(
+      steps: allSteps,
+      currentStepIndex: navProgress.currentStepIndex,
+      nextStopIndex: navProgress.nextStopIndex,
+      isMoving: false,
+    );
+    final resolvedState = TripCoordinator.resolveScheduleState(
+      scheduleState: scheduleResolved,
+      routeState: routeState,
+      now: now,
+      realtimeBusLocationId: state.lastRealtimeBusId,
+    );
+    if (resolvedState == null) return;
+
+    final resolvedEntry = resolvedState.resolvedEntry;
     StepSeg? activeStep;
     int? apiStopIndex;
 
     // 1. アクティブなエントリーがあれば、それに対応するステップを特定
-    if (activeEntry?.routeStepIndex != null) {
-      final stepIndex = activeEntry!.routeStepIndex!;
-      if (stepIndex >= 0 && stepIndex < allSteps.length) {
-        activeStep = allSteps[stepIndex];
-      }
+    final stepIndex = resolvedEntry.routeStepIndex!;
+    if (stepIndex >= 0 && stepIndex < allSteps.length) {
+      activeStep = allSteps[stepIndex];
     }
 
     // 2. 乗車中かつルートIDがある場合のみAPI確認 (Realtime基準)
@@ -161,15 +175,13 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
 
     // 3. 進捗を更新 (時間基準 + API補正)
     // activeEntry (時間基準) をベースにしつつ、API情報 (apiStopIndex) があればそれを強制適用する
-    if (activeEntry != null) {
-      _ref.read(memberNavProgressProvider.notifier).updateFromSchedule(
-        trip,
-        activeEntry,
-        // APIで位置が取れていればそのバス停インデックスを、取れていなければStateの前回値を優先
-        // どちらもなければnullになり、純粋な時間基準(updateFromScheduleのデフォルト挙動)になる
-        forceStopIndex: apiStopIndex ?? state.lastApiStopIndex,
-      );
-     }
+    _ref.read(memberNavProgressProvider.notifier).updateFromSchedule(
+      trip,
+      resolvedEntry,
+      // APIで位置が取れていればそのバス停インデックスを、取れていなければStateの前回値を優先
+      // どちらもなければnullになり、純粋な時間基準(updateFromScheduleのデフォルト挙動)になる
+      forceStopIndex: apiStopIndex ?? state.lastApiStopIndex,
+    );
   }
 }
 

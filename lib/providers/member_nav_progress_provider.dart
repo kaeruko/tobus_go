@@ -40,10 +40,7 @@ class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
   /// - [trip]: 現在の旅程データ
   /// - [activeEntry]: 現在時刻におけるアクティブなスケジュール項目 (ここで推定済みのステップ番号が入っている)
   /// - [forceStopIndex]: APIから取得した「現在のバス停位置」がある場合に指定する
-  void updateFromSchedule(Trip trip, ScheduleEntry? activeEntry, {int? forceStopIndex}) {
-    // アクティブなエントリーがStepに紐付いていない場合は何もしない
-    if (activeEntry?.routeStepIndex == null) return;
-
+  void updateFromSchedule(Trip trip, ScheduleEntry activeEntry, {int? forceStopIndex}) {
     // -------------------------------------------------------------
     // Tripデータの構造変換 (階層データ -> フラットなリスト)
     // -------------------------------------------------------------
@@ -53,7 +50,7 @@ class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
     // そのため、階層構造のままでは「N番目のステップ」を直接取得できないので、
     // 一旦すべてのStepを一本のリスト(allSteps)に平坦化(expand)して並べ直しています。
     final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
-    final targetStepIndex = activeEntry!.routeStepIndex!;
+    final targetStepIndex = activeEntry.routeStepIndex!;
 
     // 通し番号が有効範囲内かチェック
     if (targetStepIndex < 0 || targetStepIndex >= allSteps.length) return;
