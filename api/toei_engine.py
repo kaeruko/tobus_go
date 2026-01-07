@@ -962,21 +962,20 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
     for pat in patterns:
         if not is_toei(pat.get("odpt:operator")): continue
         route_id = pat.get("odpt:busroute")
+        pattern_id = pat.get("odpt:busroutePattern") or get_id(pat) or pat.get("owl:sameAs")
         full_title = pat.get("dc:title") or "???"
         disp = full_title
-        short_title = full_title.split()[0]
-        norm = _norm_line(short_title)
-        family_key = f"bus:{norm}:{disp}"
+        line_id = f"buspat:{pattern_id}" if pattern_id else route_id
         orders = pat.get("odpt:busstopPoleOrder") or []
         try: orders = sorted(orders, key=lambda x: x.get("odpt:index", 0))
         except: pass
         seq = [o.get("odpt:busstopPole") for o in orders if o.get("odpt:busstopPole") in phys]
         
         for a, b in zip(seq, seq[1:]):
-            na = ensure_line_node(a, family_key, disp, "bus", route_id)
-            nb = ensure_line_node(b, family_key, disp, "bus", route_id)
+            na = ensure_line_node(a, line_id, disp, "bus", route_id)
+            nb = ensure_line_node(b, line_id, disp, "bus", route_id)
             if not G.has_edge(na, nb):
-                G.add_edge(na, nb, w=BUS_RIDE_COST, etype="ride", line=family_key, mode="bus")
+                G.add_edge(na, nb, w=BUS_RIDE_COST, etype="ride", line=line_id, mode="bus")
 
     railways = load_json(railways_path)
     for rw in railways:
