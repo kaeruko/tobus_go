@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/trip_models.dart';
 import '../models/group_models.dart';
 import '../models/route_models.dart'; // StepSeg
@@ -115,7 +114,6 @@ class TripCoordinator {
     required RouteState? routeState,
     required DateTime now,
     String? realtimeBusLocationId,
-    LatLng? currentPos, // Start accepting currentPos
   }) {
     // -------------------------------------------------------------
     // 1. ツアー全体のステータスチェック
