@@ -25,23 +25,21 @@ class ResolvedScheduleState {
 class TripCoordinator {
   static ScheduleEntry _ensureResolvedEntryHasRouteStepIndex({
     required ScheduleEntry resolvedEntry,
-    required List<ScheduleEntry> windowEntries,
     required void Function(String) addReason,
   }) {
     if (resolvedEntry.routeStepIndex != null) {
       return resolvedEntry;
     }
 
-    final fallback = windowEntries.firstWhere(
-      (entry) => entry.routeStepIndex != null,
-      orElse: () => resolvedEntry,
-    );
-    if (fallback.id != resolvedEntry.id) {
-      addReason("fallback_route_step_index");
-    } else {
-      addReason("missing_route_step_index");
-    }
-    return fallback;
+    addReason("missing_route_step_index");
+    assert(() {
+      debugPrint(
+        "[TripCoordinator] Resolved entry missing routeStepIndex: "
+        "id=${resolvedEntry.id} label=${resolvedEntry.label}",
+      );
+      return false;
+    }());
+    return resolvedEntry;
   }
 
   static bool _realtimeSaysRideStarted({
@@ -162,7 +160,6 @@ class TripCoordinator {
 
     resolved = _ensureResolvedEntryHasRouteStepIndex(
       resolvedEntry: resolved,
-      windowEntries: windowEntries,
       addReason: addReason,
     );
 
@@ -250,7 +247,6 @@ class TripCoordinator {
     }
 
     final resolved = resolvedState.resolvedEntry!;
-
     debugPrint("[TripCoordinator] active=${resolvedState.activeEntry?.label} kind=${resolvedState.activeEntry?.itemKind} rt=${resolvedState.activeEntry?.routeStepIndex} realtime=$realtimeBusLocationId");
     debugPrint("[TripCoordinator] resolved=${resolved.label} kind=${resolved.itemKind} rt=${resolved.routeStepIndex}");
     debugPrint("[TripCoordinator] reason=${resolvedState.resolutionReason}");
