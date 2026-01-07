@@ -33,7 +33,7 @@ class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
   /// スケジュール(`activeEntry`)に基づいて、現在のステップ位置を更新する。
   /// 
   /// **注意:** このメソッド自体は「現在どのステップにいるか（時間の推定）」は行いません。
-  /// それは呼び出し元の `ScheduleResolver` が計算し、その結果が引数の `activeEntry` として渡されてきます。
+  /// それは呼び出し元の `ResolvedScheduleState` が計算し、その結果が引数の `activeEntry` として渡されてきます。
   /// このメソッドは、渡された `activeEntry` の情報（routeStepIndex）を、
   /// アプリ内の状態管理クラス(`MemberNavState`)に反映させる役割を持ちます。
   /// 

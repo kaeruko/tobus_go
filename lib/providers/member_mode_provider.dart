@@ -8,14 +8,13 @@ import '../models/group_models.dart';
 import '../models/route_models.dart';
 import '../logic/trip_coordinator.dart';
 import '../logic/trip_navigator.dart';
-import '../logic/schedule_resolver.dart';
 import 'trip_provider.dart';
 import 'member_nav_progress_provider.dart';
 import 'minute_ticker_provider.dart';
 
 /// スケジュール解決結果を共有するProvider
 /// 時間経過(ticker)またはTripの更新で再計算される
-final memberScheduleStateProvider = Provider.autoDispose<AsyncValue<ScheduleResolveResult>>((ref) {
+final memberScheduleStateProvider = Provider.autoDispose<AsyncValue<ResolvedScheduleState>>((ref) {
   final tripAsync = ref.watch(tripStreamProvider);
   final nowTick = ref.watch(minuteTickerProvider);
 
@@ -25,13 +24,9 @@ final memberScheduleStateProvider = Provider.autoDispose<AsyncValue<ScheduleReso
     // UI表示用には最新の時間を刻む (nowTickがまだなければ実時間)
     final now = nowTick.value ?? appClock.now();
     
-    return ScheduleResolver.resolve(
-      scheduleSorted: ScheduleResolver.sortCopy(trip.schedule),
+    return TripCoordinator.resolveScheduleState(
+      scheduleEntries: trip.schedule,
       now: now,
-      trip: trip,
-      // 以前のロジックでは currentStepIndex/nextStopIndex を渡していたが、
-      // 実際には ScheduleResolver 内で使われていないため省略する。
-      // 必要になったら MemberNavState から取得して渡す。
     );
   });
 });
@@ -89,14 +84,14 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
     if (scheduleAsync.asData == null) return;
     final scheduleResolved = scheduleAsync.asData!.value;
 
-    final activeEntry = scheduleResolved.activeEntry;
+    final resolvedEntry = scheduleResolved.resolvedEntry;
     final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
     StepSeg? activeStep;
     int? apiStopIndex;
 
     // 1. アクティブなエントリーがあれば、それに対応するステップを特定
-    if (activeEntry?.routeStepIndex != null) {
-      final stepIndex = activeEntry!.routeStepIndex!;
+    if (resolvedEntry?.routeStepIndex != null) {
+      final stepIndex = resolvedEntry!.routeStepIndex!;
       if (stepIndex >= 0 && stepIndex < allSteps.length) {
         activeStep = allSteps[stepIndex];
       }
@@ -161,10 +156,10 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
 
     // 3. 進捗を更新 (時間基準 + API補正)
     // activeEntry (時間基準) をベースにしつつ、API情報 (apiStopIndex) があればそれを強制適用する
-    if (activeEntry != null) {
+    if (resolvedEntry != null) {
       _ref.read(memberNavProgressProvider.notifier).updateFromSchedule(
         trip,
-        activeEntry,
+        resolvedEntry,
         // APIで位置が取れていればそのバス停インデックスを、取れていなければStateの前回値を優先
         // どちらもなければnullになり、純粋な時間基準(updateFromScheduleのデフォルト挙動)になる
         forceStopIndex: apiStopIndex ?? state.lastApiStopIndex,
@@ -217,28 +212,8 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((r
       isMoving: false,
     );
     
-    // スケジュールの解決 (共通Providerから取得)
-    final scheduleAsync = ref.watch(memberScheduleStateProvider);
-    
-    // ロード中やエラー時はとりあえず空のUIを返すか、ローディング出すべきだが、
-    // ここではデータがある場合のみ進む (AsyncValueのハンドリング)
-    // 親が whenData ではないので、ここでもしデータがなければエラー扱いで良いかもしれない。
-    // ただし tripAsync.whenData の中なので、基本的には trip があれば schedule も計算できるはず。
-    if (!scheduleAsync.hasValue) {
-      // まだ計算できていない場合
-      return MemberUiState(
-        navState: NavigationState.idle(),
-        windowEntries: [],
-        resolvedEntry: null,
-        completedCount: 0,
-        activeLabel: "",
-        displayTitle: trip.displayTitle,
-      );
-    }
-    
-    final scheduleResolved = scheduleAsync.value!;
     final resolvedState = TripCoordinator.resolveScheduleState(
-      scheduleState: scheduleResolved,
+      scheduleEntries: trip.schedule,
       routeState: routeState,
       now: now,
       realtimeBusLocationId: realtimeState.lastRealtimeBusId,
@@ -247,7 +222,6 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((r
     // ナビゲーション表示状態の構築
     final navDisplayState = TripCoordinator.buildMemberNavigationState(
       trip: trip,
-      scheduleState: scheduleResolved,
       routeState: routeState,
       now: now,
       realtimeBusLocationId: realtimeState.lastRealtimeBusId,
@@ -256,10 +230,10 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((r
 
     return MemberUiState(
       navState: navDisplayState,
-      windowEntries: resolvedState?.windowEntries ?? scheduleResolved.window,
-      resolvedEntry: resolvedState?.resolvedEntry,
-      completedCount: resolvedState?.completedCount ?? scheduleResolved.completedCount,
-      activeLabel: resolvedState?.activeLabel ?? scheduleResolved.activeLabel,
+      windowEntries: resolvedState.windowEntries,
+      resolvedEntry: resolvedState.resolvedEntry,
+      completedCount: resolvedState.completedCount,
+      activeLabel: resolvedState.activeLabel,
       displayTitle: trip.displayTitle,
     );
     });

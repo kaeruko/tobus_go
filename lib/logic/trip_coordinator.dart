@@ -3,7 +3,6 @@ import '../models/trip_models.dart';
 import '../models/group_models.dart';
 import '../models/route_models.dart'; // StepSeg
 import 'trip_navigator.dart';
-import 'schedule_resolver.dart';
 
 enum ScheduleDisplayHint {
   normal,
@@ -12,7 +11,7 @@ enum ScheduleDisplayHint {
 
 class ResolvedScheduleState {
   final ScheduleEntry? activeEntry;
-  final ScheduleEntry resolvedEntry;
+  final ScheduleEntry? resolvedEntry;
   final List<ScheduleEntry> windowEntries;
   final int completedCount;
   final String activeLabel;
@@ -33,14 +32,17 @@ class ResolvedScheduleState {
 class TripCoordinator {
   static ScheduleEntry _ensureResolvedEntryHasRouteStepIndex({
     required ScheduleEntry resolvedEntry,
-    required ScheduleResolveResult scheduleState,
+    required List<ScheduleEntry> windowEntries,
     required void Function(String) addReason,
   }) {
     if (resolvedEntry.routeStepIndex != null) {
       return resolvedEntry;
     }
 
-    final fallback = scheduleState.window.firstWhere((entry) => entry.routeStepIndex != null);
+    final fallback = windowEntries.firstWhere(
+      (entry) => entry.routeStepIndex != null,
+      orElse: () => resolvedEntry,
+    );
     if (fallback.id != resolvedEntry.id) {
       addReason("fallback_route_step_index");
     } else {
@@ -73,26 +75,62 @@ class TripCoordinator {
     return routeState.steps[idx];
   }
 
-  static ResolvedScheduleState? resolveScheduleState({
-    required ScheduleResolveResult scheduleState,
-    required RouteState? routeState,
+  static ResolvedScheduleState resolveScheduleState({
+    required List<ScheduleEntry> scheduleEntries,
     required DateTime now,
+    RouteState? routeState,
     String? realtimeBusLocationId,
+    int prevCount = 1,
+    int nextCount = 3,
   }) {
-    final active = scheduleState.activeEntry;
-    if (active == null) {
-      return null;
+    final scheduleSorted = [...scheduleEntries];
+    sortScheduleEntries(scheduleSorted);
+
+    int activeIndex = _resolveActiveIndex(scheduleSorted, now);
+    String activeLabel = 'いま';
+
+    if (activeIndex == -1 && scheduleSorted.isNotEmpty) {
+      final first = scheduleSorted.first;
+      final diff = first.plannedAt.difference(now);
+      activeLabel = diff.inMinutes > 20 ? 'そのうち' : 'つぎ';
     }
+
+    final active = (activeIndex >= 0 && activeIndex < scheduleSorted.length)
+        ? scheduleSorted[activeIndex]
+        : null;
+
+    final completedCount = activeIndex >= 0 ? activeIndex : 0;
+
+    final start = activeIndex >= 0 ? (activeIndex - prevCount) : 0;
+    final safeStart = start < 0 ? 0 : start;
+    final end = activeIndex >= 0 ? (activeIndex + nextCount) : nextCount;
+    final safeEnd = end >= scheduleSorted.length ? scheduleSorted.length - 1 : end;
+    final windowEntries = (activeIndex >= 0 || scheduleSorted.isNotEmpty) && safeStart <= safeEnd
+        ? scheduleSorted.sublist(safeStart, safeEnd + 1)
+        : <ScheduleEntry>[];
 
     final resolutionReasons = <String>[];
     void addReason(String reason) {
       resolutionReasons.add(reason);
     }
 
-    addReason("active_entry");
-
-    ScheduleEntry resolved = active;
+    ScheduleEntry? resolved = active;
     ScheduleDisplayHint displayHint = ScheduleDisplayHint.normal;
+
+    if (active == null) {
+      addReason("no_active_entry");
+      return ResolvedScheduleState(
+        activeEntry: null,
+        resolvedEntry: null,
+        windowEntries: windowEntries,
+        completedCount: completedCount,
+        activeLabel: activeLabel,
+        displayHint: displayHint,
+        resolutionReason: resolutionReasons.join(" | "),
+      );
+    }
+
+    addReason("active_entry");
 
     // [New Logic] Prevent premature "Arrival" if getting off
     // If the time-based resolver says "Arrival", but we have realtime info saying the bus is NOT at the destination,
@@ -111,7 +149,7 @@ class TripCoordinator {
       // Let's assume we need to find the "Ride" entry for this leg to be safe.
       
       ScheduleEntry? rideEntry;
-      for (final e in scheduleState.window) {
+      for (final e in scheduleSorted) {
         if (e.legIndex == resolved.legIndex && e.itemKind == ScheduleEntryKind.ride) {
           rideEntry = e;
           break;
@@ -135,53 +173,54 @@ class TripCoordinator {
 
     resolved = _ensureResolvedEntryHasRouteStepIndex(
       resolvedEntry: resolved,
-      scheduleState: scheduleState,
+      windowEntries: windowEntries,
       addReason: addReason,
     );
 
-    final completedCount = _resolveCompletedCount(
-      scheduleState: scheduleState,
+    final resolvedCompletedCount = _resolveCompletedCount(
+      baseCompletedCount: completedCount,
+      activeEntry: active,
       resolvedEntry: resolved,
+      windowEntries: windowEntries,
     );
 
     return ResolvedScheduleState(
       activeEntry: active,
       resolvedEntry: resolved,
-      windowEntries: scheduleState.window,
-      completedCount: completedCount,
-      activeLabel: scheduleState.activeLabel,
+      windowEntries: windowEntries,
+      completedCount: resolvedCompletedCount,
+      activeLabel: activeLabel,
       displayHint: displayHint,
       resolutionReason: resolutionReasons.join(" | "),
     );
   }
 
   static int _resolveCompletedCount({
-    required ScheduleResolveResult scheduleState,
-    required ScheduleEntry resolvedEntry,
+    required int baseCompletedCount,
+    required ScheduleEntry? activeEntry,
+    required ScheduleEntry? resolvedEntry,
+    required List<ScheduleEntry> windowEntries,
   }) {
-    final activeEntry = scheduleState.activeEntry;
-    if (activeEntry == null) {
-      return scheduleState.completedCount;
+    if (activeEntry == null || resolvedEntry == null) {
+      return baseCompletedCount;
     }
 
     if (resolvedEntry.id == activeEntry.id) {
-      return scheduleState.completedCount;
+      return baseCompletedCount;
     }
 
-    final window = scheduleState.window;
-    final activePos = window.indexWhere((entry) => entry.id == activeEntry.id);
-    final resolvedPos = window.indexWhere((entry) => entry.id == resolvedEntry.id);
+    final activePos = windowEntries.indexWhere((entry) => entry.id == activeEntry.id);
+    final resolvedPos = windowEntries.indexWhere((entry) => entry.id == resolvedEntry.id);
     if (activePos == -1 || resolvedPos == -1) {
-      return scheduleState.completedCount;
+      return baseCompletedCount;
     }
 
-    final adjusted = scheduleState.completedCount + (resolvedPos - activePos);
+    final adjusted = baseCompletedCount + (resolvedPos - activePos);
     return adjusted < 0 ? 0 : adjusted;
   }
 
   static NavigationState buildMemberNavigationState({
     required Trip trip,
-    required ScheduleResolveResult scheduleState,
     required RouteState? routeState,
     required DateTime now,
     String? realtimeBusLocationId,
@@ -217,25 +256,17 @@ class TripCoordinator {
     // 現在のバス停番号（または0）
     final stopIndex = routeState?.nextStopIndex ?? 0;
 
-    final resolvedScheduleState = resolvedState ??
-        resolveScheduleState(
-          scheduleState: scheduleState,
-          routeState: routeState,
-          now: now,
-          realtimeBusLocationId: realtimeBusLocationId,
-        );
-
-    if (resolvedScheduleState == null) {
+    if (resolvedState == null || resolvedState.resolvedEntry == null) {
       // 何もない場合は待機状態
       return NavigationState.idle();
     }
 
-    final resolved = resolvedScheduleState.resolvedEntry;
-    final displayHint = resolvedScheduleState.displayHint;
+    final resolved = resolvedState.resolvedEntry!;
+    final displayHint = resolvedState.displayHint;
 
-    debugPrint("[TripCoordinator] active=${resolvedScheduleState.activeEntry?.label} kind=${resolvedScheduleState.activeEntry?.itemKind} rt=${resolvedScheduleState.activeEntry?.routeStepIndex} realtime=$realtimeBusLocationId");
+    debugPrint("[TripCoordinator] active=${resolvedState.activeEntry?.label} kind=${resolvedState.activeEntry?.itemKind} rt=${resolvedState.activeEntry?.routeStepIndex} realtime=$realtimeBusLocationId");
     debugPrint("[TripCoordinator] resolved=${resolved.label} kind=${resolved.itemKind} rt=${resolved.routeStepIndex}");
-    debugPrint("[TripCoordinator] displayHint=$displayHint reason=${resolvedScheduleState.resolutionReason}");
+    debugPrint("[TripCoordinator] displayHint=$displayHint reason=${resolvedState.resolutionReason}");
 
     final diff = resolved.plannedAt.difference(now);
 
@@ -275,5 +306,66 @@ class TripCoordinator {
     }
 
     return baseState;
+  }
+
+  static int _resolveActiveIndex(List<ScheduleEntry> steps, DateTime now) {
+    if (steps.isEmpty) return -1;
+
+    int bestIndex = -1;
+    double minScore = 99999.0;
+
+    debugPrint('[TripCoordinator] Resolving active step at $now (steps=${steps.length})');
+
+    for (int i = 0; i < steps.length; i++) {
+      final step = steps[i];
+      final diffMin = step.plannedAt.difference(now).inMinutes;
+
+      bool isCandidate = false;
+
+      if (step.itemKind == ScheduleEntryKind.ride) {
+        if (diffMin <= 60 && diffMin > -120) {
+          isCandidate = true;
+        }
+      } else {
+        if (diffMin <= 60 && diffMin > -120) {
+          isCandidate = true;
+        }
+      }
+
+      debugPrint(
+        '[TripCoordinator] Step $i (${step.label}): plannedAt=${step.plannedAt} '
+        'diff=${diffMin}m kind=${step.itemKind} candidate=$isCandidate '
+        'routeStepIndex=${step.routeStepIndex}',
+      );
+
+      if (isCandidate) {
+        double score = diffMin.abs().toDouble();
+
+        if (diffMin < 0) score += 0.5;
+
+        if (step.itemKind == ScheduleEntryKind.ride && diffMin < 0) {
+          if (i + 1 < steps.length) {
+            final next = steps[i + 1];
+            if (next.itemKind == ScheduleEntryKind.arrival) {
+              final nextDiff = next.plannedAt.difference(now).inMinutes;
+              if (nextDiff > 0) {
+                score = 0.1;
+              }
+            }
+          }
+        }
+
+        debugPrint('  -> Score: $score (best: $minScore)');
+
+        if (score < minScore) {
+          minScore = score;
+          bestIndex = i;
+          debugPrint('[TripCoordinator] New best -> index=$bestIndex score=$minScore label=${step.label}');
+        }
+      }
+    }
+
+    debugPrint('[TripCoordinator] Selected best index: $bestIndex');
+    return bestIndex;
   }
 }
