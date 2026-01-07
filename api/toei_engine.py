@@ -978,7 +978,7 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
     for pat in patterns:
         if not is_toei(pat.get("odpt:operator")): continue
         route_id = pat.get("odpt:busroute")
-        pattern_id = pat.get("odpt:busroutePattern") or get_id(pat) or pat.get("owl:sameAs")
+        pattern_id = get_id(pat)
         full_title = pat.get("dc:title") or "???"
         disp = full_title
         line_id = f"buspat:{pattern_id}" if pattern_id else route_id
