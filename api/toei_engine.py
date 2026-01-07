@@ -1596,6 +1596,10 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
       遅延や運休などで実際の運行とズレる可能性がある。
     """
     segs = []
+    print(
+        f"[segments_detailed] start path_len={len(path)} start_time={start_time_str} day_type={day_type}",
+        flush=True,
+    )
     cur = None
     last_phys = None
     curr_time = time_str_to_min(start_time_str)
@@ -1624,6 +1628,14 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     # 時刻不明時は駅数x2分で概算
                     cur["minutes"] = max(1, int(cur.get("edges", 0) * 2.0))
             segs.append(cur)
+            print(
+                f"[segments_detailed] flush kind={cur.get('kind')} title={cur.get('title')} "
+                f"from={cur.get('from_')} to={cur.get('to')} "
+                f"dep={cur.get('departure_time')} arr={cur.get('arrival_time')} "
+                f"minutes={cur.get('minutes')} stops={len(cur.get('stops', []))} "
+                f"route_id={cur.get('route_id')} trip_id={cur.get('trip_id')}",
+                flush=True,
+            )
             cur = None
 
     # 「現在地」と「次の目的地」のペア
@@ -1640,6 +1652,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
         if u[0] == "phys": last_phys = u
 
         if etype == "walk":
+            print(f"[segments_detailed] edge[{i}] walk u={u} v={v}", flush=True)
             # 連続する徒歩エッジを一つのセグメントにまとめる
             if not cur or cur["kind"] != "walk":
                 flush()
@@ -1661,6 +1674,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
         mode = G.nodes[node].get("mode")
 
         if etype == "board":
+            print(f"[segments_detailed] edge[{i}] board mode={mode} node={node}", flush=True)
             # 乗車開始: 待ち時間があればWaitセグメントを挟み、Rideセグメントを作る
             flush()
             from_name = G.nodes[last_phys]["name"] if last_phys else "???"
@@ -1692,6 +1706,11 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 # print(f"[DEBUG] get_next_bus_departure START: route={route_id}, pole={phys_id}, target={target_pid}, time={search_time}")
                 dep, pattern_id_found = tm.get_next_bus_departure(phys_id, route_id, search_time, pole_name=from_name, day_type=day_type, target_pole_id=target_pid)
                 # print(f"[DEBUG] get_next_bus_departure RESULT: dep={dep}, pattern={pattern_id_found}")
+                print(
+                    f"[segments_detailed] board bus route_id={route_id} phys_id={phys_id} "
+                    f"target_pid={target_pid} dep={dep} pattern_id={pattern_id_found}",
+                    flush=True,
+                )
 
                 # Using robust logging instead of fallback
                 if dep is None and target_pid is not None:
@@ -1728,6 +1747,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             }
 
         elif etype == "ride":
+            print(f"[segments_detailed] edge[{i}] ride mode={mode} node={node}", flush=True)
             # 移動中: 通過する停留所をリストに追加していく
             if cur and cur["kind"] in ("bus", "rail"):
                 cur["edges"] += 1
@@ -1752,6 +1772,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 curr_time += (dist/250.0 if dist>0 else 2.5) + 0.8
 
         elif etype in ("alight", "xfer"):
+            print(f"[segments_detailed] edge[{i}] {etype} mode={mode} node={node}", flush=True)
             # 降車: 現在のRideセグメントを終了し、到着時刻などを記録・Flushする
             if cur and cur["kind"] in ("bus", "rail"):
                 to_phys = v if v[0] == "phys" else last_phys
@@ -1779,6 +1800,11 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             curr_time += 1.0
             
     if cur: flush()
+    print(
+        f"[segments_detailed] done segments={len(segs)} summary="
+        f"{[{'kind': s.get('kind'), 'from': s.get('from_'), 'to': s.get('to')} for s in segs]}",
+        flush=True,
+    )
     return segs
 
 def main():
