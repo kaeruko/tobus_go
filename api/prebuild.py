@@ -91,6 +91,7 @@ def main():
         p["STATIONS"],
         p["RAILWAYS"],
         walk_radius=p["WALK_RAD"],
+        bus_only=p["BUS_ONLY"],
     )
     print(f"Graph built: {len(g.nodes)} nodes, {len(g.edges)} edges")
 

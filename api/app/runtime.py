@@ -15,6 +15,12 @@ def _env_int(key: str, default: int) -> int:
     v = os.getenv(key)
     return int(v) if v else default
 
+def _env_bool(key: str, default: bool = False) -> bool:
+    v = os.getenv(key)
+    if v is None:
+        return default
+    return v.strip().lower() in ("1", "true", "yes", "on")
+
 def _paths() -> dict:
     data_dir = os.getenv("DATA_DIR", "data")
     return {
@@ -26,6 +32,7 @@ def _paths() -> dict:
         "BUS_TBL": os.getenv("BUS_TBL", f"{data_dir}/odpt_BusstopPoleTimetable.json"),
         "TRAIN_TBL": os.getenv("TRAIN_TBL", f"{data_dir}/odpt_TrainTimetable.json"),
         "WALK_RAD": _env_int("WALK_RADIUS", 300),
+        "BUS_ONLY": _env_bool("BUS_ONLY", False),
     }
 
 async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
@@ -206,6 +213,7 @@ async def setup_on_startup(app, mode: str) -> None:
         p["STATIONS"],
         p["RAILWAYS"],
         walk_radius=p["WALK_RAD"],
+        bus_only=p["BUS_ONLY"],
     )
 
     tm = TimetableManager()

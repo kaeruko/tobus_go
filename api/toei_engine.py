@@ -927,8 +927,8 @@ class TimetableManager:
         return None
 
 # -------------------- グラフ構築 --------------------
-def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railways_path, walk_radius=300):
-    _phase_log("build_graph begin", f"walk_radius={walk_radius}")
+def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railways_path, walk_radius=300, bus_only=False):
+    _phase_log("build_graph begin", f"walk_radius={walk_radius} bus_only={bus_only}")
     G = nx.DiGraph()
     poles = load_json(busstop_poles_path)
     phys = {}
@@ -937,13 +937,15 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
         lat, lon = get_lat(p), get_lon(p)
         if pid and lat and lon:
             phys[pid] = {"lat": float(lat), "lon": float(lon), "name": p.get("dc:title") or pid}
-    stations = load_json(stations_path)
-    for s in stations:
-        if not is_toei(s.get("odpt:operator")): continue
-        sid = get_id(s)
-        lat, lon = get_lat(s), get_lon(s)
-        if sid and lat and lon:
-            phys[sid] = {"lat": float(lat), "lon": float(lon), "name": s.get("dc:title") or sid}
+    stations = []
+    if not bus_only:
+        stations = load_json(stations_path)
+        for s in stations:
+            if not is_toei(s.get("odpt:operator")): continue
+            sid = get_id(s)
+            lat, lon = get_lat(s), get_lon(s)
+            if sid and lat and lon:
+                phys[sid] = {"lat": float(lat), "lon": float(lon), "name": s.get("dc:title") or sid}
     for pid, d in phys.items():
         G.add_node(("phys", pid), **d, kind="phys")
 
@@ -978,47 +980,49 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
             if not G.has_edge(na, nb):
                 G.add_edge(na, nb, w=BUS_RIDE_COST, etype="ride", line=family_key, mode="bus")
 
-    railways = load_json(railways_path)
-    for rw in railways:
-        if not is_toei(rw.get("odpt:operator")): continue
-        line_id = get_id(rw)
-        disp = rw.get("dc:title") or line_id
-        orders = rw.get("odpt:stationOrder") or []
-        try: orders = sorted(orders, key=lambda x: x.get("odpt:index", 0))
-        except: pass
-        seq = [o.get("odpt:station") for o in orders if o.get("odpt:station") in phys]
-        for a, b in zip(seq, seq[1:]):
-            na = ensure_line_node(a, line_id, disp, "rail")
-            nb = ensure_line_node(b, line_id, disp, "rail")
-            G.add_edge(na, nb, w=RAIL_RIDE_COST, etype="ride", line=line_id, mode="rail")
-            G.add_edge(nb, na, w=RAIL_RIDE_COST, etype="ride", line=line_id, mode="rail")
+    railways = []
+    if not bus_only:
+        railways = load_json(railways_path)
+        for rw in railways:
+            if not is_toei(rw.get("odpt:operator")): continue
+            line_id = get_id(rw)
+            disp = rw.get("dc:title") or line_id
+            orders = rw.get("odpt:stationOrder") or []
+            try: orders = sorted(orders, key=lambda x: x.get("odpt:index", 0))
+            except: pass
+            seq = [o.get("odpt:station") for o in orders if o.get("odpt:station") in phys]
+            for a, b in zip(seq, seq[1:]):
+                na = ensure_line_node(a, line_id, disp, "rail")
+                nb = ensure_line_node(b, line_id, disp, "rail")
+                G.add_edge(na, nb, w=RAIL_RIDE_COST, etype="ride", line=line_id, mode="rail")
+                G.add_edge(nb, na, w=RAIL_RIDE_COST, etype="ride", line=line_id, mode="rail")
 
-    print("[INFO] Adding ConnectingStation edges...", flush=True)
-    count_connect = 0
-    for s in stations:
-        if not is_toei(s.get("odpt:operator")): continue
-        sid = get_id(s)
-        connects = s.get("odpt:connectingStation")
-        if connects:
-            if isinstance(connects, str): connects = [connects]
-            u = ("phys", sid)
-            if u not in G: continue
-            
-            for target in connects:
-                v = ("phys", target)
-                if G.has_node(v):
-                    if G.has_edge(u, v): continue
-                    
-                    d_u = G.nodes[u]
-                    d_v = G.nodes[v]
-                    dist = haversine(d_u.get("lat",0), d_u.get("lon",0), d_v.get("lat",0), d_v.get("lon",0))
-                    
-                    minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
-                    w = WALK_COST * minutes
-                    G.add_edge(u, v, w=w, etype="walk", meters=dist)
-                    G.add_edge(v, u, w=w, etype="walk", meters=dist)
-                    count_connect += 1
-    print(f"[INFO] Added {count_connect} connecting station edges.", flush=True)
+        print("[INFO] Adding ConnectingStation edges...", flush=True)
+        count_connect = 0
+        for s in stations:
+            if not is_toei(s.get("odpt:operator")): continue
+            sid = get_id(s)
+            connects = s.get("odpt:connectingStation")
+            if connects:
+                if isinstance(connects, str): connects = [connects]
+                u = ("phys", sid)
+                if u not in G: continue
+                
+                for target in connects:
+                    v = ("phys", target)
+                    if G.has_node(v):
+                        if G.has_edge(u, v): continue
+                        
+                        d_u = G.nodes[u]
+                        d_v = G.nodes[v]
+                        dist = haversine(d_u.get("lat",0), d_u.get("lon",0), d_v.get("lat",0), d_v.get("lon",0))
+                        
+                        minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
+                        w = WALK_COST * minutes
+                        G.add_edge(u, v, w=w, etype="walk", meters=dist)
+                        G.add_edge(v, u, w=w, etype="walk", meters=dist)
+                        count_connect += 1
+        print(f"[INFO] Added {count_connect} connecting station edges.", flush=True)
 
     _phase_log("connect_walk_edges_phys begin", f"radius_m={walk_radius}")
     connect_walk_edges_phys(G, radius_m=walk_radius)
@@ -1821,10 +1825,18 @@ def main():
     ap.add_argument("--date", default=None, help="YYYY-MM-DD")
     ap.add_argument("--bus-timetables", default="data/odpt_BusstopPoleTimetable.json")
     ap.add_argument("--train-timetables", default="data/odpt_TrainTimetable.json")
+    ap.add_argument("--bus-only", action="store_true", help="Build graph with bus stops only")
     args = ap.parse_args()
 
     print("[INFO] Building Graph...", flush=True)
-    G = build_graph(args.busstop_poles, args.busroute_patterns, args.stations, args.railways, walk_radius=args.walk)
+    G = build_graph(
+        args.busstop_poles,
+        args.busroute_patterns,
+        args.stations,
+        args.railways,
+        walk_radius=args.walk,
+        bus_only=args.bus_only,
+    )
     
     alat, alon = map(float, args.a.split(","))
     blat, blon = map(float, args.b.split(","))
