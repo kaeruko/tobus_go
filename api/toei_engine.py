@@ -1243,8 +1243,10 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
         ...など
     """
     # 1. 日付・曜日の設定
-    target_date = datetime.datetime.now()
-    day_type = determine_day_type(target_date)
+    if target_date is None:
+        target_date = datetime.datetime.now()
+    if day_type is None:
+        day_type = determine_day_type(target_date)
     
     candidates = []
     # 遅延情報のスナップショットを取得 (探索中盤で遅延情報が変わると整合性が取れなくなるため固定化)
