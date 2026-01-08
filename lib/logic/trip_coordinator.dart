@@ -105,7 +105,7 @@ class TripCoordinator {
       resolutionReasons.add(reason);
     }
 
-    ScheduleEntry resolved = active;
+    ScheduleEntry? resolved = active;
     if (active == null) {
       addReason("no_active_entry");
       return ResolvedScheduleState(
@@ -123,7 +123,9 @@ class TripCoordinator {
     // [New Logic] Prevent premature "Arrival" if getting off
     // If the time-based resolver says "Arrival", but we have realtime info saying the bus is NOT at the destination,
     // we should revert to "Ride" (meaning we are still on the bus or waiting for it).
-    if (resolved.itemKind == ScheduleEntryKind.arrival && realtimeBusLocationId != null) {
+    if (resolved != null &&
+        resolved.itemKind == ScheduleEntryKind.arrival &&
+        realtimeBusLocationId != null) {
       // Find the destination stop ID for this arrival entry (if possible)
       // We can look at the StepSeg associated with this arrival entry.
       // Actually, 'Arrival' entry usually corresponds to the ALIGHTING action.
@@ -156,6 +158,18 @@ class TripCoordinator {
             }
          }
       }
+    }
+
+    if (resolved == null) {
+      addReason("no_resolved_entry");
+      return ResolvedScheduleState(
+        activeEntry: active,
+        resolvedEntry: null,
+        windowEntries: windowEntries,
+        completedCount: completedCount,
+        activeLabel: activeLabel,
+        resolutionReason: resolutionReasons.join(" | "),
+      );
     }
 
     resolved = _ensureResolvedEntryHasRouteStepIndex(
