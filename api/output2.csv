@@ -1,0 +1,86 @@
+メーカー,製品名,型番名,ヨドバシ価格,ヨドバシ販売状況,ヨドバシ販売終了フラグ,ヨドバシ商品URL,ヨドバシ検索URL,ヨドバシ取得エラー,ヨドバシ取得メーカー,ヨドバシ取得製品名
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-MH220K,2022,在庫残少,0,https://www.yodobashi.com/product/100000001007040356/,https://www.yodobashi.com/?word=AS-MH220K,,富士通ゼネラル FUJITSU GENERAL,OP-J03DZ [カートリッジ式 無線LANアダプター ノクリアアプリ用]
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-ZN403N2W,,timeout,,,https://www.yodobashi.com/?word=AS-ZN403N2W,"timeout: Page.goto: Timeout 15000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-ZN403N2W"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-ZN283N2W,,timeout,,,https://www.yodobashi.com/?word=AS-ZN283N2W,"timeout: Page.goto: Timeout 15000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-ZN283N2W"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-ZN253N-W,,timeout,,,https://www.yodobashi.com/?word=AS-ZN253N-W,"timeout: Page.goto: Timeout 15000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-ZN253N-W"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-220AE8,,timeout,,,https://www.yodobashi.com/?word=AS-220AE8,"timeout: Page.goto: Timeout 15000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-220AE8"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-250AE8,,timeout,,,https://www.yodobashi.com/?word=AS-250AE8,"timeout: Page.goto: Timeout 15000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-250AE8"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-280AE8,,timeout,,,https://www.yodobashi.com/?word=AS-280AE8,"timeout: Page.goto: Timeout 15000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-280AE8"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-400A2E8,,timeout,,,https://www.yodobashi.com/?word=AS-400A2E8,"timeout: Page.goto: Timeout 15000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-400A2E8"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-Z400KS2,,timeout,,,https://www.yodobashi.com/?word=AS-Z400KS2,"timeout: Page.goto: Timeout 15000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-Z400KS2"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-Z250KS,,timeout,,,https://www.yodobashi.com/?word=AS-Z250KS,"timeout: Page.goto: Timeout 15000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-Z250KS"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-Z280KS,2420,在庫残少,0,https://www.yodobashi.com/product/100000001000332122/,https://www.yodobashi.com/?word=AS-Z280KS,,INAX イナックス,CWA-29 [トイレ脱臭カートリッジ]
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-XW22K-W,,error,,,https://www.yodobashi.com/?word=AS-XW22K-W,"error: Page.goto: net::ERR_ABORTED at https://www.yodobashi.com/?word=AS-XW22K-W
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-XW22K-W"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-XW25K-W,,timeout,,,https://www.yodobashi.com/?word=AS-XW25K-W,"timeout: Page.goto: Timeout 25000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-XW25K-W"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-XW28K-W,,timeout,,,https://www.yodobashi.com/?word=AS-XW28K-W,"timeout: Page.goto: Timeout 25000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-XW28K-W"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-XW40K2W,,timeout,,,https://www.yodobashi.com/?word=AS-XW40K2W,"timeout: Page.goto: Timeout 25000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-XW40K2W"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-X22K-W,,timeout,,,https://www.yodobashi.com/?word=AS-X22K-W,"timeout: Page.goto: Timeout 25000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-X22K-W"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-X25K-W,,unknown,0,,https://www.yodobashi.com/?word=AS-X25K-W,,,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-X28K-W,191050,販売を終了しました,1,https://www.yodobashi.com/product/200000002500016402/,https://www.yodobashi.com/?word=AS-X28K-W,,富士通ゼネラル FUJITSU GENERAL,お掃除エアコン （10畳・単相100V） ホワイト nocria（ノクリア） Xシリーズ AS-X28K-W
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-X40K2W,225360,販売を終了しました,1,https://www.yodobashi.com/product/200000002500016403/,https://www.yodobashi.com/?word=AS-X40K2W,,富士通ゼネラル FUJITSU GENERAL,お掃除エアコン （14畳・単相200V） ホワイト nocria（ノクリア） Xシリーズ AS-X40K2W
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-Z401L2W,,timeout,,,https://www.yodobashi.com/?word=AS-Z401L2W,"timeout: Page.goto: Timeout 60000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-Z401L2W"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-Z281L-W,,error,,,https://www.yodobashi.com/?word=AS-Z281L-W,"error: Page.goto: net::ERR_NETWORK_IO_SUSPENDED at https://www.yodobashi.com/?word=AS-Z281L-W
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-Z281L-W"", waiting until ""domcontentloaded""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-Z251L-W,,error,,,https://www.yodobashi.com/?word=AS-Z251L-W,"error: Page.goto: net::ERR_INTERNET_DISCONNECTED at https://www.yodobashi.com/?word=AS-Z251L-W
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-Z251L-W"", waiting until ""domcontentloaded""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-Z221L-W,,error,,,https://www.yodobashi.com/?word=AS-Z221L-W,"error: Page.goto: net::ERR_ADDRESS_UNREACHABLE at https://www.yodobashi.com/?word=AS-Z221L-W
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-Z221L-W"", waiting until ""domcontentloaded""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-M401L2W,,timeout,,,https://www.yodobashi.com/?word=AS-M401L2W,"timeout: Page.goto: Timeout 60000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-M401L2W"", waiting until ""commit""
+",,
+ゼネラル（キュウシャメイ　フジツウゼネラル）,nocria,AS-M251L-W,,timeout,,,https://www.yodobashi.com/?word=AS-M251L-W,"timeout: Page.goto: Timeout 60000ms exceeded.
+Call log:
+  - navigating to ""https://www.yodobashi.com/?word=AS-M251L-W"", waiting until ""commit""
+",,
