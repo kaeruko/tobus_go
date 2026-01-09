@@ -526,6 +526,53 @@ class TimetableManager:
         if has_any_bus_data:
             self.finalize_indexes()
 
+    def update_train_info_text(self, info_list):
+        self.train_status_text.clear()
+        self.train_service_suspended.clear()
+        for info in info_list:
+            railway_id = info.get("odpt:railway")
+            text_obj = info.get("odpt:trainInformationText") or {}
+            text = text_obj.get("ja", "")
+            if not railway_id: continue
+            
+            self.train_status_text[railway_id] = text
+            if "見合わせ" in text or "運休" in text:
+                self.train_service_suspended.add(railway_id)
+
+    def _guess_railway_id(self, station_id):
+        # odpt.Station:Toei.Asakusa.Oshiage -> odpt.Railway:Toei.Asakusa
+        if "Toei." in station_id:
+            parts = station_id.split(".")
+            if len(parts) >= 2:
+                return f"odpt.Railway:Toei.{parts[1]}"
+        return None
+
+    def debug_once(self, key, msg):
+        self._debug_counts[key] += 1
+        if key not in self._debug_once:
+            self._debug_once.add(key)
+            print(msg, flush=True)
+            
+    def _build_pole_base_index_for(self, departures_dict, out_index):
+        out_index.clear()
+        for pid in departures_dict.keys():
+            out_index[pole_base(pid)].append(pid)
+
+    def finalize_indexes(self):
+        self._build_pole_base_index_for(self.bus_departures_weekday, self.pole_base_index_weekday)
+        self._build_pole_base_index_for(self.bus_departures_saturday, self.pole_base_index_saturday)
+        self._build_pole_base_index_for(self.bus_departures_holiday, self.pole_base_index_holiday)
+        print("[INFO] Bus ID-based indexes finalized.", flush=True)
+        
+    def update_delays(self, train_data_list):
+        count = 0
+        for t in train_data_list:
+            t_num = t.get("odpt:trainNumber")
+            delay = t.get("odpt:delay", 0)
+            if t_num:
+                self.realtime_delays[t_num] = delay
+                count += 1
+
     def get_delays_snapshot(self):
         return self.realtime_delays.copy()
 

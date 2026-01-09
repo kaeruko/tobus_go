@@ -104,9 +104,12 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
         debugPrint('[MemberModeController] Skip API poll: tripId is null');
       } else {
         try {
-          debugPrint('[MemberModeController] Fetching bus location for route=${activeStep.routeId}, trip=${activeStep.tripId}, vehicle=${state.vehicleId}');
+          // [MODIFIED] Use Route Short Name if possible for GTFS-RT compatibility
+          final shortName = _extractRouteShortName(activeStep.title, activeStep.routeId!);
+          debugPrint('[MemberModeController] Fetching bus location for route=$shortName (raw=${activeStep.routeId}), trip=${activeStep.tripId}, vehicle=${state.vehicleId}');
+          
           final result = await ApiClient.fetchBusLocation(
-            routeId: activeStep.routeId!,
+            routeId: shortName,
             tripId: activeStep.tripId!,
             vehicleId: state.vehicleId,
           );
@@ -165,6 +168,27 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
         forceStopIndex: apiStopIndex ?? state.lastApiStopIndex,
       );
      }
+  }
+
+  String _extractRouteShortName(String title, String fallbackId) {
+    // Determine short name from title (e.g. "都営バス 上23 平井駅前行" -> "上23")
+    // If extraction fails, fallback to ID.
+    if (title.isEmpty) return fallbackId;
+    
+    // Remove known prefix
+    var text = title.replaceAll("都営バス", "").trim();
+    
+    // Split by spaces (assuming "ShortName Destination" format)
+    final parts = text.split(RegExp(r'\s+'));
+    if (parts.isNotEmpty) {
+      final candidate = parts.first;
+      // Basic validation: Should contain letters/numbers/kanji, not be empty
+      if (candidate.isNotEmpty) {
+        return candidate;
+      }
+    }
+    
+    return fallbackId;
   }
 }
 
