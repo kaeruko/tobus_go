@@ -1703,17 +1703,25 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 curr_time += 2.0
                 trip_id_found = None # Reset for non-bus
 
-            # Try to resolve valid GTFS Route ID using the display name (e.g. "上23")
-            gtfs_route_id = None
-            if mode == "bus":
-                gtfs_route_id = gtfs_repo.find_route_id_by_name(line_disp)
+            # GTFS Route ID Injection: Try to resolve valid GTFS Route ID using the display name (e.g. "上２３")
+            final_route_id = G.nodes[v].get("route_id") # Default to existing (ODPT) ID
+            if mode == "bus" and line_disp:
+                # line_disp: "上２３ 上野松坂屋前行" -> "上23"
+                # Normalize and split to get short name
+                normalized_disp = _line_norm(line_disp)
+                parts = normalized_disp.split()
+                if parts:
+                    potential_short_name = parts[0] # "上23"
+                    gtfs_id = gtfs_repo.find_route_id_by_name(potential_short_name)
+                    if gtfs_id:
+                        final_route_id = gtfs_id
+                        print(f"[INFO] Injected GTFS Route ID: {potential_short_name} -> {final_route_id}", flush=True)
 
             cur = {
                 "kind": mode, "title": line_disp, "edges": 0, 
                 "from_": from_name, "to": None, "stops": curr_stops,
                 "departure_time": min_to_time_str(curr_time),
-                # If we found a GTFS ID, use it. Otherwise fallback to the node's route_id (ODPT)
-                "route_id": gtfs_route_id if gtfs_route_id else G.nodes[v].get("route_id"),
+                "route_id": final_route_id, # Use injected ID
                 "trip_id": trip_id_found
             }
 
