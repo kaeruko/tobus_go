@@ -235,6 +235,10 @@ import time
 import networkx as nx
 from collections import defaultdict
 from datetime import datetime as dt_class # datetime.datetimeと競合しないようにalias
+from google.transit import gtfs_realtime_pb2
+from gtfs_loader import gtfs_repo
+from google.transit import gtfs_realtime_pb2
+from gtfs_loader import gtfs_repo
 
 # -------------------- チューニング定数 --------------------
 print("[INFO] toei_engine loaded: build=2025-12-29-realtime", flush=True)
@@ -521,125 +525,6 @@ class TimetableManager:
         
         if has_any_bus_data:
             self.finalize_indexes()
-
-    def update_gtfsrt_vehicles(self, vehicles_dict):
-        """
-        GTFS-RT由来の車両位置情報を更新する
-        PROD-ID -> {lat, lon, timestamp, trip_id, etc}
-        """
-        self.latest_gtfsrt_vehicles = vehicles_dict or {}
-
-    def update_bus_realtime(self, bus_data_list, day_type="weekday"):
-        self.latest_bus_positions = bus_data_list # Store raw data for location lookup
-        if not bus_data_list: return
-        route_delays = defaultdict(list)
-        
-        target_dict = self.bus_departures_weekday
-        if day_type == "saturday": target_dict = self.bus_departures_saturday
-        elif day_type == "holiday": target_dict = self.bus_departures_holiday
-
-        for bus in bus_data_list:
-            route_id = bus.get("odpt:busroute")
-            from_pole = bus.get("odpt:fromBusstopPole")
-            from_time_str = bus.get("odpt:fromBusstopPoleTime") 
-            
-            if not (route_id and from_pole and from_time_str): continue
-
-            try:
-                dt = dt_class.fromisoformat(from_time_str)
-                actual_min = dt.hour * 60 + dt.minute + (dt.second / 60.0)
-            except:
-                continue
-
-            pole_routes = target_dict.get(from_pole)
-            if not pole_routes: continue
-            scheduled_trips = pole_routes.get(route_id)
-            if not scheduled_trips: continue
-
-            # Simple logic: find nearest past scheduled departure
-            # Assuming bus doesn't depart significantly early (>5 min)
-            best_match_dep = None
-            min_diff = 9999
-            
-            # Linear scan is acceptable as trips per hour is small
-            for trip in scheduled_trips:
-                dep = trip["dep"]
-                diff = actual_min - dep
-                if -5 <= diff < 60: 
-                    if diff < min_diff:
-                        min_diff = diff
-                        best_match_dep = dep
-            
-            if best_match_dep is not None:
-                delay = max(0.0, actual_min - best_match_dep)
-                route_delays[route_id].append(delay)
-
-        self.bus_realtime_delays.clear()
-        for rid, delays in route_delays.items():
-            if delays:
-                self.bus_realtime_delays[rid] = sum(delays) / len(delays)
-
-    def update_train_info_text(self, info_list):
-        self.train_status_text.clear()
-        self.train_service_suspended.clear()
-        for info in info_list:
-            railway_id = info.get("odpt:railway")
-            text_obj = info.get("odpt:trainInformationText") or {}
-            text = text_obj.get("ja", "")
-            if not railway_id: continue
-            
-            self.train_status_text[railway_id] = text
-            if "見合わせ" in text or "運休" in text:
-                self.train_service_suspended.add(railway_id)
-
-    def _guess_railway_id(self, station_id):
-        # odpt.Station:Toei.Asakusa.Oshiage -> odpt.Railway:Toei.Asakusa
-        if "Toei." in station_id:
-            parts = station_id.split(".")
-            if len(parts) >= 2:
-                return f"odpt.Railway:Toei.{parts[1]}"
-        return None
-
-    def debug_once(self, key, msg):
-        self._debug_counts[key] += 1
-        if key not in self._debug_once:
-            self._debug_once.add(key)
-            print(msg, flush=True)
-            
-    def _build_pole_base_index_for(self, departures_dict, out_index):
-        out_index.clear()
-        for pid in departures_dict.keys():
-            out_index[pole_base(pid)].append(pid)
-
-    def finalize_indexes(self):
-        self._build_pole_base_index_for(self.bus_departures_weekday, self.pole_base_index_weekday)
-        self._build_pole_base_index_for(self.bus_departures_saturday, self.pole_base_index_saturday)
-        self._build_pole_base_index_for(self.bus_departures_holiday, self.pole_base_index_holiday)
-        print("[INFO] Bus ID-based indexes finalized.", flush=True)
-        
-    def update_delays(self, train_data_list):
-        count = 0
-        for t in train_data_list:
-            t_num = t.get("odpt:trainNumber")
-            delay = t.get("odpt:delay", 0)
-            if t_num:
-                self.realtime_delays[t_num] = delay
-                count += 1
-
-    def update_bus_positions(self, bus_data_list):
-        """
-        リアルタイムバスロケーション情報を更新する
-        routes.py の /bus/location で使用される
-        """
-        self.latest_bus_positions = bus_data_list
-        # Optional: Calculate delay statistics or indexing here if needed
-        # For now, just store the raw list as routes.py iterates it.
-        # However, for performance, we might want to index it by route_id?
-        # routes.py filters by route_id first.
-        # But latest_bus_positions is expected to be a list in routes.py currently?
-        # Let's check routes.py... "candidates_route = [b for b in tm.latest_bus_positions if b.get('odpt:busroute') == route_id]"
-        # Yes, it expects a list.
-        # print(f"[INFO] Updated {len(bus_data_list)} bus positions", flush=True)
 
     def get_delays_snapshot(self):
         return self.realtime_delays.copy()
@@ -1991,6 +1876,101 @@ def get_reachable_stops(G, tm, lat, lon, limit_dist=1000, spatial_index=None):
                             }
     reachable_list = list(reachable_map.values())
     return {"found": True, "nearest_stop": {"id": nearest_node[1], "name": G.nodes[nearest_node]["name"]}, "reachable_stops": reachable_list, "count": len(reachable_list)}
+
+
+# -------------------- GTFS-Realtime Parsing Logic (Merged from v2) --------------------
+
+def parse_realtime_gtfs(content: bytes):
+    """
+    Parse GTFS-Realtime binary content and return a list of bus dictionaries
+    compatible with the application's existing internal format.
+    """
+    feed = gtfs_realtime_pb2.FeedMessage()
+    try:
+        feed.ParseFromString(content)
+    except Exception as e:
+        print(f"[WARN] Failed to parse GTFS-RT protobuf: {e}", flush=True)
+        return []
+
+    result_list = []
+    
+    for entity in feed.entity:
+        if not entity.HasField('vehicle'):
+            continue
+            
+        v = entity.vehicle
+        trip_id = v.trip.trip_id
+        
+        # current_stop_sequence is 1-based usually
+        seq = v.current_stop_sequence
+        
+        # Link with static data
+        details = gtfs_repo.get_bus_details(trip_id, seq)
+        
+        if details:
+            current_stop_name = details.get('next_stop_name', '不明')
+            route_id_raw = details.get('route_id', '???') 
+            route_short_name = details.get('route_short_name')
+            
+            # Heuristic ID Conversion for compatibility
+            odpt_route_id = None
+            if route_short_name:
+                odpt_route_id = _convert_short_name_to_odpt_id(route_short_name)
+
+            bus_data = {
+                "vehicle_id": v.vehicle.id,
+                "lat": v.position.latitude,
+                "lon": v.position.longitude,
+                "trip_id": trip_id,
+                
+                "route_id": route_id_raw,
+                "route_short_name": route_short_name,
+                "destination": details.get('headsign'),
+                "next_stop": current_stop_name,
+                "next_stop_id": details.get('next_stop_id'),
+                
+                # Mapped keys for routes.py
+                "odpt:busroute": odpt_route_id, 
+                "odpt:fromBusstopPole": details.get('next_stop_id'),
+            }
+            result_list.append(bus_data)
+        else:
+            pass
+            
+    return result_list
+
+def _convert_short_name_to_odpt_id(short_name: str) -> str:
+    """
+    Convert '上23' -> 'odpt.Busroute:Toei.Ue23'
+    Simple heuristics for common prefixes.
+    """
+    if not short_name: return None
+    
+    # Check manual overrides / specific cases
+    prefix_map = {
+        "上": "Ue",
+        "都": "T",
+        "秋": "Aki",
+        "平": "Hirai", # Or H? Check data. 'Hirai' is safer guess or 'H'.
+        "錦": "Kin",
+        "亀": "Kame",
+        "草": "Kusa",
+        "東": "Higashi",
+        "急行": "Kyuko", 
+    }
+    
+    # Attempt to split prefix (Kanji) and number
+    import re
+    m = re.match(r"^([^\d]+)(\d+.*)$", short_name)
+    if m:
+        pfx = m.group(1)
+        num = m.group(2)
+        if pfx in prefix_map:
+            return f"odpt.Busroute:Toei.{prefix_map[pfx]}{num}"
+    
+    # Fallback: Just try to use it? Or return None?
+    # If standard ODPT ID uses the Kanji? No, usually Romanized.
+    return f"odpt.Busroute:Toei.{short_name}" # Unlikely to work but better than None
 
 if __name__ == "__main__":
     main()

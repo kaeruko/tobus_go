@@ -5,9 +5,8 @@ import time
 import httpx
 
 import initialize_data
-from toei_engine import build_graph, TimetableManager
+from toei_engine import build_graph, TimetableManager, parse_realtime_gtfs
 from gtfs_loader import gtfs_repo
-from toei_engine_v2 import parse_realtime_gtfs
 
 LAMBDA_TMP_DIR = "/tmp/data"
 # 事前ビルドされたファイルのパス（コンテナ内の配置場所）
@@ -54,13 +53,7 @@ async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
                 if r_train.status_code == 200:
                     tm.update_delays(r_train.json())
                 
-                # 2. Fetch Bus Data (Legacy JSON) - DISABLED for GTFS-RT Migration
-                # r_bus = await client.get(url_bus, params=params_base)
-                # if r_bus.status_code == 200:
-                #     data = r_bus.json()
-                #     tm.update_bus_positions(data)
-                # else:
-                #     print(f"[WARN] Failed to fetch bus data: {r_bus.status_code}")
+
 
                 # 3. Fetch GTFS-RT Bus Data (Protobuf)
                 # Use same token
