@@ -1909,14 +1909,9 @@ def parse_realtime_gtfs(content: bytes):
         
         if details:
             current_stop_name = details.get('next_stop_name', '不明')
-            route_id_raw = details.get('route_id', '???') 
+            route_id_raw = details.get('route_id') 
             route_short_name = details.get('route_short_name')
             
-            # Heuristic ID Conversion for compatibility
-            odpt_route_id = None
-            if route_short_name:
-                odpt_route_id = _convert_short_name_to_odpt_id(route_short_name)
-
             bus_data = {
                 "vehicle_id": v.vehicle.id,
                 "lat": v.position.latitude,
@@ -1929,8 +1924,8 @@ def parse_realtime_gtfs(content: bytes):
                 "next_stop": current_stop_name,
                 "next_stop_id": details.get('next_stop_id'),
                 
-                # Mapped keys for routes.py
-                "odpt:busroute": odpt_route_id, 
+                # Use native IDs
+                "odpt:busroute": route_id_raw, 
                 "odpt:fromBusstopPole": details.get('next_stop_id'),
             }
             result_list.append(bus_data)
@@ -1938,39 +1933,6 @@ def parse_realtime_gtfs(content: bytes):
             pass
             
     return result_list
-
-def _convert_short_name_to_odpt_id(short_name: str) -> str:
-    """
-    Convert '上23' -> 'odpt.Busroute:Toei.Ue23'
-    Simple heuristics for common prefixes.
-    """
-    if not short_name: return None
-    
-    # Check manual overrides / specific cases
-    prefix_map = {
-        "上": "Ue",
-        "都": "T",
-        "秋": "Aki",
-        "平": "Hirai", # Or H? Check data. 'Hirai' is safer guess or 'H'.
-        "錦": "Kin",
-        "亀": "Kame",
-        "草": "Kusa",
-        "東": "Higashi",
-        "急行": "Kyuko", 
-    }
-    
-    # Attempt to split prefix (Kanji) and number
-    import re
-    m = re.match(r"^([^\d]+)(\d+.*)$", short_name)
-    if m:
-        pfx = m.group(1)
-        num = m.group(2)
-        if pfx in prefix_map:
-            return f"odpt.Busroute:Toei.{prefix_map[pfx]}{num}"
-    
-    # Fallback: Just try to use it? Or return None?
-    # If standard ODPT ID uses the Kanji? No, usually Romanized.
-    return f"odpt.Busroute:Toei.{short_name}" # Unlikely to work but better than None
 
 if __name__ == "__main__":
     main()
