@@ -230,6 +230,7 @@
 #       },
 import json, argparse, math, sys, heapq, datetime, bisect
 import os
+import re # Added for ID parsing
 import gc
 import time
 import networkx as nx
@@ -1703,26 +1704,62 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 curr_time += 2.0
                 trip_id_found = None # Reset for non-bus
 
-            # GTFS Route ID Injection: Try to resolve valid GTFS Route ID using the display name (e.g. "上２３")
-            final_route_id = G.nodes[v].get("route_id") # Default to existing (ODPT) ID
+
+
+            # 1. Route ID の特定
+            final_route_id = G.nodes[v].get("route_id")
             if mode == "bus" and line_disp:
-                # line_disp: "上２３ 上野松坂屋前行" -> "上23"
-                # Normalize and split to get short name
-                normalized_disp = _line_norm(line_disp)
-                parts = normalized_disp.split()
+                parts = line_disp.split()
                 if parts:
-                    potential_short_name = parts[0] # "上23"
-                    gtfs_id = gtfs_repo.find_route_id_by_name(potential_short_name)
+                    norm = _line_norm(parts[0])
+                    gtfs_id = gtfs_repo.find_route_id_by_name(norm)
                     if gtfs_id:
                         final_route_id = gtfs_id
-                        print(f"[INFO] Injected GTFS Route ID: {potential_short_name} -> {final_route_id}", flush=True)
+
+            # 2. Trip ID の特定 (★新規: Native GTFS ID)
+            final_trip_id = trip_id_found # デフォルト (fallback to ODPT Pattern ID)
+            
+            # 出発バス停IDを GTFS形式に変換 (例: ...1301.1 -> 1301-01)
+            gtfs_origin_id = None
+            if isinstance(v, str) and "BusstopPole" in v:
+                 m = re.search(r'\.(\d+)\.(\d+)$', v)
+                 if m:
+                    gtfs_origin_id = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
+
+            if final_route_id and gtfs_origin_id and dep:
+                # 時刻を "HH:MM:00" に変換
+                h = int(dep // 60)
+                m_part = int(dep % 60)
+                time_str = f"{h:02d}:{m_part:02d}:00"
+                
+                # 検索
+                found = gtfs_repo.find_trip_id(final_route_id, gtfs_origin_id, time_str)
+                if found:
+                    final_trip_id = found
+                    print(f"[INFO] Fixed Trip: Route={final_route_id}, Stop={gtfs_origin_id}, Time={time_str} -> {final_trip_id}", flush=True)
+                else:
+                    print(f"[WARN] Trip Not Found: Route={final_route_id}, Stop={gtfs_origin_id}, Time={time_str}", flush=True)
+            else:
+                 # Debug why skipped
+                 if mode == "bus":
+                     print(f"[WARN] Skip Trip Search: Route={final_route_id}, Stop={gtfs_origin_id}, Dep={dep}", flush=True)
+
+            # 3. バス停リストのID書き換え (★超重要: これがないとアプリが現在地を無視する)
+            for stop in curr_stops:
+                old_id = stop.get("id")
+                if old_id and "BusstopPole" in old_id:
+                    m = re.search(r'\.(\d+)\.(\d+)$', old_id)
+                    if m:
+                        # odpt...1301.1 -> 1301-01
+                        stop["id"] = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
 
             cur = {
                 "kind": mode, "title": line_disp, "edges": 0, 
-                "from_": from_name, "to": None, "stops": curr_stops,
+                "from_": from_name, "to": None, "stops": curr_stops, 
                 "departure_time": min_to_time_str(curr_time),
-                "route_id": final_route_id, # Use injected ID
-                "trip_id": trip_id_found
+                
+                "route_id": final_route_id, 
+                "trip_id": final_trip_id, # ここに新しいIDが入る
             }
 
         elif etype == "ride":
@@ -1732,13 +1769,23 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 cur["edges"] += 1
                 stop_name = "???"
                 phys_key = ("phys", v[1]) if v[0] == "line" else ("phys", u[1])
+                
+                # ID変換
+                node_id = phys_key[1]
+                new_id = node_id
+                if "BusstopPole" in node_id:
+                    m = re.search(r'\.(\d+)\.(\d+)$', node_id)
+                    if m:
+                        new_id = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
+
                 if phys_key in G: stop_name = G.nodes[phys_key]["name"]
+                
                 if not cur["stops"] or cur["stops"][-1]["name"] != stop_name:
                     cur["stops"].append({
                         "name": stop_name,
                         "lat": G.nodes[phys_key].get("lat"),
                         "lon": G.nodes[phys_key].get("lon"),
-                        "id": phys_key[1]
+                        "id": new_id # ★新しいIDで保存
                     })
             
             # 時間を経過させる (電車は時刻表、その他は距離ベース)
@@ -1756,6 +1803,14 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             if cur and cur["kind"] in ("bus", "rail"):
                 to_phys = v if v[0] == "phys" else last_phys
                 if to_phys:
+                    # ID変換
+                    node_id = to_phys[1]
+                    new_dest_id = node_id
+                    if "BusstopPole" in node_id:
+                        m = re.search(r'\.(\d+)\.(\d+)$', node_id)
+                        if m:
+                            new_dest_id = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
+
                     to_name = G.nodes[to_phys]["name"]
                     cur["to"] = to_name
                     stop_lat = G.nodes[to_phys].get("lat")
@@ -1767,10 +1822,11 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                             "is_destination": True,
                             "lat": stop_lat,
                             "lon": stop_lon,
-                            "id": to_phys[1]
+                            "id": new_dest_id # ★新しいIDで保存
                         })
                     else:
                         cur["stops"][-1]["is_destination"] = True
+                        cur["stops"][-1]["id"] = new_dest_id # 上書き
                         cur["stops"][-1]["lat"] = stop_lat
                         cur["stops"][-1]["lon"] = stop_lon
                         cur["stops"][-1]["id"] = to_phys[1]

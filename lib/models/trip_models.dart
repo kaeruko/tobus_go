@@ -54,7 +54,16 @@ class Trip {
     required this.memberIds,
     this.completedLegIndex = -1,
     this.staffNotes, // 追加
-  });
+  }) {
+    // [DEBUG] Dump Route IDs on Trip creation
+    for (final leg in legs) {
+      for (final step in leg.candidate.steps) {
+        if (step.isRide && step.routeId != null) {
+          print('[Trip] Created with Ride Step: ${step.title}, routeId=${step.routeId}');
+        }
+      }
+    }
+  }
 
   factory Trip.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;

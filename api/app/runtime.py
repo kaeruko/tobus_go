@@ -105,6 +105,16 @@ async def setup_on_startup(app, mode: str) -> None:
                 from toei_engine import SpatialIndex
                 app.state.SI = SpatialIndex(app.state.G)
 
+            # Ensure GTFS repo is loaded (critical for ID injection)
+            # The pickle only includes TM/G/SI, not the singleton state of gtfs_repo
+            paths = _paths()
+            gtfs_dir = os.path.join(paths["DATA_DIR"], "ToeiBus-GTFS")
+            if os.path.exists(gtfs_dir):
+                print(f"[INFO] Explicitly loading GTFS data from {gtfs_dir}...")
+                gtfs_repo.load_data(gtfs_dir)
+            else:
+                print(f"[WARN] GTFS directory {gtfs_dir} not found. Reverse lookup may fail.")
+
             print(f"[INFO] Data loaded in {time.time() - start_time:.2f}s")
             
             # リアルタイムデータの取得タスクを開始

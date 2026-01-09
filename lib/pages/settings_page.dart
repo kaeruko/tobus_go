@@ -450,6 +450,54 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
+  Future<void> _deleteAllTrips() async {
+    try {
+      if (!mounted) return;
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('全データ削除'),
+          content: const Text('全ての「おでかけ」データを削除します。\n本当によろしいですか？\n※この操作は取り消せません。'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('削除する'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) return;
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text('削除中...')),
+        );
+      }
+
+      final snapshot = await FirebaseFirestore.instance.collection('trips').get();
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text('全てのデータを削除しました')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text('エラー: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // 修正: ref.listen は build メソッド内で呼び出す
@@ -579,6 +627,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               title: const Text('Debug: 平井7-中居堀ルート作成'),
               subtitle: const Text('行き:15分後, 帰り:2時間後\n平井七丁目第三アパート前 ⇔ 中居堀'),
               onTap: _createDebugTrip,
+            ),
+
+            ListTile(
+              leading: const Icon(Icons.delete_forever, color: Colors.red),
+              title: const Text('【危険】全おでかけデータ削除'),
+              subtitle: const Text('Firestoreのtripsコレクションを空にします'),
+              onTap: _deleteAllTrips,
             ),
 
             ListTile(
