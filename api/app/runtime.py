@@ -6,6 +6,8 @@ import httpx
 
 import initialize_data
 from toei_engine import build_graph, TimetableManager
+from gtfs_loader import gtfs_repo
+from toei_engine_v2 import parse_realtime_gtfs
 
 LAMBDA_TMP_DIR = "/tmp/data"
 # 事前ビルドされたファイルのパス（コンテナ内の配置場所）
@@ -52,14 +54,13 @@ async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
                 if r_train.status_code == 200:
                     tm.update_delays(r_train.json())
                 
-                # 2. Fetch Bus Data
-                r_bus = await client.get(url_bus, params=params_base)
-                if r_bus.status_code == 200:
-                    data = r_bus.json()
-                    tm.update_bus_positions(data)
-                    # print(f"[DEBUG] Fetched {len(data)} bus positions")
-                else:
-                    print(f"[WARN] Failed to fetch bus data: {r_bus.status_code}")
+                # 2. Fetch Bus Data (Legacy JSON) - DISABLED for GTFS-RT Migration
+                # r_bus = await client.get(url_bus, params=params_base)
+                # if r_bus.status_code == 200:
+                #     data = r_bus.json()
+                #     tm.update_bus_positions(data)
+                # else:
+                #     print(f"[WARN] Failed to fetch bus data: {r_bus.status_code}")
 
                 # 3. Fetch GTFS-RT Bus Data (Protobuf)
                 # Use same token
@@ -67,27 +68,13 @@ async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
                 r_gtfs = await client.get(url_gtfs, params={"acl:consumerKey": token})
                 if r_gtfs.status_code == 200:
                     try:
-                        from google.transit import gtfs_realtime_pb2
-                        feed = gtfs_realtime_pb2.FeedMessage()
-                        feed.ParseFromString(r_gtfs.content)
+                        # Use toei_engine_v2 parser linked with GtfsRepository
+                        bus_list = parse_realtime_gtfs(r_gtfs.content)
                         
-                        vehicles = {}
-                        for entity in feed.entity:
-                            if entity.HasField('vehicle'):
-                                v = entity.vehicle
-                                if v.HasField('position'):
-                                    vid = v.vehicle.id
-                                    lat = v.position.latitude
-                                    lon = v.position.longitude
-                                    ts = v.timestamp
-                                    vehicles[vid] = {
-                                        "lat": lat,
-                                        "lon": lon,
-                                        "ts": ts,
-                                        "trip_id": v.trip.trip_id if v.HasField('trip') else None
-                                    }
-                        tm.update_gtfsrt_vehicles(vehicles)
-                        # print(f"[DEBUG] Fetched {len(vehicles)} GTFS-RT vehicles")
+                        # Directly update latest_bus_positions (bypassing old delay logic for now)
+                        tm.latest_bus_positions = bus_list
+                        # print(f"[DEBUG] Updated {len(bus_list)} buses from GTFS-RT")
+                        
                     except Exception as e:
                         print(f"[WARN] Failed to parse GTFS-RT: {e}")
                 else:
@@ -246,4 +233,15 @@ async def setup_on_startup(app, mode: str) -> None:
 
     asyncio.create_task(fetch_realtime_data_loop(tm))
     
+    # [ADDED] Initialize GtfsRepository
+    gtfs_dir = os.path.join(p["DATA_DIR"], "ToeiBus-GTFS")
+    if os.path.exists(gtfs_dir):
+        print(f"[INFO] Loading GTFS Static Data from {gtfs_dir}...")
+        try:
+            gtfs_repo.load_data(gtfs_dir)
+        except Exception as e:
+            print(f"[WARN] Failed to load GTFS data: {e}")
+    else:
+        print(f"[WARN] GTFS directory not found: {gtfs_dir}")
+
     app.state.loading_status = "ready"

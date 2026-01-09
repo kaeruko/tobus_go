@@ -114,10 +114,26 @@
 # ##################################
 # バス関連リアルタイム情報(VehiclePosition)
 # https://api-public.odpt.org/api/v4/gtfs/realtime/ToeiBus
-# A666 35.67323303222656 139.7624053955078
-# A664 35.65372848510742 139.77987670898438
-# (バスIDと位置情報)
-
+# 2 {                       <-- FeedEntity (データ本体)
+#   1: "H993"               <-- id (エンティティID)
+#   4 {                     <-- vehicle (VehiclePosition: バスの位置情報) ★ここから重要
+#     1 {                   <-- trip (TripDescriptor: 運行情報)
+#       1: "04801-2-85-170-1133"  <-- ★ trip_id (運行ID) 【超重要】
+#       5: "002"            <-- route_id (系統ID)
+#       6: 0                <-- direction_id (0: 往路/1: 復路 など)
+#     }
+#     8 {                   <-- vehicle (車両情報)
+#       1: "H993"           <-- 車両番号
+#     }
+#     2 {                   <-- position (座標)
+#       1: 0x420e6b39       <-- 緯度 (Hexデコードすると数値になる)
+#       2: 0x430bcf1b       <-- 経度
+#     }
+#     3: 2                  <-- ★ current_stop_sequence (現在の停まり順) 【超重要】
+#     7: "2630-02"          <-- ★ stop_id (次の/現在のバス停ID) 【超重要】
+#     5: 1767926114         <-- timestamp
+#   }
+# }
 
 # #########################
 # バス停時刻表 / Bus stop timetable
@@ -1213,7 +1229,7 @@ def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limi
     # 候補が見つからなかった場合は空リストを返す
     return []
 
-def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date, target_node, day_type, virtual_dest_connections, target_coords):
+def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None):
     """
     指定された出発地(a_phys)から目的地(b_phys)までの経路を探索し、候補リストを返す関数。
     

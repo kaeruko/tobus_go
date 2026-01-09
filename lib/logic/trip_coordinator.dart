@@ -34,7 +34,7 @@ class TripCoordinator {
     addReason("missing_route_step_index");
     assert(() {
       debugPrint(
-        "[TripCoordinator] Resolved entry missing routeStepIndex: "
+        "[TripCoordinator] 解決されたエントリにrouteStepIndexがありません: "
         "id=${resolvedEntry.id} label=${resolvedEntry.label}",
       );
       return false;
@@ -105,7 +105,6 @@ class TripCoordinator {
       resolutionReasons.add(reason);
     }
 
-    ScheduleEntry? resolved = active;
     if (active == null) {
       addReason("no_active_entry");
       return ResolvedScheduleState(
@@ -118,7 +117,11 @@ class TripCoordinator {
       );
     }
 
+    ScheduleEntry resolved = active;
+
     addReason("active_entry");
+
+
 
     // [New Logic] Prevent premature "Arrival" if getting off
     // If the time-based resolver says "Arrival", but we have realtime info saying the bus is NOT at the destination,
@@ -148,30 +151,97 @@ class TripCoordinator {
          final rideStep = _stepForEntry(routeState, rideEntry);
          if (rideStep != null && rideStep.stops.isNotEmpty) {
             final destStopId = rideStep.stops.last.stopId;
-            // If the bus is NOT at the destination yet, force "Ride"
-            if (destStopId != null && realtimeBusLocationId != destStopId) {
-               resolved = rideEntry;
-               addReason("premature_arrival_revert");
-               debugPrint("[TripCoordinator] Premature Arrival detected. Bus at $realtimeBusLocationId != Dest $destStopId. Reverting to Ride.");
-            }
+            if (destStopId != null) {
+                // Determine if we are past the destination
+                int destIndex = -1;
+                int currentBusIndex = -1;
+                
+                for(int i=0; i<rideStep.stops.length; i++) {
+                   if (rideStep.stops[i].stopId == destStopId) destIndex = i;
+                   if (rideStep.stops[i].stopId == realtimeBusLocationId) currentBusIndex = i;
+                }
+
+                bool isPast = false;
+                if (destIndex != -1 && currentBusIndex != -1) {
+                   isPast = currentBusIndex >= destIndex;
+                }
+
+                // If not equal AND not past (i.e. truly before), then revert.
+                // If we are at destination or past it, allow Arrival.
+                // If realtime ID is unknown (not in list), we can't judge, so we fallback to strict check?
+                // The log said "Bus pole ... found in API but not in step stops". 
+                // So currentBusIndex might be -1 even if it is physically past.
+                // However, we can't easily know the order of unknown stops here without more data.
+                // BUT, if the realtime ID is NOT found in the step, it might be an issue.
+                // The user's specific case: BunkaSanchome is NOT in rideStep.stops (because rideStep stops usually include only stops utilized in the leg?).
+                // Wait, rideStep usually contains ALL stops in the path leg.
+                // If the bus jumped WAY past the destination to a stop NOT in the leg...
+                // We assume strict adherence to only reverting if we are SURE we are BEFORE.
+                // If we are unsure (bus index -1), we should probably NOT revert if the time says Arrival, 
+                // because we might have overshot. 
+                // So: Revert ONLY if we find both and current < dest.
+                
+                bool shouldRevert = false;
+                if (realtimeBusLocationId != destStopId) {
+                   // If we know both positions and current < dest, then we definitely haven't arrived.
+                   if (destIndex != -1 && currentBusIndex != -1) {
+                      if (currentBusIndex < destIndex) {
+                         shouldRevert = true;
+                      }
+                   } else if (destIndex != -1 && currentBusIndex == -1) {
+                       // Realtime bus is at a stop NOT in our list.
+                       // It could be before (e.g. previous leg?) or after (next leg).
+                       // If we assume the bus location provided is for the CURRENT route/trip...
+                       // If it's not in our list, effectively we don't know where it is relative to us.
+                       // However, preventing Arrival in this case causes the "stuck" bug if we overshot.
+                       // The safest bet for UX is: If scheduled time says Arrival, and we can't prove we are BEFORE, let it be Arrival.
+                       // So we do NOT revert if currentBusIndex == -1.
+                       shouldRevert = false;
+                   } else {
+                       // Strict equality check fallback if indexes failed (shouldn't happen if match)
+                       // If we are here, realtimeId != destId.
+                       // and we didn't find indexes. 
+                       // Check logic again.
+                       shouldRevert = true; 
+                       // Wait, if currentBusIndex == -1 (unknown loc), we set to false above?
+                       // Let's simplify.
+                   }
+                }
+                
+                // Refined logic:
+                // Revert to ride IF:
+                // 1. We assume we are NOT arrived yet (Strict)
+                // 2. BUT we allow if we are Past.
+                
+                if (realtimeBusLocationId != destStopId) {
+                   if (destIndex != -1 && currentBusIndex != -1) {
+                      if (currentBusIndex < destIndex) {
+                         // Clearly before destination
+                         debugPrint("[TripCoordinator] バス位置判定: 目的地より手前 ($currentBusIndex < $destIndex)");
+                         resolved = rideEntry;
+                         addReason("premature_arrival_revert_index");
+                      } else {
+                         debugPrint("[TripCoordinator] バス位置判定: 目的地通過済み ($currentBusIndex >= $destIndex)");
+                      }
+                   } else {
+                      // One of them is not in the list.
+                      // Case A: Realtime bus is at a stop NOT in this segment.
+                      // If it's an "unknown" stop, it might be way past.
+                      // If strict check was 'true' before, it caused the bug.
+                      // So we relax it: Only revert if we are CONFIDENT we are before.
+                      // Meaning: if we don't know the bus index, we assume the schedule is correct (Arrival).
+                      debugPrint("[TripCoordinator] バス位置判定: 位置関係不明のため、時刻表の到着判定を優先します (Realtime=$realtimeBusLocationId, Dest=$destStopId)");
+                   }
+                }
+             }
          }
       }
     }
 
-    if (resolved == null) {
-      addReason("no_resolved_entry");
-      return ResolvedScheduleState(
-        activeEntry: active,
-        resolvedEntry: null,
-        windowEntries: windowEntries,
-        completedCount: completedCount,
-        activeLabel: activeLabel,
-        resolutionReason: resolutionReasons.join(" | "),
-      );
-    }
+
 
     resolved = _ensureResolvedEntryHasRouteStepIndex(
-      resolvedEntry: resolved!,
+      resolvedEntry: resolved,
       addReason: addReason,
     );
 
@@ -259,9 +329,9 @@ class TripCoordinator {
     }
 
     final resolved = resolvedState.resolvedEntry!;
-    debugPrint("[TripCoordinator] active=${resolvedState.activeEntry?.label} kind=${resolvedState.activeEntry?.itemKind} rt=${resolvedState.activeEntry?.routeStepIndex} realtime=$realtimeBusLocationId");
-    debugPrint("[TripCoordinator] resolved=${resolved.label} kind=${resolved.itemKind} rt=${resolved.routeStepIndex}");
-    debugPrint("[TripCoordinator] reason=${resolvedState.resolutionReason}");
+    debugPrint("[TripCoordinator] アクティブ=${resolvedState.activeEntry?.label} 種類=${resolvedState.activeEntry?.itemKind} rt=${resolvedState.activeEntry?.routeStepIndex} リアルタイム=$realtimeBusLocationId");
+    debugPrint("[TripCoordinator] 解決済み=${resolved.label} 種類=${resolved.itemKind} rt=${resolved.routeStepIndex}");
+    debugPrint("[TripCoordinator] 理由=${resolvedState.resolutionReason}");
 
     final diff = resolved.plannedAt.difference(now);
 
@@ -292,60 +362,20 @@ class TripCoordinator {
     if (steps.isEmpty) return -1;
 
     int bestIndex = -1;
-    double minScore = 99999.0;
+    debugPrint('[TripCoordinator] アクティブステップを解決中 $now (ステップ数=${steps.length})');
 
-    debugPrint('[TripCoordinator] Resolving active step at $now (steps=${steps.length})');
-
+    // Simple Time-Range Logic:
+    // Select the latest step that has already "started" (plannedAt <= now).
     for (int i = 0; i < steps.length; i++) {
-      final step = steps[i];
-      final diffMin = step.plannedAt.difference(now).inMinutes;
-
-      bool isCandidate = false;
-
-      if (step.itemKind == ScheduleEntryKind.ride) {
-        if (diffMin <= 60 && diffMin > -120) {
-          isCandidate = true;
-        }
+      if (steps[i].plannedAt.isBefore(now) || steps[i].plannedAt.isAtSameMomentAs(now)) {
+        bestIndex = i;
       } else {
-        if (diffMin <= 60 && diffMin > -120) {
-          isCandidate = true;
-        }
-      }
-
-      debugPrint(
-        '[TripCoordinator] Step $i (${step.label}): plannedAt=${step.plannedAt} '
-        'diff=${diffMin}m kind=${step.itemKind} candidate=$isCandidate '
-        'routeStepIndex=${step.routeStepIndex}',
-      );
-
-      if (isCandidate) {
-        double score = diffMin.abs().toDouble();
-
-        if (diffMin < 0) score += 0.5;
-
-        if (step.itemKind == ScheduleEntryKind.ride && diffMin < 0) {
-          if (i + 1 < steps.length) {
-            final next = steps[i + 1];
-            if (next.itemKind == ScheduleEntryKind.arrival) {
-              final nextDiff = next.plannedAt.difference(now).inMinutes;
-              if (nextDiff > 0) {
-                score = 0.1;
-              }
-            }
-          }
-        }
-
-        debugPrint('  -> Score: $score (best: $minScore)');
-
-        if (score < minScore) {
-          minScore = score;
-          bestIndex = i;
-          debugPrint('[TripCoordinator] New best -> index=$bestIndex score=$minScore label=${step.label}');
-        }
+        // Step is in the future. Since steps are sorted, all subsequent steps are also in future.
+        break;
       }
     }
-
-    debugPrint('[TripCoordinator] Selected best index: $bestIndex');
+    
+    debugPrint('[TripCoordinator] 選択された最良インデックス(TimeRange): $bestIndex');
     return bestIndex;
   }
 }

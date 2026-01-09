@@ -7,4 +7,4 @@ jpholiday
 networkx
 mangum
 requests
-boto3
+boto3gtfs-realtime-bindings

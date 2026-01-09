@@ -242,11 +242,10 @@ def register_routes(app):
         vehicle_id: str = Query(None, description="Optional physical bus ID to track specific vehicle")
     ):
         import uuid
-        from datetime import datetime
-        import pytz
+        from datetime import datetime, timezone
         
         req_id = str(uuid.uuid4())
-        now = datetime.now(pytz.utc).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         base = {
             "kind": "bus_location",
@@ -273,6 +272,12 @@ def register_routes(app):
 
         candidates_route = [b for b in candidates_all if b.get("odpt:busroute") == route_id]
         base["route_match_count"] = len(candidates_route)
+
+        # [DEBUG] Dump candidates to investigate jumps
+        if candidates_route:
+            print(f"[DEBUG_DUMP] candidates_route for {route_id}:")
+            print(json.dumps(candidates_route, ensure_ascii=False, indent=2))
+
 
         if not candidates_route:
             _busloc_log({**base, "ok": False, "reason": "NO_ROUTE_MATCH"})
