@@ -105,7 +105,7 @@ class TripCoordinator {
       resolutionReasons.add(reason);
     }
 
-    ScheduleEntry?? resolved = active;
+    ScheduleEntry? resolved = active;
     if (active == null) {
       addReason("no_active_entry");
       return ResolvedScheduleState(
