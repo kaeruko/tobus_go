@@ -1703,11 +1703,17 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 curr_time += 2.0
                 trip_id_found = None # Reset for non-bus
 
+            # Try to resolve valid GTFS Route ID using the display name (e.g. "上23")
+            gtfs_route_id = None
+            if mode == "bus":
+                gtfs_route_id = gtfs_repo.find_route_id_by_name(line_disp)
+
             cur = {
                 "kind": mode, "title": line_disp, "edges": 0, 
                 "from_": from_name, "to": None, "stops": curr_stops,
                 "departure_time": min_to_time_str(curr_time),
-                "route_id": G.nodes[v].get("route_id"),
+                # If we found a GTFS ID, use it. Otherwise fallback to the node's route_id (ODPT)
+                "route_id": gtfs_route_id if gtfs_route_id else G.nodes[v].get("route_id"),
                 "trip_id": trip_id_found
             }
 

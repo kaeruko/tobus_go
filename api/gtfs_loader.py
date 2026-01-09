@@ -15,6 +15,7 @@ class GtfsRepository:
             cls._instance.stop_times = defaultdict(dict) # trip_id -> {sequence: stop_id}
             cls._instance.stops = {}        # stop_id -> {name, lat, lon}
             cls._instance.routes = {}       # route_id -> {short_name, ...}
+            cls._instance.route_name_to_id = {} # "上23" -> "1001"
             cls._instance.is_loaded = False
         return cls._instance
 
@@ -82,7 +83,10 @@ class GtfsRepository:
                 with open(routes_path, encoding='utf-8') as f:
                     reader = csv.DictReader(f)
                     for row in reader:
-                        self.routes[row['route_id']] = row
+                        r_id = row['route_id']
+                        short_name = row['route_short_name']
+                        self.routes[r_id] = row
+                        self.route_name_to_id[short_name] = r_id
                 logger.info(f"Loaded {len(self.routes)} routes.")
             else:
                 logger.warning("routes.txt not found.")
@@ -93,6 +97,11 @@ class GtfsRepository:
         except Exception as e:
             logger.error(f"Failed to load GTFS data: {e}")
             raise
+
+    # ★追加: 名前からIDを引くメソッド
+    def find_route_id_by_name(self, short_name: str) -> str:
+        # 完全一致検索
+        return self.route_name_to_id.get(short_name)
 
     def get_bus_details(self, trip_id: str, current_sequence: int):
         """

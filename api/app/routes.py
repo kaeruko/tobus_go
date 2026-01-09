@@ -270,7 +270,7 @@ def register_routes(app):
         candidates_all = tm.latest_bus_positions
         base["candidates_total"] = len(candidates_all)
 
-        candidates_route = [b for b in candidates_all if b.get("odpt:busroute") == route_id or b.get("route_short_name") == route_id]
+        candidates_route = [b for b in candidates_all if b.get("odpt:busroute") == route_id]
         base["route_match_count"] = len(candidates_route)
 
         # [DEBUG] Dump candidates to investigate jumps
