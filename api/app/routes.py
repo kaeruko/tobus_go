@@ -275,7 +275,7 @@ def register_routes(app):
 
         # [DEBUG] Dump candidates to investigate jumps
         if candidates_route:
-            print(f"[DEBUG_DUMP] candidates_route for {route_id}:")
+            print(f"[DEBUG_DUMP] candidates_route for {route_id} at {now}:")
             print(json.dumps(candidates_route, ensure_ascii=False, indent=2))
 
 
@@ -287,12 +287,21 @@ def register_routes(app):
         # We trust the route filtering. Since GTFS-RT doesn't have ODPT Pattern IDs,
         # we skip pattern checking if the data doesn't have it.
         
-        target_bus = candidates_route[0]
-        
-        # If we have multiple, try to pick one? 
-        # Without pattern ID, we simply return the first one as "best guess".
-        if len(candidates_route) > 1:
-            _busloc_log({**base, "ok": True, "reason": "MULTI_MATCH_PICK_FIRST", "count": len(candidates_route)})
+        # Filter by vehicle_id if specified
+        if vehicle_id:
+            candidates_filtered = [b for b in candidates_route if b.get("vehicle_id") == vehicle_id]
+            if not candidates_filtered:
+                _busloc_log({**base, "ok": False, "reason": "VEHICLE_ID_NOT_FOUND"})
+                raise HTTPException(404, detail={"code": "vehicle_not_found", "message": f"Vehicle {vehicle_id} not found on route {route_id}"})
+            target_bus = candidates_filtered[0]
+            _busloc_log({**base, "ok": True, "reason": "VEHICLE_ID_MATCH"})
+        else:
+            # No vehicle_id specified, pick first match
+            target_bus = candidates_route[0]
+            if len(candidates_route) > 1:
+                _busloc_log({**base, "ok": True, "reason": "MULTI_MATCH_PICK_FIRST", "count": len(candidates_route)})
+            else:
+                _busloc_log({**base, "ok": True, "reason": "SINGLE_MATCH"})
 
         response = {
             "odpt:bus": target_bus.get("vehicle_id"),

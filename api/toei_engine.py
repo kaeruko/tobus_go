@@ -1716,15 +1716,24 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     if gtfs_id:
                         final_route_id = gtfs_id
 
-            # 2. Trip ID の特定 (★新規: Native GTFS ID)
-            final_trip_id = trip_id_found # デフォルト (fallback to ODPT Pattern ID)
+            # 2. Trip ID の特定
+            final_trip_id = trip_id_found 
             
             # 出発バス停IDを GTFS形式に変換 (例: ...1301.1 -> 1301-01)
             gtfs_origin_id = None
-            if isinstance(v, str) and "BusstopPole" in v:
-                 m = re.search(r'\.(\d+)\.(\d+)$', v)
+            
+            # u might be a tuple ('phys', 'odpt.Bus...')
+            # Extract the actual ID string
+            u_id = u[1] if isinstance(u, tuple) and len(u) > 1 else u
+            
+            if isinstance(u_id, str) and "BusstopPole" in u_id:
+                 # Relaxed regex to catch ID even if there are suffixes
+                 m = re.search(r'\.(\d{1,5})\.(\d{1,2})', u_id)
                  if m:
                     gtfs_origin_id = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
+            
+            if not gtfs_origin_id and mode == "bus":
+                 print(f"[WARN] Failed to extract GTFS ID from: {u} (extracted: {u_id})", flush=True)
 
             if final_route_id and gtfs_origin_id and dep:
                 # 時刻を "HH:MM:00" に変換
@@ -1740,17 +1749,15 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 else:
                     print(f"[WARN] Trip Not Found: Route={final_route_id}, Stop={gtfs_origin_id}, Time={time_str}", flush=True)
             else:
-                 # Debug why skipped
                  if mode == "bus":
                      print(f"[WARN] Skip Trip Search: Route={final_route_id}, Stop={gtfs_origin_id}, Dep={dep}", flush=True)
 
-            # 3. バス停リストのID書き換え (★超重要: これがないとアプリが現在地を無視する)
+            # 3. バス停リストのID書き換え
             for stop in curr_stops:
                 old_id = stop.get("id")
-                if old_id and "BusstopPole" in old_id:
-                    m = re.search(r'\.(\d+)\.(\d+)$', old_id)
+                if old_id:
+                    m = re.search(r'\.(\d{1,5})\.(\d{1,2})', old_id)
                     if m:
-                        # odpt...1301.1 -> 1301-01
                         stop["id"] = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
 
             cur = {
@@ -1759,7 +1766,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 "departure_time": min_to_time_str(curr_time),
                 
                 "route_id": final_route_id, 
-                "trip_id": final_trip_id, # ここに新しいIDが入る
+                "trip_id": final_trip_id, 
             }
 
         elif etype == "ride":
@@ -1774,7 +1781,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 node_id = phys_key[1]
                 new_id = node_id
                 if "BusstopPole" in node_id:
-                    m = re.search(r'\.(\d+)\.(\d+)$', node_id)
+                    m = re.search(r'\.(\d{1,5})\.(\d{1,2})', node_id)
                     if m:
                         new_id = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
 
@@ -1807,7 +1814,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     node_id = to_phys[1]
                     new_dest_id = node_id
                     if "BusstopPole" in node_id:
-                        m = re.search(r'\.(\d+)\.(\d+)$', node_id)
+                        m = re.search(r'\.(\d{1,5})\.(\d{1,2})', node_id)
                         if m:
                             new_dest_id = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
 

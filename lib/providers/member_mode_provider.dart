@@ -117,7 +117,16 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
           final vehicleId = result['odpt:bus']; // Get physical bus ID
 
           if (fromPoleId != null) {
-            final index = activeStep.stops.indexWhere((s) => s.stopId == fromPoleId);
+            int index = activeStep.stops.indexWhere((s) => s.stopId == fromPoleId);
+            
+            // Fuzzy match fallback: if exact match fails, try to match parsed ID (XXXX-XX)
+            if (index == -1) {
+              index = activeStep.stops.indexWhere((s) {
+                 if (s.stopId == null) return false;
+                 return _fuzzyMatchStopId(s.stopId!, fromPoleId);
+              });
+            }
+
             if (index != -1) {
               apiStopIndex = index;
               // APIから取れた位置をStateに保持
@@ -167,7 +176,37 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
       );
      }
   }
+  
+  bool _fuzzyMatchStopId(String id1, String id2) {
+    bool parse(String id, {required Function(int, int) diff}) {
+      // Pattern: ...XXXX.XX... or XXXX-XX
+      // 1. Try XXXX-XX
+      final m1 = RegExp(r'^(\d{1,5})-(\d{1,2})$').firstMatch(id);
+      if (m1 != null) {
+        diff(int.parse(m1.group(1)!), int.parse(m1.group(2)!));
+        return true;
+      }
+      
+      // 2. Try ...XXXX.XX... (Long URN)
+      final m2 = RegExp(r'\.(\d{1,5})\.(\d{1,2})').firstMatch(id);
+      if (m2 != null) {
+        diff(int.parse(m2.group(1)!), int.parse(m2.group(2)!));
+        return true;
+      }
+      return false;
+    }
 
+    int? maj1, min1;
+    final r1 = parse(id1, diff: (a, b) { maj1 = a; min1 = b; });
+    
+    int? maj2, min2;
+    final r2 = parse(id2, diff: (a, b) { maj2 = a; min2 = b; });
+    
+    if (r1 && r2) {
+      return maj1 == maj2 && min1 == min2;
+    }
+    return false;
+  }
 }
 
 final memberModeControllerProvider = StateNotifierProvider.autoDispose<MemberModeController, RealtimeBusState>((ref) {
