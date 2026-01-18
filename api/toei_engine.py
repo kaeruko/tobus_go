@@ -1836,7 +1836,6 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                         cur["stops"][-1]["id"] = new_dest_id # 上書き
                         cur["stops"][-1]["lat"] = stop_lat
                         cur["stops"][-1]["lon"] = stop_lon
-                        cur["stops"][-1]["id"] = to_phys[1]
                 cur["arrival_time"] = min_to_time_str(curr_time)
                 flush()
             curr_time += 1.0

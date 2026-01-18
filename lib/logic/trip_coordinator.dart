@@ -121,8 +121,6 @@ class TripCoordinator {
 
     addReason("active_entry");
 
-
-
     // [New Logic] Prevent premature "Arrival" if getting off
     // If the time-based resolver says "Arrival", but we have realtime info saying the bus is NOT at the destination,
     // we should revert to "Ride" (meaning we are still on the bus or waiting for it).

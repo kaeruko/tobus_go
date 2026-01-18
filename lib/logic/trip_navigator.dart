@@ -160,8 +160,16 @@ class NavigationState {
          subText = nextName ?? "";
          color = const Color(0xFFFFAB91);
        } else {
-         mainText = "あと $remaining 駅";
-         subText = "つぎは $nextName";
+          mainText = "あと $remaining 駅";
+         // subText = "つぎは $nextName";
+         // 要望により現在の停留所を表示
+         String currentName = "";
+         if (stopIndex > 0 && stopIndex <= step.stops.length) {
+           currentName = step.stops[stopIndex - 1].name;
+         } else if (stopIndex == 0 && step.stops.isNotEmpty) {
+            currentName = step.stops[0].name;
+         }
+         subText = "現在: $currentName";
        }
     }
 

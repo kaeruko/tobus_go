@@ -364,10 +364,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       final outboundTime = now.add(const Duration(minutes: 15));
       final returnTime = now.add(const Duration(hours: 2));
 
-      // 1. Search outbound (Hirai -> Nakaibori)
+      // 1. Search outbound (Higashi-Sumida -> Nakaibori)
       final outboundBody = {
-        'alat': '35.715067',
-        'alon': '139.835156',
+        'alat': '35.718754',
+        'alon': '139.834261',
         'blat': '35.713601',
         'blon': '139.827539',
         'pref': 'time', // fast
@@ -381,16 +381,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       
       final cOutMap = Map<String, dynamic>.from(cOutList.first as Map);
       // Hack names if missing
-      cOutMap['origin_name'] = '平井七丁目第三アパート前';
+      cOutMap['origin_name'] = '東墨田三丁目';
       cOutMap['destination_name'] = '中居堀';
       final candidateOut = Candidate.fromJson(cOutMap);
 
-      // 2. Search inbound (Nakaibori -> Hirai)
+      // 2. Search inbound (Nakaibori -> Higashi-Sumida)
       final inboundBody = {
         'alat': '35.713601',
         'alon': '139.827539',
-        'blat': '35.715067',
-        'blon': '139.835156',
+        'blat': '35.718754',
+        'blon': '139.834261',
         'pref': 'time',
         'start_time': "${returnTime.hour.toString().padLeft(2, '0')}:${returnTime.minute.toString().padLeft(2, '0')}",
         'target_date_str': "${returnTime.year}-${returnTime.month.toString().padLeft(2, '0')}-${returnTime.day.toString().padLeft(2, '0')}",
@@ -402,7 +402,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
       final cInMap = Map<String, dynamic>.from(cInList.first as Map);
       cInMap['origin_name'] = '中居堀';
-      cInMap['destination_name'] = '平井七丁目第三アパート前';
+      cInMap['destination_name'] = '東墨田三丁目';
       final candidateIn = Candidate.fromJson(cInMap);
 
       // 3. Create Legs and Schedule
@@ -624,8 +624,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
             ListTile(
               leading: const Icon(Icons.bug_report, color: Colors.purple),
-              title: const Text('Debug: 平井7-中居堀ルート作成'),
-              subtitle: const Text('行き:15分後, 帰り:2時間後\n平井七丁目第三アパート前 ⇔ 中居堀'),
+              title: const Text('Debug: 東墨田3-中居堀ルート作成'),
+              subtitle: const Text('行き:15分後, 帰り:2時間後\n東墨田三丁目 ⇔ 中居堀'),
               onTap: _createDebugTrip,
             ),
 

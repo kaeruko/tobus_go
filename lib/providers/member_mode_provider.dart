@@ -104,56 +104,59 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
         // tripIdがない場合はAPI叩けないのでスキップ
         debugPrint('[MemberModeController] Skip API poll: tripId is null');
       } else {
+        // バスロケーションAPIを呼び出してリアルタイム位置を取得
         try {
-          debugPrint('[MemberModeController] Fetching bus location for route=${activeStep.routeId}, trip=${activeStep.tripId}, vehicle=${state.vehicleId}');
+          debugPrint('[MemberModeController] バス位置取得中: route=${activeStep.routeId}, trip=${activeStep.tripId}, vehicle=${state.vehicleId}');
           final result = await ApiClient.fetchBusLocation(
             routeId: activeStep.routeId!,
             tripId: activeStep.tripId!,
             vehicleId: state.vehicleId,
           );
-          debugPrint('[MemberModeController] API Result: $result');
+          debugPrint('[MemberModeController] API結果: $result');
           
+          // APIレスポンスからバス停ポールIDと車両IDを取得
           final fromPoleId = result['odpt:fromBusstopPole'];
-          final vehicleId = result['odpt:bus']; // Get physical bus ID
+          final vehicleId = result['odpt:bus']; // 物理的なバスID
 
           if (fromPoleId != null) {
+            // 現在のステップのバス停リストからAPIで返されたポールIDを検索
             int index = activeStep.stops.indexWhere((s) => s.stopId == fromPoleId);
-            
-            // Fuzzy match fallback: if exact match fails, try to match parsed ID (XXXX-XX)
-            if (index == -1) {
-              index = activeStep.stops.indexWhere((s) {
-                 if (s.stopId == null) return false;
-                 return _fuzzyMatchStopId(s.stopId!, fromPoleId);
-              });
-            }
 
             if (index != -1) {
+              // バス停が見つかった場合: インデックスとIDを更新
               apiStopIndex = index;
               // APIから取れた位置をStateに保持
               state = RealtimeBusState(
                 lastRealtimeBusId: fromPoleId,
                 lastApiStopIndex: index,
-                vehicleId: vehicleId, // Update/Keep vehicle ID
+                vehicleId: vehicleId, // 車両IDを更新/保持
               );
-              debugPrint("[MemberModeController] API Update success: Bus index $index / ID: $fromPoleId / Vehicle: $vehicleId");
+              debugPrint("[MemberModeController] API更新成功: インデックス $index / ID: $fromPoleId / 車両: $vehicleId");
             } else {
+               // バス停がこのセグメントのリストに見つからない場合
                final availableStopIds = activeStep.stops.map((s) => s.stopId).toList();
-               debugPrint("[MemberModeController] Bus pole $fromPoleId found in API but not in step stops. Available: $availableStopIds");
-               // Even if not in current segment steps, we found the bus on the correct trip!
-               // It implies the bus is approaching the first stop of this segment (upstream).
-               // We update the ID so the coordinator knows we are tracking it, but keep index null (or 0?)
-               // If we set index null, progress bar relies on time.
+               final availableStopNames = activeStep.stops.map((s) => s.name).toList();
+               debugPrint("[MemberModeController] バス停 $fromPoleId (車両: $vehicleId) はAPIで取得できたが、現在のステップのバス停リストには存在しない");
+               debugPrint("[MemberModeController] 現在のステップのバス停ID: $availableStopIds");
+               debugPrint("[MemberModeController] 現在のステップのバス停名: $availableStopNames");
+               
+               // このセグメントのバス停リストにはないが、正しいトリップ上でバスを発見した
+               // → バスはこのセグメントの最初のバス停に向かっている（上流にいる）と推測
+               // coordinatorに追跡中であることを知らせるためIDは更新するが、
+               // インデックスはnullのままにする（プログレスバーは時間基準で表示される）
                state = RealtimeBusState(
                  lastRealtimeBusId: fromPoleId,
-                 lastApiStopIndex: null, // Not in "this" segment's stop list
-                 vehicleId: vehicleId, // Lock onto this vehicle
+                 lastApiStopIndex: null, // このセグメントのバス停リストには存在しない
+                 vehicleId: vehicleId, // この車両をロックオン
                );
             }
           } else {
-            debugPrint("[MemberModeController] API returned null/empty fromBusstopPole");
+            // APIからバス停ポールIDが返されなかった場合
+            debugPrint("[MemberModeController] APIからfromBusstopPoleがnullまたは空で返された");
           }
         } catch (e) {
-          debugPrint('[MemberModeController] API Error: $e');
+          // API呼び出し時のエラーハンドリング
+          debugPrint('[MemberModeController] APIエラー: $e');
         }
       }
     } else {
@@ -175,37 +178,6 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
         forceStopIndex: apiStopIndex ?? state.lastApiStopIndex,
       );
      }
-  }
-  
-  bool _fuzzyMatchStopId(String id1, String id2) {
-    bool parse(String id, {required Function(int, int) diff}) {
-      // Pattern: ...XXXX.XX... or XXXX-XX
-      // 1. Try XXXX-XX
-      final m1 = RegExp(r'^(\d{1,5})-(\d{1,2})$').firstMatch(id);
-      if (m1 != null) {
-        diff(int.parse(m1.group(1)!), int.parse(m1.group(2)!));
-        return true;
-      }
-      
-      // 2. Try ...XXXX.XX... (Long URN)
-      final m2 = RegExp(r'\.(\d{1,5})\.(\d{1,2})').firstMatch(id);
-      if (m2 != null) {
-        diff(int.parse(m2.group(1)!), int.parse(m2.group(2)!));
-        return true;
-      }
-      return false;
-    }
-
-    int? maj1, min1;
-    final r1 = parse(id1, diff: (a, b) { maj1 = a; min1 = b; });
-    
-    int? maj2, min2;
-    final r2 = parse(id2, diff: (a, b) { maj2 = a; min2 = b; });
-    
-    if (r1 && r2) {
-      return maj1 == maj2 && min1 == min2;
-    }
-    return false;
   }
 }
 
