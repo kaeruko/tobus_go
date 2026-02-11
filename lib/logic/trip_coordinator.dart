@@ -4,12 +4,28 @@ import '../models/group_models.dart';
 import '../models/route_models.dart'; // StepSeg
 import 'trip_navigator.dart';
 
+/// ========================================================================
+/// スケジュール解決結果を保持するクラス
+/// ========================================================================
+/// resolveScheduleState() の戻り値。
+/// UIに表示するための「今何をすべきか」を決定した結果を格納する。
 class ResolvedScheduleState {
+  /// 時刻ベースで「今アクティブ」と判定されたエントリ（未補正）
   final ScheduleEntry? activeEntry;
+  
+  /// リアルタイム情報等で補正された、最終的に表示すべきエントリ
   final ScheduleEntry? resolvedEntry;
+  
+  /// 前後のエントリを含むウィンドウ（タイムライン表示用）
   final List<ScheduleEntry> windowEntries;
+  
+  /// 完了済みのエントリ数
   final int completedCount;
+  
+  /// 現在の状態ラベル ("いま", "つぎ", "そのうち")
   final String activeLabel;
+  
+  /// デバッグ用: どのロジックでresolvedが決まったか
   final String resolutionReason;
 
   const ResolvedScheduleState({
@@ -22,7 +38,14 @@ class ResolvedScheduleState {
   });
 }
 
+/// ========================================================================
+/// TripCoordinator: 旅程のスケジュール状態を管理するユーティリティクラス
+/// ========================================================================
 class TripCoordinator {
+  
+  /// ------------------------------------------------------------------------
+  /// ヘルパー: routeStepIndex が設定されていることを保証する
+  /// ------------------------------------------------------------------------
   static ScheduleEntry _ensureResolvedEntryHasRouteStepIndex({
     required ScheduleEntry resolvedEntry,
     required void Function(String) addReason,
@@ -42,6 +65,11 @@ class TripCoordinator {
     return resolvedEntry;
   }
 
+  /// ------------------------------------------------------------------------
+  /// ヘルパー: リアルタイム情報から「乗車が開始されたか」を判定
+  /// ------------------------------------------------------------------------
+  /// - step.stops の先頭（乗車バス停）にいる、または
+  /// - step.stops のどこかにいる場合、乗車中と判断
   static bool _realtimeSaysRideStarted({
     required StepSeg step,
     required String? realtimeBusLocationId,
@@ -57,6 +85,9 @@ class TripCoordinator {
     return isAtBoarding || isInSegment;
   }
 
+  /// ------------------------------------------------------------------------
+  /// ヘルパー: ScheduleEntry から対応する StepSeg を取得
+  /// ------------------------------------------------------------------------
   static StepSeg? _stepForEntry(RouteState? routeState, ScheduleEntry entry) {
     if (routeState == null) return null;
     final idx = entry.routeStepIndex;
@@ -66,6 +97,22 @@ class TripCoordinator {
     return routeState.steps[idx];
   }
 
+  /// ========================================================================
+  /// メイン関数: スケジュール状態を解決する
+  /// ========================================================================
+  /// 
+  /// 【処理の流れ】
+  /// 1. 時刻ベースで「今アクティブなエントリ」を決定 (_resolveActiveIndex)
+  /// 2. リアルタイム情報がある場合、到着判定を補正
+  /// 3. 最終的な resolvedEntry を決定して返す
+  /// 
+  /// 【パラメータ】
+  /// - scheduleEntries: 全スケジュールエントリ
+  /// - now: 現在時刻
+  /// - routeState: ルート情報（バス停リスト等）
+  /// - realtimeBusLocationId: リアルタイムで取得したバス位置（バス停ID）
+  /// - prevCount/nextCount: ウィンドウに含める前後のエントリ数
+  /// 
   static ResolvedScheduleState resolveScheduleState({
     required List<ScheduleEntry> scheduleEntries,
     required DateTime now,
@@ -74,24 +121,34 @@ class TripCoordinator {
     int prevCount = 1,
     int nextCount = 3,
   }) {
+    // ────────────────────────────────────────────────────────────
+    // ステップ1: スケジュールをソートし、時刻ベースでアクティブを判定
+    // ────────────────────────────────────────────────────────────
     final scheduleSorted = [...scheduleEntries];
     sortScheduleEntries(scheduleSorted);
 
+    // 時刻だけで判定: 「予定時刻 <= 現在時刻」の最後のエントリを選ぶ
     int activeIndex = _resolveActiveIndex(scheduleSorted, now);
     String activeLabel = 'いま';
 
+    // まだどのエントリも開始していない場合のラベル設定
     if (activeIndex == -1 && scheduleSorted.isNotEmpty) {
       final first = scheduleSorted.first;
       final diff = first.plannedAt.difference(now);
       activeLabel = diff.inMinutes > 20 ? 'そのうち' : 'つぎ';
     }
 
+    // activeIndex が有効なら、そのエントリを取得
     final active = (activeIndex >= 0 && activeIndex < scheduleSorted.length)
         ? scheduleSorted[activeIndex]
         : null;
 
+    // 完了済みカウント = activeIndex（それより前のエントリは全て完了）
     final completedCount = activeIndex >= 0 ? activeIndex : 0;
 
+    // ────────────────────────────────────────────────────────────
+    // ステップ2: タイムライン表示用のウィンドウを作成
+    // ────────────────────────────────────────────────────────────
     final start = activeIndex >= 0 ? (activeIndex - prevCount) : 0;
     final safeStart = start < 0 ? 0 : start;
     final end = activeIndex >= 0 ? (activeIndex + nextCount) : nextCount;
@@ -100,11 +157,15 @@ class TripCoordinator {
         ? scheduleSorted.sublist(safeStart, safeEnd + 1)
         : <ScheduleEntry>[];
 
+    // デバッグ用: どのロジックで決定されたかを記録
     final resolutionReasons = <String>[];
     void addReason(String reason) {
       resolutionReasons.add(reason);
     }
 
+    // ────────────────────────────────────────────────────────────
+    // ステップ3: アクティブなエントリがない場合は早期リターン
+    // ────────────────────────────────────────────────────────────
     if (active == null) {
       addReason("no_active_entry");
       return ResolvedScheduleState(
@@ -117,26 +178,30 @@ class TripCoordinator {
       );
     }
 
+    // ────────────────────────────────────────────────────────────
+    // ステップ4: resolved の初期値を active に設定
+    // ────────────────────────────────────────────────────────────
+    // ここから、リアルタイム情報による補正を行う
     ScheduleEntry resolved = active;
-
     addReason("active_entry");
 
-    // [New Logic] Prevent premature "Arrival" if getting off
-    // If the time-based resolver says "Arrival", but we have realtime info saying the bus is NOT at the destination,
-    // we should revert to "Ride" (meaning we are still on the bus or waiting for it).
+    // ────────────────────────────────────────────────────────────
+    // ステップ5: 【到着判定の補正】時刻が「到着」でも、実際はまだ乗車中かもしれない
+    // ────────────────────────────────────────────────────────────
+    // 
+    // 【問題】
+    // 時刻表上は到着時刻を過ぎているが、バスが遅延していて実際はまだ目的地に着いていない場合、
+    // 時刻だけで判定すると「到着」表示になってしまう。
+    // 
+    // 【解決策】
+    // リアルタイムバス位置がある場合、目的地より手前にいるなら「乗車中」に戻す。
+    // 
+    // 【注意】
+    // バスが目的地を通過して次のバス停に移動した場合（ロスト状態）は、
+    // currentBusIndex == -1 となり、この補正は適用されない（時刻表の判定を優先）。
+    // 
     if (resolved.itemKind == ScheduleEntryKind.arrival && realtimeBusLocationId != null) {
-      // Find the destination stop ID for this arrival entry (if possible)
-      // We can look at the StepSeg associated with this arrival entry.
-      // Actually, 'Arrival' entry usually corresponds to the ALIGHTING action.
-      // The associated step in 'routeState' should be the Alight step or the Ride step?
-      // Usually Arrival is linked to the Ride step (same leg).
-      // Let's check if the realtime ID matches the destination.
-      
-      // For Arrival, the step might be the Ride step (stops list) or the Alight node?
-      // In ScheduleEntry, routeStepIndex usually points to the Ride segment if it's "Ride".
-      // For "Arrival", it might point to the same ride segment or the next?
-      // Let's assume we need to find the "Ride" entry for this leg to be safe.
-      
+      // この到着エントリに対応する「乗車」エントリを探す（同じ leg 内）
       ScheduleEntry? rideEntry;
       for (final e in scheduleSorted) {
         if (e.legIndex == resolved.legIndex && e.itemKind == ScheduleEntryKind.ride) {
@@ -148,86 +213,37 @@ class TripCoordinator {
       if (rideEntry != null) {
          final rideStep = _stepForEntry(routeState, rideEntry);
          if (rideStep != null && rideStep.stops.isNotEmpty) {
+            // 目的地（降車バス停）のIDを取得
             final destStopId = rideStep.stops.last.stopId;
             if (destStopId != null) {
-                // Determine if we are past the destination
-                int destIndex = -1;
-                int currentBusIndex = -1;
+                // バス停リスト内での位置を特定
+                int destIndex = -1;      // 目的地のインデックス
+                int currentBusIndex = -1; // 現在のバス位置のインデックス
                 
                 for(int i=0; i<rideStep.stops.length; i++) {
                    if (rideStep.stops[i].stopId == destStopId) destIndex = i;
                    if (rideStep.stops[i].stopId == realtimeBusLocationId) currentBusIndex = i;
                 }
 
-                bool isPast = false;
-                if (destIndex != -1 && currentBusIndex != -1) {
-                   isPast = currentBusIndex >= destIndex;
-                }
-
-                // If not equal AND not past (i.e. truly before), then revert.
-                // If we are at destination or past it, allow Arrival.
-                // If realtime ID is unknown (not in list), we can't judge, so we fallback to strict check?
-                // The log said "Bus pole ... found in API but not in step stops". 
-                // So currentBusIndex might be -1 even if it is physically past.
-                // However, we can't easily know the order of unknown stops here without more data.
-                // BUT, if the realtime ID is NOT found in the step, it might be an issue.
-                // The user's specific case: BunkaSanchome is NOT in rideStep.stops (because rideStep stops usually include only stops utilized in the leg?).
-                // Wait, rideStep usually contains ALL stops in the path leg.
-                // If the bus jumped WAY past the destination to a stop NOT in the leg...
-                // We assume strict adherence to only reverting if we are SURE we are BEFORE.
-                // If we are unsure (bus index -1), we should probably NOT revert if the time says Arrival, 
-                // because we might have overshot. 
-                // So: Revert ONLY if we find both and current < dest.
-                
-                bool shouldRevert = false;
-                if (realtimeBusLocationId != destStopId) {
-                   // If we know both positions and current < dest, then we definitely haven't arrived.
-                   if (destIndex != -1 && currentBusIndex != -1) {
-                      if (currentBusIndex < destIndex) {
-                         shouldRevert = true;
-                      }
-                   } else if (destIndex != -1 && currentBusIndex == -1) {
-                       // Realtime bus is at a stop NOT in our list.
-                       // It could be before (e.g. previous leg?) or after (next leg).
-                       // If we assume the bus location provided is for the CURRENT route/trip...
-                       // If it's not in our list, effectively we don't know where it is relative to us.
-                       // However, preventing Arrival in this case causes the "stuck" bug if we overshot.
-                       // The safest bet for UX is: If scheduled time says Arrival, and we can't prove we are BEFORE, let it be Arrival.
-                       // So we do NOT revert if currentBusIndex == -1.
-                       shouldRevert = false;
-                   } else {
-                       // Strict equality check fallback if indexes failed (shouldn't happen if match)
-                       // If we are here, realtimeId != destId.
-                       // and we didn't find indexes. 
-                       // Check logic again.
-                       shouldRevert = true; 
-                       // Wait, if currentBusIndex == -1 (unknown loc), we set to false above?
-                       // Let's simplify.
-                   }
-                }
-                
-                // Refined logic:
-                // Revert to ride IF:
-                // 1. We assume we are NOT arrived yet (Strict)
-                // 2. BUT we allow if we are Past.
+                // 【判定ロジック】
+                // - 両方見つかった & バスが目的地より手前 → 「乗車中」に戻す
+                // - 両方見つかった & バスが目的地以降 → 到着のまま
+                // - バス位置が見つからない（-1） → 時刻表の判定を優先（到着のまま）
+                //   ※ ロスト状態の可能性があるため、無理に「乗車中」にしない
                 
                 if (realtimeBusLocationId != destStopId) {
                    if (destIndex != -1 && currentBusIndex != -1) {
                       if (currentBusIndex < destIndex) {
-                         // Clearly before destination
+                         // 明確に目的地より手前 → 乗車中に戻す
                          debugPrint("[TripCoordinator] バス位置判定: 目的地より手前 ($currentBusIndex < $destIndex)");
                          resolved = rideEntry;
                          addReason("premature_arrival_revert_index");
                       } else {
+                         // 目的地到達または通過済み → 到着のまま
                          debugPrint("[TripCoordinator] バス位置判定: 目的地通過済み ($currentBusIndex >= $destIndex)");
                       }
                    } else {
-                      // One of them is not in the list.
-                      // Case A: Realtime bus is at a stop NOT in this segment.
-                      // If it's an "unknown" stop, it might be way past.
-                      // If strict check was 'true' before, it caused the bug.
-                      // So we relax it: Only revert if we are CONFIDENT we are before.
-                      // Meaning: if we don't know the bus index, we assume the schedule is correct (Arrival).
+                      // 位置不明（ロスト等） → 時刻表の判定を信頼
                       debugPrint("[TripCoordinator] バス位置判定: 位置関係不明のため、時刻表の到着判定を優先します (Realtime=$realtimeBusLocationId, Dest=$destStopId)");
                    }
                 }
@@ -236,13 +252,18 @@ class TripCoordinator {
       }
     }
 
-
+    // ────────────────────────────────────────────────────────────
+    // ステップ6: routeStepIndex が設定されていることを確認
+    // ────────────────────────────────────────────────────────────
 
     resolved = _ensureResolvedEntryHasRouteStepIndex(
       resolvedEntry: resolved,
       addReason: addReason,
     );
 
+    // ────────────────────────────────────────────────────────────
+    // ステップ7: 完了カウントを補正（resolvedがactiveと異なる場合）
+    // ────────────────────────────────────────────────────────────
     final resolvedCompletedCount = _resolveCompletedCount(
       baseCompletedCount: completedCount,
       activeEntry: active,
@@ -260,6 +281,11 @@ class TripCoordinator {
     );
   }
 
+  /// ------------------------------------------------------------------------
+  /// ヘルパー: 完了カウントの補正
+  /// ------------------------------------------------------------------------
+  /// resolved が active と異なる場合（例: 乗車中に戻された場合）、
+  /// タイムライン上での位置差分を反映する。
   static int _resolveCompletedCount({
     required int baseCompletedCount,
     required ScheduleEntry? activeEntry,
@@ -283,6 +309,7 @@ class TripCoordinator {
     final adjusted = baseCompletedCount + (resolvedPos - activePos);
     return adjusted < 0 ? 0 : adjusted;
   }
+
 
   static NavigationState buildMemberNavigationState({
     required Trip trip,

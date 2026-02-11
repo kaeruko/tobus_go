@@ -32,15 +32,16 @@ final memberScheduleStateProvider = Provider.autoDispose<AsyncValue<ResolvedSche
 });
 
 /// バスロケAPIの最新状態
+/// trip_idベースで追跡するため、vehicleIdは不要
 class RealtimeBusState {
+  /// 現在のバス位置（セグメント内のバス停インデックス）
   final int? lastApiStopIndex;
-  final String? lastRealtimeBusId; // Bus Stop Pole ID
-  final String? vehicleId;         // Physical Bus ID (odpt:bus)
+  /// 最後に取得したバス停ポールID
+  final String? lastRealtimeBusId;
 
   const RealtimeBusState({
     this.lastApiStopIndex,
     this.lastRealtimeBusId,
-    this.vehicleId,
   });
 }
 
@@ -75,9 +76,6 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
     final trip = _ref.read(tripStreamProvider).value;
     if (trip == null) return;
 
-    // 【変更】共通のスケジュールProviderから結果を取得
-    // 自身がTimer内なので watch はできないが read で取得する。
-    // AutoDisposeなので、UIでwatchされていなければ再計算コストがかかるかもしれないが、ロジックは一元化される。
     final scheduleAsync = _ref.read(memberScheduleStateProvider);
     
     // データがまだ無い、エラーなどの場合は何もしない
@@ -97,84 +95,85 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
       }
     }
 
-    // 2. 乗車中かつルートIDがある場合のみAPI確認 (Realtime基準)
-    if (activeStep != null && activeStep.isRide && activeStep.routeId != null) {
-      debugPrint('[MemberModeController] CONFIRMATION: Active Step RouteID=${activeStep.routeId} (Title=${activeStep.title})');
-      if (activeStep.tripId == null) {
-        // tripIdがない場合はAPI叩けないのでスキップ
-        debugPrint('[MemberModeController] Skip API poll: tripId is null');
-      } else {
-        // バスロケーションAPIを呼び出してリアルタイム位置を取得
-        try {
-          debugPrint('[MemberModeController] バス位置取得中: route=${activeStep.routeId}, trip=${activeStep.tripId}, vehicle=${state.vehicleId}');
-          final result = await ApiClient.fetchBusLocation(
-            routeId: activeStep.routeId!,
-            tripId: activeStep.tripId!,
-            vehicleId: state.vehicleId,
-          );
-          debugPrint('[MemberModeController] API結果: $result');
-          
-          // APIレスポンスからバス停ポールIDと車両IDを取得
-          final fromPoleId = result['odpt:fromBusstopPole'];
-          final vehicleId = result['odpt:bus']; // 物理的なバスID
+    // 2. 乗車中かつルートID/tripIDがある場合のみAPI確認
+    if (activeStep != null && activeStep.isRide && activeStep.routeId != null && activeStep.tripId != null) {
+      debugPrint('[MemberModeController] 乗車中: route=${activeStep.routeId}, trip=${activeStep.tripId}');
+      
+      try {
+        // trip_idベースでAPIを呼び出し（vehicleIdは指定しない）
+        final result = await ApiClient.fetchBusLocation(
+          routeId: activeStep.routeId!,
+          tripId: activeStep.tripId!,
+          // vehicleId は指定しない: trip_id でフィルタされる
+        );
+        debugPrint('[MemberModeController] API結果: $result');
+        
+        final fromPoleId = result['odpt:fromBusstopPole'] as String?;
 
-          if (fromPoleId != null) {
-            // 現在のステップのバス停リストからAPIで返されたポールIDを検索
-            int index = activeStep.stops.indexWhere((s) => s.stopId == fromPoleId);
+        if (fromPoleId != null) {
+          // セグメント内のバス停リストからAPIで返されたポールIDを検索
+          int index = activeStep.stops.indexWhere((s) => s.stopId == fromPoleId);
 
-            if (index != -1) {
-              // バス停が見つかった場合: インデックスとIDを更新
-              apiStopIndex = index;
-              // APIから取れた位置をStateに保持
+          if (index != -1) {
+            // ────────────────────────────────────────
+            // セグメント内にいる → 追跡成功
+            // ────────────────────────────────────────
+            apiStopIndex = index;
+            state = RealtimeBusState(
+              lastRealtimeBusId: fromPoleId,
+              lastApiStopIndex: index,
+            );
+            debugPrint("[MemberModeController] 追跡成功: index=$index, id=$fromPoleId");
+          } else {
+            // ────────────────────────────────────────
+            // セグメント外にいる
+            // ────────────────────────────────────────
+            debugPrint("[MemberModeController] バス停 $fromPoleId はセグメント外");
+            debugPrint("[MemberModeController] セグメント: ${activeStep.stops.map((s) => s.stopId).toList()}");
+            debugPrint("[MemberModeController] 前回位置: ${state.lastApiStopIndex}");
+            
+            final wasRiding = state.lastApiStopIndex != null;
+            
+            if (wasRiding) {
+              // 乗車中 + ロスト → 到着済み
+              debugPrint("[MemberModeController] 乗車中にロスト → 到着済み");
+              if (activeStep.stops.isNotEmpty) {
+                apiStopIndex = activeStep.stops.length - 1;
+              }
+              state = RealtimeBusState(
+                lastRealtimeBusId: activeStep.stops.isNotEmpty ? activeStep.stops.last.stopId : fromPoleId,
+                lastApiStopIndex: activeStep.stops.isNotEmpty ? activeStep.stops.length - 1 : null,
+              );
+            } else {
+              // 未乗車 + ロスト → 遅延継続
+              debugPrint("[MemberModeController] 未乗車でロスト → 遅延継続");
               state = RealtimeBusState(
                 lastRealtimeBusId: fromPoleId,
-                lastApiStopIndex: index,
-                vehicleId: vehicleId, // 車両IDを更新/保持
+                lastApiStopIndex: null,
               );
-              debugPrint("[MemberModeController] API更新成功: インデックス $index / ID: $fromPoleId / 車両: $vehicleId");
-            } else {
-               // バス停がこのセグメントのリストに見つからない場合
-               final availableStopIds = activeStep.stops.map((s) => s.stopId).toList();
-               final availableStopNames = activeStep.stops.map((s) => s.name).toList();
-               debugPrint("[MemberModeController] バス停 $fromPoleId (車両: $vehicleId) はAPIで取得できたが、現在のステップのバス停リストには存在しない");
-               debugPrint("[MemberModeController] 現在のステップのバス停ID: $availableStopIds");
-               debugPrint("[MemberModeController] 現在のステップのバス停名: $availableStopNames");
-               
-               // このセグメントのバス停リストにはないが、正しいトリップ上でバスを発見した
-               // → バスはこのセグメントの最初のバス停に向かっている（上流にいる）と推測
-               // coordinatorに追跡中であることを知らせるためIDは更新するが、
-               // インデックスはnullのままにする（プログレスバーは時間基準で表示される）
-               state = RealtimeBusState(
-                 lastRealtimeBusId: fromPoleId,
-                 lastApiStopIndex: null, // このセグメントのバス停リストには存在しない
-                 vehicleId: vehicleId, // この車両をロックオン
-               );
             }
-          } else {
-            // APIからバス停ポールIDが返されなかった場合
-            debugPrint("[MemberModeController] APIからfromBusstopPoleがnullまたは空で返された");
           }
-        } catch (e) {
-          // API呼び出し時のエラーハンドリング
-          debugPrint('[MemberModeController] APIエラー: $e');
+        } else {
+          debugPrint("[MemberModeController] APIレスポンスにバス停IDなし");
         }
+      } catch (e) {
+        debugPrint('[MemberModeController] APIエラー: $e');
       }
     } else {
-      debugPrint('[MemberModeController] Not in ride mode or missing IDs. activeStep=$activeStep, isRide=${activeStep?.isRide}, routeId=${activeStep?.routeId}');
-      // 徒歩中などはAPI状態をリセット（あるいは前回の値を保持せずクリア）
-      if (state.lastApiStopIndex != null) {
-        state = const RealtimeBusState(lastApiStopIndex: null, lastRealtimeBusId: null);
+      // 乗車ステップではない（徒歩など）→ 状態をリセット
+      if (activeStep != null && !activeStep.isRide) {
+        debugPrint('[MemberModeController] 非乗車ステップ: ${activeStep.kind}');
+      }
+      if (state.lastApiStopIndex != null || state.lastRealtimeBusId != null) {
+        state = const RealtimeBusState();
       }
     }
 
     // 3. 進捗を更新 (時間基準 + API補正)
-    // resolvedEntry (時間基準) をベースにしつつ、API情報 (apiStopIndex) があればそれを強制適用する
     if (resolvedEntry != null) {
       _ref.read(memberNavProgressProvider.notifier).updateFromSchedule(
         trip,
         resolvedEntry,
-        // APIで位置が取れていればそのバス停インデックスを、取れていなければStateの前回値を優先
-        // どちらもなければnullになり、純粋な時間基準(updateFromScheduleのデフォルト挙動)になる
         forceStopIndex: apiStopIndex ?? state.lastApiStopIndex,
       );
      }
