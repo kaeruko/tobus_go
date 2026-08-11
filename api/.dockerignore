@@ -7,12 +7,8 @@
 tests/
 build/
 
-# The prebuilt graph and static GTFS data are sufficient at runtime.
-# Keep the large raw source files out of the Lambda image.
-data/*
-!data/app_data.pkl
-!data/ToeiBus-GTFS/
-!data/ToeiBus-GTFS/**
+# Runtime data is downloaded from S3 into /tmp on the first cold start.
+data/
 
 *.zip
 response*.json

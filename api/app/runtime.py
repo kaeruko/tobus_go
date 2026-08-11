@@ -2,6 +2,7 @@ import os
 import asyncio
 import pickle
 import time
+import zipfile
 import httpx
 
 import initialize_data
@@ -11,6 +12,46 @@ from gtfs_loader import gtfs_repo
 LAMBDA_TMP_DIR = "/tmp/data"
 # 事前ビルドされたファイルのパス（コンテナ内の配置場所）
 PREBUILT_DATA_PATH = os.getenv("PREBUILT_DATA_PATH", "data/app_data.pkl")
+
+
+def _download_lambda_data(data_dir: str = LAMBDA_TMP_DIR) -> str:
+    bucket_name = os.getenv("S3_BUCKET_NAME")
+    if not bucket_name:
+        raise RuntimeError("S3_BUCKET_NAME is required in lambda mode")
+
+    prebuilt_key = os.getenv("S3_PREBUILT_KEY", "app_data.pkl")
+    gtfs_key = os.getenv("S3_GTFS_KEY", "ToeiBus-GTFS.zip")
+    prebuilt_path = os.path.join(data_dir, "app_data.pkl")
+    gtfs_marker = os.path.join(data_dir, "ToeiBus-GTFS", "routes.txt")
+    gtfs_zip_path = os.path.join(data_dir, ".ToeiBus-GTFS.zip")
+
+    os.makedirs(data_dir, exist_ok=True)
+
+    import boto3
+
+    s3 = boto3.client("s3")
+    if not os.path.exists(prebuilt_path):
+        print(f"[INFO] Downloading prebuilt data from S3 key {prebuilt_key}...")
+        s3.download_file(bucket_name, prebuilt_key, prebuilt_path)
+
+    if not os.path.exists(gtfs_marker):
+        print(f"[INFO] Downloading GTFS data from S3 key {gtfs_key}...")
+        s3.download_file(bucket_name, gtfs_key, gtfs_zip_path)
+        with zipfile.ZipFile(gtfs_zip_path) as archive:
+            root = os.path.realpath(data_dir)
+            for member in archive.infolist():
+                target = os.path.realpath(os.path.join(root, member.filename))
+                if os.path.commonpath([root, target]) != root:
+                    raise RuntimeError(
+                        f"Unsafe path in GTFS archive: {member.filename}"
+                    )
+            archive.extractall(data_dir)
+        os.remove(gtfs_zip_path)
+
+    if not os.path.exists(gtfs_marker):
+        raise RuntimeError(f"GTFS archive did not contain {gtfs_marker}")
+
+    return prebuilt_path
 
 def _env_int(key: str, default: int) -> int:
     v = os.getenv(key)
@@ -89,11 +130,16 @@ async def setup_on_startup(app, mode: str) -> None:
     # (routes.py で 503 を返すために必要)
     app.state.loading_status = "starting"
 
+    prebuilt_data_path = PREBUILT_DATA_PATH
+    if mode == "lambda" and not os.path.exists(prebuilt_data_path):
+        os.environ["DATA_DIR"] = os.getenv("DATA_DIR", LAMBDA_TMP_DIR)
+        prebuilt_data_path = _download_lambda_data(os.environ["DATA_DIR"])
+
     # 1. 高速起動パス: Pickleファイルからのロード
-    if os.path.exists(PREBUILT_DATA_PATH):
-        print(f"[INFO] Loading prebuilt data from {PREBUILT_DATA_PATH}...")
+    if os.path.exists(prebuilt_data_path):
+        print(f"[INFO] Loading prebuilt data from {prebuilt_data_path}...")
         try:
-            with open(PREBUILT_DATA_PATH, "rb") as f:
+            with open(prebuilt_data_path, "rb") as f:
                 data = pickle.load(f)
             
             app.state.G = data["G"]
@@ -127,52 +173,8 @@ async def setup_on_startup(app, mode: str) -> None:
 
 
     # 2. 低速起動パス (フォールバック): 生データから構築
-    # Lambda環境かつデータがない場合のみダウンロード/生成
+    # Lambda環境で事前データを読み込めなかった場合のみ生データから再生成
     if mode == "lambda":
-        # S3から事前ビルド済みデータを取得トライ
-        bucket_name = os.getenv("S3_BUCKET_NAME")
-        if not os.path.exists(PREBUILT_DATA_PATH) and bucket_name:
-            import boto3
-            import botocore
-            
-            s3_key = "app_data.pkl" 
-            dest_path = "/tmp/app_data.pkl"
-            print(f"[INFO] Trying to download s3://{bucket_name}/{s3_key} to {dest_path} ...")
-            
-            try:
-                s3 = boto3.client("s3")
-                s3.download_file(bucket_name, s3_key, dest_path)
-                print("[INFO] S3 download successful.")
-                
-                # ダウンロードしたファイルをロードしてみる
-                # (再帰呼び出しは避けて、ここでロード処理を共通化してもいいが、
-                #  今回はシンプルにパスを書き換えるアプローチで)
-                #  -> NOTE: setup_on_startup の冒頭で PREBUILT_DATA_PATH を見てるが、
-                #     変数は再代入しても関数冒頭のチェックは通過済みなので、ここでもう一度ロードロジックを書くか、
-                #     あるいは再度この関数を呼ぶ？ -> 再度呼ぶのは無限ループリスクあり。
-                #     ここではダウンロード成功したら、ロード処理（1.のロジック）と同じことを行う
-                
-                print(f"[INFO] Loading downloaded data from {dest_path}...")
-                with open(dest_path, "rb") as f:
-                    data = pickle.load(f)
-                
-                app.state.G = data["G"]
-                app.state.TM = data["TM"]
-                app.state.SI = data.get("SI")
-                app.state.WALK_RAD = data.get("WALK_RAD", 300)
-                
-                if not app.state.SI:
-                    from toei_engine import SpatialIndex
-                    app.state.SI = SpatialIndex(app.state.G)
-
-                print(f"[INFO] Data loaded from S3 in {time.time() - start_time:.2f}s")
-                asyncio.create_task(fetch_realtime_data_loop(app.state.TM))
-                app.state.loading_status = "ready"
-                return
-
-            except Exception as e:
-                print(f"[WARNING] S3 download failed: {e}. Falling back to raw initialization.")
-
         # 以下、生データからの構築フォールバック
         os.environ["DATA_DIR"] = os.getenv("DATA_DIR", LAMBDA_TMP_DIR)
         data_dir = os.getenv("DATA_DIR", LAMBDA_TMP_DIR)
