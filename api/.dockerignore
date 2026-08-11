@@ -1,0 +1,19 @@
+.env
+.env.*
+!.env.example
+.venv/
+**/__pycache__/
+*.py[cod]
+tests/
+build/
+
+# The prebuilt graph and static GTFS data are sufficient at runtime.
+# Keep the large raw source files out of the Lambda image.
+data/*
+!data/app_data.pkl
+!data/ToeiBus-GTFS/
+!data/ToeiBus-GTFS/**
+
+*.zip
+response*.json
+busroute_patterns.txt
