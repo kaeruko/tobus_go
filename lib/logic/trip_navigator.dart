@@ -160,7 +160,7 @@ class NavigationState {
          subText = nextName ?? "";
          color = const Color(0xFFFFAB91);
        } else {
-          mainText = "あと $remaining 駅";
+          mainText = "あと $remaining 回停車";
          // subText = "つぎは $nextName";
          // 要望により現在の停留所を表示
          String currentName = "";

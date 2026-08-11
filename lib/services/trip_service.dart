@@ -228,7 +228,7 @@ class TripService {
     return Trip.fromFirestore(snapshot.docs.first);
   }
 
-  // 計画中・進行中の全ての旅を取得する（重複チェック用）
+  // 計画中・進行中の全てのおでかけを取得する（重複チェック用）
   Future<List<Trip>> getFutureTrips() async {
     final uid = _userService.currentUserId;
     if (uid == null) return [];

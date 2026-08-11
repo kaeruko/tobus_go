@@ -258,7 +258,7 @@ class _CurrentStatusCard extends StatelessWidget {
       children: [
         if (navState.remainingStops != null)
           _StatusChip(
-            label: 'のこり ${navState.remainingStops} 停留所',
+            label: 'のこり ${navState.remainingStops} 回停車',
             icon: CupertinoIcons.bus,
             color: const Color(0xFF0D47A1),
             background: const Color(0xFFE3F2FD),

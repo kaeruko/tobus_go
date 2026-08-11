@@ -149,6 +149,64 @@ List<ScheduleEntry> createScheduleFromRoute(
 
   // Back-fill missing times if the start is missing (e.g. initial walk)
   final firstValidIndex = stepClocks.indexWhere((s) => s != null && s.contains(':'));
+  // 最初が「徒歩 → 待ち → 乗車」なら、
+  // 待ち時間を家で過ごして、乗車時刻から徒歩を逆算する。
+  final hasLeadingWait =
+      route.steps.length >= 3 &&
+      route.steps[0].kind == 'walk' &&
+      route.steps[1].kind == 'wait' &&
+      (route.steps[2].kind == 'bus' || route.steps[2].kind == 'rail');
+
+  if (hasLeadingWait) {
+    final walk = route.steps[0];
+    final wait = route.steps[1];
+    final ride = route.steps[2];
+
+    if (walk.minutes <= 0) {
+      throw StateError(
+        '先頭徒歩区間の所要時間が不正です: ${walk.minutes}',
+      );
+    }
+
+    if (wait.arrivalTime == null ||
+        !wait.arrivalTime!.contains(':') ||
+        ride.departureTime == null ||
+        !ride.departureTime!.contains(':')) {
+      throw StateError(
+        '待ち時間を徒歩開始時刻へ繰り込むための時刻情報がありません。'
+        ' wait.arrivalTime=${wait.arrivalTime},'
+        ' ride.departureTime=${ride.departureTime}',
+      );
+    }
+
+    // indexes:
+    // 0 = walk departure
+    // 1 = walk arrival
+    // 2 = wait start
+    // 3 = wait end
+    // 4 = ride departure
+    final boardingAt = normalizedTimes[4];
+
+    if (normalizedTimes[3] != boardingAt) {
+      throw StateError(
+        '待ち終了時刻と乗車時刻が一致しません。'
+        ' waitEnd=${normalizedTimes[3]}, boardingAt=$boardingAt',
+      );
+    }
+
+    final leaveAt =
+        boardingAt.subtract(Duration(minutes: walk.minutes));
+
+    // 徒歩を乗車時刻に合わせて後ろへずらす
+    normalizedTimes[0] = leaveAt;
+    normalizedTimes[1] = boardingAt;
+
+    // 待ち時間を0分にする
+    normalizedTimes[2] = boardingAt;
+    normalizedTimes[3] = boardingAt;
+  }
+
+
   if (firstValidIndex > 0) {
     for (var k = firstValidIndex - 1; k >= 0; k--) {
       // k+1 is always valid boundary because we start < firstValidIndex <= length
@@ -255,6 +313,18 @@ List<ScheduleEntry> createScheduleFromRoute(
         endAt = normalizedTimes[timeCursorIndex + 1];
         timeCursorIndex += 2;
         durationMinutes = endAt.difference(startAt).inMinutes;
+
+        if (durationMinutes == 0) {
+          continue;
+        }
+
+        if (durationMinutes < 0) {
+          throw StateError(
+            '待ち時間が負になりました: $durationMinutes分',
+          );
+        }
+
+
       } else {
         startAt = cursorTime;
         durationMinutes = step.minutes ?? 0; // waitステップ自体に分数がなければ0
@@ -413,7 +483,7 @@ List<ScheduleEntry> createScheduleFromLegs(
         meetingDescription: 'みんな揃っているか確認しましょう',
         meetingAt: startAt.subtract(const Duration(minutes: 10)), // Explicit meeting time
         baseStepIndex: legBaseIndices[outbound] ?? 0,
-        shiftToStart: true, // Anchor to startAt
+        shiftToStart: false, // Anchor to startAt
       ),
     );
   }

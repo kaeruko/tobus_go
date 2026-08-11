@@ -101,7 +101,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
         await _showRerouteDialog(trip, service, now, deltaMinutes);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('旅を開始しました')),
+          const SnackBar(content: Text('おでかけを開始しました')),
         );
       }
     } catch (e) {

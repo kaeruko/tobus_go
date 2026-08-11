@@ -73,27 +73,61 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
   Future<void> pollNow() async => _checkProgress();
 
   Future<void> _checkProgress() async {
+    debugPrint('[MemberModeController] _checkProgress START');
+
     final trip = _ref.read(tripStreamProvider).value;
-    if (trip == null) return;
+    if (trip == null) {
+      debugPrint('[MemberModeController] trip=null');
+      return;
+    }
 
     final scheduleAsync = _ref.read(memberScheduleStateProvider);
-    
-    // データがまだ無い、エラーなどの場合は何もしない
-    if (scheduleAsync.asData == null) return;
-    final scheduleResolved = scheduleAsync.asData!.value;
 
+    if (scheduleAsync.asData == null) {
+      debugPrint(
+        '[MemberModeController] schedule未準備: $scheduleAsync',
+      );
+      return;
+    }
+
+    final scheduleResolved = scheduleAsync.asData!.value;
     final resolvedEntry = scheduleResolved.resolvedEntry;
-    final allSteps = trip.legs.expand((leg) => leg.candidate.steps).toList();
+
+    debugPrint(
+      '[MemberModeController] resolvedEntry='
+      '${resolvedEntry?.label} '
+      'routeStepIndex=${resolvedEntry?.routeStepIndex}',
+    );
+
+    final allSteps =
+        trip.legs.expand((leg) => leg.candidate.steps).toList();
+
     StepSeg? activeStep;
     int? apiStopIndex;
 
-    // 1. アクティブなエントリーがあれば、それに対応するステップを特定
     if (resolvedEntry?.routeStepIndex != null) {
       final stepIndex = resolvedEntry!.routeStepIndex!;
-      if (stepIndex >= 0 && stepIndex < allSteps.length) {
+
+      // meeting は routeStepIndex=-1 が正常
+      if (stepIndex >= 0) {
+        if (stepIndex >= allSteps.length) {
+          throw StateError(
+            'routeStepIndexが範囲外です: '
+            '$stepIndex / steps=${allSteps.length}',
+          );
+        }
+
         activeStep = allSteps[stepIndex];
       }
     }
+
+    debugPrint(
+      '[MemberModeController] activeStep='
+      'kind=${activeStep?.kind}, '
+      'routeId=${activeStep?.routeId}, '
+      'tripId=${activeStep?.tripId}, '
+      'stops=${activeStep?.stops.length}',
+    );
 
     // 2. 乗車中かつルートID/tripIDがある場合のみAPI確認
     if (activeStep != null && activeStep.isRide && activeStep.routeId != null && activeStep.tripId != null) {

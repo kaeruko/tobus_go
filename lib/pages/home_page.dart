@@ -86,10 +86,24 @@ class HomePageState extends ConsumerState<HomePage> {
       if (_canAutoSearchAfterEditingFrom()) {
         notifier.triggerSearch();
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[HomePage] 現在地取得エラー: $e');
+      debugPrintStack(stackTrace: st);
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('現在地の取得に失敗しました: $e')),
+
+      await showCupertinoDialog<void>(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('現在地を取得できませんでした'),
+          content: Text('$e'),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
       );
     }
   }
