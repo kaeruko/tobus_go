@@ -378,7 +378,7 @@ def reconstruct_path_idx(chain_store, idx):
 def determine_day_type(target_date: datetime.date | datetime.datetime | str | None) -> str:
     """
     日付を受け取り、平日(weekday)/土曜(saturday)/休日(holiday) を判定して返す。
-    japanese_holidays があれば祝日判定も行う。
+    jpholiday があれば祝日判定も行う。
     """
     d = None
     if target_date is None:
@@ -399,8 +399,8 @@ def determine_day_type(target_date: datetime.date | datetime.datetime | str | No
 
     # 祝日判定
     try:
-        import japanese_holidays
-        is_holiday = japanese_holidays.is_holiday(d)
+        import jpholiday
+        is_holiday = jpholiday.is_holiday(d)
     except ImportError:
         is_holiday = False
 
