@@ -4,6 +4,11 @@ import uuid
 import asyncio
 import datetime
 from app.services.bus_stop_experience import build_route_experiences
+from app.services.bus_location_matcher import (
+    BusLocationMatchError,
+    select_bus_candidate,
+)
+from app.services.route_step_ids import assign_candidate_step_ids
 
 from fastapi import HTTPException, Form, Query, Body, BackgroundTasks
 from fastapi.responses import Response
@@ -180,6 +185,7 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
         
         # 不要な内部パスデータの削除
         if "path" in cand: del cand["path"]
+        assign_candidate_step_ids(cand)
 
     # メタデータの作成: フォールバック情報など
     fallback_distance_m = None
@@ -270,41 +276,31 @@ def register_routes(app):
         candidates_all = tm.latest_bus_positions
         base["candidates_total"] = len(candidates_all)
 
-        candidates_route = [b for b in candidates_all if b.get("odpt:busroute") == route_id]
+        candidates_route = [
+            bus for bus in candidates_all
+            if bus.get("odpt:busroute") == route_id
+        ]
         base["route_match_count"] = len(candidates_route)
-
-        # [DEBUG] Dump candidates to investigate jumps
-        if candidates_route:
-            print(f"[DEBUG_DUMP] candidates_route for {route_id} at {now}:")
-            print(json.dumps(candidates_route, ensure_ascii=False, indent=2))
-
-
-        if not candidates_route:
-            _busloc_log({**base, "ok": False, "reason": "NO_ROUTE_MATCH"})
-            raise HTTPException(404, detail={"code": "bus_route_not_found", "message": "No bus found on route"})
-
-        # [MODIFIED] Simplified matching for GTFS-RT
-        # We trust the route filtering. Since GTFS-RT doesn't have ODPT Pattern IDs,
-        # we skip pattern checking if the data doesn't have it.
-        
-        # Filter by vehicle_id if specified
-        if vehicle_id:
-            candidates_filtered = [b for b in candidates_route if b.get("vehicle_id") == vehicle_id]
-            if not candidates_filtered:
-                _busloc_log({**base, "ok": False, "reason": "VEHICLE_ID_NOT_FOUND"})
-                raise HTTPException(404, detail={"code": "vehicle_not_found", "message": f"Vehicle {vehicle_id} not found on route {route_id}"})
-            target_bus = candidates_filtered[0]
-            _busloc_log({**base, "ok": True, "reason": "VEHICLE_ID_MATCH"})
-        else:
-            # No vehicle_id specified, pick first match
-            target_bus = candidates_route[0]
-            if len(candidates_route) > 1:
-                _busloc_log({**base, "ok": True, "reason": "MULTI_MATCH_PICK_FIRST", "count": len(candidates_route)})
-            else:
-                _busloc_log({**base, "ok": True, "reason": "SINGLE_MATCH"})
+        base["trip_match_count"] = len([
+            bus for bus in candidates_route if bus.get("trip_id") == trip_id
+        ])
+        try:
+            target_bus = select_bus_candidate(
+                candidates_all,
+                route_id=route_id,
+                trip_id=trip_id,
+                vehicle_id=vehicle_id,
+            )
+        except BusLocationMatchError as exc:
+            _busloc_log({**base, "ok": False, "reason": exc.code})
+            raise HTTPException(
+                exc.status_code,
+                detail={"code": exc.code, "message": exc.message},
+            ) from exc
 
         response = {
             "odpt:bus": target_bus.get("vehicle_id"),
+            "vehicle_id": target_bus.get("vehicle_id"),
             "odpt:fromBusstopPole": target_bus.get("odpt:fromBusstopPole"),
             # Use raw lat/lon from V2 engine
             "vehicle_lat": target_bus.get("lat"),
