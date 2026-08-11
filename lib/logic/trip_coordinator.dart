@@ -100,6 +100,23 @@ class TripCoordinator {
     addReason('active_entry');
 
     final progress = routeState?.busProgress;
+    if (resolved.itemKind == ScheduleEntryKind.ride &&
+        progress != null &&
+        resolved.routeStepId == progress.stepId &&
+        progress.phase == BusProgressPhase.arrived) {
+      final arrivalEntry = scheduleSorted.cast<ScheduleEntry?>().firstWhere(
+        (entry) =>
+            entry?.legIndex == resolved.legIndex &&
+            entry?.itemKind == ScheduleEntryKind.arrival &&
+            entry?.routeStepId == resolved.routeStepId,
+        orElse: () => null,
+      );
+      if (arrivalEntry != null) {
+        resolved = arrivalEntry;
+        addReason('realtime_arrival_advance_step_id');
+      }
+    }
+
     if (resolved.itemKind == ScheduleEntryKind.arrival &&
         progress != null &&
         resolved.routeStepId == progress.stepId) {

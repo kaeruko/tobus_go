@@ -8,6 +8,51 @@ import 'fixtures/navigation_v2_fixture.dart';
 
 void main() {
   test(
+    'realtime arrival advances the current schedule row before its time',
+    () {
+      final trip = navigationV2Trip();
+      final step = trip.stepsById['bus-C']!;
+      final ride = ScheduleEntry(
+        plannedAt: DateTime(2025, 1, 1, 10, 4),
+        label: '上23に乗る',
+        itemKind: ScheduleEntryKind.ride,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: step.stepId,
+      );
+      final arrival = ScheduleEntry(
+        plannedAt: DateTime(2025, 1, 1, 10, 46),
+        label: '押上に着く',
+        itemKind: ScheduleEntryKind.arrival,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: step.stepId,
+      );
+      final routeState = RouteState(
+        stepsById: trip.stepsById,
+        currentStepId: step.stepId,
+        busProgress: BusProgress.forStep(
+          step: step,
+          fromStopId: step.stops.last.stopId!,
+        ),
+      );
+
+      final resolved = TripCoordinator.resolveScheduleState(
+        scheduleEntries: [ride, arrival],
+        routeState: routeState,
+        now: DateTime(2025, 1, 1, 10, 41),
+      );
+
+      expect(resolved.activeEntry?.id, ride.id);
+      expect(resolved.resolvedEntry?.id, arrival.id);
+      expect(resolved.activeLabel, 'いま');
+      expect(resolved.completedCount, 1);
+      expect(
+        resolved.resolutionReason,
+        contains('realtime_arrival_advance_step_id'),
+      );
+    },
+  );
+
+  test(
     'arrival stays on the same bus step while the bus is before destination',
     () {
       final trip = navigationV2Trip();
