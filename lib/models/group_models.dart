@@ -494,12 +494,10 @@ List<ScheduleEntry> createScheduleFromLegs(
         inboundAnchor = (outbound.candidate.departureDate?.add(Duration(minutes: outbound.candidate.totalTime + 120)) ?? appClock.now());
     }
 
-    // Inbound Meeting Logic (Maintained):
-    // Departure Lead = 10 mins (So "Departure" would be Anchor - 10)
-    // Meeting = RoundDown(Departure - 15) = RoundDown(Anchor - 25)
-    
-    final inboundDepartureAt = inboundAnchor.subtract(const Duration(minutes: 10));
-    final meetingAt = _roundDownToHalfHour(inboundDepartureAt.subtract(const Duration(minutes: 15)));
+    // The return time selected by the user is the start of the first inbound
+    // movement. Keep the meeting rule consistent with the outbound leg: meet
+    // 10 minutes before that movement starts.
+    final meetingAt = inboundAnchor.subtract(const Duration(minutes: 10));
 
     schedule.addAll(
       createScheduleFromRoute(
@@ -559,10 +557,4 @@ String _labelForLeg(LegDirection direction) {
 
 String formatClock(DateTime dt) {
   return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-}
-
-DateTime _roundDownToHalfHour(DateTime dt) {
-  final minute = dt.minute;
-  final roundedMinute = minute >= 30 ? 30 : 0;
-  return DateTime(dt.year, dt.month, dt.day, dt.hour, roundedMinute);
 }
