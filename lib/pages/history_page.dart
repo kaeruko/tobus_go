@@ -14,7 +14,7 @@ class HistoryPage extends StatelessWidget {
         title: const Text('履歴'),
       ),
       body: FutureBuilder<List<Trip>>(
-        future: TripService().getCompletedTrips(),
+        future: TripService().getAllTrips(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -41,9 +41,15 @@ class HistoryPage extends StatelessWidget {
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: ListTile(
-                  leading: const Icon(Icons.history, color: Colors.grey),
-                  title: Text(trip.title),
-                  subtitle: Text("${trip.date.year}/${trip.date.month}/${trip.date.day}"),
+                  leading: Icon(
+                    _statusIcon(trip.travelPhase),
+                    color: _statusColor(trip.travelPhase),
+                  ),
+                  title: Text(trip.displayTitle),
+                  subtitle: Text(
+                    "${trip.date.year}/${trip.date.month}/${trip.date.day}"
+                    " ・ ${_statusLabel(trip.travelPhase)}",
+                  ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.push(
@@ -60,5 +66,44 @@ class HistoryPage extends StatelessWidget {
         },
       ),
     );
+  }
+
+  String _statusLabel(TravelPhase phase) {
+    switch (phase) {
+      case TravelPhase.planning:
+        return '計画中';
+      case TravelPhase.active:
+        return '移動中';
+      case TravelPhase.completed:
+        return '完了';
+      case TravelPhase.cancelled:
+        return '中止';
+    }
+  }
+
+  IconData _statusIcon(TravelPhase phase) {
+    switch (phase) {
+      case TravelPhase.planning:
+        return Icons.schedule;
+      case TravelPhase.active:
+        return Icons.directions_bus;
+      case TravelPhase.completed:
+        return Icons.check_circle;
+      case TravelPhase.cancelled:
+        return Icons.cancel;
+    }
+  }
+
+  Color _statusColor(TravelPhase phase) {
+    switch (phase) {
+      case TravelPhase.planning:
+        return Colors.orange;
+      case TravelPhase.active:
+        return Colors.blue;
+      case TravelPhase.completed:
+        return Colors.green;
+      case TravelPhase.cancelled:
+        return Colors.grey;
+    }
   }
 }

@@ -261,7 +261,12 @@ class TripService {
         .where('memberIds', arrayContains: uid)
         .get();
 
-    final trips = snapshot.docs.map((d) => Trip.fromFirestore(d)).toList();
+    // navigation v2以前のデータは現在のTripとして復元できないため、
+    // 一覧全体をエラーにせず履歴から除外する。
+    final trips = snapshot.docs
+        .where((d) => d.data()['schemaVersion'] == Trip.currentSchemaVersion)
+        .map((d) => Trip.fromFirestore(d))
+        .toList();
     // メモリ内でソート（Firestoreの複合インデックス作成回避のため）
     trips.sort((a, b) => b.date.compareTo(a.date));
     return trips;
