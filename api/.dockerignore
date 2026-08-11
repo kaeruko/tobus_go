@@ -13,3 +13,5 @@ data/
 *.zip
 response*.json
 busroute_patterns.txt
+sample.py
+pw_test.py

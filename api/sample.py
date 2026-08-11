@@ -1,9 +1,16 @@
+import os
+
 import requests
 from google.transit import gtfs_realtime_pb2
 
 feed = gtfs_realtime_pb2.FeedMessage()
-url = "https://api-public.odpt.org/api/v4/gtfs/realtime/ToeiBus?acl:consumerKey=kxdvpjwm3ezjbaszajewpohbqokbgxnrwy7w0en0hgj1ejkmimt8pyf9zq29xilm"
-data = requests.get(url).content
+token = os.environ["ODPT_API_TOKEN"]
+url = "https://api-public.odpt.org/api/v4/gtfs/realtime/ToeiBus"
+data = requests.get(
+    url,
+    params={"acl:consumerKey": token},
+    timeout=30,
+).content
 
 feed.ParseFromString(data)
 
