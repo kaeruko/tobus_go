@@ -3,9 +3,10 @@ import shutil
 import tempfile
 import unittest
 import zipfile
+from types import SimpleNamespace
 from unittest.mock import patch
 
-from app.runtime import _download_lambda_data
+from app.runtime import _download_lambda_data, setup_on_startup
 
 
 class _FakeS3:
@@ -62,6 +63,22 @@ class LambdaDataDownloadTest(unittest.TestCase):
                     ("test-bucket", "deploy/ToeiBus-GTFS.zip"),
                 ],
             )
+
+
+class LambdaStartupReuseTest(unittest.IsolatedAsyncioTestCase):
+    async def test_reuses_initialized_runtime(self):
+        app = SimpleNamespace(
+            state=SimpleNamespace(
+                loading_status="ready",
+                G=object(),
+                TM=object(),
+            )
+        )
+
+        with patch("app.runtime._download_lambda_data") as download:
+            await setup_on_startup(app, "lambda")
+
+        download.assert_not_called()
 
 
 if __name__ == "__main__":

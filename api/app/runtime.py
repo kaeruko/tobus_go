@@ -135,6 +135,8 @@ async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
     print("[INFO] Starting Realtime Data Fetch Loop (Train & Bus)...")
 
     while True:
+        await asyncio.sleep(60)
+
         try:
             async with httpx.AsyncClient() as client:
                 # 1. Fetch Train Data
@@ -146,14 +148,20 @@ async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
             print(f"[WARN] Realtime fetch error: {e}")
 
         await refresh_realtime_bus_positions(tm, max_age_seconds=0)
-        
-        await asyncio.sleep(60)
 
 async def setup_on_startup(app, mode: str) -> None:
     """
     アプリケーション起動時の初期化処理
     事前ビルド済みデータ(app_data.pkl)があればそれを高速ロードする
     """
+    if (
+        getattr(app.state, "loading_status", None) == "ready"
+        and getattr(app.state, "G", None) is not None
+        and getattr(app.state, "TM", None) is not None
+    ):
+        print("[INFO] Runtime already initialized; reusing cached data.")
+        return
+
     start_time = time.time()
     
     # 完全に準備が整うまで、loading_status は starting のままにする
