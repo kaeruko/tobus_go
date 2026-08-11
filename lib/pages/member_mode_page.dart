@@ -102,16 +102,16 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   }
 
   void _onTapRemainingStops(Trip trip) {
-    final activeIndex = trip.activeLegIndex;
-    final candidate = (activeIndex >= 0 && activeIndex < trip.legs.length)
-        ? trip.legs[activeIndex].candidate
-        : (trip.legs.isNotEmpty ? trip.legs.first.candidate : null);
+    final currentStepId = ref.read(memberNavProgressProvider).currentStepId;
+    final segment = currentStepId == null
+        ? null
+        : trip.stepsById[currentStepId];
 
-    if (candidate != null) {
-      Navigator.of(context).push(
-        CupertinoPageRoute(builder: (_) => RouteDetailPage(candidate: candidate)),
-      );
-    }
+    if (segment == null || !segment.isRide || segment.stops.isEmpty) return;
+
+    Navigator.of(context).push(
+      CupertinoPageRoute(builder: (_) => SegmentStopsPage(segment: segment)),
+    );
   }
 
   void _openGroupDetail(Trip trip) {
