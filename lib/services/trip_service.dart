@@ -58,7 +58,6 @@ class TripService {
     final snapshot = await _db
         .collection('trips')
         .where('joinCode', isEqualTo: joinCode)
-        .where('travelPhase', isNotEqualTo: TravelPhase.completed.name)
         .limit(1)
         .get();
 
@@ -70,6 +69,15 @@ class TripService {
     final tripId = tripDoc.id;
 
     final data = tripDoc.data();
+    final schemaVersion = data['schemaVersion'] as int?;
+    if (schemaVersion != Trip.currentSchemaVersion) {
+      throw StateError('旧形式のおでかけです。作り直してください。');
+    }
+    final phase = data['travelPhase'] as String? ?? data['status'] as String?;
+    if (phase == TravelPhase.completed.name ||
+        phase == TravelPhase.cancelled.name) {
+      throw StateError('このおでかけには参加できません。');
+    }
     final participantsRaw = data['participants'] as List<dynamic>? ?? [];
 
     final isAlreadyJoined = participantsRaw.any((p) => p['uid'] == uid);
@@ -166,6 +174,8 @@ class TripService {
               itemKind: e.itemKind,
               legIndex: 0,
               generatedBy: ScheduleEntrySource.route,
+              routeStepId: e.routeStepId,
+              routeRole: e.routeRole,
             )));
 
     sortScheduleEntries(retained);
@@ -190,6 +200,7 @@ class TripService {
     final snapshot = await _db
         .collection('trips')
         .where('leaderId', isEqualTo: uid)
+        .where('schemaVersion', isEqualTo: Trip.currentSchemaVersion)
         .limit(1)
         .get();
 

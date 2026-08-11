@@ -20,6 +20,9 @@ enum TripStatus {
 }
 
 class Trip {
+  static const int currentSchemaVersion = 2;
+
+  final int schemaVersion;
   final String id;
   final String joinCode;
   final String leaderId;
@@ -34,12 +37,14 @@ class Trip {
   final List<String> memberIds;
   final int completedLegIndex;
   final String? staffNotes; // 追加
+  late final Map<String, StepSeg> stepsById;
 
   TripStatus get status => TripStatus.values[travelPhase.index];
 
   int get activeLegIndex => completedLegIndex + 1;
 
   Trip({
+    this.schemaVersion = currentSchemaVersion,
     required this.id,
     required this.joinCode,
     required this.leaderId,
@@ -55,18 +60,31 @@ class Trip {
     this.completedLegIndex = -1,
     this.staffNotes, // 追加
   }) {
-    // [DEBUG] Dump Route IDs on Trip creation
-    for (final leg in legs) {
-      for (final step in leg.candidate.steps) {
-        if (step.isRide && step.routeId != null) {
-          print('[Trip] Created with Ride Step: ${step.title}, routeId=${step.routeId}');
-        }
-      }
+    if (schemaVersion != currentSchemaVersion) {
+      throw StateError(
+        '旧形式のおでかけです。作り直してください。'
+        ' schemaVersion=$schemaVersion',
+      );
     }
+    final indexedSteps = <String, StepSeg>{};
+    for (final step in legs.expand((leg) => leg.candidate.steps)) {
+      if (indexedSteps.containsKey(step.stepId)) {
+        throw StateError('route step IDが重複しています: ${step.stepId}');
+      }
+      indexedSteps[step.stepId] = step;
+    }
+    stepsById = Map.unmodifiable(indexedSteps);
   }
 
   factory Trip.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    final schemaVersion = data['schemaVersion'] as int?;
+    if (schemaVersion != currentSchemaVersion) {
+      throw StateError(
+        '旧形式のおでかけです。作り直してください。'
+        ' schemaVersion=${schemaVersion ?? '未設定'}',
+      );
+    }
 
     List<Leg> loadedLegs = [];
     if (data['legs'] != null) {
@@ -78,6 +96,7 @@ class Trip {
     final phaseName = data['travelPhase'] as String? ?? data['status'] as String?;
 
     return Trip(
+      schemaVersion: schemaVersion!,
       id: doc.id,
       joinCode: data['joinCode'] ?? '',
       leaderId: data['leaderId'] ?? '',
@@ -106,6 +125,7 @@ class Trip {
 
   Map<String, dynamic> toFirestore() {
     return {
+      'schemaVersion': schemaVersion,
       'joinCode': joinCode,
       'leaderId': leaderId,
       'title': title,

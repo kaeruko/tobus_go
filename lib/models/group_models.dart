@@ -4,7 +4,6 @@ import 'package:uuid/uuid.dart';
 import '../core/app_clock.dart';
 import 'leg_models.dart';
 import 'route_models.dart';
-import 'trip_models.dart';
 import '../utils/string_utils.dart';
 
 enum ScheduleEntryKind {
@@ -30,7 +29,7 @@ class ScheduleEntry {
   final ScheduleEntryKind itemKind;
   final int legIndex;
   final ScheduleEntrySource generatedBy;
-  final int? routeStepIndex;
+  final String? routeStepId;
   final String? routeRole;
 
   ScheduleEntry({
@@ -41,7 +40,7 @@ class ScheduleEntry {
     this.itemKind = ScheduleEntryKind.event,
     this.legIndex = 0,
     this.generatedBy = ScheduleEntrySource.manual,
-    this.routeStepIndex,
+    this.routeStepId,
     this.routeRole,
   }) : id = id ?? const Uuid().v4();
 
@@ -57,7 +56,7 @@ class ScheduleEntry {
       itemKind: ScheduleEntryKind.values.byName(json['itemKind'] as String), // orElse removed
       legIndex: json['legIndex'] as int, // Default removed
       generatedBy: ScheduleEntrySource.values.byName(json['generatedBy'] as String), // orElse removed
-      routeStepIndex: json['routeStepIndex'] as int?,
+      routeStepId: json['routeStepId'] as String?,
       routeRole: json['routeRole'] as String?,
     );
   }
@@ -71,7 +70,7 @@ class ScheduleEntry {
       'itemKind': itemKind.name,
       'legIndex': legIndex,
       'generatedBy': generatedBy.name,
-      'routeStepIndex': routeStepIndex,
+      'routeStepId': routeStepId,
       'routeRole': routeRole,
     };
   }
@@ -79,22 +78,22 @@ class ScheduleEntry {
 
 /// Sort entries by leg then time using DateTime.
 void sortScheduleEntries(List<ScheduleEntry> entries) {
-  entries.sort((a, b) {
-    if (a.legIndex != b.legIndex) {
-      return a.legIndex.compareTo(b.legIndex);
+  final indexed = entries.asMap().entries.toList();
+  indexed.sort((a, b) {
+    final aEntry = a.value;
+    final bEntry = b.value;
+    if (aEntry.legIndex != bEntry.legIndex) {
+      return aEntry.legIndex.compareTo(bEntry.legIndex);
     }
-    final timeDiff = a.plannedAt.compareTo(b.plannedAt);
+    final timeDiff = aEntry.plannedAt.compareTo(bEntry.plannedAt);
     if (timeDiff != 0) {
       return timeDiff;
     }
-    // RouteStepIndex fallback (null sorts last)
-    final aIndex = a.routeStepIndex;
-    final bIndex = b.routeStepIndex;
-    if (aIndex == null && bIndex == null) return 0;
-    if (aIndex == null) return 1;
-    if (bIndex == null) return -1;
-    return aIndex.compareTo(bIndex);
+    return a.key.compareTo(b.key);
   });
+  for (var i = 0; i < indexed.length; i++) {
+    entries[i] = indexed[i].value;
+  }
 }
 
 /// Normalize a sequence of HH:mm strings so that times after midnight roll into the next day.
@@ -132,7 +131,6 @@ List<ScheduleEntry> createScheduleFromRoute(
   Duration meetingLeadTime = const Duration(minutes: 10),
   Duration departureLeadTime = Duration.zero,
   DateTime? meetingAt,
-  int baseStepIndex = 0, // ★追加: ステップ番号のオフセット
   bool shiftToStart = false, // ★追加: 開始時刻に合わせて予定全体をスライドさせるか
 }) {
   final list = <ScheduleEntry>[];
@@ -251,14 +249,13 @@ List<ScheduleEntry> createScheduleFromRoute(
         itemKind: ScheduleEntryKind.meeting,
         legIndex: legIndex,
         generatedBy: ScheduleEntrySource.route,
-        routeStepIndex: -1, // ★変更: ソート順安定化のため -1 を設定
+        routeStepId: null,
       ),
     );
   }
 
   // NOTE: 出発(ScheduleEntryKind.departure)は削除されました
 
-  var stepIndex = baseStepIndex; // ★変更: 0からではなくオフセットから開始
   for (int i = 0; i < route.steps.length; i++) {
     final step = route.steps[i];
     
@@ -299,7 +296,7 @@ List<ScheduleEntry> createScheduleFromRoute(
           itemKind: ScheduleEntryKind.walk,
           legIndex: legIndex,
           generatedBy: ScheduleEntrySource.route,
-          routeStepIndex: stepIndex,
+          routeStepId: step.stepId,
           routeRole: 'walk',
         ),
       );
@@ -347,7 +344,7 @@ List<ScheduleEntry> createScheduleFromRoute(
           itemKind: ScheduleEntryKind.event,
           legIndex: legIndex,
           generatedBy: ScheduleEntrySource.route,
-          routeStepIndex: stepIndex,
+          routeStepId: step.stepId,
           routeRole: 'wait_start',
         ),
       );
@@ -378,7 +375,7 @@ List<ScheduleEntry> createScheduleFromRoute(
           itemKind: ScheduleEntryKind.ride,
           legIndex: legIndex,
           generatedBy: ScheduleEntrySource.route,
-          routeStepIndex: stepIndex,
+          routeStepId: step.stepId,
           routeRole: 'ride',
         ),
       );
@@ -391,12 +388,11 @@ List<ScheduleEntry> createScheduleFromRoute(
           itemKind: ScheduleEntryKind.arrival,
           legIndex: legIndex,
           generatedBy: ScheduleEntrySource.route,
-          routeStepIndex: stepIndex,
+          routeStepId: step.stepId,
           routeRole: 'arrival',
         ),
       );
     }
-    stepIndex++;
   }
 
   if (route.steps.isNotEmpty) {
@@ -421,7 +417,7 @@ List<ScheduleEntry> createScheduleFromRoute(
         itemKind: ScheduleEntryKind.goal,
         legIndex: legIndex,
         generatedBy: ScheduleEntrySource.route,
-        routeStepIndex: stepIndex, // Goal index
+        routeStepId: null,
       ),
     );
   }
@@ -447,14 +443,6 @@ List<ScheduleEntry> createScheduleFromLegs(
     }
   }
 
-  // Calculate base step indices for each leg to ensure global uniqueness matching TripNavigator
-  int currentStepBase = 0;
-  final Map<Leg, int> legBaseIndices = {};
-  for (final leg in legs) {
-    legBaseIndices[leg] = currentStepBase;
-    currentStepBase += leg.candidate.steps.length;
-  }
-  
   // Assign sequential leg indices for sorting
   int currentLegSortIndex = 0;
   final Map<Leg, int> legSortIndices = {};
@@ -482,7 +470,6 @@ List<ScheduleEntry> createScheduleFromLegs(
         meetingLabel: '${StringUtils.extractSimpleName(outbound.candidate.originName ?? '')}集合',
         meetingDescription: 'みんな揃っているか確認しましょう',
         meetingAt: startAt.subtract(const Duration(minutes: 10)), // Explicit meeting time
-        baseStepIndex: legBaseIndices[outbound] ?? 0,
         shiftToStart: false, // Anchor to startAt
       ),
     );
@@ -524,7 +511,6 @@ List<ScheduleEntry> createScheduleFromLegs(
         meetingLabel: '帰りの集合',
         meetingDescription: '帰りの経路を開始する前に人数を確認しましょう',
         meetingAt: meetingAt,
-        baseStepIndex: legBaseIndices[inbound] ?? 0, 
         shiftToStart: true, // Anchor to inboundAnchor
       ),
     );
@@ -542,7 +528,6 @@ List<ScheduleEntry> createScheduleFromLegs(
         startDateTime: startDateTime,
         labelPrefix: prefix,
         legIndex: legSortIndices[leg]!,
-        baseStepIndex: legBaseIndices[leg] ?? 0, 
         shiftToStart: true,
       ),
     );

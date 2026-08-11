@@ -9,6 +9,7 @@ import '../logic/trip_navigator.dart';
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
+import '../services/bus_location_source.dart';
 import '../providers/app_session_provider.dart';
 import '../providers/trip_provider.dart';
 import '../providers/member_mode_provider.dart'; // 作成したProvider
@@ -167,6 +168,17 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         onPressed: () => _openGroupDetail(trip),
       ),
       actions: [
+        if (ref.read(busLocationSourceProvider) is FakeBusLocationSource)
+          IconButton(
+            tooltip: 'Fakeバスを次の停留所へ',
+            icon: const Icon(Icons.skip_next),
+            onPressed: () async {
+              final source = ref.read(busLocationSourceProvider)
+                  as FakeBusLocationSource;
+              source.advance();
+              await ref.read(memberModeControllerProvider.notifier).pollNow();
+            },
+          ),
         IconButton(
           icon: const Icon(Icons.refresh),
           onPressed: () {

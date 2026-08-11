@@ -172,6 +172,7 @@ class Candidate {
 }
 
 class StepSeg {
+  final String stepId;
   final String kind; // 'walk', 'bus', 'rail', 'wait'
   final String title;
   final String? fromName;
@@ -196,6 +197,7 @@ class StepSeg {
   final String arrivalPoleId;
 
   StepSeg({
+    required this.stepId,
     required this.kind,
     required this.title,
     this.fromName,
@@ -224,10 +226,15 @@ class StepSeg {
   String? get to => toName;
 
   factory StepSeg.fromJson(Map<String, dynamic> json) {
+    final stepId = json['step_id']?.toString();
+    if (stepId == null || stepId.isEmpty) {
+      throw const FormatException('route step is missing required step_id');
+    }
     var rawStops = json['stops'] as List? ?? [];
     var parsedStops = rawStops.map((e) => StopPoint.fromJson(Map<String, dynamic>.from(e))).toList();
 
     return StepSeg(
+      stepId: stepId,
       kind: json['kind'] ?? 'walk',
       title: json['title'] ?? '',
       fromName: json['from_'] ?? json['from'],
@@ -275,6 +282,7 @@ class StepSeg {
 
   Map<String, dynamic> toJson() {
     return {
+      'step_id': stepId,
       'kind': kind,
       'title': title,
       'from_': fromName,
