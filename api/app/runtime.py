@@ -10,6 +10,7 @@ from toei_engine import build_graph, TimetableManager, parse_realtime_gtfs
 from gtfs_loader import gtfs_repo
 
 LAMBDA_TMP_DIR = "/tmp/data"
+_REALTIME_REFRESH_LOCK = asyncio.Lock()
 # 事前ビルドされたファイルのパス（コンテナ内の配置場所）
 PREBUILT_DATA_PATH = os.getenv("PREBUILT_DATA_PATH", "data/app_data.pkl")
 
@@ -70,6 +71,55 @@ def _paths() -> dict:
         "WALK_RAD": _env_int("WALK_RADIUS", 300),
     }
 
+async def refresh_realtime_bus_positions(
+    tm: TimetableManager,
+    max_age_seconds: int = 45,
+) -> bool:
+    token = os.getenv("ODPT_API_TOKEN")
+    if not token:
+        print("[WARN] ODPT_API_TOKEN not set. Realtime data will not be available.")
+        return False
+
+    refreshed_at = getattr(tm, "latest_bus_positions_refreshed_at", 0.0)
+    if (
+        tm.latest_bus_positions
+        and refreshed_at
+        and time.monotonic() - refreshed_at < max_age_seconds
+    ):
+        return True
+
+    async with _REALTIME_REFRESH_LOCK:
+        refreshed_at = getattr(tm, "latest_bus_positions_refreshed_at", 0.0)
+        if (
+            tm.latest_bus_positions
+            and refreshed_at
+            and time.monotonic() - refreshed_at < max_age_seconds
+        ):
+            return True
+
+        try:
+            url_gtfs = "https://api.odpt.org/api/v4/gtfs/realtime/ToeiBus"
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(
+                    url_gtfs,
+                    params={"acl:consumerKey": token},
+                )
+            if response.status_code != 200:
+                print(f"[WARN] Failed to fetch GTFS-RT: {response.status_code}")
+                return False
+
+            tm.latest_bus_positions = parse_realtime_gtfs(response.content)
+            tm.latest_bus_positions_refreshed_at = time.monotonic()
+            print(
+                "[INFO] Updated realtime bus positions: "
+                f"{len(tm.latest_bus_positions)} vehicles"
+            )
+            return True
+        except Exception as error:
+            print(f"[WARN] Failed to refresh GTFS-RT: {error}")
+            return False
+
+
 async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
     token = os.getenv("ODPT_API_TOKEN")
     if not token:
@@ -77,8 +127,6 @@ async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
         return
 
     url_train = "https://api.odpt.org/api/v4/odpt:Train"
-    url_bus = "https://api.odpt.org/api/v4/odpt:Bus"
-    
     params_base = {
         "odpt:operator": "odpt.Operator:Toei",
         "acl:consumerKey": token,
@@ -93,29 +141,11 @@ async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
                 r_train = await client.get(url_train, params=params_base)
                 if r_train.status_code == 200:
                     tm.update_delays(r_train.json())
-                
-
-
-                # 3. Fetch GTFS-RT Bus Data (Protobuf)
-                # Use same token
-                url_gtfs = "https://api.odpt.org/api/v4/gtfs/realtime/ToeiBus"
-                r_gtfs = await client.get(url_gtfs, params={"acl:consumerKey": token})
-                if r_gtfs.status_code == 200:
-                    try:
-                        # Use toei_engine_v2 parser linked with GtfsRepository
-                        bus_list = parse_realtime_gtfs(r_gtfs.content)
-                        
-                        # Directly update latest_bus_positions (bypassing old delay logic for now)
-                        tm.latest_bus_positions = bus_list
-                        # print(f"[DEBUG] Updated {len(bus_list)} buses from GTFS-RT")
-                        
-                    except Exception as e:
-                        print(f"[WARN] Failed to parse GTFS-RT: {e}")
-                else:
-                    print(f"[WARN] Failed to fetch GTFS-RT: {r_gtfs.status_code}")
 
         except Exception as e:
             print(f"[WARN] Realtime fetch error: {e}")
+
+        await refresh_realtime_bus_positions(tm, max_age_seconds=0)
         
         await asyncio.sleep(60)
 
@@ -163,7 +193,12 @@ async def setup_on_startup(app, mode: str) -> None:
 
             print(f"[INFO] Data loaded in {time.time() - start_time:.2f}s")
             
-            # リアルタイムデータの取得タスクを開始
+            # Lambdaはレスポンス後にイベントループを凍結するため、
+            # 初回分だけは起動完了前に待って取得する。
+            await refresh_realtime_bus_positions(
+                app.state.TM,
+                max_age_seconds=0,
+            )
             asyncio.create_task(fetch_realtime_data_loop(app.state.TM))
             
             app.state.loading_status = "ready"

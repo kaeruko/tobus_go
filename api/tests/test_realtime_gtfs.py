@@ -1,9 +1,11 @@
+import os
 import unittest
 from unittest.mock import patch
 
 from google.transit import gtfs_realtime_pb2
 
 from gtfs_loader import gtfs_repo
+from app.runtime import refresh_realtime_bus_positions
 from toei_engine import parse_realtime_gtfs
 
 
@@ -46,6 +48,52 @@ class ParseRealtimeGtfsTest(unittest.TestCase):
         self.assertEqual(buses[0]["from_stop_sequence"], 3)
         self.assertEqual(buses[0]["observed_stop_sequence"], 4)
         self.assertEqual(buses[0]["current_status"], "IN_TRANSIT_TO")
+
+
+class _FakeRealtimeResponse:
+    status_code = 200
+    content = b"feed"
+
+
+class _FakeRealtimeClient:
+    def __init__(self):
+        self.calls = 0
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        return False
+
+    async def get(self, url, params):
+        self.calls += 1
+        return _FakeRealtimeResponse()
+
+
+class RefreshRealtimeBusPositionsTest(unittest.IsolatedAsyncioTestCase):
+    async def test_refreshes_once_and_reuses_fresh_positions(self):
+        class FakeTimetableManager:
+            latest_bus_positions = []
+
+        tm = FakeTimetableManager()
+        client = _FakeRealtimeClient()
+        buses = [{"trip_id": "trip-a", "vehicle_id": "vehicle-a"}]
+
+        with (
+            patch.dict(os.environ, {"ODPT_API_TOKEN": "test-token"}),
+            patch("app.runtime.httpx.AsyncClient", return_value=client),
+            patch("app.runtime.parse_realtime_gtfs", return_value=buses),
+        ):
+            first = await refresh_realtime_bus_positions(
+                tm,
+                max_age_seconds=0,
+            )
+            second = await refresh_realtime_bus_positions(tm)
+
+        self.assertTrue(first)
+        self.assertTrue(second)
+        self.assertEqual(tm.latest_bus_positions, buses)
+        self.assertEqual(client.calls, 1)
 
 
 if __name__ == "__main__":

@@ -263,6 +263,10 @@ def register_routes(app):
         }
 
         tm = app.state.TM
+        if tm:
+            from app.runtime import refresh_realtime_bus_positions
+
+            await refresh_realtime_bus_positions(tm)
         if not tm or not tm.latest_bus_positions:
             _busloc_log({**base, "ok": False, "reason": "REALTIME_UNAVAILABLE"})
             raise HTTPException(
