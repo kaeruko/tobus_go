@@ -2023,15 +2023,25 @@ def parse_realtime_gtfs(content: bytes):
             
         v = entity.vehicle
         trip_id = v.trip.trip_id
-        
-        # current_stop_sequence is 1-based usually
-        seq = v.current_stop_sequence
-        
+
+        # GTFS-RT points at the stop the vehicle is approaching/currently at.
+        # BusProgress is defined by the stop most recently departed.
+        observed_seq = v.current_stop_sequence
+        status_name = (
+            gtfs_realtime_pb2.VehiclePosition.VehicleStopStatus.Name(
+                v.current_status
+            )
+        )
+        if status_name == "STOPPED_AT":
+            from_seq = observed_seq
+        else:
+            from_seq = max(1, observed_seq - 1)
+
         # Link with static data
-        details = gtfs_repo.get_bus_details(trip_id, seq)
+        details = gtfs_repo.get_bus_details(trip_id, from_seq)
+        next_details = gtfs_repo.get_bus_details(trip_id, from_seq + 1)
         
         if details:
-            current_stop_name = details.get('next_stop_name', '不明')
             route_id_raw = details.get('route_id') 
             route_short_name = details.get('route_short_name')
             
@@ -2040,12 +2050,22 @@ def parse_realtime_gtfs(content: bytes):
                 "lat": v.position.latitude,
                 "lon": v.position.longitude,
                 "trip_id": trip_id,
+                "trip_stop_ids": gtfs_repo.get_trip_stop_ids(trip_id),
+                "from_stop_sequence": from_seq,
+                "observed_stop_sequence": observed_seq,
+                "current_status": status_name,
                 
                 "route_id": route_id_raw,
                 "route_short_name": route_short_name,
                 "destination": details.get('headsign'),
-                "next_stop": current_stop_name,
-                "next_stop_id": details.get('next_stop_id'),
+                "next_stop": (
+                    next_details.get('next_stop_name')
+                    if next_details else None
+                ),
+                "next_stop_id": (
+                    next_details.get('next_stop_id')
+                    if next_details else None
+                ),
                 
                 # Use native IDs
                 "odpt:busroute": route_id_raw, 

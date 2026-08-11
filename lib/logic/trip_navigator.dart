@@ -167,8 +167,21 @@ class NavigationState {
         '${busProgress.stepId} != ${step.stepId}',
       );
     }
+    if (busProgress.phase == BusProgressPhase.approaching) {
+      return NavigationState(
+        mainText: 'バス接近中',
+        subText: '${step.stops.first.name}で乗車します',
+        color: const Color(0xFFE1F5FE),
+        statusLabel: '乗車待ち',
+        nextStopName: step.stops.first.name,
+        currentStepId: step.stepId,
+        busProgress: busProgress,
+        isMoving: false,
+        step: step,
+      );
+    }
     final fromIndex = busProgress.fromStopIndex;
-    if (fromIndex < 0 || fromIndex >= step.stops.length) {
+    if (fromIndex == null || fromIndex < 0 || fromIndex >= step.stops.length) {
       throw StateError('BusProgressのfromStopIndexが範囲外です: $fromIndex');
     }
 

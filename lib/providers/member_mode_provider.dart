@@ -144,6 +144,7 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
         final progress = BusProgress.forStep(
           step: activeStep,
           fromStopId: location.fromStopId,
+          tripStopIds: location.tripStopIds,
         );
         state = RealtimeBusState(
           trackedStepId: activeStep.stepId,
@@ -152,7 +153,8 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
         );
         debugPrint(
           '[MemberModeController] 追跡成功: '
-          'step=${activeStep.stepId}, from=${progress.fromStopIndex}, '
+          'step=${activeStep.stepId}, phase=${progress.phase.name}, '
+          'from=${progress.fromStopIndex}, '
           'vehicle=${location.vehicleId}',
         );
       } catch (e) {

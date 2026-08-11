@@ -5,12 +5,14 @@ class BusLocation {
   final String fromStopId;
   final String routeId;
   final String tripId;
+  final List<String> tripStopIds;
 
   const BusLocation({
     required this.vehicleId,
     required this.fromStopId,
     required this.routeId,
     required this.tripId,
+    this.tripStopIds = const [],
   });
 
   factory BusLocation.fromJson(
@@ -21,6 +23,9 @@ class BusLocation {
     final vehicleId = (json['vehicle_id'] ?? json['odpt:bus'])?.toString();
     final fromStopId = json['odpt:fromBusstopPole']?.toString();
     final responseTripId = json['trip_id']?.toString();
+    final tripStopIds = (json['trip_stop_ids'] as List<dynamic>? ?? const [])
+        .map((value) => value.toString())
+        .toList(growable: false);
     if (vehicleId == null || vehicleId.isEmpty) {
       throw const FormatException('bus location is missing vehicle_id');
     }
@@ -39,6 +44,7 @@ class BusLocation {
       fromStopId: fromStopId,
       routeId: routeId,
       tripId: tripId,
+      tripStopIds: tripStopIds,
     );
   }
 }

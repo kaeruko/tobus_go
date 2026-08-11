@@ -158,6 +158,14 @@ class GtfsRepository:
             "next_stop_id": stop_id
         }
 
+    def get_trip_stop_ids(self, trip_id: str) -> list[str]:
+        """Return the complete ordered stop list for one GTFS trip."""
+        stops_by_sequence = self.stop_times.get(trip_id, {})
+        return [
+            stop_id
+            for _, stop_id in sorted(stops_by_sequence.items())
+        ]
+
     # ★追加: 名前からIDを引くメソッド
     def find_route_id_by_name(self, short_name: str) -> str:
         # 完全一致検索

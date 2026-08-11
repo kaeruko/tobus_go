@@ -76,6 +76,32 @@ void main() {
   });
 
   group('FakeBusLocationSource', () {
+    test('treats a stop before boarding as approaching', () {
+      final step = navigationV2Candidate().steps.singleWhere(
+        (candidateStep) => candidateStep.stepId == 'bus-C',
+      );
+      final progress = BusProgress.forStep(
+        step: step,
+        fromStopId: 'pre-boarding',
+        tripStopIds: [
+          'trip-origin',
+          'pre-boarding',
+          ...step.stops.map((stop) => stop.stopId!),
+        ],
+      );
+
+      final navigation = NavigationState.navigating(
+        step: step,
+        busProgress: progress,
+      );
+
+      expect(progress.phase, BusProgressPhase.approaching);
+      expect(progress.fromStopIndex, isNull);
+      expect(navigation.mainText, 'バス接近中');
+      expect(navigation.statusLabel, '乗車待ち');
+      expect(navigation.nextStopName, step.stops.first.name);
+    });
+
     test('advances remaining stops to next-stop and arrival states', () async {
       final step = navigationV2Candidate().steps.singleWhere(
         (candidateStep) => candidateStep.stepId == 'bus-C',

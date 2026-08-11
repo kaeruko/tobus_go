@@ -116,7 +116,7 @@ class TripCoordinator {
       if (rideEntry != null &&
           rideStep != null &&
           rideStep.stops.isNotEmpty &&
-          progress.fromStopIndex < rideStep.stops.length - 1) {
+          progress.phase != BusProgressPhase.arrived) {
         resolved = rideEntry;
         addReason('premature_arrival_revert_step_id');
       }

@@ -311,6 +311,10 @@ def register_routes(app):
             "next_stop": target_bus.get("next_stop"),
             "destination": target_bus.get("destination"),
             "trip_id": target_bus.get("trip_id"),
+            "trip_stop_ids": target_bus.get("trip_stop_ids", []),
+            "from_stop_sequence": target_bus.get("from_stop_sequence"),
+            "observed_stop_sequence": target_bus.get("observed_stop_sequence"),
+            "current_status": target_bus.get("current_status"),
         }
         
         _busloc_log({**base, "ok": True, "bus_id": target_bus.get("vehicle_id")})
