@@ -23,7 +23,7 @@ def main():
         print(f"[ERROR] {pattern_path} not found. Run fetch_all_toei_data.py first to get patterns.")
         return
 
-    with open(pattern_path, "r") as f:
+    with open(pattern_path, "r", encoding="utf-8") as f:
         patterns = json.load(f)
 
     # ユニークな「バス路線ID (odpt:busroute)」を抽出

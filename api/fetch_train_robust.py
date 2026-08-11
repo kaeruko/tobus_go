@@ -21,7 +21,7 @@ def main():
         print(f"[ERROR] {railway_path} not found. Run fetch_all_toei_data.py first.")
         return
 
-    with open(railway_path, "r") as f:
+    with open(railway_path, "r", encoding="utf-8") as f:
         railways = json.load(f)
 
     # 路線IDを抽出 (例: odpt.Railway:Toei.Asakusa)
