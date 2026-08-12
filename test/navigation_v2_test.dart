@@ -97,9 +97,26 @@ void main() {
 
       expect(progress.phase, BusProgressPhase.approaching);
       expect(progress.fromStopIndex, isNull);
-      expect(navigation.mainText, 'バス接近中');
+      expect(progress.stopsUntilBoarding, 1);
+      expect(navigation.mainText, 'バスはあと 1 停車前です');
       expect(navigation.statusLabel, '乗車待ち');
       expect(navigation.nextStopName, step.stops.first.name);
+    });
+
+    test('位置を取得するまで乗車停留所で待つ案内を出す', () {
+      final step = navigationV2Candidate().steps.singleWhere(
+        (candidateStep) => candidateStep.stepId == 'bus-C',
+      );
+
+      final navigation = NavigationState.navigating(
+        step: step,
+        busProgress: null,
+      );
+
+      expect(navigation.mainText, 'バスを待っています');
+      expect(navigation.subText, contains(step.stops.first.name));
+      expect(navigation.statusLabel, '乗車待ち');
+      expect(navigation.isMoving, isFalse);
     });
 
     test('advances remaining stops to next-stop and arrival states', () async {

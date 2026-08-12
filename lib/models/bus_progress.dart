@@ -12,6 +12,7 @@ class BusProgress {
   final int? fromStopIndex;
   final String? nextStopId;
   final int? nextStopIndex;
+  final int? stopsUntilBoarding;
   final BusProgressPhase phase;
 
   const BusProgress({
@@ -20,6 +21,7 @@ class BusProgress {
     required this.fromStopIndex,
     required this.nextStopId,
     required this.nextStopIndex,
+    this.stopsUntilBoarding,
     required this.phase,
   });
 
@@ -66,6 +68,7 @@ class BusProgress {
           fromStopIndex: null,
           nextStopId: boardingStopId,
           nextStopIndex: 0,
+          stopsUntilBoarding: boardingTripIndex - observedTripIndex,
           phase: BusProgressPhase.approaching,
         );
       }

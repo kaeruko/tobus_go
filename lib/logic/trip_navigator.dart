@@ -151,6 +151,23 @@ class NavigationState {
       );
     }
 
+    if (step.kind == 'bus' && (busProgress == null || step.stops.isEmpty)) {
+      final boardingStopName = step.stops.isEmpty
+          ? null
+          : step.stops.first.name;
+      return NavigationState(
+        mainText: 'バスを待っています',
+        subText: boardingStopName == null || boardingStopName.isEmpty
+            ? 'バスの位置を確認中です'
+            : '$boardingStopNameでお待ちください（バスの位置を確認中）',
+        color: const Color(0xFFE1F5FE),
+        statusLabel: '乗車待ち',
+        currentStepId: step.stepId,
+        isMoving: false,
+        step: step,
+      );
+    }
+
     if (busProgress == null || step.stops.isEmpty) {
       return NavigationState(
         mainText: '乗車位置を確認中',
@@ -168,9 +185,12 @@ class NavigationState {
       );
     }
     if (busProgress.phase == BusProgressPhase.approaching) {
+      final stopsUntilBoarding = busProgress.stopsUntilBoarding;
       return NavigationState(
-        mainText: 'バス接近中',
-        subText: '${step.stops.first.name}で乗車します',
+        mainText: stopsUntilBoarding == null
+            ? 'バスを待っています'
+            : 'バスはあと $stopsUntilBoarding 停車前です',
+        subText: '${step.stops.first.name}でお待ちください',
         color: const Color(0xFFE1F5FE),
         statusLabel: '乗車待ち',
         nextStopName: step.stops.first.name,
