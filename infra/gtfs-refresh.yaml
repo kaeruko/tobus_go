@@ -1,0 +1,141 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Weekly validated refresh of the Toei Bus GTFS dataset
+
+Parameters:
+  CodeS3Bucket:
+    Type: String
+    Description: S3 bucket containing the Lambda deployment ZIP
+  CodeS3Key:
+    Type: String
+    Description: S3 key of the Lambda deployment ZIP
+  DataBucketName:
+    Type: String
+    Default: toeigo
+  OdptApiToken:
+    Type: String
+    NoEcho: true
+  StateKey:
+    Type: String
+    Default: gtfs/toei/state.json
+  VersionPrefix:
+    Type: String
+    Default: gtfs/toei/versions
+  ApiFunctionName:
+    Type: String
+    Default: toeigo-api
+
+Resources:
+  RefreshFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: WriteToeiGtfsDataset
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub arn:${AWS::Partition}:s3:::${DataBucketName}
+                Condition:
+                  StringLike:
+                    s3:prefix: gtfs/toei/*
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${DataBucketName}/gtfs/toei/*
+              - Effect: Allow
+                Action:
+                  - lambda:GetFunctionConfiguration
+                  - lambda:UpdateFunctionConfiguration
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${ApiFunctionName}
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/toeigo-gtfs-refresh:*
+
+  RefreshFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/toeigo-gtfs-refresh
+      RetentionInDays: 14
+
+  RefreshFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: RefreshFunctionLogGroup
+    Properties:
+      FunctionName: toeigo-gtfs-refresh
+      Description: Conditionally download, validate, and atomically publish Toei Bus GTFS
+      Runtime: python3.14
+      Architectures:
+        - x86_64
+      Handler: gtfs_refresh.lambda_handler
+      Role: !GetAtt RefreshFunctionRole.Arn
+      Timeout: 180
+      MemorySize: 256
+      EphemeralStorage:
+        Size: 512
+      Code:
+        S3Bucket: !Ref CodeS3Bucket
+        S3Key: !Ref CodeS3Key
+      Environment:
+        Variables:
+          ODPT_API_TOKEN: !Ref OdptApiToken
+          S3_BUCKET_NAME: !Ref DataBucketName
+          GTFS_STATE_KEY: !Ref StateKey
+          GTFS_VERSION_PREFIX: !Ref VersionPrefix
+          API_FUNCTION_NAME: !Ref ApiFunctionName
+
+  SchedulerInvokeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeGtfsRefresh
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt RefreshFunction.Arn
+
+  WeeklyRefreshSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: toeigo-gtfs-refresh-weekly
+      Description: Check the Toei Bus GTFS every Monday at 04:00 JST
+      State: ENABLED
+      ScheduleExpression: cron(0 4 ? * MON *)
+      ScheduleExpressionTimezone: Asia/Tokyo
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      Target:
+        Arn: !GetAtt RefreshFunction.Arn
+        RoleArn: !GetAtt SchedulerInvokeRole.Arn
+        Input: '{"source":"eventbridge-scheduler"}'
+        RetryPolicy:
+          MaximumEventAgeInSeconds: 3600
+          MaximumRetryAttempts: 2
+
+Outputs:
+  RefreshFunctionName:
+    Value: !Ref RefreshFunction
+  StateS3Uri:
+    Value: !Sub s3://${DataBucketName}/${StateKey}
+  Schedule:
+    Value: Monday 04:00 Asia/Tokyo

@@ -238,8 +238,6 @@ from collections import defaultdict
 from datetime import datetime as dt_class # datetime.datetimeと競合しないようにalias
 from google.transit import gtfs_realtime_pb2
 from gtfs_loader import gtfs_repo
-from google.transit import gtfs_realtime_pb2
-from gtfs_loader import gtfs_repo
 
 # -------------------- チューニング定数 --------------------
 print("[INFO] toei_engine loaded: build=2025-12-29-realtime", flush=True)
@@ -305,6 +303,93 @@ def _line_norm(s: str) -> str:
     return (s or "").translate(tbl).replace(" ", "")
 
 def _norm_line(s): return _line_norm(s)
+
+
+def _gtfs_stop_id(pole_id) -> str | None:
+    """Convert an ODPT pole identifier to the corresponding GTFS stop_id."""
+    if not isinstance(pole_id, str):
+        return None
+    if "BusstopPole" not in pole_id:
+        return pole_id if pole_id in gtfs_repo.stops else None
+    match = re.search(r"\.(\d{1,5})\.(\d{1,2})(?:\.|$)", pole_id)
+    if not match:
+        return None
+    return f"{int(match.group(1)):04d}-{int(match.group(2)):02d}"
+
+
+def _gtfs_bus_route_id(G, line_node) -> str | None:
+    raw_route_id = G.nodes[line_node].get("route_id")
+    if raw_route_id in gtfs_repo.routes:
+        return raw_route_id
+    line_display = G.nodes[line_node].get("disp") or ""
+    if line_display:
+        route_id = gtfs_repo.find_route_id_by_name(
+            _line_norm(line_display.split()[0])
+        )
+        if route_id:
+            return route_id
+    return None
+
+
+def _resolve_gtfs_bus_leg(
+    G,
+    line_node,
+    origin_pole_id,
+    destination_pole_id,
+    earliest_departure_minute,
+    day_type,
+    required_stop_ids=None,
+):
+    """Resolve one bus ride to a single GTFS trip and exact stop times."""
+    route_id = _gtfs_bus_route_id(G, line_node)
+    origin_stop_id = _gtfs_stop_id(origin_pole_id)
+    destination_stop_id = _gtfs_stop_id(destination_pole_id)
+    if not route_id or not origin_stop_id or not destination_stop_id:
+        return None
+
+    active_service_ids = None
+    if getattr(day_type, "has_gtfs_calendar", False):
+        active_service_ids = day_type.active_service_ids
+
+    return gtfs_repo.find_next_trip_leg(
+        route_id,
+        origin_stop_id,
+        destination_stop_id,
+        int(earliest_departure_minute),
+        active_service_ids=active_service_ids,
+        required_stop_ids=required_stop_ids,
+    )
+
+
+def _find_bus_alight_pole(G, path, board_index) -> str | None:
+    """Find the physical alighting pole following a bus board edge."""
+    for index in range(board_index + 1, len(path) - 1):
+        edge_from, edge_to = path[index], path[index + 1]
+        if not G.has_edge(edge_from, edge_to):
+            continue
+        if G.get_edge_data(edge_from, edge_to).get("etype") == "alight":
+            return edge_to[1] if edge_to[0] == "phys" else None
+    return None
+
+
+def _bus_path_gtfs_stop_ids(G, path, board_index) -> list[str]:
+    """Return the exact ordered GTFS stops traversed by one bus path leg."""
+    stops = []
+    origin_stop_id = _gtfs_stop_id(path[board_index][1])
+    if origin_stop_id:
+        stops.append(origin_stop_id)
+    for index in range(board_index + 1, len(path) - 1):
+        edge_from, edge_to = path[index], path[index + 1]
+        if not G.has_edge(edge_from, edge_to):
+            continue
+        edge_type = G.get_edge_data(edge_from, edge_to).get("etype")
+        if edge_type == "ride":
+            stop_id = _gtfs_stop_id(edge_to[1])
+            if stop_id and (not stops or stops[-1] != stop_id):
+                stops.append(stop_id)
+        elif edge_type == "alight":
+            break
+    return stops
 
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371000.0
@@ -375,6 +460,23 @@ def reconstruct_path_idx(chain_store, idx):
 
 
 # -------------------- [追加] 共通化した日付判定ロジック --------------------
+class ServiceDayType(str):
+    """Legacy day-type string plus exact GTFS services for one date."""
+
+    def __new__(
+        cls,
+        value: str,
+        service_date: datetime.date,
+        active_service_ids: frozenset[str],
+        has_gtfs_calendar: bool,
+    ):
+        instance = str.__new__(cls, value)
+        instance.service_date = service_date
+        instance.active_service_ids = active_service_ids
+        instance.has_gtfs_calendar = has_gtfs_calendar
+        return instance
+
+
 def determine_day_type(target_date: datetime.date | datetime.datetime | str | None) -> str:
     """
     日付を受け取り、平日(weekday)/土曜(saturday)/休日(holiday) を判定して返す。
@@ -405,10 +507,30 @@ def determine_day_type(target_date: datetime.date | datetime.datetime | str | No
         is_holiday = False
 
     if weekday == 6 or is_holiday:
-        return "holiday"
-    if weekday == 5:
-        return "saturday"
-    return "weekday"
+        base_day_type = "holiday"
+    elif weekday == 5:
+        base_day_type = "saturday"
+    else:
+        base_day_type = "weekday"
+
+    has_gtfs_calendar = bool(
+        getattr(gtfs_repo, "is_loaded", False)
+        and (
+            getattr(gtfs_repo, "service_calendar", None)
+            or getattr(gtfs_repo, "service_exceptions", None)
+        )
+    )
+    active_service_ids = (
+        gtfs_repo.get_active_service_ids(d)
+        if has_gtfs_calendar
+        else frozenset()
+    )
+    return ServiceDayType(
+        base_day_type,
+        d,
+        active_service_ids,
+        has_gtfs_calendar,
+    )
 
 
 
@@ -471,6 +593,9 @@ class TimetableManager:
         self.bus_departures_weekday = {}
         self.bus_departures_saturday = {}
         self.bus_departures_holiday = {}
+        # pole_id -> route_id -> exact GTFS/ODPT service_id -> departures
+        self.bus_departures_by_service = {}
+        self._service_departures_cache = {}
         
         # ID-based indexes (pole_base -> [pole_id, ...])
         self.pole_base_index_weekday = defaultdict(list)
@@ -510,6 +635,8 @@ class TimetableManager:
         if not hasattr(self, "latest_train_info"): self.latest_train_info = []
         if not hasattr(self, "latest_gtfsrt_vehicles"): self.latest_gtfsrt_vehicles = {}
         if not hasattr(self, "pattern_stops_map"): self.pattern_stops_map = {}
+        if not hasattr(self, "bus_departures_by_service"): self.bus_departures_by_service = {}
+        if not hasattr(self, "_service_departures_cache"): self._service_departures_cache = {}
         
         need_rebuild_indexes = False
         if (not hasattr(self, "pole_base_index_weekday")) or (self.pole_base_index_weekday is None): need_rebuild_indexes = True
@@ -622,6 +749,14 @@ class TimetableManager:
             times.sort(key=lambda x: x["dep"])
             if not times: continue
 
+            service_id = calendar.rsplit(".", 1)[-1]
+            if re.fullmatch(r"[^.]+-\d+", service_id):
+                pole_services = self.bus_departures_by_service.setdefault(
+                    pole_id, {}
+                )
+                route_services = pole_services.setdefault(route_id, {})
+                route_services.setdefault(service_id, []).extend(times)
+
             targets = []
             is_wk = ("Weekday" in calendar or calendar.endswith("-170") or calendar.endswith("-174"))
             is_sat = ("Saturday" in calendar or calendar.endswith("-160"))
@@ -643,6 +778,11 @@ class TimetableManager:
             for pid in d:
                 for rid in d[pid]:
                     d[pid][rid].sort(key=lambda x: x["dep"])
+        for routes in self.bus_departures_by_service.values():
+            for services in routes.values():
+                for departures in services.values():
+                    departures.sort(key=lambda x: x["dep"])
+        self._service_departures_cache.clear()
         self.finalize_indexes()
         _phase_log("load_bus_timetables end", f"entries={count}")
 
@@ -697,6 +837,37 @@ class TimetableManager:
                     count += 1
         print(f"[INFO] Index built. Total {count} nodes.", flush=True)
 
+    def _bus_candidates_for_day(self, pole_id, route_id, day_type):
+        has_exact_calendar = getattr(day_type, "has_gtfs_calendar", False)
+        if has_exact_calendar and self.bus_departures_by_service:
+            route_services = (
+                self.bus_departures_by_service.get(pole_id, {}).get(route_id)
+            )
+            if route_services is not None:
+                date_key = day_type.service_date.isoformat()
+                cache_key = (date_key, pole_id, route_id)
+                cached = self._service_departures_cache.get(cache_key)
+                if cached is not None:
+                    return cached
+                active = day_type.active_service_ids
+                departures = [
+                    trip
+                    for service_id, trips in route_services.items()
+                    if service_id in active
+                    for trip in trips
+                ]
+                departures.sort(key=lambda trip: trip["dep"])
+                self._service_departures_cache[cache_key] = departures
+                return departures
+
+        if day_type == "saturday":
+            target_dict = self.bus_departures_saturday
+        elif day_type == "holiday":
+            target_dict = self.bus_departures_holiday
+        else:
+            target_dict = self.bus_departures_weekday
+        return target_dict.get(pole_id, {}).get(route_id)
+
     def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
         if not debug:
             dbg_env = os.getenv("DEBUG_BUS", "0")
@@ -705,21 +876,12 @@ class TimetableManager:
             elif dbg_env != "0" and pole_name and dbg_env in pole_name:
                 debug = True
 
-        if day_type == "saturday":
-            target_dict = self.bus_departures_saturday
-        elif day_type == "holiday":
-            target_dict = self.bus_departures_holiday
-        else:
-            target_dict = self.bus_departures_weekday
-
         delay_min = self.bus_realtime_delays.get(route_id, 0.0)
         effective_search_time = current_time_min - delay_min
 
-        routes_dict = target_dict.get(pole_id)
-        if not routes_dict:
-            return None, None
-
-        candidate_trips = routes_dict.get(route_id)
+        candidate_trips = self._bus_candidates_for_day(
+            pole_id, route_id, day_type
+        )
         if not candidate_trips:
             return None, None
 
@@ -795,18 +957,9 @@ class TimetableManager:
         if not debug:
             debug = os.getenv("DEBUG_BUS") == "1"
 
-        if day_type == "saturday":
-            target_dict = self.bus_departures_saturday
-        elif day_type == "holiday":
-            target_dict = self.bus_departures_holiday
-        else:
-            target_dict = self.bus_departures_weekday
-
-        routes_dict = target_dict.get(pole_id)
-        if not routes_dict:
-            return []
-
-        candidate_trips = routes_dict.get(route_id)
+        candidate_trips = self._bus_candidates_for_day(
+            pole_id, route_id, day_type
+        )
         if not candidate_trips:
             return []
 
@@ -1230,9 +1383,12 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
         if path:
             # 経路が見つかった場合、詳細セグメント(UI用データ)を生成
             segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
+            if not segs:
+                return []
             lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
             start_min = time_str_to_min(start_time)
-            duration = int(arr_min - start_min)
+            final_arrival = math.ceil(real_arr)
+            duration = int(final_arrival - start_min)
             num_rides = sum(1 for s in segs if s["kind"] in ("bus", "rail"))
             walk_dist = sum(s["meters"] for s in segs if s["kind"] == "walk")
 
@@ -1240,7 +1396,7 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
                 "id": "Fastest",
                 "lines": lines,
                 "total_time": duration,
-                "arrival_time": min_to_time_str(arr_min),
+                "arrival_time": min_to_time_str(final_arrival),
                 "steps": segs,
                 "score_label": f"{duration}分",
                 "cost_score": 0.0,
@@ -1265,16 +1421,19 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
             if real_arr is not None:
                 # 詳細情報の構築
                 segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
+                if not segs:
+                    continue
                 lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
                 start_min = time_str_to_min(start_time)
-                duration = int(real_arr - start_min)
+                final_arrival = math.ceil(real_arr)
+                duration = int(final_arrival - start_min)
                 num_rides = sum(1 for s in segs if s["kind"] in ("bus", "rail"))
                 
                 candidates.append({
                     "id": f"Comfort-{valid_count+1}",
                     "lines": lines,
                     "total_time": duration,
-                    "arrival_time": min_to_time_str(real_arr),
+                    "arrival_time": min_to_time_str(final_arrival),
                     "steps": segs,
                     "score_label": f"楽さ {cand['cost']:.1f} (所要{duration}分)",
                     "cost_score": cand['cost'],
@@ -1510,6 +1669,8 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
 def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", day_type="weekday", max_search=30000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None):
     start_min = time_str_to_min(start_time_str)
     curr_time = start_min
+    active_bus_leg = None
+    active_bus_sequence = -1
     for i in range(len(path) - 1):
         u, v = path[i], path[i+1]
         edge = G.get_edge_data(u, v)
@@ -1519,21 +1680,71 @@ def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", day_type="w
                       edge = {"etype": "walk", "meters": dist}
         if not edge: return None
         
-        target_pid = None
-        if edge.get("etype") == "board" and G.nodes[v].get("mode") == "bus":
-            if v[0] == "line":
-                for j in range(i+1, len(path)-1):
-                    u2, v2 = path[j], path[j+1]
-                    if G.has_edge(u2, v2):
-                         e2 = G.get_edge_data(u2, v2)
-                         if e2.get("etype") == "alight":
-                            target_pid = v2[1]
-                            break
+        etype = edge.get("etype")
+
+        if etype == "board" and G.nodes[v].get("mode") == "bus":
+            target_pid = _find_bus_alight_pole(G, path, i)
+            active_bus_leg = _resolve_gtfs_bus_leg(
+                G,
+                v,
+                u[1],
+                target_pid,
+                curr_time,
+                day_type,
+                required_stop_ids=_bus_path_gtfs_stop_ids(G, path, i),
+            )
+            if active_bus_leg is None:
+                return None
+            curr_time = active_bus_leg.departure_minute
+            active_bus_sequence = active_bus_leg.origin_sequence
+            if curr_time - start_min > max_travel_min:
+                return None
+            continue
+
+        if etype == "ride" and edge.get("mode") == "bus":
+            if active_bus_leg is None:
+                return None
+            next_stop_id = _gtfs_stop_id(v[1])
+            stop_time = gtfs_repo.get_trip_stop_time_after(
+                active_bus_leg.trip_id,
+                next_stop_id,
+                after_sequence=active_bus_sequence,
+            )
+            if stop_time is None:
+                return None
+            active_bus_sequence, arrival_minute, _ = stop_time
+            if active_bus_sequence > active_bus_leg.destination_sequence:
+                return None
+            curr_time = arrival_minute
+            if curr_time - start_min > max_travel_min:
+                return None
+            continue
+
+        if etype in ("alight", "xfer") and active_bus_leg is not None:
+            if active_bus_sequence != active_bus_leg.destination_sequence:
+                return None
+            # A GTFS arrival is already the time the passenger reaches the
+            # stop. Do not add a hidden minute after alighting.
+            curr_time = active_bus_leg.arrival_minute
+            active_bus_leg = None
+            active_bus_sequence = -1
+            if curr_time - start_min > max_travel_min:
+                return None
+            continue
 
         if not G.has_edge(u, v) and edge.get("etype") == "walk":
              next_time = curr_time + (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
         else:
-            next_time = advance_time(G, tm, u, v, curr_time, day_type, delays_snapshot, target_pole_id=target_pid)
+            next_time = advance_time(
+                G,
+                tm,
+                u,
+                v,
+                curr_time,
+                day_type,
+                delays_snapshot,
+                target_pole_id=None,
+            )
             
         if next_time is None or next_time - start_min > max_travel_min: return None
         curr_time = next_time
@@ -1554,12 +1765,12 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
        - alight (降車): 乗車セグメントを終了(flush)する。
     3. curr_time (現在時刻) をシミュレーションしながら進める
        - 徒歩: 距離 / 速度 で加算
-       - バス/電車: 時刻表データがあればそれに合わせる、なければ概算で進める
+       - バス: GTFSの同一trip_idに含まれる各停留所時刻を使用する
+       - 電車: 既存の時刻表データを使用する
     
     Note:
-    - ここでの `trip_id` 取得は、あくまで「その時刻に乗れるはずの便」の推定である。
-    - リアルタイム運行情報との紐付けキーとなるため、可能な限り正確なIDを取得しようとするが、
-      遅延や運休などで実際の運行とズレる可能性がある。
+    - バスの `trip_id` と到着予定時刻は同じGTFS便から取得する。
+    - GTFSに一致する便がなければ概算へフォールバックせず、その候補を無効にする。
     """
     segs = []
     print(
@@ -1569,6 +1780,8 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
     cur = None
     last_phys = None
     curr_time = time_str_to_min(start_time_str)
+    active_bus_leg = None
+    active_bus_sequence = -1
 
     def flush():
         """
@@ -1650,40 +1863,41 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             curr_stops = [{"name": from_name, "is_origin": True, "lat": origin_lat, "lon": origin_lon, "id": last_phys[1] if last_phys else None}]
             
             phys_id = u[1]
+            final_route_id = G.nodes[v].get("route_id")
+            final_trip_id = None
             if mode == "bus":
-                route_id = G.nodes[v].get("route_id")
-                target_pid = None
-                
-                # パスを先読みして、降りるバス停(alight)を探す
-                # これにより、乗車便がその降車バス停に停まるかどうかを判定(isValidTrip)できる
-                if v[0] == "line":
-                     for j in range(i + 1, len(path) - 1):
-                        u2, v2 = path[j], path[j+1]
-                        if G.has_edge(u2, v2):
-                             e2 = G.get_edge_data(u2, v2)
-                             if e2.get("etype") == "alight":
-                                target_pid = v2[1]
-                                break
-                
-                # 直近の出発便とTrip IDを取得する (Tuple return: dep, pattern_id)
-                # Note: pattern_id is stored in "trip" field of timetable index
-                search_time = int(curr_time)
-                
-                # print(f"[DEBUG] get_next_bus_departure START: route={route_id}, pole={phys_id}, target={target_pid}, time={search_time}")
-                dep, pattern_id_found = tm.get_next_bus_departure(phys_id, route_id, search_time, pole_name=from_name, day_type=day_type, target_pole_id=target_pid)
-                # print(f"[DEBUG] get_next_bus_departure RESULT: dep={dep}, pattern={pattern_id_found}")
+                target_pid = _find_bus_alight_pole(G, path, i)
+                active_bus_leg = _resolve_gtfs_bus_leg(
+                    G,
+                    v,
+                    phys_id,
+                    target_pid,
+                    curr_time,
+                    day_type,
+                    required_stop_ids=_bus_path_gtfs_stop_ids(G, path, i),
+                )
+                if active_bus_leg is None:
+                    print(
+                        f"[WARN] No exact GTFS bus trip: origin={phys_id} "
+                        f"destination={target_pid} time={curr_time}",
+                        flush=True,
+                    )
+                    return []
+
+                dep = active_bus_leg.departure_minute
+                final_route_id = active_bus_leg.route_id
+                final_trip_id = active_bus_leg.trip_id
+                active_bus_sequence = active_bus_leg.origin_sequence
                 print(
-                    f"[segments_detailed] board bus route_id={route_id} phys_id={phys_id} "
-                    f"target_pid={target_pid} dep={dep} pattern_id={pattern_id_found}",
+                    f"[segments_detailed] board bus route_id={final_route_id} "
+                    f"trip_id={final_trip_id} origin={active_bus_leg.origin_stop_id} "
+                    f"destination={active_bus_leg.destination_stop_id} dep={dep} "
+                    f"arr={active_bus_leg.arrival_minute}",
                     flush=True,
                 )
-
-                # Using robust logging instead of fallback
-                if dep is None and target_pid is not None:
-                     pass # Strict check failed, likely due to valid filtering. We accept missing real-time link in this case.
                 
                 # 出発時刻(dep)が現在時刻(curr_time)より未来の場合、待ち時間が発生する
-                if dep and dep > curr_time:
+                if dep > curr_time:
                     wait_min = int(dep - curr_time)
                     if wait_min > 0:
                         # 待ち時間を独立したセグメントとして追加し、UIで表示可能にする
@@ -1697,68 +1911,16 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                         })
                 
                 # シミュレーション上の現在時刻を、バスの出発時刻に合わせて進める
-                if dep and dep >= curr_time: curr_time = dep
-
-                trip_id_found = pattern_id_found # Map pattern_id to trip_id_found for downstream use
+                curr_time = dep
             else:
                 curr_time += 2.0
-                trip_id_found = None # Reset for non-bus
-
-
-
-            # 1. Route ID の特定
-            final_route_id = G.nodes[v].get("route_id")
-            if mode == "bus" and line_disp:
-                parts = line_disp.split()
-                if parts:
-                    norm = _line_norm(parts[0])
-                    gtfs_id = gtfs_repo.find_route_id_by_name(norm)
-                    if gtfs_id:
-                        final_route_id = gtfs_id
-
-            # 2. Trip ID の特定
-            final_trip_id = trip_id_found 
-            
-            # 出発バス停IDを GTFS形式に変換 (例: ...1301.1 -> 1301-01)
-            gtfs_origin_id = None
-            
-            # u might be a tuple ('phys', 'odpt.Bus...')
-            # Extract the actual ID string
-            u_id = u[1] if isinstance(u, tuple) and len(u) > 1 else u
-            
-            if isinstance(u_id, str) and "BusstopPole" in u_id:
-                 # Relaxed regex to catch ID even if there are suffixes
-                 m = re.search(r'\.(\d{1,5})\.(\d{1,2})', u_id)
-                 if m:
-                    gtfs_origin_id = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
-            
-            if not gtfs_origin_id and mode == "bus":
-                 print(f"[WARN] Failed to extract GTFS ID from: {u} (extracted: {u_id})", flush=True)
-
-            if final_route_id and gtfs_origin_id and dep:
-                # 時刻を "HH:MM:00" に変換
-                h = int(dep // 60)
-                m_part = int(dep % 60)
-                time_str = f"{h:02d}:{m_part:02d}:00"
-                
-                # 検索
-                found = gtfs_repo.find_trip_id(final_route_id, gtfs_origin_id, time_str)
-                if found:
-                    final_trip_id = found
-                    print(f"[INFO] Fixed Trip: Route={final_route_id}, Stop={gtfs_origin_id}, Time={time_str} -> {final_trip_id}", flush=True)
-                else:
-                    print(f"[WARN] Trip Not Found: Route={final_route_id}, Stop={gtfs_origin_id}, Time={time_str}", flush=True)
-            else:
-                 if mode == "bus":
-                     print(f"[WARN] Skip Trip Search: Route={final_route_id}, Stop={gtfs_origin_id}, Dep={dep}", flush=True)
 
             # 3. バス停リストのID書き換え
             for stop in curr_stops:
                 old_id = stop.get("id")
-                if old_id:
-                    m = re.search(r'\.(\d{1,5})\.(\d{1,2})', old_id)
-                    if m:
-                        stop["id"] = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
+                converted_id = _gtfs_stop_id(old_id)
+                if converted_id:
+                    stop["id"] = converted_id
 
             cur = {
                 "kind": mode, "title": line_disp, "edges": 0, 
@@ -1779,11 +1941,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 
                 # ID変換
                 node_id = phys_key[1]
-                new_id = node_id
-                if "BusstopPole" in node_id:
-                    m = re.search(r'\.(\d{1,5})\.(\d{1,2})', node_id)
-                    if m:
-                        new_id = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
+                new_id = _gtfs_stop_id(node_id) or node_id
 
                 if phys_key in G: stop_name = G.nodes[phys_key]["name"]
                 
@@ -1801,22 +1959,35 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 if arr: curr_time = arr
                 else: curr_time += edge.get("w", 2.0)
             else:
-                dist = edge.get("meters", 0)
-                curr_time += (dist/250.0 if dist>0 else 2.5) + 0.8
+                if active_bus_leg is None:
+                    return []
+                stop_time = gtfs_repo.get_trip_stop_time_after(
+                    active_bus_leg.trip_id,
+                    new_id,
+                    after_sequence=active_bus_sequence,
+                )
+                if stop_time is None:
+                    print(
+                        f"[WARN] GTFS trip {active_bus_leg.trip_id} does not "
+                        f"contain path stop {new_id} after {active_bus_sequence}",
+                        flush=True,
+                    )
+                    return []
+                active_bus_sequence, arrival_minute, _ = stop_time
+                if active_bus_sequence > active_bus_leg.destination_sequence:
+                    return []
+                curr_time = arrival_minute
 
         elif etype in ("alight", "xfer"):
             print(f"[segments_detailed] edge[{i}] {etype} mode={mode} node={node}", flush=True)
             # 降車: 現在のRideセグメントを終了し、到着時刻などを記録・Flushする
+            alighted_from_bus = bool(cur and cur.get("kind") == "bus")
             if cur and cur["kind"] in ("bus", "rail"):
                 to_phys = v if v[0] == "phys" else last_phys
                 if to_phys:
                     # ID変換
                     node_id = to_phys[1]
-                    new_dest_id = node_id
-                    if "BusstopPole" in node_id:
-                        m = re.search(r'\.(\d{1,5})\.(\d{1,2})', node_id)
-                        if m:
-                            new_dest_id = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
+                    new_dest_id = _gtfs_stop_id(node_id) or node_id
 
                     to_name = G.nodes[to_phys]["name"]
                     cur["to"] = to_name
@@ -1836,9 +2007,21 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                         cur["stops"][-1]["id"] = new_dest_id # 上書き
                         cur["stops"][-1]["lat"] = stop_lat
                         cur["stops"][-1]["lon"] = stop_lon
+                if cur["kind"] == "bus":
+                    if (
+                        active_bus_leg is None
+                        or active_bus_sequence
+                        != active_bus_leg.destination_sequence
+                    ):
+                        return []
+                    curr_time = active_bus_leg.arrival_minute
                 cur["arrival_time"] = min_to_time_str(curr_time)
                 flush()
-            curr_time += 1.0
+            if not alighted_from_bus:
+                curr_time += 1.0
+            if active_bus_leg is not None:
+                active_bus_leg = None
+                active_bus_sequence = -1
             
     if cur: flush()
     print(

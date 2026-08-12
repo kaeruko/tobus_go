@@ -1,5 +1,7 @@
 import os
 import asyncio
+import hashlib
+import json
 import pickle
 import time
 import zipfile
@@ -15,13 +17,68 @@ _REALTIME_REFRESH_LOCK = asyncio.Lock()
 PREBUILT_DATA_PATH = os.getenv("PREBUILT_DATA_PATH", "data/app_data.pkl")
 
 
+def _gtfs_key_from_state(s3, bucket_name: str) -> tuple[str, str | None]:
+    state_key = os.getenv("S3_GTFS_STATE_KEY")
+    if not state_key:
+        return os.getenv("S3_GTFS_KEY", "ToeiBus-GTFS.zip"), None
+
+    try:
+        response = s3.get_object(Bucket=bucket_name, Key=state_key)
+        state = json.loads(response["Body"].read())
+        object_key = state["object_key"]
+        expected_sha256 = state["sha256"]
+    except Exception as error:
+        raise RuntimeError(
+            f"Could not resolve GTFS state from S3 key {state_key}"
+        ) from error
+    if not isinstance(object_key, str) or not object_key:
+        raise RuntimeError("GTFS state has no object_key")
+    if not isinstance(expected_sha256, str) or len(expected_sha256) != 64:
+        raise RuntimeError("GTFS state has an invalid sha256")
+    return object_key, expected_sha256
+
+
+def _sha256_file(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _extract_gtfs_archive(zip_path: str, data_dir: str) -> None:
+    with zipfile.ZipFile(zip_path) as archive:
+        root = os.path.realpath(data_dir)
+        file_names = [
+            member.filename.replace("\\", "/")
+            for member in archive.infolist()
+            if not member.is_dir()
+        ]
+        # The ODPT source ZIP stores GTFS files at its root.  Older deployment
+        # artifacts wrapped them in ToeiBus-GTFS/, so both layouts are accepted.
+        has_root_routes = "routes.txt" in file_names
+        extraction_root = (
+            os.path.join(root, "ToeiBus-GTFS") if has_root_routes else root
+        )
+        os.makedirs(extraction_root, exist_ok=True)
+        extraction_root = os.path.realpath(extraction_root)
+        for member in archive.infolist():
+            target = os.path.realpath(
+                os.path.join(extraction_root, member.filename)
+            )
+            if os.path.commonpath([extraction_root, target]) != extraction_root:
+                raise RuntimeError(
+                    f"Unsafe path in GTFS archive: {member.filename}"
+                )
+        archive.extractall(extraction_root)
+
+
 def _download_lambda_data(data_dir: str = LAMBDA_TMP_DIR) -> str:
     bucket_name = os.getenv("S3_BUCKET_NAME")
     if not bucket_name:
         raise RuntimeError("S3_BUCKET_NAME is required in lambda mode")
 
     prebuilt_key = os.getenv("S3_PREBUILT_KEY", "app_data.pkl")
-    gtfs_key = os.getenv("S3_GTFS_KEY", "ToeiBus-GTFS.zip")
     prebuilt_path = os.path.join(data_dir, "app_data.pkl")
     gtfs_marker = os.path.join(data_dir, "ToeiBus-GTFS", "routes.txt")
     gtfs_zip_path = os.path.join(data_dir, ".ToeiBus-GTFS.zip")
@@ -31,6 +88,7 @@ def _download_lambda_data(data_dir: str = LAMBDA_TMP_DIR) -> str:
     import boto3
 
     s3 = boto3.client("s3")
+    gtfs_key, expected_gtfs_sha256 = _gtfs_key_from_state(s3, bucket_name)
     if not os.path.exists(prebuilt_path):
         print(f"[INFO] Downloading prebuilt data from S3 key {prebuilt_key}...")
         s3.download_file(bucket_name, prebuilt_key, prebuilt_path)
@@ -38,15 +96,12 @@ def _download_lambda_data(data_dir: str = LAMBDA_TMP_DIR) -> str:
     if not os.path.exists(gtfs_marker):
         print(f"[INFO] Downloading GTFS data from S3 key {gtfs_key}...")
         s3.download_file(bucket_name, gtfs_key, gtfs_zip_path)
-        with zipfile.ZipFile(gtfs_zip_path) as archive:
-            root = os.path.realpath(data_dir)
-            for member in archive.infolist():
-                target = os.path.realpath(os.path.join(root, member.filename))
-                if os.path.commonpath([root, target]) != root:
-                    raise RuntimeError(
-                        f"Unsafe path in GTFS archive: {member.filename}"
-                    )
-            archive.extractall(data_dir)
+        if (
+            expected_gtfs_sha256
+            and _sha256_file(gtfs_zip_path) != expected_gtfs_sha256
+        ):
+            raise RuntimeError("Downloaded GTFS SHA-256 does not match state")
+        _extract_gtfs_archive(gtfs_zip_path, data_dir)
         os.remove(gtfs_zip_path)
 
     if not os.path.exists(gtfs_marker):
