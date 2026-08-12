@@ -13,6 +13,7 @@ import '../services/trip_service.dart';
 import '../models/trip_models.dart';
 import 'leader_mode_page.dart';
 import 'group_detail_page.dart';
+import 'solo_trip_screen.dart';
 import '../core/api_client.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/route_map_preview.dart';
@@ -29,7 +30,8 @@ String _originLabelOf(Candidate candidate) {
   if (!_isPlaceholder(candidate.originName)) {
     return candidate.originName!;
   }
-  if (candidate.steps.isNotEmpty && !_isPlaceholder(candidate.steps.first.from)) {
+  if (candidate.steps.isNotEmpty &&
+      !_isPlaceholder(candidate.steps.first.from)) {
     return candidate.steps.first.from!;
   }
   return '出発地';
@@ -51,7 +53,12 @@ class RouteDetailPage extends ConsumerStatefulWidget {
   final bool isReturnSelection;
   final RouteMeta? meta;
 
-  const RouteDetailPage({super.key, required this.candidate, this.isReturnSelection = false, this.meta});
+  const RouteDetailPage({
+    super.key,
+    required this.candidate,
+    this.isReturnSelection = false,
+    this.meta,
+  });
 
   @override
   ConsumerState<RouteDetailPage> createState() => _RouteDetailPageState();
@@ -64,16 +71,17 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   DateTime _returnSearchTime = appClock.now();
   // TripDraftService removed
   final TripService _tripService = TripService(); // 追加
-  
+
   Trip? _activeTrip; // アクティブな旅の情報
   Trip? _conflictingTrip; // 期間が重複する旅
   bool _isLoadingTrip = true;
+  bool _isCreatingSolo = false;
 
   // 帰り検索フォームの表示フラグ
   bool _isReturnSearchVisible = false;
 
   bool get _isReturnSelection => widget.isReturnSelection;
-  
+
   @override
   void initState() {
     super.initState();
@@ -84,33 +92,38 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     try {
       final activeTrip = await _tripService.getActiveTrip();
       final futureTrips = await _tripService.getFutureTrips();
-      
+
       Trip? overlap;
-      
+
       // お出かけグループ作成直前（帰りの選択中）の場合のみ重複チェックを行う
       if (widget.isReturnSelection) {
         final draft = ref.read(tripDraftProvider);
         final outbound = draft.outbound;
-        
+
         if (outbound != null && outbound.departureDate != null) {
           final start = outbound.departureDate!;
           // 帰りの到着時刻（または出発+所要時間）を終了時刻とする
-          final returnArrival = widget.candidate.departureDate?.add(Duration(minutes: widget.candidate.totalTime)) 
-              ?? start.add(const Duration(hours: 3)); // フォールバック
-          
+          final returnArrival =
+              widget.candidate.departureDate?.add(
+                Duration(minutes: widget.candidate.totalTime),
+              ) ??
+              start.add(const Duration(hours: 3)); // フォールバック
+
           final end = returnArrival;
 
           // 自分以外のTripとの重複を確認 (activeTripと同じIDなら除外したいが、activeTripは既に別枠で表示されるため、ここでは「active以外」もチェックすべき)
           // ただし _activeTrip != null の場合はUI側でそちらが優先表示されるため、実質的には activeTrip == null のケースで overlap が効く
-          
+
           for (final trip in futureTrips) {
-             // 既に完了・キャンセル済みは除外 (getFutureTripsは planning/active のみ返すはずだが念のため)
-             if (trip.status == TripStatus.completed || trip.status == TripStatus.cancelled) continue;
-             
-             if (_isOverlap(trip, start, end)) {
-               overlap = trip;
-               break; 
-             }
+            // 既に完了・キャンセル済みは除外 (getFutureTripsは planning/active のみ返すはずだが念のため)
+            if (trip.status == TripStatus.completed ||
+                trip.status == TripStatus.cancelled)
+              continue;
+
+            if (_isOverlap(trip, start, end)) {
+              overlap = trip;
+              break;
+            }
           }
         }
       }
@@ -135,7 +148,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   bool _isOverlap(Trip trip, DateTime newStart, DateTime newEnd) {
     final tripStart = trip.plannedDepartureAt ?? trip.date;
     final tripEnd = _getTripEndTime(trip);
-    
+
     // Overlap logic: (StartA < EndB) and (EndA > StartB)
     return newStart.isBefore(tripEnd) && newEnd.isAfter(tripStart);
   }
@@ -143,12 +156,14 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   DateTime _getTripEndTime(Trip trip) {
     // スケジュールの最後
     if (trip.schedule.isNotEmpty) {
-      // 最後の予定 + 余裕を見て30分? 
+      // 最後の予定 + 余裕を見て30分?
       // 厳密にはスケジュールのdurationが不明な場合が多いが、plannedAtを基準にする
-       final last = trip.schedule.map((e) => e.plannedAt).reduce((a, b) => a.isAfter(b) ? a : b);
-       return last.add(const Duration(minutes: 60)); // 仮で1時間
+      final last = trip.schedule
+          .map((e) => e.plannedAt)
+          .reduce((a, b) => a.isAfter(b) ? a : b);
+      return last.add(const Duration(minutes: 60)); // 仮で1時間
     }
-    
+
     // 経路情報から推測
     if (trip.legs.isNotEmpty) {
       // 最後のLeg
@@ -157,8 +172,10 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       // ここでは簡易的に、出発 + 3時間としておく、もしくは
       // 正確には trip.legs.last.candidate... だがデータ構造が深い
     }
-    
-    return (trip.plannedDepartureAt ?? trip.date).add(const Duration(hours: 3)); // デフォルト3時間
+
+    return (trip.plannedDepartureAt ?? trip.date).add(
+      const Duration(hours: 3),
+    ); // デフォルト3時間
   }
 
   // 保存状態の判定ロジック (helper)
@@ -167,16 +184,19 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   }
 
   String _originLabel(Candidate candidate) => _originLabelOf(candidate);
-  String _destinationLabel(Candidate candidate) => _destinationLabelOf(candidate);
+  String _destinationLabel(Candidate candidate) =>
+      _destinationLabelOf(candidate);
 
   // 経路が同じか判定するヘルパー
   bool _isSameRoute(Candidate a, Candidate b) {
     if (a.id != b.id) return false;
     if (a.points.isEmpty || b.points.isEmpty) return false;
-    final sameStart = a.points.first.latitude == b.points.first.latitude &&
-                      a.points.first.longitude == b.points.first.longitude;
-    final sameEnd = a.points.last.latitude == b.points.last.latitude &&
-                    a.points.last.longitude == b.points.last.longitude;
+    final sameStart =
+        a.points.first.latitude == b.points.first.latitude &&
+        a.points.first.longitude == b.points.first.longitude;
+    final sameEnd =
+        a.points.last.latitude == b.points.last.latitude &&
+        a.points.last.longitude == b.points.last.longitude;
     return sameStart && sameEnd;
   }
 
@@ -196,13 +216,18 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
         title: const Text('ブックマークを削除'),
         content: const Text('この経路をMy Routeから削除しますか?'),
         actions: [
-          CupertinoDialogAction(child: const Text('キャンセル'), onPressed: () => Navigator.pop(ctx)),
+          CupertinoDialogAction(
+            child: const Text('キャンセル'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
           CupertinoDialogAction(
             isDestructiveAction: true,
             child: const Text('削除'),
             onPressed: () {
               Navigator.pop(ctx);
-              ref.read(savedRoutesProvider.notifier).removeWhere((e) => _isSameRoute(e, widget.candidate));
+              ref
+                  .read(savedRoutesProvider.notifier)
+                  .removeWhere((e) => _isSameRoute(e, widget.candidate));
             },
           ),
         ],
@@ -217,7 +242,10 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
         title: const Text('保存しました'),
         content: const Text('My Routeに追加しました。'),
         actions: [
-          CupertinoDialogAction(child: const Text('OK'), onPressed: () => Navigator.pop(ctx)),
+          CupertinoDialogAction(
+            child: const Text('OK'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
         ],
       ),
     );
@@ -225,7 +253,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
 
   void _setDirection(LegDirection direction) {
     try {
-      ref.read(tripDraftProvider.notifier).setRoute(direction, widget.candidate);
+      ref
+          .read(tripDraftProvider.notifier)
+          .setRoute(direction, widget.candidate);
     } on StateError catch (e) {
       _showDuplicateRouteAlert(e.message);
     }
@@ -286,7 +316,10 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                     children: [
                       const Text(
                         "現在進行中のお出かけグループがあります",
-                        style: TextStyle(color: CupertinoColors.activeGreen, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: CupertinoColors.activeGreen,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       SizedBox(
@@ -296,7 +329,11 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                           onPressed: () {
                             Navigator.push(
                               context,
-                              CupertinoPageRoute(builder: (_) => GroupDetailPage(trip: _activeTrip!)),
+                              CupertinoPageRoute(
+                                builder: (_) => _activeTrip!.isSolo
+                                    ? SoloTripScreen(tripId: _activeTrip!.id)
+                                    : GroupDetailPage(trip: _activeTrip!),
+                              ),
                             );
                           },
                           child: const Text('お出かけグループ詳細を見る'),
@@ -304,7 +341,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                       ),
                     ],
                   ),
-                )
+                ),
               ] else if (_conflictingTrip != null) ...[
                 // ★追加: 期間が重複する旅がある場合
                 Container(
@@ -319,7 +356,10 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                       Text(
                         "期間がかぶるおでかけがあります\n(${_conflictingTrip!.title})",
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: CupertinoColors.systemRed, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: CupertinoColors.systemRed,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       SizedBox(
@@ -328,14 +368,15 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                           color: CupertinoColors.systemGrey,
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           onPressed: null, // Disabled
-                          child: const Text('作成できません', style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                          )),
+                          child: const Text(
+                            '作成できません',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                )
+                ),
               ] else ...[
                 // 通常の作成ボタン
                 SizedBox(
@@ -347,37 +388,61 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                         _showCreateTripDialog();
                       }
                     },
-                    child: const Text('お出かけグループ作成', style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.underline,
-                    )),
+                    child: const Text(
+                      'お出かけグループ作成',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
                   ),
                 ),
               ],
             ] else ...[
               // 帰り検索フォーム（初期状態は隠す）
+              SizedBox(
+                width: double.infinity,
+                child: CupertinoButton.filled(
+                  onPressed: _isLoadingTrip || _isCreatingSolo
+                      ? null
+                      : _startSoloTrip,
+                  child: Text(
+                    _isCreatingSolo ? '移動を準備中…' : 'この経路で行く',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               if (!_isReturnSearchVisible)
                 Center(
                   child: CupertinoButton(
                     onPressed: () {
                       setState(() {
                         _isReturnSearchVisible = true;
-                        
+
                         // 帰りの出発時刻の計算:
                         // 1. 行きの「到着時刻」を算出
-                        DateTime baseDate = widget.candidate.departureDate ?? appClock.now();
+                        DateTime baseDate =
+                            widget.candidate.departureDate ?? appClock.now();
                         // Time component is likely 00:00 in departureDate, so we need to add the time from the last transit step.
-                        
+
                         DateTime? arrivalTime;
                         int trailingWalkMinutes = 0;
-                        
+
                         // 後ろからスキャンして、時刻な有効なステップ(バス/電車)を探す
                         for (final step in widget.candidate.steps.reversed) {
-                          if (step.arrivalTime != null && step.arrivalTime!.contains(':')) {
+                          if (step.arrivalTime != null &&
+                              step.arrivalTime!.contains(':')) {
                             final parts = step.arrivalTime!.split(':');
                             final h = int.parse(parts[0]);
                             final m = int.parse(parts[1]);
-                            arrivalTime = DateTime(baseDate.year, baseDate.month, baseDate.day, h, m);
+                            arrivalTime = DateTime(
+                              baseDate.year,
+                              baseDate.month,
+                              baseDate.day,
+                              h,
+                              m,
+                            );
                             break;
                           } else {
                             // 時刻がないステップ（最後の徒歩など）は時間を加算
@@ -386,34 +451,54 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                         }
 
                         if (arrivalTime != null) {
-                           // 到着時刻 ＋ 最後の徒歩
-                           final finalArrival = arrivalTime.add(Duration(minutes: trailingWalkMinutes));
-                           // 帰りの出発時刻のデフォルトは、行きの到着時刻とする（滞在時間は加算しない）
-                           _returnSearchTime = finalArrival;
+                          // 到着時刻 ＋ 最後の徒歩
+                          final finalArrival = arrivalTime.add(
+                            Duration(minutes: trailingWalkMinutes),
+                          );
+                          // 帰りの出発時刻のデフォルトは、行きの到着時刻とする（滞在時間は加算しない）
+                          _returnSearchTime = finalArrival;
                         } else {
-                           // 時刻が取れない場合は、現在時刻＋(所要時間)等のフォールバック
-                           final startTime = widget.candidate.departureDate ?? appClock.now(); 
-                           // Note: departureDate usually doesn't have time, so this might default to midnight if not careful,
-                           // but this is a fallback for walk-only paths likely.
-                           // Try to use appClock.now() if departureDate is midnight? 
-                           // For now, simple fallback:
-                           if (startTime.hour == 0 && startTime.minute == 0) {
-                              _returnSearchTime = appClock.now().add(const Duration(hours: 1));
-                           } else {
-                              _returnSearchTime = startTime.add(Duration(minutes: widget.candidate.totalTime));
-                           }
+                          // 時刻が取れない場合は、現在時刻＋(所要時間)等のフォールバック
+                          final startTime =
+                              widget.candidate.departureDate ?? appClock.now();
+                          // Note: departureDate usually doesn't have time, so this might default to midnight if not careful,
+                          // but this is a fallback for walk-only paths likely.
+                          // Try to use appClock.now() if departureDate is midnight?
+                          // For now, simple fallback:
+                          if (startTime.hour == 0 && startTime.minute == 0) {
+                            _returnSearchTime = appClock.now().add(
+                              const Duration(hours: 1),
+                            );
+                          } else {
+                            _returnSearchTime = startTime.add(
+                              Duration(minutes: widget.candidate.totalTime),
+                            );
+                          }
                         }
                       });
                     },
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                     color: CupertinoColors.activeBlue,
                     borderRadius: BorderRadius.circular(24),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(CupertinoIcons.arrow_2_circlepath, color: CupertinoColors.white, size: 20),
+                        Icon(
+                          CupertinoIcons.arrow_2_circlepath,
+                          color: CupertinoColors.white,
+                          size: 20,
+                        ),
                         SizedBox(width: 8),
-                        Text('帰りも検索する', style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold)),
+                        Text(
+                          '帰りも検索する',
+                          style: TextStyle(
+                            color: CupertinoColors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -423,11 +508,20 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('帰りの出発時刻', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const Text(
+                      '帰りの出発時刻',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                     CupertinoButton(
                       padding: EdgeInsets.zero,
                       minSize: 0,
-                      child: const Icon(CupertinoIcons.xmark_circle_fill, color: CupertinoColors.systemGrey),
+                      child: const Icon(
+                        CupertinoIcons.xmark_circle_fill,
+                        color: CupertinoColors.systemGrey,
+                      ),
                       onPressed: () {
                         setState(() {
                           _isReturnSearchVisible = false;
@@ -439,19 +533,29 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                 const SizedBox(height: 8),
                 // 経路反転の表示
                 Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 8,
+                    horizontal: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: CupertinoColors.systemGrey6,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      const Icon(CupertinoIcons.arrow_swap, color: CupertinoColors.systemGrey, size: 16),
+                      const Icon(
+                        CupertinoIcons.arrow_swap,
+                        color: CupertinoColors.systemGrey,
+                        size: 16,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           '${_destinationLabel(widget.candidate)} → ${_originLabel(widget.candidate)}',
-                          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 13,
+                          ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -463,7 +567,10 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                 GestureDetector(
                   onTap: _showReturnTimePicker,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
                     decoration: BoxDecoration(
                       color: CupertinoColors.systemBackground,
                       borderRadius: BorderRadius.circular(8),
@@ -472,11 +579,18 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                         const Text('出発時刻', style: TextStyle(color: CupertinoColors.label)),
-                         Text(
-                           '${_returnSearchTime.month}/${_returnSearchTime.day} ${_returnSearchTime.hour.toString().padLeft(2, '0')}:${_returnSearchTime.minute.toString().padLeft(2, '0')}',
-                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: CupertinoColors.activeBlue),
-                         ),
+                        const Text(
+                          '出発時刻',
+                          style: TextStyle(color: CupertinoColors.label),
+                        ),
+                        Text(
+                          '${_returnSearchTime.month}/${_returnSearchTime.day} ${_returnSearchTime.hour.toString().padLeft(2, '0')}:${_returnSearchTime.minute.toString().padLeft(2, '0')}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                            color: CupertinoColors.activeBlue,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -485,9 +599,15 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                 SizedBox(
                   width: double.infinity,
                   child: CupertinoButton.filled(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
                     onPressed: _startReturnSearch,
-                    child: const Text('この条件で検索', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      'この条件で検索',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
               ],
@@ -517,7 +637,10 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
           const SizedBox(height: 4),
           Text(
             '所要時間 ${candidate.totalTime}分・乗換 ${candidate.transfers}回',
-            style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
+            style: const TextStyle(
+              fontSize: 12,
+              color: CupertinoColors.systemGrey,
+            ),
           ),
         ],
       ),
@@ -567,7 +690,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     await Future.delayed(const Duration(milliseconds: 200));
 
     final baseTime = widget.candidate.departureDate ?? appClock.now();
-    final arrivalTime = baseTime.add(Duration(minutes: widget.candidate.totalTime));
+    final arrivalTime = baseTime.add(
+      Duration(minutes: widget.candidate.totalTime),
+    );
 
     if (_returnSearchTime.isBefore(arrivalTime)) {
       _returnSearchTime = arrivalTime;
@@ -610,26 +735,114 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     );
   }
 
-
   Future<void> _startReturnSearch() async {
     if (widget.candidate.points.length < 2) return;
     if (widget.candidate.points.length < 2) return;
-    
+
     // Reset and set outbound
     final notifier = ref.read(tripDraftProvider.notifier);
     notifier.reset();
     notifier.setRoute(LegDirection.outbound, widget.candidate);
-    
+
     // 帰りの検索は _returnSearchTime を使用
-    await _executeReSearch(reverse: true, startReturnFlow: true, overrideTime: _returnSearchTime);
+    await _executeReSearch(
+      reverse: true,
+      startReturnFlow: true,
+      overrideTime: _returnSearchTime,
+    );
   }
 
-  Future<void> _executeReSearch({bool reverse = false, bool startReturnFlow = false, DateTime? overrideTime}) async {
+  Future<void> _startSoloTrip() async {
+    final existing = await _tripService.getActiveTrip();
+    if (!mounted) return;
+    if (existing != null) {
+      await _showActiveTripDialog(existing);
+      return;
+    }
+
+    setState(() => _isCreatingSolo = true);
+    try {
+      final tripId = await _tripService.createSoloTrip(widget.candidate);
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        CupertinoPageRoute(builder: (_) => SoloTripScreen(tripId: tripId)),
+      );
+      await _checkActiveTrip();
+    } on ActiveTripExistsException catch (error) {
+      final activeTrip = await _tripService.getTrip(error.tripId);
+      if (mounted && activeTrip != null) {
+        await _showActiveTripDialog(activeTrip);
+      }
+    } catch (error) {
+      if (mounted) {
+        showCupertinoDialog(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: const Text('移動を開始できませんでした'),
+            content: Text('$error'),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('閉じる'),
+              ),
+            ],
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCreatingSolo = false);
+    }
+  }
+
+  Future<void> _showActiveTripDialog(Trip trip) {
+    return showCupertinoDialog<void>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('進行中の移動があります'),
+        content: Text('${trip.displayTitle}\n完了または中止してから、新しい移動を開始してください。'),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('閉じる'),
+          ),
+          CupertinoDialogAction(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              if (trip.isSolo) {
+                Navigator.of(context).push(
+                  CupertinoPageRoute(
+                    builder: (_) => SoloTripScreen(tripId: trip.id),
+                  ),
+                );
+              } else {
+                Navigator.of(context).push(
+                  CupertinoPageRoute(
+                    builder: (_) => GroupDetailPage(trip: trip),
+                  ),
+                );
+              }
+            },
+            child: const Text('進行中の移動を開く'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _executeReSearch({
+    bool reverse = false,
+    bool startReturnFlow = false,
+    DateTime? overrideTime,
+  }) async {
     final original = widget.candidate;
     if (original.points.isEmpty) return;
 
-    final originLabel = reverse ? _destinationLabel(original) : _originLabel(original);
-    final destinationLabel = reverse ? _originLabel(original) : _destinationLabel(original);
+    final originLabel = reverse
+        ? _destinationLabel(original)
+        : _originLabel(original);
+    final destinationLabel = reverse
+        ? _originLabel(original)
+        : _destinationLabel(original);
 
     showCupertinoDialog(
       context: context,
@@ -662,7 +875,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
           ? (original.originCoords ?? original.points.first)
           : (original.destinationCoords ?? original.points.last);
 
-      print('[DEBUG] startReturnFlow=$startReturnFlow reverse=$reverse fromDesc=$originLabel toDesc=$destinationLabel fromCoord=${start.latitude},${start.longitude} toCoord=${end.latitude},${end.longitude}');
+      print(
+        '[DEBUG] startReturnFlow=$startReturnFlow reverse=$reverse fromDesc=$originLabel toDesc=$destinationLabel fromCoord=${start.latitude},${start.longitude} toCoord=${end.latitude},${end.longitude}',
+      );
 
       final targetTime = overrideTime ?? _searchTime;
       final params = {
@@ -671,8 +886,10 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
         'blat': '${end.latitude}',
         'blon': '${end.longitude}',
         'pref': original.preference ?? 'fewTransfers',
-        'start_time': '${targetTime.hour.toString().padLeft(2, '0')}:${targetTime.minute.toString().padLeft(2, '0')}',
-        'target_date_str': '${targetTime.year}-${targetTime.month.toString().padLeft(2, '0')}-${targetTime.day.toString().padLeft(2, '0')}',
+        'start_time':
+            '${targetTime.hour.toString().padLeft(2, '0')}:${targetTime.minute.toString().padLeft(2, '0')}',
+        'target_date_str':
+            '${targetTime.year}-${targetTime.month.toString().padLeft(2, '0')}-${targetTime.day.toString().padLeft(2, '0')}',
       };
 
       // Changed: Await the response synchronously (no job_id polling)
@@ -710,7 +927,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
           ),
         );
       } else {
-         showCupertinoDialog(
+        showCupertinoDialog(
           context: context,
           builder: (ctx) => CupertinoAlertDialog(
             content: const Text('指定された日時の経路が見つかりませんでした。'),
@@ -718,12 +935,11 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               CupertinoDialogAction(
                 child: const Text('OK'),
                 onPressed: () => Navigator.pop(ctx),
-              )
+              ),
             ],
           ),
         );
       }
-
     } catch (e) {
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop(); // Close loading
@@ -736,7 +952,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
             CupertinoDialogAction(
               child: const Text('OK'),
               onPressed: () => Navigator.pop(ctx),
-            )
+            ),
           ],
         ),
       );
@@ -767,7 +983,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
         title: const Text('この往復でお出かけグループを作成'),
-        content: Text('行き: ${_routeLabel(draftState.outbound)}\n帰り: ${_routeLabel(draftState.inbound)}'),
+        content: Text(
+          '行き: ${_routeLabel(draftState.outbound)}\n帰り: ${_routeLabel(draftState.inbound)}',
+        ),
         actions: [
           CupertinoDialogAction(
             child: const Text('キャンセル'),
@@ -792,7 +1010,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       print('[DEBUG] Trip created. ID: $tripId');
 
       if (!mounted) {
-        print('[DEBUG] Widget not mounted after createTrip. Aborting navigation.');
+        print(
+          '[DEBUG] Widget not mounted after createTrip. Aborting navigation.',
+        );
         return;
       }
 
@@ -800,12 +1020,19 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       print('[DEBUG] Navigating to LeaderModePage...');
       Navigator.push(
         context,
-        CupertinoPageRoute(builder: (_) {
-          print('[DEBUG] Building LeaderModePage route...');
-          return LeaderModePage(tripId: tripId);
-        }),
+        CupertinoPageRoute(
+          builder: (_) {
+            print('[DEBUG] Building LeaderModePage route...');
+            return LeaderModePage(tripId: tripId);
+          },
+        ),
       );
       print('[DEBUG] Navigation pushed.');
+    } on ActiveTripExistsException catch (error) {
+      final activeTrip = await _tripService.getTrip(error.tripId);
+      if (mounted && activeTrip != null) {
+        await _showActiveTripDialog(activeTrip);
+      }
     } catch (e, stack) {
       print('[DEBUG] Error in _createTrip: $e\n$stack');
       if (!mounted) return;
@@ -845,7 +1072,11 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
             // ブックマークボタン
             CupertinoButton(
               padding: EdgeInsets.zero,
-              child: Icon(isSaved ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark),
+              child: Icon(
+                isSaved
+                    ? CupertinoIcons.bookmark_fill
+                    : CupertinoIcons.bookmark,
+              ),
               onPressed: () => _toggleBookmark(isSaved),
             ),
           ],
@@ -858,54 +1089,66 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
           child: CustomScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             slivers: [
-            const SliverToBoxAdapter(child: SizedBox(height: 8)),
+              const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-            if (widget.candidate.isFutureSuggestion)
-              SliverToBoxAdapter(
-                child: _FutureSuggestionAlert(date: widget.candidate.departureDate),
-              ),
+              if (widget.candidate.isFutureSuggestion)
+                SliverToBoxAdapter(
+                  child: _FutureSuggestionAlert(
+                    date: widget.candidate.departureDate,
+                  ),
+                ),
 
-            if (widget.meta?.destinationReachable == false)
+              if (widget.meta?.destinationReachable == false)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: _FallbackDestinationNotice(meta: widget.meta!),
+                  ),
+                ),
+
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: _FallbackDestinationNotice(meta: widget.meta!),
+                child: _EndpointSummary(
+                  candidate: widget.candidate,
+                  meta: widget.meta,
                 ),
               ),
 
-            SliverToBoxAdapter(
-                child: _EndpointSummary(candidate: widget.candidate, meta: widget.meta)),
+              SliverToBoxAdapter(
+                child: RouteSummary(candidate: widget.candidate),
+              ),
 
-            SliverToBoxAdapter(child: RouteSummary(candidate: widget.candidate)),
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+              SliverToBoxAdapter(
+                child: RouteMapPreview(points: widget.candidate.points),
+              ),
 
-            SliverToBoxAdapter(child: RouteMapPreview(points: widget.candidate.points)),
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
-
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final itemIndex = index ~/ 2;
-                    if (index.isEven) {
-                      return RouteStepTile(segment: widget.candidate.steps[itemIndex]);
-                    }
-                    return const SizedBox(height: 8);
-                  },
-                  childCount: widget.candidate.steps.isEmpty
-                      ? 0
-                      : (widget.candidate.steps.length * 2) - 1,
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final itemIndex = index ~/ 2;
+                      if (index.isEven) {
+                        return RouteStepTile(
+                          segment: widget.candidate.steps[itemIndex],
+                        );
+                      }
+                      return const SizedBox(height: 8);
+                    },
+                    childCount: widget.candidate.steps.isEmpty
+                        ? 0
+                        : (widget.candidate.steps.length * 2) - 1,
+                  ),
                 ),
               ),
-            ),
-            SliverToBoxAdapter(child: _roundTripComposer()),
-            const SliverToBoxAdapter(child: SizedBox(height: 48)),
-          ],
+              SliverToBoxAdapter(child: _roundTripComposer()),
+              const SliverToBoxAdapter(child: SizedBox(height: 48)),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -929,13 +1172,19 @@ class _FutureSuggestionAlert extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(CupertinoIcons.exclamationmark_triangle_fill, color: CupertinoColors.activeOrange),
+          const Icon(
+            CupertinoIcons.exclamationmark_triangle_fill,
+            color: CupertinoColors.activeOrange,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               "ご指定の日時は運行終了または運休日のため、\n${date?.toString().split(' ')[0]} の経路を表示しています。",
               style: const TextStyle(
-                  color: CupertinoColors.activeOrange, fontWeight: FontWeight.bold, fontSize: 13),
+                color: CupertinoColors.activeOrange,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
             ),
           ),
         ],
@@ -990,7 +1239,13 @@ class _EndpointSummary extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: CupertinoColors.activeBlue),
         const SizedBox(width: 8),
-        Text(label, style: const TextStyle(color: CupertinoColors.systemGrey, fontSize: 12)),
+        Text(
+          label,
+          style: const TextStyle(
+            color: CupertinoColors.systemGrey,
+            fontSize: 12,
+          ),
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -1015,8 +1270,8 @@ class _FallbackDestinationNotice extends StatelessWidget {
     final walkText = minutes != null
         ? '徒歩約${minutes}分'
         : (meta.fallbackDistanceM != null
-            ? '徒歩${meta.fallbackDistanceM!.toStringAsFixed(0)}m程度'
-            : '徒歩圏内');
+              ? '徒歩${meta.fallbackDistanceM!.toStringAsFixed(0)}m程度'
+              : '徒歩圏内');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -1031,8 +1286,10 @@ class _FallbackDestinationNotice extends StatelessWidget {
         children: [
           const Row(
             children: [
-              Icon(CupertinoIcons.exclamationmark_triangle_fill,
-                  color: CupertinoColors.systemOrange),
+              Icon(
+                CupertinoIcons.exclamationmark_triangle_fill,
+                color: CupertinoColors.systemOrange,
+              ),
               SizedBox(width: 8),
               Text(
                 '目的地付近までの経路のみ表示しています',
@@ -1090,12 +1347,29 @@ class RouteSummary extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(start, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: CupertinoColors.activeBlue)),
+              Text(
+                start,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: CupertinoColors.activeBlue,
+                ),
+              ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12.0),
-                child: Icon(CupertinoIcons.arrow_right, color: CupertinoColors.systemGrey),
+                child: Icon(
+                  CupertinoIcons.arrow_right,
+                  color: CupertinoColors.systemGrey,
+                ),
               ),
-              Text(arr ?? '--:--', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: CupertinoColors.black)),
+              Text(
+                arr ?? '--:--',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: CupertinoColors.black,
+                ),
+              ),
             ],
           ),
         ),
@@ -1119,15 +1393,22 @@ class RouteSummary extends StatelessWidget {
   Widget _stat(String k, String v) {
     return Column(
       children: [
-        Text(v, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+        Text(
+          v,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 2),
-        Text(k, style: const TextStyle(color: CupertinoColors.inactiveGray, fontSize: 12)),
+        Text(
+          k,
+          style: const TextStyle(
+            color: CupertinoColors.inactiveGray,
+            fontSize: 12,
+          ),
+        ),
       ],
     );
   }
 }
-
-
 
 class RouteStepTile extends StatelessWidget {
   final StepSeg segment;
@@ -1164,22 +1445,48 @@ class RouteStepTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(segment.mainTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    if (segment.departureTime != null && segment.arrivalTime != null)
-                      Text('${segment.departureTime} → ${segment.arrivalTime}',
-                          style: const TextStyle(fontSize: 13, color: CupertinoColors.activeBlue, fontWeight: FontWeight.w600)),
+                    Text(
+                      segment.mainTitle,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (segment.departureTime != null &&
+                        segment.arrivalTime != null)
+                      Text(
+                        '${segment.departureTime} → ${segment.arrivalTime}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: CupertinoColors.activeBlue,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     if (segment.subTitle != null) ...[
                       const SizedBox(height: 4),
-                      Text(segment.subTitle!, style: const TextStyle(color: CupertinoColors.inactiveGray)),
+                      Text(
+                        segment.subTitle!,
+                        style: const TextStyle(
+                          color: CupertinoColors.inactiveGray,
+                        ),
+                      ),
                     ],
                   ],
                 ),
               ),
               if (rightText.isNotEmpty)
-                Text(rightText, style: const TextStyle(fontSize: 13, color: CupertinoColors.systemGrey)),
+                Text(
+                  rightText,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: CupertinoColors.systemGrey,
+                  ),
+                ),
             ],
           ),
-          if (segment.kind == 'bus' && segment.routeId != null && segment.routeId!.isNotEmpty) ...[
+          if (segment.kind == 'bus' &&
+              segment.routeId != null &&
+              segment.routeId!.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: Container(height: 1, color: CupertinoColors.systemGrey5),
@@ -1201,7 +1508,9 @@ class RouteStepTile extends StatelessWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => SegmentStopsPage(segment: segment))),
+      onTap: () => Navigator.of(context).push(
+        CupertinoPageRoute(builder: (_) => SegmentStopsPage(segment: segment)),
+      ),
       child: content,
     );
   }
@@ -1240,8 +1549,12 @@ class _RoundIcon extends StatelessWidget {
         color = CupertinoColors.activeBlue;
     }
     return Container(
-      width: 36, height: 36,
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        shape: BoxShape.circle,
+      ),
       alignment: Alignment.center,
       child: Icon(icon, color: color),
     );
@@ -1268,11 +1581,7 @@ class SegmentStopsPage extends StatelessWidget {
             final stop = segment.stops[index];
             final isFirst = index == 0;
             final isLast = index == segment.stops.length - 1;
-            return _StopRow(
-              stop: stop,
-              isFirst: isFirst,
-              isLast: isLast,
-            );
+            return _StopRow(stop: stop, isFirst: isFirst, isLast: isLast);
           },
         ),
       ),
@@ -1295,17 +1604,16 @@ class _StopRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final nameStyle = TextStyle(
       fontSize: 16,
-      fontWeight:
-          (stop.isOrigin || stop.isDestination) ? FontWeight.w600 : FontWeight.w400,
+      fontWeight: (stop.isOrigin || stop.isDestination)
+          ? FontWeight.w600
+          : FontWeight.w400,
     );
 
     return GestureDetector(
       onTap: () {
         if (stop.lat != null && stop.lon != null) {
           Navigator.of(context).push(
-            CupertinoPageRoute(
-              builder: (_) => BusStopMapPage(stop: stop),
-            ),
+            CupertinoPageRoute(builder: (_) => BusStopMapPage(stop: stop)),
           );
         } else {
           print('[DEBUG] lat or lon is null');
@@ -1362,15 +1670,15 @@ class _StopRow extends StatelessWidget {
                     const SizedBox(height: 2),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: CupertinoColors.systemGrey5,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        stop.isOrigin
-                            ? '乗車'
-                            : (stop.isDestination ? '降車' : ''),
+                        stop.isOrigin ? '乗車' : (stop.isDestination ? '降車' : ''),
                         style: const TextStyle(
                           fontSize: 10,
                           color: CupertinoColors.inactiveGray,
@@ -1395,20 +1703,17 @@ class BusStopMapPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('[DEBUG] Viewing map for: ${stop.name}, lat=${stop.lat}, lon=${stop.lon}');
+    print(
+      '[DEBUG] Viewing map for: ${stop.name}, lat=${stop.lat}, lon=${stop.lon}',
+    );
     final target = LatLng(stop.lat ?? 35.681236, stop.lon ?? 139.767125);
 
     return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: Text(stop.name),
-      ),
+      navigationBar: CupertinoNavigationBar(middle: Text(stop.name)),
       child: Stack(
         children: [
           GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: target,
-              zoom: 16,
-            ),
+            initialCameraPosition: CameraPosition(target: target, zoom: 16),
             markers: {
               Marker(
                 markerId: MarkerId(stop.name),

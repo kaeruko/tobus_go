@@ -18,6 +18,8 @@ import '../models/leg_models.dart';
 import '../models/group_models.dart';
 import '../models/route_models.dart';
 import 'trip_list_page.dart';
+import 'solo_trip_detail_page.dart';
+import 'solo_trip_screen.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -36,7 +38,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   void initState() {
     super.initState();
     _loadSettings();
-    
+
     // Initialize manual input with current override if exists
     final override = ref.read(locationOverrideProvider);
     if (override != null) {
@@ -46,7 +48,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     // ユーザー情報の取得
     await UserService().initialize();
     final name = await UserService().getUserName();
@@ -126,8 +128,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Future<void> _updateTimeOffset() async {
     final currentOffset = AppClock.instance.offset;
     // 初期値設定
-    final hController = TextEditingController(text: currentOffset.inHours.toString());
-    final mController = TextEditingController(text: (currentOffset.inMinutes.remainder(60)).toString());
+    final hController = TextEditingController(
+      text: currentOffset.inHours.toString(),
+    );
+    final mController = TextEditingController(
+      text: (currentOffset.inMinutes.remainder(60)).toString(),
+    );
 
     await showDialog(
       context: context,
@@ -136,7 +142,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('現在時刻を指定した時間だけずらします（デバッグ用）', style: TextStyle(fontSize: 12)),
+            const Text(
+              '現在時刻を指定した時間だけずらします（デバッグ用）',
+              style: TextStyle(fontSize: 12),
+            ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -169,7 +178,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           TextButton(
             onPressed: () {
               AppClock.instance.resetOffset();
-              ref.invalidate(minuteTickerProvider); // Force immediate time update
+              ref.invalidate(
+                minuteTickerProvider,
+              ); // Force immediate time update
               setState(() {}); // 画面更新
               Navigator.pop(context);
             },
@@ -184,7 +195,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               final h = int.tryParse(hController.text) ?? 0;
               final m = int.tryParse(mController.text) ?? 0;
               AppClock.instance.setOffset(Duration(hours: h, minutes: m));
-              ref.invalidate(minuteTickerProvider); // Force immediate time update
+              ref.invalidate(
+                minuteTickerProvider,
+              ); // Force immediate time update
               setState(() {}); // 画面更新
               Navigator.pop(context);
             },
@@ -225,21 +238,40 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               .orderBy('date', descending: true)
               .limit(1)
               .get();
-          
+
           debugPrint("[Settings] Snapshot docs count: ${snapshot.docs.length}");
           if (snapshot.docs.isNotEmpty) {
             final doc = snapshot.docs.first;
             final data = doc.data();
-            debugPrint("[Settings] Found Leader Trip: ${doc.id} | Status: ${data['travelPhase'] ?? data['status']} | Date: ${data['date']}");
+            debugPrint(
+              "[Settings] Found Leader Trip: ${doc.id} | Status: ${data['travelPhase'] ?? data['status']} | Date: ${data['date']}",
+            );
             tripId = doc.id;
           }
         } else {
-           debugPrint("[Settings] UID is null, skipping Firestore query");
+          debugPrint("[Settings] UID is null, skipping Firestore query");
         }
       }
-      
+
       if (tripId != null) {
-        debugPrint("[Settings] Attempting to open LeaderModePage for tripId: $tripId");
+        final trip = await TripService().getTrip(tripId);
+        if (trip?.isSolo == true) {
+          final soloTrip = trip!;
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => soloTrip.travelPhase == TravelPhase.active
+                    ? SoloTripScreen(tripId: soloTrip.id)
+                    : SoloTripDetailPage(trip: soloTrip),
+              ),
+            );
+          }
+          return;
+        }
+        debugPrint(
+          "[Settings] Attempting to open LeaderModePage for tripId: $tripId",
+        );
         await ref.read(appSessionProvider.notifier).updateTripId(tripId);
         if (mounted) {
           Navigator.push(
@@ -258,7 +290,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     } catch (e) {
       debugPrint("[Settings] Error in _openLatestTripAsLeader: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('エラー: $e')));
       }
     }
   }
@@ -274,10 +308,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         // Verify the stored trip is still valid before reusing it
         final sessionTrip = await TripService().getTrip(sessionTripId);
         final uid = UserService().currentUserId;
-        final isActive = sessionTrip != null &&
+        final isActive =
+            sessionTrip != null &&
             (sessionTrip.travelPhase == TravelPhase.planning ||
                 sessionTrip.travelPhase == TravelPhase.active);
-        final isMember = sessionTrip != null &&
+        final isMember =
+            sessionTrip != null &&
             uid != null &&
             sessionTrip.memberIds.contains(uid);
 
@@ -286,7 +322,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           debugPrint("[Settings] Using sessionTripId: $tripId");
         } else {
           debugPrint(
-              "[Settings] Stored sessionTripId is invalid (active=$isActive, member=$isMember), clearing it");
+            "[Settings] Stored sessionTripId is invalid (active=$isActive, member=$isMember), clearing it",
+          );
           await ref.read(appSessionProvider.notifier).leaveMemberMode();
         }
       }
@@ -311,39 +348,58 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               .orderBy('date', descending: true)
               .limit(1)
               .get();
-          
+
           debugPrint("[Settings] Snapshot docs count: ${snapshot.docs.length}");
           if (snapshot.docs.isNotEmpty) {
             final doc = snapshot.docs.first;
             final data = doc.data();
-            debugPrint("[Settings] Found Member Trip: ${doc.id} | Status: ${data['travelPhase'] ?? data['status']} | Date: ${data['date']}");
+            debugPrint(
+              "[Settings] Found Member Trip: ${doc.id} | Status: ${data['travelPhase'] ?? data['status']} | Date: ${data['date']}",
+            );
             tripId = doc.id;
           }
         } else {
-           debugPrint("[Settings] UID is null, skipping Firestore query");
+          debugPrint("[Settings] UID is null, skipping Firestore query");
         }
       }
 
       if (tripId != null) {
-        debugPrint("[Settings] Attempting to enter Member Mode for tripId: $tripId");
+        final trip = await TripService().getTrip(tripId);
+        if (trip?.isSolo == true) {
+          final soloTrip = trip!;
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SoloTripScreen(tripId: soloTrip.id),
+              ),
+            );
+          }
+          return;
+        }
+        debugPrint(
+          "[Settings] Attempting to enter Member Mode for tripId: $tripId",
+        );
         await ref.read(appSessionProvider.notifier).enterMemberMode(tripId);
         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('メンバーモードに切り替わりました')));
-           // SettingsPageを閉じて、RootGateの切り替えを表示させる
-           Navigator.of(context).pop(); 
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('メンバーモードに切り替わりました')));
+          // SettingsPageを閉じて、RootGateの切り替えを表示させる
+          Navigator.of(context).pop();
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('参加可能なTripが見つかりません')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('参加可能なTripが見つかりません')));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('エラー: $e')));
       }
     }
   }
@@ -356,9 +412,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Future<void> _createDebugTrip() async {
     try {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('デバッグ用Tripを作成中...')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('デバッグ用Tripを作成中...')));
 
       final now = AppClock.instance.now();
       final outboundTime = now.add(const Duration(minutes: 15));
@@ -371,14 +427,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         'blat': '35.713601',
         'blon': '139.827539',
         'pref': 'time', // fast
-        'start_time': "${outboundTime.hour.toString().padLeft(2, '0')}:${outboundTime.minute.toString().padLeft(2, '0')}",
-        'target_date_str': "${outboundTime.year}-${outboundTime.month.toString().padLeft(2, '0')}-${outboundTime.day.toString().padLeft(2, '0')}",
+        'start_time':
+            "${outboundTime.hour.toString().padLeft(2, '0')}:${outboundTime.minute.toString().padLeft(2, '0')}",
+        'target_date_str':
+            "${outboundTime.year}-${outboundTime.month.toString().padLeft(2, '0')}-${outboundTime.day.toString().padLeft(2, '0')}",
       };
 
       final rOut = await ApiClient.post('/route', body: outboundBody);
       final cOutList = rOut['candidates'] as List? ?? [];
       if (cOutList.isEmpty) throw Exception('行き(Outbound)のルートが見つかりません');
-      
+
       final cOutMap = Map<String, dynamic>.from(cOutList.first as Map);
       // Hack names if missing
       cOutMap['origin_name'] = '東墨田三丁目';
@@ -392,8 +450,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         'blat': '35.718754',
         'blon': '139.834261',
         'pref': 'time',
-        'start_time': "${returnTime.hour.toString().padLeft(2, '0')}:${returnTime.minute.toString().padLeft(2, '0')}",
-        'target_date_str': "${returnTime.year}-${returnTime.month.toString().padLeft(2, '0')}-${returnTime.day.toString().padLeft(2, '0')}",
+        'start_time':
+            "${returnTime.hour.toString().padLeft(2, '0')}:${returnTime.minute.toString().padLeft(2, '0')}",
+        'target_date_str':
+            "${returnTime.year}-${returnTime.month.toString().padLeft(2, '0')}-${returnTime.day.toString().padLeft(2, '0')}",
       };
 
       final rIn = await ApiClient.post('/route', body: inboundBody);
@@ -422,7 +482,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ];
 
       final schedule = createScheduleFromLegs(
-        legs, 
+        legs,
         userSelectedStartTime: outboundTime,
         userSelectedReturnTime: returnTime,
       );
@@ -439,13 +499,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           MaterialPageRoute(builder: (_) => LeaderModePage(tripId: tripId)),
         );
       }
-
     } catch (e) {
       debugPrint('Diff debug trip failed: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('エラー: $e')));
       }
     }
   }
@@ -457,9 +516,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('全データ削除'),
-          content: const Text('全ての「おでかけ」データを削除します。\n本当によろしいですか？\n※この操作は取り消せません。'),
+          content: const Text(
+            '全ての「おでかけ」データを削除します。\n本当によろしいですか？\n※この操作は取り消せません。',
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('キャンセル'),
+            ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
               style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -472,12 +536,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       if (confirm != true) return;
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text('削除中...')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('削除中...')));
       }
 
-      final snapshot = await FirebaseFirestore.instance.collection('trips').get();
+      final snapshot = await FirebaseFirestore.instance
+          .collection('trips')
+          .get();
       final batch = FirebaseFirestore.instance.batch();
       for (final doc in snapshot.docs) {
         batch.delete(doc.reference);
@@ -485,15 +551,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       await batch.commit();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text('全てのデータを削除しました')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('全てのデータを削除しました')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text('エラー: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('エラー: $e')));
       }
     }
   }
@@ -503,7 +569,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     // 修正: ref.listen は build メソッド内で呼び出す
     ref.listen<LatLng?>(locationOverrideProvider, (prev, next) {
       setState(() {
-        _manualLocationInput = next != null ? '${next.latitude},${next.longitude}' : '';
+        _manualLocationInput = next != null
+            ? '${next.latitude},${next.longitude}'
+            : '';
       });
     });
 
@@ -518,11 +586,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           // --- ユーザー情報 ---
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
-            child: Text('ユーザー情報',
-                style: TextStyle(
-                    color: Colors.blueGrey,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14)),
+            child: Text(
+              'ユーザー情報',
+              style: TextStyle(
+                color: Colors.blueGrey,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.account_circle),
@@ -534,16 +605,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ListTile(
             leading: const Icon(Icons.fingerprint),
             title: const Text('ユーザーID'),
-            subtitle: Text(_userId ?? '読み込み中...',
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+            subtitle: Text(
+              _userId ?? '読み込み中...',
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
             trailing: IconButton(
               icon: const Icon(Icons.copy, size: 20),
               onPressed: () {
                 if (_userId != null) {
                   Clipboard.setData(ClipboardData(text: _userId!));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('IDをコピーしました')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('IDをコピーしました')));
                 }
               },
             ),
@@ -593,8 +666,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       ),
                     ),
                     TextButton(
-                      onPressed:
-                          manualOverride != null ? _clearManualLocation : null,
+                      onPressed: manualOverride != null
+                          ? _clearManualLocation
+                          : null,
                       child: const Text('クリアしてGPSに戻す'),
                     ),
                   ],
@@ -607,10 +681,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             const Divider(),
             const Padding(
               padding: EdgeInsets.all(16),
-              child: Text('【デバッグ・管理者メニュー】', 
-                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              child: Text(
+                '【デバッグ・管理者メニュー】',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-            
+
             ListTile(
               leading: const Icon(Icons.access_time, color: Colors.orange),
               title: const Text('時間オフセット設定'),
@@ -642,7 +721,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               subtitle: const Text('最後に作成されたTripの管理画面を表示'),
               onTap: _openLatestTripAsLeader,
             ),
-            
+
             ListTile(
               leading: const Icon(Icons.description, color: Colors.blueGrey),
               title: const Text('お出かけ一覧・実施報告書'),
@@ -655,14 +734,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               },
             ),
           ],
-          
+
           ListTile(
             leading: const Icon(Icons.person, color: Colors.blue),
             title: const Text('最新の旅を「メンバー」として開く'),
             subtitle: const Text('最後に作成されたTripの参加者画面を表示'),
             onTap: _openLatestTripAsMember,
           ),
-          
+
           // 下部に余白を追加
           const SizedBox(height: 40),
         ],

@@ -4,7 +4,6 @@ import 'package:flutter/cupertino.dart';
 import 'home_page.dart';
 import 'my_route_page.dart';
 import 'settings_page.dart';
-import '../services/trip_service.dart';
 import 'history_page.dart';
 import 'explore_page.dart';
 import '../providers/navigation_provider.dart';
@@ -17,7 +16,7 @@ class RootTabs extends ConsumerStatefulWidget {
 }
 
 class _RootTabsState extends ConsumerState<RootTabs> {
-  bool _canShowHistory = false;
+  final bool _canShowHistory = true;
   late CupertinoTabController _controller;
 
   // ナビゲーターキー
@@ -33,22 +32,12 @@ class _RootTabsState extends ConsumerState<RootTabs> {
   void initState() {
     super.initState();
     _controller = CupertinoTabController();
-    _checkHistoryPermission();
   }
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
-  }
-
-  Future<void> _checkHistoryPermission() async {
-    final hasCreated = await TripService().hasCreatedTrip();
-    if (mounted) {
-      setState(() {
-        _canShowHistory = hasCreated;
-      });
-    }
   }
 
   @override
@@ -100,7 +89,8 @@ class _RootTabsState extends ConsumerState<RootTabs> {
       Future.microtask(() {
         if (!mounted) return;
         final now = ref.read(tabIndexProvider);
-        if (now != safeIndex) ref.read(tabIndexProvider.notifier).state = safeIndex;
+        if (now != safeIndex)
+          ref.read(tabIndexProvider.notifier).state = safeIndex;
       });
     }
 
@@ -109,7 +99,9 @@ class _RootTabsState extends ConsumerState<RootTabs> {
       tabBar: CupertinoTabBar(
         onTap: (index) {
           if (index == _controller.index) {
-            _navigatorKeys[index].currentState?.popUntil((route) => route.isFirst);
+            _navigatorKeys[index].currentState?.popUntil(
+              (route) => route.isFirst,
+            );
           }
           ref.read(tabIndexProvider.notifier).state = index;
         },
@@ -118,20 +110,31 @@ class _RootTabsState extends ConsumerState<RootTabs> {
       tabBuilder: (context, index) {
         if (_canShowHistory) {
           switch (index) {
-            case 0: return _buildPage(0, const HomePage());
-            case 1: return _buildPage(1, const ExplorePage());
-            case 2: return _buildPage(2, const MyRoutePage());
-            case 3: return _buildPage(3, const HistoryPage());
-            case 4: return _buildPage(4, const SettingsPage());
-            default: return _buildPage(0, const HomePage());
+            case 0:
+              return _buildPage(0, const HomePage());
+            case 1:
+              return _buildPage(1, const ExplorePage());
+            case 2:
+              return _buildPage(2, const MyRoutePage());
+            case 3:
+              return _buildPage(3, const HistoryPage());
+            case 4:
+              return _buildPage(4, const SettingsPage());
+            default:
+              return _buildPage(0, const HomePage());
           }
         } else {
           switch (index) {
-            case 0: return _buildPage(0, const HomePage());
-            case 1: return _buildPage(1, const ExplorePage());
-            case 2: return _buildPage(2, const MyRoutePage());
-            case 3: return _buildPage(3, const SettingsPage());
-            default: return _buildPage(0, const HomePage());
+            case 0:
+              return _buildPage(0, const HomePage());
+            case 1:
+              return _buildPage(1, const ExplorePage());
+            case 2:
+              return _buildPage(2, const MyRoutePage());
+            case 3:
+              return _buildPage(3, const SettingsPage());
+            default:
+              return _buildPage(0, const HomePage());
           }
         }
       },

@@ -4,25 +4,18 @@ import 'group_models.dart';
 import 'leg_models.dart';
 import '../utils/string_utils.dart';
 
-enum TravelPhase {
-  planning,
-  active,
-  completed,
-  cancelled,
-}
+enum TravelPhase { planning, active, completed, cancelled }
+
+enum TripType { group, solo }
 
 // 旧コード互換用
-enum TripStatus {
-  planning,
-  active,
-  completed,
-  cancelled,
-}
+enum TripStatus { planning, active, completed, cancelled }
 
 class Trip {
   static const int currentSchemaVersion = 2;
 
   final int schemaVersion;
+  final TripType tripType;
   final String id;
   final String joinCode;
   final String leaderId;
@@ -45,6 +38,7 @@ class Trip {
 
   Trip({
     this.schemaVersion = currentSchemaVersion,
+    this.tripType = TripType.group,
     required this.id,
     required this.joinCode,
     required this.leaderId,
@@ -93,10 +87,15 @@ class Trip {
           .toList();
     }
 
-    final phaseName = data['travelPhase'] as String? ?? data['status'] as String?;
+    final phaseName =
+        data['travelPhase'] as String? ?? data['status'] as String?;
 
     return Trip(
       schemaVersion: schemaVersion!,
+      tripType: TripType.values.firstWhere(
+        (type) => type.name == data['tripType'],
+        orElse: () => TripType.group,
+      ),
       id: doc.id,
       joinCode: data['joinCode'] ?? '',
       leaderId: data['leaderId'] ?? '',
@@ -106,8 +105,7 @@ class Trip {
         orElse: () => TravelPhase.planning,
       ),
       date: (data['date'] as Timestamp).toDate(),
-      plannedDepartureAt:
-          (data['plannedDepartureAt'] as Timestamp?)?.toDate(),
+      plannedDepartureAt: (data['plannedDepartureAt'] as Timestamp?)?.toDate(),
       actualDepartureAt: (data['actualDepartureAt'] as Timestamp?)?.toDate(),
       legs: loadedLegs,
       schedule: (data['schedule'] as List<dynamic>? ?? [])
@@ -116,8 +114,9 @@ class Trip {
       participants: (data['participants'] as List<dynamic>? ?? [])
           .map((e) => Participant.fromJson(e as Map<String, dynamic>))
           .toList(),
-      memberIds:
-          (data['memberIds'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
+      memberIds: (data['memberIds'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
       completedLegIndex: data['completedLegIndex'] as int? ?? -1,
       staffNotes: data['staffNotes'] as String?, // 追加
     );
@@ -126,6 +125,7 @@ class Trip {
   Map<String, dynamic> toFirestore() {
     return {
       'schemaVersion': schemaVersion,
+      'tripType': tripType.name,
       'joinCode': joinCode,
       'leaderId': leaderId,
       'title': title,
@@ -151,7 +151,7 @@ class Trip {
     // タイトル生成ロジック
     if (legs.isNotEmpty) {
       final outboundLeg = legs.firstWhere(
-            (l) => l.direction == LegDirection.outbound,
+        (l) => l.direction == LegDirection.outbound,
         orElse: () => legs.first,
       );
       final destName = outboundLeg.candidate.destinationName;
@@ -165,7 +165,28 @@ class Trip {
     return fallbackTitle;
   }
 
-  String get displayTitle => generateDisplayTitle(legs, title);
+  static String generateSoloDisplayTitle(Candidate candidate) {
+    final firstStepFrom = candidate.steps.isEmpty
+        ? null
+        : candidate.steps.first.from;
+    final lastStepTo = candidate.steps.isEmpty ? null : candidate.steps.last.to;
+    final origin = StringUtils.extractSimpleName(
+      candidate.originName ?? firstStepFrom ?? '出発地',
+    );
+    final destination = StringUtils.extractSimpleName(
+      candidate.destinationName ?? lastStepTo ?? '目的地',
+    );
+    return '$origin → $destination';
+  }
+
+  bool get isSolo => tripType == TripType.solo;
+
+  String get displayTitle {
+    if (!isSolo) return generateDisplayTitle(legs, title);
+    if (title.isNotEmpty) return title;
+    if (legs.isNotEmpty) return generateSoloDisplayTitle(legs.first.candidate);
+    return '移動';
+  }
 }
 
 class Participant {

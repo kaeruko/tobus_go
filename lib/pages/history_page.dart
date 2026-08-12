@@ -1,8 +1,8 @@
-
 import 'package:flutter/material.dart';
 import '../services/trip_service.dart';
 import '../models/trip_models.dart';
 import 'group_detail_page.dart';
+import 'solo_trip_detail_page.dart';
 
 class HistoryPage extends StatelessWidget {
   const HistoryPage({super.key});
@@ -10,9 +10,7 @@ class HistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('履歴'),
-      ),
+      appBar: AppBar(title: const Text('履歴')),
       body: FutureBuilder<List<Trip>>(
         future: TripService().getAllTrips(),
         builder: (context, snapshot) {
@@ -26,11 +24,8 @@ class HistoryPage extends StatelessWidget {
           final trips = snapshot.data ?? [];
 
           if (trips.isEmpty) {
-             return const Center(
-              child: Text(
-                "履歴はありません",
-                style: TextStyle(color: Colors.grey),
-              ),
+            return const Center(
+              child: Text("履歴はありません", style: TextStyle(color: Colors.grey)),
             );
           }
 
@@ -47,15 +42,18 @@ class HistoryPage extends StatelessWidget {
                   ),
                   title: Text(trip.displayTitle),
                   subtitle: Text(
-                    "${trip.date.year}/${trip.date.month}/${trip.date.day}"
-                    " ・ ${_statusLabel(trip.travelPhase)}",
+                    "${trip.isSolo ? '移動 ・ 1人' : 'おでかけ ・ ${trip.participants.length}人'}\n"
+                    "${trip.date.year}/${trip.date.month}/${trip.date.day} ・ ${_statusLabel(trip.travelPhase)}",
                   ),
+                  isThreeLine: true,
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => GroupDetailPage(trip: trip),
+                        builder: (_) => trip.isSolo
+                            ? SoloTripDetailPage(trip: trip)
+                            : GroupDetailPage(trip: trip),
                       ),
                     );
                   },

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
-import 'trip_report_page.dart';  // 次に作るファイル
+import 'trip_report_page.dart'; // 次に作るファイル
+import 'solo_trip_detail_page.dart';
 
 class TripListPage extends StatefulWidget {
   const TripListPage({super.key});
@@ -33,9 +34,9 @@ class _TripListPageState extends State<TripListPage> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラーが発生しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('エラーが発生しました: $e')));
       }
     }
   }
@@ -43,30 +44,30 @@ class _TripListPageState extends State<TripListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('お出かけ一覧'),
-      ),
+      appBar: AppBar(title: const Text('お出かけ一覧')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _trips == null || _trips!.isEmpty
-              ? const Center(child: Text('お出かけの記録がありません'))
-              : ListView.builder(
-                  itemCount: _trips!.length,
-                  itemBuilder: (context, index) {
-                    final trip = _trips![index];
-                    return _TripListItem(
-                      trip: trip,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => TripReportPage(trip: trip),
-                          ),
-                        );
-                      },
+          ? const Center(child: Text('お出かけの記録がありません'))
+          : ListView.builder(
+              itemCount: _trips!.length,
+              itemBuilder: (context, index) {
+                final trip = _trips![index];
+                return _TripListItem(
+                  trip: trip,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => trip.isSolo
+                            ? SoloTripDetailPage(trip: trip)
+                            : TripReportPage(trip: trip),
+                      ),
                     );
                   },
-                ),
+                );
+              },
+            ),
     );
   }
 }
@@ -89,7 +90,11 @@ class _TripListItem extends StatelessWidget {
         child: Icon(statusIcon, color: statusColor),
       ),
       title: Text(trip.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text('$dateStr - ${trip.participants.length}名参加'),
+      subtitle: Text(
+        trip.isSolo
+            ? '$dateStr - 移動・1人'
+            : '$dateStr - おでかけ・${trip.participants.length}名参加',
+      ),
       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: onTap,
     );
@@ -97,19 +102,27 @@ class _TripListItem extends StatelessWidget {
 
   IconData _getStatusIcon(TravelPhase phase) {
     switch (phase) {
-      case TravelPhase.planning: return Icons.edit;
-      case TravelPhase.active: return Icons.directions_bus;
-      case TravelPhase.completed: return Icons.check_circle;
-      case TravelPhase.cancelled: return Icons.cancel;
+      case TravelPhase.planning:
+        return Icons.edit;
+      case TravelPhase.active:
+        return Icons.directions_bus;
+      case TravelPhase.completed:
+        return Icons.check_circle;
+      case TravelPhase.cancelled:
+        return Icons.cancel;
     }
   }
 
   Color _getStatusColor(TravelPhase phase) {
     switch (phase) {
-      case TravelPhase.planning: return Colors.orange;
-      case TravelPhase.active: return Colors.green;
-      case TravelPhase.completed: return Colors.blue;
-      case TravelPhase.cancelled: return Colors.grey;
+      case TravelPhase.planning:
+        return Colors.orange;
+      case TravelPhase.active:
+        return Colors.green;
+      case TravelPhase.completed:
+        return Colors.blue;
+      case TravelPhase.cancelled:
+        return Colors.grey;
     }
   }
 }

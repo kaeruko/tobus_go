@@ -1,0 +1,456 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../logic/solo_trip_lifecycle.dart';
+import '../logic/trip_navigator.dart';
+import '../models/group_models.dart';
+import '../models/route_models.dart';
+import '../models/trip_models.dart';
+import '../providers/member_mode_provider.dart';
+import '../providers/member_nav_progress_provider.dart';
+import '../providers/trip_provider.dart';
+import '../services/bus_location_source.dart';
+import '../services/trip_service.dart';
+import 'solo_trip_detail_page.dart';
+
+class SoloTripScreen extends StatelessWidget {
+  final String tripId;
+
+  const SoloTripScreen({super.key, required this.tripId});
+
+  @override
+  Widget build(BuildContext context) {
+    return ProviderScope(
+      overrides: [
+        tripStreamProvider.overrideWith(
+          (ref) => TripService().streamTrip(tripId).map<Trip?>((trip) => trip),
+        ),
+      ],
+      child: _SoloTripBody(tripId: tripId),
+    );
+  }
+}
+
+class _SoloTripBody extends ConsumerStatefulWidget {
+  final String tripId;
+
+  const _SoloTripBody({required this.tripId});
+
+  @override
+  ConsumerState<_SoloTripBody> createState() => _SoloTripBodyState();
+}
+
+class _SoloTripBodyState extends ConsumerState<_SoloTripBody> {
+  final TripService _tripService = TripService();
+  bool _completionRequested = false;
+  bool _cancelling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.read(memberModeControllerProvider.notifier).initialize();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(memberNavProgressProvider.notifier).reset();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tripAsync = ref.watch(tripStreamProvider);
+    final uiAsync = ref.watch(memberUiStateProvider);
+
+    return tripAsync.when(
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (error, stack) => Scaffold(
+        appBar: AppBar(title: const Text('移動')),
+        body: Center(child: Text('移動を読み込めませんでした: $error')),
+      ),
+      data: (trip) {
+        if (trip == null) {
+          return const Scaffold(body: Center(child: Text('移動が見つかりません')));
+        }
+        if (trip.travelPhase == TravelPhase.completed) {
+          return _buildCompleted(trip);
+        }
+        if (trip.travelPhase == TravelPhase.cancelled) {
+          return _buildCancelled();
+        }
+
+        return uiAsync.when(
+          loading: () =>
+              const Scaffold(body: Center(child: CircularProgressIndicator())),
+          error: (error, stack) => Scaffold(
+            appBar: AppBar(title: const Text('移動')),
+            body: Center(child: Text('ナビを表示できませんでした: $error')),
+          ),
+          data: (uiState) {
+            _completeWhenArrived(trip, uiState.resolvedEntry);
+            return Scaffold(
+              backgroundColor: uiState.navState.color,
+              appBar: AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '一人で移動中',
+                      style: TextStyle(fontSize: 13, color: Colors.black54),
+                    ),
+                    Text(
+                      trip.displayTitle,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  if (ref.read(busLocationSourceProvider)
+                      is FakeBusLocationSource)
+                    IconButton(
+                      tooltip: 'Fakeバスを次の停留所へ',
+                      icon: const Icon(Icons.skip_next),
+                      onPressed: _advanceFakeBus,
+                    ),
+                  IconButton(
+                    tooltip: '現在地を更新',
+                    icon: const Icon(Icons.refresh),
+                    onPressed: () => ref
+                        .read(memberModeControllerProvider.notifier)
+                        .pollNow(),
+                  ),
+                ],
+              ),
+              body: SafeArea(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  children: [
+                    _SoloStatusCard(
+                      navState: uiState.navState,
+                      tripTitle: trip.displayTitle,
+                      onTapStops: () => _openStops(trip),
+                    ),
+                    const SizedBox(height: 14),
+                    _SoloScheduleCard(
+                      resolvedEntry: uiState.resolvedEntry,
+                      entries: uiState.windowEntries,
+                      completedCount: uiState.completedCount,
+                      activeLabel: uiState.activeLabel,
+                    ),
+                    const SizedBox(height: 14),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => SoloTripDetailPage(trip: trip),
+                        ),
+                      ),
+                      icon: const Icon(Icons.route),
+                      label: const Text('経路全体を見る'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: _cancelling || _completionRequested
+                          ? null
+                          : () => _cancelTrip(trip),
+                      child: Text(
+                        _completionRequested
+                            ? '到着を保存中…'
+                            : _cancelling
+                            ? '終了処理中…'
+                            : '移動を中止する',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _completeWhenArrived(Trip trip, ScheduleEntry? resolvedEntry) {
+    if (_completionRequested ||
+        !shouldAutoCompleteSoloTrip(trip: trip, resolvedEntry: resolvedEntry)) {
+      return;
+    }
+    _completionRequested = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await _tripService.completeTrip(trip.id);
+      } catch (error) {
+        _completionRequested = false;
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('到着の保存に失敗しました: $error')));
+        }
+      }
+    });
+  }
+
+  Future<void> _advanceFakeBus() async {
+    final source = ref.read(busLocationSourceProvider);
+    if (source is! FakeBusLocationSource) return;
+    source.advance();
+    await ref.read(memberModeControllerProvider.notifier).pollNow();
+  }
+
+  void _openStops(Trip trip) {
+    final stepId = ref.read(memberNavProgressProvider).currentStepId;
+    final step = stepId == null ? null : trip.stepsById[stepId];
+    if (step == null || !step.isRide || step.stops.isEmpty) return;
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => _SoloStopsPage(step: step)));
+  }
+
+  Future<void> _cancelTrip(Trip trip) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('移動を中止しますか？'),
+        content: const Text('この移動は中止として履歴に残ります。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('戻る'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('中止する'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _cancelling = true);
+    try {
+      await _tripService.cancelTrip(trip.id);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _cancelling = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('移動を中止できませんでした: $error')));
+      }
+    }
+  }
+
+  Widget _buildCompleted(Trip trip) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.flag_circle, size: 88, color: Colors.green),
+                const SizedBox(height: 20),
+                const Text(
+                  '到着しました',
+                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(trip.displayTitle, textAlign: TextAlign.center),
+                const SizedBox(height: 8),
+                const Text('移動は自動で履歴に保存されました。'),
+                const SizedBox(height: 28),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('閉じる'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCancelled() {
+    return Scaffold(
+      body: Center(
+        child: FilledButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('閉じる'),
+        ),
+      ),
+    );
+  }
+}
+
+class _SoloStatusCard extends StatelessWidget {
+  final NavigationState navState;
+  final String tripTitle;
+  final VoidCallback onTapStops;
+
+  const _SoloStatusCard({
+    required this.navState,
+    required this.tripTitle,
+    required this.onTapStops,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Chip(
+                  avatar: const Icon(Icons.location_on, size: 18),
+                  label: Text(navState.statusLabel),
+                ),
+                Chip(
+                  avatar: const Icon(Icons.route, size: 18),
+                  label: Text(tripTitle),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Text(
+              navState.mainText,
+              style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              navState.subText,
+              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
+            ),
+            if (navState.remainingStops != null ||
+                (navState.nextStopName?.isNotEmpty ?? false)) ...[
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                children: [
+                  if (navState.remainingStops != null)
+                    ActionChip(
+                      avatar: const Icon(Icons.directions_bus, size: 18),
+                      label: Text('のこり ${navState.remainingStops} 回停車'),
+                      onPressed: onTapStops,
+                    ),
+                  if (navState.nextStopName?.isNotEmpty ?? false)
+                    Chip(label: Text('次: ${navState.nextStopName}')),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SoloScheduleCard extends StatelessWidget {
+  final ScheduleEntry? resolvedEntry;
+  final List<ScheduleEntry> entries;
+  final int completedCount;
+  final String activeLabel;
+
+  const _SoloScheduleCard({
+    required this.resolvedEntry,
+    required this.entries,
+    required this.completedCount,
+    required this.activeLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '今回の経路',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                Text('完了 $completedCount 件'),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...entries.map((entry) {
+              final isActive = resolvedEntry?.id == entry.id;
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  entry.itemKind == ScheduleEntryKind.walk
+                      ? Icons.directions_walk
+                      : entry.itemKind == ScheduleEntryKind.goal
+                      ? Icons.flag
+                      : Icons.directions_bus,
+                ),
+                title: Text(entry.label),
+                subtitle: isActive ? Text(activeLabel) : null,
+                trailing: Text(
+                  '${entry.plannedAt.hour.toString().padLeft(2, '0')}:${entry.plannedAt.minute.toString().padLeft(2, '0')}',
+                ),
+                tileColor: isActive ? Colors.green.shade50 : null,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SoloStopsPage extends StatelessWidget {
+  final StepSeg step;
+
+  const _SoloStopsPage({required this.step});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(step.title)),
+      body: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: step.stops.length,
+        itemBuilder: (context, index) {
+          final stop = step.stops[index];
+          final isFirst = index == 0;
+          final isLast = index == step.stops.length - 1;
+          return ListTile(
+            leading: Icon(
+              isFirst || isLast ? Icons.circle : Icons.circle_outlined,
+              color: Colors.green,
+            ),
+            title: Text(
+              stop.name,
+              style: TextStyle(
+                fontWeight: isFirst || isLast
+                    ? FontWeight.bold
+                    : FontWeight.normal,
+              ),
+            ),
+            subtitle: isFirst
+                ? const Text('乗車')
+                : isLast
+                ? const Text('降車')
+                : null,
+          );
+        },
+      ),
+    );
+  }
+}

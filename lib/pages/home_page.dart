@@ -21,7 +21,20 @@ import '../providers/route_search_provider.dart';
 import '../providers/active_trip_provider.dart';
 import '../models/trip_models.dart';
 import 'leader_mode_page.dart';
-import 'package:flutter/material.dart' show TextField, InputDecoration, OutlineInputBorder, Icons, ElevatedButton, Colors, TextInputType, MaterialPageRoute, ScaffoldMessenger, SnackBar, Divider;
+import 'solo_trip_screen.dart';
+import 'package:flutter/material.dart'
+    show
+        TextField,
+        InputDecoration,
+        OutlineInputBorder,
+        Icons,
+        ElevatedButton,
+        Colors,
+        TextInputType,
+        MaterialPageRoute,
+        ScaffoldMessenger,
+        SnackBar,
+        Divider;
 
 // UI enum values differ from backend search modes:
 // - 'shortTime' is converted to 'time' on the API side
@@ -71,7 +84,8 @@ class HomePageState extends ConsumerState<HomePage> {
     notifier.setTo(rs.from, name: rs.fromName);
 
     final after = ref.read(routeSearchProvider);
-    final ok = _isCoordinateOrEmpty(after.from) && _isCoordinateOrEmpty(after.to);
+    final ok =
+        _isCoordinateOrEmpty(after.from) && _isCoordinateOrEmpty(after.to);
     if (ok) {
       notifier.triggerSearch();
     }
@@ -82,7 +96,7 @@ class HomePageState extends ConsumerState<HomePage> {
       final effective = await ref.read(effectiveLocationProvider.future);
       final notifier = ref.read(routeSearchProvider.notifier);
       notifier.setFrom(effective.loc, name: effective.name);
-      
+
       if (_canAutoSearchAfterEditingFrom()) {
         notifier.triggerSearch();
       }
@@ -114,7 +128,7 @@ class HomePageState extends ConsumerState<HomePage> {
     );
     if (res == null) return;
     final s = "${res.latitude},${res.longitude}";
-    
+
     final notifier = ref.read(routeSearchProvider.notifier);
     if (forA) {
       notifier.setFrom(s, name: '地図で選択した場所');
@@ -144,26 +158,28 @@ class HomePageState extends ConsumerState<HomePage> {
                 initialDateTime: current,
                 use24hFormat: true,
                 onDateTimeChanged: (val) {
-                   // If user picks a time that is already past for today, assume they mean tomorrow.
-                   // Only apply if the date part is effectively "Today".
-                   final now = DateTime.now();
-                   var selected = val;
-                   if (selected.year == now.year && selected.month == now.month && selected.day == now.day) {
-                     if (selected.isBefore(now)) {
-                       selected = selected.add(const Duration(days: 1));
-                     }
-                   }
-                   ref.read(routeSearchProvider.notifier).setStartTime(selected);
+                  // If user picks a time that is already past for today, assume they mean tomorrow.
+                  // Only apply if the date part is effectively "Today".
+                  final now = DateTime.now();
+                  var selected = val;
+                  if (selected.year == now.year &&
+                      selected.month == now.month &&
+                      selected.day == now.day) {
+                    if (selected.isBefore(now)) {
+                      selected = selected.add(const Duration(days: 1));
+                    }
+                  }
+                  ref.read(routeSearchProvider.notifier).setStartTime(selected);
                 },
               ),
             ),
             CupertinoButton(
               onPressed: () {
-                 Navigator.pop(ctx);
-                 ref.read(routeSearchProvider.notifier).triggerSearch();
+                Navigator.pop(ctx);
+                ref.read(routeSearchProvider.notifier).triggerSearch();
               },
               child: const Text('完了'),
-            )
+            ),
           ],
         ),
       ),
@@ -220,14 +236,12 @@ class HomePageState extends ConsumerState<HomePage> {
         FocusManager.instance.primaryFocus?.unfocus();
       },
       child: CupertinoPageScaffold(
-        navigationBar: CupertinoNavigationBar(
-          middle: Text(widget.title),
-        ),
+        navigationBar: CupertinoNavigationBar(middle: Text(widget.title)),
         child: SafeArea(
           child: CustomScrollView(
             slivers: [
               // Active Trip Card
-              if (activeTripAsync.value != null && 
+              if (activeTripAsync.value != null &&
                   activeTripAsync.value!.status != TripStatus.completed &&
                   activeTripAsync.value!.status != TripStatus.cancelled)
                 SliverToBoxAdapter(
@@ -239,7 +253,13 @@ class HomePageState extends ConsumerState<HomePage> {
                         Navigator.push(
                           context,
                           CupertinoPageRoute(
-                            builder: (_) => LeaderModePage(tripId: activeTripAsync.value!.id),
+                            builder: (_) => activeTripAsync.value!.isSolo
+                                ? SoloTripScreen(
+                                    tripId: activeTripAsync.value!.id,
+                                  )
+                                : LeaderModePage(
+                                    tripId: activeTripAsync.value!.id,
+                                  ),
                           ),
                         ).then((_) {
                           ref.read(activeTripProvider.notifier).refresh();
@@ -256,20 +276,31 @@ class HomePageState extends ConsumerState<HomePage> {
 
                     // Date Time
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 8.0,
+                      ),
                       child: GestureDetector(
                         onTap: () => _showTimePicker(startTime),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
                           decoration: BoxDecoration(
                             color: CupertinoColors.white,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: CupertinoColors.separator),
+                            border: Border.all(
+                              color: CupertinoColors.separator,
+                            ),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('出発日時', style: TextStyle(fontSize: 14)),
+                              const Text(
+                                '出発日時',
+                                style: TextStyle(fontSize: 14),
+                              ),
                               Text(
                                 '${startTime.month}/${startTime.day} ${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}',
                                 style: const TextStyle(
@@ -293,8 +324,12 @@ class HomePageState extends ConsumerState<HomePage> {
                         value: rs.from,
                         displayValue: rs.fromName,
                         onChanged: (val, desc) {
-                          notifier.setFrom(val, name: desc.isNotEmpty ? desc : val);
-                          if (_isCoordinate(val) && _canAutoSearchAfterEditingFrom()) {
+                          notifier.setFrom(
+                            val,
+                            name: desc.isNotEmpty ? desc : val,
+                          );
+                          if (_isCoordinate(val) &&
+                              _canAutoSearchAfterEditingFrom()) {
                             notifier.triggerSearch();
                           }
                         },
@@ -302,7 +337,7 @@ class HomePageState extends ConsumerState<HomePage> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    
+
                     // Swap & Map
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -312,11 +347,12 @@ class HomePageState extends ConsumerState<HomePage> {
                           Row(
                             children: [
                               CupertinoButton(
-                                  padding: const EdgeInsets.all(8),
-                                  child: const Icon(CupertinoIcons.arrow_up_arrow_down),
-                                  onPressed: _swapRouteEndpoints,
+                                padding: const EdgeInsets.all(8),
+                                child: const Icon(
+                                  CupertinoIcons.arrow_up_arrow_down,
+                                ),
+                                onPressed: _swapRouteEndpoints,
                               ),
-
                             ],
                           ),
                           CupertinoButton(
@@ -338,15 +374,19 @@ class HomePageState extends ConsumerState<HomePage> {
                         value: rs.to,
                         displayValue: rs.toName,
                         onChanged: (val, desc) {
-                          notifier.setTo(val, name: desc.isNotEmpty ? desc : val);
-                          if (_isCoordinate(val) && _canAutoSearchAfterEditingTo()) {
+                          notifier.setTo(
+                            val,
+                            name: desc.isNotEmpty ? desc : val,
+                          );
+                          if (_isCoordinate(val) &&
+                              _canAutoSearchAfterEditingTo()) {
                             notifier.triggerSearch();
                           }
                         },
                       ),
                     ),
                     const SizedBox(height: 4),
-                    
+
                     // Map (To)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -381,18 +421,17 @@ class HomePageState extends ConsumerState<HomePage> {
                       ),
                     ),
 
-
                     // Search Button (Optional but useful if auto-search fails or purely manual)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: SizedBox(
-                          width: double.infinity,
-                          child: CupertinoButton.filled(
-                              onPressed: () {
-                                  notifier.triggerSearch();
-                              },
-                              child: const Text("検索"),
-                          ),
+                        width: double.infinity,
+                        child: CupertinoButton.filled(
+                          onPressed: () {
+                            notifier.triggerSearch();
+                          },
+                          child: const Text("検索"),
+                        ),
                       ),
                     ),
 
@@ -404,13 +443,16 @@ class HomePageState extends ConsumerState<HomePage> {
               if (rs.meta?.destinationReachable == false)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
+                    ),
                     child: _FallbackNotice(meta: rs.meta!),
                   ),
                 ),
 
-               // Loading / Results / Error
-               if (rs.isLoading)
+              // Loading / Results / Error
+              if (rs.isLoading)
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(
@@ -436,10 +478,17 @@ class HomePageState extends ConsumerState<HomePage> {
                   ),
                 )
               else if (rs.errorMessage != null)
-                   SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(child: Text('エラー: ${rs.errorMessage}', style: const TextStyle(color: CupertinoColors.destructiveRed))),
-                   )
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Text(
+                      'エラー: ${rs.errorMessage}',
+                      style: const TextStyle(
+                        color: CupertinoColors.destructiveRed,
+                      ),
+                    ),
+                  ),
+                )
               else if (rs.candidates.isEmpty)
                 SliverFillRemaining(
                   hasScrollBody: false,
@@ -447,35 +496,42 @@ class HomePageState extends ConsumerState<HomePage> {
                     child: Text(
                       rs.hasSearched ? '経路が見つかりませんでした' : '出発と到着を選択',
                       style: TextStyle(
-                        color: rs.hasSearched ? CupertinoColors.systemRed : CupertinoColors.systemGrey,
+                        color: rs.hasSearched
+                            ? CupertinoColors.systemRed
+                            : CupertinoColors.systemGrey,
                       ),
                     ),
                   ),
                 )
               else
                 SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, i) {
-                      final c = rs.candidates[i];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.of(context).push(
-                              CupertinoPageRoute(
-                                builder: (_) => RouteDetailPage(candidate: c, meta: rs.meta),
-                              ),
-                            );
-                          },
-                          child: RouteCard(candidate: c, rank: i + 1, meta: rs.meta),
+                  delegate: SliverChildBuilderDelegate((context, i) {
+                    final c = rs.candidates[i];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 6.0,
+                      ),
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            CupertinoPageRoute(
+                              builder: (_) =>
+                                  RouteDetailPage(candidate: c, meta: rs.meta),
+                            ),
+                          );
+                        },
+                        child: RouteCard(
+                          candidate: c,
+                          rank: i + 1,
+                          meta: rs.meta,
                         ),
-                      );
-                    },
-                    childCount: rs.candidates.length,
-                  ),
+                      ),
+                    );
+                  }, childCount: rs.candidates.length),
                 ),
 
-               const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
+              const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
             ],
           ),
         ),
@@ -527,8 +583,10 @@ class _FallbackNotice extends StatelessWidget {
         children: [
           const Row(
             children: [
-              Icon(CupertinoIcons.exclamationmark_triangle_fill,
-                  color: CupertinoColors.systemOrange),
+              Icon(
+                CupertinoIcons.exclamationmark_triangle_fill,
+                color: CupertinoColors.systemOrange,
+              ),
               SizedBox(width: 8),
               Text(
                 '目的地までの都営経路が見つかりません',
@@ -591,20 +649,32 @@ class _ActiveTripCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.directions_bus_filled, color: Colors.white, size: 32),
+            const Icon(
+              Icons.directions_bus_filled,
+              color: Colors.white,
+              size: 32,
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "現在進行中のグループ",
-                    style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+                  Text(
+                    trip.isSolo ? "現在進行中の移動" : "現在進行中のグループ",
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     displayTitle,
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -612,27 +682,42 @@ class _ActiveTripCard extends StatelessWidget {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           trip.status == TripStatus.planning ? "計画中" : "移動中",
-                          style: const TextStyle(color: Colors.white, fontSize: 10),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        "${trip.participants.length}人が参加中",
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        trip.isSolo
+                            ? "1人で移動中"
+                            : "${trip.participants.length}人が参加中",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
+            const Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.white54,
+              size: 16,
+            ),
           ],
         ),
       ),
