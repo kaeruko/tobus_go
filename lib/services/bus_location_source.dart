@@ -1,5 +1,14 @@
 import '../core/api_client.dart';
 
+class BusLocationNotAvailableException implements Exception {
+  final String? code;
+
+  const BusLocationNotAvailableException({this.code});
+
+  @override
+  String toString() => code ?? 'bus_location_not_available';
+}
+
 class BusLocation {
   final String vehicleId;
   final String fromStopId;
@@ -66,12 +75,19 @@ class RealtimeBusLocationSource implements BusLocationSource {
     required String tripId,
     String? vehicleId,
   }) async {
-    final json = await ApiClient.fetchBusLocation(
-      routeId: routeId,
-      tripId: tripId,
-      vehicleId: vehicleId,
-    );
-    return BusLocation.fromJson(json, routeId: routeId, tripId: tripId);
+    try {
+      final json = await ApiClient.fetchBusLocation(
+        routeId: routeId,
+        tripId: tripId,
+        vehicleId: vehicleId,
+      );
+      return BusLocation.fromJson(json, routeId: routeId, tripId: tripId);
+    } on ApiException catch (error) {
+      if (error.statusCode == 404) {
+        throw BusLocationNotAvailableException(code: error.code);
+      }
+      rethrow;
+    }
   }
 }
 

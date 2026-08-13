@@ -3,6 +3,24 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
 
+class ApiException implements Exception {
+  final int statusCode;
+  final String? code;
+  final String message;
+
+  const ApiException({
+    required this.statusCode,
+    required this.message,
+    this.code,
+  });
+
+  @override
+  String toString() {
+    final codeText = code == null ? '' : ' ($code)';
+    return 'HTTP $statusCode$codeText: $message';
+  }
+}
+
 class ApiClient {
   static http.Client _httpClient = http.Client();
 
@@ -24,20 +42,53 @@ class ApiClient {
     }
   }
 
-  static Future<Map<String, dynamic>> get(String path, {Map<String, String>? params}) async {
+  static ApiException _errorFromResponse(http.Response response) {
+    String? code;
+    String? message;
+    try {
+      final decoded = json.decode(utf8.decode(response.bodyBytes));
+      if (decoded is Map<String, dynamic>) {
+        final detail = decoded['detail'];
+        if (detail is Map<String, dynamic>) {
+          code = detail['code']?.toString();
+          message = detail['message']?.toString();
+        } else if (detail != null) {
+          message = detail.toString();
+        }
+      }
+    } catch (_) {
+      // Non-JSON error responses still retain their HTTP status below.
+    }
+    return ApiException(
+      statusCode: response.statusCode,
+      code: code,
+      message: message ?? 'API request failed',
+    );
+  }
+
+  static Future<Map<String, dynamic>> get(
+    String path, {
+    Map<String, String>? params,
+    Set<int> expectedErrorStatuses = const {},
+  }) async {
     final uri = Uri.parse('$kApiBase$path').replace(queryParameters: params);
     _log('GET $uri');
 
     try {
       final r = await _httpClient.get(uri);
       _log('GET $uri -> ${r.statusCode}');
-      
+
       if (r.statusCode != 200) {
-        throw Exception('HTTP ${r.statusCode}');
+        throw _errorFromResponse(r);
       }
-      
+
       final json = _jsonUtf8(r);
       return json;
+    } on ApiException catch (e) {
+      if (!expectedErrorStatuses.contains(e.statusCode)) {
+        _log('GET $uri -> ERROR: $e');
+      }
+      rethrow;
     } catch (e) {
       _log('GET $uri -> ERROR: $e');
       rethrow;
@@ -46,11 +97,11 @@ class ApiClient {
 
   static Future<Map<String, dynamic>> post(String path, {dynamic body}) async {
     final uri = Uri.parse('$kApiBase$path');
-    
+
     // Convert body to JSON string if it's Map or List
     String? bodyString;
     Map<String, String> headers = {};
-    
+
     if (body != null) {
       headers['Content-Type'] = 'application/json';
       bodyString = json.encode(body);
@@ -62,17 +113,19 @@ class ApiClient {
       final r = await _httpClient
           .post(uri, body: bodyString, headers: headers)
           .timeout(const Duration(seconds: 60));
-      _log('POST $uri -> status: ${r.statusCode}, size: ${r.bodyBytes.length} bytes');
-      
+      _log(
+        'POST $uri -> status: ${r.statusCode}, size: ${r.bodyBytes.length} bytes',
+      );
+
       if (r.body.isNotEmpty) {
         final preview = r.body.length > 100 ? r.body.substring(0, 100) : r.body;
         _log('Body (first 100): $preview');
       }
 
       if (r.statusCode != 200) {
-        throw Exception('HTTP ${r.statusCode}');
+        throw _errorFromResponse(r);
       }
-      
+
       final json = _jsonUtf8(r);
       return json;
     } catch (e) {
@@ -80,6 +133,7 @@ class ApiClient {
       rethrow;
     }
   }
+
   /// バスの現在位置情報を取得する
   /// [routeId] 系統ID (例: odpt.Busroute:Toei.To02)
   /// [tripId] 便ID (必須。バックエンドは一致する便がない場合エラーを返す)
@@ -89,14 +143,15 @@ class ApiClient {
     required String tripId,
     String? vehicleId,
   }) async {
-    final params = <String, String>{
-      'route_id': routeId,
-      'trip_id': tripId,
-    };
+    final params = <String, String>{'route_id': routeId, 'trip_id': tripId};
     if (vehicleId != null) {
       params['vehicle_id'] = vehicleId;
     }
 
-    return await get('/bus/location', params: params);
+    return await get(
+      '/bus/location',
+      params: params,
+      expectedErrorStatuses: const {404},
+    );
   }
 }

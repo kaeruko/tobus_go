@@ -31,7 +31,7 @@ final memberScheduleStateProvider =
           now: now,
         );
       });
-    });
+    }, dependencies: [tripStreamProvider]);
 
 class RealtimeBusState {
   final String? trackedStepId;
@@ -157,6 +157,17 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
           'from=${progress.fromStopIndex}, '
           'vehicle=${location.vehicleId}',
         );
+      } on BusLocationNotAvailableException catch (e) {
+        // An exact route/trip match may not appear in the realtime feed until
+        // the assigned vehicle starts reporting. Keep a previously locked
+        // vehicle ID, but clear stale stop progress and show the waiting UI.
+        state = RealtimeBusState(
+          trackedStepId: activeStep.stepId,
+          trackedVehicleId: state.trackedStepId == activeStep.stepId
+              ? state.trackedVehicleId
+              : null,
+        );
+        debugPrint('[MemberModeController] 乗車待ち: $e');
       } catch (e) {
         debugPrint('[MemberModeController] APIエラー: $e');
       }
@@ -192,7 +203,7 @@ final memberModeControllerProvider =
       ref,
     ) {
       return MemberModeController(ref, ref.watch(busLocationSourceProvider));
-    });
+    }, dependencies: [tripStreamProvider, memberScheduleStateProvider]);
 
 /// UI描画に必要な全データ
 class MemberUiState {
@@ -257,4 +268,4 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((
       displayTitle: trip.displayTitle,
     );
   });
-});
+}, dependencies: [tripStreamProvider, memberModeControllerProvider]);

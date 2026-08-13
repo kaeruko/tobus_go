@@ -1,8 +1,11 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:toeigo/logic/solo_trip_factory.dart';
 import 'package:toeigo/logic/solo_trip_lifecycle.dart';
 import 'package:toeigo/models/group_models.dart';
 import 'package:toeigo/models/trip_models.dart';
+import 'package:toeigo/providers/member_mode_provider.dart';
+import 'package:toeigo/providers/trip_provider.dart';
 
 import 'fixtures/navigation_v2_fixture.dart';
 
@@ -134,4 +137,32 @@ void main() {
       );
     });
   });
+
+  test(
+    'solo navigation follows the Trip override in its ProviderScope',
+    () async {
+      final trip = buildSoloTrip(
+        id: 'solo-scoped',
+        userId: 'user-1',
+        userName: 'ゲスト',
+        candidate: navigationV2Candidate(),
+        now: DateTime(2025, 1, 1, 10),
+      );
+      final parent = ProviderContainer();
+      final child = ProviderContainer(
+        parent: parent,
+        overrides: [
+          tripStreamProvider.overrideWith((ref) => Stream.value(trip)),
+        ],
+      );
+      addTearDown(child.dispose);
+      addTearDown(parent.dispose);
+
+      expect(await child.read(tripStreamProvider.future), same(trip));
+
+      final uiState = child.read(memberUiStateProvider);
+      expect(uiState.hasValue, isTrue);
+      expect(uiState.value?.displayTitle, trip.displayTitle);
+    },
+  );
 }
