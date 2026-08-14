@@ -189,13 +189,16 @@ class NavigationState {
       );
     }
 
-    if (busProgress == null || step.stops.isEmpty) {
+    if (step.kind == 'rail') {
       return NavigationState(
-        mainText: '乗車位置を確認中',
-        subText: step.to ?? '',
+        mainText: '${step.title}に乗車中',
+        subText: step.to == null || step.to!.isEmpty
+            ? ''
+            : '${step.to}で降ります',
         color: const Color(0xFF81D4FA),
         statusLabel: statusLabel ?? '乗車中',
         currentStepId: step.stepId,
+        nextStopName: step.to,
         step: step,
       );
     }

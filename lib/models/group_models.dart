@@ -536,10 +536,18 @@ List<ScheduleEntry> createScheduleFromLegs(
 }
 
 String _emojiForKind(String kind) {
-  if (kind == 'bus') return '🚌';
-  if (kind == 'subway' || kind == 'train') return '🚞';
-  if (kind == 'wait') return '⏳';
-  return '🚐'; // default/other
+  switch (kind) {
+    case 'bus':
+      return '🚌';
+    case 'rail':
+      return '🚇';
+    case 'wait':
+      return '⏳';
+    case 'walk':
+      return '🚶';
+    default:
+      throw StateError('未対応のstep kindです: $kind');
+  }
 }
 
 String _labelForLeg(LegDirection direction) {
