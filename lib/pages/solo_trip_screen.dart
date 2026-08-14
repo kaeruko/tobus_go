@@ -28,21 +28,24 @@ class SoloTripScreen extends StatelessWidget {
           (ref) => TripService().streamTrip(tripId).map<Trip?>((trip) => trip),
         ),
       ],
-      child: _SoloTripBody(tripId: tripId),
+      child: SoloTripView(tripId: tripId),
     );
   }
 }
 
-class _SoloTripBody extends ConsumerStatefulWidget {
+class SoloTripView extends ConsumerStatefulWidget {
   final String tripId;
 
-  const _SoloTripBody({required this.tripId});
+  const SoloTripView({
+    super.key,
+    required this.tripId,
+  });
 
   @override
-  ConsumerState<_SoloTripBody> createState() => _SoloTripBodyState();
+  ConsumerState<SoloTripView> createState() => _SoloTripViewState();
 }
 
-class _SoloTripBodyState extends ConsumerState<_SoloTripBody> {
+class _SoloTripViewState extends ConsumerState<SoloTripView> {
   final TripService _tripService = TripService();
   bool _completionRequested = false;
   bool _cancelling = false;

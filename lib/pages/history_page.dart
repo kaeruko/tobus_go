@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
-import 'group_detail_page.dart';
-import 'solo_trip_detail_page.dart';
-import 'solo_trip_screen.dart';
+import 'trip_page.dart';
 class HistoryPage extends StatelessWidget {
   const HistoryPage({super.key});
 
@@ -65,33 +63,11 @@ class HistoryPage extends StatelessWidget {
                   ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
-                    Widget destination;
-
-                    switch (trip.travelPhase) {
-                      case TravelPhase.active:
-                        if (trip.isSolo) {
-                          destination = SoloTripScreen(tripId: trip.id);
-                        } else {
-                          destination = GroupDetailPage(trip: trip);
-                        }
-                        break;
-
-                      case TravelPhase.completed:
-                        destination = trip.isSolo
-                            ? SoloTripDetailPage(trip: trip)
-                            : GroupDetailPage(trip: trip);
-                        break;
-
-                      case TravelPhase.planning:
-                      case TravelPhase.cancelled:
-                        throw StateError(
-                          '履歴画面に表示対象外の状態が渡されました: ${trip.travelPhase.name}',
-                        );
-                    }
-
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => destination),
+                      MaterialPageRoute(
+                        builder: (_) => TripPage(tripId: trip.id),
+                      ),
                     );
                   },
 
