@@ -1,7 +1,7 @@
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
 
-bool shouldOfferSoloTripCompletion({
+bool shouldAutoCompleteSoloTrip({
   required Trip trip,
   required ScheduleEntry? resolvedEntry,
 }) {
