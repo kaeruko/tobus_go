@@ -172,7 +172,25 @@ class NavigationState {
       );
     }
 
-    if (step.kind == 'bus' && (busProgress == null || step.stops.isEmpty)) {
+    if (step.kind == 'rail') {
+      return NavigationState(
+        mainText: '${step.title}に乗車中',
+        subText: step.to == null || step.to!.isEmpty
+            ? ''
+            : '${step.to}で降ります',
+        color: const Color(0xFF81D4FA),
+        statusLabel: statusLabel ?? '乗車中',
+        currentStepId: step.stepId,
+        nextStopName: step.to,
+        step: step,
+      );
+    }
+
+    if (step.kind != 'bus') {
+      throw StateError('未対応の乗車step kindです: ${step.kind}');
+    }
+
+    if (busProgress == null || step.stops.isEmpty) {
       final boardingStopName = step.stops.isEmpty
           ? null
           : step.stops.first.name;
@@ -189,37 +207,27 @@ class NavigationState {
       );
     }
 
-    if (step.kind == 'rail') {
-      return NavigationState(
-        mainText: '${step.title}に乗車中',
-        subText: step.to == null || step.to!.isEmpty
-            ? ''
-            : '${step.to}で降ります',
-        color: const Color(0xFF81D4FA),
-        statusLabel: statusLabel ?? '乗車中',
-        currentStepId: step.stepId,
-        nextStopName: step.to,
-        step: step,
-      );
-    }
-    if (busProgress.stepId != step.stepId) {
+    final BusProgress progress = busProgress;
+
+    if (progress.stepId != step.stepId) {
       throw StateError(
         'BusProgressのstepIdが一致しません: '
-        '${busProgress.stepId} != ${step.stepId}',
+        '${progress.stepId} != ${step.stepId}',
       );
     }
     final isStale =
-        (busProgress.vehicleAgeSeconds ?? 0) >= staleBusPositionAfterSeconds;
+        (progress.vehicleAgeSeconds ?? 0) >= staleBusPositionAfterSeconds;
 
     NavigationState withFreshnessNotice(NavigationState navigation) => isStale
         ? navigation.withNotice(
             statusLabel: '位置更新中',
-            noticeText: 'バスの位置情報を更新中です\n${_staleBusPositionText(busProgress)}',
+            noticeText:
+                'バスの位置情報を更新中です\n${_staleBusPositionText(progress)}',
           )
         : navigation;
 
-    if (busProgress.phase == BusProgressPhase.approaching) {
-      final stopsUntilBoarding = busProgress.stopsUntilBoarding;
+    if (progress.phase == BusProgressPhase.approaching) {
+      final stopsUntilBoarding = progress.stopsUntilBoarding;
       return withFreshnessNotice(
         NavigationState(
           mainText: stopsUntilBoarding == null
@@ -230,13 +238,13 @@ class NavigationState {
           statusLabel: '乗車待ち',
           nextStopName: step.stops.first.name,
           currentStepId: step.stepId,
-          busProgress: busProgress,
+          busProgress: progress,
           isMoving: false,
           step: step,
         ),
       );
     }
-    final fromIndex = busProgress.fromStopIndex;
+    final fromIndex = progress.fromStopIndex;
     if (fromIndex == null || fromIndex < 0 || fromIndex >= step.stops.length) {
       throw StateError('BusProgressのfromStopIndexが範囲外です: $fromIndex');
     }
@@ -244,7 +252,7 @@ class NavigationState {
     final destinationIndex = step.stops.length - 1;
     final remaining = destinationIndex - fromIndex;
     final currentName = step.stops[fromIndex].name;
-    final nextIndex = busProgress.nextStopIndex;
+    final nextIndex = progress.nextStopIndex;
     final nextName = nextIndex != null && nextIndex < step.stops.length
         ? step.stops[nextIndex].name
         : null;
@@ -258,7 +266,7 @@ class NavigationState {
           statusLabel: '到着',
           remainingStops: 0,
           currentStepId: step.stepId,
-          busProgress: busProgress,
+          busProgress: progress,
           isMoving: false,
           step: step,
         ),
@@ -275,7 +283,7 @@ class NavigationState {
           nextStopName: nextName,
           remainingStops: remaining,
           currentStepId: step.stepId,
-          busProgress: busProgress,
+          busProgress: progress,
           step: step,
         ),
       );
@@ -290,7 +298,7 @@ class NavigationState {
         nextStopName: nextName,
         remainingStops: remaining,
         currentStepId: step.stepId,
-        busProgress: busProgress,
+        busProgress: progress,
         step: step,
       ),
     );
