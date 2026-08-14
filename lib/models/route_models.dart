@@ -142,7 +142,138 @@ class Candidate {
         }
       }
     }
-    return out;
+    return _moveLeadingWaitBeforeWalk(out);
+  }
+
+  static List<StepSeg> _moveLeadingWaitBeforeWalk(List<StepSeg> steps) {
+    if (steps.length < 3) return steps;
+
+    final walk = steps[0];
+    final wait = steps[1];
+    final ride = steps[2];
+    if (walk.kind != 'walk' || wait.kind != 'wait' || !ride.isRide) {
+      return steps;
+    }
+    if (wait.minutes == 0) return steps;
+    if (walk.minutes <= 0) {
+      throw StateError(
+        '先頭徒歩区間の所要時間が不正です: stepId=${walk.stepId}, minutes=${walk.minutes}',
+      );
+    }
+    if (wait.minutes < 0) {
+      throw StateError(
+        '先頭待ち時間が負です: stepId=${wait.stepId}, minutes=${wait.minutes}',
+      );
+    }
+
+    final waitDeparture = _clockToMinutes(wait.departureTime);
+    final waitArrival = _clockToMinutes(wait.arrivalTime);
+    final boarding = _clockToMinutes(ride.departureTime);
+    if (waitDeparture == null || waitArrival == null || boarding == null) {
+      throw StateError(
+        '先頭の待ち時間を出発前へ移動するための時刻情報がありません: '
+        'wait=${wait.departureTime}-${wait.arrivalTime}, '
+        'rideDeparture=${ride.departureTime}',
+      );
+    }
+
+    final waitDuration = _forwardMinutes(waitDeparture, waitArrival);
+    if (waitDuration != wait.minutes) {
+      throw StateError(
+        '待ち時間の時刻差とminutesが一致しません: '
+        'stepId=${wait.stepId}, clock=$waitDuration, minutes=${wait.minutes}',
+      );
+    }
+    if ((waitArrival % (24 * 60)) != (boarding % (24 * 60))) {
+      throw StateError(
+        '待ち終了時刻と乗車時刻が一致しません: '
+        'waitArrival=${wait.arrivalTime}, rideDeparture=${ride.departureTime}',
+      );
+    }
+
+    final walkStart = boarding - walk.minutes;
+    final waitStart = walkStart - waitDuration;
+    final origin = walk.fromName;
+    if (origin == null || origin.isEmpty) {
+      throw StateError(
+        '先頭待ち時間の待機場所に使う徒歩出発地点がありません: stepId=${walk.stepId}',
+      );
+    }
+
+    final normalizedWait = StepSeg(
+      stepId: wait.stepId,
+      kind: wait.kind,
+      title: wait.title,
+      fromName: origin,
+      toName: origin,
+      stops: wait.stops,
+      minutes: wait.minutes,
+      meters: wait.meters,
+      fareYen: wait.fareYen,
+      departureTime: _formatClock(waitStart),
+      arrivalTime: _formatClock(walkStart),
+      startLabel: wait.startLabel,
+      endLabel: wait.endLabel,
+      place: origin,
+      routeId: wait.routeId,
+      tripId: wait.tripId,
+      directionId: wait.directionId,
+      edges: wait.edges,
+      departureStopId: wait.departureStopId,
+      arrivalPoleId: wait.arrivalPoleId,
+    );
+    final normalizedWalk = StepSeg(
+      stepId: walk.stepId,
+      kind: walk.kind,
+      title: walk.title,
+      fromName: walk.fromName,
+      toName: walk.toName,
+      stops: walk.stops,
+      minutes: walk.minutes,
+      meters: walk.meters,
+      fareYen: walk.fareYen,
+      departureTime: _formatClock(walkStart),
+      arrivalTime: _formatClock(boarding),
+      startLabel: walk.startLabel,
+      endLabel: walk.endLabel,
+      place: walk.place,
+      routeId: walk.routeId,
+      tripId: walk.tripId,
+      directionId: walk.directionId,
+      edges: walk.edges,
+      departureStopId: walk.departureStopId,
+      arrivalPoleId: walk.arrivalPoleId,
+    );
+
+    return [normalizedWait, normalizedWalk, ...steps.skip(2)];
+  }
+
+  static int? _clockToMinutes(String? value) {
+    if (value == null || !value.contains(':')) return null;
+    final parts = value.split(':');
+    if (parts.length < 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null || hour < 0 || minute < 0 || minute >= 60) {
+      return null;
+    }
+    return hour * 60 + minute;
+  }
+
+  static int _forwardMinutes(int from, int to) {
+    var adjustedTo = to;
+    while (adjustedTo < from) {
+      adjustedTo += 24 * 60;
+    }
+    return adjustedTo - from;
+  }
+
+  static String _formatClock(int totalMinutes) {
+    final minutesPerDay = 24 * 60;
+    final normalized = ((totalMinutes % minutesPerDay) + minutesPerDay) % minutesPerDay;
+    final hour = normalized ~/ 60;
+    final minute = normalized % 60;
+    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
   }
 
   Map<String, dynamic> toJson({bool includePoints = true}) {
