@@ -48,6 +48,16 @@ class TripCoordinator {
     return routeState?.stepForId(entry.routeStepId);
   }
 
+  static String _formatClock(DateTime time) {
+    return '${time.hour}:${time.minute.toString().padLeft(2, '0')}';
+  }
+
+  static int _minutesUntil(DateTime target, DateTime now) {
+    final seconds = target.difference(now).inSeconds;
+    if (seconds <= 0) return 0;
+    return (seconds + 59) ~/ 60;
+  }
+
   static ResolvedScheduleState resolveScheduleState({
     required List<ScheduleEntry> scheduleEntries,
     required DateTime now,
@@ -257,8 +267,35 @@ class TripCoordinator {
       }
 
       final rideAt = nextRides.first.plannedAt;
-      final rideTime =
-          '${rideAt.hour}:${rideAt.minute.toString().padLeft(2, '0')}';
+      final rideTime = _formatClock(rideAt);
+
+      final departures =
+          trip.schedule
+              .where(
+                (entry) =>
+                    entry.legIndex == resolved.legIndex &&
+                    entry.itemKind == ScheduleEntryKind.walk &&
+                    !entry.plannedAt.isBefore(resolved.plannedAt) &&
+                    !entry.plannedAt.isAfter(rideAt),
+              )
+              .toList()
+            ..sort((a, b) => a.plannedAt.compareTo(b.plannedAt));
+
+      if (departures.isNotEmpty) {
+        final leaveAt = departures.first.plannedAt;
+        final leaveTime = _formatClock(leaveAt);
+        final remainingMinutes = _minutesUntil(leaveAt, now);
+
+        return NavigationState(
+          mainText: '$leaveTime 出発　あと$remainingMinutes分',
+          subText: '$rideTime 乗車',
+          color: const Color(0xFFE1F5FE),
+          statusLabel: '待機',
+          currentStepId: resolved.routeStepId,
+          isMoving: false,
+          step: step,
+        );
+      }
 
       return NavigationState(
         mainText: resolved.label,
