@@ -308,6 +308,42 @@ class TripCoordinator {
       );
     }
 
+    if (resolved.itemKind == ScheduleEntryKind.walk && step != null) {
+      final nextRides =
+          trip.schedule
+              .where(
+                (entry) =>
+                    entry.legIndex == resolved.legIndex &&
+                    entry.itemKind == ScheduleEntryKind.ride &&
+                    !entry.plannedAt.isBefore(resolved.plannedAt),
+              )
+              .toList()
+            ..sort((a, b) => a.plannedAt.compareTo(b.plannedAt));
+
+      if (nextRides.isNotEmpty) {
+        final destination = step.to;
+        if (destination == null || destination.isEmpty) {
+          throw StateError(
+            '乗車前の徒歩stepに目的地がありません: stepId=${step.stepId}',
+          );
+        }
+
+        final rideAt = nextRides.first.plannedAt;
+        final rideTime = _formatClock(rideAt);
+        final remainingMinutes = _minutesUntil(rideAt, now);
+
+        return NavigationState(
+          mainText: '$rideTime $destinationにむかう　あと$remainingMinutes分',
+          subText: '$rideTime 乗車',
+          color: const Color(0xFF81D4FA),
+          statusLabel: '移動中',
+          nextStopName: destination,
+          currentStepId: step.stepId,
+          step: step,
+        );
+      }
+    }
+
     final diff = resolved.plannedAt.difference(now);
     if (diff.inMinutes > 20) {
       return NavigationState.waitingLong(entry: resolved, diff: diff);
