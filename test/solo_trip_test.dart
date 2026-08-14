@@ -45,8 +45,8 @@ void main() {
     });
   });
 
-  group('solo completion readiness', () {
-    test('offers completion at the final goal', () {
+  group('solo automatic completion', () {
+    test('completes at the final goal', () {
       final trip = buildSoloTrip(
         id: 'solo-1',
         userId: 'user-1',
@@ -56,7 +56,7 @@ void main() {
       );
 
       expect(
-        shouldOfferSoloTripCompletion(
+        shouldAutoCompleteSoloTrip(
           trip: trip,
           resolvedEntry: trip.schedule.last,
         ),
@@ -64,7 +64,7 @@ void main() {
       );
     });
 
-    test('does not offer completion at an arrival followed by a walking segment', () {
+    test('does not complete at an arrival followed by a walking segment', () {
       final trip = buildSoloTrip(
         id: 'solo-1',
         userId: 'user-1',
@@ -79,7 +79,7 @@ void main() {
       );
 
       expect(
-        shouldOfferSoloTripCompletion(
+        shouldAutoCompleteSoloTrip(
           trip: trip,
           resolvedEntry: busArrival,
         ),
@@ -87,7 +87,7 @@ void main() {
       );
     });
 
-    test('offers completion on a final realtime arrival before the goal row', () {
+    test('completes on a final realtime arrival before the goal row', () {
       final baseTrip = buildSoloTrip(
         id: 'solo-1',
         userId: 'user-1',
@@ -118,7 +118,7 @@ void main() {
       );
 
       expect(
-        shouldOfferSoloTripCompletion(
+        shouldAutoCompleteSoloTrip(
           trip: finalRideTrip,
           resolvedEntry: finalArrival,
         ),
@@ -126,7 +126,7 @@ void main() {
       );
     });
 
-    test('never offers solo completion for a group Trip', () {
+    test('never completes a group Trip automatically', () {
       final trip = navigationV2Trip();
       final goal = ScheduleEntry(
         plannedAt: DateTime(2025, 1, 1, 10),
@@ -135,7 +135,7 @@ void main() {
       );
 
       expect(
-        shouldOfferSoloTripCompletion(trip: trip, resolvedEntry: goal),
+        shouldAutoCompleteSoloTrip(trip: trip, resolvedEntry: goal),
         isFalse,
       );
     });
