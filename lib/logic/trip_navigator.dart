@@ -160,10 +160,11 @@ class NavigationState {
     required BusProgress? busProgress,
     String? statusLabel,
   }) {
+
     if (step.kind == 'walk') {
       return NavigationState(
-        mainText: '${step.from}にむかう',
-        subText: '目的地へ',
+        mainText: '${step.to}にむかう',
+        subText: '${step.meters}m 徒歩',
         color: const Color(0xFF81D4FA),
         statusLabel: statusLabel ?? '移動中',
         nextStopName: step.to,
