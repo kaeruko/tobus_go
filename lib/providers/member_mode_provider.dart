@@ -129,7 +129,7 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
 
     // 2. 乗車中かつルートID/tripIDがある場合のみAPI確認
     if (activeStep != null &&
-        activeStep.isRide &&
+        activeStep.kind == 'bus' &&
         activeStep.routeId != null &&
         activeStep.tripId != null) {
       debugPrint(
