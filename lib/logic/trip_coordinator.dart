@@ -227,12 +227,45 @@ class TripCoordinator {
       'stepId=${resolved.routeStepId} reason=${resolvedState.resolutionReason}',
     );
 
+    final step = _stepForEntry(routeState, resolved);
+
+    if (resolved.routeRole == 'wait_start') {
+      final nextRides = trip.schedule
+          .where(
+            (entry) =>
+                entry.legIndex == resolved.legIndex &&
+                entry.itemKind == ScheduleEntryKind.ride &&
+                !entry.plannedAt.isBefore(resolved.plannedAt),
+          )
+          .toList()
+        ..sort((a, b) => a.plannedAt.compareTo(b.plannedAt));
+
+      if (nextRides.isEmpty) {
+        throw StateError(
+          '待機予定の後に乗車予定がありません: entryId=${resolved.id}',
+        );
+      }
+
+      final rideAt = nextRides.first.plannedAt;
+      final rideTime =
+          '${rideAt.hour}:${rideAt.minute.toString().padLeft(2, '0')}';
+
+      return NavigationState(
+        mainText: resolved.label,
+        subText: '$rideTime 乗車予定',
+        color: const Color(0xFFE1F5FE),
+        statusLabel: '待機',
+        currentStepId: resolved.routeStepId,
+        isMoving: false,
+        step: step,
+      );
+    }
+
     final diff = resolved.plannedAt.difference(now);
     if (diff.inMinutes > 20) {
       return NavigationState.waitingLong(entry: resolved, diff: diff);
     }
 
-    final step = _stepForEntry(routeState, resolved);
     final BusProgress? progress =
         routeState?.busProgress?.stepId == step?.stepId
         ? routeState?.busProgress
