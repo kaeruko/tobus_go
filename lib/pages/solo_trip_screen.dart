@@ -106,7 +106,11 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
               body: Center(child: Text('ナビを表示できませんでした: $error')),
             ),
             data: (uiState) {
-              _completeWhenArrived(trip, uiState.resolvedEntry);
+              final shouldOfferCompletion = shouldOfferSoloTripCompletion(
+                trip: trip,
+                resolvedEntry: uiState.resolvedEntry,
+              );
+
               return Scaffold(
                 backgroundColor: uiState.navState.color,
                 appBar: AppBar(
@@ -185,18 +189,23 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
                         label: const Text('経路全体を見る'),
                       ),
                       const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: _cancelling || _completionRequested
-                            ? null
-                            : () => _cancelTrip(trip),
-                        child: Text(
-                          _completionRequested
-                              ? '到着を保存中…'
-                              : _cancelling
-                              ? '終了処理中…'
-                              : '移動を中止する',
+                      if (shouldOfferCompletion)
+                        FilledButton.icon(
+                          onPressed: _completionRequested
+                              ? null
+                              : () => _completeTrip(trip),
+                          icon: const Icon(Icons.check_circle),
+                          label: Text(
+                            _completionRequested ? '到着を保存中…' : '移動を完了する',
+                          ),
+                        )
+                      else
+                        TextButton(
+                          onPressed: _cancelling ? null : () => _cancelTrip(trip),
+                          child: Text(
+                            _cancelling ? '終了処理中…' : '移動を中止する',
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -208,24 +217,19 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     );
   }
 
-  void _completeWhenArrived(Trip trip, ScheduleEntry? resolvedEntry) {
-    if (_completionRequested ||
-        !shouldAutoCompleteSoloTrip(trip: trip, resolvedEntry: resolvedEntry)) {
-      return;
-    }
-    _completionRequested = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try {
-        await _tripService.completeTrip(trip.id);
-      } catch (error) {
-        _completionRequested = false;
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('到着の保存に失敗しました: $error')));
-        }
+  Future<void> _completeTrip(Trip trip) async {
+    if (_completionRequested) return;
+    setState(() => _completionRequested = true);
+    try {
+      await _tripService.completeTrip(trip.id);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _completionRequested = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('到着の保存に失敗しました: $error')));
       }
-    });
+    }
   }
 
   Future<void> _advanceFakeBus() async {
@@ -294,7 +298,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
                 const SizedBox(height: 8),
                 Text(trip.displayTitle, textAlign: TextAlign.center),
                 const SizedBox(height: 8),
-                const Text('移動は自動で履歴に保存されました。'),
+                const Text('移動を履歴に保存しました。'),
                 const SizedBox(height: 28),
                 FilledButton(
                   onPressed: () => Navigator.of(context).pop(),
