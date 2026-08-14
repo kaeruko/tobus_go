@@ -12,8 +12,6 @@ import '../providers/trip_draft_provider.dart';
 import '../services/trip_service.dart';
 import '../models/trip_models.dart';
 import 'leader_mode_page.dart';
-import 'group_detail_page.dart';
-import 'solo_trip_screen.dart';
 import '../core/api_client.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/route_map_preview.dart';
@@ -811,19 +809,13 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
           CupertinoDialogAction(
             onPressed: () {
               Navigator.pop(dialogContext);
-              if (trip.isSolo) {
-                Navigator.of(context).push(
-                  CupertinoPageRoute(
-                    builder: (_) => TripPage(tripId: trip.id),
+              Navigator.of(context).push(
+                CupertinoPageRoute(
+                  builder: (_) => TripPage(
+                    tripId: trip.id,
                   ),
-                );
-              } else {
-                Navigator.of(context).push(
-                  CupertinoPageRoute(
-                    builder: (_) => GroupDetailPage(trip: trip),
-                  ),
-                );
-              }
+                ),
+              );
             },
             child: const Text('進行中の移動を開く'),
           ),
