@@ -103,6 +103,65 @@ void main() {
       expect(navigation.statusLabel, '待機');
     });
 
+    test('walk before ride shows boarding countdown and boarding time', () {
+      final schedule = [
+        ScheduleEntry(
+          id: 'walk-start',
+          plannedAt: DateTime(2025, 1, 1, 10, 0),
+          label: '平井七丁目まで歩く (4分)',
+          itemKind: ScheduleEntryKind.walk,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepId: 'walk-A',
+          routeRole: 'walk',
+        ),
+        ScheduleEntry(
+          id: 'ride-start',
+          plannedAt: DateTime(2025, 1, 1, 10, 4),
+          label: '🚌上23 平井七丁目に乗る',
+          itemKind: ScheduleEntryKind.ride,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepId: 'bus-C',
+          routeRole: 'ride',
+        ),
+      ];
+      final baseTrip = navigationV2Trip();
+      final trip = Trip(
+        schemaVersion: baseTrip.schemaVersion,
+        tripType: baseTrip.tripType,
+        id: baseTrip.id,
+        joinCode: baseTrip.joinCode,
+        leaderId: baseTrip.leaderId,
+        title: baseTrip.title,
+        travelPhase: baseTrip.travelPhase,
+        date: baseTrip.date,
+        plannedDepartureAt: baseTrip.plannedDepartureAt,
+        actualDepartureAt: baseTrip.actualDepartureAt,
+        legs: baseTrip.legs,
+        schedule: schedule,
+        participants: baseTrip.participants,
+        memberIds: baseTrip.memberIds,
+        completedLegIndex: baseTrip.completedLegIndex,
+        staffNotes: baseTrip.staffNotes,
+      );
+      final now = DateTime(2025, 1, 1, 10, 2);
+      final resolved = TripCoordinator.resolveScheduleState(
+        scheduleEntries: trip.schedule,
+        now: now,
+      );
+
+      final navigation = TripCoordinator.buildMemberNavigationState(
+        trip: trip,
+        routeState: RouteState(stepsById: trip.stepsById),
+        now: now,
+        resolvedState: resolved,
+      );
+
+      expect(resolved.resolvedEntry?.id, 'walk-start');
+      expect(navigation.mainText, '10:04 平井七丁目にむかう　あと2分');
+      expect(navigation.subText, '10:04 乗車');
+      expect(navigation.statusLabel, '移動中');
+    });
+
     test('meeting entries do not need a route step', () {
       final trip = navigationV2Trip();
       final entry = ScheduleEntry(
