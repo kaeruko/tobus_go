@@ -17,6 +17,7 @@ import '../providers/member_nav_progress_provider.dart';
 import 'group_detail_page.dart';
 import 'settings_page.dart';
 import 'route_detail_page.dart';
+import 'segment_stops_page.dart';
 
 class MemberModePage extends ConsumerStatefulWidget {
   const MemberModePage({super.key});

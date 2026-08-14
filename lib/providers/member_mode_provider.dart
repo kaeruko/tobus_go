@@ -70,9 +70,10 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
 
   void _startPolling() {
     _pollingTimer?.cancel();
-    // 初回実行
-    _checkProgress();
-    // 30秒ごとに時間とAPIをチェックして進行させる
+
+    // 画面を開いた直後は必ず最新データを取得
+    _checkProgress(forceRefresh: true);
+
     _pollingTimer = Timer.periodic(
       const Duration(seconds: 30),
       (_) => _checkProgress(),

@@ -13,6 +13,7 @@ import '../providers/trip_provider.dart';
 import '../services/bus_location_source.dart';
 import '../services/trip_service.dart';
 import 'solo_trip_detail_page.dart';
+import 'segment_stops_page.dart';
 
 class SoloTripScreen extends StatelessWidget {
   final String tripId;
@@ -106,22 +107,14 @@ class _SoloTripBodyState extends ConsumerState<_SoloTripBody> {
                   systemOverlayStyle: SystemUiOverlayStyle.dark,
                   backgroundColor: Colors.transparent,
                   elevation: 0,
-                  title: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '一人で移動中',
-                        style: TextStyle(fontSize: 13, color: Colors.black54),
-                      ),
-                      Text(
-                        trip.displayTitle,
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+                  title: Text(
+                    trip.displayTitle,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+
                   actions: [
                     if (ref.read(busLocationSourceProvider)
                         is FakeBusLocationSource)
@@ -154,7 +147,27 @@ class _SoloTripBodyState extends ConsumerState<_SoloTripBody> {
                         entries: uiState.windowEntries,
                         completedCount: uiState.completedCount,
                         activeLabel: uiState.activeLabel,
+                        onTapEntry: (entry) {
+                          final stepId = entry.routeStepId;
+                          if (stepId == null) return;
+
+                          final step = trip.stepsById[stepId];
+                          if (step == null) {
+                            throw StateError(
+                              'ScheduleEntry が存在しない routeStepId を参照しています: $stepId',
+                            );
+                          }
+
+                          if (!step.isRide || step.stops.isEmpty) return;
+
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => SegmentStopsPage(segment: step),
+                            ),
+                          );
+                        },
                       ),
+
                       const SizedBox(height: 14),
                       OutlinedButton.icon(
                         onPressed: () => Navigator.of(context).push(
@@ -402,12 +415,14 @@ class _SoloScheduleCard extends StatelessWidget {
   final List<ScheduleEntry> entries;
   final int completedCount;
   final String activeLabel;
+  final ValueChanged<ScheduleEntry> onTapEntry;
 
   const _SoloScheduleCard({
     required this.resolvedEntry,
     required this.entries,
     required this.completedCount,
     required this.activeLabel,
+    required this.onTapEntry,
   });
 
   @override
@@ -433,6 +448,10 @@ class _SoloScheduleCard extends StatelessWidget {
               final isActive = resolvedEntry?.id == entry.id;
               return ListTile(
                 contentPadding: EdgeInsets.zero,
+                onTap: entry.routeStepId == null
+                    ? null
+                    : () => onTapEntry(entry),
+
                 leading: Icon(
                   entry.itemKind == ScheduleEntryKind.walk
                       ? Icons.directions_walk

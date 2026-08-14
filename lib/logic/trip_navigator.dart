@@ -177,10 +177,10 @@ class NavigationState {
           ? null
           : step.stops.first.name;
       return NavigationState(
-        mainText: 'バスを待っています',
+        mainText: '待機中',
         subText: boardingStopName == null || boardingStopName.isEmpty
-            ? 'バスの位置を確認中です'
-            : '$boardingStopNameでお待ちください（バスの位置を確認中）',
+            ? '現在の位置を確認中です'
+            : '$boardingStopName（バスの位置を確認中）',
         color: const Color(0xFFE1F5FE),
         statusLabel: '乗車待ち',
         currentStepId: step.stepId,
@@ -220,8 +220,8 @@ class NavigationState {
       return withFreshnessNotice(
         NavigationState(
           mainText: stopsUntilBoarding == null
-              ? 'バスを待っています'
-              : 'バスはあと $stopsUntilBoarding 停車前です',
+              ? '待機中'
+              : 'あと $stopsUntilBoarding 停車前です',
           subText: '${step.stops.first.name}でお待ちください',
           color: const Color(0xFFE1F5FE),
           statusLabel: '乗車待ち',

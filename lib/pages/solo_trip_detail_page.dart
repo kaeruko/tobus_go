@@ -21,7 +21,6 @@ class SoloTripDetailPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('一人での移動', style: TextStyle(color: Colors.black54)),
                   const SizedBox(height: 6),
                   Text(
                     trip.displayTitle,

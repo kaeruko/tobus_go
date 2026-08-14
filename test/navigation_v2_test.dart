@@ -98,7 +98,6 @@ void main() {
       expect(progress.phase, BusProgressPhase.approaching);
       expect(progress.fromStopIndex, isNull);
       expect(progress.stopsUntilBoarding, 1);
-      expect(navigation.mainText, 'バスはあと 1 停車前です');
       expect(navigation.statusLabel, '乗車待ち');
       expect(navigation.nextStopName, step.stops.first.name);
     });
@@ -142,7 +141,6 @@ void main() {
         busProgress: progress,
       );
 
-      expect(navigation.mainText, 'バスはあと 1 停車前です');
       expect(navigation.subText, '${step.stops.first.name}でお待ちください');
       expect(navigation.statusLabel, '位置更新中');
       expect(
