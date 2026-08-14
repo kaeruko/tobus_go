@@ -119,7 +119,7 @@ void main() {
       expect(navigation.isMoving, isFalse);
     });
 
-    test('古い位置では停車数を隠して最終取得位置を表示する', () {
+    test('古い位置でも進捗と最終取得位置を両方表示する', () {
       final step = navigationV2Candidate().steps.singleWhere(
         (candidateStep) => candidateStep.stepId == 'bus-C',
       );
@@ -142,11 +142,41 @@ void main() {
         busProgress: progress,
       );
 
-      expect(navigation.mainText, 'バスの位置情報を更新中です');
-      expect(navigation.subText, '最終取得位置: 平井六丁目へ走行中（約2分前）');
+      expect(navigation.mainText, 'バスはあと 1 停車前です');
+      expect(navigation.subText, '${step.stops.first.name}でお待ちください');
       expect(navigation.statusLabel, '位置更新中');
+      expect(
+        navigation.noticeText,
+        'バスの位置情報を更新中です\n'
+        '最終取得位置: 平井六丁目へ走行中（約2分前）',
+      );
       expect(navigation.remainingStops, isNull);
-      expect(navigation.nextStopName, isNull);
+      expect(navigation.nextStopName, step.stops.first.name);
+    });
+
+    test('古い乗車中位置でも残り停車数を更新する', () {
+      final step = navigationV2Candidate().steps.singleWhere(
+        (candidateStep) => candidateStep.stepId == 'bus-C',
+      );
+      final progress = BusProgress.forStep(
+        step: step,
+        fromStopId: step.stops.first.stopId!,
+        observedStopId: step.stops[1].stopId,
+        observedStopName: step.stops[1].name,
+        currentStatus: 'IN_TRANSIT_TO',
+        vehicleAgeSeconds: 185,
+      );
+
+      final navigation = NavigationState.navigating(
+        step: step,
+        busProgress: progress,
+      );
+
+      expect(navigation.mainText, 'あと ${step.stops.length - 1} 回停車');
+      expect(navigation.remainingStops, step.stops.length - 1);
+      expect(navigation.statusLabel, '位置更新中');
+      expect(navigation.noticeText, contains(step.stops[1].name));
+      expect(navigation.noticeText, contains('約3分前'));
     });
 
     test('advances remaining stops to next-stop and arrival states', () async {

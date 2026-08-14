@@ -31,6 +31,7 @@ class NavigationState {
   final String? currentStepId;
   final BusProgress? busProgress;
   final StepSeg? step;
+  final String? noticeText;
 
   const NavigationState({
     required this.mainText,
@@ -43,7 +44,25 @@ class NavigationState {
     this.busProgress,
     this.isMoving = true,
     this.step,
+    this.noticeText,
   });
+
+  NavigationState withNotice({
+    required String statusLabel,
+    required String noticeText,
+  }) => NavigationState(
+    mainText: mainText,
+    subText: subText,
+    color: color,
+    statusLabel: statusLabel,
+    nextStopName: nextStopName,
+    remainingStops: remainingStops,
+    currentStepId: currentStepId,
+    busProgress: busProgress,
+    isMoving: isMoving,
+    step: step,
+    noticeText: noticeText,
+  );
 
   static NavigationState idle() => const NavigationState(
     mainText: '',
@@ -186,32 +205,32 @@ class NavigationState {
         '${busProgress.stepId} != ${step.stepId}',
       );
     }
-    if ((busProgress.vehicleAgeSeconds ?? 0) >= staleBusPositionAfterSeconds) {
-      return NavigationState(
-        mainText: 'バスの位置情報を更新中です',
-        subText: _staleBusPositionText(busProgress),
-        color: const Color(0xFFE1F5FE),
-        statusLabel: '位置更新中',
-        currentStepId: step.stepId,
-        busProgress: busProgress,
-        isMoving: false,
-        step: step,
-      );
-    }
+    final isStale =
+        (busProgress.vehicleAgeSeconds ?? 0) >= staleBusPositionAfterSeconds;
+
+    NavigationState withFreshnessNotice(NavigationState navigation) => isStale
+        ? navigation.withNotice(
+            statusLabel: '位置更新中',
+            noticeText: 'バスの位置情報を更新中です\n${_staleBusPositionText(busProgress)}',
+          )
+        : navigation;
+
     if (busProgress.phase == BusProgressPhase.approaching) {
       final stopsUntilBoarding = busProgress.stopsUntilBoarding;
-      return NavigationState(
-        mainText: stopsUntilBoarding == null
-            ? 'バスを待っています'
-            : 'バスはあと $stopsUntilBoarding 停車前です',
-        subText: '${step.stops.first.name}でお待ちください',
-        color: const Color(0xFFE1F5FE),
-        statusLabel: '乗車待ち',
-        nextStopName: step.stops.first.name,
-        currentStepId: step.stepId,
-        busProgress: busProgress,
-        isMoving: false,
-        step: step,
+      return withFreshnessNotice(
+        NavigationState(
+          mainText: stopsUntilBoarding == null
+              ? 'バスを待っています'
+              : 'バスはあと $stopsUntilBoarding 停車前です',
+          subText: '${step.stops.first.name}でお待ちください',
+          color: const Color(0xFFE1F5FE),
+          statusLabel: '乗車待ち',
+          nextStopName: step.stops.first.name,
+          currentStepId: step.stepId,
+          busProgress: busProgress,
+          isMoving: false,
+          step: step,
+        ),
       );
     }
     final fromIndex = busProgress.fromStopIndex;
@@ -228,43 +247,49 @@ class NavigationState {
         : null;
 
     if (remaining <= 0) {
-      return NavigationState(
-        mainText: '到着',
-        subText: currentName,
-        color: const Color(0xFFFFCC80),
-        statusLabel: '到着',
-        remainingStops: 0,
-        currentStepId: step.stepId,
-        busProgress: busProgress,
-        isMoving: false,
-        step: step,
+      return withFreshnessNotice(
+        NavigationState(
+          mainText: '到着',
+          subText: currentName,
+          color: const Color(0xFFFFCC80),
+          statusLabel: '到着',
+          remainingStops: 0,
+          currentStepId: step.stepId,
+          busProgress: busProgress,
+          isMoving: false,
+          step: step,
+        ),
       );
     }
 
     if (remaining == 1) {
-      return NavigationState(
-        mainText: '次降ります',
-        subText: nextName == null ? '' : 'つぎは $nextName',
-        color: const Color(0xFFFFAB91),
+      return withFreshnessNotice(
+        NavigationState(
+          mainText: '次降ります',
+          subText: nextName == null ? '' : 'つぎは $nextName',
+          color: const Color(0xFFFFAB91),
+          statusLabel: statusLabel ?? '乗車中',
+          nextStopName: nextName,
+          remainingStops: remaining,
+          currentStepId: step.stepId,
+          busProgress: busProgress,
+          step: step,
+        ),
+      );
+    }
+
+    return withFreshnessNotice(
+      NavigationState(
+        mainText: 'あと $remaining 回停車',
+        subText: '現在: $currentName',
+        color: const Color(0xFF81D4FA),
         statusLabel: statusLabel ?? '乗車中',
         nextStopName: nextName,
         remainingStops: remaining,
         currentStepId: step.stepId,
         busProgress: busProgress,
         step: step,
-      );
-    }
-
-    return NavigationState(
-      mainText: 'あと $remaining 回停車',
-      subText: '現在: $currentName',
-      color: const Color(0xFF81D4FA),
-      statusLabel: statusLabel ?? '乗車中',
-      nextStopName: nextName,
-      remainingStops: remaining,
-      currentStepId: step.stepId,
-      busProgress: busProgress,
-      step: step,
+      ),
     );
   }
 

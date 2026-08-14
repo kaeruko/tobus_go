@@ -345,6 +345,34 @@ class _SoloStatusCard extends StatelessWidget {
               navState.subText,
               style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
             ),
+            if (navState.noticeText != null) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber.shade700),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.sync, size: 22),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        navState.noticeText!,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (navState.remainingStops != null ||
                 (navState.nextStopName?.isNotEmpty ?? false)) ...[
               const SizedBox(height: 14),
