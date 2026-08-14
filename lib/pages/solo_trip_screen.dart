@@ -48,7 +48,9 @@ class SoloTripView extends ConsumerStatefulWidget {
 class _SoloTripViewState extends ConsumerState<SoloTripView> {
   final TripService _tripService = TripService();
   bool _completionRequested = false;
+  bool _completionFailed = false;
   bool _cancelling = false;
+  MemberUiState? _arrivalUiSnapshot;
 
   @override
   void initState() {
@@ -88,7 +90,16 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
             return const Scaffold(body: Center(child: Text('移動が見つかりません')));
           }
           if (trip.travelPhase == TravelPhase.completed) {
-            return _buildCompleted(trip);
+            final arrivalUiSnapshot = _arrivalUiSnapshot;
+            if (arrivalUiSnapshot != null) {
+              return _buildTripScaffold(
+                trip: trip,
+                uiState: arrivalUiSnapshot,
+                terminalArrival: true,
+                completed: true,
+              );
+            }
+            return _buildCompleted();
           }
           if (trip.travelPhase == TravelPhase.cancelled) {
             return _buildCancelled();
@@ -106,109 +117,19 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
               body: Center(child: Text('ナビを表示できませんでした: $error')),
             ),
             data: (uiState) {
-              final shouldOfferCompletion = shouldOfferSoloTripCompletion(
+              final terminalArrival = shouldAutoCompleteSoloTrip(
                 trip: trip,
                 resolvedEntry: uiState.resolvedEntry,
               );
+              if (terminalArrival) {
+                _requestAutoCompletion(trip, uiState);
+              }
 
-              return Scaffold(
-                backgroundColor: uiState.navState.color,
-                appBar: AppBar(
-                  systemOverlayStyle: SystemUiOverlayStyle.dark,
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  title: Text(
-                    trip.displayTitle,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  actions: [
-                    if (ref.read(busLocationSourceProvider)
-                        is FakeBusLocationSource)
-                      IconButton(
-                        tooltip: 'Fakeバスを次の停留所へ',
-                        icon: const Icon(Icons.skip_next),
-                        onPressed: _advanceFakeBus,
-                      ),
-                    IconButton(
-                      tooltip: '現在地を更新',
-                      icon: const Icon(Icons.refresh),
-                      onPressed: () => ref
-                          .read(memberModeControllerProvider.notifier)
-                          .pollNow(),
-                    ),
-                  ],
-                ),
-                body: SafeArea(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                    children: [
-                      _SoloStatusCard(
-                        navState: uiState.navState,
-                        tripTitle: trip.displayTitle,
-                        onTapStops: () => _openStops(trip),
-                      ),
-                      const SizedBox(height: 14),
-                      _SoloScheduleCard(
-                        resolvedEntry: uiState.resolvedEntry,
-                        entries: uiState.windowEntries,
-                        completedCount: uiState.completedCount,
-                        activeLabel: uiState.activeLabel,
-                        onTapEntry: (entry) {
-                          final stepId = entry.routeStepId;
-                          if (stepId == null) return;
-
-                          final step = trip.stepsById[stepId];
-                          if (step == null) {
-                            throw StateError(
-                              'ScheduleEntry が存在しない routeStepId を参照しています: $stepId',
-                            );
-                          }
-
-                          if (!step.isRide || step.stops.isEmpty) return;
-
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => SegmentStopsPage(segment: step),
-                            ),
-                          );
-                        },
-                      ),
-
-                      const SizedBox(height: 14),
-                      OutlinedButton.icon(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => SoloTripDetailPage(trip: trip),
-                          ),
-                        ),
-                        icon: const Icon(Icons.route),
-                        label: const Text('経路全体を見る'),
-                      ),
-                      const SizedBox(height: 8),
-                      if (shouldOfferCompletion)
-                        FilledButton.icon(
-                          onPressed: _completionRequested
-                              ? null
-                              : () => _completeTrip(trip),
-                          icon: const Icon(Icons.check_circle),
-                          label: Text(
-                            _completionRequested ? '到着を保存中…' : '移動を完了する',
-                          ),
-                        )
-                      else
-                        TextButton(
-                          onPressed: _cancelling ? null : () => _cancelTrip(trip),
-                          child: Text(
-                            _cancelling ? '終了処理中…' : '移動を中止する',
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+              return _buildTripScaffold(
+                trip: trip,
+                uiState: uiState,
+                terminalArrival: terminalArrival,
+                completed: false,
               );
             },
           );
@@ -217,19 +138,137 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     );
   }
 
-  Future<void> _completeTrip(Trip trip) async {
-    if (_completionRequested) return;
-    setState(() => _completionRequested = true);
-    try {
-      await _tripService.completeTrip(trip.id);
-    } catch (error) {
-      if (mounted) {
-        setState(() => _completionRequested = false);
+  Widget _buildTripScaffold({
+    required Trip trip,
+    required MemberUiState uiState,
+    required bool terminalArrival,
+    required bool completed,
+  }) {
+    return Scaffold(
+      backgroundColor: uiState.navState.color,
+      appBar: AppBar(
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          trip.displayTitle,
+          style: const TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        actions: [
+          if (!completed && ref.read(busLocationSourceProvider) is FakeBusLocationSource)
+            IconButton(
+              tooltip: 'Fakeバスを次の停留所へ',
+              icon: const Icon(Icons.skip_next),
+              onPressed: _advanceFakeBus,
+            ),
+          if (!completed)
+            IconButton(
+              tooltip: '現在地を更新',
+              icon: const Icon(Icons.refresh),
+              onPressed: () =>
+                  ref.read(memberModeControllerProvider.notifier).pollNow(),
+            ),
+        ],
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            _SoloStatusCard(
+              navState: uiState.navState,
+              tripTitle: trip.displayTitle,
+              onTapStops: () => _openStops(trip),
+            ),
+            const SizedBox(height: 14),
+            _SoloScheduleCard(
+              resolvedEntry: uiState.resolvedEntry,
+              entries: uiState.windowEntries,
+              completedCount: uiState.completedCount,
+              activeLabel: uiState.activeLabel,
+              onTapEntry: (entry) {
+                final stepId = entry.routeStepId;
+                if (stepId == null) return;
+
+                final step = trip.stepsById[stepId];
+                if (step == null) {
+                  throw StateError(
+                    'ScheduleEntry が存在しない routeStepId を参照しています: $stepId',
+                  );
+                }
+
+                if (!step.isRide || step.stops.isEmpty) return;
+
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => SegmentStopsPage(segment: step),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => SoloTripDetailPage(trip: trip),
+                ),
+              ),
+              icon: const Icon(Icons.route),
+              label: const Text('経路全体を見る'),
+            ),
+            const SizedBox(height: 8),
+            if (completed)
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('閉じる'),
+              )
+            else if (terminalArrival)
+              if (_completionFailed)
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('閉じる'),
+                )
+              else
+                const SizedBox.shrink()
+            else
+              TextButton(
+                onPressed: _cancelling ? null : () => _cancelTrip(trip),
+                child: Text(
+                  _cancelling ? '終了処理中…' : '移動を中止する',
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _requestAutoCompletion(Trip trip, MemberUiState uiState) {
+    if (_completionRequested || _completionFailed) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || _completionRequested || _completionFailed) return;
+
+      setState(() {
+        _arrivalUiSnapshot = uiState;
+        _completionRequested = true;
+      });
+
+      try {
+        await _tripService.completeTrip(trip.id);
+      } catch (error) {
+        if (!mounted) return;
+        setState(() {
+          _completionRequested = false;
+          _completionFailed = true;
+        });
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('到着の保存に失敗しました: $error')));
       }
-    }
+    });
   }
 
   Future<void> _advanceFakeBus() async {
@@ -280,7 +319,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     }
   }
 
-  Widget _buildCompleted(Trip trip) {
+  Widget _buildCompleted() {
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -289,16 +328,10 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.flag_circle, size: 88, color: Colors.green),
-                const SizedBox(height: 20),
                 const Text(
                   '到着しました',
                   style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 8),
-                Text(trip.displayTitle, textAlign: TextAlign.center),
-                const SizedBox(height: 8),
-                const Text('移動を履歴に保存しました。'),
                 const SizedBox(height: 28),
                 FilledButton(
                   onPressed: () => Navigator.of(context).pop(),
@@ -461,7 +494,6 @@ class _SoloScheduleCard extends StatelessWidget {
                 onTap: entry.routeStepId == null
                     ? null
                     : () => onTapEntry(entry),
-
                 leading: Icon(
                   entry.itemKind == ScheduleEntryKind.walk
                       ? Icons.directions_walk
