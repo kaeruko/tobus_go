@@ -85,6 +85,20 @@ class NavigationState {
     return title.split(RegExp(r'[\s　]+')).first;
   }
 
+  static String _busArrivalSummary(StepSeg step) {
+    final arrivalTime = step.arrivalTime?.trim();
+    if (arrivalTime == null || arrivalTime.isEmpty) {
+      throw StateError('乗車中表示に到着予定時刻がありません: stepId=${step.stepId}');
+    }
+
+    final destination = step.toName?.trim();
+    if (destination == null || destination.isEmpty) {
+      throw StateError('乗車中表示に降車停留所がありません: stepId=${step.stepId}');
+    }
+
+    return '$arrivalTime ${_shortRideTitle(step)} $destination到着予定';
+  }
+
   static NavigationState idle() => const NavigationState(
     mainText: '',
     subText: '',
@@ -181,7 +195,6 @@ class NavigationState {
     required BusProgress? busProgress,
     String? statusLabel,
   }) {
-
     if (step.kind == 'walk') {
       return NavigationState(
         mainText: '${step.to}にむかう',
@@ -295,11 +308,13 @@ class NavigationState {
       );
     }
 
+    final arrivalSummary = _busArrivalSummary(step);
+
     if (remaining == 1) {
       return withFreshnessNotice(
         NavigationState(
           mainText: '次降ります',
-          subText: nextName == null ? '' : 'つぎは $nextName',
+          subText: arrivalSummary,
           color: const Color(0xFFFFAB91),
           statusLabel: statusLabel ?? _rideStatusLabel(step),
           nextStopName: nextName,
@@ -314,7 +329,7 @@ class NavigationState {
     return withFreshnessNotice(
       NavigationState(
         mainText: '${_shortRideTitle(step)} $currentName',
-        subText: 'あと$remaining回停車',
+        subText: arrivalSummary,
         color: const Color(0xFF81D4FA),
         statusLabel: statusLabel ?? _rideStatusLabel(step),
         nextStopName: nextName,
