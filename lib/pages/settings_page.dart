@@ -264,6 +264,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 builder: (_) => TripPage(
                   tripId: soloTrip.id,
                 ),
+              ),
             );
           }
           return;
