@@ -64,6 +64,27 @@ class NavigationState {
     noticeText: noticeText,
   );
 
+  static String _rideStatusLabel(StepSeg step) {
+    switch (step.kind) {
+      case 'bus':
+        return '🚌乗車中';
+      case 'rail':
+        return '🚇乗車中';
+      default:
+        throw StateError(
+          '乗車中ステータスの未対応step kindです: ${step.kind}',
+        );
+    }
+  }
+
+  static String _shortRideTitle(StepSeg step) {
+    final title = step.title.trim();
+    if (title.isEmpty) {
+      throw StateError('乗車中表示に路線名がありません: stepId=${step.stepId}');
+    }
+    return title.split(RegExp(r'[\s　]+')).first;
+  }
+
   static NavigationState idle() => const NavigationState(
     mainText: '',
     subText: '',
@@ -115,7 +136,7 @@ class NavigationState {
       return NavigationState.navigating(
         step: step,
         busProgress: busProgress,
-        statusLabel: '乗車中',
+        statusLabel: _rideStatusLabel(step),
       );
     }
 
@@ -180,7 +201,7 @@ class NavigationState {
             ? ''
             : '${step.to}で降ります',
         color: const Color(0xFF81D4FA),
-        statusLabel: statusLabel ?? '乗車中',
+        statusLabel: statusLabel ?? _rideStatusLabel(step),
         currentStepId: step.stepId,
         nextStopName: step.to,
         step: step,
@@ -280,7 +301,7 @@ class NavigationState {
           mainText: '次降ります',
           subText: nextName == null ? '' : 'つぎは $nextName',
           color: const Color(0xFFFFAB91),
-          statusLabel: statusLabel ?? '乗車中',
+          statusLabel: statusLabel ?? _rideStatusLabel(step),
           nextStopName: nextName,
           remainingStops: remaining,
           currentStepId: step.stepId,
@@ -292,10 +313,10 @@ class NavigationState {
 
     return withFreshnessNotice(
       NavigationState(
-        mainText: 'あと $remaining 回停車',
-        subText: 'いま: $currentName',
+        mainText: '${_shortRideTitle(step)} $currentName',
+        subText: 'あと$remaining回停車',
         color: const Color(0xFF81D4FA),
-        statusLabel: statusLabel ?? '乗車中',
+        statusLabel: statusLabel ?? _rideStatusLabel(step),
         nextStopName: nextName,
         remainingStops: remaining,
         currentStepId: step.stepId,
