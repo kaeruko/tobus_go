@@ -88,8 +88,8 @@ class Candidate {
       total: (j['total'] as num? ?? 0).toInt(),
       totalTime: (j['total_time'] as num? ?? 0).toInt(),
       steps: _readSteps(j, originName, destinationName),
-      points: (j['points'] as List?)
-              ?.map((e) {
+      points: (j['points'] is List) ? (j['points'] as List)
+              .map((e) {
                 if (e is List && e.length >= 2) {
                    final lat = e[0] as num?;
                    final lon = e[1] as num?;
@@ -99,7 +99,7 @@ class Candidate {
                 }
                 return const LatLng(0, 0);
               })
-              .toList() ??
+              .toList() :
           const [],
       originName: originName,
       destinationName: destinationName,
@@ -178,12 +178,19 @@ class Candidate {
     }
 
     final waitDuration = _forwardMinutes(waitDeparture, waitArrival);
-    if (waitDuration != wait.minutes) {
+    // The route backend keeps walking time as a fractional minute internally,
+    // but serializes departure/arrival clocks at whole-minute precision. The
+    // wait `minutes` field is truncated from that fractional duration, so its
+    // serialized clock span can be exactly one minute longer. Normalize only
+    // that known precision gap; any other inconsistency remains fail-fast.
+    final waitMinutePrecisionGap = waitDuration - wait.minutes;
+    if (waitMinutePrecisionGap < 0 || waitMinutePrecisionGap > 1) {
       throw StateError(
         '待ち時間の時刻差とminutesが一致しません: '
         'stepId=${wait.stepId}, clock=$waitDuration, minutes=${wait.minutes}',
       );
     }
+    final normalizedWaitMinutes = waitDuration;
     if ((waitArrival % (24 * 60)) != (boarding % (24 * 60))) {
       throw StateError(
         '待ち終了時刻と乗車時刻が一致しません: '
@@ -207,7 +214,7 @@ class Candidate {
       fromName: origin,
       toName: origin,
       stops: wait.stops,
-      minutes: wait.minutes,
+      minutes: normalizedWaitMinutes,
       meters: wait.meters,
       fareYen: wait.fareYen,
       departureTime: _formatClock(waitStart),
