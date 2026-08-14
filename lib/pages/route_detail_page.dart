@@ -19,6 +19,8 @@ import '../widgets/bus_loading_indicator.dart';
 import '../widgets/route_map_preview.dart';
 import '../utils/string_utils.dart';
 import 'segment_stops_page.dart';
+import 'trip_page.dart';
+
 
 bool _isPlaceholder(String? value) {
   const placeholders = {'出発地', '目的地'};

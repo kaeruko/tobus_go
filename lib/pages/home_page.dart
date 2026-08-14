@@ -21,7 +21,9 @@ import '../providers/route_search_provider.dart';
 import '../providers/active_trip_provider.dart';
 import '../models/trip_models.dart';
 import 'leader_mode_page.dart';
-import 'solo_trip_screen.dart';
+import 'trip_page.dart';
+
+
 import 'package:flutter/material.dart'
     show
         TextField,

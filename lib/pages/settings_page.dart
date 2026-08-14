@@ -19,7 +19,7 @@ import '../models/group_models.dart';
 import '../models/route_models.dart';
 import 'trip_list_page.dart';
 import 'solo_trip_detail_page.dart';
-import 'solo_trip_screen.dart';
+import 'trip_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
