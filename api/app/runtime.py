@@ -153,7 +153,7 @@ async def refresh_realtime_bus_positions(
             return True
 
         try:
-            url_gtfs = "https://api.odpt.org/api/v4/gtfs/realtime/ToeiBus"
+            url_gtfs = "https://api-public.odpt.org/api/v4/gtfs/realtime/ToeiBus"
             async with httpx.AsyncClient(timeout=15.0) as client:
                 response = await client.get(
                     url_gtfs,
@@ -182,7 +182,7 @@ async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
         print("[WARN] ODPT_API_TOKEN not set. Realtime data will not be available.")
         return
 
-    url_train = "https://api.odpt.org/api/v4/odpt:Train"
+    url_train = "https://api-public.odpt.org/api/v4/odpt:Train"
     params_base = {
         "odpt:operator": "odpt.Operator:Toei",
         "acl:consumerKey": token,

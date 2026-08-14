@@ -42,7 +42,7 @@ _ROUTE_LOCK = asyncio.Lock()
 _sv_cache: dict[str, tuple[float, bytes]] = {}
 SV_CACHE_TTL_SEC = 60 * 60  # 1時間
 
-ODPT_API_URL = "https://api.odpt.org/api/v4"
+ODPT_API_URL = "https://api-public.odpt.org/api/v4"
 ODPT_API_KEY = os.getenv("ODPT_API_KEY")
 
 def _cache_get(key: str) -> Optional[bytes]:

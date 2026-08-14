@@ -17,7 +17,7 @@ load_dotenv()
 # 設定 (Defaults)
 DEFAULT_ODPT_API_TOKEN = os.getenv("ODPT_API_TOKEN")
 DEFAULT_DATA_DIR = os.getenv("DATA_DIR", "api/data")
-API_URL_BASE = "https://api.odpt.org/api/v4"
+API_URL_BASE = "https://api-public.odpt.org/api/v4"
 
 def download_json(endpoint, save_filename, data_dir, token, params=None):
     """ 単発のJSONデータをダウンロード """

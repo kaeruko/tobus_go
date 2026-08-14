@@ -8,7 +8,7 @@ import requests
 import argparse
 
 # ODPT API Endpoint
-API_URL_BASE = "https://api.odpt.org/api/v4"
+API_URL_BASE = "https://api-public.odpt.org/api/v4"
 
 def fetch_data(endpoint_name, file_name, token, output_dir):
     url = f"{API_URL_BASE}/{endpoint_name}"

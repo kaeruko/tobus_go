@@ -26,7 +26,7 @@ from typing import Mapping, Protocol
 
 
 DEFAULT_SOURCE_URL = (
-    "https://api.odpt.org/api/v4/files/Toei/data/ToeiBus-GTFS.zip"
+    "https://api-public.odpt.org/api/v4/files/Toei/data/ToeiBus-GTFS.zip"
 )
 DEFAULT_STATE_KEY = "gtfs/toei/state.json"
 DEFAULT_VERSION_PREFIX = "gtfs/toei/versions"

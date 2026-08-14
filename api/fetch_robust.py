@@ -7,7 +7,7 @@ import time
 import os
 import argparse
 
-API_URL = "https://api.odpt.org/api/v4"
+API_URL = "https://api-public.odpt.org/api/v4"
 
 def main():
     parser = argparse.ArgumentParser()
