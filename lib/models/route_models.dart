@@ -88,8 +88,8 @@ class Candidate {
       total: (j['total'] as num? ?? 0).toInt(),
       totalTime: (j['total_time'] as num? ?? 0).toInt(),
       steps: _readSteps(j, originName, destinationName),
-      points: (j['points'] is List) ? (j['points'] as List)
-              .map((e) {
+      points: (j['points'] as List?)
+              ?.map((e) {
                 if (e is List && e.length >= 2) {
                    final lat = e[0] as num?;
                    final lon = e[1] as num?;
@@ -99,7 +99,7 @@ class Candidate {
                 }
                 return const LatLng(0, 0);
               })
-              .toList() :
+              .toList() ??
           const [],
       originName: originName,
       destinationName: destinationName,
