@@ -254,7 +254,7 @@ class HomePageState extends ConsumerState<HomePage> {
                           context,
                           CupertinoPageRoute(
                             builder: (_) => activeTripAsync.value!.isSolo
-                                ? SoloTripScreen(
+                                ? TripPage(
                                     tripId: activeTripAsync.value!.id,
                                   )
                                 : LeaderModePage(

@@ -262,7 +262,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               context,
               MaterialPageRoute(
                 builder: (_) => soloTrip.travelPhase == TravelPhase.active
-                    ? SoloTripScreen(tripId: soloTrip.id)
+                    ? TripPage(tripId: soloTrip.id)
                     : SoloTripDetailPage(trip: soloTrip),
               ),
             );
@@ -371,7 +371,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => SoloTripScreen(tripId: soloTrip.id),
+                builder: (_) => TripPage(tripId: soloTrip.id),
               ),
             );
           }

@@ -332,7 +332,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                               context,
                               CupertinoPageRoute(
                                 builder: (_) => _activeTrip!.isSolo
-                                    ? SoloTripScreen(tripId: _activeTrip!.id)
+                                    ? TripPage(tripId: _activeTrip!.id)
                                     : GroupDetailPage(trip: _activeTrip!),
                               ),
                             );
@@ -766,7 +766,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       final tripId = await _tripService.createSoloTrip(widget.candidate);
       if (!mounted) return;
       await Navigator.of(context).push(
-        CupertinoPageRoute(builder: (_) => SoloTripScreen(tripId: tripId)),
+        CupertinoPageRoute(builder: (_) => TripPage(tripId: tripId)),
       );
       await _checkActiveTrip();
     } on ActiveTripExistsException catch (error) {
@@ -812,7 +812,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               if (trip.isSolo) {
                 Navigator.of(context).push(
                   CupertinoPageRoute(
-                    builder: (_) => SoloTripScreen(tripId: trip.id),
+                    builder: (_) => TripPage(tripId: trip.id),
                   ),
                 );
               } else {
