@@ -261,10 +261,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => soloTrip.travelPhase == TravelPhase.active
-                    ? TripPage(tripId: soloTrip.id)
-                    : SoloTripDetailPage(trip: soloTrip),
-              ),
+                builder: (_) => TripPage(
+                  tripId: soloTrip.id,
+                ),
             );
           }
           return;

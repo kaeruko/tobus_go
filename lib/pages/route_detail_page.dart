@@ -331,9 +331,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                             Navigator.push(
                               context,
                               CupertinoPageRoute(
-                                builder: (_) => _activeTrip!.isSolo
-                                    ? TripPage(tripId: _activeTrip!.id)
-                                    : GroupDetailPage(trip: _activeTrip!),
+                                builder: (_) => TripPage(
+                                  tripId: _activeTrip!.id,
+                                ),
                               ),
                             );
                           },
