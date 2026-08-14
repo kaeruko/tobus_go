@@ -8,7 +8,7 @@ import 'fixtures/navigation_v2_fixture.dart';
 
 void main() {
   group('NavigationState riding display', () {
-    test('bus riding shows bus emoji, route, current stop, and remaining stops', () {
+    test('bus riding shows route, current stop, and arrival summary', () {
       final step = navigationV2Candidate().steps.firstWhere(
         (step) => step.stepId == 'bus-C',
       );
@@ -37,7 +37,7 @@ void main() {
 
       expect(navigation.statusLabel, '🚌乗車中');
       expect(navigation.mainText, '上23 中間一');
-      expect(navigation.subText, 'あと2回停車');
+      expect(navigation.subText, '10:46 上23 押上到着予定');
       expect(navigation.remainingStops, 2);
     });
 
@@ -52,6 +52,7 @@ void main() {
         fromName: baseStep.fromName,
         toName: baseStep.toName,
         stops: baseStep.stops,
+        arrivalTime: baseStep.arrivalTime,
       );
       final progress = BusProgress(
         stepId: step.stepId,
@@ -68,6 +69,30 @@ void main() {
       );
 
       expect(navigation.mainText, '上23 中間一');
+      expect(navigation.subText, '10:46 上23 押上到着予定');
+    });
+
+    test('next stop warning keeps arrival summary in the small text', () {
+      final step = navigationV2Candidate().steps.firstWhere(
+        (step) => step.stepId == 'bus-C',
+      );
+      final progress = BusProgress(
+        stepId: step.stepId,
+        fromStopId: step.stops[2].stopId!,
+        fromStopIndex: 2,
+        nextStopId: step.stops[3].stopId,
+        nextStopIndex: 3,
+        phase: BusProgressPhase.riding,
+      );
+
+      final navigation = NavigationState.navigating(
+        step: step,
+        busProgress: progress,
+      );
+
+      expect(navigation.mainText, '次降ります');
+      expect(navigation.subText, '10:46 上23 押上到着予定');
+      expect(navigation.remainingStops, 1);
     });
 
     test('rail riding shows subway emoji', () {
@@ -104,6 +129,37 @@ void main() {
         stepId: baseStep.stepId,
         kind: baseStep.kind,
         title: '',
+        fromName: baseStep.fromName,
+        toName: baseStep.toName,
+        stops: baseStep.stops,
+        arrivalTime: baseStep.arrivalTime,
+      );
+      final progress = BusProgress(
+        stepId: step.stepId,
+        fromStopId: step.stops[1].stopId!,
+        fromStopIndex: 1,
+        nextStopId: step.stops[2].stopId,
+        nextStopIndex: 2,
+        phase: BusProgressPhase.riding,
+      );
+
+      expect(
+        () => NavigationState.navigating(
+          step: step,
+          busProgress: progress,
+        ),
+        throwsStateError,
+      );
+    });
+
+    test('bus riding fails fast when arrival time is missing', () {
+      final baseStep = navigationV2Candidate().steps.firstWhere(
+        (step) => step.stepId == 'bus-C',
+      );
+      final step = StepSeg(
+        stepId: baseStep.stepId,
+        kind: baseStep.kind,
+        title: baseStep.title,
         fromName: baseStep.fromName,
         toName: baseStep.toName,
         stops: baseStep.stops,
