@@ -4,6 +4,7 @@ import 'package:http/testing.dart';
 
 import 'package:toeigo/core/api_client.dart';
 import 'package:toeigo/services/bus_location_source.dart';
+import 'package:toeigo/services/timetable_service.dart';
 
 void main() {
   group('ApiClient.fetchBusLocation', () {
@@ -62,5 +63,85 @@ void main() {
         throwsA(isA<BusLocationNotAvailableException>()),
       );
     });
+
+    test('adds force_refresh only for a manual refresh', () async {
+      Uri? requestedUri;
+      ApiClient.httpClient = MockClient((request) async {
+        requestedUri = request.url;
+        return http.Response('{}', 200);
+      });
+
+      await ApiClient.fetchBusLocation(
+        routeId: 'route-id',
+        tripId: 'trip-id',
+        vehicleId: 'vehicle-id',
+        forceRefresh: true,
+      );
+
+      expect(requestedUri?.queryParameters['force_refresh'], 'true');
+    });
+
+    test('does not force refresh during normal polling', () async {
+      Uri? requestedUri;
+      ApiClient.httpClient = MockClient((request) async {
+        requestedUri = request.url;
+        return http.Response('{}', 200);
+      });
+
+      await ApiClient.fetchBusLocation(routeId: 'route-id', tripId: 'trip-id');
+
+      expect(requestedUri?.queryParameters, isNot(contains('force_refresh')));
+    });
+  });
+
+  test('preserves realtime freshness diagnostics', () {
+    final location = BusLocation.fromJson(
+      {
+        'vehicle_id': 'vehicle-id',
+        'odpt:fromBusstopPole': 'stop-3',
+        'trip_id': 'trip-id',
+        'trip_stop_ids': ['stop-1', 'stop-2', 'stop-3'],
+        'raw_stop_id': 'stop-4',
+        'raw_stop_name': 'Stop 4',
+        'observed_stop_sequence': 4,
+        'current_status': 'IN_TRANSIT_TO',
+        'feed_ts': 1700000000,
+        'vehicle_ts': 1700000010,
+        'realtime_fetched_ts': 1700000020.5,
+        'server_now': '2026-08-14T00:00:00+00:00',
+        'snapshot_age_seconds': 1.5,
+        'feed_age_seconds': 20.0,
+        'vehicle_age_seconds': 10,
+      },
+      routeId: 'route-id',
+      tripId: 'trip-id',
+    );
+
+    expect(location.rawStopId, 'stop-4');
+    expect(location.rawStopName, 'Stop 4');
+    expect(location.observedStopSequence, 4);
+    expect(location.currentStatus, 'IN_TRANSIT_TO');
+    expect(location.feedTimestamp, 1700000000);
+    expect(location.vehicleTimestamp, 1700000010);
+    expect(location.realtimeFetchedTimestamp, 1700000020);
+    expect(location.serverNow, '2026-08-14T00:00:00+00:00');
+    expect(location.snapshotAgeSeconds, 1.5);
+    expect(location.feedAgeSeconds, 20.0);
+    expect(location.vehicleAgeSeconds, 10.0);
+  });
+
+  test('does not request a timetable without a stop ID', () async {
+    final originalClient = ApiClient.httpClient;
+    var requestCount = 0;
+    ApiClient.httpClient = MockClient((request) async {
+      requestCount++;
+      return http.Response('{"destinations":[]}', 200);
+    });
+    addTearDown(() => ApiClient.httpClient = originalClient);
+
+    final result = await TimetableService().getNextBusesFromApi('070', '');
+
+    expect(result, isEmpty);
+    expect(requestCount, 0);
   });
 }

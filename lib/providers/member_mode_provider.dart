@@ -79,10 +79,13 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
     );
   }
 
-  Future<void> pollNow() async => _checkProgress();
+  Future<void> pollNow() async => _checkProgress(forceRefresh: true);
 
-  Future<void> _checkProgress() async {
-    debugPrint('[MemberModeController] _checkProgress START');
+  Future<void> _checkProgress({bool forceRefresh = false}) async {
+    debugPrint(
+      '[MemberModeController] _checkProgress START '
+      'forceRefresh=$forceRefresh',
+    );
 
     final trip = _ref.read(tripStreamProvider).value;
     if (trip == null) {
@@ -140,11 +143,16 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
           routeId: activeStep.routeId!,
           tripId: activeStep.tripId!,
           vehicleId: trackedVehicleId,
+          forceRefresh: forceRefresh,
         );
         final progress = BusProgress.forStep(
           step: activeStep,
           fromStopId: location.fromStopId,
           tripStopIds: location.tripStopIds,
+          observedStopId: location.rawStopId,
+          observedStopName: location.rawStopName,
+          currentStatus: location.currentStatus,
+          vehicleAgeSeconds: location.vehicleAgeSeconds,
         );
         state = RealtimeBusState(
           trackedStepId: activeStep.stepId,
@@ -154,8 +162,18 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
         debugPrint(
           '[MemberModeController] 追跡成功: '
           'step=${activeStep.stepId}, phase=${progress.phase.name}, '
-          'from=${progress.fromStopIndex}, '
-          'vehicle=${location.vehicleId}',
+          'fromIndex=${progress.fromStopIndex}, '
+          'fromStopId=${location.fromStopId}, '
+          'rawStopId=${location.rawStopId}, '
+          'rawStopName=${location.rawStopName}, '
+          'observedSeq=${location.observedStopSequence}, '
+          'status=${location.currentStatus}, '
+          'vehicle=${location.vehicleId}, '
+          'snapshotAge=${location.snapshotAgeSeconds}s, '
+          'feedAge=${location.feedAgeSeconds}s, '
+          'vehicleAge=${location.vehicleAgeSeconds}s, '
+          'serverNow=${location.serverNow}, '
+          'clientNow=${DateTime.now().toUtc().toIso8601String()}',
         );
       } on BusLocationNotAvailableException catch (e) {
         // An exact route/trip match may not appear in the realtime feed until

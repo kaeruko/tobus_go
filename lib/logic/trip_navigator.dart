@@ -19,6 +19,8 @@ class RouteState {
 }
 
 class NavigationState {
+  static const double staleBusPositionAfterSeconds = 90;
+
   final String mainText;
   final String subText;
   final Color color;
@@ -184,6 +186,18 @@ class NavigationState {
         '${busProgress.stepId} != ${step.stepId}',
       );
     }
+    if ((busProgress.vehicleAgeSeconds ?? 0) >= staleBusPositionAfterSeconds) {
+      return NavigationState(
+        mainText: 'バスの位置情報を更新中です',
+        subText: _staleBusPositionText(busProgress),
+        color: const Color(0xFFE1F5FE),
+        statusLabel: '位置更新中',
+        currentStepId: step.stepId,
+        busProgress: busProgress,
+        isMoving: false,
+        step: step,
+      );
+    }
     if (busProgress.phase == BusProgressPhase.approaching) {
       final stopsUntilBoarding = busProgress.stopsUntilBoarding;
       return NavigationState(
@@ -252,5 +266,21 @@ class NavigationState {
       busProgress: busProgress,
       step: step,
     );
+  }
+
+  static String _staleBusPositionText(BusProgress progress) {
+    final ageSeconds = progress.vehicleAgeSeconds ?? 0;
+    final ageMinutes = (ageSeconds / 60).round().clamp(1, 999);
+    final ageText = '約$ageMinutes分前';
+    final stopName = progress.observedStopName;
+    final stopText = stopName != null && stopName.isNotEmpty
+        ? stopName
+        : progress.observedStopId != null && progress.observedStopId!.isNotEmpty
+        ? '停留所ID ${progress.observedStopId}'
+        : '不明';
+    final movementText = progress.currentStatus == 'IN_TRANSIT_TO'
+        ? '$stopTextへ走行中'
+        : stopText;
+    return '最終取得位置: $movementText（$ageText）';
   }
 }

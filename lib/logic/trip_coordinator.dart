@@ -205,7 +205,15 @@ class TripCoordinator {
         isMoving: false,
       );
     }
-    if (resolvedState == null || resolvedState.resolvedEntry == null) {
+    if (resolvedState == null) {
+      return NavigationState.idle();
+    }
+    if (resolvedState.resolvedEntry == null) {
+      if (resolvedState.windowEntries.isNotEmpty) {
+        return NavigationState.waitingForDeparture(
+          plannedAt: resolvedState.windowEntries.first.plannedAt,
+        );
+      }
       return NavigationState.idle();
     }
 

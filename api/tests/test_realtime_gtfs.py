@@ -13,6 +13,7 @@ class ParseRealtimeGtfsTest(unittest.TestCase):
     def test_in_transit_position_uses_most_recently_departed_stop(self):
         feed = gtfs_realtime_pb2.FeedMessage()
         feed.header.gtfs_realtime_version = "2.0"
+        feed.header.timestamp = 1_700_000_000
         entity = feed.entity.add()
         entity.id = "entity-a"
         vehicle = entity.vehicle
@@ -20,6 +21,8 @@ class ParseRealtimeGtfsTest(unittest.TestCase):
         vehicle.vehicle.id = "vehicle-a"
         vehicle.current_stop_sequence = 4
         vehicle.current_status = gtfs_realtime_pb2.VehiclePosition.IN_TRANSIT_TO
+        vehicle.stop_id = "stop-4"
+        vehicle.timestamp = 1_700_000_010
 
         def details(_trip_id, sequence):
             if sequence not in (3, 4):
@@ -36,6 +39,11 @@ class ParseRealtimeGtfsTest(unittest.TestCase):
             patch.object(gtfs_repo, "get_bus_details", side_effect=details),
             patch.object(
                 gtfs_repo,
+                "stops",
+                {"stop-4": {"name": "Stop 4"}},
+            ),
+            patch.object(
+                gtfs_repo,
                 "get_trip_stop_ids",
                 return_value=["stop-1", "stop-2", "stop-3", "stop-4"],
             ),
@@ -48,6 +56,10 @@ class ParseRealtimeGtfsTest(unittest.TestCase):
         self.assertEqual(buses[0]["from_stop_sequence"], 3)
         self.assertEqual(buses[0]["observed_stop_sequence"], 4)
         self.assertEqual(buses[0]["current_status"], "IN_TRANSIT_TO")
+        self.assertEqual(buses[0]["raw_stop_id"], "stop-4")
+        self.assertEqual(buses[0]["raw_stop_name"], "Stop 4")
+        self.assertEqual(buses[0]["feed_timestamp"], 1_700_000_000)
+        self.assertEqual(buses[0]["vehicle_timestamp"], 1_700_000_010)
 
 
 class _FakeRealtimeResponse:

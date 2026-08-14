@@ -7,6 +7,33 @@ import 'fixtures/navigation_v2_fixture.dart';
 
 void main() {
   group('TripCoordinator', () {
+    test('shows the first departure time before the schedule starts', () {
+      final trip = navigationV2Trip();
+      final firstEntry = ScheduleEntry(
+        plannedAt: DateTime(2025, 1, 1, 8, 29),
+        label: '平井七丁目まで歩く',
+        itemKind: ScheduleEntryKind.walk,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: 'walk-A',
+      );
+      final resolved = TripCoordinator.resolveScheduleState(
+        scheduleEntries: [firstEntry],
+        now: DateTime(2025, 1, 1, 8, 24),
+      );
+
+      final navigation = TripCoordinator.buildMemberNavigationState(
+        trip: trip,
+        routeState: RouteState(stepsById: trip.stepsById),
+        now: DateTime(2025, 1, 1, 8, 24),
+        resolvedState: resolved,
+      );
+
+      expect(resolved.resolvedEntry, isNull);
+      expect(navigation.mainText, '出発前');
+      expect(navigation.subText, '8:29 出発予定');
+      expect(navigation.statusLabel, '開始前');
+    });
+
     test('meeting entries do not need a route step', () {
       final trip = navigationV2Trip();
       final entry = ScheduleEntry(

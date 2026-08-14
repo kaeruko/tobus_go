@@ -165,6 +165,7 @@ async def refresh_realtime_bus_positions(
 
             tm.latest_bus_positions = parse_realtime_gtfs(response.content)
             tm.latest_bus_positions_refreshed_at = time.monotonic()
+            tm.latest_bus_positions_fetched_at = time.time()
             print(
                 "[INFO] Updated realtime bus positions: "
                 f"{len(tm.latest_bus_positions)} vehicles"

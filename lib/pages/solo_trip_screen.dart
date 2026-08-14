@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 
 import '../logic/solo_trip_lifecycle.dart';
 import '../logic/trip_navigator.dart';
@@ -59,117 +60,132 @@ class _SoloTripBodyState extends ConsumerState<_SoloTripBody> {
     final tripAsync = ref.watch(tripStreamProvider);
     final uiAsync = ref.watch(memberUiStateProvider);
 
-    return tripAsync.when(
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (error, stack) => Scaffold(
-        appBar: AppBar(title: const Text('移動')),
-        body: Center(child: Text('移動を読み込めませんでした: $error')),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
       ),
-      data: (trip) {
-        if (trip == null) {
-          return const Scaffold(body: Center(child: Text('移動が見つかりません')));
-        }
-        if (trip.travelPhase == TravelPhase.completed) {
-          return _buildCompleted(trip);
-        }
-        if (trip.travelPhase == TravelPhase.cancelled) {
-          return _buildCancelled();
-        }
-
-        return uiAsync.when(
-          loading: () =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
-          error: (error, stack) => Scaffold(
-            appBar: AppBar(title: const Text('移動')),
-            body: Center(child: Text('ナビを表示できませんでした: $error')),
+      child: tripAsync.when(
+        loading: () =>
+            const Scaffold(body: Center(child: CircularProgressIndicator())),
+        error: (error, stack) => Scaffold(
+          appBar: AppBar(
+            systemOverlayStyle: SystemUiOverlayStyle.dark,
+            title: const Text('移動'),
           ),
-          data: (uiState) {
-            _completeWhenArrived(trip, uiState.resolvedEntry);
-            return Scaffold(
-              backgroundColor: uiState.navState.color,
+          body: Center(child: Text('移動を読み込めませんでした: $error')),
+        ),
+        data: (trip) {
+          if (trip == null) {
+            return const Scaffold(body: Center(child: Text('移動が見つかりません')));
+          }
+          if (trip.travelPhase == TravelPhase.completed) {
+            return _buildCompleted(trip);
+          }
+          if (trip.travelPhase == TravelPhase.cancelled) {
+            return _buildCancelled();
+          }
+
+          return uiAsync.when(
+            loading: () => const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            ),
+            error: (error, stack) => Scaffold(
               appBar: AppBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                title: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '一人で移動中',
-                      style: TextStyle(fontSize: 13, color: Colors.black54),
-                    ),
-                    Text(
-                      trip.displayTitle,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                actions: [
-                  if (ref.read(busLocationSourceProvider)
-                      is FakeBusLocationSource)
-                    IconButton(
-                      tooltip: 'Fakeバスを次の停留所へ',
-                      icon: const Icon(Icons.skip_next),
-                      onPressed: _advanceFakeBus,
-                    ),
-                  IconButton(
-                    tooltip: '現在地を更新',
-                    icon: const Icon(Icons.refresh),
-                    onPressed: () => ref
-                        .read(memberModeControllerProvider.notifier)
-                        .pollNow(),
-                  ),
-                ],
+                systemOverlayStyle: SystemUiOverlayStyle.dark,
+                title: const Text('移動'),
               ),
-              body: SafeArea(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                  children: [
-                    _SoloStatusCard(
-                      navState: uiState.navState,
-                      tripTitle: trip.displayTitle,
-                      onTapStops: () => _openStops(trip),
-                    ),
-                    const SizedBox(height: 14),
-                    _SoloScheduleCard(
-                      resolvedEntry: uiState.resolvedEntry,
-                      entries: uiState.windowEntries,
-                      completedCount: uiState.completedCount,
-                      activeLabel: uiState.activeLabel,
-                    ),
-                    const SizedBox(height: 14),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => SoloTripDetailPage(trip: trip),
+              body: Center(child: Text('ナビを表示できませんでした: $error')),
+            ),
+            data: (uiState) {
+              _completeWhenArrived(trip, uiState.resolvedEntry);
+              return Scaffold(
+                backgroundColor: uiState.navState.color,
+                appBar: AppBar(
+                  systemOverlayStyle: SystemUiOverlayStyle.dark,
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  title: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '一人で移動中',
+                        style: TextStyle(fontSize: 13, color: Colors.black54),
+                      ),
+                      Text(
+                        trip.displayTitle,
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      icon: const Icon(Icons.route),
-                      label: const Text('経路全体を見る'),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: _cancelling || _completionRequested
-                          ? null
-                          : () => _cancelTrip(trip),
-                      child: Text(
-                        _completionRequested
-                            ? '到着を保存中…'
-                            : _cancelling
-                            ? '終了処理中…'
-                            : '移動を中止する',
+                    ],
+                  ),
+                  actions: [
+                    if (ref.read(busLocationSourceProvider)
+                        is FakeBusLocationSource)
+                      IconButton(
+                        tooltip: 'Fakeバスを次の停留所へ',
+                        icon: const Icon(Icons.skip_next),
+                        onPressed: _advanceFakeBus,
                       ),
+                    IconButton(
+                      tooltip: '現在地を更新',
+                      icon: const Icon(Icons.refresh),
+                      onPressed: () => ref
+                          .read(memberModeControllerProvider.notifier)
+                          .pollNow(),
                     ),
                   ],
                 ),
-              ),
-            );
-          },
-        );
-      },
+                body: SafeArea(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    children: [
+                      _SoloStatusCard(
+                        navState: uiState.navState,
+                        tripTitle: trip.displayTitle,
+                        onTapStops: () => _openStops(trip),
+                      ),
+                      const SizedBox(height: 14),
+                      _SoloScheduleCard(
+                        resolvedEntry: uiState.resolvedEntry,
+                        entries: uiState.windowEntries,
+                        completedCount: uiState.completedCount,
+                        activeLabel: uiState.activeLabel,
+                      ),
+                      const SizedBox(height: 14),
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => SoloTripDetailPage(trip: trip),
+                          ),
+                        ),
+                        icon: const Icon(Icons.route),
+                        label: const Text('経路全体を見る'),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: _cancelling || _completionRequested
+                            ? null
+                            : () => _cancelTrip(trip),
+                        child: Text(
+                          _completionRequested
+                              ? '到着を保存中…'
+                              : _cancelling
+                              ? '終了処理中…'
+                              : '移動を中止する',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -422,7 +438,10 @@ class _SoloStopsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(step.title)),
+      appBar: AppBar(
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
+        title: Text(step.title),
+      ),
       body: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: step.stops.length,

@@ -119,6 +119,36 @@ void main() {
       expect(navigation.isMoving, isFalse);
     });
 
+    test('古い位置では停車数を隠して最終取得位置を表示する', () {
+      final step = navigationV2Candidate().steps.singleWhere(
+        (candidateStep) => candidateStep.stepId == 'bus-C',
+      );
+      final progress = BusProgress.forStep(
+        step: step,
+        fromStopId: 'pre-boarding',
+        tripStopIds: [
+          'trip-origin',
+          'pre-boarding',
+          ...step.stops.map((stop) => stop.stopId!),
+        ],
+        observedStopId: 'raw-stop',
+        observedStopName: '平井六丁目',
+        currentStatus: 'IN_TRANSIT_TO',
+        vehicleAgeSeconds: 122,
+      );
+
+      final navigation = NavigationState.navigating(
+        step: step,
+        busProgress: progress,
+      );
+
+      expect(navigation.mainText, 'バスの位置情報を更新中です');
+      expect(navigation.subText, '最終取得位置: 平井六丁目へ走行中（約2分前）');
+      expect(navigation.statusLabel, '位置更新中');
+      expect(navigation.remainingStops, isNull);
+      expect(navigation.nextStopName, isNull);
+    });
+
     test('advances remaining stops to next-stop and arrival states', () async {
       final step = navigationV2Candidate().steps.singleWhere(
         (candidateStep) => candidateStep.stepId == 'bus-C',

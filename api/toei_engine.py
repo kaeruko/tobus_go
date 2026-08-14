@@ -2199,6 +2199,7 @@ def parse_realtime_gtfs(content: bytes):
         return []
 
     result_list = []
+    feed_timestamp = int(feed.header.timestamp) if feed.header.timestamp else None
     
     for entity in feed.entity:
         if not entity.HasField('vehicle'):
@@ -2206,6 +2207,10 @@ def parse_realtime_gtfs(content: bytes):
             
         v = entity.vehicle
         trip_id = v.trip.trip_id
+        raw_stop_id = v.stop_id or None
+        raw_stop_info = gtfs_repo.stops.get(raw_stop_id) if raw_stop_id else None
+        raw_stop_name = raw_stop_info.get('name') if raw_stop_info else None
+        vehicle_timestamp = int(v.timestamp) if v.timestamp else None
 
         # GTFS-RT points at the stop the vehicle is approaching/currently at.
         # BusProgress is defined by the stop most recently departed.
@@ -2237,6 +2242,13 @@ def parse_realtime_gtfs(content: bytes):
                 "from_stop_sequence": from_seq,
                 "observed_stop_sequence": observed_seq,
                 "current_status": status_name,
+                # Keep the source timestamps and raw GTFS-RT stop ID for
+                # freshness diagnostics. They are not used as fallback data
+                # and do not change the navigation decision.
+                "feed_timestamp": feed_timestamp,
+                "vehicle_timestamp": vehicle_timestamp,
+                "raw_stop_id": raw_stop_id,
+                "raw_stop_name": raw_stop_name,
                 
                 "route_id": route_id_raw,
                 "route_short_name": route_short_name,

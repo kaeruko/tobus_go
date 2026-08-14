@@ -142,10 +142,14 @@ class ApiClient {
     required String routeId,
     required String tripId,
     String? vehicleId,
+    bool forceRefresh = false,
   }) async {
     final params = <String, String>{'route_id': routeId, 'trip_id': tripId};
     if (vehicleId != null) {
       params['vehicle_id'] = vehicleId;
+    }
+    if (forceRefresh) {
+      params['force_refresh'] = 'true';
     }
 
     return await get(

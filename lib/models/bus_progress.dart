@@ -14,6 +14,10 @@ class BusProgress {
   final int? nextStopIndex;
   final int? stopsUntilBoarding;
   final BusProgressPhase phase;
+  final String? observedStopId;
+  final String? observedStopName;
+  final String? currentStatus;
+  final double? vehicleAgeSeconds;
 
   const BusProgress({
     required this.stepId,
@@ -23,12 +27,20 @@ class BusProgress {
     required this.nextStopIndex,
     this.stopsUntilBoarding,
     required this.phase,
+    this.observedStopId,
+    this.observedStopName,
+    this.currentStatus,
+    this.vehicleAgeSeconds,
   });
 
   factory BusProgress.forStep({
     required StepSeg step,
     required String fromStopId,
     List<String> tripStopIds = const [],
+    String? observedStopId,
+    String? observedStopName,
+    String? currentStatus,
+    double? vehicleAgeSeconds,
   }) {
     if (step.stops.isEmpty) {
       throw StateError('停留所のないバスStepです: stepId=${step.stepId}');
@@ -49,6 +61,10 @@ class BusProgress {
         phase: isDestination
             ? BusProgressPhase.arrived
             : BusProgressPhase.riding,
+        observedStopId: observedStopId,
+        observedStopName: observedStopName,
+        currentStatus: currentStatus,
+        vehicleAgeSeconds: vehicleAgeSeconds,
       );
     }
 
@@ -70,6 +86,10 @@ class BusProgress {
           nextStopIndex: 0,
           stopsUntilBoarding: boardingTripIndex - observedTripIndex,
           phase: BusProgressPhase.approaching,
+          observedStopId: observedStopId,
+          observedStopName: observedStopName,
+          currentStatus: currentStatus,
+          vehicleAgeSeconds: vehicleAgeSeconds,
         );
       }
       if (observedTripIndex > destinationTripIndex) {
@@ -81,6 +101,10 @@ class BusProgress {
           nextStopId: null,
           nextStopIndex: null,
           phase: BusProgressPhase.arrived,
+          observedStopId: observedStopId,
+          observedStopName: observedStopName,
+          currentStatus: currentStatus,
+          vehicleAgeSeconds: vehicleAgeSeconds,
         );
       }
     }

@@ -245,7 +245,11 @@ def register_routes(app):
     async def bus_location(
         route_id: str = Query(...),
         trip_id: str = Query(...),
-        vehicle_id: str = Query(None, description="Optional physical bus ID to track specific vehicle")
+        vehicle_id: str = Query(None, description="Optional physical bus ID to track specific vehicle"),
+        force_refresh: bool = Query(
+            False,
+            description="Bypass the local GTFS-RT snapshot cache",
+        ),
     ):
         import uuid
         from datetime import datetime, timezone
@@ -260,13 +264,17 @@ def register_routes(app):
             "route_id": route_id,
             "trip_id": trip_id,
             "vehicle_id": vehicle_id,
+            "force_refresh": force_refresh,
         }
 
         tm = app.state.TM
         if tm:
             from app.runtime import refresh_realtime_bus_positions
 
-            await refresh_realtime_bus_positions(tm)
+            await refresh_realtime_bus_positions(
+                tm,
+                max_age_seconds=0 if force_refresh else 45,
+            )
         if not tm or not tm.latest_bus_positions:
             _busloc_log({**base, "ok": False, "reason": "REALTIME_UNAVAILABLE"})
             raise HTTPException(
@@ -309,7 +317,14 @@ def register_routes(app):
             # Use raw lat/lon from V2 engine
             "vehicle_lat": target_bus.get("lat"),
             "vehicle_lon": target_bus.get("lon"),
-            "vehicle_ts": None, # timestamp could be added if needed
+            "server_now": now,
+            "realtime_fetched_ts": getattr(
+                tm, "latest_bus_positions_fetched_at", None
+            ),
+            "feed_ts": target_bus.get("feed_timestamp"),
+            "vehicle_ts": target_bus.get("vehicle_timestamp"),
+            "raw_stop_id": target_bus.get("raw_stop_id"),
+            "raw_stop_name": target_bus.get("raw_stop_name"),
             
             # Pass through informative fields
             "next_stop": target_bus.get("next_stop"),
@@ -320,8 +335,33 @@ def register_routes(app):
             "observed_stop_sequence": target_bus.get("observed_stop_sequence"),
             "current_status": target_bus.get("current_status"),
         }
+
+        response_epoch = time.time()
+
+        def age_seconds(timestamp):
+            if not isinstance(timestamp, (int, float)) or timestamp <= 0:
+                return None
+            return round(max(0.0, response_epoch - timestamp), 1)
+
+        response["snapshot_age_seconds"] = age_seconds(
+            response["realtime_fetched_ts"]
+        )
+        response["feed_age_seconds"] = age_seconds(response["feed_ts"])
+        response["vehicle_age_seconds"] = age_seconds(response["vehicle_ts"])
         
-        _busloc_log({**base, "ok": True, "bus_id": target_bus.get("vehicle_id")})
+        _busloc_log({
+            **base,
+            "ok": True,
+            "bus_id": target_bus.get("vehicle_id"),
+            "raw_stop_id": response["raw_stop_id"],
+            "raw_stop_name": response["raw_stop_name"],
+            "from_stop_id": response["odpt:fromBusstopPole"],
+            "observed_stop_sequence": response["observed_stop_sequence"],
+            "current_status": response["current_status"],
+            "snapshot_age_seconds": response["snapshot_age_seconds"],
+            "feed_age_seconds": response["feed_age_seconds"],
+            "vehicle_age_seconds": response["vehicle_age_seconds"],
+        })
         return response
 
     class RouteRequest(BaseModel):

@@ -15,6 +15,17 @@ class BusLocation {
   final String routeId;
   final String tripId;
   final List<String> tripStopIds;
+  final String? rawStopId;
+  final String? rawStopName;
+  final int? observedStopSequence;
+  final String? currentStatus;
+  final int? feedTimestamp;
+  final int? vehicleTimestamp;
+  final int? realtimeFetchedTimestamp;
+  final String? serverNow;
+  final double? snapshotAgeSeconds;
+  final double? feedAgeSeconds;
+  final double? vehicleAgeSeconds;
 
   const BusLocation({
     required this.vehicleId,
@@ -22,6 +33,17 @@ class BusLocation {
     required this.routeId,
     required this.tripId,
     this.tripStopIds = const [],
+    this.rawStopId,
+    this.rawStopName,
+    this.observedStopSequence,
+    this.currentStatus,
+    this.feedTimestamp,
+    this.vehicleTimestamp,
+    this.realtimeFetchedTimestamp,
+    this.serverNow,
+    this.snapshotAgeSeconds,
+    this.feedAgeSeconds,
+    this.vehicleAgeSeconds,
   });
 
   factory BusLocation.fromJson(
@@ -54,6 +76,17 @@ class BusLocation {
       routeId: routeId,
       tripId: tripId,
       tripStopIds: tripStopIds,
+      rawStopId: json['raw_stop_id']?.toString(),
+      rawStopName: json['raw_stop_name']?.toString(),
+      observedStopSequence: (json['observed_stop_sequence'] as num?)?.toInt(),
+      currentStatus: json['current_status']?.toString(),
+      feedTimestamp: (json['feed_ts'] as num?)?.toInt(),
+      vehicleTimestamp: (json['vehicle_ts'] as num?)?.toInt(),
+      realtimeFetchedTimestamp: (json['realtime_fetched_ts'] as num?)?.toInt(),
+      serverNow: json['server_now']?.toString(),
+      snapshotAgeSeconds: (json['snapshot_age_seconds'] as num?)?.toDouble(),
+      feedAgeSeconds: (json['feed_age_seconds'] as num?)?.toDouble(),
+      vehicleAgeSeconds: (json['vehicle_age_seconds'] as num?)?.toDouble(),
     );
   }
 }
@@ -63,6 +96,7 @@ abstract interface class BusLocationSource {
     required String routeId,
     required String tripId,
     String? vehicleId,
+    bool forceRefresh = false,
   });
 }
 
@@ -74,12 +108,14 @@ class RealtimeBusLocationSource implements BusLocationSource {
     required String routeId,
     required String tripId,
     String? vehicleId,
+    bool forceRefresh = false,
   }) async {
     try {
       final json = await ApiClient.fetchBusLocation(
         routeId: routeId,
         tripId: tripId,
         vehicleId: vehicleId,
+        forceRefresh: forceRefresh,
       );
       return BusLocation.fromJson(json, routeId: routeId, tripId: tripId);
     } on ApiException catch (error) {
@@ -119,6 +155,7 @@ class FakeBusLocationSource implements BusLocationSource {
     required String routeId,
     required String tripId,
     String? vehicleId,
+    bool forceRefresh = false,
   }) async {
     final location = locations[_index];
     if (location.routeId != routeId || location.tripId != tripId) {

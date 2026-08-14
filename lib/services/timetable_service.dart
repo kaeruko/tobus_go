@@ -46,6 +46,9 @@ class TimetableService {
   // 指定された系統・バス停における、全方向の次のバスを取得する (API版)
   // 戻り値: [ { "directionId": "1", "name": "上野行き", "times": ["12:14", ...] }, ... ]
   Future<List<Map<String, dynamic>>> getNextBusesFromApi(String routeId, String poleId, {String? targetPoleId}) async {
+    if (routeId.trim().isEmpty || poleId.trim().isEmpty) {
+      return [];
+    }
     print('[TimetableService] getNextBusesFromApi呼び出し:');
     print('  - routeId: $routeId');
     print('  - poleId: $poleId');
