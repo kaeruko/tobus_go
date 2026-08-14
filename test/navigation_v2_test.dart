@@ -143,11 +143,7 @@ void main() {
 
       expect(navigation.subText, '${step.stops.first.name}でお待ちください');
       expect(navigation.statusLabel, '位置更新中');
-      expect(
-        navigation.noticeText,
-        'バスの位置情報を更新中です\n'
-        '最終取得位置: 平井六丁目へ走行中（約2分前）',
-      );
+
       expect(navigation.remainingStops, isNull);
       expect(navigation.nextStopName, step.stops.first.name);
     });

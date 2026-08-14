@@ -162,7 +162,7 @@ class NavigationState {
   }) {
     if (step.kind == 'walk') {
       return NavigationState(
-        mainText: '徒歩で移動中',
+        mainText: '${step.from}にむかう',
         subText: '目的地へ',
         color: const Color(0xFF81D4FA),
         statusLabel: statusLabel ?? '移動中',
@@ -220,9 +220,9 @@ class NavigationState {
 
     NavigationState withFreshnessNotice(NavigationState navigation) => isStale
         ? navigation.withNotice(
-            statusLabel: '位置更新中',
+            statusLabel: '検索中…',
             noticeText:
-                'バスの位置情報を更新中です\n${_staleBusPositionText(progress)}',
+                'バスがどこかさがしています\n${_staleBusPositionText(progress)}',
           )
         : navigation;
 
@@ -232,8 +232,8 @@ class NavigationState {
         NavigationState(
           mainText: stopsUntilBoarding == null
               ? '待機中'
-              : 'あと $stopsUntilBoarding 停車前です',
-          subText: '${step.stops.first.name}でお待ちください',
+              : 'あと $stopsUntilBoarding 停車前まできています',
+          subText: 'いま:${step.stops.first.name}',
           color: const Color(0xFFE1F5FE),
           statusLabel: '乗車待ち',
           nextStopName: step.stops.first.name,
@@ -292,7 +292,7 @@ class NavigationState {
     return withFreshnessNotice(
       NavigationState(
         mainText: 'あと $remaining 回停車',
-        subText: '現在: $currentName',
+        subText: 'いま: $currentName',
         color: const Color(0xFF81D4FA),
         statusLabel: statusLabel ?? '乗車中',
         nextStopName: nextName,
@@ -317,6 +317,6 @@ class NavigationState {
     final movementText = progress.currentStatus == 'IN_TRANSIT_TO'
         ? '$stopTextへ走行中'
         : stopText;
-    return '最終取得位置: $movementText（$ageText）';
+    return '$movementText（$ageText）';
   }
 }
