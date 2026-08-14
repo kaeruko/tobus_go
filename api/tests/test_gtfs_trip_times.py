@@ -165,6 +165,20 @@ class GtfsTripTimesTest(unittest.TestCase):
             "56208-1-61-160-1326", 5
         )
         self.assertEqual(details["next_stop_id"], "1349-01")
+
+    def test_exposes_stop_schedule_for_realtime_debugging(self):
+        schedule = self.repository.get_trip_stop_schedule(
+            "56208-1-61-160-1326"
+        )
+
+        self.assertEqual(
+            [row["sequence"] for row in schedule],
+            [4, 5, 11],
+        )
+        self.assertEqual(schedule[0]["stop_name"], "平井七丁目")
+        self.assertEqual(schedule[0]["departure_time"], "13:30")
+        self.assertEqual(schedule[-1]["arrival_time"], "13:40")
+
     def _graph_and_path(self):
         graph = nx.DiGraph()
         pole_ids = [

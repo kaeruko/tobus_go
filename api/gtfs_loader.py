@@ -275,6 +275,29 @@ class GtfsRepository:
             for _, stop_time in sorted(stops_by_sequence.items())
         ]
 
+    def get_trip_stop_schedule(self, trip_id: str) -> list[dict]:
+        """Return an ordered, log-friendly timetable for one GTFS trip."""
+        result = []
+        for sequence, stop_time in sorted(
+            self.stop_times.get(trip_id, {}).items()
+        ):
+            stop_id, arrival_minute, departure_minute = stop_time
+            stop_info = self.stops.get(stop_id, {})
+
+            def clock(minute: int) -> str:
+                return f"{minute // 60:02d}:{minute % 60:02d}"
+
+            result.append({
+                "sequence": sequence,
+                "stop_id": stop_id,
+                "stop_name": stop_info.get("name", "Unknown"),
+                "arrival_minute": arrival_minute,
+                "departure_minute": departure_minute,
+                "arrival_time": clock(arrival_minute),
+                "departure_time": clock(departure_minute),
+            })
+        return result
+
     def get_trip_stop_time_after(
         self,
         trip_id: str,

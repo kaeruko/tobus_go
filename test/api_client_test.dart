@@ -91,6 +91,7 @@ void main() {
       await ApiClient.fetchBusLocation(routeId: 'route-id', tripId: 'trip-id');
 
       expect(requestedUri?.queryParameters, isNot(contains('force_refresh')));
+      expect(requestedUri?.queryParameters['debug'], 'true');
     });
   });
 
@@ -103,6 +104,7 @@ void main() {
         'trip_stop_ids': ['stop-1', 'stop-2', 'stop-3'],
         'raw_stop_id': 'stop-4',
         'raw_stop_name': 'Stop 4',
+        'from_stop_sequence': 3,
         'observed_stop_sequence': 4,
         'current_status': 'IN_TRANSIT_TO',
         'feed_ts': 1700000000,
@@ -112,6 +114,17 @@ void main() {
         'snapshot_age_seconds': 1.5,
         'feed_age_seconds': 20.0,
         'vehicle_age_seconds': 10,
+        'trip_stop_schedule': [
+          {
+            'sequence': 3,
+            'stop_id': 'stop-3',
+            'stop_name': 'Stop 3',
+            'arrival_minute': 813,
+            'departure_minute': 813,
+            'arrival_time': '13:33',
+            'departure_time': '13:33',
+          },
+        ],
       },
       routeId: 'route-id',
       tripId: 'trip-id',
@@ -119,6 +132,7 @@ void main() {
 
     expect(location.rawStopId, 'stop-4');
     expect(location.rawStopName, 'Stop 4');
+    expect(location.fromStopSequence, 3);
     expect(location.observedStopSequence, 4);
     expect(location.currentStatus, 'IN_TRANSIT_TO');
     expect(location.feedTimestamp, 1700000000);
@@ -128,6 +142,10 @@ void main() {
     expect(location.snapshotAgeSeconds, 1.5);
     expect(location.feedAgeSeconds, 20.0);
     expect(location.vehicleAgeSeconds, 10.0);
+    expect(location.tripStopSchedule, hasLength(1));
+    expect(location.tripStopSchedule.single.sequence, 3);
+    expect(location.tripStopSchedule.single.stopName, 'Stop 3');
+    expect(location.tripStopSchedule.single.arrivalTime, '13:33');
   });
 
   test('does not request a timetable without a stop ID', () async {

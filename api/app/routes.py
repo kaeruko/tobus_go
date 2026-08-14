@@ -250,6 +250,10 @@ def register_routes(app):
             False,
             description="Bypass the local GTFS-RT snapshot cache",
         ),
+        debug: bool = Query(
+            False,
+            description="Include the static GTFS stop timetable for diagnostics",
+        ),
     ):
         import uuid
         from datetime import datetime, timezone
@@ -265,6 +269,7 @@ def register_routes(app):
             "trip_id": trip_id,
             "vehicle_id": vehicle_id,
             "force_refresh": force_refresh,
+            "debug": debug,
         }
 
         tm = app.state.TM
@@ -348,6 +353,13 @@ def register_routes(app):
         )
         response["feed_age_seconds"] = age_seconds(response["feed_ts"])
         response["vehicle_age_seconds"] = age_seconds(response["vehicle_ts"])
+
+        if debug:
+            from gtfs_loader import gtfs_repo
+
+            response["trip_stop_schedule"] = (
+                gtfs_repo.get_trip_stop_schedule(trip_id)
+            )
         
         _busloc_log({
             **base,

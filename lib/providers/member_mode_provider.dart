@@ -54,6 +54,13 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
   final Ref _ref;
   final BusLocationSource _busLocationSource;
   Timer? _pollingTimer;
+  DateTime? _debugPreviousPollAt;
+  String? _debugPreviousStepId;
+  String? _debugPreviousVehicleId;
+  int? _debugPreviousObservedSequence;
+  int? _debugPreviousFromIndex;
+  int? _debugPreviousVehicleTimestamp;
+  String? _debugPrintedTimelineKey;
 
   MemberModeController(this._ref, this._busLocationSource)
     : super(const RealtimeBusState());
@@ -94,14 +101,20 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
       return;
     }
 
-    final scheduleAsync = _ref.read(memberScheduleStateProvider);
-
-    if (scheduleAsync.asData == null) {
-      debugPrint('[MemberModeController] schedule未準備: $scheduleAsync');
-      return;
-    }
-
-    final scheduleResolved = scheduleAsync.asData!.value;
+    // Keep the realtime bus step authoritative after its planned arrival
+    // time. Resolving by the clock alone would otherwise jump to a later walk
+    // or goal while the vehicle still has stops remaining.
+    final navProgress = _ref.read(memberNavProgressProvider);
+    final knownBusProgress = state.busProgress ?? navProgress.busProgress;
+    final scheduleResolved = TripCoordinator.resolveScheduleState(
+      scheduleEntries: trip.schedule,
+      now: appClock.now(),
+      routeState: RouteState(
+        stepsById: trip.stepsById,
+        currentStepId: state.trackedStepId ?? navProgress.currentStepId,
+        busProgress: knownBusProgress,
+      ),
+    );
     final resolvedEntry = scheduleResolved.resolvedEntry;
 
     debugPrint(
@@ -154,6 +167,12 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
           observedStopName: location.rawStopName,
           currentStatus: location.currentStatus,
           vehicleAgeSeconds: location.vehicleAgeSeconds,
+        );
+        _logBusProgressTrace(
+          step: activeStep,
+          location: location,
+          progress: progress,
+          forceRefresh: forceRefresh,
         );
         state = RealtimeBusState(
           trackedStepId: activeStep.stepId,
@@ -214,6 +233,122 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
                 : null,
           );
     }
+  }
+
+  void _logBusProgressTrace({
+    required StepSeg step,
+    required BusLocation location,
+    required BusProgress progress,
+    required bool forceRefresh,
+  }) {
+    if (!kDebugMode) return;
+
+    final clientNow = DateTime.now().toUtc();
+    final sameVehicle =
+        _debugPreviousStepId == step.stepId &&
+        _debugPreviousVehicleId == location.vehicleId;
+    final elapsedSeconds = sameVehicle && _debugPreviousPollAt != null
+        ? clientNow.difference(_debugPreviousPollAt!).inMilliseconds / 1000
+        : null;
+    final observedDelta =
+        sameVehicle &&
+            _debugPreviousObservedSequence != null &&
+            location.observedStopSequence != null
+        ? location.observedStopSequence! - _debugPreviousObservedSequence!
+        : null;
+    final mappedDelta =
+        sameVehicle &&
+            _debugPreviousFromIndex != null &&
+            progress.fromStopIndex != null
+        ? progress.fromStopIndex! - _debugPreviousFromIndex!
+        : null;
+    final vehicleTimeDelta =
+        sameVehicle &&
+            _debugPreviousVehicleTimestamp != null &&
+            location.vehicleTimestamp != null
+        ? location.vehicleTimestamp! - _debugPreviousVehicleTimestamp!
+        : null;
+    final remaining = progress.fromStopIndex == null
+        ? null
+        : step.stops.length - 1 - progress.fromStopIndex!;
+
+    debugPrint(
+      '[BusProgressTrace] sample '
+      'client=${clientNow.toIso8601String()} '
+      'step=${step.stepId} route=${step.routeId} trip=${step.tripId} '
+      'vehicle=${location.vehicleId} forceRefresh=$forceRefresh',
+    );
+    debugPrint(
+      '[BusProgressTrace] realtime '
+      'vehicleTs=${location.vehicleTimestamp} '
+      'vehicleAge=${location.vehicleAgeSeconds}s '
+      'feedAge=${location.feedAgeSeconds}s '
+      'status=${location.currentStatus} '
+      'observedSeq=${location.observedStopSequence} '
+      'rawStop=${location.rawStopId}/${location.rawStopName} '
+      'fromSeq=${location.fromStopSequence} fromStop=${location.fromStopId}',
+    );
+    debugPrint(
+      '[BusProgressTrace] mapping '
+      'phase=${progress.phase.name} fromIndex=${progress.fromStopIndex} '
+      'nextIndex=${progress.nextStopIndex} remaining=$remaining '
+      'stopsUntilBoarding=${progress.stopsUntilBoarding}',
+    );
+    debugPrint(
+      '[BusProgressTrace] delta '
+      'clientElapsed=${elapsedSeconds?.toStringAsFixed(1)}s '
+      'vehicleTimeDelta=${vehicleTimeDelta}s '
+      'observedSeqDelta=$observedDelta mappedIndexDelta=$mappedDelta',
+    );
+
+    final timelineKey = '${step.stepId}/${location.vehicleId}';
+    if (_debugPrintedTimelineKey != timelineKey || forceRefresh) {
+      debugPrint(
+        '[BusProgressTrace] planned '
+        '${step.fromName} -> ${step.toName} '
+        '${step.departureTime} -> ${step.arrivalTime} '
+        'minutes=${step.minutes} stepStops=${step.stops.length}',
+      );
+      var tripSearchStart = 0;
+      BusStopSchedule? previousSchedule;
+      for (var stepIndex = 0; stepIndex < step.stops.length; stepIndex++) {
+        final stop = step.stops[stepIndex];
+        final tripIndex = location.tripStopIds.indexWhere(
+          (stopId) => stopId == stop.stopId,
+          tripSearchStart,
+        );
+        if (tripIndex >= 0) tripSearchStart = tripIndex + 1;
+        final sequence = tripIndex < 0 ? null : tripIndex + 1;
+        BusStopSchedule? schedule;
+        if (sequence != null) {
+          for (final candidate in location.tripStopSchedule) {
+            if (candidate.sequence == sequence) {
+              schedule = candidate;
+              break;
+            }
+          }
+        }
+        final intervalMinutes = schedule == null || previousSchedule == null
+            ? null
+            : schedule.arrivalMinute - previousSchedule.departureMinute;
+        debugPrint(
+          '[BusProgressTrace] stop '
+          'stepIndex=$stepIndex tripSeq=$sequence '
+          'id=${stop.stopId} name=${stop.name} '
+          'planned=${schedule?.arrivalTime ?? "?"} '
+          'intervalFromPrevious=${intervalMinutes == null ? "-" : "$intervalMinutes min"}',
+        );
+        previousSchedule = schedule ?? previousSchedule;
+      }
+      _debugPrintedTimelineKey = timelineKey;
+    }
+
+    _debugPreviousPollAt = clientNow;
+    _debugPreviousStepId = step.stepId;
+    _debugPreviousVehicleId = location.vehicleId;
+    _debugPreviousObservedSequence = location.observedStopSequence;
+    _debugPreviousFromIndex = progress.fromStopIndex;
+    _debugPreviousVehicleTimestamp = location.vehicleTimestamp;
   }
 }
 

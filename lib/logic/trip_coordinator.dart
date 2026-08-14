@@ -100,6 +100,18 @@ class TripCoordinator {
     addReason('active_entry');
 
     final progress = routeState?.busProgress;
+    if (progress != null && progress.phase != BusProgressPhase.arrived) {
+      final trackedRideIndex = scheduleSorted.indexWhere(
+        (entry) =>
+            entry.itemKind == ScheduleEntryKind.ride &&
+            entry.routeStepId == progress.stepId,
+      );
+      if (trackedRideIndex >= 0 && activeIndex > trackedRideIndex) {
+        resolved = scheduleSorted[trackedRideIndex];
+        addReason('realtime_incomplete_ride_revert_step_id');
+      }
+    }
+
     if (resolved.itemKind == ScheduleEntryKind.ride &&
         progress != null &&
         resolved.routeStepId == progress.stepId &&
@@ -141,44 +153,43 @@ class TripCoordinator {
 
     _validateStepReference(resolved, addReason);
 
-    final resolvedCompletedCount = _resolveCompletedCount(
-      baseCompletedCount: completedCount,
-      activeEntry: active,
-      resolvedEntry: resolved,
-      windowEntries: windowEntries,
+    final resolvedIndex = scheduleSorted.indexWhere(
+      (entry) => entry.id == resolved.id,
     );
+    final resolvedCompletedCount = resolvedIndex >= 0
+        ? resolvedIndex
+        : completedCount;
+    final resolvedWindowEntries = resolvedIndex >= 0
+        ? _windowAround(
+            scheduleSorted,
+            activeIndex: resolvedIndex,
+            prevCount: prevCount,
+            nextCount: nextCount,
+          )
+        : windowEntries;
 
     return ResolvedScheduleState(
       activeEntry: active,
       resolvedEntry: resolved,
-      windowEntries: windowEntries,
+      windowEntries: resolvedWindowEntries,
       completedCount: resolvedCompletedCount,
       activeLabel: activeLabel,
       resolutionReason: reasons.join(' | '),
     );
   }
 
-  static int _resolveCompletedCount({
-    required int baseCompletedCount,
-    required ScheduleEntry? activeEntry,
-    required ScheduleEntry? resolvedEntry,
-    required List<ScheduleEntry> windowEntries,
+  static List<ScheduleEntry> _windowAround(
+    List<ScheduleEntry> entries, {
+    required int activeIndex,
+    required int prevCount,
+    required int nextCount,
   }) {
-    if (activeEntry == null || resolvedEntry == null) {
-      return baseCompletedCount;
+    if (entries.isEmpty || activeIndex < 0 || activeIndex >= entries.length) {
+      return const <ScheduleEntry>[];
     }
-    if (resolvedEntry.id == activeEntry.id) return baseCompletedCount;
-
-    final activePos = windowEntries.indexWhere(
-      (entry) => entry.id == activeEntry.id,
-    );
-    final resolvedPos = windowEntries.indexWhere(
-      (entry) => entry.id == resolvedEntry.id,
-    );
-    if (activePos == -1 || resolvedPos == -1) return baseCompletedCount;
-
-    final adjusted = baseCompletedCount + (resolvedPos - activePos);
-    return adjusted < 0 ? 0 : adjusted;
+    final start = (activeIndex - prevCount).clamp(0, entries.length - 1);
+    final end = (activeIndex + nextCount).clamp(0, entries.length - 1);
+    return entries.sublist(start, end + 1);
   }
 
   static NavigationState buildMemberNavigationState({
@@ -230,20 +241,19 @@ class TripCoordinator {
     final step = _stepForEntry(routeState, resolved);
 
     if (resolved.routeRole == 'wait_start') {
-      final nextRides = trip.schedule
-          .where(
-            (entry) =>
-                entry.legIndex == resolved.legIndex &&
-                entry.itemKind == ScheduleEntryKind.ride &&
-                !entry.plannedAt.isBefore(resolved.plannedAt),
-          )
-          .toList()
-        ..sort((a, b) => a.plannedAt.compareTo(b.plannedAt));
+      final nextRides =
+          trip.schedule
+              .where(
+                (entry) =>
+                    entry.legIndex == resolved.legIndex &&
+                    entry.itemKind == ScheduleEntryKind.ride &&
+                    !entry.plannedAt.isBefore(resolved.plannedAt),
+              )
+              .toList()
+            ..sort((a, b) => a.plannedAt.compareTo(b.plannedAt));
 
       if (nextRides.isEmpty) {
-        throw StateError(
-          '待機予定の後に乗車予定がありません: entryId=${resolved.id}',
-        );
+        throw StateError('待機予定の後に乗車予定がありません: entryId=${resolved.id}');
       }
 
       final rideAt = nextRides.first.plannedAt;

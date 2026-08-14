@@ -151,6 +151,9 @@ class ApiClient {
     if (forceRefresh) {
       params['force_refresh'] = 'true';
     }
+    if (kDebugMode) {
+      params['debug'] = 'true';
+    }
 
     return await get(
       '/bus/location',

@@ -9,6 +9,38 @@ class BusLocationNotAvailableException implements Exception {
   String toString() => code ?? 'bus_location_not_available';
 }
 
+class BusStopSchedule {
+  final int sequence;
+  final String stopId;
+  final String stopName;
+  final int arrivalMinute;
+  final int departureMinute;
+  final String arrivalTime;
+  final String departureTime;
+
+  const BusStopSchedule({
+    required this.sequence,
+    required this.stopId,
+    required this.stopName,
+    required this.arrivalMinute,
+    required this.departureMinute,
+    required this.arrivalTime,
+    required this.departureTime,
+  });
+
+  factory BusStopSchedule.fromJson(Map<String, dynamic> json) {
+    return BusStopSchedule(
+      sequence: (json['sequence'] as num).toInt(),
+      stopId: json['stop_id'].toString(),
+      stopName: json['stop_name'].toString(),
+      arrivalMinute: (json['arrival_minute'] as num).toInt(),
+      departureMinute: (json['departure_minute'] as num).toInt(),
+      arrivalTime: json['arrival_time'].toString(),
+      departureTime: json['departure_time'].toString(),
+    );
+  }
+}
+
 class BusLocation {
   final String vehicleId;
   final String fromStopId;
@@ -17,6 +49,7 @@ class BusLocation {
   final List<String> tripStopIds;
   final String? rawStopId;
   final String? rawStopName;
+  final int? fromStopSequence;
   final int? observedStopSequence;
   final String? currentStatus;
   final int? feedTimestamp;
@@ -26,6 +59,7 @@ class BusLocation {
   final double? snapshotAgeSeconds;
   final double? feedAgeSeconds;
   final double? vehicleAgeSeconds;
+  final List<BusStopSchedule> tripStopSchedule;
 
   const BusLocation({
     required this.vehicleId,
@@ -35,6 +69,7 @@ class BusLocation {
     this.tripStopIds = const [],
     this.rawStopId,
     this.rawStopName,
+    this.fromStopSequence,
     this.observedStopSequence,
     this.currentStatus,
     this.feedTimestamp,
@@ -44,6 +79,7 @@ class BusLocation {
     this.snapshotAgeSeconds,
     this.feedAgeSeconds,
     this.vehicleAgeSeconds,
+    this.tripStopSchedule = const [],
   });
 
   factory BusLocation.fromJson(
@@ -57,6 +93,14 @@ class BusLocation {
     final tripStopIds = (json['trip_stop_ids'] as List<dynamic>? ?? const [])
         .map((value) => value.toString())
         .toList(growable: false);
+    final tripStopSchedule =
+        (json['trip_stop_schedule'] as List<dynamic>? ?? const [])
+            .map(
+              (value) => BusStopSchedule.fromJson(
+                Map<String, dynamic>.from(value as Map),
+              ),
+            )
+            .toList(growable: false);
     if (vehicleId == null || vehicleId.isEmpty) {
       throw const FormatException('bus location is missing vehicle_id');
     }
@@ -78,6 +122,7 @@ class BusLocation {
       tripStopIds: tripStopIds,
       rawStopId: json['raw_stop_id']?.toString(),
       rawStopName: json['raw_stop_name']?.toString(),
+      fromStopSequence: (json['from_stop_sequence'] as num?)?.toInt(),
       observedStopSequence: (json['observed_stop_sequence'] as num?)?.toInt(),
       currentStatus: json['current_status']?.toString(),
       feedTimestamp: (json['feed_ts'] as num?)?.toInt(),
@@ -87,6 +132,7 @@ class BusLocation {
       snapshotAgeSeconds: (json['snapshot_age_seconds'] as num?)?.toDouble(),
       feedAgeSeconds: (json['feed_age_seconds'] as num?)?.toDouble(),
       vehicleAgeSeconds: (json['vehicle_age_seconds'] as num?)?.toDouble(),
+      tripStopSchedule: tripStopSchedule,
     );
   }
 }
