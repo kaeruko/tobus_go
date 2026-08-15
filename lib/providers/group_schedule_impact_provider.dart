@@ -1,14 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/app_clock.dart';
 import '../logic/group_schedule_impact.dart';
 import '../models/trip_models.dart';
 import 'member_mode_provider.dart';
-import 'minute_ticker_provider.dart';
 import 'trip_provider.dart';
 
-/// Read-only warning for group plans whose next manual event would begin before
-/// the traveler can reach the current leg destination.
+/// Read-only warning for group plans whose manual event begins before the group
+/// can reach the current leg destination.
 ///
 /// This provider never mutates schedule entries. It uses final-ride realtime
 /// only when that estimate can be propagated to the leg goal without crossing
@@ -18,7 +16,6 @@ final groupScheduleImpactProvider =
       final tripAsync = ref.watch(tripStreamProvider);
       final uiAsync = ref.watch(memberUiStateProvider);
       final realtime = ref.watch(memberModeControllerProvider);
-      final nowTick = ref.watch(minuteTickerProvider);
 
       if (!tripAsync.hasValue || !uiAsync.hasValue) return null;
       final trip = tripAsync.value;
@@ -29,7 +26,6 @@ final groupScheduleImpactProvider =
         return null;
       }
 
-      final now = nowTick.value ?? appClock.now();
       GroupArrivalEstimate? arrival;
 
       final observation = realtime.ridingTransitObservation;
@@ -59,7 +55,6 @@ final groupScheduleImpactProvider =
       return GroupScheduleImpactAnalyzer.findFirstManualConflict(
         trip: trip,
         arrival: arrival,
-        now: now,
       );
     }, dependencies: [
       tripStreamProvider,
