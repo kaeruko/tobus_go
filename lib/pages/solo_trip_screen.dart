@@ -151,6 +151,12 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     final delayImpact = delayResolution.impact;
     final showDelayWarning =
         !completed && !terminalArrival && delayImpact?.requiresReplan == true;
+    final showStandaloneReplan =
+        !completed &&
+        !terminalArrival &&
+        !showDelayWarning &&
+        delayImpact != null &&
+        delayImpact.delay > Duration.zero;
     final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
         ? null
         : '次便のRealtime確認に失敗したため、予定時刻で判定しています: '
@@ -205,7 +211,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
                 helperText: '予定はまだ変更していません。新しい経路を確認してから選べます。',
                 action: RouteReplanPreviewButton(trip: trip),
               ),
-            ] else if (!completed && !terminalArrival)
+            ] else if (showStandaloneReplan)
               RouteReplanPreviewButton(trip: trip),
             const SizedBox(height: 14),
             _SoloScheduleCard(
