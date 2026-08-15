@@ -86,6 +86,20 @@ class RidingTransitObservation {
         break;
     }
   }
+
+  /// Whether this observation can safely produce a route-replan anchor at
+  /// [now]. A moving vehicle's forecast is only actionable until the predicted
+  /// next-stop time. Once that time passes, realtime must confirm the stop
+  /// before the app may use it as a new origin; the old forecast is never
+  /// coerced to the device clock or replaced with GPS.
+  bool canResolveAnchorAt(DateTime now) {
+    switch (motion) {
+      case RidingTransitMotion.stopped:
+        return true;
+      case RidingTransitMotion.inTransit:
+        return !predictedNextAvailableAt!.isBefore(now);
+    }
+  }
 }
 
 class ReplanAnchor {
