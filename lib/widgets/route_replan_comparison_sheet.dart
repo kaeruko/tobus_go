@@ -130,8 +130,8 @@ class _RouteReplanComparisonSheetState
                     title: '新しい経路',
                     arrivalLabel:
                         '${RouteReplanPreview.arrivalLabel(selected!)} 到着予定',
-                    lineSummary: RouteReplanPreview.lineSummary(selected),
-                    transfers: selected.transfers,
+                    lineSummary: RouteReplanPreview.lineSummary(selected!),
+                    transfers: selected!.transfers,
                     emphasized: true,
                   ),
                 ],
