@@ -47,7 +47,12 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   @override
   Widget build(BuildContext context) {
     final uiStateAsync = ref.watch(memberUiStateProvider);
-    final delayImpact = ref.watch(delayImpactProvider);
+    final delayResolution = ref.watch(resolvedDelayImpactProvider);
+    final delayImpact = delayResolution.impact;
+    final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
+        ? null
+        : '次便のRealtime確認に失敗したため、予定時刻で判定しています: '
+            '${delayResolution.nextRideRealtimeError}';
 
     return uiStateAsync.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
@@ -82,6 +87,10 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                     const SizedBox(height: 10),
                     DelayRecoveryCard(
                       impact: delayImpact!,
+                      nextRideRealtime: delayResolution.nextRideRealtime,
+                      scheduledNextDepartureAt:
+                          delayResolution.scheduledNextDepartureAt,
+                      realtimeDiagnostic: realtimeDiagnostic,
                       helperText: '経路変更はリーダーだけが確定できます。必要ならリーダーに確認してください。',
                     ),
                   ],
