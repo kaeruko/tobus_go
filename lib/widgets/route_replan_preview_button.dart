@@ -56,9 +56,19 @@ class _RouteReplanPreviewButtonState
     setState(() => _loading = true);
     try {
       final result = await ref.read(routeReplannerProvider).replan(request);
+      final latestRequest = ref.read(currentRouteReplanRequestProvider);
+      if (latestRequest == null || !_sameRequestState(latestRequest, request)) {
+        throw StateError(
+          '検索中に移動状況が変わりました。もう一度「経路を見直す」を押してください。',
+        );
+      }
+      final latestTrip = ref.read(tripStreamProvider).value;
+      if (latestTrip == null) {
+        throw StateError('現在のTripを取得できません');
+      }
       final preview = RouteReplanPreview.build(
-        trip: widget.trip,
-        request: request,
+        trip: latestTrip,
+        request: latestRequest,
         result: result,
       );
       if (!mounted) return;
