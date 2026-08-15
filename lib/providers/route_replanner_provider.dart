@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_clock.dart';
 import '../services/route_replanner.dart';
 import 'member_mode_provider.dart';
+import 'minute_ticker_provider.dart';
 import 'replan_anchor_provider.dart';
 import 'replan_transit_persistence_provider.dart';
 import 'route_search_provider.dart';
@@ -15,9 +17,12 @@ final routeReplannerProvider = Provider<RouteReplanner>((ref) {
 ///
 /// Restart restoration is fail-safe: while local transit history is loading or
 /// invalid, route search stays disabled. A restored onboard marker also blocks
-/// until fresh realtime identifies the current station/stop.
+/// until fresh realtime identifies the current station/stop. Likewise, a
+/// moving-vehicle forecast that has passed its predicted next-stop time is no
+/// longer actionable until realtime confirms where the vehicle actually is.
 final routeReplanBlockedReasonProvider = Provider.autoDispose<String?>((ref) {
   final effective = ref.watch(effectiveReplanTransitMemoryProvider);
+  final nowTick = ref.watch(minuteTickerProvider);
   if (effective.restoring) {
     return '前回の乗車履歴を確認しています。確認が終わるまで経路を見直せません。';
   }
@@ -29,6 +34,11 @@ final routeReplanBlockedReasonProvider = Provider.autoDispose<String?>((ref) {
       memory.ridingTransit == null &&
       memory.knownOnboardStepId != null) {
     return '乗車中の駅・停留所をRealtimeで確認できないため、いまは経路を見直せません。Realtimeの更新を待って、もう一度お試しください。';
+  }
+  final ridingTransit = memory?.ridingTransit;
+  final now = nowTick.value ?? appClock.now();
+  if (ridingTransit != null && !ridingTransit.canResolveAnchorAt(now)) {
+    return '次の駅・停留所への到着予測時刻を過ぎましたが、Realtimeでは到着をまだ確認できていません。更新を待ってから経路を見直してください。';
   }
   return null;
 }, dependencies: [
