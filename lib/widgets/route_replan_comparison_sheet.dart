@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../logic/route_replan_preview.dart';
 import '../models/route_models.dart';
+import '../providers/route_replanner_provider.dart';
+import '../providers/trip_provider.dart';
+import '../services/route_replanner.dart';
 import 'route_replan_comparison_map.dart';
 
-typedef RouteReplanApplyCallback = Future<void> Function(Candidate candidate);
+typedef RouteReplanApplyCallback = Future<void> Function(
+  RouteReplanPreview preview,
+  Candidate candidate,
+);
 
-class RouteReplanComparisonSheet extends StatefulWidget {
+class RouteReplanComparisonSheet extends ConsumerStatefulWidget {
   final RouteReplanPreview preview;
   final RouteReplanApplyCallback? onApply;
 
@@ -17,19 +24,53 @@ class RouteReplanComparisonSheet extends StatefulWidget {
   });
 
   @override
-  State<RouteReplanComparisonSheet> createState() =>
+  ConsumerState<RouteReplanComparisonSheet> createState() =>
       _RouteReplanComparisonSheetState();
 }
 
 class _RouteReplanComparisonSheetState
-    extends State<RouteReplanComparisonSheet> {
+    extends ConsumerState<RouteReplanComparisonSheet> {
+  late RouteReplanPreview _preview;
   int _selectedIndex = 0;
   bool _applying = false;
+  bool _refreshing = false;
+  Object? _refreshError;
+  RouteReplanRequest? _failedRequest;
+
+  @override
+  void initState() {
+    super.initState();
+    _preview = widget.preview;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final preview = widget.preview;
+    final currentRequest = ref.watch(currentRouteReplanRequestProvider);
+    final previewMatchesCurrent = currentRequest != null &&
+        sameRouteReplanRequestState(currentRequest, _preview.request);
+    final failedForCurrent = currentRequest != null &&
+        _failedRequest != null &&
+        sameRouteReplanRequestState(currentRequest, _failedRequest!);
+
+    if (!_applying &&
+        !_refreshing &&
+        currentRequest != null &&
+        !previewMatchesCurrent &&
+        !failedForCurrent) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _refreshFor(currentRequest);
+      });
+    }
+
+    final preview = _preview;
     final candidates = preview.newCandidates;
+    if (candidates.isNotEmpty && _selectedIndex >= candidates.length) {
+      throw StateError(
+        '再探索候補の選択indexが不正です: '
+        'index=$_selectedIndex, candidates=${candidates.length}',
+      );
+    }
     final selected = candidates.isEmpty ? null : candidates[_selectedIndex];
 
     return SafeArea(
@@ -70,9 +111,32 @@ class _RouteReplanComparisonSheetState
                   '${RouteReplanPreview.formatClock(preview.request.anchor.availableAt)}から利用できる経路を比較します',
                   style: const TextStyle(color: Colors.black54),
                 ),
+                if (_refreshing) ...[
+                  const SizedBox(height: 12),
+                  const _RefreshNotice(
+                    message: '移動状況が変わったため、新しい到着見込みで経路を再検索しています…',
+                    loading: true,
+                  ),
+                ] else if (currentRequest == null) ...[
+                  const SizedBox(height: 12),
+                  const _RefreshNotice(
+                    message: '現在の再探索起点を取得できません。状況が確認できるまで経路変更は確定できません。',
+                  ),
+                ] else if (!previewMatchesCurrent &&
+                    _refreshError != null &&
+                    failedForCurrent) ...[
+                  const SizedBox(height: 12),
+                  _RefreshErrorNotice(
+                    error: _refreshError!,
+                    onRetry: _applying ? null : () => _refreshFor(currentRequest),
+                  ),
+                ],
                 const SizedBox(height: 18),
                 RouteReplanComparisonMap(
-                  key: ValueKey(selected?.id ?? 'no-new-route'),
+                  key: ValueKey(
+                    '${preview.request.anchor.availableAt.microsecondsSinceEpoch}:'
+                    '${selected?.id ?? 'no-new-route'}',
+                  ),
                   originalPoints: preview.originalFuturePoints,
                   newPoints: selected == null
                       ? const []
@@ -113,7 +177,7 @@ class _RouteReplanComparisonSheetState
                               label: Text(
                                 '候補${index + 1}  ${RouteReplanPreview.arrivalLabel(candidate)}着',
                               ),
-                              onSelected: _applying
+                              onSelected: _applying || _refreshing
                                   ? null
                                   : (selected) {
                                       if (!selected) return;
@@ -164,7 +228,11 @@ class _RouteReplanComparisonSheetState
                       const SizedBox(width: 12),
                       Expanded(
                         child: FilledButton(
-                          onPressed: _applying ? null : () => _apply(selected),
+                          onPressed: _applying ||
+                                  _refreshing ||
+                                  !previewMatchesCurrent
+                              ? null
+                              : () => _apply(selected),
                           child: _applying
                               ? const SizedBox(
                                   width: 18,
@@ -173,7 +241,9 @@ class _RouteReplanComparisonSheetState
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Text('この経路に変更'),
+                              : _refreshing
+                                  ? const Text('再検索中…')
+                                  : const Text('この経路に変更'),
                         ),
                       ),
                     ],
@@ -187,13 +257,108 @@ class _RouteReplanComparisonSheetState
     );
   }
 
+  Future<void> _refreshFor(RouteReplanRequest requested) async {
+    if (_refreshing || _applying) return;
+
+    setState(() {
+      _refreshing = true;
+      _refreshError = null;
+      _failedRequest = null;
+    });
+
+    var target = requested;
+    try {
+      while (mounted) {
+        final result = await ref.read(routeReplannerProvider).replan(target);
+        if (!mounted) return;
+
+        final latestRequest = ref.read(currentRouteReplanRequestProvider);
+        if (latestRequest == null) {
+          throw StateError('再検索中に現在の再探索起点を取得できなくなりました');
+        }
+
+        if (!sameRouteReplanRequestState(latestRequest, target)) {
+          target = latestRequest;
+          continue;
+        }
+
+        final latestTrip = ref.read(tripStreamProvider).value;
+        if (latestTrip == null) {
+          throw StateError('再検索中に現在のTripを取得できません');
+        }
+
+        final nextPreview = RouteReplanPreview.build(
+          trip: latestTrip,
+          request: latestRequest,
+          result: result,
+        );
+        final selectedId = _selectedCandidateId();
+        final nextSelectedIndex = _indexForCandidateId(
+          nextPreview.newCandidates,
+          selectedId,
+        );
+
+        setState(() {
+          _preview = nextPreview;
+          _selectedIndex = nextSelectedIndex;
+          _refreshError = null;
+          _failedRequest = null;
+        });
+        break;
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _refreshError = error;
+        _failedRequest = target;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _refreshing = false);
+      }
+    }
+  }
+
+  String? _selectedCandidateId() {
+    final candidates = _preview.newCandidates;
+    if (candidates.isEmpty) return null;
+    if (_selectedIndex < 0 || _selectedIndex >= candidates.length) {
+      throw StateError(
+        '再探索候補の選択indexが不正です: '
+        'index=$_selectedIndex, candidates=${candidates.length}',
+      );
+    }
+    return candidates[_selectedIndex].id;
+  }
+
+  int _indexForCandidateId(List<Candidate> candidates, String? candidateId) {
+    if (candidates.isEmpty || candidateId == null) return 0;
+    for (var index = 0; index < candidates.length; index++) {
+      if (candidates[index].id == candidateId) return index;
+    }
+    return 0;
+  }
+
   Future<void> _apply(Candidate selected) async {
     final onApply = widget.onApply;
-    if (onApply == null || _applying) return;
+    if (onApply == null || _applying || _refreshing) return;
+
+    final currentRequest = ref.read(currentRouteReplanRequestProvider);
+    if (currentRequest == null ||
+        !sameRouteReplanRequestState(currentRequest, _preview.request)) {
+      if (currentRequest != null) {
+        await _refreshFor(currentRequest);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('移動状況が変わったため、経路を更新しました。内容を確認してください。')),
+      );
+      return;
+    }
 
     setState(() => _applying = true);
     try {
-      await onApply(selected);
+      await onApply(_preview, selected);
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (error) {
@@ -206,6 +371,74 @@ class _RouteReplanComparisonSheetState
         setState(() => _applying = false);
       }
     }
+  }
+}
+
+class _RefreshNotice extends StatelessWidget {
+  final String message;
+  final bool loading;
+
+  const _RefreshNotice({required this.message, this.loading = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (loading)
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            const Icon(Icons.info_outline, size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Text(message)),
+        ],
+      ),
+    );
+  }
+}
+
+class _RefreshErrorNotice extends StatelessWidget {
+  final Object error;
+  final VoidCallback? onRetry;
+
+  const _RefreshErrorNotice({required this.error, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('最新の移動状況で経路を更新できませんでした: $error'),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('もう一度更新'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

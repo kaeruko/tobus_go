@@ -60,7 +60,8 @@ class _RouteReplanPreviewButtonState
     try {
       final result = await ref.read(routeReplannerProvider).replan(request);
       final latestRequest = ref.read(currentRouteReplanRequestProvider);
-      if (latestRequest == null || !_sameRequestState(latestRequest, request)) {
+      if (latestRequest == null ||
+          !sameRouteReplanRequestState(latestRequest, request)) {
         throw StateError(
           '検索中に移動状況が変わりました。もう一度「経路を見直す」を押してください。',
         );
@@ -84,14 +85,15 @@ class _RouteReplanPreviewButtonState
         backgroundColor: Colors.transparent,
         builder: (_) => RouteReplanComparisonSheet(
           preview: preview,
-          onApply: (candidate) => _applyCandidate(preview, candidate),
+          onApply: (latestPreview, candidate) =>
+              _applyCandidate(latestPreview, candidate),
         ),
       );
       if (!mounted || applied != true) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${preview.request.anchor.placeName}からの新しい経路に変更しました',
+            '${ref.read(currentRouteReplanRequestProvider)?.anchor.placeName ?? preview.request.anchor.placeName}からの新しい経路に変更しました',
           ),
         ),
       );
@@ -111,9 +113,9 @@ class _RouteReplanPreviewButtonState
   ) async {
     final currentRequest = ref.read(currentRouteReplanRequestProvider);
     if (currentRequest == null ||
-        !_sameRequestState(currentRequest, preview.request)) {
+        !sameRouteReplanRequestState(currentRequest, preview.request)) {
       throw StateError(
-        '比較表示中に移動状況が変わりました。いったん閉じて、もう一度経路を見直してください。',
+        '比較表示中に移動状況が変わりました。最新の経路へ更新してから選び直してください。',
       );
     }
 
@@ -154,19 +156,5 @@ class _RouteReplanPreviewButtonState
     if (actorUserId != trip.leaderId) {
       throw StateError('グループの経路を変更できるのはリーダーだけです');
     }
-  }
-
-  bool _sameRequestState(RouteReplanRequest a, RouteReplanRequest b) {
-    return a.activeStepId == b.activeStepId &&
-        a.originalCandidateId == b.originalCandidateId &&
-        a.destination == b.destination &&
-        a.destinationName == b.destinationName &&
-        a.preference == b.preference &&
-        a.anchor.source == b.anchor.source &&
-        a.anchor.routeStepId == b.anchor.routeStepId &&
-        a.anchor.stopId == b.anchor.stopId &&
-        a.anchor.placeName == b.anchor.placeName &&
-        a.anchor.point == b.anchor.point &&
-        a.anchor.availableAt.isAtSameMomentAs(b.anchor.availableAt);
   }
 }
