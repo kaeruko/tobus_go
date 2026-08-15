@@ -7,10 +7,11 @@ enum RideNavigationPhase { approaching, riding, arrived }
 /// バス・鉄道それぞれのリアルタイム進捗を、ナビ表示で共通に扱うための値へ正規化する。
 ///
 /// 交通機関固有のIDやGTFS解釈は各Progress側に残し、ここでは
-/// 「現在地・次の停車地・残り停車数・乗車地点までの残り」だけを扱う。
+/// 「表示用の路線/行先・現在地・次の停車地・残り停車数・乗車地点までの残り」だけを扱う。
 class RideNavigationProgress {
   final String stepId;
   final RideNavigationPhase phase;
+  final String rideTitle;
   final String? currentPlaceName;
   final String? nextPlaceName;
   final int? remainingStops;
@@ -20,12 +21,31 @@ class RideNavigationProgress {
   const RideNavigationProgress({
     required this.stepId,
     required this.phase,
+    required this.rideTitle,
     this.currentPlaceName,
     this.nextPlaceName,
     this.remainingStops,
     this.stopsUntilBoarding,
     this.vehicleAgeSeconds,
   });
+
+  static String _requiredStepTitle(StepSeg step) {
+    final title = step.title.trim();
+    if (title.isEmpty) {
+      throw StateError('乗車表示に路線名がありません: stepId=${step.stepId}');
+    }
+    return title;
+  }
+
+  static String _railRideTitle(StepSeg step, RailProgress progress) {
+    final routeTitle = _requiredStepTitle(step);
+    final headsign = progress.tripHeadsign.trim();
+    if (headsign.isEmpty) {
+      throw StateError('鉄道乗車表示に行先がありません: stepId=${step.stepId}');
+    }
+    final destinationSign = headsign.endsWith('行') ? headsign : '${headsign}行';
+    return '$routeTitle $destinationSign';
+  }
 
   factory RideNavigationProgress.fromBus({
     required StepSeg step,
@@ -46,6 +66,7 @@ class RideNavigationProgress {
     if (step.stops.isEmpty) {
       throw StateError('停留所のないバスStepです: stepId=${step.stepId}');
     }
+    final rideTitle = _requiredStepTitle(step);
 
     if (progress.phase == BusProgressPhase.approaching) {
       final stopsUntilBoarding = progress.stopsUntilBoarding;
@@ -58,6 +79,7 @@ class RideNavigationProgress {
       return RideNavigationProgress(
         stepId: step.stepId,
         phase: RideNavigationPhase.approaching,
+        rideTitle: rideTitle,
         currentPlaceName: progress.observedStopName,
         nextPlaceName: step.stops.first.name,
         stopsUntilBoarding: stopsUntilBoarding,
@@ -82,6 +104,7 @@ class RideNavigationProgress {
       return RideNavigationProgress(
         stepId: step.stepId,
         phase: RideNavigationPhase.arrived,
+        rideTitle: rideTitle,
         currentPlaceName: currentName,
         remainingStops: 0,
         vehicleAgeSeconds: progress.vehicleAgeSeconds,
@@ -91,6 +114,7 @@ class RideNavigationProgress {
     return RideNavigationProgress(
       stepId: step.stepId,
       phase: RideNavigationPhase.riding,
+      rideTitle: rideTitle,
       currentPlaceName: currentName,
       nextPlaceName: nextName,
       remainingStops: remaining,
@@ -114,6 +138,7 @@ class RideNavigationProgress {
         '${progress.stepId} != ${step.stepId}',
       );
     }
+    final rideTitle = _railRideTitle(step, progress);
 
     switch (progress.phase) {
       case RailProgressPhase.approaching:
@@ -127,6 +152,7 @@ class RideNavigationProgress {
         return RideNavigationProgress(
           stepId: step.stepId,
           phase: RideNavigationPhase.approaching,
+          rideTitle: rideTitle,
           currentPlaceName: progress.currentStopName,
           nextPlaceName: progress.nextStopName,
           stopsUntilBoarding: stopsUntilBoarding,
@@ -142,6 +168,7 @@ class RideNavigationProgress {
         return RideNavigationProgress(
           stepId: step.stepId,
           phase: RideNavigationPhase.riding,
+          rideTitle: rideTitle,
           currentPlaceName: progress.currentStopName,
           nextPlaceName: progress.nextStopName,
           remainingStops: progress.remainingStops,
@@ -151,6 +178,7 @@ class RideNavigationProgress {
         return RideNavigationProgress(
           stepId: step.stepId,
           phase: RideNavigationPhase.arrived,
+          rideTitle: rideTitle,
           currentPlaceName: progress.currentStopName,
           remainingStops: 0,
           vehicleAgeSeconds: progress.vehicleAgeSeconds,

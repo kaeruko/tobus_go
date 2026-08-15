@@ -7,6 +7,7 @@ enum RailProgressPhase { approaching, riding, arrived }
 class RailProgress {
   final String stepId;
   final String tripId;
+  final String tripHeadsign;
   final RailProgressPhase phase;
   final int boardingSequence;
   final int destinationSequence;
@@ -21,6 +22,7 @@ class RailProgress {
   const RailProgress({
     required this.stepId,
     required this.tripId,
+    required this.tripHeadsign,
     required this.phase,
     required this.boardingSequence,
     required this.destinationSequence,
@@ -82,6 +84,7 @@ class RailProgress {
       return RailProgress(
         stepId: stepId,
         tripId: location.tripId,
+        tripHeadsign: location.tripHeadsign,
         phase: RailProgressPhase.approaching,
         boardingSequence: location.boardingSequence,
         destinationSequence: location.destinationSequence,
@@ -99,6 +102,7 @@ class RailProgress {
       return RailProgress(
         stepId: stepId,
         tripId: location.tripId,
+        tripHeadsign: location.tripHeadsign,
         phase: RailProgressPhase.arrived,
         boardingSequence: location.boardingSequence,
         destinationSequence: location.destinationSequence,
@@ -118,6 +122,7 @@ class RailProgress {
     return RailProgress(
       stepId: stepId,
       tripId: location.tripId,
+      tripHeadsign: location.tripHeadsign,
       phase: RailProgressPhase.riding,
       boardingSequence: location.boardingSequence,
       destinationSequence: location.destinationSequence,

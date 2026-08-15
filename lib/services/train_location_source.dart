@@ -54,6 +54,7 @@ class TrainTripStop {
 class TrainLocation {
   final String tripId;
   final String routeId;
+  final String tripHeadsign;
   final String vehicleId;
   final int currentStopSequence;
   final String currentStatus;
@@ -68,6 +69,7 @@ class TrainLocation {
   const TrainLocation({
     required this.tripId,
     required this.routeId,
+    required this.tripHeadsign,
     required this.vehicleId,
     required this.currentStopSequence,
     required this.currentStatus,
@@ -83,6 +85,7 @@ class TrainLocation {
   factory TrainLocation.fromJson(Map<String, dynamic> json) {
     final tripId = json['trip_id']?.toString();
     final routeId = json['route_id']?.toString();
+    final tripHeadsign = json['trip_headsign']?.toString().trim();
     final vehicleId = json['vehicle_id']?.toString();
     final currentStopSequence = (json['current_stop_sequence'] as num?)?.toInt();
     final currentStatus = json['current_status']?.toString();
@@ -97,6 +100,9 @@ class TrainLocation {
     }
     if (routeId == null || routeId.isEmpty) {
       throw const FormatException('train location is missing route_id');
+    }
+    if (tripHeadsign == null || tripHeadsign.isEmpty) {
+      throw const FormatException('train location is missing trip_headsign');
     }
     if (vehicleId == null || vehicleId.isEmpty) {
       throw const FormatException('train location is missing vehicle_id');
@@ -139,6 +145,7 @@ class TrainLocation {
     return TrainLocation(
       tripId: tripId,
       routeId: routeId,
+      tripHeadsign: tripHeadsign,
       vehicleId: vehicleId,
       currentStopSequence: currentStopSequence,
       currentStatus: currentStatus,
