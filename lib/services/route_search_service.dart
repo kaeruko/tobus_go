@@ -25,6 +25,10 @@ class RouteSearchRequest {
   }
 
   Map<String, dynamic> toApiBody() {
+    // GTFS-RT timestamps are absolute/UTC while /route expects the local
+    // service-day clock. Convert at the API boundary so normal searches and
+    // realtime replans use the same local-time semantics.
+    final localStartTime = startTime.toLocal();
     return {
       'alat': origin.latitude.toString(),
       'alon': origin.longitude.toString(),
@@ -32,12 +36,12 @@ class RouteSearchRequest {
       'blon': destination.longitude.toString(),
       'pref': normalizeRoutePreferenceForApi(preference),
       'start_time':
-          '${startTime.hour.toString().padLeft(2, '0')}:'
-          '${startTime.minute.toString().padLeft(2, '0')}',
+          '${localStartTime.hour.toString().padLeft(2, '0')}:'
+          '${localStartTime.minute.toString().padLeft(2, '0')}',
       'target_date_str':
-          '${startTime.year.toString().padLeft(4, '0')}-'
-          '${startTime.month.toString().padLeft(2, '0')}-'
-          '${startTime.day.toString().padLeft(2, '0')}',
+          '${localStartTime.year.toString().padLeft(4, '0')}-'
+          '${localStartTime.month.toString().padLeft(2, '0')}-'
+          '${localStartTime.day.toString().padLeft(2, '0')}',
     };
   }
 
