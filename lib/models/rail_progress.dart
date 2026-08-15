@@ -41,13 +41,18 @@ class RailProgress {
       throw ArgumentError.value(stepId, 'stepId', 'must not be empty');
     }
 
-    final lastReachedSequence = switch (location.currentStatus) {
-      'STOPPED_AT' => location.currentStopSequence,
-      'IN_TRANSIT_TO' || 'INCOMING_AT' => location.currentStopSequence - 1,
-      _ => throw StateError(
+    late final int lastReachedSequence;
+    if (location.currentStatus == 'STOPPED_AT') {
+      lastReachedSequence = location.currentStopSequence;
+    } else if (location.currentStatus == 'IN_TRANSIT_TO' ||
+        location.currentStatus == 'INCOMING_AT') {
+      lastReachedSequence = location.currentStopSequence - 1;
+    } else {
+      throw StateError(
         '未対応の列車current_statusです: ${location.currentStatus}',
-      ),
-    };
+      );
+    }
+
     if (lastReachedSequence < 0) {
       throw StateError(
         '列車の最終到達sequenceが負です: '
