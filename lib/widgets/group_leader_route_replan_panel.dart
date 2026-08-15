@@ -12,10 +12,12 @@ import 'route_replan_preview_button.dart';
 
 class GroupLeaderRouteReplanPanel extends StatelessWidget {
   final String tripId;
+  final bool warningOnly;
 
   const GroupLeaderRouteReplanPanel({
     super.key,
     required this.tripId,
+    this.warningOnly = false,
   });
 
   @override
@@ -36,13 +38,19 @@ class GroupLeaderRouteReplanPanel extends StatelessWidget {
           (ref) => MemberNavProgressNotifier(),
         ),
       ],
-      child: const _GroupLeaderRouteReplanPanelBody(),
+      child: _GroupLeaderRouteReplanPanelBody(
+        warningOnly: warningOnly,
+      ),
     );
   }
 }
 
 class _GroupLeaderRouteReplanPanelBody extends ConsumerStatefulWidget {
-  const _GroupLeaderRouteReplanPanelBody();
+  final bool warningOnly;
+
+  const _GroupLeaderRouteReplanPanelBody({
+    required this.warningOnly,
+  });
 
   @override
   ConsumerState<_GroupLeaderRouteReplanPanelBody> createState() =>
@@ -73,14 +81,16 @@ class _GroupLeaderRouteReplanPanelBodyState
 
     return tripAsync.when(
       loading: () => const SizedBox.shrink(),
-      error: (error, stack) => Card(
-        elevation: 0,
-        color: Colors.red.shade50,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Text('経路見直しを準備できませんでした: $error'),
-        ),
-      ),
+      error: (error, stack) => widget.warningOnly
+          ? const SizedBox.shrink()
+          : Card(
+              elevation: 0,
+              color: Colors.red.shade50,
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Text('経路見直しを準備できませんでした: $error'),
+              ),
+            ),
       data: (trip) {
         if (trip == null ||
             trip.tripType != TripType.group ||
@@ -101,6 +111,10 @@ class _GroupLeaderRouteReplanPanelBodyState
             helperText: 'この変更はリーダーだけが確定できます。確定後は参加者の画面にも反映されます。',
             action: replanButton,
           );
+        }
+
+        if (widget.warningOnly) {
+          return const SizedBox.shrink();
         }
 
         return Card(

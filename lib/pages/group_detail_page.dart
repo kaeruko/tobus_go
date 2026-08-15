@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/trip_models.dart';
 import '../models/group_models.dart';
 import '../services/user_service.dart';
+import '../widgets/group_leader_route_replan_panel.dart';
 
 import 'group_leader_route_replan_page.dart';
 import 'leader_mode_page.dart';
@@ -135,6 +136,14 @@ class GroupDetailPage extends StatelessWidget {
                 icon: Icons.calendar_today,
                 label: "実施日",
                 value: _formatDateTime(_resolveStartDateTime())),
+
+            if (canReplan) ...[
+              const SizedBox(height: 16),
+              GroupLeaderRouteReplanPanel(
+                tripId: trip.id,
+                warningOnly: true,
+              ),
+            ],
 
             const SizedBox(height: 24),
 
