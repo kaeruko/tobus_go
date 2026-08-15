@@ -35,6 +35,7 @@ class _RouteReplanComparisonSheetState
   bool _applying = false;
   bool _refreshing = false;
   Object? _refreshError;
+  RouteReplanRequest? _failedRequest;
 
   @override
   void initState() {
@@ -47,11 +48,15 @@ class _RouteReplanComparisonSheetState
     final currentRequest = ref.watch(currentRouteReplanRequestProvider);
     final previewMatchesCurrent = currentRequest != null &&
         sameRouteReplanRequestState(currentRequest, _preview.request);
+    final failedForCurrent = currentRequest != null &&
+        _failedRequest != null &&
+        sameRouteReplanRequestState(currentRequest, _failedRequest!);
 
     if (!_applying &&
         !_refreshing &&
         currentRequest != null &&
-        !previewMatchesCurrent) {
+        !previewMatchesCurrent &&
+        !failedForCurrent) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _refreshFor(currentRequest);
@@ -117,7 +122,9 @@ class _RouteReplanComparisonSheetState
                   const _RefreshNotice(
                     message: '現在の再探索起点を取得できません。状況が確認できるまで経路変更は確定できません。',
                   ),
-                ] else if (!previewMatchesCurrent && _refreshError != null) ...[
+                ] else if (!previewMatchesCurrent &&
+                    _refreshError != null &&
+                    failedForCurrent) ...[
                   const SizedBox(height: 12),
                   _RefreshErrorNotice(
                     error: _refreshError!,
@@ -187,8 +194,8 @@ class _RouteReplanComparisonSheetState
                     title: '新しい経路',
                     arrivalLabel:
                         '${RouteReplanPreview.arrivalLabel(selected!)} 到着予定',
-                    lineSummary: RouteReplanPreview.lineSummary(selected),
-                    transfers: selected.transfers,
+                    lineSummary: RouteReplanPreview.lineSummary(selected!),
+                    transfers: selected!.transfers,
                     emphasized: true,
                   ),
                 ],
@@ -256,6 +263,7 @@ class _RouteReplanComparisonSheetState
     setState(() {
       _refreshing = true;
       _refreshError = null;
+      _failedRequest = null;
     });
 
     var target = requested;
@@ -294,12 +302,16 @@ class _RouteReplanComparisonSheetState
           _preview = nextPreview;
           _selectedIndex = nextSelectedIndex;
           _refreshError = null;
+          _failedRequest = null;
         });
         break;
       }
     } catch (error) {
       if (!mounted) return;
-      setState(() => _refreshError = error);
+      setState(() {
+        _refreshError = error;
+        _failedRequest = target;
+      });
     } finally {
       if (mounted) {
         setState(() => _refreshing = false);
