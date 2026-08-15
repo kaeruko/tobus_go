@@ -1,3 +1,5 @@
+// ignore_for_file: invalid_use_of_protected_member
+
 import '../providers/member_mode_provider.dart';
 import 'replan_transit_memory.dart';
 
