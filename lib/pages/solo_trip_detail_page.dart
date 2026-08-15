@@ -31,7 +31,7 @@ class SoloTripDetailPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    '${_formatDate(trip.date)} ・ ${_phaseLabel(trip.travelPhase)} ・ 1人',
+                    '${_formatDate(trip.date)} ・ ${_phaseLabel(trip.travelPhase)}',
                   ),
                 ],
               ),
