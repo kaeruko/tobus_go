@@ -152,8 +152,8 @@ void main() {
       return http.Response('not found', 404);
     });
 
-    expect(
-      () => const ApiRouteSearchService().search(request()),
+    await expectLater(
+      const ApiRouteSearchService().search(request()),
       throwsA(
         isA<StateError>().having(
           (error) => error.message,
