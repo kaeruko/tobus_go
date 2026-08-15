@@ -19,9 +19,18 @@ class DelayRecoveryCard extends StatelessWidget {
     if (!impact.requiresReplan) return const SizedBox.shrink();
 
     final missedMinutes = _ceilMinutes(impact.missedBy);
-    final walkText = impact.transferWalkMinutes > 0
-        ? '徒歩${impact.transferWalkMinutes}分を含めると、'
-        : '';
+    final isConfirmedTransfer =
+        impact.basis == DelayImpactBasis.confirmedTransferPlace;
+    final basisText = isConfirmedTransfer
+        ? '${_clock(impact.predictedArrivalAt)}現在、'
+            '${impact.currentAlightingPlaceName}を最後に確認できた地点として見積もっています。'
+        : '${_clock(impact.predictedArrivalAt)} '
+            '${impact.currentAlightingPlaceName}到着見込みです。';
+    final walkText = impact.transferWalkMinutes <= 0
+        ? ''
+        : isConfirmedTransfer
+        ? '現在地を推測せず、予定の徒歩${impact.transferWalkMinutes}分をすべて見込むと、'
+        : '徒歩${impact.transferWalkMinutes}分を含めると、';
 
     return Card(
       margin: EdgeInsets.zero,
@@ -53,10 +62,7 @@ class DelayRecoveryCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            Text(
-              '${_clock(impact.predictedArrivalAt)} '
-              '${impact.currentAlightingPlaceName}到着見込みです。',
-            ),
+            Text(basisText),
             const SizedBox(height: 4),
             Text(
               '$walkText${_clock(impact.nextDepartureAt)}発 '

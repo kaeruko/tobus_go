@@ -10,9 +10,11 @@ import '../models/trip_models.dart';
 import '../services/trip_service.dart';
 import '../services/bus_location_source.dart';
 import '../providers/app_session_provider.dart';
+import '../providers/delay_impact_provider.dart';
 import '../providers/trip_provider.dart';
 import '../providers/member_mode_provider.dart'; // 作成したProvider
 import '../providers/member_nav_progress_provider.dart';
+import '../widgets/delay_recovery_card.dart';
 import '../widgets/trip_navigation_status_card.dart';
 import 'group_detail_page.dart';
 import 'settings_page.dart';
@@ -45,6 +47,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   @override
   Widget build(BuildContext context) {
     final uiStateAsync = ref.watch(memberUiStateProvider);
+    final delayImpact = ref.watch(delayImpactProvider);
 
     return uiStateAsync.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
@@ -75,6 +78,13 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                     onTapStops: () => _onTapRemainingStops(trip),
                     headerTrailing: const _LiveClock(),
                   ),
+                  if (delayImpact?.requiresReplan == true) ...[
+                    const SizedBox(height: 10),
+                    DelayRecoveryCard(
+                      impact: delayImpact!,
+                      helperText: '経路変更はリーダーだけが確定できます。必要ならリーダーに確認してください。',
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   _SchedulePeek(
                     resolvedEntry: uiState.resolvedEntry,
