@@ -147,17 +147,20 @@ class RouteReplanPatcher {
     final activeStep = candidate.steps[activeStepIndex];
     switch (request.anchor.source) {
       case ReplanAnchorSource.tripOrigin:
-        if (activeStepIndex != 0) {
+        final firstRideIndex = candidate.steps.indexWhere((step) => step.isRide);
+        if (firstRideIndex >= 0 && activeStepIndex > firstRideIndex) {
           throw StateError(
-            'tripOriginからの再探索なのに現在stepが先頭ではありません: '
-            'stepId=${activeStep.stepId}, index=$activeStepIndex',
+            'tripOriginからの再探索なのに最初の乗車後まで進んでいます: '
+            'stepId=${activeStep.stepId}, index=$activeStepIndex, '
+            'firstRideIndex=$firstRideIndex',
           );
         }
         return const [];
       case ReplanAnchorSource.lastConfirmedTransitPlace:
         if (activeStep.isRide) {
           throw StateError(
-            'lastConfirmedTransitPlace起点なのに現在stepが乗車区間です: '
+            'lastConfirmedTransitPlace起点なのに現在stepが乗車区間です。'
+            '新しい停車地点を確定できるRealtime情報が必要です: '
             '${activeStep.stepId}',
           );
         }
