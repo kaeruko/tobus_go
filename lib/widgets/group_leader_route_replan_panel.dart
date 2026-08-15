@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/trip_models.dart';
+import '../providers/delay_impact_provider.dart';
 import '../providers/member_mode_provider.dart';
 import '../providers/member_nav_progress_provider.dart';
 import '../providers/trip_provider.dart';
 import '../services/trip_service.dart';
+import 'delay_recovery_card.dart';
 import 'route_replan_preview_button.dart';
 
 class GroupLeaderRouteReplanPanel extends StatelessWidget {
@@ -62,6 +64,7 @@ class _GroupLeaderRouteReplanPanelBodyState
   @override
   Widget build(BuildContext context) {
     final tripAsync = ref.watch(tripStreamProvider);
+    final delayImpact = ref.watch(delayImpactProvider);
 
     return tripAsync.when(
       loading: () => const SizedBox.shrink(),
@@ -78,6 +81,18 @@ class _GroupLeaderRouteReplanPanelBodyState
             trip.tripType != TripType.group ||
             trip.travelPhase != TravelPhase.active) {
           return const SizedBox.shrink();
+        }
+
+        final replanButton = RouteReplanPreviewButton(
+          trip: trip,
+          allowGroupLeaderApply: true,
+        );
+        if (delayImpact?.requiresReplan == true) {
+          return DelayRecoveryCard(
+            impact: delayImpact!,
+            helperText: 'この変更はリーダーだけが確定できます。確定後は参加者の画面にも反映されます。',
+            action: replanButton,
+          );
         }
 
         return Card(
@@ -109,10 +124,7 @@ class _GroupLeaderRouteReplanPanelBodyState
                   '駅・停留所の進捗から再検索します。変更すると参加者の画面にも反映されます。',
                   style: TextStyle(fontSize: 13, color: Colors.black54),
                 ),
-                RouteReplanPreviewButton(
-                  trip: trip,
-                  allowGroupLeaderApply: true,
-                ),
+                replanButton,
               ],
             ),
           ),
