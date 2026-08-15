@@ -99,7 +99,7 @@ void main() {
 
       expect(resolved.resolvedEntry?.id, 'wait-start');
       expect(navigation.mainText, '10:00 出発　あと8分');
-      expect(navigation.subText, '10:04 乗車');
+      expect(navigation.subText, '10:04 上23 乗車');
       expect(navigation.statusLabel, '待機');
     });
 
@@ -158,7 +158,7 @@ void main() {
 
       expect(resolved.resolvedEntry?.id, 'walk-start');
       expect(navigation.mainText, '10:04 平井七丁目にむかう　あと2分');
-      expect(navigation.subText, '10:04 乗車');
+      expect(navigation.subText, '10:04 上23 乗車');
       expect(navigation.statusLabel, '移動中');
     });
 
