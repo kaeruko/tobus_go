@@ -7,6 +7,9 @@ import '../models/group_models.dart';
 import '../models/bus_progress.dart';
 import '../models/rail_progress.dart';
 import '../models/route_models.dart';
+import '../logic/replan_anchor.dart';
+import '../logic/replan_transit_memory.dart';
+import '../logic/replan_transit_observation.dart';
 import '../logic/trip_coordinator.dart';
 import '../logic/trip_navigator.dart';
 import '../services/bus_location_source.dart';
@@ -40,13 +43,21 @@ class RealtimeTransitState {
   final String? trackedVehicleId;
   final BusProgress? busProgress;
   final RailProgress? railProgress;
+  final ReplanTransitMemory replanTransitMemory;
 
   const RealtimeTransitState({
     this.trackedStepId,
     this.trackedVehicleId,
     this.busProgress,
     this.railProgress,
+    this.replanTransitMemory = const ReplanTransitMemory(),
   });
+
+  RidingTransitObservation? get ridingTransitObservation =>
+      replanTransitMemory.ridingTransit;
+
+  ReplanTransitPlace? get lastConfirmedTransitPlace =>
+      replanTransitMemory.lastConfirmedTransitPlace;
 }
 
 final busLocationSourceProvider = Provider<BusLocationSource>((ref) {
@@ -162,15 +173,17 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
     } else if (activeStep != null && activeStep.kind == 'rail') {
       await _updateRailProgress(activeStep, forceRefresh: forceRefresh);
     } else {
-      // 乗車ステップではない（徒歩など）→ 状態をリセット
+      // 徒歩などに移っても、最後に確定した駅/停留所は再探索用に保持する。
       if (activeStep != null && !activeStep.isRide) {
         debugPrint('[MemberModeController] 非乗車ステップ: ${activeStep.kind}');
       }
+      final nextMemory = state.replanTransitMemory.clearActiveRide();
       if (state.trackedStepId != null ||
           state.trackedVehicleId != null ||
           state.busProgress != null ||
-          state.railProgress != null) {
-        state = const RealtimeTransitState();
+          state.railProgress != null ||
+          state.ridingTransitObservation != null) {
+        state = RealtimeTransitState(replanTransitMemory: nextMemory);
       }
     }
 
@@ -216,6 +229,12 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         currentStatus: location.currentStatus,
         vehicleAgeSeconds: location.vehicleAgeSeconds,
       );
+      final nextMemory = _replanMemoryForBus(
+        step: activeStep,
+        progress: progress,
+        location: location,
+        now: appClock.now(),
+      );
       _logBusProgressTrace(
         step: activeStep,
         location: location,
@@ -226,6 +245,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         trackedStepId: activeStep.stepId,
         trackedVehicleId: location.vehicleId,
         busProgress: progress,
+        replanTransitMemory: nextMemory,
       );
       debugPrint(
         '[MemberModeController] バス追跡成功: '
@@ -240,22 +260,25 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         'snapshotAge=${location.snapshotAgeSeconds}s, '
         'feedAge=${location.feedAgeSeconds}s, '
         'vehicleAge=${location.vehicleAgeSeconds}s, '
+        'lastConfirmed=${nextMemory.lastConfirmedTransitPlace?.name}, '
         'serverNow=${location.serverNow}, '
         'clientNow=${DateTime.now().toUtc().toIso8601String()}',
       );
     } on BusLocationNotAvailableException catch (e) {
       // An exact route/trip match may not appear in the realtime feed until
       // the assigned vehicle starts reporting. Keep a previously locked
-      // vehicle ID, but clear stale stop progress and show the waiting UI.
+      // vehicle ID and confirmed place, but never retain a stale ride forecast.
       state = RealtimeTransitState(
         trackedStepId: activeStep.stepId,
         trackedVehicleId: state.trackedStepId == activeStep.stepId
             ? state.trackedVehicleId
             : null,
+        replanTransitMemory: state.replanTransitMemory.clearActiveRide(),
       );
       debugPrint('[MemberModeController] バス乗車待ち: $e');
     } catch (e) {
       debugPrint('[MemberModeController] バスAPIエラー: $e');
+      rethrow;
     }
   }
 
@@ -278,10 +301,17 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         stepId: activeStep.stepId,
         location: location,
       );
+      final nextMemory = _replanMemoryForRail(
+        step: activeStep,
+        progress: progress,
+        location: location,
+        now: appClock.now(),
+      );
       state = RealtimeTransitState(
         trackedStepId: activeStep.stepId,
         trackedVehicleId: location.vehicleId,
         railProgress: progress,
+        replanTransitMemory: nextMemory,
       );
       debugPrint(
         '[MemberModeController] 鉄道追跡成功: '
@@ -292,17 +322,81 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         'current=${location.currentStopName}, '
         'next=${progress.nextStopName}, '
         'remaining=${progress.remainingStops}, '
+        'lastConfirmed=${nextMemory.lastConfirmedTransitPlace?.name}, '
         'vehicleAge=${location.vehicleAgeSeconds}s',
       );
     } on TrainLocationNotAvailableException catch (e) {
       // A reporting train can disappear temporarily around service boundaries.
-      // Keep the route step but do not synthesize a station position.
-      state = RealtimeTransitState(trackedStepId: activeStep.stepId);
+      // Keep the route step and confirmed place, but do not synthesize a station
+      // position or retain a stale predicted next station.
+      state = RealtimeTransitState(
+        trackedStepId: activeStep.stepId,
+        replanTransitMemory: state.replanTransitMemory.clearActiveRide(),
+      );
       debugPrint('[MemberModeController] 鉄道位置なし: $e');
     } catch (e) {
       debugPrint('[MemberModeController] 鉄道APIエラー: $e');
       rethrow;
     }
+  }
+
+  ReplanTransitMemory _replanMemoryForBus({
+    required StepSeg step,
+    required BusProgress progress,
+    required BusLocation location,
+    required DateTime now,
+  }) {
+    switch (progress.phase) {
+      case BusProgressPhase.approaching:
+        return state.replanTransitMemory.clearActiveRide();
+      case BusProgressPhase.arrived:
+        return state.replanTransitMemory.markArrived(_destinationPlace(step));
+      case BusProgressPhase.riding:
+        final observation = ReplanTransitObservationAdapter.fromBus(
+          step: step,
+          progress: progress,
+          location: location,
+          now: now,
+        );
+        return state.replanTransitMemory.observeRide(observation);
+    }
+  }
+
+  ReplanTransitMemory _replanMemoryForRail({
+    required StepSeg step,
+    required RailProgress progress,
+    required TrainLocation location,
+    required DateTime now,
+  }) {
+    switch (progress.phase) {
+      case RailProgressPhase.approaching:
+        return state.replanTransitMemory.clearActiveRide();
+      case RailProgressPhase.arrived:
+        return state.replanTransitMemory.markArrived(_destinationPlace(step));
+      case RailProgressPhase.riding:
+        final observation = ReplanTransitObservationAdapter.fromRail(
+          step: step,
+          progress: progress,
+          location: location,
+          now: now,
+        );
+        return state.replanTransitMemory.observeRide(observation);
+    }
+  }
+
+  ReplanTransitPlace _destinationPlace(StepSeg step) {
+    if (!step.isRide || step.stops.isEmpty) {
+      throw StateError(
+        '降車地点を確定できない乗車stepです: '
+        'stepId=${step.stepId}, kind=${step.kind}, stops=${step.stops.length}',
+      );
+    }
+    final stop = step.stops.last;
+    return ReplanTransitPlace(
+      name: stop.name,
+      stopId: stop.stopId,
+      point: stop.point,
+    );
   }
 
   void _logBusProgressTrace({
