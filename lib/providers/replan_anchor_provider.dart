@@ -1,0 +1,48 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../core/app_clock.dart';
+import '../logic/replan_anchor.dart';
+import '../logic/replan_anchor_context.dart';
+import 'member_mode_provider.dart';
+import 'minute_ticker_provider.dart';
+import 'trip_provider.dart';
+
+/// The non-GPS anchor that can be used for a route replan right now.
+///
+/// A null value means there is no active route-derived schedule step (or the
+/// surrounding Trip/UI state is still loading). Once a route step is active,
+/// inconsistent/missing anchor data is surfaced by [ReplanAnchorResolver]
+/// instead of being replaced with GPS or a guessed point.
+final replanAnchorProvider = Provider.autoDispose<ReplanAnchor?>((ref) {
+  final tripAsync = ref.watch(tripStreamProvider);
+  final uiAsync = ref.watch(memberUiStateProvider);
+  final realtimeState = ref.watch(memberModeControllerProvider);
+  final nowTick = ref.watch(minuteTickerProvider);
+
+  if (!tripAsync.hasValue || !uiAsync.hasValue) {
+    return null;
+  }
+
+  final trip = tripAsync.value;
+  final uiState = uiAsync.value;
+  if (trip == null || uiState == null) {
+    return null;
+  }
+
+  final activeStepId = uiState.resolvedEntry?.routeStepId;
+  if (activeStepId == null) {
+    return null;
+  }
+
+  final context = ReplanAnchorContextBuilder.build(
+    trip: trip,
+    activeStepId: activeStepId,
+    memory: realtimeState.replanTransitMemory,
+  );
+  final now = nowTick.value ?? appClock.now();
+  return ReplanAnchorResolver.resolve(context: context, now: now);
+}, dependencies: [
+  tripStreamProvider,
+  memberUiStateProvider,
+  memberModeControllerProvider,
+]);
