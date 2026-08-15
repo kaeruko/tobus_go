@@ -3,6 +3,8 @@ import '../models/trip_models.dart';
 import '../services/trip_service.dart';
 import 'app_session_provider.dart';
 
+export '../models/trip_models.dart' show Trip;
+
 final tripStreamProvider = StreamProvider.autoDispose<Trip?>(
   (ref) {
     final session = ref.watch(appSessionProvider);
