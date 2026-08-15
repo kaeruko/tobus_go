@@ -140,7 +140,21 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         railProgress: knownRailProgress,
       ),
     );
-    final resolvedEntry = scheduleResolved.resolvedEntry;
+    var resolvedEntry = scheduleResolved.resolvedEntry;
+
+    // Once onboard has been confirmed, a temporary realtime 404 must not let
+    // the wall clock advance navigation to a later walk/goal. Keep polling the
+    // exact ride until realtime proves arrival (or reports the ride again).
+    final knownOnboardStepId = state.replanTransitMemory.knownOnboardStepId;
+    if (knownOnboardStepId != null &&
+        state.replanTransitMemory.ridingTransit == null &&
+        resolvedEntry?.routeStepId != knownOnboardStepId) {
+      resolvedEntry = _knownOnboardRideEntry(trip, knownOnboardStepId);
+      debugPrint(
+        '[MemberModeController] Realtime不明の乗車stepを継続追跡: '
+        '$knownOnboardStepId',
+      );
+    }
 
     debugPrint(
       '[MemberModeController] resolvedEntry='
@@ -182,7 +196,8 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
           state.trackedVehicleId != null ||
           state.busProgress != null ||
           state.railProgress != null ||
-          state.ridingTransitObservation != null) {
+          state.ridingTransitObservation != null ||
+          state.replanTransitMemory.knownOnboardStepId != null) {
         state = RealtimeTransitState(replanTransitMemory: nextMemory);
       }
     }
@@ -266,16 +281,17 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       );
     } on BusLocationNotAvailableException catch (e) {
       // An exact route/trip match may not appear in the realtime feed until
-      // the assigned vehicle starts reporting. Keep a previously locked
-      // vehicle ID and confirmed place, but never retain a stale ride forecast.
+      // the assigned vehicle starts reporting. Preserve an already-confirmed
+      // onboard fact for this exact step, but never retain a stale forecast.
       state = RealtimeTransitState(
         trackedStepId: activeStep.stepId,
         trackedVehicleId: state.trackedStepId == activeStep.stepId
             ? state.trackedVehicleId
             : null,
-        replanTransitMemory: state.replanTransitMemory.clearActiveRide(),
+        replanTransitMemory: state.replanTransitMemory
+            .markRideRealtimeUnavailable(activeStep.stepId),
       );
-      debugPrint('[MemberModeController] バス乗車待ち: $e');
+      debugPrint('[MemberModeController] バス位置なし: $e');
     } catch (e) {
       debugPrint('[MemberModeController] バスAPIエラー: $e');
       rethrow;
@@ -327,11 +343,15 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       );
     } on TrainLocationNotAvailableException catch (e) {
       // A reporting train can disappear temporarily around service boundaries.
-      // Keep the route step and confirmed place, but do not synthesize a station
-      // position or retain a stale predicted next station.
+      // Keep confirmed onboard/last-station facts, but do not synthesize a
+      // station position or retain a stale predicted next station.
       state = RealtimeTransitState(
         trackedStepId: activeStep.stepId,
-        replanTransitMemory: state.replanTransitMemory.clearActiveRide(),
+        trackedVehicleId: state.trackedStepId == activeStep.stepId
+            ? state.trackedVehicleId
+            : null,
+        replanTransitMemory: state.replanTransitMemory
+            .markRideRealtimeUnavailable(activeStep.stepId),
       );
       debugPrint('[MemberModeController] 鉄道位置なし: $e');
     } catch (e) {
@@ -382,6 +402,35 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         );
         return state.replanTransitMemory.observeRide(observation);
     }
+  }
+
+  ScheduleEntry _knownOnboardRideEntry(Trip trip, String stepId) {
+    final step = trip.stepsById[stepId];
+    if (step == null) {
+      throw StateError('乗車中として記憶したstepがTripにありません: $stepId');
+    }
+    if (!step.isRide) {
+      throw StateError(
+        '乗車中として記憶したstepが乗車stepではありません: '
+        'stepId=$stepId, kind=${step.kind}',
+      );
+    }
+
+    final matches = trip.schedule
+        .where(
+          (entry) =>
+              entry.generatedBy == ScheduleEntrySource.route &&
+              entry.itemKind == ScheduleEntryKind.ride &&
+              entry.routeStepId == stepId,
+        )
+        .toList(growable: false);
+    if (matches.length != 1) {
+      throw StateError(
+        '乗車中stepのride予定を一意に特定できません: '
+        'stepId=$stepId, matches=${matches.length}',
+      );
+    }
+    return matches.single;
   }
 
   ReplanTransitPlace _destinationPlace(StepSeg step) {
