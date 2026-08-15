@@ -1,4 +1,5 @@
 from fastapi import HTTPException, Query
+from pydantic import BaseModel
 
 from app.services.train_realtime import (
     TrainRealtimeError,
@@ -7,6 +8,16 @@ from app.services.train_realtime import (
     get_static_gtfs,
     resolve_train_vehicle,
 )
+from app.services.train_route_identity import (
+    TrainRouteIdentityError,
+    enrich_route_result_train_trip_ids,
+)
+from toei_engine import determine_day_type
+
+
+class TrainRouteIdentityRequest(BaseModel):
+    candidates: list[dict]
+    target_date_str: str | None = None
 
 
 def register_train_routes(app) -> None:
@@ -40,3 +51,40 @@ def register_train_routes(app) -> None:
                 error.status_code,
                 detail={"code": error.code, "message": error.message},
             ) from error
+
+    @app.post("/train/resolve-route-identities")
+    async def resolve_route_identities(req: TrainRouteIdentityRequest):
+        timetable_manager = getattr(app.state, "TM", None)
+        if timetable_manager is None:
+            raise HTTPException(
+                503,
+                detail={
+                    "code": "train_timetable_manager_unavailable",
+                    "message": "Train timetable manager is not initialized",
+                },
+            )
+
+        try:
+            static_gtfs = await get_static_gtfs()
+            enriched = enrich_route_result_train_trip_ids(
+                {"candidates": req.candidates, "meta": {}},
+                timetable_manager=timetable_manager,
+                day_type=determine_day_type(req.target_date_str),
+                static_gtfs=static_gtfs,
+            )
+        except TrainRealtimeError as error:
+            raise HTTPException(
+                error.status_code,
+                detail={"code": error.code, "message": error.message},
+            ) from error
+        except TrainRouteIdentityError as error:
+            raise HTTPException(
+                409,
+                detail={"code": error.code, "message": error.message},
+            ) from error
+
+        meta = enriched.get("meta") or {}
+        return {
+            "candidates": enriched.get("candidates", []),
+            "rejections": meta.get("train_identity_rejected_candidates", []),
+        }
