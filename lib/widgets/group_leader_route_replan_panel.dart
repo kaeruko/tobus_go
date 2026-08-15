@@ -64,7 +64,12 @@ class _GroupLeaderRouteReplanPanelBodyState
   @override
   Widget build(BuildContext context) {
     final tripAsync = ref.watch(tripStreamProvider);
-    final delayImpact = ref.watch(delayImpactProvider);
+    final delayResolution = ref.watch(resolvedDelayImpactProvider);
+    final delayImpact = delayResolution.impact;
+    final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
+        ? null
+        : '次便のRealtime確認に失敗したため、予定時刻で判定しています: '
+            '${delayResolution.nextRideRealtimeError}';
 
     return tripAsync.when(
       loading: () => const SizedBox.shrink(),
@@ -90,6 +95,9 @@ class _GroupLeaderRouteReplanPanelBodyState
         if (delayImpact?.requiresReplan == true) {
           return DelayRecoveryCard(
             impact: delayImpact!,
+            nextRideRealtime: delayResolution.nextRideRealtime,
+            scheduledNextDepartureAt: delayResolution.scheduledNextDepartureAt,
+            realtimeDiagnostic: realtimeDiagnostic,
             helperText: 'この変更はリーダーだけが確定できます。確定後は参加者の画面にも反映されます。',
             action: replanButton,
           );
