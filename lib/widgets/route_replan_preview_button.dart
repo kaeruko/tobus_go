@@ -9,14 +9,17 @@ import '../providers/route_replanner_provider.dart';
 import '../providers/trip_provider.dart';
 import '../services/route_replan_commit_service.dart';
 import '../services/route_replanner.dart';
+import '../services/user_service.dart';
 import 'route_replan_comparison_sheet.dart';
 
 class RouteReplanPreviewButton extends ConsumerStatefulWidget {
   final Trip trip;
+  final bool allowGroupLeaderApply;
 
   const RouteReplanPreviewButton({
     super.key,
     required this.trip,
+    this.allowGroupLeaderApply = false,
   });
 
   @override
@@ -66,6 +69,8 @@ class _RouteReplanPreviewButtonState
       if (latestTrip == null) {
         throw StateError('現在のTripを取得できません');
       }
+      _validateApplyPermission(latestTrip);
+
       final preview = RouteReplanPreview.build(
         trip: latestTrip,
         request: latestRequest,
@@ -117,8 +122,11 @@ class _RouteReplanPreviewButtonState
     if (currentTrip == null) {
       throw StateError('現在のTripを取得できません');
     }
-    if (!currentTrip.isSolo) {
-      throw StateError('この経路変更操作は一人移動専用です');
+    _validateApplyPermission(currentTrip);
+
+    final actorUserId = UserService().currentUserId;
+    if (actorUserId == null || actorUserId.trim().isEmpty) {
+      throw StateError('経路変更を行うユーザーIDを取得できません');
     }
 
     final patch = RouteReplanPatcher.build(
@@ -128,8 +136,24 @@ class _RouteReplanPreviewButtonState
     );
     await RouteReplanCommitService().apply(
       tripId: currentTrip.id,
+      actorUserId: actorUserId,
       patch: patch,
     );
+  }
+
+  void _validateApplyPermission(Trip trip) {
+    if (trip.isSolo) return;
+    if (!widget.allowGroupLeaderApply) {
+      throw StateError('この画面からグループ経路は変更できません');
+    }
+
+    final actorUserId = UserService().currentUserId;
+    if (actorUserId == null || actorUserId.trim().isEmpty) {
+      throw StateError('経路変更を行うユーザーIDを取得できません');
+    }
+    if (actorUserId != trip.leaderId) {
+      throw StateError('グループの経路を変更できるのはリーダーだけです');
+    }
   }
 
   bool _sameRequestState(RouteReplanRequest a, RouteReplanRequest b) {
