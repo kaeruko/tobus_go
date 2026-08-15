@@ -144,15 +144,18 @@ class ApiClient {
     String? vehicleId,
     bool forceRefresh = false,
   }) async {
-    final params = <String, String>{'route_id': routeId, 'trip_id': tripId};
+    final params = <String, String>{
+      'route_id': routeId,
+      'trip_id': tripId,
+      // Replanning needs the exact GTFS stop timetable in every build mode.
+      // The backend currently exposes that payload behind its debug query.
+      'debug': 'true',
+    };
     if (vehicleId != null) {
       params['vehicle_id'] = vehicleId;
     }
     if (forceRefresh) {
       params['force_refresh'] = 'true';
-    }
-    if (kDebugMode) {
-      params['debug'] = 'true';
     }
 
     return await get(
