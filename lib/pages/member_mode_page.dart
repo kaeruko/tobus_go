@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_clock.dart';
-import '../logic/trip_navigator.dart';
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
@@ -14,6 +13,7 @@ import '../providers/app_session_provider.dart';
 import '../providers/trip_provider.dart';
 import '../providers/member_mode_provider.dart'; // 作成したProvider
 import '../providers/member_nav_progress_provider.dart';
+import '../widgets/trip_navigation_status_card.dart';
 import 'group_detail_page.dart';
 import 'settings_page.dart';
 import 'route_detail_page.dart';
@@ -69,10 +69,11 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _CurrentStatusCard(
+                  TripNavigationStatusCard(
                     navState: uiState.navState,
                     tripTitle: uiState.displayTitle,
-                    onTapRemainingStops: () => _onTapRemainingStops(trip),
+                    onTapStops: () => _onTapRemainingStops(trip),
+                    headerTrailing: const _LiveClock(),
                   ),
                   const SizedBox(height: 14),
                   _SchedulePeek(
@@ -216,110 +217,6 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
 // -----------------------------------------------------------------------------
 // UI Components
 // -----------------------------------------------------------------------------
-
-class _CurrentStatusCard extends StatelessWidget {
-  final NavigationState navState;
-  final String tripTitle;
-  final VoidCallback onTapRemainingStops;
-
-  const _CurrentStatusCard({
-    required this.navState,
-    required this.tripTitle,
-    required this.onTapRemainingStops,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.92),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 14, offset: Offset(0, 8))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeaderChips(),
-          const SizedBox(height: 12),
-          const Align(alignment: Alignment.centerRight, child: _LiveClock()),
-          Text(navState.mainText, style: const TextStyle(fontSize: 46, fontWeight: FontWeight.w800, color: Colors.black)),
-          const SizedBox(height: 8),
-          Text(navState.subText, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          _buildNavInfoChips(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderChips() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        _StatusChip(label: navState.statusLabel, icon: CupertinoIcons.location_solid, color: Colors.black87),
-        _StatusChip(label: '旅程: $tripTitle', icon: CupertinoIcons.flag, color: Colors.black54),
-      ],
-    );
-  }
-
-  Widget _buildNavInfoChips() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        if (navState.remainingStops != null)
-          _StatusChip(
-            label: 'のこり ${navState.remainingStops} 回停車',
-            icon: CupertinoIcons.bus,
-            color: const Color(0xFF0D47A1),
-            background: const Color(0xFFE3F2FD),
-            onTap: onTapRemainingStops,
-          ),
-        if (navState.nextStopName != null && navState.nextStopName!.isNotEmpty)
-          _StatusChip(
-            label: '次: ${navState.nextStopName}',
-            icon: CupertinoIcons.arrow_right_circle_fill,
-            color: const Color(0xFF1B5E20),
-            background: const Color(0xFFE8F5E9),
-          ),
-      ],
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final Color? background;
-  final VoidCallback? onTap;
-
-  const _StatusChip({required this.label, required this.icon, required this.color, this.background, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: background ?? Colors.black12,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 6),
-            Flexible(child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _SchedulePeek extends StatelessWidget {
   final ScheduleEntry? resolvedEntry;
