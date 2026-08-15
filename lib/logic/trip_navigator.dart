@@ -263,11 +263,15 @@ class NavigationState {
 
     if (progress.phase == BusProgressPhase.approaching) {
       final stopsUntilBoarding = progress.stopsUntilBoarding;
+      if (stopsUntilBoarding == null || stopsUntilBoarding <= 0) {
+        throw StateError(
+          '接近中のバスに乗車停留所までの停留所数がありません: '
+          'stepId=${step.stepId}, stopsUntilBoarding=$stopsUntilBoarding',
+        );
+      }
       return withFreshnessNotice(
         NavigationState(
-          mainText: stopsUntilBoarding == null
-              ? '待機中'
-              : 'あと $stopsUntilBoarding 停車前まできています',
+          mainText: '${_shortRideTitle(step)} $stopsUntilBoarding停留所前',
           subText: 'いま:${step.stops.first.name}',
           color: const Color(0xFFE1F5FE),
           statusLabel: '乗車待ち',
