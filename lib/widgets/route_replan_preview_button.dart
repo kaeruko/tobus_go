@@ -34,7 +34,28 @@ class _RouteReplanPreviewButtonState
   @override
   Widget build(BuildContext context) {
     final request = ref.watch(currentRouteReplanRequestProvider);
-    if (request == null) return const SizedBox.shrink();
+    final blockedReason = ref.watch(routeReplanBlockedReasonProvider);
+    if (request == null) {
+      if (blockedReason == null) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const OutlinedButton.icon(
+              onPressed: null,
+              icon: Icon(Icons.alt_route),
+              label: Text('経路を見直す'),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              blockedReason,
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.only(top: 10),
