@@ -58,6 +58,44 @@ class TripCoordinator {
     return (seconds + 59) ~/ 60;
   }
 
+  static String _boardingSubText({
+    required Trip trip,
+    required ScheduleEntry rideEntry,
+    required String rideTime,
+    bool planned = false,
+  }) {
+    final stepId = rideEntry.routeStepId;
+    if (stepId == null || stepId.isEmpty) {
+      throw StateError(
+        '乗車予定にrouteStepIdがありません: entryId=${rideEntry.id}',
+      );
+    }
+
+    final rideStep = trip.stepsById[stepId];
+    if (rideStep == null) {
+      throw StateError(
+        '乗車予定が存在しないrouteStepIdを参照しています: '
+        'entryId=${rideEntry.id}, routeStepId=$stepId',
+      );
+    }
+    if (!rideStep.isRide) {
+      throw StateError(
+        '乗車予定のrouteStepIdが乗車ステップではありません: '
+        'entryId=${rideEntry.id}, routeStepId=$stepId, kind=${rideStep.kind}',
+      );
+    }
+
+    final routeTitle = rideStep.title.trim();
+    if (routeTitle.isEmpty) {
+      throw StateError(
+        '乗車ステップの路線・行先表示が空です: '
+        'entryId=${rideEntry.id}, routeStepId=$stepId',
+      );
+    }
+
+    return '$rideTime $routeTitle ${planned ? '乗車予定' : '乗車'}';
+  }
+
   static ResolvedScheduleState resolveScheduleState({
     required List<ScheduleEntry> scheduleEntries,
     required DateTime now,
@@ -266,7 +304,8 @@ class TripCoordinator {
         throw StateError('待機予定の後に乗車予定がありません: entryId=${resolved.id}');
       }
 
-      final rideAt = nextRides.first.plannedAt;
+      final rideEntry = nextRides.first;
+      final rideAt = rideEntry.plannedAt;
       final rideTime = _formatClock(rideAt);
 
       final departures =
@@ -288,7 +327,11 @@ class TripCoordinator {
 
         return NavigationState(
           mainText: '$leaveTime 出発　あと$remainingMinutes分',
-          subText: '$rideTime 乗車',
+          subText: _boardingSubText(
+            trip: trip,
+            rideEntry: rideEntry,
+            rideTime: rideTime,
+          ),
           color: const Color(0xFFE1F5FE),
           statusLabel: '待機',
           currentStepId: resolved.routeStepId,
@@ -299,7 +342,12 @@ class TripCoordinator {
 
       return NavigationState(
         mainText: resolved.label,
-        subText: '$rideTime 乗車予定',
+        subText: _boardingSubText(
+          trip: trip,
+          rideEntry: rideEntry,
+          rideTime: rideTime,
+          planned: true,
+        ),
         color: const Color(0xFFE1F5FE),
         statusLabel: '待機',
         currentStepId: resolved.routeStepId,
@@ -328,13 +376,18 @@ class TripCoordinator {
           );
         }
 
-        final rideAt = nextRides.first.plannedAt;
+        final rideEntry = nextRides.first;
+        final rideAt = rideEntry.plannedAt;
         final rideTime = _formatClock(rideAt);
         final remainingMinutes = _minutesUntil(rideAt, now);
 
         return NavigationState(
           mainText: '$rideTime $destinationにむかう　あと$remainingMinutes分',
-          subText: '$rideTime 乗車',
+          subText: _boardingSubText(
+            trip: trip,
+            rideEntry: rideEntry,
+            rideTime: rideTime,
+          ),
           color: const Color(0xFF81D4FA),
           statusLabel: '移動中',
           nextStopName: destination,
