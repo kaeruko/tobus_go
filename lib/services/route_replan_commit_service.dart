@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../logic/route_replan_commit_policy.dart';
 import '../logic/route_replan_patcher.dart';
 import '../models/trip_models.dart';
 
@@ -11,11 +12,20 @@ class RouteReplanCommitService {
 
   Future<void> apply({
     required String tripId,
+    required String actorUserId,
     required RouteReplanPatch patch,
   }) async {
     final normalizedTripId = tripId.trim();
     if (normalizedTripId.isEmpty) {
       throw ArgumentError.value(tripId, 'tripId', 'must not be empty');
+    }
+    final normalizedActorUserId = actorUserId.trim();
+    if (normalizedActorUserId.isEmpty) {
+      throw ArgumentError.value(
+        actorUserId,
+        'actorUserId',
+        'must not be empty',
+      );
     }
 
     final tripRef = _db.collection('trips').doc(normalizedTripId);
@@ -35,15 +45,27 @@ class RouteReplanCommitService {
           'expected=${Trip.currentSchemaVersion}, actual=$schemaVersion',
         );
       }
-      if (data['tripType'] != TripType.solo.name) {
-        throw StateError(
-          'この再探索適用は一人移動専用です: tripType=${data['tripType']}',
-        );
+
+      final tripTypeName = data['tripType'];
+      if (tripTypeName is! String) {
+        throw StateError('TripのtripTypeが不正です: $tripTypeName');
       }
-      final phase = data['travelPhase'] as String? ?? data['status'] as String?;
-      if (phase != TravelPhase.active.name) {
-        throw StateError('移動中ではないTripには再探索を適用できません: phase=$phase');
+      final tripType = TripType.values.byName(tripTypeName);
+      final phaseName = data['travelPhase'] as String? ?? data['status'] as String?;
+      if (phaseName == null) {
+        throw StateError('TripのtravelPhaseがありません');
       }
+      final travelPhase = TravelPhase.values.byName(phaseName);
+      final leaderId = data['leaderId'];
+      if (leaderId is! String) {
+        throw StateError('TripのleaderIdが不正です: $leaderId');
+      }
+      RouteReplanCommitPolicy.validate(
+        tripType: tripType,
+        travelPhase: travelPhase,
+        leaderId: leaderId,
+        actorUserId: normalizedActorUserId,
+      );
 
       final rawLegs = data['legs'];
       if (rawLegs is! List) {

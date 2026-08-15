@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/trip_models.dart';
 import '../models/group_models.dart';
-import '../services/trip_service.dart';
 import '../services/user_service.dart';
 
+import 'group_leader_route_replan_page.dart';
 import 'leader_mode_page.dart';
 import 'member_mode_page.dart';
 import 'ride_stops_navigation.dart';
@@ -62,6 +61,9 @@ class GroupDetailPage extends StatelessWidget {
     final showDate = trip.schedule.isNotEmpty &&
         (trip.schedule.first.plannedAt.day != trip.schedule.last.plannedAt.day ||
             trip.schedule.first.plannedAt.month != trip.schedule.last.plannedAt.month);
+    final currentUserId = UserService().currentUserId;
+    final isLeader = currentUserId != null && currentUserId == trip.leaderId;
+    final canReplan = isLeader && trip.travelPhase == TravelPhase.active;
 
     return Scaffold(
       appBar: AppBar(
@@ -191,19 +193,47 @@ class GroupDetailPage extends StatelessWidget {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton.icon(
-              onPressed: () => _navigateToMode(context),
-              icon: const Icon(Icons.play_arrow),
-              label: const Text("おでかけ編集", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (canReplan) ...[
+                SizedBox(
+                  height: 50,
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => GroupLeaderRouteReplanPage(
+                          tripId: trip.id,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.alt_route),
+                    label: const Text(
+                      '移動中の経路を見直す',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              SizedBox(
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: () => _navigateToMode(context),
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text("おでかけ編集", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
