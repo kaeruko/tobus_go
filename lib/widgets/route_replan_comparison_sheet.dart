@@ -28,9 +28,6 @@ class _RouteReplanComparisonSheetState
     final preview = widget.preview;
     final candidates = preview.newCandidates;
     final selected = candidates.isEmpty ? null : candidates[_selectedIndex];
-    final newPoints = selected == null
-        ? const <dynamic>[]
-        : preview.pointsForNewCandidate(selected);
 
     return SafeArea(
       top: false,
