@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tobus_go/logic/trip_navigator.dart';
-import 'package:tobus_go/models/rail_progress.dart';
-import 'package:tobus_go/models/route_models.dart';
-import 'package:tobus_go/services/train_location_source.dart';
+import 'package:toeigo/logic/trip_navigator.dart';
+import 'package:toeigo/models/rail_progress.dart';
+import 'package:toeigo/models/route_models.dart';
+import 'package:toeigo/services/train_location_source.dart';
 
 void main() {
   const tripStops = <TrainTripStop>[
