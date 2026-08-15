@@ -301,6 +301,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       debugPrint('[MemberModeController] 鉄道位置なし: $e');
     } catch (e) {
       debugPrint('[MemberModeController] 鉄道APIエラー: $e');
+      rethrow;
     }
   }
 
