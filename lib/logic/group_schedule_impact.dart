@@ -114,12 +114,13 @@ class GroupScheduleImpactAnalyzer {
     );
   }
 
-  /// Finds the first still-upcoming manual group event that the expected
-  /// destination arrival would overrun. Past manual entries are ignored.
+  /// Finds the first manual event in this leg that the expected destination
+  /// arrival would overrun. A missed event remains visible while the same leg is
+  /// active; hiding it merely because its clock time passed would conceal the
+  /// conflict exactly when the group is late.
   static GroupScheduleImpact? findFirstManualConflict({
     required Trip trip,
     required GroupArrivalEstimate arrival,
-    required DateTime now,
   }) {
     _requireGroupTrip(trip);
     _requireLegIndex(trip, arrival.legIndex);
@@ -129,7 +130,6 @@ class GroupScheduleImpactAnalyzer {
           (entry) =>
               entry.legIndex == arrival.legIndex &&
               entry.generatedBy == ScheduleEntrySource.manual &&
-              !entry.plannedAt.isBefore(now) &&
               arrival.expectedArrivalAt.isAfter(entry.plannedAt),
         )
         .toList(growable: false)
