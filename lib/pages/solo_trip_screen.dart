@@ -186,7 +186,10 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
             _SoloScheduleCard(
               resolvedEntry: uiState.resolvedEntry,
               entries: uiState.windowEntries,
-              completedCount: uiState.completedCount,
+              completedCount: completed
+                  ? trip.schedule.length
+                  : uiState.completedCount,
+              totalStepCount: trip.schedule.length,
               activeLabel: uiState.activeLabel,
               onTapEntry: (entry) {
                 final stepId = entry.routeStepId;
@@ -457,6 +460,7 @@ class _SoloScheduleCard extends StatelessWidget {
   final ScheduleEntry? resolvedEntry;
   final List<ScheduleEntry> entries;
   final int completedCount;
+  final int totalStepCount;
   final String activeLabel;
   final ValueChanged<ScheduleEntry> onTapEntry;
 
@@ -464,12 +468,21 @@ class _SoloScheduleCard extends StatelessWidget {
     required this.resolvedEntry,
     required this.entries,
     required this.completedCount,
+    required this.totalStepCount,
     required this.activeLabel,
     required this.onTapEntry,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (completedCount < 0 ||
+        totalStepCount < 0 ||
+        completedCount > totalStepCount) {
+      throw StateError(
+        '経路ステップ数が不正です: completed=$completedCount, total=$totalStepCount',
+      );
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -483,7 +496,7 @@ class _SoloScheduleCard extends StatelessWidget {
                   '今回の経路',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                Text('完了 $completedCount 件'),
+                Text('$completedCount / $totalStepCount ステップ'),
               ],
             ),
             const SizedBox(height: 10),
