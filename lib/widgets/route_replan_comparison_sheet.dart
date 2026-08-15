@@ -69,6 +69,7 @@ class _RouteReplanComparisonSheetState
                 ),
                 const SizedBox(height: 18),
                 RouteReplanComparisonMap(
+                  key: ValueKey(selected?.id ?? 'no-new-route'),
                   originalPoints: preview.originalFuturePoints,
                   newPoints: selected == null
                       ? const []
@@ -124,8 +125,8 @@ class _RouteReplanComparisonSheetState
                     title: '新しい経路',
                     arrivalLabel:
                         '${RouteReplanPreview.arrivalLabel(selected!)} 到着予定',
-                    lineSummary: RouteReplanPreview.lineSummary(selected),
-                    transfers: selected.transfers,
+                    lineSummary: RouteReplanPreview.lineSummary(selected!),
+                    transfers: selected!.transfers,
                     emphasized: true,
                   ),
                 ],
