@@ -5,6 +5,7 @@ import '../models/leg_models.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../services/route_replanner.dart';
+import 'replan_anchor.dart';
 
 class RouteReplanPatch {
   final int legIndex;
@@ -23,7 +24,7 @@ class RouteReplanPatch {
 }
 
 /// Applies a selected replan candidate to the current route while preserving
-/// the route history before the non-GPS [RouteReplanRequest.anchor].
+/// the route history before the non-GPS replan anchor.
 ///
 /// This patcher intentionally changes only route-generated entries in the
 /// active leg. Manual/group entries and every other leg are preserved exactly.
@@ -289,7 +290,7 @@ class RouteReplanPatcher {
 
     final suffix = createScheduleFromRoute(
       selectedCandidate,
-      startDateTime: request.anchor.availableAt,
+      startDateTime: request.anchor.availableAt.toLocal(),
       legIndex: targetLegIndex,
     );
     retained.addAll(suffix);
