@@ -43,44 +43,83 @@ class RailProgress {
       throw ArgumentError.value(stepId, 'stepId', 'must not be empty');
     }
 
-    late final int lastReachedSequence;
+    final tripStops = location.tripStops;
+    if (tripStops.isEmpty) {
+      throw StateError('列車のtrip_stopsが空です: trip=${location.tripId}');
+    }
+
+    // GTFS stop_sequence is an ordering key, not a station count. Values may
+    // skip numbers, so all progress/count calculations below use the ordered
+    // tripStops index. The original sequence is retained only for diagnostics
+    // and exact lookup by other realtime adapters.
+    for (var index = 1; index < tripStops.length; index++) {
+      final previous = tripStops[index - 1].sequence;
+      final current = tripStops[index].sequence;
+      if (current <= previous) {
+        throw StateError(
+          '列車のtrip_stopsがstop_sequence昇順ではありません: '
+          'trip=${location.tripId}, index=$index, $previous->$current',
+        );
+      }
+    }
+
+    int requiredIndex(int sequence, String label) {
+      final matches = <int>[];
+      for (var index = 0; index < tripStops.length; index++) {
+        if (tripStops[index].sequence == sequence) {
+          matches.add(index);
+        }
+      }
+      if (matches.length != 1) {
+        throw StateError(
+          '列車の$label sequenceをtrip_stopsで一意に特定できません: '
+          'trip=${location.tripId}, sequence=$sequence, matches=${matches.length}',
+        );
+      }
+      return matches.single;
+    }
+
+    final currentIndex = requiredIndex(
+      location.currentStopSequence,
+      'current_stop',
+    );
+    final boardingIndex = requiredIndex(
+      location.boardingSequence,
+      'boarding',
+    );
+    final destinationIndex = requiredIndex(
+      location.destinationSequence,
+      'destination',
+    );
+    if (destinationIndex <= boardingIndex) {
+      throw StateError(
+        '列車の乗車・降車順がtrip_stops上で不正です: '
+        'trip=${location.tripId}, boardingIndex=$boardingIndex, '
+        'destinationIndex=$destinationIndex',
+      );
+    }
+
+    late final int lastReachedIndex;
     if (location.currentStatus == 'STOPPED_AT') {
-      lastReachedSequence = location.currentStopSequence;
+      lastReachedIndex = currentIndex;
     } else if (location.currentStatus == 'IN_TRANSIT_TO' ||
         location.currentStatus == 'INCOMING_AT') {
-      lastReachedSequence = location.currentStopSequence - 1;
+      lastReachedIndex = currentIndex - 1;
     } else {
       throw StateError(
         '未対応の列車current_statusです: ${location.currentStatus}',
       );
     }
 
-    if (lastReachedSequence < 0) {
-      throw StateError(
-        '列車の最終到達sequenceが負です: '
-        'observed=${location.currentStopSequence}, status=${location.currentStatus}',
-      );
-    }
+    // Before the first trip stop there is no real last-reached sequence. Keep a
+    // synthetic value only for the existing diagnostic field; station counts
+    // never use arithmetic on it.
+    final lastReachedSequence = lastReachedIndex >= 0
+        ? tripStops[lastReachedIndex].sequence
+        : location.currentStopSequence - 1;
 
-    final stopBySequence = {
-      for (final stop in location.tripStops) stop.sequence: stop,
-    };
-    if (!stopBySequence.containsKey(location.boardingSequence)) {
-      throw StateError(
-        '列車の乗車sequenceがtrip_stopsにありません: '
-        '${location.boardingSequence}',
-      );
-    }
-    if (!stopBySequence.containsKey(location.destinationSequence)) {
-      throw StateError(
-        '列車の降車sequenceがtrip_stopsにありません: '
-        '${location.destinationSequence}',
-      );
-    }
-
-    if (lastReachedSequence < location.boardingSequence) {
-      final stopsUntilBoarding =
-          location.boardingSequence - lastReachedSequence;
+    if (lastReachedIndex < boardingIndex) {
+      final stopsUntilBoarding = boardingIndex - lastReachedIndex;
       return RailProgress(
         stepId: stepId,
         tripId: location.tripId,
@@ -89,16 +128,18 @@ class RailProgress {
         boardingSequence: location.boardingSequence,
         destinationSequence: location.destinationSequence,
         lastReachedSequence: lastReachedSequence,
-        remainingStops: location.destinationSequence - lastReachedSequence,
+        remainingStops: destinationIndex - lastReachedIndex,
         stopsUntilBoarding: stopsUntilBoarding,
-        currentStopName: stopBySequence[lastReachedSequence]?.stopName,
-        nextStopName: stopBySequence[location.boardingSequence]?.stopName,
+        currentStopName: lastReachedIndex >= 0
+            ? tripStops[lastReachedIndex].stopName
+            : null,
+        nextStopName: tripStops[boardingIndex].stopName,
         currentStatus: location.currentStatus,
         vehicleAgeSeconds: location.vehicleAgeSeconds,
       );
     }
 
-    if (lastReachedSequence >= location.destinationSequence) {
+    if (lastReachedIndex >= destinationIndex) {
       return RailProgress(
         stepId: stepId,
         tripId: location.tripId,
@@ -108,17 +149,23 @@ class RailProgress {
         destinationSequence: location.destinationSequence,
         lastReachedSequence: lastReachedSequence,
         remainingStops: 0,
-        currentStopName:
-            stopBySequence[location.destinationSequence]?.stopName,
+        currentStopName: tripStops[destinationIndex].stopName,
         currentStatus: location.currentStatus,
         vehicleAgeSeconds: location.vehicleAgeSeconds,
       );
     }
 
-    final remaining = location.destinationSequence - lastReachedSequence;
-    final nextSequence = location.currentStatus == 'STOPPED_AT'
-        ? lastReachedSequence + 1
-        : location.currentStopSequence;
+    final nextStopIndex = location.currentStatus == 'STOPPED_AT'
+        ? lastReachedIndex + 1
+        : currentIndex;
+    if (nextStopIndex < 0 || nextStopIndex >= tripStops.length) {
+      throw StateError(
+        '列車の次駅indexがtrip_stops範囲外です: '
+        'trip=${location.tripId}, nextStopIndex=$nextStopIndex, '
+        'stops=${tripStops.length}',
+      );
+    }
+
     return RailProgress(
       stepId: stepId,
       tripId: location.tripId,
@@ -127,9 +174,9 @@ class RailProgress {
       boardingSequence: location.boardingSequence,
       destinationSequence: location.destinationSequence,
       lastReachedSequence: lastReachedSequence,
-      remainingStops: remaining,
-      currentStopName: stopBySequence[lastReachedSequence]?.stopName,
-      nextStopName: stopBySequence[nextSequence]?.stopName,
+      remainingStops: destinationIndex - lastReachedIndex,
+      currentStopName: tripStops[lastReachedIndex].stopName,
+      nextStopName: tripStops[nextStopIndex].stopName,
       currentStatus: location.currentStatus,
       vehicleAgeSeconds: location.vehicleAgeSeconds,
     );
