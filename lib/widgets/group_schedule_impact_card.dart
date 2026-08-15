@@ -5,11 +5,13 @@ import '../logic/group_schedule_impact.dart';
 class GroupScheduleImpactCard extends StatelessWidget {
   final GroupScheduleImpact impact;
   final String? helperText;
+  final Widget? action;
 
   const GroupScheduleImpactCard({
     super.key,
     required this.impact,
     this.helperText,
+    this.action,
   });
 
   @override
@@ -70,6 +72,10 @@ class GroupScheduleImpactCard extends StatelessWidget {
                 helperText!,
                 style: const TextStyle(color: Colors.black54, fontSize: 13),
               ),
+            ],
+            if (action != null) ...[
+              const SizedBox(height: 10),
+              action!,
             ],
           ],
         ),
