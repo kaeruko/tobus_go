@@ -46,6 +46,7 @@ class _RouteReplanComparisonSheetState
   @override
   Widget build(BuildContext context) {
     final currentRequest = ref.watch(currentRouteReplanRequestProvider);
+    final blockedReason = ref.watch(routeReplanBlockedReasonProvider);
     final previewMatchesCurrent = currentRequest != null &&
         sameRouteReplanRequestState(currentRequest, _preview.request);
     final failedForCurrent = currentRequest != null &&
@@ -119,8 +120,9 @@ class _RouteReplanComparisonSheetState
                   ),
                 ] else if (currentRequest == null) ...[
                   const SizedBox(height: 12),
-                  const _RefreshNotice(
-                    message: '現在の再探索起点を取得できません。状況が確認できるまで経路変更は確定できません。',
+                  _RefreshNotice(
+                    message: blockedReason ??
+                        '現在の再探索起点を取得できません。状況が確認できるまで経路変更は確定できません。',
                   ),
                 ] else if (!previewMatchesCurrent &&
                     _refreshError != null &&
@@ -274,7 +276,10 @@ class _RouteReplanComparisonSheetState
 
         final latestRequest = ref.read(currentRouteReplanRequestProvider);
         if (latestRequest == null) {
-          throw StateError('再検索中に現在の再探索起点を取得できなくなりました');
+          final blockedReason = ref.read(routeReplanBlockedReasonProvider);
+          throw StateError(
+            blockedReason ?? '再検索中に現在の再探索起点を取得できなくなりました',
+          );
         }
 
         if (!sameRouteReplanRequestState(latestRequest, target)) {
