@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../logic/route_replan_patcher.dart';
 import '../logic/route_replan_preview.dart';
+import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../providers/route_replanner_provider.dart';
+import '../providers/trip_provider.dart';
+import '../services/route_replan_commit_service.dart';
+import '../services/route_replanner.dart';
 import 'route_replan_comparison_sheet.dart';
 
 class RouteReplanPreviewButton extends ConsumerStatefulWidget {
@@ -58,11 +63,22 @@ class _RouteReplanPreviewButtonState
       );
       if (!mounted) return;
 
-      await showModalBottomSheet<void>(
+      final applied = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (_) => RouteReplanComparisonSheet(preview: preview),
+        builder: (_) => RouteReplanComparisonSheet(
+          preview: preview,
+          onApply: (candidate) => _applyCandidate(preview, candidate),
+        ),
+      );
+      if (!mounted || applied != true) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${preview.request.anchor.placeName}からの新しい経路に変更しました',
+          ),
+        ),
       );
     } catch (error) {
       if (!mounted) return;
@@ -72,5 +88,51 @@ class _RouteReplanPreviewButtonState
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _applyCandidate(
+    RouteReplanPreview preview,
+    Candidate selectedCandidate,
+  ) async {
+    final currentRequest = ref.read(currentRouteReplanRequestProvider);
+    if (currentRequest == null ||
+        !_sameRequestState(currentRequest, preview.request)) {
+      throw StateError(
+        '比較表示中に移動状況が変わりました。いったん閉じて、もう一度経路を見直してください。',
+      );
+    }
+
+    final tripAsync = ref.read(tripStreamProvider);
+    final currentTrip = tripAsync.value;
+    if (currentTrip == null) {
+      throw StateError('現在のTripを取得できません');
+    }
+    if (!currentTrip.isSolo) {
+      throw StateError('この経路変更操作は一人移動専用です');
+    }
+
+    final patch = RouteReplanPatcher.build(
+      trip: currentTrip,
+      request: currentRequest,
+      selectedCandidate: selectedCandidate,
+    );
+    await RouteReplanCommitService().apply(
+      tripId: currentTrip.id,
+      patch: patch,
+    );
+  }
+
+  bool _sameRequestState(RouteReplanRequest a, RouteReplanRequest b) {
+    return a.activeStepId == b.activeStepId &&
+        a.originalCandidateId == b.originalCandidateId &&
+        a.destination == b.destination &&
+        a.destinationName == b.destinationName &&
+        a.preference == b.preference &&
+        a.anchor.source == b.anchor.source &&
+        a.anchor.routeStepId == b.anchor.routeStepId &&
+        a.anchor.stopId == b.anchor.stopId &&
+        a.anchor.placeName == b.anchor.placeName &&
+        a.anchor.point == b.anchor.point &&
+        a.anchor.availableAt.isAtSameMomentAs(b.anchor.availableAt);
   }
 }
