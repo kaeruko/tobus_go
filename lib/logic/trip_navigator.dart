@@ -2,14 +2,25 @@ import 'package:flutter/material.dart';
 
 import '../models/bus_progress.dart';
 import '../models/group_models.dart';
+import '../models/rail_progress.dart';
 import '../models/route_models.dart';
 
 class RouteState {
   final Map<String, StepSeg> stepsById;
   final String? currentStepId;
   final BusProgress? busProgress;
+  final RailProgress? railProgress;
 
-  RouteState({required this.stepsById, this.currentStepId, this.busProgress});
+  RouteState({
+    required this.stepsById,
+    this.currentStepId,
+    this.busProgress,
+    this.railProgress,
+  }) {
+    if (busProgress != null && railProgress != null) {
+      throw ArgumentError('RouteState cannot contain bus and rail progress together');
+    }
+  }
 
   StepSeg? get currentStep =>
       currentStepId == null ? null : stepsById[currentStepId];
@@ -20,6 +31,7 @@ class RouteState {
 
 class NavigationState {
   static const double staleBusPositionAfterSeconds = 90;
+  static const double staleRailPositionAfterSeconds = 90;
 
   final String mainText;
   final String subText;
@@ -30,6 +42,7 @@ class NavigationState {
   final int? remainingStops;
   final String? currentStepId;
   final BusProgress? busProgress;
+  final RailProgress? railProgress;
   final StepSeg? step;
   final String? noticeText;
 
@@ -42,6 +55,7 @@ class NavigationState {
     this.remainingStops,
     this.currentStepId,
     this.busProgress,
+    this.railProgress,
     this.isMoving = true,
     this.step,
     this.noticeText,
@@ -59,6 +73,7 @@ class NavigationState {
     remainingStops: remainingStops,
     currentStepId: currentStepId,
     busProgress: busProgress,
+    railProgress: railProgress,
     isMoving: isMoving,
     step: step,
     noticeText: noticeText,
@@ -137,11 +152,13 @@ class NavigationState {
     required ScheduleEntry entry,
     required StepSeg? step,
     required BusProgress? busProgress,
+    RailProgress? railProgress,
   }) {
     if (entry.itemKind == ScheduleEntryKind.walk && step != null) {
       return NavigationState.navigating(
         step: step,
         busProgress: null,
+        railProgress: null,
         statusLabel: '移動中',
       );
     }
@@ -150,6 +167,7 @@ class NavigationState {
       return NavigationState.navigating(
         step: step,
         busProgress: busProgress,
+        railProgress: railProgress,
         statusLabel: _rideStatusLabel(step),
       );
     }
@@ -193,9 +211,13 @@ class NavigationState {
   static NavigationState navigating({
     required StepSeg step,
     required BusProgress? busProgress,
+    RailProgress? railProgress,
     String? statusLabel,
   }) {
     if (step.kind == 'walk') {
+      if (busProgress != null || railProgress != null) {
+        throw StateError('徒歩stepに乗車進捗が渡されました: ${step.stepId}');
+      }
       return NavigationState(
         mainText: '${step.to}にむかう',
         subText: '${step.meters}m 徒歩',
@@ -208,21 +230,21 @@ class NavigationState {
     }
 
     if (step.kind == 'rail') {
-      return NavigationState(
-        mainText: '${step.title}に乗車中',
-        subText: step.to == null || step.to!.isEmpty
-            ? ''
-            : '${step.to}で降ります',
-        color: const Color(0xFF81D4FA),
-        statusLabel: statusLabel ?? _rideStatusLabel(step),
-        currentStepId: step.stepId,
-        nextStopName: step.to,
+      if (busProgress != null) {
+        throw StateError('rail stepにBusProgressが渡されました: ${step.stepId}');
+      }
+      return _railNavigation(
         step: step,
+        railProgress: railProgress,
+        statusLabel: statusLabel,
       );
     }
 
     if (step.kind != 'bus') {
       throw StateError('未対応の乗車step kindです: ${step.kind}');
+    }
+    if (railProgress != null) {
+      throw StateError('bus stepにRailProgressが渡されました: ${step.stepId}');
     }
 
     if (busProgress == null || step.stops.isEmpty) {
@@ -345,6 +367,101 @@ class NavigationState {
     );
   }
 
+  static NavigationState _railNavigation({
+    required StepSeg step,
+    required RailProgress? railProgress,
+    String? statusLabel,
+  }) {
+    final destination = step.to?.trim();
+    final subText = destination == null || destination.isEmpty
+        ? ''
+        : '$destinationで降ります';
+
+    if (railProgress == null) {
+      return NavigationState(
+        mainText: '${step.title}に乗車中',
+        subText: subText,
+        color: const Color(0xFF81D4FA),
+        statusLabel: statusLabel ?? _rideStatusLabel(step),
+        currentStepId: step.stepId,
+        nextStopName: destination,
+        step: step,
+      );
+    }
+    if (railProgress.stepId != step.stepId) {
+      throw StateError(
+        'RailProgressのstepIdが一致しません: '
+        '${railProgress.stepId} != ${step.stepId}',
+      );
+    }
+
+    final isStale =
+        (railProgress.vehicleAgeSeconds ?? 0) >= staleRailPositionAfterSeconds;
+    NavigationState withFreshnessNotice(NavigationState navigation) => isStale
+        ? navigation.withNotice(
+            statusLabel: '検索中…',
+            noticeText:
+                '列車の位置情報を確認しています\n${_staleRailPositionText(railProgress)}',
+          )
+        : navigation;
+
+    if (railProgress.phase == RailProgressPhase.approaching) {
+      final stopsUntilBoarding = railProgress.stopsUntilBoarding;
+      if (stopsUntilBoarding == null || stopsUntilBoarding <= 0) {
+        throw StateError(
+          '接近中の列車に乗車駅までの駅数がありません: '
+          'stepId=${step.stepId}, stopsUntilBoarding=$stopsUntilBoarding',
+        );
+      }
+      return withFreshnessNotice(
+        NavigationState(
+          mainText: '${_shortRideTitle(step)} $stopsUntilBoarding駅前',
+          subText: step.fromName == null ? '' : 'いま:${step.fromName}',
+          color: const Color(0xFFE1F5FE),
+          statusLabel: '乗車待ち',
+          nextStopName: step.fromName,
+          currentStepId: step.stepId,
+          railProgress: railProgress,
+          isMoving: false,
+          step: step,
+        ),
+      );
+    }
+
+    if (railProgress.phase == RailProgressPhase.arrived ||
+        railProgress.remainingStops <= 0) {
+      return withFreshnessNotice(
+        NavigationState(
+          mainText: '到着',
+          subText: destination ?? railProgress.currentStopName ?? '',
+          color: const Color(0xFFFFCC80),
+          statusLabel: '到着',
+          remainingStops: 0,
+          currentStepId: step.stepId,
+          railProgress: railProgress,
+          isMoving: false,
+          step: step,
+        ),
+      );
+    }
+
+    return withFreshnessNotice(
+      NavigationState(
+        mainText: '${step.title}に乗車中',
+        subText: subText,
+        color: railProgress.remainingStops == 1
+            ? const Color(0xFFFFAB91)
+            : const Color(0xFF81D4FA),
+        statusLabel: statusLabel ?? _rideStatusLabel(step),
+        nextStopName: railProgress.nextStopName,
+        remainingStops: railProgress.remainingStops,
+        currentStepId: step.stepId,
+        railProgress: railProgress,
+        step: step,
+      ),
+    );
+  }
+
   static String _staleBusPositionText(BusProgress progress) {
     final ageSeconds = progress.vehicleAgeSeconds ?? 0;
     final ageMinutes = (ageSeconds / 60).round().clamp(1, 999);
@@ -359,5 +476,15 @@ class NavigationState {
         ? '$stopTextへ走行中'
         : stopText;
     return '$movementText（$ageText）';
+  }
+
+  static String _staleRailPositionText(RailProgress progress) {
+    final ageSeconds = progress.vehicleAgeSeconds ?? 0;
+    final ageMinutes = (ageSeconds / 60).round().clamp(1, 999);
+    final ageText = '約$ageMinutes分前';
+    final place = progress.currentStatus == 'IN_TRANSIT_TO'
+        ? progress.nextStopName
+        : progress.currentStopName;
+    return '${place ?? '駅不明'}（$ageText）';
   }
 }
