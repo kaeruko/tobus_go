@@ -28,16 +28,19 @@ class _RouteReplanPreviewButtonState
     final request = ref.watch(currentRouteReplanRequestProvider);
     if (request == null) return const SizedBox.shrink();
 
-    return OutlinedButton.icon(
-      onPressed: _loading ? null : _openPreview,
-      icon: _loading
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.alt_route),
-      label: Text(_loading ? '新しい経路を検索中…' : '経路を見直す'),
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: OutlinedButton.icon(
+        onPressed: _loading ? null : _openPreview,
+        icon: _loading
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.alt_route),
+        label: Text(_loading ? '新しい経路を検索中…' : '経路を見直す'),
+      ),
     );
   }
 
