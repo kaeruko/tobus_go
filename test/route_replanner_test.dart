@@ -109,6 +109,32 @@ void main() {
     expect(search.preference, 'shortTime');
   });
 
+  test('route API body uses the device local clock for an absolute UTC time', () {
+    final utcStart = DateTime.utc(2026, 8, 15, 9, 6);
+    final localStart = utcStart.toLocal();
+    final request = RouteSearchRequest(
+      origin: const LatLng(35.703, 139.790),
+      destination: const LatLng(35.70, 139.80),
+      originName: '蔵前',
+      destinationName: '目的地',
+      startTime: utcStart,
+      preference: 'shortTime',
+    );
+
+    final body = request.toApiBody();
+    final expectedClock =
+        '${localStart.hour.toString().padLeft(2, '0')}:'
+        '${localStart.minute.toString().padLeft(2, '0')}';
+    final expectedDate =
+        '${localStart.year.toString().padLeft(4, '0')}-'
+        '${localStart.month.toString().padLeft(2, '0')}-'
+        '${localStart.day.toString().padLeft(2, '0')}';
+
+    expect(body['start_time'], expectedClock);
+    expect(body['target_date_str'], expectedDate);
+    expect(body['pref'], 'time');
+  });
+
   test('fails when a riding anchor belongs to another step', () {
     expect(
       () => RouteReplanRequestBuilder.build(
