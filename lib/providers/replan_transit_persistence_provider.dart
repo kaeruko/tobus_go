@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../logic/replan_transit_memory.dart';
+import '../logic/replan_transit_memory_restore.dart';
 import '../models/trip_models.dart';
 import '../services/replan_transit_memory_store.dart';
 import '../services/user_service.dart';
@@ -30,9 +31,17 @@ final restoredReplanTransitMemoryProvider =
         userId: userId,
       );
       if (restored == null) return null;
-      _validateRestoredMemory(trip, restored.toMemory());
+
+      final memory = restored.toMemory();
+      _validateRestoredMemory(trip, memory);
+      ref
+          .read(memberModeControllerProvider.notifier)
+          .restoreReplanTransitMemory(memory);
       return restored;
-    }, dependencies: [tripStreamProvider]);
+    }, dependencies: [
+      tripStreamProvider,
+      memberModeControllerProvider,
+    ]);
 
 class EffectiveReplanTransitMemory {
   final ReplanTransitMemory? memory;
