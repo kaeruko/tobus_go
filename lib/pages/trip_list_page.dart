@@ -92,7 +92,7 @@ class _TripListItem extends StatelessWidget {
       title: Text(trip.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         trip.isSolo
-            ? '$dateStr - 移動・1人'
+            ? '$dateStr - 移動'
             : '$dateStr - おでかけ・${trip.participants.length}名参加',
       ),
       trailing: const Icon(Icons.arrow_forward_ios, size: 16),

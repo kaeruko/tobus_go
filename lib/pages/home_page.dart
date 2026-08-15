@@ -700,16 +700,16 @@ class _ActiveTripCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        trip.isSolo
-                            ? "1人で移動中"
-                            : "${trip.participants.length}人が参加中",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
+                      if (!trip.isSolo) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          "${trip.participants.length}人が参加中",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ],
