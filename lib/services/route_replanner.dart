@@ -38,6 +38,28 @@ class RouteReplanRequest {
   }
 }
 
+/// Returns true only when both requests describe the exact same replan state.
+///
+/// In particular, [ReplanAnchor.availableAt] is part of the identity. A newer
+/// realtime ETA therefore invalidates a preview that was searched with the old
+/// time even when the station/stop itself has not changed.
+bool sameRouteReplanRequestState(
+  RouteReplanRequest a,
+  RouteReplanRequest b,
+) {
+  return a.activeStepId == b.activeStepId &&
+      a.originalCandidateId == b.originalCandidateId &&
+      a.destination == b.destination &&
+      a.destinationName == b.destinationName &&
+      a.preference == b.preference &&
+      a.anchor.source == b.anchor.source &&
+      a.anchor.routeStepId == b.anchor.routeStepId &&
+      a.anchor.stopId == b.anchor.stopId &&
+      a.anchor.placeName == b.anchor.placeName &&
+      a.anchor.point == b.anchor.point &&
+      a.anchor.availableAt.isAtSameMomentAs(b.anchor.availableAt);
+}
+
 class RouteReplanRequestBuilder {
   const RouteReplanRequestBuilder._();
 
