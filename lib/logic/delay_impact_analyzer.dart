@@ -110,6 +110,18 @@ class DelayImpactAnalyzer {
       );
     }
 
+    final plannedTransferReadyAt = currentArrivalEntry.plannedAt.add(
+      Duration(minutes: transferWalkMinutes),
+    );
+    if (plannedTransferReadyAt.isAfter(nextRideEntry.plannedAt)) {
+      throw StateError(
+        '元経路の時点で乗換えが成立していません: '
+        'stepId=${currentStep.stepId}, '
+        'plannedReady=${plannedTransferReadyAt.toIso8601String()}, '
+        'nextDeparture=${nextRideEntry.plannedAt.toIso8601String()}',
+      );
+    }
+
     final earliestTransferReadyAt = predictedArrivalAt.add(
       Duration(minutes: transferWalkMinutes),
     );
