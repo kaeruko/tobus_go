@@ -100,7 +100,7 @@ class NavigationState {
     return title.split(RegExp(r'[\s　]+')).first;
   }
 
-  static String _rideArrivalSummary(StepSeg step) {
+  static String _rideArrivalSummary(StepSeg step, String rideTitle) {
     final arrivalTime = step.arrivalTime?.trim();
     if (arrivalTime == null || arrivalTime.isEmpty) {
       throw StateError('乗車中表示に到着予定時刻がありません: stepId=${step.stepId}');
@@ -111,7 +111,12 @@ class NavigationState {
       throw StateError('乗車中表示に降車地点がありません: stepId=${step.stepId}');
     }
 
-    return '$arrivalTime ${_shortRideTitle(step)} $destination到着予定';
+    final normalizedRideTitle = rideTitle.trim();
+    if (normalizedRideTitle.isEmpty) {
+      throw StateError('乗車中表示に路線・行先表示がありません: stepId=${step.stepId}');
+    }
+
+    return '$arrivalTime $normalizedRideTitle $destination到着予定';
   }
 
   static String _approachUnit(StepSeg step) {
@@ -263,9 +268,10 @@ class NavigationState {
         throw StateError('rail stepにBusProgressが渡されました: ${step.stepId}');
       }
       if (railProgress == null) {
+        final routeTitle = _shortRideTitle(step);
         return NavigationState(
-          mainText: '${_shortRideTitle(step)} 位置確認中',
-          subText: _rideArrivalSummary(step),
+          mainText: '$routeTitle 位置確認中',
+          subText: _rideArrivalSummary(step, routeTitle),
           color: const Color(0xFF81D4FA),
           statusLabel: statusLabel ?? _rideStatusLabel(step),
           currentStepId: step.stepId,
@@ -419,8 +425,8 @@ class NavigationState {
 
         return withFreshnessNotice(
           NavigationState(
-            mainText: '${_shortRideTitle(step)} $currentPlace',
-            subText: _rideArrivalSummary(step),
+            mainText: '${progress.rideTitle} $currentPlace',
+            subText: _rideArrivalSummary(step, progress.rideTitle),
             color: remaining == 1
                 ? const Color(0xFFFFAB91)
                 : const Color(0xFF81D4FA),
