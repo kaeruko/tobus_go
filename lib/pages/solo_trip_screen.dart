@@ -11,6 +11,7 @@ import '../providers/member_nav_progress_provider.dart';
 import '../providers/trip_provider.dart';
 import '../services/bus_location_source.dart';
 import '../services/trip_service.dart';
+import '../widgets/route_replan_preview_button.dart';
 import '../widgets/trip_navigation_status_card.dart';
 import 'solo_trip_detail_page.dart';
 import 'segment_stops_page.dart';
@@ -182,6 +183,8 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
               tripTitle: trip.displayTitle,
               onTapStops: () => _openStops(trip),
             ),
+            if (!completed && !terminalArrival)
+              RouteReplanPreviewButton(trip: trip),
             const SizedBox(height: 14),
             _SoloScheduleCard(
               resolvedEntry: uiState.resolvedEntry,
