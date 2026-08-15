@@ -475,7 +475,10 @@ def resolve_train_vehicle(
 
 async def _fetch_bytes(url: str, timeout_seconds: float = 20.0) -> bytes:
     token = _token()
-    async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+    async with httpx.AsyncClient(
+        timeout=timeout_seconds,
+        follow_redirects=True,
+    ) as client:
         response = await client.get(
             url,
             params={"acl:consumerKey": token},
