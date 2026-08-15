@@ -4,9 +4,11 @@ import '../logic/route_replan_preview.dart';
 import '../models/route_models.dart';
 import 'route_replan_comparison_map.dart';
 
+typedef RouteReplanApplyCallback = Future<void> Function(Candidate candidate);
+
 class RouteReplanComparisonSheet extends StatefulWidget {
   final RouteReplanPreview preview;
-  final ValueChanged<Candidate>? onApply;
+  final RouteReplanApplyCallback? onApply;
 
   const RouteReplanComparisonSheet({
     super.key,
@@ -22,6 +24,7 @@ class RouteReplanComparisonSheet extends StatefulWidget {
 class _RouteReplanComparisonSheetState
     extends State<RouteReplanComparisonSheet> {
   int _selectedIndex = 0;
+  bool _applying = false;
 
   @override
   Widget build(BuildContext context) {
@@ -110,10 +113,12 @@ class _RouteReplanComparisonSheetState
                               label: Text(
                                 '候補${index + 1}  ${RouteReplanPreview.arrivalLabel(candidate)}着',
                               ),
-                              onSelected: (selected) {
-                                if (!selected) return;
-                                setState(() => _selectedIndex = index);
-                              },
+                              onSelected: _applying
+                                  ? null
+                                  : (selected) {
+                                      if (!selected) return;
+                                      setState(() => _selectedIndex = index);
+                                    },
                             ),
                           );
                         }),
@@ -125,8 +130,8 @@ class _RouteReplanComparisonSheetState
                     title: '新しい経路',
                     arrivalLabel:
                         '${RouteReplanPreview.arrivalLabel(selected!)} 到着予定',
-                    lineSummary: RouteReplanPreview.lineSummary(selected!),
-                    transfers: selected!.transfers,
+                    lineSummary: RouteReplanPreview.lineSummary(selected),
+                    transfers: selected.transfers,
                     emphasized: true,
                   ),
                 ],
@@ -149,7 +154,9 @@ class _RouteReplanComparisonSheetState
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: _applying
+                            ? null
+                            : () => Navigator.of(context).pop(false),
                         child: const Text('元の経路を続ける'),
                       ),
                     ),
@@ -157,8 +164,16 @@ class _RouteReplanComparisonSheetState
                       const SizedBox(width: 12),
                       Expanded(
                         child: FilledButton(
-                          onPressed: () => widget.onApply!(selected),
-                          child: const Text('この経路に変更'),
+                          onPressed: _applying ? null : () => _apply(selected),
+                          child: _applying
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('この経路に変更'),
                         ),
                       ),
                     ],
@@ -170,6 +185,27 @@ class _RouteReplanComparisonSheetState
         },
       ),
     );
+  }
+
+  Future<void> _apply(Candidate selected) async {
+    final onApply = widget.onApply;
+    if (onApply == null || _applying) return;
+
+    setState(() => _applying = true);
+    try {
+      await onApply(selected);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('経路を変更できませんでした: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _applying = false);
+      }
+    }
   }
 }
 
