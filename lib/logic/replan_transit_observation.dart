@@ -76,13 +76,15 @@ class ReplanTransitObservationAdapter {
         );
       }
       final destinationSchedule = _busDestinationSchedule(step, location);
-      final predictedDestination = _predictBusDestination(
-        step: step,
-        location: location,
-        from: currentSchedule,
-        destination: destinationSchedule,
-        now: now,
-      );
+      final predictedDestination = location.vehicleTimestamp == null
+          ? null
+          : _predictBusDestination(
+              step: step,
+              location: location,
+              from: currentSchedule,
+              destination: destinationSchedule,
+              now: now,
+            );
       return RidingTransitObservation(
         stepId: step.stepId,
         motion: RidingTransitMotion.stopped,
@@ -212,13 +214,15 @@ class ReplanTransitObservationAdapter {
         location.currentStopSequence,
       );
       final destinationStop = _trainDestinationStop(step, location);
-      final predictedDestination = _predictRailDestination(
-        step: step,
-        location: location,
-        from: currentStop,
-        destination: destinationStop,
-        now: now,
-      );
+      final predictedDestination = location.vehicleTimestamp == null
+          ? null
+          : _predictRailDestination(
+              step: step,
+              location: location,
+              from: currentStop,
+              destination: destinationStop,
+              now: now,
+            );
       return RidingTransitObservation(
         stepId: step.stepId,
         motion: RidingTransitMotion.stopped,
