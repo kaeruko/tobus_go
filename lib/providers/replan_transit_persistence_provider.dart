@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../logic/replan_transit_memory.dart';
@@ -43,16 +41,46 @@ final restoredReplanTransitMemoryProvider =
       memberModeControllerProvider,
     ]);
 
+/// Writes only fresh route-derived historical facts. An empty in-memory state
+/// during cold start does not delete disk history before restoration completes.
+final persistCurrentReplanTransitMemoryProvider =
+    FutureProvider.autoDispose<void>((ref) async {
+      final tripAsync = ref.watch(tripStreamProvider);
+      final realtime = ref.watch(memberModeControllerProvider);
+      if (!tripAsync.hasValue) return;
+      final trip = tripAsync.value;
+      if (trip == null) return;
+
+      final memory = realtime.replanTransitMemory;
+      if (!_hasPersistableFacts(memory)) return;
+      _validateRestoredMemory(trip, memory);
+
+      final userId = UserService().currentUserId;
+      if (userId == null || userId.trim().isEmpty) {
+        throw StateError('再探索履歴を保存するユーザーIDを取得できません');
+      }
+      await ref.read(replanTransitMemoryStoreProvider).save(
+            tripId: trip.id,
+            userId: userId,
+            memory: memory,
+          );
+    }, dependencies: [
+      tripStreamProvider,
+      memberModeControllerProvider,
+    ]);
+
 class EffectiveReplanTransitMemory {
   final ReplanTransitMemory? memory;
   final bool restoring;
   final Object? restoreError;
+  final Object? persistenceError;
   final bool restoredFromDisk;
 
   const EffectiveReplanTransitMemory({
     required this.memory,
     this.restoring = false,
     this.restoreError,
+    this.persistenceError,
     this.restoredFromDisk = false,
   });
 }
@@ -67,48 +95,52 @@ final effectiveReplanTransitMemoryProvider =
       final tripAsync = ref.watch(tripStreamProvider);
       final realtime = ref.watch(memberModeControllerProvider);
       final restoredAsync = ref.watch(restoredReplanTransitMemoryProvider);
+      final persistAsync = ref.watch(persistCurrentReplanTransitMemoryProvider);
       final live = realtime.replanTransitMemory;
 
-      final trip = tripAsync.value;
-      final userId = UserService().currentUserId;
-      if (trip != null &&
-          userId != null &&
-          userId.trim().isNotEmpty &&
-          _hasPersistableFacts(live)) {
-        _validateRestoredMemory(trip, live);
-        unawaited(
-          ref.read(replanTransitMemoryStoreProvider).save(
-                tripId: trip.id,
-                userId: userId,
-                memory: live,
-              ),
+      final persistenceError = persistAsync.hasError ? persistAsync.error : null;
+      if (_hasPersistableFacts(live)) {
+        final trip = tripAsync.value;
+        if (trip != null) {
+          _validateRestoredMemory(trip, live);
+        }
+        return EffectiveReplanTransitMemory(
+          memory: live,
+          persistenceError: persistenceError,
         );
-        return EffectiveReplanTransitMemory(memory: live);
       }
 
       return restoredAsync.when(
-        loading: () => const EffectiveReplanTransitMemory(
+        loading: () => EffectiveReplanTransitMemory(
           memory: null,
           restoring: true,
+          persistenceError: persistenceError,
         ),
         error: (error, stack) => EffectiveReplanTransitMemory(
           memory: null,
           restoreError: error,
+          persistenceError: persistenceError,
         ),
         data: (restored) {
           if (restored == null) {
-            return EffectiveReplanTransitMemory(memory: live);
+            return EffectiveReplanTransitMemory(
+              memory: live,
+              persistenceError: persistenceError,
+            );
           }
           final memory = restored.toMemory();
+          final trip = tripAsync.value;
           if (trip == null) {
-            return const EffectiveReplanTransitMemory(
+            return EffectiveReplanTransitMemory(
               memory: null,
               restoring: true,
+              persistenceError: persistenceError,
             );
           }
           _validateRestoredMemory(trip, memory);
           return EffectiveReplanTransitMemory(
             memory: memory,
+            persistenceError: persistenceError,
             restoredFromDisk: true,
           );
         },
@@ -117,6 +149,7 @@ final effectiveReplanTransitMemoryProvider =
       tripStreamProvider,
       memberModeControllerProvider,
       restoredReplanTransitMemoryProvider,
+      persistCurrentReplanTransitMemoryProvider,
     ]);
 
 bool _hasPersistableFacts(ReplanTransitMemory memory) {
