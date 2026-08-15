@@ -50,6 +50,12 @@ class RouteReplanRequestBuilder {
     if (stepId.isEmpty) {
       throw ArgumentError.value(activeStepId, 'activeStepId', 'must not be empty');
     }
+    final anchorStepId = anchor.routeStepId;
+    if (anchorStepId != null && anchorStepId != stepId) {
+      throw StateError(
+        '再探索起点が現在stepと一致しません: anchor=$anchorStepId, active=$stepId',
+      );
+    }
 
     final matches = <Candidate>[];
     for (final leg in trip.legs) {
