@@ -147,9 +147,14 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     required bool terminalArrival,
     required bool completed,
   }) {
-    final delayImpact = ref.watch(delayImpactProvider);
+    final delayResolution = ref.watch(resolvedDelayImpactProvider);
+    final delayImpact = delayResolution.impact;
     final showDelayWarning =
         !completed && !terminalArrival && delayImpact?.requiresReplan == true;
+    final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
+        ? null
+        : '次便のRealtime確認に失敗したため、予定時刻で判定しています: '
+            '${delayResolution.nextRideRealtimeError}';
 
     return Scaffold(
       backgroundColor: uiState.navState.color,
@@ -193,6 +198,10 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
               const SizedBox(height: 10),
               DelayRecoveryCard(
                 impact: delayImpact!,
+                nextRideRealtime: delayResolution.nextRideRealtime,
+                scheduledNextDepartureAt:
+                    delayResolution.scheduledNextDepartureAt,
+                realtimeDiagnostic: realtimeDiagnostic,
                 helperText: '予定はまだ変更していません。新しい経路を確認してから選べます。',
                 action: RouteReplanPreviewButton(trip: trip),
               ),
