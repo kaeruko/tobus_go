@@ -11,10 +11,12 @@ import '../services/trip_service.dart';
 import '../services/bus_location_source.dart';
 import '../providers/app_session_provider.dart';
 import '../providers/delay_impact_provider.dart';
+import '../providers/group_schedule_impact_provider.dart';
 import '../providers/trip_provider.dart';
 import '../providers/member_mode_provider.dart'; // 作成したProvider
 import '../providers/member_nav_progress_provider.dart';
 import '../widgets/delay_recovery_card.dart';
+import '../widgets/group_schedule_impact_card.dart';
 import '../widgets/trip_navigation_status_card.dart';
 import 'group_detail_page.dart';
 import 'settings_page.dart';
@@ -49,6 +51,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
     final uiStateAsync = ref.watch(memberUiStateProvider);
     final delayResolution = ref.watch(resolvedDelayImpactProvider);
     final delayImpact = delayResolution.impact;
+    final scheduleImpact = ref.watch(groupScheduleImpactProvider);
     final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
         ? null
         : '次便のRealtime確認に失敗したため、予定時刻で判定しています: '
@@ -92,6 +95,13 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                           delayResolution.scheduledNextDepartureAt,
                       realtimeDiagnostic: realtimeDiagnostic,
                       helperText: '経路変更はリーダーだけが確定できます。必要ならリーダーに確認してください。',
+                    ),
+                  ],
+                  if (scheduleImpact != null) ...[
+                    const SizedBox(height: 10),
+                    GroupScheduleImpactCard(
+                      impact: scheduleImpact,
+                      helperText: '予定の変更はリーダーが行います。必要ならリーダーに確認してください。',
                     ),
                   ],
                   const SizedBox(height: 14),
