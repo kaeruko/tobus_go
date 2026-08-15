@@ -19,7 +19,7 @@ final routeReplanBlockedReasonProvider = Provider.autoDispose<String?>((ref) {
   final realtime = ref.watch(memberModeControllerProvider);
   final memory = realtime.replanTransitMemory;
   if (memory.ridingTransit == null && memory.knownOnboardStepId != null) {
-    return '乗車中の駅・停留所をRealtimeで確認できないため、いまは経路を見直せません。位置情報の更新を待って、もう一度お試しください。';
+    return '乗車中の駅・停留所をRealtimeで確認できないため、いまは経路を見直せません。Realtimeの更新を待って、もう一度お試しください。';
   }
   return null;
 }, dependencies: [memberModeControllerProvider]);
