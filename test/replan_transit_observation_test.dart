@@ -108,6 +108,10 @@ void main() {
         observation.predictedNextAvailableAt,
         vehicleAt.add(const Duration(minutes: 3)),
       );
+      expect(
+        observation.predictedDestinationAvailableAt,
+        vehicleAt.add(const Duration(minutes: 7)),
+      );
     });
 
     test('stopped bus uses the current stop without an arrival prediction', () {
@@ -145,6 +149,7 @@ void main() {
       expect(observation.motion, RidingTransitMotion.stopped);
       expect(observation.currentPlace?.name, '平井七丁目北公園前');
       expect(observation.predictedNextAvailableAt, isNull);
+      expect(observation.predictedDestinationAvailableAt, isNull);
     });
 
     test('stale moving bus sample fails instead of being coerced to now', () {
@@ -258,6 +263,10 @@ void main() {
         observation.predictedNextAvailableAt,
         vehicleAt.add(const Duration(seconds: 90)),
       );
+      expect(
+        observation.predictedDestinationAvailableAt,
+        vehicleAt.add(const Duration(seconds: 90)),
+      );
     });
 
     test('stopped train uses current station', () {
@@ -290,6 +299,7 @@ void main() {
       expect(observation.currentPlace?.name, '浅草橋');
       expect(observation.currentPlace?.point.latitude, 35.697);
       expect(observation.predictedNextAvailableAt, isNull);
+      expect(observation.predictedDestinationAvailableAt, isNull);
     });
   });
 }

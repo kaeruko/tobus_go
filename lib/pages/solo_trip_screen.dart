@@ -6,11 +6,13 @@ import '../logic/solo_trip_lifecycle.dart';
 import '../models/group_models.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
+import '../providers/delay_impact_provider.dart';
 import '../providers/member_mode_provider.dart';
 import '../providers/member_nav_progress_provider.dart';
 import '../providers/trip_provider.dart';
 import '../services/bus_location_source.dart';
 import '../services/trip_service.dart';
+import '../widgets/delay_recovery_card.dart';
 import '../widgets/route_replan_preview_button.dart';
 import '../widgets/trip_navigation_status_card.dart';
 import 'solo_trip_detail_page.dart';
@@ -145,6 +147,10 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     required bool terminalArrival,
     required bool completed,
   }) {
+    final delayImpact = ref.watch(delayImpactProvider);
+    final showDelayWarning =
+        !completed && !terminalArrival && delayImpact?.requiresReplan == true;
+
     return Scaffold(
       backgroundColor: uiState.navState.color,
       appBar: AppBar(
@@ -183,7 +189,14 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
               tripTitle: trip.displayTitle,
               onTapStops: () => _openStops(trip),
             ),
-            if (!completed && !terminalArrival)
+            if (showDelayWarning) ...[
+              const SizedBox(height: 10),
+              DelayRecoveryCard(
+                impact: delayImpact!,
+                helperText: '予定はまだ変更していません。新しい経路を確認してから選べます。',
+                action: RouteReplanPreviewButton(trip: trip),
+              ),
+            ] else if (!completed && !terminalArrival)
               RouteReplanPreviewButton(trip: trip),
             const SizedBox(height: 14),
             _SoloScheduleCard(
