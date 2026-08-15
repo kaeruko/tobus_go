@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/bus_progress.dart';
 import '../models/group_models.dart';
+import '../models/rail_progress.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import 'trip_navigator.dart';
@@ -21,6 +22,16 @@ class ResolvedScheduleState {
     required this.completedCount,
     required this.activeLabel,
     required this.resolutionReason,
+  });
+}
+
+class _RealtimeRideProgress {
+  final String stepId;
+  final bool arrived;
+
+  const _RealtimeRideProgress({
+    required this.stepId,
+    required this.arrived,
   });
 }
 
@@ -46,6 +57,27 @@ class TripCoordinator {
 
   static StepSeg? _stepForEntry(RouteState? routeState, ScheduleEntry entry) {
     return routeState?.stepForId(entry.routeStepId);
+  }
+
+  static _RealtimeRideProgress? _realtimeRideProgress(RouteState? routeState) {
+    final bus = routeState?.busProgress;
+    final rail = routeState?.railProgress;
+    if (bus != null && rail != null) {
+      throw StateError('busとrailのリアルタイム進捗が同時に存在しています');
+    }
+    if (bus != null) {
+      return _RealtimeRideProgress(
+        stepId: bus.stepId,
+        arrived: bus.phase == BusProgressPhase.arrived,
+      );
+    }
+    if (rail != null) {
+      return _RealtimeRideProgress(
+        stepId: rail.stepId,
+        arrived: rail.phase == RailProgressPhase.arrived,
+      );
+    }
+    return null;
   }
 
   static String _formatClock(DateTime time) {
@@ -147,8 +179,8 @@ class TripCoordinator {
     var resolved = active;
     addReason('active_entry');
 
-    final progress = routeState?.busProgress;
-    if (progress != null && progress.phase != BusProgressPhase.arrived) {
+    final progress = _realtimeRideProgress(routeState);
+    if (progress != null && !progress.arrived) {
       final trackedRideIndex = scheduleSorted.indexWhere(
         (entry) =>
             entry.itemKind == ScheduleEntryKind.ride &&
@@ -163,7 +195,7 @@ class TripCoordinator {
     if (resolved.itemKind == ScheduleEntryKind.ride &&
         progress != null &&
         resolved.routeStepId == progress.stepId &&
-        progress.phase == BusProgressPhase.arrived) {
+        progress.arrived) {
       final arrivalEntry = scheduleSorted.cast<ScheduleEntry?>().firstWhere(
         (entry) =>
             entry?.legIndex == resolved.legIndex &&
@@ -193,7 +225,7 @@ class TripCoordinator {
       if (rideEntry != null &&
           rideStep != null &&
           rideStep.stops.isNotEmpty &&
-          progress.phase != BusProgressPhase.arrived) {
+          !progress.arrived) {
         resolved = rideEntry;
         addReason('premature_arrival_revert_step_id');
       }
@@ -402,14 +434,19 @@ class TripCoordinator {
       return NavigationState.waitingLong(entry: resolved, diff: diff);
     }
 
-    final BusProgress? progress =
+    final BusProgress? busProgress =
         routeState?.busProgress?.stepId == step?.stepId
         ? routeState?.busProgress
+        : null;
+    final RailProgress? railProgress =
+        routeState?.railProgress?.stepId == step?.stepId
+        ? routeState?.railProgress
         : null;
     return NavigationState.fromEntry(
       entry: resolved,
       step: step,
-      busProgress: progress,
+      busProgress: busProgress,
+      railProgress: railProgress,
     );
   }
 
