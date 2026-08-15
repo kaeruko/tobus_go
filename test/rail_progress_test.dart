@@ -24,6 +24,7 @@ void main() {
     return TrainLocation(
       tripId: '121603T0',
       routeId: '1',
+      tripHeadsign: '青砥',
       vehicleId: '121603T0',
       currentStopSequence: sequence,
       currentStatus: status,
@@ -45,6 +46,28 @@ void main() {
     arrivalTime: '16:24',
   );
 
+  test('TrainLocation reads required GTFS trip_headsign', () {
+    final parsed = TrainLocation.fromJson({
+      'trip_id': '121603T0',
+      'route_id': '1',
+      'trip_headsign': '青砥',
+      'vehicle_id': '121603T0',
+      'current_stop_sequence': 10,
+      'current_status': 'STOPPED_AT',
+      'current_stop_id': '116',
+      'current_stop_name': '浅草橋',
+      'boarding_sequence': 9,
+      'destination_sequence': 11,
+      'trip_stops': [
+        {'sequence': 9, 'stop_id': '115', 'stop_name': '東日本橋'},
+        {'sequence': 10, 'stop_id': '116', 'stop_name': '浅草橋'},
+        {'sequence': 11, 'stop_id': '117', 'stop_name': '蔵前'},
+      ],
+    });
+
+    expect(parsed.tripHeadsign, '青砥');
+  });
+
   test('IN_TRANSIT_TO counts the approached station as still remaining', () {
     final progress = RailProgress.forLocation(
       stepId: 'rail-1',
@@ -56,6 +79,7 @@ void main() {
     );
 
     expect(progress.phase, RailProgressPhase.riding);
+    expect(progress.tripHeadsign, '青砥');
     expect(progress.lastReachedSequence, 9);
     expect(progress.remainingStops, 2);
     expect(progress.currentStopName, '東日本橋');
@@ -93,7 +117,7 @@ void main() {
     expect(progress.remainingStops, 0);
   });
 
-  test('rail navigation uses the same route/place and arrival layout as bus', () {
+  test('rail navigation uses route, destination sign, place and arrival layout', () {
     final progress = RailProgress.forLocation(
       stepId: 'rail-1',
       location: location(
@@ -109,14 +133,14 @@ void main() {
       railProgress: progress,
     );
 
-    expect(navigation.mainText, '浅草線 東日本橋');
-    expect(navigation.subText, '16:24 浅草線 蔵前到着予定');
+    expect(navigation.mainText, '浅草線 青砥行 東日本橋');
+    expect(navigation.subText, '16:24 浅草線 青砥行 蔵前到着予定');
     expect(navigation.remainingStops, 2);
     expect(navigation.nextStopName, '浅草橋');
     expect(navigation.step?.kind, 'rail');
   });
 
-  test('one station remaining keeps route and current station in the headline', () {
+  test('one station remaining keeps route destination sign and current station', () {
     final progress = RailProgress.forLocation(
       stepId: 'rail-1',
       location: location(
@@ -132,8 +156,8 @@ void main() {
       railProgress: progress,
     );
 
-    expect(navigation.mainText, '浅草線 浅草橋');
-    expect(navigation.subText, '16:24 浅草線 蔵前到着予定');
+    expect(navigation.mainText, '浅草線 青砥行 浅草橋');
+    expect(navigation.subText, '16:24 浅草線 青砥行 蔵前到着予定');
     expect(navigation.remainingStops, 1);
   });
 
