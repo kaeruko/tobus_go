@@ -8,6 +8,7 @@ import '../services/user_service.dart';
 
 import 'leader_mode_page.dart';
 import 'member_mode_page.dart';
+import 'ride_stops_navigation.dart';
 
 class GroupDetailPage extends StatelessWidget {
   final Trip trip;
@@ -55,8 +56,6 @@ class GroupDetailPage extends StatelessWidget {
       );
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -172,14 +171,20 @@ class GroupDetailPage extends StatelessWidget {
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                 contentPadding: EdgeInsets.zero,
                 dense: true,
+                onTap: item.itemKind == ScheduleEntryKind.ride
+                    ? () => openRideStops(
+                        context: context,
+                        trip: trip,
+                        entry: item,
+                      )
+                    : null,
               );
             }),
 
             const SizedBox(height: 40),
 
-
             // 下部の余白確保 (FABやBottomBarとかぶらないように)
-            const SizedBox(height: 80), 
+            const SizedBox(height: 80),
           ],
         ),
       ),
