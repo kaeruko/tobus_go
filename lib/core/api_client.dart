@@ -161,4 +161,35 @@ class ApiClient {
       expectedErrorStatuses: const {404},
     );
   }
+
+  /// 都営地下鉄の現在位置情報を取得する。
+  ///
+  /// route step に GTFS trip_id がある場合はそれを厳密一致で使用する。
+  /// まだ trip_id がない経路は、乗車駅・降車駅・到着予定時刻の完全一致で
+  /// realtime VehiclePosition と static GTFS の便を一意に解決する。
+  static Future<Map<String, dynamic>> fetchTrainLocation({
+    String? tripId,
+    required String fromName,
+    required String toName,
+    required String arrivalTime,
+    bool forceRefresh = false,
+  }) async {
+    final params = <String, String>{
+      'from_name': fromName,
+      'to_name': toName,
+      'arrival_time': arrivalTime,
+    };
+    if (tripId != null && tripId.isNotEmpty) {
+      params['trip_id'] = tripId;
+    }
+    if (forceRefresh) {
+      params['force_refresh'] = 'true';
+    }
+
+    return await get(
+      '/train/location',
+      params: params,
+      expectedErrorStatuses: const {404},
+    );
+  }
 }
