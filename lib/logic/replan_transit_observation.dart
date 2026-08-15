@@ -13,9 +13,12 @@ import 'replan_anchor.dart';
 ///
 ///   latest vehicle sample time + the full scheduled stop-to-stop duration
 ///
-/// The sample can already be part-way through the segment, so this estimate may
-/// be later than the real arrival. That is intentional for replanning: it avoids
-/// suggesting a connection that depends on an optimistic arrival assumption.
+/// The same conservative rule is used to estimate the planned alighting point:
+/// the latest vehicle sample plus the full scheduled duration from the last
+/// confirmed stop to the alighting stop. The sample can already be part-way
+/// through the segment, so these estimates may be later than the real arrival.
+/// That is intentional for replanning: it avoids suggesting a connection that
+/// depends on an optimistic arrival assumption.
 /// Missing/stale timestamps or inconsistent timetable data are not repaired.
 class ReplanTransitObservationAdapter {
   const ReplanTransitObservationAdapter._();
@@ -72,10 +75,19 @@ class ReplanTransitObservationAdapter {
           'location=${location.fromStopId}, schedule=${currentSchedule.stopId}',
         );
       }
+      final destinationSchedule = _busDestinationSchedule(step, location);
+      final predictedDestination = _predictBusDestination(
+        step: step,
+        location: location,
+        from: currentSchedule,
+        destination: destinationSchedule,
+        now: now,
+      );
       return RidingTransitObservation(
         stepId: step.stepId,
         motion: RidingTransitMotion.stopped,
         currentPlace: _busPlace(step, currentSchedule),
+        predictedDestinationAvailableAt: predictedDestination,
       );
     }
 
@@ -138,6 +150,14 @@ class ReplanTransitObservationAdapter {
       transport: 'bus',
       stepId: step.stepId,
     );
+    final destinationSchedule = _busDestinationSchedule(step, location);
+    final predictedDestination = _predictBusDestination(
+      step: step,
+      location: location,
+      from: currentSchedule,
+      destination: destinationSchedule,
+      now: now,
+    );
 
     return RidingTransitObservation(
       stepId: step.stepId,
@@ -145,6 +165,7 @@ class ReplanTransitObservationAdapter {
       currentPlace: _busPlace(step, currentSchedule),
       nextPlace: _busPlace(step, nextSchedule),
       predictedNextAvailableAt: predicted,
+      predictedDestinationAvailableAt: predictedDestination,
     );
   }
 
@@ -190,10 +211,19 @@ class ReplanTransitObservationAdapter {
         location,
         location.currentStopSequence,
       );
+      final destinationStop = _trainDestinationStop(step, location);
+      final predictedDestination = _predictRailDestination(
+        step: step,
+        location: location,
+        from: currentStop,
+        destination: destinationStop,
+        now: now,
+      );
       return RidingTransitObservation(
         stepId: step.stepId,
         motion: RidingTransitMotion.stopped,
         currentPlace: _railPlace(step, currentStop),
+        predictedDestinationAvailableAt: predictedDestination,
       );
     }
 
@@ -238,6 +268,14 @@ class ReplanTransitObservationAdapter {
       transport: 'rail',
       stepId: step.stepId,
     );
+    final destinationStop = _trainDestinationStop(step, location);
+    final predictedDestination = _predictRailDestination(
+      step: step,
+      location: location,
+      from: currentStop,
+      destination: destinationStop,
+      now: now,
+    );
 
     return RidingTransitObservation(
       stepId: step.stepId,
@@ -245,6 +283,7 @@ class ReplanTransitObservationAdapter {
       currentPlace: _railPlace(step, currentStop),
       nextPlace: _railPlace(step, nextStop),
       predictedNextAvailableAt: predicted,
+      predictedDestinationAvailableAt: predictedDestination,
     );
   }
 
@@ -286,6 +325,62 @@ class ReplanTransitObservationAdapter {
     return matches.single;
   }
 
+  static BusStopSchedule _busDestinationSchedule(
+    StepSeg step,
+    BusLocation location,
+  ) {
+    if (step.stops.isEmpty) {
+      throw StateError('バス乗車stepに降車停留所がありません: ${step.stepId}');
+    }
+    final destinationStopId = step.stops.last.stopId;
+    if (destinationStopId == null || destinationStopId.isEmpty) {
+      throw StateError('バス降車停留所にstopIdがありません: ${step.stepId}');
+    }
+    final matches = location.tripStopSchedule
+        .where((stop) => stop.stopId == destinationStopId)
+        .toList(growable: false);
+    if (matches.length != 1) {
+      throw StateError(
+        'バス降車停留所を時刻表で一意に特定できません: '
+        'stepId=${step.stepId}, stopId=$destinationStopId, '
+        'matches=${matches.length}',
+      );
+    }
+    final schedule = matches.single;
+    if (schedule.stopName.trim() != step.stops.last.name.trim()) {
+      throw StateError(
+        '経路とGTFS時刻表のバス降車停留所名が一致しません: '
+        '${step.stops.last.name} != ${schedule.stopName}',
+      );
+    }
+    return schedule;
+  }
+
+  static DateTime _predictBusDestination({
+    required StepSeg step,
+    required BusLocation location,
+    required BusStopSchedule from,
+    required BusStopSchedule destination,
+    required DateTime now,
+  }) {
+    final remainingMinutes =
+        destination.arrivalMinute - from.departureMinute;
+    if (remainingMinutes <= 0) {
+      throw StateError(
+        'バス降車地点までの残り予定時間が不正です: '
+        'stepId=${step.stepId}, ${from.stopName} -> ${destination.stopName}, '
+        '$remainingMinutes分',
+      );
+    }
+    return _predictFromVehicleSample(
+      vehicleTimestamp: location.vehicleTimestamp,
+      scheduledSegment: Duration(minutes: remainingMinutes),
+      now: now,
+      transport: 'bus',
+      stepId: step.stepId,
+    );
+  }
+
   static TrainTripStop _trainStopAt(TrainLocation location, int sequence) {
     final matches = location.tripStops
         .where((stop) => stop.sequence == sequence)
@@ -297,6 +392,49 @@ class ReplanTransitObservationAdapter {
       );
     }
     return matches.single;
+  }
+
+  static TrainTripStop _trainDestinationStop(
+    StepSeg step,
+    TrainLocation location,
+  ) {
+    final destination = _trainStopAt(location, location.destinationSequence);
+    _railPlace(step, destination);
+    return destination;
+  }
+
+  static DateTime _predictRailDestination({
+    required StepSeg step,
+    required TrainLocation location,
+    required TrainTripStop from,
+    required TrainTripStop destination,
+    required DateTime now,
+  }) {
+    final currentDeparture = _requiredTrainClock(
+      from.departureTime,
+      label: 'departure_time',
+      stopName: from.stopName,
+    );
+    final destinationArrival = _requiredTrainClock(
+      destination.arrivalTime,
+      label: 'arrival_time',
+      stopName: destination.stopName,
+    );
+    final remainingSeconds = destinationArrival - currentDeparture;
+    if (remainingSeconds <= 0) {
+      throw StateError(
+        '列車降車駅までの残り予定時間が不正です: '
+        'stepId=${step.stepId}, ${from.stopName} -> ${destination.stopName}, '
+        '$remainingSeconds秒',
+      );
+    }
+    return _predictFromVehicleSample(
+      vehicleTimestamp: location.vehicleTimestamp,
+      scheduledSegment: Duration(seconds: remainingSeconds),
+      now: now,
+      transport: 'rail',
+      stepId: step.stepId,
+    );
   }
 
   static ReplanTransitPlace _busPlace(
