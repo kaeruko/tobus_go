@@ -1,17 +1,24 @@
 import 'package:flutter/material.dart';
 
 import '../logic/delay_impact_analyzer.dart';
+import '../logic/next_ride_realtime.dart';
 
 class DelayRecoveryCard extends StatelessWidget {
   final DelayImpact impact;
   final Widget? action;
   final String? helperText;
+  final NextRideRealtimeDeparture? nextRideRealtime;
+  final DateTime? scheduledNextDepartureAt;
+  final String? realtimeDiagnostic;
 
   const DelayRecoveryCard({
     super.key,
     required this.impact,
     this.action,
     this.helperText,
+    this.nextRideRealtime,
+    this.scheduledNextDepartureAt,
+    this.realtimeDiagnostic,
   });
 
   @override
@@ -64,10 +71,22 @@ class DelayRecoveryCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(basisText),
             const SizedBox(height: 4),
-            Text(
-              '$walkText${_clock(impact.nextDepartureAt)}発 '
-              '${impact.nextRideTitle}には約$missedMinutes分間に合わない見込みです。',
-            ),
+            Text(_transferRiskText(walkText, missedMinutes)),
+            if (nextRideRealtime != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                _nextRideRealtimeText(),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ],
+            if (realtimeDiagnostic != null &&
+                realtimeDiagnostic!.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                realtimeDiagnostic!,
+                style: TextStyle(color: Colors.red.shade700, fontSize: 12),
+              ),
+            ],
             if (helperText != null && helperText!.trim().isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
@@ -83,6 +102,35 @@ class DelayRecoveryCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _transferRiskText(String walkText, int missedMinutes) {
+    final realtime = nextRideRealtime;
+    if (realtime?.status ==
+        NextRideRealtimeDepartureStatus.passedBoardingPlace) {
+      return '$walkText${impact.nextRideTitle}は乗車地点を通過済みです。';
+    }
+    return '$walkText${_clock(impact.nextDepartureAt)}発 '
+        '${impact.nextRideTitle}には約$missedMinutes分間に合わない見込みです。';
+  }
+
+  String _nextRideRealtimeText() {
+    final realtime = nextRideRealtime!;
+    switch (realtime.status) {
+      case NextRideRealtimeDepartureStatus.predicted:
+        final scheduled = scheduledNextDepartureAt;
+        if (scheduled == null) {
+          throw StateError('次便Realtime適用時に予定出発時刻がありません');
+        }
+        return '次便Realtime: ${_clock(impact.nextDepartureAt)}発見込み '
+            '（予定 ${_clock(scheduled)}）';
+      case NextRideRealtimeDepartureStatus.atBoardingPlace:
+        return '次便Realtime: ${_clock(realtime.observedAt)}時点で'
+            '${realtime.boardingPlaceName}に到着済みです。';
+      case NextRideRealtimeDepartureStatus.passedBoardingPlace:
+        return '次便Realtime: ${_clock(realtime.observedAt)}時点で'
+            '${realtime.boardingPlaceName}を通過済みです。';
+    }
   }
 
   static String _clock(DateTime value) {
