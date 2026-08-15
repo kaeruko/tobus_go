@@ -5,10 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/app_clock.dart';
 import '../models/group_models.dart';
 import '../models/bus_progress.dart';
+import '../models/rail_progress.dart';
 import '../models/route_models.dart';
 import '../logic/trip_coordinator.dart';
 import '../logic/trip_navigator.dart';
 import '../services/bus_location_source.dart';
+import '../services/train_location_source.dart';
 import 'trip_provider.dart';
 import 'member_nav_progress_provider.dart';
 import 'minute_ticker_provider.dart';
@@ -33,15 +35,17 @@ final memberScheduleStateProvider =
       });
     }, dependencies: [tripStreamProvider]);
 
-class RealtimeBusState {
+class RealtimeTransitState {
   final String? trackedStepId;
   final String? trackedVehicleId;
   final BusProgress? busProgress;
+  final RailProgress? railProgress;
 
-  const RealtimeBusState({
+  const RealtimeTransitState({
     this.trackedStepId,
     this.trackedVehicleId,
     this.busProgress,
+    this.railProgress,
   });
 }
 
@@ -49,10 +53,15 @@ final busLocationSourceProvider = Provider<BusLocationSource>((ref) {
   return const RealtimeBusLocationSource();
 });
 
+final trainLocationSourceProvider = Provider<TrainLocationSource>((ref) {
+  return const RealtimeTrainLocationSource();
+});
+
 /// ビジネスロジック: APIポーリングと時間経過による進行管理
-class MemberModeController extends StateNotifier<RealtimeBusState> {
+class MemberModeController extends StateNotifier<RealtimeTransitState> {
   final Ref _ref;
   final BusLocationSource _busLocationSource;
+  final TrainLocationSource _trainLocationSource;
   Timer? _pollingTimer;
   DateTime? _debugPreviousPollAt;
   String? _debugPreviousStepId;
@@ -62,8 +71,11 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
   int? _debugPreviousVehicleTimestamp;
   String? _debugPrintedTimelineKey;
 
-  MemberModeController(this._ref, this._busLocationSource)
-    : super(const RealtimeBusState());
+  MemberModeController(
+    this._ref,
+    this._busLocationSource,
+    this._trainLocationSource,
+  ) : super(const RealtimeTransitState());
 
   void initialize() {
     _startPolling();
@@ -101,11 +113,12 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
       return;
     }
 
-    // Keep the realtime bus step authoritative after its planned arrival
+    // Keep an incomplete realtime ride authoritative after its planned arrival
     // time. Resolving by the clock alone would otherwise jump to a later walk
-    // or goal while the vehicle still has stops remaining.
+    // or goal while the vehicle/train is still before the alighting stop.
     final navProgress = _ref.read(memberNavProgressProvider);
     final knownBusProgress = state.busProgress ?? navProgress.busProgress;
+    final knownRailProgress = state.railProgress ?? navProgress.railProgress;
     final scheduleResolved = TripCoordinator.resolveScheduleState(
       scheduleEntries: trip.schedule,
       now: appClock.now(),
@@ -113,6 +126,7 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
         stepsById: trip.stepsById,
         currentStepId: state.trackedStepId ?? navProgress.currentStepId,
         busProgress: knownBusProgress,
+        railProgress: knownRailProgress,
       ),
     );
     final resolvedEntry = scheduleResolved.resolvedEntry;
@@ -140,75 +154,13 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
       'stops=${activeStep?.stops.length}',
     );
 
-    // 2. 乗車中かつルートID/tripIDがある場合のみAPI確認
     if (activeStep != null &&
         activeStep.kind == 'bus' &&
         activeStep.routeId != null &&
         activeStep.tripId != null) {
-      debugPrint(
-        '[MemberModeController] 乗車中: route=${activeStep.routeId}, trip=${activeStep.tripId}',
-      );
-
-      try {
-        final trackedVehicleId = state.trackedStepId == activeStep.stepId
-            ? state.trackedVehicleId
-            : null;
-        final location = await _busLocationSource.fetch(
-          routeId: activeStep.routeId!,
-          tripId: activeStep.tripId!,
-          vehicleId: trackedVehicleId,
-          forceRefresh: forceRefresh,
-        );
-        final progress = BusProgress.forStep(
-          step: activeStep,
-          fromStopId: location.fromStopId,
-          tripStopIds: location.tripStopIds,
-          observedStopId: location.rawStopId,
-          observedStopName: location.rawStopName,
-          currentStatus: location.currentStatus,
-          vehicleAgeSeconds: location.vehicleAgeSeconds,
-        );
-        _logBusProgressTrace(
-          step: activeStep,
-          location: location,
-          progress: progress,
-          forceRefresh: forceRefresh,
-        );
-        state = RealtimeBusState(
-          trackedStepId: activeStep.stepId,
-          trackedVehicleId: location.vehicleId,
-          busProgress: progress,
-        );
-        debugPrint(
-          '[MemberModeController] 追跡成功: '
-          'step=${activeStep.stepId}, phase=${progress.phase.name}, '
-          'fromIndex=${progress.fromStopIndex}, '
-          'fromStopId=${location.fromStopId}, '
-          'rawStopId=${location.rawStopId}, '
-          'rawStopName=${location.rawStopName}, '
-          'observedSeq=${location.observedStopSequence}, '
-          'status=${location.currentStatus}, '
-          'vehicle=${location.vehicleId}, '
-          'snapshotAge=${location.snapshotAgeSeconds}s, '
-          'feedAge=${location.feedAgeSeconds}s, '
-          'vehicleAge=${location.vehicleAgeSeconds}s, '
-          'serverNow=${location.serverNow}, '
-          'clientNow=${DateTime.now().toUtc().toIso8601String()}',
-        );
-      } on BusLocationNotAvailableException catch (e) {
-        // An exact route/trip match may not appear in the realtime feed until
-        // the assigned vehicle starts reporting. Keep a previously locked
-        // vehicle ID, but clear stale stop progress and show the waiting UI.
-        state = RealtimeBusState(
-          trackedStepId: activeStep.stepId,
-          trackedVehicleId: state.trackedStepId == activeStep.stepId
-              ? state.trackedVehicleId
-              : null,
-        );
-        debugPrint('[MemberModeController] 乗車待ち: $e');
-      } catch (e) {
-        debugPrint('[MemberModeController] APIエラー: $e');
-      }
+      await _updateBusProgress(activeStep, forceRefresh: forceRefresh);
+    } else if (activeStep != null && activeStep.kind == 'rail') {
+      await _updateRailProgress(activeStep, forceRefresh: forceRefresh);
     } else {
       // 乗車ステップではない（徒歩など）→ 状態をリセット
       if (activeStep != null && !activeStep.isRide) {
@@ -216,22 +168,140 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
       }
       if (state.trackedStepId != null ||
           state.trackedVehicleId != null ||
-          state.busProgress != null) {
-        state = const RealtimeBusState();
+          state.busProgress != null ||
+          state.railProgress != null) {
+        state = const RealtimeTransitState();
       }
     }
 
-    // 3. 進捗を更新 (時間基準 + API補正)
+    // 進捗を更新 (時間基準 + API補正)
     if (resolvedEntry != null) {
+      final sameTrackedStep = state.trackedStepId == resolvedEntry.routeStepId;
       _ref
           .read(memberNavProgressProvider.notifier)
           .updateFromSchedule(
             trip,
             resolvedEntry,
-            busProgress: state.trackedStepId == resolvedEntry.routeStepId
-                ? state.busProgress
-                : null,
+            busProgress: sameTrackedStep ? state.busProgress : null,
+            railProgress: sameTrackedStep ? state.railProgress : null,
           );
+    }
+  }
+
+  Future<void> _updateBusProgress(
+    StepSeg activeStep, {
+    required bool forceRefresh,
+  }) async {
+    debugPrint(
+      '[MemberModeController] バス乗車中: '
+      'route=${activeStep.routeId}, trip=${activeStep.tripId}',
+    );
+
+    try {
+      final trackedVehicleId = state.trackedStepId == activeStep.stepId
+          ? state.trackedVehicleId
+          : null;
+      final location = await _busLocationSource.fetch(
+        routeId: activeStep.routeId!,
+        tripId: activeStep.tripId!,
+        vehicleId: trackedVehicleId,
+        forceRefresh: forceRefresh,
+      );
+      final progress = BusProgress.forStep(
+        step: activeStep,
+        fromStopId: location.fromStopId,
+        tripStopIds: location.tripStopIds,
+        observedStopId: location.rawStopId,
+        observedStopName: location.rawStopName,
+        currentStatus: location.currentStatus,
+        vehicleAgeSeconds: location.vehicleAgeSeconds,
+      );
+      _logBusProgressTrace(
+        step: activeStep,
+        location: location,
+        progress: progress,
+        forceRefresh: forceRefresh,
+      );
+      state = RealtimeTransitState(
+        trackedStepId: activeStep.stepId,
+        trackedVehicleId: location.vehicleId,
+        busProgress: progress,
+      );
+      debugPrint(
+        '[MemberModeController] バス追跡成功: '
+        'step=${activeStep.stepId}, phase=${progress.phase.name}, '
+        'fromIndex=${progress.fromStopIndex}, '
+        'fromStopId=${location.fromStopId}, '
+        'rawStopId=${location.rawStopId}, '
+        'rawStopName=${location.rawStopName}, '
+        'observedSeq=${location.observedStopSequence}, '
+        'status=${location.currentStatus}, '
+        'vehicle=${location.vehicleId}, '
+        'snapshotAge=${location.snapshotAgeSeconds}s, '
+        'feedAge=${location.feedAgeSeconds}s, '
+        'vehicleAge=${location.vehicleAgeSeconds}s, '
+        'serverNow=${location.serverNow}, '
+        'clientNow=${DateTime.now().toUtc().toIso8601String()}',
+      );
+    } on BusLocationNotAvailableException catch (e) {
+      // An exact route/trip match may not appear in the realtime feed until
+      // the assigned vehicle starts reporting. Keep a previously locked
+      // vehicle ID, but clear stale stop progress and show the waiting UI.
+      state = RealtimeTransitState(
+        trackedStepId: activeStep.stepId,
+        trackedVehicleId: state.trackedStepId == activeStep.stepId
+            ? state.trackedVehicleId
+            : null,
+      );
+      debugPrint('[MemberModeController] バス乗車待ち: $e');
+    } catch (e) {
+      debugPrint('[MemberModeController] バスAPIエラー: $e');
+    }
+  }
+
+  Future<void> _updateRailProgress(
+    StepSeg activeStep, {
+    required bool forceRefresh,
+  }) async {
+    debugPrint(
+      '[MemberModeController] 鉄道乗車中: '
+      '${activeStep.fromName} -> ${activeStep.toName} '
+      'arrival=${activeStep.arrivalTime} trip=${activeStep.tripId}',
+    );
+
+    try {
+      final location = await _trainLocationSource.fetch(
+        step: activeStep,
+        forceRefresh: forceRefresh,
+      );
+      final progress = RailProgress.forLocation(
+        stepId: activeStep.stepId,
+        location: location,
+      );
+      state = RealtimeTransitState(
+        trackedStepId: activeStep.stepId,
+        trackedVehicleId: location.vehicleId,
+        railProgress: progress,
+      );
+      debugPrint(
+        '[MemberModeController] 鉄道追跡成功: '
+        'step=${activeStep.stepId}, trip=${location.tripId}, '
+        'phase=${progress.phase.name}, '
+        'sequence=${location.currentStopSequence}, '
+        'status=${location.currentStatus}, '
+        'current=${location.currentStopName}, '
+        'next=${progress.nextStopName}, '
+        'remaining=${progress.remainingStops}, '
+        'vehicleAge=${location.vehicleAgeSeconds}s',
+      );
+    } on TrainLocationNotAvailableException catch (e) {
+      // A reporting train can disappear temporarily around service boundaries.
+      // Keep the route step but do not synthesize a station position.
+      state = RealtimeTransitState(trackedStepId: activeStep.stepId);
+      debugPrint('[MemberModeController] 鉄道位置なし: $e');
+    } catch (e) {
+      debugPrint('[MemberModeController] 鉄道APIエラー: $e');
+      rethrow;
     }
   }
 
@@ -353,10 +423,14 @@ class MemberModeController extends StateNotifier<RealtimeBusState> {
 }
 
 final memberModeControllerProvider =
-    StateNotifierProvider.autoDispose<MemberModeController, RealtimeBusState>((
+    StateNotifierProvider.autoDispose<MemberModeController, RealtimeTransitState>((
       ref,
     ) {
-      return MemberModeController(ref, ref.watch(busLocationSourceProvider));
+      return MemberModeController(
+        ref,
+        ref.watch(busLocationSourceProvider),
+        ref.watch(trainLocationSourceProvider),
+      );
     }, dependencies: [tripStreamProvider, memberScheduleStateProvider]);
 
 /// UI描画に必要な全データ
@@ -397,6 +471,7 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((
       stepsById: trip.stepsById,
       currentStepId: navProgress.currentStepId,
       busProgress: navProgress.busProgress,
+      railProgress: navProgress.railProgress,
     );
 
     final resolvedState = TripCoordinator.resolveScheduleState(
