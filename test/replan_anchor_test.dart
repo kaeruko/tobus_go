@@ -85,6 +85,41 @@ void main() {
     expect(anchor.source, ReplanAnchorSource.predictedNextTransitPlace);
   });
 
+  test('moving observation is blocked after its next-stop prediction expires', () {
+    final predicted = DateTime(2026, 8, 15, 18, 6);
+    final observation = RidingTransitObservation(
+      stepId: 'bus-1',
+      motion: RidingTransitMotion.inTransit,
+      nextPlace: place(
+        '平井七丁目北公園前',
+        35.708,
+        139.840,
+        stopId: 'bus-stop-2',
+      ),
+      predictedNextAvailableAt: predicted,
+    );
+
+    expect(
+      observation.canResolveAnchorAt(DateTime(2026, 8, 15, 18, 5, 59)),
+      isTrue,
+    );
+    expect(observation.canResolveAnchorAt(predicted), isTrue);
+    expect(
+      observation.canResolveAnchorAt(DateTime(2026, 8, 15, 18, 6, 1)),
+      isFalse,
+    );
+  });
+
+  test('stopped observation remains actionable as time advances', () {
+    final observation = RidingTransitObservation(
+      stepId: 'rail-1',
+      motion: RidingTransitMotion.stopped,
+      currentPlace: place('浅草橋', 35.697, 139.785),
+    );
+
+    expect(observation.canResolveAnchorAt(now.add(const Duration(hours: 1))), isTrue);
+  });
+
   test('transfer walk uses the last confirmed station instead of GPS', () {
     final anchor = ReplanAnchorResolver.resolve(
       context: ReplanAnchorContext(

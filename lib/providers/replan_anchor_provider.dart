@@ -11,9 +11,11 @@ import 'trip_provider.dart';
 /// The non-GPS anchor that can be used for a route replan right now.
 ///
 /// A null value means there is no active route-derived schedule step, persisted
-/// transit history is still being restored, or the user was confirmed onboard
-/// but the current realtime position is temporarily unavailable. Persisted data
-/// never restores an ETA; it only restores route-derived historical facts.
+/// transit history is still being restored, the user was confirmed onboard but
+/// the current realtime position is temporarily unavailable, or the last
+/// moving-vehicle prediction has expired before realtime confirmed the stop.
+/// Persisted data never restores an ETA; it only restores route-derived
+/// historical facts.
 final replanAnchorProvider = Provider.autoDispose<ReplanAnchor?>((ref) {
   final tripAsync = ref.watch(tripStreamProvider);
   final uiAsync = ref.watch(memberUiStateProvider);
@@ -43,12 +45,21 @@ final replanAnchorProvider = Provider.autoDispose<ReplanAnchor?>((ref) {
     return null;
   }
 
+  final now = nowTick.value ?? appClock.now();
+  final ridingTransit = memory.ridingTransit;
+  if (ridingTransit != null && !ridingTransit.canResolveAnchorAt(now)) {
+    // The vehicle was still reported in transit when this forecast was made,
+    // but its predicted next-stop time has now passed. Do not pretend the next
+    // stop was reached, do not coerce ETA to `now`, and do not fall back to GPS
+    // or the previously confirmed stop. Wait for the next realtime observation.
+    return null;
+  }
+
   final context = ReplanAnchorContextBuilder.build(
     trip: trip,
     activeStepId: activeStepId,
     memory: memory,
   );
-  final now = nowTick.value ?? appClock.now();
   return ReplanAnchorResolver.resolve(context: context, now: now);
 }, dependencies: [
   tripStreamProvider,
