@@ -458,7 +458,7 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((
   final tripAsync = ref.watch(tripStreamProvider);
   final navProgress = ref.watch(memberNavProgressProvider);
   ref.watch(memberModeControllerProvider);
-  final nowTick = ref.watch(minuteTicker_provider);
+  final nowTick = ref.watch(minuteTickerProvider);
 
   return tripAsync.whenData((trip) {
     if (trip == null) throw Exception("No Trip");
