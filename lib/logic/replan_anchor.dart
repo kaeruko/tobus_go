@@ -42,12 +42,18 @@ class RidingTransitObservation {
   final ReplanTransitPlace? nextPlace;
   final DateTime? predictedNextAvailableAt;
 
+  /// Conservative realtime estimate for reaching the planned alighting point
+  /// of this ride. DelayImpactAnalyzer requires this when a later transfer
+  /// exists; it is never synthesized from GPS or from the device clock alone.
+  final DateTime? predictedDestinationAvailableAt;
+
   RidingTransitObservation({
     required String stepId,
     required this.motion,
     this.currentPlace,
     this.nextPlace,
     this.predictedNextAvailableAt,
+    this.predictedDestinationAvailableAt,
   }) : stepId = stepId.trim() {
     if (this.stepId.isEmpty) {
       throw ArgumentError.value(stepId, 'stepId', 'must not be empty');
