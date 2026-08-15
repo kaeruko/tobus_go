@@ -11,6 +11,7 @@ import '../services/bus_location_source.dart';
 import '../services/train_location_source.dart';
 import 'member_mode_provider.dart';
 import 'minute_ticker_provider.dart';
+import 'replan_transit_persistence_provider.dart';
 import 'trip_provider.dart';
 
 /// Current transfer impact derived only from route/realtime facts.
@@ -23,8 +24,16 @@ final delayImpactProvider = Provider.autoDispose<DelayImpact?>((ref) {
   final tripAsync = ref.watch(tripStreamProvider);
   final uiAsync = ref.watch(memberUiStateProvider);
   final realtime = ref.watch(memberModeControllerProvider);
+  final effectiveMemory = ref.watch(effectiveReplanTransitMemoryProvider);
   final nowTick = ref.watch(minuteTickerProvider);
 
+  if (effectiveMemory.restoring) return null;
+  if (effectiveMemory.restoreError != null) {
+    throw StateError(
+      '乗換え遅延判定用の保存済み交通履歴を復元できません: '
+      '${effectiveMemory.restoreError}',
+    );
+  }
   if (!tripAsync.hasValue || !uiAsync.hasValue) return null;
   final trip = tripAsync.value;
   final uiState = uiAsync.value;
@@ -40,7 +49,8 @@ final delayImpactProvider = Provider.autoDispose<DelayImpact?>((ref) {
   }
 
   final activeEntry = uiState.resolvedEntry;
-  final confirmedPlace = realtime.lastConfirmedTransitPlace;
+  final confirmedPlace =
+      effectiveMemory.memory?.lastConfirmedTransitPlace;
   if (activeEntry == null || confirmedPlace == null) return null;
   if (activeEntry.generatedBy != ScheduleEntrySource.route) return null;
 
@@ -75,6 +85,13 @@ final delayImpactProvider = Provider.autoDispose<DelayImpact?>((ref) {
           (railProgress?.stepId == activeStepId &&
               railProgress?.phase == RailProgressPhase.approaching));
 
+  // A restored onboard marker with no fresh realtime is intentionally not
+  // treated as an arrival. The exact ride must be observed again first.
+  final memory = effectiveMemory.memory;
+  if (memory?.ridingTransit == null && memory?.knownOnboardStepId != null) {
+    return null;
+  }
+
   // A non-ride route step after alighting is safe to analyze from the last
   // confirmed station/stop. For ride entries, require explicit realtime proof
   // of either the previous arrival or that the next vehicle is still only
@@ -94,6 +111,7 @@ final delayImpactProvider = Provider.autoDispose<DelayImpact?>((ref) {
   tripStreamProvider,
   memberUiStateProvider,
   memberModeControllerProvider,
+  effectiveReplanTransitMemoryProvider,
 ]);
 
 /// Realtime estimate for the exact service used by the next planned ride.
