@@ -4,6 +4,7 @@ import '../models/bus_progress.dart';
 import '../models/group_models.dart';
 import '../models/rail_progress.dart';
 import '../models/route_models.dart';
+import 'ride_navigation_progress.dart';
 
 class RouteState {
   final Map<String, StepSeg> stepsById;
@@ -30,8 +31,7 @@ class RouteState {
 }
 
 class NavigationState {
-  static const double staleBusPositionAfterSeconds = 90;
-  static const double staleRailPositionAfterSeconds = 90;
+  static const double staleRidePositionAfterSeconds = 90;
 
   final String mainText;
   final String subText;
@@ -100,7 +100,7 @@ class NavigationState {
     return title.split(RegExp(r'[\s　]+')).first;
   }
 
-  static String _busArrivalSummary(StepSeg step) {
+  static String _rideArrivalSummary(StepSeg step) {
     final arrivalTime = step.arrivalTime?.trim();
     if (arrivalTime == null || arrivalTime.isEmpty) {
       throw StateError('乗車中表示に到着予定時刻がありません: stepId=${step.stepId}');
@@ -108,10 +108,39 @@ class NavigationState {
 
     final destination = step.toName?.trim();
     if (destination == null || destination.isEmpty) {
-      throw StateError('乗車中表示に降車停留所がありません: stepId=${step.stepId}');
+      throw StateError('乗車中表示に降車地点がありません: stepId=${step.stepId}');
     }
 
     return '$arrivalTime ${_shortRideTitle(step)} $destination到着予定';
+  }
+
+  static String _approachUnit(StepSeg step) {
+    switch (step.kind) {
+      case 'bus':
+        return '停留所';
+      case 'rail':
+        return '駅';
+      default:
+        throw StateError('接近表示の未対応step kindです: ${step.kind}');
+    }
+  }
+
+  static String _boardingPlaceName(StepSeg step) {
+    switch (step.kind) {
+      case 'bus':
+        if (step.stops.isEmpty || step.stops.first.name.trim().isEmpty) {
+          throw StateError('バス乗車stepに乗車停留所がありません: ${step.stepId}');
+        }
+        return step.stops.first.name.trim();
+      case 'rail':
+        final name = step.fromName?.trim();
+        if (name == null || name.isEmpty) {
+          throw StateError('鉄道乗車stepに乗車駅がありません: ${step.stepId}');
+        }
+        return name;
+      default:
+        throw StateError('乗車地点表示の未対応step kindです: ${step.kind}');
+    }
   }
 
   static NavigationState idle() => const NavigationState(
@@ -233,10 +262,27 @@ class NavigationState {
       if (busProgress != null) {
         throw StateError('rail stepにBusProgressが渡されました: ${step.stepId}');
       }
-      return _railNavigation(
+      if (railProgress == null) {
+        return NavigationState(
+          mainText: '${_shortRideTitle(step)} 位置確認中',
+          subText: _rideArrivalSummary(step),
+          color: const Color(0xFF81D4FA),
+          statusLabel: statusLabel ?? _rideStatusLabel(step),
+          currentStepId: step.stepId,
+          nextStopName: step.toName,
+          step: step,
+        );
+      }
+      final normalized = RideNavigationProgress.fromRail(
         step: step,
+        progress: railProgress,
+      );
+      return _trackedRideNavigation(
+        step: step,
+        progress: normalized,
         railProgress: railProgress,
         statusLabel: statusLabel,
+        staleNoticeText: _staleRailPositionText(railProgress),
       );
     }
 
@@ -264,202 +310,130 @@ class NavigationState {
       );
     }
 
-    final BusProgress progress = busProgress;
-
-    if (progress.stepId != step.stepId) {
-      throw StateError(
-        'BusProgressのstepIdが一致しません: '
-        '${progress.stepId} != ${step.stepId}',
-      );
-    }
-    final isStale =
-        (progress.vehicleAgeSeconds ?? 0) >= staleBusPositionAfterSeconds;
-
-    NavigationState withFreshnessNotice(NavigationState navigation) => isStale
-        ? navigation.withNotice(
-            statusLabel: '検索中…',
-            noticeText:
-                'バスがどこかさがしています\n${_staleBusPositionText(progress)}',
-          )
-        : navigation;
-
-    if (progress.phase == BusProgressPhase.approaching) {
-      final stopsUntilBoarding = progress.stopsUntilBoarding;
-      if (stopsUntilBoarding == null || stopsUntilBoarding <= 0) {
-        throw StateError(
-          '接近中のバスに乗車停留所までの停留所数がありません: '
-          'stepId=${step.stepId}, stopsUntilBoarding=$stopsUntilBoarding',
-        );
-      }
-      return withFreshnessNotice(
-        NavigationState(
-          mainText: '${_shortRideTitle(step)} $stopsUntilBoarding停留所前',
-          subText: 'いま:${step.stops.first.name}',
-          color: const Color(0xFFE1F5FE),
-          statusLabel: '乗車待ち',
-          nextStopName: step.stops.first.name,
-          currentStepId: step.stepId,
-          busProgress: progress,
-          isMoving: false,
-          step: step,
-        ),
-      );
-    }
-    final fromIndex = progress.fromStopIndex;
-    if (fromIndex == null || fromIndex < 0 || fromIndex >= step.stops.length) {
-      throw StateError('BusProgressのfromStopIndexが範囲外です: $fromIndex');
-    }
-
-    final destinationIndex = step.stops.length - 1;
-    final remaining = destinationIndex - fromIndex;
-    final currentName = step.stops[fromIndex].name;
-    final nextIndex = progress.nextStopIndex;
-    final nextName = nextIndex != null && nextIndex < step.stops.length
-        ? step.stops[nextIndex].name
-        : null;
-
-    if (remaining <= 0) {
-      return withFreshnessNotice(
-        NavigationState(
-          mainText: '到着',
-          subText: currentName,
-          color: const Color(0xFFFFCC80),
-          statusLabel: '到着',
-          remainingStops: 0,
-          currentStepId: step.stepId,
-          busProgress: progress,
-          isMoving: false,
-          step: step,
-        ),
-      );
-    }
-
-    final arrivalSummary = _busArrivalSummary(step);
-
-    if (remaining == 1) {
-      return withFreshnessNotice(
-        NavigationState(
-          mainText: '次降ります',
-          subText: arrivalSummary,
-          color: const Color(0xFFFFAB91),
-          statusLabel: statusLabel ?? _rideStatusLabel(step),
-          nextStopName: nextName,
-          remainingStops: remaining,
-          currentStepId: step.stepId,
-          busProgress: progress,
-          step: step,
-        ),
-      );
-    }
-
-    return withFreshnessNotice(
-      NavigationState(
-        mainText: '${_shortRideTitle(step)} $currentName',
-        subText: arrivalSummary,
-        color: const Color(0xFF81D4FA),
-        statusLabel: statusLabel ?? _rideStatusLabel(step),
-        nextStopName: nextName,
-        remainingStops: remaining,
-        currentStepId: step.stepId,
-        busProgress: progress,
-        step: step,
-      ),
+    final normalized = RideNavigationProgress.fromBus(
+      step: step,
+      progress: busProgress,
+    );
+    return _trackedRideNavigation(
+      step: step,
+      progress: normalized,
+      busProgress: busProgress,
+      statusLabel: statusLabel,
+      staleNoticeText: _staleBusPositionText(busProgress),
     );
   }
 
-  static NavigationState _railNavigation({
+  static NavigationState _trackedRideNavigation({
     required StepSeg step,
-    required RailProgress? railProgress,
+    required RideNavigationProgress progress,
+    BusProgress? busProgress,
+    RailProgress? railProgress,
     String? statusLabel,
+    required String staleNoticeText,
   }) {
-    final destination = step.to?.trim();
-    final subText = destination == null || destination.isEmpty
-        ? ''
-        : '$destinationで降ります';
-
-    if (railProgress == null) {
-      return NavigationState(
-        mainText: '${step.title}に乗車中',
-        subText: subText,
-        color: const Color(0xFF81D4FA),
-        statusLabel: statusLabel ?? _rideStatusLabel(step),
-        currentStepId: step.stepId,
-        nextStopName: destination,
-        step: step,
-      );
+    if (busProgress != null && railProgress != null) {
+      throw StateError('共通乗車表示へbus/rail両方の進捗が渡されました');
     }
-    if (railProgress.stepId != step.stepId) {
+    if (step.kind == 'bus' && busProgress == null) {
+      throw StateError('bus stepの共通乗車表示にBusProgressがありません');
+    }
+    if (step.kind == 'rail' && railProgress == null) {
+      throw StateError('rail stepの共通乗車表示にRailProgressがありません');
+    }
+    if (progress.stepId != step.stepId) {
       throw StateError(
-        'RailProgressのstepIdが一致しません: '
-        '${railProgress.stepId} != ${step.stepId}',
+        '共通乗車進捗のstepIdが一致しません: '
+        '${progress.stepId} != ${step.stepId}',
       );
     }
 
     final isStale =
-        (railProgress.vehicleAgeSeconds ?? 0) >= staleRailPositionAfterSeconds;
+        (progress.vehicleAgeSeconds ?? 0) >= staleRidePositionAfterSeconds;
     NavigationState withFreshnessNotice(NavigationState navigation) => isStale
         ? navigation.withNotice(
             statusLabel: '検索中…',
-            noticeText:
-                '列車の位置情報を確認しています\n${_staleRailPositionText(railProgress)}',
+            noticeText: staleNoticeText,
           )
         : navigation;
 
-    if (railProgress.phase == RailProgressPhase.approaching) {
-      final stopsUntilBoarding = railProgress.stopsUntilBoarding;
-      if (stopsUntilBoarding == null || stopsUntilBoarding <= 0) {
-        throw StateError(
-          '接近中の列車に乗車駅までの駅数がありません: '
-          'stepId=${step.stepId}, stopsUntilBoarding=$stopsUntilBoarding',
+    switch (progress.phase) {
+      case RideNavigationPhase.approaching:
+        final stopsUntilBoarding = progress.stopsUntilBoarding;
+        if (stopsUntilBoarding == null || stopsUntilBoarding <= 0) {
+          throw StateError(
+            '接近中の乗り物に乗車地点までの残り数がありません: '
+            'stepId=${step.stepId}, stopsUntilBoarding=$stopsUntilBoarding',
+          );
+        }
+        final boardingPlaceName = _boardingPlaceName(step);
+        return withFreshnessNotice(
+          NavigationState(
+            mainText:
+                '${_shortRideTitle(step)} $stopsUntilBoarding${_approachUnit(step)}前',
+            subText: 'いま:$boardingPlaceName',
+            color: const Color(0xFFE1F5FE),
+            statusLabel: '乗車待ち',
+            nextStopName: boardingPlaceName,
+            currentStepId: step.stepId,
+            busProgress: busProgress,
+            railProgress: railProgress,
+            isMoving: false,
+            step: step,
+          ),
         );
-      }
-      return withFreshnessNotice(
-        NavigationState(
-          mainText: '${_shortRideTitle(step)} $stopsUntilBoarding駅前',
-          subText: step.fromName == null ? '' : 'いま:${step.fromName}',
-          color: const Color(0xFFE1F5FE),
-          statusLabel: '乗車待ち',
-          nextStopName: step.fromName,
-          currentStepId: step.stepId,
-          railProgress: railProgress,
-          isMoving: false,
-          step: step,
-        ),
-      );
-    }
 
-    if (railProgress.phase == RailProgressPhase.arrived ||
-        railProgress.remainingStops <= 0) {
-      return withFreshnessNotice(
-        NavigationState(
-          mainText: '到着',
-          subText: destination ?? railProgress.currentStopName ?? '',
-          color: const Color(0xFFFFCC80),
-          statusLabel: '到着',
-          remainingStops: 0,
-          currentStepId: step.stepId,
-          railProgress: railProgress,
-          isMoving: false,
-          step: step,
-        ),
-      );
-    }
+      case RideNavigationPhase.arrived:
+        final arrivedPlace = step.toName?.trim().isNotEmpty == true
+            ? step.toName!.trim()
+            : progress.currentPlaceName?.trim();
+        if (arrivedPlace == null || arrivedPlace.isEmpty) {
+          throw StateError('到着表示に降車地点がありません: stepId=${step.stepId}');
+        }
+        return withFreshnessNotice(
+          NavigationState(
+            mainText: '到着',
+            subText: arrivedPlace,
+            color: const Color(0xFFFFCC80),
+            statusLabel: '到着',
+            remainingStops: 0,
+            currentStepId: step.stepId,
+            busProgress: busProgress,
+            railProgress: railProgress,
+            isMoving: false,
+            step: step,
+          ),
+        );
 
-    return withFreshnessNotice(
-      NavigationState(
-        mainText: '${step.title}に乗車中',
-        subText: subText,
-        color: railProgress.remainingStops == 1
-            ? const Color(0xFFFFAB91)
-            : const Color(0xFF81D4FA),
-        statusLabel: statusLabel ?? _rideStatusLabel(step),
-        nextStopName: railProgress.nextStopName,
-        remainingStops: railProgress.remainingStops,
-        currentStepId: step.stepId,
-        railProgress: railProgress,
-        step: step,
-      ),
-    );
+      case RideNavigationPhase.riding:
+        final currentPlace = progress.currentPlaceName?.trim();
+        if (currentPlace == null || currentPlace.isEmpty) {
+          throw StateError('乗車中表示に現在の停車地点がありません: stepId=${step.stepId}');
+        }
+        final remaining = progress.remainingStops;
+        if (remaining == null || remaining <= 0) {
+          throw StateError(
+            '乗車中表示のremainingStopsが不正です: '
+            'stepId=${step.stepId}, remainingStops=$remaining',
+          );
+        }
+
+        return withFreshnessNotice(
+          NavigationState(
+            mainText: '${_shortRideTitle(step)} $currentPlace',
+            subText: _rideArrivalSummary(step),
+            color: remaining == 1
+                ? const Color(0xFFFFAB91)
+                : const Color(0xFF81D4FA),
+            statusLabel: statusLabel ?? _rideStatusLabel(step),
+            nextStopName: progress.nextPlaceName,
+            remainingStops: remaining,
+            currentStepId: step.stepId,
+            busProgress: busProgress,
+            railProgress: railProgress,
+            step: step,
+          ),
+        );
+    }
   }
 
   static String _staleBusPositionText(BusProgress progress) {
@@ -475,7 +449,7 @@ class NavigationState {
     final movementText = progress.currentStatus == 'IN_TRANSIT_TO'
         ? '$stopTextへ走行中'
         : stopText;
-    return '$movementText（$ageText）';
+    return 'バスがどこかさがしています\n$movementText（$ageText）';
   }
 
   static String _staleRailPositionText(RailProgress progress) {
@@ -485,6 +459,6 @@ class NavigationState {
     final place = progress.currentStatus == 'IN_TRANSIT_TO'
         ? progress.nextStopName
         : progress.currentStopName;
-    return '${place ?? '駅不明'}（$ageText）';
+    return '列車の位置情報を確認しています\n${place ?? '駅不明'}（$ageText）';
   }
 }
