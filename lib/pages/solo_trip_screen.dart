@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import '../logic/solo_trip_lifecycle.dart';
-import '../logic/trip_navigator.dart';
 import '../models/group_models.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
@@ -12,6 +11,7 @@ import '../providers/member_nav_progress_provider.dart';
 import '../providers/trip_provider.dart';
 import '../services/bus_location_source.dart';
 import '../services/trip_service.dart';
+import '../widgets/trip_navigation_status_card.dart';
 import 'solo_trip_detail_page.dart';
 import 'segment_stops_page.dart';
 
@@ -177,7 +177,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
-            _SoloStatusCard(
+            TripNavigationStatusCard(
               navState: uiState.navState,
               tripTitle: trip.displayTitle,
               onTapStops: () => _openStops(trip),
@@ -354,102 +354,6 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         child: FilledButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('閉じる'),
-        ),
-      ),
-    );
-  }
-}
-
-class _SoloStatusCard extends StatelessWidget {
-  final NavigationState navState;
-  final String tripTitle;
-  final VoidCallback onTapStops;
-
-  const _SoloStatusCard({
-    required this.navState,
-    required this.tripTitle,
-    required this.onTapStops,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                Chip(
-                  avatar: const Icon(Icons.location_on, size: 18),
-                  label: Text(navState.statusLabel),
-                ),
-                Chip(
-                  avatar: const Icon(Icons.route, size: 18),
-                  label: Text(tripTitle),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Text(
-              navState.mainText,
-              style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              navState.subText,
-              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
-            ),
-            if (navState.noticeText != null) ...[
-              const SizedBox(height: 14),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber.shade700),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.sync, size: 22),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        navState.noticeText!,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            if (navState.remainingStops != null ||
-                (navState.nextStopName?.isNotEmpty ?? false)) ...[
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                children: [
-                  if (navState.remainingStops != null)
-                    ActionChip(
-                      avatar: const Icon(Icons.directions_bus, size: 18),
-                      label: Text('のこり ${navState.remainingStops} 回停車'),
-                      onPressed: onTapStops,
-                    ),
-                  if (navState.nextStopName?.isNotEmpty ?? false)
-                    Chip(label: Text('次: ${navState.nextStopName}')),
-                ],
-              ),
-            ],
-          ],
         ),
       ),
     );
