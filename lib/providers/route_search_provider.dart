@@ -1,8 +1,10 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/api_client.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+
 import '../models/route_models.dart';
+import '../services/route_search_service.dart';
 
 class RouteSearchState {
   final String from;
@@ -64,8 +66,14 @@ class RouteSearchState {
   }
 }
 
+final routeSearchServiceProvider = Provider<RouteSearchService>((ref) {
+  return const ApiRouteSearchService();
+});
+
 class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
-  RouteSearchNotifier() : super(const RouteSearchState());
+  final RouteSearchService _routeSearchService;
+
+  RouteSearchNotifier(this._routeSearchService) : super(const RouteSearchState());
 
   int _generation = 0;
 
@@ -86,7 +94,6 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
   }
 
   Future<void> triggerSearch() async {
-    // Stop any previous polling
     _generation++;
     final currentGen = _generation;
 
@@ -96,107 +103,57 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
 
     state = state.copyWith(
       isLoading: true,
-      hasSearched: true, // Mark as searched so UI can show loading/results
+      hasSearched: true,
       errorMessage: null,
       candidates: [],
       meta: null,
     );
 
     try {
-      final fromParts = state.from.split(',');
-      final toParts = state.to.split(',');
-
-      if (fromParts.length != 2 || toParts.length != 2) {
-        state = state.copyWith(isLoading: false, errorMessage: "出発地または到着地が不正です (lat,lon形式である必要があります)");
-        return;
-      }
-
-      final alat = double.tryParse(fromParts[0].trim());
-      final alon = double.tryParse(fromParts[1].trim());
-      final blat = double.tryParse(toParts[0].trim());
-      final blon = double.tryParse(toParts[1].trim());
-
-      if (alat == null || alon == null || blat == null || blon == null) {
-        state = state.copyWith(isLoading: false, errorMessage: "座標のパースに失敗しました");
-        return;
-      }
-
+      final origin = _parsePoint(state.from, label: '出発地');
+      final destination = _parsePoint(state.to, label: '到着地');
       final searchTime = state.startTime ?? DateTime.now();
-      final prefForApi = _normalizePreferenceForApi(state.pref);
 
-      final body = {
-        'alat': alat.toString(),
-        'alon': alon.toString(),
-        'blat': blat.toString(),
-        'blon': blon.toString(),
-        'pref': prefForApi,
-        'start_time': "${searchTime.hour.toString().padLeft(2, '0')}:${searchTime.minute.toString().padLeft(2, '0')}",
-        'target_date_str': "${searchTime.year}-${searchTime.month.toString().padLeft(2, '0')}-${searchTime.day.toString().padLeft(2, '0')}",
-      };
+      final result = await _routeSearchService.search(
+        RouteSearchRequest(
+          origin: origin,
+          destination: destination,
+          originName: state.fromName,
+          destinationName: state.toName,
+          startTime: searchTime,
+          preference: state.pref,
+        ),
+      );
 
-      // Changed: POST returns result directly (synchronously)
-      // No more job polling.
-      final r = await ApiClient.post('/route', body: body);
-
-      // Check for cancellation
       if (_generation != currentGen) return;
 
-      // Parse result immediately
-      final candidatesList = r['candidates'] as List? ?? [];
-
-      // ★DEBUG: Dump raw stops JSON for first candidate
-      if (candidatesList.isNotEmpty) {
-        final c = candidatesList.first;
-        final steps = c['steps'] as List?;
-        if (steps != null) {
-           for(var i=0; i<steps.length; i++) {
-             final s = steps[i];
-             final stops = s['stops'] as List?;
-             if (stops != null && stops.isNotEmpty) {
-               debugPrint('[API-RAW] Step $i stop0: ${stops[0]}');
-             } else {
-               debugPrint('[API-RAW] Step $i stops empty/null');
-             }
-           }
-        }
-      }
-      final metaMap = r['meta'] as Map<String, dynamic>? ?? {};
-
-      final meta = RouteMeta.fromJson(metaMap);
-      final candidates = candidatesList
-          .map((e) {
-            final map = Map<String, dynamic>.from(e as Map);
-            if (map['destination_name'] == null || map['destination_name'] == '') {
-              map['destination_name'] = state.toName;
-            }
-            if (map['origin_name'] == null || map['origin_name'] == '') {
-              map['origin_name'] = state.fromName;
-            }
-            return Candidate.fromJson(map);
-          })
-          .toList();
-
       state = state.copyWith(
-          isLoading: false,
-          meta: meta,
-          candidates: candidates,
+        isLoading: false,
+        meta: result.meta,
+        candidates: result.candidates,
       );
     } catch (e, st) {
       if (_generation != currentGen) return;
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
-      // Log error if needed
       print('[RouteSearch] Error executing search: $e $st');
     }
   }
 
-  String _normalizePreferenceForApi(String? pref) {
-    // UI uses 'fewTransfers' and 'shortTime'; backend expects 'time'/'fast' for fastest path.
-    if (pref == 'shortTime') return 'time';
-    if (pref == null || pref.isEmpty) return 'cost';
-    return pref;
+  LatLng _parsePoint(String value, {required String label}) {
+    final parts = value.split(',');
+    if (parts.length != 2) {
+      throw FormatException('$labelが不正です (lat,lon形式である必要があります): $value');
+    }
+    final lat = double.tryParse(parts[0].trim());
+    final lon = double.tryParse(parts[1].trim());
+    if (lat == null || lon == null) {
+      throw FormatException('$labelの座標をパースできません: $value');
+    }
+    return LatLng(lat, lon);
   }
 }
 
-final routeSearchProvider = StateNotifierProvider<RouteSearchNotifier, RouteSearchState>((ref) {
-  return RouteSearchNotifier();
-});
+final routeSearchProvider =
+    StateNotifierProvider<RouteSearchNotifier, RouteSearchState>((ref) {
+      return RouteSearchNotifier(ref.watch(routeSearchServiceProvider));
+    });
