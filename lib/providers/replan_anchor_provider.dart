@@ -9,10 +9,11 @@ import 'trip_provider.dart';
 
 /// The non-GPS anchor that can be used for a route replan right now.
 ///
-/// A null value means there is no active route-derived schedule step (or the
-/// surrounding Trip/UI state is still loading). Once a route step is active,
-/// inconsistent/missing anchor data is surfaced by [ReplanAnchorResolver]
-/// instead of being replaced with GPS or a guessed point.
+/// A null value means there is no active route-derived schedule step, the
+/// surrounding Trip/UI state is still loading, or the user was confirmed
+/// onboard but the current realtime position is temporarily unavailable.
+/// Inconsistent/missing anchor data is otherwise surfaced by
+/// [ReplanAnchorResolver] instead of being replaced with GPS or a guessed point.
 final replanAnchorProvider = Provider.autoDispose<ReplanAnchor?>((ref) {
   final tripAsync = ref.watch(tripStreamProvider);
   final uiAsync = ref.watch(memberUiStateProvider);
@@ -34,10 +35,15 @@ final replanAnchorProvider = Provider.autoDispose<ReplanAnchor?>((ref) {
     return null;
   }
 
+  final memory = realtimeState.replanTransitMemory;
+  if (memory.ridingTransit == null && memory.knownOnboardStepId != null) {
+    return null;
+  }
+
   final context = ReplanAnchorContextBuilder.build(
     trip: trip,
     activeStepId: activeStepId,
-    memory: realtimeState.replanTransitMemory,
+    memory: memory,
   );
   final now = nowTick.value ?? appClock.now();
   return ReplanAnchorResolver.resolve(context: context, now: now);
