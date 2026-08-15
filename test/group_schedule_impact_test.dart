@@ -190,7 +190,6 @@ void main() {
     final impact = GroupScheduleImpactAnalyzer.findFirstManualConflict(
       trip: trip,
       arrival: arrival,
-      now: DateTime(2026, 8, 15, 18, 30),
     );
     expect(impact, isNotNull);
     expect(impact!.affectedEntry.label, '休憩開始');
@@ -209,7 +208,6 @@ void main() {
     final impact = GroupScheduleImpactAnalyzer.findFirstManualConflict(
       trip: trip,
       arrival: arrival,
-      now: DateTime(2026, 8, 15, 18, 30),
     );
 
     expect(arrival.basis, GroupArrivalEstimateBasis.routeSchedule);
@@ -218,10 +216,10 @@ void main() {
     expect(impact.affectedEntry.plannedAt, DateTime(2026, 8, 15, 18, 40));
   });
 
-  test('past manual event is not reported as a new conflict', () {
+  test('missed manual event remains visible while the same leg is late', () {
     final trip = buildTrip(
       goalAt: DateTime(2026, 8, 15, 18, 55),
-      manualAt: DateTime(2026, 8, 15, 18, 10),
+      manualAt: DateTime(2026, 8, 15, 18, 40),
     );
     final arrival = GroupScheduleImpactAnalyzer.estimateFromRouteSchedule(
       trip: trip,
@@ -230,10 +228,10 @@ void main() {
     final impact = GroupScheduleImpactAnalyzer.findFirstManualConflict(
       trip: trip,
       arrival: arrival,
-      now: DateTime(2026, 8, 15, 18, 30),
     );
 
-    expect(impact, isNull);
+    expect(impact, isNotNull);
+    expect(impact!.affectedEntry.label, '休憩開始');
   });
 
   test('current ride delay is not projected through a later transit service', () {
