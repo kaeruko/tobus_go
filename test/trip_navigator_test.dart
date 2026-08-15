@@ -41,7 +41,7 @@ void main() {
       expect(navigation.remainingStops, 2);
     });
 
-    test('bus riding uses only the route name before the destination sign', () {
+    test('bus riding keeps the destination sign in the shared ride title', () {
       final baseStep = navigationV2Candidate().steps.firstWhere(
         (step) => step.stepId == 'bus-C',
       );
@@ -68,8 +68,11 @@ void main() {
         busProgress: progress,
       );
 
-      expect(navigation.mainText, '上23 中間一');
-      expect(navigation.subText, '10:46 上23 押上到着予定');
+      expect(navigation.mainText, '上23 上野松坂屋前行 中間一');
+      expect(
+        navigation.subText,
+        '10:46 上23 上野松坂屋前行 押上到着予定',
+      );
     });
 
     test('last stop warning keeps the same route/place layout', () {
