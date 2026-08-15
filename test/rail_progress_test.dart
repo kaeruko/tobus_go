@@ -93,7 +93,7 @@ void main() {
     expect(progress.remainingStops, 0);
   });
 
-  test('rail navigation exposes remaining stations to shared card', () {
+  test('rail navigation uses the same route/place and arrival layout as bus', () {
     final progress = RailProgress.forLocation(
       stepId: 'rail-1',
       location: location(
@@ -109,11 +109,32 @@ void main() {
       railProgress: progress,
     );
 
-    expect(navigation.mainText, '浅草線に乗車中');
-    expect(navigation.subText, '蔵前で降ります');
+    expect(navigation.mainText, '浅草線 東日本橋');
+    expect(navigation.subText, '16:24 浅草線 蔵前到着予定');
     expect(navigation.remainingStops, 2);
     expect(navigation.nextStopName, '浅草橋');
     expect(navigation.step?.kind, 'rail');
+  });
+
+  test('one station remaining keeps route and current station in the headline', () {
+    final progress = RailProgress.forLocation(
+      stepId: 'rail-1',
+      location: location(
+        sequence: 10,
+        status: 'STOPPED_AT',
+        currentName: '浅草橋',
+      ),
+    );
+
+    final navigation = NavigationState.navigating(
+      step: railStep(),
+      busProgress: null,
+      railProgress: progress,
+    );
+
+    expect(navigation.mainText, '浅草線 浅草橋');
+    expect(navigation.subText, '16:24 浅草線 蔵前到着予定');
+    expect(navigation.remainingStops, 1);
   });
 
   test('late rail ride remains authoritative after scheduled arrival', () {
