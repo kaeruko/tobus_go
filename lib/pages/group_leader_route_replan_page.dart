@@ -18,7 +18,7 @@ class GroupLeaderRouteReplanPage extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           const Text(
-            '移動中の駅・停留所を基準に、目的地までの経路を再検索します。',
+            '乗車前は保存済みの経路出発地点、移動中は確認できた駅・停留所を基準に、目的地までの経路を現在の時刻で再検索します。',
             style: TextStyle(color: Colors.black54),
           ),
           const SizedBox(height: 12),

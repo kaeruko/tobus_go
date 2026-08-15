@@ -13,6 +13,7 @@ import '../models/group_models.dart';
 import '../models/leg_models.dart';
 import '../services/trip_service.dart';
 import 'group_detail_page.dart';
+import 'group_leader_route_replan_page.dart';
 import 'schedule_page.dart';
 import 'route_detail_page.dart';
 import '../utils/string_utils.dart';
@@ -98,7 +99,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
       if (!mounted) return;
 
       if (deltaMinutes.abs() >= _thresholdMinutes) {
-        await _showRerouteDialog(trip, service, now, deltaMinutes);
+        await _showDepartureReplanDialog(trip.id, deltaMinutes);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('おでかけを開始しました')),
@@ -117,57 +118,38 @@ class _LeaderModePageState extends State<LeaderModePage> {
     }
   }
 
-  Future<void> _showRerouteDialog(
-      Trip trip, TripService service, DateTime departure, int delta) async {
+  Future<void> _showDepartureReplanDialog(
+    String tripId,
+    int deltaMinutes,
+  ) async {
+    final deltaLabel = deltaMinutes >= 0 ? '遅れて' : '早く';
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('再検索しますか？'),
-        content: Text('予定より${delta.abs()}分ずれています。経路を再計算しますか？'),
+        title: const Text('経路を見直しますか？'),
+        content: Text(
+          '予定より${deltaMinutes.abs()}分$deltaLabel開始しました。\n\n'
+          '電車・バスの時刻を予定差ぶん横にずらすことはせず、'
+          '必要なら現在時刻と経路上の出発地点を基準に経路を再検索します。',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('そのまま続行')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('そのまま続行'),
+          ),
           ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('再検索する')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('経路を見直す'),
+          ),
         ],
       ),
     );
 
-    if (result == true) {
-      await _rerouteOutward(trip, service, departure);
-    }
-  }
-
-  Future<void> _rerouteOutward(
-      Trip trip, TripService service, DateTime departure) async {
-    Leg? outbound;
-    for (final leg in trip.legs) {
-      if (leg.direction == LegDirection.outbound) {
-        outbound = leg;
-        break;
-      }
-    }
-
-    if (outbound == null) return;
-
-    final newOutward = createScheduleFromRoute(
-      outbound.candidate,
-      startDateTime: departure,
-      labelPrefix: '行き',
-      legIndex: 0,
-      shiftToStart: true,
-    );
-
-    final updatedSchedule =
-        service.applyRerouteOutwardOnly(trip.schedule, newOutward);
-
-    await service.updateSchedule(trip.id, updatedSchedule);
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('行きの経路を更新しました')),
+    if (result != true || !mounted) return;
+    await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (_) => GroupLeaderRouteReplanPage(tripId: tripId),
+      ),
     );
   }
 
