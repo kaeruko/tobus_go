@@ -72,7 +72,7 @@ void main() {
       expect(navigation.subText, '10:46 上23 押上到着予定');
     });
 
-    test('next stop warning keeps arrival summary in the small text', () {
+    test('last stop warning keeps the same route/place layout', () {
       final step = navigationV2Candidate().steps.firstWhere(
         (step) => step.stepId == 'bus-C',
       );
@@ -90,18 +90,19 @@ void main() {
         busProgress: progress,
       );
 
-      expect(navigation.mainText, '次降ります');
+      expect(navigation.mainText, '上23 中間二');
       expect(navigation.subText, '10:46 上23 押上到着予定');
       expect(navigation.remainingStops, 1);
     });
 
-    test('rail riding shows subway emoji', () {
+    test('rail riding without realtime keeps the shared arrival summary layout', () {
       final step = StepSeg(
         stepId: 'rail-A',
         kind: 'rail',
         title: '浅草線',
         fromName: '浅草',
         toName: '東銀座',
+        arrivalTime: '10:05',
       );
       final entry = ScheduleEntry(
         plannedAt: DateTime(2025, 1, 1, 10),
@@ -119,6 +120,8 @@ void main() {
       );
 
       expect(navigation.statusLabel, '🚇乗車中');
+      expect(navigation.mainText, '浅草線 位置確認中');
+      expect(navigation.subText, '10:05 浅草線 東銀座到着予定');
     });
 
     test('bus riding fails fast when the route title is empty', () {
