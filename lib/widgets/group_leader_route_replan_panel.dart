@@ -10,6 +10,7 @@ import '../providers/trip_provider.dart';
 import '../services/trip_service.dart';
 import 'delay_recovery_card.dart';
 import 'group_schedule_impact_card.dart';
+import 'group_schedule_shift_button.dart';
 import 'route_replan_preview_button.dart';
 
 class GroupLeaderRouteReplanPanel extends StatelessWidget {
@@ -129,7 +130,12 @@ class _GroupLeaderRouteReplanPanelBodyState
           warnings.add(
             GroupScheduleImpactCard(
               impact: scheduleImpact,
-              helperText: '必要なら「おでかけ編集」で予定時刻を調整してください。',
+              helperText:
+                  '休憩などの手動予定だけを調整できます。交通便と帰りの経路は自動では動かしません。',
+              action: GroupScheduleShiftButton(
+                trip: trip,
+                impact: scheduleImpact,
+              ),
             ),
           );
         }
