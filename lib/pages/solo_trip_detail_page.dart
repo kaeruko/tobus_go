@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
+import 'segment_stops_page.dart';
 
 class SoloTripDetailPage extends StatelessWidget {
   final Trip trip;
@@ -54,10 +55,48 @@ class SoloTripDetailPage extends StatelessWidget {
                     ? null
                     : Text(entry.description),
                 trailing: Text(_formatTime(entry.plannedAt)),
+                onTap: entry.itemKind == ScheduleEntryKind.ride
+                    ? () => _openRideStops(context, entry)
+                    : null,
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _openRideStops(BuildContext context, ScheduleEntry entry) {
+    final stepId = entry.routeStepId;
+    if (stepId == null || stepId.isEmpty) {
+      throw StateError(
+        '乗車予定にrouteStepIdがありません: entryId=${entry.id}, label=${entry.label}',
+      );
+    }
+
+    final step = trip.stepsById[stepId];
+    if (step == null) {
+      throw StateError(
+        '乗車予定が存在しないrouteStepIdを参照しています: '
+        'entryId=${entry.id}, routeStepId=$stepId',
+      );
+    }
+    if (!step.isRide) {
+      throw StateError(
+        '乗車予定のrouteStepIdが乗車ステップではありません: '
+        'entryId=${entry.id}, routeStepId=$stepId, kind=${step.kind}',
+      );
+    }
+    if (step.stops.isEmpty) {
+      throw StateError(
+        '乗車ステップに停留所情報がありません: '
+        'entryId=${entry.id}, routeStepId=$stepId',
+      );
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SegmentStopsPage(segment: step),
       ),
     );
   }
