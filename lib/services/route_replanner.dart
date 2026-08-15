@@ -5,6 +5,8 @@ import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import 'route_search_service.dart';
 
+export '../logic/replan_anchor.dart';
+
 class RouteReplanRequest {
   final ReplanAnchor anchor;
   final String activeStepId;
