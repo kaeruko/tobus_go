@@ -42,10 +42,10 @@ class _RouteReplanPreviewButtonState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const OutlinedButton.icon(
+            OutlinedButton.icon(
               onPressed: null,
-              icon: Icon(Icons.alt_route),
-              label: Text('経路を見直す'),
+              icon: const Icon(Icons.alt_route),
+              label: const Text('経路を見直す'),
             ),
             const SizedBox(height: 6),
             Text(
