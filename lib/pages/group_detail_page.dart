@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/trip_models.dart';
 import '../models/group_models.dart';
-import '../services/trip_service.dart';
 import '../services/user_service.dart';
 
 import 'group_leader_route_replan_page.dart';
