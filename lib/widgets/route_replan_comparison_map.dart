@@ -36,7 +36,11 @@ class RouteReplanComparisonMap extends StatelessWidget {
                 target: anchor,
                 zoom: 13,
               ),
-              onMapCreated: (controller) => _fitBounds(controller, allPoints),
+              onMapCreated: (controller) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _fitBounds(controller, allPoints);
+                });
+              },
               polylines: {
                 if (originalPoints.length >= 2)
                   Polyline(
