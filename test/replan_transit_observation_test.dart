@@ -152,7 +152,7 @@ void main() {
       expect(observation.predictedDestinationAvailableAt, isNull);
     });
 
-    test('stale moving bus sample fails instead of being coerced to now', () {
+    test('expired moving bus forecast is treated as realtime unavailable', () {
       final now = DateTime.utc(2026, 8, 15, 9, 10);
       final location = movingLocation(
         vehicleAt: DateTime.utc(2026, 8, 15, 9, 4),
@@ -173,7 +173,13 @@ void main() {
           location: location,
           now: now,
         ),
-        throwsStateError,
+        throwsA(
+          isA<BusLocationNotAvailableException>().having(
+            (error) => error.code,
+            'code',
+            'bus_realtime_prediction_expired',
+          ),
+        ),
       );
     });
   });
@@ -228,22 +234,24 @@ void main() {
       ),
     ];
 
+    TrainLocation movingTrain({required DateTime vehicleAt}) => TrainLocation(
+      tripId: '121603T0',
+      routeId: '1',
+      tripHeadsign: '成田空港',
+      vehicleId: '121603T0',
+      currentStopSequence: 11,
+      currentStatus: 'IN_TRANSIT_TO',
+      currentStopId: '117',
+      currentStopName: '蔵前',
+      boardingSequence: 9,
+      destinationSequence: 11,
+      vehicleTimestamp: epochSeconds(vehicleAt),
+      tripStops: tripStops,
+    );
+
     test('moving train uses target station and exact scheduled segment seconds', () {
       final vehicleAt = DateTime.utc(2026, 8, 15, 9, 4, 45);
-      final location = TrainLocation(
-        tripId: '121603T0',
-        routeId: '1',
-        tripHeadsign: '成田空港',
-        vehicleId: '121603T0',
-        currentStopSequence: 11,
-        currentStatus: 'IN_TRANSIT_TO',
-        currentStopId: '117',
-        currentStopName: '蔵前',
-        boardingSequence: 9,
-        destinationSequence: 11,
-        vehicleTimestamp: epochSeconds(vehicleAt),
-        tripStops: tripStops,
-      );
+      final location = movingTrain(vehicleAt: vehicleAt);
       final progress = RailProgress.forLocation(
         stepId: step.stepId,
         location: location,
@@ -300,6 +308,32 @@ void main() {
       expect(observation.currentPlace?.point.latitude, 35.697);
       expect(observation.predictedNextAvailableAt, isNull);
       expect(observation.predictedDestinationAvailableAt, isNull);
+    });
+
+    test('expired moving train forecast is treated as realtime unavailable', () {
+      final location = movingTrain(
+        vehicleAt: DateTime.utc(2026, 8, 15, 9, 4, 45),
+      );
+      final progress = RailProgress.forLocation(
+        stepId: step.stepId,
+        location: location,
+      );
+
+      expect(
+        () => ReplanTransitObservationAdapter.fromRail(
+          step: step,
+          progress: progress,
+          location: location,
+          now: DateTime.utc(2026, 8, 15, 9, 7),
+        ),
+        throwsA(
+          isA<TrainLocationNotAvailableException>().having(
+            (error) => error.code,
+            'code',
+            'rail_realtime_prediction_expired',
+          ),
+        ),
+      );
     });
   });
 }
