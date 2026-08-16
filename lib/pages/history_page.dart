@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
+import 'solo_trip_detail_page.dart';
 import 'trip_page.dart';
+import 'trip_report_page.dart';
+
 class HistoryPage extends StatelessWidget {
   const HistoryPage({super.key});
 
@@ -66,11 +69,10 @@ class HistoryPage extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => TripPage(tripId: trip.id),
+                        builder: (_) => _historyDestination(trip),
                       ),
                     );
                   },
-
                 ),
               );
             },
@@ -78,6 +80,22 @@ class HistoryPage extends StatelessWidget {
         },
       ),
     );
+  }
+
+  Widget _historyDestination(Trip trip) {
+    switch (trip.travelPhase) {
+      case TravelPhase.active:
+        return TripPage(tripId: trip.id);
+      case TravelPhase.completed:
+        return trip.isSolo
+            ? SoloTripDetailPage(trip: trip)
+            : TripReportPage(trip: trip);
+      case TravelPhase.planning:
+      case TravelPhase.cancelled:
+        throw StateError(
+          '履歴画面から開けない状態です: ${trip.travelPhase.name}',
+        );
+    }
   }
 
   String _statusEmoji(TravelPhase phase) {
