@@ -19,7 +19,11 @@ import 'replan_anchor.dart';
 /// through the segment, so these estimates may be later than the real arrival.
 /// That is intentional for replanning: it avoids suggesting a connection that
 /// depends on an optimistic arrival assumption.
-/// Missing/stale timestamps or inconsistent timetable data are not repaired.
+/// Missing timestamps or inconsistent timetable data remain hard errors. A
+/// syntactically valid realtime sample whose conservative next-stop forecast has
+/// already expired is instead treated as temporarily unavailable realtime so the
+/// controller can preserve the confirmed onboard fact without keeping an old
+/// forecast forever.
 class ReplanTransitObservationAdapter {
   const ReplanTransitObservationAdapter._();
 
@@ -548,12 +552,22 @@ class ReplanTransitObservationAdapter {
     );
     final predicted = sampleAt.add(scheduledSegment);
     if (!predicted.isAfter(now)) {
-      throw StateError(
-        '$transportの次停車地点到着見込みが古すぎます: '
-        'stepId=$stepId, sample=${sampleAt.toIso8601String()}, '
-        'duration=$scheduledSegment, predicted=${predicted.toIso8601String()}, '
-        'now=${now.toIso8601String()}',
-      );
+      final code = '${transport}_realtime_prediction_expired';
+      switch (transport) {
+        case 'bus':
+          throw BusLocationNotAvailableException(code: code);
+        case 'rail':
+          throw TrainLocationNotAvailableException(code: code);
+        default:
+          throw StateError(
+            '期限切れRealtime予測の未対応transportです: '
+            'transport=$transport, stepId=$stepId, '
+            'sample=${sampleAt.toIso8601String()}, '
+            'duration=$scheduledSegment, '
+            'predicted=${predicted.toIso8601String()}, '
+            'now=${now.toIso8601String()}',
+          );
+      }
     }
     return predicted;
   }
