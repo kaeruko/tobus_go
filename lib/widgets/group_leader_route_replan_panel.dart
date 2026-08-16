@@ -75,6 +75,27 @@ class _GroupLeaderRouteReplanPanelBodyState
 
   @override
   Widget build(BuildContext context) {
+    return GroupLeaderRouteReplanContent(
+      warningOnly: widget.warningOnly,
+    );
+  }
+}
+
+/// Group leader向けの経路見直し・手動予定調整部分。
+///
+/// ProviderScopeやRealtime pollingの初期化は所有しないため、
+/// `ActiveTripNavigationView` と同じProviderScopeの中へそのまま配置できる。
+/// 単体利用が必要な既存画面は [GroupLeaderRouteReplanPanel] がScopeを用意する。
+class GroupLeaderRouteReplanContent extends ConsumerWidget {
+  final bool warningOnly;
+
+  const GroupLeaderRouteReplanContent({
+    super.key,
+    this.warningOnly = false,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final tripAsync = ref.watch(tripStreamProvider);
     final delayResolution = ref.watch(resolvedDelayImpactProvider);
     final delayImpact = delayResolution.impact;
@@ -87,7 +108,7 @@ class _GroupLeaderRouteReplanPanelBodyState
 
     return tripAsync.when(
       loading: () => const SizedBox.shrink(),
-      error: (error, stack) => widget.warningOnly
+      error: (error, stack) => warningOnly
           ? const SizedBox.shrink()
           : Card(
               elevation: 0,
@@ -142,7 +163,7 @@ class _GroupLeaderRouteReplanPanelBodyState
           );
         }
 
-        if (widget.warningOnly) {
+        if (warningOnly) {
           if (warnings.isEmpty) return const SizedBox.shrink();
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
