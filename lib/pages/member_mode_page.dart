@@ -14,9 +14,9 @@ import '../providers/group_schedule_impact_provider.dart';
 import '../providers/trip_provider.dart';
 import '../providers/member_mode_provider.dart';
 import '../providers/member_nav_progress_provider.dart';
+import '../widgets/active_trip_navigation_view.dart';
 import '../widgets/delay_recovery_card.dart';
 import '../widgets/group_schedule_impact_card.dart';
-import '../widgets/trip_navigation_status_card.dart';
 import '../widgets/trip_schedule_window_card.dart';
 import 'group_detail_page.dart';
 import 'settings_page.dart';
@@ -74,64 +74,60 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           );
         }
 
-        return Scaffold(
-          backgroundColor: uiState.navState.color,
-          appBar: _buildAppBar(context, uiState.displayTitle, trip),
-          body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TripNavigationStatusCard(
-                    navState: uiState.navState,
-                    tripTitle: uiState.displayTitle,
-                    onTapStops: () => _onTapRemainingStops(trip),
-                    headerTrailing: const _LiveClock(),
-                  ),
-                  if (delayImpact?.requiresReplan == true) ...[
-                    const SizedBox(height: 10),
-                    DelayRecoveryCard(
-                      impact: delayImpact!,
-                      nextRideRealtime: delayResolution.nextRideRealtime,
-                      scheduledNextDepartureAt:
-                          delayResolution.scheduledNextDepartureAt,
-                      realtimeDiagnostic: realtimeDiagnostic,
-                      helperText:
-                          '経路変更はリーダーだけが確定できます。必要ならリーダーに確認してください。',
-                    ),
-                  ],
-                  if (scheduleImpact != null) ...[
-                    const SizedBox(height: 10),
-                    GroupScheduleImpactCard(
-                      impact: scheduleImpact,
-                      helperText:
-                          '予定の変更はリーダーが行います。必要ならリーダーに確認してください。',
-                    ),
-                  ],
-                  const SizedBox(height: 14),
-                  TripScheduleWindowCard(
-                    title: '今日の予定',
-                    resolvedEntry: uiState.resolvedEntry,
-                    entries: uiState.windowEntries,
-                    completedCount: uiState.completedCount,
-                    activeLabel: uiState.activeLabel,
-                    counterLabelBuilder: (completedCount, totalCount) =>
-                        '完了 $completedCount 件',
-                    appearance: TripScheduleWindowAppearance.boxedRows,
-                    emptyLabel: 'すべての予定を完了しました。',
-                  ),
-                  const SizedBox(height: 14),
-                  _HelperNotice(onHelp: () => _sendSOS(trip.id)),
-                  const SizedBox(height: 80),
-                ],
-              ),
+        final beforeScheduleSections = <Widget>[];
+        if (delayImpact?.requiresReplan == true) {
+          beforeScheduleSections.add(
+            DelayRecoveryCard(
+              impact: delayImpact!,
+              nextRideRealtime: delayResolution.nextRideRealtime,
+              scheduledNextDepartureAt:
+                  delayResolution.scheduledNextDepartureAt,
+              realtimeDiagnostic: realtimeDiagnostic,
+              helperText:
+                  '経路変更はリーダーだけが確定できます。必要ならリーダーに確認してください。',
             ),
+          );
+        }
+        if (scheduleImpact != null) {
+          beforeScheduleSections.add(
+            GroupScheduleImpactCard(
+              impact: scheduleImpact,
+              helperText:
+                  '予定の変更はリーダーが行います。必要ならリーダーに確認してください。',
+            ),
+          );
+        }
+
+        return ActiveTripNavigationView(
+          navState: uiState.navState,
+          tripTitle: uiState.displayTitle,
+          appBar: _buildAppBar(context, uiState.displayTitle, trip),
+          onTapStops: () => _onTapRemainingStops(trip),
+          statusHeaderTrailing: const _LiveClock(),
+          beforeScheduleSections: beforeScheduleSections,
+          scheduleSection: TripScheduleWindowCard(
+            title: '今日の予定',
+            resolvedEntry: uiState.resolvedEntry,
+            entries: uiState.windowEntries,
+            completedCount: uiState.completedCount,
+            activeLabel: uiState.activeLabel,
+            counterLabelBuilder: (completedCount, totalCount) =>
+                '完了 $completedCount 件',
+            appearance: TripScheduleWindowAppearance.boxedRows,
+            emptyLabel: 'すべての予定を完了しました。',
           ),
+          afterScheduleSections: [
+            _HelperNotice(onHelp: () => _sendSOS(trip.id)),
+            const SizedBox(height: 66),
+          ],
           bottomNavigationBar: _MemberActionBar(
             onHelp: () => _sendSOS(trip.id),
             onOpenDetail: () => _openGroupDetail(trip),
             onExit: _leaveGroup,
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
           ),
         );
       },
