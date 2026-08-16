@@ -12,9 +12,9 @@ import '../providers/member_nav_progress_provider.dart';
 import '../providers/trip_provider.dart';
 import '../services/bus_location_source.dart';
 import '../services/trip_service.dart';
+import '../widgets/active_trip_navigation_view.dart';
 import '../widgets/delay_recovery_card.dart';
 import '../widgets/route_replan_preview_button.dart';
-import '../widgets/trip_navigation_status_card.dart';
 import '../widgets/trip_schedule_window_card.dart';
 import 'solo_trip_detail_page.dart';
 import 'segment_stops_page.dart';
@@ -163,8 +163,25 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         : '次便のRealtime確認に失敗したため、予定時刻で判定しています: '
             '${delayResolution.nextRideRealtimeError}';
 
-    return Scaffold(
-      backgroundColor: uiState.navState.color,
+    final beforeScheduleSections = <Widget>[];
+    if (showDelayWarning) {
+      beforeScheduleSections.add(
+        DelayRecoveryCard(
+          impact: delayImpact!,
+          nextRideRealtime: delayResolution.nextRideRealtime,
+          scheduledNextDepartureAt: delayResolution.scheduledNextDepartureAt,
+          realtimeDiagnostic: realtimeDiagnostic,
+          helperText: '予定はまだ変更していません。新しい経路を確認してから選べます。',
+          action: RouteReplanPreviewButton(trip: trip),
+        ),
+      );
+    } else if (showStandaloneReplan) {
+      beforeScheduleSections.add(RouteReplanPreviewButton(trip: trip));
+    }
+
+    return ActiveTripNavigationView(
+      navState: uiState.navState,
+      tripTitle: trip.displayTitle,
       appBar: AppBar(
         systemOverlayStyle: SystemUiOverlayStyle.dark,
         backgroundColor: Colors.transparent,
@@ -177,7 +194,8 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
           ),
         ),
         actions: [
-          if (!completed && ref.read(busLocationSourceProvider) is FakeBusLocationSource)
+          if (!completed &&
+              ref.read(busLocationSourceProvider) is FakeBusLocationSource)
             IconButton(
               tooltip: 'Fakeバスを次の停留所へ',
               icon: const Icon(Icons.skip_next),
@@ -192,66 +210,48 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
             ),
         ],
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      onTapStops: () => _openStops(trip),
+      beforeScheduleSections: beforeScheduleSections,
+      scheduleSection: TripScheduleWindowCard(
+        title: '今回の経路',
+        resolvedEntry: uiState.resolvedEntry,
+        entries: uiState.windowEntries,
+        completedCount: completed
+            ? trip.schedule.length
+            : uiState.completedCount,
+        totalCount: trip.schedule.length,
+        activeLabel: uiState.activeLabel,
+        counterLabelBuilder: (completedCount, totalCount) {
+          if (totalCount == null) {
+            throw StateError('Soloの予定ウィンドウにtotalCountがありません');
+          }
+          return '$completedCount / $totalCount ステップ';
+        },
+        appearance: TripScheduleWindowAppearance.listTiles,
+        onTapEntry: (entry) {
+          final stepId = entry.routeStepId;
+          if (stepId == null) return;
+
+          final step = trip.stepsById[stepId];
+          if (step == null) {
+            throw StateError(
+              'ScheduleEntry が存在しない routeStepId を参照しています: $stepId',
+            );
+          }
+
+          if (!step.isRide || step.stops.isEmpty) return;
+
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => SegmentStopsPage(segment: step),
+            ),
+          );
+        },
+      ),
+      afterScheduleSections: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TripNavigationStatusCard(
-              navState: uiState.navState,
-              tripTitle: trip.displayTitle,
-              onTapStops: () => _openStops(trip),
-            ),
-            if (showDelayWarning) ...[
-              const SizedBox(height: 10),
-              DelayRecoveryCard(
-                impact: delayImpact!,
-                nextRideRealtime: delayResolution.nextRideRealtime,
-                scheduledNextDepartureAt:
-                    delayResolution.scheduledNextDepartureAt,
-                realtimeDiagnostic: realtimeDiagnostic,
-                helperText: '予定はまだ変更していません。新しい経路を確認してから選べます。',
-                action: RouteReplanPreviewButton(trip: trip),
-              ),
-            ] else if (showStandaloneReplan)
-              RouteReplanPreviewButton(trip: trip),
-            const SizedBox(height: 14),
-            TripScheduleWindowCard(
-              title: '今回の経路',
-              resolvedEntry: uiState.resolvedEntry,
-              entries: uiState.windowEntries,
-              completedCount: completed
-                  ? trip.schedule.length
-                  : uiState.completedCount,
-              totalCount: trip.schedule.length,
-              activeLabel: uiState.activeLabel,
-              counterLabelBuilder: (completedCount, totalCount) {
-                if (totalCount == null) {
-                  throw StateError('Soloの予定ウィンドウにtotalCountがありません');
-                }
-                return '$completedCount / $totalCount ステップ';
-              },
-              appearance: TripScheduleWindowAppearance.listTiles,
-              onTapEntry: (entry) {
-                final stepId = entry.routeStepId;
-                if (stepId == null) return;
-
-                final step = trip.stepsById[stepId];
-                if (step == null) {
-                  throw StateError(
-                    'ScheduleEntry が存在しない routeStepId を参照しています: $stepId',
-                  );
-                }
-
-                if (!step.isRide || step.stops.isEmpty) return;
-
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => SegmentStopsPage(segment: step),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 14),
             OutlinedButton.icon(
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(
@@ -284,7 +284,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
               ),
           ],
         ),
-      ),
+      ],
     );
   }
 
