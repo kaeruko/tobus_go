@@ -205,6 +205,11 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
     // 進捗を更新 (時間基準 + API補正)
     if (resolvedEntry != null) {
       final sameTrackedStep = state.trackedStepId == resolvedEntry.routeStepId;
+      final rideRealtimeUnavailable =
+          sameTrackedStep &&
+          state.replanTransitMemory.knownOnboardStepId ==
+              resolvedEntry.routeStepId &&
+          state.replanTransitMemory.ridingTransit == null;
       _ref
           .read(memberNavProgressProvider.notifier)
           .updateFromSchedule(
@@ -212,6 +217,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
             resolvedEntry,
             busProgress: sameTrackedStep ? state.busProgress : null,
             railProgress: sameTrackedStep ? state.railProgress : null,
+            rideRealtimeUnavailable: rideRealtimeUnavailable,
           );
     }
   }
@@ -630,9 +636,15 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((
       now: now,
       resolvedState: resolvedState,
     );
+    final displayState = navProgress.rideRealtimeUnavailable
+        ? navDisplayState.withNotice(
+            statusLabel: '検索中…',
+            noticeText: 'Realtimeの位置情報を確認しています\n最後に確認した位置を表示しています',
+          )
+        : navDisplayState;
 
     return MemberUiState(
-      navState: navDisplayState,
+      navState: displayState,
       windowEntries: resolvedState.windowEntries,
       resolvedEntry: resolvedState.resolvedEntry,
       completedCount: resolvedState.completedCount,

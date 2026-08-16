@@ -9,17 +9,20 @@ class MemberNavState {
   final String? currentStepId;
   final BusProgress? busProgress;
   final RailProgress? railProgress;
+  final bool rideRealtimeUnavailable;
 
   const MemberNavState({
     required this.currentStepId,
     required this.busProgress,
     required this.railProgress,
+    this.rideRealtimeUnavailable = false,
   });
 
   const MemberNavState.initial()
     : currentStepId = null,
       busProgress = null,
-      railProgress = null;
+      railProgress = null,
+      rideRealtimeUnavailable = false;
 }
 
 class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
@@ -30,6 +33,7 @@ class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
     ScheduleEntry? activeEntry, {
     BusProgress? busProgress,
     RailProgress? railProgress,
+    bool rideRealtimeUnavailable = false,
   }) {
     if (busProgress != null && railProgress != null) {
       throw ArgumentError('busProgress and railProgress cannot both be set');
@@ -39,7 +43,8 @@ class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
     if (stepId == null) {
       if (state.currentStepId != null ||
           state.busProgress != null ||
-          state.railProgress != null) {
+          state.railProgress != null ||
+          state.rideRealtimeUnavailable) {
         state = const MemberNavState.initial();
       }
       return;
@@ -73,16 +78,46 @@ class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
         'stepId=$stepId kind=${step.kind}',
       );
     }
+    if (rideRealtimeUnavailable && !step.isRide) {
+      throw StateError(
+        'Realtime一時欠落フラグが乗車step以外に設定されました: '
+        'stepId=$stepId kind=${step.kind}',
+      );
+    }
+    if (rideRealtimeUnavailable &&
+        (busProgress != null || railProgress != null)) {
+      throw StateError(
+        'Realtime一時欠落中なのに新しい乗車進捗が同時に渡されました: stepId=$stepId',
+      );
+    }
 
-    final nextBusProgress = step.kind == 'bus' ? busProgress : null;
-    final nextRailProgress = step.kind == 'rail' ? railProgress : null;
+    BusProgress? nextBusProgress = step.kind == 'bus' ? busProgress : null;
+    RailProgress? nextRailProgress = step.kind == 'rail' ? railProgress : null;
+
+    // Once actual boarding has been confirmed, a temporary realtime gap must
+    // not turn the navigation UI back into a pre-boarding "waiting" state.
+    // Keep only the last already-displayed riding progress as historical UI
+    // context; replan/delay logic still uses ReplanTransitMemory and remains
+    // blocked until fresh realtime returns.
+    if (rideRealtimeUnavailable && state.currentStepId == stepId) {
+      if (step.kind == 'bus' &&
+          state.busProgress?.phase == BusProgressPhase.riding) {
+        nextBusProgress = state.busProgress;
+      } else if (step.kind == 'rail' &&
+          state.railProgress?.phase == RailProgressPhase.riding) {
+        nextRailProgress = state.railProgress;
+      }
+    }
+
     if (state.currentStepId != stepId ||
         state.busProgress != nextBusProgress ||
-        state.railProgress != nextRailProgress) {
+        state.railProgress != nextRailProgress ||
+        state.rideRealtimeUnavailable != rideRealtimeUnavailable) {
       state = MemberNavState(
         currentStepId: stepId,
         busProgress: nextBusProgress,
         railProgress: nextRailProgress,
+        rideRealtimeUnavailable: rideRealtimeUnavailable,
       );
     }
   }
