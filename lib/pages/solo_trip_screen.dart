@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
+import '../logic/route_replan_presentation.dart';
 import '../logic/solo_trip_lifecycle.dart';
 import '../models/group_models.dart';
 import '../models/route_models.dart';
@@ -149,14 +150,14 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
   }) {
     final delayResolution = ref.watch(resolvedDelayImpactProvider);
     final delayImpact = delayResolution.impact;
+    final presentation = RouteReplanPresentation.fromDelayImpact(delayImpact);
     final showDelayWarning =
-        !completed && !terminalArrival && delayImpact?.requiresReplan == true;
+        !completed && !terminalArrival && presentation.showWarning;
     final showStandaloneReplan =
         !completed &&
         !terminalArrival &&
         !showDelayWarning &&
-        delayImpact != null &&
-        delayImpact.delay > Duration.zero;
+        presentation.showAction;
     final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
         ? null
         : '次便のRealtime確認に失敗したため、予定時刻で判定しています: '
