@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 
 import '../logic/route_replan_presentation.dart';
 import '../logic/solo_trip_lifecycle.dart';
-import '../models/group_models.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../providers/delay_impact_provider.dart';
@@ -16,6 +15,7 @@ import '../services/trip_service.dart';
 import '../widgets/delay_recovery_card.dart';
 import '../widgets/route_replan_preview_button.dart';
 import '../widgets/trip_navigation_status_card.dart';
+import '../widgets/trip_schedule_window_card.dart';
 import 'solo_trip_detail_page.dart';
 import 'segment_stops_page.dart';
 
@@ -215,14 +215,22 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
             ] else if (showStandaloneReplan)
               RouteReplanPreviewButton(trip: trip),
             const SizedBox(height: 14),
-            _SoloScheduleCard(
+            TripScheduleWindowCard(
+              title: '今回の経路',
               resolvedEntry: uiState.resolvedEntry,
               entries: uiState.windowEntries,
               completedCount: completed
                   ? trip.schedule.length
                   : uiState.completedCount,
-              totalStepCount: trip.schedule.length,
+              totalCount: trip.schedule.length,
               activeLabel: uiState.activeLabel,
+              counterLabelBuilder: (completedCount, totalCount) {
+                if (totalCount == null) {
+                  throw StateError('Soloの予定ウィンドウにtotalCountがありません');
+                }
+                return '$completedCount / $totalCount ステップ';
+              },
+              appearance: TripScheduleWindowAppearance.listTiles,
               onTapEntry: (entry) {
                 final stepId = entry.routeStepId;
                 if (stepId == null) return;
@@ -386,82 +394,6 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         child: FilledButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('閉じる'),
-        ),
-      ),
-    );
-  }
-}
-
-class _SoloScheduleCard extends StatelessWidget {
-  final ScheduleEntry? resolvedEntry;
-  final List<ScheduleEntry> entries;
-  final int completedCount;
-  final int totalStepCount;
-  final String activeLabel;
-  final ValueChanged<ScheduleEntry> onTapEntry;
-
-  const _SoloScheduleCard({
-    required this.resolvedEntry,
-    required this.entries,
-    required this.completedCount,
-    required this.totalStepCount,
-    required this.activeLabel,
-    required this.onTapEntry,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (completedCount < 0 ||
-        totalStepCount < 0 ||
-        completedCount > totalStepCount) {
-      throw StateError(
-        '経路ステップ数が不正です: completed=$completedCount, total=$totalStepCount',
-      );
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '今回の経路',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                Text('$completedCount / $totalStepCount ステップ'),
-              ],
-            ),
-            const SizedBox(height: 10),
-            ...entries.map((entry) {
-              final isActive = resolvedEntry?.id == entry.id;
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                onTap: entry.routeStepId == null
-                    ? null
-                    : () => onTapEntry(entry),
-                leading: Icon(
-                  entry.itemKind == ScheduleEntryKind.walk
-                      ? Icons.directions_walk
-                      : entry.itemKind == ScheduleEntryKind.goal
-                      ? Icons.flag
-                      : Icons.directions_bus,
-                ),
-                title: Text(entry.label),
-                subtitle: isActive ? Text(activeLabel) : null,
-                trailing: Text(
-                  '${entry.plannedAt.hour.toString().padLeft(2, '0')}:${entry.plannedAt.minute.toString().padLeft(2, '0')}',
-                ),
-                tileColor: isActive ? Colors.green.shade50 : null,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              );
-            }),
-          ],
         ),
       ),
     );
