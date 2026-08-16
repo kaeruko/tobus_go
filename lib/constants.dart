@@ -1,3 +1,6 @@
-// シミュレータは 127.0.0.1。実機ならMacのLAN IPに置き換え
-// const String kApiBase = 'https://y6dmxuksrkf3nxp4encz5ez2ua0joxlp.lambda-url.us-west-2.on.aws';
-const String kApiBase = 'http://127.0.0.1:8000';
+// flutter run ではローカルAPIを既定値として使う。
+// ストア向けAABでは scripts/build_aab.ps1 が API_BASE を明示する。
+const String kApiBase = String.fromEnvironment(
+  'API_BASE',
+  defaultValue: 'http://127.0.0.1:8000',
+);
