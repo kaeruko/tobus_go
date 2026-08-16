@@ -39,11 +39,16 @@ class RouteReplanRequest {
   }
 }
 
-/// Returns true only when both requests describe the exact same replan state.
+/// Returns true only when both requests would execute the same route search.
 ///
-/// In particular, [ReplanAnchor.availableAt] is part of the identity. A newer
-/// realtime ETA therefore invalidates a preview that was searched with the old
-/// time even when the station/stop itself has not changed.
+/// `/route` receives local service-day date plus `HH:mm`, so second and
+/// microsecond changes inside the same local minute do not change the actual
+/// search. Treating those clock ticks as a new request made a preview stale
+/// every ticker update even though the API payload stayed identical.
+///
+/// A change to another local minute is still significant and invalidates the
+/// preview, as do changes to anchor place/source, active step, destination, or
+/// preference.
 bool sameRouteReplanRequestState(
   RouteReplanRequest a,
   RouteReplanRequest b,
@@ -58,7 +63,17 @@ bool sameRouteReplanRequestState(
       a.anchor.stopId == b.anchor.stopId &&
       a.anchor.placeName == b.anchor.placeName &&
       a.anchor.point == b.anchor.point &&
-      a.anchor.availableAt.isAtSameMomentAs(b.anchor.availableAt);
+      _sameRouteApiMinute(a.anchor.availableAt, b.anchor.availableAt);
+}
+
+bool _sameRouteApiMinute(DateTime a, DateTime b) {
+  final localA = a.toLocal();
+  final localB = b.toLocal();
+  return localA.year == localB.year &&
+      localA.month == localB.month &&
+      localA.day == localB.day &&
+      localA.hour == localB.hour &&
+      localA.minute == localB.minute;
 }
 
 class RouteReplanRequestBuilder {

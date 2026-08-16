@@ -64,14 +64,25 @@ void main() {
     );
   }
 
-  ReplanAnchor anchor({String? routeStepId = 'rail-1'}) {
+  ReplanAnchor anchor({
+    String? routeStepId = 'rail-1',
+    DateTime? availableAt,
+  }) {
     return ReplanAnchor(
       placeName: '蔵前',
       stopId: 'station-kuramae',
       point: const LatLng(35.703, 139.790),
-      availableAt: DateTime(2026, 8, 15, 18, 6),
+      availableAt: availableAt ?? DateTime(2026, 8, 15, 18, 6),
       source: ReplanAnchorSource.predictedNextTransitPlace,
       routeStepId: routeStepId,
+    );
+  }
+
+  RouteReplanRequest requestAt(DateTime availableAt) {
+    return RouteReplanRequestBuilder.build(
+      trip: trip(candidate()),
+      activeStepId: 'rail-1',
+      anchor: anchor(availableAt: availableAt),
     );
   }
 
@@ -133,6 +144,39 @@ void main() {
     expect(body['start_time'], expectedClock);
     expect(body['target_date_str'], expectedDate);
     expect(body['pref'], 'time');
+  });
+
+  test('request stays current when availableAt changes only within API minute', () {
+    final first = requestAt(DateTime.utc(2026, 8, 15, 9, 10, 3, 100));
+    final later = requestAt(DateTime.utc(2026, 8, 15, 9, 10, 53, 900));
+
+    expect(sameRouteReplanRequestState(first, later), isTrue);
+    expect(first.anchor.availableAt, isNot(later.anchor.availableAt));
+    expect(
+      RouteSearchRequest(
+        origin: first.anchor.point,
+        destination: first.destination,
+        originName: first.anchor.placeName,
+        destinationName: first.destinationName,
+        startTime: first.anchor.availableAt,
+        preference: first.preference,
+      ).toApiBody()['start_time'],
+      RouteSearchRequest(
+        origin: later.anchor.point,
+        destination: later.destination,
+        originName: later.anchor.placeName,
+        destinationName: later.destinationName,
+        startTime: later.anchor.availableAt,
+        preference: later.preference,
+      ).toApiBody()['start_time'],
+    );
+  });
+
+  test('request becomes stale when availableAt crosses API minute', () {
+    final first = requestAt(DateTime.utc(2026, 8, 15, 9, 10, 53));
+    final nextMinute = requestAt(DateTime.utc(2026, 8, 15, 9, 11, 13));
+
+    expect(sameRouteReplanRequestState(first, nextMinute), isFalse);
   });
 
   test('fails when a riding anchor belongs to another step', () {
