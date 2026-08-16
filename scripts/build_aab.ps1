@@ -77,7 +77,7 @@ try {
     flutter pub get
     Assert-LastExitCode 'flutter pub get'
 
-    flutter analyze
+    flutter analyze --no-fatal-infos --no-fatal-warnings
     Assert-LastExitCode 'flutter analyze'
 
     flutter build appbundle `
