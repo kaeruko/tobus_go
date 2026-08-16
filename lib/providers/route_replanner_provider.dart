@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_clock.dart';
+import '../logic/replan_debug_log.dart';
 import '../services/route_replanner.dart';
 import 'member_mode_provider.dart';
 import 'minute_ticker_provider.dart';
@@ -32,11 +33,31 @@ final routeReplanBlockedReasonProvider = Provider.autoDispose<String?>((ref) {
   final tripAsync = ref.watch(tripStreamProvider);
   final uiAsync = ref.watch(memberUiStateProvider);
 
+  String blocked(String code, String message, {DateTime? now}) {
+    ReplanDebugLog.emit('replan_blocked', {
+      'reasonCode': code,
+      'message': message,
+      'now': now?.toIso8601String(),
+      'resolvedEntryId': uiAsync.value?.resolvedEntry?.id,
+      'resolvedEntryLabel': uiAsync.value?.resolvedEntry?.label,
+      'activeStepId': uiAsync.value?.resolvedEntry?.routeStepId,
+      ...ReplanDebugLog.memoryFields(effective.memory),
+      ...ReplanDebugLog.anchorFields(anchor),
+    });
+    return message;
+  }
+
   if (effective.restoring) {
-    return '前回の乗車履歴を確認しています。確認が終わるまで経路を見直せません。';
+    return blocked(
+      'memory_restoring',
+      '前回の乗車履歴を確認しています。確認が終わるまで経路を見直せません。',
+    );
   }
   if (effective.restoreError != null) {
-    return '保存済みの乗車履歴を安全に復元できないため、いまは経路を見直せません: ${effective.restoreError}';
+    return blocked(
+      'memory_restore_error',
+      '保存済みの乗車履歴を安全に復元できないため、いまは経路を見直せません: ${effective.restoreError}',
+    );
   }
 
   final memory = effective.memory;
@@ -50,10 +71,18 @@ final routeReplanBlockedReasonProvider = Provider.autoDispose<String?>((ref) {
       final previousText = currentPlace == null || currentPlace.isEmpty
           ? ''
           : '「$currentPlace」はすでに出発した地点なので、再探索起点には戻しません。';
-      return '$previousText次の「$nextPlace」への到着予測時刻を過ぎましたが、Realtimeでは到着をまだ確認できていません。'
-          '「$nextPlace」から利用できる時刻を確定できるまで経路変更を待ちます。';
+      return blocked(
+        'predicted_next_expired',
+        '$previousText次の「$nextPlace」への到着予測時刻を過ぎましたが、Realtimeでは到着をまだ確認できていません。'
+            '「$nextPlace」から利用できる時刻を確定できるまで経路変更を待ちます。',
+        now: now,
+      );
     }
-    return '次の駅・停留所への到着予測時刻を過ぎましたが、Realtimeでは到着をまだ確認できていません。更新を待ってから経路を見直してください。';
+    return blocked(
+      'predicted_next_expired_without_place',
+      '次の駅・停留所への到着予測時刻を過ぎましたが、Realtimeでは到着をまだ確認できていません。更新を待ってから経路を見直してください。',
+      now: now,
+    );
   }
 
   if (memory != null &&
@@ -61,10 +90,18 @@ final routeReplanBlockedReasonProvider = Provider.autoDispose<String?>((ref) {
       memory.knownOnboardStepId != null) {
     final lastConfirmed = memory.lastConfirmedTransitPlace?.name.trim();
     if (lastConfirmed != null && lastConfirmed.isNotEmpty) {
-      return '「$lastConfirmed」は最後に通過を確認した地点ですが、現在も乗車中なので再探索起点には戻しません。'
-          '次の駅・停留所をRealtimeで確認できるまで経路変更を待ちます。';
+      return blocked(
+        'known_onboard_without_realtime',
+        '「$lastConfirmed」は最後に通過を確認した地点ですが、現在も乗車中なので再探索起点には戻しません。'
+            '次の駅・停留所をRealtimeで確認できるまで経路変更を待ちます。',
+        now: now,
+      );
     }
-    return '乗車中の駅・停留所をRealtimeで確認できないため、いまは経路を見直せません。Realtimeの更新を待って、もう一度お試しください。';
+    return blocked(
+      'known_onboard_without_realtime_or_place',
+      '乗車中の駅・停留所をRealtimeで確認できないため、いまは経路を見直せません。Realtimeの更新を待って、もう一度お試しください。',
+      now: now,
+    );
   }
 
   if (anchor == null &&
@@ -74,10 +111,25 @@ final routeReplanBlockedReasonProvider = Provider.autoDispose<String?>((ref) {
       uiAsync.value != null) {
     final activeStepId = uiAsync.value!.resolvedEntry?.routeStepId;
     if (activeStepId != null) {
-      return '現在の移動状況から、安全に使える再探索起点と利用可能時刻をまだ確定できません。Realtimeの更新を待ってください。';
+      return blocked(
+        'anchor_unresolved_with_active_step',
+        '現在の移動状況から、安全に使える再探索起点と利用可能時刻をまだ確定できません。Realtimeの更新を待ってください。',
+        now: now,
+      );
     }
   }
 
+  ReplanDebugLog.emit('replan_blocked', {
+    'reasonCode': null,
+    'message': null,
+    'outcome': 'not_blocked',
+    'now': now.toIso8601String(),
+    'resolvedEntryId': uiAsync.value?.resolvedEntry?.id,
+    'resolvedEntryLabel': uiAsync.value?.resolvedEntry?.label,
+    'activeStepId': uiAsync.value?.resolvedEntry?.routeStepId,
+    ...ReplanDebugLog.memoryFields(memory),
+    ...ReplanDebugLog.anchorFields(anchor),
+  });
   return null;
 }, dependencies: [
   tripStreamProvider,
@@ -97,27 +149,73 @@ final currentRouteReplanRequestProvider =
       final anchor = ref.watch(replanAnchorProvider);
 
       if (blockedReason != null) {
+        ReplanDebugLog.emit('replan_request_eval', {
+          'outcome': 'blocked',
+          'reason': 'blocked_reason',
+          'blockedReason': blockedReason,
+          ...ReplanDebugLog.anchorFields(anchor),
+        });
         return null;
       }
       if (!tripAsync.hasValue || !uiAsync.hasValue) {
+        ReplanDebugLog.emit('replan_request_eval', {
+          'outcome': 'blocked',
+          'reason': 'trip_or_ui_not_ready',
+          'tripHasValue': tripAsync.hasValue,
+          'uiHasValue': uiAsync.hasValue,
+        });
         return null;
       }
       final trip = tripAsync.value;
       final uiState = uiAsync.value;
       if (trip == null || uiState == null || anchor == null) {
+        ReplanDebugLog.emit('replan_request_eval', {
+          'outcome': 'blocked',
+          'reason': 'trip_ui_or_anchor_null',
+          'tripNull': trip == null,
+          'uiNull': uiState == null,
+          'anchorNull': anchor == null,
+        });
         return null;
       }
 
       final activeStepId = uiState.resolvedEntry?.routeStepId;
       if (activeStepId == null) {
+        ReplanDebugLog.emit('replan_request_eval', {
+          'outcome': 'blocked',
+          'reason': 'active_step_missing',
+          'resolvedEntryId': uiState.resolvedEntry?.id,
+          'resolvedEntryLabel': uiState.resolvedEntry?.label,
+          ...ReplanDebugLog.anchorFields(anchor),
+        });
         return null;
       }
 
-      return RouteReplanRequestBuilder.build(
-        trip: trip,
-        activeStepId: activeStepId,
-        anchor: anchor,
-      );
+      try {
+        final request = RouteReplanRequestBuilder.build(
+          trip: trip,
+          activeStepId: activeStepId,
+          anchor: anchor,
+        );
+        ReplanDebugLog.emit('replan_request_eval', {
+          'outcome': 'ready',
+          'tripId': trip.id,
+          'activeStepId': activeStepId,
+          'originalCandidateId': request.originalCandidateId,
+          'destinationName': request.destinationName,
+          ...ReplanDebugLog.anchorFields(anchor),
+        });
+        return request;
+      } catch (error) {
+        ReplanDebugLog.emit('replan_request_eval', {
+          'outcome': 'error',
+          'tripId': trip.id,
+          'activeStepId': activeStepId,
+          'error': error.toString(),
+          ...ReplanDebugLog.anchorFields(anchor),
+        });
+        rethrow;
+      }
     }, dependencies: [
       tripStreamProvider,
       memberUiStateProvider,
