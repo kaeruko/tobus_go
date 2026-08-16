@@ -4,20 +4,20 @@ import 'package:flutter/services.dart';
 
 import '../logic/route_replan_presentation.dart';
 import '../logic/solo_trip_lifecycle.dart';
-import '../models/route_models.dart';
+import '../models/group_models.dart';
 import '../models/trip_models.dart';
 import '../providers/delay_impact_provider.dart';
 import '../providers/member_mode_provider.dart';
 import '../providers/member_nav_progress_provider.dart';
 import '../providers/trip_provider.dart';
-import '../services/bus_location_source.dart';
 import '../services/trip_service.dart';
 import '../widgets/active_trip_navigation_view.dart';
+import '../widgets/active_trip_realtime_actions.dart';
 import '../widgets/delay_recovery_card.dart';
 import '../widgets/route_replan_preview_button.dart';
 import '../widgets/trip_schedule_window_card.dart';
+import 'ride_stops_navigation.dart';
 import 'solo_trip_detail_page.dart';
-import 'segment_stops_page.dart';
 
 class SoloTripScreen extends StatelessWidget {
   final String tripId;
@@ -194,23 +194,14 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
           ),
         ),
         actions: [
-          if (!completed &&
-              ref.read(busLocationSourceProvider) is FakeBusLocationSource)
-            IconButton(
-              tooltip: 'Fakeバスを次の停留所へ',
-              icon: const Icon(Icons.skip_next),
-              onPressed: _advanceFakeBus,
-            ),
-          if (!completed)
-            IconButton(
-              tooltip: '現在地を更新',
-              icon: const Icon(Icons.refresh),
-              onPressed: () =>
-                  ref.read(memberModeControllerProvider.notifier).pollNow(),
-            ),
+          if (!completed) const ActiveTripRealtimeActions(),
         ],
       ),
-      onTapStops: () => _openStops(trip),
+      onTapStops: () => openCurrentRideStops(
+        context: context,
+        trip: trip,
+        currentStepId: ref.read(memberNavProgressProvider).currentStepId,
+      ),
       beforeScheduleSections: beforeScheduleSections,
       scheduleSection: TripScheduleWindowCard(
         title: '今回の経路',
@@ -229,23 +220,8 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         },
         appearance: TripScheduleWindowAppearance.listTiles,
         onTapEntry: (entry) {
-          final stepId = entry.routeStepId;
-          if (stepId == null) return;
-
-          final step = trip.stepsById[stepId];
-          if (step == null) {
-            throw StateError(
-              'ScheduleEntry が存在しない routeStepId を参照しています: $stepId',
-            );
-          }
-
-          if (!step.isRide || step.stops.isEmpty) return;
-
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => SegmentStopsPage(segment: step),
-            ),
-          );
+          if (entry.itemKind != ScheduleEntryKind.ride) return;
+          openRideStops(context: context, trip: trip, entry: entry);
         },
       ),
       afterScheduleSections: [
@@ -314,22 +290,6 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     });
   }
 
-  Future<void> _advanceFakeBus() async {
-    final source = ref.read(busLocationSourceProvider);
-    if (source is! FakeBusLocationSource) return;
-    source.advance();
-    await ref.read(memberModeControllerProvider.notifier).pollNow();
-  }
-
-  void _openStops(Trip trip) {
-    final stepId = ref.read(memberNavProgressProvider).currentStepId;
-    final step = stepId == null ? null : trip.stepsById[stepId];
-    if (step == null || !step.isRide || step.stops.isEmpty) return;
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => _SoloStopsPage(step: step)));
-  }
-
   Future<void> _cancelTrip(Trip trip) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -395,50 +355,6 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('閉じる'),
         ),
-      ),
-    );
-  }
-}
-
-class _SoloStopsPage extends StatelessWidget {
-  final StepSeg step;
-
-  const _SoloStopsPage({required this.step});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
-        title: Text(step.title),
-      ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: step.stops.length,
-        itemBuilder: (context, index) {
-          final stop = step.stops[index];
-          final isFirst = index == 0;
-          final isLast = index == step.stops.length - 1;
-          return ListTile(
-            leading: Icon(
-              isFirst || isLast ? Icons.circle : Icons.circle_outlined,
-              color: Colors.green,
-            ),
-            title: Text(
-              stop.name,
-              style: TextStyle(
-                fontWeight: isFirst || isLast
-                    ? FontWeight.bold
-                    : FontWeight.normal,
-              ),
-            ),
-            subtitle: isFirst
-                ? const Text('乗車')
-                : isLast
-                ? const Text('降車')
-                : null,
-          );
-        },
       ),
     );
   }
