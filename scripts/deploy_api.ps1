@@ -3,27 +3,29 @@
   api/ の Lambda コンテナイメージを ECR に push し、Lambda を更新します。
 
 .EXAMPLE
+  .\scripts\deploy_api.ps1
+
+.EXAMPLE
   .\scripts\deploy_api.ps1 `
-    -EcrRepository your-ecr-repository `
-    -LambdaFunction your-lambda-function
+    -ImageTag manual-test
 
 .EXAMPLE
   .\scripts\deploy_api.ps1 `
     -Region us-west-2 `
-    -EcrRepository your-ecr-repository `
-    -LambdaFunction your-lambda-function `
+    -EcrRepository toeigo-api `
+    -LambdaFunction toeigo-api `
     -ImageTag manual-test
 #>
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
+    [Parameter()]
     [ValidateNotNullOrEmpty()]
-    [string]$EcrRepository,
+    [string]$EcrRepository = 'toeigo-api',
 
-    [Parameter(Mandatory = $true)]
+    [Parameter()]
     [ValidateNotNullOrEmpty()]
-    [string]$LambdaFunction,
+    [string]$LambdaFunction = 'toeigo-api',
 
     [Parameter()]
     [ValidateNotNullOrEmpty()]
