@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../logic/route_replan_presentation.dart';
 import '../models/trip_models.dart';
 import '../providers/delay_impact_provider.dart';
 import '../providers/group_schedule_impact_provider.dart';
@@ -77,6 +78,7 @@ class _GroupLeaderRouteReplanPanelBodyState
     final tripAsync = ref.watch(tripStreamProvider);
     final delayResolution = ref.watch(resolvedDelayImpactProvider);
     final delayImpact = delayResolution.impact;
+    final presentation = RouteReplanPresentation.fromDelayImpact(delayImpact);
     final scheduleImpact = ref.watch(groupScheduleImpactProvider);
     final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
         ? null
@@ -108,7 +110,7 @@ class _GroupLeaderRouteReplanPanelBodyState
         );
         final warnings = <Widget>[];
 
-        if (delayImpact?.requiresReplan == true) {
+        if (presentation.showWarning) {
           warnings.add(
             DelayRecoveryCard(
               impact: delayImpact!,
@@ -148,16 +150,24 @@ class _GroupLeaderRouteReplanPanelBodyState
           );
         }
 
-        final defaultReplanCard = _DefaultGroupReplanCard(
-          replanButton: replanButton,
-        );
-
-        if (delayImpact?.requiresReplan == true) {
+        if (presentation.showWarning) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: warnings,
           );
         }
+
+        if (!presentation.showAction) {
+          if (warnings.isEmpty) return const SizedBox.shrink();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: warnings,
+          );
+        }
+
+        final defaultReplanCard = _DefaultGroupReplanCard(
+          replanButton: replanButton,
+        );
 
         if (warnings.isNotEmpty) {
           return Column(
