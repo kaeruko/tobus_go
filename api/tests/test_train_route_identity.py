@@ -62,7 +62,47 @@ class TrainRouteIdentityTest(unittest.TestCase):
             ],
         }
 
-    def _trip(self, trip_id="121603T0"):
+    def _weekday_with_two_through_trains(self):
+        return {
+            "odpt.Station:Toei.Asakusa.HigashiNihombashi": [
+                {
+                    "dep": 16 * 60 + 25,
+                    "arr": 16 * 60 + 27,
+                    "next_sta": "odpt.Station:Toei.Asakusa.Asakusabashi",
+                    "train_num": "N1",
+                },
+                {
+                    "dep": 16 * 60 + 29,
+                    "arr": 16 * 60 + 31,
+                    "next_sta": "odpt.Station:Toei.Asakusa.Asakusabashi",
+                    "train_num": "N2",
+                },
+            ],
+            "odpt.Station:Toei.Asakusa.Asakusabashi": [
+                {
+                    "dep": 16 * 60 + 28,
+                    "arr": 16 * 60 + 30,
+                    "next_sta": "odpt.Station:Toei.Asakusa.Kuramae",
+                    "train_num": "N1",
+                },
+                {
+                    "dep": 16 * 60 + 32,
+                    "arr": 16 * 60 + 34,
+                    "next_sta": "odpt.Station:Toei.Asakusa.Kuramae",
+                    "train_num": "N2",
+                },
+            ],
+        }
+
+    def _trip(
+        self,
+        trip_id="121603T0",
+        *,
+        departure="16:25:00",
+        middle_arrival="16:27:00",
+        middle_departure="16:28:00",
+        arrival="16:30:00",
+    ):
         return StaticTrainTrip(
             trip_id=trip_id,
             route_id="1",
@@ -72,22 +112,22 @@ class TrainRouteIdentityTest(unittest.TestCase):
                     9,
                     "A15",
                     "東日本橋",
-                    "16:25:00",
-                    "16:25:00",
+                    departure,
+                    departure,
                 ),
                 StaticTrainStop(
                     10,
                     "A16",
                     "浅草橋",
-                    "16:27:00",
-                    "16:28:00",
+                    middle_arrival,
+                    middle_departure,
                 ),
                 StaticTrainStop(
                     11,
                     "A17",
                     "蔵前",
-                    "16:30:00",
-                    "16:30:30",
+                    arrival,
+                    arrival,
                 ),
             ),
         )
@@ -121,6 +161,33 @@ class TrainRouteIdentityTest(unittest.TestCase):
         rail = result["candidates"][0]["steps"][0]
         self.assertEqual(rail["trip_id"], "121603T0")
 
+    def test_selects_later_through_train_that_matches_route_arrival(self):
+        first_trip = self._trip("first-trip")
+        later_trip = self._trip(
+            "later-trip",
+            departure="16:29:00",
+            middle_arrival="16:31:00",
+            middle_departure="16:32:00",
+            arrival="16:34:00",
+        )
+        result = enrich_route_result_train_trip_ids(
+            {"candidates": [self._candidate(arrival_time="16:34")], "meta": {}},
+            timetable_manager=_FakeTimetableManager(
+                self._weekday_with_two_through_trains(),
+            ),
+            day_type="weekday",
+            static_gtfs=StaticTrainGtfs(
+                trips={
+                    first_trip.trip_id: first_trip,
+                    later_trip.trip_id: later_trip,
+                }
+            ),
+        )
+
+        rail = result["candidates"][0]["steps"][0]
+        self.assertEqual(rail["trip_id"], "later-trip")
+        self.assertEqual(rail["route_id"], "1")
+
     def test_rejects_candidate_that_would_switch_train_without_alighting(self):
         trip = self._trip()
         result = enrich_route_result_train_trip_ids(
@@ -152,7 +219,7 @@ class TrainRouteIdentityTest(unittest.TestCase):
         rejection = result["meta"]["train_identity_rejected_candidates"][0]
         self.assertEqual(rejection["code"], "rail_static_trip_ambiguous")
 
-    def test_rejects_route_arrival_that_does_not_match_selected_odpt_train(self):
+    def test_rejects_route_arrival_that_matches_no_complete_odpt_train(self):
         trip = self._trip()
         result = enrich_route_result_train_trip_ids(
             {"candidates": [self._candidate(arrival_time="16:31")], "meta": {}},
