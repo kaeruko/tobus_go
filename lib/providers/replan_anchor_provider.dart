@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/app_clock.dart';
 import '../logic/replan_anchor.dart';
 import '../logic/replan_anchor_context.dart';
+import '../logic/replan_debug_log.dart';
 import 'member_mode_provider.dart';
 import 'minute_ticker_provider.dart';
 import 'replan_transit_persistence_provider.dart';
@@ -23,9 +24,22 @@ final replanAnchorProvider = Provider.autoDispose<ReplanAnchor?>((ref) {
   final nowTick = ref.watch(minuteTickerProvider);
 
   if (!tripAsync.hasValue || !uiAsync.hasValue) {
+    ReplanDebugLog.emit('anchor_eval', {
+      'outcome': 'blocked',
+      'reason': 'trip_or_ui_not_ready',
+      'tripHasValue': tripAsync.hasValue,
+      'uiHasValue': uiAsync.hasValue,
+    });
     return null;
   }
   if (effectiveMemory.restoring || effectiveMemory.restoreError != null) {
+    ReplanDebugLog.emit('anchor_eval', {
+      'outcome': 'blocked',
+      'reason': effectiveMemory.restoring
+          ? 'memory_restoring'
+          : 'memory_restore_error',
+      'restoreError': effectiveMemory.restoreError?.toString(),
+    });
     return null;
   }
 
@@ -33,15 +47,35 @@ final replanAnchorProvider = Provider.autoDispose<ReplanAnchor?>((ref) {
   final uiState = uiAsync.value;
   final memory = effectiveMemory.memory;
   if (trip == null || uiState == null || memory == null) {
+    ReplanDebugLog.emit('anchor_eval', {
+      'outcome': 'blocked',
+      'reason': 'trip_ui_or_memory_null',
+      'tripNull': trip == null,
+      'uiNull': uiState == null,
+      'memoryNull': memory == null,
+    });
     return null;
   }
 
   final activeStepId = uiState.resolvedEntry?.routeStepId;
   if (activeStepId == null) {
+    ReplanDebugLog.emit('anchor_eval', {
+      'outcome': 'blocked',
+      'reason': 'active_step_missing',
+      'resolvedEntryId': uiState.resolvedEntry?.id,
+      'resolvedEntryLabel': uiState.resolvedEntry?.label,
+      ...ReplanDebugLog.memoryFields(memory),
+    });
     return null;
   }
 
   if (memory.ridingTransit == null && memory.knownOnboardStepId != null) {
+    ReplanDebugLog.emit('anchor_eval', {
+      'outcome': 'blocked',
+      'reason': 'known_onboard_without_realtime',
+      'activeStepId': activeStepId,
+      ...ReplanDebugLog.memoryFields(memory),
+    });
     return null;
   }
 
@@ -52,6 +86,13 @@ final replanAnchorProvider = Provider.autoDispose<ReplanAnchor?>((ref) {
     // but its predicted next-stop time has now passed. Do not pretend the next
     // stop was reached, do not coerce ETA to `now`, and do not fall back to GPS
     // or the previously confirmed stop. Wait for the next realtime observation.
+    ReplanDebugLog.emit('anchor_eval', {
+      'outcome': 'blocked',
+      'reason': 'predicted_next_expired',
+      'now': now.toIso8601String(),
+      'activeStepId': activeStepId,
+      ...ReplanDebugLog.memoryFields(memory),
+    });
     return null;
   }
 
@@ -60,7 +101,28 @@ final replanAnchorProvider = Provider.autoDispose<ReplanAnchor?>((ref) {
     activeStepId: activeStepId,
     memory: memory,
   );
-  return ReplanAnchorResolver.resolve(context: context, now: now);
+  try {
+    final anchor = ReplanAnchorResolver.resolve(context: context, now: now);
+    ReplanDebugLog.emit('anchor_eval', {
+      'outcome': 'resolved',
+      'now': now.toIso8601String(),
+      'activeStepId': activeStepId,
+      'resolvedEntryId': uiState.resolvedEntry?.id,
+      'resolvedEntryLabel': uiState.resolvedEntry?.label,
+      ...ReplanDebugLog.memoryFields(memory),
+      ...ReplanDebugLog.anchorFields(anchor),
+    });
+    return anchor;
+  } catch (error) {
+    ReplanDebugLog.emit('anchor_eval', {
+      'outcome': 'error',
+      'now': now.toIso8601String(),
+      'activeStepId': activeStepId,
+      'error': error.toString(),
+      ...ReplanDebugLog.memoryFields(memory),
+    });
+    rethrow;
+  }
 }, dependencies: [
   tripStreamProvider,
   memberUiStateProvider,

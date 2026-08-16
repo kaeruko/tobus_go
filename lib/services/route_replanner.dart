@@ -1,6 +1,7 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../logic/replan_anchor.dart';
+import '../logic/replan_debug_log.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import 'route_search_service.dart';
@@ -118,16 +119,42 @@ class RouteReplanner {
 
   const RouteReplanner(this._routeSearchService);
 
-  Future<RouteSearchResult> replan(RouteReplanRequest request) {
-    return _routeSearchService.search(
-      RouteSearchRequest(
-        origin: request.anchor.point,
-        destination: request.destination,
-        originName: request.anchor.placeName,
-        destinationName: request.destinationName,
-        startTime: request.anchor.availableAt,
-        preference: request.preference,
-      ),
-    );
+  Future<RouteSearchResult> replan(RouteReplanRequest request) async {
+    ReplanDebugLog.emit('replan_search_start', {
+      'activeStepId': request.activeStepId,
+      'originalCandidateId': request.originalCandidateId,
+      'destinationName': request.destinationName,
+      'destinationLat': request.destination.latitude,
+      'destinationLng': request.destination.longitude,
+      'preference': request.preference,
+      ...ReplanDebugLog.anchorFields(request.anchor),
+    });
+
+    try {
+      final result = await _routeSearchService.search(
+        RouteSearchRequest(
+          origin: request.anchor.point,
+          destination: request.destination,
+          originName: request.anchor.placeName,
+          destinationName: request.destinationName,
+          startTime: request.anchor.availableAt,
+          preference: request.preference,
+        ),
+      );
+      ReplanDebugLog.emit('replan_search_success', {
+        'activeStepId': request.activeStepId,
+        'candidateCount': result.candidates.length,
+        'candidateIds': result.candidates.map((candidate) => candidate.id).toList(),
+        ...ReplanDebugLog.anchorFields(request.anchor),
+      });
+      return result;
+    } catch (error) {
+      ReplanDebugLog.emit('replan_search_error', {
+        'activeStepId': request.activeStepId,
+        'error': error.toString(),
+        ...ReplanDebugLog.anchorFields(request.anchor),
+      });
+      rethrow;
+    }
   }
 }
