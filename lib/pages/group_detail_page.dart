@@ -5,7 +5,6 @@ import '../models/group_models.dart';
 import '../services/user_service.dart';
 import '../widgets/group_leader_route_replan_panel.dart';
 
-import 'group_leader_route_replan_page.dart';
 import 'leader_mode_page.dart';
 import 'member_mode_page.dart';
 import 'ride_stops_navigation.dart';
@@ -139,10 +138,7 @@ class GroupDetailPage extends StatelessWidget {
 
             if (canReplan) ...[
               const SizedBox(height: 16),
-              GroupLeaderRouteReplanPanel(
-                tripId: trip.id,
-                warningOnly: true,
-              ),
+              GroupLeaderRouteReplanPanel(tripId: trip.id),
             ],
 
             const SizedBox(height: 24),
@@ -202,47 +198,18 @@ class GroupDetailPage extends StatelessWidget {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (canReplan) ...[
-                SizedBox(
-                  height: 50,
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => GroupLeaderRouteReplanPage(
-                          tripId: trip.id,
-                        ),
-                      ),
-                    ),
-                    icon: const Icon(Icons.alt_route),
-                    label: const Text(
-                      '移動中の経路を見直す',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-              SizedBox(
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: () => _navigateToMode(context),
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text("おでかけ編集", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
+          child: SizedBox(
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: () => _navigateToMode(context),
+              icon: const Icon(Icons.play_arrow),
+              label: const Text("おでかけ編集", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-            ],
+            ),
           ),
         ),
       ),
