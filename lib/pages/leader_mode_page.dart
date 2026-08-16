@@ -98,7 +98,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
 
       if (!mounted) return;
 
-      if (deltaMinutes.abs() >= _thresholdMinutes) {
+      if (deltaMinutes >= _thresholdMinutes) {
         await _showDepartureReplanDialog(trip.id, deltaMinutes);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -122,13 +122,12 @@ class _LeaderModePageState extends State<LeaderModePage> {
     String tripId,
     int deltaMinutes,
   ) async {
-    final deltaLabel = deltaMinutes >= 0 ? '遅れて' : '早く';
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('経路を見直しますか？'),
         content: Text(
-          '予定より${deltaMinutes.abs()}分$deltaLabel開始しました。\n\n'
+          '予定より$deltaMinutes分遅れて開始しました。\n\n'
           '電車・バスの時刻を予定差ぶん横にずらすことはせず、'
           '必要なら現在時刻と経路上の出発地点を基準に経路を再検索します。',
         ),
