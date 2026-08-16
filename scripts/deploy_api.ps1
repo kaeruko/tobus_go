@@ -116,8 +116,13 @@ $ecrPassword | docker login `
     --password-stdin $registry
 Assert-LastExitCode 'docker login'
 
+# Docker Desktop / BuildKit creates a provenance attestation by default. When that
+# attestation is attached, the pushed tag can become an OCI image index even for a
+# single --platform build. Lambda requires one concrete image manifest, not an
+# image index / manifest list, so provenance is explicitly disabled here.
 docker build `
     --platform $dockerPlatform `
+    --provenance=false `
     --file $dockerfile `
     --tag $imageUri `
     $apiDir
@@ -125,6 +130,25 @@ Assert-LastExitCode 'docker build'
 
 docker push $imageUri
 Assert-LastExitCode 'docker push'
+
+$imageManifestMediaType = (aws ecr batch-get-image `
+    --region $Region `
+    --repository-name $EcrRepository `
+    --image-ids "imageTag=$ImageTag" `
+    --query 'images[0].imageManifestMediaType' `
+    --output text).Trim()
+Assert-LastExitCode 'aws ecr batch-get-image'
+
+$lambdaSupportedManifestMediaTypes = @(
+    'application/vnd.docker.distribution.manifest.v2+json',
+    'application/vnd.oci.image.manifest.v1+json'
+)
+
+if ($lambdaSupportedManifestMediaTypes -notcontains $imageManifestMediaType) {
+    throw "ECR image manifest type is not supported by Lambda: $imageManifestMediaType. Expected a single Docker V2 or OCI image manifest."
+}
+
+Write-Host "Manifest    : $imageManifestMediaType"
 
 aws lambda update-function-code `
     --region $Region `
