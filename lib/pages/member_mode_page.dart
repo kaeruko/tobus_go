@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/app_clock.dart';
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
-import '../services/bus_location_source.dart';
 import '../providers/app_session_provider.dart';
 import '../providers/delay_impact_provider.dart';
 import '../providers/group_schedule_impact_provider.dart';
@@ -15,13 +14,14 @@ import '../providers/trip_provider.dart';
 import '../providers/member_mode_provider.dart';
 import '../providers/member_nav_progress_provider.dart';
 import '../widgets/active_trip_navigation_view.dart';
+import '../widgets/active_trip_realtime_actions.dart';
 import '../widgets/delay_recovery_card.dart';
 import '../widgets/group_schedule_impact_card.dart';
 import '../widgets/trip_schedule_window_card.dart';
 import 'group_detail_page.dart';
+import 'ride_stops_navigation.dart';
 import 'settings_page.dart';
 import 'route_detail_page.dart';
-import 'segment_stops_page.dart';
 
 class MemberModePage extends ConsumerStatefulWidget {
   const MemberModePage({super.key});
@@ -102,7 +102,11 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           navState: uiState.navState,
           tripTitle: uiState.displayTitle,
           appBar: _buildAppBar(context, uiState.displayTitle, trip),
-          onTapStops: () => _onTapRemainingStops(trip),
+          onTapStops: () => openCurrentRideStops(
+            context: context,
+            trip: trip,
+            currentStepId: ref.read(memberNavProgressProvider).currentStepId,
+          ),
           statusHeaderTrailing: const _LiveClock(),
           beforeScheduleSections: beforeScheduleSections,
           scheduleSection: TripScheduleWindowCard(
@@ -136,19 +140,6 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
 
   Future<void> _leaveGroup() async {
     await ref.read(appSessionProvider.notifier).leaveMemberMode();
-  }
-
-  void _onTapRemainingStops(Trip trip) {
-    final currentStepId = ref.read(memberNavProgressProvider).currentStepId;
-    final segment = currentStepId == null
-        ? null
-        : trip.stepsById[currentStepId];
-
-    if (segment == null || !segment.isRide || segment.stops.isEmpty) return;
-
-    Navigator.of(context).push(
-      CupertinoPageRoute(builder: (_) => SegmentStopsPage(segment: segment)),
-    );
   }
 
   void _openGroupDetail(Trip trip) {
@@ -222,23 +213,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         onPressed: () => _openGroupDetail(trip),
       ),
       actions: [
-        if (ref.read(busLocationSourceProvider) is FakeBusLocationSource)
-          IconButton(
-            tooltip: 'Fakeバスを次の停留所へ',
-            icon: const Icon(Icons.skip_next),
-            onPressed: () async {
-              final source = ref.read(busLocationSourceProvider)
-                  as FakeBusLocationSource;
-              source.advance();
-              await ref.read(memberModeControllerProvider.notifier).pollNow();
-            },
-          ),
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: () {
-            ref.read(memberModeControllerProvider.notifier).pollNow();
-          },
-        ),
+        const ActiveTripRealtimeActions(),
         IconButton(
           icon: const Icon(Icons.settings),
           onPressed: () => Navigator.of(
