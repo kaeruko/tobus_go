@@ -148,26 +148,10 @@ def _enrich_rail_step(
     resolved_odpt = _resolve_odpt_rail_run(
         stops,
         ready_minute=ready_minute,
+        route_arrival_minute=route_arrival_minute,
         timetable_manager=timetable_manager,
         day_type=day_type,
     )
-
-    # The route engine may apply a realtime delay to the displayed arrival.
-    # Identity matching must use the underlying scheduled clocks, but we still
-    # verify that the route's displayed arrival is the same run after delay.
-    actual_arrival = _actual_train_minute(
-        timetable_manager,
-        stops[-2]["id"],
-        resolved_odpt.train_number,
-        resolved_odpt.scheduled_arrival_minute,
-    )
-    if int(actual_arrival) != route_arrival_minute:
-        raise TrainRouteIdentityError(
-            "rail_route_arrival_mismatch",
-            "route rail arrival does not match the exact ODPT train run: "
-            f"step={step_id}, route={route_arrival_minute}, "
-            f"resolved={int(actual_arrival)}, train={resolved_odpt.train_number}",
-        )
 
     static_trip = _resolve_static_trip(
         static_gtfs,
@@ -219,6 +203,7 @@ def _resolve_odpt_rail_run(
     stops: list[dict[str, str]],
     *,
     ready_minute: int,
+    route_arrival_minute: int,
     timetable_manager: Any,
     day_type: Any,
 ) -> _ResolvedOdptRailRun:
@@ -236,7 +221,8 @@ def _resolve_odpt_rail_run(
             f"ODPT train timetable has no departures from {origin_id}",
         )
 
-    eligible: list[tuple[float, dict[str, Any]]] = []
+    eligible: list[tuple[float, str]] = []
+    seen_train_numbers: set[str] = set()
     for record in _dedupe_train_records(first_records):
         if record.get("next_sta") != second_id:
             continue
@@ -247,30 +233,84 @@ def _resolve_odpt_rail_run(
             train_number,
             _required_int(record.get("dep"), "dep"),
         )
-        if actual_departure >= ready_minute:
-            eligible.append((actual_departure, record))
+        if actual_departure < ready_minute:
+            continue
+        if train_number in seen_train_numbers:
+            continue
+        seen_train_numbers.add(train_number)
+        eligible.append((actual_departure, train_number))
 
     if not eligible:
         raise TrainRouteIdentityError(
             "rail_odpt_run_not_found",
             f"no ODPT train can serve {origin_id}->{second_id} after {ready_minute}",
         )
-    eligible.sort(key=lambda item: item[0])
-    earliest = eligible[0][0]
-    earliest_records = [record for actual, record in eligible if actual == earliest]
-    train_numbers = {
-        _required_text(record.get("train_num"), "train_num")
-        for record in earliest_records
-    }
-    if len(train_numbers) != 1:
+
+    eligible.sort(key=lambda item: (item[0], item[1]))
+    complete_runs: list[tuple[int, _ResolvedOdptRailRun]] = []
+    incomplete_errors: list[TrainRouteIdentityError] = []
+    for _, train_number in eligible:
+        try:
+            run, actual_arrival = _resolve_odpt_run_for_train(
+                stops,
+                train_number=train_number,
+                ready_minute=ready_minute,
+                target=target,
+                timetable_manager=timetable_manager,
+            )
+        except TrainRouteIdentityError as error:
+            if error.code == "rail_odpt_run_segment_missing":
+                incomplete_errors.append(error)
+                continue
+            raise
+        complete_runs.append((int(actual_arrival), run))
+
+    if not complete_runs:
+        if len(eligible) == 1 and len(incomplete_errors) == 1:
+            raise incomplete_errors[0]
+        raise TrainRouteIdentityError(
+            "rail_odpt_run_not_found",
+            "no single ODPT train covers the complete route stop sequence: "
+            f"stops={[stop['id'] for stop in stops]}, "
+            f"eligible={[train_number for _, train_number in eligible]}",
+        )
+
+    matching = [
+        run
+        for actual_arrival, run in complete_runs
+        if actual_arrival == route_arrival_minute
+    ]
+    if not matching:
+        resolved_arrivals = [
+            f"{run.train_number}:{actual_arrival}"
+            for actual_arrival, run in complete_runs
+        ]
+        raise TrainRouteIdentityError(
+            "rail_route_arrival_mismatch",
+            "no complete ODPT train run matches the route rail arrival: "
+            f"route={route_arrival_minute}, candidates={resolved_arrivals}",
+        )
+    if len(matching) != 1:
         raise TrainRouteIdentityError(
             "rail_odpt_run_ambiguous",
-            f"multiple ODPT trains share the earliest departure: {sorted(train_numbers)}",
+            "multiple complete ODPT trains match the route rail arrival: "
+            f"route={route_arrival_minute}, "
+            f"trains={[run.train_number for run in matching]}",
         )
-    train_number = next(iter(train_numbers))
+    return matching[0]
 
+
+def _resolve_odpt_run_for_train(
+    stops: list[dict[str, str]],
+    *,
+    train_number: str,
+    ready_minute: int,
+    target: dict[str, Any],
+    timetable_manager: Any,
+) -> tuple[_ResolvedOdptRailRun, float]:
     first_scheduled_departure: int | None = None
     final_scheduled_arrival: int | None = None
+    final_actual_arrival: float | None = None
     previous_actual_arrival: float | None = None
 
     for index in range(len(stops) - 1):
@@ -325,17 +365,25 @@ def _resolve_odpt_rail_run(
         if first_scheduled_departure is None:
             first_scheduled_departure = scheduled_departure
         final_scheduled_arrival = scheduled_arrival
+        final_actual_arrival = actual_arrival
         previous_actual_arrival = actual_arrival
 
-    if first_scheduled_departure is None or final_scheduled_arrival is None:
+    if (
+        first_scheduled_departure is None
+        or final_scheduled_arrival is None
+        or final_actual_arrival is None
+    ):
         raise TrainRouteIdentityError(
             "rail_odpt_run_empty",
             f"ODPT train run contains no segments: train={train_number}",
         )
-    return _ResolvedOdptRailRun(
-        train_number=train_number,
-        scheduled_departure_minute=first_scheduled_departure,
-        scheduled_arrival_minute=final_scheduled_arrival,
+    return (
+        _ResolvedOdptRailRun(
+            train_number=train_number,
+            scheduled_departure_minute=first_scheduled_departure,
+            scheduled_arrival_minute=final_scheduled_arrival,
+        ),
+        final_actual_arrival,
     )
 
 
