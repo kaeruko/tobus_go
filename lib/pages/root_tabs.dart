@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/navigation_provider.dart';
-import 'home_page.dart';
+import 'nagoya_home_page.dart';
 import 'settings_page.dart';
 
 /// Nagoya transit-only shell.
@@ -92,7 +92,7 @@ class _RootTabsState extends ConsumerState<RootTabs> {
       tabBuilder: (context, index) {
         switch (index) {
           case 0:
-            return _buildPage(0, const HomePage(title: '名古屋でGO'));
+            return _buildPage(0, const NagoyaHomePage());
           case 1:
             return _buildPage(1, const SettingsPage());
           default:
