@@ -7,6 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'root_gate.dart';
 import 'providers/app_session_provider.dart';
+import 'providers/city_profile_provider.dart';
 import 'core/app_clock.dart';
 
 Future<void> main() async {
@@ -26,11 +27,11 @@ Future<void> main() async {
     }
   }
 
-  // Initialize ProviderContainer to load AppSession before app starts
   final container = ProviderContainer();
+  // Resolve APP_CITY before startup so an unknown city fails fast.
+  container.read(cityProfileProvider);
   await container.read(appSessionProvider.notifier).initialize();
 
-  // Saved Routes are now loaded by the provider on demand.
   runApp(
     UncontrolledProviderScope(
       container: container,
@@ -39,14 +40,16 @@ Future<void> main() async {
   );
 }
 
-class App extends StatelessWidget {
+class App extends ConsumerWidget {
   const App({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cityProfile = ref.watch(cityProfileProvider);
+
     return CupertinoApp(
       debugShowCheckedModeBanner: false,
-      title: '都営でGO',
+      title: cityProfile.appName,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
