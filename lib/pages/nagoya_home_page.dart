@@ -16,15 +16,6 @@ import 'route_detail_page.dart';
 class NagoyaHomePage extends ConsumerWidget {
   const NagoyaHomePage({super.key});
 
-  bool _isCoordinate(String value) {
-    final parts = value.split(',');
-    if (parts.length != 2) return false;
-    final lat = double.tryParse(parts[0].trim());
-    final lon = double.tryParse(parts[1].trim());
-    if (lat == null || lon == null) return false;
-    return lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
-  }
-
   Future<void> _useCurrentLocation(WidgetRef ref) async {
     final effective = await ref.read(effectiveLocationProvider.future);
     ref
@@ -184,21 +175,7 @@ class NagoyaHomePage extends ConsumerWidget {
                     SizedBox(
                       width: double.infinity,
                       child: CupertinoButton.filled(
-                        onPressed: () {
-                          final from = ref.read(routeSearchProvider).from.trim();
-                          final to = ref.read(routeSearchProvider).to.trim();
-                          if (from.isEmpty || to.isEmpty) {
-                            throw StateError(
-                              'Both origin and destination are required',
-                            );
-                          }
-                          if (!_isCoordinate(from) || !_isCoordinate(to)) {
-                            throw StateError(
-                              'Origin and destination must resolve to coordinates before search',
-                            );
-                          }
-                          notifier.triggerSearch();
-                        },
+                        onPressed: notifier.triggerSearch,
                         child: const Text('経路を検索'),
                       ),
                     ),
