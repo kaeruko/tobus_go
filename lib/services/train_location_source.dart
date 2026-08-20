@@ -1,6 +1,6 @@
 import '../core/api_client.dart';
+import '../core/city_profile.dart';
 import '../models/route_models.dart';
-
 
 class TrainLocationNotAvailableException implements Exception {
   final String? code;
@@ -10,7 +10,6 @@ class TrainLocationNotAvailableException implements Exception {
   @override
   String toString() => code ?? 'train_location_not_available';
 }
-
 
 class TrainTripStop {
   final int sequence;
@@ -49,7 +48,6 @@ class TrainTripStop {
     );
   }
 }
-
 
 class TrainLocation {
   final String tripId;
@@ -160,7 +158,6 @@ class TrainLocation {
   }
 }
 
-
 abstract interface class TrainLocationSource {
   Future<TrainLocation> fetch({
     required StepSeg step,
@@ -168,15 +165,22 @@ abstract interface class TrainLocationSource {
   });
 }
 
-
 class RealtimeTrainLocationSource implements TrainLocationSource {
-  const RealtimeTrainLocationSource();
+  final CityProfile? cityProfile;
+
+  const RealtimeTrainLocationSource({this.cityProfile});
 
   @override
   Future<TrainLocation> fetch({
     required StepSeg step,
     bool forceRefresh = false,
   }) async {
+    final profile = cityProfile ?? configuredCityProfile;
+    if (!profile.capabilities.realtime.vehiclePosition) {
+      throw TrainLocationNotAvailableException(
+        code: 'realtime_vehicle_position_unsupported:${profile.key}',
+      );
+    }
     if (step.kind != 'rail') {
       throw ArgumentError('TrainLocationSource requires rail step: ${step.kind}');
     }
