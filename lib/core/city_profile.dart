@@ -112,7 +112,7 @@ const sendaiCityProfile = CityProfile(
 );
 
 CityProfile cityProfileForKey(String key) {
-  switch (key.trim().toLowerCase()) {
+  switch (key) {
     case 'tokyo':
       return tokyoCityProfile;
     case 'nagoya':
