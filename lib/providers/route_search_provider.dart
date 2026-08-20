@@ -95,7 +95,16 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     _generation++;
     final currentGen = _generation;
 
-    if (state.from.isEmpty || state.to.isEmpty) {
+    final from = state.from.trim();
+    final to = state.to.trim();
+    if (from.isEmpty || to.isEmpty) {
+      state = state.copyWith(
+        isLoading: false,
+        hasSearched: true,
+        errorMessage: '出発地と到着地の両方を指定してください',
+        candidates: [],
+        meta: null,
+      );
       return;
     }
 
@@ -108,8 +117,8 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     );
 
     try {
-      final origin = _parsePoint(state.from, label: '出発地');
-      final destination = _parsePoint(state.to, label: '到着地');
+      final origin = _parsePoint(from, label: '出発地');
+      final destination = _parsePoint(to, label: '到着地');
       final searchTime = state.startTime ?? DateTime.now();
 
       final result = await _routeSearchService.search(
@@ -130,23 +139,35 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
         meta: result.meta,
         candidates: result.candidates,
       );
-    } catch (e, st) {
+    } catch (error, stackTrace) {
       if (_generation != currentGen) return;
-      state = state.copyWith(isLoading: false, errorMessage: e.toString());
-      print('[RouteSearch] Error executing search: $e $st');
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: error.toString(),
+        candidates: [],
+        meta: null,
+      );
+      print('[RouteSearch] Error executing search: $error $stackTrace');
     }
   }
 
   LatLng _parsePoint(String value, {required String label}) {
     final parts = value.split(',');
     if (parts.length != 2) {
-      throw FormatException('$labelが不正です (lat,lon形式である必要があります): $value');
+      throw FormatException(
+        '$labelが不正です (lat,lon形式である必要があります): $value',
+      );
     }
+
     final lat = double.tryParse(parts[0].trim());
     final lon = double.tryParse(parts[1].trim());
     if (lat == null || lon == null) {
       throw FormatException('$labelの座標をパースできません: $value');
     }
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+      throw RangeError('$labelの座標が範囲外です: $value');
+    }
+
     return LatLng(lat, lon);
   }
 }
