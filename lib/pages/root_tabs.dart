@@ -1,12 +1,14 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/cupertino.dart';
+
+import '../providers/city_profile_provider.dart';
+import '../providers/navigation_provider.dart';
+import 'explore_page.dart';
+import 'history_page.dart';
 import 'home_page.dart';
 import 'my_route_page.dart';
 import 'settings_page.dart';
-import 'history_page.dart';
-import 'explore_page.dart';
-import '../providers/navigation_provider.dart';
 
 class RootTabs extends ConsumerStatefulWidget {
   const RootTabs({super.key});
@@ -15,18 +17,20 @@ class RootTabs extends ConsumerStatefulWidget {
   ConsumerState<RootTabs> createState() => _RootTabsState();
 }
 
+class _RootTabEntry {
+  final BottomNavigationBarItem item;
+  final Widget page;
+
+  const _RootTabEntry({required this.item, required this.page});
+}
+
 class _RootTabsState extends ConsumerState<RootTabs> {
-  final bool _canShowHistory = true;
   late CupertinoTabController _controller;
 
-  // ナビゲーターキー
-  final List<GlobalKey<NavigatorState>> _navigatorKeys = [
-    GlobalKey<NavigatorState>(),
-    GlobalKey<NavigatorState>(),
-    GlobalKey<NavigatorState>(),
-    GlobalKey<NavigatorState>(),
-    GlobalKey<NavigatorState>(),
-  ];
+  final List<GlobalKey<NavigatorState>> _navigatorKeys = List.generate(
+    5,
+    (_) => GlobalKey<NavigatorState>(),
+  );
 
   @override
   void initState() {
@@ -40,57 +44,88 @@ class _RootTabsState extends ConsumerState<RootTabs> {
     super.dispose();
   }
 
+  List<_RootTabEntry> _buildEntries() {
+    final cityProfile = ref.watch(cityProfileProvider);
+    final features = cityProfile.capabilities.features;
+
+    return [
+      _RootTabEntry(
+        item: const BottomNavigationBarItem(
+          icon: Icon(CupertinoIcons.search),
+          label: '検索',
+        ),
+        page: HomePage(title: cityProfile.appName),
+      ),
+      if (features.outingDiscovery)
+        const _RootTabEntry(
+          item: BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.compass),
+            label: 'みつける',
+          ),
+          page: ExplorePage(),
+        ),
+      if (features.savedRoutes)
+        const _RootTabEntry(
+          item: BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.bookmark),
+            label: 'お気に入り',
+          ),
+          page: MyRoutePage(),
+        ),
+      if (features.history)
+        const _RootTabEntry(
+          item: BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.clock),
+            label: '履歴',
+          ),
+          page: HistoryPage(),
+        ),
+      const _RootTabEntry(
+        item: BottomNavigationBarItem(
+          icon: Icon(CupertinoIcons.settings),
+          label: '設定',
+        ),
+        page: SettingsPage(),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(tabIndexProvider);
-    print('[RootTabs] build called, currentIndex=$currentIndex');
+    final entries = _buildEntries();
 
-    // 先に tabs を確定させる
-    final tabs = <BottomNavigationBarItem>[
-      const BottomNavigationBarItem(
-        icon: Icon(CupertinoIcons.search),
-        label: '検索',
-      ),
-      const BottomNavigationBarItem(
-        icon: Icon(CupertinoIcons.compass),
-        label: 'みつける',
-      ),
-      const BottomNavigationBarItem(
-        icon: Icon(CupertinoIcons.bookmark),
-        label: 'お気に入り',
-      ),
-      if (_canShowHistory)
-        const BottomNavigationBarItem(
-          icon: Icon(CupertinoIcons.clock),
-          label: '履歴',
-        ),
-      const BottomNavigationBarItem(
-        icon: Icon(CupertinoIcons.settings),
-        label: '設定',
-      ),
-    ];
+    if (entries.isEmpty) {
+      throw StateError('RootTabs requires at least one enabled tab');
+    }
+    if (entries.length > _navigatorKeys.length) {
+      throw StateError(
+        'RootTabs has ${entries.length} tabs but only '
+        '${_navigatorKeys.length} navigator keys',
+      );
+    }
 
-    // 安全な index に丸める
-    final maxIndex = tabs.length - 1;
+    final maxIndex = entries.length - 1;
     final safeIndex = currentIndex < 0
         ? 0
         : (currentIndex > maxIndex ? maxIndex : currentIndex);
 
-    // controller を安全に同期
     if (_controller.index != safeIndex) {
       Future.microtask(() {
         if (!mounted) return;
-        if (_controller.index != safeIndex) _controller.index = safeIndex;
+        if (_controller.index != safeIndex) {
+          _controller.index = safeIndex;
+        }
       });
     }
 
-    // provider 側もズレてたら矯正（任意だけどおすすめ）
     if (currentIndex != safeIndex) {
       Future.microtask(() {
         if (!mounted) return;
         final now = ref.read(tabIndexProvider);
-        if (now != safeIndex)
+        if (now != safeIndex) {
           ref.read(tabIndexProvider.notifier).state = safeIndex;
+        }
       });
     }
 
@@ -105,38 +140,13 @@ class _RootTabsState extends ConsumerState<RootTabs> {
           }
           ref.read(tabIndexProvider.notifier).state = index;
         },
-        items: tabs,
+        items: entries.map((entry) => entry.item).toList(growable: false),
       ),
       tabBuilder: (context, index) {
-        if (_canShowHistory) {
-          switch (index) {
-            case 0:
-              return _buildPage(0, const HomePage());
-            case 1:
-              return _buildPage(1, const ExplorePage());
-            case 2:
-              return _buildPage(2, const MyRoutePage());
-            case 3:
-              return _buildPage(3, const HistoryPage());
-            case 4:
-              return _buildPage(4, const SettingsPage());
-            default:
-              return _buildPage(0, const HomePage());
-          }
-        } else {
-          switch (index) {
-            case 0:
-              return _buildPage(0, const HomePage());
-            case 1:
-              return _buildPage(1, const ExplorePage());
-            case 2:
-              return _buildPage(2, const MyRoutePage());
-            case 3:
-              return _buildPage(3, const SettingsPage());
-            default:
-              return _buildPage(0, const HomePage());
-          }
+        if (index < 0 || index >= entries.length) {
+          throw RangeError.index(index, entries, 'index');
         }
+        return _buildPage(index, entries[index].page);
       },
     );
   }
