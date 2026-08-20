@@ -82,6 +82,17 @@ class _FakeRealtimeClient:
         return _FakeRealtimeResponse()
 
 
+class _FailedRealtimeResponse:
+    status_code = 503
+    content = b"unavailable"
+
+
+class _FailedRealtimeClient(_FakeRealtimeClient):
+    async def get(self, url, params):
+        self.calls += 1
+        return _FailedRealtimeResponse()
+
+
 class RefreshRealtimeBusPositionsTest(unittest.IsolatedAsyncioTestCase):
     async def test_refreshes_once_and_reuses_fresh_positions(self):
         class FakeTimetableManager:
@@ -105,7 +116,58 @@ class RefreshRealtimeBusPositionsTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(first)
         self.assertTrue(second)
         self.assertEqual(tm.latest_bus_positions, buses)
+        self.assertEqual(tm.latest_bus_positions_error, None)
         self.assertEqual(client.calls, 1)
+
+    async def test_failed_refresh_invalidates_stale_snapshot(self):
+        class FakeTimetableManager:
+            latest_bus_positions = [
+                {"trip_id": "stale-trip", "vehicle_id": "stale-vehicle"}
+            ]
+            latest_bus_positions_refreshed_at = 1.0
+            latest_bus_positions_fetched_at = 1.0
+
+        tm = FakeTimetableManager()
+        client = _FailedRealtimeClient()
+
+        with (
+            patch.dict(os.environ, {"ODPT_API_TOKEN": "test-token"}),
+            patch("app.runtime.httpx.AsyncClient", return_value=client),
+            patch("app.runtime.parse_realtime_gtfs") as parser,
+        ):
+            refreshed = await refresh_realtime_bus_positions(
+                tm,
+                max_age_seconds=0,
+            )
+
+        self.assertFalse(refreshed)
+        self.assertEqual(tm.latest_bus_positions, [])
+        self.assertEqual(tm.latest_bus_positions_refreshed_at, 0.0)
+        self.assertEqual(tm.latest_bus_positions_fetched_at, 0.0)
+        self.assertEqual(tm.latest_bus_positions_error, "GTFS-RT HTTP 503")
+        self.assertEqual(client.calls, 1)
+        parser.assert_not_called()
+
+    async def test_missing_token_invalidates_stale_snapshot_without_network(self):
+        class FakeTimetableManager:
+            latest_bus_positions = [
+                {"trip_id": "stale-trip", "vehicle_id": "stale-vehicle"}
+            ]
+            latest_bus_positions_refreshed_at = 1.0
+            latest_bus_positions_fetched_at = 1.0
+
+        tm = FakeTimetableManager()
+
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("app.runtime.httpx.AsyncClient") as client,
+        ):
+            refreshed = await refresh_realtime_bus_positions(tm)
+
+        self.assertFalse(refreshed)
+        self.assertEqual(tm.latest_bus_positions, [])
+        self.assertEqual(tm.latest_bus_positions_error, "ODPT_API_TOKEN not set")
+        client.assert_not_called()
 
 
 if __name__ == "__main__":
