@@ -26,11 +26,9 @@ Future<void> main() async {
     }
   }
 
-  // Initialize ProviderContainer to load AppSession before app starts
   final container = ProviderContainer();
   await container.read(appSessionProvider.notifier).initialize();
 
-  // Saved Routes are now loaded by the provider on demand.
   runApp(
     UncontrolledProviderScope(
       container: container,
@@ -46,7 +44,7 @@ class App extends StatelessWidget {
   Widget build(BuildContext context) {
     return CupertinoApp(
       debugShowCheckedModeBanner: false,
-      title: '都営でGO',
+      title: '名古屋でGO',
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
