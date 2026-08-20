@@ -1,20 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'pages/root_tabs.dart';
-import 'pages/member_mode_page.dart';
-import 'providers/app_session_provider.dart';
 
-class RootGate extends ConsumerWidget {
+import 'pages/root_tabs.dart';
+
+/// Entry point for the Nagoya transit-only edition.
+///
+/// Group/member outing modes are intentionally not part of this product.
+class RootGate extends StatelessWidget {
   const RootGate({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final appSession = ref.watch(appSessionProvider);
-    
-    if (appSession.isMemberMode) {
-      return const MemberModePage();
-    }
-    
+  Widget build(BuildContext context) {
     return const RootTabs();
   }
 }
