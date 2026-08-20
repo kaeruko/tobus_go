@@ -109,9 +109,11 @@ def _download_lambda_data(data_dir: str = LAMBDA_TMP_DIR) -> str:
 
     return prebuilt_path
 
+
 def _env_int(key: str, default: int) -> int:
     v = os.getenv(key)
     return int(v) if v else default
+
 
 def _paths() -> dict:
     data_dir = os.getenv("DATA_DIR", "data")
@@ -126,13 +128,27 @@ def _paths() -> dict:
         "WALK_RAD": _env_int("WALK_RADIUS", 300),
     }
 
+
+def _invalidate_realtime_bus_positions(
+    tm: TimetableManager,
+    error: str,
+) -> None:
+    """Invalidate the current snapshot so callers cannot reuse stale positions."""
+    tm.latest_bus_positions = []
+    tm.latest_bus_positions_refreshed_at = 0.0
+    tm.latest_bus_positions_fetched_at = 0.0
+    tm.latest_bus_positions_error = error
+
+
 async def refresh_realtime_bus_positions(
     tm: TimetableManager,
     max_age_seconds: int = 45,
 ) -> bool:
     token = os.getenv("ODPT_API_TOKEN")
     if not token:
-        print("[WARN] ODPT_API_TOKEN not set. Realtime data will not be available.")
+        error = "ODPT_API_TOKEN not set"
+        _invalidate_realtime_bus_positions(tm, error)
+        print(f"[WARN] {error}. Realtime data will not be available.")
         return False
 
     refreshed_at = getattr(tm, "latest_bus_positions_refreshed_at", 0.0)
@@ -160,18 +176,22 @@ async def refresh_realtime_bus_positions(
                     params={"acl:consumerKey": token},
                 )
             if response.status_code != 200:
+                error = f"GTFS-RT HTTP {response.status_code}"
+                _invalidate_realtime_bus_positions(tm, error)
                 print(f"[WARN] Failed to fetch GTFS-RT: {response.status_code}")
                 return False
 
             tm.latest_bus_positions = parse_realtime_gtfs(response.content)
             tm.latest_bus_positions_refreshed_at = time.monotonic()
             tm.latest_bus_positions_fetched_at = time.time()
+            tm.latest_bus_positions_error = None
             print(
                 "[INFO] Updated realtime bus positions: "
                 f"{len(tm.latest_bus_positions)} vehicles"
             )
             return True
         except Exception as error:
+            _invalidate_realtime_bus_positions(tm, repr(error))
             print(f"[WARN] Failed to refresh GTFS-RT: {error}")
             return False
 
@@ -205,6 +225,7 @@ async def fetch_realtime_data_loop(tm: TimetableManager) -> None:
 
         await refresh_realtime_bus_positions(tm, max_age_seconds=0)
 
+
 async def setup_on_startup(app, mode: str) -> None:
     """
     アプリケーション起動時の初期化処理
@@ -219,7 +240,7 @@ async def setup_on_startup(app, mode: str) -> None:
         return
 
     start_time = time.time()
-    
+
     # 完全に準備が整うまで、loading_status は starting のままにする
     # (routes.py で 503 を返すために必要)
     app.state.loading_status = "starting"
@@ -235,12 +256,12 @@ async def setup_on_startup(app, mode: str) -> None:
         try:
             with open(prebuilt_data_path, "rb") as f:
                 data = pickle.load(f)
-            
+
             app.state.G = data["G"]
             app.state.TM = data["TM"]
             app.state.SI = data.get("SI")
             app.state.WALK_RAD = data.get("WALK_RAD", 300)
-            
+
             if not app.state.SI:
                 from toei_engine import SpatialIndex
                 app.state.SI = SpatialIndex(app.state.G)
@@ -256,7 +277,7 @@ async def setup_on_startup(app, mode: str) -> None:
                 print(f"[WARN] GTFS directory {gtfs_dir} not found. Reverse lookup may fail.")
 
             print(f"[INFO] Data loaded in {time.time() - start_time:.2f}s")
-            
+
             # Lambdaはレスポンス後にイベントループを凍結するため、
             # 初回分だけは起動完了前に待って取得する。
             await refresh_realtime_bus_positions(
@@ -264,12 +285,11 @@ async def setup_on_startup(app, mode: str) -> None:
                 max_age_seconds=0,
             )
             asyncio.create_task(fetch_realtime_data_loop(app.state.TM))
-            
+
             app.state.loading_status = "ready"
             return
         except Exception as e:
             print(f"[WARNING] Failed to load prebuilt data: {e}. Falling back to slow load.")
-
 
     # 2. 低速起動パス (フォールバック): 生データから構築
     # Lambda環境で事前データを読み込めなかった場合のみ生データから再生成
@@ -277,13 +297,13 @@ async def setup_on_startup(app, mode: str) -> None:
         # 以下、生データからの構築フォールバック
         os.environ["DATA_DIR"] = os.getenv("DATA_DIR", LAMBDA_TMP_DIR)
         data_dir = os.getenv("DATA_DIR", LAMBDA_TMP_DIR)
-        
+
         required = [
             f"{data_dir}/odpt_BusstopPole.json",
             f"{data_dir}/odpt_BusstopPoleTimetable.json",
             f"{data_dir}/ToeiBus-GTFS/routes.txt",
         ]
-        
+
         if not all(os.path.exists(p) for p in required):
             print("[INFO] Data missing, running initialization...")
             initialize_data.main(data_dir=data_dir)
@@ -319,7 +339,7 @@ async def setup_on_startup(app, mode: str) -> None:
     app.state.WALK_RAD = p["WALK_RAD"]
 
     print(f"[INFO] Slow initialization finished in {time.time() - start_time:.2f}s")
-    
+
     # [ADDED] Save the built data to pickle so next startup is fast
     try:
         print(f"[INFO] Saving prebuilt data to {PREBUILT_DATA_PATH}...")
@@ -336,7 +356,7 @@ async def setup_on_startup(app, mode: str) -> None:
         print(f"[WARN] Failed to save prebuilt data: {e}")
 
     asyncio.create_task(fetch_realtime_data_loop(tm))
-    
+
     # [ADDED] Initialize GtfsRepository
     gtfs_dir = os.path.join(p["DATA_DIR"], "ToeiBus-GTFS")
     if os.path.exists(gtfs_dir):
