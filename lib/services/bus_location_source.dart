@@ -1,4 +1,5 @@
 import '../core/api_client.dart';
+import '../core/city_profile.dart';
 
 class BusLocationNotAvailableException implements Exception {
   final String? code;
@@ -147,7 +148,9 @@ abstract interface class BusLocationSource {
 }
 
 class RealtimeBusLocationSource implements BusLocationSource {
-  const RealtimeBusLocationSource();
+  final CityProfile? cityProfile;
+
+  const RealtimeBusLocationSource({this.cityProfile});
 
   @override
   Future<BusLocation> fetch({
@@ -156,6 +159,13 @@ class RealtimeBusLocationSource implements BusLocationSource {
     String? vehicleId,
     bool forceRefresh = false,
   }) async {
+    final profile = cityProfile ?? configuredCityProfile;
+    if (!profile.capabilities.realtime.vehiclePosition) {
+      throw BusLocationNotAvailableException(
+        code: 'realtime_vehicle_position_unsupported:${profile.key}',
+      );
+    }
+
     try {
       final json = await ApiClient.fetchBusLocation(
         routeId: routeId,
