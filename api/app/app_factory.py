@@ -1,8 +1,9 @@
 import os
 from collections.abc import Awaitable, Callable
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 
 StartupHandler = Callable[[FastAPI, str], Awaitable[None]]
@@ -15,6 +16,29 @@ def _configured_backend_city() -> str:
             f'Unsupported APP_CITY="{key}". Expected one of: tokyo, nagoya, sendai'
         )
     return key
+
+
+def install_city_isolation(app: FastAPI, city: str) -> None:
+    if city not in ("tokyo", "nagoya", "sendai"):
+        raise ValueError(f"unsupported backend city: {city!r}")
+
+    @app.middleware("http")
+    async def reject_cross_city_request(request: Request, call_next):
+        requested_city = request.headers.get("X-App-City")
+        if requested_city is not None and requested_city != city:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "detail": {
+                        "code": "city_mismatch",
+                        "message": (
+                            "Client/backend city mismatch: "
+                            f"client={requested_city!r}, backend={city!r}"
+                        ),
+                    }
+                },
+            )
+        return await call_next(request)
 
 
 def create_app(mode: str) -> FastAPI:
@@ -51,6 +75,7 @@ def create_app(mode: str) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    install_city_isolation(app, city)
 
     @app.on_event("startup")
     async def _startup() -> None:
