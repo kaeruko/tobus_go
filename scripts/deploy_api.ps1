@@ -1,31 +1,31 @@
 <#
 .SYNOPSIS
-  api/ の Lambda コンテナイメージを ECR に push し、Lambda を更新します。
+  都市別APIのLambdaコンテナイメージをECRにpushし、指定Lambdaを更新します。
 
 .EXAMPLE
-  .\scripts\deploy_api.ps1
+  # Existing Tokyo deployment
+  .\scripts\deploy_api.ps1 -City tokyo
 
 .EXAMPLE
+  # Nagoya must name its own infrastructure explicitly
   .\scripts\deploy_api.ps1 `
-    -ImageTag manual-test
-
-.EXAMPLE
-  .\scripts\deploy_api.ps1 `
-    -Region us-west-2 `
-    -EcrRepository toeigo-api `
-    -LambdaFunction toeigo-api `
+    -City nagoya `
+    -EcrRepository nagoyago-api `
+    -LambdaFunction nagoyago-api `
     -ImageTag manual-test
 #>
 
 [CmdletBinding()]
 param(
     [Parameter()]
-    [ValidateNotNullOrEmpty()]
-    [string]$EcrRepository = 'toeigo-api',
+    [ValidateSet('tokyo', 'nagoya', 'sendai')]
+    [string]$City = 'tokyo',
 
     [Parameter()]
-    [ValidateNotNullOrEmpty()]
-    [string]$LambdaFunction = 'toeigo-api',
+    [string]$EcrRepository = '',
+
+    [Parameter()]
+    [string]$LambdaFunction = '',
 
     [Parameter()]
     [ValidateNotNullOrEmpty()]
@@ -47,6 +47,28 @@ function Assert-LastExitCode {
 
     if ($LASTEXITCODE -ne 0) {
         throw "$CommandName failed with exit code $LASTEXITCODE."
+    }
+}
+
+if ($City -eq 'sendai') {
+    throw 'Sendai backend is not implemented yet. Refusing to deploy another city backend as Sendai.'
+}
+
+if ([string]::IsNullOrWhiteSpace($EcrRepository)) {
+    if ($City -eq 'tokyo') {
+        $EcrRepository = 'toeigo-api'
+    }
+    else {
+        throw "EcrRepository is required for city '$City'. Do not reuse the Tokyo default implicitly."
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($LambdaFunction)) {
+    if ($City -eq 'tokyo') {
+        $LambdaFunction = 'toeigo-api'
+    }
+    else {
+        throw "LambdaFunction is required for city '$City'. Do not reuse the Tokyo default implicitly."
     }
 }
 
@@ -80,7 +102,7 @@ Assert-LastExitCode 'aws ecr describe-repositories'
 $functionConfigJson = aws lambda get-function-configuration `
     --region $Region `
     --function-name $LambdaFunction `
-    --query '{PackageType:PackageType,Architecture:Architectures[0]}' `
+    --query '{PackageType:PackageType,Architecture:Architectures[0],AppCity:Environment.Variables.APP_CITY,NagoyaGtfsDir:Environment.Variables.NAGOYA_GTFS_DIR,NagoyaExpectedRevision:Environment.Variables.NAGOYA_GTFS_EXPECTED_REVISION}' `
     --output json
 Assert-LastExitCode 'aws lambda get-function-configuration'
 
@@ -88,6 +110,25 @@ $functionConfig = $functionConfigJson | ConvertFrom-Json
 
 if ($functionConfig.PackageType -ne 'Image') {
     throw "Lambda function '$LambdaFunction' is not an image-based function. PackageType=$($functionConfig.PackageType)"
+}
+
+$runtimeCity = if ($null -eq $functionConfig.AppCity) { '' } else { [string]$functionConfig.AppCity }
+if ($City -eq 'tokyo') {
+    if (-not [string]::IsNullOrEmpty($runtimeCity) -and $runtimeCity -ne 'tokyo') {
+        throw "Lambda city mismatch. Requested=tokyo, APP_CITY=$runtimeCity"
+    }
+}
+elseif ($runtimeCity -ne $City) {
+    throw "Lambda city mismatch. Requested=$City, APP_CITY='$runtimeCity'. Configure the city-specific Lambda before deploying."
+}
+
+if ($City -eq 'nagoya') {
+    if ([string]::IsNullOrWhiteSpace([string]$functionConfig.NagoyaGtfsDir)) {
+        throw "Nagoya Lambda '$LambdaFunction' is missing NAGOYA_GTFS_DIR."
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$functionConfig.NagoyaExpectedRevision)) {
+        throw "Nagoya Lambda '$LambdaFunction' is missing NAGOYA_GTFS_EXPECTED_REVISION."
+    }
 }
 
 $dockerPlatform = switch ($functionConfig.Architecture) {
@@ -102,9 +143,11 @@ $registry = "$accountId.dkr.ecr.$Region.amazonaws.com"
 $imageUri = "$registry/$EcrRepository`:$ImageTag"
 
 Write-Host "AWS account : $accountId"
+Write-Host "City        : $City"
 Write-Host "Region      : $Region"
 Write-Host "ECR repo    : $EcrRepository"
 Write-Host "Lambda      : $LambdaFunction"
+Write-Host "APP_CITY    : $runtimeCity"
 Write-Host "Platform    : $dockerPlatform"
 Write-Host "Image       : $imageUri"
 
