@@ -25,6 +25,12 @@ BASE_RUNNER_CONFIGS = {
   'Profile' => '249021D4217E4FDB00AE95B9'
 }.freeze
 
+BASE_TEST_CONFIGS = {
+  'Debug' => '331C8088294A63A400263BE5',
+  'Release' => '331C8089294A63A400263BE5',
+  'Profile' => '331C808A294A63A400263BE5'
+}.freeze
+
 CITIES = {
   'tokyo' => {
     bundle_id: 'jp.cloxs.toeigo',
@@ -50,12 +56,18 @@ BUILD_KINDS = %w[Debug Release Profile].freeze
 
 PROJECT_IDS = {}
 RUNNER_IDS = {}
+TEST_IDS = {}
 CITIES.keys.each_with_index do |city, city_index|
   BUILD_KINDS.each_with_index do |kind, kind_index|
     ordinal = city_index * BUILD_KINDS.length + kind_index + 1
     PROJECT_IDS[[kind, city]] = format('A1000000000000000000%04X', ordinal)
     RUNNER_IDS[[kind, city]] = format('B1000000000000000000%04X', ordinal)
+    TEST_IDS[[kind, city]] = format('C1000000000000000000%04X', ordinal)
   end
+end
+
+def config_block_present?(text, id)
+  text.include?("\t\t#{id} /*")
 end
 
 def extract_config_block(text, id)
@@ -120,6 +132,20 @@ def ensure_runner_city_settings(block, city:, display_name:, bundle_id:, app_ico
   result
 end
 
+def ensure_test_city_settings(block, bundle_id:)
+  result = block
+  bundle_pattern = /\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = [^;]+;/
+  abort 'RunnerTests configuration is missing PRODUCT_BUNDLE_IDENTIFIER' unless result.match?(bundle_pattern)
+  result = result.sub(
+    bundle_pattern,
+    "\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = #{bundle_id}.RunnerTests;"
+  )
+  abort 'RunnerTests configuration must declare SWIFT_VERSION = 5.0' unless result.include?(
+    "\t\t\t\tSWIFT_VERSION = 5.0;"
+  )
+  result
+end
+
 def append_configuration_entries(text, list_id, anchor_entry, entries)
   list_pattern = /(\t\t#{Regexp.escape(list_id)} \/\* Build configuration list .*? = \{\n\t\t\tisa = XCConfigurationList;\n\t\t\tbuildConfigurations = \(\n)(.*?)(\t\t\t\);)/m
   match = text.match(list_pattern)
@@ -143,7 +169,7 @@ text = original.dup
 
 # Keep the legacy unflavored Runner target explicitly named Tokyo so changing
 # Info.plist to $(APP_DISPLAY_NAME) does not change the existing app.
-BASE_RUNNER_CONFIGS.each do |kind, id|
+BASE_RUNNER_CONFIGS.each do |_kind, id|
   block = extract_config_block(text, id)
   tokyo = CITIES.fetch('tokyo')
   updated = ensure_runner_city_settings(
@@ -158,12 +184,13 @@ BASE_RUNNER_CONFIGS.each do |kind, id|
 end
 
 expected_names = CITIES.keys.product(BUILD_KINDS).map { |city, kind| "#{kind}-#{city}" }
-present_names = expected_names.select { |name| text.include?("name = #{name};") }
-if present_names.any? && present_names.length != expected_names.length
-  abort "Xcode flavor configurations are partially generated: #{present_names.sort.join(', ')}"
+core_ids = PROJECT_IDS.values + RUNNER_IDS.values
+core_present = core_ids.select { |id| config_block_present?(text, id) }
+if core_present.any? && core_present.length != core_ids.length
+  abort 'Xcode project/Runner flavor configurations are partially generated'
 end
 
-if present_names.empty?
+if core_present.empty?
   generated_blocks = []
   CITIES.each do |city, config|
     BUILD_KINDS.each do |kind|
@@ -202,7 +229,7 @@ if present_names.empty?
   text = text.sub(marker, "#{generated_blocks.join("\n")}\n#{marker}")
 end
 
-# Existing generated configurations are reconciled too. This makes icon,
+# Existing generated Runner configurations are reconciled too. This makes icon,
 # bundle-ID and Firebase isolation changes deterministic instead of requiring
 # manual pbxproj edits.
 CITIES.each do |city, config|
@@ -220,13 +247,55 @@ CITIES.each do |city, config|
   end
 end
 
+# CocoaPods inspects every target for every project configuration. RunnerTests
+# therefore needs the same flavored configuration names as Runner; otherwise
+# CocoaPods sees a mixture of Swift 5.0 and an undefined Swift version.
+test_ids = TEST_IDS.values
+test_present = test_ids.select { |id| config_block_present?(text, id) }
+if test_present.any? && test_present.length != test_ids.length
+  abort 'RunnerTests flavor configurations are partially generated'
+end
+
+if test_present.empty?
+  generated_test_blocks = []
+  CITIES.each do |city, config|
+    BUILD_KINDS.each do |kind|
+      test_base = extract_config_block(text, BASE_TEST_CONFIGS.fetch(kind))
+      test_block = rename_config_block(
+        test_base,
+        old_id: BASE_TEST_CONFIGS.fetch(kind),
+        new_id: TEST_IDS.fetch([kind, city]),
+        old_name: kind,
+        new_name: "#{kind}-#{city}"
+      )
+      test_block = ensure_test_city_settings(
+        test_block,
+        bundle_id: config.fetch(:bundle_id)
+      )
+      generated_test_blocks << test_block
+    end
+  end
+  marker = "/* End XCBuildConfiguration section */"
+  text = text.sub(marker, "#{generated_test_blocks.join("\n")}\n#{marker}")
+else
+  CITIES.each do |city, config|
+    BUILD_KINDS.each do |kind|
+      block = extract_config_block(text, TEST_IDS.fetch([kind, city]))
+      updated = ensure_test_city_settings(block, bundle_id: config.fetch(:bundle_id))
+      text = text.sub(block, updated)
+    end
+  end
+end
+
 project_entries = []
 runner_entries = []
+test_entries = []
 CITIES.keys.each do |city|
   BUILD_KINDS.each do |kind|
     name = "#{kind}-#{city}"
     project_entries << "\t\t\t\t#{PROJECT_IDS.fetch([kind, city])} /* #{name} */,\n"
     runner_entries << "\t\t\t\t#{RUNNER_IDS.fetch([kind, city])} /* #{name} */,\n"
+    test_entries << "\t\t\t\t#{TEST_IDS.fetch([kind, city])} /* #{name} */,\n"
   end
 end
 
@@ -242,6 +311,12 @@ text = append_configuration_entries(
   "\t\t\t\t97C147061CF9000F007C117D /* Debug */,\n",
   runner_entries
 )
+text = append_configuration_entries(
+  text,
+  '331C8087294A63A400263BE5',
+  "\t\t\t\t331C8088294A63A400263BE5 /* Debug */,\n",
+  test_entries
+)
 
 expected_names.each do |name|
   abort "Generated project is missing #{name}" unless text.include?("name = #{name};")
@@ -249,22 +324,30 @@ end
 
 CITIES.each do |city, config|
   BUILD_KINDS.each do |kind|
-    block = extract_config_block(text, RUNNER_IDS.fetch([kind, city]))
-    abort "#{kind}-#{city} has wrong bundle identifier" unless block.include?(
+    runner_block = extract_config_block(text, RUNNER_IDS.fetch([kind, city]))
+    abort "#{kind}-#{city} has wrong bundle identifier" unless runner_block.include?(
       "PRODUCT_BUNDLE_IDENTIFIER = #{config.fetch(:bundle_id)};"
     )
-    abort "#{kind}-#{city} has wrong APP_CITY" unless block.include?("APP_CITY = #{city};")
-    abort "#{kind}-#{city} has wrong display name" unless block.include?(
+    abort "#{kind}-#{city} has wrong APP_CITY" unless runner_block.include?("APP_CITY = #{city};")
+    abort "#{kind}-#{city} has wrong display name" unless runner_block.include?(
       "APP_DISPLAY_NAME = \"#{config.fetch(:display_name)}\";"
     )
-    abort "#{kind}-#{city} has wrong app icon set" unless block.include?(
+    abort "#{kind}-#{city} has wrong app icon set" unless runner_block.include?(
       "ASSETCATALOG_COMPILER_APPICON_NAME = #{config.fetch(:app_icon_name)};"
     )
     if config.fetch(:exclude_tokyo_firebase_plist)
-      abort "#{kind}-#{city} does not exclude Tokyo Firebase plist" unless block.include?(
+      abort "#{kind}-#{city} does not exclude Tokyo Firebase plist" unless runner_block.include?(
         'EXCLUDED_SOURCE_FILE_NAMES = "GoogleService-Info.plist";'
       )
     end
+
+    test_block = extract_config_block(text, TEST_IDS.fetch([kind, city]))
+    abort "RunnerTests #{kind}-#{city} has wrong bundle identifier" unless test_block.include?(
+      "PRODUCT_BUNDLE_IDENTIFIER = #{config.fetch(:bundle_id)}.RunnerTests;"
+    )
+    abort "RunnerTests #{kind}-#{city} has wrong Swift version" unless test_block.include?(
+      'SWIFT_VERSION = 5.0;'
+    )
   end
 end
 
