@@ -9,6 +9,7 @@ void main() {
       final profile = cityProfileForKey('tokyo');
 
       expect(profile.appName, '都営でGO');
+      expect(profile.capabilities.features.routeSearchOnly, isFalse);
       expect(profile.capabilities.features.outingDiscovery, isTrue);
       expect(profile.capabilities.features.savedRoutes, isTrue);
       expect(profile.capabilities.features.history, isTrue);
@@ -22,6 +23,7 @@ void main() {
       final profile = cityProfileForKey('nagoya');
 
       expect(profile.appName, '名古屋でGO');
+      expect(profile.capabilities.features.routeSearchOnly, isTrue);
       expect(profile.capabilities.features.outingDiscovery, isFalse);
       expect(profile.capabilities.features.savedRoutes, isFalse);
       expect(profile.capabilities.features.history, isFalse);
@@ -35,6 +37,7 @@ void main() {
       final profile = cityProfileForKey('sendai');
 
       expect(profile.appName, '仙台でGO');
+      expect(profile.capabilities.features.routeSearchOnly, isTrue);
       expect(profile.capabilities.features.outingDiscovery, isFalse);
       expect(profile.capabilities.features.groupTrips, isFalse);
       expect(profile.capabilities.realtime.vehiclePosition, isTrue);
