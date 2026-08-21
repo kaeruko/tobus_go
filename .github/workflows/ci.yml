@@ -14,6 +14,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  repository-safety:
+    name: Repository safety checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reject tracked .env files
+        shell: bash
+        run: |
+          tracked_env_files="$(git ls-files | grep -E '(^|/)\.env$' || true)"
+          if [ -n "$tracked_env_files" ]; then
+            echo '::error::Tracked .env file detected. Keep secrets in local untracked files only.'
+            printf '%s\n' "$tracked_env_files"
+            exit 1
+          fi
+
   flutter:
     name: Flutter analyze and Android flavors
     runs-on: ubuntu-latest
