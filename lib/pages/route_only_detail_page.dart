@@ -13,11 +13,11 @@ class RouteOnlyDetailPage extends StatelessWidget {
       case 'bus':
         return CupertinoIcons.bus;
       case 'rail':
-        return CupertinoIcons.tram_fill;
+        return CupertinoIcons.arrow_right_circle;
       case 'wait':
         return CupertinoIcons.clock;
       case 'walk':
-        return CupertinoIcons.person_walk;
+        return CupertinoIcons.person;
       default:
         throw StateError('Unsupported route step kind: ${step.kind}');
     }
