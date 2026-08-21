@@ -245,6 +245,18 @@ def list_fare_policies(city_key: str) -> tuple[FarePolicy, ...]:
     return tuple(policies.values())
 
 
+def fare_policy_api_options(city_key: str) -> list[dict[str, str | None]]:
+    return [
+        {
+            "policyId": policy.policy_id,
+            "displayName": policy.display_name,
+            "settlementType": policy.settlement_type.value,
+            "sourceUri": policy.source_uri,
+        }
+        for policy in list_fare_policies(city_key)
+    ]
+
+
 def get_fare_policy(city_key: str, policy_id: str) -> FarePolicy:
     if not policy_id or policy_id.strip() != policy_id:
         raise ValueError(f"invalid fare policy id: {policy_id!r}")
@@ -283,3 +295,67 @@ def evaluate_candidate_fare(
         ride_modes=tuple(ride_modes),
     )
     return get_fare_policy(city_key, policy_id).apply(context)
+
+
+def _normal_fare_for_candidate(city_key: str, candidate: dict) -> int | None:
+    steps = candidate.get("steps")
+    if not isinstance(steps, list):
+        raise ValueError("candidate is missing steps list")
+
+    if city_key == "nagoya":
+        total = 0
+        for step in steps:
+            if not isinstance(step, dict):
+                raise ValueError("candidate step must be an object")
+            kind = step.get("kind")
+            if kind in {"walk", "wait"}:
+                continue
+            if kind != "bus":
+                raise ValueError(
+                    f"Nagoya city-bus fare calculator received unsupported mode: {kind!r}"
+                )
+            step["fare_yen"] = 210
+            total += 210
+        return total
+
+    if city_key == "tokyo":
+        # Tokyo candidates can mix flat-fare buses with distance-based subway
+        # rides. Do not infer a normal fare from geometry or a comfort score.
+        # If a future adapter provides exact per-step fare_yen values, summing
+        # them here becomes safe without changing the policy layer.
+        ride_steps = []
+        for step in steps:
+            if not isinstance(step, dict):
+                raise ValueError("candidate step must be an object")
+            if step.get("kind") in {"bus", "rail"}:
+                ride_steps.append(step)
+        if not ride_steps:
+            return 0
+        fares = [step.get("fare_yen") for step in ride_steps]
+        if any(not isinstance(value, int) or value < 0 for value in fares):
+            return None
+        return sum(fares)
+
+    raise ValueError(f"normal fare calculator is not configured for city: {city_key!r}")
+
+
+def decorate_route_result_with_fare(
+    *, city_key: str, result: dict, policy_id: str
+) -> dict:
+    if not isinstance(result, dict):
+        raise ValueError("route result must be an object")
+    candidates = result.get("candidates")
+    if not isinstance(candidates, list):
+        raise ValueError("route result is missing candidates list")
+    get_fare_policy(city_key, policy_id)
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            raise ValueError("route candidate must be an object")
+        normal_fare_yen = _normal_fare_for_candidate(city_key, candidate)
+        candidate["fare"] = evaluate_candidate_fare(
+            city_key=city_key,
+            candidate=candidate,
+            policy_id=policy_id,
+            normal_fare_yen=normal_fare_yen,
+        ).to_api_dict()
+    return result
