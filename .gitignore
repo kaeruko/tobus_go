@@ -20,8 +20,7 @@ migrate_working_dir/
 .idea/
 
 # The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
+# VS Code, so this line is commented out by default.
 #.vscode/
 
 # Flutter/Dart/Pub related
@@ -74,4 +73,9 @@ data/
 !requirements.txt
 !data/**
 !Dockerfile
-!.env
+
+# Local environment files must never be committed.
+.env
+**/.env
+!.env.example
+!**/.env.example
