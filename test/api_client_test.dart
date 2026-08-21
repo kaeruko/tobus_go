@@ -93,6 +93,19 @@ void main() {
       expect(requestedUri?.queryParameters, isNot(contains('force_refresh')));
       expect(requestedUri?.queryParameters['debug'], 'true');
     });
+
+    test('sends the configured city identity on API requests', () async {
+      String? requestedCity;
+      ApiClient.httpClient = MockClient((request) async {
+        requestedCity = request.headers['X-App-City'];
+        return http.Response('{}', 200);
+      });
+
+      await ApiClient.fetchBusLocation(routeId: 'route-id', tripId: 'trip-id');
+
+      // flutter test has no native flavor, so the compatibility profile is Tokyo.
+      expect(requestedCity, 'tokyo');
+    });
   });
 
   test('preserves realtime freshness diagnostics', () {
