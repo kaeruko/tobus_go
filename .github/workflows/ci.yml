@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   flutter:
-    name: Flutter analyze and tests
+    name: Flutter analyze and Android flavors
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -40,6 +40,9 @@ jobs:
       - name: Run Flutter tests
         run: flutter test
 
+      - name: Verify generated iOS project is committed
+        run: ruby scripts/configure_ios_flavors.rb --check
+
       - name: Build Tokyo Android flavor
         run: flutter build apk --debug --flavor tokyo --dart-define=APP_CITY=tokyo
 
@@ -48,6 +51,62 @@ jobs:
 
       - name: Build Sendai Android flavor
         run: flutter build apk --debug --flavor sendai --dart-define=APP_CITY=sendai
+
+  ios:
+    name: iOS flavor builds and isolation
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Verify generated Xcode configurations
+        run: ruby scripts/configure_ios_flavors.rb --check
+
+      - name: Build Tokyo iOS flavor
+        run: flutter build ios --simulator --debug --flavor tokyo --dart-define=APP_CITY=tokyo
+
+      - name: Verify Tokyo iOS identity and Firebase resource
+        shell: bash
+        run: |
+          app='build/ios/iphonesimulator/Runner.app'
+          test -d "$app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = 'jp.cloxs.toeigo'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist")" = '都営でGO'
+          test -f "$app/GoogleService-Info.plist"
+
+      - name: Build Nagoya iOS flavor
+        run: flutter build ios --simulator --debug --flavor nagoya --dart-define=APP_CITY=nagoya
+
+      - name: Verify Nagoya iOS identity and Firebase isolation
+        shell: bash
+        run: |
+          app='build/ios/iphonesimulator/Runner.app'
+          test -d "$app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = 'jp.cloxs.nagoyago'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist")" = '名古屋でGO'
+          test ! -e "$app/GoogleService-Info.plist"
+
+      - name: Build Sendai iOS flavor
+        run: flutter build ios --simulator --debug --flavor sendai --dart-define=APP_CITY=sendai
+
+      - name: Verify Sendai iOS identity and Firebase isolation
+        shell: bash
+        run: |
+          app='build/ios/iphonesimulator/Runner.app'
+          test -d "$app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = 'jp.cloxs.sendaigo'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist")" = '仙台でGO'
+          test ! -e "$app/GoogleService-Info.plist"
 
   python:
     name: Python API tests
