@@ -1,12 +1,18 @@
 import 'package:flutter/cupertino.dart';
 
+import '../models/fare_models.dart';
 import '../models/route_models.dart';
 import '../widgets/route_map_preview.dart';
 
 class RouteOnlyDetailPage extends StatelessWidget {
   final Candidate candidate;
+  final FareQuote? fare;
 
-  const RouteOnlyDetailPage({super.key, required this.candidate});
+  const RouteOnlyDetailPage({
+    super.key,
+    required this.candidate,
+    this.fare,
+  });
 
   IconData _iconFor(StepSeg step) {
     switch (step.kind) {
@@ -21,6 +27,49 @@ class RouteOnlyDetailPage extends StatelessWidget {
       default:
         throw StateError('Unsupported route step kind: ${step.kind}');
     }
+  }
+
+  Widget _fareSummary(BuildContext context) {
+    final quote = fare;
+    if (quote == null) return const SizedBox.shrink();
+
+    final lines = <String>[];
+    if (quote.normalFareYen != null) {
+      lines.add('通常運賃 ${quote.normalFareYen}円');
+    }
+    if (quote.isAvailable && quote.payNowYen != null) {
+      lines.add('今回の支払 ${quote.payNowYen}円');
+    }
+    if (quote.settlementType == 'reimbursement' &&
+        quote.effectiveFareYen != null) {
+      lines.add('支給後の実質 ${quote.effectiveFareYen}円');
+    }
+    if (!quote.isAvailable) {
+      lines.add('この経路では通常運賃を厳密計算できません');
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: CupertinoColors.systemGrey6.resolveFrom(context),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              quote.settlementLabel,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            for (final line in lines) Text(line),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -62,7 +111,8 @@ class RouteOnlyDetailPage extends StatelessWidget {
                 style: const TextStyle(color: CupertinoColors.systemGrey),
               ),
             ),
-            const SizedBox(height: 16),
+            _fareSummary(context),
+            const SizedBox(height: 12),
             if (candidate.points.isNotEmpty) ...[
               RouteMapPreview(points: candidate.points),
               const SizedBox(height: 16),
