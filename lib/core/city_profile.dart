@@ -17,12 +17,14 @@ class RealtimeCapabilities {
 }
 
 class FeatureCapabilities {
+  final bool routeSearchOnly;
   final bool outingDiscovery;
   final bool savedRoutes;
   final bool history;
   final bool groupTrips;
 
   const FeatureCapabilities({
+    required this.routeSearchOnly,
     required this.outingDiscovery,
     required this.savedRoutes,
     required this.history,
@@ -60,6 +62,7 @@ const tokyoCityProfile = CityProfile(
   appName: '都営でGO',
   capabilities: CityCapabilities(
     features: FeatureCapabilities(
+      routeSearchOnly: false,
       outingDiscovery: true,
       savedRoutes: true,
       history: true,
@@ -79,6 +82,7 @@ const nagoyaCityProfile = CityProfile(
   appName: '名古屋でGO',
   capabilities: CityCapabilities(
     features: FeatureCapabilities(
+      routeSearchOnly: true,
       outingDiscovery: false,
       savedRoutes: false,
       history: false,
@@ -98,6 +102,7 @@ const sendaiCityProfile = CityProfile(
   appName: '仙台でGO',
   capabilities: CityCapabilities(
     features: FeatureCapabilities(
+      routeSearchOnly: true,
       outingDiscovery: false,
       savedRoutes: false,
       history: false,
