@@ -49,16 +49,21 @@ def _validate_feed_id(feed_id: str) -> str:
 class GtfsRepository:
     """One isolated static GTFS feed.
 
-    A repository instance owns exactly one feed.  Raw GTFS IDs remain raw inside
+    A repository instance owns exactly one feed. Raw GTFS IDs remain raw inside
     that instance for compatibility with the Tokyo routing code; use
     :meth:`qualified_id` when an ID leaves the feed boundary.
     """
 
+    # Transitional class defaults keep the existing tests that bypassed the old
+    # Singleton constructor working while all production construction uses
+    # __init__. They are not shared mutable data.
+    feed_id = "default"
+    source_dir: str | None = None
     REQUIRED_FILES = ("stops.txt", "routes.txt", "trips.txt", "stop_times.txt")
 
     def __init__(self, feed_id: str = "default"):
         self.feed_id = _validate_feed_id(feed_id)
-        self.source_dir: str | None = None
+        self.source_dir = None
         self._reset_data()
 
     def _reset_data(self) -> None:
@@ -81,7 +86,7 @@ class GtfsRepository:
     def load_data(self, gtfs_dir: str):
         """Load one GTFS feed atomically.
 
-        Required static files must all exist.  Parsing is performed into local
+        Required static files must all exist. Parsing is performed into local
         structures first, so a malformed or partial feed never replaces the
         repository's current state.
         """
@@ -206,7 +211,6 @@ class GtfsRepository:
         for schedule in timetable_index.values():
             schedule.sort()
 
-        # Commit the fully parsed feed in one step.
         self.trips = trips
         self.stop_times = stop_times
         self.stops = stops
@@ -290,16 +294,11 @@ class GtfsRepository:
 
     def get_trip_stop_ids(self, trip_id: str) -> list[str]:
         stops_by_sequence = self.stop_times.get(trip_id, {})
-        return [
-            stop_time[0]
-            for _, stop_time in sorted(stops_by_sequence.items())
-        ]
+        return [stop_time[0] for _, stop_time in sorted(stops_by_sequence.items())]
 
     def get_trip_stop_schedule(self, trip_id: str) -> list[dict]:
         result = []
-        for sequence, stop_time in sorted(
-            self.stop_times.get(trip_id, {}).items()
-        ):
+        for sequence, stop_time in sorted(self.stop_times.get(trip_id, {}).items()):
             stop_id, arrival_minute, departure_minute = stop_time
             stop_info = self.stops.get(stop_id, {})
 
@@ -325,9 +324,7 @@ class GtfsRepository:
         stop_id: str,
         after_sequence: int = -1,
     ) -> tuple[int, int, int] | None:
-        for sequence, stop_time in sorted(
-            self.stop_times.get(trip_id, {}).items()
-        ):
+        for sequence, stop_time in sorted(self.stop_times.get(trip_id, {}).items()):
             current_stop_id, arrival_minute, departure_minute = stop_time
             if sequence > after_sequence and current_stop_id == stop_id:
                 return sequence, arrival_minute, departure_minute
@@ -428,8 +425,6 @@ class GtfsFeedRegistry:
             return existing.load_data(gtfs_dir)
 
         repository = GtfsRepository(feed_id)
-        # Register only after a complete successful load.  A failed feed never
-        # leaves a half-loaded entry in the registry.
         repository.load_data(gtfs_dir)
         self._feeds[feed_id] = repository
         return repository
@@ -445,8 +440,8 @@ class GtfsFeedRegistry:
         return tuple(self._feeds.keys())
 
 
-# Compatibility handle for the currently deployed Tokyo runtime.  It is now a
-# normal feed-scoped instance rather than a process-wide singleton.
+# Compatibility handle for the currently deployed Tokyo runtime. It is now a
+# normal feed-scoped instance rather than a process-wide Singleton.
 gtfs_repo = GtfsRepository("toei_bus")
 gtfs_feeds = GtfsFeedRegistry()
 gtfs_feeds.register(gtfs_repo)
