@@ -82,7 +82,7 @@ if ($null -eq $ecr -or [string]::IsNullOrWhiteSpace([string]$ecr.Name)) {
 $lambdaJson = aws lambda get-function-configuration `
     --region $Region `
     --function-name $LambdaFunction `
-    --query "{FunctionName:FunctionName,PackageType:PackageType,Architecture:Architectures[0],AppCity:Environment.Variables.APP_CITY,HasGoogleMapsKey:contains(keys(Environment.Variables), 'GOOGLE_MAPS_API_KEY'),HasPlacesKey:contains(keys(Environment.Variables), 'PLACES_KEY'),HasNagoyaGtfsDir:contains(keys(Environment.Variables), 'NAGOYA_GTFS_DIR'),HasNagoyaRevision:contains(keys(Environment.Variables), 'NAGOYA_GTFS_EXPECTED_REVISION'),HasSendaiGtfsDir:contains(keys(Environment.Variables), 'SENDAI_GTFS_DIR'),HasSendaiServiceDate:contains(keys(Environment.Variables), 'SENDAI_GTFS_EXPECTED_SERVICE_DATE')}" `
+    --query "{FunctionName:FunctionName,PackageType:PackageType,Architecture:Architectures[0],AppCity:Environment.Variables.APP_CITY,HasGoogleMapsKey:contains(keys(Environment.Variables), 'GOOGLE_MAPS_API_KEY'),HasNagoyaGtfsDir:contains(keys(Environment.Variables), 'NAGOYA_GTFS_DIR'),HasNagoyaRevision:contains(keys(Environment.Variables), 'NAGOYA_GTFS_EXPECTED_REVISION'),HasNagoyaBundleBucket:contains(keys(Environment.Variables), 'NAGOYA_GTFS_BUNDLE_S3_BUCKET'),HasNagoyaBundleKey:contains(keys(Environment.Variables), 'NAGOYA_GTFS_BUNDLE_S3_KEY'),HasNagoyaBundleSha:contains(keys(Environment.Variables), 'NAGOYA_GTFS_BUNDLE_SHA256'),HasSendaiGtfsDir:contains(keys(Environment.Variables), 'SENDAI_GTFS_DIR'),HasSendaiServiceDate:contains(keys(Environment.Variables), 'SENDAI_GTFS_EXPECTED_SERVICE_DATE'),HasSendaiBundleBucket:contains(keys(Environment.Variables), 'SENDAI_GTFS_BUNDLE_S3_BUCKET'),HasSendaiBundleKey:contains(keys(Environment.Variables), 'SENDAI_GTFS_BUNDLE_S3_KEY'),HasSendaiBundleSha:contains(keys(Environment.Variables), 'SENDAI_GTFS_BUNDLE_SHA256')}" `
     --output json
 Assert-LastExitCode 'aws lambda get-function-configuration'
 $lambda = $lambdaJson | ConvertFrom-Json
@@ -90,15 +90,14 @@ $lambda = $lambdaJson | ConvertFrom-Json
 if ($lambda.PackageType -ne 'Image') {
     throw "Lambda must use PackageType=Image. Actual=$($lambda.PackageType)"
 }
-if ($lambda.Architecture -notin @('x86_64', 'arm64')) {
-    throw "Unsupported Lambda architecture: $($lambda.Architecture)"
+if ($lambda.Architecture -ne 'x86_64') {
+    throw "City Lambda must use x86_64. Actual=$($lambda.Architecture)"
 }
 if ([string]$lambda.AppCity -cne $City) {
     throw "Lambda APP_CITY mismatch. Expected=$City Actual='$($lambda.AppCity)'"
 }
-
-if (-not $lambda.HasGoogleMapsKey -and -not $lambda.HasPlacesKey) {
-    throw "Lambda is missing both GOOGLE_MAPS_API_KEY and PLACES_KEY: $LambdaFunction"
+if (-not $lambda.HasGoogleMapsKey) {
+    throw "Lambda is missing GOOGLE_MAPS_API_KEY: $LambdaFunction"
 }
 
 if ($City -eq 'nagoya') {
@@ -108,6 +107,15 @@ if ($City -eq 'nagoya') {
     if (-not $lambda.HasNagoyaRevision) {
         throw "Nagoya Lambda is missing NAGOYA_GTFS_EXPECTED_REVISION: $LambdaFunction"
     }
+    if (-not $lambda.HasNagoyaBundleBucket) {
+        throw "Nagoya Lambda is missing NAGOYA_GTFS_BUNDLE_S3_BUCKET: $LambdaFunction"
+    }
+    if (-not $lambda.HasNagoyaBundleKey) {
+        throw "Nagoya Lambda is missing NAGOYA_GTFS_BUNDLE_S3_KEY: $LambdaFunction"
+    }
+    if (-not $lambda.HasNagoyaBundleSha) {
+        throw "Nagoya Lambda is missing NAGOYA_GTFS_BUNDLE_SHA256: $LambdaFunction"
+    }
 }
 elseif ($City -eq 'sendai') {
     if (-not $lambda.HasSendaiGtfsDir) {
@@ -115,6 +123,15 @@ elseif ($City -eq 'sendai') {
     }
     if (-not $lambda.HasSendaiServiceDate) {
         throw "Sendai Lambda is missing SENDAI_GTFS_EXPECTED_SERVICE_DATE: $LambdaFunction"
+    }
+    if (-not $lambda.HasSendaiBundleBucket) {
+        throw "Sendai Lambda is missing SENDAI_GTFS_BUNDLE_S3_BUCKET: $LambdaFunction"
+    }
+    if (-not $lambda.HasSendaiBundleKey) {
+        throw "Sendai Lambda is missing SENDAI_GTFS_BUNDLE_S3_KEY: $LambdaFunction"
+    }
+    if (-not $lambda.HasSendaiBundleSha) {
+        throw "Sendai Lambda is missing SENDAI_GTFS_BUNDLE_SHA256: $LambdaFunction"
     }
 }
 
@@ -129,10 +146,8 @@ Write-Host "APP_CITY     : $($lambda.AppCity)"
 Write-Host "PackageType  : $($lambda.PackageType)"
 Write-Host "Architecture : $($lambda.Architecture)"
 Write-Host "Google key   : configured (value hidden)"
+Write-Host 'GTFS bundle  : configured (bucket/key/SHA values hidden)'
 
-# Function URL is inspected separately because a Lambda can validly exist before
-# its public URL is created. A non-zero AWS response is surfaced verbatim and is
-# not replaced by another API source.
 $functionUrlOutput = @(
     & aws lambda get-function-url-config `
         --region $Region `
@@ -142,19 +157,48 @@ $functionUrlOutput = @(
 )
 $functionUrlExitCode = $LASTEXITCODE
 
-if ($functionUrlExitCode -eq 0) {
-    $functionUrl = ($functionUrlOutput -join "`n") | ConvertFrom-Json
-    if ([string]::IsNullOrWhiteSpace([string]$functionUrl.FunctionUrl)) {
-        throw "Lambda Function URL response did not contain FunctionUrl: $LambdaFunction"
-    }
-    Write-Host "Function URL : $($functionUrl.FunctionUrl)"
-    Write-Host "URL auth     : $($functionUrl.AuthType)"
-}
-else {
+if ($functionUrlExitCode -ne 0) {
     Write-Host 'Function URL : NOT CONFIRMED'
     Write-Host 'AWS CLI diagnostic:'
     $functionUrlOutput | ForEach-Object { Write-Host $_ }
     throw "aws lambda get-function-url-config failed with exit code $functionUrlExitCode."
 }
 
+$functionUrl = ($functionUrlOutput -join "`n") | ConvertFrom-Json
+if ([string]::IsNullOrWhiteSpace([string]$functionUrl.FunctionUrl)) {
+    throw "Lambda Function URL response did not contain FunctionUrl: $LambdaFunction"
+}
+if ([string]$functionUrl.AuthType -cne 'NONE') {
+    throw "Lambda Function URL must use AuthType=NONE. Actual=$($functionUrl.AuthType)"
+}
+
+$policyJson = aws lambda get-policy `
+    --region $Region `
+    --function-name $LambdaFunction `
+    --query 'Policy' `
+    --output text
+Assert-LastExitCode 'aws lambda get-policy'
+$policy = $policyJson | ConvertFrom-Json
+
+$urlPermission = @($policy.Statement | Where-Object { $_.Sid -eq 'PublicFunctionUrlInvoke' })
+if ($urlPermission.Count -ne 1 -or [string]$urlPermission[0].Action -cne 'lambda:InvokeFunctionUrl') {
+    throw "Lambda policy is missing exact PublicFunctionUrlInvoke permission."
+}
+$urlAuthCondition = $urlPermission[0].Condition.StringEquals.PSObject.Properties['lambda:FunctionUrlAuthType']
+if ($null -eq $urlAuthCondition -or [string]$urlAuthCondition.Value -cne 'NONE') {
+    throw "PublicFunctionUrlInvoke must be restricted to FunctionUrlAuthType=NONE."
+}
+
+$invokePermission = @($policy.Statement | Where-Object { $_.Sid -eq 'PublicFunctionUrlInvokeFunction' })
+if ($invokePermission.Count -ne 1 -or [string]$invokePermission[0].Action -cne 'lambda:InvokeFunction') {
+    throw "Lambda policy is missing exact PublicFunctionUrlInvokeFunction permission."
+}
+$viaUrlCondition = $invokePermission[0].Condition.Bool.PSObject.Properties['lambda:InvokedViaFunctionUrl']
+if ($null -eq $viaUrlCondition -or [string]$viaUrlCondition.Value -cne 'true') {
+    throw "PublicFunctionUrlInvokeFunction must be restricted to InvokedViaFunctionUrl=true."
+}
+
+Write-Host "Function URL : $($functionUrl.FunctionUrl)"
+Write-Host "URL auth     : $($functionUrl.AuthType)"
+Write-Host 'URL policy   : InvokeFunctionUrl + InvokeFunction(via URL) confirmed'
 Write-Host 'AWS city infrastructure preflight: READY'
