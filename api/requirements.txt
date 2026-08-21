@@ -9,3 +9,4 @@ mangum
 requests
 boto3
 gtfs-realtime-bindings
+tzdata
