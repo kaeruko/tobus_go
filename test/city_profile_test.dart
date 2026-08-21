@@ -21,9 +21,12 @@ void main() {
         profile.farePolicies.map((option) => option.id),
         ['normal', 'tokyo_toei_transport_pass'],
       );
+      expect(profile.distribution.androidApplicationId, 'jp.cloxs.toeigo');
+      expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.toeigo');
+      expect(profile.distribution.firebaseEnabled, isTrue);
     });
 
-    test('nagoya is route-search-only and has no realtime capability', () {
+    test('nagoya is route-search-only and has isolated distribution IDs', () {
       final profile = cityProfileForKey('nagoya');
 
       expect(profile.appName, '名古屋でGO');
@@ -39,6 +42,9 @@ void main() {
         profile.farePolicies.map((option) => option.id),
         ['normal', 'nagoya_welfare_special_pass'],
       );
+      expect(profile.distribution.androidApplicationId, 'jp.cloxs.nagoyago');
+      expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.nagoyago');
+      expect(profile.distribution.firebaseEnabled, isFalse);
     });
 
     test('fare policy IDs are city scoped and exact', () {
@@ -56,7 +62,7 @@ void main() {
       );
     });
 
-    test('sendai exposes all planned GTFS-Realtime capabilities', () {
+    test('sendai exposes planned realtime and separate distribution IDs', () {
       final profile = cityProfileForKey('sendai');
 
       expect(profile.appName, '仙台でGO');
@@ -67,12 +73,52 @@ void main() {
       expect(profile.capabilities.realtime.tripUpdates, isTrue);
       expect(profile.capabilities.realtime.alerts, isTrue);
       expect(profile.farePolicies.map((option) => option.id), ['normal']);
+      expect(profile.distribution.androidApplicationId, 'jp.cloxs.sendaigo');
+      expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.sendaigo');
+      expect(profile.distribution.firebaseEnabled, isFalse);
     });
 
     test('APP_CITY values are exact and unsupported values fail fast', () {
       expect(() => cityProfileForKey('Tokyo'), throwsStateError);
       expect(() => cityProfileForKey(' nagoya'), throwsStateError);
       expect(() => cityProfileForKey('sapporo'), throwsStateError);
+    });
+
+    test('native flavor selects the same city without APP_CITY', () {
+      expect(resolveConfiguredCityKey(flavor: 'tokyo', dartDefine: ''), 'tokyo');
+      expect(
+        resolveConfiguredCityKey(flavor: 'nagoya', dartDefine: ''),
+        'nagoya',
+      );
+      expect(
+        resolveConfiguredCityKey(flavor: 'sendai', dartDefine: ''),
+        'sendai',
+      );
+    });
+
+    test('flavor and APP_CITY mismatch fails instead of choosing one', () {
+      expect(
+        () => resolveConfiguredCityKey(
+          flavor: 'nagoya',
+          dartDefine: 'tokyo',
+        ),
+        throwsStateError,
+      );
+    });
+
+    test('flavor and APP_CITY values are not whitespace-normalized', () {
+      expect(
+        () => resolveConfiguredCityKey(flavor: ' nagoya', dartDefine: ''),
+        throwsStateError,
+      );
+      expect(
+        () => resolveConfiguredCityKey(flavor: null, dartDefine: 'nagoya '),
+        throwsStateError,
+      );
+    });
+
+    test('unflavored tests and legacy local development remain Tokyo', () {
+      expect(resolveConfiguredCityKey(flavor: null, dartDefine: ''), 'tokyo');
     });
   });
 
