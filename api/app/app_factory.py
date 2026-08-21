@@ -83,6 +83,14 @@ def create_app(mode: str) -> FastAPI:
     @app.on_event("startup")
     async def _startup() -> None:
         await startup(app, mode)
+        if city == "tokyo":
+            from .runtime import refresh_realtime_bus_positions
+            from .services.tokyo_realtime_provider import TokyoRealtimeProvider
+
+            app.state.realtime_provider = TokyoRealtimeProvider(
+                app.state.TM,
+                refresh_realtime_bus_positions,
+            )
 
     for register in route_registrars:
         register(app)
