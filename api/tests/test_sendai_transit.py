@@ -192,7 +192,15 @@ class SendaiStaticGtfsTest(unittest.TestCase):
             self.assertTrue((target / SENDAI_MANIFEST_FILENAME).is_file())
             self.assertEqual(
                 client.calls,
-                [(SENDAI_STATIC_URL, {"acl:consumerKey": "test-token"})],
+                [
+                    (
+                        SENDAI_STATIC_URL,
+                        {
+                            "date": "current",
+                            "acl:consumerKey": "test-token",
+                        },
+                    )
+                ],
             )
 
 
