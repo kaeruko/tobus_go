@@ -60,9 +60,12 @@ def create_app(mode: str) -> FastAPI:
         route_registrars = (register_nagoya_routes,)
         title = "Nagoya Route API"
     else:
-        # The Flutter profile exists so common UI capabilities can be designed
-        # ahead of the backend. Do not silently serve Tokyo for Sendai.
-        raise RuntimeError("Sendai backend is not implemented yet")
+        from .sendai_routes import register_sendai_routes
+        from .sendai_runtime import setup_sendai_on_startup
+
+        startup = setup_sendai_on_startup
+        route_registrars = (register_sendai_routes,)
+        title = "Sendai Route API"
 
     from .fare_routes import register_fare_routes
 
