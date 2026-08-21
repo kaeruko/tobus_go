@@ -8,7 +8,7 @@
 
   The script:
   - validates one already-approved local GTFS directory and its city manifest;
-  - reads GOOGLE_MAPS_API_KEY from ignored local api/.env without printing it;
+  - requires GOOGLE_MAPS_API_KEY from the current process environment without printing it;
   - creates the city base stack (private/versioned S3, immutable ECR, Lambda role,
     retained log group);
   - packages the validated GTFS directory, uploads that exact bundle to the city
@@ -21,7 +21,8 @@
 
   Secret values are written only to a temporary UTF-8 JSON file used by the AWS
   CLI and are removed in finally. Secret values are never printed or placed in
-  command arguments directly.
+  command arguments directly. The script does not read a local .env file and does
+  not search another Lambda or secret source when GOOGLE_MAPS_API_KEY is missing.
 
 .EXAMPLE
   .\scripts\bootstrap_city_api.ps1 `
@@ -102,30 +103,16 @@ function Get-StackOutputValue {
     return $value
 }
 
-function Get-LocalGoogleMapsKey {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$EnvFile
-    )
-    if (-not (Test-Path -LiteralPath $EnvFile -PathType Leaf)) {
-        throw "Local ignored api/.env was not found: $EnvFile"
-    }
-    $lines = @(
-        Get-Content -LiteralPath $EnvFile |
-            Where-Object { $_ -match '^GOOGLE_MAPS_API_KEY=' }
-    )
-    if ($lines.Count -ne 1) {
-        throw "Expected exactly one GOOGLE_MAPS_API_KEY entry in api/.env, found $($lines.Count)."
-    }
-    $value = $lines[0].Substring('GOOGLE_MAPS_API_KEY='.Length)
+function Get-GoogleMapsKeyFromEnvironment {
+    $value = [Environment]::GetEnvironmentVariable('GOOGLE_MAPS_API_KEY', 'Process')
     if ([string]::IsNullOrWhiteSpace($value)) {
-        throw 'GOOGLE_MAPS_API_KEY in api/.env is empty.'
+        throw 'GOOGLE_MAPS_API_KEY process environment variable is required.'
     }
     if (
         ($value.StartsWith('"') -and $value.EndsWith('"')) -or
         ($value.StartsWith("'") -and $value.EndsWith("'"))
     ) {
-        throw 'GOOGLE_MAPS_API_KEY must be stored unquoted in api/.env.'
+        throw 'GOOGLE_MAPS_API_KEY process environment variable must be unquoted.'
     }
     return $value
 }
@@ -165,7 +152,6 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $apiDir = Join-Path $repoRoot 'api'
 $dockerfile = Join-Path $apiDir 'Dockerfile'
 $baseTemplate = Join-Path $repoRoot 'infra\city-api-base.yaml'
-$envFile = Join-Path $apiDir '.env'
 $inspectScript = Join-Path $PSScriptRoot 'inspect_city_infra.ps1'
 
 foreach ($requiredFile in @($dockerfile, $baseTemplate, $inspectScript)) {
@@ -223,7 +209,7 @@ else {
     }
 }
 
-$googleMapsKey = Get-LocalGoogleMapsKey -EnvFile $envFile
+$googleMapsKey = Get-GoogleMapsKeyFromEnvironment
 Write-Host 'Local production inputs: validated (Google key value hidden)'
 
 $accountId = (aws sts get-caller-identity --query Account --output text).Trim()
