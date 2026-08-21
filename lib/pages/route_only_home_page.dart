@@ -7,7 +7,7 @@ import '../providers/route_search_provider.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/place_field.dart';
 import '../widgets/route_card.dart';
-import 'route_detail_page.dart';
+import 'route_only_detail_page.dart';
 
 /// Shared route-search-only home for city editions without trip/outings UI.
 class RouteOnlyHomePage extends ConsumerWidget {
@@ -221,9 +221,8 @@ class RouteOnlyHomePage extends ConsumerWidget {
                         onTap: () {
                           Navigator.of(context).push(
                             CupertinoPageRoute(
-                              builder: (_) => RouteDetailPage(
+                              builder: (_) => RouteOnlyDetailPage(
                                 candidate: candidate,
-                                meta: state.meta,
                               ),
                             ),
                           );
