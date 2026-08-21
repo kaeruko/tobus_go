@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart' show appFlavor;
+
 enum AppCity {
   tokyo,
   nagoya,
@@ -56,6 +58,20 @@ class FarePolicyOption {
   });
 }
 
+class CityDistributionConfig {
+  final String androidApplicationId;
+  final String iosBundleIdentifier;
+  final bool firebaseEnabled;
+  final String storeMetadataDirectory;
+
+  const CityDistributionConfig({
+    required this.androidApplicationId,
+    required this.iosBundleIdentifier,
+    required this.firebaseEnabled,
+    required this.storeMetadataDirectory,
+  });
+}
+
 class CityProfile {
   final AppCity city;
   final String key;
@@ -63,6 +79,7 @@ class CityProfile {
   final CityCapabilities capabilities;
   final List<FarePolicyOption> farePolicies;
   final String defaultFarePolicyId;
+  final CityDistributionConfig distribution;
 
   const CityProfile({
     required this.city,
@@ -70,6 +87,7 @@ class CityProfile {
     required this.appName,
     required this.capabilities,
     required this.farePolicies,
+    required this.distribution,
     this.defaultFarePolicyId = 'normal',
   });
 
@@ -116,6 +134,12 @@ const tokyoCityProfile = CityProfile(
           'https://www.fukushi.metro.tokyo.lg.jp/shougai/nichijo/jousyasyo',
     ),
   ],
+  distribution: CityDistributionConfig(
+    androidApplicationId: 'jp.cloxs.toeigo',
+    iosBundleIdentifier: 'jp.cloxs.toeigo',
+    firebaseEnabled: true,
+    storeMetadataDirectory: 'store/tokyo',
+  ),
 );
 
 const nagoyaCityProfile = CityProfile(
@@ -150,6 +174,12 @@ const nagoyaCityProfile = CityProfile(
           'https://www.city.nagoya.jp/kenkofukushi/shougaisha/1016573/1016578.html',
     ),
   ],
+  distribution: CityDistributionConfig(
+    androidApplicationId: 'jp.cloxs.nagoyago',
+    iosBundleIdentifier: 'jp.cloxs.nagoyago',
+    firebaseEnabled: false,
+    storeMetadataDirectory: 'store/nagoya',
+  ),
 );
 
 const sendaiCityProfile = CityProfile(
@@ -177,6 +207,12 @@ const sendaiCityProfile = CityProfile(
       settlementType: 'normal',
     ),
   ],
+  distribution: CityDistributionConfig(
+    androidApplicationId: 'jp.cloxs.sendaigo',
+    iosBundleIdentifier: 'jp.cloxs.sendaigo',
+    firebaseEnabled: false,
+    storeMetadataDirectory: 'store/sendai',
+  ),
 );
 
 CityProfile cityProfileForKey(String key) {
@@ -194,9 +230,47 @@ CityProfile cityProfileForKey(String key) {
   }
 }
 
-const configuredCityKey = String.fromEnvironment(
+const _configuredCityDefine = String.fromEnvironment(
   'APP_CITY',
-  defaultValue: 'tokyo',
+  defaultValue: '',
 );
 
-final configuredCityProfile = cityProfileForKey(configuredCityKey);
+String resolveConfiguredCityKey({
+  String? flavor,
+  String dartDefine = _configuredCityDefine,
+}) {
+  if (flavor != null && flavor.trim() != flavor) {
+    throw StateError('Invalid app flavor with surrounding whitespace: "$flavor"');
+  }
+  if (dartDefine.trim() != dartDefine) {
+    throw StateError(
+      'Invalid APP_CITY with surrounding whitespace: "$dartDefine"',
+    );
+  }
+
+  final flavorKey = flavor ?? '';
+  if (flavorKey.isNotEmpty) {
+    cityProfileForKey(flavorKey);
+  }
+  if (dartDefine.isNotEmpty) {
+    cityProfileForKey(dartDefine);
+  }
+  if (flavorKey.isNotEmpty &&
+      dartDefine.isNotEmpty &&
+      flavorKey != dartDefine) {
+    throw StateError(
+      'Flavor/APP_CITY mismatch: flavor="$flavorKey", APP_CITY="$dartDefine"',
+    );
+  }
+
+  if (flavorKey.isNotEmpty) return flavorKey;
+  if (dartDefine.isNotEmpty) return dartDefine;
+
+  // Tests and legacy local development without --flavor remain Tokyo.
+  // Store builds are flavor-specific and therefore do not take this branch.
+  return 'tokyo';
+}
+
+String get configuredCityKey => resolveConfiguredCityKey(flavor: appFlavor);
+
+CityProfile get configuredCityProfile => cityProfileForKey(configuredCityKey);
