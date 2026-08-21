@@ -1,24 +1,28 @@
 <#
 .SYNOPSIS
-  Google Play向けのrelease AABを作成します。
+  都市別Google Play向けrelease AABを作成します。
 
 .DESCRIPTION
-  flutter run の既定APIは 127.0.0.1 のまま維持し、AABビルド時だけ
-  --dart-define=API_BASE=... で本番Lambda URLを注入します。
+  Tokyo / Nagoya / Sendai を同じコードベースから別applicationIdでビルドします。
+  flavorとAPP_CITYは必ず同じ値を渡し、アプリ起動時にも不一致をfail-fastします。
 
 .EXAMPLE
-  .\scripts\build_aab.ps1
+  .\scripts\build_aab.ps1 -City tokyo
 
 .EXAMPLE
   .\scripts\build_aab.ps1 `
-    -ApiBase 'https://example.lambda-url.us-west-2.on.aws'
+    -City nagoya `
+    -ApiBase 'https://nagoya-api.example.com'
 #>
 
 [CmdletBinding()]
 param(
     [Parameter()]
-    [ValidateNotNullOrEmpty()]
-    [string]$ApiBase = 'https://y6dmxuksrkf3nxp4encz5ez2ua0joxlp.lambda-url.us-west-2.on.aws'
+    [ValidateSet('tokyo', 'nagoya', 'sendai')]
+    [string]$City = 'tokyo',
+
+    [Parameter()]
+    [string]$ApiBase = ''
 )
 
 Set-StrictMode -Version Latest
@@ -39,6 +43,16 @@ if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
     throw 'Required command was not found: flutter'
 }
 
+if ([string]::IsNullOrWhiteSpace($ApiBase)) {
+    if ($City -eq 'tokyo') {
+        # Preserve the currently deployed Tokyo endpoint for the existing app.
+        $ApiBase = 'https://y6dmxuksrkf3nxp4encz5ez2ua0joxlp.lambda-url.us-west-2.on.aws'
+    }
+    else {
+        throw "ApiBase is required for city '$City'. Do not fall back to the Tokyo API."
+    }
+}
+
 $uri = $null
 if (-not [System.Uri]::TryCreate($ApiBase, [System.UriKind]::Absolute, [ref]$uri)) {
     throw "ApiBase is not an absolute URL: $ApiBase"
@@ -55,7 +69,9 @@ if ($uri.Host -eq '127.0.0.1' -or $uri.Host -eq 'localhost') {
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $pubspec = Join-Path $repoRoot 'pubspec.yaml'
 $keyProperties = Join-Path $repoRoot 'android\key.properties'
-$aabPath = Join-Path $repoRoot 'build\app\outputs\bundle\release\app-release.aab'
+$variantName = "${City}Release"
+$aabName = "app-${City}-release.aab"
+$aabPath = Join-Path $repoRoot "build\app\outputs\bundle\$variantName\$aabName"
 
 if (-not (Test-Path -LiteralPath $pubspec -PathType Leaf)) {
     throw "pubspec.yaml was not found: $pubspec"
@@ -66,6 +82,7 @@ if (-not (Test-Path -LiteralPath $keyProperties -PathType Leaf)) {
 }
 
 Write-Host "Repository : $repoRoot"
+Write-Host "City       : $City"
 Write-Host "API base   : $ApiBase"
 Write-Host "Output     : $aabPath"
 
@@ -82,6 +99,8 @@ try {
 
     flutter build appbundle `
         --release `
+        --flavor $City `
+        --dart-define="APP_CITY=$City" `
         --dart-define="API_BASE=$ApiBase"
     Assert-LastExitCode 'flutter build appbundle'
 
@@ -94,6 +113,7 @@ try {
 
     Write-Host ''
     Write-Host 'AAB build completed.'
+    Write-Host "City : $City"
     Write-Host "Path : $($aab.FullName)"
     Write-Host "Size : $sizeMb MB"
 }

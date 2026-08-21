@@ -10,15 +10,14 @@ class RootGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final appSession = ref.watch(appSessionProvider);
     final cityProfile = ref.watch(cityProfileProvider);
 
+    if (!cityProfile.capabilities.features.groupTrips) {
+      return const RootTabs();
+    }
+
+    final appSession = ref.watch(appSessionProvider);
     if (appSession.isMemberMode) {
-      if (!cityProfile.capabilities.features.groupTrips) {
-        throw StateError(
-          'Member mode is not supported for APP_CITY=${cityProfile.key}',
-        );
-      }
       return const MemberModePage();
     }
 

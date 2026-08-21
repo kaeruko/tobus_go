@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
+import 'city_profile.dart';
 
 class ApiException implements Exception {
   final int statusCode;
@@ -29,6 +30,10 @@ class ApiClient {
   @visibleForTesting
   static set httpClient(http.Client client) {
     _httpClient = client;
+  }
+
+  static Map<String, String> _baseHeaders() {
+    return {'X-App-City': configuredCityKey};
   }
 
   static Map<String, dynamic> _jsonUtf8(http.Response r) {
@@ -75,7 +80,7 @@ class ApiClient {
     _log('GET $uri');
 
     try {
-      final r = await _httpClient.get(uri);
+      final r = await _httpClient.get(uri, headers: _baseHeaders());
       _log('GET $uri -> ${r.statusCode}');
 
       if (r.statusCode != 200) {
@@ -98,9 +103,8 @@ class ApiClient {
   static Future<Map<String, dynamic>> post(String path, {dynamic body}) async {
     final uri = Uri.parse('$kApiBase$path');
 
-    // Convert body to JSON string if it's Map or List
     String? bodyString;
-    Map<String, String> headers = {};
+    final headers = _baseHeaders();
 
     if (body != null) {
       headers['Content-Type'] = 'application/json';

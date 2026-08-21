@@ -8,6 +8,15 @@ project 'Runner', {
   'Debug' => :debug,
   'Profile' => :release,
   'Release' => :release,
+  'Debug-tokyo' => :debug,
+  'Profile-tokyo' => :release,
+  'Release-tokyo' => :release,
+  'Debug-nagoya' => :debug,
+  'Profile-nagoya' => :release,
+  'Release-nagoya' => :release,
+  'Debug-sendai' => :debug,
+  'Profile-sendai' => :release,
+  'Release-sendai' => :release,
 }
 
 def flutter_root
