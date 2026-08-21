@@ -50,6 +50,8 @@ class RouteSearchState {
     Map<String, FareQuote>? fareByCandidateId,
     RouteMeta? meta,
     String? errorMessage,
+    bool clearMeta = false,
+    bool clearErrorMessage = false,
   }) {
     return RouteSearchState(
       from: from ?? this.from,
@@ -63,8 +65,10 @@ class RouteSearchState {
       jobId: jobId ?? this.jobId,
       candidates: candidates ?? this.candidates,
       fareByCandidateId: fareByCandidateId ?? this.fareByCandidateId,
-      meta: meta ?? this.meta,
-      errorMessage: errorMessage ?? this.errorMessage,
+      meta: clearMeta ? null : (meta ?? this.meta),
+      errorMessage: clearErrorMessage
+          ? null
+          : (errorMessage ?? this.errorMessage),
     );
   }
 }
@@ -105,6 +109,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
         hasSearched: true,
         candidates: const [],
         fareByCandidateId: const {},
+        clearMeta: true,
         errorMessage: '出発地と到着地の両方を指定してください',
       );
       return;
@@ -115,6 +120,8 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
       hasSearched: true,
       candidates: const [],
       fareByCandidateId: const {},
+      clearMeta: true,
+      clearErrorMessage: true,
     );
 
     try {
@@ -140,6 +147,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
         meta: result.meta,
         candidates: result.candidates,
         fareByCandidateId: result.fareByCandidateId,
+        clearErrorMessage: true,
       );
     } catch (e, st) {
       if (_generation != currentGen) return;
@@ -147,6 +155,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
         isLoading: false,
         candidates: const [],
         fareByCandidateId: const {},
+        clearMeta: true,
         errorMessage: e.toString(),
       );
       print('[RouteSearch] Error executing search: $e $st');
