@@ -216,6 +216,7 @@ class _FakeRouteSearchService implements RouteSearchService {
     lastRequest = request;
     return RouteSearchResult(
       candidates: const [],
+      fareByCandidateId: const {},
       meta: RouteMeta(
         destinationReachable: true,
         destinationLabel: '目的地',
