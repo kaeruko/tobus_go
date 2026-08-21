@@ -1,10 +1,10 @@
+import bisect
 import csv
 import datetime
+import logging
 import os
 from collections import defaultdict
 from dataclasses import dataclass
-import bisect
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -27,180 +27,211 @@ class GtfsTripLeg:
     departure_minute: int
     arrival_minute: int
 
-# ★追加: 正規化用ヘルパー関数
-def _normalize_route_name(s: str) -> str:
-    # 全角数字→半角数字、全角スペース→半角スペースなどの変換
-    if not s: return ""
-    tbl = str.maketrans("０１２３４５６７８９　（）", "0123456789 ()")
-    return s.translate(tbl).replace(" ", "")
+
+def _normalize_route_name(value: str) -> str:
+    if not value:
+        return ""
+    table = str.maketrans("０１２３４５６７８９　（）", "0123456789 ()")
+    return value.translate(table).replace(" ", "")
+
+
+def _validate_feed_id(feed_id: str) -> str:
+    if not isinstance(feed_id, str) or not feed_id:
+        raise ValueError("feed_id must be a non-empty string")
+    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
+    if any(character not in allowed for character in feed_id):
+        raise ValueError(
+            f"Invalid feed_id={feed_id!r}; only ASCII letters, digits, '_' and '-' are allowed"
+        )
+    return feed_id
+
 
 class GtfsRepository:
-    _instance = None
+    """One isolated static GTFS feed.
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(GtfsRepository, cls).__new__(cls)
-            cls._instance.trips = {}        # trip_id -> {headsign, route_id, direction_id}
-            # trip_id -> {sequence: (stop_id, arrival_minute, departure_minute)}
-            # This replaces the old stop-id-only value so the 1.3M GTFS rows
-            # are not duplicated in a second in-memory index.
-            cls._instance.stop_times = defaultdict(dict)
-            cls._instance.stops = {}        # stop_id -> {name, lat, lon}
-            cls._instance.routes = {}       # route_id -> {short_name, ...}
-            cls._instance.route_name_to_id = {} # route_short_name -> route_id
-            # "route|stop" -> [(departure_minute, sequence, trip_id), ...]
-            cls._instance.timetable_index = defaultdict(list)
-            cls._instance.service_calendar = {}
-            cls._instance.service_exceptions = defaultdict(dict)
-            cls._instance._active_service_cache = {}
-            cls._instance.is_loaded = False
-        return cls._instance
+    A repository instance owns exactly one feed. Raw GTFS IDs remain raw inside
+    that instance for compatibility with the Tokyo routing code; use
+    :meth:`qualified_id` when an ID leaves the feed boundary.
+    """
+
+    # Transitional class defaults keep the existing tests that bypassed the old
+    # Singleton constructor working while all production construction uses
+    # __init__. They are not shared mutable data.
+    feed_id = "default"
+    source_dir: str | None = None
+    REQUIRED_FILES = ("stops.txt", "routes.txt", "trips.txt", "stop_times.txt")
+
+    def __init__(self, feed_id: str = "default"):
+        self.feed_id = _validate_feed_id(feed_id)
+        self.source_dir = None
+        self._reset_data()
+
+    def _reset_data(self) -> None:
+        self.trips = {}
+        self.stop_times = defaultdict(dict)
+        self.stops = {}
+        self.routes = {}
+        self.route_name_to_id = {}
+        self.timetable_index = defaultdict(list)
+        self.service_calendar = {}
+        self.service_exceptions = defaultdict(dict)
+        self._active_service_cache = {}
+        self.is_loaded = False
+
+    def qualified_id(self, source_id: str) -> str:
+        if not isinstance(source_id, str) or not source_id:
+            raise ValueError("source_id must be a non-empty string")
+        return f"{self.feed_id}:{source_id}"
 
     def load_data(self, gtfs_dir: str):
+        """Load one GTFS feed atomically.
+
+        Required static files must all exist. Parsing is performed into local
+        structures first, so a malformed or partial feed never replaces the
+        repository's current state.
         """
-        Load static GTFS data from CSV files.
-        Expected files: stops.txt, trips.txt, stop_times.txt, routes.txt
-        """
+        source_dir = os.path.realpath(gtfs_dir)
         if self.is_loaded:
-            logger.info("GTFS data already loaded.")
-            return
+            if source_dir == self.source_dir:
+                logger.info("GTFS feed %s already loaded from %s", self.feed_id, source_dir)
+                return self
+            raise RuntimeError(
+                f"GTFS feed {self.feed_id!r} is already loaded from {self.source_dir}; "
+                f"create another GtfsRepository for {source_dir}"
+            )
 
-        try:
-            logger.info(f"Loading GTFS from {gtfs_dir}...")
+        if not os.path.isdir(source_dir):
+            raise FileNotFoundError(f"GTFS directory not found: {source_dir}")
 
-            # GTFS service dates. calendar_dates exceptions override the
-            # regular weekly flags from calendar for the exact requested date.
-            calendar_path = os.path.join(gtfs_dir, "calendar.txt")
-            if os.path.exists(calendar_path):
-                with open(calendar_path, encoding="utf-8-sig") as f:
-                    for row in csv.DictReader(f):
-                        self.service_calendar[row["service_id"]] = {
-                            "weekdays": tuple(
-                                row[name] == "1"
-                                for name in (
-                                    "monday",
-                                    "tuesday",
-                                    "wednesday",
-                                    "thursday",
-                                    "friday",
-                                    "saturday",
-                                    "sunday",
-                                )
-                            ),
-                            "start_date": row["start_date"],
-                            "end_date": row["end_date"],
-                        }
+        paths = {
+            filename: os.path.join(source_dir, filename)
+            for filename in self.REQUIRED_FILES
+        }
+        missing = [filename for filename, path in paths.items() if not os.path.isfile(path)]
+        if missing:
+            raise FileNotFoundError(
+                f"GTFS feed {self.feed_id!r} is missing required files: {', '.join(missing)}"
+            )
 
-            calendar_dates_path = os.path.join(gtfs_dir, "calendar_dates.txt")
-            if os.path.exists(calendar_dates_path):
-                with open(calendar_dates_path, encoding="utf-8-sig") as f:
-                    for row in csv.DictReader(f):
-                        self.service_exceptions[row["date"]][row["service_id"]] = int(
-                            row["exception_type"]
-                        )
+        trips = {}
+        stop_times = defaultdict(dict)
+        stops = {}
+        routes = {}
+        route_name_to_id = {}
+        timetable_index = defaultdict(list)
+        service_calendar = {}
+        service_exceptions = defaultdict(dict)
 
-            # 1. stops.txt
-            stops_path = os.path.join(gtfs_dir, "stops.txt")
-            if os.path.exists(stops_path):
-                with open(stops_path, encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        # minimal data needed
-                        self.stops[row['stop_id']] = {
-                            "name": row['stop_name'],
-                            "lat": float(row['stop_lat']),
-                            "lon": float(row['stop_lon'])
-                        }
-                logger.info(f"Loaded {len(self.stops)} stops.")
-            else:
-                logger.warning("stops.txt not found.")
+        logger.info("Loading GTFS feed %s from %s", self.feed_id, source_dir)
 
-            # 2. routes.txt
-            routes_path = os.path.join(gtfs_dir, "routes.txt")
-            if os.path.exists(routes_path):
-                with open(routes_path, encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        r_id = row['route_id']
-                        self.routes[r_id] = row
-                        
-                        short_name = row.get('route_short_name')
-                        if short_name:
-                             norm_name = _normalize_route_name(short_name)
-                             self.route_name_to_id[norm_name] = r_id
-                logger.info(f"Loaded {len(self.routes)} routes.")
-            else:
-                logger.warning("routes.txt not found.")
-
-            # 3. trips.txt
-            trip_to_route = {}
-            trips_path = os.path.join(gtfs_dir, "trips.txt")
-            if os.path.exists(trips_path):
-                with open(trips_path, encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        t_id = row['trip_id']
-                        self.trips[t_id] = row
-                        trip_to_route[t_id] = row['route_id']
-                logger.info(f"Loaded {len(self.trips)} trips.")
-            else:
-                logger.warning("trips.txt not found.")
-
-            # 4. stop_times.txt
-            st_path = os.path.join(gtfs_dir, "stop_times.txt")
-            if os.path.exists(st_path):
-                logger.info("Building timetable index from stop_times.txt...")
-                with open(st_path, encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    count = 0
-                    for row in reader:
-                        t_id = row['trip_id']
-                        s_id = row['stop_id']
-                        seq = int(row['stop_sequence'])
-                        arrival_minute = _time_to_minute(row['arrival_time'])
-                        departure_minute = _time_to_minute(row['departure_time'])
-                        
-                        # Store the stop and its exact scheduled times together.
-                        self.stop_times[t_id][seq] = (
-                            s_id,
-                            arrival_minute,
-                            departure_minute,
-                        )
-                        
-                        # Index for search: "route|stop" -> scheduled departures.
-                        if t_id in trip_to_route:
-                            r_id = trip_to_route[t_id]
-                            key = f"{r_id}|{s_id}"
-                            self.timetable_index[key].append(
-                                (departure_minute, seq, t_id)
+        calendar_path = os.path.join(source_dir, "calendar.txt")
+        if os.path.exists(calendar_path):
+            with open(calendar_path, encoding="utf-8-sig") as file:
+                for row in csv.DictReader(file):
+                    service_calendar[row["service_id"]] = {
+                        "weekdays": tuple(
+                            row[name] == "1"
+                            for name in (
+                                "monday",
+                                "tuesday",
+                                "wednesday",
+                                "thursday",
+                                "friday",
+                                "saturday",
+                                "sunday",
                             )
-                        count += 1
-                
-                # Sort indices for bisect
-                for key in self.timetable_index:
-                    self.timetable_index[key].sort()
-                    
-                logger.info(f"Loaded {count} stop_times entries.")
-            else:
-                logger.warning("stop_times.txt not found.")
+                        ),
+                        "start_date": row["start_date"],
+                        "end_date": row["end_date"],
+                    }
 
-            self.is_loaded = True
-            logger.info("GTFS Data Loaded Successfully.")
+        calendar_dates_path = os.path.join(source_dir, "calendar_dates.txt")
+        if os.path.exists(calendar_dates_path):
+            with open(calendar_dates_path, encoding="utf-8-sig") as file:
+                for row in csv.DictReader(file):
+                    service_exceptions[row["date"]][row["service_id"]] = int(
+                        row["exception_type"]
+                    )
 
-        except Exception as e:
-            logger.error(f"Failed to load GTFS data: {e}")
-            # Reset on failure so we can try again
-            self.stops = {}
-            self.trips = {}
-            self.stop_times = defaultdict(dict)
-            self.routes = {}
-            self.route_name_to_id = {}
-            self.timetable_index = defaultdict(list)
-            self.service_calendar = {}
-            self.service_exceptions = defaultdict(dict)
-            self._active_service_cache = {}
-            self.is_loaded = False
-            raise
+        with open(paths["stops.txt"], encoding="utf-8") as file:
+            for row in csv.DictReader(file):
+                stops[row["stop_id"]] = {
+                    "name": row["stop_name"],
+                    "lat": float(row["stop_lat"]),
+                    "lon": float(row["stop_lon"]),
+                }
+
+        with open(paths["routes.txt"], encoding="utf-8") as file:
+            for row in csv.DictReader(file):
+                route_id = row["route_id"]
+                routes[route_id] = row
+                short_name = row.get("route_short_name")
+                if short_name:
+                    route_name_to_id[_normalize_route_name(short_name)] = route_id
+
+        trip_to_route = {}
+        with open(paths["trips.txt"], encoding="utf-8") as file:
+            for row in csv.DictReader(file):
+                trip_id = row["trip_id"]
+                route_id = row["route_id"]
+                if route_id not in routes:
+                    raise ValueError(
+                        f"GTFS trip {trip_id!r} references unknown route_id {route_id!r}"
+                    )
+                trips[trip_id] = row
+                trip_to_route[trip_id] = route_id
+
+        count = 0
+        with open(paths["stop_times.txt"], encoding="utf-8") as file:
+            for row in csv.DictReader(file):
+                trip_id = row["trip_id"]
+                if trip_id not in trip_to_route:
+                    raise ValueError(
+                        f"GTFS stop_time references unknown trip_id {trip_id!r}"
+                    )
+                stop_id = row["stop_id"]
+                if stop_id not in stops:
+                    raise ValueError(
+                        f"GTFS stop_time for trip {trip_id!r} references unknown stop_id {stop_id!r}"
+                    )
+                sequence = int(row["stop_sequence"])
+                arrival_minute = _time_to_minute(row["arrival_time"])
+                departure_minute = _time_to_minute(row["departure_time"])
+                stop_times[trip_id][sequence] = (
+                    stop_id,
+                    arrival_minute,
+                    departure_minute,
+                )
+                route_id = trip_to_route[trip_id]
+                timetable_index[f"{route_id}|{stop_id}"].append(
+                    (departure_minute, sequence, trip_id)
+                )
+                count += 1
+
+        for schedule in timetable_index.values():
+            schedule.sort()
+
+        self.trips = trips
+        self.stop_times = stop_times
+        self.stops = stops
+        self.routes = routes
+        self.route_name_to_id = route_name_to_id
+        self.timetable_index = timetable_index
+        self.service_calendar = service_calendar
+        self.service_exceptions = service_exceptions
+        self._active_service_cache = {}
+        self.source_dir = source_dir
+        self.is_loaded = True
+
+        logger.info(
+            "Loaded GTFS feed %s: stops=%d routes=%d trips=%d stop_times=%d",
+            self.feed_id,
+            len(self.stops),
+            len(self.routes),
+            len(self.trips),
+            count,
+        )
+        return self
 
     def get_active_service_ids(
         self,
@@ -243,59 +274,48 @@ class GtfsRepository:
 
     def get_bus_details(self, trip_id: str, stop_sequence: int):
         trip = self.trips.get(trip_id)
-        if not trip: return None
-        
-        # Check specific sequence
+        if not trip:
+            return None
         stop_time = self.stop_times.get(trip_id, {}).get(stop_sequence)
-        
-        # Fallback logic if sequence mismatch (optional, but keep simple for now)
         if not stop_time:
             return None
         stop_id = stop_time[0]
-            
         stop_info = self.stops.get(stop_id)
-        stop_name = stop_info['name'] if stop_info else "Unknown"
-        
-        route_id = trip.get('route_id') # Handle missing route_id gracefully
+        stop_name = stop_info["name"] if stop_info else "Unknown"
+        route_id = trip.get("route_id")
         route_info = self.routes.get(route_id, {})
-        
         return {
             "route_id": route_id,
-            "route_short_name": route_info.get('route_short_name', ''),
-            "headsign": trip.get('headsign', ''), # Use .get for safety
+            "route_short_name": route_info.get("route_short_name", ""),
+            "headsign": trip.get("headsign", ""),
             "next_stop_name": stop_name,
-            "next_stop_id": stop_id
+            "next_stop_id": stop_id,
         }
 
     def get_trip_stop_ids(self, trip_id: str) -> list[str]:
-        """Return the complete ordered stop list for one GTFS trip."""
         stops_by_sequence = self.stop_times.get(trip_id, {})
-        return [
-            stop_time[0]
-            for _, stop_time in sorted(stops_by_sequence.items())
-        ]
+        return [stop_time[0] for _, stop_time in sorted(stops_by_sequence.items())]
 
     def get_trip_stop_schedule(self, trip_id: str) -> list[dict]:
-        """Return an ordered, log-friendly timetable for one GTFS trip."""
         result = []
-        for sequence, stop_time in sorted(
-            self.stop_times.get(trip_id, {}).items()
-        ):
+        for sequence, stop_time in sorted(self.stop_times.get(trip_id, {}).items()):
             stop_id, arrival_minute, departure_minute = stop_time
             stop_info = self.stops.get(stop_id, {})
 
             def clock(minute: int) -> str:
                 return f"{minute // 60:02d}:{minute % 60:02d}"
 
-            result.append({
-                "sequence": sequence,
-                "stop_id": stop_id,
-                "stop_name": stop_info.get("name", "Unknown"),
-                "arrival_minute": arrival_minute,
-                "departure_minute": departure_minute,
-                "arrival_time": clock(arrival_minute),
-                "departure_time": clock(departure_minute),
-            })
+            result.append(
+                {
+                    "sequence": sequence,
+                    "stop_id": stop_id,
+                    "stop_name": stop_info.get("name", "Unknown"),
+                    "arrival_minute": arrival_minute,
+                    "departure_minute": departure_minute,
+                    "arrival_time": clock(arrival_minute),
+                    "departure_time": clock(departure_minute),
+                }
+            )
         return result
 
     def get_trip_stop_time_after(
@@ -304,10 +324,7 @@ class GtfsRepository:
         stop_id: str,
         after_sequence: int = -1,
     ) -> tuple[int, int, int] | None:
-        """Return (sequence, arrival_minute, departure_minute) after a stop."""
-        for sequence, stop_time in sorted(
-            self.stop_times.get(trip_id, {}).items()
-        ):
+        for sequence, stop_time in sorted(self.stop_times.get(trip_id, {}).items()):
             current_stop_id, arrival_minute, departure_minute = stop_time
             if sequence > after_sequence and current_stop_id == stop_id:
                 return sequence, arrival_minute, departure_minute
@@ -322,7 +339,6 @@ class GtfsRepository:
         active_service_ids: frozenset[str] | set[str] | None = None,
         required_stop_ids: list[str] | tuple[str, ...] | None = None,
     ) -> GtfsTripLeg | None:
-        """Find the next active trip that serves origin then destination."""
         schedule = self.timetable_index.get(f"{route_id}|{origin_stop_id}")
         if not schedule:
             return None
@@ -336,10 +352,7 @@ class GtfsRepository:
             if not trip:
                 continue
             service_id = trip.get("service_id", "")
-            if (
-                active_service_ids is not None
-                and service_id not in active_service_ids
-            ):
+            if active_service_ids is not None and service_id not in active_service_ids:
                 continue
 
             required_stops = list(required_stop_ids or ())
@@ -375,24 +388,60 @@ class GtfsRepository:
             )
         return None
 
-    # ★追加: 名前からIDを引くメソッド
-    def find_route_id_by_name(self, short_name: str) -> str:
-        # 完全一致検索
+    def find_route_id_by_name(self, short_name: str) -> str | None:
         return self.route_name_to_id.get(short_name)
 
-    # ★追加: 最適なTripIDを探すメソッド
-    def find_trip_id(self, route_id: str, stop_id: str, time_str: str) -> str:
+    def find_trip_id(self, route_id: str, stop_id: str, time_str: str) -> str | None:
         key = f"{route_id}|{stop_id}"
         schedule = self.timetable_index.get(key)
-        if not schedule: return None
-        
-        # Binary search for the first trip at or after time_str
+        if not schedule:
+            return None
         if len(time_str) == 5:
             time_str += ":00"
         minute = _time_to_minute(time_str)
-        idx = bisect.bisect_left(schedule, (minute, -1, ""))
-        if idx < len(schedule):
-            return schedule[idx][2] # trip_id
+        index = bisect.bisect_left(schedule, (minute, -1, ""))
+        if index < len(schedule):
+            return schedule[index][2]
         return None
 
-gtfs_repo = GtfsRepository()
+
+class GtfsFeedRegistry:
+    """Explicit registry of isolated GTFS repositories keyed by feed_id."""
+
+    def __init__(self):
+        self._feeds: dict[str, GtfsRepository] = {}
+
+    def register(self, repository: GtfsRepository) -> GtfsRepository:
+        existing = self._feeds.get(repository.feed_id)
+        if existing is not None and existing is not repository:
+            raise ValueError(f"GTFS feed_id already registered: {repository.feed_id}")
+        self._feeds[repository.feed_id] = repository
+        return repository
+
+    def load(self, feed_id: str, gtfs_dir: str) -> GtfsRepository:
+        feed_id = _validate_feed_id(feed_id)
+        existing = self._feeds.get(feed_id)
+        if existing is not None:
+            return existing.load_data(gtfs_dir)
+
+        repository = GtfsRepository(feed_id)
+        repository.load_data(gtfs_dir)
+        self._feeds[feed_id] = repository
+        return repository
+
+    def get(self, feed_id: str) -> GtfsRepository:
+        feed_id = _validate_feed_id(feed_id)
+        try:
+            return self._feeds[feed_id]
+        except KeyError as error:
+            raise KeyError(f"GTFS feed is not registered: {feed_id}") from error
+
+    def feed_ids(self) -> tuple[str, ...]:
+        return tuple(self._feeds.keys())
+
+
+# Compatibility handle for the currently deployed Tokyo runtime. It is now a
+# normal feed-scoped instance rather than a process-wide Singleton.
+gtfs_repo = GtfsRepository("toei_bus")
+gtfs_feeds = GtfsFeedRegistry()
+gtfs_feeds.register(gtfs_repo)
