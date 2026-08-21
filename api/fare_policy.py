@@ -235,6 +235,9 @@ _POLICY_REGISTRY: dict[str, dict[str, FarePolicy]] = {
             source_uri=NAGOYA_WELFARE_PASS_SOURCE,
         ),
     },
+    "sendai": {
+        "normal": NormalFarePolicy(city_key="sendai"),
+    },
 }
 
 
@@ -318,11 +321,12 @@ def _normal_fare_for_candidate(city_key: str, candidate: dict) -> int | None:
             total += 210
         return total
 
-    if city_key == "tokyo":
-        # Tokyo candidates can mix flat-fare buses with distance-based subway
-        # rides. Do not infer a normal fare from geometry or a comfort score.
-        # If a future adapter provides exact per-step fare_yen values, summing
-        # them here becomes safe without changing the policy layer.
+    if city_key in {"tokyo", "sendai"}:
+        # Tokyo can mix flat-fare buses with distance-based subway rides, while
+        # Sendai does not yet provide an exact base-fare adapter here. Do not
+        # infer money from geometry, route count, or a generalized cost score.
+        # If an adapter provides exact per-step fare_yen values, summing them is
+        # safe without changing the policy layer.
         ride_steps = []
         for step in steps:
             if not isinstance(step, dict):
