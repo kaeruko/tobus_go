@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import os
 
+from app.services.city_gtfs_bundle import materialize_city_gtfs_bundle
 from sendai_realtime import create_sendai_realtime_provider
 from sendai_transit import (
+    SENDAI_MANIFEST_FILENAME,
     SendaiRouteBackend,
     load_sendai_dataset,
     required_expected_service_date,
@@ -24,10 +26,9 @@ def _positive_int_env(name: str, default: int) -> int:
 
 
 async def setup_sendai_on_startup(app, mode: str) -> None:
-    # Keep startup deterministic. Static data must already be provisioned and
-    # validated; startup does not fetch another source or fall back to Tokyo.
-    del mode
-
+    # Keep startup deterministic. In Lambda mode the explicitly configured
+    # validated city bundle is materialized from S3 before the existing Sendai
+    # manifest/service-date validation runs. No alternate source is attempted.
     app.state.loading_status = "starting"
     app.state.city_key = "sendai"
     app.state.realtime_bus_supported = True
@@ -37,6 +38,15 @@ async def setup_sendai_on_startup(app, mode: str) -> None:
         raise RuntimeError("SENDAI_GTFS_DIR is required for Sendai runtime")
     expected_service_date = required_expected_service_date()
     walk_radius_m = _positive_int_env("SENDAI_WALK_RADIUS_M", 600)
+
+    if mode == "lambda":
+        gtfs_dir = str(
+            materialize_city_gtfs_bundle(
+                city="sendai",
+                target_dir=gtfs_dir,
+                manifest_filename=SENDAI_MANIFEST_FILENAME,
+            )
+        )
 
     dataset = load_sendai_dataset(
         gtfs_dir,
