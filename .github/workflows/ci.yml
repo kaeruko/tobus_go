@@ -17,7 +17,7 @@ jobs:
   flutter:
     name: Flutter analyze and tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,6 +39,15 @@ jobs:
 
       - name: Run Flutter tests
         run: flutter test
+
+      - name: Build Tokyo Android flavor
+        run: flutter build apk --debug --flavor tokyo --dart-define=APP_CITY=tokyo
+
+      - name: Build Nagoya Android flavor
+        run: flutter build apk --debug --flavor nagoya --dart-define=APP_CITY=nagoya
+
+      - name: Build Sendai Android flavor
+        run: flutter build apk --debug --flavor sendai --dart-define=APP_CITY=sendai
 
   python:
     name: Python API tests
