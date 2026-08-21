@@ -73,13 +73,24 @@ end
 
 def ensure_runner_city_settings(block, city:, display_name:, bundle_id:, exclude_plist:)
   result = block
-  unless result.include?('APP_DISPLAY_NAME = ')
-    anchor = "\t\t\t\tASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;\n"
-    abort 'Runner configuration is missing AppIcon anchor' unless result.include?(anchor)
-    settings = +"#{anchor}"
-    settings << "\t\t\t\tAPP_CITY = #{city};\n"
-    settings << "\t\t\t\tAPP_DISPLAY_NAME = \"#{display_name}\";\n"
-    result = result.sub(anchor, settings)
+  anchor = "\t\t\t\tASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;\n"
+  abort 'Runner configuration is missing AppIcon anchor' unless result.include?(anchor)
+
+  if result.include?('APP_CITY = ')
+    result = result.sub(/\t\t\t\tAPP_CITY = [^;]+;/,
+                        "\t\t\t\tAPP_CITY = #{city};")
+  else
+    result = result.sub(anchor, "#{anchor}\t\t\t\tAPP_CITY = #{city};\n")
+  end
+
+  if result.include?('APP_DISPLAY_NAME = ')
+    result = result.sub(/\t\t\t\tAPP_DISPLAY_NAME = .*?;/,
+                        "\t\t\t\tAPP_DISPLAY_NAME = \"#{display_name}\";")
+  else
+    city_line = "\t\t\t\tAPP_CITY = #{city};\n"
+    abort 'Runner configuration is missing generated APP_CITY anchor' unless result.include?(city_line)
+    result = result.sub(city_line,
+                        "#{city_line}\t\t\t\tAPP_DISPLAY_NAME = \"#{display_name}\";\n")
   end
 
   bundle_pattern = /\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = [^;]+;/
@@ -87,11 +98,15 @@ def ensure_runner_city_settings(block, city:, display_name:, bundle_id:, exclude
   result = result.sub(bundle_pattern,
                       "\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = #{bundle_id};")
 
-  if exclude_plist && !result.include?('EXCLUDED_SOURCE_FILE_NAMES = ')
-    anchor = "\t\t\t\tENABLE_BITCODE = NO;\n"
-    abort 'Runner configuration is missing ENABLE_BITCODE anchor' unless result.include?(anchor)
-    result = result.sub(anchor,
-                        "#{anchor}\t\t\t\tEXCLUDED_SOURCE_FILE_NAMES = \"GoogleService-Info.plist\";\n")
+  exclusion_line = "\t\t\t\tEXCLUDED_SOURCE_FILE_NAMES = \"GoogleService-Info.plist\";\n"
+  if exclude_plist
+    unless result.include?(exclusion_line)
+      bitcode_anchor = "\t\t\t\tENABLE_BITCODE = NO;\n"
+      abort 'Runner configuration is missing ENABLE_BITCODE anchor' unless result.include?(bitcode_anchor)
+      result = result.sub(bitcode_anchor, "#{bitcode_anchor}#{exclusion_line}")
+    end
+  else
+    result = result.sub(exclusion_line, '')
   end
   result
 end
