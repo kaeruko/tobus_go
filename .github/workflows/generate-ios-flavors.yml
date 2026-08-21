@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feature/issue-136-city-flavors
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
