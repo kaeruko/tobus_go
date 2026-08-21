@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -113,10 +113,7 @@ class GtfsRouteBackend:
         best: tuple[tuple[int, int, int], TransitItinerary, TransitStop, float, TransitStop, float] | None = None
         for origin, origin_distance in origins:
             origin_walk = math.ceil(origin_distance / self.walk_speed_m_per_min)
-            transit_departure = departure.replace(
-                hour=((departure.hour * 60 + departure.minute + origin_walk) // 60) % 24,
-                minute=(departure.minute + origin_walk) % 60,
-            )
+            transit_departure = departure + timedelta(minutes=origin_walk)
             for destination, destination_distance in destinations:
                 if preference == "time":
                     itinerary = self.engine.search_fastest(

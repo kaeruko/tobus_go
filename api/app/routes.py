@@ -273,14 +273,37 @@ def register_routes(app):
         }
 
         tm = app.state.TM
-        if tm:
-            from app.runtime import refresh_realtime_bus_positions
-
-            await refresh_realtime_bus_positions(
-                tm,
-                max_age_seconds=0 if force_refresh else 45,
+        provider = getattr(app.state, "realtime_provider", None)
+        if provider is None:
+            _busloc_log({**base, "ok": False, "reason": "REALTIME_PROVIDER_UNAVAILABLE"})
+            raise HTTPException(
+                503,
+                detail={
+                    "code": "bus_realtime_unavailable",
+                    "message": "Realtime bus positions are not available",
+                    "diagnostic": "Tokyo RealtimeProvider is not initialized",
+                },
             )
-        if not tm or not tm.latest_bus_positions:
+        try:
+            candidates_all = list(
+                await provider.vehicle_positions(force_refresh=force_refresh)
+            )
+        except RuntimeError as error:
+            _busloc_log({
+                **base,
+                "ok": False,
+                "reason": "REALTIME_UNAVAILABLE",
+                "diagnostic": str(error),
+            })
+            raise HTTPException(
+                503,
+                detail={
+                    "code": "bus_realtime_unavailable",
+                    "message": "Realtime bus positions are not available",
+                    "diagnostic": str(error),
+                },
+            ) from error
+        if not candidates_all:
             _busloc_log({**base, "ok": False, "reason": "REALTIME_UNAVAILABLE"})
             raise HTTPException(
                 503,
@@ -290,7 +313,6 @@ def register_routes(app):
                 },
             )
 
-        candidates_all = tm.latest_bus_positions
         base["candidates_total"] = len(candidates_all)
 
         candidates_route = [
