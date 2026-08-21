@@ -29,16 +29,19 @@ CITIES = {
   'tokyo' => {
     bundle_id: 'jp.cloxs.toeigo',
     display_name: '都営でGO',
+    app_icon_name: 'AppIconTokyo',
     exclude_tokyo_firebase_plist: false
   },
   'nagoya' => {
     bundle_id: 'jp.cloxs.nagoyago',
     display_name: '名古屋でGO',
+    app_icon_name: 'AppIconNagoya',
     exclude_tokyo_firebase_plist: true
   },
   'sendai' => {
     bundle_id: 'jp.cloxs.sendaigo',
     display_name: '仙台でGO',
+    app_icon_name: 'AppIconSendai',
     exclude_tokyo_firebase_plist: true
   }
 }.freeze
@@ -71,16 +74,22 @@ def rename_config_block(block, old_id:, new_id:, old_name:, new_name:)
   result
 end
 
-def ensure_runner_city_settings(block, city:, display_name:, bundle_id:, exclude_plist:)
+def ensure_runner_city_settings(block, city:, display_name:, bundle_id:, app_icon_name:, exclude_plist:)
   result = block
-  anchor = "\t\t\t\tASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;\n"
-  abort 'Runner configuration is missing AppIcon anchor' unless result.include?(anchor)
+
+  app_icon_pattern = /\t\t\t\tASSETCATALOG_COMPILER_APPICON_NAME = [^;]+;/
+  abort 'Runner configuration is missing app icon setting' unless result.match?(app_icon_pattern)
+  result = result.sub(
+    app_icon_pattern,
+    "\t\t\t\tASSETCATALOG_COMPILER_APPICON_NAME = #{app_icon_name};"
+  )
+  app_icon_line = "\t\t\t\tASSETCATALOG_COMPILER_APPICON_NAME = #{app_icon_name};\n"
 
   if result.include?('APP_CITY = ')
     result = result.sub(/\t\t\t\tAPP_CITY = [^;]+;/,
                         "\t\t\t\tAPP_CITY = #{city};")
   else
-    result = result.sub(anchor, "#{anchor}\t\t\t\tAPP_CITY = #{city};\n")
+    result = result.sub(app_icon_line, "#{app_icon_line}\t\t\t\tAPP_CITY = #{city};\n")
   end
 
   if result.include?('APP_DISPLAY_NAME = ')
@@ -136,11 +145,13 @@ text = original.dup
 # Info.plist to $(APP_DISPLAY_NAME) does not change the existing app.
 BASE_RUNNER_CONFIGS.each do |kind, id|
   block = extract_config_block(text, id)
+  tokyo = CITIES.fetch('tokyo')
   updated = ensure_runner_city_settings(
     block,
     city: 'tokyo',
-    display_name: CITIES.fetch('tokyo').fetch(:display_name),
-    bundle_id: CITIES.fetch('tokyo').fetch(:bundle_id),
+    display_name: tokyo.fetch(:display_name),
+    bundle_id: tokyo.fetch(:bundle_id),
+    app_icon_name: tokyo.fetch(:app_icon_name),
     exclude_plist: false
   )
   text = text.sub(block, updated)
@@ -179,6 +190,7 @@ if present_names.empty?
         city: city,
         display_name: config.fetch(:display_name),
         bundle_id: config.fetch(:bundle_id),
+        app_icon_name: config.fetch(:app_icon_name),
         exclude_plist: config.fetch(:exclude_tokyo_firebase_plist)
       )
       generated_blocks << runner_block
@@ -188,6 +200,24 @@ if present_names.empty?
   marker = "/* End XCBuildConfiguration section */"
   abort 'XCBuildConfiguration end marker not found' unless text.include?(marker)
   text = text.sub(marker, "#{generated_blocks.join("\n")}\n#{marker}")
+end
+
+# Existing generated configurations are reconciled too. This makes icon,
+# bundle-ID and Firebase isolation changes deterministic instead of requiring
+# manual pbxproj edits.
+CITIES.each do |city, config|
+  BUILD_KINDS.each do |kind|
+    block = extract_config_block(text, RUNNER_IDS.fetch([kind, city]))
+    updated = ensure_runner_city_settings(
+      block,
+      city: city,
+      display_name: config.fetch(:display_name),
+      bundle_id: config.fetch(:bundle_id),
+      app_icon_name: config.fetch(:app_icon_name),
+      exclude_plist: config.fetch(:exclude_tokyo_firebase_plist)
+    )
+    text = text.sub(block, updated)
+  end
 end
 
 project_entries = []
@@ -226,6 +256,9 @@ CITIES.each do |city, config|
     abort "#{kind}-#{city} has wrong APP_CITY" unless block.include?("APP_CITY = #{city};")
     abort "#{kind}-#{city} has wrong display name" unless block.include?(
       "APP_DISPLAY_NAME = \"#{config.fetch(:display_name)}\";"
+    )
+    abort "#{kind}-#{city} has wrong app icon set" unless block.include?(
+      "ASSETCATALOG_COMPILER_APPICON_NAME = #{config.fetch(:app_icon_name)};"
     )
     if config.fetch(:exclude_tokyo_firebase_plist)
       abort "#{kind}-#{city} does not exclude Tokyo Firebase plist" unless block.include?(
