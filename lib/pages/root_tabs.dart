@@ -8,6 +8,7 @@ import 'explore_page.dart';
 import 'history_page.dart';
 import 'home_page.dart';
 import 'my_route_page.dart';
+import 'route_only_home_page.dart';
 import 'settings_page.dart';
 
 class RootTabs extends ConsumerStatefulWidget {
@@ -47,6 +48,9 @@ class _RootTabsState extends ConsumerState<RootTabs> {
   List<_RootTabEntry> _buildEntries() {
     final cityProfile = ref.watch(cityProfileProvider);
     final features = cityProfile.capabilities.features;
+    final searchPage = features.routeSearchOnly
+        ? RouteOnlyHomePage(title: cityProfile.appName)
+        : HomePage(title: cityProfile.appName);
 
     return [
       _RootTabEntry(
@@ -54,7 +58,7 @@ class _RootTabsState extends ConsumerState<RootTabs> {
           icon: Icon(CupertinoIcons.search),
           label: '検索',
         ),
-        page: HomePage(title: cityProfile.appName),
+        page: searchPage,
       ),
       if (features.outingDiscovery)
         const _RootTabEntry(
