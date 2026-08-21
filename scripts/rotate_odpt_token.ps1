@@ -14,6 +14,8 @@
     instead of being overwritten.
   - Updates the CloudFormation-managed toeigo-gtfs-refresh stack parameter so
     the refresh Lambda is not left in CloudFormation drift.
+  - Preserves every other existing CloudFormation parameter with
+    UsePreviousValue=true.
   - Verifies both Lambda functions contain the requested token after updates.
   - Never prints the token.
 #>
@@ -177,19 +179,46 @@ if ($legacyAliasExisted) {
 }
 
 # Update the CloudFormation parameter instead of directly editing the managed
-# refresh Lambda. This prevents the next stack deployment from restoring an old
-# token from the stack parameter.
+# refresh Lambda. Read the current parameter keys first and explicitly preserve
+# every parameter except OdptApiToken. This avoids CloudFormation treating
+# required parameters such as CodeS3Bucket/CodeS3Key as missing on update.
+$stackParameterKeysJson = aws cloudformation describe-stacks `
+    --region $Region `
+    --stack-name $RefreshStack `
+    --query 'Stacks[0].Parameters[].ParameterKey' `
+    --output json
+Assert-LastExitCode 'aws cloudformation describe-stacks'
+
+$stackParameterKeys = @($stackParameterKeysJson | ConvertFrom-Json)
+if ($stackParameterKeys.Count -eq 0) {
+    throw "CloudFormation stack '$RefreshStack' has no parameters."
+}
+if ($stackParameterKeys -notcontains 'OdptApiToken') {
+    throw "CloudFormation stack '$RefreshStack' has no OdptApiToken parameter."
+}
+
+$stackParameters = @()
+foreach ($parameterKey in $stackParameterKeys) {
+    if ([string]$parameterKey -eq 'OdptApiToken') {
+        $stackParameters += @{
+            ParameterKey = 'OdptApiToken'
+            ParameterValue = $token
+        }
+    }
+    else {
+        $stackParameters += @{
+            ParameterKey = [string]$parameterKey
+            UsePreviousValue = $true
+        }
+    }
+}
+
 $stackPayload = @{
     StackName = $RefreshStack
     UsePreviousTemplate = $true
     Capabilities = @('CAPABILITY_IAM')
-    Parameters = @(
-        @{
-            ParameterKey = 'OdptApiToken'
-            ParameterValue = $token
-        }
-    )
-} | ConvertTo-Json -Depth 6 -Compress
+    Parameters = $stackParameters
+} | ConvertTo-Json -Depth 8 -Compress
 $tempStackFile = Join-Path ([System.IO.Path]::GetTempPath()) (
     'toeigo-odpt-stack-' + [guid]::NewGuid().ToString('N') + '.json'
 )
@@ -209,14 +238,19 @@ try {
             --output json 2>&1
     )
     $stackUpdateExitCode = $LASTEXITCODE
+    $stackUpdateText = $stackUpdateOutput -join "`n"
     if ($stackUpdateExitCode -eq 0) {
         $stackUpdateStarted = $true
     }
-    elseif (($stackUpdateOutput -join "`n") -match 'No updates are to be performed') {
+    elseif ($stackUpdateText -match 'No updates are to be performed') {
         Write-Host 'CloudFormation refresh stack already has the requested configuration.'
     }
     else {
-        throw "aws cloudformation update-stack failed with exit code $stackUpdateExitCode."
+        $safeStackUpdateText = $stackUpdateText -replace [regex]::Escape($token), '<redacted>'
+        throw (
+            "aws cloudformation update-stack failed with exit code " +
+            "$stackUpdateExitCode.`n$safeStackUpdateText"
+        )
     }
 
     if ($stackUpdateStarted) {
