@@ -8,7 +8,9 @@ from google.transit import gtfs_realtime_pb2
 
 
 class RealtimeProvider(Protocol):
-    async def vehicle_positions(self) -> tuple[dict[str, Any], ...]: ...
+    async def vehicle_positions(
+        self, *, force_refresh: bool = False
+    ) -> tuple[dict[str, Any], ...]: ...
 
     async def trip_updates(self) -> tuple[dict[str, Any], ...]: ...
 
@@ -47,7 +49,9 @@ def _entity_ref(value) -> dict[str, Any]:
         "agency_id": value.agency_id or None,
         "route_id": value.route_id or None,
         "route_type": value.route_type if value.HasField("route_type") else None,
-        "trip_id": value.trip.trip_id or None if value.HasField("trip") else None,
+        "trip_id": (
+            (value.trip.trip_id or None) if value.HasField("trip") else None
+        ),
         "stop_id": value.stop_id or None,
     }
 
@@ -97,7 +101,13 @@ class GtfsRealtimeHttpProvider:
             if owns_client:
                 await client.aclose()
 
-    async def vehicle_positions(self) -> tuple[dict[str, Any], ...]:
+    async def vehicle_positions(
+        self, *, force_refresh: bool = False
+    ) -> tuple[dict[str, Any], ...]:
+        # This provider performs a fresh HTTP request on every call, so the flag
+        # does not change its behavior. It exists to preserve the shared
+        # interface used by Tokyo's cached provider.
+        del force_refresh
         message = await self._fetch(self.endpoints.vehicle_positions)
         rows: list[dict[str, Any]] = []
         for entity in message.entity:
@@ -165,16 +175,24 @@ class GtfsRealtimeHttpProvider:
                         ),
                         "stop_id": stop.stop_id or None,
                         "arrival_delay": (
-                            stop.arrival.delay if stop.HasField("arrival") and stop.arrival.HasField("delay") else None
+                            stop.arrival.delay
+                            if stop.HasField("arrival") and stop.arrival.HasField("delay")
+                            else None
                         ),
                         "arrival_time": (
-                            stop.arrival.time if stop.HasField("arrival") and stop.arrival.HasField("time") else None
+                            stop.arrival.time
+                            if stop.HasField("arrival") and stop.arrival.HasField("time")
+                            else None
                         ),
                         "departure_delay": (
-                            stop.departure.delay if stop.HasField("departure") and stop.departure.HasField("delay") else None
+                            stop.departure.delay
+                            if stop.HasField("departure") and stop.departure.HasField("delay")
+                            else None
                         ),
                         "departure_time": (
-                            stop.departure.time if stop.HasField("departure") and stop.departure.HasField("time") else None
+                            stop.departure.time
+                            if stop.HasField("departure") and stop.departure.HasField("time")
+                            else None
                         ),
                     }
                 )
