@@ -17,6 +17,10 @@ void main() {
       expect(profile.capabilities.realtime.vehiclePosition, isTrue);
       expect(profile.capabilities.realtime.tripUpdates, isFalse);
       expect(profile.capabilities.realtime.alerts, isFalse);
+      expect(
+        profile.farePolicies.map((option) => option.id),
+        ['normal', 'tokyo_toei_transport_pass'],
+      );
     });
 
     test('nagoya is route-search-only and has no realtime capability', () {
@@ -31,6 +35,25 @@ void main() {
       expect(profile.capabilities.realtime.vehiclePosition, isFalse);
       expect(profile.capabilities.realtime.tripUpdates, isFalse);
       expect(profile.capabilities.realtime.alerts, isFalse);
+      expect(
+        profile.farePolicies.map((option) => option.id),
+        ['normal', 'nagoya_welfare_special_pass'],
+      );
+    });
+
+    test('fare policy IDs are city scoped and exact', () {
+      expect(
+        nagoyaCityProfile.farePolicyById('nagoya_welfare_special_pass').id,
+        'nagoya_welfare_special_pass',
+      );
+      expect(
+        () => nagoyaCityProfile.farePolicyById('tokyo_toei_transport_pass'),
+        throwsStateError,
+      );
+      expect(
+        () => nagoyaCityProfile.farePolicyById(' normal'),
+        throwsStateError,
+      );
     });
 
     test('sendai exposes all planned GTFS-Realtime capabilities', () {
@@ -43,6 +66,7 @@ void main() {
       expect(profile.capabilities.realtime.vehiclePosition, isTrue);
       expect(profile.capabilities.realtime.tripUpdates, isTrue);
       expect(profile.capabilities.realtime.alerts, isTrue);
+      expect(profile.farePolicies.map((option) => option.id), ['normal']);
     });
 
     test('APP_CITY values are exact and unsupported values fail fast', () {
