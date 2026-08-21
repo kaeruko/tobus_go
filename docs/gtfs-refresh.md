@@ -70,6 +70,33 @@ API用の `app_data.pkl` にはODPT時刻表の正確なサービスID索引を�
 .\api\.venv\Scripts\python.exe api\prebuild.py
 ```
 
+## ODPT APIトークンのローテーション
+
+ODPT APIトークンを再発行した場合は、ローカルだけでなくAWS上のTokyo API Lambdaと週次GTFS更新Lambdaも更新します。Lambdaの環境変数は更新APIで全体置換されるため、手作業で `ODPT_API_TOKEN` だけを指定しないでください。
+
+リポジトリの `scripts/rotate_odpt_token.ps1` は次をfail-fastで行います。
+
+- 現在の `ODPT_API_TOKEN` が認証付きODPT APIで有効なことを確認
+- `toeigo-api` の既存環境変数をすべて保持したまま `ODPT_API_TOKEN` だけ更新
+- CloudFormation stack `toeigo-gtfs-refresh` の `OdptApiToken` parameterを更新
+- stack管理のrefresh Lambdaと`toeigo-api`の両方で新トークンが設定されたことを値を表示せず検証
+
+実行前に現在のPowerShellへ新しいトークンを設定し、リポジトリルートから実行します。
+
+```powershell
+if (-not $env:ODPT_API_TOKEN) {
+    throw "ODPT_API_TOKEN is not set"
+}
+
+.\scripts\rotate_odpt_token.ps1
+
+if ($LASTEXITCODE -ne 0) {
+    throw "ODPT token rotation failed"
+}
+```
+
+スクリプトはトークンを標準出力へ表示しません。またCloudFormation管理下のrefresh Lambdaを直接編集せず、stack parameterを更新するため、次回stack deployで古いトークンへ戻るドリフトを作りません。
+
 ## AWS上の構成
 
 - 保存先バケット: 既存の `toeigo`

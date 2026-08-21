@@ -78,16 +78,12 @@ class NagoyaAppFactoryTest(unittest.TestCase):
 
             self.assertEqual(app.state.loading_status, "ready")
             self.assertEqual(app.state.city_key, "nagoya")
+            self.assertFalse(hasattr(app.state, "realtime_provider"))
             paths = {route.path for route in app.routes}
             self.assertIn("/route", paths)
             self.assertIn("/bus/location", paths)
             self.assertNotIn("/explore/reachable", paths)
             self.assertNotIn("/train/resolve-route-identities", paths)
-
-    def test_sendai_backend_is_not_silently_served_by_tokyo(self):
-        with patch.dict(os.environ, {"APP_CITY": "sendai"}, clear=False):
-            with self.assertRaisesRegex(RuntimeError, "not implemented"):
-                create_app("local")
 
     def test_backend_city_key_is_exact(self):
         with patch.dict(os.environ, {"APP_CITY": " nagoya"}, clear=False):

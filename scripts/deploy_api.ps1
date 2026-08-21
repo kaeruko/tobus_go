@@ -13,6 +13,14 @@
     -EcrRepository nagoyago-api `
     -LambdaFunction nagoyago-api `
     -ImageTag manual-test
+
+.EXAMPLE
+  # Sendai must also name its own infrastructure explicitly
+  .\scripts\deploy_api.ps1 `
+    -City sendai `
+    -EcrRepository sendaigo-api `
+    -LambdaFunction sendaigo-api `
+    -ImageTag manual-test
 #>
 
 [CmdletBinding()]
@@ -48,10 +56,6 @@ function Assert-LastExitCode {
     if ($LASTEXITCODE -ne 0) {
         throw "$CommandName failed with exit code $LASTEXITCODE."
     }
-}
-
-if ($City -eq 'sendai') {
-    throw 'Sendai backend is not implemented yet. Refusing to deploy another city backend as Sendai.'
 }
 
 if ([string]::IsNullOrWhiteSpace($EcrRepository)) {
@@ -102,7 +106,7 @@ Assert-LastExitCode 'aws ecr describe-repositories'
 $functionConfigJson = aws lambda get-function-configuration `
     --region $Region `
     --function-name $LambdaFunction `
-    --query '{PackageType:PackageType,Architecture:Architectures[0],AppCity:Environment.Variables.APP_CITY,NagoyaGtfsDir:Environment.Variables.NAGOYA_GTFS_DIR,NagoyaExpectedRevision:Environment.Variables.NAGOYA_GTFS_EXPECTED_REVISION}' `
+    --query '{PackageType:PackageType,Architecture:Architectures[0],AppCity:Environment.Variables.APP_CITY,NagoyaGtfsDir:Environment.Variables.NAGOYA_GTFS_DIR,NagoyaExpectedRevision:Environment.Variables.NAGOYA_GTFS_EXPECTED_REVISION,SendaiGtfsDir:Environment.Variables.SENDAI_GTFS_DIR,SendaiExpectedServiceDate:Environment.Variables.SENDAI_GTFS_EXPECTED_SERVICE_DATE}' `
     --output json
 Assert-LastExitCode 'aws lambda get-function-configuration'
 
@@ -128,6 +132,14 @@ if ($City -eq 'nagoya') {
     }
     if ([string]::IsNullOrWhiteSpace([string]$functionConfig.NagoyaExpectedRevision)) {
         throw "Nagoya Lambda '$LambdaFunction' is missing NAGOYA_GTFS_EXPECTED_REVISION."
+    }
+}
+elseif ($City -eq 'sendai') {
+    if ([string]::IsNullOrWhiteSpace([string]$functionConfig.SendaiGtfsDir)) {
+        throw "Sendai Lambda '$LambdaFunction' is missing SENDAI_GTFS_DIR."
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$functionConfig.SendaiExpectedServiceDate)) {
+        throw "Sendai Lambda '$LambdaFunction' is missing SENDAI_GTFS_EXPECTED_SERVICE_DATE."
     }
 }
 

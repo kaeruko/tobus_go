@@ -60,9 +60,12 @@ def create_app(mode: str) -> FastAPI:
         route_registrars = (register_nagoya_routes,)
         title = "Nagoya Route API"
     else:
-        # The Flutter profile exists so common UI capabilities can be designed
-        # ahead of the backend. Do not silently serve Tokyo for Sendai.
-        raise RuntimeError("Sendai backend is not implemented yet")
+        from .sendai_routes import register_sendai_routes
+        from .sendai_runtime import setup_sendai_on_startup
+
+        startup = setup_sendai_on_startup
+        route_registrars = (register_sendai_routes,)
+        title = "Sendai Route API"
 
     from .fare_routes import register_fare_routes
 
@@ -80,6 +83,14 @@ def create_app(mode: str) -> FastAPI:
     @app.on_event("startup")
     async def _startup() -> None:
         await startup(app, mode)
+        if city == "tokyo":
+            from .runtime import refresh_realtime_bus_positions
+            from .services.tokyo_realtime_provider import TokyoRealtimeProvider
+
+            app.state.realtime_provider = TokyoRealtimeProvider(
+                app.state.TM,
+                refresh_realtime_bus_positions,
+            )
 
     for register in route_registrars:
         register(app)
