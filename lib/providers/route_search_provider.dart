@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../models/fare_models.dart';
 import '../models/route_models.dart';
 import '../services/route_search_service.dart';
 
@@ -15,6 +16,7 @@ class RouteSearchState {
   final bool hasSearched;
   final String? jobId;
   final List<Candidate> candidates;
+  final Map<String, FareQuote> fareByCandidateId;
   final RouteMeta? meta;
   final String? errorMessage;
 
@@ -29,6 +31,7 @@ class RouteSearchState {
     this.hasSearched = false,
     this.jobId,
     this.candidates = const [],
+    this.fareByCandidateId = const {},
     this.meta,
     this.errorMessage,
   });
@@ -44,8 +47,11 @@ class RouteSearchState {
     bool? hasSearched,
     String? jobId,
     List<Candidate>? candidates,
+    Map<String, FareQuote>? fareByCandidateId,
     RouteMeta? meta,
     String? errorMessage,
+    bool clearMeta = false,
+    bool clearErrorMessage = false,
   }) {
     return RouteSearchState(
       from: from ?? this.from,
@@ -58,8 +64,11 @@ class RouteSearchState {
       hasSearched: hasSearched ?? this.hasSearched,
       jobId: jobId ?? this.jobId,
       candidates: candidates ?? this.candidates,
-      meta: meta ?? this.meta,
-      errorMessage: errorMessage ?? this.errorMessage,
+      fareByCandidateId: fareByCandidateId ?? this.fareByCandidateId,
+      meta: clearMeta ? null : (meta ?? this.meta),
+      errorMessage: clearErrorMessage
+          ? null
+          : (errorMessage ?? this.errorMessage),
     );
   }
 }
@@ -95,16 +104,24 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     _generation++;
     final currentGen = _generation;
 
-    if (state.from.isEmpty || state.to.isEmpty) {
+    if (state.from.trim().isEmpty || state.to.trim().isEmpty) {
+      state = state.copyWith(
+        hasSearched: true,
+        candidates: const [],
+        fareByCandidateId: const {},
+        clearMeta: true,
+        errorMessage: '出発地と到着地の両方を指定してください',
+      );
       return;
     }
 
     state = state.copyWith(
       isLoading: true,
       hasSearched: true,
-      errorMessage: null,
-      candidates: [],
-      meta: null,
+      candidates: const [],
+      fareByCandidateId: const {},
+      clearMeta: true,
+      clearErrorMessage: true,
     );
 
     try {
@@ -129,10 +146,18 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
         isLoading: false,
         meta: result.meta,
         candidates: result.candidates,
+        fareByCandidateId: result.fareByCandidateId,
+        clearErrorMessage: true,
       );
     } catch (e, st) {
       if (_generation != currentGen) return;
-      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        candidates: const [],
+        fareByCandidateId: const {},
+        clearMeta: true,
+        errorMessage: e.toString(),
+      );
       print('[RouteSearch] Error executing search: $e $st');
     }
   }
@@ -146,6 +171,9 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     final lon = double.tryParse(parts[1].trim());
     if (lat == null || lon == null) {
       throw FormatException('$labelの座標をパースできません: $value');
+    }
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+      throw RangeError('$labelの座標が範囲外です: $value');
     }
     return LatLng(lat, lon);
   }

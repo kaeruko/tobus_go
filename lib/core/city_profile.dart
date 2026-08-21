@@ -42,18 +42,46 @@ class CityCapabilities {
   });
 }
 
+class FarePolicyOption {
+  final String id;
+  final String displayName;
+  final String settlementType;
+  final String? sourceUri;
+
+  const FarePolicyOption({
+    required this.id,
+    required this.displayName,
+    required this.settlementType,
+    this.sourceUri,
+  });
+}
+
 class CityProfile {
   final AppCity city;
   final String key;
   final String appName;
   final CityCapabilities capabilities;
+  final List<FarePolicyOption> farePolicies;
+  final String defaultFarePolicyId;
 
   const CityProfile({
     required this.city,
     required this.key,
     required this.appName,
     required this.capabilities,
+    required this.farePolicies,
+    this.defaultFarePolicyId = 'normal',
   });
+
+  FarePolicyOption farePolicyById(String id) {
+    for (final option in farePolicies) {
+      if (option.id == id) return option;
+    }
+    throw StateError(
+      'Unsupported fare policy for $key: "$id". '
+      'Expected one of: ${farePolicies.map((e) => e.id).join(', ')}',
+    );
+  }
 }
 
 const tokyoCityProfile = CityProfile(
@@ -74,6 +102,20 @@ const tokyoCityProfile = CityProfile(
       alerts: false,
     ),
   ),
+  farePolicies: [
+    FarePolicyOption(
+      id: 'normal',
+      displayName: '通常運賃',
+      settlementType: 'normal',
+    ),
+    FarePolicyOption(
+      id: 'tokyo_toei_transport_pass',
+      displayName: '精神障害者都営交通乗車証',
+      settlementType: 'free_pass',
+      sourceUri:
+          'https://www.fukushi.metro.tokyo.lg.jp/shougai/nichijo/jousyasyo',
+    ),
+  ],
 );
 
 const nagoyaCityProfile = CityProfile(
@@ -94,6 +136,20 @@ const nagoyaCityProfile = CityProfile(
       alerts: false,
     ),
   ),
+  farePolicies: [
+    FarePolicyOption(
+      id: 'normal',
+      displayName: '通常運賃',
+      settlementType: 'normal',
+    ),
+    FarePolicyOption(
+      id: 'nagoya_welfare_special_pass',
+      displayName: '福祉特別乗車券（無料乗車区間）',
+      settlementType: 'free_pass',
+      sourceUri:
+          'https://www.city.nagoya.jp/kenkofukushi/shougaisha/1016573/1016578.html',
+    ),
+  ],
 );
 
 const sendaiCityProfile = CityProfile(
@@ -114,6 +170,13 @@ const sendaiCityProfile = CityProfile(
       alerts: true,
     ),
   ),
+  farePolicies: [
+    FarePolicyOption(
+      id: 'normal',
+      displayName: '通常運賃',
+      settlementType: 'normal',
+    ),
+  ],
 );
 
 CityProfile cityProfileForKey(String key) {

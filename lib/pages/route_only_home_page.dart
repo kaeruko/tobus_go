@@ -212,6 +212,7 @@ class RouteOnlyHomePage extends ConsumerWidget {
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final candidate = state.candidates[index];
+                    final fare = state.fareByCandidateId[candidate.id];
                     return Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -223,6 +224,7 @@ class RouteOnlyHomePage extends ConsumerWidget {
                             CupertinoPageRoute(
                               builder: (_) => RouteOnlyDetailPage(
                                 candidate: candidate,
+                                fare: fare,
                               ),
                             ),
                           );
@@ -231,6 +233,7 @@ class RouteOnlyHomePage extends ConsumerWidget {
                           candidate: candidate,
                           rank: index + 1,
                           meta: state.meta,
+                          fare: fare,
                         ),
                       ),
                     );

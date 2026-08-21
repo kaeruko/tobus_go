@@ -40,6 +40,8 @@ def create_app(mode: str) -> FastAPI:
         # ahead of the backend. Do not silently serve Tokyo for Sendai.
         raise RuntimeError("Sendai backend is not implemented yet")
 
+    from .fare_routes import register_fare_routes
+
     app = FastAPI(title=title)
     app.state.city_key = city
 
@@ -56,4 +58,5 @@ def create_app(mode: str) -> FastAPI:
 
     for register in route_registrars:
         register(app)
+    register_fare_routes(app)
     return app

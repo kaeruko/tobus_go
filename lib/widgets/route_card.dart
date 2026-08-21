@@ -1,14 +1,25 @@
 import 'package:flutter/cupertino.dart';
-import '../models/route_models.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class RouteCard extends StatelessWidget {
+import '../models/fare_models.dart';
+import '../models/route_models.dart';
+import '../providers/route_search_provider.dart';
+
+class RouteCard extends ConsumerWidget {
   final Candidate candidate;
   final int rank;
   final RouteMeta? meta;
-  const RouteCard({super.key, required this.candidate, required this.rank, this.meta});
+  final FareQuote? fare;
+
+  const RouteCard({
+    super.key,
+    required this.candidate,
+    required this.rank,
+    this.meta,
+    this.fare,
+  });
 
   String get _origin {
-    // 最初のstepのfromを取得
     if (candidate.originName != null && candidate.originName!.isNotEmpty) {
       return candidate.originName!;
     }
@@ -26,7 +37,6 @@ class RouteCard extends StatelessWidget {
       final suffix = walk != null ? '（目的地まで徒歩約${walk}分）' : '';
       return stopName + suffix;
     }
-    // 最後のstepのtoを取得
     if (candidate.destinationName != null && candidate.destinationName!.isNotEmpty) {
       return candidate.destinationName!;
     }
@@ -37,8 +47,29 @@ class RouteCard extends StatelessWidget {
     return '目的地';
   }
 
+  String? _fareChip(FareQuote? quote) {
+    if (quote == null) return null;
+    if (!quote.isAvailable) return '運賃計算対象外';
+    final payNow = quote.payNowYen;
+    if (payNow == null) return '支払額不明';
+    if (quote.settlementType == 'reimbursement') {
+      return 'いったん $payNow円';
+    }
+    if (quote.settlementType == 'free_pass') {
+      return '支払 0円（乗車証）';
+    }
+    return '支払 $payNow円';
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final effectiveFare = fare ?? ref.watch(
+      routeSearchProvider.select(
+        (state) => state.fareByCandidateId[candidate.id],
+      ),
+    );
+    final fareChip = _fareChip(effectiveFare);
+
     return Container(
       decoration: BoxDecoration(
         color: CupertinoColors.systemGrey6,
@@ -76,7 +107,6 @@ class RouteCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          // 出発地 → 行き先
           Row(
             children: [
               const Icon(
@@ -101,31 +131,30 @@ class RouteCard extends StatelessWidget {
           const SizedBox(height: 8),
           Wrap(
             spacing: 6,
-            runSpacing: -6,
+            runSpacing: 4,
             children: [
               _chip('所要 ${candidate.totalTime}分'),
               _chip('乗換 ${candidate.transfers}'),
               _chip('乗車区間 ${candidate.rides}'),
               _chip('徒歩 ${candidate.walks}'),
+              if (fareChip != null) _chip(fareChip),
             ],
           ),
           const SizedBox(height: 8),
-          // ダイジェスト（最初の2区間だけ）
           Text(
             candidate.steps
                 .map((seg) {
                   if (seg.kind == 'walk') {
-                    final m = seg.meters ?? 0;
+                    final m = seg.meters;
                     final dist = m >= 1000
                         ? '${(m / 1000).toStringAsFixed(1)}km'
-                        : '${m}m';
-                    final mm = seg.minutes != null ? '（約${seg.minutes}分）' : '';
+                        : '${m.toInt()}m';
+                    final mm = seg.minutes > 0 ? '（約${seg.minutes}分）' : '';
                     return '徒歩 $dist$mm';
-                  } else {
-                    final stops = seg.edges > 0 ? ' ${seg.edges}停' : '';
-                    final mm = seg.minutes != null ? '（約${seg.minutes}分）' : '';
-                    return '${seg.title}$stops$mm';
                   }
+                  final stops = seg.edges > 0 ? ' ${seg.edges}停' : '';
+                  final mm = seg.minutes > 0 ? '（約${seg.minutes}分）' : '';
+                  return '${seg.title}$stops$mm';
                 })
                 .take(2)
                 .join(' / '),

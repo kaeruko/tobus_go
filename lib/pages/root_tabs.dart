@@ -5,11 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/city_profile_provider.dart';
 import '../providers/navigation_provider.dart';
 import 'explore_page.dart';
+import 'fare_policy_settings_page.dart';
 import 'history_page.dart';
 import 'home_page.dart';
 import 'my_route_page.dart';
 import 'route_only_home_page.dart';
-import 'settings_page.dart';
 
 class RootTabs extends ConsumerStatefulWidget {
   const RootTabs({super.key});
@@ -89,7 +89,7 @@ class _RootTabsState extends ConsumerState<RootTabs> {
           icon: Icon(CupertinoIcons.settings),
           label: '設定',
         ),
-        page: SettingsPage(),
+        page: FarePolicySettingsPage(),
       ),
     ];
   }
