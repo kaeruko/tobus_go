@@ -186,12 +186,12 @@ $manifestFileName = switch ($City) {
 }
 $manifestPath = Join-Path $resolvedGtfsDir $manifestFileName
 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
-    throw "Validated GTFS directory is missing $manifestFileName: $resolvedGtfsDir"
+    throw "Validated GTFS directory is missing ${manifestFileName}: $resolvedGtfsDir"
 }
 
 foreach ($requiredGtfsFile in @('stops.txt', 'routes.txt', 'trips.txt', 'stop_times.txt')) {
     if (-not (Test-Path -LiteralPath (Join-Path $resolvedGtfsDir $requiredGtfsFile) -PathType Leaf)) {
-        throw "Validated GTFS directory is missing $requiredGtfsFile: $resolvedGtfsDir"
+        throw "Validated GTFS directory is missing ${requiredGtfsFile}: $resolvedGtfsDir"
     }
 }
 if (
