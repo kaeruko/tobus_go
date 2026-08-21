@@ -187,9 +187,18 @@ def fetch_sendai_gtfs(
     try:
         response = http_client.get(
             SENDAI_STATIC_URL,
-            params={"acl:consumerKey": consumer_key},
+            params={
+                "date": "current",
+                "acl:consumerKey": consumer_key,
+            },
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as error:
+            raise RuntimeError(
+                "Sendai GTFS download failed: "
+                f"HTTP {error.response.status_code} for {SENDAI_STATIC_URL}"
+            ) from None
         archive_bytes = response.content
         if not archive_bytes:
             raise RuntimeError("Downloaded Sendai GTFS ZIP is empty")
@@ -238,9 +247,7 @@ def fetch_sendai_gtfs(
 
 
 def load_sendai_dataset(
-    gtfs_dir: str | Path,
-    *,
-    expected_service_date: str,
+    gtfs_dir: str | Path, *, expected_service_date: str
 ) -> TransitDataset:
     expected_service_date = _validate_date(expected_service_date)
     root = Path(gtfs_dir)
@@ -256,20 +263,13 @@ def load_sendai_dataset(
             "Sendai GTFS expected service date mismatch: "
             f"expected={expected_service_date}, installed={manifest.validated_service_date}"
         )
-    requested = datetime.strptime(expected_service_date, "%Y-%m-%d").date()
-    if not (
-        datetime.strptime(manifest.valid_from, "%Y-%m-%d").date()
-        <= requested
-        <= datetime.strptime(manifest.valid_until, "%Y-%m-%d").date()
-    ):
-        raise RuntimeError(
-            "Sendai GTFS expected service date is outside manifest coverage: "
-            f"date={expected_service_date}, coverage={manifest.valid_from}..{manifest.valid_until}"
-        )
     dataset = GtfsTransitAdapter.load(
         root,
-        metadata=_metadata(
-            service_date=expected_service_date,
+        metadata=FeedMetadata(
+            feed_id=SENDAI_FEED_ID,
+            source_type="gtfs-jp",
+            source_uri=manifest.source_url,
+            version=f"service-date:{manifest.validated_service_date}",
             fetched_at=manifest.fetched_at,
         ),
     )
