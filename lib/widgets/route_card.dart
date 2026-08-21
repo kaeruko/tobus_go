@@ -1,9 +1,11 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
+import '../providers/route_search_provider.dart';
 
-class RouteCard extends StatelessWidget {
+class RouteCard extends ConsumerWidget {
   final Candidate candidate;
   final int rank;
   final RouteMeta? meta;
@@ -45,8 +47,7 @@ class RouteCard extends StatelessWidget {
     return '目的地';
   }
 
-  String? get _fareChip {
-    final quote = fare;
+  String? _fareChip(FareQuote? quote) {
     if (quote == null) return null;
     if (!quote.isAvailable) return '運賃計算対象外';
     final payNow = quote.payNowYen;
@@ -61,8 +62,14 @@ class RouteCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final fareChip = _fareChip;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final effectiveFare = fare ?? ref.watch(
+      routeSearchProvider.select(
+        (state) => state.fareByCandidateId[candidate.id],
+      ),
+    );
+    final fareChip = _fareChip(effectiveFare);
+
     return Container(
       decoration: BoxDecoration(
         color: CupertinoColors.systemGrey6,
@@ -144,11 +151,10 @@ class RouteCard extends StatelessWidget {
                         : '${m.toInt()}m';
                     final mm = seg.minutes > 0 ? '（約${seg.minutes}分）' : '';
                     return '徒歩 $dist$mm';
-                  } else {
-                    final stops = seg.edges > 0 ? ' ${seg.edges}停' : '';
-                    final mm = seg.minutes > 0 ? '（約${seg.minutes}分）' : '';
-                    return '${seg.title}$stops$mm';
                   }
+                  final stops = seg.edges > 0 ? ' ${seg.edges}停' : '';
+                  final mm = seg.minutes > 0 ? '（約${seg.minutes}分）' : '';
+                  return '${seg.title}$stops$mm';
                 })
                 .take(2)
                 .join(' / '),
