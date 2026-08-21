@@ -26,6 +26,17 @@ def _positive_int_env(name: str, default: int) -> int:
 
 
 async def setup_sendai_on_startup(app, mode: str) -> None:
+    # Mangum runs the ASGI lifespan for each Lambda invocation. Reuse only a
+    # fully initialized in-memory runtime from the same warm Lambda container.
+    # A partially initialized/failed runtime is never treated as ready.
+    if (
+        getattr(app.state, "loading_status", None) == "ready"
+        and getattr(app.state, "transit_dataset", None) is not None
+        and getattr(app.state, "route_backend", None) is not None
+        and getattr(app.state, "realtime_provider", None) is not None
+    ):
+        return
+
     # Keep startup deterministic. In Lambda mode the explicitly configured
     # validated city bundle is materialized from S3 before the existing Sendai
     # manifest/service-date validation runs. No alternate source is attempted.
