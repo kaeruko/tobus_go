@@ -167,6 +167,7 @@ void main() {
   RouteSearchResult result(Candidate candidate) {
     return RouteSearchResult(
       candidates: [candidate],
+      fareByCandidateId: const {},
       meta: RouteMeta(
         destinationReachable: true,
         destinationLabel: '目的地',
