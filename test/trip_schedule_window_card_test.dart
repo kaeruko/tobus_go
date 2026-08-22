@@ -44,6 +44,39 @@ void main() {
     expect(tappedEntryId, 'ride-1');
   });
 
+  testWidgets('listTilesのwait_startは時計アイコンで表示する', (tester) async {
+    final entry = ScheduleEntry(
+      id: 'wait-1',
+      plannedAt: DateTime(2026, 8, 23, 8, 15),
+      label: '待ち時間 東京スカイツリー (32分)',
+      itemKind: ScheduleEntryKind.event,
+      generatedBy: ScheduleEntrySource.route,
+      routeStepId: 'step-wait-1',
+      routeRole: 'wait_start',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TripScheduleWindowCard(
+            title: '今回の経路',
+            resolvedEntry: entry,
+            entries: [entry],
+            completedCount: 0,
+            totalCount: 1,
+            activeLabel: '待機中',
+            counterLabelBuilder: (completedCount, totalCount) =>
+                '$completedCount / $totalCount ステップ',
+            appearance: TripScheduleWindowAppearance.listTiles,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.access_time), findsOneWidget);
+    expect(find.byIcon(Icons.directions_bus), findsNothing);
+  });
+
   testWidgets('boxedRowsは別instanceでもentry idでactive判定する', (tester) async {
     final entry = ScheduleEntry(
       id: 'manual-1',
