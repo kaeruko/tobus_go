@@ -104,7 +104,7 @@ class TripScheduleWindowCard extends StatelessWidget {
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   onTap: _entryTap(entry),
-                  leading: Icon(_listTileIcon(entry.itemKind)),
+                  leading: Icon(_listTileIcon(entry)),
                   title: Text(entry.label),
                   subtitle: isActive ? Text(activeLabel) : null,
                   trailing: Text(_format24Hour(entry.plannedAt)),
@@ -183,8 +183,11 @@ class TripScheduleWindowCard extends StatelessWidget {
     return () => callback(entry);
   }
 
-  IconData _listTileIcon(ScheduleEntryKind kind) {
-    return switch (kind) {
+  IconData _listTileIcon(ScheduleEntry entry) {
+    if (entry.routeRole == 'wait_start') {
+      return Icons.access_time;
+    }
+    return switch (entry.itemKind) {
       ScheduleEntryKind.walk => Icons.directions_walk,
       ScheduleEntryKind.goal => Icons.flag,
       _ => Icons.directions_bus,
@@ -239,7 +242,7 @@ class _BoxedScheduleRow extends StatelessWidget {
                 ),
               ],
             ),
-            child: Icon(_categoryIcon(entry.itemKind), color: Colors.black87),
+            child: Icon(_categoryIcon(entry), color: Colors.black87),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -308,8 +311,11 @@ class _BoxedScheduleRow extends StatelessWidget {
     );
   }
 
-  IconData _categoryIcon(ScheduleEntryKind kind) {
-    return switch (kind) {
+  IconData _categoryIcon(ScheduleEntry entry) {
+    if (entry.routeRole == 'wait_start') {
+      return CupertinoIcons.clock_fill;
+    }
+    return switch (entry.itemKind) {
       ScheduleEntryKind.meeting => CupertinoIcons.person_2_fill,
       ScheduleEntryKind.departure => CupertinoIcons.paperplane_fill,
       ScheduleEntryKind.ride => CupertinoIcons.bus,
