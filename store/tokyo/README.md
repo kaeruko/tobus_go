@@ -3,7 +3,7 @@
 - App city: `tokyo`
 - App name: `都営でGO`
 - Android applicationId: `jp.cloxs.toeigo`
-- iOS bundle identifier: `jp.cloxs.toeigo`
+- iOS bundle identifier: `jp.cloxs.go.tokyo`
 
 Store listingを変更する場合は、東京都交通局等の公式サービスと誤認させない表現にする。
 
