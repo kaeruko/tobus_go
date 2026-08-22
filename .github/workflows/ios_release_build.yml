@@ -92,17 +92,19 @@ jobs:
           echo "Tokyo App Store build: $BUILD_NAME ($BUILD_NUMBER)"
           echo "API base: $API_BASE"
 
-      - name: Validate signing secrets
+      - name: Validate signing and Maps secrets
         shell: bash
         env:
           CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
           CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
           PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          GOOGLE_MAPS_IOS_API_KEY: ${{ secrets.IOS_GOOGLE_MAPS_API_KEY }}
         run: |
           set -euo pipefail
           [[ -n "$CERTIFICATE_BASE64" ]] || { echo "::error::Missing secret IOS_DISTRIBUTION_CERTIFICATE_BASE64"; exit 1; }
           [[ -n "$CERTIFICATE_PASSWORD" ]] || { echo "::error::Missing secret IOS_DISTRIBUTION_CERTIFICATE_PASSWORD"; exit 1; }
           [[ -n "$PROVISIONING_PROFILE_BASE64" ]] || { echo "::error::Missing secret IOS_PROVISIONING_PROFILE_BASE64"; exit 1; }
+          [[ -n "$GOOGLE_MAPS_IOS_API_KEY" ]] || { echo "::error::Missing secret IOS_GOOGLE_MAPS_API_KEY"; exit 1; }
 
       - name: Install and validate signing material
         shell: bash
@@ -293,8 +295,12 @@ jobs:
 
       - name: Archive signed Tokyo app
         shell: bash
+        env:
+          GOOGLE_MAPS_IOS_API_KEY: ${{ secrets.IOS_GOOGLE_MAPS_API_KEY }}
         run: |
           set -euo pipefail
+          [[ -n "$GOOGLE_MAPS_IOS_API_KEY" ]] || { echo "::error::Missing secret IOS_GOOGLE_MAPS_API_KEY"; exit 1; }
+
           ARCHIVE_PATH="$RUNNER_TEMP/Runner-tokyo.xcarchive"
           DERIVED_DATA_PATH="$RUNNER_TEMP/DerivedData"
 
@@ -306,6 +312,7 @@ jobs:
             -archivePath "$ARCHIVE_PATH" \
             -derivedDataPath "$DERIVED_DATA_PATH" \
             COMPILER_INDEX_STORE_ENABLE=NO \
+            GOOGLE_MAPS_IOS_API_KEY="$GOOGLE_MAPS_IOS_API_KEY" \
             archive
 
           [[ -d "$ARCHIVE_PATH" ]] || { echo "::error::Archive was not created: $ARCHIVE_PATH"; exit 1; }
@@ -365,12 +372,14 @@ jobs:
           ACTUAL_BUILD_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_INFO")"
           ACTUAL_BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_INFO")"
           LOCATION_USAGE="$(/usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$APP_INFO")"
+          MAPS_API_KEY="$(/usr/libexec/PlistBuddy -c 'Print :GoogleMapsApiKey' "$APP_INFO")"
 
           [[ "$ACTUAL_BUNDLE_ID" == "$BUNDLE_ID" ]] || { echo "::error::IPA bundle id mismatch: $ACTUAL_BUNDLE_ID"; exit 1; }
           [[ "$ACTUAL_DISPLAY_NAME" == "$DISPLAY_NAME" ]] || { echo "::error::IPA display name mismatch: $ACTUAL_DISPLAY_NAME"; exit 1; }
           [[ "$ACTUAL_BUILD_NAME" == "$BUILD_NAME" ]] || { echo "::error::IPA version mismatch. Expected $BUILD_NAME, got $ACTUAL_BUILD_NAME"; exit 1; }
           [[ "$ACTUAL_BUILD_NUMBER" == "$BUILD_NUMBER" ]] || { echo "::error::IPA build number mismatch. Expected $BUILD_NUMBER, got $ACTUAL_BUILD_NUMBER"; exit 1; }
           [[ -n "$LOCATION_USAGE" ]] || { echo "::error::NSLocationWhenInUseUsageDescription is missing"; exit 1; }
+          [[ -n "$MAPS_API_KEY" && "$MAPS_API_KEY" != '$(GOOGLE_MAPS_IOS_API_KEY)' ]] || { echo "::error::GoogleMapsApiKey was not resolved in exported IPA"; exit 1; }
 
           if /usr/libexec/PlistBuddy -c 'Print :NSAppTransportSecurity:NSAllowsArbitraryLoads' "$APP_INFO" >/dev/null 2>&1; then
             echo "::error::Exported App Store IPA still enables NSAllowsArbitraryLoads"

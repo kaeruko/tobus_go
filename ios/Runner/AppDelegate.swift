@@ -12,7 +12,21 @@ import Firebase
 
     FirebaseApp.configure()
 
-    GMSServices.provideAPIKey("AIzaSyC-J3a2t1QFpxwuXNMcfL_w5-lsDadM994")
+    guard
+      let rawMapsApiKey = Bundle.main.object(forInfoDictionaryKey: "GoogleMapsApiKey") as? String
+    else {
+      fatalError("GoogleMapsApiKey is missing from Info.plist")
+    }
+
+    let mapsApiKey = rawMapsApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard
+      !mapsApiKey.isEmpty,
+      mapsApiKey != "$(GOOGLE_MAPS_IOS_API_KEY)"
+    else {
+      fatalError("GOOGLE_MAPS_IOS_API_KEY is not configured")
+    }
+
+    GMSServices.provideAPIKey(mapsApiKey)
 
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
