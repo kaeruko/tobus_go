@@ -120,7 +120,7 @@ jobs:
           set -euo pipefail
           app='build/ios/iphonesimulator/Runner.app'
           test -d "$app"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = 'jp.cloxs.toeigo'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = 'jp.cloxs.go.tokyo'
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist")" = '都営でGO'
           test -n "$(/usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$app/Info.plist")"
           if /usr/libexec/PlistBuddy -c 'Print :NSAppTransportSecurity:NSAllowsArbitraryLoads' "$app/Info.plist" >/dev/null 2>&1; then
@@ -128,7 +128,7 @@ jobs:
             exit 1
           fi
           test -f "$app/GoogleService-Info.plist"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' "$app/GoogleService-Info.plist")" = 'jp.cloxs.toeigo'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' "$app/GoogleService-Info.plist")" = 'jp.cloxs.go.tokyo'
           test "$(/usr/libexec/PlistBuddy -c 'Print :PROJECT_ID' "$app/GoogleService-Info.plist")" = 'toeigo'
 
       - name: Build Nagoya iOS flavor
