@@ -85,11 +85,31 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
   int _generation = 0;
 
   void setFrom(String from, {String? name}) {
-    state = state.copyWith(from: from, fromName: name ?? from);
+    _generation++;
+    state = state.copyWith(
+      from: from,
+      fromName: name ?? from,
+      isLoading: false,
+      hasSearched: false,
+      candidates: const [],
+      fareByCandidateId: const {},
+      clearMeta: true,
+      clearErrorMessage: true,
+    );
   }
 
   void setTo(String to, {String? name}) {
-    state = state.copyWith(to: to, toName: name ?? to);
+    _generation++;
+    state = state.copyWith(
+      to: to,
+      toName: name ?? to,
+      isLoading: false,
+      hasSearched: false,
+      candidates: const [],
+      fareByCandidateId: const {},
+      clearMeta: true,
+      clearErrorMessage: true,
+    );
   }
 
   void setPref(String pref) {
@@ -106,11 +126,12 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
 
     if (state.from.trim().isEmpty || state.to.trim().isEmpty) {
       state = state.copyWith(
-        hasSearched: true,
+        isLoading: false,
+        hasSearched: false,
         candidates: const [],
         fareByCandidateId: const {},
         clearMeta: true,
-        errorMessage: '出発地と到着地の両方を指定してください',
+        clearErrorMessage: true,
       );
       return;
     }
