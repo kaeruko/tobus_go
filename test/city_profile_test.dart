@@ -22,7 +22,7 @@ void main() {
         ['normal', 'tokyo_toei_transport_pass'],
       );
       expect(profile.distribution.androidApplicationId, 'jp.cloxs.toeigo');
-      expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.toeigo');
+      expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.go.tokyo');
       expect(profile.distribution.firebaseEnabled, isTrue);
     });
 
