@@ -9,10 +9,13 @@
   The script:
   - validates one already-approved local GTFS directory and its city manifest;
   - requires GOOGLE_MAPS_API_KEY from the current process environment without printing it;
+  - validates that the Docker daemon is available before any AWS mutation;
   - creates the city base stack (private/versioned S3, immutable ECR, Lambda role,
     retained log group);
   - packages the validated GTFS directory, uploads that exact bundle to the city
     S3 prefix, and records the bundle SHA-256 in Lambda environment variables;
+  - when resuming a partial bootstrap, reuses an existing S3 bundle only after
+    downloading it and proving its SHA-256 and size exactly match the local bundle;
   - builds one x86_64 Lambda image and pushes it under an immutable unique tag;
   - creates the city Lambda only if it does not already exist;
   - creates a public Function URL and both permissions required by AWS for new
@@ -142,11 +145,27 @@ function Assert-LambdaDoesNotExist {
     }
 }
 
+function Assert-DockerDaemonAvailable {
+    $output = @(& docker info --format '{{.ServerVersion}}' 2>&1)
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) {
+        Write-Host 'Docker diagnostic:'
+        $output | ForEach-Object { Write-Host $_ }
+        throw 'Docker daemon is not available. Start Docker Desktop with the Linux engine and retry.'
+    }
+    $serverVersion = ($output -join "`n").Trim()
+    if ([string]::IsNullOrWhiteSpace($serverVersion)) {
+        throw 'Docker daemon check returned an empty server version.'
+    }
+    Write-Host "Docker daemon: ready (server $serverVersion)"
+}
+
 foreach ($commandName in @('aws', 'docker')) {
     if (-not (Get-Command $commandName -ErrorAction SilentlyContinue)) {
         throw "Required command was not found: $commandName"
     }
 }
+Assert-DockerDaemonAvailable
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $apiDir = Join-Path $repoRoot 'api'
@@ -227,6 +246,7 @@ $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
 )
 New-Item -ItemType Directory -Path $tempRoot | Out-Null
 $bundlePath = Join-Path $tempRoot 'gtfs-bundle.zip'
+$existingBundlePath = Join-Path $tempRoot 'existing-gtfs-bundle.zip'
 $environmentFile = Join-Path $tempRoot 'lambda-environment.json'
 $corsFile = Join-Path $tempRoot 'function-url-cors.json'
 
@@ -285,6 +305,7 @@ try {
         throw "CloudFormation Lambda name mismatch. Expected=$resourceName Actual=$functionName"
     }
 
+    $localLength = (Get-Item -LiteralPath $bundlePath).Length
     $headOutput = @(
         & aws s3api head-object `
             --region $Region `
@@ -294,32 +315,48 @@ try {
     )
     $headExitCode = $LASTEXITCODE
     if ($headExitCode -eq 0) {
-        throw "GTFS bundle already exists in S3; refusing overwrite: s3://$gtfsBucket/$bundleKey"
-    }
-    $headText = $headOutput -join "`n"
-    if ($headText -notmatch '(404|Not Found|NoSuchKey)') {
-        Write-Host 'AWS CLI diagnostic:'
-        $headOutput | ForEach-Object { Write-Host $_ }
-        throw 'Could not prove the target GTFS bundle key is absent.'
-    }
+        aws s3 cp `
+            "s3://$gtfsBucket/$bundleKey" `
+            $existingBundlePath `
+            --region $Region `
+            --only-show-errors
+        Assert-LastExitCode 'aws s3 cp existing GTFS bundle'
 
-    aws s3 cp `
-        $bundlePath `
-        "s3://$gtfsBucket/$bundleKey" `
-        --region $Region `
-        --only-show-errors
-    Assert-LastExitCode 'aws s3 cp GTFS bundle'
+        $existingSha256 = (Get-FileHash -LiteralPath $existingBundlePath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $existingLength = (Get-Item -LiteralPath $existingBundlePath).Length
+        if ($existingSha256 -cne $bundleSha256) {
+            throw "Existing S3 GTFS bundle SHA-256 mismatch. Expected=$bundleSha256 Actual=$existingSha256"
+        }
+        if ([int64]$existingLength -ne [int64]$localLength) {
+            throw "Existing S3 GTFS bundle size mismatch. Local=$localLength S3=$existingLength"
+        }
+        Write-Host 'GTFS bundle already exists in S3 and exactly matches local SHA-256/size; reusing it.'
+    }
+    else {
+        $headText = $headOutput -join "`n"
+        if ($headText -notmatch '(404|Not Found|NoSuchKey)') {
+            Write-Host 'AWS CLI diagnostic:'
+            $headOutput | ForEach-Object { Write-Host $_ }
+            throw 'Could not prove the target GTFS bundle key is absent.'
+        }
 
-    $uploadedLength = (aws s3api head-object `
-        --region $Region `
-        --bucket $gtfsBucket `
-        --key $bundleKey `
-        --query 'ContentLength' `
-        --output text).Trim()
-    Assert-LastExitCode 'aws s3api head-object uploaded GTFS bundle'
-    $localLength = (Get-Item -LiteralPath $bundlePath).Length
-    if ([int64]$uploadedLength -ne [int64]$localLength) {
-        throw "Uploaded GTFS bundle size mismatch. Local=$localLength S3=$uploadedLength"
+        aws s3 cp `
+            $bundlePath `
+            "s3://$gtfsBucket/$bundleKey" `
+            --region $Region `
+            --only-show-errors
+        Assert-LastExitCode 'aws s3 cp GTFS bundle'
+
+        $uploadedLength = (aws s3api head-object `
+            --region $Region `
+            --bucket $gtfsBucket `
+            --key $bundleKey `
+            --query 'ContentLength' `
+            --output text).Trim()
+        Assert-LastExitCode 'aws s3api head-object uploaded GTFS bundle'
+        if ([int64]$uploadedLength -ne [int64]$localLength) {
+            throw "Uploaded GTFS bundle size mismatch. Local=$localLength S3=$uploadedLength"
+        }
     }
 
     $registry = "$accountId.dkr.ecr.$Region.amazonaws.com"
