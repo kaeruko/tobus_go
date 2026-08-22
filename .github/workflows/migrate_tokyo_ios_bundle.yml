@@ -59,7 +59,6 @@ jobs:
               "bundle_id: 'jp.cloxs.go.tokyo',",
           )
 
-          # These were already changed manually before this generator step.
           city = read('lib/core/city_profile.dart')
           if "androidApplicationId: 'jp.cloxs.toeigo'" not in city:
               raise SystemExit('Tokyo Android applicationId must remain jp.cloxs.toeigo')
@@ -152,7 +151,7 @@ jobs:
           grep -Fq "BUNDLE_ID: jp.cloxs.go.tokyo" .github/workflows/ios_release_build.yml
           grep -Fq "BUNDLE_ID: jp.cloxs.go.tokyo" .github/workflows/ios_release_upload.yml
 
-      - name: Commit migration output
+      - name: Commit non-workflow migration output
         shell: bash
         env:
           HEAD_BRANCH: ${{ github.head_ref }}
@@ -165,18 +164,15 @@ jobs:
             scripts/configure_ios_flavors.rb \
             ios/Runner.xcodeproj/project.pbxproj \
             GoogleService-Info.plist \
-            .github/workflows/ci.yml \
-            .github/workflows/ios_release_build.yml \
-            .github/workflows/ios_release_upload.yml \
             docs/ios-app-store-release.md \
             docs/city-distribution.md \
             store/tokyo/README.md
 
           if git diff --cached --quiet; then
-            echo '::error::Generator migration produced no changes'
+            echo '::error::Generator migration produced no non-workflow changes'
             exit 1
           fi
 
           git diff --cached --check
-          git commit -m 'Complete Tokyo iOS bundle ID migration'
+          git commit -m 'Complete generated Tokyo iOS bundle ID migration'
           git push origin HEAD:"$HEAD_BRANCH"
