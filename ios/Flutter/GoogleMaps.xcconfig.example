@@ -1,0 +1,3 @@
+// Copy this file to GoogleMaps.xcconfig and set the restricted iOS Maps key.
+// GoogleMaps.xcconfig is ignored by git and must never be committed.
+GOOGLE_MAPS_IOS_API_KEY=replace-with-restricted-ios-maps-key
