@@ -136,7 +136,7 @@ const tokyoCityProfile = CityProfile(
   ],
   distribution: CityDistributionConfig(
     androidApplicationId: 'jp.cloxs.toeigo',
-    iosBundleIdentifier: 'jp.cloxs.toeigo',
+    iosBundleIdentifier: 'jp.cloxs.go.tokyo',
     firebaseEnabled: true,
     storeMetadataDirectory: 'store/tokyo',
   ),
