@@ -1,35 +1,33 @@
 name: Migrate Tokyo iOS Bundle ID
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix/issue-155-tokyo-ios-bundle-id
-    paths:
-      - .github/workflows/migrate_tokyo_ios_bundle.yml
+      - main
 
 permissions:
   contents: write
 
 jobs:
   migrate:
+    if: github.head_ref == 'fix/issue-155-tokyo-ios-bundle-id'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout migration branch
         uses: actions/checkout@v4
         with:
-          ref: fix/issue-155-tokyo-ios-bundle-id
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
 
       - name: Apply strict Tokyo iOS-only migration
         shell: bash
         run: |
           set -euo pipefail
+
           python3 - <<'PY'
           from pathlib import Path
           import plistlib
-          import re
-          import shutil
 
           OLD = 'jp.cloxs.toeigo'
           NEW = 'jp.cloxs.go.tokyo'
@@ -41,67 +39,54 @@ jobs:
           def write(path, text):
               Path(path).write_text(text, encoding='utf-8')
 
-          def replace_exact(path, old, new, expected_count=1):
+          def ensure_replace(path, old, new, expected_old=1, expected_new=1):
               text = read(path)
-              count = text.count(old)
-              if count != expected_count:
-                  raise SystemExit(
-                      f'{path}: expected {expected_count} occurrences of {old!r}, found {count}'
-                  )
-              write(path, text.replace(old, new))
+              old_count = text.count(old)
+              new_count = text.count(new)
+              if old_count == expected_old and new_count == 0:
+                  text = text.replace(old, new)
+                  write(path, text)
+                  return
+              if old_count == 0 and new_count == expected_new:
+                  return
+              raise SystemExit(
+                  f'{path}: unexpected migration state: old={old_count}, new={new_count}'
+              )
 
-          replace_exact(
+          ensure_replace(
               'scripts/configure_ios_flavors.rb',
               "bundle_id: 'jp.cloxs.toeigo',",
               "bundle_id: 'jp.cloxs.go.tokyo',",
           )
-          replace_exact(
-              'lib/core/city_profile.dart',
-              "iosBundleIdentifier: 'jp.cloxs.toeigo',",
-              "iosBundleIdentifier: 'jp.cloxs.go.tokyo',",
-          )
-          replace_exact(
-              'test/city_profile_test.dart',
-              "expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.toeigo');",
-              "expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.go.tokyo');",
-          )
 
-          firebase_path = 'lib/firebase_options.dart'
-          firebase_text = read(firebase_path)
-          match = re.search(
-              r"  static const FirebaseOptions ios = FirebaseOptions\(\n.*?\n  \);",
-              firebase_text,
-              flags=re.S,
-          )
-          if not match:
-              raise SystemExit('lib/firebase_options.dart: iOS FirebaseOptions block not found')
-          ios_block = match.group(0)
-          if ios_block.count("appId: '1:381461947304:ios:ac46fab5ea5c4c0eed739d',") != 1:
-              raise SystemExit('lib/firebase_options.dart: unexpected old iOS Firebase appId state')
-          if ios_block.count("iosBundleId: 'jp.cloxs.toeigo',") != 1:
-              raise SystemExit('lib/firebase_options.dart: unexpected old iOS bundle ID state')
-          new_ios_block = ios_block.replace(
-              "appId: '1:381461947304:ios:ac46fab5ea5c4c0eed739d',",
-              f"appId: '{NEW_FIREBASE_APP_ID}',",
-          ).replace(
-              "iosBundleId: 'jp.cloxs.toeigo',",
-              "iosBundleId: 'jp.cloxs.go.tokyo',",
-          )
-          firebase_text = firebase_text[:match.start()] + new_ios_block + firebase_text[match.end():]
-          write(firebase_path, firebase_text)
+          # These were already changed manually before this generator step.
+          city = read('lib/core/city_profile.dart')
+          if "androidApplicationId: 'jp.cloxs.toeigo'" not in city:
+              raise SystemExit('Tokyo Android applicationId must remain jp.cloxs.toeigo')
+          if "iosBundleIdentifier: 'jp.cloxs.go.tokyo'" not in city:
+              raise SystemExit('Tokyo iOS CityProfile is not migrated')
 
-          replace_exact(
+          firebase_options = read('lib/firebase_options.dart')
+          if "appId: '1:381461947304:ios:116d95be8afbfc57ed739d'" not in firebase_options:
+              raise SystemExit('New Tokyo iOS Firebase appId is missing')
+          if "iosBundleId: 'jp.cloxs.go.tokyo'" not in firebase_options:
+              raise SystemExit('New Tokyo iOS Firebase bundle ID is missing')
+          if firebase_options.count("iosBundleId: 'jp.cloxs.toeigo'") != 1:
+              raise SystemExit('macOS Firebase configuration must remain on the legacy bundle ID')
+
+          ensure_replace(
               '.github/workflows/ci.yml',
               "'jp.cloxs.toeigo'",
               "'jp.cloxs.go.tokyo'",
-              expected_count=2,
+              expected_old=2,
+              expected_new=2,
           )
-          replace_exact(
+          ensure_replace(
               '.github/workflows/ios_release_build.yml',
               'BUNDLE_ID: jp.cloxs.toeigo',
               'BUNDLE_ID: jp.cloxs.go.tokyo',
           )
-          replace_exact(
+          ensure_replace(
               '.github/workflows/ios_release_upload.yml',
               'BUNDLE_ID: jp.cloxs.toeigo',
               'BUNDLE_ID: jp.cloxs.go.tokyo',
@@ -109,22 +94,23 @@ jobs:
 
           release_doc = 'docs/ios-app-store-release.md'
           text = read(release_doc)
-          count = text.count(OLD)
-          if count < 1:
-              raise SystemExit(f'{release_doc}: old iOS bundle ID not found')
-          write(release_doc, text.replace(OLD, NEW))
+          if OLD in text:
+              text = text.replace(OLD, NEW)
+              write(release_doc, text)
+          elif NEW not in text:
+              raise SystemExit(f'{release_doc}: neither old nor new iOS Bundle ID found')
 
-          replace_exact(
+          ensure_replace(
               'docs/city-distribution.md',
               '| Tokyo | `tokyo` | `jp.cloxs.toeigo` | `jp.cloxs.toeigo` | existing Tokyo project |',
               '| Tokyo | `tokyo` | `jp.cloxs.toeigo` | `jp.cloxs.go.tokyo` | existing Tokyo project, new iOS app registration |',
           )
-          replace_exact(
+          ensure_replace(
               'docs/city-distribution.md',
               'Tokyoの既存applicationId / bundle identifierは変更しない。',
               'Tokyo Androidの既存applicationId `jp.cloxs.toeigo` はGoogle Play更新互換のため変更しない。Tokyo iOSは初回App Store登録前に `jp.cloxs.go.tokyo` へ移行した。',
           )
-          replace_exact(
+          ensure_replace(
               'store/tokyo/README.md',
               '- iOS bundle identifier: `jp.cloxs.toeigo`',
               '- iOS bundle identifier: `jp.cloxs.go.tokyo`',
@@ -134,32 +120,27 @@ jobs:
           with plist_path.open('rb') as f:
               plist = plistlib.load(f)
           if plist.get('BUNDLE_ID') != NEW:
-              raise SystemExit(
-                  f'ios/Runner/GoogleService-Info.plist BUNDLE_ID mismatch: {plist.get("BUNDLE_ID")!r}'
-              )
+              raise SystemExit(f'iOS Firebase plist BUNDLE_ID mismatch: {plist.get("BUNDLE_ID")!r}')
           if plist.get('GOOGLE_APP_ID') != NEW_FIREBASE_APP_ID:
-              raise SystemExit('ios/Runner/GoogleService-Info.plist GOOGLE_APP_ID mismatch')
+              raise SystemExit('iOS Firebase plist GOOGLE_APP_ID mismatch')
           if plist.get('PROJECT_ID') != 'toeigo':
-              raise SystemExit('ios/Runner/GoogleService-Info.plist PROJECT_ID mismatch')
+              raise SystemExit('iOS Firebase plist PROJECT_ID mismatch')
 
-          # Keep the repository-root Firebase plist in sync with the active Tokyo iOS config.
-          shutil.copyfile(plist_path, 'GoogleService-Info.plist')
+          Path('GoogleService-Info.plist').write_bytes(plist_path.read_bytes())
 
-          # Android must remain the already-published Google Play package.
-          android_text = read('android/app/build.gradle.kts')
-          if 'applicationId = "jp.cloxs.toeigo"' not in android_text:
-              raise SystemExit('Android Tokyo applicationId unexpectedly changed')
+          android = read('android/app/build.gradle.kts')
+          if 'applicationId = "jp.cloxs.toeigo"' not in android:
+              raise SystemExit('Published Tokyo Android applicationId changed unexpectedly')
 
-          # macOS is a separate target and is intentionally not migrated by this iOS change.
-          macos_text = read('macos/Runner/GoogleService-Info.plist')
-          if '<string>jp.cloxs.toeigo</string>' not in macos_text:
+          mac_plist = read('macos/Runner/GoogleService-Info.plist')
+          if '<string>jp.cloxs.toeigo</string>' not in mac_plist:
               raise SystemExit('macOS Firebase config changed unexpectedly')
           PY
 
           ruby scripts/configure_ios_flavors.rb
           ruby scripts/configure_ios_flavors.rb --check
 
-      - name: Validate migration boundaries
+      - name: Validate generated migration
         shell: bash
         run: |
           set -euo pipefail
@@ -171,8 +152,10 @@ jobs:
           grep -Fq "BUNDLE_ID: jp.cloxs.go.tokyo" .github/workflows/ios_release_build.yml
           grep -Fq "BUNDLE_ID: jp.cloxs.go.tokyo" .github/workflows/ios_release_upload.yml
 
-      - name: Commit generated migration
+      - name: Commit migration output
         shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
@@ -181,11 +164,7 @@ jobs:
           git add \
             scripts/configure_ios_flavors.rb \
             ios/Runner.xcodeproj/project.pbxproj \
-            ios/Runner/GoogleService-Info.plist \
             GoogleService-Info.plist \
-            lib/firebase_options.dart \
-            lib/core/city_profile.dart \
-            test/city_profile_test.dart \
             .github/workflows/ci.yml \
             .github/workflows/ios_release_build.yml \
             .github/workflows/ios_release_upload.yml \
@@ -194,10 +173,10 @@ jobs:
             store/tokyo/README.md
 
           if git diff --cached --quiet; then
-            echo '::error::Migration produced no tracked changes'
+            echo '::error::Generator migration produced no changes'
             exit 1
           fi
 
           git diff --cached --check
-          git commit -m 'Migrate Tokyo iOS bundle ID to jp.cloxs.go.tokyo'
-          git push origin HEAD:fix/issue-155-tokyo-ios-bundle-id
+          git commit -m 'Complete Tokyo iOS bundle ID migration'
+          git push origin HEAD:"$HEAD_BRANCH"
