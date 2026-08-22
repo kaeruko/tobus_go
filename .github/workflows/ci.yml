@@ -114,14 +114,22 @@ jobs:
       - name: Build Tokyo iOS flavor
         run: flutter build ios --simulator --debug --flavor tokyo --dart-define=APP_CITY=tokyo
 
-      - name: Verify Tokyo iOS identity and Firebase resource
+      - name: Verify Tokyo iOS identity, privacy, ATS, and Firebase resource
         shell: bash
         run: |
+          set -euo pipefail
           app='build/ios/iphonesimulator/Runner.app'
           test -d "$app"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = 'jp.cloxs.toeigo'
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist")" = '都営でGO'
+          test -n "$(/usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$app/Info.plist")"
+          if /usr/libexec/PlistBuddy -c 'Print :NSAppTransportSecurity:NSAllowsArbitraryLoads' "$app/Info.plist" >/dev/null 2>&1; then
+            echo '::error::Tokyo iOS app must not enable NSAllowsArbitraryLoads'
+            exit 1
+          fi
           test -f "$app/GoogleService-Info.plist"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' "$app/GoogleService-Info.plist")" = 'jp.cloxs.toeigo'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :PROJECT_ID' "$app/GoogleService-Info.plist")" = 'toeigo'
 
       - name: Build Nagoya iOS flavor
         run: flutter build ios --simulator --debug --flavor nagoya --dart-define=APP_CITY=nagoya
