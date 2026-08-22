@@ -1,0 +1,170 @@
+name: iOS Tokyo App Store Upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Successful iOS Tokyo App Store Build run ID"
+        required: true
+        type: string
+      build_name:
+        description: "App Store version used by the source build"
+        required: true
+        type: string
+      build_number:
+        description: "App Store build number used by the source build"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ios-tokyo-app-store-upload
+  cancel-in-progress: false
+
+env:
+  BUNDLE_ID: jp.cloxs.toeigo
+  DISPLAY_NAME: 都営でGO
+  EXPECTED_TEAM_ID: H5B52RL9R2
+
+jobs:
+  upload:
+    name: Upload verified Tokyo IPA
+    runs-on: macos-26
+    timeout-minutes: 15
+
+    steps:
+      - name: Select Xcode 26.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          XCODE_PATH="/Applications/Xcode_26.6.app"
+          [[ -d "$XCODE_PATH" ]] || { echo "::error::Required Xcode was not found: $XCODE_PATH"; exit 1; }
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
+
+      - name: Validate upload inputs and App Store Connect secrets
+        shell: bash
+        env:
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          BUILD_NAME: ${{ inputs.build_name }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+
+          [[ "$SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]] || { echo "::error::source_run_id must be a positive integer. Got: $SOURCE_RUN_ID"; exit 1; }
+          [[ "$BUILD_NAME" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] || { echo "::error::Invalid build_name: $BUILD_NAME"; exit 1; }
+          [[ "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]] || { echo "::error::Invalid build_number: $BUILD_NUMBER"; exit 1; }
+
+          [[ -n "$API_KEY_ID" ]] || { echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_ID"; exit 1; }
+          [[ -n "$ISSUER_ID" ]] || { echo "::error::Missing secret APP_STORE_CONNECT_ISSUER_ID"; exit 1; }
+          [[ -n "$API_KEY_P8_BASE64" ]] || { echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_P8_BASE64"; exit 1; }
+
+      - name: Download signed IPA from exact successful build run
+        uses: actions/download-artifact@v4
+        with:
+          name: toeigo-ios-${{ inputs.build_name }}-${{ inputs.build_number }}
+          path: ${{ runner.temp }}/ipa
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.source_run_id }}
+
+      - name: Verify downloaded IPA before upload
+        shell: bash
+        env:
+          BUILD_NAME: ${{ inputs.build_name }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          IPA_FILES=("$RUNNER_TEMP/ipa"/*.ipa)
+          [[ "${#IPA_FILES[@]}" -eq 1 ]] || { echo "::error::Expected exactly one IPA, found ${#IPA_FILES[@]}"; exit 1; }
+          IPA_PATH="${IPA_FILES[0]}"
+
+          VERIFY_DIR="$RUNNER_TEMP/verify-upload-ipa"
+          mkdir -p "$VERIFY_DIR"
+          unzip -q "$IPA_PATH" -d "$VERIFY_DIR"
+          APP_DIRS=("$VERIFY_DIR"/Payload/*.app)
+          [[ "${#APP_DIRS[@]}" -eq 1 && -d "${APP_DIRS[0]}" ]] || { echo "::error::Expected exactly one .app in IPA"; exit 1; }
+          APP_DIR="${APP_DIRS[0]}"
+          APP_INFO="$APP_DIR/Info.plist"
+
+          ACTUAL_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_INFO")"
+          ACTUAL_DISPLAY_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APP_INFO")"
+          ACTUAL_BUILD_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_INFO")"
+          ACTUAL_BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_INFO")"
+          LOCATION_USAGE="$(/usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$APP_INFO")"
+
+          [[ "$ACTUAL_BUNDLE_ID" == "$BUNDLE_ID" ]] || { echo "::error::Bundle id mismatch: $ACTUAL_BUNDLE_ID"; exit 1; }
+          [[ "$ACTUAL_DISPLAY_NAME" == "$DISPLAY_NAME" ]] || { echo "::error::Display name mismatch: $ACTUAL_DISPLAY_NAME"; exit 1; }
+          [[ "$ACTUAL_BUILD_NAME" == "$BUILD_NAME" ]] || { echo "::error::Version mismatch. Expected $BUILD_NAME, got $ACTUAL_BUILD_NAME"; exit 1; }
+          [[ "$ACTUAL_BUILD_NUMBER" == "$BUILD_NUMBER" ]] || { echo "::error::Build number mismatch. Expected $BUILD_NUMBER, got $ACTUAL_BUILD_NUMBER"; exit 1; }
+          [[ -n "$LOCATION_USAGE" ]] || { echo "::error::NSLocationWhenInUseUsageDescription is missing"; exit 1; }
+
+          if /usr/libexec/PlistBuddy -c 'Print :NSAppTransportSecurity:NSAllowsArbitraryLoads' "$APP_INFO" >/dev/null 2>&1; then
+            echo "::error::IPA enables NSAllowsArbitraryLoads"
+            exit 1
+          fi
+
+          FIREBASE_PLIST="$APP_DIR/GoogleService-Info.plist"
+          [[ -f "$FIREBASE_PLIST" ]] || { echo "::error::Tokyo Firebase resource is missing"; exit 1; }
+          FIREBASE_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' "$FIREBASE_PLIST")"
+          FIREBASE_PROJECT_ID="$(/usr/libexec/PlistBuddy -c 'Print :PROJECT_ID' "$FIREBASE_PLIST")"
+          [[ "$FIREBASE_BUNDLE_ID" == "$BUNDLE_ID" ]] || { echo "::error::Tokyo Firebase BUNDLE_ID mismatch: $FIREBASE_BUNDLE_ID"; exit 1; }
+          [[ "$FIREBASE_PROJECT_ID" == 'toeigo' ]] || { echo "::error::Tokyo Firebase PROJECT_ID mismatch: $FIREBASE_PROJECT_ID"; exit 1; }
+
+          codesign --verify --deep --strict --verbose=2 "$APP_DIR"
+          SIGNING_DETAILS="$(codesign -dv --verbose=4 "$APP_DIR" 2>&1)"
+          grep -Fq 'Authority=Apple Distribution: CLOXS LLC' <<< "$SIGNING_DETAILS" || { echo "::error::IPA signing authority mismatch"; exit 1; }
+          grep -Fq "TeamIdentifier=$EXPECTED_TEAM_ID" <<< "$SIGNING_DETAILS" || { echo "::error::IPA TeamIdentifier mismatch"; exit 1; }
+
+          echo "IPA_PATH=$IPA_PATH" >> "$GITHUB_ENV"
+          echo "Verified upload candidate: $ACTUAL_BUNDLE_ID $ACTUAL_BUILD_NAME ($ACTUAL_BUILD_NUMBER)"
+
+      - name: Install App Store Connect API key
+        shell: bash
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          KEY_DIR="$HOME/.appstoreconnect/private_keys"
+          KEY_PATH="$KEY_DIR/AuthKey_${API_KEY_ID}.p8"
+          mkdir -p "$KEY_DIR"
+          printf '%s' "$API_KEY_P8_BASE64" | /usr/bin/base64 -D > "$KEY_PATH"
+          [[ -s "$KEY_PATH" ]] || { echo "::error::Decoded App Store Connect .p8 key is empty"; exit 1; }
+          grep -q 'BEGIN PRIVATE KEY' "$KEY_PATH" || { echo "::error::APP_STORE_CONNECT_API_KEY_P8_BASE64 did not decode to a .p8 private key"; exit 1; }
+          chmod 600 "$KEY_PATH"
+          echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Upload IPA to App Store Connect
+        shell: bash
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          [[ -f "$IPA_PATH" ]] || { echo "::error::IPA not found: $IPA_PATH"; exit 1; }
+          [[ -f "$ASC_KEY_PATH" ]] || { echo "::error::App Store Connect key not found: $ASC_KEY_PATH"; exit 1; }
+
+          xcrun altool \
+            --upload-app \
+            -f "$IPA_PATH" \
+            -t ios \
+            --apiKey "$API_KEY_ID" \
+            --apiIssuer "$ISSUER_ID"
+
+      - name: Clean up App Store Connect key
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${ASC_KEY_PATH:-}" && -f "$ASC_KEY_PATH" ]]; then
+            rm -f "$ASC_KEY_PATH"
+          fi
