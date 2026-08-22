@@ -20,11 +20,33 @@ Tokyo resources are never used as fallback by this flow.
 
 - AWS CLI authenticated to the intended account and region.
 - Docker.
-- Ignored local `api/.env` containing exactly one non-empty, unquoted `GOOGLE_MAPS_API_KEY`.
+- A non-empty, unquoted `GOOGLE_MAPS_API_KEY` in the current PowerShell process environment.
 - An already validated city GTFS directory produced by the repository fetch/validation flow. The directory must contain the city manifest plus the required GTFS files.
 - The exact approved revision/service date passed as `-ExpectedDataVersion`.
 
-Do not paste secrets into command arguments, issue comments, or chat. The bootstrap reads the Google key locally and writes it only to a temporary environment JSON file that is deleted in `finally`.
+The bootstrap does not read `api/.env`, another file, another Lambda, or another secret source when `GOOGLE_MAPS_API_KEY` is missing. Set the process environment variable explicitly before invoking the script. Do not paste secrets into command arguments, issue comments, or chat. The bootstrap writes the Google key only to a temporary Lambda environment JSON file that is deleted in `finally`.
+
+For example, when intentionally sourcing the currently deployed server-side Places key from an existing Lambda, load it into the process without printing it, then verify only the boolean state:
+
+```powershell
+$env:GOOGLE_MAPS_API_KEY = aws lambda get-function-configuration `
+  --region us-west-2 `
+  --function-name toeigo-api `
+  --query 'Environment.Variables.GOOGLE_MAPS_API_KEY' `
+  --output text
+
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($env:GOOGLE_MAPS_API_KEY) -or $env:GOOGLE_MAPS_API_KEY -eq 'None') {
+  throw 'Could not load GOOGLE_MAPS_API_KEY from the explicitly selected Lambda.'
+}
+
+[bool]$env:GOOGLE_MAPS_API_KEY
+```
+
+Remove the process variable when the bootstrap work is complete:
+
+```powershell
+Remove-Item Env:GOOGLE_MAPS_API_KEY -ErrorAction SilentlyContinue
+```
 
 ## Nagoya example
 
@@ -54,4 +76,4 @@ New Lambda Function URLs require both `lambda:InvokeFunctionUrl` and `lambda:Inv
 
 ## Failure behavior
 
-The bootstrap does not search another region, resource name, bucket, GTFS source, or Tokyo resource. Existing Lambda detection, data/version mismatch, missing secret, unsupported image manifest, or AWS errors stop the bootstrap with diagnostics. It does not silently replace the approved GTFS input.
+The bootstrap does not search another region, resource name, bucket, GTFS source, secret file, Lambda, or Tokyo resource. Existing Lambda detection, data/version mismatch, missing secret, unsupported image manifest, or AWS errors stop the bootstrap with diagnostics. It does not silently replace the approved GTFS input.
