@@ -33,7 +33,7 @@ BASE_TEST_CONFIGS = {
 
 CITIES = {
   'tokyo' => {
-    bundle_id: 'jp.cloxs.toeigo',
+    bundle_id: 'jp.cloxs.go.tokyo',
     display_name: '都営でGO',
     app_icon_name: 'AppIconTokyo',
     exclude_tokyo_firebase_plist: false

@@ -59,11 +59,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDDmfY7OwV9rROGVR0Bw0QAoSQ7ysTADQQ',
-    appId: '1:381461947304:ios:ac46fab5ea5c4c0eed739d',
+    appId: '1:381461947304:ios:116d95be8afbfc57ed739d',
     messagingSenderId: '381461947304',
     projectId: 'toeigo',
     storageBucket: 'toeigo.firebasestorage.app',
-    iosBundleId: 'jp.cloxs.toeigo',
+    iosBundleId: 'jp.cloxs.go.tokyo',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(

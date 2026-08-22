@@ -1,11 +1,11 @@
 # 都営でGO iOS App Store リリース
 
-Issue #155 の引き継ぎを、都営でGO (`jp.cloxs.toeigo`) 固有の実行手順として固定する。
+Issue #155 の引き継ぎを、都営でGO (`jp.cloxs.go.tokyo`) 固有の実行手順として固定する。
 
 ## 固定する値
 
 - App: `都営でGO`
-- Bundle ID: `jp.cloxs.toeigo`
+- Bundle ID: `jp.cloxs.go.tokyo`
 - Apple Developer Team ID: `H5B52RL9R2`
 - Distribution identity: `Apple Distribution: CLOXS LLC`
 - Flutter flavor / Xcode scheme: `tokyo`
@@ -20,9 +20,9 @@ Version/build numberはApp Store Connectの既存状態を確認してから決�
 
 以下はGitHubだけでは確認・作成できないため、release workflow実行前にApple Developer / App Store Connectで確認する。
 
-1. Apple Developer Identifiersに `jp.cloxs.toeigo` が存在する。
+1. Apple Developer Identifiersに `jp.cloxs.go.tokyo` が存在する。
 2. App Store Connectに同Bundle IDのApp recordが存在する。
-3. `jp.cloxs.toeigo` 用のmanual App Store provisioning profileを作成している。
+3. `jp.cloxs.go.tokyo` 用のmanual App Store provisioning profileを作成している。
 4. そのprofileが `Apple Distribution: CLOXS LLC` 証明書を含む。
 5. App Store Connect上の既存buildを見て、今回使うversion/build numberを決めている。
 

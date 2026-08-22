@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BUNDLE_ID: jp.cloxs.toeigo
+  BUNDLE_ID: jp.cloxs.go.tokyo
   DISPLAY_NAME: 都営でGO
   APP_CITY: tokyo
   API_BASE: https://y6dmxuksrkf3nxp4encz5ez2ua0joxlp.lambda-url.us-west-2.on.aws
