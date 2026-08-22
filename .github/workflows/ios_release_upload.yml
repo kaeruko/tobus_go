@@ -25,7 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BUNDLE_ID: jp.cloxs.toeigo
+  BUNDLE_ID: jp.cloxs.go.tokyo
   DISPLAY_NAME: 都営でGO
   EXPECTED_TEAM_ID: H5B52RL9R2
 
