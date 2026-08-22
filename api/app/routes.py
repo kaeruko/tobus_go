@@ -446,27 +446,15 @@ def register_routes(app):
 
     @app.get("/autocomplete")
     async def autocomplete(q: str = Query(...)):
-        key = os.getenv("GOOGLE_MAPS_API_KEY")
-        if not key:
-            return {"predictions": []}
+        from app.services.google_places import autocomplete_legacy_response
 
-        url = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
-        params = {"key": key, "input": q, "language": "ja", "components": "country:jp"}
-        async with httpx.AsyncClient(timeout=10.0) as cl:
-            r = await cl.get(url, params=params)
-        return r.json()
+        return await autocomplete_legacy_response(q)
 
     @app.get("/details")
     async def details(place_id: str = Query(...)):
-        key = os.getenv("GOOGLE_MAPS_API_KEY")
-        if not key:
-            return {"result": {}}
+        from app.services.google_places import details_legacy_response
 
-        url = "https://maps.googleapis.com/maps/api/place/details/json"
-        params = {"key": key, "place_id": place_id, "language": "ja", "fields": "geometry,name,formatted_address"}
-        async with httpx.AsyncClient(timeout=10.0) as cl:
-            r = await cl.get(url, params=params)
-        return r.json()
+        return await details_legacy_response(place_id)
 
     @app.get("/healthz")
     async def healthz():
