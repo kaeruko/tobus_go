@@ -62,7 +62,7 @@ async def autocomplete_legacy_response(query: str) -> dict:
     except httpx.RequestError as exc:
         raise HTTPException(
             502,
-            f"Places API (New) autocomplete request failed: {exc}",
+            f"Places API (New) autocomplete request failed: {type(exc).__name__}",
         ) from exc
 
     payload = _upstream_json(response, "autocomplete")
@@ -136,7 +136,7 @@ async def details_legacy_response(place_id: str) -> dict:
     except httpx.RequestError as exc:
         raise HTTPException(
             502,
-            f"Places API (New) details request failed: {exc}",
+            f"Places API (New) details request failed: {type(exc).__name__}",
         ) from exc
 
     payload = _upstream_json(response, "details")
