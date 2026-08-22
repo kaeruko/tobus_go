@@ -79,3 +79,6 @@ data/
 **/.env
 !.env.example
 !**/.env.example
+
+# Local iOS Google Maps API key settings must never be committed.
+/ios/Flutter/GoogleMaps.xcconfig
