@@ -17,11 +17,13 @@ import 'route_replan_preview_button.dart';
 class GroupLeaderRouteReplanPanel extends StatelessWidget {
   final String tripId;
   final bool warningOnly;
+  final bool alwaysShowAction;
 
   const GroupLeaderRouteReplanPanel({
     super.key,
     required this.tripId,
     this.warningOnly = false,
+    this.alwaysShowAction = false,
   });
 
   @override
@@ -44,6 +46,7 @@ class GroupLeaderRouteReplanPanel extends StatelessWidget {
       ],
       child: _GroupLeaderRouteReplanPanelBody(
         warningOnly: warningOnly,
+        alwaysShowAction: alwaysShowAction,
       ),
     );
   }
@@ -51,9 +54,11 @@ class GroupLeaderRouteReplanPanel extends StatelessWidget {
 
 class _GroupLeaderRouteReplanPanelBody extends ConsumerStatefulWidget {
   final bool warningOnly;
+  final bool alwaysShowAction;
 
   const _GroupLeaderRouteReplanPanelBody({
     required this.warningOnly,
+    required this.alwaysShowAction,
   });
 
   @override
@@ -77,6 +82,7 @@ class _GroupLeaderRouteReplanPanelBodyState
   Widget build(BuildContext context) {
     return GroupLeaderRouteReplanContent(
       warningOnly: widget.warningOnly,
+      alwaysShowAction: widget.alwaysShowAction,
     );
   }
 }
@@ -88,10 +94,12 @@ class _GroupLeaderRouteReplanPanelBodyState
 /// 単体利用が必要な既存画面は [GroupLeaderRouteReplanPanel] がScopeを用意する。
 class GroupLeaderRouteReplanContent extends ConsumerWidget {
   final bool warningOnly;
+  final bool alwaysShowAction;
 
   const GroupLeaderRouteReplanContent({
     super.key,
     this.warningOnly = false,
+    this.alwaysShowAction = false,
   });
 
   @override
@@ -107,7 +115,12 @@ class GroupLeaderRouteReplanContent extends ConsumerWidget {
             '${delayResolution.nextRideRealtimeError}';
 
     return tripAsync.when(
-      loading: () => const SizedBox.shrink(),
+      loading: () => alwaysShowAction && !warningOnly
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          : const SizedBox.shrink(),
       error: (error, stack) => warningOnly
           ? const SizedBox.shrink()
           : Card(
@@ -122,6 +135,16 @@ class GroupLeaderRouteReplanContent extends ConsumerWidget {
         if (trip == null ||
             trip.tripType != TripType.group ||
             trip.travelPhase != TravelPhase.active) {
+          if (alwaysShowAction && !warningOnly) {
+            return Card(
+              elevation: 0,
+              color: Colors.grey.shade100,
+              child: const Padding(
+                padding: EdgeInsets.all(14),
+                child: Text('おでかけの開始状態を確認しています…'),
+              ),
+            );
+          }
           return const SizedBox.shrink();
         }
 
@@ -178,7 +201,7 @@ class GroupLeaderRouteReplanContent extends ConsumerWidget {
           );
         }
 
-        if (!presentation.showAction) {
+        if (!presentation.showAction && !alwaysShowAction) {
           if (warnings.isEmpty) return const SizedBox.shrink();
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
