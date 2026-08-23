@@ -22,7 +22,10 @@ class GroupLeaderRouteReplanPage extends StatelessWidget {
             style: TextStyle(color: Colors.black54),
           ),
           const SizedBox(height: 12),
-          GroupLeaderRouteReplanPanel(tripId: tripId),
+          GroupLeaderRouteReplanPanel(
+            tripId: tripId,
+            alwaysShowAction: true,
+          ),
         ],
       ),
     );
