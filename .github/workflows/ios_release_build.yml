@@ -265,6 +265,9 @@ jobs:
 
       - name: Configure Release-tokyo signing on Runner only
         shell: bash
+        env:
+          BUILD_NAME: ${{ inputs.build_name }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
         run: |
           set -euo pipefail
           export TEAM_ID PROFILE_NAME BUNDLE_ID
@@ -292,10 +295,17 @@ jobs:
           grep -Fq 'CODE_SIGN_IDENTITY = Apple Distribution' <<< "$SETTINGS" || { echo "::error::Runner Release-tokyo signing identity mismatch"; exit 1; }
           grep -Fq "PROVISIONING_PROFILE_SPECIFIER = $PROFILE_NAME" <<< "$SETTINGS" || { echo "::error::Runner Release-tokyo provisioning profile mismatch"; exit 1; }
           grep -Fq "PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID" <<< "$SETTINGS" || { echo "::error::Runner Release-tokyo bundle identifier mismatch"; exit 1; }
+          grep -Fq "FLUTTER_BUILD_NAME = $BUILD_NAME" <<< "$SETTINGS" || { echo "::error::Runner Release-tokyo FLUTTER_BUILD_NAME mismatch"; exit 1; }
+          grep -Fq "FLUTTER_BUILD_NUMBER = $BUILD_NUMBER" <<< "$SETTINGS" || { echo "::error::Runner Release-tokyo FLUTTER_BUILD_NUMBER mismatch"; exit 1; }
+
+          echo "Resolved Runner Release-tokyo version settings:"
+          printf '%s\n' "$SETTINGS" | grep -E '^[[:space:]]+(FLUTTER_BUILD_NAME|FLUTTER_BUILD_NUMBER|MARKETING_VERSION|CURRENT_PROJECT_VERSION|INFOPLIST_FILE|PRODUCT_BUNDLE_IDENTIFIER) = ' || true
 
       - name: Archive signed Tokyo app
         shell: bash
         env:
+          BUILD_NAME: ${{ inputs.build_name }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
           GOOGLE_MAPS_IOS_API_KEY: ${{ secrets.IOS_GOOGLE_MAPS_API_KEY }}
         run: |
           set -euo pipefail
@@ -316,6 +326,32 @@ jobs:
             archive
 
           [[ -d "$ARCHIVE_PATH" ]] || { echo "::error::Archive was not created: $ARCHIVE_PATH"; exit 1; }
+
+          ARCHIVE_APP_INFO="$ARCHIVE_PATH/Products/Applications/Runner.app/Info.plist"
+          ARCHIVE_INFO="$ARCHIVE_PATH/Info.plist"
+          [[ -f "$ARCHIVE_APP_INFO" ]] || { echo "::error::Archived Runner Info.plist was not found: $ARCHIVE_APP_INFO"; exit 1; }
+          [[ -f "$ARCHIVE_INFO" ]] || { echo "::error::Archive metadata Info.plist was not found: $ARCHIVE_INFO"; exit 1; }
+
+          ARCHIVE_APP_BUILD_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ARCHIVE_APP_INFO")"
+          ARCHIVE_APP_BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$ARCHIVE_APP_INFO")"
+          ARCHIVE_METADATA_BUILD_NAME="$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleShortVersionString' "$ARCHIVE_INFO" 2>/dev/null || true)"
+          ARCHIVE_METADATA_BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleVersion' "$ARCHIVE_INFO" 2>/dev/null || true)"
+
+          [[ "$ARCHIVE_APP_BUILD_NAME" == "$BUILD_NAME" ]] || { echo "::error::Archived app version mismatch. Expected $BUILD_NAME, got $ARCHIVE_APP_BUILD_NAME"; exit 1; }
+          [[ "$ARCHIVE_APP_BUILD_NUMBER" == "$BUILD_NUMBER" ]] || { echo "::error::Archived app build number mismatch. Expected $BUILD_NUMBER, got $ARCHIVE_APP_BUILD_NUMBER"; exit 1; }
+
+          echo "Archive version diagnostics:"
+          echo "  requested:        $BUILD_NAME ($BUILD_NUMBER)"
+          echo "  archived app:     $ARCHIVE_APP_BUILD_NAME ($ARCHIVE_APP_BUILD_NUMBER)"
+          echo "  archive metadata: ${ARCHIVE_METADATA_BUILD_NAME:-<missing>} (${ARCHIVE_METADATA_BUILD_NUMBER:-<missing>})"
+
+          if [[ -n "$ARCHIVE_METADATA_BUILD_NAME" && "$ARCHIVE_METADATA_BUILD_NAME" != "$BUILD_NAME" ]]; then
+            echo "::warning::Archive metadata version differs from requested build_name: requested=$BUILD_NAME metadata=$ARCHIVE_METADATA_BUILD_NAME"
+          fi
+          if [[ -n "$ARCHIVE_METADATA_BUILD_NUMBER" && "$ARCHIVE_METADATA_BUILD_NUMBER" != "$BUILD_NUMBER" ]]; then
+            echo "::warning::Archive metadata build number differs from requested build_number: requested=$BUILD_NUMBER metadata=$ARCHIVE_METADATA_BUILD_NUMBER"
+          fi
+
           echo "ARCHIVE_PATH=$ARCHIVE_PATH" >> "$GITHUB_ENV"
 
       - name: Export and verify signed Tokyo IPA
@@ -373,6 +409,19 @@ jobs:
           ACTUAL_BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_INFO")"
           LOCATION_USAGE="$(/usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$APP_INFO")"
           MAPS_API_KEY="$(/usr/libexec/PlistBuddy -c 'Print :GoogleMapsApiKey' "$APP_INFO")"
+
+          ARCHIVE_APP_INFO="$ARCHIVE_PATH/Products/Applications/Runner.app/Info.plist"
+          ARCHIVE_INFO="$ARCHIVE_PATH/Info.plist"
+          ARCHIVE_APP_BUILD_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ARCHIVE_APP_INFO")"
+          ARCHIVE_APP_BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$ARCHIVE_APP_INFO")"
+          ARCHIVE_METADATA_BUILD_NAME="$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleShortVersionString' "$ARCHIVE_INFO" 2>/dev/null || true)"
+          ARCHIVE_METADATA_BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleVersion' "$ARCHIVE_INFO" 2>/dev/null || true)"
+
+          echo "Version trace after export:"
+          echo "  requested:        $BUILD_NAME ($BUILD_NUMBER)"
+          echo "  archived app:     $ARCHIVE_APP_BUILD_NAME ($ARCHIVE_APP_BUILD_NUMBER)"
+          echo "  archive metadata: ${ARCHIVE_METADATA_BUILD_NAME:-<missing>} (${ARCHIVE_METADATA_BUILD_NUMBER:-<missing>})"
+          echo "  exported IPA:     $ACTUAL_BUILD_NAME ($ACTUAL_BUILD_NUMBER)"
 
           [[ "$ACTUAL_BUNDLE_ID" == "$BUNDLE_ID" ]] || { echo "::error::IPA bundle id mismatch: $ACTUAL_BUNDLE_ID"; exit 1; }
           [[ "$ACTUAL_DISPLAY_NAME" == "$DISPLAY_NAME" ]] || { echo "::error::IPA display name mismatch: $ACTUAL_DISPLAY_NAME"; exit 1; }
