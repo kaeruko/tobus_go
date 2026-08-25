@@ -5,11 +5,15 @@
 .DESCRIPTION
   Tokyo / Nagoya / Sendai を同じコードベースから別applicationIdでビルドします。
   flavorとAPP_CITYは必ず同じ値を渡し、アプリ起動時にも不一致をfail-fastします。
+  Android Maps API key は環境変数 GOOGLE_MAPS_ANDROID_API_KEY からのみ受け取り、
+  release AABでは未設定を許可しません。
 
 .EXAMPLE
+  $env:GOOGLE_MAPS_ANDROID_API_KEY='AIza...'
   .\scripts\build_aab.ps1 -City tokyo
 
 .EXAMPLE
+  $env:GOOGLE_MAPS_ANDROID_API_KEY='AIza...'
   .\scripts\build_aab.ps1 `
     -City nagoya `
     -ApiBase 'https://nagoya-api.example.com'
@@ -41,6 +45,10 @@ function Assert-LastExitCode {
 
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
     throw 'Required command was not found: flutter'
+}
+
+if ([string]::IsNullOrWhiteSpace($env:GOOGLE_MAPS_ANDROID_API_KEY)) {
+    throw 'GOOGLE_MAPS_ANDROID_API_KEY is required. Create a restricted Android Maps key in your personal Google Cloud project and set it in this shell.'
 }
 
 if ([string]::IsNullOrWhiteSpace($ApiBase)) {
@@ -84,6 +92,7 @@ if (-not (Test-Path -LiteralPath $keyProperties -PathType Leaf)) {
 Write-Host "Repository : $repoRoot"
 Write-Host "City       : $City"
 Write-Host "API base   : $ApiBase"
+Write-Host "Maps key   : configured"
 Write-Host "Output     : $aabPath"
 
 Push-Location $repoRoot
