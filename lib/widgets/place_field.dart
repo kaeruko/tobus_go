@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
+
 import '../core/api_client.dart';
 
 class PlaceField extends StatefulWidget {
@@ -22,11 +25,16 @@ class PlaceField extends StatefulWidget {
 }
 
 class _PlaceFieldState extends State<PlaceField> {
-  late TextEditingController _ctrl;
+  static const _autocompleteDebounce = Duration(milliseconds: 300);
+
+  late final TextEditingController _ctrl;
+  Timer? _autocompleteTimer;
   List<Map<String, dynamic>> _preds = [];
   bool _loading = false;
   bool _isSyncing = false;
-  
+  String? _errorMessage;
+  int _inputGeneration = 0;
+
   @override
   void initState() {
     super.initState();
@@ -37,106 +45,171 @@ class _PlaceFieldState extends State<PlaceField> {
   @override
   void didUpdateWidget(PlaceField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.displayValue != _ctrl.text) {
-      // External change (e.g. swap), update text and keep selection if possible
-      // Note: This might reset cursor position, but acceptable for now.
-      _isSyncing = true;
-      try {
-        _ctrl.text = widget.displayValue;
-      } finally {
-        _isSyncing = false;
-      }
+    if (widget.displayValue == _ctrl.text) return;
+
+    _isSyncing = true;
+    try {
+      _ctrl.text = widget.displayValue;
+    } finally {
+      _isSyncing = false;
     }
   }
 
   @override
   void dispose() {
+    _autocompleteTimer?.cancel();
     _ctrl.removeListener(_onInputChanged);
     _ctrl.dispose();
     super.dispose();
   }
 
-  Future<void> _onInputChanged() async {
+  void _onInputChanged() {
     if (_isSyncing) return;
+
     final text = _ctrl.text;
-    
-    // Notify parent immediately of raw text change (so they can enable search button etc)
-    // We pass empty desc for raw input
-    // NOTE: If we want to strictly follow "onChanged triggers search", 
-    // we might want to debounce or only trigger on selection.
-    // But user plan says "onChanged で文字列をそのまま返す".
-    // We should allow typing free text.
-    // However, to avoid spamming the parent's setter (and re-render loops), 
-    // usually we only call onChanged when helpful.
-    // But for a controlled component, we MUST call onChanged to update the state.
-    // Wait, if we call onChanged, parent updates state, which passes back new value, 
-    // which updates _ctrl.text.
-    // To avoid cursor jumping, we only update _ctrl.text in didUpdateWidget if it differs effectively.
-    
-    // For now, let's just implement the autocomplete logic here.
-    // We will call widget.onChanged only when user "commits" or types?
-    // User instruction: "onChanged で文字列をそのまま返す"
-    // So yes, sync content.
-    if (widget.value != text) {
-        widget.onChanged(text, ''); 
+    final query = text.trim();
+    final generation = ++_inputGeneration;
+    _autocompleteTimer?.cancel();
+
+    // Raw text is only a display/query value. It is not a route coordinate until
+    // the user selects one autocomplete result and /details resolves it.
+    widget.onChanged('', text);
+
+    if (mounted) {
+      setState(() {
+        _loading = false;
+        _preds = [];
+        _errorMessage = null;
+      });
     }
 
-    final q = text.trim();
-    if (q.isEmpty) {
-      if (mounted) setState(() => _preds = []);
-      return;
-    }
+    if (query.isEmpty) return;
 
-    // Debounce or just load?
-    // For simplicity, just load.
-    if (mounted) setState(() => _loading = true);
+    _autocompleteTimer = Timer(
+      _autocompleteDebounce,
+      () => _loadPredictions(query, generation),
+    );
+  }
+
+  Future<void> _loadPredictions(String query, int generation) async {
+    if (!mounted || generation != _inputGeneration) return;
+
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
     try {
-      final j = await ApiClient.get('/autocomplete', params: {'q': q});
-      final raw = j['predictions'] as List? ?? const [];
-      if (mounted) {
-        setState(() {
-            _loading = false;
-            _preds = raw.cast<Map<String, dynamic>>();
-        });
+      final json = await ApiClient.get('/autocomplete', params: {'q': query});
+      final raw = json['predictions'];
+      if (raw is! List) {
+        throw StateError('Autocomplete response is missing predictions list');
       }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-            _loading = false;
-            _preds = [];
-        });
-      }
+
+      final predictions = raw.map<Map<String, dynamic>>((entry) {
+        if (entry is! Map) {
+          throw StateError('Autocomplete prediction is not an object: $entry');
+        }
+        return Map<String, dynamic>.from(entry);
+      }).toList(growable: false);
+
+      if (!mounted || generation != _inputGeneration) return;
+      setState(() {
+        _loading = false;
+        _preds = predictions;
+      });
+    } catch (error) {
+      if (!mounted || generation != _inputGeneration) return;
+      setState(() {
+        _loading = false;
+        _preds = [];
+        _errorMessage = '場所候補を取得できませんでした: $error';
+      });
     }
   }
 
-  Future<void> _pick(Map<String, dynamic> p) async {
-    final placeId = p['place_id'] as String?;
-    if (placeId == null) return;
+  Future<void> _pick(Map<String, dynamic> prediction) async {
+    _autocompleteTimer?.cancel();
+    final generation = ++_inputGeneration;
 
-    final j = await ApiClient.get('/details', params: {'place_id': placeId});
-    final res = j['result'] as Map<String, dynamic>?;
-    final loc = (res?['geometry']?['location'] as Map?) ?? {};
-    final lat = (loc['lat'] as num?)?.toDouble() ?? 0;
-    final lon = (loc['lng'] as num?)?.toDouble() ?? 0;
-    
-    final name = p['description']?.toString() ?? res?['name']?.toString() ?? '';
-    
-    // "35.6812,139.7671"
-    final val = '$lat,$lon';
-    
-    setState(() => _preds = []);
-    
-    // Update text to value (coordinates) because "Destruction is fine"
-    // Ideally we'd show `name` but store `val`. 
-    // But complying with "Stateless/Single Source of Truth", we show what's in state.
-    _isSyncing = true;
+    final placeId = prediction['place_id'];
+    if (placeId is! String || placeId.trim().isEmpty) {
+      setState(() {
+        _preds = [];
+        _errorMessage = '場所候補に place_id がありません';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
     try {
-      _ctrl.text = name; // Update to name instead of val! 
-    } finally {
-      _isSyncing = false;
-    } 
-    
-    widget.onChanged(val, name);
+      final json = await ApiClient.get(
+        '/details',
+        params: {'place_id': placeId},
+      );
+      final result = json['result'];
+      if (result is! Map) {
+        throw StateError('Place details response is missing result object');
+      }
+      final geometry = result['geometry'];
+      if (geometry is! Map) {
+        throw StateError('Place details response is missing geometry object');
+      }
+      final location = geometry['location'];
+      if (location is! Map) {
+        throw StateError('Place details response is missing location object');
+      }
+
+      final latValue = location['lat'];
+      final lonValue = location['lng'];
+      if (latValue is! num || lonValue is! num) {
+        throw StateError('Place details response has non-numeric coordinates');
+      }
+      final lat = latValue.toDouble();
+      final lon = lonValue.toDouble();
+      if (!lat.isFinite || !lon.isFinite) {
+        throw StateError('Place details response has non-finite coordinates');
+      }
+      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        throw RangeError('Place details response has out-of-range coordinates: $lat,$lon');
+      }
+
+      final predictionName = prediction['description']?.toString().trim();
+      final detailName = result['name']?.toString().trim();
+      final name = (predictionName != null && predictionName.isNotEmpty)
+          ? predictionName
+          : detailName;
+      if (name == null || name.isEmpty) {
+        throw StateError('Place details response is missing a display name');
+      }
+
+      if (!mounted || generation != _inputGeneration) return;
+
+      _isSyncing = true;
+      try {
+        _ctrl.text = name;
+      } finally {
+        _isSyncing = false;
+      }
+
+      setState(() {
+        _loading = false;
+        _preds = [];
+        _errorMessage = null;
+      });
+      widget.onChanged('$lat,$lon', name);
+    } catch (error) {
+      if (!mounted || generation != _inputGeneration) return;
+      setState(() {
+        _loading = false;
+        _preds = [];
+        _errorMessage = '場所の座標を取得できませんでした: $error';
+      });
+    }
   }
 
   @override
@@ -158,7 +231,6 @@ class _PlaceFieldState extends State<PlaceField> {
           controller: _ctrl,
           placeholder: '場所名・住所で検索',
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          // clearButtonMode: OverlayVisibilityMode.editing,
           suffix: widget.onCurrentLocationPressed != null
               ? CupertinoButton(
                   padding: EdgeInsets.zero,
@@ -173,6 +245,17 @@ class _PlaceFieldState extends State<PlaceField> {
             padding: EdgeInsets.only(top: 6),
             child: CupertinoActivityIndicator(),
           ),
+        if (_errorMessage != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              _errorMessage!,
+              style: const TextStyle(
+                color: CupertinoColors.systemRed,
+                fontSize: 12,
+              ),
+            ),
+          ),
         if (_preds.isNotEmpty)
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 220),
@@ -186,17 +269,17 @@ class _PlaceFieldState extends State<PlaceField> {
                 padding: EdgeInsets.zero,
                 itemCount: _preds.length > 6 ? 6 : _preds.length,
                 itemBuilder: (context, index) {
-                  final p = _preds[index];
-                  final txt = p['description']?.toString() ?? '地点';
+                  final prediction = _preds[index];
+                  final text = prediction['description']?.toString() ?? '地点';
                   return CupertinoButton(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 10,
                     ),
                     alignment: Alignment.centerLeft,
-                    onPressed: () => _pick(p),
+                    onPressed: () => _pick(prediction),
                     child: Text(
-                      txt,
+                      text,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
