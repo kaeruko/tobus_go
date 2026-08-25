@@ -21,6 +21,10 @@ fun requiredSigningProperty(name: String): String {
         ?: throw GradleException("android/key.properties is missing required key: $name")
 }
 
+val googleMapsAndroidApiKey =
+    providers.gradleProperty("GOOGLE_MAPS_ANDROID_API_KEY")
+        .orElse(providers.environmentVariable("GOOGLE_MAPS_ANDROID_API_KEY"))
+
 android {
     namespace = "jp.cloxs.toeigo"
     compileSdk = flutter.compileSdkVersion
@@ -42,6 +46,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["googleMapsApiKey"] = googleMapsAndroidApiKey.orNull ?: ""
     }
 
     flavorDimensions += "city"
@@ -103,20 +108,25 @@ tasks.configureEach {
     }
 }
 
-// Debug flavor builds must work without release keys, but a release artifact
-// must never be emitted unsigned by accident.
+// Debug flavor builds may run without a Maps key, but store artifacts must not
+// be emitted without the explicitly supplied restricted Android key.
 gradle.taskGraph.whenReady {
-    if (!hasReleaseSigning) {
-        val requestedReleaseArtifact = allTasks.any { task ->
-            val taskName = task.name
-            (taskName.startsWith("bundle") || taskName.startsWith("assemble")) &&
-                taskName.endsWith("Release")
-        }
-        if (requestedReleaseArtifact) {
-            throw GradleException(
-                "Release signing is required. android/key.properties was not found.",
-            )
-        }
+    val requestedReleaseArtifact = allTasks.any { task ->
+        val taskName = task.name
+        (taskName.startsWith("bundle") || taskName.startsWith("assemble")) &&
+            taskName.endsWith("Release")
+    }
+
+    if (requestedReleaseArtifact && !hasReleaseSigning) {
+        throw GradleException(
+            "Release signing is required. android/key.properties was not found.",
+        )
+    }
+
+    if (requestedReleaseArtifact && googleMapsAndroidApiKey.orNull.isNullOrBlank()) {
+        throw GradleException(
+            "GOOGLE_MAPS_ANDROID_API_KEY is required for Android release builds.",
+        )
     }
 }
 
