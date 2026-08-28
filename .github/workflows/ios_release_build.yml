@@ -23,7 +23,7 @@ env:
   BUNDLE_ID: jp.cloxs.go.tokyo
   DISPLAY_NAME: 都営でGO
   APP_CITY: tokyo
-  API_BASE: https://y6dmxuksrkf3nxp4encz5ez2ua0joxlp.lambda-url.us-west-2.on.aws
+  API_BASE: https://bzmpzqtr7kvczwgmyxlbrfkx6q0cldpy.lambda-url.us-west-2.on.aws
   EXPECTED_TEAM_ID: H5B52RL9R2
   FLUTTER_VERSION: "3.47.0"
   COCOAPODS_VERSION: "1.16.2"
