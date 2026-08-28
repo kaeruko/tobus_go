@@ -11,7 +11,7 @@ Issue #155 の引き継ぎを、都営でGO (`jp.cloxs.go.tokyo`) 固有の実�
 - Flutter flavor / Xcode scheme: `tokyo`
 - Xcode archive configuration: `Release-tokyo`
 - `APP_CITY`: `tokyo`
-- Tokyo production API: `https://y6dmxuksrkf3nxp4encz5ez2ua0joxlp.lambda-url.us-west-2.on.aws`
+- Tokyo production API: `https://bzmpzqtr7kvczwgmyxlbrfkx6q0cldpy.lambda-url.us-west-2.on.aws`
 - iOS deployment target: `15.0`
 
 Version/build numberはApp Store Connectの既存状態を確認してから決める。リポジトリの `pubspec.yaml` は現在 `1.0.0+11` だが、workflowはこの値から次のbuild numberを推測しない。
