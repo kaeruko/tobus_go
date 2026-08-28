@@ -17,11 +17,12 @@ load_dotenv()
 # 設定 (Defaults)
 DEFAULT_ODPT_API_TOKEN = os.getenv("ODPT_API_TOKEN")
 DEFAULT_DATA_DIR = os.getenv("DATA_DIR", "api/data")
-API_URL_BASE = "https://api-public.odpt.org/api/v4"
+AUTHENTICATED_API_URL_BASE = "https://api.odpt.org/api/v4"
+PUBLIC_API_URL_BASE = "https://api-public.odpt.org/api/v4"
 
 def download_json(endpoint, save_filename, data_dir, token, params=None):
     """ 単発のJSONデータをダウンロード """
-    url = f"{API_URL_BASE}/{endpoint}"
+    url = f"{AUTHENTICATED_API_URL_BASE}/{endpoint}"
     default_params = {
         "acl:consumerKey": token,
         "odpt:operator": "odpt.Operator:Toei"
@@ -46,7 +47,7 @@ def download_json(endpoint, save_filename, data_dir, token, params=None):
 def download_and_extract_gtfs(data_dir, token):
     """ 都営バスGTFS(ZIP)をダウンロードして解凍 """
     gtfs_dir = os.path.join(data_dir, "ToeiBus-GTFS")
-    url = f"{API_URL_BASE}/files/Toei/data/ToeiBus-GTFS.zip"
+    url = f"{PUBLIC_API_URL_BASE}/files/Toei/data/ToeiBus-GTFS.zip"
     params = {"acl:consumerKey": token}
     
     print(f"Downloading GTFS ZIP from {url} ... ", end="")
