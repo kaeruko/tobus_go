@@ -33,6 +33,7 @@ Version/build numberはApp Store Connectの既存状態を確認してから決�
 - `IOS_DISTRIBUTION_CERTIFICATE_BASE64`
 - `IOS_DISTRIBUTION_CERTIFICATE_PASSWORD`
 - `IOS_PROVISIONING_PROFILE_BASE64`
+- `IOS_GOOGLE_MAPS_API_KEY`
 
 App Store Connect upload用:
 
