@@ -129,12 +129,6 @@ def main(data_dir=None, token=None):
     except Exception as e:
         print(f"Bus Timetable Fetch Error: {e}")
 
-    try:
-        print("--- Fetching Bus Timetables ---")
-        fetch_robust.main() 
-    except Exception as e:
-        print(f"Bus Timetable Fetch Error: {e}")
-
     print("--- Fetching Train Timetables ---")
     fetch_train_robust.main()
     validate_train_timetable(data_dir)
