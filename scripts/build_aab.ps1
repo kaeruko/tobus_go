@@ -53,8 +53,8 @@ if ([string]::IsNullOrWhiteSpace($env:GOOGLE_MAPS_ANDROID_API_KEY)) {
 
 if ([string]::IsNullOrWhiteSpace($ApiBase)) {
     if ($City -eq 'tokyo') {
-        # Preserve the currently deployed Tokyo endpoint for the existing app.
-        $ApiBase = 'https://y6dmxuksrkf3nxp4encz5ez2ua0joxlp.lambda-url.us-west-2.on.aws'
+        # Default to the migrated Tokyo production endpoint.
+        $ApiBase = 'https://bzmpzqtr7kvczwgmyxlbrfkx6q0cldpy.lambda-url.us-west-2.on.aws'
     }
     else {
         throw "ApiBase is required for city '$City'. Do not fall back to the Tokyo API."
