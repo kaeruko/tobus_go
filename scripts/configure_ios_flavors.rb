@@ -8,9 +8,16 @@
 # IDs in this repository and refuses a partially generated or unexpected state.
 
 PROJECT_PATH = File.expand_path('../ios/Runner.xcodeproj/project.pbxproj', __dir__)
+PODFILE_PATH = File.expand_path('../ios/Podfile', __dir__)
 CHECK_ONLY = ARGV == ['--check']
 unless ARGV.empty? || CHECK_ONLY
   abort 'usage: ruby scripts/configure_ios_flavors.rb [--check]'
+end
+
+podfile = File.read(PODFILE_PATH, encoding: 'UTF-8')
+unless podfile.include?("if target.name == 'geolocator_apple'") &&
+       podfile.include?("BYPASS_PERMISSION_LOCATION_ALWAYS=1")
+  abort 'ios/Podfile must disable geolocator_apple Always location permission with BYPASS_PERMISSION_LOCATION_ALWAYS=1'
 end
 
 BASE_PROJECT_CONFIGS = {
