@@ -78,6 +78,24 @@ void main() {
       expect(profile.distribution.firebaseEnabled, isFalse);
     });
 
+    test('yokohama is isolated and keeps unimplemented realtime disabled', () {
+      final profile = cityProfileForKey('yokohama');
+
+      expect(profile.appName, '横浜でGO');
+      expect(profile.capabilities.features.routeSearchOnly, isTrue);
+      expect(profile.capabilities.features.outingDiscovery, isFalse);
+      expect(profile.capabilities.features.savedRoutes, isFalse);
+      expect(profile.capabilities.features.history, isFalse);
+      expect(profile.capabilities.features.groupTrips, isFalse);
+      expect(profile.capabilities.realtime.vehiclePosition, isFalse);
+      expect(profile.capabilities.realtime.tripUpdates, isFalse);
+      expect(profile.capabilities.realtime.alerts, isFalse);
+      expect(profile.farePolicies.map((option) => option.id), ['normal']);
+      expect(profile.distribution.androidApplicationId, 'jp.cloxs.yokohamago');
+      expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.yokohamago');
+      expect(profile.distribution.firebaseEnabled, isFalse);
+    });
+
     test('APP_CITY values are exact and unsupported values fail fast', () {
       expect(() => cityProfileForKey('Tokyo'), throwsStateError);
       expect(() => cityProfileForKey(' nagoya'), throwsStateError);
@@ -94,12 +112,23 @@ void main() {
         resolveConfiguredCityKey(flavor: 'sendai', dartDefine: ''),
         'sendai',
       );
+      expect(
+        resolveConfiguredCityKey(flavor: 'yokohama', dartDefine: ''),
+        'yokohama',
+      );
     });
 
     test('flavor and APP_CITY mismatch fails instead of choosing one', () {
       expect(
         () => resolveConfiguredCityKey(
           flavor: 'nagoya',
+          dartDefine: 'tokyo',
+        ),
+        throwsStateError,
+      );
+      expect(
+        () => resolveConfiguredCityKey(
+          flavor: 'yokohama',
           dartDefine: 'tokyo',
         ),
         throwsStateError,
