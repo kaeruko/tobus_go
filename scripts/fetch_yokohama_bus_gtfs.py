@@ -5,6 +5,8 @@ import os
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 API_DIR = Path(__file__).resolve().parents[1] / "api"
 if str(API_DIR) not in sys.path:
     sys.path.insert(0, str(API_DIR))
@@ -28,10 +30,15 @@ def main() -> None:
     parser.add_argument("--expected-service-date", required=True)
     args = parser.parse_args()
 
+    # Local developer convenience: read api/.env once, while preserving any
+    # explicitly exported process environment variable. The file is ignored by
+    # git and is never uploaded by this script.
+    load_dotenv(API_DIR / ".env", override=False)
+
     token = os.getenv("ODPT_API_TOKEN")
     if token is None or token == "":
         raise RuntimeError(
-            "ODPT_API_TOKEN is required to fetch Yokohama municipal-bus GTFS"
+            "ODPT_API_TOKEN is required. Set it in api/.env or the process environment."
         )
 
     manifest = fetch_yokohama_bus_gtfs(
