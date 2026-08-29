@@ -4,6 +4,7 @@ enum AppCity {
   tokyo,
   nagoya,
   sendai,
+  yokohama,
 }
 
 class RealtimeCapabilities {
@@ -215,6 +216,39 @@ const sendaiCityProfile = CityProfile(
   ),
 );
 
+const yokohamaCityProfile = CityProfile(
+  city: AppCity.yokohama,
+  key: 'yokohama',
+  appName: '横浜でGO',
+  capabilities: CityCapabilities(
+    features: FeatureCapabilities(
+      routeSearchOnly: true,
+      outingDiscovery: false,
+      savedRoutes: false,
+      history: false,
+      groupTrips: false,
+    ),
+    realtime: RealtimeCapabilities(
+      vehiclePosition: false,
+      tripUpdates: false,
+      alerts: false,
+    ),
+  ),
+  farePolicies: [
+    FarePolicyOption(
+      id: 'normal',
+      displayName: '通常運賃',
+      settlementType: 'normal',
+    ),
+  ],
+  distribution: CityDistributionConfig(
+    androidApplicationId: 'jp.cloxs.yokohamago',
+    iosBundleIdentifier: 'jp.cloxs.yokohamago',
+    firebaseEnabled: false,
+    storeMetadataDirectory: 'store/yokohama',
+  ),
+);
+
 CityProfile cityProfileForKey(String key) {
   switch (key) {
     case 'tokyo':
@@ -223,9 +257,11 @@ CityProfile cityProfileForKey(String key) {
       return nagoyaCityProfile;
     case 'sendai':
       return sendaiCityProfile;
+    case 'yokohama':
+      return yokohamaCityProfile;
     default:
       throw StateError(
-        'Unsupported APP_CITY="$key". Expected one of: tokyo, nagoya, sendai',
+        'Unsupported APP_CITY="$key". Expected one of: tokyo, nagoya, sendai, yokohama',
       );
   }
 }
