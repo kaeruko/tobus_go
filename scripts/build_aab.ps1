@@ -3,7 +3,7 @@
   都市別Google Play向けrelease AABを作成します。
 
 .DESCRIPTION
-  Tokyo / Nagoya / Sendai を同じコードベースから別applicationIdでビルドします。
+  Tokyo / Nagoya / Sendai / Yokohama を同じコードベースから別applicationIdでビルドします。
   flavorとAPP_CITYは必ず同じ値を渡し、アプリ起動時にも不一致をfail-fastします。
   Android Maps API key は環境変数 GOOGLE_MAPS_ANDROID_API_KEY からのみ受け取り、
   release AABでは未設定を許可しません。
@@ -22,7 +22,7 @@
 [CmdletBinding()]
 param(
     [Parameter()]
-    [ValidateSet('tokyo', 'nagoya', 'sendai')]
+    [ValidateSet('tokyo', 'nagoya', 'sendai', 'yokohama')]
     [string]$City = 'tokyo',
 
     [Parameter()]
