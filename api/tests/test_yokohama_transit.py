@@ -165,7 +165,10 @@ class YokohamaBusStaticGtfsTest(unittest.TestCase):
                 [
                     (
                         YOKOHAMA_BUS_STATIC_URL,
-                        {"acl:consumerKey": "test-token"},
+                        {
+                            "date": "current",
+                            "acl:consumerKey": "test-token",
+                        },
                     )
                 ],
             )
