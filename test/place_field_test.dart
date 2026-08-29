@@ -1,9 +1,19 @@
+import 'dart:convert';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:toeigo/core/api_client.dart';
 import 'package:toeigo/widgets/place_field.dart';
+
+http.Response _jsonResponse(String body, int statusCode) {
+  return http.Response.bytes(
+    utf8.encode(body),
+    statusCode,
+    headers: const {'content-type': 'application/json; charset=utf-8'},
+  );
+}
 
 void main() {
   late http.Client originalClient;
@@ -23,7 +33,7 @@ void main() {
 
     ApiClient.httpClient = MockClient((request) async {
       requestCount++;
-      return http.Response('{"predictions":[]}', 200);
+      return _jsonResponse('{"predictions":[]}', 200);
     });
 
     await tester.pumpWidget(
@@ -62,13 +72,13 @@ void main() {
 
     ApiClient.httpClient = MockClient((request) async {
       if (request.url.path.endsWith('/autocomplete')) {
-        return http.Response(
+        return _jsonResponse(
           '{"predictions":[{"place_id":"tokyo-station","description":"東京駅, 東京都"}]}',
           200,
         );
       }
       if (request.url.path.endsWith('/details')) {
-        return http.Response(
+        return _jsonResponse(
           '{"result":{"name":"東京駅","geometry":{"location":{"lat":35.681236,"lng":139.767125}}}}',
           200,
         );
@@ -112,13 +122,13 @@ void main() {
 
     ApiClient.httpClient = MockClient((request) async {
       if (request.url.path.endsWith('/autocomplete')) {
-        return http.Response(
+        return _jsonResponse(
           '{"predictions":[{"place_id":"broken-place","description":"壊れた候補"}]}',
           200,
         );
       }
       if (request.url.path.endsWith('/details')) {
-        return http.Response('{"result":{"name":"壊れた候補"}}', 200);
+        return _jsonResponse('{"result":{"name":"壊れた候補"}}', 200);
       }
       return http.Response('unexpected request', 500);
     });
