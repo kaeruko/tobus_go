@@ -327,7 +327,10 @@ def fetch_yokohama_bus_gtfs(
     try:
         response = http_client.get(
             YOKOHAMA_BUS_STATIC_URL,
-            params={"acl:consumerKey": consumer_key},
+            params={
+                "date": "current",
+                "acl:consumerKey": consumer_key,
+            },
         )
         try:
             response.raise_for_status()
