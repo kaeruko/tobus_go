@@ -23,18 +23,20 @@ def register_route_only_core_routes(
     city_key: str,
     city_display_name: str,
     realtime_health: bool | dict[str, bool],
+    warmup_data_label: str | None = None,
 ) -> None:
     if not city_key or city_key.strip() != city_key:
         raise ValueError(f"invalid route-only city key: {city_key!r}")
     if not city_display_name:
         raise ValueError("route-only city display name is required")
+    data_label = warmup_data_label or f"{city_display_name} GTFS data"
 
     @app.post("/route")
     async def route_start(req: RouteRequest):
         if getattr(app.state, "loading_status", "starting") != "ready":
             raise HTTPException(
                 503,
-                f"Server is warming up (loading {city_display_name} GTFS data).",
+                f"Server is warming up (loading {data_label}).",
             )
         backend = getattr(app.state, "route_backend", None)
         if backend is None:
