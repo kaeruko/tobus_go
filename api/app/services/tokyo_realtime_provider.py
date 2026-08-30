@@ -3,15 +3,69 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from .vehicle_progress import resolve_vehicle_stop_progress
+
 
 RefreshFunction = Callable[[Any, int], Awaitable[bool]]
+
+
+def _normalize_tokyo_vehicle(row: dict[str, Any]) -> dict[str, Any]:
+    """Expose Tokyo's legacy cached row through the shared VehiclePosition shape."""
+
+    observed_sequence = row.get("observed_stop_sequence")
+    if (
+        isinstance(observed_sequence, bool)
+        or not isinstance(observed_sequence, int)
+        or observed_sequence <= 0
+    ):
+        raise RuntimeError(
+            "Tokyo VehiclePosition current_stop_sequence must be a positive integer"
+        )
+
+    legacy_from_sequence = row.get("from_stop_sequence")
+    previous_sequence = None
+    if observed_sequence > 1:
+        previous_sequence = legacy_from_sequence
+
+    progress = resolve_vehicle_stop_progress(
+        observed_stop_sequence=observed_sequence,
+        current_status=row.get("current_status"),
+        previous_stop_sequence=previous_sequence,
+    )
+
+    route_id = row.get("route_id") or row.get("odpt:busroute")
+    if not isinstance(route_id, str) or not route_id:
+        raise RuntimeError("Tokyo VehiclePosition route_id is missing")
+
+    normalized = dict(row)
+    normalized.update(
+        {
+            "route_id": route_id,
+            "stop_id": row.get("raw_stop_id"),
+            "current_stop_sequence": observed_sequence,
+            "from_stop_sequence": progress.from_stop_sequence,
+            "before_first_stop": progress.before_first_stop,
+            "timestamp": row.get("vehicle_timestamp"),
+        }
+    )
+
+    if progress.before_first_stop:
+        # There is no previously reached stop yet. Keep the actual vehicle
+        # position and reported first stop, but never claim the first stop has
+        # already been departed.
+        normalized["odpt:fromBusstopPole"] = None
+        normalized["next_stop"] = row.get("raw_stop_name")
+        normalized["next_stop_id"] = row.get("raw_stop_id")
+
+    return normalized
 
 
 class TokyoRealtimeProvider:
     """Adapter from Tokyo's existing cached VehiclePosition runtime.
 
     The existing refresh/cache implementation remains the source of truth. This
-    class only exposes it through the shared RealtimeProvider contract.
+    adapter normalizes Tokyo rows to the same VehiclePosition semantics used by
+    the other city runtimes before exposing them through RealtimeProvider.
     """
 
     def __init__(self, timetable_manager: Any, refresh: RefreshFunction) -> None:
@@ -37,7 +91,7 @@ class TokyoRealtimeProvider:
         rows = getattr(self._tm, "latest_bus_positions", None)
         if not rows:
             raise RuntimeError("Tokyo VehiclePosition refresh returned no positions")
-        return tuple(rows)
+        return tuple(_normalize_tokyo_vehicle(row) for row in rows)
 
     async def trip_updates(self) -> tuple[dict[str, Any], ...]:
         raise NotImplementedError("Tokyo TripUpdates capability is not enabled")
