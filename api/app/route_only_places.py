@@ -89,7 +89,7 @@ async def _request_autocomplete(q: str) -> dict[str, Any]:
                     "input": q,
                     "languageCode": "ja",
                     "regionCode": "JP",
-                    "includedRegionCodes": ["jp"],
+                    "includedRegionCodes": ["JP"],
                 },
             )
     except httpx.RequestError as error:
