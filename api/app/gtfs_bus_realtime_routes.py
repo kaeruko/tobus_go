@@ -9,6 +9,8 @@ from fastapi import HTTPException, Query
 
 from transit_dataset import TransitDataset
 
+from .services.vehicle_progress import resolve_vehicle_stop_progress
+
 
 def _source_id(value: str, *, feed_id: str, field: str) -> str:
     prefix = f"{feed_id}:"
@@ -197,17 +199,25 @@ def _resolve_from_stop(
                 f"sequence={sequence}"
             )
 
-    status = row.get("current_status")
-    if status == 1:  # STOPPED_AT
+    previous = schedule[current_index - 1] if current_index > 0 else None
+    progress = resolve_vehicle_stop_progress(
+        observed_stop_sequence=sequence,
+        current_status=row.get("current_status"),
+        previous_stop_sequence=(
+            previous["sequence"] if previous is not None else None
+        ),
+    )
+
+    if progress.before_first_stop:
+        return None, current, True
+    if progress.from_stop_sequence == current["sequence"]:
         return current, current, False
-    if status in {0, 2}:  # INCOMING_AT / IN_TRANSIT_TO
-        if current_index == 0:
-            # The vehicle is known and has a valid position, but there is no
-            # previous stop to report yet. Keep the exact vehicle match and
-            # expose this state instead of pretending the vehicle is missing.
-            return None, current, True
-        return schedule[current_index - 1], current, False
-    raise RuntimeError(f"unsupported VehicleStopStatus: {status!r}")
+    if previous is not None and progress.from_stop_sequence == previous["sequence"]:
+        return previous, current, False
+    raise RuntimeError(
+        "resolved VehiclePosition progress does not match static schedule: "
+        f"from_sequence={progress.from_stop_sequence}, observed_sequence={sequence}"
+    )
 
 
 def register_gtfs_bus_vehicle_location_route(app, *, feed_id: str) -> None:
