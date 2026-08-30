@@ -73,8 +73,8 @@ void main() {
       expect(profile.capabilities.realtime.tripUpdates, isTrue);
       expect(profile.capabilities.realtime.alerts, isTrue);
       expect(profile.farePolicies.map((option) => option.id), ['normal']);
-      expect(profile.distribution.androidApplicationId, 'jp.cloxs.sendaigo');
-      expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.sendaigo');
+      expect(profile.distribution.androidApplicationId, 'jp.cloxs.go.sendai');
+      expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.go.sendai');
       expect(profile.distribution.firebaseEnabled, isFalse);
     });
 
@@ -91,8 +91,8 @@ void main() {
       expect(profile.capabilities.realtime.tripUpdates, isFalse);
       expect(profile.capabilities.realtime.alerts, isFalse);
       expect(profile.farePolicies.map((option) => option.id), ['normal']);
-      expect(profile.distribution.androidApplicationId, 'jp.cloxs.yokohamago');
-      expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.yokohamago');
+      expect(profile.distribution.androidApplicationId, 'jp.cloxs.go.yokohama');
+      expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.go.yokohama');
       expect(profile.distribution.firebaseEnabled, isFalse);
     });
 
