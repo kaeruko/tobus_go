@@ -8,7 +8,7 @@ enum BusProgressPhase { approaching, riding, arrived }
 /// boarding stop. During the ride it is the stop most recently departed from.
 class BusProgress {
   final String stepId;
-  final String fromStopId;
+  final String? fromStopId;
   final int? fromStopIndex;
   final String? nextStopId;
   final int? nextStopIndex;
@@ -35,7 +35,8 @@ class BusProgress {
 
   factory BusProgress.forStep({
     required StepSeg step,
-    required String fromStopId,
+    required String? fromStopId,
+    bool beforeFirstStop = false,
     List<String> tripStopIds = const [],
     String? observedStopId,
     String? observedStopName,
@@ -44,6 +45,35 @@ class BusProgress {
   }) {
     if (step.stops.isEmpty) {
       throw StateError('停留所のないバスStepです: stepId=${step.stepId}');
+    }
+
+    final boardingStopId = step.stops.first.stopId;
+    if (beforeFirstStop) {
+      if (fromStopId != null) {
+        throw StateError(
+          '始発前のバス位置に直前停留所があります: '
+          'stepId=${step.stepId}, stopId=$fromStopId',
+        );
+      }
+      return BusProgress(
+        stepId: step.stepId,
+        fromStopId: null,
+        fromStopIndex: null,
+        nextStopId: boardingStopId,
+        nextStopIndex: 0,
+        stopsUntilBoarding: null,
+        phase: BusProgressPhase.approaching,
+        observedStopId: observedStopId,
+        observedStopName: observedStopName,
+        currentStatus: currentStatus,
+        vehicleAgeSeconds: vehicleAgeSeconds,
+      );
+    }
+
+    if (fromStopId == null || fromStopId.isEmpty) {
+      throw StateError(
+        '始発前ではないバス位置に直前停留所がありません: stepId=${step.stepId}',
+      );
     }
 
     final fromIndex = step.stops.indexWhere(
@@ -68,7 +98,6 @@ class BusProgress {
       );
     }
 
-    final boardingStopId = step.stops.first.stopId;
     final destinationStopId = step.stops.last.stopId;
     final observedTripIndex = tripStopIds.indexOf(fromStopId);
     final boardingTripIndex = tripStopIds.indexOf(boardingStopId ?? '');
