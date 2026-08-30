@@ -1,12 +1,13 @@
 import 'package:flutter/cupertino.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../core/app_clock.dart';
+import '../core/city_profile.dart';
 import '../models/route_models.dart';
+import '../models/fare_models.dart';
+import '../providers/city_profile_provider.dart';
 import '../providers/saved_routes_provider.dart';
-import '../widgets/timetable_view.dart';
-import '../models/group_models.dart';
 import '../models/leg_models.dart';
 import '../providers/trip_draft_provider.dart';
 import '../services/trip_service.dart';
@@ -15,50 +16,23 @@ import 'leader_mode_page.dart';
 import '../core/api_client.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/route_map_preview.dart';
-import '../utils/string_utils.dart';
-import 'segment_stops_page.dart';
+import '../widgets/route_detail_widgets.dart';
 import 'trip_page.dart';
-
-
-bool _isPlaceholder(String? value) {
-  const placeholders = {'出発地', '目的地'};
-  if (value == null) return true;
-  final trimmed = value.trim();
-  return trimmed.isEmpty || placeholders.contains(trimmed);
-}
-
-String _originLabelOf(Candidate candidate) {
-  if (!_isPlaceholder(candidate.originName)) {
-    return candidate.originName!;
-  }
-  if (candidate.steps.isNotEmpty &&
-      !_isPlaceholder(candidate.steps.first.from)) {
-    return candidate.steps.first.from!;
-  }
-  return '出発地';
-}
-
-String _destinationLabelOf(Candidate candidate) {
-  if (!_isPlaceholder(candidate.destinationName)) {
-    return candidate.destinationName!;
-  }
-  if (candidate.steps.isNotEmpty && !_isPlaceholder(candidate.steps.last.to)) {
-    return candidate.steps.last.to!;
-  }
-  return '目的地';
-}
+import 'active_route_page.dart';
 
 // --- メインの画面 ---
 class RouteDetailPage extends ConsumerStatefulWidget {
   final Candidate candidate;
   final bool isReturnSelection;
   final RouteMeta? meta;
+  final FareQuote? fare;
 
   const RouteDetailPage({
     super.key,
     required this.candidate,
     this.isReturnSelection = false,
     this.meta,
+    this.fare,
   });
 
   @override
@@ -71,7 +45,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   // 帰り検索用の日時 (デフォルトは現在時刻だが、ユーザー操作で変更可能)
   DateTime _returnSearchTime = appClock.now();
   // TripDraftService removed
-  final TripService _tripService = TripService(); // 追加
+  late final TripService _tripService;
 
   Trip? _activeTrip; // アクティブな旅の情報
   Trip? _conflictingTrip; // 期間が重複する旅
@@ -86,7 +60,12 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   @override
   void initState() {
     super.initState();
-    _checkActiveTrip();
+    if (ref.read(cityProfileProvider).capabilities.features.groupTrips) {
+      _tripService = TripService();
+      _checkActiveTrip();
+    } else {
+      _isLoadingTrip = false;
+    }
   }
 
   Future<void> _checkActiveTrip() async {
@@ -184,9 +163,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     return savedRoutes.any((e) => _isSameRoute(e, widget.candidate));
   }
 
-  String _originLabel(Candidate candidate) => _originLabelOf(candidate);
+  String _originLabel(Candidate candidate) => routeOriginLabel(candidate);
   String _destinationLabel(Candidate candidate) =>
-      _destinationLabelOf(candidate);
+      routeDestinationLabel(candidate);
 
   // 経路が同じか判定するヘルパー
   bool _isSameRoute(Candidate a, Candidate b) {
@@ -331,9 +310,8 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                             Navigator.push(
                               context,
                               CupertinoPageRoute(
-                                builder: (_) => TripPage(
-                                  tripId: _activeTrip!.id,
-                                ),
+                                builder: (_) =>
+                                    TripPage(tripId: _activeTrip!.id),
                               ),
                             );
                           },
@@ -765,9 +743,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     try {
       final tripId = await _tripService.createSoloTrip(widget.candidate);
       if (!mounted) return;
-      await Navigator.of(context).push(
-        CupertinoPageRoute(builder: (_) => TripPage(tripId: tripId)),
-      );
+      await Navigator.of(
+        context,
+      ).push(CupertinoPageRoute(builder: (_) => TripPage(tripId: tripId)));
       await _checkActiveTrip();
     } on ActiveTripExistsException catch (error) {
       final activeTrip = await _tripService.getTrip(error.tripId);
@@ -810,11 +788,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
             onPressed: () {
               Navigator.pop(dialogContext);
               Navigator.of(context).push(
-                CupertinoPageRoute(
-                  builder: (_) => TripPage(
-                    tripId: trip.id,
-                  ),
-                ),
+                CupertinoPageRoute(builder: (_) => TripPage(tripId: trip.id)),
               );
             },
             child: const Text('進行中の移動を開く'),
@@ -1049,7 +1023,11 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final savedRoutes = ref.watch(savedRoutesProvider);
+    final profile = ref.watch(cityProfileProvider);
+    final features = profile.capabilities.features;
+    final savedRoutes = features.savedRoutes
+        ? ref.watch(savedRoutesProvider)
+        : const <Candidate>[];
     final isSaved = _checkIsSaved(savedRoutes);
 
     return CupertinoPageScaffold(
@@ -1065,15 +1043,16 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               child: const Icon(CupertinoIcons.clock),
             ),
             // ブックマークボタン
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              child: Icon(
-                isSaved
-                    ? CupertinoIcons.bookmark_fill
-                    : CupertinoIcons.bookmark,
+            if (features.savedRoutes)
+              CupertinoButton(
+                padding: EdgeInsets.zero,
+                child: Icon(
+                  isSaved
+                      ? CupertinoIcons.bookmark_fill
+                      : CupertinoIcons.bookmark,
+                ),
+                onPressed: () => _toggleBookmark(isSaved),
               ),
-              onPressed: () => _toggleBookmark(isSaved),
-            ),
           ],
         ),
       ),
@@ -1088,7 +1067,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
 
               if (widget.candidate.isFutureSuggestion)
                 SliverToBoxAdapter(
-                  child: _FutureSuggestionAlert(
+                  child: RouteFutureSuggestionAlert(
                     date: widget.candidate.departureDate,
                   ),
                 ),
@@ -1097,12 +1076,12 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: _FallbackDestinationNotice(meta: widget.meta!),
+                    child: RouteFallbackDestinationNotice(meta: widget.meta!),
                   ),
                 ),
 
               SliverToBoxAdapter(
-                child: _EndpointSummary(
+                child: RouteEndpointSummary(
                   candidate: widget.candidate,
                   meta: widget.meta,
                 ),
@@ -1111,6 +1090,8 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               SliverToBoxAdapter(
                 child: RouteSummary(candidate: widget.candidate),
               ),
+
+              SliverToBoxAdapter(child: FareSummary(fare: widget.fare)),
 
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
@@ -1129,6 +1110,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                       if (index.isEven) {
                         return RouteStepTile(
                           segment: widget.candidate.steps[itemIndex],
+                          showTimetable: profile.city == AppCity.tokyo,
                         );
                       }
                       return const SizedBox(height: 8);
@@ -1139,419 +1121,28 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                   ),
                 ),
               ),
-              SliverToBoxAdapter(child: _roundTripComposer()),
+              if (features.groupTrips)
+                SliverToBoxAdapter(child: _roundTripComposer())
+              else if (profile.capabilities.realtime.vehiclePosition)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: CupertinoButton.filled(
+                      onPressed: () => Navigator.of(context).push(
+                        CupertinoPageRoute(
+                          builder: (_) =>
+                              ActiveRoutePage(candidate: widget.candidate),
+                        ),
+                      ),
+                      child: const Text('この経路で行く'),
+                    ),
+                  ),
+                ),
               const SliverToBoxAdapter(child: SizedBox(height: 48)),
             ],
           ),
         ),
       ),
-    );
-  }
-}
-
-// --- 以下、切り出したWidget群 (別ファイルにしてもOK) ---
-
-class _FutureSuggestionAlert extends StatelessWidget {
-  final DateTime? date;
-  const _FutureSuggestionAlert({required this.date});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: CupertinoColors.activeOrange.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: CupertinoColors.activeOrange),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            CupertinoIcons.exclamationmark_triangle_fill,
-            color: CupertinoColors.activeOrange,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              "ご指定の日時は運行終了または運休日のため、\n${date?.toString().split(' ')[0]} の経路を表示しています。",
-              style: const TextStyle(
-                color: CupertinoColors.activeOrange,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EndpointSummary extends StatelessWidget {
-  final Candidate candidate;
-  final RouteMeta? meta;
-  const _EndpointSummary({required this.candidate, this.meta});
-
-  String get _origin {
-    return StringUtils.extractSimpleName(_originLabelOf(candidate));
-  }
-
-  String get _destination {
-    if (meta?.destinationReachable == false) {
-      final stop = meta?.fallbackNodeName ?? '最寄り停留所';
-      final minutes = meta?.fallbackWalkMinutes;
-      final suffix = minutes != null ? '（目的地まで徒歩約${minutes}分）' : '';
-      return stop + suffix;
-    }
-    return StringUtils.extractSimpleName(_destinationLabelOf(candidate));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: CupertinoColors.systemGrey6,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _row(CupertinoIcons.location_solid, '出発', _origin),
-            const SizedBox(height: 6),
-            _row(CupertinoIcons.flag, '目的地', _destination),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _row(IconData icon, String label, String text) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: CupertinoColors.activeBlue),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            color: CupertinoColors.systemGrey,
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _FallbackDestinationNotice extends StatelessWidget {
-  final RouteMeta meta;
-  const _FallbackDestinationNotice({required this.meta});
-
-  @override
-  Widget build(BuildContext context) {
-    final stop = meta.fallbackNodeName ?? '最寄り停留所';
-    final minutes = meta.fallbackWalkMinutes;
-    final walkText = minutes != null
-        ? '徒歩約${minutes}分'
-        : (meta.fallbackDistanceM != null
-              ? '徒歩${meta.fallbackDistanceM!.toStringAsFixed(0)}m程度'
-              : '徒歩圏内');
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: CupertinoColors.systemYellow.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: CupertinoColors.systemYellow),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(
-                CupertinoIcons.exclamationmark_triangle_fill,
-                color: CupertinoColors.systemOrange,
-              ),
-              SizedBox(width: 8),
-              Text(
-                '目的地付近までの経路のみ表示しています',
-                style: TextStyle(
-                  color: CupertinoColors.activeOrange,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '都営だけでは${meta.destinationLabel}に到達できません。最寄りは「$stop」で、ここから$walkTextです。',
-            style: const TextStyle(fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class RouteSummary extends StatelessWidget {
-  final Candidate candidate;
-  const RouteSummary({super.key, required this.candidate});
-
-  String _formatTime(String? timeStr) {
-    if (timeStr == null) return '--:--';
-    return timeStr;
-  }
-
-  String _calcStartTime(String? arrivalStr, int durationMin) {
-    if (arrivalStr == null || !arrivalStr.contains(':')) return '--:--';
-    try {
-      final parts = arrivalStr.split(':');
-      final h = int.parse(parts[0]);
-      final m = int.parse(parts[1]);
-      final arr = DateTime(2020, 1, 1, h, m);
-      final start = arr.subtract(Duration(minutes: durationMin));
-      return '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return '--:--';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final arr = candidate.arrivalTime;
-    final start = _calcStartTime(arr, candidate.totalTime);
-
-    return Column(
-      children: [
-        // New Time Display Row
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                start,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: CupertinoColors.activeBlue,
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.0),
-                child: Icon(
-                  CupertinoIcons.arrow_right,
-                  color: CupertinoColors.systemGrey,
-                ),
-              ),
-              Text(
-                arr ?? '--:--',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: CupertinoColors.black,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _stat('所要時間', '${candidate.totalTime}分'),
-              _stat('乗換', candidate.transfers.toString()),
-              _stat('乗車区間', candidate.rides.toString()),
-              _stat('徒歩', '${candidate.walks}m'),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _stat(String k, String v) {
-    return Column(
-      children: [
-        Text(
-          v,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          k,
-          style: const TextStyle(
-            color: CupertinoColors.inactiveGray,
-            fontSize: 12,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class RouteStepTile extends StatelessWidget {
-  final StepSeg segment;
-  const RouteStepTile({super.key, required this.segment});
-
-  @override
-  Widget build(BuildContext context) {
-    final isWalk = segment.kind == 'walk';
-    final rightText = _getRightText(isWalk);
-    final canShowStops = !isWalk && segment.stops.isNotEmpty;
-
-    final content = Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: CupertinoColors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: CupertinoColors.systemGrey.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _RoundIcon(kind: segment.kind),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      segment.mainTitle,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (segment.departureTime != null &&
-                        segment.arrivalTime != null)
-                      Text(
-                        '${segment.departureTime} → ${segment.arrivalTime}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: CupertinoColors.activeBlue,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    if (segment.subTitle != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        segment.subTitle!,
-                        style: const TextStyle(
-                          color: CupertinoColors.inactiveGray,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (rightText.isNotEmpty)
-                Text(
-                  rightText,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: CupertinoColors.systemGrey,
-                  ),
-                ),
-            ],
-          ),
-          if (segment.kind == 'bus' &&
-              segment.routeId != null &&
-              segment.routeId!.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Container(height: 1, color: CupertinoColors.systemGrey5),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4.0),
-              child: TimetableView(
-                routeId: segment.routeId!,
-                stopId: segment.departureStopId,
-                targetPoleId: segment.arrivalPoleId, // ターゲット(降車)バス停を渡す
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-
-    if (!canShowStops) return content;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => Navigator.of(context).push(
-        CupertinoPageRoute(builder: (_) => SegmentStopsPage(segment: segment)),
-      ),
-      child: content,
-    );
-  }
-
-  String _getRightText(bool isWalk) {
-    if (segment.minutes != null) return '約${segment.minutes}分';
-    if (!isWalk && segment.edges > 0) return '${segment.edges}停';
-    if (isWalk && segment.meters != null) return '${segment.meters}m';
-    return '';
-  }
-}
-
-class _RoundIcon extends StatelessWidget {
-  final String kind;
-  const _RoundIcon({required this.kind});
-
-  @override
-  Widget build(BuildContext context) {
-    IconData icon;
-    Color color;
-    switch (kind) {
-      case 'walk':
-        icon = CupertinoIcons.paw_solid;
-        color = CupertinoColors.activeOrange;
-        break;
-      case 'wait':
-        icon = CupertinoIcons.clock;
-        color = CupertinoColors.systemGrey;
-        break;
-      case 'rail':
-        icon = CupertinoIcons.tram_fill;
-        color = CupertinoColors.systemPurple;
-        break;
-      default:
-        icon = CupertinoIcons.bus;
-        color = CupertinoColors.activeBlue;
-    }
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: Icon(icon, color: color),
     );
   }
 }

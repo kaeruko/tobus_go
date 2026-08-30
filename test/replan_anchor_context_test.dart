@@ -51,7 +51,6 @@ void main() {
       id: id,
       lines: const [],
       rides: steps.where((step) => step.isRide).length,
-      walks: steps.where((step) => step.kind == 'walk').length,
       boards: steps.where((step) => step.isRide).length,
       transfers: 0,
       total: 0,

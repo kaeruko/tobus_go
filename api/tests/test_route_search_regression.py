@@ -98,7 +98,8 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
         self.assertEqual(candidate["arrival_time"], "10:15")
         self.assertEqual(candidate["transfers"], 0)
         self.assertEqual(candidate["rides"], 1)
-        self.assertEqual(candidate["walks"], 80)
+        self.assertEqual(candidate["walking_distance_meters"], 80)
+        self.assertEqual(candidate["walking_segment_count"], 1)
         self.assertEqual(candidate["boards"], 1)
         self.assertEqual(candidate["cost_score"], 0.0)
         self.assertEqual(candidate["steps"], self.steps)
@@ -112,13 +113,13 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
                 "steps",
                 "score_label",
                 "cost_score",
-                "walk_m",
                 "path",
                 "points",
                 "total",
                 "transfers",
                 "rides",
-                "walks",
+                "walking_distance_meters",
+                "walking_segment_count",
                 "boards",
             },
         )
@@ -161,7 +162,8 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
         self.assertEqual(candidate["cost_score"], 7.5)
         self.assertEqual(candidate["score_label"], "楽さ 7.5 (所要15分)")
         self.assertEqual(candidate["transfers"], 0)
-        self.assertEqual(candidate["walks"], 80)
+        self.assertEqual(candidate["walking_distance_meters"], 80)
+        self.assertEqual(candidate["walking_segment_count"], 1)
 
     def test_requested_departure_date_and_time_are_preserved(self):
         base_candidate = {

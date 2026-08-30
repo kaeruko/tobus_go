@@ -1,70 +1,59 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+
 import '../core/app_clock.dart';
-import '../core/api_client.dart';
-import '../core/utils.dart';
 import '../models/route_models.dart';
-import '../models/leg_models.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/place_field.dart';
 import '../widgets/route_card.dart';
 import 'map_picker_page.dart';
 import 'route_detail_page.dart';
-import '../services/trip_service.dart';
-import 'member_mode_page.dart';
 import '../providers/effective_location_provider.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../providers/app_session_provider.dart';
 import '../providers/route_search_provider.dart';
 import '../providers/active_trip_provider.dart';
+import '../providers/city_profile_provider.dart';
 import '../models/trip_models.dart';
 import 'leader_mode_page.dart';
 import 'trip_page.dart';
 
-
-import 'package:flutter/material.dart'
-    show
-        TextField,
-        InputDecoration,
-        OutlineInputBorder,
-        Icons,
-        ElevatedButton,
-        Colors,
-        TextInputType,
-        MaterialPageRoute,
-        ScaffoldMessenger,
-        SnackBar,
-        Divider;
+import 'package:flutter/material.dart' show Colors, Icons;
 
 // UI enum values differ from backend search modes:
 // - 'shortTime' is converted to 'time' on the API side
 // - 'fewTransfers' is passed through as-is (comfort/乗換少ない優先)
 enum Preference { fewTransfers, shortTime }
 
-class HomePage extends ConsumerStatefulWidget {
+class RouteSearchPage extends ConsumerStatefulWidget {
   final String title;
   final ValueListenable<int>? tabIndexListenable;
-  const HomePage({super.key, this.title = '都営でGO', this.tabIndexListenable});
+  const RouteSearchPage({
+    super.key,
+    this.title = '都営でGO',
+    this.tabIndexListenable,
+  });
 
   @override
-  ConsumerState<HomePage> createState() => HomePageState();
+  ConsumerState<RouteSearchPage> createState() => RouteSearchPageState();
 }
 
-class HomePageState extends ConsumerState<HomePage> {
+class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
   // Controllers removed! State is now purely in providers.
 
   @override
   void initState() {
     super.initState();
     // Refresh active trip on init
-    Future.microtask(() => ref.read(activeTripProvider.notifier).refresh());
+    if (ref.read(cityProfileProvider).capabilities.features.groupTrips) {
+      Future.microtask(() => ref.read(activeTripProvider.notifier).refresh());
+    }
     widget.tabIndexListenable?.addListener(_handleTabChange);
   }
 
   @override
-  void didUpdateWidget(covariant HomePage oldWidget) {
+  void didUpdateWidget(covariant RouteSearchPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.tabIndexListenable != widget.tabIndexListenable) {
       oldWidget.tabIndexListenable?.removeListener(_handleTabChange);
@@ -73,7 +62,8 @@ class HomePageState extends ConsumerState<HomePage> {
   }
 
   void _handleTabChange() {
-    if (widget.tabIndexListenable?.value == 0) {
+    if (widget.tabIndexListenable?.value == 0 &&
+        ref.read(cityProfileProvider).capabilities.features.groupTrips) {
       ref.read(activeTripProvider.notifier).refresh();
     }
   }
@@ -103,7 +93,7 @@ class HomePageState extends ConsumerState<HomePage> {
         notifier.triggerSearch();
       }
     } catch (e, st) {
-      debugPrint('[HomePage] 現在地取得エラー: $e');
+      debugPrint('[RouteSearchPage] 現在地取得エラー: $e');
       debugPrintStack(stackTrace: st);
 
       if (!mounted) return;
@@ -227,7 +217,12 @@ class HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final rs = ref.watch(routeSearchProvider);
-    final activeTripAsync = ref.watch(activeTripProvider);
+    final features = ref.watch(
+      cityProfileProvider.select((profile) => profile.capabilities.features),
+    );
+    final activeTripAsync = features.groupTrips
+        ? ref.watch(activeTripProvider)
+        : null;
     final notifier = ref.read(routeSearchProvider.notifier);
     final startTime = rs.startTime ?? appClock.now();
 
@@ -243,8 +238,8 @@ class HomePageState extends ConsumerState<HomePage> {
           child: CustomScrollView(
             slivers: [
               // Active Trip Card
-              if (activeTripAsync.value != null &&
-                  activeTripAsync.value!.status != TripStatus.completed &&
+              if (activeTripAsync?.value != null &&
+                  activeTripAsync!.value!.status != TripStatus.completed &&
                   activeTripAsync.value!.status != TripStatus.cancelled)
                 SliverToBoxAdapter(
                   child: Padding(
@@ -256,9 +251,7 @@ class HomePageState extends ConsumerState<HomePage> {
                           context,
                           CupertinoPageRoute(
                             builder: (_) => activeTripAsync.value!.isSolo
-                                ? TripPage(
-                                    tripId: activeTripAsync.value!.id,
-                                  )
+                                ? TripPage(tripId: activeTripAsync.value!.id)
                                 : LeaderModePage(
                                     tripId: activeTripAsync.value!.id,
                                   ),
@@ -518,8 +511,11 @@ class HomePageState extends ConsumerState<HomePage> {
                         onTap: () {
                           Navigator.of(context).push(
                             CupertinoPageRoute(
-                              builder: (_) =>
-                                  RouteDetailPage(candidate: c, meta: rs.meta),
+                              builder: (_) => RouteDetailPage(
+                                candidate: c,
+                                meta: rs.meta,
+                                fare: rs.fareByCandidateId[c.id],
+                              ),
                             ),
                           );
                         },

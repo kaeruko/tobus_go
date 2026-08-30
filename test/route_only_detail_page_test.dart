@@ -1,16 +1,20 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:toeigo/core/city_profile.dart';
 import 'package:toeigo/models/route_models.dart';
-import 'package:toeigo/pages/route_only_detail_page.dart';
+import 'package:toeigo/pages/route_detail_page.dart';
+import 'package:toeigo/providers/city_profile_provider.dart';
 
 void main() {
-  testWidgets('route-only detail exposes this-route action', (tester) async {
+  testWidgets('Yokohama uses shared detail and exposes realtime action', (
+    tester,
+  ) async {
     final candidate = Candidate(
       id: 'candidate-1',
       lines: const ['8'],
       rides: 1,
-      walks: 0,
       boards: 1,
       transfers: 0,
       total: 15,
@@ -29,12 +33,16 @@ void main() {
     );
 
     await tester.pumpWidget(
-      CupertinoApp(
-        home: RouteOnlyDetailPage(candidate: candidate),
+      ProviderScope(
+        overrides: [cityProfileProvider.overrideWithValue(yokohamaCityProfile)],
+        child: CupertinoApp(home: RouteDetailPage(candidate: candidate)),
       ),
     );
 
     expect(find.text('この経路で行く'), findsOneWidget);
+    expect(find.text('所要時間'), findsOneWidget);
+    expect(find.text('乗車区間'), findsOneWidget);
     expect(find.text('8系統'), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.bookmark), findsNothing);
   });
 }

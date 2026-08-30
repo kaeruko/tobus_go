@@ -669,12 +669,14 @@ class NagoyaRouteBackend:
             "id": f"pending-{candidate_index}",
             "lines": line_names,
             "rides": itinerary.rides,
-            "walks": walk_count,
+            "walking_distance_meters": round(
+                origin_distance + destination_distance
+            ),
+            "walking_segment_count": walk_count,
             "boards": itinerary.rides,
             "transfers": itinerary.transfers,
             "total": current_minute - request_minute,
             "total_time": current_minute - request_minute,
-            "walk_m": origin_distance + destination_distance,
             "steps": steps,
             "points": points,
             "preference": preference,

@@ -18,7 +18,6 @@ void main() {
       id: id,
       lines: const ['浅草線'],
       rides: 1,
-      walks: 1,
       boards: 1,
       transfers: 0,
       total: 20,

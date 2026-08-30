@@ -30,6 +30,8 @@ void main() {
     final Map<String, dynamic> candidateJson = {
       "id": "c1",
       "lines": ["L1"],
+      "walking_distance_meters": 0,
+      "walking_segment_count": 0,
       "steps": [
         {
           "step_id": "bus-1",
@@ -66,6 +68,33 @@ void main() {
     expect(
       () => StepSeg.fromJson({'kind': 'walk', 'title': '徒歩'}),
       throwsFormatException,
+    );
+  });
+
+  test('Candidate rejects ambiguous or inconsistent walking metrics', () {
+    final base = <String, dynamic>{
+      'id': 'walk-metrics',
+      'lines': const <String>[],
+      'walking_distance_meters': 120,
+      'walking_segment_count': 1,
+      'steps': [
+        {
+          'step_id': 'walk-1',
+          'kind': 'walk',
+          'title': '徒歩',
+          'meters': 120,
+        },
+      ],
+    };
+
+    expect(Candidate.fromJson(base).walkingDistanceMeters, 120);
+    expect(
+      () => Candidate.fromJson({...base}..remove('walking_distance_meters')),
+      throwsFormatException,
+    );
+    expect(
+      () => Candidate.fromJson({...base, 'walking_segment_count': 2}),
+      throwsStateError,
     );
   });
 

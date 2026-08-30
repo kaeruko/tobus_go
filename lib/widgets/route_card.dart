@@ -37,7 +37,8 @@ class RouteCard extends ConsumerWidget {
       final suffix = walk != null ? '（目的地まで徒歩約${walk}分）' : '';
       return stopName + suffix;
     }
-    if (candidate.destinationName != null && candidate.destinationName!.isNotEmpty) {
+    if (candidate.destinationName != null &&
+        candidate.destinationName!.isNotEmpty) {
       return candidate.destinationName!;
     }
     if (candidate.steps.isNotEmpty) {
@@ -63,11 +64,13 @@ class RouteCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final effectiveFare = fare ?? ref.watch(
-      routeSearchProvider.select(
-        (state) => state.fareByCandidateId[candidate.id],
-      ),
-    );
+    final effectiveFare =
+        fare ??
+        ref.watch(
+          routeSearchProvider.select(
+            (state) => state.fareByCandidateId[candidate.id],
+          ),
+        );
     final fareChip = _fareChip(effectiveFare);
 
     return Container(
@@ -136,7 +139,7 @@ class RouteCard extends ConsumerWidget {
               _chip('所要 ${candidate.totalTime}分'),
               _chip('乗換 ${candidate.transfers}'),
               _chip('乗車区間 ${candidate.rides}'),
-              _chip('徒歩 ${candidate.walks}'),
+              _chip('徒歩 ${candidate.walkingDistanceMeters}m'),
               if (fareChip != null) _chip(fareChip),
             ],
           ),

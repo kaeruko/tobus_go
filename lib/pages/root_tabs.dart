@@ -7,9 +7,8 @@ import '../providers/navigation_provider.dart';
 import 'explore_page.dart';
 import 'fare_policy_settings_page.dart';
 import 'history_page.dart';
-import 'home_page.dart';
 import 'my_route_page.dart';
-import 'route_only_home_page.dart';
+import 'route_search_page.dart';
 
 class RootTabs extends ConsumerStatefulWidget {
   const RootTabs({super.key});
@@ -48,9 +47,7 @@ class _RootTabsState extends ConsumerState<RootTabs> {
   List<_RootTabEntry> _buildEntries() {
     final cityProfile = ref.watch(cityProfileProvider);
     final features = cityProfile.capabilities.features;
-    final searchPage = features.routeSearchOnly
-        ? RouteOnlyHomePage(title: cityProfile.appName)
-        : HomePage(title: cityProfile.appName);
+    final searchPage = RouteSearchPage(title: cityProfile.appName);
 
     return [
       _RootTabEntry(

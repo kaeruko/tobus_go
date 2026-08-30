@@ -11,7 +11,6 @@ void main() {
         id: id,
         lines: const [],
         rides: 0,
-        walks: 0,
         boards: 0,
         transfers: 0,
         total: 0,
