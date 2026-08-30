@@ -172,7 +172,7 @@ def _resolve_from_stop(
     dataset: TransitDataset,
     schedule: list[dict],
     row: dict,
-) -> tuple[dict, dict]:
+) -> tuple[dict | None, dict, bool]:
     sequence = row.get("current_stop_sequence")
     if isinstance(sequence, bool) or not isinstance(sequence, int):
         raise RuntimeError("VehiclePosition current_stop_sequence is missing")
@@ -199,17 +199,14 @@ def _resolve_from_stop(
 
     status = row.get("current_status")
     if status == 1:  # STOPPED_AT
-        return current, current
+        return current, current, False
     if status in {0, 2}:  # INCOMING_AT / IN_TRANSIT_TO
         if current_index == 0:
-            raise HTTPException(
-                404,
-                detail={
-                    "code": "bus_realtime_before_first_stop",
-                    "message": "The matched vehicle has not reached the first trip stop yet",
-                },
-            )
-        return schedule[current_index - 1], current
+            # The vehicle is known and has a valid position, but there is no
+            # previous stop to report yet. Keep the exact vehicle match and
+            # expose this state instead of pretending the vehicle is missing.
+            return None, current, True
+        return schedule[current_index - 1], current, False
     raise RuntimeError(f"unsupported VehicleStopStatus: {status!r}")
 
 
@@ -288,7 +285,7 @@ def register_gtfs_bus_vehicle_location_route(app, *, feed_id: str) -> None:
             max_age_seconds = getattr(provider, "max_feed_age_seconds", None)
             _validate_vehicle_timestamp(row, max_age_seconds=max_age_seconds)
             schedule = _ordered_trip_schedule(dataset, trip_id)
-            from_stop, current_stop = _resolve_from_stop(
+            from_stop, current_stop, before_first_stop = _resolve_from_stop(
                 dataset=dataset,
                 schedule=schedule,
                 row=row,
@@ -304,14 +301,19 @@ def register_gtfs_bus_vehicle_location_route(app, *, feed_id: str) -> None:
             "vehicle_id": row.get("vehicle_id"),
             "vehicle_lat": lat,
             "vehicle_lon": lon,
-            "odpt:fromBusstopPole": from_stop["stop_id"],
+            "odpt:fromBusstopPole": (
+                from_stop["stop_id"] if from_stop is not None else None
+            ),
             "route_id": route_id,
             "trip_id": trip_id,
             "raw_route_id": raw_route_id,
             "raw_trip_id": raw_trip_id,
             "raw_stop_id": row.get("stop_id"),
             "raw_stop_name": current_stop["stop_name"],
-            "from_stop_sequence": from_stop["sequence"],
+            "before_first_stop": before_first_stop,
+            "from_stop_sequence": (
+                from_stop["sequence"] if from_stop is not None else None
+            ),
             "observed_stop_sequence": row.get("current_stop_sequence"),
             "current_status": row.get("current_status"),
             "feed_ts": row.get("feed_timestamp"),
