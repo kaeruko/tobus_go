@@ -112,6 +112,8 @@ void main() {
     final location = BusLocation.fromJson(
       {
         'vehicle_id': 'vehicle-id',
+        'vehicle_lat': 35.6812,
+        'vehicle_lon': 139.7671,
         'odpt:fromBusstopPole': 'stop-3',
         'trip_id': 'trip-id',
         'trip_stop_ids': ['stop-1', 'stop-2', 'stop-3'],
@@ -143,6 +145,8 @@ void main() {
       tripId: 'trip-id',
     );
 
+    expect(location.vehicleLat, 35.6812);
+    expect(location.vehicleLon, 139.7671);
     expect(location.rawStopId, 'stop-4');
     expect(location.rawStopName, 'Stop 4');
     expect(location.fromStopSequence, 3);
