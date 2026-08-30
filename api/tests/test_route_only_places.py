@@ -91,7 +91,7 @@ class RouteOnlyPlacesTest(unittest.TestCase):
                 "input": "横浜駅",
                 "languageCode": "ja",
                 "regionCode": "JP",
-                "includedRegionCodes": ["jp"],
+                "includedRegionCodes": ["JP"],
             },
         )
         self.assertEqual(kwargs["headers"]["X-Goog-Api-Key"], "test-key")
