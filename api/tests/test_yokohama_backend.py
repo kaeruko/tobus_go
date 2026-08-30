@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -84,11 +85,35 @@ def _environment(root: Path) -> dict[str, str]:
         "APP_CITY": "yokohama",
         "YOKOHAMA_BUS_GTFS_DIR": str(root),
         "YOKOHAMA_BUS_GTFS_EXPECTED_SERVICE_DATE": SERVICE_DATE,
+        "ODPT_API_TOKEN": "test-token",
     }
 
 
+class _FakeRealtimeProvider:
+    max_feed_age_seconds = 180.0
+
+    async def vehicle_positions(self, *, force_refresh: bool = False):
+        del force_refresh
+        now = int(time.time())
+        return (
+            {
+                "entity_id": "vehicle-1",
+                "trip_id": "T1",
+                "route_id": None,
+                "vehicle_id": "1234",
+                "lat": 35.458,
+                "lon": 139.626,
+                "stop_id": "B",
+                "current_stop_sequence": 2,
+                "current_status": 2,
+                "timestamp": now,
+                "feed_timestamp": now,
+            },
+        )
+
+
 class YokohamaBackendTest(unittest.TestCase):
-    def test_startup_loads_only_yokohama_static_bus_gtfs(self) -> None:
+    def test_startup_loads_yokohama_static_bus_gtfs_and_realtime_provider(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _write_feed(root)
@@ -96,7 +121,6 @@ class YokohamaBackendTest(unittest.TestCase):
                 "httpx.AsyncClient",
                 side_effect=AssertionError("Yokohama startup attempted HTTP"),
             ):
-                os.environ.pop("ODPT_API_TOKEN", None)
                 app = create_app("local")
                 for handler in app.router.on_startup:
                     asyncio.run(handler())
@@ -107,8 +131,8 @@ class YokohamaBackendTest(unittest.TestCase):
                 app.state.transit_dataset.metadata.feed_id,
                 YOKOHAMA_BUS_FEED_ID,
             )
-            self.assertIsNone(app.state.realtime_provider)
-            self.assertFalse(app.state.realtime_bus_supported)
+            self.assertIsNotNone(app.state.realtime_provider)
+            self.assertTrue(app.state.realtime_bus_supported)
             self.assertFalse(hasattr(app.state, "G"))
             self.assertFalse(hasattr(app.state, "TM"))
 
@@ -116,13 +140,13 @@ class YokohamaBackendTest(unittest.TestCase):
             self.assertIn("/route", paths)
             self.assertIn("/autocomplete", paths)
             self.assertIn("/details", paths)
-            self.assertNotIn("/bus/location", paths)
+            self.assertIn("/bus/location", paths)
             self.assertNotIn("/realtime/trip-updates", paths)
             self.assertNotIn("/realtime/alerts", paths)
             self.assertNotIn("/explore/reachable", paths)
             self.assertNotIn("/train/resolve-route-identities", paths)
 
-    def test_health_reports_loaded_feed_identity(self) -> None:
+    def test_health_reports_loaded_feed_identity_and_vehicle_realtime_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _write_feed(root)
@@ -142,9 +166,49 @@ class YokohamaBackendTest(unittest.TestCase):
                 "city": "yokohama",
                 "feed_id": YOKOHAMA_BUS_FEED_ID,
                 "feed_version": YOKOHAMA_BUS_APPROVED_FEED_VERSION,
-                "realtime": False,
+                "realtime": {
+                    "vehicle_positions": True,
+                    "trip_updates": False,
+                    "alerts": False,
+                },
             },
         )
+
+    def test_bus_location_matches_namespaced_static_trip_and_enriches_schedule(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_feed(root)
+            with patch.dict(os.environ, _environment(root), clear=False):
+                with TestClient(create_app("local")) as client:
+                    client.app.state.realtime_provider = _FakeRealtimeProvider()
+                    response = client.get(
+                        "/bus/location",
+                        params={
+                            "route_id": f"{YOKOHAMA_BUS_FEED_ID}:R1",
+                            "trip_id": f"{YOKOHAMA_BUS_FEED_ID}:T1",
+                        },
+                        headers={"X-App-City": "yokohama"},
+                    )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["vehicle_id"], "1234")
+        self.assertEqual(payload["trip_id"], f"{YOKOHAMA_BUS_FEED_ID}:T1")
+        self.assertEqual(payload["route_id"], f"{YOKOHAMA_BUS_FEED_ID}:R1")
+        self.assertEqual(
+            payload["odpt:fromBusstopPole"],
+            f"{YOKOHAMA_BUS_FEED_ID}:A",
+        )
+        self.assertEqual(payload["raw_stop_id"], "B")
+        self.assertEqual(payload["raw_stop_name"], "桜木町駅前")
+        self.assertEqual(payload["vehicle_lat"], 35.458)
+        self.assertEqual(payload["vehicle_lon"], 139.626)
+        self.assertEqual(
+            payload["trip_stop_ids"],
+            [f"{YOKOHAMA_BUS_FEED_ID}:A", f"{YOKOHAMA_BUS_FEED_ID}:B"],
+        )
+        self.assertEqual(payload["trip_stop_schedule"][0]["departure_time"], "10:00")
+        self.assertEqual(payload["trip_stop_schedule"][1]["arrival_time"], "10:15")
 
     def test_route_uses_yokohama_route_backend(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -210,6 +274,7 @@ class YokohamaBackendTest(unittest.TestCase):
             {
                 "APP_CITY": "yokohama",
                 "YOKOHAMA_BUS_GTFS_EXPECTED_SERVICE_DATE": SERVICE_DATE,
+                "ODPT_API_TOKEN": "test-token",
             },
             clear=False,
         ):
@@ -229,6 +294,7 @@ class YokohamaBackendTest(unittest.TestCase):
                 {
                     "APP_CITY": "yokohama",
                     "YOKOHAMA_BUS_GTFS_DIR": directory,
+                    "ODPT_API_TOKEN": "test-token",
                 },
                 clear=False,
             ):
@@ -237,6 +303,22 @@ class YokohamaBackendTest(unittest.TestCase):
                 with self.assertRaisesRegex(
                     RuntimeError,
                     "YOKOHAMA_BUS_GTFS_EXPECTED_SERVICE_DATE is required",
+                ):
+                    with TestClient(app):
+                        pass
+
+    def test_missing_odpt_token_fails_startup(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_feed(root)
+            environment = _environment(root)
+            environment.pop("ODPT_API_TOKEN")
+            with patch.dict(os.environ, environment, clear=False):
+                os.environ.pop("ODPT_API_TOKEN", None)
+                app = create_app("local")
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "ODPT_API_TOKEN is required for Yokohama bus realtime",
                 ):
                     with TestClient(app):
                         pass
