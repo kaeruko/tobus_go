@@ -5,7 +5,13 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class RouteMapPreview extends StatelessWidget {
   final List<LatLng> points;
-  const RouteMapPreview({super.key, required this.points});
+  final LatLng? vehiclePosition;
+
+  const RouteMapPreview({
+    super.key,
+    required this.points,
+    this.vehiclePosition,
+  });
 
   LatLng _centerOf(List<LatLng> values) {
     var minLat = values.first.latitude;
@@ -72,8 +78,12 @@ class RouteMapPreview extends StatelessWidget {
       );
     }
 
-    final center = _centerOf(points);
-    final zoom = _zoomFor(points);
+    final cameraPoints = <LatLng>[
+      ...points,
+      if (vehiclePosition != null) vehiclePosition!,
+    ];
+    final center = _centerOf(cameraPoints);
+    final zoom = _zoomFor(cameraPoints);
 
     return Container(
       height: 200,
@@ -107,6 +117,15 @@ class RouteMapPreview extends StatelessWidget {
                 markerId: const MarkerId('end'),
                 position: points.last,
                 infoWindow: const InfoWindow(title: 'End'),
+              ),
+            if (vehiclePosition != null)
+              Marker(
+                markerId: const MarkerId('realtime_vehicle'),
+                position: vehiclePosition!,
+                infoWindow: const InfoWindow(title: 'バス現在位置'),
+                icon: BitmapDescriptor.defaultMarkerWithHue(
+                  BitmapDescriptor.hueAzure,
+                ),
               ),
           },
         ),
