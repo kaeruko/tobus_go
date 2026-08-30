@@ -84,6 +84,8 @@ class SendaiAppFactoryTest(unittest.TestCase):
 
             paths = {route.path for route in app.routes}
             self.assertIn("/route", paths)
+            self.assertIn("/autocomplete", paths)
+            self.assertIn("/details", paths)
             self.assertIn("/bus/location", paths)
             self.assertIn("/realtime/trip-updates", paths)
             self.assertIn("/realtime/alerts", paths)

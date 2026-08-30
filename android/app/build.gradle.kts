@@ -63,12 +63,12 @@ android {
         }
         create("sendai") {
             dimension = "city"
-            applicationId = "jp.cloxs.sendaigo"
+            applicationId = "jp.cloxs.go.sendai"
             resValue("string", "app_name", "仙台でGO")
         }
         create("yokohama") {
             dimension = "city"
-            applicationId = "jp.cloxs.yokohamago"
+            applicationId = "jp.cloxs.go.yokohama"
             resValue("string", "app_name", "横浜でGO")
         }
     }

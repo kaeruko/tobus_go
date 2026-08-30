@@ -209,8 +209,8 @@ const sendaiCityProfile = CityProfile(
     ),
   ],
   distribution: CityDistributionConfig(
-    androidApplicationId: 'jp.cloxs.sendaigo',
-    iosBundleIdentifier: 'jp.cloxs.sendaigo',
+    androidApplicationId: 'jp.cloxs.go.sendai',
+    iosBundleIdentifier: 'jp.cloxs.go.sendai',
     firebaseEnabled: false,
     storeMetadataDirectory: 'store/sendai',
   ),
@@ -229,7 +229,7 @@ const yokohamaCityProfile = CityProfile(
       groupTrips: false,
     ),
     realtime: RealtimeCapabilities(
-      vehiclePosition: false,
+      vehiclePosition: true,
       tripUpdates: false,
       alerts: false,
     ),
@@ -242,8 +242,8 @@ const yokohamaCityProfile = CityProfile(
     ),
   ],
   distribution: CityDistributionConfig(
-    androidApplicationId: 'jp.cloxs.yokohamago',
-    iosBundleIdentifier: 'jp.cloxs.yokohamago',
+    androidApplicationId: 'jp.cloxs.go.yokohama',
+    iosBundleIdentifier: 'jp.cloxs.go.yokohama',
     firebaseEnabled: false,
     storeMetadataDirectory: 'store/yokohama',
   ),

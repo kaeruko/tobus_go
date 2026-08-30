@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -19,17 +21,20 @@ class RealtimeProvider(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class GtfsRealtimeEndpoints:
-    vehicle_positions: str
-    trip_updates: str
-    alerts: str
+    vehicle_positions: str | None = None
+    trip_updates: str | None = None
+    alerts: str | None = None
 
     def __post_init__(self) -> None:
-        for value in (
+        values = (
             self.vehicle_positions,
             self.trip_updates,
             self.alerts,
-        ):
-            if not value.startswith("https://"):
+        )
+        if all(value is None for value in values):
+            raise ValueError("at least one GTFS-Realtime endpoint is required")
+        for value in values:
+            if value is not None and not value.startswith("https://"):
                 raise ValueError("GTFS-Realtime endpoint must be absolute HTTPS")
 
 
@@ -66,15 +71,60 @@ class GtfsRealtimeHttpProvider:
         consumer_key: str | None = None,
         client: httpx.AsyncClient | None = None,
         timeout_seconds: float = 15.0,
+        max_feed_age_seconds: float | None = None,
+        max_future_skew_seconds: float = 60.0,
+        now_fn: Callable[[], float] | None = None,
     ) -> None:
         if consumer_key == "":
             raise ValueError("consumer_key must be None or non-empty")
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be > 0")
+        if max_feed_age_seconds is not None and max_feed_age_seconds <= 0:
+            raise ValueError("max_feed_age_seconds must be > 0 when configured")
+        if max_future_skew_seconds < 0:
+            raise ValueError("max_future_skew_seconds must be >= 0")
         self.endpoints = endpoints
         self.consumer_key = consumer_key
         self._client = client
         self.timeout_seconds = timeout_seconds
+        self.max_feed_age_seconds = max_feed_age_seconds
+        self.max_future_skew_seconds = max_future_skew_seconds
+        self._now_fn = now_fn or time.time
+
+    @staticmethod
+    def _required_endpoint(url: str | None, capability: str) -> str:
+        if url is None:
+            raise RuntimeError(
+                f"GTFS-Realtime capability is not configured: {capability}"
+            )
+        return url
+
+    def _validate_feed_timestamp(
+        self,
+        message: gtfs_realtime_pb2.FeedMessage,
+        *,
+        url: str,
+    ) -> None:
+        if self.max_feed_age_seconds is None:
+            return
+        if not message.header.HasField("timestamp") or message.header.timestamp <= 0:
+            raise RuntimeError(
+                f"GTFS-Realtime feed timestamp is missing: {url}"
+            )
+        now = self._now_fn()
+        age_seconds = now - float(message.header.timestamp)
+        if age_seconds > self.max_feed_age_seconds:
+            raise RuntimeError(
+                "GTFS-Realtime feed is stale: "
+                f"url={url}, age_seconds={age_seconds:.1f}, "
+                f"max_age_seconds={self.max_feed_age_seconds:.1f}"
+            )
+        if age_seconds < -self.max_future_skew_seconds:
+            raise RuntimeError(
+                "GTFS-Realtime feed timestamp is too far in the future: "
+                f"url={url}, skew_seconds={-age_seconds:.1f}, "
+                f"max_future_skew_seconds={self.max_future_skew_seconds:.1f}"
+            )
 
     async def _fetch(self, url: str) -> gtfs_realtime_pb2.FeedMessage:
         params = (
@@ -96,6 +146,7 @@ class GtfsRealtimeHttpProvider:
                 raise RuntimeError(
                     f"GTFS-Realtime protobuf decode failed: {url}"
                 ) from error
+            self._validate_feed_timestamp(message, url=url)
             return message
         finally:
             if owns_client:
@@ -108,7 +159,11 @@ class GtfsRealtimeHttpProvider:
         # does not change its behavior. It exists to preserve the shared
         # interface used by Tokyo's cached provider.
         del force_refresh
-        message = await self._fetch(self.endpoints.vehicle_positions)
+        url = self._required_endpoint(
+            self.endpoints.vehicle_positions,
+            "vehicle_positions",
+        )
+        message = await self._fetch(url)
         rows: list[dict[str, Any]] = []
         for entity in message.entity:
             if not entity.HasField("vehicle"):
@@ -159,7 +214,11 @@ class GtfsRealtimeHttpProvider:
         return tuple(rows)
 
     async def trip_updates(self) -> tuple[dict[str, Any], ...]:
-        message = await self._fetch(self.endpoints.trip_updates)
+        url = self._required_endpoint(
+            self.endpoints.trip_updates,
+            "trip_updates",
+        )
+        message = await self._fetch(url)
         rows: list[dict[str, Any]] = []
         for entity in message.entity:
             if not entity.HasField("trip_update"):
@@ -213,7 +272,11 @@ class GtfsRealtimeHttpProvider:
         return tuple(rows)
 
     async def alerts(self) -> tuple[dict[str, Any], ...]:
-        message = await self._fetch(self.endpoints.alerts)
+        url = self._required_endpoint(
+            self.endpoints.alerts,
+            "alerts",
+        )
+        message = await self._fetch(url)
         rows: list[dict[str, Any]] = []
         for entity in message.entity:
             if not entity.HasField("alert"):

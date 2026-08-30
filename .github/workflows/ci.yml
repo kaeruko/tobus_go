@@ -56,7 +56,7 @@ jobs:
   flutter:
     name: Flutter analyze and Android flavors
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -91,10 +91,13 @@ jobs:
       - name: Build Sendai Android flavor
         run: flutter build apk --debug --flavor sendai --dart-define=APP_CITY=sendai
 
+      - name: Build Yokohama Android flavor
+        run: flutter build apk --debug --flavor yokohama --dart-define=APP_CITY=yokohama
+
   ios:
     name: iOS flavor builds and isolation
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -151,7 +154,7 @@ jobs:
         run: |
           app='build/ios/iphonesimulator/Runner.app'
           test -d "$app"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = 'jp.cloxs.sendaigo'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = 'jp.cloxs.go.sendai'
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist")" = '仙台でGO'
           test ! -e "$app/GoogleService-Info.plist"
 

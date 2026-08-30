@@ -19,7 +19,7 @@ class FarePolicyContext:
     ride_modes: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if self.city_key not in {"tokyo", "nagoya", "sendai"}:
+        if self.city_key not in {"tokyo", "nagoya", "sendai", "yokohama"}:
             raise ValueError(f"unsupported city_key: {self.city_key!r}")
         if self.normal_fare_yen is not None and self.normal_fare_yen < 0:
             raise ValueError("normal_fare_yen must be >= 0")
@@ -238,6 +238,9 @@ _POLICY_REGISTRY: dict[str, dict[str, FarePolicy]] = {
     "sendai": {
         "normal": NormalFarePolicy(city_key="sendai"),
     },
+    "yokohama": {
+        "normal": NormalFarePolicy(city_key="yokohama"),
+    },
 }
 
 
@@ -321,10 +324,10 @@ def _normal_fare_for_candidate(city_key: str, candidate: dict) -> int | None:
             total += 210
         return total
 
-    if city_key in {"tokyo", "sendai"}:
+    if city_key in {"tokyo", "sendai", "yokohama"}:
         # Tokyo can mix flat-fare buses with distance-based subway rides, while
-        # Sendai does not yet provide an exact base-fare adapter here. Do not
-        # infer money from geometry, route count, or a generalized cost score.
+        # Sendai and Yokohama do not yet provide an exact base-fare adapter here.
+        # Do not infer money from geometry, route count, or a generalized cost score.
         # If an adapter provides exact per-step fare_yen values, summing them is
         # safe without changing the policy layer.
         ride_steps = []

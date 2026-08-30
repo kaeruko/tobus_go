@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
 import '../widgets/route_map_preview.dart';
+import 'route_only_active_trip_page.dart';
 
 class RouteOnlyDetailPage extends StatelessWidget {
   final Candidate candidate;
@@ -117,6 +118,25 @@ class RouteOnlyDetailPage extends StatelessWidget {
               RouteMapPreview(points: candidate.points),
               const SizedBox(height: 16),
             ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: CupertinoButton.filled(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      CupertinoPageRoute(
+                        builder: (_) => RouteOnlyActiveTripPage(
+                          candidate: candidate,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('この経路で行く'),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             for (final step in candidate.steps)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),

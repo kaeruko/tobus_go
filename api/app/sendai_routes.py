@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from datetime import datetime, timezone
 from typing import Any
 
@@ -9,6 +8,7 @@ import httpx
 from fastapi import Body, HTTPException, Query
 from pydantic import BaseModel
 
+from app.route_only_places import register_route_only_places_routes
 from sendai_transit import SENDAI_FEED_ID
 
 
@@ -224,37 +224,7 @@ def register_sendai_routes(app) -> None:
             "alerts": len(alert_rows),
         }
 
-    @app.get("/autocomplete")
-    async def autocomplete(q: str = Query(...)):
-        key = os.getenv("GOOGLE_MAPS_API_KEY")
-        if not key:
-            return {"predictions": []}
-        url = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
-        params = {
-            "key": key,
-            "input": q,
-            "language": "ja",
-            "components": "country:jp",
-        }
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(url, params=params)
-        return response.json()
-
-    @app.get("/details")
-    async def details(place_id: str = Query(...)):
-        key = os.getenv("GOOGLE_MAPS_API_KEY")
-        if not key:
-            return {"result": {}}
-        url = "https://maps.googleapis.com/maps/api/place/details/json"
-        params = {
-            "key": key,
-            "place_id": place_id,
-            "language": "ja",
-            "fields": "geometry,name,formatted_address",
-        }
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(url, params=params)
-        return response.json()
+    register_route_only_places_routes(app)
 
     @app.post("/route/experience")
     async def route_experience_unsupported(stops: list[Any] = Body(...)):

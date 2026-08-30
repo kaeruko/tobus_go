@@ -153,6 +153,36 @@ class GtfsRealtimeHttpProviderTest(unittest.TestCase):
         self.assertEqual(rows[0]["informed_entities"][0]["route_id"], "R1")
         self.assertEqual(client.calls, [(ALERT_URL, None)])
 
+    def test_vehicle_only_provider_rejects_unconfigured_capability(self):
+        client = _FakeClient(
+            {VEHICLE_URL: _response(VEHICLE_URL, _vehicle_bytes())}
+        )
+        provider = GtfsRealtimeHttpProvider(
+            GtfsRealtimeEndpoints(vehicle_positions=VEHICLE_URL),
+            client=client,
+        )
+
+        rows = asyncio.run(provider.vehicle_positions())
+        self.assertEqual(len(rows), 1)
+        with self.assertRaisesRegex(RuntimeError, "trip_updates"):
+            asyncio.run(provider.trip_updates())
+        self.assertEqual(client.calls, [(VEHICLE_URL, None)])
+
+    def test_stale_feed_fails_fast(self):
+        client = _FakeClient(
+            {VEHICLE_URL: _response(VEHICLE_URL, _vehicle_bytes())}
+        )
+        provider = GtfsRealtimeHttpProvider(
+            GtfsRealtimeEndpoints(vehicle_positions=VEHICLE_URL),
+            client=client,
+            max_feed_age_seconds=30,
+            now_fn=lambda: 1100.0,
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "feed is stale"):
+            asyncio.run(provider.vehicle_positions())
+        self.assertEqual(client.calls, [(VEHICLE_URL, None)])
+
     def test_http_failure_does_not_try_another_endpoint(self):
         provider, client = self._provider(
             {VEHICLE_URL: _response(VEHICLE_URL, b"upstream error", status=503)}
