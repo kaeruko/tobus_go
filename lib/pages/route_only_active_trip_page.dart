@@ -170,6 +170,7 @@ class _RouteOnlyActiveTripPageState extends State<RouteOnlyActiveTripPage> {
     final lon = (vehicle['vehicle_lon'] as num).toDouble();
     final vehicleId = (vehicle['vehicle_id'] ?? vehicle['odpt:bus']).toString();
     final stopName = vehicle['raw_stop_name']?.toString();
+    final beforeFirstStop = vehicle['before_first_stop'] == true;
     final serverNow = vehicle['server_now']?.toString();
 
     return Padding(
@@ -190,7 +191,12 @@ class _RouteOnlyActiveTripPageState extends State<RouteOnlyActiveTripPage> {
             ),
             const SizedBox(height: 6),
             Text('車両 $vehicleId'),
-            if (stopName != null && stopName.isNotEmpty) Text('現在の停留所付近: $stopName'),
+            if (beforeFirstStop)
+              const Text('バスは始発停留所へ向かっています'),
+            if (!beforeFirstStop && stopName != null && stopName.isNotEmpty)
+              Text('現在の停留所付近: $stopName'),
+            if (beforeFirstStop && stopName != null && stopName.isNotEmpty)
+              Text('始発停留所: $stopName'),
             Text('緯度 ${lat.toStringAsFixed(5)} / 経度 ${lon.toStringAsFixed(5)}'),
             if (serverNow != null) Text('取得時刻 $serverNow'),
             const SizedBox(height: 8),
