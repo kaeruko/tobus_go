@@ -1,8 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:toei_go/models/route_models.dart';
-import 'package:toei_go/pages/route_only_active_trip_page.dart';
-import 'package:toei_go/services/bus_location_source.dart';
+import 'package:toeigo/models/route_models.dart';
+import 'package:toeigo/pages/route_only_active_trip_page.dart';
+import 'package:toeigo/services/bus_location_source.dart';
 
 class _BeforeFirstStopSource implements BusLocationSource {
   @override
