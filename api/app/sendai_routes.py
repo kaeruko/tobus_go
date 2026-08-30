@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
 from typing import Any
 
 import httpx
 from fastapi import Body, HTTPException, Query
 from pydantic import BaseModel
 
+from app.gtfs_bus_realtime_routes import register_gtfs_bus_vehicle_location_route
 from app.route_only_places import register_route_only_places_routes
 from sendai_transit import SENDAI_FEED_ID
 
@@ -116,68 +116,10 @@ def register_sendai_routes(app) -> None:
             },
         }
 
-    @app.get("/bus/location")
-    async def bus_location(
-        route_id: str = Query(...),
-        trip_id: str = Query(...),
-        vehicle_id: str | None = Query(None),
-    ):
-        raw_route_id = _source_id(route_id, field="route_id")
-        raw_trip_id = _source_id(trip_id, field="trip_id")
-        try:
-            rows = await _provider(app).vehicle_positions()
-        except (httpx.HTTPError, RuntimeError) as error:
-            _raise_realtime_failure(error)
-
-        matches = [
-            row
-            for row in rows
-            if row.get("route_id") == raw_route_id
-            and row.get("trip_id") == raw_trip_id
-            and (vehicle_id is None or row.get("vehicle_id") == vehicle_id)
-        ]
-        if not matches:
-            raise HTTPException(
-                404,
-                detail={
-                    "code": "bus_realtime_not_found",
-                    "message": (
-                        "No exact Sendai VehiclePosition match for "
-                        f"route_id={raw_route_id!r}, trip_id={raw_trip_id!r}, "
-                        f"vehicle_id={vehicle_id!r}"
-                    ),
-                },
-            )
-        if len(matches) != 1:
-            raise HTTPException(
-                409,
-                detail={
-                    "code": "bus_realtime_ambiguous",
-                    "message": (
-                        "Multiple exact Sendai VehiclePosition matches; "
-                        "specify vehicle_id"
-                    ),
-                },
-            )
-        row = matches[0]
-        now = datetime.now(timezone.utc).isoformat()
-        return {
-            "kind": "bus_location",
-            "odpt:bus": row.get("vehicle_id"),
-            "vehicle_id": row.get("vehicle_id"),
-            "vehicle_lat": row.get("lat"),
-            "vehicle_lon": row.get("lon"),
-            "server_now": now,
-            "feed_ts": row.get("feed_timestamp"),
-            "vehicle_ts": row.get("timestamp"),
-            "raw_stop_id": row.get("stop_id"),
-            "observed_stop_sequence": row.get("current_stop_sequence"),
-            "current_status": row.get("current_status"),
-            "route_id": route_id,
-            "trip_id": trip_id,
-            "raw_route_id": raw_route_id,
-            "raw_trip_id": raw_trip_id,
-        }
+    register_gtfs_bus_vehicle_location_route(
+        app,
+        feed_id=SENDAI_FEED_ID,
+    )
 
     @app.get("/realtime/trip-updates")
     async def trip_updates(
