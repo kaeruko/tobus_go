@@ -61,7 +61,6 @@ class TokyoRealtimeProviderTest(unittest.TestCase):
                     raw_stop_name="始発",
                     observed_stop_sequence=1,
                     from_stop_sequence=1,
-                    odpt__unused=None,
                     **{
                         "odpt:fromBusstopPole": "stop-1",
                     },
