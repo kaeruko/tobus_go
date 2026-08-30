@@ -258,7 +258,11 @@ class GtfsRouteBackend:
             "id": f"{self.dataset.metadata.feed_id}:{trip_key}:{departure.date().isoformat()}:{departure.strftime('%H%M')}",
             "lines": lines,
             "rides": itinerary.rides,
-            "walks": int(origin_walk > 0) + int(destination_walk > 0),
+            "walking_distance_meters": int(
+                round(origin_distance + destination_distance)
+            ),
+            "walking_segment_count": int(origin_walk > 0)
+            + int(destination_walk > 0),
             "boards": itinerary.rides,
             "transfers": itinerary.transfers,
             "total": total_time,

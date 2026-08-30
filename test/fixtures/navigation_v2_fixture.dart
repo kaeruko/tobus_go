@@ -8,7 +8,6 @@ Candidate navigationV2Candidate() {
     id: 'navigation-v2-fixture',
     lines: const ['上23'],
     rides: 1,
-    walks: 2,
     boards: 1,
     transfers: 0,
     total: 51,

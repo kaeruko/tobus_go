@@ -62,7 +62,6 @@ Trip _tripWithSteps(List<StepSeg> steps) {
     id: 'candidate-1',
     lines: const [],
     rides: 0,
-    walks: 0,
     boards: 0,
     transfers: 0,
     total: 0,

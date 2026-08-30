@@ -75,7 +75,6 @@ void main() {
       id: 'candidate',
       lines: const ['浅草線', '新宿線'],
       rides: includeNextRide ? 2 : 1,
-      walks: includeNextRide ? 1 : 0,
       boards: includeNextRide ? 2 : 1,
       transfers: includeNextRide ? 1 : 0,
       total: 25,

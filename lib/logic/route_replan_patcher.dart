@@ -147,7 +147,9 @@ class RouteReplanPatcher {
     final activeStep = candidate.steps[activeStepIndex];
     switch (request.anchor.source) {
       case ReplanAnchorSource.tripOrigin:
-        final firstRideIndex = candidate.steps.indexWhere((step) => step.isRide);
+        final firstRideIndex = candidate.steps.indexWhere(
+          (step) => step.isRide,
+        );
         if (firstRideIndex >= 0 && activeStepIndex > firstRideIndex) {
           throw StateError(
             'tripOriginからの再探索なのに最初の乗車後まで進んでいます: '
@@ -220,9 +222,7 @@ class RouteReplanPatcher {
     final arrivalClock = _formatClock(arrivalAt);
     final departureClock = step.departureTime?.trim();
     if (departureClock == null || departureClock.isEmpty) {
-      throw StateError(
-        '途中までの乗車履歴を確定するための乗車時刻がありません: ${step.stepId}',
-      );
+      throw StateError('途中までの乗車履歴を確定するための乗車時刻がありません: ${step.stepId}');
     }
     final minutes = _forwardClockMinutes(departureClock, arrivalClock);
 
@@ -276,7 +276,8 @@ class RouteReplanPatcher {
           ScheduleEntry(
             id: entry.id,
             plannedAt: request.anchor.availableAt,
-            label: '${_transportEmoji(retainedActiveStep.kind)}'
+            label:
+                '${_transportEmoji(retainedActiveStep.kind)}'
                 '${retainedActiveStep.title} ${request.anchor.placeName}に着く',
             description: entry.description,
             itemKind: entry.itemKind,
@@ -322,7 +323,6 @@ class RouteReplanPatcher {
     }
 
     final rides = steps.where((step) => step.isRide).length;
-    final walks = steps.where((step) => step.kind == 'walk').length;
     final totalTime = steps.fold<int>(0, (sum, step) => sum + step.minutes);
     final points = <LatLng>[];
     for (final step in steps) {
@@ -338,7 +338,6 @@ class RouteReplanPatcher {
       id: '${original.id}::replan::${selected.id}',
       lines: List.unmodifiable(lines),
       rides: rides,
-      walks: walks,
       boards: rides,
       transfers: rides > 0 ? rides - 1 : 0,
       total: selected.total,
@@ -351,7 +350,8 @@ class RouteReplanPatcher {
       departureDate: original.departureDate,
       isFutureSuggestion: false,
       originCoords: original.originCoords,
-      destinationCoords: original.destinationCoords ?? selected.destinationCoords,
+      destinationCoords:
+          original.destinationCoords ?? selected.destinationCoords,
       arrivalTime: selected.arrivalTime,
     );
   }
@@ -390,7 +390,11 @@ class RouteReplanPatcher {
     }
     final hour = int.tryParse(parts[0]);
     final minute = int.tryParse(parts[1]);
-    if (hour == null || minute == null || hour < 0 || minute < 0 || minute >= 60) {
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        minute < 0 ||
+        minute >= 60) {
       throw FormatException('時刻を解釈できません: $value');
     }
     return hour * 60 + minute;
@@ -438,10 +442,7 @@ class _ActiveStepPosition {
   final int legIndex;
   final int stepIndex;
 
-  const _ActiveStepPosition({
-    required this.legIndex,
-    required this.stepIndex,
-  });
+  const _ActiveStepPosition({required this.legIndex, required this.stepIndex});
 }
 
 extension _FirstOrNullExtension<T> on Iterable<T> {

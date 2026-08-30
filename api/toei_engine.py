@@ -1400,13 +1400,15 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
                 "steps": segs,
                 "score_label": f"{duration}分",
                 "cost_score": 0.0,
-                "walk_m": walk_dist,
                 "path": path,
                 "points": path_to_coords(G, path),
                 "total": duration,
                 "transfers": max(0, num_rides - 1),
                 "rides": num_rides,
-                "walks": int(walk_dist),
+                "walking_distance_meters": int(round(walk_dist)),
+                "walking_segment_count": sum(
+                    1 for step in segs if step["kind"] == "walk"
+                ),
                 "boards": num_rides,
             })
     else:
@@ -1437,13 +1439,21 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
                     "steps": segs,
                     "score_label": f"楽さ {cand['cost']:.1f} (所要{duration}分)",
                     "cost_score": cand['cost'],
-                    "walk_m": cand['walk_m'],
                     "path": path,
                     "points": path_to_coords(G, path),
                     "total": int(cand['cost']),
                     "transfers": max(0, num_rides - 1),
                     "rides": num_rides,
-                    "walks": int(cand['walk_m']),
+                    "walking_distance_meters": int(
+                        round(sum(
+                            step["meters"]
+                            for step in segs
+                            if step["kind"] == "walk"
+                        ))
+                    ),
+                    "walking_segment_count": sum(
+                        1 for step in segs if step["kind"] == "walk"
+                    ),
                     "boards": num_rides,
                 })
                 valid_count += 1

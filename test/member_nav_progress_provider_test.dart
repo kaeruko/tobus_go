@@ -21,7 +21,6 @@ void main() {
         id: 'candidate-1',
         lines: const ['上23'],
         rides: steps.where((step) => step.isRide).length,
-        walks: 0,
         boards: 1,
         transfers: 0,
         total: 10,

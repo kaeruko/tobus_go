@@ -1,4 +1,5 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+
 import '../utils/string_utils.dart';
 
 class RouteMeta {
@@ -37,7 +38,8 @@ class Candidate {
   final String id;
   final List<String> lines;
   final int rides;
-  final int walks;
+  final int walkingDistanceMeters;
+  final int walkingSegmentCount;
   final int boards;
   final int transfers;
   final int total;
@@ -57,7 +59,8 @@ class Candidate {
     required this.id,
     required this.lines,
     required this.rides,
-    required this.walks,
+    int? walkingDistanceMeters,
+    int? walkingSegmentCount,
     required this.boards,
     required this.transfers,
     required this.total,
@@ -72,34 +75,59 @@ class Candidate {
     this.originCoords,
     this.destinationCoords,
     this.arrivalTime,
-  });
+  }) : walkingDistanceMeters =
+           walkingDistanceMeters ?? _walkingDistanceMetersFrom(steps),
+       walkingSegmentCount =
+           walkingSegmentCount ?? _walkingSegmentCountFrom(steps) {
+    final derivedDistance = _walkingDistanceMetersFrom(steps);
+    final derivedCount = _walkingSegmentCountFrom(steps);
+    if (this.walkingDistanceMeters != derivedDistance) {
+      throw StateError(
+        'walking_distance_meters does not match walk steps: '
+        '${this.walkingDistanceMeters} != $derivedDistance',
+      );
+    }
+    if (this.walkingSegmentCount != derivedCount) {
+      throw StateError(
+        'walking_segment_count does not match walk steps: '
+        '${this.walkingSegmentCount} != $derivedCount',
+      );
+    }
+  }
 
   factory Candidate.fromJson(Map<String, dynamic> j) {
     final originName = j['origin_name']?.toString();
     final destinationName = j['destination_name']?.toString();
 
+    final steps = _readSteps(j, originName, destinationName);
     return Candidate(
       id: j['id']?.toString() ?? '',
       lines: (j['lines'] is List) ? List<String>.from(j['lines']) : const [],
       rides: (j['rides'] as num? ?? 0).toInt(),
-      walks: (j['walks'] as num? ?? 0).toInt(),
+      walkingDistanceMeters: _readRequiredNonNegativeInt(
+        j,
+        'walking_distance_meters',
+      ),
+      walkingSegmentCount: _readRequiredNonNegativeInt(
+        j,
+        'walking_segment_count',
+      ),
       boards: (j['boards'] as num? ?? 0).toInt(),
       transfers: (j['transfers'] as num? ?? 0).toInt(),
       total: (j['total'] as num? ?? 0).toInt(),
       totalTime: (j['total_time'] as num? ?? 0).toInt(),
-      steps: _readSteps(j, originName, destinationName),
-      points: (j['points'] as List?)
-              ?.map((e) {
-                if (e is List && e.length >= 2) {
-                   final lat = e[0] as num?;
-                   final lon = e[1] as num?;
-                   if (lat != null && lon != null) {
-                     return LatLng(lat.toDouble(), lon.toDouble());
-                   }
-                }
-                return const LatLng(0, 0);
-              })
-              .toList() ??
+      steps: steps,
+      points:
+          (j['points'] as List?)?.map((e) {
+            if (e is List && e.length >= 2) {
+              final lat = e[0] as num?;
+              final lon = e[1] as num?;
+              if (lat != null && lon != null) {
+                return LatLng(lat.toDouble(), lon.toDouble());
+              }
+            }
+            return const LatLng(0, 0);
+          }).toList() ??
           const [],
       originName: originName,
       destinationName: destinationName,
@@ -108,29 +136,85 @@ class Candidate {
           ? DateTime.tryParse(j['departure_date'])
           : null,
       isFutureSuggestion: j['is_future_suggestion'] == true,
-      originCoords: (j['origin_coords'] is List && j['origin_coords'].length >= 2 && j['origin_coords'][0] != null && j['origin_coords'][1] != null)
-          ? LatLng((j['origin_coords'][0] as num).toDouble(), (j['origin_coords'][1] as num).toDouble())
+      originCoords:
+          (j['origin_coords'] is List &&
+              j['origin_coords'].length >= 2 &&
+              j['origin_coords'][0] != null &&
+              j['origin_coords'][1] != null)
+          ? LatLng(
+              (j['origin_coords'][0] as num).toDouble(),
+              (j['origin_coords'][1] as num).toDouble(),
+            )
           : null,
-      destinationCoords: (j['destination_coords'] is List && j['destination_coords'].length >= 2 && j['destination_coords'][0] != null && j['destination_coords'][1] != null)
-          ? LatLng((j['destination_coords'][0] as num).toDouble(), (j['destination_coords'][1] as num).toDouble())
+      destinationCoords:
+          (j['destination_coords'] is List &&
+              j['destination_coords'].length >= 2 &&
+              j['destination_coords'][0] != null &&
+              j['destination_coords'][1] != null)
+          ? LatLng(
+              (j['destination_coords'][0] as num).toDouble(),
+              (j['destination_coords'][1] as num).toDouble(),
+            )
           : null,
       arrivalTime: j['arrival_time']?.toString(),
     );
   }
 
-  static List<StepSeg> _readSteps(Map<String, dynamic> j, String? originName, String? destinationName) {
+  static int _readRequiredNonNegativeInt(
+    Map<String, dynamic> json,
+    String key,
+  ) {
+    final value = json[key];
+    if (value is! num || !value.isFinite || value != value.roundToDouble()) {
+      throw FormatException('route candidate is missing valid $key');
+    }
+    final parsed = value.toInt();
+    if (parsed < 0) {
+      throw FormatException('route candidate has negative $key: $parsed');
+    }
+    return parsed;
+  }
+
+  static int _walkingDistanceMetersFrom(List<StepSeg> steps) {
+    var distance = 0.0;
+    for (final step in steps) {
+      if (step.kind != 'walk') continue;
+      if (!step.meters.isFinite || step.meters < 0) {
+        throw StateError(
+          'walk step has invalid meters: '
+          'stepId=${step.stepId}, meters=${step.meters}',
+        );
+      }
+      distance += step.meters;
+    }
+    return distance.round();
+  }
+
+  static int _walkingSegmentCountFrom(List<StepSeg> steps) =>
+      steps.where((step) => step.kind == 'walk').length;
+
+  static List<StepSeg> _readSteps(
+    Map<String, dynamic> j,
+    String? originName,
+    String? destinationName,
+  ) {
     final out = <StepSeg>[];
     final raw = j['steps'];
-    
-    final simpleOrigin = originName != null ? StringUtils.extractSimpleName(originName) : null;
-    final simpleDest = destinationName != null ? StringUtils.extractSimpleName(destinationName) : null;
+
+    final simpleOrigin = originName != null
+        ? StringUtils.extractSimpleName(originName)
+        : null;
+    final simpleDest = destinationName != null
+        ? StringUtils.extractSimpleName(destinationName)
+        : null;
 
     if (raw is List) {
       for (final item in raw) {
         if (item is Map) {
           final map = Map<String, dynamic>.from(item);
           // "現在地" / "目的地" の置換ロジック
-          if ((map['from_'] == '現在地' || map['from'] == '現在地') && simpleOrigin != null) {
+          if ((map['from_'] == '現在地' || map['from'] == '現在地') &&
+              simpleOrigin != null) {
             map['from_'] = simpleOrigin;
             map['from'] = simpleOrigin;
           }
@@ -202,9 +286,7 @@ class Candidate {
     final waitStart = walkStart - waitDuration;
     final origin = walk.fromName;
     if (origin == null || origin.isEmpty) {
-      throw StateError(
-        '先頭待ち時間の待機場所に使う徒歩出発地点がありません: stepId=${walk.stepId}',
-      );
+      throw StateError('先頭待ち時間の待機場所に使う徒歩出発地点がありません: stepId=${walk.stepId}');
     }
 
     final normalizedWait = StepSeg(
@@ -261,7 +343,11 @@ class Candidate {
     if (parts.length < 2) return null;
     final hour = int.tryParse(parts[0]);
     final minute = int.tryParse(parts[1]);
-    if (hour == null || minute == null || hour < 0 || minute < 0 || minute >= 60) {
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        minute < 0 ||
+        minute >= 60) {
       return null;
     }
     return hour * 60 + minute;
@@ -277,7 +363,8 @@ class Candidate {
 
   static String _formatClock(int totalMinutes) {
     final minutesPerDay = 24 * 60;
-    final normalized = ((totalMinutes % minutesPerDay) + minutesPerDay) % minutesPerDay;
+    final normalized =
+        ((totalMinutes % minutesPerDay) + minutesPerDay) % minutesPerDay;
     final hour = normalized ~/ 60;
     final minute = normalized % 60;
     return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
@@ -288,7 +375,8 @@ class Candidate {
       'id': id,
       'lines': lines,
       'rides': rides,
-      'walks': walks,
+      'walking_distance_meters': walkingDistanceMeters,
+      'walking_segment_count': walkingSegmentCount,
       'boards': boards,
       'transfers': transfers,
       'total': total,
@@ -302,8 +390,12 @@ class Candidate {
       'preference': preference,
       'departure_date': departureDate?.toIso8601String(),
       'is_future_suggestion': isFutureSuggestion,
-      'origin_coords': originCoords != null ? [originCoords!.latitude, originCoords!.longitude] : null,
-      'destination_coords': destinationCoords != null ? [destinationCoords!.latitude, destinationCoords!.longitude] : null,
+      'origin_coords': originCoords != null
+          ? [originCoords!.latitude, originCoords!.longitude]
+          : null,
+      'destination_coords': destinationCoords != null
+          ? [destinationCoords!.latitude, destinationCoords!.longitude]
+          : null,
       'arrival_time': arrivalTime,
     };
   }
@@ -324,9 +416,9 @@ class StepSeg {
   final String? startLabel;
   final String? endLabel;
   final String? place;
-  
-  final String? routeId;     // 系統ID
-  final String? tripId;      // 便ID (GTFS-RTとの紐付け用)
+
+  final String? routeId; // 系統ID
+  final String? tripId; // 便ID (GTFS-RTとの紐付け用)
   final String? directionId; // 方向ID
 
   // Compatibility / Legacy fields
@@ -349,8 +441,8 @@ class StepSeg {
     this.startLabel,
     this.endLabel,
     this.place,
-    this.routeId,     // ★
-    this.tripId,      // ★
+    this.routeId, // ★
+    this.tripId, // ★
     this.directionId, // ★
     this.edges = 0,
     this.departureStopId = '',
@@ -369,7 +461,9 @@ class StepSeg {
       throw const FormatException('route step is missing required step_id');
     }
     var rawStops = json['stops'] as List? ?? [];
-    var parsedStops = rawStops.map((e) => StopPoint.fromJson(Map<String, dynamic>.from(e))).toList();
+    var parsedStops = rawStops
+        .map((e) => StopPoint.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
 
     return StepSeg(
       stepId: stepId,
@@ -386,19 +480,21 @@ class StepSeg {
       startLabel: json['startLabel'],
       endLabel: json['endLabel'],
       place: json['place'],
-      
+
       // ★追加: IDパース
-      routeId: json['route_id'] ?? json['routeId'], // Handle both snake and camel if possible, user snippet used snake
+      routeId:
+          json['route_id'] ??
+          json['routeId'], // Handle both snake and camel if possible, user snippet used snake
       tripId: json['trip_id'],
       directionId: json['direction_id'],
-      
+
       // Legacy
       edges: (json['edges'] as num? ?? 0).toInt(),
       departureStopId: json['departureStopId']?.toString() ?? '',
       arrivalPoleId: json['arrivalPoleId']?.toString() ?? '',
     );
   }
-  
+
   String get mainTitle => kind == 'walk' ? '徒歩' : title;
   String? get subTitle {
     if (kind == 'wait') {
@@ -411,8 +507,8 @@ class StepSeg {
       return '$fromName → $toName';
     }
     if (kind == 'walk') {
-      if (meters > 0)   return '徒歩 約${meters.toInt()}m';
-      if (minutes > 0)  return '徒歩 約$minutes分';
+      if (meters > 0) return '徒歩 約${meters.toInt()}m';
+      if (minutes > 0) return '徒歩 約$minutes分';
       return '徒歩';
     }
     return null;
