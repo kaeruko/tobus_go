@@ -52,7 +52,7 @@ CITIES = {
     exclude_tokyo_firebase_plist: true
   },
   'sendai' => {
-    bundle_id: 'jp.cloxs.sendaigo',
+    bundle_id: 'jp.cloxs.go.sendai',
     display_name: '仙台でGO',
     app_icon_name: 'AppIconSendai',
     exclude_tokyo_firebase_plist: true
