@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:toei_go/models/bus_progress.dart';
-import 'package:toei_go/models/route_models.dart';
+import 'package:toeigo/models/bus_progress.dart';
+import 'package:toeigo/models/route_models.dart';
 
 void main() {
   StepSeg busStep() => StepSeg(
