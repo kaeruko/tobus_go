@@ -400,14 +400,8 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                     // Preference
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: CupertinoSlidingSegmentedControl<String>(
+                      child: RoutePreferenceControl(
                         groupValue: rs.pref ?? 'fewTransfers',
-                        // NOTE: Backend expects 'time'/'fast' for fastest route; see RouteSearchNotifier._normalizePreferenceForApi
-                        // for the mapping from this UI value to API param.
-                        children: const {
-                          'fewTransfers': Text('乗換少ない優先'),
-                          'shortTime': Text('時間短い優先'),
-                        },
                         onValueChanged: (v) {
                           if (v == null) return;
                           notifier.setPref(v);
@@ -541,6 +535,40 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
   void dispose() {
     widget.tabIndexListenable?.removeListener(_handleTabChange);
     super.dispose();
+  }
+}
+
+class RoutePreferenceControl extends StatelessWidget {
+  const RoutePreferenceControl({
+    super.key,
+    required this.groupValue,
+    required this.onValueChanged,
+  });
+
+  final String groupValue;
+  final ValueChanged<String?> onValueChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth <= 0) {
+          return const SizedBox(height: 28);
+        }
+
+        return CupertinoSlidingSegmentedControl<String>(
+          groupValue: groupValue,
+          // NOTE: Backend expects 'time'/'fast' for fastest route; see
+          // RouteSearchNotifier._normalizePreferenceForApi for the mapping
+          // from this UI value to the API parameter.
+          children: const {
+            'fewTransfers': Text('乗換少ない優先'),
+            'shortTime': Text('時間短い優先'),
+          },
+          onValueChanged: onValueChanged,
+        );
+      },
+    );
   }
 }
 
