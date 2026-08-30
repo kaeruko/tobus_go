@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../core/api_client.dart';
 import '../core/city_profile.dart';
@@ -41,6 +42,15 @@ class _RouteOnlyActiveTripPageState extends State<RouteOnlyActiveTripPage> {
 
   bool get _supportsVehiclePosition =>
       configuredCityProfile.capabilities.realtime.vehiclePosition;
+
+  LatLng? get _vehiclePosition {
+    final vehicle = _vehicle;
+    if (vehicle == null) return null;
+    final lat = vehicle['vehicle_lat'];
+    final lon = vehicle['vehicle_lon'];
+    if (lat is! num || lon is! num) return null;
+    return LatLng(lat.toDouble(), lon.toDouble());
+  }
 
   @override
   void initState() {
@@ -218,7 +228,10 @@ class _RouteOnlyActiveTripPageState extends State<RouteOnlyActiveTripPage> {
           padding: const EdgeInsets.only(top: 16, bottom: 32),
           children: [
             if (widget.candidate.points.isNotEmpty) ...[
-              RouteMapPreview(points: widget.candidate.points),
+              RouteMapPreview(
+                points: widget.candidate.points,
+                vehiclePosition: _vehiclePosition,
+              ),
               const SizedBox(height: 16),
             ],
             _realtimeCard(context),
