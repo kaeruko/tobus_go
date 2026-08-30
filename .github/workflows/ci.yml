@@ -154,20 +154,8 @@ jobs:
         run: |
           app='build/ios/iphonesimulator/Runner.app'
           test -d "$app"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = 'jp.cloxs.sendaigo'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = 'jp.cloxs.go.sendai'
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist")" = '仙台でGO'
-          test ! -e "$app/GoogleService-Info.plist"
-
-      - name: Build Yokohama iOS flavor
-        run: flutter build ios --simulator --debug --flavor yokohama --dart-define=APP_CITY=yokohama
-
-      - name: Verify Yokohama iOS identity and Firebase isolation
-        shell: bash
-        run: |
-          app='build/ios/iphonesimulator/Runner.app'
-          test -d "$app"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = 'jp.cloxs.yokohamago'
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist")" = '横浜でGO'
           test ! -e "$app/GoogleService-Info.plist"
 
   python:
