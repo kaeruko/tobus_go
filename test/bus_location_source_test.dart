@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:toei_go/services/bus_location_source.dart';
+import 'package:toeigo/services/bus_location_source.dart';
 
 void main() {
   Map<String, dynamic> basePayload() => {
