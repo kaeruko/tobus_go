@@ -3,17 +3,19 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import '../core/api_client.dart';
 import '../core/city_profile.dart';
 import '../models/route_models.dart';
+import '../services/bus_location_source.dart';
 import '../widgets/route_map_preview.dart';
 
 class RouteOnlyActiveTripPage extends StatefulWidget {
   final Candidate candidate;
+  final BusLocationSource? busLocationSource;
 
   const RouteOnlyActiveTripPage({
     super.key,
     required this.candidate,
+    this.busLocationSource,
   });
 
   @override
@@ -23,9 +25,12 @@ class RouteOnlyActiveTripPage extends StatefulWidget {
 
 class _RouteOnlyActiveTripPageState extends State<RouteOnlyActiveTripPage> {
   Timer? _timer;
-  Map<String, dynamic>? _vehicle;
+  BusLocation? _vehicle;
   String? _realtimeMessage;
   bool _loadingRealtime = false;
+
+  BusLocationSource get _busLocationSource =>
+      widget.busLocationSource ?? const RealtimeBusLocationSource();
 
   StepSeg? get _trackedBusStep {
     for (final step in widget.candidate.steps) {
@@ -46,10 +51,14 @@ class _RouteOnlyActiveTripPageState extends State<RouteOnlyActiveTripPage> {
   LatLng? get _vehiclePosition {
     final vehicle = _vehicle;
     if (vehicle == null) return null;
-    final lat = vehicle['vehicle_lat'];
-    final lon = vehicle['vehicle_lon'];
-    if (lat is! num || lon is! num) return null;
-    return LatLng(lat.toDouble(), lon.toDouble());
+    final lat = vehicle.vehicleLat;
+    final lon = vehicle.vehicleLon;
+    if (lat == null || lon == null) {
+      throw StateError(
+        'BusLocationSource returned a vehicle without latitude/longitude',
+      );
+    }
+    return LatLng(lat, lon);
   }
 
   @override
@@ -78,65 +87,36 @@ class _RouteOnlyActiveTripPageState extends State<RouteOnlyActiveTripPage> {
       _loadingRealtime = true;
     });
     try {
-      final payload = await ApiClient.fetchBusLocation(
+      final location = await _busLocationSource.fetch(
         routeId: step.routeId!,
         tripId: step.tripId!,
         forceRefresh: forceRefresh,
       );
-      _validateVehiclePayload(payload);
+      if (location.vehicleLat == null || location.vehicleLon == null) {
+        throw StateError(
+          'BusLocationSource returned a vehicle without latitude/longitude',
+        );
+      }
       if (!mounted) return;
       setState(() {
-        _vehicle = payload;
+        _vehicle = location;
         _realtimeMessage = null;
         _loadingRealtime = false;
       });
-    } on ApiException catch (error) {
+    } on BusLocationNotAvailableException catch (_) {
       if (!mounted) return;
       setState(() {
         _vehicle = null;
         _loadingRealtime = false;
-        if (error.statusCode == 404) {
-          _realtimeMessage = 'この便のリアルタイム位置はまだ見つかりません';
-        } else {
-          _realtimeMessage = 'リアルタイム取得エラー: $error';
-        }
+        _realtimeMessage = 'この便のリアルタイム位置はまだ見つかりません';
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _vehicle = null;
         _loadingRealtime = false;
-        _realtimeMessage = 'リアルタイム応答エラー: $error';
+        _realtimeMessage = 'リアルタイム取得エラー: $error';
       });
-    }
-  }
-
-  void _validateVehiclePayload(Map<String, dynamic> payload) {
-    final vehicleId = payload['vehicle_id'] ?? payload['odpt:bus'];
-    final lat = payload['vehicle_lat'];
-    final lon = payload['vehicle_lon'];
-    final tripId = payload['trip_id'];
-    final step = _trackedBusStep;
-
-    if (vehicleId is! String || vehicleId.isEmpty) {
-      throw const FormatException('vehicle_id is missing');
-    }
-    if (lat is! num || lon is! num) {
-      throw const FormatException('vehicle latitude/longitude are missing');
-    }
-    if (!lat.toDouble().isFinite || !lon.toDouble().isFinite) {
-      throw const FormatException('vehicle latitude/longitude are not finite');
-    }
-    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-      throw const FormatException('vehicle latitude/longitude are out of range');
-    }
-    if (lat == 0 && lon == 0) {
-      throw const FormatException('vehicle latitude/longitude must not be (0,0)');
-    }
-    if (step == null || tripId != step.tripId) {
-      throw FormatException(
-        'vehicle trip_id mismatch: expected=${step?.tripId} actual=$tripId',
-      );
     }
   }
 
@@ -166,12 +146,9 @@ class _RouteOnlyActiveTripPageState extends State<RouteOnlyActiveTripPage> {
       return _messageCard(context, 'リアルタイム位置を取得していません');
     }
 
-    final lat = (vehicle['vehicle_lat'] as num).toDouble();
-    final lon = (vehicle['vehicle_lon'] as num).toDouble();
-    final vehicleId = (vehicle['vehicle_id'] ?? vehicle['odpt:bus']).toString();
-    final stopName = vehicle['raw_stop_name']?.toString();
-    final beforeFirstStop = vehicle['before_first_stop'] == true;
-    final serverNow = vehicle['server_now']?.toString();
+    final lat = vehicle.vehicleLat!;
+    final lon = vehicle.vehicleLon!;
+    final stopName = vehicle.rawStopName;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -190,15 +167,19 @@ class _RouteOnlyActiveTripPageState extends State<RouteOnlyActiveTripPage> {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
-            Text('車両 $vehicleId'),
-            if (beforeFirstStop)
+            Text('車両 ${vehicle.vehicleId}'),
+            if (vehicle.beforeFirstStop)
               const Text('バスは始発停留所へ向かっています'),
-            if (!beforeFirstStop && stopName != null && stopName.isNotEmpty)
+            if (!vehicle.beforeFirstStop &&
+                stopName != null &&
+                stopName.isNotEmpty)
               Text('現在の停留所付近: $stopName'),
-            if (beforeFirstStop && stopName != null && stopName.isNotEmpty)
+            if (vehicle.beforeFirstStop &&
+                stopName != null &&
+                stopName.isNotEmpty)
               Text('始発停留所: $stopName'),
             Text('緯度 ${lat.toStringAsFixed(5)} / 経度 ${lon.toStringAsFixed(5)}'),
-            if (serverNow != null) Text('取得時刻 $serverNow'),
+            if (vehicle.serverNow != null) Text('取得時刻 ${vehicle.serverNow}'),
             const SizedBox(height: 8),
             const Text(
               '30秒ごとに更新します',

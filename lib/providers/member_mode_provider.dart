@@ -244,6 +244,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       final progress = BusProgress.forStep(
         step: activeStep,
         fromStopId: location.fromStopId,
+        beforeFirstStop: location.beforeFirstStop,
         tripStopIds: location.tripStopIds,
         observedStopId: location.rawStopId,
         observedStopName: location.rawStopName,

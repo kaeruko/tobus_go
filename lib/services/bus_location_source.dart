@@ -44,9 +44,12 @@ class BusStopSchedule {
 
 class BusLocation {
   final String vehicleId;
-  final String fromStopId;
+  final String? fromStopId;
   final String routeId;
   final String tripId;
+  final double? vehicleLat;
+  final double? vehicleLon;
+  final bool beforeFirstStop;
   final List<String> tripStopIds;
   final String? rawStopId;
   final String? rawStopName;
@@ -67,6 +70,9 @@ class BusLocation {
     required this.fromStopId,
     required this.routeId,
     required this.tripId,
+    this.vehicleLat,
+    this.vehicleLon,
+    this.beforeFirstStop = false,
     this.tripStopIds = const [],
     this.rawStopId,
     this.rawStopName,
@@ -83,14 +89,106 @@ class BusLocation {
     this.tripStopSchedule = const [],
   });
 
+  static double _requiredCoordinate(
+    Map<String, dynamic> json,
+    String key, {
+    required double min,
+    required double max,
+  }) {
+    final value = json[key];
+    if (value is! num) {
+      throw FormatException('bus location is missing numeric $key');
+    }
+    final coordinate = value.toDouble();
+    if (!coordinate.isFinite || coordinate < min || coordinate > max) {
+      throw FormatException('bus location $key is out of range');
+    }
+    return coordinate;
+  }
+
+  static bool _resolveBeforeFirstStop({
+    required Map<String, dynamic> json,
+    required String? fromStopId,
+    required int? fromStopSequence,
+    required int? observedStopSequence,
+    required String? currentStatus,
+  }) {
+    final explicit = json['before_first_stop'];
+    if (explicit != null && explicit is! bool) {
+      throw const FormatException('before_first_stop must be a bool when present');
+    }
+
+    if (explicit == true) {
+      if (fromStopId != null || fromStopSequence != null) {
+        throw const FormatException(
+          'before_first_stop=true must not include a previous stop',
+        );
+      }
+      return true;
+    }
+
+    if (fromStopId != null && fromStopId.isNotEmpty) {
+      return false;
+    }
+
+    if (explicit == false) {
+      throw const FormatException(
+        'before_first_stop=false requires odpt:fromBusstopPole',
+      );
+    }
+
+    // Tokyo's legacy endpoint did not originally expose before_first_stop.
+    // Accept only the one unambiguous GTFS-RT state that means there cannot be
+    // a previous stop. Any other missing previous-stop response remains an
+    // error rather than being silently reinterpreted.
+    final isApproachingFirstStop =
+        observedStopSequence == 1 &&
+        fromStopSequence == null &&
+        const {'INCOMING_AT', 'IN_TRANSIT_TO', '0', '2'}.contains(currentStatus);
+    if (isApproachingFirstStop) {
+      return true;
+    }
+
+    throw const FormatException(
+      'bus location is missing odpt:fromBusstopPole without before-first-stop state',
+    );
+  }
+
   factory BusLocation.fromJson(
     Map<String, dynamic> json, {
     required String routeId,
     required String tripId,
   }) {
     final vehicleId = (json['vehicle_id'] ?? json['odpt:bus'])?.toString();
-    final fromStopId = json['odpt:fromBusstopPole']?.toString();
+    final rawFromStopId = json['odpt:fromBusstopPole'];
+    final fromStopId = rawFromStopId == null ? null : rawFromStopId.toString();
     final responseTripId = json['trip_id']?.toString();
+    final fromStopSequence = (json['from_stop_sequence'] as num?)?.toInt();
+    final observedStopSequence =
+        (json['observed_stop_sequence'] as num?)?.toInt();
+    final currentStatus = json['current_status']?.toString();
+    final vehicleLat = _requiredCoordinate(
+      json,
+      'vehicle_lat',
+      min: -90,
+      max: 90,
+    );
+    final vehicleLon = _requiredCoordinate(
+      json,
+      'vehicle_lon',
+      min: -180,
+      max: 180,
+    );
+    if (vehicleLat == 0 && vehicleLon == 0) {
+      throw const FormatException('bus location coordinates must not be (0,0)');
+    }
+    final beforeFirstStop = _resolveBeforeFirstStop(
+      json: json,
+      fromStopId: fromStopId,
+      fromStopSequence: fromStopSequence,
+      observedStopSequence: observedStopSequence,
+      currentStatus: currentStatus,
+    );
     final tripStopIds = (json['trip_stop_ids'] as List<dynamic>? ?? const [])
         .map((value) => value.toString())
         .toList(growable: false);
@@ -105,10 +203,8 @@ class BusLocation {
     if (vehicleId == null || vehicleId.isEmpty) {
       throw const FormatException('bus location is missing vehicle_id');
     }
-    if (fromStopId == null || fromStopId.isEmpty) {
-      throw const FormatException(
-        'bus location is missing odpt:fromBusstopPole',
-      );
+    if (fromStopId != null && fromStopId.isEmpty) {
+      throw const FormatException('odpt:fromBusstopPole must not be empty');
     }
     if (responseTripId != tripId) {
       throw FormatException(
@@ -120,12 +216,15 @@ class BusLocation {
       fromStopId: fromStopId,
       routeId: routeId,
       tripId: tripId,
+      vehicleLat: vehicleLat,
+      vehicleLon: vehicleLon,
+      beforeFirstStop: beforeFirstStop,
       tripStopIds: tripStopIds,
       rawStopId: json['raw_stop_id']?.toString(),
       rawStopName: json['raw_stop_name']?.toString(),
-      fromStopSequence: (json['from_stop_sequence'] as num?)?.toInt(),
-      observedStopSequence: (json['observed_stop_sequence'] as num?)?.toInt(),
-      currentStatus: json['current_status']?.toString(),
+      fromStopSequence: fromStopSequence,
+      observedStopSequence: observedStopSequence,
+      currentStatus: currentStatus,
       feedTimestamp: (json['feed_ts'] as num?)?.toInt(),
       vehicleTimestamp: (json['vehicle_ts'] as num?)?.toInt(),
       realtimeFetchedTimestamp: (json['realtime_fetched_ts'] as num?)?.toInt(),
