@@ -175,7 +175,7 @@ class YokohamaBackendTest(unittest.TestCase):
         self.assertEqual(ride["route_id"], "yokohama_bus:R1")
         self.assertEqual(ride["trip_id"], "yokohama_bus:T1")
 
-    def test_route_only_places_boundary_is_available_without_a_key(self) -> None:
+    def test_route_only_places_boundary_requires_a_key(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _write_feed(root)
@@ -193,10 +193,16 @@ class YokohamaBackendTest(unittest.TestCase):
                         headers={"X-App-City": "yokohama"},
                     )
 
-        self.assertEqual(autocomplete.status_code, 200)
-        self.assertEqual(autocomplete.json(), {"predictions": []})
-        self.assertEqual(details.status_code, 200)
-        self.assertEqual(details.json(), {"result": {}})
+        self.assertEqual(autocomplete.status_code, 500)
+        self.assertEqual(
+            autocomplete.json()["detail"]["code"],
+            "google_maps_api_key_missing",
+        )
+        self.assertEqual(details.status_code, 500)
+        self.assertEqual(
+            details.json()["detail"]["code"],
+            "google_maps_api_key_missing",
+        )
 
     def test_missing_gtfs_dir_fails_startup(self) -> None:
         with patch.dict(
