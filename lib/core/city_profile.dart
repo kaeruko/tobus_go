@@ -229,7 +229,7 @@ const yokohamaCityProfile = CityProfile(
       groupTrips: false,
     ),
     realtime: RealtimeCapabilities(
-      vehiclePosition: false,
+      vehiclePosition: true,
       tripUpdates: false,
       alerts: false,
     ),
