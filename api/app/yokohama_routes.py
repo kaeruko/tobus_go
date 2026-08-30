@@ -5,7 +5,9 @@ import asyncio
 from fastapi import HTTPException
 from pydantic import BaseModel
 
+from app.gtfs_bus_realtime_routes import register_gtfs_bus_vehicle_location_route
 from app.route_only_places import register_route_only_places_routes
+from yokohama_transit import YOKOHAMA_BUS_FEED_ID
 
 
 class RouteRequest(BaseModel):
@@ -56,7 +58,15 @@ def register_yokohama_routes(app) -> None:
             "city": "yokohama",
             "feed_id": dataset.metadata.feed_id if dataset is not None else None,
             "feed_version": dataset.metadata.version if dataset is not None else None,
-            "realtime": False,
+            "realtime": {
+                "vehicle_positions": True,
+                "trip_updates": False,
+                "alerts": False,
+            },
         }
 
+    register_gtfs_bus_vehicle_location_route(
+        app,
+        feed_id=YOKOHAMA_BUS_FEED_ID,
+    )
     register_route_only_places_routes(app)
