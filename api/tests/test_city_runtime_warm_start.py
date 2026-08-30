@@ -107,6 +107,7 @@ class CityRuntimeWarmStartTest(unittest.IsolatedAsyncioTestCase):
         app = _App()
         dataset = object()
         backend = object()
+        realtime = object()
 
         with (
             patch.dict(
@@ -114,6 +115,7 @@ class CityRuntimeWarmStartTest(unittest.IsolatedAsyncioTestCase):
                 {
                     "YOKOHAMA_BUS_GTFS_DIR": "/tmp/gtfs/yokohama",
                     "YOKOHAMA_BUS_GTFS_EXPECTED_SERVICE_DATE": "2026-08-29",
+                    "ODPT_API_TOKEN": "test-token",
                 },
                 clear=False,
             ),
@@ -125,6 +127,10 @@ class CityRuntimeWarmStartTest(unittest.IsolatedAsyncioTestCase):
                 "app.yokohama_runtime.YokohamaBusRouteBackend",
                 return_value=backend,
             ) as make_backend,
+            patch(
+                "app.yokohama_runtime.create_yokohama_bus_realtime_provider",
+                return_value=realtime,
+            ) as make_realtime,
         ):
             await setup_yokohama_on_startup(app, "lambda")
             await setup_yokohama_on_startup(app, "lambda")
@@ -134,10 +140,11 @@ class CityRuntimeWarmStartTest(unittest.IsolatedAsyncioTestCase):
             expected_service_date="2026-08-29",
         )
         make_backend.assert_called_once_with(dataset)
+        make_realtime.assert_called_once_with()
         self.assertIs(app.state.transit_dataset, dataset)
         self.assertIs(app.state.route_backend, backend)
-        self.assertIsNone(app.state.realtime_provider)
-        self.assertFalse(app.state.realtime_bus_supported)
+        self.assertIs(app.state.realtime_provider, realtime)
+        self.assertTrue(app.state.realtime_bus_supported)
         self.assertEqual(app.state.loading_status, "ready")
 
 
