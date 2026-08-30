@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 
+from yokohama_realtime import create_yokohama_bus_realtime_provider
 from yokohama_transit import (
     YokohamaBusRouteBackend,
     load_yokohama_bus_dataset,
@@ -14,6 +15,7 @@ async def setup_yokohama_on_startup(app, mode: str) -> None:
         getattr(app.state, "loading_status", None) == "ready"
         and getattr(app.state, "transit_dataset", None) is not None
         and getattr(app.state, "route_backend", None) is not None
+        and getattr(app.state, "realtime_provider", None) is not None
     ):
         return
 
@@ -35,7 +37,10 @@ async def setup_yokohama_on_startup(app, mode: str) -> None:
         expected_service_date=expected_service_date,
     )
     backend = YokohamaBusRouteBackend(dataset)
+    realtime_provider = create_yokohama_bus_realtime_provider()
 
     app.state.transit_dataset = dataset
     app.state.route_backend = backend
+    app.state.realtime_provider = realtime_provider
+    app.state.realtime_bus_supported = True
     app.state.loading_status = "ready"
