@@ -6,6 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from fastapi.testclient import TestClient
+
 from app.app_factory import create_app
 from nagoya_transit import (
     NAGOYA_DATASET_ID,
@@ -81,9 +83,72 @@ class NagoyaAppFactoryTest(unittest.TestCase):
             self.assertFalse(hasattr(app.state, "realtime_provider"))
             paths = {route.path for route in app.routes}
             self.assertIn("/route", paths)
+            self.assertIn("/autocomplete", paths)
+            self.assertIn("/details", paths)
             self.assertIn("/bus/location", paths)
+            self.assertIn("/realtime/update", paths)
             self.assertNotIn("/explore/reachable", paths)
             self.assertNotIn("/train/resolve-route-identities", paths)
+
+    def test_nagoya_shared_route_only_contracts_fail_without_fallback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_feed(root)
+            env = {
+                "APP_CITY": "nagoya",
+                "NAGOYA_GTFS_DIR": str(root),
+                "NAGOYA_GTFS_EXPECTED_REVISION": "2026-03-28",
+            }
+            with patch.dict(os.environ, env, clear=False):
+                os.environ.pop("GOOGLE_MAPS_API_KEY", None)
+                with TestClient(create_app("local")) as client:
+                    health = client.get(
+                        "/healthz",
+                        headers={"X-App-City": "nagoya"},
+                    )
+                    autocomplete = client.get(
+                        "/autocomplete",
+                        params={"q": "名古屋駅"},
+                        headers={"X-App-City": "nagoya"},
+                    )
+                    details = client.get(
+                        "/details",
+                        params={"place_id": "test-place"},
+                        headers={"X-App-City": "nagoya"},
+                    )
+                    bus_location = client.get(
+                        "/bus/location",
+                        headers={"X-App-City": "nagoya"},
+                    )
+                    realtime_update = client.post(
+                        "/realtime/update",
+                        headers={"X-App-City": "nagoya"},
+                    )
+
+        self.assertEqual(health.status_code, 200)
+        self.assertEqual(
+            health.json(),
+            {
+                "ok": True,
+                "status": "ready",
+                "city": "nagoya",
+                "feed_id": "nagoya_bus",
+                "feed_version": "2026-03-28",
+                "realtime": False,
+            },
+        )
+        for response in (autocomplete, details):
+            self.assertEqual(response.status_code, 500)
+            self.assertEqual(
+                response.json()["detail"]["code"],
+                "google_maps_api_key_missing",
+            )
+        for response in (bus_location, realtime_update):
+            self.assertEqual(response.status_code, 503)
+            self.assertEqual(
+                response.json()["detail"]["code"],
+                "bus_realtime_unsupported",
+            )
 
     def test_backend_city_key_is_exact(self):
         with patch.dict(os.environ, {"APP_CITY": " nagoya"}, clear=False):

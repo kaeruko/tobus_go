@@ -25,6 +25,11 @@ def _normalize_tokyo_vehicle(row: dict[str, Any]) -> dict[str, Any]:
     legacy_from_sequence = row.get("from_stop_sequence")
     previous_sequence = None
     if observed_sequence > 1:
+        if legacy_from_sequence is None:
+            raise RuntimeError(
+                "Tokyo VehiclePosition previous stop sequence is missing "
+                f"after the first stop: current_stop_sequence={observed_sequence}"
+            )
         previous_sequence = legacy_from_sequence
 
     progress = resolve_vehicle_stop_progress(

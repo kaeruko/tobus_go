@@ -110,6 +110,20 @@ class TokyoRealtimeProviderTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "current_stop_sequence"):
             asyncio.run(provider.vehicle_positions())
 
+    def test_missing_previous_stop_after_first_stop_fails_explicitly(self):
+        tm = SimpleNamespace(
+            latest_bus_positions=[_vehicle_row(from_stop_sequence=None)],
+            latest_bus_positions_error=None,
+        )
+
+        async def refresh(manager, max_age_seconds):
+            del manager, max_age_seconds
+            return True
+
+        provider = TokyoRealtimeProvider(tm, refresh)
+        with self.assertRaisesRegex(RuntimeError, "previous stop sequence is missing"):
+            asyncio.run(provider.vehicle_positions())
+
     def test_unsupported_tokyo_realtime_capabilities_fail_explicitly(self):
         tm = SimpleNamespace(latest_bus_positions=[])
 

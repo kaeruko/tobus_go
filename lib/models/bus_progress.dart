@@ -48,13 +48,7 @@ class BusProgress {
     }
 
     final boardingStopId = step.stops.first.stopId;
-    final status = currentStatus?.trim();
-    final inferredBeforeFirstStop =
-        fromStopId == null &&
-        const {'INCOMING_AT', 'IN_TRANSIT_TO', '0', '2'}.contains(status);
-    final isBeforeFirstStop = beforeFirstStop || inferredBeforeFirstStop;
-
-    if (isBeforeFirstStop) {
+    if (beforeFirstStop) {
       if (fromStopId != null) {
         throw StateError(
           '始発前のバス位置に直前停留所があります: '

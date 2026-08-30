@@ -41,27 +41,19 @@ void main() {
     expect(progress.nextStopIndex, 0);
   });
 
-  test('validated legacy null previous stop infers the same approaching state', () {
-    final progress = BusProgress.forStep(
-      step: busStep(),
-      fromStopId: null,
-      currentStatus: 'IN_TRANSIT_TO',
-    );
-
-    expect(progress.phase, BusProgressPhase.approaching);
-    expect(progress.fromStopId, isNull);
-  });
-
-  test('null previous stop without first-stop status remains an error', () {
-    expect(
-      () => BusProgress.forStep(
-        step: busStep(),
-        fromStopId: null,
-        currentStatus: 'STOPPED_AT',
-      ),
-      throwsStateError,
-    );
-  });
+  test(
+    'null previous stop without the validated first-stop flag is an error',
+    () {
+      expect(
+        () => BusProgress.forStep(
+          step: busStep(),
+          fromStopId: null,
+          currentStatus: 'IN_TRANSIT_TO',
+        ),
+        throwsStateError,
+      );
+    },
+  );
 
   test('before-first flag cannot coexist with a previous stop', () {
     expect(
