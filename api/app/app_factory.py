@@ -103,6 +103,13 @@ def create_app(mode: str) -> FastAPI:
                 refresh_realtime_bus_positions,
             )
 
+    @app.get("/warmup")
+    async def warmup() -> dict[str, str]:
+        # ASGI startup finishes before requests are served. Reaching this route
+        # therefore guarantees that this backend instance has completed its
+        # city runtime initialization without invoking Places or route search.
+        return {"status": "ready", "city": city}
+
     for register in route_registrars:
         register(app)
     register_fare_routes(app)
