@@ -11,6 +11,7 @@ from gtfs_state import (
     hydrate_repository_state,
     load_compiled_state,
     repository_state_payload,
+    write_compiled_state,
 )
 
 
@@ -82,6 +83,35 @@ class CompiledGtfsStateTest(unittest.TestCase):
             self.assertEqual(schedule[0]["stop_id"], "A")
             self.assertEqual(schedule[1]["stop_id"], "B")
             self.assertEqual(artifact.record_counts["stop_times"], 2)
+
+    def test_same_repository_state_serializes_to_identical_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            zip_path = _gtfs_zip(os.path.join(directory, "gtfs.zip"))
+            source_sha256 = _sha256(zip_path)
+            extract_dir = os.path.join(directory, "raw")
+            os.makedirs(extract_dir)
+            with zipfile.ZipFile(zip_path) as archive:
+                archive.extractall(extract_dir)
+            repository = GtfsRepository("toei_bus")
+            repository.load_data(extract_dir)
+
+            first = write_compiled_state(
+                repository,
+                source_sha256=source_sha256,
+                output_path=os.path.join(directory, "first.pkl.gz"),
+            )
+            second = write_compiled_state(
+                repository,
+                source_sha256=source_sha256,
+                output_path=os.path.join(directory, "second.pkl.gz"),
+            )
+
+            self.assertEqual(first.sha256, second.sha256)
+            with open(first.path, "rb") as file:
+                first_bytes = file.read()
+            with open(second.path, "rb") as file:
+                second_bytes = file.read()
+            self.assertEqual(first_bytes, second_bytes)
 
     def test_source_sha_mismatch_is_fatal_and_does_not_mutate_repository(self):
         with tempfile.TemporaryDirectory() as directory:
