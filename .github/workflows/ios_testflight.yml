@@ -1,0 +1,478 @@
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+env:
+  BUNDLE_ID: jp.cloxs.go.tokyo
+  DISPLAY_NAME: 都営でGO
+  APP_CITY: tokyo
+  EXPECTED_TEAM_ID: H5B52RL9R2
+  FLUTTER_VERSION: "3.47.0"
+  COCOAPODS_VERSION: "1.16.2"
+  BUILD_NUMBER_OFFSET: "100"
+
+jobs:
+  build-and-upload:
+    name: Build and upload Tokyo to TestFlight
+    runs-on: macos-26
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 26.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          XCODE_PATH="/Applications/Xcode_26.6.app"
+          [[ -d "$XCODE_PATH" ]] || { echo "::error::Required Xcode was not found: $XCODE_PATH"; exit 1; }
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Resolve version and automatic build number
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PUBSPEC_VERSION="$(sed -nE 's/^version:[[:space:]]*([^[:space:]]+).*$/\1/p' pubspec.yaml)"
+          [[ -n "$PUBSPEC_VERSION" ]] || { echo "::error::pubspec.yaml version was not found"; exit 1; }
+
+          BUILD_NAME="${PUBSPEC_VERSION%%+*}"
+          [[ "$BUILD_NAME" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] || {
+            echo "::error::Unsupported pubspec version: $PUBSPEC_VERSION"
+            exit 1
+          }
+
+          [[ "$GITHUB_RUN_NUMBER" =~ ^[1-9][0-9]*$ ]] || {
+            echo "::error::Invalid GITHUB_RUN_NUMBER: $GITHUB_RUN_NUMBER"
+            exit 1
+          }
+
+          BUILD_NUMBER="$((BUILD_NUMBER_OFFSET + GITHUB_RUN_NUMBER))"
+          [[ "$BUILD_NUMBER" -gt 11 ]] || {
+            echo "::error::Automatic build number must be greater than the repository build 11. Got: $BUILD_NUMBER"
+            exit 1
+          }
+
+          echo "BUILD_NAME=$BUILD_NAME" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "TestFlight version: $BUILD_NAME ($BUILD_NUMBER)"
+
+      - name: Force CocoaPods plugin integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter config --no-enable-swift-package-manager
+          CONFIG_OUTPUT="$(flutter config --list)"
+          printf '%s\n' "$CONFIG_OUTPUT"
+          grep -Eq 'enable-swift-package-manager[^a-zA-Z]*(false|disabled)' <<< "$CONFIG_OUTPUT" || {
+            echo "::error::Flutter Swift Package Manager is still enabled"
+            exit 1
+          }
+
+      - name: Validate Tokyo configuration and required secrets
+        shell: bash
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          GOOGLE_MAPS_IOS_API_KEY: ${{ secrets.IOS_GOOGLE_MAPS_API_KEY }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+
+          ruby scripts/configure_ios_flavors.rb --check
+          grep -Fq '<ArchiveAction buildConfiguration="Release-tokyo"' ios/Runner.xcodeproj/xcshareddata/xcschemes/tokyo.xcscheme || {
+            echo "::error::Tokyo scheme does not archive Release-tokyo"
+            exit 1
+          }
+
+          [[ -n "$CERTIFICATE_BASE64" ]] || { echo "::error::Missing secret IOS_DISTRIBUTION_CERTIFICATE_BASE64"; exit 1; }
+          [[ -n "$CERTIFICATE_PASSWORD" ]] || { echo "::error::Missing secret IOS_DISTRIBUTION_CERTIFICATE_PASSWORD"; exit 1; }
+          [[ -n "$PROVISIONING_PROFILE_BASE64" ]] || { echo "::error::Missing secret IOS_PROVISIONING_PROFILE_BASE64"; exit 1; }
+          [[ -n "$GOOGLE_MAPS_IOS_API_KEY" ]] || { echo "::error::Missing secret IOS_GOOGLE_MAPS_API_KEY"; exit 1; }
+          [[ -n "$ASC_KEY_ID" ]] || { echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_ID"; exit 1; }
+          [[ -n "$ASC_ISSUER_ID" ]] || { echo "::error::Missing secret APP_STORE_CONNECT_ISSUER_ID"; exit 1; }
+          [[ -n "$ASC_API_KEY_P8_BASE64" ]] || { echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_P8_BASE64"; exit 1; }
+
+      - name: Install and validate signing material
+        shell: bash
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+
+          CERTIFICATE_PATH="$RUNNER_TEMP/distribution.p12"
+          CERTIFICATE_PEM="$RUNNER_TEMP/distribution.pem"
+          CERTIFICATE_DER="$RUNNER_TEMP/distribution.der"
+          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+          PROFILE_PLIST="$RUNNER_TEMP/profile.plist"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 32)"
+
+          printf '%s' "$CERTIFICATE_BASE64" | /usr/bin/base64 -D > "$CERTIFICATE_PATH"
+          printf '%s' "$PROVISIONING_PROFILE_BASE64" | /usr/bin/base64 -D > "$PROFILE_PATH"
+          [[ -s "$CERTIFICATE_PATH" ]] || { echo "::error::Decoded signing certificate is empty"; exit 1; }
+          [[ -s "$PROFILE_PATH" ]] || { echo "::error::Decoded provisioning profile is empty"; exit 1; }
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          IDENTITIES="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH")"
+          printf '%s\n' "$IDENTITIES"
+          grep -Fq 'Apple Distribution: CLOXS LLC' <<< "$IDENTITIES" || {
+            echo "::error::Expected Apple Distribution: CLOXS LLC identity was not found in the supplied .p12"
+            exit 1
+          }
+
+          security find-certificate -p -c 'Apple Distribution: CLOXS LLC' "$KEYCHAIN_PATH" > "$CERTIFICATE_PEM"
+          [[ -s "$CERTIFICATE_PEM" ]] || { echo "::error::Could not export Apple Distribution certificate"; exit 1; }
+          openssl x509 -in "$CERTIFICATE_PEM" -outform DER -out "$CERTIFICATE_DER"
+
+          security cms -D -i "$PROFILE_PATH" > "$PROFILE_PLIST"
+          PROFILE_UUID="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$PROFILE_PLIST")"
+          PROFILE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$PROFILE_PLIST")"
+          TEAM_ID="$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$PROFILE_PLIST")"
+          APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$PROFILE_PLIST")"
+          GET_TASK_ALLOW="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:get-task-allow' "$PROFILE_PLIST")"
+
+          [[ -n "$PROFILE_UUID" ]] || { echo "::error::Provisioning profile UUID is empty"; exit 1; }
+          [[ -n "$PROFILE_NAME" ]] || { echo "::error::Provisioning profile name is empty"; exit 1; }
+          [[ "$TEAM_ID" == "$EXPECTED_TEAM_ID" ]] || { echo "::error::Provisioning profile Team ID mismatch. Expected $EXPECTED_TEAM_ID, got $TEAM_ID"; exit 1; }
+          [[ "$APP_ID" == "$EXPECTED_TEAM_ID.$BUNDLE_ID" ]] || { echo "::error::Provisioning profile app id mismatch. Expected $EXPECTED_TEAM_ID.$BUNDLE_ID, got $APP_ID"; exit 1; }
+          [[ "$GET_TASK_ALLOW" == "false" ]] || { echo "::error::Provisioning profile is not App Store distribution (get-task-allow=$GET_TASK_ALLOW)"; exit 1; }
+
+          PROFILE_PLIST="$PROFILE_PLIST" CERTIFICATE_DER="$CERTIFICATE_DER" python3 - <<'PY'
+          import datetime
+          import os
+          import plistlib
+
+          with open(os.environ['PROFILE_PLIST'], 'rb') as f:
+              profile = plistlib.load(f)
+          with open(os.environ['CERTIFICATE_DER'], 'rb') as f:
+              certificate = f.read()
+
+          developer_certificates = profile.get('DeveloperCertificates')
+          if not isinstance(developer_certificates, list) or certificate not in developer_certificates:
+              raise SystemExit('Provisioning profile does not contain the Apple Distribution certificate imported into the CI keychain')
+
+          expires = profile.get('ExpirationDate')
+          if not isinstance(expires, datetime.datetime):
+              raise SystemExit('Provisioning profile ExpirationDate is missing or invalid')
+          now = datetime.datetime.now(datetime.timezone.utc)
+          if expires.tzinfo is None:
+              expires = expires.replace(tzinfo=datetime.timezone.utc)
+          if expires <= now:
+              raise SystemExit(f'Provisioning profile is expired: {expires.isoformat()}')
+          PY
+
+          INSTALL_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$INSTALL_DIR"
+          INSTALLED_PROFILE_PATH="$INSTALL_DIR/$PROFILE_UUID.mobileprovision"
+          cp "$PROFILE_PATH" "$INSTALLED_PROFILE_PATH"
+
+          echo "PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
+          echo "TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+          echo "INSTALLED_PROFILE_PATH=$INSTALLED_PROFILE_PATH" >> "$GITHUB_ENV"
+
+      - name: Resolve dependencies and test
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter --version
+          flutter pub get
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test
+          ruby scripts/configure_ios_flavors.rb --check
+
+      - name: Generate Tokyo release configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          flutter build ios \
+            --release \
+            --flavor tokyo \
+            --dart-define="APP_CITY=$APP_CITY" \
+            --build-name "$BUILD_NAME" \
+            --build-number "$BUILD_NUMBER" \
+            --config-only \
+            --no-codesign
+
+          GENERATED_XCCONFIG="ios/Flutter/Generated.xcconfig"
+          [[ -f "$GENERATED_XCCONFIG" ]] || { echo "::error::Generated.xcconfig was not created"; exit 1; }
+
+          GENERATED_XCCONFIG="$GENERATED_XCCONFIG" python3 - <<'PY'
+          import base64
+          import os
+
+          path = os.environ['GENERATED_XCCONFIG']
+          values = {}
+          with open(path, encoding='utf-8') as f:
+              for raw in f:
+                  line = raw.rstrip('\n')
+                  if '=' in line:
+                      key, value = line.split('=', 1)
+                      values[key] = value
+
+          encoded = values.get('DART_DEFINES')
+          if not encoded:
+              raise SystemExit('Generated.xcconfig is missing DART_DEFINES')
+
+          decoded = []
+          for item in encoded.split(','):
+              try:
+                  decoded.append(base64.b64decode(item).decode('utf-8'))
+              except Exception as exc:
+                  raise SystemExit(f'Could not decode DART_DEFINES entry: {exc}') from exc
+
+          expected = {f"APP_CITY={os.environ['APP_CITY']}"}
+          missing = expected.difference(decoded)
+          if missing:
+              raise SystemExit(f'Generated iOS configuration is missing required Dart defines: {sorted(missing)}')
+          if any(item.startswith('API_BASE=') for item in decoded):
+              raise SystemExit('Release build must not embed API_BASE; Tokyo resolves it from Google Drive at runtime')
+          PY
+
+      - name: Install CocoaPods 1.16.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          gem install cocoapods -v "$COCOAPODS_VERSION" --no-document
+          pod _${COCOAPODS_VERSION}_ --version
+          cd ios
+          pod _${COCOAPODS_VERSION}_ install
+
+      - name: Configure Release-tokyo signing on Runner only
+        shell: bash
+        run: |
+          set -euo pipefail
+          export TEAM_ID PROFILE_NAME BUNDLE_ID
+          ruby <<'RUBY'
+          require 'xcodeproj'
+
+          project = Xcodeproj::Project.open('ios/Runner.xcodeproj')
+          runner = project.targets.find { |target| target.name == 'Runner' }
+          abort('Runner target was not found') unless runner
+
+          config = runner.build_configurations.find { |item| item.name == 'Release-tokyo' }
+          abort('Runner Release-tokyo configuration was not found') unless config
+
+          config.build_settings['DEVELOPMENT_TEAM'] = ENV.fetch('TEAM_ID')
+          config.build_settings['CODE_SIGN_STYLE'] = 'Manual'
+          config.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
+          config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ENV.fetch('PROFILE_NAME')
+          config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = ENV.fetch('BUNDLE_ID')
+          project.save
+          RUBY
+
+          SETTINGS="$(xcodebuild -project ios/Runner.xcodeproj -target Runner -configuration Release-tokyo -showBuildSettings)"
+          grep -Fq "DEVELOPMENT_TEAM = $TEAM_ID" <<< "$SETTINGS" || { echo "::error::Runner Release-tokyo DEVELOPMENT_TEAM mismatch"; exit 1; }
+          grep -Fq 'CODE_SIGN_STYLE = Manual' <<< "$SETTINGS" || { echo "::error::Runner Release-tokyo is not using manual signing"; exit 1; }
+          grep -Fq 'CODE_SIGN_IDENTITY = Apple Distribution' <<< "$SETTINGS" || { echo "::error::Runner Release-tokyo signing identity mismatch"; exit 1; }
+          grep -Fq "PROVISIONING_PROFILE_SPECIFIER = $PROFILE_NAME" <<< "$SETTINGS" || { echo "::error::Runner Release-tokyo provisioning profile mismatch"; exit 1; }
+          grep -Fq "PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID" <<< "$SETTINGS" || { echo "::error::Runner Release-tokyo bundle identifier mismatch"; exit 1; }
+          grep -Fq "FLUTTER_BUILD_NAME = $BUILD_NAME" <<< "$SETTINGS" || { echo "::error::Runner Release-tokyo FLUTTER_BUILD_NAME mismatch"; exit 1; }
+          grep -Fq "FLUTTER_BUILD_NUMBER = $BUILD_NUMBER" <<< "$SETTINGS" || { echo "::error::Runner Release-tokyo FLUTTER_BUILD_NUMBER mismatch"; exit 1; }
+
+      - name: Archive signed Tokyo app
+        shell: bash
+        env:
+          GOOGLE_MAPS_IOS_API_KEY: ${{ secrets.IOS_GOOGLE_MAPS_API_KEY }}
+        run: |
+          set -euo pipefail
+          [[ -n "$GOOGLE_MAPS_IOS_API_KEY" ]] || { echo "::error::Missing secret IOS_GOOGLE_MAPS_API_KEY"; exit 1; }
+
+          ARCHIVE_PATH="$RUNNER_TEMP/Runner-tokyo.xcarchive"
+          DERIVED_DATA_PATH="$RUNNER_TEMP/DerivedData"
+
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme tokyo \
+            -configuration Release-tokyo \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$ARCHIVE_PATH" \
+            -derivedDataPath "$DERIVED_DATA_PATH" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            GOOGLE_MAPS_IOS_API_KEY="$GOOGLE_MAPS_IOS_API_KEY" \
+            archive
+
+          [[ -d "$ARCHIVE_PATH" ]] || { echo "::error::Archive was not created: $ARCHIVE_PATH"; exit 1; }
+
+          ARCHIVE_APP_INFO="$ARCHIVE_PATH/Products/Applications/Runner.app/Info.plist"
+          [[ -f "$ARCHIVE_APP_INFO" ]] || { echo "::error::Archived Runner Info.plist was not found"; exit 1; }
+          ARCHIVE_APP_BUILD_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ARCHIVE_APP_INFO")"
+          ARCHIVE_APP_BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$ARCHIVE_APP_INFO")"
+          [[ "$ARCHIVE_APP_BUILD_NAME" == "$BUILD_NAME" ]] || { echo "::error::Archived app version mismatch. Expected $BUILD_NAME, got $ARCHIVE_APP_BUILD_NAME"; exit 1; }
+          [[ "$ARCHIVE_APP_BUILD_NUMBER" == "$BUILD_NUMBER" ]] || { echo "::error::Archived app build number mismatch. Expected $BUILD_NUMBER, got $ARCHIVE_APP_BUILD_NUMBER"; exit 1; }
+
+          echo "ARCHIVE_PATH=$ARCHIVE_PATH" >> "$GITHUB_ENV"
+
+      - name: Export and verify signed Tokyo IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPORT_OPTIONS="$RUNNER_TEMP/ExportOptions.plist"
+          EXPORT_PATH="$RUNNER_TEMP/export"
+
+          cat > "$EXPORT_OPTIONS" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>uploadSymbols</key><true/>
+            <key>provisioningProfiles</key>
+            <dict><key>$BUNDLE_ID</key><string>$PROFILE_NAME</string></dict>
+          </dict>
+          </plist>
+          EOF
+
+          plutil -lint "$EXPORT_OPTIONS"
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportPath "$EXPORT_PATH" \
+            -exportOptionsPlist "$EXPORT_OPTIONS"
+
+          shopt -s nullglob
+          IPA_FILES=("$EXPORT_PATH"/*.ipa)
+          [[ "${#IPA_FILES[@]}" -eq 1 ]] || { echo "::error::Expected exactly one IPA, found ${#IPA_FILES[@]}"; exit 1; }
+          IPA_PATH="${IPA_FILES[0]}"
+          echo "IPA_PATH=$IPA_PATH" >> "$GITHUB_ENV"
+
+          VERIFY_DIR="$RUNNER_TEMP/verify-ipa"
+          mkdir -p "$VERIFY_DIR"
+          unzip -q "$IPA_PATH" -d "$VERIFY_DIR"
+          APP_DIRS=("$VERIFY_DIR"/Payload/*.app)
+          [[ "${#APP_DIRS[@]}" -eq 1 && -d "${APP_DIRS[0]}" ]] || { echo "::error::Expected exactly one .app in IPA"; exit 1; }
+          APP_DIR="${APP_DIRS[0]}"
+          APP_INFO="$APP_DIR/Info.plist"
+
+          ACTUAL_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_INFO")"
+          ACTUAL_DISPLAY_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APP_INFO")"
+          ACTUAL_BUILD_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_INFO")"
+          ACTUAL_BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_INFO")"
+          LOCATION_USAGE="$(/usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$APP_INFO")"
+          MAPS_API_KEY="$(/usr/libexec/PlistBuddy -c 'Print :GoogleMapsApiKey' "$APP_INFO")"
+
+          [[ "$ACTUAL_BUNDLE_ID" == "$BUNDLE_ID" ]] || { echo "::error::IPA bundle id mismatch: $ACTUAL_BUNDLE_ID"; exit 1; }
+          [[ "$ACTUAL_DISPLAY_NAME" == "$DISPLAY_NAME" ]] || { echo "::error::IPA display name mismatch: $ACTUAL_DISPLAY_NAME"; exit 1; }
+          [[ "$ACTUAL_BUILD_NAME" == "$BUILD_NAME" ]] || { echo "::error::IPA version mismatch. Expected $BUILD_NAME, got $ACTUAL_BUILD_NAME"; exit 1; }
+          [[ "$ACTUAL_BUILD_NUMBER" == "$BUILD_NUMBER" ]] || { echo "::error::IPA build number mismatch. Expected $BUILD_NUMBER, got $ACTUAL_BUILD_NUMBER"; exit 1; }
+          [[ -n "$LOCATION_USAGE" ]] || { echo "::error::NSLocationWhenInUseUsageDescription is missing"; exit 1; }
+          [[ -n "$MAPS_API_KEY" && "$MAPS_API_KEY" != '$(GOOGLE_MAPS_IOS_API_KEY)' ]] || { echo "::error::GoogleMapsApiKey was not resolved in exported IPA"; exit 1; }
+
+          if /usr/libexec/PlistBuddy -c 'Print :NSAppTransportSecurity:NSAllowsArbitraryLoads' "$APP_INFO" >/dev/null 2>&1; then
+            echo "::error::Exported App Store IPA enables NSAllowsArbitraryLoads"
+            exit 1
+          fi
+
+          FIREBASE_PLIST="$APP_DIR/GoogleService-Info.plist"
+          [[ -f "$FIREBASE_PLIST" ]] || { echo "::error::Tokyo Firebase resource is missing from IPA"; exit 1; }
+          FIREBASE_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' "$FIREBASE_PLIST")"
+          FIREBASE_PROJECT_ID="$(/usr/libexec/PlistBuddy -c 'Print :PROJECT_ID' "$FIREBASE_PLIST")"
+          [[ "$FIREBASE_BUNDLE_ID" == "$BUNDLE_ID" ]] || { echo "::error::Tokyo Firebase BUNDLE_ID mismatch: $FIREBASE_BUNDLE_ID"; exit 1; }
+          [[ "$FIREBASE_PROJECT_ID" == 'toeigo' ]] || { echo "::error::Tokyo Firebase PROJECT_ID mismatch: $FIREBASE_PROJECT_ID"; exit 1; }
+
+          codesign --verify --deep --strict --verbose=2 "$APP_DIR"
+          SIGNING_DETAILS="$(codesign -dv --verbose=4 "$APP_DIR" 2>&1)"
+          grep -Fq 'Authority=Apple Distribution: CLOXS LLC' <<< "$SIGNING_DETAILS" || { echo "::error::IPA signing authority mismatch"; exit 1; }
+          grep -Fq "TeamIdentifier=$EXPECTED_TEAM_ID" <<< "$SIGNING_DETAILS" || { echo "::error::IPA TeamIdentifier mismatch"; exit 1; }
+
+          echo "Verified Tokyo IPA: $ACTUAL_BUNDLE_ID $ACTUAL_BUILD_NAME ($ACTUAL_BUILD_NUMBER)"
+
+      - name: Upload signed IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: toeigo-ios-${{ env.BUILD_NAME }}-${{ env.BUILD_NUMBER }}
+          path: ${{ runner.temp }}/export/*.ipa
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Install App Store Connect API key
+        shell: bash
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          PRIVATE_KEYS_DIR="$HOME/.appstoreconnect/private_keys"
+          API_KEY_PATH="$PRIVATE_KEYS_DIR/AuthKey_${ASC_KEY_ID}.p8"
+          mkdir -p "$PRIVATE_KEYS_DIR"
+          printf '%s' "$ASC_API_KEY_P8_BASE64" | /usr/bin/base64 -D > "$API_KEY_PATH"
+          [[ -s "$API_KEY_PATH" ]] || { echo "::error::Decoded App Store Connect API key is empty"; exit 1; }
+          grep -q 'BEGIN PRIVATE KEY' "$API_KEY_PATH" || { echo "::error::App Store Connect secret did not decode to a .p8 key"; exit 1; }
+          chmod 600 "$API_KEY_PATH"
+
+      - name: Upload to TestFlight
+        shell: bash
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          [[ -f "$IPA_PATH" ]] || { echo "::error::IPA not found: $IPA_PATH"; exit 1; }
+
+          xcrun altool \
+            --validate-app \
+            -f "$IPA_PATH" \
+            -t ios \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID"
+
+          xcrun altool \
+            --upload-app \
+            -f "$IPA_PATH" \
+            -t ios \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID"
+
+      - name: Clean up signing material
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${INSTALLED_PROFILE_PATH:-}" && -f "$INSTALLED_PROFILE_PATH" ]]; then
+            rm -f "$INSTALLED_PROFILE_PATH"
+          fi
+          if [[ -n "${KEYCHAIN_PATH:-}" && -f "$KEYCHAIN_PATH" ]]; then
+            security delete-keychain "$KEYCHAIN_PATH"
+          fi
+          rm -f "$RUNNER_TEMP/distribution.p12" \
+                "$RUNNER_TEMP/distribution.pem" \
+                "$RUNNER_TEMP/distribution.der" \
+                "$RUNNER_TEMP/profile.mobileprovision" \
+                "$RUNNER_TEMP/profile.plist"
+          rm -rf "$HOME/.appstoreconnect/private_keys"
