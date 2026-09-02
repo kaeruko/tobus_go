@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:toeigo/constants.dart';
 import 'package:toeigo/core/api_client.dart';
 import 'package:toeigo/services/route_search_service.dart';
 
@@ -15,6 +16,7 @@ void main() {
 
   setUp(() {
     originalClient = ApiClient.httpClient;
+    configureApiBase(Uri.parse('https://api.example.test'));
     SharedPreferences.setMockInitialValues({});
   });
 
