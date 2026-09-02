@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,13 +24,19 @@ Future<void> main() async {
   final cityProfile = container.read(cityProfileProvider);
 
   final String explicitApiBase = kApiBaseOverride.trim();
-  if (explicitApiBase.isNotEmpty) {
+  if (cityProfile.city == AppCity.tokyo) {
+    // Store builds must always use the remotely managed endpoint. An explicit
+    // override is allowed only for local debug/profile development.
+    if (!kReleaseMode && explicitApiBase.isNotEmpty) {
+      configureApiBase(parseExplicitApiBaseOverride(explicitApiBase));
+    } else {
+      final Uri apiBaseUri = await loadApiBaseUriFromGoogleDrive(
+        googleDriveFileId: kTokyoApiGoogleDriveFileId,
+      );
+      configureApiBase(apiBaseUri);
+    }
+  } else if (explicitApiBase.isNotEmpty) {
     configureApiBase(parseExplicitApiBaseOverride(explicitApiBase));
-  } else if (cityProfile.city == AppCity.tokyo) {
-    final Uri apiBaseUri = await loadApiBaseUriFromGoogleDrive(
-      googleDriveFileId: kTokyoApiGoogleDriveFileId,
-    );
-    configureApiBase(apiBaseUri);
   } else {
     throw StateError(
       'No runtime API endpoint source is configured for ${cityProfile.key}. '
