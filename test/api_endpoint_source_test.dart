@@ -14,7 +14,7 @@ void main() {
       expect(request.url.queryParameters['t'], '1234');
 
       return http.Response(
-        'https://example.execute-api.us-west-2.amazonaws.com\n',
+        'https://example.execute-api.us-west-2.amazonaws.com/\n',
         200,
       );
     });
@@ -45,7 +45,7 @@ void main() {
     );
   });
 
-  test('fails for non-https endpoint', () async {
+  test('fails for non-https Drive endpoint', () async {
     final MockClient client = MockClient(
       (_) async => http.Response('http://example.com\n', 200),
     );
@@ -61,9 +61,21 @@ void main() {
 
   test('fails when Google Drive file ID is missing', () async {
     await expectLater(
-      loadApiBaseUriFromGoogleDrive(
-        googleDriveFileId: 'REPLACE_WITH_TOBUS_GO_API_FILE_ID',
-      ),
+      loadApiBaseUriFromGoogleDrive(googleDriveFileId: '   '),
+      throwsA(isA<StateError>()),
+    );
+  });
+
+  test('explicit override accepts local http for development', () {
+    expect(
+      parseExplicitApiBaseOverride('http://127.0.0.1:8000/'),
+      Uri.parse('http://127.0.0.1:8000'),
+    );
+  });
+
+  test('explicit override rejects remote http', () {
+    expect(
+      () => parseExplicitApiBaseOverride('http://example.com'),
       throwsA(isA<StateError>()),
     );
   });
