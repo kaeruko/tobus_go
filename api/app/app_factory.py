@@ -48,7 +48,7 @@ def create_app(mode: str) -> FastAPI:
 
     if city == "tokyo":
         from .routes import register_routes
-        from .runtime import setup_on_startup
+        from .tokyo_runtime_fast import setup_on_startup
         from .train_routes import register_train_routes
 
         startup: StartupHandler = setup_on_startup
