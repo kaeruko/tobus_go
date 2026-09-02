@@ -5,7 +5,7 @@
 .DESCRIPTION
   Tokyo / Nagoya / Sendai / Yokohama を同じコードベースから別applicationIdでビルドします。
   flavorとAPP_CITYは必ず同じ値を渡し、アプリ起動時にも不一致をfail-fastします。
-  Tokyoは既定でGoogle Drive上のAPI endpointファイルを起動時に読み込みます。
+  Tokyo releaseはGoogle Drive上のAPI endpointファイルを起動時に必ず読み込みます。
   他都市は専用Drive設定がまだないため、-ApiBase の明示指定を必須とします。
   Android Maps API key は環境変数 GOOGLE_MAPS_ANDROID_API_KEY からのみ受け取り、
   release AABでは未設定を許可しません。
@@ -53,9 +53,13 @@ if ([string]::IsNullOrWhiteSpace($env:GOOGLE_MAPS_ANDROID_API_KEY)) {
     throw 'GOOGLE_MAPS_ANDROID_API_KEY is required. Create a restricted Android Maps key in your personal Google Cloud project and set it in this shell.'
 }
 
-$useDriveApiConfig = [string]::IsNullOrWhiteSpace($ApiBase)
+if ($City -eq 'tokyo' -and -not [string]::IsNullOrWhiteSpace($ApiBase)) {
+    throw 'Tokyo release always loads API base from Google Drive. Do not pass -ApiBase.'
+}
 
-if ($useDriveApiConfig -and $City -ne 'tokyo') {
+$useDriveApiConfig = $City -eq 'tokyo'
+
+if (-not $useDriveApiConfig -and [string]::IsNullOrWhiteSpace($ApiBase)) {
     throw "ApiBase is required for city '$City' until a city-specific Google Drive endpoint file is configured."
 }
 
