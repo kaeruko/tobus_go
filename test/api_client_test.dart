@@ -2,11 +2,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:toeigo/constants.dart';
 import 'package:toeigo/core/api_client.dart';
 import 'package:toeigo/services/bus_location_source.dart';
 import 'package:toeigo/services/timetable_service.dart';
 
 void main() {
+  setUp(() {
+    configureApiBase(Uri.parse('https://api.example.test'));
+  });
+
   group('ApiClient.fetchBusLocation', () {
     late http.Client originalClient;
 
