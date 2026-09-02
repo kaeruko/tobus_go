@@ -13,10 +13,26 @@ class SegmentStopsPage extends StatelessWidget {
     required this.segment,
   });
 
+  void _popToPreviousAppPage(BuildContext context) {
+    final navigator = Navigator.of(context);
+    if (!navigator.canPop()) {
+      throw StateError(
+        'SegmentStopsPage must be pushed onto a Navigator stack with a '
+        'previous app route: stepId=${segment.stepId}',
+      );
+    }
+    navigator.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
+        automaticallyImplyLeading: false,
+        leading: CupertinoNavigationBarBackButton(
+          key: const ValueKey('segment-stops-back'),
+          onPressed: () => _popToPreviousAppPage(context),
+        ),
         middle: Text(
           segment.title.isEmpty ? segment.mainTitle : segment.title,
         ),
