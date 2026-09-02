@@ -1,0 +1,644 @@
+name: Apply fewTransfers lexicographic fix
+
+on:
+  push:
+    branches:
+      - fix/few-transfers-lexicographic
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    if: github.event.head_commit.message == 'chore: apply fewTransfers patch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/few-transfers-lexicographic
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: api/requirements.txt
+
+      - name: Apply fail-fast source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          engine_path = Path('api/toei_engine.py')
+          engine = engine_path.read_text(encoding='utf-8')
+
+          old_dispatch = '''        path_gen = find_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)\n'''
+          if engine.count(old_dispatch) != 1:
+              raise RuntimeError(
+                  f'expected exactly one legacy comfort dispatch, found {engine.count(old_dispatch)}'
+              )
+
+          new_dispatch = '''        if mode == "fewTransfers":
+              path_gen = find_few_transfers_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
+          else:
+              path_gen = find_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
+          '''
+          engine = engine.replace(old_dispatch, new_dispatch, 1)
+
+          marker = '\ndef find_fastest_path('
+          if engine.count(marker) != 1:
+              raise RuntimeError(
+                  f'expected exactly one find_fastest_path marker, found {engine.count(marker)}'
+              )
+
+          few_transfers_impl = textwrap.dedent(r'''
+          class RouteSearchLimitError(RuntimeError):
+              """Raised when a fail-fast route-search safety limit is exceeded."""
+
+
+          def find_few_transfers_paths_generator(
+              G,
+              tm,
+              start_node,
+              target_node,
+              start_time_str="10:00",
+              day_type="weekday",
+              max_search=30000,
+              max_visited=15000,
+              max_travel_min=MAX_TRAVEL_MIN,
+              delays_snapshot=None,
+              time_limit_sec=15.0,
+              virtual_dest_connections=None,
+              target_coords=None,
+          ):
+              """Yield paths ordered lexicographically by boardings, then comfort cost.
+
+              This is intentionally separate from ``find_paths_generator`` so the
+              legacy ``cost`` mode keeps its existing scalar comfort-cost behavior.
+              """
+              import time
+
+              _mem_log("find_few_transfers_paths_generator start")
+              start_clock = time.monotonic()
+              start_min = time_str_to_min(start_time_str)
+
+              g_score = {}
+              chain_store = []
+              start_idx = _chain_new(chain_store, start_node, None)
+              pq = [(0, 0.0, start_node, 0.0, 0.0, start_min, start_idx)]
+              g_score[(start_node, 0, 0)] = 0.0
+
+              target_goal_nodes = {target_node}
+              best_cost = {}
+              yielded_count = 0
+              visited_count = 0
+
+              max_pq = 250000
+              max_gscore = 500000
+              max_best = 500000
+
+              def fail_limit(reason):
+                  elapsed = time.monotonic() - start_clock
+                  raise RouteSearchLimitError(
+                      "fewTransfers search safety limit exceeded: "
+                      f"reason={reason} visited={visited_count} yielded={yielded_count} "
+                      f"queue={len(pq)} g_score={len(g_score)} best_cost={len(best_cost)} "
+                      f"elapsed_sec={elapsed:.3f} max_visited={max_visited} "
+                      f"max_search={max_search} time_limit_sec={time_limit_sec}"
+                  )
+
+              while pq:
+                  if time.monotonic() - start_clock > time_limit_sec:
+                      _mem_log("few_transfers_search_timeout")
+                      fail_limit("time_limit_sec")
+                  if len(pq) > max_pq:
+                      _mem_log("few_transfers_search_queue_limit")
+                      fail_limit("queue_size")
+                  if len(g_score) > max_gscore:
+                      _mem_log("few_transfers_search_gscore_limit")
+                      fail_limit("g_score_size")
+                  if len(best_cost) > max_best:
+                      _mem_log("few_transfers_search_best_limit")
+                      fail_limit("best_cost_size")
+
+                  boardings, cost, u, total_walk_m, seg_walk_m, curr_time, chain_idx = heapq.heappop(pq)
+                  visited_count += 1
+                  if visited_count > max_visited:
+                      _mem_log("few_transfers_search_max_visited")
+                      fail_limit("max_visited")
+
+                  if curr_time - start_min > max_travel_min:
+                      continue
+
+                  walk_bucket = int(seg_walk_m // 25)
+                  state_key = (u, walk_bucket, boardings)
+                  prev_best = best_cost.get(state_key)
+                  if prev_best is not None and cost >= prev_best:
+                      continue
+                  best_cost[state_key] = cost
+
+                  if u in target_goal_nodes:
+                      if yielded_count >= max_search:
+                          _mem_log("few_transfers_search_max_yield")
+                          fail_limit("max_search")
+                      full_path = reconstruct_path_idx(chain_store, chain_idx)
+                      yield {"cost": cost, "path": full_path, "walk_m": total_walk_m}
+                      yielded_count += 1
+                      continue
+
+                  if (
+                      virtual_dest_connections
+                      and target_node
+                      and target_node[0] == "phys"
+                      and str(target_node[1]).startswith("dest:")
+                  ):
+                      for nid, vw, vmeters in virtual_dest_connections:
+                          if nid != u:
+                              continue
+                          next_time_v = curr_time + (vmeters / WALK_SPEED_M_PER_MIN)
+                          if next_time_v - start_min > max_travel_min:
+                              break
+                          new_total_v = total_walk_m + vmeters
+                          new_seg_v = seg_walk_m + vmeters
+                          if new_total_v > MAX_TOTAL_WALK_M or new_seg_v > MAX_WALK_SEG_M:
+                              break
+                          new_cost_v = cost + vw
+                          bucket_v = int(new_seg_v // 25)
+                          key_v = (target_node, bucket_v, boardings)
+                          if new_cost_v < g_score.get(key_v, float("inf")):
+                              g_score[key_v] = new_cost_v
+                              new_chain_idx = _chain_new(chain_store, target_node, chain_idx)
+                              heapq.heappush(
+                                  pq,
+                                  (
+                                      boardings,
+                                      new_cost_v,
+                                      target_node,
+                                      new_total_v,
+                                      new_seg_v,
+                                      next_time_v,
+                                      new_chain_idx,
+                                  ),
+                              )
+                          break
+
+                  for v in G[u]:
+                      edge = G[u][v]
+                      w = edge.get("w", 0.0)
+                      meters = edge.get("meters", 0.0)
+                      next_time = advance_time(
+                          G,
+                          tm,
+                          u,
+                          v,
+                          curr_time,
+                          day_type,
+                          delays_snapshot,
+                      )
+                      if next_time is None or next_time - start_min > max_travel_min:
+                          continue
+
+                      new_total_walk_m = total_walk_m
+                      new_seg_walk_m = seg_walk_m
+                      if edge.get("etype") == "walk":
+                          step_m = meters if meters > 0 else 1.0
+                          new_seg_walk_m += step_m
+                          if new_seg_walk_m > MAX_WALK_SEG_M:
+                              continue
+                          new_total_walk_m += step_m
+                          if new_total_walk_m > MAX_TOTAL_WALK_M:
+                              continue
+                      else:
+                          new_seg_walk_m = 0.0
+
+                      new_boardings = boardings + (1 if edge.get("etype") == "board" else 0)
+                      new_cost = cost + w
+                      new_bucket = int(new_seg_walk_m // 25)
+                      new_key = (v, new_bucket, new_boardings)
+                      if new_cost < g_score.get(new_key, float("inf")):
+                          g_score[new_key] = new_cost
+                          new_chain_idx = _chain_new(chain_store, v, chain_idx)
+                          heapq.heappush(
+                              pq,
+                              (
+                                  new_boardings,
+                                  new_cost,
+                                  v,
+                                  new_total_walk_m,
+                                  new_seg_walk_m,
+                                  next_time,
+                                  new_chain_idx,
+                              ),
+                          )
+
+              _mem_log("find_few_transfers_paths_generator end")
+          ''').strip('\n')
+
+          engine = engine.replace(
+              marker,
+              '\n' + few_transfers_impl + '\n\ndef find_fastest_path(',
+              1,
+          )
+          engine_path.write_text(engine, encoding='utf-8')
+
+          test_path = Path('api/tests/test_route_search_regression.py')
+          test_path.write_text(textwrap.dedent(r'''
+          import datetime
+          import itertools
+          import unittest
+          from unittest.mock import patch
+
+          import networkx as nx
+
+          from toei_engine import (
+              RouteSearchLimitError,
+              find_few_transfers_paths_generator,
+              search_best_routes,
+              search_best_routes_once,
+          )
+
+
+          class _FakeTimetableManager:
+              def get_delays_snapshot(self):
+                  return {}
+
+
+          class TokyoRouteSearchRegressionTest(unittest.TestCase):
+              def setUp(self):
+                  self.origin = ("phys", "origin")
+                  self.line = ("line", "toei-bus-001")
+                  self.destination = ("phys", "destination")
+                  self.path = [self.origin, self.line, self.destination]
+
+                  self.graph = nx.DiGraph()
+                  self.graph.add_node(
+                      self.origin,
+                      name="東京駅丸の内北口",
+                      lat=35.6837,
+                      lon=139.7660,
+                  )
+                  self.graph.add_node(
+                      self.line,
+                      name="都01",
+                      lat=35.6800,
+                      lon=139.7600,
+                      mode="bus",
+                  )
+                  self.graph.add_node(
+                      self.destination,
+                      name="新橋駅前",
+                      lat=35.6663,
+                      lon=139.7586,
+                  )
+                  self.tm = _FakeTimetableManager()
+
+                  self.steps = [
+                      {
+                          "kind": "walk",
+                          "title": "徒歩",
+                          "from_": "現在地",
+                          "to": "東京駅丸の内北口",
+                          "meters": 80,
+                          "minutes": 1,
+                      },
+                      {
+                          "kind": "bus",
+                          "title": "都01",
+                          "from_": "東京駅丸の内北口",
+                          "to": "新橋駅前",
+                          "departure_time": "10:05",
+                          "arrival_time": "10:15",
+                          "minutes": 10,
+                          "route_id": "001",
+                          "trip_id": "trip-001",
+                      },
+                  ]
+
+              def test_time_priority_contract_is_stable(self):
+                  with (
+                      patch(
+                          "toei_engine.find_fastest_path",
+                          return_value=(615, self.path),
+                      ),
+                      patch(
+                          "toei_engine.find_few_transfers_paths_generator",
+                          side_effect=AssertionError("time mode must not use fewTransfers search"),
+                      ),
+                      patch(
+                          "toei_engine.calculate_real_arrival_time",
+                          return_value=615,
+                      ),
+                      patch(
+                          "toei_engine.segments_detailed",
+                          return_value=self.steps,
+                      ),
+                  ):
+                      candidates = search_best_routes(
+                          self.graph,
+                          self.tm,
+                          self.origin,
+                          mode="time",
+                          start_time="10:00",
+                          limit=5,
+                          target_date=datetime.datetime(2026, 8, 21, 10, 0),
+                          target_node=self.destination,
+                          day_type="weekday",
+                      )
+
+                  self.assertEqual(len(candidates), 1)
+                  candidate = candidates[0]
+                  self.assertEqual(candidate["id"], "Fastest")
+                  self.assertEqual(candidate["lines"], ["都01"])
+                  self.assertEqual(candidate["total_time"], 15)
+                  self.assertEqual(candidate["arrival_time"], "10:15")
+                  self.assertEqual(candidate["transfers"], 0)
+                  self.assertEqual(candidate["rides"], 1)
+                  self.assertEqual(candidate["walking_distance_meters"], 80)
+                  self.assertEqual(candidate["walking_segment_count"], 1)
+                  self.assertEqual(candidate["boards"], 1)
+                  self.assertEqual(candidate["cost_score"], 0.0)
+                  self.assertEqual(candidate["steps"], self.steps)
+                  self.assertEqual(
+                      set(candidate),
+                      {
+                          "id",
+                          "lines",
+                          "total_time",
+                          "arrival_time",
+                          "steps",
+                          "score_label",
+                          "cost_score",
+                          "path",
+                          "points",
+                          "total",
+                          "transfers",
+                          "rides",
+                          "walking_distance_meters",
+                          "walking_segment_count",
+                          "boards",
+                      },
+                  )
+
+              def test_few_transfers_uses_lexicographic_generator(self):
+                  with (
+                      patch(
+                          "toei_engine.find_few_transfers_paths_generator",
+                          return_value=iter(
+                              [{"cost": 7.5, "path": self.path, "walk_m": 80}]
+                          ),
+                      ) as few_search,
+                      patch(
+                          "toei_engine.find_paths_generator",
+                          side_effect=AssertionError("fewTransfers must not use legacy cost search"),
+                      ),
+                      patch(
+                          "toei_engine.calculate_real_arrival_time",
+                          return_value=615,
+                      ),
+                      patch(
+                          "toei_engine.segments_detailed",
+                          return_value=self.steps,
+                      ),
+                  ):
+                      candidates = search_best_routes(
+                          self.graph,
+                          self.tm,
+                          self.origin,
+                          mode="fewTransfers",
+                          start_time="10:00",
+                          limit=5,
+                          target_date=datetime.datetime(2026, 8, 21, 10, 0),
+                          target_node=self.destination,
+                          day_type="weekday",
+                      )
+
+                  few_search.assert_called_once()
+                  self.assertEqual(len(candidates), 1)
+                  candidate = candidates[0]
+                  self.assertEqual(candidate["id"], "Comfort-1")
+                  self.assertEqual(candidate["lines"], ["都01"])
+                  self.assertEqual(candidate["total_time"], 15)
+                  self.assertEqual(candidate["arrival_time"], "10:15")
+                  self.assertEqual(candidate["cost_score"], 7.5)
+                  self.assertEqual(candidate["score_label"], "楽さ 7.5 (所要15分)")
+                  self.assertEqual(candidate["transfers"], 0)
+                  self.assertEqual(candidate["walking_distance_meters"], 80)
+                  self.assertEqual(candidate["walking_segment_count"], 1)
+
+              def test_cost_mode_keeps_legacy_comfort_generator(self):
+                  with (
+                      patch(
+                          "toei_engine.find_paths_generator",
+                          return_value=iter(
+                              [{"cost": 6.0, "path": self.path, "walk_m": 80}]
+                          ),
+                      ) as legacy_search,
+                      patch(
+                          "toei_engine.find_few_transfers_paths_generator",
+                          side_effect=AssertionError("cost mode must keep legacy search"),
+                      ),
+                      patch(
+                          "toei_engine.calculate_real_arrival_time",
+                          return_value=615,
+                      ),
+                      patch(
+                          "toei_engine.segments_detailed",
+                          return_value=self.steps,
+                      ),
+                  ):
+                      candidates = search_best_routes(
+                          self.graph,
+                          self.tm,
+                          self.origin,
+                          mode="cost",
+                          start_time="10:00",
+                          limit=5,
+                          target_date=datetime.datetime(2026, 8, 21, 10, 0),
+                          target_node=self.destination,
+                          day_type="weekday",
+                      )
+
+                  legacy_search.assert_called_once()
+                  self.assertEqual(candidates[0]["cost_score"], 6.0)
+
+              def test_requested_departure_date_and_time_are_preserved(self):
+                  base_candidate = {
+                      "id": "Fastest",
+                      "steps": [],
+                  }
+                  with patch(
+                      "toei_engine.search_best_routes",
+                      return_value=[base_candidate],
+                  ) as search:
+                      result = search_best_routes_once(
+                          self.graph,
+                          self.tm,
+                          self.origin,
+                          mode="time",
+                          start_time="08:35",
+                          limit=5,
+                          target_date_str="2026-08-21",
+                          target_node=self.destination,
+                          day_type="weekday",
+                      )
+
+                  self.assertEqual(result[0]["departure_date"], "2026-08-21T08:35:00")
+                  self.assertFalse(result[0]["is_future_suggestion"])
+
+                  args = search.call_args.args
+                  self.assertEqual(args[3], "time")
+                  self.assertEqual(args[4], "08:35")
+                  self.assertEqual(args[5], 5)
+                  self.assertEqual(args[6], datetime.datetime(2026, 8, 21, 8, 35))
+
+
+          class FewTransfersLexicographicSearchTest(unittest.TestCase):
+              def setUp(self):
+                  self.graph = nx.DiGraph()
+                  self.tm = _FakeTimetableManager()
+                  self.start = ("phys", "start")
+                  self.target = ("phys", "target")
+                  self.graph.add_node(self.start, name="start")
+                  self.graph.add_node(self.target, name="target")
+
+              def add_leg(self, prefix, origin, destination, board_cost, ride_cost):
+                  line_from = ("line", f"{prefix}:from")
+                  line_to = ("line", f"{prefix}:to")
+                  self.graph.add_node(line_from, name=line_from[1], mode="rail")
+                  self.graph.add_node(line_to, name=line_to[1], mode="rail")
+                  self.graph.add_edge(origin, line_from, etype="board", w=board_cost)
+                  self.graph.add_edge(line_from, line_to, etype="ride", w=ride_cost)
+                  self.graph.add_edge(line_to, destination, etype="alight", w=0.0)
+
+              def boarding_count(self, path):
+                  return sum(
+                      1
+                      for u, v in zip(path, path[1:])
+                      if self.graph[u][v].get("etype") == "board"
+                  )
+
+              def test_two_boardings_beat_cheaper_three_boardings(self):
+                  expensive_mid = ("phys", "expensive-mid")
+                  cheap_mid_1 = ("phys", "cheap-mid-1")
+                  cheap_mid_2 = ("phys", "cheap-mid-2")
+                  for node in (expensive_mid, cheap_mid_1, cheap_mid_2):
+                      self.graph.add_node(node, name=node[1])
+
+                  self.add_leg("expensive-1", self.start, expensive_mid, 5.0, 5.0)
+                  self.add_leg("expensive-2", expensive_mid, self.target, 5.0, 5.0)
+
+                  self.add_leg("cheap-1", self.start, cheap_mid_1, 1.0, 0.1)
+                  self.add_leg("cheap-2", cheap_mid_1, cheap_mid_2, 1.0, 0.1)
+                  self.add_leg("cheap-3", cheap_mid_2, self.target, 1.0, 0.1)
+
+                  results = list(itertools.islice(
+                      find_few_transfers_paths_generator(
+                          self.graph,
+                          self.tm,
+                          self.start,
+                          self.target,
+                          max_search=10,
+                          max_visited=1000,
+                          time_limit_sec=2.0,
+                      ),
+                      2,
+                  ))
+
+                  self.assertEqual(len(results), 2)
+                  self.assertEqual(self.boarding_count(results[0]["path"]), 2)
+                  self.assertEqual(self.boarding_count(results[1]["path"]), 3)
+                  self.assertGreater(results[0]["cost"], results[1]["cost"])
+
+              def test_boarding_count_is_part_of_pruning_state(self):
+                  shared = ("phys", "shared")
+                  mid = ("phys", "mid")
+                  self.graph.add_node(shared, name="shared")
+                  self.graph.add_node(mid, name="mid")
+
+                  self.add_leg("two-a", self.start, shared, 5.0, 5.0)
+                  self.add_leg("two-b", shared, self.target, 5.0, 5.0)
+
+                  self.add_leg("three-a", self.start, mid, 1.0, 0.1)
+                  self.add_leg("three-b", mid, shared, 1.0, 0.1)
+                  self.add_leg("three-c", shared, self.target, 1.0, 0.1)
+
+                  results = list(itertools.islice(
+                      find_few_transfers_paths_generator(
+                          self.graph,
+                          self.tm,
+                          self.start,
+                          self.target,
+                          max_search=10,
+                          max_visited=1000,
+                          time_limit_sec=2.0,
+                      ),
+                      2,
+                  ))
+
+                  self.assertEqual([self.boarding_count(r["path"]) for r in results], [2, 3])
+
+              def test_safety_limit_raises_with_diagnostics(self):
+                  middle = ("phys", "middle")
+                  self.graph.add_node(middle, name="middle")
+                  self.add_leg("limit-a", self.start, middle, 1.0, 1.0)
+                  self.add_leg("limit-b", middle, self.target, 1.0, 1.0)
+
+                  with self.assertRaisesRegex(
+                      RouteSearchLimitError,
+                      r"reason=max_visited.*visited=1.*queue=",
+                  ):
+                      list(find_few_transfers_paths_generator(
+                          self.graph,
+                          self.tm,
+                          self.start,
+                          self.target,
+                          max_visited=0,
+                          time_limit_sec=2.0,
+                      ))
+
+
+          if __name__ == "__main__":
+              unittest.main()
+          ''').lstrip(), encoding='utf-8')
+          PY
+
+      - name: Install Python API dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r api/requirements.txt
+
+      - name: Compile changed Python files
+        run: python -m py_compile api/toei_engine.py api/tests/test_route_search_regression.py
+
+      - name: Run targeted regression tests
+        working-directory: api
+        run: python -m unittest discover -s tests -p 'test_route_search_regression.py' -v
+
+      - name: Run all Python API tests
+        working-directory: api
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Verify diff
+        run: |
+          set -euo pipefail
+          git diff --check
+          git diff -- api/toei_engine.py api/tests/test_route_search_regression.py
+
+      - name: Remove one-shot workflow and commit implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/apply-few-transfers-fix.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add api/toei_engine.py api/tests/test_route_search_regression.py .github/workflows/apply-few-transfers-fix.yml
+          git diff --cached --check
+          git commit -m 'fix: prioritize boardings for fewTransfers'
+          git push origin HEAD:fix/few-transfers-lexicographic
