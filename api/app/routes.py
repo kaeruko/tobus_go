@@ -164,7 +164,7 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
                 
                 cand["points"].insert(0, [alat, alon])
                 cand["total_time"] += initial_walk_min
-                cand["walk_m"] += a_dist
+                cand["walking_distance_meters"] += int(a_dist)
             else:
                 walk_step = {
                     "kind": "walk",
@@ -178,7 +178,8 @@ def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:0
                 cand["steps"].insert(0, walk_step)
                 cand["points"].insert(0, [alat, alon])
                 cand["total_time"] += initial_walk_min
-                cand["walk_m"] += a_dist
+                cand["walking_distance_meters"] += int(a_dist)
+                cand["walking_segment_count"] += 1
         
         cand["origin_coords"] = [alat, alon]
         cand["destination_coords"] = [blat, blon]
