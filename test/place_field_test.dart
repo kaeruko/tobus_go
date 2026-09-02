@@ -15,25 +15,39 @@ http.Response _jsonResponse(String body, int statusCode) {
   );
 }
 
+http.Response _warmupResponse() {
+  return _jsonResponse('{"status":"ready","city":"tokyo"}', 200);
+}
+
 void main() {
   late http.Client originalClient;
 
   setUp(() {
     originalClient = ApiClient.httpClient;
+    ApiClient.resetWarmUpForTesting();
   });
 
   tearDown(() {
     ApiClient.httpClient = originalClient;
+    ApiClient.resetWarmUpForTesting();
   });
 
   testWidgets('typed text is not exposed as a route coordinate', (tester) async {
     var value = '35.0,139.0';
     var description = 'old';
-    var requestCount = 0;
+    var autocompleteRequestCount = 0;
+    var warmupRequestCount = 0;
 
     ApiClient.httpClient = MockClient((request) async {
-      requestCount++;
-      return _jsonResponse('{"predictions":[]}', 200);
+      if (request.url.path.endsWith('/warmup')) {
+        warmupRequestCount++;
+        return _warmupResponse();
+      }
+      if (request.url.path.endsWith('/autocomplete')) {
+        autocompleteRequestCount++;
+        return _jsonResponse('{"predictions":[]}', 200);
+      }
+      return http.Response('unexpected request', 500);
     });
 
     await tester.pumpWidget(
@@ -51,19 +65,63 @@ void main() {
         ),
       ),
     );
+    await tester.pump();
+
+    expect(warmupRequestCount, 1);
 
     await tester.enterText(find.byType(CupertinoTextField), '東京駅');
 
     expect(value, isEmpty);
     expect(description, '東京駅');
-    expect(requestCount, 0);
+    expect(autocompleteRequestCount, 0);
 
     await tester.pump(const Duration(milliseconds: 299));
-    expect(requestCount, 0);
+    expect(autocompleteRequestCount, 0);
 
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pump();
-    expect(requestCount, 1);
+    expect(autocompleteRequestCount, 1);
+    expect(warmupRequestCount, 1);
+  });
+
+  testWidgets('multiple place fields share one startup warmup request', (
+    tester,
+  ) async {
+    var warmupRequestCount = 0;
+
+    ApiClient.httpClient = MockClient((request) async {
+      if (request.url.path.endsWith('/warmup')) {
+        warmupRequestCount++;
+        return _warmupResponse();
+      }
+      return http.Response('unexpected request', 500);
+    });
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: CupertinoPageScaffold(
+          child: Column(
+            children: [
+              PlaceField(
+                label: '出発(検索)',
+                value: '',
+                displayValue: '',
+                onChanged: (_, _) {},
+              ),
+              PlaceField(
+                label: '到着(検索)',
+                value: '',
+                displayValue: '',
+                onChanged: (_, _) {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(warmupRequestCount, 1);
   });
 
   testWidgets('selecting a suggestion commits only resolved coordinates', (tester) async {
@@ -71,6 +129,9 @@ void main() {
     var description = '';
 
     ApiClient.httpClient = MockClient((request) async {
+      if (request.url.path.endsWith('/warmup')) {
+        return _warmupResponse();
+      }
       if (request.url.path.endsWith('/autocomplete')) {
         return _jsonResponse(
           '{"predictions":[{"place_id":"tokyo-station","description":"東京駅, 東京都"}]}',
@@ -121,6 +182,9 @@ void main() {
     var description = '';
 
     ApiClient.httpClient = MockClient((request) async {
+      if (request.url.path.endsWith('/warmup')) {
+        return _warmupResponse();
+      }
       if (request.url.path.endsWith('/autocomplete')) {
         return _jsonResponse(
           '{"predictions":[{"place_id":"broken-place","description":"壊れた候補"}]}',
@@ -158,5 +222,47 @@ void main() {
     expect(value, isEmpty);
     expect(find.textContaining('場所の座標を取得できませんでした'), findsOneWidget);
     expect(find.textContaining('0.0,0.0'), findsNothing);
+  });
+
+  testWidgets('warmup failure blocks autocomplete instead of bypassing it', (
+    tester,
+  ) async {
+    var autocompleteRequestCount = 0;
+
+    ApiClient.httpClient = MockClient((request) async {
+      if (request.url.path.endsWith('/warmup')) {
+        return _jsonResponse(
+          '{"detail":{"code":"warmup_failed","message":"not ready"}}',
+          503,
+        );
+      }
+      if (request.url.path.endsWith('/autocomplete')) {
+        autocompleteRequestCount++;
+        return _jsonResponse('{"predictions":[]}', 200);
+      }
+      return http.Response('unexpected request', 500);
+    });
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: CupertinoPageScaffold(
+          child: PlaceField(
+            label: '到着(検索)',
+            value: '',
+            displayValue: '',
+            onChanged: (_, _) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.enterText(find.byType(CupertinoTextField), '東京');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+
+    expect(autocompleteRequestCount, 0);
+    expect(find.textContaining('場所候補を取得できませんでした'), findsOneWidget);
+    expect(find.textContaining('HTTP 503'), findsOneWidget);
   });
 }

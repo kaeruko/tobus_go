@@ -24,12 +24,35 @@ class ApiException implements Exception {
 
 class ApiClient {
   static http.Client _httpClient = http.Client();
+  static Future<void>? _warmUpFuture;
 
   static http.Client get httpClient => _httpClient;
 
   @visibleForTesting
   static set httpClient(http.Client client) {
     _httpClient = client;
+  }
+
+  @visibleForTesting
+  static void resetWarmUpForTesting() {
+    _warmUpFuture = null;
+  }
+
+  static Future<void> warmUp() {
+    return _warmUpFuture ??= _performWarmUp();
+  }
+
+  static Future<void> _performWarmUp() async {
+    final json = await get('/warmup');
+    if (json['status'] != 'ready') {
+      throw StateError('Backend warmup did not report ready: $json');
+    }
+    final city = json['city'];
+    if (city != configuredCityKey) {
+      throw StateError(
+        'Backend warmup city mismatch: client=$configuredCityKey, backend=$city',
+      );
+    }
   }
 
   static Map<String, String> _baseHeaders() {

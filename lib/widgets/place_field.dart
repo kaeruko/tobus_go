@@ -40,6 +40,16 @@ class _PlaceFieldState extends State<PlaceField> {
     super.initState();
     _ctrl = TextEditingController(text: widget.displayValue);
     _ctrl.addListener(_onInputChanged);
+    unawaited(_primeBackend());
+  }
+
+  Future<void> _primeBackend() async {
+    try {
+      await ApiClient.warmUp();
+    } catch (error, stackTrace) {
+      debugPrint('[PlaceField] backend warmup failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   @override
@@ -100,6 +110,9 @@ class _PlaceFieldState extends State<PlaceField> {
     });
 
     try {
+      // If the user starts typing before startup warmup finishes, wait for the
+      // same request instead of racing autocomplete against another cold start.
+      await ApiClient.warmUp();
       final json = await ApiClient.get('/autocomplete', params: {'q': query});
       final raw = json['predictions'];
       if (raw is! List) {
