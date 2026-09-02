@@ -227,8 +227,18 @@ def write_compiled_state(
 
     temporary_path = output_path + ".tmp"
     try:
-        with gzip.open(temporary_path, "wb", compresslevel=6) as compressed:
-            pickle.dump(state, compressed, protocol=pickle.HIGHEST_PROTOCOL)
+        # The compiled object is addressed by the source GTFS SHA. Make its bytes
+        # reproducible so a retry after a partial S3 publish produces the same
+        # artifact checksum instead of failing because gzip embedded wall time.
+        with open(temporary_path, "wb") as raw:
+            with gzip.GzipFile(
+                filename="",
+                mode="wb",
+                compresslevel=6,
+                fileobj=raw,
+                mtime=0,
+            ) as compressed:
+                pickle.dump(state, compressed, protocol=pickle.HIGHEST_PROTOCOL)
         os.replace(temporary_path, output_path)
     finally:
         try:
