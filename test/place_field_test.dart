@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:toeigo/constants.dart';
 import 'package:toeigo/core/api_client.dart';
 import 'package:toeigo/widgets/place_field.dart';
 
@@ -24,6 +25,7 @@ void main() {
 
   setUp(() {
     originalClient = ApiClient.httpClient;
+    configureApiBase(Uri.parse('https://api.example.test'));
     ApiClient.resetWarmUpForTesting();
   });
 
