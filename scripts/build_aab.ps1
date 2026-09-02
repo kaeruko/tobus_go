@@ -5,6 +5,8 @@
 .DESCRIPTION
   Tokyo / Nagoya / Sendai / Yokohama を同じコードベースから別applicationIdでビルドします。
   flavorとAPP_CITYは必ず同じ値を渡し、アプリ起動時にも不一致をfail-fastします。
+  Tokyoは既定でGoogle Drive上のAPI endpointファイルを起動時に読み込みます。
+  他都市は専用Drive設定がまだないため、-ApiBase の明示指定を必須とします。
   Android Maps API key は環境変数 GOOGLE_MAPS_ANDROID_API_KEY からのみ受け取り、
   release AABでは未設定を許可しません。
 
@@ -15,8 +17,8 @@
 .EXAMPLE
   $env:GOOGLE_MAPS_ANDROID_API_KEY='AIza...'
   .\scripts\build_aab.ps1 `
-    -City nagoya `
-    -ApiBase 'https://nagoya-api.example.com'
+    -City sendai `
+    -ApiBase 'https://sendai-api.example.com'
 #>
 
 [CmdletBinding()]
@@ -51,27 +53,25 @@ if ([string]::IsNullOrWhiteSpace($env:GOOGLE_MAPS_ANDROID_API_KEY)) {
     throw 'GOOGLE_MAPS_ANDROID_API_KEY is required. Create a restricted Android Maps key in your personal Google Cloud project and set it in this shell.'
 }
 
-if ([string]::IsNullOrWhiteSpace($ApiBase)) {
-    if ($City -eq 'tokyo') {
-        # Default to the migrated Tokyo production endpoint.
-        $ApiBase = 'https://bzmpzqtr7kvczwgmyxlbrfkx6q0cldpy.lambda-url.us-west-2.on.aws'
+$useDriveApiConfig = [string]::IsNullOrWhiteSpace($ApiBase)
+
+if ($useDriveApiConfig -and $City -ne 'tokyo') {
+    throw "ApiBase is required for city '$City' until a city-specific Google Drive endpoint file is configured."
+}
+
+if (-not $useDriveApiConfig) {
+    $uri = $null
+    if (-not [System.Uri]::TryCreate($ApiBase, [System.UriKind]::Absolute, [ref]$uri)) {
+        throw "ApiBase is not an absolute URL: $ApiBase"
     }
-    else {
-        throw "ApiBase is required for city '$City'. Do not fall back to the Tokyo API."
+
+    if ($uri.Scheme -ne 'https') {
+        throw "Store AAB requires an https API URL. ApiBase=$ApiBase"
     }
-}
 
-$uri = $null
-if (-not [System.Uri]::TryCreate($ApiBase, [System.UriKind]::Absolute, [ref]$uri)) {
-    throw "ApiBase is not an absolute URL: $ApiBase"
-}
-
-if ($uri.Scheme -ne 'https') {
-    throw "Store AAB requires an https API URL. ApiBase=$ApiBase"
-}
-
-if ($uri.Host -eq '127.0.0.1' -or $uri.Host -eq 'localhost') {
-    throw "Store AAB must not use a local API host. ApiBase=$ApiBase"
+    if ($uri.Host -eq '127.0.0.1' -or $uri.Host -eq 'localhost') {
+        throw "Store AAB must not use a local API host. ApiBase=$ApiBase"
+    }
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -91,7 +91,12 @@ if (-not (Test-Path -LiteralPath $keyProperties -PathType Leaf)) {
 
 Write-Host "Repository : $repoRoot"
 Write-Host "City       : $City"
-Write-Host "API base   : $ApiBase"
+if ($useDriveApiConfig) {
+    Write-Host 'API source : Google Drive runtime config'
+}
+else {
+    Write-Host "API source : explicit build override ($ApiBase)"
+}
 Write-Host "Maps key   : configured"
 Write-Host "Output     : $aabPath"
 
@@ -106,11 +111,19 @@ try {
     flutter analyze --no-fatal-infos --no-fatal-warnings
     Assert-LastExitCode 'flutter analyze'
 
-    flutter build appbundle `
-        --release `
-        --flavor $City `
-        --dart-define="APP_CITY=$City" `
-        --dart-define="API_BASE=$ApiBase"
+    if ($useDriveApiConfig) {
+        flutter build appbundle `
+            --release `
+            --flavor $City `
+            --dart-define="APP_CITY=$City"
+    }
+    else {
+        flutter build appbundle `
+            --release `
+            --flavor $City `
+            --dart-define="APP_CITY=$City" `
+            --dart-define="API_BASE=$ApiBase"
+    }
     Assert-LastExitCode 'flutter build appbundle'
 
     if (-not (Test-Path -LiteralPath $aabPath -PathType Leaf)) {
