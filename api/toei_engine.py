@@ -1414,7 +1414,10 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
     else:
         # コスト/楽さ優先モード (Comfort Path)
         # A*探索などで複数の経路候補をジェネレータとして取得
-        path_gen = find_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
+        if mode == "fewTransfers":
+            path_gen = find_few_transfers_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
+        else:
+            path_gen = find_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
         valid_count = 0
         for cand in path_gen:
             path = cand["path"]
@@ -1584,6 +1587,214 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
                 new_chain_idx = _chain_new(chain_store, v, chain_idx)
                 heapq.heappush(pq, (new_cost + new_h, new_cost, v, new_total_walk_m, new_seg_walk_m, next_time, new_chain_idx))
     _mem_log("find_paths_generator end")
+
+class RouteSearchLimitError(RuntimeError):
+    """Raised when a fail-fast route-search safety limit is exceeded."""
+
+
+def find_few_transfers_paths_generator(
+    G,
+    tm,
+    start_node,
+    target_node,
+    start_time_str="10:00",
+    day_type="weekday",
+    max_search=30000,
+    max_visited=15000,
+    max_travel_min=MAX_TRAVEL_MIN,
+    delays_snapshot=None,
+    time_limit_sec=15.0,
+    virtual_dest_connections=None,
+    target_coords=None,
+):
+    """Yield paths ordered by boardings first, then legacy comfort cost.
+
+    This search is deliberately separate from ``find_paths_generator`` so
+    the legacy ``cost`` mode keeps its existing scalar-cost behavior.
+    """
+    import time
+
+    _mem_log("find_few_transfers_paths_generator start")
+    start_clock = time.monotonic()
+    start_min = time_str_to_min(start_time_str)
+
+    g_score = {}
+    chain_store = []
+    start_idx = _chain_new(chain_store, start_node, None)
+    pq = [(0, 0.0, start_node, 0.0, 0.0, start_min, start_idx)]
+    g_score[(start_node, 0, 0)] = 0.0
+
+    target_goal_nodes = {target_node}
+    best_cost = {}
+    yielded_count = 0
+    visited_count = 0
+
+    max_pq = 250000
+    max_gscore = 500000
+    max_best = 500000
+
+    def fail_limit(reason):
+        elapsed = time.monotonic() - start_clock
+        raise RouteSearchLimitError(
+            "fewTransfers search safety limit exceeded: "
+            f"reason={reason} visited={visited_count} "
+            f"yielded={yielded_count} queue={len(pq)} "
+            f"g_score={len(g_score)} best_cost={len(best_cost)} "
+            f"elapsed_sec={elapsed:.3f} max_visited={max_visited} "
+            f"max_search={max_search} time_limit_sec={time_limit_sec}"
+        )
+
+    while pq:
+        if time.monotonic() - start_clock > time_limit_sec:
+            _mem_log("few_transfers_search_timeout")
+            fail_limit("time_limit_sec")
+        if len(pq) > max_pq:
+            _mem_log("few_transfers_search_queue_limit")
+            fail_limit("queue_size")
+        if len(g_score) > max_gscore:
+            _mem_log("few_transfers_search_gscore_limit")
+            fail_limit("g_score_size")
+        if len(best_cost) > max_best:
+            _mem_log("few_transfers_search_best_limit")
+            fail_limit("best_cost_size")
+
+        (
+            boardings,
+            cost,
+            u,
+            total_walk_m,
+            seg_walk_m,
+            curr_time,
+            chain_idx,
+        ) = heapq.heappop(pq)
+        visited_count += 1
+        if visited_count > max_visited:
+            _mem_log("few_transfers_search_max_visited")
+            fail_limit("max_visited")
+
+        if curr_time - start_min > max_travel_min:
+            continue
+
+        walk_bucket = int(seg_walk_m // 25)
+        state_key = (u, walk_bucket, boardings)
+        prev_best = best_cost.get(state_key)
+        if prev_best is not None and cost >= prev_best:
+            continue
+        best_cost[state_key] = cost
+
+        if u in target_goal_nodes:
+            if yielded_count >= max_search:
+                _mem_log("few_transfers_search_max_yield")
+                fail_limit("max_search")
+            full_path = reconstruct_path_idx(chain_store, chain_idx)
+            yield {
+                "cost": cost,
+                "path": full_path,
+                "walk_m": total_walk_m,
+            }
+            yielded_count += 1
+            continue
+
+        if (
+            virtual_dest_connections
+            and target_node
+            and target_node[0] == "phys"
+            and str(target_node[1]).startswith("dest:")
+        ):
+            for nid, vw, vmeters in virtual_dest_connections:
+                if nid != u:
+                    continue
+                next_time_v = curr_time + (
+                    vmeters / WALK_SPEED_M_PER_MIN
+                )
+                if next_time_v - start_min > max_travel_min:
+                    break
+                new_total_v = total_walk_m + vmeters
+                new_seg_v = seg_walk_m + vmeters
+                if (
+                    new_total_v > MAX_TOTAL_WALK_M
+                    or new_seg_v > MAX_WALK_SEG_M
+                ):
+                    break
+                new_cost_v = cost + vw
+                bucket_v = int(new_seg_v // 25)
+                key_v = (target_node, bucket_v, boardings)
+                if new_cost_v < g_score.get(key_v, float("inf")):
+                    g_score[key_v] = new_cost_v
+                    new_chain_idx = _chain_new(
+                        chain_store, target_node, chain_idx
+                    )
+                    heapq.heappush(
+                        pq,
+                        (
+                            boardings,
+                            new_cost_v,
+                            target_node,
+                            new_total_v,
+                            new_seg_v,
+                            next_time_v,
+                            new_chain_idx,
+                        ),
+                    )
+                break
+
+        for v in G[u]:
+            edge = G[u][v]
+            w = edge.get("w", 0.0)
+            meters = edge.get("meters", 0.0)
+            next_time = advance_time(
+                G,
+                tm,
+                u,
+                v,
+                curr_time,
+                day_type,
+                delays_snapshot,
+            )
+            if (
+                next_time is None
+                or next_time - start_min > max_travel_min
+            ):
+                continue
+
+            new_total_walk_m = total_walk_m
+            new_seg_walk_m = seg_walk_m
+            if edge.get("etype") == "walk":
+                step_m = meters if meters > 0 else 1.0
+                new_seg_walk_m += step_m
+                if new_seg_walk_m > MAX_WALK_SEG_M:
+                    continue
+                new_total_walk_m += step_m
+                if new_total_walk_m > MAX_TOTAL_WALK_M:
+                    continue
+            else:
+                new_seg_walk_m = 0.0
+
+            new_boardings = boardings + (
+                1 if edge.get("etype") == "board" else 0
+            )
+            new_cost = cost + w
+            new_bucket = int(new_seg_walk_m // 25)
+            new_key = (v, new_bucket, new_boardings)
+            if new_cost < g_score.get(new_key, float("inf")):
+                g_score[new_key] = new_cost
+                new_chain_idx = _chain_new(
+                    chain_store, v, chain_idx
+                )
+                heapq.heappush(
+                    pq,
+                    (
+                        new_boardings,
+                        new_cost,
+                        v,
+                        new_total_walk_m,
+                        new_seg_walk_m,
+                        next_time,
+                        new_chain_idx,
+                    ),
+                )
+
+    _mem_log("find_few_transfers_paths_generator end")
 
 def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None, target_coords=None):
     import time
