@@ -20,6 +20,9 @@ Parameters:
   VersionPrefix:
     Type: String
     Default: gtfs/toei/versions
+  CompiledPrefix:
+    Type: String
+    Default: gtfs/toei/compiled
   ApiFunctionName:
     Type: String
     Default: toeigo-api
@@ -74,14 +77,14 @@ Resources:
     DependsOn: RefreshFunctionLogGroup
     Properties:
       FunctionName: toeigo-gtfs-refresh
-      Description: Conditionally download, validate, and atomically publish Toei Bus GTFS
+      Description: Conditionally download, validate, compile, and atomically publish Toei Bus GTFS
       Runtime: python3.14
       Architectures:
         - x86_64
-      Handler: gtfs_refresh.lambda_handler
+      Handler: gtfs_refresh_compiled.lambda_handler
       Role: !GetAtt RefreshFunctionRole.Arn
       Timeout: 180
-      MemorySize: 256
+      MemorySize: 2048
       EphemeralStorage:
         Size: 512
       Code:
@@ -93,6 +96,7 @@ Resources:
           S3_BUCKET_NAME: !Ref DataBucketName
           GTFS_STATE_KEY: !Ref StateKey
           GTFS_VERSION_PREFIX: !Ref VersionPrefix
+          GTFS_COMPILED_PREFIX: !Ref CompiledPrefix
           API_FUNCTION_NAME: !Ref ApiFunctionName
 
   SchedulerInvokeRole:
