@@ -4,6 +4,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 
+import 'api_endpoint_source.dart';
+import 'constants.dart';
 import 'firebase_options.dart';
 import 'root_gate.dart';
 import 'providers/app_session_provider.dart';
@@ -19,6 +21,22 @@ Future<void> main() async {
   final container = ProviderContainer();
   // Resolve the native flavor before any external service is initialized.
   final cityProfile = container.read(cityProfileProvider);
+
+  final String explicitApiBase = kApiBaseOverride.trim();
+  if (explicitApiBase.isNotEmpty) {
+    configureApiBase(parseExplicitApiBaseOverride(explicitApiBase));
+  } else if (cityProfile.city == AppCity.tokyo) {
+    final Uri apiBaseUri = await loadApiBaseUriFromGoogleDrive(
+      googleDriveFileId: kTokyoApiGoogleDriveFileId,
+    );
+    configureApiBase(apiBaseUri);
+  } else {
+    throw StateError(
+      'No runtime API endpoint source is configured for ${cityProfile.key}. '
+      'Provide API_BASE explicitly until this city has its own Google Drive '
+      'endpoint file.',
+    );
+  }
 
   if (cityProfile.distribution.firebaseEnabled) {
     if (cityProfile.city != AppCity.tokyo) {
