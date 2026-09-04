@@ -54,6 +54,7 @@ class CityRuntimeWarmStartTest(unittest.IsolatedAsyncioTestCase):
         make_backend.assert_called_once()
         self.assertIs(app.state.transit_dataset, dataset)
         self.assertIs(app.state.route_backend, backend)
+        self.assertIs(app.state.route_engine, backend)
         self.assertEqual(app.state.loading_status, "ready")
 
     async def test_sendai_reuses_fully_initialized_runtime_on_second_startup(self) -> None:
@@ -100,6 +101,7 @@ class CityRuntimeWarmStartTest(unittest.IsolatedAsyncioTestCase):
         make_realtime.assert_called_once_with()
         self.assertIs(app.state.transit_dataset, dataset)
         self.assertIs(app.state.route_backend, backend)
+        self.assertIs(app.state.route_engine, backend)
         self.assertIs(app.state.realtime_provider, realtime)
         self.assertEqual(app.state.loading_status, "ready")
 
@@ -143,6 +145,7 @@ class CityRuntimeWarmStartTest(unittest.IsolatedAsyncioTestCase):
         make_realtime.assert_called_once_with()
         self.assertIs(app.state.transit_dataset, dataset)
         self.assertIs(app.state.route_backend, backend)
+        self.assertIs(app.state.route_engine, backend)
         self.assertIs(app.state.realtime_provider, realtime)
         self.assertTrue(app.state.realtime_bus_supported)
         self.assertEqual(app.state.loading_status, "ready")

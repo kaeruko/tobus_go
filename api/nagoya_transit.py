@@ -17,9 +17,21 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
+from route_engine import (
+    RouteCandidate,
+    RouteInputError,
+    RouteSearchRequest,
+    RouteSearchResult,
+)
 from transit_adapters.gtfs import GtfsTransitAdapter
 from transit_dataset import FeedMetadata, TransitDataset, TransitMode, TransitStop
-from transit_engine import TransitItinerary, TransitRouteEngine
+from transit_engine import (
+    BatchSearchRequest,
+    SearchCore,
+    SearchEndpoint,
+    TransitItinerary,
+    itinerary_path_key,
+)
 
 NAGOYA_FEED_ID = "nagoya_bus"
 NAGOYA_DATASET_ID = "c5794008-8053-42ab-99b9-ee7f6fdf9a9e"
@@ -383,6 +395,8 @@ class NagoyaRouteBackend:
         walk_radius_m: int = 600,
         walk_speed_m_per_min: float = 80.0,
         endpoint_candidate_limit: int = 6,
+        max_rides: int = 6,
+        search_core: SearchCore | None = None,
     ):
         if dataset.metadata.feed_id != NAGOYA_FEED_ID:
             raise ValueError(f"NagoyaRouteBackend requires {NAGOYA_FEED_ID} dataset")
@@ -392,11 +406,20 @@ class NagoyaRouteBackend:
             raise ValueError("walk_speed_m_per_min must be > 0")
         if endpoint_candidate_limit < 1:
             raise ValueError("endpoint_candidate_limit must be >= 1")
+        if max_rides < 1:
+            raise ValueError("max_rides must be >= 1")
         self.dataset = dataset
-        self.engine = TransitRouteEngine(dataset)
+        if search_core is None:
+            from search_core_factory import create_search_core
+
+            search_core = create_search_core(dataset)
+        self.search_core = search_core
+        # Compatibility for callers that still inspect the former backend.
+        self.engine = self.search_core
         self.walk_radius_m = walk_radius_m
         self.walk_speed_m_per_min = walk_speed_m_per_min
         self.endpoint_candidate_limit = endpoint_candidate_limit
+        self.max_rides = max_rides
 
     def _nearby_stops(self, lat: float, lon: float) -> list[tuple[TransitStop, float]]:
         candidates = []
@@ -407,7 +430,7 @@ class NagoyaRouteBackend:
         candidates.sort(key=lambda item: (item[1], item[0].id))
         return candidates[: self.endpoint_candidate_limit]
 
-    def search(
+    def _search_legacy(
         self,
         *,
         alat: float,
@@ -417,6 +440,7 @@ class NagoyaRouteBackend:
         pref: str,
         start_time: str,
         date_str: str | None,
+        limit: int = 5,
     ) -> dict[str, Any]:
         for name, value, lower, upper in (
             ("alat", alat, -90.0, 90.0),
@@ -480,70 +504,110 @@ class NagoyaRouteBackend:
         if not origin_candidates or not destination_candidates:
             return {"candidates": [], "meta": meta}
 
-        ranked: list[tuple[tuple[int, int, float], dict[str, Any]]] = []
-        seen_signatures: set[tuple[str, ...]] = set()
-        for origin_stop, origin_distance in origin_candidates:
-            origin_walk_min = math.ceil(origin_distance / self.walk_speed_m_per_min)
-            transit_departure = requested_departure + timedelta(minutes=origin_walk_min)
-            if transit_departure.date() != service_date:
+        origin_endpoints = tuple(
+            SearchEndpoint(
+                stop_id=origin_stop.id,
+                walk_minutes=math.ceil(
+                    origin_distance / self.walk_speed_m_per_min
+                ),
+                walk_meters=origin_distance,
+                rank=index,
+            )
+            for index, (origin_stop, origin_distance) in enumerate(
+                origin_candidates
+            )
+        )
+        destination_endpoints = tuple(
+            SearchEndpoint(
+                stop_id=destination_stop.id,
+                walk_minutes=math.ceil(
+                    destination_distance / self.walk_speed_m_per_min
+                ),
+                walk_meters=destination_distance,
+                rank=index,
+            )
+            for index, (destination_stop, destination_distance) in enumerate(
+                destination_candidates
+            )
+        )
+        for origin in origin_endpoints:
+            if (
+                requested_departure.date()
+                != (
+                    requested_departure
+                    + timedelta(minutes=origin.walk_minutes)
+                ).date()
+            ):
                 raise RuntimeError(
                     "Nagoya route search does not support an initial walk crossing "
                     "the service-day boundary"
                 )
-            for destination_stop, destination_distance in destination_candidates:
-                if objective == "fastest":
-                    itinerary = self.engine.search_fastest(
-                        origin_stop.id,
-                        destination_stop.id,
-                        departure=transit_departure,
-                    )
-                else:
-                    itinerary = self.engine.search_fewest_transfers(
-                        origin_stop.id,
-                        destination_stop.id,
-                        departure=transit_departure,
-                    )
-                if itinerary is None:
-                    continue
-                signature = tuple(leg.trip_id for leg in itinerary.legs)
-                if signature in seen_signatures:
-                    continue
-                seen_signatures.add(signature)
-                destination_walk_min = math.ceil(
-                    destination_distance / self.walk_speed_m_per_min
-                )
-                candidate = self._candidate_json(
-                    itinerary,
-                    requested_departure=requested_departure,
-                    origin_point=(alat, alon),
-                    destination_point=(blat, blon),
-                    origin_stop=origin_stop,
-                    destination_stop=destination_stop,
-                    origin_distance=origin_distance,
-                    destination_distance=destination_distance,
-                    origin_walk_min=origin_walk_min,
-                    destination_walk_min=destination_walk_min,
-                    preference=pref,
-                    candidate_index=len(ranked),
-                )
-                final_arrival = itinerary.arrival_minute + destination_walk_min
-                if objective == "fastest":
-                    rank = (
-                        final_arrival,
-                        itinerary.transfers,
-                        origin_distance + destination_distance,
-                    )
-                else:
-                    rank = (
-                        itinerary.transfers,
-                        final_arrival,
-                        origin_distance + destination_distance,
-                    )
-                ranked.append((rank, candidate))
 
-        ranked.sort(key=lambda item: item[0])
+        result = self.search_core.search(
+            BatchSearchRequest(
+                service_date=service_date,
+                departure_minute=hour * 60 + minute,
+                origins=origin_endpoints,
+                destinations=destination_endpoints,
+                preference=objective,
+                max_rides=self.max_rides,
+            )
+        )
+        ranked_by_signature: dict[
+            tuple[str, ...], tuple[tuple[Any, ...], dict[str, Any]]
+        ] = {}
+        for pair in result.pairs:
+            origin_stop, origin_distance = origin_candidates[pair.origin_index]
+            destination_stop, destination_distance = destination_candidates[
+                pair.destination_index
+            ]
+            origin_walk_min = origin_endpoints[pair.origin_index].walk_minutes
+            destination_walk_min = destination_endpoints[
+                pair.destination_index
+            ].walk_minutes
+            itinerary = pair.itinerary
+            signature = tuple(leg.trip_id for leg in itinerary.legs)
+            candidate = self._candidate_json(
+                itinerary,
+                requested_departure=requested_departure,
+                origin_point=(alat, alon),
+                destination_point=(blat, blon),
+                origin_stop=origin_stop,
+                destination_stop=destination_stop,
+                origin_distance=origin_distance,
+                destination_distance=destination_distance,
+                origin_walk_min=origin_walk_min,
+                destination_walk_min=destination_walk_min,
+                preference=pref,
+                candidate_index=len(ranked_by_signature),
+            )
+            final_arrival = itinerary.arrival_minute + destination_walk_min
+            path_key = itinerary_path_key(itinerary)
+            if objective == "fastest":
+                rank = (
+                    final_arrival,
+                    itinerary.transfers,
+                    itinerary.arrival_minute,
+                    origin_endpoints[pair.origin_index].rank,
+                    destination_endpoints[pair.destination_index].rank,
+                    path_key,
+                )
+            else:
+                rank = (
+                    itinerary.transfers,
+                    final_arrival,
+                    itinerary.arrival_minute,
+                    origin_endpoints[pair.origin_index].rank,
+                    destination_endpoints[pair.destination_index].rank,
+                    path_key,
+                )
+            prior = ranked_by_signature.get(signature)
+            if prior is None or rank < prior[0]:
+                ranked_by_signature[signature] = (rank, candidate)
+
+        ranked = sorted(ranked_by_signature.values(), key=lambda item: item[0])
         candidates = []
-        for index, (_, candidate) in enumerate(ranked[:5]):
+        for index, (_, candidate) in enumerate(ranked[:limit]):
             candidate["id"] = f"nagoya-{index}"
             for step_index, step in enumerate(candidate["steps"]):
                 step["step_id"] = f"nagoya-{index}-step-{step_index}"
@@ -665,13 +729,15 @@ class NagoyaRouteBackend:
 
         request_minute = requested_departure.hour * 60 + requested_departure.minute
         walk_count = int(origin_walk_min > 0) + int(destination_walk_min > 0)
+        walking_distance_meters = (
+            (round(origin_distance) if origin_walk_min > 0 else 0)
+            + (round(destination_distance) if destination_walk_min > 0 else 0)
+        )
         return {
             "id": f"pending-{candidate_index}",
             "lines": line_names,
             "rides": itinerary.rides,
-            "walking_distance_meters": round(
-                origin_distance + destination_distance
-            ),
+            "walking_distance_meters": walking_distance_meters,
             "walking_segment_count": walk_count,
             "boards": itinerary.rides,
             "transfers": itinerary.transfers,
@@ -686,3 +752,53 @@ class NagoyaRouteBackend:
             "destination_coords": [destination_point[0], destination_point[1]],
             "arrival_time": _clock(current_minute),
         }
+
+    def search(
+        self,
+        request: RouteSearchRequest | None = None,
+        *,
+        alat: float | None = None,
+        alon: float | None = None,
+        blat: float | None = None,
+        blon: float | None = None,
+        pref: str | None = None,
+        start_time: str | None = None,
+        date_str: str | None = None,
+    ) -> RouteSearchResult | dict[str, Any]:
+        if request is not None:
+            if any(
+                value is not None
+                for value in (alat, alon, blat, blon, pref, start_time, date_str)
+            ):
+                raise RouteInputError(
+                    "RouteSearchRequest cannot be combined with legacy arguments"
+                )
+            payload = self._search_legacy(
+                alat=request.origin.lat,
+                alon=request.origin.lon,
+                blat=request.destination.lat,
+                blon=request.destination.lon,
+                pref=request.preference.api_value,
+                start_time=request.departure_at.strftime("%H:%M"),
+                date_str=request.departure_at.date().isoformat(),
+                limit=request.limit,
+            )
+            return RouteSearchResult(
+                candidates=[
+                    RouteCandidate.from_mapping(candidate)
+                    for candidate in payload["candidates"]
+                ],
+                meta=dict(payload["meta"]),
+            )
+
+        if None in (alat, alon, blat, blon, pref, start_time):
+            raise ValueError("legacy route search requires all coordinate fields")
+        return self._search_legacy(
+            alat=float(alat),
+            alon=float(alon),
+            blat=float(blat),
+            blon=float(blon),
+            pref=str(pref),
+            start_time=str(start_time),
+            date_str=date_str,
+        )

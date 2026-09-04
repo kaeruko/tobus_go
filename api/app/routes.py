@@ -9,6 +9,9 @@ from app.services.bus_location_matcher import (
     select_bus_candidate,
 )
 from app.services.route_step_ids import assign_candidate_step_ids
+from app.route_endpoint import register_route_endpoint
+from route_engine import normalize_route_preference
+from tokyo_route_engine import TokyoRouteDependencies, TokyoRouteEngine
 
 from fastapi import HTTPException, Form, Query, Body, BackgroundTasks
 from fastapi.responses import Response
@@ -29,7 +32,6 @@ from toei_engine import (
     search_best_routes_once,
     time_str_to_min,
     min_to_time_str,
-    MAX_WALK_SEG_M,
     get_reachable_stops,
     _rss_mb,
     determine_day_type,
@@ -63,153 +65,34 @@ def _cache_set(key: str, data: bytes) -> None:
 
 
 def normalize_pref(pref: str | None) -> str:
-    if not pref:
-        return "cost"
-    if pref in ("shortTime", "fast"):
-        return "time"
-    if pref in ("time", "cost", "fewTransfers"):
-        return pref
-    return "cost"
+    return normalize_route_preference(pref).api_value
 
 def compute_route_candidates(app, alat, alon, blat, blon, pref, start_time="10:00", date_str=None):
-    # メモリ使用量と呼び出しパラメータのログ出力
-    print(f"[MEM] enter compute_route_candidates rss={_rss_mb():.1f}MB")
-    print(f"[USER_DEBUG] compute_route_candidates: start_time={start_time}, date_str={date_str}")
-    
-    # ユーザー設定の正規化、アプリケーション状態からのインスタンス取得
-    pref = normalize_pref(pref)
-    g = app.state.G
-    tm = app.state.TM
-    walk_rad = app.state.WALK_RAD
-    si = app.state.SI
-    
-    # 出発地(A)と目的地(B)の最寄り物理ノード(バス停/駅)を探索
-    # Aは駅以外も含む(station_only=False)、Bはまず駅中心に探す
-    a_phys, a_dist = nearest_phys(g, alat, alon, station_only=False, spatial_index=si)
-    b_phys, bd = nearest_phys(g, blat, blon, station_only=True, spatial_index=si)
-    
-    # Bが近くに見つからない場合や遠い場合は、バス停も含めて再探索
-    if not b_phys or bd > 500:
-        b_phys, _ = nearest_phys(g, blat, blon, station_only=False, spatial_index=si)
+    """Compatibility wrapper; new endpoint traffic uses app.state.route_engine."""
 
-    # どちらか一方でもノードが見つからなければエラーを返す
-    if not a_phys or not b_phys:
-        return {"error": "Nearby stations or busstops not found", "candidates": []}
-
-    # 出発地の最寄りノードまでの徒歩時間を概算(80m/min)
-    import math
-    initial_walk_min = 0
-    if a_dist and a_dist > 0:
-        initial_walk_min = max(1, math.ceil(a_dist / 80.0))
-    
-    # 徒歩時間を考慮した実質的な出発時刻(active_start_time)を計算
-    active_start_time = start_time
-    if initial_walk_min > 0:
-        s_min = time_str_to_min(start_time)
-        active_start_time = min_to_time_str(s_min + initial_walk_min)
-
-    # 地点Bの正確な位置を「目的地」として設定し、仮想エッジ(virtual_connections)を取得
-    destination_label = "目的地"
-    dest_node, virtual_connections = get_virtual_connections(
-        g, blat, blon, name=destination_label, walk_radius=walk_rad, spatial_index=si
+    engine = TokyoRouteEngine(
+        app,
+        dependencies=TokyoRouteDependencies(
+            nearest_phys=nearest_phys,
+            haversine=haversine,
+            get_virtual_connections=get_virtual_connections,
+            search_best_routes_once=search_best_routes_once,
+            time_str_to_min=time_str_to_min,
+            min_to_time_str=min_to_time_str,
+            determine_day_type=determine_day_type,
+            assign_candidate_step_ids=assign_candidate_step_ids,
+            rss_mb=_rss_mb,
+        ),
     )
-    destination_reachable = len(virtual_connections) > 0
-    day_type = determine_day_type(date_str)
-
-    results = []
-    # 仮想目的地への到達が可能なら、目的地座標へのルート探索を実行
-    if destination_reachable:
-        results = search_best_routes_once(
-            g, 
-            tm,
-            a_phys,
-            mode=pref,
-            start_time=active_start_time, 
-            target_date_str=date_str,
-            limit=5,
-            target_node=dest_node,
-            day_type=day_type,
-            virtual_dest_connections=virtual_connections,
-            target_coords=[blat, blon],
-        )
-
-    # 仮想目的地へのルートが見つからなかった場合、最寄り物理ノード(b_phys)までの探索へフォールバック
-    if not results:
-        results = search_best_routes_once(
-            g,
-            tm,
-            a_phys,
-            mode=pref,
-            start_time=active_start_time, 
-            target_date_str=date_str,
-            limit=5,
-            target_node=b_phys,
-            day_type=day_type,
-            virtual_dest_connections=None,
-            target_coords=None,
-        )
-
-    # 探索結果の後処理: 最初の徒歩区間の追加や座標情報の付与
-    for cand in results:
-        if initial_walk_min > 0:
-            a_node_name = g.nodes[a_phys]["name"]
-            
-            # 既存の最初のステップが徒歩なら統合、そうでなければ新規徒歩ステップ挿入
-            if cand["steps"] and cand["steps"][0]["kind"] == "walk":
-                first = cand["steps"][0]
-                first["from_"] = "現在地" 
-                first["minutes"] += int(initial_walk_min)
-                first["meters"] += int(a_dist)
-                first["edges"] = first.get("edges", 0) + 1
-                
-                cand["points"].insert(0, [alat, alon])
-                cand["total_time"] += initial_walk_min
-                cand["walking_distance_meters"] += int(a_dist)
-            else:
-                walk_step = {
-                    "kind": "walk",
-                    "title": "徒歩",
-                    "edges": 0,
-                    "from_": "現在地", 
-                    "to": a_node_name,
-                    "meters": int(a_dist),
-                    "minutes": int(initial_walk_min)
-                }
-                cand["steps"].insert(0, walk_step)
-                cand["points"].insert(0, [alat, alon])
-                cand["total_time"] += initial_walk_min
-                cand["walking_distance_meters"] += int(a_dist)
-                cand["walking_segment_count"] += 1
-        
-        cand["origin_coords"] = [alat, alon]
-        cand["destination_coords"] = [blat, blon]
-        
-        # 不要な内部パスデータの削除
-        if "path" in cand: del cand["path"]
-        assign_candidate_step_ids(cand)
-
-    # メタデータの作成: フォールバック情報など
-    fallback_distance_m = None
-    fallback_node_name = None
-    if b_phys in g:
-        fallback_node_name = g.nodes[b_phys].get("name")
-        b_lat = g.nodes[b_phys].get("lat")
-        b_lon = g.nodes[b_phys].get("lon")
-        if b_lat is not None and b_lon is not None:
-            fallback_distance_m = haversine(blat, blon, b_lat, b_lon)
-
-    meta = {
-        "destination_reachable": destination_reachable,
-        "destination_label": destination_label,
-        "fallback_node_name": fallback_node_name,
-        "fallback_distance_m": fallback_distance_m,
-        "walk_limit_m": MAX_WALK_SEG_M,
-    }
-
-    import gc
-    gc.collect()
-    print(f"[MEM] leave compute_route_candidates rss={_rss_mb():.1f}MB")
-    return {"candidates": results, "meta": meta}
+    return engine.search_legacy(
+        alat=alat,
+        alon=alon,
+        blat=blat,
+        blon=blon,
+        pref=normalize_pref(pref),
+        start_time=start_time,
+        date_str=date_str,
+    )
 
 async def _fetch_and_update_realtime(app_state):
     tm = app_state.TM
@@ -240,7 +123,13 @@ async def _fetch_and_update_realtime(app_state):
             print(f"[WARN] Failed to update train info: {e}")
 
 def register_routes(app):
-    from pydantic import BaseModel
+    register_route_endpoint(
+        app,
+        warmup_message=(
+            "Server is warming up (loading data). Please try again in 1-2 minutes."
+        ),
+        lock=_ROUTE_LOCK,
+    )
 
     @app.get("/bus/location")
     async def bus_location(
@@ -399,36 +288,6 @@ def register_routes(app):
             "vehicle_age_seconds": response["vehicle_age_seconds"],
         })
         return response
-
-    class RouteRequest(BaseModel):
-        alat: float
-        alon: float
-        blat: float
-        blon: float
-        pref: str = "cost"
-        start_time: str = "10:00"
-        target_date_str: str | None = None
-
-    @app.post("/route")
-    async def route_start(req: RouteRequest):
-        print(f"[USER_DEBUG] /route called. StartTime={req.start_time}, Date={req.target_date_str}")
-        if getattr(app.state, "loading_status", "starting") != "ready":
-             raise HTTPException(503, "Server is warming up (loading data). Please try again in 1-2 minutes.")
-
-        loop = asyncio.get_running_loop()
-        async with _ROUTE_LOCK:
-             print(f"[USER_DEBUG] /route locked, start rss={_rss_mb():.1f}MB")
-             result = await loop.run_in_executor(
-                None,
-                compute_route_candidates,
-                app,
-                req.alat, req.alon, req.blat, req.blon, normalize_pref(req.pref), req.start_time, req.target_date_str,
-             )
-             import json
-             result_bytes = len(json.dumps(result))
-             cand_count = len(result.get("candidates", []))
-             print(f"[USER_DEBUG] /route unlocked, end rss={_rss_mb():.1f}MB, response_size={result_bytes} bytes, candidates={cand_count}")
-             return result
 
     @app.post("/realtime/update")
     async def update_realtime_data(background_tasks: BackgroundTasks):

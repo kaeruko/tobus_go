@@ -57,7 +57,7 @@ param(
 
     [Parameter()]
     [ValidateRange(128, 10240)]
-    [int]$MemorySizeMb = 1024,
+    [int]$MemorySizeMb = 2048,
 
     [Parameter()]
     [ValidateRange(1, 900)]
@@ -66,6 +66,10 @@ param(
     [Parameter()]
     [ValidateRange(512, 10240)]
     [int]$EphemeralStorageMb = 1024,
+
+    [Parameter()]
+    [ValidateSet('python', 'rust', 'shadow')]
+    [string]$RouteSearchCore = 'python',
 
     [Parameter()]
     [ValidateNotNullOrEmpty()]
@@ -360,6 +364,7 @@ try {
     $variables = @{
         APP_CITY = $City
         GOOGLE_MAPS_API_KEY = $googleMapsKey
+        ROUTE_SEARCH_CORE = $RouteSearchCore
     }
     if ($City -eq 'nagoya') {
         $variables['NAGOYA_GTFS_DIR'] = '/tmp/gtfs/nagoya'
@@ -386,7 +391,9 @@ try {
     $corsPayload = @{
         AllowOrigins = @('*')
         AllowHeaders = @('content-type', 'x-app-city')
-        AllowMethods = @('GET', 'POST', 'OPTIONS')
+        # Lambda Function URL answers the preflight request. AllowMethods lists
+        # the actual browser methods and AWS rejects the 7-character OPTIONS.
+        AllowMethods = @('GET', 'POST')
         MaxAge = 3600
     } | ConvertTo-Json -Depth 5 -Compress
     [System.IO.File]::WriteAllText(

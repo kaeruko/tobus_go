@@ -223,6 +223,18 @@ class NagoyaRouteBackendTest(unittest.TestCase):
         result = self._search("cost")
         self.assertEqual(result["candidates"][0]["transfers"], 0)
 
+    def test_initial_walk_cannot_cross_the_service_day_boundary(self):
+        with self.assertRaisesRegex(RuntimeError, "service-day boundary"):
+            self.backend.search(
+                alat=35.170200,
+                alon=136.881500,
+                blat=35.170600,
+                blon=136.906600,
+                pref="time",
+                start_time="23:59",
+                date_str="2026-08-21",
+            )
+
     def test_nagoya_runtime_requires_no_odpt_token_or_toei_graph(self):
         app = SimpleNamespace(state=SimpleNamespace())
         root = Path(self.temp_dir.name)

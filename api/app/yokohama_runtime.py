@@ -15,6 +15,7 @@ async def setup_yokohama_on_startup(app, mode: str) -> None:
         getattr(app.state, "loading_status", None) == "ready"
         and getattr(app.state, "transit_dataset", None) is not None
         and getattr(app.state, "route_backend", None) is not None
+        and getattr(app.state, "route_engine", None) is not None
         and getattr(app.state, "realtime_provider", None) is not None
     ):
         return
@@ -24,6 +25,7 @@ async def setup_yokohama_on_startup(app, mode: str) -> None:
     app.state.loading_status = "starting"
     app.state.transit_dataset = None
     app.state.route_backend = None
+    app.state.route_engine = None
     app.state.realtime_provider = None
     app.state.realtime_bus_supported = False
 
@@ -36,11 +38,14 @@ async def setup_yokohama_on_startup(app, mode: str) -> None:
         gtfs_dir,
         expected_service_date=expected_service_date,
     )
-    backend = YokohamaBusRouteBackend(dataset)
+    backend = YokohamaBusRouteBackend(
+        dataset,
+    )
     realtime_provider = create_yokohama_bus_realtime_provider()
 
     app.state.transit_dataset = dataset
     app.state.route_backend = backend
+    app.state.route_engine = backend
     app.state.realtime_provider = realtime_provider
     app.state.realtime_bus_supported = True
     app.state.loading_status = "ready"

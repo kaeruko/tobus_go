@@ -256,7 +256,7 @@ jobs:
           if missing:
               raise SystemExit(f'Generated iOS configuration is missing required Dart defines: {sorted(missing)}')
           if any(item.startswith('API_BASE=') for item in decoded):
-              raise SystemExit('Release build must not embed API_BASE; Tokyo resolves it from Google Drive at runtime')
+              raise SystemExit('Release build must not embed API_BASE; the city endpoint is resolved from Google Drive at runtime')
           PY
 
       - name: Install CocoaPods 1.16.2

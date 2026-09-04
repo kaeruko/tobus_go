@@ -106,7 +106,7 @@ Assert-LastExitCode 'aws ecr describe-repositories'
 $functionConfigJson = aws lambda get-function-configuration `
     --region $Region `
     --function-name $LambdaFunction `
-    --query '{PackageType:PackageType,Architecture:Architectures[0],AppCity:Environment.Variables.APP_CITY,NagoyaGtfsDir:Environment.Variables.NAGOYA_GTFS_DIR,NagoyaExpectedRevision:Environment.Variables.NAGOYA_GTFS_EXPECTED_REVISION,SendaiGtfsDir:Environment.Variables.SENDAI_GTFS_DIR,SendaiExpectedServiceDate:Environment.Variables.SENDAI_GTFS_EXPECTED_SERVICE_DATE}' `
+    --query '{PackageType:PackageType,Architecture:Architectures[0],AppCity:Environment.Variables.APP_CITY,RouteSearchCore:Environment.Variables.ROUTE_SEARCH_CORE,NagoyaGtfsDir:Environment.Variables.NAGOYA_GTFS_DIR,NagoyaExpectedRevision:Environment.Variables.NAGOYA_GTFS_EXPECTED_REVISION,SendaiGtfsDir:Environment.Variables.SENDAI_GTFS_DIR,SendaiExpectedServiceDate:Environment.Variables.SENDAI_GTFS_EXPECTED_SERVICE_DATE}' `
     --output json
 Assert-LastExitCode 'aws lambda get-function-configuration'
 
@@ -124,6 +124,16 @@ if ($City -eq 'tokyo') {
 }
 elseif ($runtimeCity -ne $City) {
     throw "Lambda city mismatch. Requested=$City, APP_CITY='$runtimeCity'. Configure the city-specific Lambda before deploying."
+}
+
+$routeSearchCore = if ([string]::IsNullOrWhiteSpace([string]$functionConfig.RouteSearchCore)) {
+    'python'
+}
+else {
+    [string]$functionConfig.RouteSearchCore
+}
+if (@('python', 'rust', 'shadow') -notcontains $routeSearchCore) {
+    throw "Lambda ROUTE_SEARCH_CORE is invalid: '$routeSearchCore'"
 }
 
 if ($City -eq 'nagoya') {
@@ -160,6 +170,7 @@ Write-Host "Region      : $Region"
 Write-Host "ECR repo    : $EcrRepository"
 Write-Host "Lambda      : $LambdaFunction"
 Write-Host "APP_CITY    : $runtimeCity"
+Write-Host "Search core : $routeSearchCore"
 Write-Host "Platform    : $dockerPlatform"
 Write-Host "Image       : $imageUri"
 

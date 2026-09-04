@@ -8,6 +8,7 @@ import time
 from gtfs_loader import gtfs_repo
 from gtfs_state import download_compiled_lambda_assets, load_compiled_state
 from toei_engine import SpatialIndex
+from tokyo_route_engine import TokyoRouteEngine
 
 from .runtime import LAMBDA_TMP_DIR, fetch_realtime_data_loop
 from .runtime import setup_on_startup as setup_legacy_on_startup
@@ -23,6 +24,8 @@ async def setup_on_startup(app, mode: str) -> None:
     """
     if mode != "lambda":
         await setup_legacy_on_startup(app, mode)
+        if getattr(app.state, "route_engine", None) is None:
+            app.state.route_engine = TokyoRouteEngine(app)
         return
 
     if (
@@ -30,6 +33,8 @@ async def setup_on_startup(app, mode: str) -> None:
         and getattr(app.state, "G", None) is not None
         and getattr(app.state, "TM", None) is not None
     ):
+        if getattr(app.state, "route_engine", None) is None:
+            app.state.route_engine = TokyoRouteEngine(app)
         print("[INFO] Tokyo Lambda runtime already initialized; reusing cached data.")
         return
 
@@ -82,4 +87,5 @@ async def setup_on_startup(app, mode: str) -> None:
     # best-effort warm-runtime maintenance without making /warmup wait for it.
     asyncio.create_task(fetch_realtime_data_loop(app.state.TM))
 
+    app.state.route_engine = TokyoRouteEngine(app)
     app.state.loading_status = "ready"

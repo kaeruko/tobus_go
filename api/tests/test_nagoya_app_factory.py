@@ -150,6 +150,39 @@ class NagoyaAppFactoryTest(unittest.TestCase):
                 "bus_realtime_unsupported",
             )
 
+    def test_nagoya_route_uses_shared_typed_endpoint_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_feed(root)
+            env = {
+                "APP_CITY": "nagoya",
+                "NAGOYA_GTFS_DIR": str(root),
+                "NAGOYA_GTFS_EXPECTED_REVISION": "2026-03-28",
+            }
+            with patch.dict(os.environ, env, clear=False):
+                with TestClient(create_app("local")) as client:
+                    response = client.post(
+                        "/route",
+                        headers={"X-App-City": "nagoya"},
+                        json={
+                            "alat": 35.1709,
+                            "alon": 136.8815,
+                            "blat": 35.1706,
+                            "blon": 136.9066,
+                            "pref": "time",
+                            "start_time": "09:55",
+                            "target_date_str": "2026-08-21",
+                            "limit": 1,
+                        },
+                    )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload["candidates"]), 1)
+        self.assertEqual(payload["candidates"][0]["boards"], 1)
+        self.assertEqual(payload["candidates"][0]["transfers"], 0)
+        self.assertEqual(payload["candidates"][0]["arrival_time"], "10:20")
+
     def test_backend_city_key_is_exact(self):
         with patch.dict(os.environ, {"APP_CITY": " nagoya"}, clear=False):
             with self.assertRaisesRegex(RuntimeError, "Unsupported APP_CITY"):

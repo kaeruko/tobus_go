@@ -1,12 +1,29 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from route_engine import (
+    GeoPoint,
+    RouteCandidate,
+    RouteInputError,
+    RoutePreference,
+    RouteSearchRequest,
+    RouteSearchResult,
+    normalize_route_preference,
+    serialize_route_result,
+)
 from transit_dataset import TransitDataset, TransitMode, TransitStop
-from transit_engine import TransitItinerary, TransitLeg, TransitRouteEngine
+from transit_engine import (
+    BatchSearchRequest,
+    SearchCore,
+    SearchEndpoint,
+    TransitItinerary,
+    TransitLeg,
+    itinerary_path_key,
+)
 
 _JST = ZoneInfo("Asia/Tokyo")
 
@@ -56,7 +73,7 @@ def _point(stop: TransitStop) -> dict[str, Any]:
     }
 
 
-class GtfsRouteBackend:
+class GtfsRouteEngine:
     """Coordinate-to-coordinate route backend backed only by TransitDataset.
 
     This class deliberately contains no city names and no GTFS field parsing.
@@ -71,6 +88,7 @@ class GtfsRouteBackend:
         walk_speed_m_per_min: float = 80.0,
         endpoint_candidate_limit: int = 6,
         max_rides: int = 6,
+        search_core: SearchCore | None = None,
     ) -> None:
         if walk_radius_m <= 0:
             raise ValueError("walk_radius_m must be > 0")
@@ -87,7 +105,13 @@ class GtfsRouteBackend:
                 f"found {non_bus[0]}"
             )
         self.dataset = dataset
-        self.engine = TransitRouteEngine(dataset)
+        if search_core is None:
+            from search_core_factory import create_search_core
+
+            search_core = create_search_core(dataset)
+        self.search_core = search_core
+        # Compatibility for callers that still inspect the former backend.
+        self.engine = self.search_core
         self.walk_radius_m = walk_radius_m
         self.walk_speed_m_per_min = walk_speed_m_per_min
         self.endpoint_candidate_limit = endpoint_candidate_limit
@@ -110,44 +134,88 @@ class GtfsRouteBackend:
         departure: datetime,
         preference: str,
     ) -> tuple[TransitItinerary, TransitStop, float, TransitStop, float] | None:
-        best: tuple[tuple[int, int, int], TransitItinerary, TransitStop, float, TransitStop, float] | None = None
-        for origin, origin_distance in origins:
-            origin_walk = math.ceil(origin_distance / self.walk_speed_m_per_min)
-            transit_departure = departure + timedelta(minutes=origin_walk)
-            for destination, destination_distance in destinations:
-                if preference == "time":
-                    itinerary = self.engine.search_fastest(
-                        origin.id,
-                        destination.id,
-                        departure=transit_departure,
-                        max_rides=self.max_rides,
-                    )
-                else:
-                    itinerary = self.engine.search_fewest_transfers(
-                        origin.id,
-                        destination.id,
-                        departure=transit_departure,
-                        max_rides=self.max_rides,
-                    )
-                if itinerary is None:
-                    continue
-                destination_walk = math.ceil(destination_distance / self.walk_speed_m_per_min)
-                total = origin_walk + itinerary.total_minutes + destination_walk
-                objective = (
-                    (total, itinerary.transfers, itinerary.arrival_minute)
-                    if preference == "time"
-                    else (itinerary.transfers, total, itinerary.arrival_minute)
+        best: tuple[
+            tuple[Any, ...],
+            TransitItinerary,
+            TransitStop,
+            float,
+            TransitStop,
+            float,
+        ] | None = None
+        origin_endpoints = tuple(
+            SearchEndpoint(
+                stop_id=origin.id,
+                walk_minutes=math.ceil(
+                    origin_distance / self.walk_speed_m_per_min
+                ),
+                walk_meters=origin_distance,
+                rank=index,
+            )
+            for index, (origin, origin_distance) in enumerate(origins)
+        )
+        destination_endpoints = tuple(
+            SearchEndpoint(
+                stop_id=destination.id,
+                walk_minutes=math.ceil(
+                    destination_distance / self.walk_speed_m_per_min
+                ),
+                walk_meters=destination_distance,
+                rank=index,
+            )
+            for index, (destination, destination_distance) in enumerate(destinations)
+        )
+        result = self.search_core.search(
+            BatchSearchRequest(
+                service_date=departure.date(),
+                departure_minute=departure.hour * 60 + departure.minute,
+                origins=origin_endpoints,
+                destinations=destination_endpoints,
+                preference=(
+                    "fastest" if preference == "time" else "fewest_transfers"
+                ),
+                max_rides=self.max_rides,
+            )
+        )
+        for pair in result.pairs:
+            origin, origin_distance = origins[pair.origin_index]
+            destination, destination_distance = destinations[
+                pair.destination_index
+            ]
+            destination_walk = destination_endpoints[
+                pair.destination_index
+            ].walk_minutes
+            itinerary = pair.itinerary
+            final_arrival = itinerary.arrival_minute + destination_walk
+            path_key = itinerary_path_key(itinerary)
+            objective = (
+                (
+                    final_arrival,
+                    itinerary.transfers,
+                    itinerary.arrival_minute,
+                    origin_endpoints[pair.origin_index].rank,
+                    destination_endpoints[pair.destination_index].rank,
+                    path_key,
                 )
-                row = (
-                    objective,
-                    itinerary,
-                    origin,
-                    origin_distance,
-                    destination,
-                    destination_distance,
+                if preference == "time"
+                else (
+                    itinerary.transfers,
+                    final_arrival,
+                    itinerary.arrival_minute,
+                    origin_endpoints[pair.origin_index].rank,
+                    destination_endpoints[pair.destination_index].rank,
+                    path_key,
                 )
-                if best is None or row[0] < best[0]:
-                    best = row
+            )
+            row = (
+                objective,
+                itinerary,
+                origin,
+                origin_distance,
+                destination,
+                destination_distance,
+            )
+            if best is None or row[0] < best[0]:
+                best = row
         if best is None:
             return None
         return best[1], best[2], best[3], best[4], best[5]
@@ -278,84 +346,104 @@ class GtfsRouteBackend:
             "arrival_time": _clock(arrival),
         }
 
-    def search(
-        self,
-        *,
-        alat: float,
-        alon: float,
-        blat: float,
-        blon: float,
-        pref: str,
-        start_time: str,
-        date_str: str | None,
-    ) -> dict[str, Any]:
-        for name, value, low, high in (
-            ("alat", alat, -90.0, 90.0),
-            ("blat", blat, -90.0, 90.0),
-            ("alon", alon, -180.0, 180.0),
-            ("blon", blon, -180.0, 180.0),
-        ):
-            if not math.isfinite(value) or value < low or value > high:
-                raise ValueError(f"{name} is out of range")
-        if pref in ("shortTime", "fast", "time"):
-            preference = "time"
-        elif pref in ("fewTransfers", "cost"):
-            preference = "fewTransfers"
-        else:
-            raise ValueError(f"unsupported route preference: {pref!r}")
-        departure = _parse_departure(date_str, start_time)
-        origins = self._nearby(alat, alon)
-        destinations = self._nearby(blat, blon)
+    def _search_request(self, request: RouteSearchRequest) -> RouteSearchResult:
+        origins = self._nearby(request.origin.lat, request.origin.lon)
+        destinations = self._nearby(
+            request.destination.lat,
+            request.destination.lon,
+        )
+        meta = {
+            "destination_reachable": bool(origins and destinations),
+            "destination_label": "目的地",
+            "fallback_node_name": None,
+            "fallback_distance_m": None,
+            "walk_limit_m": self.walk_radius_m,
+        }
         if not origins or not destinations:
-            return {
-                "candidates": [],
-                "meta": {
-                    "destination_reachable": False,
-                    "destination_label": "目的地",
-                    "fallback_node_name": None,
-                    "fallback_distance_m": None,
-                    "walk_limit_m": self.walk_radius_m,
-                },
-            }
+            return RouteSearchResult(candidates=[], meta=meta)
+
+        search_preference = (
+            "time"
+            if request.preference is RoutePreference.FASTEST
+            else "fewTransfers"
+        )
         best = self._find_best(
             origins,
             destinations,
-            departure=departure,
-            preference="time" if preference == "time" else "fewTransfers",
+            departure=request.departure_at,
+            preference=search_preference,
         )
         if best is None:
-            return {
-                "candidates": [],
-                "meta": {
-                    "destination_reachable": True,
-                    "destination_label": "目的地",
-                    "fallback_node_name": None,
-                    "fallback_distance_m": None,
-                    "walk_limit_m": self.walk_radius_m,
-                },
-            }
+            meta["destination_reachable"] = True
+            return RouteSearchResult(candidates=[], meta=meta)
+
         itinerary, origin, origin_distance, destination, destination_distance = best
-        return {
-            "candidates": [
-                self._serialize(
-                    itinerary,
-                    origin,
-                    origin_distance,
-                    destination,
-                    destination_distance,
-                    alat=alat,
-                    alon=alon,
-                    blat=blat,
-                    blon=blon,
-                    departure=departure,
-                    preference=preference,
-                )
-            ],
-            "meta": {
+        payload = self._serialize(
+            itinerary,
+            origin,
+            origin_distance,
+            destination,
+            destination_distance,
+            alat=request.origin.lat,
+            alon=request.origin.lon,
+            blat=request.destination.lat,
+            blon=request.destination.lon,
+            departure=request.departure_at,
+            preference=(
+                "time"
+                if request.preference is RoutePreference.FASTEST
+                else "fewTransfers"
+            ),
+        )
+        meta.update(
+            {
                 "destination_reachable": True,
-                "destination_label": "目的地",
                 "fallback_node_name": destination.name,
                 "fallback_distance_m": destination_distance,
-                "walk_limit_m": self.walk_radius_m,
-            },
-        }
+            }
+        )
+        return RouteSearchResult(
+            candidates=[RouteCandidate.from_mapping(payload)],
+            meta=meta,
+        )
+
+    def search(
+        self,
+        request: RouteSearchRequest | None = None,
+        *,
+        alat: float | None = None,
+        alon: float | None = None,
+        blat: float | None = None,
+        blon: float | None = None,
+        pref: str | None = None,
+        start_time: str | None = None,
+        date_str: str | None = None,
+    ) -> RouteSearchResult | dict[str, Any]:
+        if request is not None:
+            if any(
+                value is not None
+                for value in (alat, alon, blat, blon, pref, start_time, date_str)
+            ):
+                raise RouteInputError(
+                    "RouteSearchRequest cannot be combined with legacy arguments"
+                )
+            return self._search_request(request)
+
+        if None in (alat, alon, blat, blon, pref, start_time):
+            raise ValueError("legacy route search requires all coordinate fields")
+        try:
+            legacy_request = RouteSearchRequest(
+                origin=GeoPoint(float(alat), float(alon)),
+                destination=GeoPoint(float(blat), float(blon)),
+                departure_at=_parse_departure(date_str, str(start_time)),
+                preference=normalize_route_preference(pref),
+            )
+        except RouteInputError:
+            raise
+        except (TypeError, ValueError) as error:
+            raise RouteInputError(str(error)) from error
+        return serialize_route_result(self._search_request(legacy_request))
+
+
+class GtfsRouteBackend(GtfsRouteEngine):
+    """Backward-compatible name for the shared GTFS route engine."""

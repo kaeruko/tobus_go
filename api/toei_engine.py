@@ -238,6 +238,7 @@ from collections import defaultdict
 from datetime import datetime as dt_class # datetime.datetimeと競合しないようにalias
 from google.transit import gtfs_realtime_pb2
 from gtfs_loader import gtfs_repo
+from route_engine import RouteSearchLimitError
 
 # -------------------- チューニング定数 --------------------
 print("[INFO] toei_engine loaded: build=2025-12-29-realtime", flush=True)
@@ -1587,10 +1588,6 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
                 new_chain_idx = _chain_new(chain_store, v, chain_idx)
                 heapq.heappush(pq, (new_cost + new_h, new_cost, v, new_total_walk_m, new_seg_walk_m, next_time, new_chain_idx))
     _mem_log("find_paths_generator end")
-
-class RouteSearchLimitError(RuntimeError):
-    """Raised when a fail-fast route-search safety limit is exceeded."""
-
 
 def find_few_transfers_paths_generator(
     G,

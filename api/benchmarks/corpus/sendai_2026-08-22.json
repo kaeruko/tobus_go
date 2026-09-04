@@ -1,0 +1,23 @@
+{
+  "city": "sendai",
+  "feed_revision": "service-date:2026-08-22",
+  "service_date": "2026-08-22",
+  "cases": [
+    {
+      "name": "sendai_representative_fastest",
+      "departure_minute": 495,
+      "preference": "fastest",
+      "max_rides": 6,
+      "origins": [["3423_10", 0, 0.0], ["3423_0", 1, 0.222], ["3425_10", 5, 339.756], ["3425_50", 5, 368.172]],
+      "destinations": [["1_0", 0, 0.0], ["1_11", 1, 17.992], ["1_12", 1, 18.670], ["1_51", 1, 24.149], ["105_112", 2, 100.307], ["105_50", 3, 204.563]]
+    },
+    {
+      "name": "sendai_representative_fewest_transfers",
+      "departure_minute": 495,
+      "preference": "fewest_transfers",
+      "max_rides": 6,
+      "origins": [["3423_10", 0, 0.0], ["3423_0", 1, 0.222], ["3425_10", 5, 339.756], ["3425_50", 5, 368.172]],
+      "destinations": [["1_0", 0, 0.0], ["1_11", 1, 17.992], ["1_12", 1, 18.670], ["1_51", 1, 24.149], ["105_112", 2, 100.307], ["105_50", 3, 204.563]]
+    }
+  ]
+}

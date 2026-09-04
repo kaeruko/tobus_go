@@ -1,9 +1,19 @@
-const String kTokyoApiGoogleDriveFileId =
-    '11eVn1V2mO7x8wPF-Kg9ZExmA-fqTReQ4';
+import 'core/city_profile.dart';
 
-// Explicit developer/build override. When empty, Tokyo loads its endpoint
-// from Google Drive at startup. Other cities must currently provide an
-// explicit API_BASE until their own Drive endpoint file is configured.
+const String kTokyoApiGoogleDriveFileId = '11eVn1V2mO7x8wPF-Kg9ZExmA-fqTReQ4';
+const String kSendaiApiGoogleDriveFileId = '1Frhq_kZt6kEX_smdSdlcKsmTv4vLnjEf';
+
+String? apiGoogleDriveFileIdForCity(AppCity city) {
+  return switch (city) {
+    AppCity.tokyo => kTokyoApiGoogleDriveFileId,
+    AppCity.sendai => kSendaiApiGoogleDriveFileId,
+    AppCity.nagoya || AppCity.yokohama => null,
+  };
+}
+
+// Explicit developer/build override. In debug/profile builds this takes
+// precedence over a city's Google Drive endpoint file. Store builds always
+// use Google Drive when a city-specific file is configured.
 const String kApiBaseOverride = String.fromEnvironment('API_BASE');
 
 String? _configuredApiBase;

@@ -33,6 +33,7 @@ async def setup_sendai_on_startup(app, mode: str) -> None:
         getattr(app.state, "loading_status", None) == "ready"
         and getattr(app.state, "transit_dataset", None) is not None
         and getattr(app.state, "route_backend", None) is not None
+        and getattr(app.state, "route_engine", None) is not None
         and getattr(app.state, "realtime_provider", None) is not None
     ):
         return
@@ -70,5 +71,6 @@ async def setup_sendai_on_startup(app, mode: str) -> None:
 
     app.state.transit_dataset = dataset
     app.state.route_backend = backend
+    app.state.route_engine = backend
     app.state.realtime_provider = create_sendai_realtime_provider()
     app.state.loading_status = "ready"

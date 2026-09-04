@@ -236,6 +236,10 @@ async def setup_on_startup(app, mode: str) -> None:
         and getattr(app.state, "G", None) is not None
         and getattr(app.state, "TM", None) is not None
     ):
+        if getattr(app.state, "route_engine", None) is None:
+            from tokyo_route_engine import TokyoRouteEngine
+
+            app.state.route_engine = TokyoRouteEngine(app)
         print("[INFO] Runtime already initialized; reusing cached data.")
         return
 
@@ -286,6 +290,9 @@ async def setup_on_startup(app, mode: str) -> None:
             )
             asyncio.create_task(fetch_realtime_data_loop(app.state.TM))
 
+            from tokyo_route_engine import TokyoRouteEngine
+
+            app.state.route_engine = TokyoRouteEngine(app)
             app.state.loading_status = "ready"
             return
         except Exception as e:
@@ -368,4 +375,7 @@ async def setup_on_startup(app, mode: str) -> None:
     else:
         print(f"[WARN] GTFS directory not found: {gtfs_dir}")
 
+    from tokyo_route_engine import TokyoRouteEngine
+
+    app.state.route_engine = TokyoRouteEngine(app)
     app.state.loading_status = "ready"

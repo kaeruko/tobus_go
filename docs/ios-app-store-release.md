@@ -11,7 +11,7 @@ Issue #155 の引き継ぎを、都営でGO (`jp.cloxs.go.tokyo`) 固有の実�
 - Flutter flavor / Xcode scheme: `tokyo`
 - Xcode archive configuration: `Release-tokyo`
 - `APP_CITY`: `tokyo`
-- Tokyo production API: `https://bzmpzqtr7kvczwgmyxlbrfkx6q0cldpy.lambda-url.us-west-2.on.aws`
+- Tokyo production API source: Google Drive `tobus_go_api.txt`
 - iOS deployment target: `15.0`
 
 Version/build numberはApp Store Connectの既存状態を確認してから決める。リポジトリの `pubspec.yaml` は現在 `1.0.0+11` だが、workflowはこの値から次のbuild numberを推測しない。
@@ -51,8 +51,8 @@ workflowは次をfail-fastで検証する。
 
 - Xcode 26.6 / Flutter 3.47.0 / CocoaPods 1.16.2
 - `tokyo` schemeが `Release-tokyo` をarchiveする
-- production APIがHTTPSかつlocalhostではない
-- `APP_CITY=tokyo` とproduction `API_BASE` がFlutterの生成設定に入った
+- Google Drive上のproduction APIがHTTPSかつlocalhostではない
+- `APP_CITY=tokyo` がFlutterの生成設定に入り、`API_BASE`が埋め込まれていない
 - provisioning profileのTeam ID / application-identifier / `get-task-allow=false`
 - profileがCIでimportしたApple Distribution証明書を実際に含む
 - profileが期限切れではない

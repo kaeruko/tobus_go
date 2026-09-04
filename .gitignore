@@ -53,6 +53,7 @@ __pycache__/
 env/
 venv/
 .venv/
+.venv*/
 ENV/
 build/
 develop-eggs/
@@ -68,6 +69,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+target/
 data/
 !*.py
 !requirements.txt

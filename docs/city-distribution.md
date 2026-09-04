@@ -42,7 +42,17 @@ nagoya-api  APP_CITY=nagoya
 sendai-api  APP_CITY=sendai
 ```
 
-Sendai backendは未実装の間、Tokyo/Nagoyaを代替提供せず起動時に失敗する。
+Tokyo / Sendaiのreleaseアプリは、Google Driveの共有 `api` フォルダにある
+都市別テキストファイルから起動時にAPI URLを取得する。各ファイルはHTTPSの
+ベースURLを空行なしの1行だけで保持する。
+
+| city | Drive file | file ID |
+| --- | --- | --- |
+| Tokyo | `tobus_go_api.txt` | `11eVn1V2mO7x8wPF-Kg9ZExmA-fqTReQ4` |
+| Sendai | `sendaigo_api.txt` | `1Frhq_kZt6kEX_smdSdlcKsmTv4vLnjEf` |
+
+debug/profileでは開発用の`API_BASE`を明示すると上書きできる。releaseでは
+Tokyo / Sendaiとも`API_BASE`を埋め込まず、Driveの値を常に使用する。
 
 ## Firebase
 
@@ -56,10 +66,11 @@ Nagoya / Sendai route-only appはFirebaseを初期化しない。Tokyo設定へf
 
 ```powershell
 .\scripts\build_aab.ps1 -City tokyo
+.\scripts\build_aab.ps1 -City sendai
 .\scripts\build_aab.ps1 -City nagoya -ApiBase 'https://<nagoya-api>'
 ```
 
-Nagoya / Sendaiで`ApiBase`を省略した場合は停止する。Tokyo APIへのfallbackはしない。
+Nagoya / Yokohamaで`ApiBase`を省略した場合は停止する。別都市APIへのfallbackはしない。
 
 ## Store metadata
 

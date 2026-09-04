@@ -24,14 +24,17 @@ Future<void> main() async {
   final cityProfile = container.read(cityProfileProvider);
 
   final String explicitApiBase = kApiBaseOverride.trim();
-  if (cityProfile.city == AppCity.tokyo) {
+  final String? googleDriveFileId = apiGoogleDriveFileIdForCity(
+    cityProfile.city,
+  );
+  if (googleDriveFileId != null) {
     // Store builds must always use the remotely managed endpoint. An explicit
     // override is allowed only for local debug/profile development.
     if (!kReleaseMode && explicitApiBase.isNotEmpty) {
       configureApiBase(parseExplicitApiBaseOverride(explicitApiBase));
     } else {
       final Uri apiBaseUri = await loadApiBaseUriFromGoogleDrive(
-        googleDriveFileId: kTokyoApiGoogleDriveFileId,
+        googleDriveFileId: googleDriveFileId,
       );
       configureApiBase(apiBaseUri);
     }
@@ -40,8 +43,8 @@ Future<void> main() async {
   } else {
     throw StateError(
       'No runtime API endpoint source is configured for ${cityProfile.key}. '
-      'Provide API_BASE explicitly until this city has its own Google Drive '
-      'endpoint file.',
+      'Provide API_BASE explicitly until this city has a Google Drive '
+      'endpoint file configured.',
     );
   }
 

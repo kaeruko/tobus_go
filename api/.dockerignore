@@ -2,10 +2,13 @@
 .env.*
 !.env.example
 .venv/
+.venv*/
 **/__pycache__/
 *.py[cod]
 tests/
 build/
+benchmarks/
+native/**/target/
 
 # Runtime data is downloaded from S3 into /tmp on the first cold start.
 data/

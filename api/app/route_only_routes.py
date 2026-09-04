@@ -1,20 +1,10 @@
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 from fastapi import Body, HTTPException
-from pydantic import BaseModel
 
-
-class RouteRequest(BaseModel):
-    alat: float
-    alon: float
-    blat: float
-    blon: float
-    pref: str = "cost"
-    start_time: str = "10:00"
-    target_date_str: str | None = None
+from app.route_endpoint import register_route_endpoint
 
 
 def register_route_only_core_routes(
@@ -30,37 +20,10 @@ def register_route_only_core_routes(
     if not city_display_name:
         raise ValueError("route-only city display name is required")
     data_label = warmup_data_label or f"{city_display_name} GTFS data"
-
-    @app.post("/route")
-    async def route_start(req: RouteRequest):
-        if getattr(app.state, "loading_status", "starting") != "ready":
-            raise HTTPException(
-                503,
-                f"Server is warming up (loading {data_label}).",
-            )
-        backend = getattr(app.state, "route_backend", None)
-        if backend is None:
-            raise HTTPException(
-                500,
-                f"{city_display_name} route backend is not initialized",
-            )
-
-        loop = asyncio.get_running_loop()
-        try:
-            return await loop.run_in_executor(
-                None,
-                lambda: backend.search(
-                    alat=req.alat,
-                    alon=req.alon,
-                    blat=req.blat,
-                    blon=req.blon,
-                    pref=req.pref,
-                    start_time=req.start_time,
-                    date_str=req.target_date_str,
-                ),
-            )
-        except (ValueError, RuntimeError) as error:
-            raise HTTPException(422, detail=str(error)) from error
+    register_route_endpoint(
+        app,
+        warmup_message=f"Server is warming up (loading {data_label}).",
+    )
 
     @app.get("/healthz")
     async def healthz():

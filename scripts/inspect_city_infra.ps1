@@ -82,7 +82,7 @@ if ($null -eq $ecr -or [string]::IsNullOrWhiteSpace([string]$ecr.Name)) {
 $lambdaJson = aws lambda get-function-configuration `
     --region $Region `
     --function-name $LambdaFunction `
-    --query "{FunctionName:FunctionName,PackageType:PackageType,Architecture:Architectures[0],AppCity:Environment.Variables.APP_CITY,HasGoogleMapsKey:contains(keys(Environment.Variables), 'GOOGLE_MAPS_API_KEY'),HasNagoyaGtfsDir:contains(keys(Environment.Variables), 'NAGOYA_GTFS_DIR'),HasNagoyaRevision:contains(keys(Environment.Variables), 'NAGOYA_GTFS_EXPECTED_REVISION'),HasNagoyaBundleBucket:contains(keys(Environment.Variables), 'NAGOYA_GTFS_BUNDLE_S3_BUCKET'),HasNagoyaBundleKey:contains(keys(Environment.Variables), 'NAGOYA_GTFS_BUNDLE_S3_KEY'),HasNagoyaBundleSha:contains(keys(Environment.Variables), 'NAGOYA_GTFS_BUNDLE_SHA256'),HasSendaiGtfsDir:contains(keys(Environment.Variables), 'SENDAI_GTFS_DIR'),HasSendaiServiceDate:contains(keys(Environment.Variables), 'SENDAI_GTFS_EXPECTED_SERVICE_DATE'),HasSendaiBundleBucket:contains(keys(Environment.Variables), 'SENDAI_GTFS_BUNDLE_S3_BUCKET'),HasSendaiBundleKey:contains(keys(Environment.Variables), 'SENDAI_GTFS_BUNDLE_S3_KEY'),HasSendaiBundleSha:contains(keys(Environment.Variables), 'SENDAI_GTFS_BUNDLE_SHA256')}" `
+    --query "{FunctionName:FunctionName,PackageType:PackageType,Architecture:Architectures[0],AppCity:Environment.Variables.APP_CITY,RouteSearchCore:Environment.Variables.ROUTE_SEARCH_CORE,HasGoogleMapsKey:contains(keys(Environment.Variables), 'GOOGLE_MAPS_API_KEY'),HasNagoyaGtfsDir:contains(keys(Environment.Variables), 'NAGOYA_GTFS_DIR'),HasNagoyaRevision:contains(keys(Environment.Variables), 'NAGOYA_GTFS_EXPECTED_REVISION'),HasNagoyaBundleBucket:contains(keys(Environment.Variables), 'NAGOYA_GTFS_BUNDLE_S3_BUCKET'),HasNagoyaBundleKey:contains(keys(Environment.Variables), 'NAGOYA_GTFS_BUNDLE_S3_KEY'),HasNagoyaBundleSha:contains(keys(Environment.Variables), 'NAGOYA_GTFS_BUNDLE_SHA256'),HasSendaiGtfsDir:contains(keys(Environment.Variables), 'SENDAI_GTFS_DIR'),HasSendaiServiceDate:contains(keys(Environment.Variables), 'SENDAI_GTFS_EXPECTED_SERVICE_DATE'),HasSendaiBundleBucket:contains(keys(Environment.Variables), 'SENDAI_GTFS_BUNDLE_S3_BUCKET'),HasSendaiBundleKey:contains(keys(Environment.Variables), 'SENDAI_GTFS_BUNDLE_S3_KEY'),HasSendaiBundleSha:contains(keys(Environment.Variables), 'SENDAI_GTFS_BUNDLE_SHA256')}" `
     --output json
 Assert-LastExitCode 'aws lambda get-function-configuration'
 $lambda = $lambdaJson | ConvertFrom-Json
@@ -98,6 +98,16 @@ if ([string]$lambda.AppCity -cne $City) {
 }
 if (-not $lambda.HasGoogleMapsKey) {
     throw "Lambda is missing GOOGLE_MAPS_API_KEY: $LambdaFunction"
+}
+
+$routeSearchCore = if ([string]::IsNullOrWhiteSpace([string]$lambda.RouteSearchCore)) {
+    'python'
+}
+else {
+    [string]$lambda.RouteSearchCore
+}
+if (@('python', 'rust', 'shadow') -notcontains $routeSearchCore) {
+    throw "Lambda ROUTE_SEARCH_CORE is invalid: '$routeSearchCore'"
 }
 
 if ($City -eq 'nagoya') {
@@ -143,6 +153,7 @@ Write-Host "ECR          : $($ecr.Name)"
 Write-Host "ECR URI      : $($ecr.Uri)"
 Write-Host "Lambda       : $($lambda.FunctionName)"
 Write-Host "APP_CITY     : $($lambda.AppCity)"
+Write-Host "Search core  : $routeSearchCore"
 Write-Host "PackageType  : $($lambda.PackageType)"
 Write-Host "Architecture : $($lambda.Architecture)"
 Write-Host "Google key   : configured (value hidden)"
@@ -152,7 +163,7 @@ $functionUrlOutput = @(
     & aws lambda get-function-url-config `
         --region $Region `
         --function-name $LambdaFunction `
-        --query '{FunctionUrl:FunctionUrl,AuthType:AuthType}' `
+        --query '{FunctionUrl:FunctionUrl,AuthType:AuthType,Cors:Cors}' `
         --output json 2>&1
 )
 $functionUrlExitCode = $LASTEXITCODE
@@ -170,6 +181,20 @@ if ([string]::IsNullOrWhiteSpace([string]$functionUrl.FunctionUrl)) {
 }
 if ([string]$functionUrl.AuthType -cne 'NONE') {
     throw "Lambda Function URL must use AuthType=NONE. Actual=$($functionUrl.AuthType)"
+}
+$allowMethods = @($functionUrl.Cors.AllowMethods)
+foreach ($method in @('GET', 'POST')) {
+    if ($allowMethods -notcontains $method) {
+        throw "Lambda Function URL CORS is missing method: $method"
+    }
+}
+if (@($functionUrl.Cors.AllowOrigins) -notcontains '*') {
+    throw 'Lambda Function URL CORS must allow the configured public origin.'
+}
+foreach ($header in @('content-type', 'x-app-city')) {
+    if (@($functionUrl.Cors.AllowHeaders) -notcontains $header) {
+        throw "Lambda Function URL CORS is missing header: $header"
+    }
 }
 
 $policyJson = aws lambda get-policy `

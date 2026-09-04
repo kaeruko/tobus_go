@@ -1,0 +1,299 @@
+{
+  "feed_id": "golden",
+  "service_date": "2026-09-04",
+  "stops": [
+    ["A", "Origin", 35.0000, 139.0000],
+    ["B", "Transfer", 35.0100, 139.0100],
+    ["C", "Tie destination", 35.0200, 139.0200],
+    ["D", "Main destination", 35.0300, 139.0300],
+    ["E", "Night destination", 35.0400, 139.0400],
+    ["F", "Exception destination", 35.0500, 139.0500],
+    ["G", "Transfer only", 35.0600, 139.0600],
+    ["X", "Unreachable", 36.0000, 140.0000]
+  ],
+  "routes": [
+    ["R_FAST_1", "F1"],
+    ["R_FAST_2", "F2"],
+    ["R_DIRECT", "D"],
+    ["R_TIE_A", "TA"],
+    ["R_TIE_B", "TB"],
+    ["R_NIGHT", "N"],
+    ["R_CANCELLED", "C"],
+    ["R_ADDED", "A"],
+    ["R_TRANSFER_ONLY", "G"]
+  ],
+  "services": [
+    ["REGULAR", [true, true, true, true, true, true, true]],
+    ["CANCELLED", [true, true, true, true, true, true, true]],
+    ["ADDED", [false, false, false, false, false, false, false]]
+  ],
+  "service_exceptions": [
+    ["CANCELLED", "2026-09-04", 2],
+    ["ADDED", "2026-09-04", 1]
+  ],
+  "trips": [
+    ["T_TRANSFER_1", "R_FAST_1", "REGULAR", [["A", 600, 600], ["B", 610, 610]]],
+    ["T_TRANSFER_2", "R_FAST_2", "REGULAR", [["B", 612, 612], ["D", 620, 620]]],
+    ["T_TRANSFER_ONLY", "R_TRANSFER_ONLY", "REGULAR", [["B", 613, 613], ["G", 622, 622]]],
+    ["T_DIRECT", "R_DIRECT", "REGULAR", [["A", 605, 605], ["D", 635, 635]]],
+    ["T_TIE_B", "R_TIE_B", "REGULAR", [["A", 700, 700], ["C", 720, 720]]],
+    ["T_TIE_A", "R_TIE_A", "REGULAR", [["A", 700, 700], ["C", 720, 720]]],
+    ["T_NIGHT", "R_NIGHT", "REGULAR", [["A", 1450, 1450], ["E", 1470, 1470]]],
+    ["T_CANCELLED", "R_CANCELLED", "CANCELLED", [["A", 660, 660], ["F", 665, 665]]],
+    ["T_ADDED", "R_ADDED", "ADDED", [["A", 670, 670], ["F", 675, 675]]]
+  ],
+  "cases": [
+    {
+      "name": "fastest_prefers_transfer",
+      "departure_minute": 595,
+      "preference": "fastest",
+      "max_rides": 6,
+      "origins": [["A", 0, 0.0]],
+      "destinations": [["D", 0, 0.0]],
+      "expected": [
+        {
+          "origin_index": 0,
+          "destination_index": 0,
+          "trip_ids": ["T_TRANSFER_1", "T_TRANSFER_2"],
+          "route_ids": ["R_FAST_1", "R_FAST_2"],
+          "stop_ids": ["A", "B", "D"],
+          "departure_minute": 595,
+          "arrival_minute": 620,
+          "final_arrival_minute": 620,
+          "rides": 2,
+          "transfers": 1
+        }
+      ]
+    },
+    {
+      "name": "fewest_transfers_prefers_direct",
+      "departure_minute": 595,
+      "preference": "fewest_transfers",
+      "max_rides": 6,
+      "origins": [["A", 0, 0.0]],
+      "destinations": [["D", 0, 0.0]],
+      "expected": [
+        {
+          "origin_index": 0,
+          "destination_index": 0,
+          "trip_ids": ["T_DIRECT"],
+          "route_ids": ["R_DIRECT"],
+          "stop_ids": ["A", "D"],
+          "departure_minute": 595,
+          "arrival_minute": 635,
+          "final_arrival_minute": 635,
+          "rides": 1,
+          "transfers": 0
+        }
+      ]
+    },
+    {
+      "name": "access_and_egress_walk",
+      "departure_minute": 595,
+      "preference": "fastest",
+      "max_rides": 6,
+      "origins": [["A", 7, 500.0]],
+      "destinations": [["D", 3, 200.0]],
+      "expected": [
+        {
+          "origin_index": 0,
+          "destination_index": 0,
+          "trip_ids": ["T_DIRECT"],
+          "route_ids": ["R_DIRECT"],
+          "stop_ids": ["A", "D"],
+          "departure_minute": 602,
+          "arrival_minute": 635,
+          "final_arrival_minute": 638,
+          "rides": 1,
+          "transfers": 0
+        }
+      ]
+    },
+    {
+      "name": "calendar_dates_override",
+      "departure_minute": 650,
+      "preference": "fastest",
+      "max_rides": 6,
+      "origins": [["A", 0, 0.0]],
+      "destinations": [["F", 0, 0.0]],
+      "expected": [
+        {
+          "origin_index": 0,
+          "destination_index": 0,
+          "trip_ids": ["T_ADDED"],
+          "route_ids": ["R_ADDED"],
+          "stop_ids": ["A", "F"],
+          "departure_minute": 650,
+          "arrival_minute": 675,
+          "final_arrival_minute": 675,
+          "rides": 1,
+          "transfers": 0
+        }
+      ]
+    },
+    {
+      "name": "after_midnight_gtfs_time",
+      "departure_minute": 1440,
+      "preference": "fastest",
+      "max_rides": 6,
+      "origins": [["A", 0, 0.0]],
+      "destinations": [["E", 0, 0.0]],
+      "expected": [
+        {
+          "origin_index": 0,
+          "destination_index": 0,
+          "trip_ids": ["T_NIGHT"],
+          "route_ids": ["R_NIGHT"],
+          "stop_ids": ["A", "E"],
+          "departure_minute": 1440,
+          "arrival_minute": 1470,
+          "final_arrival_minute": 1470,
+          "rides": 1,
+          "transfers": 0
+        }
+      ]
+    },
+    {
+      "name": "initial_walk_crosses_midnight",
+      "departure_minute": 1439,
+      "preference": "fastest",
+      "max_rides": 6,
+      "origins": [["A", 2, 120.0]],
+      "destinations": [["E", 0, 0.0]],
+      "expected": [
+        {
+          "origin_index": 0,
+          "destination_index": 0,
+          "trip_ids": ["T_NIGHT"],
+          "route_ids": ["R_NIGHT"],
+          "stop_ids": ["A", "E"],
+          "departure_minute": 1441,
+          "arrival_minute": 1470,
+          "final_arrival_minute": 1470,
+          "rides": 1,
+          "transfers": 0
+        }
+      ]
+    },
+    {
+      "name": "stable_tie_break",
+      "departure_minute": 690,
+      "preference": "fastest",
+      "max_rides": 6,
+      "origins": [["A", 0, 0.0]],
+      "destinations": [["C", 0, 0.0]],
+      "expected": [
+        {
+          "origin_index": 0,
+          "destination_index": 0,
+          "trip_ids": ["T_TIE_A"],
+          "route_ids": ["R_TIE_A"],
+          "stop_ids": ["A", "C"],
+          "departure_minute": 690,
+          "arrival_minute": 720,
+          "final_arrival_minute": 720,
+          "rides": 1,
+          "transfers": 0
+        }
+      ]
+    },
+    {
+      "name": "max_rides_blocks_transfer",
+      "departure_minute": 595,
+      "preference": "fastest",
+      "max_rides": 1,
+      "origins": [["A", 0, 0.0]],
+      "destinations": [["G", 0, 0.0]],
+      "expected": []
+    },
+    {
+      "name": "route_not_found",
+      "departure_minute": 595,
+      "preference": "fastest",
+      "max_rides": 6,
+      "origins": [["A", 0, 0.0]],
+      "destinations": [["X", 0, 0.0]],
+      "expected": []
+    },
+    {
+      "name": "origin_is_destination",
+      "departure_minute": 595,
+      "preference": "fastest",
+      "max_rides": 6,
+      "origins": [["A", 2, 100.0]],
+      "destinations": [["A", 3, 200.0]],
+      "expected": [
+        {
+          "origin_index": 0,
+          "destination_index": 0,
+          "trip_ids": [],
+          "route_ids": [],
+          "stop_ids": [],
+          "departure_minute": 597,
+          "arrival_minute": 597,
+          "final_arrival_minute": 600,
+          "rides": 0,
+          "transfers": 0
+        }
+      ]
+    },
+    {
+      "name": "batched_origin_destination_pairs",
+      "departure_minute": 595,
+      "preference": "fastest",
+      "max_rides": 6,
+      "origins": [["A", 0, 0.0], ["B", 0, 0.0]],
+      "destinations": [["D", 0, 0.0], ["G", 0, 0.0]],
+      "expected": [
+        {
+          "origin_index": 0,
+          "destination_index": 0,
+          "trip_ids": ["T_TRANSFER_1", "T_TRANSFER_2"],
+          "route_ids": ["R_FAST_1", "R_FAST_2"],
+          "stop_ids": ["A", "B", "D"],
+          "departure_minute": 595,
+          "arrival_minute": 620,
+          "final_arrival_minute": 620,
+          "rides": 2,
+          "transfers": 1
+        },
+        {
+          "origin_index": 0,
+          "destination_index": 1,
+          "trip_ids": ["T_TRANSFER_1", "T_TRANSFER_ONLY"],
+          "route_ids": ["R_FAST_1", "R_TRANSFER_ONLY"],
+          "stop_ids": ["A", "B", "G"],
+          "departure_minute": 595,
+          "arrival_minute": 622,
+          "final_arrival_minute": 622,
+          "rides": 2,
+          "transfers": 1
+        },
+        {
+          "origin_index": 1,
+          "destination_index": 0,
+          "trip_ids": ["T_TRANSFER_2"],
+          "route_ids": ["R_FAST_2"],
+          "stop_ids": ["B", "D"],
+          "departure_minute": 595,
+          "arrival_minute": 620,
+          "final_arrival_minute": 620,
+          "rides": 1,
+          "transfers": 0
+        },
+        {
+          "origin_index": 1,
+          "destination_index": 1,
+          "trip_ids": ["T_TRANSFER_ONLY"],
+          "route_ids": ["R_TRANSFER_ONLY"],
+          "stop_ids": ["B", "G"],
+          "departure_minute": 595,
+          "arrival_minute": 622,
+          "final_arrival_minute": 622,
+          "rides": 1,
+          "transfers": 0
+        }
+      ]
+    }
+  ]
+}
