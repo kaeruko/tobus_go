@@ -66,10 +66,17 @@ void main() {
     );
   });
 
-  test('explicit override accepts local http for development', () {
+  test('explicit override accepts localhost http for development', () {
     expect(
       parseExplicitApiBaseOverride('http://127.0.0.1:8000/'),
       Uri.parse('http://127.0.0.1:8000'),
+    );
+  });
+
+  test('explicit override accepts Android emulator host http', () {
+    expect(
+      parseExplicitApiBaseOverride('http://10.0.2.2:8001/'),
+      Uri.parse('http://10.0.2.2:8001'),
     );
   });
 
