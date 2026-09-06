@@ -80,8 +80,26 @@ void main() {
 
     expect(find.text('横浜駅'), findsOneWidget);
     expect(find.text('山下公園'), findsOneWidget);
+    expect(find.text('通常払い'), findsNothing);
     expect(find.text('今回の支払 220円'), findsOneWidget);
     expect(find.text('008系統'), findsOneWidget);
     expect(find.text('横浜駅前 → 山下公園前'), findsOneWidget);
+  });
+
+  testWidgets('normal fare summary disappears when it has no fare amounts', (
+    tester,
+  ) async {
+    const fare = FareQuote(
+      policyId: 'normal',
+      settlementType: 'normal',
+      status: 'unavailable',
+    );
+
+    await tester.pumpWidget(
+      const CupertinoApp(home: FareSummary(fare: fare)),
+    );
+
+    expect(find.text('通常払い'), findsNothing);
+    expect(find.byType(Container), findsNothing);
   });
 }
