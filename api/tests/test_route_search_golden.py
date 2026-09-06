@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import importlib.util
 import unittest
+from dataclasses import replace
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -269,6 +270,60 @@ class RouteSearchGoldenTest(unittest.TestCase):
                 "origin_is_destination",
                 "batched_origin_destination_pairs",
             }.issubset(names)
+        )
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("_transit_search_core") is not None,
+        "Rust extension is not installed",
+    )
+    def test_rust_matches_python_without_active_services(self) -> None:
+        from rust_transit_search_core import RustTransitSearchCore
+        from search_core_factory import _result_signature
+
+        for preference in ("fastest", "fewest_transfers"):
+            for destinations in (
+                (SearchEndpoint("golden:D"),),
+                (SearchEndpoint("golden:A"), SearchEndpoint("golden:D")),
+            ):
+                with self.subTest(preference=preference, destinations=destinations):
+                    request = BatchSearchRequest(
+                        service_date=date(2027, 1, 1),
+                        departure_minute=595,
+                        origins=(SearchEndpoint("golden:A", 2), SearchEndpoint("golden:B")),
+                        destinations=destinations,
+                        preference=preference,
+                        limits=SearchLimits(max_visited_states=1),
+                    )
+                    python_result = PythonTransitSearchCore(self.dataset).search(request)
+                    rust_result = RustTransitSearchCore(self.dataset).search(request)
+                    self.assertEqual(
+                        _result_signature(rust_result, request),
+                        _result_signature(python_result, request),
+                    )
+
+    @unittest.skipUnless(
+        importlib.util.find_spec("_transit_search_core") is not None,
+        "Rust extension is not installed",
+    )
+    def test_rust_matches_python_with_exception_only_unused_service(self) -> None:
+        from rust_transit_search_core import RustTransitSearchCore
+        from search_core_factory import _result_signature
+
+        day = date(2027, 1, 1)
+        dataset = replace(
+            self.dataset,
+            service_exceptions=(ServiceException("golden:unused", day, 1),),
+        )
+        request = BatchSearchRequest(
+            service_date=day,
+            departure_minute=595,
+            origins=(SearchEndpoint("golden:A"),),
+            destinations=(SearchEndpoint("golden:D"),),
+            preference="fastest",
+        )
+        self.assertEqual(
+            _result_signature(RustTransitSearchCore(dataset).search(request), request),
+            _result_signature(PythonTransitSearchCore(dataset).search(request), request),
         )
 
     def test_safety_limit_uses_shared_error_and_diagnostics(self) -> None:

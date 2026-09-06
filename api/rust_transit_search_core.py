@@ -39,7 +39,9 @@ class RustTransitSearchCore:
         self._trip_ids = tuple(sorted(dataset.trips))
         service_ids = {
             trip.service_id for trip in dataset.trips.values()
-        } | set(dataset.calendars)
+        } | set(dataset.calendars) | {
+            exception.service_id for exception in dataset.service_exceptions
+        }
         self._service_ids = tuple(sorted(service_ids))
         self._stop_indices = {
             stop_id: index for index, stop_id in enumerate(self._stop_ids)

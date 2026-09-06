@@ -123,13 +123,6 @@ fn search_origin(
     started: Instant,
     counters: &mut Counters,
 ) -> Result<Vec<Option<crate::model::Itinerary>>, String> {
-    let state_width = max_rides as usize + 1;
-    let state_count = index
-        .stop_count
-        .checked_mul(state_width)
-        .ok_or_else(|| "search state size overflow".to_string())?;
-    let mut best_labels: Vec<Option<(u32, PathKey)>> = vec![None; state_count];
-    let mut predecessor: Vec<Option<(usize, Leg)>> = vec![None; state_count];
     let mut found = vec![None; destinations.len()];
     let mut remaining = destinations.len();
 
@@ -143,10 +136,19 @@ fn search_origin(
             remaining -= 1;
         }
     }
-    if remaining == 0 {
+    // Preserve zero-ride results, but do not explore or allocate search states
+    // when the service calendar has no active services (as in the Python core).
+    if remaining == 0 || !active_services.iter().any(|active| *active) {
         return Ok(found);
     }
 
+    let state_width = max_rides as usize + 1;
+    let state_count = index
+        .stop_count
+        .checked_mul(state_width)
+        .ok_or_else(|| "search state size overflow".to_string())?;
+    let mut best_labels: Vec<Option<(u32, PathKey)>> = vec![None; state_count];
+    let mut predecessor: Vec<Option<(usize, Leg)>> = vec![None; state_count];
     let start_state = state_index(origin_stop_index, 0, state_width);
     best_labels[start_state] = Some((departure_minute, Vec::new()));
     let mut queue = BinaryHeap::new();
@@ -372,5 +374,57 @@ mod tests {
         assert_eq!(result.pairs[1].itinerary.arrival_minute, 620);
         assert_eq!(result.pairs[1].itinerary.legs.len(), 2);
         assert_eq!(result.diagnostics.termination_reason, "completed");
+    }
+
+    #[test]
+    fn inactive_services_preserve_zero_ride_pairs_without_exploring() {
+        for preference in [Preference::Fastest, Preference::FewestTransfers] {
+            let result = search(
+                &tiny_index(),
+                &[false],
+                595,
+                &[
+                    Endpoint {
+                        stop_index: 0,
+                        walk_minutes: 2,
+                    },
+                    Endpoint {
+                        stop_index: 1,
+                        walk_minutes: 0,
+                    },
+                ],
+                &[
+                    Endpoint {
+                        stop_index: 0,
+                        walk_minutes: 3,
+                    },
+                    Endpoint {
+                        stop_index: 2,
+                        walk_minutes: 0,
+                    },
+                ],
+                preference,
+                6,
+                Limits {
+                    max_visited_states: 1,
+                    max_queue_size: 1,
+                    max_generated_labels: 1,
+                    time_limit_seconds: 1.0,
+                },
+            )
+            .unwrap();
+
+            assert_eq!(result.pairs.len(), 1);
+            assert_eq!(result.pairs[0].origin_index, 0);
+            assert_eq!(result.pairs[0].destination_index, 0);
+            assert_eq!(result.pairs[0].itinerary.departure_minute, 597);
+            assert_eq!(result.pairs[0].itinerary.arrival_minute, 597);
+            assert!(result.pairs[0].itinerary.legs.is_empty());
+            assert_eq!(result.diagnostics.visited_states, 0);
+            assert_eq!(result.diagnostics.queue_peak, 0);
+            assert_eq!(result.diagnostics.generated_labels, 0);
+            assert_eq!(result.diagnostics.origin_searches, 2);
+            assert_eq!(result.diagnostics.termination_reason, "completed");
+        }
     }
 }
