@@ -93,14 +93,17 @@ Uri parseExplicitApiBaseOverride(String raw) {
     throw FormatException('API_BASE is not a valid absolute URI.', raw);
   }
 
-  final bool isLocalHost =
-      parsed.host == '127.0.0.1' || parsed.host == 'localhost';
-  final bool validScheme = parsed.scheme == 'https' ||
-      (isLocalHost && parsed.scheme == 'http');
+  final bool isDevelopmentHost =
+      parsed.host == '127.0.0.1' ||
+      parsed.host == 'localhost' ||
+      parsed.host == '10.0.2.2';
+  final bool validScheme =
+      parsed.scheme == 'https' ||
+      (isDevelopmentHost && parsed.scheme == 'http');
   if (!validScheme) {
     throw StateError(
-      'API_BASE must use https, except http is allowed for localhost. '
-      'URI=$parsed',
+      'API_BASE must use https, except http is allowed for local development '
+      'hosts (localhost, 127.0.0.1, 10.0.2.2). URI=$parsed',
     );
   }
 
