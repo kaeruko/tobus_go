@@ -283,6 +283,11 @@ class FareSummary extends StatelessWidget {
       lines.add('支給後の実質 ${quote.effectiveFareYen}円');
     }
 
+    final showSettlementLabel = quote.settlementType != 'normal';
+    if (!showSettlementLabel && lines.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Container(
@@ -295,11 +300,13 @@ class FareSummary extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              quote.settlementLabel,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
+            if (showSettlementLabel) ...[
+              Text(
+                quote.settlementLabel,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              if (lines.isNotEmpty) const SizedBox(height: 4),
+            ],
             for (final line in lines) Text(line),
           ],
         ),
