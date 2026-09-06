@@ -282,9 +282,6 @@ class FareSummary extends StatelessWidget {
         quote.effectiveFareYen != null) {
       lines.add('支給後の実質 ${quote.effectiveFareYen}円');
     }
-    if (!quote.isAvailable) {
-      lines.add('この経路では通常運賃を厳密計算できません');
-    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
