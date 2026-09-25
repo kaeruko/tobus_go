@@ -90,6 +90,9 @@ void main() {
     tester,
   ) async {
     const fare = FareQuote(
+      normalFareYen: null,
+      payNowYen: null,
+      effectiveFareYen: null,
       policyId: 'normal',
       settlementType: 'normal',
       status: 'unavailable',
