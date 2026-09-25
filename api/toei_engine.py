@@ -869,7 +869,7 @@ class TimetableManager:
             target_dict = self.bus_departures_weekday
         return target_dict.get(pole_id, {}).get(route_id)
 
-    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False):
+    def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False, use_realtime=True):
         if not debug:
             dbg_env = os.getenv("DEBUG_BUS", "0")
             if dbg_env == "1":
@@ -877,7 +877,11 @@ class TimetableManager:
             elif dbg_env != "0" and pole_name and dbg_env in pole_name:
                 debug = True
 
-        delay_min = self.bus_realtime_delays.get(route_id, 0.0)
+        delay_min = (
+            self.bus_realtime_delays.get(route_id, 0.0)
+            if use_realtime
+            else 0.0
+        )
         effective_search_time = current_time_min - delay_min
 
         candidate_trips = self._bus_candidates_for_day(
@@ -1006,21 +1010,29 @@ class TimetableManager:
                     break
         return out
 
-    def get_next_train_arrival(self, current_sta, next_sta, current_time_min, day_type="weekday", delays_snapshot=None):
+    def get_next_train_arrival(self, current_sta, next_sta, current_time_min, day_type="weekday", delays_snapshot=None, use_realtime=True):
         # 1. Suspension Check
         railway_id = self._guess_railway_id(current_sta)
-        if railway_id and railway_id in self.train_service_suspended:
+        if (
+            use_realtime
+            and railway_id
+            and railway_id in self.train_service_suspended
+        ):
             return None # Line suspended
 
         target_dict = self.train_patterns_weekday if day_type == "weekday" else self.train_patterns_weekend
         trains = target_dict.get(current_sta)
         if not trains: return None
         
-        delays_source = delays_snapshot if delays_snapshot is not None else self.realtime_delays
+        delays_source = (
+            delays_snapshot
+            if use_realtime and delays_snapshot is not None
+            else (self.realtime_delays if use_realtime else {})
+        )
         
         # 2. Status Text Fallback Check
         status_delay_penalty = 0.0
-        if railway_id:
+        if use_realtime and railway_id:
             text = self.train_status_text.get(railway_id, "")
             if "遅延" in text:
                  # If explicit delay data is missing but text says delay, apply penalty
@@ -1215,7 +1227,7 @@ def nearest_phys(G, lat, lon, station_only=False, spatial_index=None):
     return best, bestd
 
 # -------------------- 共通ロジック: 時間計算ヘルパー --------------------
-def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=None, **kwargs):
+def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=None, use_realtime=True, **kwargs):
     if G.has_edge(u, v):
         edge = G.edges[u, v]
         etype = edge.get("etype")
@@ -1240,7 +1252,8 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=Non
                 u[1], route_id, curr_time,
                 pole_name=stop_name,
                 day_type=day_type,
-                target_pole_id=target_pid
+                target_pole_id=target_pid,
+                use_realtime=use_realtime,
             )
             if dep is None:
                 return None
@@ -1252,7 +1265,14 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=Non
     if etype == "ride":
         mode = edge.get("mode")
         if mode == "rail":
-            arr = tm.get_next_train_arrival(u[1], v[1], curr_time, day_type=day_type, delays_snapshot=delays_snapshot)
+            arr = tm.get_next_train_arrival(
+                u[1],
+                v[1],
+                curr_time,
+                day_type=day_type,
+                delays_snapshot=delays_snapshot,
+                use_realtime=use_realtime,
+            )
             return arr
         elif mode == "bus":
             if meters > 0:
@@ -1281,7 +1301,7 @@ def path_to_coords(G, path):
             points.append([d["lat"], d["lon"]])
     return points
 
-def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None):
+def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None, use_realtime=True):
     d = datetime.date.today()
     if target_date_str:
         try:
@@ -1304,7 +1324,7 @@ def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limi
     
     # メインの探索ロジック(search_best_routes)を呼び出し
     # ここで graph探索(Dijkstra/A*) が走る
-    candidates = search_best_routes(G, tm, a_phys, mode, start_time, limit, start_dt, target_node=target_node, day_type=day_type, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
+    candidates = search_best_routes(G, tm, a_phys, mode, start_time, limit, start_dt, target_node=target_node, day_type=day_type, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime)
     
     # 探索結果があれば、メタデータ（出発日時、提案タイプなど）を付与して返す
     if candidates:
@@ -1316,7 +1336,7 @@ def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limi
     # 候補が見つからなかった場合は空リストを返す
     return []
 
-def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None):
+def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None, use_realtime=True):
     """
     指定された出発地(a_phys)から目的地(b_phys)までの経路を探索し、候補リストを返す関数。
     
@@ -1368,7 +1388,7 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
     
     candidates = []
     # 遅延情報のスナップショットを取得 (探索中盤で遅延情報が変わると整合性が取れなくなるため固定化)
-    delays_snapshot = tm.get_delays_snapshot()
+    delays_snapshot = tm.get_delays_snapshot() if use_realtime else {}
 
     # 2. 探索モードによる分岐
     if mode == "time" or mode == "fast":
@@ -1381,7 +1401,7 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
             f"start_time={start_time} day_type={day_type}",
             flush=True,
         )
-        arr_min, path = find_fastest_path(G, tm, a_phys, target_node, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
+        arr_min, path = find_fastest_path(G, tm, a_phys, target_node, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime)
         print(
             "[ROUTE_DEBUG] fastest search raw result: "
             f"arr_min={arr_min} path_found={path is not None} "
@@ -1390,7 +1410,7 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
         )
         if path:
             # 時刻表に基づいて到着時刻を再計算・検証
-            real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
+            real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, use_realtime=use_realtime)
             print(
                 "[ROUTE_DEBUG] fastest validation: "
                 f"real_arr={real_arr} valid={real_arr is not None}",
@@ -1407,7 +1427,7 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
 
         if path:
             # 経路が見つかった場合、詳細セグメント(UI用データ)を生成
-            segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
+            segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, use_realtime=use_realtime)
             if not segs:
                 return []
             lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
@@ -1440,17 +1460,17 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
         # コスト/楽さ優先モード (Comfort Path)
         # A*探索などで複数の経路候補をジェネレータとして取得
         if mode == "fewTransfers":
-            path_gen = find_few_transfers_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
+            path_gen = find_few_transfers_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime)
         else:
-            path_gen = find_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
+            path_gen = find_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime)
         valid_count = 0
         for cand in path_gen:
             path = cand["path"]
             # 各候補について到着時刻を計算
-            real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
+            real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, use_realtime=use_realtime)
             if real_arr is not None:
                 # 詳細情報の構築
-                segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
+                segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, use_realtime=use_realtime)
                 if not segs:
                     continue
                 lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
@@ -1488,7 +1508,7 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
                 if valid_count >= limit: break
     return candidates
 
-def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_search=30000, max_visited=15000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, time_limit_sec=15.0, virtual_dest_connections=None, target_coords=None):
+def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_search=30000, max_visited=15000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, time_limit_sec=15.0, virtual_dest_connections=None, target_coords=None, use_realtime=True):
     import time
     _mem_log("find_paths_generator start")
     start_clock = time.monotonic()
@@ -1589,7 +1609,16 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
             edge = G[u][v]
             w = edge.get("w", 0.0)
             meters = edge.get("meters", 0.0)
-            next_time = advance_time(G, tm, u, v, curr_time, day_type, delays_snapshot)
+            next_time = advance_time(
+                G,
+                tm,
+                u,
+                v,
+                curr_time,
+                day_type,
+                delays_snapshot,
+                use_realtime=use_realtime,
+            )
             if next_time is None or next_time - start_min > max_travel_min: continue
 
             new_total_walk_m = total_walk_m
@@ -1627,6 +1656,7 @@ def find_few_transfers_paths_generator(
     time_limit_sec=15.0,
     virtual_dest_connections=None,
     target_coords=None,
+    use_realtime=True,
 ):
     """Yield paths ordered by boardings first, then legacy comfort cost.
 
@@ -1771,6 +1801,7 @@ def find_few_transfers_paths_generator(
                 curr_time,
                 day_type,
                 delays_snapshot,
+                use_realtime=use_realtime,
             )
             if (
                 next_time is None
@@ -1817,7 +1848,7 @@ def find_few_transfers_paths_generator(
 
     _mem_log("find_few_transfers_paths_generator end")
 
-def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None, target_coords=None):
+def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None, target_coords=None, use_realtime=True):
     import time
     start_clock = time.monotonic()
     
@@ -1887,7 +1918,17 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
             edge = G[u][v]
             etype = edge.get("etype")
             meters = edge.get("meters", 0)
-            next_time = advance_time(G, tm, u, v, curr_time, day_type, delays_snapshot, target_pole_id=None) 
+            next_time = advance_time(
+                G,
+                tm,
+                u,
+                v,
+                curr_time,
+                day_type,
+                delays_snapshot,
+                use_realtime=use_realtime,
+                target_pole_id=None,
+            ) 
             if next_time is None: continue
 
             if edge.get("etype") == "walk":
@@ -1908,7 +1949,7 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
                  heapq.heappush(pq, (next_time, v, new_chain_idx, new_tot, new_seg))
     return None, None
 
-def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", day_type="weekday", max_search=30000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None):
+def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", day_type="weekday", max_search=30000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None, use_realtime=True):
     start_min = time_str_to_min(start_time_str)
     curr_time = start_min
     active_bus_leg = None
@@ -1985,6 +2026,7 @@ def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", day_type="w
                 curr_time,
                 day_type,
                 delays_snapshot,
+                use_realtime=use_realtime,
                 target_pole_id=None,
             )
             
@@ -1992,7 +2034,7 @@ def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", day_type="w
         curr_time = next_time
     return curr_time
 
-def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", delays_snapshot=None, virtual_dest_connections=None):
+def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", delays_snapshot=None, virtual_dest_connections=None, use_realtime=True):
     """
     探索されたパス(ノード列)を解析し、UI表示用のセグメント(移動行程)のリストを生成する。
     
@@ -2197,7 +2239,14 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             
             # 時間を経過させる (電車は時刻表、その他は距離ベース)
             if mode == "rail":
-                arr = tm.get_next_train_arrival(u[1], v[1], curr_time, day_type, delays_snapshot)
+                arr = tm.get_next_train_arrival(
+                    u[1],
+                    v[1],
+                    curr_time,
+                    day_type,
+                    delays_snapshot,
+                    use_realtime=use_realtime,
+                )
                 if arr: curr_time = arr
                 else: curr_time += edge.get("w", 2.0)
             else:

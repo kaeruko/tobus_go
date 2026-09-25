@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import datetime
 import gc
 import math
 from dataclasses import dataclass
 from typing import Any, Callable
+from zoneinfo import ZoneInfo
 
 from app.services.route_step_ids import assign_candidate_step_ids
 from route_engine import (
@@ -24,6 +26,45 @@ from toei_engine import (
 )
 
 
+_TOKYO_TIMEZONE = ZoneInfo("Asia/Tokyo")
+_REALTIME_SEARCH_HORIZON_MINUTES = 60
+_REALTIME_SEARCH_PAST_GRACE_MINUTES = 5
+
+
+def _tokyo_now() -> datetime.datetime:
+    return datetime.datetime.now(_TOKYO_TIMEZONE)
+
+
+def _should_use_realtime(
+    *,
+    date_str: str | None,
+    start_time: str,
+    now: datetime.datetime,
+) -> bool:
+    if now.tzinfo is None:
+        raise ValueError("Tokyo route realtime policy requires a timezone-aware now")
+
+    now_tokyo = now.astimezone(_TOKYO_TIMEZONE)
+    service_date = (
+        datetime.date.fromisoformat(date_str)
+        if date_str is not None
+        else now_tokyo.date()
+    )
+    hour, minute = map(int, start_time.split(":"))
+    departure_at = datetime.datetime(
+        service_date.year,
+        service_date.month,
+        service_date.day,
+        tzinfo=_TOKYO_TIMEZONE,
+    ) + datetime.timedelta(hours=hour, minutes=minute)
+    delta_minutes = (departure_at - now_tokyo).total_seconds() / 60.0
+    return (
+        -_REALTIME_SEARCH_PAST_GRACE_MINUTES
+        <= delta_minutes
+        <= _REALTIME_SEARCH_HORIZON_MINUTES
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class TokyoRouteDependencies:
     nearest_phys: Callable[..., Any] = nearest_phys
@@ -39,6 +80,7 @@ class TokyoRouteDependencies:
         assign_candidate_step_ids
     )
     rss_mb: Callable[[], float] = _rss_mb
+    now: Callable[[], datetime.datetime] = _tokyo_now
 
 
 class TokyoRouteEngine:
@@ -95,10 +137,16 @@ class TokyoRouteEngine:
         """Run Tokyo search and preserve its Flutter-compatible dictionary."""
 
         deps = self.dependencies
+        use_realtime = _should_use_realtime(
+            date_str=date_str,
+            start_time=start_time,
+            now=deps.now(),
+        )
         print(f"[MEM] enter TokyoRouteEngine.search rss={deps.rss_mb():.1f}MB")
         print(
             "[USER_DEBUG] TokyoRouteEngine.search: "
-            f"pref={pref}, start_time={start_time}, date_str={date_str}",
+            f"pref={pref}, start_time={start_time}, date_str={date_str}, "
+            f"use_realtime={use_realtime}",
             flush=True,
         )
 
@@ -190,6 +238,7 @@ class TokyoRouteEngine:
                 day_type=day_type,
                 virtual_dest_connections=virtual_connections,
                 target_coords=[blat, blon],
+                use_realtime=use_realtime,
             )
             print(
                 "[ROUTE_DEBUG] Tokyo primary search done: "
@@ -215,6 +264,7 @@ class TokyoRouteEngine:
                 day_type=day_type,
                 virtual_dest_connections=None,
                 target_coords=None,
+                use_realtime=use_realtime,
             )
             print(
                 "[ROUTE_DEBUG] Tokyo fallback search done: "
@@ -293,5 +343,6 @@ class TokyoRouteEngine:
                 "fallback_node_name": fallback_node_name,
                 "fallback_distance_m": fallback_distance_m,
                 "walk_limit_m": MAX_WALK_SEG_M,
+                "realtime_applied": use_realtime,
             },
         }
