@@ -25,18 +25,6 @@ class SoloTripScreen extends StatelessWidget {
   const SoloTripScreen({super.key, required this.tripId});
 
   @override
-  void dispose() {
-    debugPrint(
-      '[SoloTripLifecycle] dispose '
-      'tripId=${widget.tripId} '
-      'completionRequested=$_completionRequested '
-      'completionFailed=$_completionFailed '
-      'cancelling=$_cancelling',
-    );
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return ProviderScope(
       overrides: [
@@ -80,6 +68,18 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
       ref.read(memberNavProgressProvider.notifier).reset();
       ref.read(memberModeControllerProvider.notifier).initialize();
     });
+  }
+
+  @override
+  void dispose() {
+    debugPrint(
+      '[SoloTripLifecycle] dispose '
+      'tripId=${widget.tripId} '
+      'completionRequested=$_completionRequested '
+      'completionFailed=$_completionFailed '
+      'cancelling=$_cancelling',
+    );
+    super.dispose();
   }
 
   @override
