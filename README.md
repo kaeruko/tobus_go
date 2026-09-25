@@ -62,6 +62,23 @@ AndroidエミュレータからホストPC上のAPIへ接続するため、`127.
 
 Flutter側ではnative flavorと`APP_CITY`の不一致をエラーにするため、東京版では両方を`tokyo`に合わせてください。
 
+### Androidエミュレーター全体が黒い場合
+
+Androidのホーム画面まで黒い場合は、エミュレーターの描画設定を確認してください。
+
+1. エミュレーターを終了します。
+2. Android StudioのDevice Managerで対象端末を編集し、Graphicsを **Software** に変更して保存します。
+3. 対象端末のメニューから **Cold Boot** で起動します。
+4. ホーム画面が表示されたら、アプリを起動します。既定のクラウドAPIを使う場合は次のコマンドです。ローカルAPIを使う場合は上記の`--dart-define`も指定してください。
+
+```powershell
+flutter run --flavor tokyo
+```
+
+Flutterの`--enable-software-rendering`はFlutter側の描画設定で、エミュレーター自体のGPU設定は変更しません。エミュレーター側のSoftware設定とCold Bootで表示が復旧した環境では、Flutterの描画オプションを追加せずに起動できます。設定の詳細は[Android公式ガイド](https://developer.android.com/studio/run/emulator-acceleration#accel-graphics)を参照してください。
+
+`GoogleApiManager`の`Unknown calling package name 'com.google.android.gms'`は、画面が正常に表示されていても出ることがあります。このログだけで起動失敗の原因と判断せず、端末の表示状態と終了直前のログを確認してください。
+
 ## APIの詳細
 
 他都市のローカルAPI起動手順は [api/README.md](api/README.md) を参照してください。
