@@ -1879,20 +1879,57 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
 
     while pq:
         if visited_count > 0 and visited_count % 100 == 0:
-            if time.monotonic() - start_clock > TIME_LIMIT_SEC:
-                print(f"[WARN] Fastest path search timeout. Visited {visited_count}.", flush=True)
+            elapsed = time.monotonic() - start_clock
+            if elapsed > TIME_LIMIT_SEC:
+                print(
+                    "[ROUTE_DEBUG] fastest abort: "
+                    f"reason=time_limit visited={visited_count} "
+                    f"pq={len(pq)} visited_states={len(visited_time)} "
+                    f"min_states={len(min_time)} elapsed_sec={elapsed:.3f}",
+                    flush=True,
+                )
                 return None, None
             if len(pq) > 250000 or len(visited_time) > 500000 or len(min_time) > 500000:
-                print(f"[WARN] Search exploded. pq={len(pq)} visited={len(visited_time)} min={len(min_time)}", flush=True)
+                print(
+                    "[ROUTE_DEBUG] fastest abort: "
+                    f"reason=structure_limit visited={visited_count} "
+                    f"pq={len(pq)} visited_states={len(visited_time)} "
+                    f"min_states={len(min_time)} elapsed_sec={elapsed:.3f}",
+                    flush=True,
+                )
                 return None, None
-                
+            if visited_count % 5000 == 0:
+                print(
+                    "[ROUTE_DEBUG] fastest tick: "
+                    f"visited={visited_count} pq={len(pq)} "
+                    f"visited_states={len(visited_time)} "
+                    f"min_states={len(min_time)} elapsed_sec={elapsed:.3f}",
+                    flush=True,
+                )
+
         curr_time, u, chain_idx, total_walk, seg_walk = heapq.heappop(pq)
         visited_count += 1
-        if visited_count > MAX_VISITED: return None, None
+        if visited_count > MAX_VISITED:
+            elapsed = time.monotonic() - start_clock
+            print(
+                "[ROUTE_DEBUG] fastest abort: "
+                f"reason=max_visited visited={visited_count} "
+                f"pq={len(pq)} visited_states={len(visited_time)} "
+                f"min_states={len(min_time)} elapsed_sec={elapsed:.3f}",
+                flush=True,
+            )
+            return None, None
         
         if curr_time - start_min > max_travel_min: continue
         
         if u == target_node:
+            elapsed = time.monotonic() - start_clock
+            print(
+                "[ROUTE_DEBUG] fastest target reached: "
+                f"visited={visited_count} pq={len(pq)} "
+                f"arrival_min={curr_time} elapsed_sec={elapsed:.3f}",
+                flush=True,
+            )
             return curr_time, reconstruct_path_idx(chain_store, chain_idx)
 
         state = (u, int(seg_walk // 25))
@@ -1947,6 +1984,15 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
                  min_time[n_key] = next_time
                  new_chain_idx = _chain_new(chain_store, v, chain_idx)
                  heapq.heappush(pq, (next_time, v, new_chain_idx, new_tot, new_seg))
+
+    elapsed = time.monotonic() - start_clock
+    print(
+        "[ROUTE_DEBUG] fastest abort: "
+        f"reason=queue_exhausted visited={visited_count} "
+        f"visited_states={len(visited_time)} min_states={len(min_time)} "
+        f"elapsed_sec={elapsed:.3f}",
+        flush=True,
+    )
     return None, None
 
 def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", day_type="weekday", max_search=30000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None, use_realtime=True):
