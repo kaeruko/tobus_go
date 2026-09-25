@@ -98,7 +98,8 @@ class TokyoRouteEngine:
         print(f"[MEM] enter TokyoRouteEngine.search rss={deps.rss_mb():.1f}MB")
         print(
             "[USER_DEBUG] TokyoRouteEngine.search: "
-            f"start_time={start_time}, date_str={date_str}"
+            f"pref={pref}, start_time={start_time}, date_str={date_str}",
+            flush=True,
         )
 
         g = self.app.state.G
@@ -158,8 +159,25 @@ class TokyoRouteEngine:
         destination_reachable = bool(virtual_connections)
         day_type = deps.determine_day_type(date_str)
 
+        print(
+            "[ROUTE_DEBUG] Tokyo destination setup: "
+            f"pref={pref} origin_node={origin_node} "
+            f"selected_destination_node={destination_node} "
+            f"walk_radius={walk_radius} "
+            f"virtual_destination={virtual_destination} "
+            f"virtual_connections={len(virtual_connections)} "
+            f"destination_reachable={destination_reachable}",
+            flush=True,
+        )
+
         results: list[dict[str, Any]] = []
         if destination_reachable:
+            print(
+                "[ROUTE_DEBUG] Tokyo primary search start: "
+                f"pref={pref} target=virtual_destination "
+                f"connections={len(virtual_connections)}",
+                flush=True,
+            )
             results = deps.search_best_routes_once(
                 g,
                 timetable,
@@ -173,8 +191,18 @@ class TokyoRouteEngine:
                 virtual_dest_connections=virtual_connections,
                 target_coords=[blat, blon],
             )
+            print(
+                "[ROUTE_DEBUG] Tokyo primary search done: "
+                f"pref={pref} candidates={len(results)}",
+                flush=True,
+            )
 
         if not results:
+            print(
+                "[ROUTE_DEBUG] Tokyo fallback search start: "
+                f"pref={pref} target={destination_node}",
+                flush=True,
+            )
             results = deps.search_best_routes_once(
                 g,
                 timetable,
@@ -187,6 +215,11 @@ class TokyoRouteEngine:
                 day_type=day_type,
                 virtual_dest_connections=None,
                 target_coords=None,
+            )
+            print(
+                "[ROUTE_DEBUG] Tokyo fallback search done: "
+                f"pref={pref} candidates={len(results)}",
+                flush=True,
             )
 
         for candidate in results:
