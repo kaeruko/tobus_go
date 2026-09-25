@@ -1915,17 +1915,23 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
     elif target_node and target_node[0] == "phys":
         add_poles(target_node[1])
 
-    visited_count = 0
-    MAX_VISITED = 100000 
+    popped_count = 0
+    expanded_count = 0
+    duplicate_count = 0
+    travel_limit_count = 0
+    MAX_POPPED = 200000
+    MAX_EXPANDED = 100000
     TIME_LIMIT_SEC = 15.0
 
     while pq:
-        if visited_count > 0 and visited_count % 100 == 0:
+        if popped_count > 0 and popped_count % 100 == 0:
             elapsed = time.monotonic() - start_clock
             if elapsed > TIME_LIMIT_SEC:
                 print(
                     "[ROUTE_DEBUG] fastest abort: "
-                    f"reason=time_limit visited={visited_count} "
+                    f"reason=time_limit popped={popped_count} "
+                    f"expanded={expanded_count} duplicates={duplicate_count} "
+                    f"travel_limited={travel_limit_count} "
                     f"pq={len(pq)} visited_states={len(visited_time)} "
                     f"min_states={len(min_time)} elapsed_sec={elapsed:.3f}",
                     flush=True,
@@ -1934,49 +1940,74 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
             if len(pq) > 250000 or len(visited_time) > 500000 or len(min_time) > 500000:
                 print(
                     "[ROUTE_DEBUG] fastest abort: "
-                    f"reason=structure_limit visited={visited_count} "
+                    f"reason=structure_limit popped={popped_count} "
+                    f"expanded={expanded_count} duplicates={duplicate_count} "
+                    f"travel_limited={travel_limit_count} "
                     f"pq={len(pq)} visited_states={len(visited_time)} "
                     f"min_states={len(min_time)} elapsed_sec={elapsed:.3f}",
                     flush=True,
                 )
                 return None, None
-            if visited_count % 5000 == 0:
+            if popped_count % 5000 == 0:
                 print(
                     "[ROUTE_DEBUG] fastest tick: "
-                    f"visited={visited_count} pq={len(pq)} "
+                    f"popped={popped_count} expanded={expanded_count} "
+                    f"duplicates={duplicate_count} "
+                    f"travel_limited={travel_limit_count} pq={len(pq)} "
                     f"visited_states={len(visited_time)} "
                     f"min_states={len(min_time)} elapsed_sec={elapsed:.3f}",
                     flush=True,
                 )
 
         curr_time, u, chain_idx, total_walk, seg_walk = heapq.heappop(pq)
-        visited_count += 1
-        if visited_count > MAX_VISITED:
+        popped_count += 1
+        if popped_count > MAX_POPPED:
             elapsed = time.monotonic() - start_clock
             print(
                 "[ROUTE_DEBUG] fastest abort: "
-                f"reason=max_visited visited={visited_count} "
+                f"reason=max_popped popped={popped_count} "
+                f"expanded={expanded_count} duplicates={duplicate_count} "
+                f"travel_limited={travel_limit_count} "
                 f"pq={len(pq)} visited_states={len(visited_time)} "
                 f"min_states={len(min_time)} elapsed_sec={elapsed:.3f}",
                 flush=True,
             )
             return None, None
         
-        if curr_time - start_min > max_travel_min: continue
+        if curr_time - start_min > max_travel_min:
+            travel_limit_count += 1
+            continue
         
         if u == target_node:
             elapsed = time.monotonic() - start_clock
             print(
                 "[ROUTE_DEBUG] fastest target reached: "
-                f"visited={visited_count} pq={len(pq)} "
+                f"popped={popped_count} expanded={expanded_count} "
+                f"duplicates={duplicate_count} "
+                f"travel_limited={travel_limit_count} pq={len(pq)} "
                 f"arrival_min={curr_time} elapsed_sec={elapsed:.3f}",
                 flush=True,
             )
             return curr_time, reconstruct_path_idx(chain_store, chain_idx)
 
         state = (u, int(seg_walk // 25))
-        if state in visited_time and visited_time[state] <= curr_time: continue
+        if state in visited_time and visited_time[state] <= curr_time:
+            duplicate_count += 1
+            continue
         visited_time[state] = curr_time
+        expanded_count += 1
+        if expanded_count > MAX_EXPANDED:
+            elapsed = time.monotonic() - start_clock
+            print(
+                "[ROUTE_DEBUG] fastest abort: "
+                f"reason=max_expanded popped={popped_count} "
+                f"expanded={expanded_count} duplicates={duplicate_count} "
+                f"travel_limited={travel_limit_count} "
+                f"pq={len(pq)} visited_states={len(visited_time)} "
+                f"min_states={len(min_time)} elapsed_sec={elapsed:.3f}",
+                flush=True,
+            )
+            return None, None
 
         if virtual_dest_connections and u[0] == "phys" and target_node and str(target_node[1]).startswith("dest:"):
             for nid, vw, vmeters in virtual_dest_connections:
@@ -2030,7 +2061,9 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
     elapsed = time.monotonic() - start_clock
     print(
         "[ROUTE_DEBUG] fastest abort: "
-        f"reason=queue_exhausted visited={visited_count} "
+        f"reason=queue_exhausted popped={popped_count} "
+        f"expanded={expanded_count} duplicates={duplicate_count} "
+        f"travel_limited={travel_limit_count} "
         f"visited_states={len(visited_time)} min_states={len(min_time)} "
         f"elapsed_sec={elapsed:.3f}",
         flush=True,
