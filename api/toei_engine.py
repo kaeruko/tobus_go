@@ -1680,12 +1680,43 @@ def find_few_transfers_paths_generator(
     yielded_count = 0
     visited_count = 0
 
+    # Diagnostics only: keep the search behavior unchanged while showing
+    # where the fewTransfers state explosion is happening.
+    popped_by_boardings = defaultdict(int)
+    expanded_by_boardings = defaultdict(int)
+    dominated_by_boardings = defaultdict(int)
+    travel_limit_by_boardings = defaultdict(int)
+    yielded_by_boardings = defaultdict(int)
+
+    def _boarding_counts(counts):
+        if not counts:
+            return "{}"
+        return "{" + ", ".join(
+            f"{key}:{counts[key]}" for key in sorted(counts)
+        ) + "}"
+
+    def _log_few_transfers_stats(tag):
+        elapsed = time.monotonic() - start_clock
+        print(
+            "[ROUTE_DEBUG] fewTransfers stats: "
+            f"tag={tag} visited={visited_count} yielded={yielded_count} "
+            f"queue={len(pq)} g_score={len(g_score)} "
+            f"best_cost={len(best_cost)} elapsed_sec={elapsed:.3f} "
+            f"popped_by_boardings={_boarding_counts(popped_by_boardings)} "
+            f"expanded_by_boardings={_boarding_counts(expanded_by_boardings)} "
+            f"dominated_by_boardings={_boarding_counts(dominated_by_boardings)} "
+            f"travel_limit_by_boardings={_boarding_counts(travel_limit_by_boardings)} "
+            f"yielded_by_boardings={_boarding_counts(yielded_by_boardings)}",
+            flush=True,
+        )
+
     max_pq = 250000
     max_gscore = 500000
     max_best = 500000
 
     def fail_limit(reason):
         elapsed = time.monotonic() - start_clock
+        _log_few_transfers_stats(f"abort:{reason}")
         raise RouteSearchLimitError(
             "fewTransfers search safety limit exceeded: "
             f"reason={reason} visited={visited_count} "
@@ -1719,19 +1750,27 @@ def find_few_transfers_paths_generator(
             chain_idx,
         ) = heapq.heappop(pq)
         visited_count += 1
+        popped_by_boardings[boardings] += 1
+
+        if visited_count % 5000 == 0:
+            _log_few_transfers_stats("tick")
+
         if visited_count > max_visited:
             _mem_log("few_transfers_search_max_visited")
             fail_limit("max_visited")
 
         if curr_time - start_min > max_travel_min:
+            travel_limit_by_boardings[boardings] += 1
             continue
 
         walk_bucket = int(seg_walk_m // 25)
         state_key = (u, walk_bucket, boardings)
         prev_best = best_cost.get(state_key)
         if prev_best is not None and cost >= prev_best:
+            dominated_by_boardings[boardings] += 1
             continue
         best_cost[state_key] = cost
+        expanded_by_boardings[boardings] += 1
 
         if u in target_goal_nodes:
             if yielded_count >= max_search:
@@ -1744,6 +1783,8 @@ def find_few_transfers_paths_generator(
                 "walk_m": total_walk_m,
             }
             yielded_count += 1
+            yielded_by_boardings[boardings] += 1
+            _log_few_transfers_stats("yield")
             continue
 
         if (
@@ -1846,6 +1887,7 @@ def find_few_transfers_paths_generator(
                     ),
                 )
 
+    _log_few_transfers_stats("queue_exhausted")
     _mem_log("find_few_transfers_paths_generator end")
 
 def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None, target_coords=None, use_realtime=True):
