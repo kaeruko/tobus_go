@@ -94,6 +94,14 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
 
   @override
   void dispose() {
+    debugPrint(
+      '[MemberModeController] dispose '
+      'trackedStep=${state.trackedStepId} '
+      'vehicle=${state.trackedVehicleId} '
+      'busPhase=${state.busProgress?.phase.name} '
+      'railPhase=${state.railProgress?.phase.name} '
+      'knownOnboard=${state.replanTransitMemory.knownOnboardStepId}',
+    );
     _pollingTimer?.cancel();
     super.dispose();
   }
@@ -219,6 +227,19 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
             railProgress: sameTrackedStep ? state.railProgress : null,
             rideRealtimeUnavailable: rideRealtimeUnavailable,
           );
+      final committed = _ref.read(memberNavProgressProvider);
+      debugPrint(
+        '[MemberModeController] navProgress committed '
+        'entry=${resolvedEntry.id} '
+        'entryKind=${resolvedEntry.itemKind.name} '
+        'entryStep=${resolvedEntry.routeStepId} '
+        'currentStep=${committed.currentStepId} '
+        'busPhase=${committed.busProgress?.phase.name} '
+        'busFrom=${committed.busProgress?.fromStopId} '
+        'busNext=${committed.busProgress?.nextStopId} '
+        'railPhase=${committed.railProgress?.phase.name} '
+        'realtimeUnavailable=${committed.rideRealtimeUnavailable}',
+      );
     }
   }
 
@@ -299,8 +320,9 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
             .markRideRealtimeUnavailable(activeStep.stepId),
       );
       debugPrint('[MemberModeController] バス位置なし: $e');
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('[MemberModeController] バスAPIエラー: $e');
+      debugPrintStack(stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -361,8 +383,9 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
             .markRideRealtimeUnavailable(activeStep.stepId),
       );
       debugPrint('[MemberModeController] 鉄道位置なし: $e');
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('[MemberModeController] 鉄道APIエラー: $e');
+      debugPrintStack(stackTrace: stackTrace);
       rethrow;
     }
   }

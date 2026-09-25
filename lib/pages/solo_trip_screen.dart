@@ -55,10 +55,12 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
   bool _completionFailed = false;
   bool _cancelling = false;
   MemberUiState? _arrivalUiSnapshot;
+  String? _lastDiagnosticSignature;
 
   @override
   void initState() {
     super.initState();
+    debugPrint('[SoloTripLifecycle] init tripId=${widget.tripId}');
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -66,6 +68,18 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
       ref.read(memberNavProgressProvider.notifier).reset();
       ref.read(memberModeControllerProvider.notifier).initialize();
     });
+  }
+
+  @override
+  void dispose() {
+    debugPrint(
+      '[SoloTripLifecycle] dispose '
+      'tripId=${widget.tripId} '
+      'completionRequested=$_completionRequested '
+      'completionFailed=$_completionFailed '
+      'cancelling=$_cancelling',
+    );
+    super.dispose();
   }
 
   @override
@@ -95,6 +109,11 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
           }
           if (trip.travelPhase == TravelPhase.completed) {
             final arrivalUiSnapshot = _arrivalUiSnapshot;
+            _logDiagnosticState(
+              trip: trip,
+              uiState: arrivalUiSnapshot,
+              terminalArrival: true,
+            );
             if (arrivalUiSnapshot != null) {
               return _buildTripScaffold(
                 trip: trip,
@@ -106,6 +125,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
             return _buildCompleted();
           }
           if (trip.travelPhase == TravelPhase.cancelled) {
+            _logDiagnosticState(trip: trip);
             return _buildCancelled();
           }
 
@@ -124,6 +144,11 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
               final terminalArrival = shouldAutoCompleteSoloTrip(
                 trip: trip,
                 resolvedEntry: uiState.resolvedEntry,
+              );
+              _logDiagnosticState(
+                trip: trip,
+                uiState: uiState,
+                terminalArrival: terminalArrival,
               );
               if (terminalArrival) {
                 _requestAutoCompletion(trip, uiState);
@@ -264,9 +289,43 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     );
   }
 
+  void _logDiagnosticState({
+    required Trip trip,
+    MemberUiState? uiState,
+    bool? terminalArrival,
+  }) {
+    final navProgress = ref.read(memberNavProgressProvider);
+    final bus = navProgress.busProgress;
+    final rail = navProgress.railProgress;
+    final entry = uiState?.resolvedEntry;
+    final signature = <String>[
+      'tripId=${trip.id}',
+      'phase=${trip.travelPhase.name}',
+      'entryId=${entry?.id ?? "-"}',
+      'entryKind=${entry?.itemKind.name ?? "-"}',
+      'entryLabel=${entry?.label ?? "-"}',
+      'entryStep=${entry?.routeStepId ?? "-"}',
+      'navStep=${navProgress.currentStepId ?? "-"}',
+      'busPhase=${bus?.phase.name ?? "-"}',
+      'busFrom=${bus?.fromStopId ?? "-"}',
+      'busNext=${bus?.nextStopId ?? "-"}',
+      'railPhase=${rail?.phase.name ?? "-"}',
+      'navStatus=${uiState?.navState.statusLabel ?? "-"}',
+      'terminalArrival=${terminalArrival?.toString() ?? "-"}',
+      'completionRequested=$_completionRequested',
+    ].join(' ');
+    if (_lastDiagnosticSignature == signature) return;
+    _lastDiagnosticSignature = signature;
+    debugPrint('[SoloTripLifecycle] state $signature');
+  }
+
   void _requestAutoCompletion(Trip trip, MemberUiState uiState) {
     if (_completionRequested || _completionFailed) return;
 
+    debugPrint(
+      '[SoloTripLifecycle] auto-completion scheduled '
+      'tripId=${trip.id} entry=${uiState.resolvedEntry?.id}',
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || _completionRequested || _completionFailed) return;
 
@@ -276,8 +335,19 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
       });
 
       try {
+        debugPrint(
+          '[SoloTripLifecycle] completeTrip START tripId=${trip.id}',
+        );
         await _tripService.completeTrip(trip.id);
-      } catch (error) {
+        debugPrint(
+          '[SoloTripLifecycle] completeTrip DONE tripId=${trip.id}',
+        );
+      } catch (error, stackTrace) {
+        debugPrint(
+          '[SoloTripLifecycle] completeTrip ERROR '
+          'tripId=${trip.id}: $error',
+        );
+        debugPrintStack(stackTrace: stackTrace);
         if (!mounted) return;
         setState(() {
           _completionRequested = false;
