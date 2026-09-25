@@ -135,10 +135,6 @@ class _RouteReplanComparisonSheetState
                 ],
                 const SizedBox(height: 18),
                 RouteReplanComparisonMap(
-                  key: ValueKey(
-                    '${preview.request.anchor.availableAt.microsecondsSinceEpoch}:'
-                    '${selected?.id ?? 'no-new-route'}',
-                  ),
                   originalPoints: preview.originalFuturePoints,
                   newPoints: selected == null
                       ? const []

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-class RouteReplanComparisonMap extends StatelessWidget {
+class RouteReplanComparisonMap extends StatefulWidget {
   final List<LatLng> originalPoints;
   final List<LatLng> newPoints;
   final LatLng anchor;
@@ -16,13 +16,36 @@ class RouteReplanComparisonMap extends StatelessWidget {
   });
 
   @override
+  State<RouteReplanComparisonMap> createState() =>
+      _RouteReplanComparisonMapState();
+}
+
+class _RouteReplanComparisonMapState extends State<RouteReplanComparisonMap> {
+  GoogleMapController? _controller;
+
+  @override
+  void didUpdateWidget(covariant RouteReplanComparisonMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_sameGeometry(oldWidget, widget)) return;
+
+    final controller = _controller;
+    if (controller == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(_controller, controller)) return;
+      _fitBounds(controller, _allPoints(widget));
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    _controller = null;
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final allPoints = <LatLng>[
-      ...originalPoints,
-      ...newPoints,
-      anchor,
-      destination,
-    ];
+    final allPoints = _allPoints(widget);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -33,26 +56,34 @@ class RouteReplanComparisonMap extends StatelessWidget {
             height: 190,
             child: GoogleMap(
               initialCameraPosition: CameraPosition(
-                target: anchor,
+                target: widget.anchor,
                 zoom: 13,
               ),
               onMapCreated: (controller) {
+                if (_controller != null) {
+                  controller.dispose();
+                  throw StateError(
+                    '経路比較MapのGoogleMapControllerが重複生成されました',
+                  );
+                }
+                _controller = controller;
                 WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted || !identical(_controller, controller)) return;
                   _fitBounds(controller, allPoints);
                 });
               },
               polylines: {
-                if (originalPoints.length >= 2)
+                if (widget.originalPoints.length >= 2)
                   Polyline(
                     polylineId: const PolylineId('original-route'),
-                    points: originalPoints,
+                    points: widget.originalPoints,
                     color: Colors.grey.shade600,
                     width: 5,
                   ),
-                if (newPoints.length >= 2)
+                if (widget.newPoints.length >= 2)
                   Polyline(
                     polylineId: const PolylineId('new-route'),
-                    points: newPoints,
+                    points: widget.newPoints,
                     color: Colors.blue,
                     width: 6,
                   ),
@@ -60,12 +91,12 @@ class RouteReplanComparisonMap extends StatelessWidget {
               markers: {
                 Marker(
                   markerId: const MarkerId('replan-anchor'),
-                  position: anchor,
+                  position: widget.anchor,
                   infoWindow: const InfoWindow(title: '経路見直し地点'),
                 ),
                 Marker(
                   markerId: const MarkerId('destination'),
-                  position: destination,
+                  position: widget.destination,
                   infoWindow: const InfoWindow(title: '目的地'),
                 ),
               },
@@ -91,6 +122,34 @@ class RouteReplanComparisonMap extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  static List<LatLng> _allPoints(RouteReplanComparisonMap value) {
+    return <LatLng>[
+      ...value.originalPoints,
+      ...value.newPoints,
+      value.anchor,
+      value.destination,
+    ];
+  }
+
+  static bool _sameGeometry(
+    RouteReplanComparisonMap a,
+    RouteReplanComparisonMap b,
+  ) {
+    return _samePoints(a.originalPoints, b.originalPoints) &&
+        _samePoints(a.newPoints, b.newPoints) &&
+        a.anchor == b.anchor &&
+        a.destination == b.destination;
+  }
+
+  static bool _samePoints(List<LatLng> a, List<LatLng> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   void _fitBounds(GoogleMapController controller, List<LatLng> points) {
