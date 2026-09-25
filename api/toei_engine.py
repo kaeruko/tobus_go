@@ -1374,12 +1374,36 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
     if mode == "time" or mode == "fast":
         # 時間優先モード (Fastest Path)
         # ダイクストラ法ベースで最短時間の経路を1つだけ探索
+        print(
+            "[ROUTE_DEBUG] fastest search start: "
+            f"mode={mode} start={a_phys} target={target_node} "
+            f"virtual_connections={len(virtual_dest_connections or [])} "
+            f"start_time={start_time} day_type={day_type}",
+            flush=True,
+        )
         arr_min, path = find_fastest_path(G, tm, a_phys, target_node, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords)
+        print(
+            "[ROUTE_DEBUG] fastest search raw result: "
+            f"arr_min={arr_min} path_found={path is not None} "
+            f"path_len={len(path) if path else 0}",
+            flush=True,
+        )
         if path:
             # 時刻表に基づいて到着時刻を再計算・検証
             real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections)
+            print(
+                "[ROUTE_DEBUG] fastest validation: "
+                f"real_arr={real_arr} valid={real_arr is not None}",
+                flush=True,
+            )
             if real_arr is None:
-                path = None 
+                path = None
+
+        if not path:
+            print(
+                "[ROUTE_DEBUG] fastest search produced no usable path",
+                flush=True,
+            )
 
         if path:
             # 経路が見つかった場合、詳細セグメント(UI用データ)を生成
