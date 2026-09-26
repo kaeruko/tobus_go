@@ -53,4 +53,36 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'route transport control switches between subway/bus and bus only',
+    (tester) async {
+      String? selectedValue;
+
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: Center(
+            child: SizedBox(
+              width: 320,
+              child: RouteTransportControl(
+                busOnly: false,
+                onValueChanged: (value) {
+                  selectedValue = value;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('都営地下鉄・バス'), findsOneWidget);
+      expect(find.text('都営バスのみ'), findsOneWidget);
+
+      await tester.tap(find.text('都営バスのみ'));
+      await tester.pump();
+
+      expect(selectedValue, 'busOnly');
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
