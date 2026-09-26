@@ -143,6 +143,28 @@ void main() {
     expect(anchor.routeStepId, 'out-rail');
   });
 
+  test('moving ride without a usable ETA keeps position but cannot resolve anchor', () {
+    final observation = RidingTransitObservation(
+      stepId: 'out-rail',
+      motion: RidingTransitMotion.inTransit,
+      currentPlace: place('浅草橋', 35.697, 139.785),
+      nextPlace: place('蔵前', 35.703, 139.790),
+    );
+    final context = ReplanAnchorContextBuilder.build(
+      trip: trip([
+        leg(direction: LegDirection.outbound, candidate: outbound),
+      ]),
+      activeStepId: 'out-rail',
+      memory: const ReplanTransitMemory().observeRide(observation),
+    );
+
+    expect(observation.canResolveAnchorAt(now), isFalse);
+    expect(
+      () => ReplanAnchorResolver.resolve(context: context, now: now),
+      throwsStateError,
+    );
+  });
+
   test('stopped ride resolves to the current station at current time', () {
     final observation = RidingTransitObservation(
       stepId: 'out-rail',
