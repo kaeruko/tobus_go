@@ -1,12 +1,12 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../constants.dart';
 import '../models/explore_models.dart';
 import '../providers/explore_provider.dart';
-import '../providers/route_search_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/navigation_provider.dart';
-import '../constants.dart';
+import '../providers/route_search_provider.dart';
 
 class ExperiencePage extends ConsumerStatefulWidget {
   final ReachableStop stop;
@@ -30,7 +30,8 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
 
   Future<void> _load() async {
     try {
-      final res = await ref.read(exploreProvider.notifier).fetchExperiences(widget.stop);
+      final res =
+          await ref.read(exploreProvider.notifier).fetchExperiences(widget.stop);
       if (mounted) {
         setState(() {
           _data = res;
@@ -49,98 +50,255 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
 
   @override
   Widget build(BuildContext context) {
+    final editorialState = ref.watch(exploreEditorialContentProvider);
+
     return Scaffold(
       appBar: AppBar(title: Text('${widget.stop.name}周辺')),
-      body: _buildBody(),
+      body: _buildBody(editorialState),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(AsyncValue<ExploreEditorialContent> editorialState) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return Center(child: Text('エラー: $_error', style: const TextStyle(color: Colors.red)));
+      return _errorView('エラー: $_error');
     }
-    if (_data == null || _data!.groups.isEmpty) {
-      return const Center(child: Text('おすすめのスポットが見つかりませんでした'));
+    if (_data == null) {
+      return _errorView('周辺情報を取得できませんでした');
     }
 
+    return editorialState.when(
+      data: (editorial) => _buildLoadedBody(
+        editorial.byStopId[widget.stop.id],
+      ),
+      error: (err, stack) => _errorView(
+        'みつける情報の読み込みに失敗しました: $err',
+      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  Widget _errorView(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          message,
+          style: const TextStyle(color: Colors.red),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadedBody(ExploreEditorialSpot? editorial) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (editorial != null) ...[
+          _editorialSection(editorial),
+          const SizedBox(height: 20),
+        ],
         _streetViewGallery(widget.stop),
-        const SizedBox(height: 16),
-        ..._data!.groups.map((group) {
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          elevation: 2,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Tags
-                Wrap(
-                  spacing: 8,
-                  children: group.tags.map((t) => Chip(
-                    label: Text(t),
-                    backgroundColor: Colors.teal.shade50,
-                    labelStyle: TextStyle(color: Colors.teal.shade900),
-                  )).toList(),
-                ),
-                const SizedBox(height: 12),
-                
-                // Description
-                Text(
-                  group.description,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                
-                // Representative Stop Info
-                Text(
-                  '中心となるバス停: ${group.representativeStop.name}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 12),
-                
-                // Stop Count
-                Row(
-                  children: [
-                    const Icon(Icons.place, size: 16, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text('${group.stopCount}箇所のスポットが含まれます', style: const TextStyle(color: Colors.grey)),
-                  ],
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Actions (Here is the Go Button)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton.icon(
-                      onPressed: () {
-                        _goToRouteSearch(context, group.representativeStop);
-                      },
-                      icon: const Icon(Icons.directions),
-                      label: const Text('ここに行く'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      }),
+        const SizedBox(height: 20),
+        if (_data!.groups.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Text('おすすめのスポットが見つかりませんでした'),
+          )
+        else
+          ..._data!.groups.map(_experienceCard),
       ],
     );
   }
 
-  Uri _svUri(ReachableStop stop, {required int w, required int h, required int heading}) {
+  Widget _experienceCard(ExperienceGroup group) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              children: group.tags
+                  .map(
+                    (t) => Chip(
+                      label: Text(t),
+                      backgroundColor: Colors.teal.shade50,
+                      labelStyle: TextStyle(color: Colors.teal.shade900),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              group.description,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '中心となるバス停: ${group.representativeStop.name}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.place, size: 16, color: Colors.grey),
+                const SizedBox(width: 4),
+                Text(
+                  '${group.stopCount}箇所のスポットが含まれます',
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  onPressed: () {
+                    _goToRouteSearch(context, group.representativeStop);
+                  },
+                  icon: const Icon(Icons.directions),
+                  label: const Text('ここに行く'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Uri _editorialImageUri(ExploreEditorialImage image) {
+    return Uri.parse('$kApiBase/explore/content/image').replace(
+      queryParameters: {'file': image.file},
+    );
+  }
+
+  Widget _editorialSection(ExploreEditorialSpot editorial) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'みつけるメモ',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        if (editorial.comment.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(editorial.comment),
+        ],
+        if (editorial.images.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 210,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: editorial.images.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final image = editorial.images[index];
+                return SizedBox(
+                  width: 240,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      GestureDetector(
+                        onTap: () => _openEditorialImage(image),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: SizedBox(
+                            width: 240,
+                            height: 160,
+                            child: Image.network(
+                              _editorialImageUri(image).toString(),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey.shade200,
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.broken_image_outlined,
+                                      size: 40,
+                                    ),
+                                  ),
+                                );
+                              },
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  color: Colors.grey.shade100,
+                                  child: const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (image.caption.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          image.caption,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _openEditorialImage(ExploreEditorialImage image) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              _editorialImageUri(image).toString(),
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  constraints: const BoxConstraints(minHeight: 240),
+                  color: Colors.grey.shade200,
+                  child: const Center(
+                    child: Icon(Icons.broken_image_outlined, size: 40),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Uri _svUri(
+    ReachableStop stop, {
+    required int w,
+    required int h,
+    required int heading,
+  }) {
     return Uri.parse('$kApiBase/streetview/thumb').replace(queryParameters: {
       'lat': stop.lat.toString(),
       'lon': stop.lon.toString(),
@@ -193,7 +351,10 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('周辺のようす', style: Theme.of(context).textTheme.titleSmall),
+        Text(
+          '周辺のようす',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
         const SizedBox(height: 8),
         SizedBox(
           height: 160,
@@ -234,7 +395,9 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
                 errorBuilder: (context, error, stackTrace) {
                   return Container(
                     color: Colors.grey.shade200,
-                    child: const Center(child: Icon(Icons.streetview, size: 40)),
+                    child: const Center(
+                      child: Icon(Icons.streetview, size: 40),
+                    ),
                   );
                 },
               ),
@@ -247,14 +410,12 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
 
   void _goToRouteSearch(BuildContext context, ReachableStop stop) {
     print('[ExperiencePage] Go Here tapped for ${stop.name}');
-    // 1. Get current location
     final override = ref.read(locationOverrideProvider);
     final currentAsync = ref.read(locationStreamProvider);
-    
-    // Default to override, then GPS, then empty
+
     String fromVal = '';
-    String fromName = '現在地';
-    
+    const fromName = '現在地';
+
     if (override != null) {
       print('[ExperiencePage] Using override location');
       fromVal = '${override.latitude},${override.longitude}';
@@ -265,30 +426,28 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
     } else {
       print('[ExperiencePage] No location found');
     }
-    
-    // 2. Set Route Search State
+
     final notifier = ref.read(routeSearchProvider.notifier);
-    
-    // Set FROM only if we found a location, otherwise user can input
+
     if (fromVal.isNotEmpty) {
       notifier.setFrom(fromVal, name: fromName);
     }
-    
-    // Set TO
+
     notifier.setTo(
       '${stop.lat},${stop.lon}',
       name: stop.name,
     );
-    print('[ExperiencePage] RouteSearch params set. From=$fromVal, To=${stop.name}');
-    
-    // 3. Switch to Home Tab (index 0)
+    print(
+      '[ExperiencePage] RouteSearch params set. '
+      'From=$fromVal, To=${stop.name}',
+    );
+
     print('[ExperiencePage] Switching tab to 0');
     ref.read(tabIndexProvider.notifier).state = 0;
-    
-    // 4. Trigger Search immediately if we have both coordinates
+
     if (fromVal.isNotEmpty) {
-        print('[ExperiencePage] Triggering search');
-        notifier.triggerSearch();
+      print('[ExperiencePage] Triggering search');
+      notifier.triggerSearch();
     }
   }
 }
