@@ -57,6 +57,21 @@ class SharedRouteEndpointTest(unittest.TestCase):
         self.assertEqual(response.json(), {"candidates": [], "meta": {}})
         self.assertEqual(engine.requests[0].preference, RoutePreference.FASTEST)
 
+    def test_bus_only_flag_is_forwarded_to_engine(self) -> None:
+        engine = _RecordingEngine()
+        response = _client(engine).post(
+            "/route",
+            json=_payload(bus_only=True),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(engine.requests[0].bus_only)
+
+    def test_bus_only_defaults_to_false(self) -> None:
+        engine = _RecordingEngine()
+        response = _client(engine).post("/route", json=_payload())
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(engine.requests[0].bus_only)
+
     def test_unknown_preference_is_422_without_fallback(self) -> None:
         engine = _RecordingEngine()
         response = _client(engine).post(
