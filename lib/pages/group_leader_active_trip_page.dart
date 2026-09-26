@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../logic/group_leader_active_navigation.dart';
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
+import '../providers/city_profile_provider.dart';
 import '../providers/member_mode_provider.dart';
 import '../providers/member_nav_progress_provider.dart';
 import '../providers/trip_provider.dart';
@@ -81,12 +82,13 @@ class _GroupLeaderActiveTripBodyState
   Widget build(BuildContext context) {
     final tripAsync = ref.watch(tripStreamProvider);
     final uiAsync = ref.watch(memberUiStateProvider);
+    final appName = ref.watch(cityProfileProvider).appName;
 
     return tripAsync.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (error, stack) => Scaffold(
-        appBar: AppBar(title: const Text('移動中')),
+        appBar: AppBar(title: Text(appName)),
         body: Center(child: Text('おでかけを読み込めませんでした: $error')),
       ),
       data: (trip) {
@@ -98,7 +100,7 @@ class _GroupLeaderActiveTripBodyState
         }
         if (trip.travelPhase != TravelPhase.active) {
           return Scaffold(
-            appBar: AppBar(title: const Text('移動中')),
+            appBar: AppBar(title: Text(appName)),
             body: Center(
               child: Text('移動中ではありません: ${trip.travelPhase.name}'),
             ),
@@ -119,6 +121,7 @@ class _GroupLeaderActiveTripBodyState
   }
 
   Widget _buildNavigation(Trip trip, MemberUiState uiState) {
+    final appName = ref.watch(cityProfileProvider).appName;
     final primaryAction = resolveGroupLeaderActivePrimaryAction(trip);
 
     return ActiveTripNavigationView(
@@ -127,21 +130,10 @@ class _GroupLeaderActiveTripBodyState
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'リーダー移動中',
-              style: TextStyle(fontSize: 13, color: Colors.black54),
-            ),
-            Text(
-              trip.displayTitle,
-              style: const TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+        title: ActiveTripAppBarTitle(
+          appName: appName,
+          tripTitle: trip.displayTitle,
+          contextLabel: 'リーダー移動中',
         ),
         leading: IconButton(
           tooltip: 'おでかけのしおり',
