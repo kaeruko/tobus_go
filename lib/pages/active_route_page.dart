@@ -20,7 +20,7 @@ class ActiveRoutePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(middle: Text('移動中')),
+      navigationBar: CupertinoNavigationBar(middle: Text(cityProfile.appName)),
       child: SafeArea(
         child: ActiveRouteContent(
           candidate: candidate,
