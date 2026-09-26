@@ -19,6 +19,7 @@ from app.services.explore_editorial_content import (  # noqa: E402
     ExploreContentError,
     compile_csv,
     image_media_type,
+    master_data_dir,
     source_paths,
 )
 
@@ -103,8 +104,9 @@ def upload_file(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Validate content/explore/<city>/spots.csv and images, then publish "
-            "the compiled JSON and referenced images to the API data S3 bucket."
+            "Resolve stop_name + route_id from ODPT master data, validate "
+            "content/explore/<city>/spots.csv and images, then publish the "
+            "expanded JSON and referenced images to the API data S3 bucket."
         )
     )
     parser.add_argument("--city", default="tokyo", choices=("tokyo",))
@@ -129,13 +131,22 @@ def main() -> int:
     args = parse_args()
     csv_path, images_dir = source_paths(args.city)
 
-    # All local validation is completed before the first AWS mutation.
-    payload = compile_csv(csv_path, images_dir)
-    referenced_images = [
-        image["file"]
-        for spot in payload["spots"]
-        for image in spot["images"]
-    ]
+    # All local validation and ODPT resolution are completed before the first
+    # AWS mutation. Matching is exact stop_name + route_id; odpt:note is unused.
+    payload = compile_csv(
+        csv_path,
+        images_dir,
+        data_dir=master_data_dir(args.city),
+    )
+
+    referenced_images: list[str] = []
+    seen_images: set[str] = set()
+    for spot in payload["spots"]:
+        for image in spot["images"]:
+            filename = image["file"]
+            if filename not in seen_images:
+                seen_images.add(filename)
+                referenced_images.append(filename)
 
     bucket = resolve_bucket(
         bucket=args.bucket,
@@ -146,7 +157,7 @@ def main() -> int:
 
     print(f"CSV      : {csv_path}")
     print(f"Images   : {len(referenced_images)}")
-    print(f"Spots    : {len(payload['spots'])}")
+    print(f"Poles    : {len(payload['spots'])}")
     print(f"Bucket   : {bucket}")
     print(f"Prefix   : {prefix}")
 
