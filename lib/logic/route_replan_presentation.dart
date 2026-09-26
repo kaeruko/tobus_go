@@ -3,8 +3,9 @@ import 'replan_debug_log.dart';
 
 /// Shared presentation policy for route-replan actions in solo/group UIs.
 ///
-/// Route review is offered only when the current route facts show a positive
-/// delay. A missed/unsafe transfer is always treated as actionable.
+/// Route review is offered only when the current route facts show that the
+/// planned transfer is no longer feasible. A positive delay by itself is not
+/// actionable while the next transfer is still expected to succeed.
 class RouteReplanPresentation {
   final bool showAction;
   final bool showWarning;
@@ -16,8 +17,7 @@ class RouteReplanPresentation {
 
   factory RouteReplanPresentation.fromDelayImpact(DelayImpact? impact) {
     final showWarning = impact?.requiresReplan == true;
-    final hasPositiveDelay = impact != null && impact.delay > Duration.zero;
-    final showAction = showWarning || hasPositiveDelay;
+    final showAction = showWarning;
 
     ReplanDebugLog.emit('replan_presentation', {
       'impactNull': impact == null,
