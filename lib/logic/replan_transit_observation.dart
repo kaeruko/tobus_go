@@ -19,11 +19,11 @@ import 'replan_anchor.dart';
 /// through the segment, so these estimates may be later than the real arrival.
 /// That is intentional for replanning: it avoids suggesting a connection that
 /// depends on an optimistic arrival assumption.
-/// Missing timestamps or inconsistent timetable data remain hard errors. A
-/// syntactically valid realtime sample whose conservative next-stop forecast has
-/// already expired is instead treated as temporarily unavailable realtime so the
-/// controller can preserve the confirmed onboard fact without keeping an old
-/// forecast forever.
+/// Missing timestamps or inconsistent timetable data remain hard errors.
+/// A syntactically valid realtime position remains usable even when a derived
+/// arrival forecast has expired. In that case only the expired prediction is
+/// dropped; the confirmed vehicle position is retained. Replanning still waits
+/// until a future next-stop time can be established safely.
 class ReplanTransitObservationAdapter {
   const ReplanTransitObservationAdapter._();
 
@@ -364,7 +364,7 @@ class ReplanTransitObservationAdapter {
     return schedule;
   }
 
-  static DateTime _predictBusDestination({
+  static DateTime? _predictBusDestination({
     required StepSeg step,
     required BusLocation location,
     required BusStopSchedule from,
@@ -411,7 +411,7 @@ class ReplanTransitObservationAdapter {
     return destination;
   }
 
-  static DateTime _predictRailDestination({
+  static DateTime? _predictRailDestination({
     required StepSeg step,
     required TrainLocation location,
     required TrainTripStop from,
@@ -527,7 +527,7 @@ class ReplanTransitObservationAdapter {
     return hour * 3600 + minute * 60 + second;
   }
 
-  static DateTime _predictFromVehicleSample({
+  static DateTime? _predictFromVehicleSample({
     required int? vehicleTimestamp,
     required Duration scheduledSegment,
     required DateTime now,
@@ -552,22 +552,7 @@ class ReplanTransitObservationAdapter {
     );
     final predicted = sampleAt.add(scheduledSegment);
     if (!predicted.isAfter(now)) {
-      final code = '${transport}_realtime_prediction_expired';
-      switch (transport) {
-        case 'bus':
-          throw BusLocationNotAvailableException(code: code);
-        case 'rail':
-          throw TrainLocationNotAvailableException(code: code);
-        default:
-          throw StateError(
-            '期限切れRealtime予測の未対応transportです: '
-            'transport=$transport, stepId=$stepId, '
-            'sample=${sampleAt.toIso8601String()}, '
-            'duration=$scheduledSegment, '
-            'predicted=${predicted.toIso8601String()}, '
-            'now=${now.toIso8601String()}',
-          );
-      }
+      return null;
     }
     return predicted;
   }
