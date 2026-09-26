@@ -152,7 +152,7 @@ void main() {
       expect(observation.predictedDestinationAvailableAt, isNull);
     });
 
-    test('expired next-stop forecast keeps bus position and destination ETA', () {
+    test('expired immediate bus ETA scans ahead to first future stop', () {
       final now = DateTime.utc(2026, 8, 15, 9, 10);
       final vehicleAt = DateTime.utc(2026, 8, 15, 9, 4);
       final location = movingLocation(vehicleAt: vehicleAt);
@@ -174,13 +174,16 @@ void main() {
 
       expect(observation.motion, RidingTransitMotion.inTransit);
       expect(observation.currentPlace?.name, '平井七丁目');
-      expect(observation.nextPlace?.name, '平井七丁目北公園前');
-      expect(observation.predictedNextAvailableAt, isNull);
+      expect(observation.nextPlace?.name, '社会福祉会館前');
+      expect(
+        observation.predictedNextAvailableAt,
+        vehicleAt.add(const Duration(minutes: 7)),
+      );
       expect(
         observation.predictedDestinationAvailableAt,
         vehicleAt.add(const Duration(minutes: 7)),
       );
-      expect(observation.canResolveAnchorAt(now), isFalse);
+      expect(observation.canResolveAnchorAt(now), isTrue);
     });
   });
 

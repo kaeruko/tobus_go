@@ -8,10 +8,13 @@ import 'replan_anchor.dart';
 /// Converts the existing bus/train realtime models into the transport-neutral
 /// observation consumed by [ReplanAnchorResolver].
 ///
-/// No user GPS is used here. While a vehicle is moving, the next stop's
-/// availability is conservatively estimated as:
-///
-///   latest vehicle sample time + the full scheduled stop-to-stop duration
+/// No user GPS is used here. While a vehicle is moving, stop availability is
+/// conservatively estimated from the latest vehicle sample plus the full
+/// scheduled duration from the last confirmed stop. If the immediate next-stop
+/// estimate has already expired, later stops are checked in order and the first
+/// one whose conservative estimate is still in the future becomes the replan
+/// anchor candidate. Expired intermediate estimates are never treated as proof
+/// that those stops were reached.
 ///
 /// The same conservative rule is used to estimate the planned alighting point:
 /// the latest vehicle sample plus the full scheduled duration from the last
@@ -139,24 +142,15 @@ class ReplanTransitObservationAdapter {
       );
     }
 
-    final segmentMinutes =
-        nextSchedule.arrivalMinute - currentSchedule.departureMinute;
-    if (segmentMinutes <= 0) {
-      throw StateError(
-        'バスの停留所間所要時間が不正です: '
-        '${currentSchedule.stopName} -> ${nextSchedule.stopName}, '
-        '$segmentMinutes分',
-      );
-    }
-
-    final predicted = _predictFromVehicleSample(
-      vehicleTimestamp: location.vehicleTimestamp,
-      scheduledSegment: Duration(minutes: segmentMinutes),
-      now: now,
-      transport: 'bus',
-      stepId: step.stepId,
-    );
     final destinationSchedule = _busDestinationSchedule(step, location);
+    final actionableNext = _firstFutureBusStopPrediction(
+      step: step,
+      location: location,
+      from: currentSchedule,
+      firstSequence: observedSequence,
+      destination: destinationSchedule,
+      now: now,
+    );
     final predictedDestination = _predictBusDestination(
       step: step,
       location: location,
@@ -169,8 +163,8 @@ class ReplanTransitObservationAdapter {
       stepId: step.stepId,
       motion: RidingTransitMotion.inTransit,
       currentPlace: _busPlace(step, currentSchedule),
-      nextPlace: _busPlace(step, nextSchedule),
-      predictedNextAvailableAt: predicted,
+      nextPlace: _busPlace(step, actionableNext?.stop ?? nextSchedule),
+      predictedNextAvailableAt: actionableNext?.predictedAt,
       predictedDestinationAvailableAt: predictedDestination,
     );
   }
@@ -250,33 +244,15 @@ class ReplanTransitObservationAdapter {
       );
     }
 
-    final currentDeparture = _requiredTrainClock(
-      currentStop.departureTime,
-      label: 'departure_time',
-      stopName: currentStop.stopName,
-    );
-    final nextArrival = _requiredTrainClock(
-      nextStop.arrivalTime,
-      label: 'arrival_time',
-      stopName: nextStop.stopName,
-    );
-    final segmentSeconds = nextArrival - currentDeparture;
-    if (segmentSeconds <= 0) {
-      throw StateError(
-        '列車の駅間所要時間が不正です: '
-        '${currentStop.stopName} -> ${nextStop.stopName}, '
-        '$segmentSeconds秒',
-      );
-    }
-
-    final predicted = _predictFromVehicleSample(
-      vehicleTimestamp: location.vehicleTimestamp,
-      scheduledSegment: Duration(seconds: segmentSeconds),
-      now: now,
-      transport: 'rail',
-      stepId: step.stepId,
-    );
     final destinationStop = _trainDestinationStop(step, location);
+    final actionableNext = _firstFutureTrainStopPrediction(
+      step: step,
+      location: location,
+      from: currentStop,
+      firstSequence: nextStop.sequence,
+      destination: destinationStop,
+      now: now,
+    );
     final predictedDestination = _predictRailDestination(
       step: step,
       location: location,
@@ -289,8 +265,8 @@ class ReplanTransitObservationAdapter {
       stepId: step.stepId,
       motion: RidingTransitMotion.inTransit,
       currentPlace: _railPlace(step, currentStop),
-      nextPlace: _railPlace(step, nextStop),
-      predictedNextAvailableAt: predicted,
+      nextPlace: _railPlace(step, actionableNext?.stop ?? nextStop),
+      predictedNextAvailableAt: actionableNext?.predictedAt,
       predictedDestinationAvailableAt: predictedDestination,
     );
   }
@@ -362,6 +338,126 @@ class ReplanTransitObservationAdapter {
       );
     }
     return schedule;
+  }
+
+  static _PredictedBusStop? _firstFutureBusStopPrediction({
+    required StepSeg step,
+    required BusLocation location,
+    required BusStopSchedule from,
+    required int firstSequence,
+    required BusStopSchedule destination,
+    required DateTime now,
+  }) {
+    if (destination.sequence < firstSequence) {
+      throw StateError(
+        '再探索候補のバス停範囲が不正です: '
+        'stepId=${step.stepId}, first=$firstSequence, '
+        'destination=${destination.sequence}',
+      );
+    }
+
+    final candidates = location.tripStopSchedule
+        .where(
+          (stop) =>
+              stop.sequence >= firstSequence &&
+              stop.sequence <= destination.sequence,
+        )
+        .toList(growable: false)
+      ..sort((a, b) => a.sequence.compareTo(b.sequence));
+
+    if (candidates.isEmpty || candidates.first.sequence != firstSequence) {
+      throw StateError(
+        '再探索候補の先頭バス停を時刻表で確認できません: '
+        'stepId=${step.stepId}, first=$firstSequence',
+      );
+    }
+
+    for (final stop in candidates) {
+      final remainingMinutes = stop.arrivalMinute - from.departureMinute;
+      if (remainingMinutes <= 0) {
+        throw StateError(
+          'バスの停留所間所要時間が不正です: '
+          '${from.stopName} -> ${stop.stopName}, $remainingMinutes分',
+        );
+      }
+      final predicted = _predictFromVehicleSample(
+        vehicleTimestamp: location.vehicleTimestamp,
+        scheduledSegment: Duration(minutes: remainingMinutes),
+        now: now,
+        transport: 'bus',
+        stepId: step.stepId,
+      );
+      if (predicted == null) continue;
+
+      _busPlace(step, stop);
+      return _PredictedBusStop(stop: stop, predictedAt: predicted);
+    }
+    return null;
+  }
+
+  static _PredictedTrainStop? _firstFutureTrainStopPrediction({
+    required StepSeg step,
+    required TrainLocation location,
+    required TrainTripStop from,
+    required int firstSequence,
+    required TrainTripStop destination,
+    required DateTime now,
+  }) {
+    if (destination.sequence < firstSequence) {
+      throw StateError(
+        '再探索候補の列車駅範囲が不正です: '
+        'stepId=${step.stepId}, first=$firstSequence, '
+        'destination=${destination.sequence}',
+      );
+    }
+
+    final candidates = location.tripStops
+        .where(
+          (stop) =>
+              stop.sequence >= firstSequence &&
+              stop.sequence <= destination.sequence,
+        )
+        .toList(growable: false)
+      ..sort((a, b) => a.sequence.compareTo(b.sequence));
+
+    if (candidates.isEmpty || candidates.first.sequence != firstSequence) {
+      throw StateError(
+        '再探索候補の先頭駅を時刻表で確認できません: '
+        'stepId=${step.stepId}, first=$firstSequence',
+      );
+    }
+
+    final currentDeparture = _requiredTrainClock(
+      from.departureTime,
+      label: 'departure_time',
+      stopName: from.stopName,
+    );
+    for (final stop in candidates) {
+      final arrival = _requiredTrainClock(
+        stop.arrivalTime,
+        label: 'arrival_time',
+        stopName: stop.stopName,
+      );
+      final remainingSeconds = arrival - currentDeparture;
+      if (remainingSeconds <= 0) {
+        throw StateError(
+          '列車の駅間所要時間が不正です: '
+          '${from.stopName} -> ${stop.stopName}, $remainingSeconds秒',
+        );
+      }
+      final predicted = _predictFromVehicleSample(
+        vehicleTimestamp: location.vehicleTimestamp,
+        scheduledSegment: Duration(seconds: remainingSeconds),
+        now: now,
+        transport: 'rail',
+        stepId: step.stepId,
+      );
+      if (predicted == null) continue;
+
+      _railPlace(step, stop);
+      return _PredictedTrainStop(stop: stop, predictedAt: predicted);
+    }
+    return null;
   }
 
   static DateTime? _predictBusDestination({
@@ -556,4 +652,24 @@ class ReplanTransitObservationAdapter {
     }
     return predicted;
   }
+}
+
+class _PredictedBusStop {
+  final BusStopSchedule stop;
+  final DateTime predictedAt;
+
+  const _PredictedBusStop({
+    required this.stop,
+    required this.predictedAt,
+  });
+}
+
+class _PredictedTrainStop {
+  final TrainTripStop stop;
+  final DateTime predictedAt;
+
+  const _PredictedTrainStop({
+    required this.stop,
+    required this.predictedAt,
+  });
 }
