@@ -140,7 +140,7 @@ void main() {
     expect(navigation.step?.kind, 'rail');
   });
 
-  test('one station remaining keeps route destination sign and current station', () {
+  test('one station remaining tells the rider to get off next', () {
     final progress = RailProgress.forLocation(
       stepId: 'rail-1',
       location: location(
@@ -156,7 +156,7 @@ void main() {
       railProgress: progress,
     );
 
-    expect(navigation.mainText, '浅草線 青砥行 浅草橋');
+    expect(navigation.mainText, '次で降ります');
     expect(navigation.subText, '16:24 浅草線 青砥行 蔵前到着予定');
     expect(navigation.remainingStops, 1);
   });
