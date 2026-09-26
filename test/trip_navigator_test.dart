@@ -75,7 +75,7 @@ void main() {
       );
     });
 
-    test('last stop warning keeps the same route/place layout', () {
+    test('last stop warning tells the rider to get off next', () {
       final step = navigationV2Candidate().steps.firstWhere(
         (step) => step.stepId == 'bus-C',
       );
@@ -93,7 +93,7 @@ void main() {
         busProgress: progress,
       );
 
-      expect(navigation.mainText, '上23 中間二');
+      expect(navigation.mainText, '次で降ります');
       expect(navigation.subText, '10:46 上23 押上到着予定');
       expect(navigation.remainingStops, 1);
     });
