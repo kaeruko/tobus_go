@@ -147,14 +147,20 @@ void main() {
     expect(anchor.source, ReplanAnchorSource.tripOrigin);
   });
 
-  test('in-transit anchor fails fast without predicted arrival', () {
+  test('in-transit observation without predicted arrival is not actionable', () {
+    final observation = RidingTransitObservation(
+      stepId: 'rail-1',
+      motion: RidingTransitMotion.inTransit,
+      nextPlace: place('蔵前', 35.703, 139.790),
+    );
+
+    expect(observation.canResolveAnchorAt(now), isFalse);
     expect(
-      () => RidingTransitObservation(
-        stepId: 'rail-1',
-        motion: RidingTransitMotion.inTransit,
-        nextPlace: place('蔵前', 35.703, 139.790),
+      () => ReplanAnchorResolver.resolve(
+        context: ReplanAnchorContext(ridingTransit: observation),
+        now: now,
       ),
-      throwsArgumentError,
+      throwsStateError,
     );
   });
 
