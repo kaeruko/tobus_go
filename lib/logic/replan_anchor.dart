@@ -78,11 +78,6 @@ class RidingTransitObservation {
             'inTransit observation requires nextPlace',
           );
         }
-        if (predictedNextAvailableAt == null) {
-          throw ArgumentError(
-            'inTransit observation requires predictedNextAvailableAt',
-          );
-        }
         break;
     }
   }
@@ -97,7 +92,8 @@ class RidingTransitObservation {
       case RidingTransitMotion.stopped:
         return true;
       case RidingTransitMotion.inTransit:
-        return !predictedNextAvailableAt!.isBefore(now);
+        final predicted = predictedNextAvailableAt;
+        return predicted != null && !predicted.isBefore(now);
     }
   }
 }
@@ -162,7 +158,13 @@ class ReplanAnchorResolver {
             routeStepId: ridingTransit.stepId,
           );
         case RidingTransitMotion.inTransit:
-          final availableAt = ridingTransit.predictedNextAvailableAt!;
+          final availableAt = ridingTransit.predictedNextAvailableAt;
+          if (availableAt == null) {
+            throw StateError(
+              '次停車地点の到着見込みを安全に計算できません: '
+              'stepId=${ridingTransit.stepId}',
+            );
+          }
           if (availableAt.isBefore(now)) {
             throw StateError(
               '次停車地点の到着見込みが現在時刻より前です: '

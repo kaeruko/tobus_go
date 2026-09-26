@@ -152,11 +152,10 @@ void main() {
       expect(observation.predictedDestinationAvailableAt, isNull);
     });
 
-    test('expired moving bus forecast is treated as realtime unavailable', () {
+    test('expired next-stop forecast keeps bus position and destination ETA', () {
       final now = DateTime.utc(2026, 8, 15, 9, 10);
-      final location = movingLocation(
-        vehicleAt: DateTime.utc(2026, 8, 15, 9, 4),
-      );
+      final vehicleAt = DateTime.utc(2026, 8, 15, 9, 4);
+      final location = movingLocation(vehicleAt: vehicleAt);
       final progress = BusProgress.forStep(
         step: step,
         fromStopId: location.fromStopId,
@@ -166,21 +165,22 @@ void main() {
         currentStatus: location.currentStatus,
       );
 
-      expect(
-        () => ReplanTransitObservationAdapter.fromBus(
-          step: step,
-          progress: progress,
-          location: location,
-          now: now,
-        ),
-        throwsA(
-          isA<BusLocationNotAvailableException>().having(
-            (error) => error.code,
-            'code',
-            'bus_realtime_prediction_expired',
-          ),
-        ),
+      final observation = ReplanTransitObservationAdapter.fromBus(
+        step: step,
+        progress: progress,
+        location: location,
+        now: now,
       );
+
+      expect(observation.motion, RidingTransitMotion.inTransit);
+      expect(observation.currentPlace?.name, '平井七丁目');
+      expect(observation.nextPlace?.name, '平井七丁目北公園前');
+      expect(observation.predictedNextAvailableAt, isNull);
+      expect(
+        observation.predictedDestinationAvailableAt,
+        vehicleAt.add(const Duration(minutes: 7)),
+      );
+      expect(observation.canResolveAnchorAt(now), isFalse);
     });
   });
 
@@ -310,7 +310,8 @@ void main() {
       expect(observation.predictedDestinationAvailableAt, isNull);
     });
 
-    test('expired moving train forecast is treated as realtime unavailable', () {
+    test('expired train forecast keeps realtime position without ETA', () {
+      final now = DateTime.utc(2026, 8, 15, 9, 7);
       final location = movingTrain(
         vehicleAt: DateTime.utc(2026, 8, 15, 9, 4, 45),
       );
@@ -319,21 +320,19 @@ void main() {
         location: location,
       );
 
-      expect(
-        () => ReplanTransitObservationAdapter.fromRail(
-          step: step,
-          progress: progress,
-          location: location,
-          now: DateTime.utc(2026, 8, 15, 9, 7),
-        ),
-        throwsA(
-          isA<TrainLocationNotAvailableException>().having(
-            (error) => error.code,
-            'code',
-            'rail_realtime_prediction_expired',
-          ),
-        ),
+      final observation = ReplanTransitObservationAdapter.fromRail(
+        step: step,
+        progress: progress,
+        location: location,
+        now: now,
       );
+
+      expect(observation.motion, RidingTransitMotion.inTransit);
+      expect(observation.currentPlace?.name, '浅草橋');
+      expect(observation.nextPlace?.name, '蔵前');
+      expect(observation.predictedNextAvailableAt, isNull);
+      expect(observation.predictedDestinationAvailableAt, isNull);
+      expect(observation.canResolveAnchorAt(now), isFalse);
     });
   });
 }
