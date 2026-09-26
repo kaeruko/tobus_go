@@ -111,7 +111,7 @@ class _GroupLeaderActiveTripBodyState
           loading: () =>
               const Scaffold(body: Center(child: CircularProgressIndicator())),
           error: (error, stack) => Scaffold(
-            appBar: AppBar(title: const Text('移動中')),
+            appBar: AppBar(title: Text(appName)),
             body: Center(child: Text('ナビを表示できませんでした: $error')),
           ),
           data: (uiState) => _buildNavigation(trip, uiState),
