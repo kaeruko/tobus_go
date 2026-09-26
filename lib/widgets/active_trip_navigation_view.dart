@@ -3,6 +3,64 @@ import 'package:flutter/material.dart';
 import '../logic/trip_navigator.dart';
 import 'trip_navigation_status_card.dart';
 
+class ActiveTripAppBarTitle extends StatelessWidget {
+  final String appName;
+  final String tripTitle;
+  final String? contextLabel;
+
+  const ActiveTripAppBarTitle({
+    super.key,
+    required this.appName,
+    required this.tripTitle,
+    this.contextLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedAppName = appName.trim();
+    final normalizedTripTitle = tripTitle.trim();
+    final normalizedContextLabel = contextLabel?.trim();
+
+    if (normalizedAppName.isEmpty) {
+      throw StateError('移動中ナビのappNameが空です');
+    }
+    if (normalizedTripTitle.isEmpty) {
+      throw StateError('移動中ナビのtripTitleが空です');
+    }
+
+    final subtitle = normalizedContextLabel == null ||
+            normalizedContextLabel.isEmpty
+        ? normalizedTripTitle
+        : '$normalizedContextLabel · $normalizedTripTitle';
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          normalizedAppName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.black,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          subtitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.black54,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Solo / Group の移動中ナビゲーションで共有する画面骨格。
 ///
 /// この Widget は role や権限を判定しない。Solo / Group member / Group leader
