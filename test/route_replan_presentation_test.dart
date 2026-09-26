@@ -58,12 +58,12 @@ void main() {
     expect(presentation.showWarning, isFalse);
   });
 
-  test('正の遅延があれば乗換え可能でも経路見直しを表示する', () {
+  test('正の遅延があっても乗換え可能なら経路見直しを表示しない', () {
     final presentation = RouteReplanPresentation.fromDelayImpact(
       impact(delay: const Duration(minutes: 3), feasible: true),
     );
 
-    expect(presentation.showAction, isTrue);
+    expect(presentation.showAction, isFalse);
     expect(presentation.showWarning, isFalse);
   });
 
