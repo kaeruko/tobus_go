@@ -75,7 +75,7 @@ final routeReplanBlockedReasonProvider = Provider.autoDispose<String?>((ref) {
       if (predictedNextAt == null) {
         return blocked(
           'predicted_next_unavailable',
-          '$previousTextRealtimeの位置は取得できていますが、次の「$nextPlace」への到着時刻を安全に予測できません。'
+          '${previousText}Realtimeの位置は取得できていますが、次の「$nextPlace」への到着時刻を安全に予測できません。'
               '「$nextPlace」から利用できる時刻を確定できるまで経路変更を待ちます。',
           now: now,
         );
