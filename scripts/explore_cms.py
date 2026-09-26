@@ -241,10 +241,12 @@ def main() -> None:
                 else None
             )
 
+            widget_scope = f"{selected_stop_name}::{selected_route_id}"
             comment = st.text_area(
                 "コメント",
                 value=existing["comment"] if existing else "",
                 height=120,
+                key=f"comment::{widget_scope}",
             )
 
             if existing and existing["images"]:
@@ -261,13 +263,15 @@ def main() -> None:
                 "写真を追加",
                 type=["jpg", "jpeg", "png", "webp"],
                 accept_multiple_files=False,
+                key=f"upload::{widget_scope}",
             )
             caption = st.text_input(
                 "追加する写真のキャプション",
                 disabled=uploaded is None,
+                key=f"caption::{widget_scope}",
             )
 
-            if st.button("CSVに保存"):
+            if st.button("CSVに保存", key=f"save::{widget_scope}"):
                 try:
                     filename = save_group(
                         stop_name=selected_stop_name,
