@@ -18,6 +18,8 @@ class _ResolvedOdptRailRun:
     train_number: str
     scheduled_departure_minute: int
     scheduled_arrival_minute: int
+    actual_departure_minute: float
+    actual_arrival_minute: float
 
 
 def route_result_has_rail(result: dict[str, Any]) -> bool:
@@ -175,6 +177,32 @@ def _enrich_rail_step(
     step["trip_id"] = static_trip.trip_id
     step["route_id"] = static_trip.route_id
 
+    # The route engine's rail departure_time is a boarding-ready time
+    # (historically curr_time + 2 minutes), not the selected train's actual
+    # departure. Once the exact ODPT/static-GTFS run is known, replace the
+    # provisional clock with the effective train clocks so downstream
+    # ScheduleEntry / transfer-risk logic does not treat the ready time as the
+    # train departure time.
+    step["departure_time"] = _minute_to_clock(
+        resolved_odpt.actual_departure_minute
+    )
+    step["arrival_time"] = _minute_to_clock(
+        resolved_odpt.actual_arrival_minute
+    )
+    duration_minutes = (
+        int(resolved_odpt.actual_arrival_minute)
+        - int(resolved_odpt.actual_departure_minute)
+    )
+    if duration_minutes <= 0:
+        raise TrainRouteIdentityError(
+            "rail_odpt_run_duration_invalid",
+            "resolved ODPT train run has non-positive duration: "
+            f"train={resolved_odpt.train_number}, "
+            f"departure={resolved_odpt.actual_departure_minute}, "
+            f"arrival={resolved_odpt.actual_arrival_minute}",
+        )
+    step["minutes"] = duration_minutes
+
 
 def _required_route_stops(
     step: dict[str, Any],
@@ -315,6 +343,7 @@ def _resolve_odpt_run_for_train(
     timetable_manager: Any,
 ) -> tuple[_ResolvedOdptRailRun, float]:
     first_scheduled_departure: int | None = None
+    first_actual_departure: float | None = None
     final_scheduled_arrival: int | None = None
     final_actual_arrival: float | None = None
     previous_actual_arrival: float | None = None
@@ -370,12 +399,14 @@ def _resolve_odpt_run_for_train(
 
         if first_scheduled_departure is None:
             first_scheduled_departure = scheduled_departure
+            first_actual_departure = actual_departure
         final_scheduled_arrival = scheduled_arrival
         final_actual_arrival = actual_arrival
         previous_actual_arrival = actual_arrival
 
     if (
         first_scheduled_departure is None
+        or first_actual_departure is None
         or final_scheduled_arrival is None
         or final_actual_arrival is None
     ):
@@ -388,6 +419,8 @@ def _resolve_odpt_run_for_train(
             train_number=train_number,
             scheduled_departure_minute=first_scheduled_departure,
             scheduled_arrival_minute=final_scheduled_arrival,
+            actual_departure_minute=first_actual_departure,
+            actual_arrival_minute=final_actual_arrival,
         ),
         final_actual_arrival,
     )
@@ -545,6 +578,19 @@ def _required_int(value: Any, label: str) -> int:
             f"{label} must be an integer minute: {value!r}",
         )
     return integer
+
+
+def _minute_to_clock(value: float) -> str:
+    if value < 0:
+        raise TrainRouteIdentityError(
+            "rail_identity_clock_invalid",
+            f"train minute must not be negative: {value}",
+        )
+    # Route step clocks are minute-granularity. The existing identity matching
+    # also compares int(actual_arrival), so preserve that same truncation
+    # semantics for sub-minute realtime delays.
+    minute = int(value)
+    return f"{minute // 60:02d}:{minute % 60:02d}"
 
 
 def _clock_to_minute(value: str, *, label: str) -> int:

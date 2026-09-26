@@ -145,6 +145,9 @@ class TrainRouteIdentityTest(unittest.TestCase):
         rail = result["candidates"][0]["steps"][0]
         self.assertEqual(rail["trip_id"], "121603T0")
         self.assertEqual(rail["route_id"], "1")
+        self.assertEqual(rail["departure_time"], "16:25")
+        self.assertEqual(rail["arrival_time"], "16:30")
+        self.assertEqual(rail["minutes"], 5)
 
     def test_matches_static_schedule_even_when_route_arrival_contains_delay(self):
         trip = self._trip()
@@ -160,6 +163,9 @@ class TrainRouteIdentityTest(unittest.TestCase):
 
         rail = result["candidates"][0]["steps"][0]
         self.assertEqual(rail["trip_id"], "121603T0")
+        self.assertEqual(rail["departure_time"], "16:30")
+        self.assertEqual(rail["arrival_time"], "16:35")
+        self.assertEqual(rail["minutes"], 5)
 
     def test_selects_later_through_train_that_matches_route_arrival(self):
         first_trip = self._trip("first-trip")
@@ -187,6 +193,9 @@ class TrainRouteIdentityTest(unittest.TestCase):
         rail = result["candidates"][0]["steps"][0]
         self.assertEqual(rail["trip_id"], "later-trip")
         self.assertEqual(rail["route_id"], "1")
+        self.assertEqual(rail["departure_time"], "16:29")
+        self.assertEqual(rail["arrival_time"], "16:34")
+        self.assertEqual(rail["minutes"], 5)
 
     def test_rejects_candidate_that_would_switch_train_without_alighting(self):
         trip = self._trip()
