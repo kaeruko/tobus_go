@@ -7,10 +7,10 @@ import 'package:toeigo/widgets/active_trip_navigation_view.dart';
 void main() {
   testWidgets('移動中ヘッダーはアプリ名を最上段に表示する', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: Scaffold(
           appBar: AppBar(
-            title: ActiveTripAppBarTitle(
+            title: const ActiveTripAppBarTitle(
               appName: '都営でGO',
               tripTitle: '現在地 → 新橋駅',
             ),
