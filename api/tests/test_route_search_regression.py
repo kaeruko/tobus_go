@@ -7,6 +7,7 @@ import networkx as nx
 
 from toei_engine import (
     RouteSearchLimitError,
+    find_fastest_path,
     find_few_transfers_paths_generator,
     search_best_routes,
     search_best_routes_once,
@@ -16,6 +17,100 @@ from toei_engine import (
 class _FakeTimetableManager:
     def get_delays_snapshot(self):
         return {}
+
+
+class _BusOnlyTimetableManager:
+    def get_next_bus_departure(
+        self,
+        pole_id,
+        route_id,
+        current_time_min,
+        **kwargs,
+    ):
+        return current_time_min, "bus-trip"
+
+    def get_next_train_arrival(
+        self,
+        current_sta,
+        next_sta,
+        current_time_min,
+        **kwargs,
+    ):
+        return current_time_min + 1
+
+
+class BusOnlyRouteSearchTest(unittest.TestCase):
+    def setUp(self):
+        self.origin = ("phys", "origin")
+        self.destination = ("phys", "destination")
+        self.rail_a = ("line", "rail-a")
+        self.rail_b = ("line", "rail-b")
+        self.bus_a = ("line", "bus-a")
+        self.bus_b = ("line", "bus-b")
+
+        self.graph = nx.DiGraph()
+        self.graph.add_node(self.origin, name="origin")
+        self.graph.add_node(self.destination, name="destination")
+        self.graph.add_node(self.rail_a, mode="rail", name="rail")
+        self.graph.add_node(self.rail_b, mode="rail", name="rail")
+        self.graph.add_node(
+            self.bus_a,
+            mode="bus",
+            name="bus",
+            route_id="route-bus",
+        )
+        self.graph.add_node(
+            self.bus_b,
+            mode="bus",
+            name="bus",
+            route_id="route-bus",
+        )
+
+        self.graph.add_edge(self.origin, self.rail_a, etype="board", w=0)
+        self.graph.add_edge(
+            self.rail_a,
+            self.rail_b,
+            etype="ride",
+            mode="rail",
+            w=0,
+        )
+        self.graph.add_edge(self.rail_b, self.destination, etype="alight", w=0)
+
+        self.graph.add_edge(self.origin, self.bus_a, etype="board", w=0)
+        self.graph.add_edge(
+            self.bus_a,
+            self.bus_b,
+            etype="ride",
+            mode="bus",
+            meters=1000,
+            w=0,
+        )
+        self.graph.add_edge(self.bus_b, self.destination, etype="alight", w=0)
+
+        self.tm = _BusOnlyTimetableManager()
+
+    def test_normal_search_can_choose_rail(self):
+        _, path = find_fastest_path(
+            self.graph,
+            self.tm,
+            self.origin,
+            self.destination,
+            start_time_str="10:00",
+        )
+        self.assertIn(self.rail_a, path)
+        self.assertNotIn(self.bus_a, path)
+
+    def test_bus_only_search_excludes_rail_edges(self):
+        _, path = find_fastest_path(
+            self.graph,
+            self.tm,
+            self.origin,
+            self.destination,
+            start_time_str="10:00",
+            bus_only=True,
+        )
+        self.assertIn(self.bus_a, path)
+        self.assertNotIn(self.rail_a, path)
 
 
 class TokyoRouteSearchRegressionTest(unittest.TestCase):
