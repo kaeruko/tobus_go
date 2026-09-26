@@ -218,6 +218,306 @@ void main() {
     );
   });
 
+  test('filters getting off and waiting to reboard the same current route', () {
+    const anchor = LatLng(35.711078, 139.820995);
+    const bridge = LatLng(35.708082, 139.817247);
+    const honjo = LatLng(35.708700, 139.804000);
+
+    final current = Candidate(
+      id: 'bus-original',
+      lines: const ['上２３ 上野松坂屋前行'],
+      rides: 1,
+      boards: 1,
+      transfers: 0,
+      total: 30,
+      totalTime: 30,
+      steps: [
+        StepSeg(
+          stepId: 'bus-current',
+          kind: 'bus',
+          title: '上２３ 上野松坂屋前行',
+          fromName: '平井七丁目北公園前',
+          toName: '本所吾妻橋',
+          routeId: '070',
+          tripId: 'current-trip',
+          directionId: '1',
+          departureTime: '10:12',
+          arrivalTime: '10:36',
+          stops: [
+            StopPoint(
+              name: '文花三丁目',
+              point: const LatLng(35.716, 139.823),
+              stopId: '1383-02',
+            ),
+            StopPoint(
+              name: '十間橋通り',
+              point: anchor,
+              stopId: '0752-02',
+            ),
+            StopPoint(
+              name: '十間橋',
+              point: bridge,
+              stopId: '0751-02',
+            ),
+            StopPoint(
+              name: '本所吾妻橋',
+              point: honjo,
+              stopId: 'honjo',
+              isDestination: true,
+            ),
+          ],
+        ),
+      ],
+      points: const [],
+      originName: '平井七丁目北公園前',
+      destinationName: '新橋',
+      originCoords: const LatLng(35.73, 139.84),
+      destinationCoords: destinationPoint,
+      arrivalTime: '11:19',
+    );
+
+    final reboard = Candidate(
+      id: 'same-bus-later',
+      lines: const ['上２３ 上野松坂屋前行', '浅草線'],
+      rides: 2,
+      boards: 2,
+      transfers: 1,
+      total: 50,
+      totalTime: 50,
+      steps: [
+        StepSeg(
+          stepId: 'wait-same-bus',
+          kind: 'wait',
+          title: '待ち時間',
+          fromName: '十間橋通り',
+          toName: '十間橋通り',
+          place: '十間橋通り',
+          departureTime: '10:29',
+          arrivalTime: '10:47',
+          minutes: 18,
+        ),
+        StepSeg(
+          stepId: 'same-bus',
+          kind: 'bus',
+          title: '上２３ 上野松坂屋前行',
+          fromName: '十間橋通り',
+          toName: '本所吾妻橋',
+          routeId: '070',
+          tripId: 'later-trip',
+          directionId: '1',
+          departureTime: '10:47',
+          arrivalTime: '10:54',
+          stops: [
+            StopPoint(
+              name: '十間橋通り',
+              point: anchor,
+              stopId: '0752-02',
+              isOrigin: true,
+            ),
+            StopPoint(
+              name: '十間橋',
+              point: bridge,
+              stopId: '0751-02',
+            ),
+            StopPoint(
+              name: '本所吾妻橋',
+              point: honjo,
+              stopId: 'honjo',
+              isDestination: true,
+            ),
+          ],
+        ),
+      ],
+      points: const [],
+      originName: '十間橋通り',
+      destinationName: '新橋',
+      originCoords: anchor,
+      destinationCoords: destinationPoint,
+      arrivalTime: '11:19',
+    );
+
+    final alternative = Candidate(
+      id: 'different-route',
+      lines: const ['浅草線'],
+      rides: 1,
+      boards: 1,
+      transfers: 0,
+      total: 35,
+      totalTime: 35,
+      steps: [
+        StepSeg(
+          stepId: 'walk-other',
+          kind: 'walk',
+          title: '徒歩',
+          fromName: '十間橋通り',
+          toName: '押上',
+          departureTime: '10:29',
+          arrivalTime: '10:35',
+          minutes: 6,
+          meters: 480,
+        ),
+        StepSeg(
+          stepId: 'rail-other',
+          kind: 'rail',
+          title: '浅草線',
+          fromName: '押上',
+          toName: '新橋',
+          routeId: '1',
+          tripId: 'rail-trip',
+          departureTime: '10:37',
+          arrivalTime: '10:57',
+          minutes: 20,
+        ),
+      ],
+      points: const [],
+      originName: '十間橋通り',
+      destinationName: '新橋',
+      originCoords: anchor,
+      destinationCoords: destinationPoint,
+      arrivalTime: '10:57',
+    );
+
+    final busRequest = RouteReplanRequest(
+      anchor: ReplanAnchor(
+        placeName: '十間橋通り',
+        stopId: '0752-02',
+        point: anchor,
+        availableAt: DateTime(2026, 8, 15, 10, 29),
+        source: ReplanAnchorSource.predictedNextTransitPlace,
+        routeStepId: 'bus-current',
+      ),
+      activeStepId: 'bus-current',
+      originalCandidateId: 'bus-original',
+      destination: destinationPoint,
+      destinationName: '新橋',
+    );
+
+    final preview = RouteReplanPreview.build(
+      trip: trip(current),
+      request: busRequest,
+      result: RouteSearchResult(
+        candidates: [reboard, alternative],
+        fareByCandidateId: const {},
+        meta: RouteMeta(
+          destinationReachable: true,
+          destinationLabel: '新橋',
+        ),
+      ),
+    );
+
+    expect(
+      preview.newCandidates.map((candidate) => candidate.id),
+      ['different-route'],
+    );
+  });
+
+  test('keeps same-route reboard when current ride does not reach its destination', () {
+    const anchor = LatLng(35.711078, 139.820995);
+    const honjo = LatLng(35.708700, 139.804000);
+
+    final current = Candidate(
+      id: 'short-bus-original',
+      lines: const ['上２３ 上野松坂屋前行'],
+      rides: 1,
+      boards: 1,
+      transfers: 0,
+      total: 10,
+      totalTime: 10,
+      steps: [
+        StepSeg(
+          stepId: 'short-bus-current',
+          kind: 'bus',
+          title: '上２３ 上野松坂屋前行',
+          fromName: '文花三丁目',
+          toName: '十間橋',
+          routeId: '070',
+          directionId: '1',
+          stops: [
+            StopPoint(
+              name: '十間橋通り',
+              point: anchor,
+              stopId: '0752-02',
+            ),
+            StopPoint(
+              name: '十間橋',
+              point: const LatLng(35.708082, 139.817247),
+              stopId: '0751-02',
+              isDestination: true,
+            ),
+          ],
+        ),
+      ],
+      points: const [],
+      originName: '文花三丁目',
+      destinationName: '新橋',
+      originCoords: const LatLng(35.716, 139.823),
+      destinationCoords: destinationPoint,
+    );
+
+    final neededReboard = Candidate(
+      id: 'same-route-needed',
+      lines: const ['上２３ 上野松坂屋前行'],
+      rides: 1,
+      boards: 1,
+      transfers: 0,
+      total: 20,
+      totalTime: 20,
+      steps: [
+        StepSeg(
+          stepId: 'same-route-needed-step',
+          kind: 'bus',
+          title: '上２３ 上野松坂屋前行',
+          fromName: '十間橋通り',
+          toName: '本所吾妻橋',
+          routeId: '070',
+          directionId: '1',
+          stops: [
+            StopPoint(
+              name: '十間橋通り',
+              point: anchor,
+              stopId: '0752-02',
+              isOrigin: true,
+            ),
+            StopPoint(
+              name: '本所吾妻橋',
+              point: honjo,
+              stopId: 'honjo',
+              isDestination: true,
+            ),
+          ],
+        ),
+      ],
+      points: const [],
+      originName: '十間橋通り',
+      destinationName: '新橋',
+      originCoords: anchor,
+      destinationCoords: destinationPoint,
+    );
+
+    final busRequest = RouteReplanRequest(
+      anchor: ReplanAnchor(
+        placeName: '十間橋通り',
+        stopId: '0752-02',
+        point: anchor,
+        availableAt: DateTime(2026, 8, 15, 10, 29),
+        source: ReplanAnchorSource.predictedNextTransitPlace,
+        routeStepId: 'short-bus-current',
+      ),
+      activeStepId: 'short-bus-current',
+      originalCandidateId: 'short-bus-original',
+      destination: destinationPoint,
+      destinationName: '新橋',
+    );
+
+    final preview = RouteReplanPreview.build(
+      trip: trip(current),
+      request: busRequest,
+      result: result(neededReboard),
+    );
+
+    expect(preview.newCandidates.single.id, 'same-route-needed');
+  });
+
   test('comparison labels keep route and arrival information', () {
     final candidate = newCandidate();
     expect(RouteReplanPreview.arrivalLabel(candidate), '18:25');
