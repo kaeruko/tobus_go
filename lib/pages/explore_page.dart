@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../constants.dart';
+import '../models/explore_models.dart';
 import '../providers/explore_provider.dart';
 import '../providers/location_provider.dart';
-import '../models/explore_models.dart';
 import 'experience_page.dart';
-import '../constants.dart';
 
 class ExplorePage extends ConsumerWidget {
   const ExplorePage({super.key});
@@ -14,7 +14,7 @@ class ExplorePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final exploreState = ref.watch(exploreProvider);
-    // 現在地ストリームを監視
+    final editorialState = ref.watch(exploreEditorialContentProvider);
     final locationAsync = ref.watch(locationStreamProvider);
 
     return Scaffold(
@@ -23,7 +23,6 @@ class ExplorePage extends ConsumerWidget {
       ),
       body: Column(
         children: [
-          // 検索アクションエリア
           Container(
             padding: const EdgeInsets.all(16.0),
             color: Theme.of(context).canvasColor,
@@ -34,13 +33,14 @@ class ExplorePage extends ConsumerWidget {
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: locationAsync.valueOrNull == null
-                      ? null // 位置情報が取れるまでボタン無効
+                      ? null
                       : () {
                           final override = ref.read(locationOverrideProvider);
-                          final pos = override ?? LatLng(
-                            locationAsync.value!.latitude,
-                            locationAsync.value!.longitude,
-                          );
+                          final pos = override ??
+                              LatLng(
+                                locationAsync.value!.latitude,
+                                locationAsync.value!.longitude,
+                              );
                           ref.read(exploreProvider.notifier).search(pos);
                         },
                   icon: const Icon(Icons.explore),
@@ -53,29 +53,43 @@ class ExplorePage extends ConsumerWidget {
             ),
           ),
           const Divider(height: 1),
-          
-          // 結果表示エリア
           Expanded(
-            child: exploreState.when(
-              data: (data) {
-                if (data == null) {
-                  return const Center(child: Text('ボタンを押して検索を開始してください'));
-                }
-                if (!data.found) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text(data.message ?? '近くにバス停が見つかりませんでした'),
-                    ),
-                  );
-                }
-                return _buildResultList(context, data);
-              },
-              error: (err, stack) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text('エラーが発生しました: $err', style: const TextStyle(color: Colors.red)),
+            child: editorialState.when(
+              data: (editorial) => exploreState.when(
+                data: (data) {
+                  if (data == null) {
+                    return const Center(
+                      child: Text('ボタンを押して検索を開始してください'),
+                    );
+                  }
+                  if (!data.found) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Text(
+                          data.message ?? '近くにバス停が見つかりませんでした',
+                        ),
+                      ),
+                    );
+                  }
+                  return _buildResultList(context, data, editorial);
+                },
+                error: (err, stack) => _errorView(
+                  '検索に失敗しました: $err',
                 ),
+                loading: () => const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('検索中...'),
+                    ],
+                  ),
+                ),
+              ),
+              error: (err, stack) => _errorView(
+                'みつける情報の読み込みに失敗しました: $err',
               ),
               loading: () => const Center(
                 child: Column(
@@ -83,13 +97,64 @@ class ExplorePage extends ConsumerWidget {
                   children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text('検索中...'),
+                    Text('みつける情報を読み込み中...'),
                   ],
                 ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _errorView(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Text(
+          message,
+          style: const TextStyle(color: Colors.red),
+        ),
+      ),
+    );
+  }
+
+  Uri _editorialImageUri(ExploreEditorialImage image) {
+    return Uri.parse('$kApiBase/explore/content/image').replace(
+      queryParameters: {'file': image.file},
+    );
+  }
+
+  Widget _editorialThumb(ExploreEditorialImage image) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 72,
+        height: 72,
+        child: Image.network(
+          _editorialImageUri(image).toString(),
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              color: Colors.grey.shade200,
+              child: const Icon(Icons.broken_image_outlined),
+            );
+          },
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              color: Colors.grey.shade100,
+              child: const Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -138,10 +203,23 @@ class ExplorePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildResultList(BuildContext context, ReachableResponse data) {
+  Widget _stopThumb(
+    ReachableStop stop,
+    ExploreEditorialSpot? editorial,
+  ) {
+    if (editorial != null && editorial.images.isNotEmpty) {
+      return _editorialThumb(editorial.images.first);
+    }
+    return _streetViewThumb(stop);
+  }
+
+  Widget _buildResultList(
+    BuildContext context,
+    ReachableResponse data,
+    ExploreEditorialContent editorial,
+  ) {
     return ListView(
       children: [
-        // 最寄りバス停情報
         if (data.nearestStop != null)
           Container(
             color: Colors.grey.shade100,
@@ -156,7 +234,6 @@ class ExplorePage extends ConsumerWidget {
               ),
             ),
           ),
-        
         Padding(
           padding: const EdgeInsets.all(16.0),
           child: Text(
@@ -164,15 +241,30 @@ class ExplorePage extends ConsumerWidget {
             style: Theme.of(context).textTheme.titleSmall,
           ),
         ),
-
-        // 行ける場所リスト
         ...data.reachableStops.map((stop) {
+          final spot = editorial.byStopId[stop.id];
+          final routeText =
+              '系統: ${stop.viaRoute.replaceAll("odpt.Busroute:Toei.", "")}';
+
           return ListTile(
-            leading: _streetViewThumb(stop),
+            leading: _stopThumb(stop, spot),
             title: Text(stop.name),
-            subtitle: Text(
-              '系統: ${stop.viaRoute.replaceAll("odpt.Busroute:Toei.", "")}',
-              style: const TextStyle(fontSize: 12),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  routeText,
+                  style: const TextStyle(fontSize: 12),
+                ),
+                if (spot != null && spot.comment.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    spot.comment,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
             ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
