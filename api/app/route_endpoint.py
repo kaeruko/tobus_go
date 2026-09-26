@@ -30,6 +30,7 @@ class ApiRouteRequest(BaseModel):
     blat: float
     blon: float
     pref: str = "cost"
+    bus_only: bool = False
     start_time: str = "10:00"
     target_date_str: str | None = None
     limit: int = 5
@@ -55,6 +56,7 @@ def to_domain_request(request: ApiRouteRequest) -> RouteSearchRequest:
         destination=GeoPoint(request.blat, request.blon),
         departure_at=departure.replace(tzinfo=_JST),
         preference=normalize_route_preference(request.pref),
+        bus_only=request.bus_only,
         limit=request.limit,
     )
 
