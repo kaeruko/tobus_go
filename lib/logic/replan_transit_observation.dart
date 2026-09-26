@@ -392,7 +392,24 @@ class ReplanTransitObservationAdapter {
       _busPlace(step, stop);
       return _PredictedBusStop(stop: stop, predictedAt: predicted);
     }
-    return null;
+
+    // The vehicle is still reported in transit but every timestamp-based ETA
+    // through the planned alighting stop has expired. Do not assume any stop
+    // was already reached. Instead, conservatively start from the immediate
+    // realtime next stop and charge the full scheduled segment again from now.
+    final first = candidates.first;
+    final fallbackMinutes = first.arrivalMinute - from.departureMinute;
+    if (fallbackMinutes <= 0) {
+      throw StateError(
+        'バスの保守的到着見込みに使う区間時間が不正です: '
+        '${from.stopName} -> ${first.stopName}, $fallbackMinutes分',
+      );
+    }
+    _busPlace(step, first);
+    return _PredictedBusStop(
+      stop: first,
+      predictedAt: now.add(Duration(minutes: fallbackMinutes)),
+    );
   }
 
   static _PredictedTrainStop? _firstFutureTrainStopPrediction({
@@ -457,7 +474,25 @@ class ReplanTransitObservationAdapter {
       _railPlace(step, stop);
       return _PredictedTrainStop(stop: stop, predictedAt: predicted);
     }
-    return null;
+
+    final first = candidates.first;
+    final firstArrival = _requiredTrainClock(
+      first.arrivalTime,
+      label: 'arrival_time',
+      stopName: first.stopName,
+    );
+    final fallbackSeconds = firstArrival - currentDeparture;
+    if (fallbackSeconds <= 0) {
+      throw StateError(
+        '列車の保守的到着見込みに使う区間時間が不正です: '
+        '${from.stopName} -> ${first.stopName}, $fallbackSeconds秒',
+      );
+    }
+    _railPlace(step, first);
+    return _PredictedTrainStop(
+      stop: first,
+      predictedAt: now.add(Duration(seconds: fallbackSeconds)),
+    );
   }
 
   static DateTime? _predictBusDestination({
@@ -476,13 +511,15 @@ class ReplanTransitObservationAdapter {
         '$remainingMinutes分',
       );
     }
+    final scheduledRemaining = Duration(minutes: remainingMinutes);
     return _predictFromVehicleSample(
-      vehicleTimestamp: location.vehicleTimestamp,
-      scheduledSegment: Duration(minutes: remainingMinutes),
-      now: now,
-      transport: 'bus',
-      stepId: step.stepId,
-    );
+          vehicleTimestamp: location.vehicleTimestamp,
+          scheduledSegment: scheduledRemaining,
+          now: now,
+          transport: 'bus',
+          stepId: step.stepId,
+        ) ??
+        now.add(scheduledRemaining);
   }
 
   static TrainTripStop _trainStopAt(TrainLocation location, int sequence) {
@@ -532,13 +569,15 @@ class ReplanTransitObservationAdapter {
         '$remainingSeconds秒',
       );
     }
+    final scheduledRemaining = Duration(seconds: remainingSeconds);
     return _predictFromVehicleSample(
-      vehicleTimestamp: location.vehicleTimestamp,
-      scheduledSegment: Duration(seconds: remainingSeconds),
-      now: now,
-      transport: 'rail',
-      stepId: step.stepId,
-    );
+          vehicleTimestamp: location.vehicleTimestamp,
+          scheduledSegment: scheduledRemaining,
+          now: now,
+          transport: 'rail',
+          stepId: step.stepId,
+        ) ??
+        now.add(scheduledRemaining);
   }
 
   static ReplanTransitPlace _busPlace(
