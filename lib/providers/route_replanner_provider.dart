@@ -67,10 +67,19 @@ final routeReplanBlockedReasonProvider = Provider.autoDispose<String?>((ref) {
   if (ridingTransit != null && !ridingTransit.canResolveAnchorAt(now)) {
     final nextPlace = ridingTransit.nextPlace?.name.trim();
     final currentPlace = ridingTransit.currentPlace?.name.trim();
+    final predictedNextAt = ridingTransit.predictedNextAvailableAt;
     if (nextPlace != null && nextPlace.isNotEmpty) {
       final previousText = currentPlace == null || currentPlace.isEmpty
           ? ''
           : '「$currentPlace」はすでに出発した地点なので、再探索起点には戻しません。';
+      if (predictedNextAt == null) {
+        return blocked(
+          'predicted_next_unavailable',
+          '$previousTextRealtimeの位置は取得できていますが、次の「$nextPlace」への到着時刻を安全に予測できません。'
+              '「$nextPlace」から利用できる時刻を確定できるまで経路変更を待ちます。',
+          now: now,
+        );
+      }
       return blocked(
         'predicted_next_expired',
         '$previousText次の「$nextPlace」への到着予測時刻を過ぎましたが、Realtimeでは到着をまだ確認できていません。'
@@ -79,8 +88,12 @@ final routeReplanBlockedReasonProvider = Provider.autoDispose<String?>((ref) {
       );
     }
     return blocked(
-      'predicted_next_expired_without_place',
-      '次の駅・停留所への到着予測時刻を過ぎましたが、Realtimeでは到着をまだ確認できていません。更新を待ってから経路を見直してください。',
+      predictedNextAt == null
+          ? 'predicted_next_unavailable_without_place'
+          : 'predicted_next_expired_without_place',
+      predictedNextAt == null
+          ? 'Realtimeの位置は取得できていますが、次の駅・停留所への到着時刻を安全に予測できません。更新を待ってから経路を見直してください。'
+          : '次の駅・停留所への到着予測時刻を過ぎましたが、Realtimeでは到着をまだ確認できていません。更新を待ってから経路を見直してください。',
       now: now,
     );
   }
