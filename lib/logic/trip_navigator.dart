@@ -425,7 +425,9 @@ class NavigationState {
 
         return withFreshnessNotice(
           NavigationState(
-            mainText: '${progress.rideTitle} $currentPlace',
+            mainText: remaining == 1
+                ? '次で降ります'
+                : '${progress.rideTitle} $currentPlace',
             subText: _rideArrivalSummary(step, progress.rideTitle),
             color: remaining == 1
                 ? const Color(0xFFFFAB91)
