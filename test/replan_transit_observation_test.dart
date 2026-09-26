@@ -152,6 +152,40 @@ void main() {
       expect(observation.predictedDestinationAvailableAt, isNull);
     });
 
+    test('all expired bus ETAs fall back conservatively from now', () {
+      final now = DateTime.utc(2026, 8, 15, 9, 12);
+      final vehicleAt = DateTime.utc(2026, 8, 15, 9, 4);
+      final location = movingLocation(vehicleAt: vehicleAt);
+      final progress = BusProgress.forStep(
+        step: step,
+        fromStopId: location.fromStopId,
+        tripStopIds: location.tripStopIds,
+        observedStopId: location.rawStopId,
+        observedStopName: location.rawStopName,
+        currentStatus: location.currentStatus,
+      );
+
+      final observation = ReplanTransitObservationAdapter.fromBus(
+        step: step,
+        progress: progress,
+        location: location,
+        now: now,
+      );
+
+      expect(observation.motion, RidingTransitMotion.inTransit);
+      expect(observation.currentPlace?.name, '平井七丁目');
+      expect(observation.nextPlace?.name, '平井七丁目北公園前');
+      expect(
+        observation.predictedNextAvailableAt,
+        now.add(const Duration(minutes: 3)),
+      );
+      expect(
+        observation.predictedDestinationAvailableAt,
+        now.add(const Duration(minutes: 7)),
+      );
+      expect(observation.canResolveAnchorAt(now), isTrue);
+    });
+
     test('expired immediate bus ETA scans ahead to first future stop', () {
       final now = DateTime.utc(2026, 8, 15, 9, 10);
       final vehicleAt = DateTime.utc(2026, 8, 15, 9, 4);
@@ -313,7 +347,7 @@ void main() {
       expect(observation.predictedDestinationAvailableAt, isNull);
     });
 
-    test('expired train forecast keeps realtime position without ETA', () {
+    test('expired train forecast falls back conservatively from now', () {
       final now = DateTime.utc(2026, 8, 15, 9, 7);
       final location = movingTrain(
         vehicleAt: DateTime.utc(2026, 8, 15, 9, 4, 45),
@@ -333,9 +367,15 @@ void main() {
       expect(observation.motion, RidingTransitMotion.inTransit);
       expect(observation.currentPlace?.name, '浅草橋');
       expect(observation.nextPlace?.name, '蔵前');
-      expect(observation.predictedNextAvailableAt, isNull);
-      expect(observation.predictedDestinationAvailableAt, isNull);
-      expect(observation.canResolveAnchorAt(now), isFalse);
+      expect(
+        observation.predictedNextAvailableAt,
+        now.add(const Duration(seconds: 90)),
+      );
+      expect(
+        observation.predictedDestinationAvailableAt,
+        now.add(const Duration(seconds: 90)),
+      );
+      expect(observation.canResolveAnchorAt(now), isTrue);
     });
   });
 }
