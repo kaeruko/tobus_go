@@ -47,12 +47,17 @@ def create_app(mode: str) -> FastAPI:
     city = _configured_backend_city()
 
     if city == "tokyo":
+        from .explore_content_routes import register_explore_content_routes
         from .routes import register_routes
         from .tokyo_runtime_fast import setup_on_startup
         from .train_routes import register_train_routes
 
         startup: StartupHandler = setup_on_startup
-        route_registrars = (register_routes, register_train_routes)
+        route_registrars = (
+            register_routes,
+            register_train_routes,
+            register_explore_content_routes,
+        )
         title = "Toei Route API"
     elif city == "nagoya":
         from .nagoya_routes import register_nagoya_routes
@@ -82,6 +87,7 @@ def create_app(mode: str) -> FastAPI:
 
     app = FastAPI(title=title)
     app.state.city_key = city
+    app.state.runtime_mode = mode
 
     app.add_middleware(
         CORSMiddleware,
