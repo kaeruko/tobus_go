@@ -1,6 +1,7 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/route_models.dart';
+import 'replan_debug_log.dart';
 import '../models/trip_models.dart';
 import '../services/route_replanner.dart';
 import '../services/route_search_service.dart';
@@ -45,10 +46,16 @@ class RouteReplanPreview {
       );
     }
 
+    final newCandidates = _removeDominatedCurrentRideReboards(
+      original: original,
+      request: request,
+      candidates: result.candidates,
+    );
+
     return RouteReplanPreview(
       request: request,
       originalCandidate: original,
-      newCandidates: List.unmodifiable(result.candidates),
+      newCandidates: List.unmodifiable(newCandidates),
       originalFuturePoints: List.unmodifiable(
         _buildOriginalFuturePoints(original, request),
       ),
@@ -159,6 +166,199 @@ class RouteReplanPreview {
 
     _appendUnique(points, request.destination);
     return points;
+  }
+
+  static List<Candidate> _removeDominatedCurrentRideReboards({
+    required Candidate original,
+    required RouteReplanRequest request,
+    required List<Candidate> candidates,
+  }) {
+    if (request.anchor.source != ReplanAnchorSource.currentTransitPlace &&
+        request.anchor.source != ReplanAnchorSource.predictedNextTransitPlace) {
+      return List<Candidate>.from(candidates);
+    }
+
+    final activeMatches = original.steps
+        .where((step) => step.stepId == request.activeStepId)
+        .toList(growable: false);
+    if (activeMatches.length != 1) {
+      throw StateError(
+        '再探索中の乗車stepを現在経路で一意に特定できません: '
+        'stepId=${request.activeStepId}, matches=${activeMatches.length}',
+      );
+    }
+    final activeRide = activeMatches.single;
+    if (!activeRide.isRide || activeRide.stops.length < 2) {
+      return List<Candidate>.from(candidates);
+    }
+
+    final anchorIndex = _findAnchorStopIndex(activeRide.stops, request);
+    if (anchorIndex < 0) {
+      throw StateError(
+        '再探索起点が現在乗車中の停車地点一覧にありません: '
+        'stepId=${activeRide.stepId}, anchor=${request.anchor.placeName}',
+      );
+    }
+
+    final kept = <Candidate>[];
+    final filteredIds = <String>[];
+    for (final candidate in candidates) {
+      if (_isDominatedCurrentRideReboard(
+        candidate: candidate,
+        activeRide: activeRide,
+        anchorIndex: anchorIndex,
+        request: request,
+      )) {
+        filteredIds.add(candidate.id);
+      } else {
+        kept.add(candidate);
+      }
+    }
+
+    if (filteredIds.isNotEmpty) {
+      ReplanDebugLog.emit('replan_preview_dominated_reboard_filtered', {
+        'activeStepId': request.activeStepId,
+        'anchorPlace': request.anchor.placeName,
+        'routeId': activeRide.routeId,
+        'filteredCandidateIds': filteredIds,
+      });
+    }
+    return kept;
+  }
+
+  static bool _isDominatedCurrentRideReboard({
+    required Candidate candidate,
+    required StepSeg activeRide,
+    required int anchorIndex,
+    required RouteReplanRequest request,
+  }) {
+    final firstRideIndex = candidate.steps.indexWhere((step) => step.isRide);
+    if (firstRideIndex < 0) return false;
+
+    for (var index = 0; index < firstRideIndex; index++) {
+      final step = candidate.steps[index];
+      if (step.kind != 'wait' || !_waitIsAtAnchor(step, request)) {
+        return false;
+      }
+    }
+
+    final reboard = candidate.steps[firstRideIndex];
+    if (reboard.kind != activeRide.kind) return false;
+
+    final activeRouteId = activeRide.routeId?.trim();
+    final reboardRouteId = reboard.routeId?.trim();
+    if (activeRouteId == null ||
+        activeRouteId.isEmpty ||
+        reboardRouteId == null ||
+        reboardRouteId.isEmpty ||
+        activeRouteId != reboardRouteId) {
+      return false;
+    }
+
+    if (activeRide.title.trim() != reboard.title.trim()) {
+      return false;
+    }
+
+    final activeDirection = activeRide.directionId?.trim();
+    final reboardDirection = reboard.directionId?.trim();
+    if (activeDirection != null &&
+        activeDirection.isNotEmpty &&
+        reboardDirection != null &&
+        reboardDirection.isNotEmpty &&
+        activeDirection != reboardDirection) {
+      return false;
+    }
+
+    if (!_rideStartsAtAnchor(reboard, request)) {
+      return false;
+    }
+
+    return _rideDestinationIsDownstream(
+      activeRide: activeRide,
+      reboard: reboard,
+      anchorIndex: anchorIndex,
+    );
+  }
+
+  static bool _waitIsAtAnchor(
+    StepSeg step,
+    RouteReplanRequest request,
+  ) {
+    final anchor = request.anchor.placeName.trim();
+    final names = <String?>[
+      step.fromName,
+      step.toName,
+      step.place,
+    ];
+    final present = names
+        .whereType<String>()
+        .map((name) => name.trim())
+        .where((name) => name.isNotEmpty)
+        .toList(growable: false);
+    return present.isNotEmpty && present.every((name) => name == anchor);
+  }
+
+  static bool _rideStartsAtAnchor(
+    StepSeg ride,
+    RouteReplanRequest request,
+  ) {
+    if (ride.stops.isNotEmpty) {
+      return _stopMatchesAnchor(ride.stops.first, request);
+    }
+    return ride.fromName?.trim() == request.anchor.placeName.trim();
+  }
+
+  static bool _rideDestinationIsDownstream({
+    required StepSeg activeRide,
+    required StepSeg reboard,
+    required int anchorIndex,
+  }) {
+    final destinationStop = reboard.stops.isEmpty ? null : reboard.stops.last;
+    final destinationName =
+        destinationStop?.name.trim() ?? reboard.toName?.trim() ?? '';
+    final destinationId = destinationStop?.stopId?.trim();
+
+    if ((destinationId == null || destinationId.isEmpty) &&
+        destinationName.isEmpty) {
+      return false;
+    }
+
+    for (var index = anchorIndex + 1;
+        index < activeRide.stops.length;
+        index++) {
+      final stop = activeRide.stops[index];
+      final stopId = stop.stopId?.trim();
+      if (destinationId != null &&
+          destinationId.isNotEmpty &&
+          stopId != null &&
+          stopId.isNotEmpty) {
+        if (destinationId == stopId) return true;
+        continue;
+      }
+      if (destinationName.isNotEmpty &&
+          stop.name.trim() == destinationName) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool _stopMatchesAnchor(
+    StopPoint stop,
+    RouteReplanRequest request,
+  ) {
+    final anchorStopId = request.anchor.stopId?.trim();
+    final stopId = stop.stopId?.trim();
+    if (anchorStopId != null &&
+        anchorStopId.isNotEmpty &&
+        stopId != null &&
+        stopId.isNotEmpty) {
+      return anchorStopId == stopId;
+    }
+    if (stop.name.trim() == request.anchor.placeName.trim()) {
+      return true;
+    }
+    return _samePoint(stop.point, request.anchor.point);
   }
 
   static int _findAnchorStopIndex(
