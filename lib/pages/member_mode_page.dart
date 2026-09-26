@@ -8,6 +8,7 @@ import '../core/app_clock.dart';
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
 import '../providers/app_session_provider.dart';
+import '../providers/city_profile_provider.dart';
 import '../providers/delay_impact_provider.dart';
 import '../providers/group_schedule_impact_provider.dart';
 import '../providers/trip_provider.dart';
@@ -47,6 +48,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   @override
   Widget build(BuildContext context) {
     final uiStateAsync = ref.watch(memberUiStateProvider);
+    final appName = ref.watch(cityProfileProvider).appName;
     final delayResolution = ref.watch(resolvedDelayImpactProvider);
     final delayImpact = delayResolution.impact;
     final scheduleImpact = ref.watch(groupScheduleImpactProvider);
@@ -59,7 +61,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (err, stack) => Scaffold(
-        appBar: const CupertinoNavigationBar(middle: Text('エラー')),
+        appBar: CupertinoNavigationBar(middle: Text(appName)),
         body: Center(child: Text('エラーが発生しました: $err')),
       ),
       data: (uiState) {
@@ -101,7 +103,12 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         return ActiveTripNavigationView(
           navState: uiState.navState,
           tripTitle: uiState.displayTitle,
-          appBar: _buildAppBar(context, uiState.displayTitle, trip),
+          appBar: _buildAppBar(
+            context,
+            appName,
+            uiState.displayTitle,
+            trip,
+          ),
           onTapStops: () => openCurrentRideStops(
             context: context,
             trip: trip,
@@ -186,27 +193,21 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
     );
   }
 
-  AppBar _buildAppBar(BuildContext context, String title, Trip trip) {
+  AppBar _buildAppBar(
+    BuildContext context,
+    String appName,
+    String title,
+    Trip trip,
+  ) {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
       centerTitle: false,
       titleSpacing: 0,
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'おでかけモード',
-            style: TextStyle(color: Colors.black54, fontSize: 14),
-          ),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.black,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
+      title: ActiveTripAppBarTitle(
+        appName: appName,
+        tripTitle: title,
+        contextLabel: 'おでかけモード',
       ),
       leading: IconButton(
         icon: const Icon(CupertinoIcons.doc_text, color: Colors.black87),

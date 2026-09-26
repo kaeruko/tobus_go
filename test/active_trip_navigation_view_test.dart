@@ -5,6 +5,24 @@ import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/widgets/active_trip_navigation_view.dart';
 
 void main() {
+  testWidgets('移動中ヘッダーはアプリ名を最上段に表示する', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          appBar: AppBar(
+            title: const ActiveTripAppBarTitle(
+              appName: '都営でGO',
+              tripTitle: '現在地 → 新橋駅',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('都営でGO'), findsOneWidget);
+    expect(find.text('現在地 → 新橋駅'), findsOneWidget);
+  });
+
   testWidgets('共通statusとmode固有slotを同じ骨格へ配置する', (tester) async {
     var stopsTapped = false;
     final busStep = StepSeg(

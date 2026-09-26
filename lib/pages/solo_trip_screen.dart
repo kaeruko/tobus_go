@@ -6,6 +6,7 @@ import '../logic/route_replan_presentation.dart';
 import '../logic/solo_trip_lifecycle.dart';
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
+import '../providers/city_profile_provider.dart';
 import '../providers/delay_impact_provider.dart';
 import '../providers/member_mode_provider.dart';
 import '../providers/member_nav_progress_provider.dart';
@@ -86,6 +87,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
   Widget build(BuildContext context) {
     final tripAsync = ref.watch(tripStreamProvider);
     final uiAsync = ref.watch(memberUiStateProvider);
+    final appName = ref.watch(cityProfileProvider).appName;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark.copyWith(
@@ -99,7 +101,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         error: (error, stack) => Scaffold(
           appBar: AppBar(
             systemOverlayStyle: SystemUiOverlayStyle.dark,
-            title: const Text('移動'),
+            title: Text(appName),
           ),
           body: Center(child: Text('移動を読み込めませんでした: $error')),
         ),
@@ -136,7 +138,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
             error: (error, stack) => Scaffold(
               appBar: AppBar(
                 systemOverlayStyle: SystemUiOverlayStyle.dark,
-                title: const Text('移動'),
+                title: Text(appName),
               ),
               body: Center(child: Text('ナビを表示できませんでした: $error')),
             ),
@@ -173,6 +175,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     required bool terminalArrival,
     required bool completed,
   }) {
+    final appName = ref.watch(cityProfileProvider).appName;
     final delayResolution = ref.watch(resolvedDelayImpactProvider);
     final delayImpact = delayResolution.impact;
     final presentation = RouteReplanPresentation.fromDelayImpact(delayImpact);
@@ -211,12 +214,9 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         systemOverlayStyle: SystemUiOverlayStyle.dark,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text(
-          trip.displayTitle,
-          style: const TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
+        title: ActiveTripAppBarTitle(
+          appName: appName,
+          tripTitle: trip.displayTitle,
         ),
         actions: [
           if (!completed) const ActiveTripRealtimeActions(),
