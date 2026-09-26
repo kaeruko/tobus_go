@@ -209,6 +209,9 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
     final features = ref.watch(
       cityProfileProvider.select((profile) => profile.capabilities.features),
     );
+    final showTokyoTransportControl = ref.watch(
+      cityProfileProvider.select((profile) => profile.key == 'tokyo'),
+    );
     final activeTripAsync = features.groupTrips
         ? ref.watch(activeTripProvider)
         : null;
@@ -386,6 +389,21 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
 
                     const SizedBox(height: 8),
 
+                    if (showTokyoTransportControl) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: RouteTransportControl(
+                          busOnly: rs.busOnly,
+                          onValueChanged: (v) {
+                            if (v == null) return;
+                            notifier.setBusOnly(v == 'busOnly');
+                            notifier.triggerSearch();
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
                     // Preference
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -524,6 +542,37 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
   void dispose() {
     widget.tabIndexListenable?.removeListener(_handleTabChange);
     super.dispose();
+  }
+}
+
+class RouteTransportControl extends StatelessWidget {
+  const RouteTransportControl({
+    super.key,
+    required this.busOnly,
+    required this.onValueChanged,
+  });
+
+  final bool busOnly;
+  final ValueChanged<String?> onValueChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth <= 0) {
+          return const SizedBox(height: 28);
+        }
+
+        return CupertinoSlidingSegmentedControl<String>(
+          groupValue: busOnly ? 'busOnly' : 'subwayAndBus',
+          children: const {
+            'subwayAndBus': Text('都営地下鉄・バス'),
+            'busOnly': Text('都営バスのみ'),
+          },
+          onValueChanged: onValueChanged,
+        );
+      },
+    );
   }
 }
 

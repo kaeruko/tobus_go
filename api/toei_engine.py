@@ -1227,6 +1227,20 @@ def nearest_phys(G, lat, lon, station_only=False, spatial_index=None):
     return best, bestd
 
 # -------------------- 共通ロジック: 時間計算ヘルパー --------------------
+def _edge_uses_rail(G, u, v):
+    edge = G.get_edge_data(u, v) or {}
+    if edge.get("mode") == "rail":
+        return True
+    for node in (u, v):
+        if (
+            node in G
+            and node[0] == "line"
+            and G.nodes[node].get("mode") == "rail"
+        ):
+            return True
+    return False
+
+
 def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=None, use_realtime=True, **kwargs):
     if G.has_edge(u, v):
         edge = G.edges[u, v]
@@ -1301,7 +1315,7 @@ def path_to_coords(G, path):
             points.append([d["lat"], d["lon"]])
     return points
 
-def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None, use_realtime=True):
+def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
     d = datetime.date.today()
     if target_date_str:
         try:
@@ -1324,7 +1338,7 @@ def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limi
     
     # メインの探索ロジック(search_best_routes)を呼び出し
     # ここで graph探索(Dijkstra/A*) が走る
-    candidates = search_best_routes(G, tm, a_phys, mode, start_time, limit, start_dt, target_node=target_node, day_type=day_type, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime)
+    candidates = search_best_routes(G, tm, a_phys, mode, start_time, limit, start_dt, target_node=target_node, day_type=day_type, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime, bus_only=bus_only)
     
     # 探索結果があれば、メタデータ（出発日時、提案タイプなど）を付与して返す
     if candidates:
@@ -1336,7 +1350,7 @@ def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limi
     # 候補が見つからなかった場合は空リストを返す
     return []
 
-def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None, use_realtime=True):
+def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
     """
     指定された出発地(a_phys)から目的地(b_phys)までの経路を探索し、候補リストを返す関数。
     
@@ -1401,7 +1415,7 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
             f"start_time={start_time} day_type={day_type}",
             flush=True,
         )
-        arr_min, path = find_fastest_path(G, tm, a_phys, target_node, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime)
+        arr_min, path = find_fastest_path(G, tm, a_phys, target_node, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime, bus_only=bus_only)
         print(
             "[ROUTE_DEBUG] fastest search raw result: "
             f"arr_min={arr_min} path_found={path is not None} "
@@ -1460,9 +1474,9 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
         # コスト/楽さ優先モード (Comfort Path)
         # A*探索などで複数の経路候補をジェネレータとして取得
         if mode == "fewTransfers":
-            path_gen = find_few_transfers_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime)
+            path_gen = find_few_transfers_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime, bus_only=bus_only)
         else:
-            path_gen = find_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime)
+            path_gen = find_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime, bus_only=bus_only)
         valid_count = 0
         for cand in path_gen:
             path = cand["path"]
@@ -1508,7 +1522,7 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
                 if valid_count >= limit: break
     return candidates
 
-def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_search=30000, max_visited=15000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, time_limit_sec=15.0, virtual_dest_connections=None, target_coords=None, use_realtime=True):
+def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_search=30000, max_visited=15000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, time_limit_sec=15.0, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
     import time
     _mem_log("find_paths_generator start")
     start_clock = time.monotonic()
@@ -1606,6 +1620,8 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
                     break
 
         for v in G[u]:
+            if bus_only and _edge_uses_rail(G, u, v):
+                continue
             edge = G[u][v]
             w = edge.get("w", 0.0)
             meters = edge.get("meters", 0.0)
@@ -1657,6 +1673,7 @@ def find_few_transfers_paths_generator(
     virtual_dest_connections=None,
     target_coords=None,
     use_realtime=True,
+    bus_only=False,
 ):
     """Yield paths ordered by boardings first, then legacy comfort cost.
 
@@ -1831,6 +1848,8 @@ def find_few_transfers_paths_generator(
                 break
 
         for v in G[u]:
+            if bus_only and _edge_uses_rail(G, u, v):
+                continue
             edge = G[u][v]
             w = edge.get("w", 0.0)
             meters = edge.get("meters", 0.0)
@@ -1890,7 +1909,7 @@ def find_few_transfers_paths_generator(
     _log_few_transfers_stats("queue_exhausted")
     _mem_log("find_few_transfers_paths_generator end")
 
-def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None, target_coords=None, use_realtime=True):
+def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
     import time
     start_clock = time.monotonic()
     
@@ -2025,6 +2044,8 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
                     break
 
         for v in G[u]:
+            if bus_only and _edge_uses_rail(G, u, v):
+                continue
             edge = G[u][v]
             etype = edge.get("etype")
             meters = edge.get("meters", 0)

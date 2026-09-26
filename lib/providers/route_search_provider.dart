@@ -11,6 +11,7 @@ class RouteSearchState {
   final String fromName;
   final String toName;
   final String? pref;
+  final bool busOnly;
   final DateTime? startTime;
   final bool isLoading;
   final bool hasSearched;
@@ -26,6 +27,7 @@ class RouteSearchState {
     this.fromName = '',
     this.toName = '',
     this.pref,
+    this.busOnly = false,
     this.startTime,
     this.isLoading = false,
     this.hasSearched = false,
@@ -42,6 +44,7 @@ class RouteSearchState {
     String? fromName,
     String? toName,
     String? pref,
+    bool? busOnly,
     DateTime? startTime,
     bool? isLoading,
     bool? hasSearched,
@@ -59,6 +62,7 @@ class RouteSearchState {
       fromName: fromName ?? this.fromName,
       toName: toName ?? this.toName,
       pref: pref ?? this.pref,
+      busOnly: busOnly ?? this.busOnly,
       startTime: startTime ?? this.startTime,
       isLoading: isLoading ?? this.isLoading,
       hasSearched: hasSearched ?? this.hasSearched,
@@ -116,6 +120,10 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     state = state.copyWith(pref: pref);
   }
 
+  void setBusOnly(bool busOnly) {
+    state = state.copyWith(busOnly: busOnly);
+  }
+
   void setStartTime(DateTime? startTime) {
     state = state.copyWith(startTime: startTime);
   }
@@ -158,6 +166,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
           destinationName: state.toName,
           startTime: searchTime,
           preference: state.pref,
+          busOnly: state.busOnly,
         ),
       );
 

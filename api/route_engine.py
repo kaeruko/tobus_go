@@ -85,6 +85,7 @@ class RouteSearchRequest:
     destination: GeoPoint
     departure_at: datetime
     preference: RoutePreference
+    bus_only: bool = False
     limit: int = 5
 
     def __post_init__(self) -> None:
@@ -94,6 +95,8 @@ class RouteSearchRequest:
             raise RouteInputError("departure_at must be timezone-aware")
         if not isinstance(self.preference, RoutePreference):
             raise RouteInputError("preference must be a RoutePreference")
+        if not isinstance(self.bus_only, bool):
+            raise RouteInputError("bus_only must be a boolean")
         if isinstance(self.limit, bool) or not isinstance(self.limit, int):
             raise RouteInputError("limit must be an integer")
         if not 1 <= self.limit <= 20:

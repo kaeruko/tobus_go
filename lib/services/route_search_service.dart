@@ -13,6 +13,7 @@ class RouteSearchRequest {
   final String destinationName;
   final DateTime startTime;
   final String? preference;
+  final bool busOnly;
 
   RouteSearchRequest({
     required this.origin,
@@ -21,6 +22,7 @@ class RouteSearchRequest {
     required String destinationName,
     required this.startTime,
     this.preference,
+    this.busOnly = false,
   }) : originName = originName.trim(),
        destinationName = destinationName.trim() {
     _validatePoint(origin, 'origin');
@@ -35,6 +37,7 @@ class RouteSearchRequest {
       'blat': destination.latitude.toString(),
       'blon': destination.longitude.toString(),
       'pref': normalizeRoutePreferenceForApi(preference),
+      'bus_only': busOnly,
       'start_time':
           '${localStartTime.hour.toString().padLeft(2, '0')}:'
           '${localStartTime.minute.toString().padLeft(2, '0')}',

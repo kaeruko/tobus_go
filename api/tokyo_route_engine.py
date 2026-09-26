@@ -102,6 +102,7 @@ class TokyoRouteEngine:
             blat=request.destination.lat,
             blon=request.destination.lon,
             pref=request.preference.api_value,
+            bus_only=request.bus_only,
             start_time=request.departure_at.strftime("%H:%M"),
             date_str=request.departure_at.date().isoformat(),
             limit=request.limit,
@@ -130,6 +131,7 @@ class TokyoRouteEngine:
         blat: float,
         blon: float,
         pref: str,
+        bus_only: bool = False,
         start_time: str = "10:00",
         date_str: str | None = None,
         limit: int = 5,
@@ -145,7 +147,8 @@ class TokyoRouteEngine:
         print(f"[MEM] enter TokyoRouteEngine.search rss={deps.rss_mb():.1f}MB")
         print(
             "[USER_DEBUG] TokyoRouteEngine.search: "
-            f"pref={pref}, start_time={start_time}, date_str={date_str}, "
+            f"pref={pref}, bus_only={bus_only}, "
+            f"start_time={start_time}, date_str={date_str}, "
             f"use_realtime={use_realtime}",
             flush=True,
         )
@@ -239,6 +242,7 @@ class TokyoRouteEngine:
                 virtual_dest_connections=virtual_connections,
                 target_coords=[blat, blon],
                 use_realtime=use_realtime,
+                bus_only=bus_only,
             )
             print(
                 "[ROUTE_DEBUG] Tokyo primary search done: "
@@ -265,6 +269,7 @@ class TokyoRouteEngine:
                 virtual_dest_connections=None,
                 target_coords=None,
                 use_realtime=use_realtime,
+                bus_only=bus_only,
             )
             print(
                 "[ROUTE_DEBUG] Tokyo fallback search done: "
@@ -344,5 +349,6 @@ class TokyoRouteEngine:
                 "fallback_distance_m": fallback_distance_m,
                 "walk_limit_m": MAX_WALK_SEG_M,
                 "realtime_applied": use_realtime,
+                "bus_only": bus_only,
             },
         }
