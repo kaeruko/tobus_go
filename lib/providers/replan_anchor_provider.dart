@@ -82,13 +82,15 @@ final replanAnchorProvider = Provider.autoDispose<ReplanAnchor?>((ref) {
   final now = nowTick.value ?? appClock.now();
   final ridingTransit = memory.ridingTransit;
   if (ridingTransit != null && !ridingTransit.canResolveAnchorAt(now)) {
-    // The vehicle was still reported in transit when this forecast was made,
-    // but its predicted next-stop time has now passed. Do not pretend the next
-    // stop was reached, do not coerce ETA to `now`, and do not fall back to GPS
-    // or the previously confirmed stop. Wait for the next realtime observation.
+    // The realtime position itself may still be valid while the derived
+    // next-stop ETA is missing or expired. Keep the position, but do not use an
+    // unsafe ETA as a replan anchor and never coerce it to the device clock.
+    final predictedNextAt = ridingTransit.predictedNextAvailableAt;
     ReplanDebugLog.emit('anchor_eval', {
       'outcome': 'blocked',
-      'reason': 'predicted_next_expired',
+      'reason': predictedNextAt == null
+          ? 'predicted_next_unavailable'
+          : 'predicted_next_expired',
       'now': now.toIso8601String(),
       'activeStepId': activeStepId,
       ...ReplanDebugLog.memoryFields(memory),
