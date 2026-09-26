@@ -132,6 +132,20 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       return;
     }
 
+    if (kDebugMode) {
+      final debugNow = appClock.now();
+      debugPrint(
+        '[ScheduleClockDebug] '
+        'now=${debugNow.toIso8601String()} '
+        'nowUtc=${debugNow.isUtc} '
+        'schedule=${trip.schedule.map((entry) {
+          return '${entry.plannedAt.toIso8601String()}'
+              '|utc=${entry.plannedAt.isUtc}'
+              '|${entry.label}';
+        }).join(' || ')}',
+      );
+    }
+
     // Keep an incomplete realtime ride authoritative after its planned arrival
     // time. Resolving by the clock alone would otherwise jump to a later walk
     // or goal while the vehicle/train is still before the alighting stop.
