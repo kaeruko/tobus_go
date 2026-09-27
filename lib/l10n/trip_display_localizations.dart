@@ -23,17 +23,17 @@ String localizedSoloTripTitle(Locale locale, Trip trip) {
   final last = candidate.steps.last;
   final origin = _localizedEndpoint(
     locale,
-    japanese: first.fromName,
-    english: first.fromNameEn,
-    field: 'from_en',
-    identity: 'stepId=${first.stepId}',
+    japanese: candidate.originName ?? first.fromName,
+    english: candidate.originNameEn ?? first.fromNameEn,
+    field: 'origin_name_en',
+    identity: 'candidateId=${candidate.id}',
   );
   final destination = _localizedEndpoint(
     locale,
-    japanese: last.toName,
-    english: last.toNameEn,
-    field: 'to_en',
-    identity: 'stepId=${last.stepId}',
+    japanese: candidate.destinationName ?? last.toName,
+    english: candidate.destinationNameEn ?? last.toNameEn,
+    field: 'destination_name_en',
+    identity: 'candidateId=${candidate.id}',
   );
   return '$origin → $destination';
 }
