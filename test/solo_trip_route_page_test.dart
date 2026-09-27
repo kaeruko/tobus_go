@@ -121,6 +121,10 @@ void main() {
       ));
       await tester.tap(find.text('Open overview'));
       await tester.pump();
+      // CupertinoButton finishes its press animation before pushing the route.
+      // Do not pumpAndSettle while the indeterminate loader is animating.
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 500));
       expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
       final original = route();
       controller.add(trip(original));
