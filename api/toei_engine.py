@@ -432,6 +432,31 @@ def load_json(path):
 def get_id(o): return o.get("owl:sameAs") or o.get("@id") or o.get("id")
 def get_lat(o): return o.get("geo:lat")
 def get_lon(o): return o.get("geo:long")
+
+def get_localized_en(o, key):
+    value = o.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError(f"{key} must be a language map: {get_id(o)}")
+    english = value.get("en")
+    if english is None:
+        return None
+    if not isinstance(english, str) or not english.strip():
+        raise ValueError(f"{key}.en must be a non-empty string: {get_id(o)}")
+    return english.strip()
+
+def _bus_pattern_english_title(full_title, seq, phys):
+    if not seq:
+        return None
+    destination_en = phys[seq[-1]].get("name_en")
+    if not destination_en:
+        return None
+    route_code = str(full_title).strip().split(maxsplit=1)[0]
+    if not route_code:
+        return None
+    return f"{route_code} · {destination_en}"
+
 def time_str_to_min(t_str):
     if not t_str: return 99999
     h, m = map(int, t_str.split(":"))
@@ -1067,24 +1092,56 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
         pid = get_id(p)
         lat, lon = get_lat(p), get_lon(p)
         if pid and lat and lon:
-            phys[pid] = {"lat": float(lat), "lon": float(lon), "name": p.get("dc:title") or pid}
+            phys[pid] = {
+                "lat": float(lat),
+                "lon": float(lon),
+                "name": p.get("dc:title") or pid,
+                "name_en": get_localized_en(p, "title"),
+            }
     stations = load_json(stations_path)
     for s in stations:
         if not is_toei(s.get("odpt:operator")): continue
         sid = get_id(s)
         lat, lon = get_lat(s), get_lon(s)
         if sid and lat and lon:
-            phys[sid] = {"lat": float(lat), "lon": float(lon), "name": s.get("dc:title") or sid}
+            phys[sid] = {
+                "lat": float(lat),
+                "lon": float(lon),
+                "name": s.get("dc:title") or sid,
+                "name_en": get_localized_en(s, "odpt:stationTitle"),
+            }
     for pid, d in phys.items():
         G.add_node(("phys", pid), **d, kind="phys")
 
-    def ensure_line_node(phys_id, line_id, display_name, mode, real_route_id=None):
+    def ensure_line_node(
+        phys_id,
+        line_id,
+        display_name,
+        mode,
+        real_route_id=None,
+        display_name_en=None,
+    ):
         n = ("line", phys_id, line_id)
         if n not in G:
             base = phys[phys_id]
-            G.add_node(n, lat=base["lat"], lon=base["lon"], name=f"{base['name']}@{display_name}",
-                       line=line_id, kind="line", disp=display_name, norm=_norm_line(display_name), 
-                       mode=mode, route_id=real_route_id)
+            G.add_node(
+                n,
+                lat=base["lat"],
+                lon=base["lon"],
+                name=f"{base['name']}@{display_name}",
+                name_en=(
+                    f"{base['name_en']}@{display_name_en}"
+                    if base.get("name_en") and display_name_en
+                    else None
+                ),
+                line=line_id,
+                kind="line",
+                disp=display_name,
+                disp_en=display_name_en,
+                norm=_norm_line(display_name),
+                mode=mode,
+                route_id=real_route_id,
+            )
             G.add_edge(("phys", phys_id), n, w=TRANSFER_PENALTY, etype="board")
             G.add_edge(n, ("phys", phys_id), w=0, etype="alight")
         return n
@@ -1101,10 +1158,25 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
         try: orders = sorted(orders, key=lambda x: x.get("odpt:index", 0))
         except: pass
         seq = [o.get("odpt:busstopPole") for o in orders if o.get("odpt:busstopPole") in phys]
-        
+        disp_en = _bus_pattern_english_title(full_title, seq, phys)
+
         for a, b in zip(seq, seq[1:]):
-            na = ensure_line_node(a, line_id, disp, "bus", route_id)
-            nb = ensure_line_node(b, line_id, disp, "bus", route_id)
+            na = ensure_line_node(
+                a,
+                line_id,
+                disp,
+                "bus",
+                route_id,
+                display_name_en=disp_en,
+            )
+            nb = ensure_line_node(
+                b,
+                line_id,
+                disp,
+                "bus",
+                route_id,
+                display_name_en=disp_en,
+            )
             if not G.has_edge(na, nb):
                 G.add_edge(na, nb, w=BUS_RIDE_COST, etype="ride", line=line_id, mode="bus")
 
@@ -1113,13 +1185,26 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
         if not is_toei(rw.get("odpt:operator")): continue
         line_id = get_id(rw)
         disp = rw.get("dc:title") or line_id
+        disp_en = get_localized_en(rw, "odpt:railwayTitle")
         orders = rw.get("odpt:stationOrder") or []
         try: orders = sorted(orders, key=lambda x: x.get("odpt:index", 0))
         except: pass
         seq = [o.get("odpt:station") for o in orders if o.get("odpt:station") in phys]
         for a, b in zip(seq, seq[1:]):
-            na = ensure_line_node(a, line_id, disp, "rail")
-            nb = ensure_line_node(b, line_id, disp, "rail")
+            na = ensure_line_node(
+                a,
+                line_id,
+                disp,
+                "rail",
+                display_name_en=disp_en,
+            )
+            nb = ensure_line_node(
+                b,
+                line_id,
+                disp,
+                "rail",
+                display_name_en=disp_en,
+            )
             G.add_edge(na, nb, w=RAIL_RIDE_COST, etype="ride", line=line_id, mode="rail")
             G.add_edge(nb, na, w=RAIL_RIDE_COST, etype="ride", line=line_id, mode="rail")
 
