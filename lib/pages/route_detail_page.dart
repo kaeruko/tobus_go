@@ -1039,6 +1039,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final profile = ref.watch(cityProfileProvider);
     final features = profile.capabilities.features;
     final savedRoutes = features.savedRoutes
@@ -1150,7 +1151,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                               ActiveRoutePage(candidate: widget.candidate),
                         ),
                       ),
-                      child: const Text('この経路で行く'),
+                      child: Text(l10n.startRoute),
                     ),
                   ),
                 ),
