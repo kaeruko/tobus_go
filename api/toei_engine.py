@@ -2731,9 +2731,9 @@ def get_reachable_stops(G, tm, lat, lon, limit_dist=1000, spatial_index=None):
     --------
     dict
         - "found": bool
-        - "nearest_stop": 最寄りの出発地情報 {"id", "name"}
+        - "nearest_stop": 最寄りの出発地情報 {"id", "name", "name_en"}
         - "reachable_stops": 到達可能なバス停情報のリスト
-            [{"id", "name", "lat", "lon", "via_route"}, ...]
+            [{"id", "name", "name_en", "lat", "lon", "via_route"}, ...]
         - "count": 到達可能な総数
     """
     # 1. まず最寄りの物理ノード(バス停/駅)を探す
@@ -2782,12 +2782,25 @@ def get_reachable_stops(G, tm, lat, lon, limit_dist=1000, spatial_index=None):
                         if node_key in G:
                             node_data = G.nodes[node_key]
                             reachable_map[next_stop_id] = {
-                                "id": next_stop_id, "name": node_data.get("name"),
-                                "lat": node_data.get("lat"), "lon": node_data.get("lon"),
-                                "via_route": route_id 
+                                "id": next_stop_id,
+                                "name": node_data["name"],
+                                "name_en": node_data["name_en"],
+                                "lat": node_data.get("lat"),
+                                "lon": node_data.get("lon"),
+                                "via_route": route_id,
                             }
     reachable_list = list(reachable_map.values())
-    return {"found": True, "nearest_stop": {"id": nearest_node[1], "name": G.nodes[nearest_node]["name"]}, "reachable_stops": reachable_list, "count": len(reachable_list)}
+    nearest_data = G.nodes[nearest_node]
+    return {
+        "found": True,
+        "nearest_stop": {
+            "id": nearest_node[1],
+            "name": nearest_data["name"],
+            "name_en": nearest_data["name_en"],
+        },
+        "reachable_stops": reachable_list,
+        "count": len(reachable_list),
+    }
 
 
 # -------------------- GTFS-Realtime Parsing Logic (Merged from v2) --------------------
