@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
+import '../l10n/navigation_localizations.dart';
 import '../logic/trip_navigator.dart';
 
 /// Shared navigation status card used by both solo and group navigation.
@@ -26,6 +27,28 @@ class TripNavigationStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final mainText = localizedNavigationText(
+      l10n,
+      navState.mainTextToken,
+      fallback: navState.mainText,
+    );
+    final subText = localizedNavigationText(
+      l10n,
+      navState.subTextToken,
+      fallback: navState.subText,
+    );
+    final statusLabel = localizedNavigationText(
+      l10n,
+      navState.statusLabelToken,
+      fallback: navState.statusLabel,
+    );
+    final noticeText = navState.noticeText == null
+        ? null
+        : localizedNavigationText(
+            l10n,
+            navState.noticeTextToken,
+            fallback: navState.noticeText!,
+          );
     return Card(
       margin: EdgeInsets.zero,
       elevation: 4,
@@ -41,7 +64,7 @@ class TripNavigationStatusCard extends StatelessWidget {
               children: [
                 Chip(
                   avatar: const Icon(Icons.location_on, size: 18),
-                  label: Text(navState.statusLabel),
+                  label: Text(statusLabel),
                 ),
                 Chip(
                   avatar: const Icon(Icons.route, size: 18),
@@ -55,15 +78,15 @@ class TripNavigationStatusCard extends StatelessWidget {
             ],
             const SizedBox(height: 18),
             Text(
-              navState.mainText,
+              mainText,
               style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             Text(
-              navState.subText,
+              subText,
               style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
             ),
-            if (navState.noticeText != null) ...[
+            if (noticeText != null) ...[
               const SizedBox(height: 14),
               Container(
                 width: double.infinity,
@@ -80,7 +103,7 @@ class TripNavigationStatusCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        navState.noticeText!,
+                        noticeText,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
