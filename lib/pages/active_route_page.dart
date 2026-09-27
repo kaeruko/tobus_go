@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 
 import '../core/city_profile.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/city_localizations.dart';
 import '../models/route_models.dart';
 import '../services/bus_location_source.dart';
 import '../widgets/active_route_content.dart';
@@ -20,7 +22,11 @@ class ActiveRoutePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(middle: Text(cityProfile.appName)),
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(
+          localizedCityAppName(AppLocalizations.of(context), cityProfile.city),
+        ),
+      ),
       child: SafeArea(
         child: ActiveRouteContent(
           candidate: candidate,
