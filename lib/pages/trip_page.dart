@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/trip_models.dart';
 import '../providers/trip_provider.dart';
 import '../services/trip_service.dart';
@@ -35,6 +36,7 @@ class _TripPageBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final tripAsync = ref.watch(tripStreamProvider);
 
     return tripAsync.when(
@@ -44,16 +46,16 @@ class _TripPageBody extends ConsumerWidget {
         ),
       ),
       error: (error, stack) => Scaffold(
-        appBar: AppBar(title: const Text('移動')),
+        appBar: AppBar(title: Text(l10n.tripTitle)),
         body: Center(
-          child: Text('移動を読み込めませんでした: $error'),
+          child: Text(l10n.tripLoadFailed(error.toString())),
         ),
       ),
       data: (trip) {
         if (trip == null) {
-          return const Scaffold(
+          return Scaffold(
             body: Center(
-              child: Text('移動が見つかりません'),
+              child: Text(l10n.tripNotFound),
             ),
           );
         }
