@@ -12,8 +12,11 @@ class RideNavigationProgress {
   final String stepId;
   final RideNavigationPhase phase;
   final String rideTitle;
+  final String? rideTitleEn;
   final String? currentPlaceName;
+  final String? currentPlaceNameEn;
   final String? nextPlaceName;
+  final String? nextPlaceNameEn;
   final int? remainingStops;
   final int? stopsUntilBoarding;
   final double? vehicleAgeSeconds;
@@ -22,8 +25,11 @@ class RideNavigationProgress {
     required this.stepId,
     required this.phase,
     required this.rideTitle,
+    this.rideTitleEn,
     this.currentPlaceName,
+    this.currentPlaceNameEn,
     this.nextPlaceName,
+    this.nextPlaceNameEn,
     this.remainingStops,
     this.stopsUntilBoarding,
     this.vehicleAgeSeconds,
@@ -47,6 +53,30 @@ class RideNavigationProgress {
     return '$routeTitle $destinationSign';
   }
 
+  static String? _railRideTitleEn(StepSeg step, RailProgress progress) {
+    final routeTitle = step.titleEn?.trim();
+    final headsign = progress.tripHeadsignEn?.trim();
+    if (routeTitle == null ||
+        routeTitle.isEmpty ||
+        headsign == null ||
+        headsign.isEmpty) {
+      return null;
+    }
+    return '$routeTitle · $headsign';
+  }
+
+  static String? _englishStopById(StepSeg step, String? stopId) {
+    if (stopId == null || stopId.isEmpty) return null;
+    final matches = step.stops.where((stop) => stop.stopId == stopId).toList();
+    if (matches.length > 1) {
+      throw StateError(
+        '英語停留所名の解決でstopIdが重複しています: '
+        'stepId=${step.stepId}, stopId=$stopId',
+      );
+    }
+    return matches.isEmpty ? null : matches.single.nameEn;
+  }
+
   factory RideNavigationProgress.fromBus({
     required StepSeg step,
     required BusProgress progress,
@@ -67,6 +97,7 @@ class RideNavigationProgress {
       throw StateError('停留所のないバスStepです: stepId=${step.stepId}');
     }
     final rideTitle = _requiredStepTitle(step);
+    final rideTitleEn = step.titleEn?.trim();
 
     if (progress.phase == BusProgressPhase.approaching) {
       final stopsUntilBoarding = progress.stopsUntilBoarding;
@@ -80,8 +111,11 @@ class RideNavigationProgress {
         stepId: step.stepId,
         phase: RideNavigationPhase.approaching,
         rideTitle: rideTitle,
+        rideTitleEn: rideTitleEn,
         currentPlaceName: progress.observedStopName,
+        currentPlaceNameEn: _englishStopById(step, progress.observedStopId),
         nextPlaceName: step.stops.first.name,
+        nextPlaceNameEn: step.stops.first.nameEn,
         stopsUntilBoarding: stopsUntilBoarding,
         vehicleAgeSeconds: progress.vehicleAgeSeconds,
       );
@@ -105,7 +139,9 @@ class RideNavigationProgress {
         stepId: step.stepId,
         phase: RideNavigationPhase.arrived,
         rideTitle: rideTitle,
+        rideTitleEn: rideTitleEn,
         currentPlaceName: currentName,
+        currentPlaceNameEn: step.stops[fromIndex].nameEn,
         remainingStops: 0,
         vehicleAgeSeconds: progress.vehicleAgeSeconds,
       );
@@ -115,8 +151,13 @@ class RideNavigationProgress {
       stepId: step.stepId,
       phase: RideNavigationPhase.riding,
       rideTitle: rideTitle,
+      rideTitleEn: rideTitleEn,
       currentPlaceName: currentName,
+      currentPlaceNameEn: step.stops[fromIndex].nameEn,
       nextPlaceName: nextName,
+      nextPlaceNameEn: nextIndex != null && nextIndex < step.stops.length
+          ? step.stops[nextIndex].nameEn
+          : null,
       remainingStops: remaining,
       vehicleAgeSeconds: progress.vehicleAgeSeconds,
     );
@@ -139,6 +180,7 @@ class RideNavigationProgress {
       );
     }
     final rideTitle = _railRideTitle(step, progress);
+    final rideTitleEn = _railRideTitleEn(step, progress);
 
     switch (progress.phase) {
       case RailProgressPhase.approaching:
@@ -153,8 +195,11 @@ class RideNavigationProgress {
           stepId: step.stepId,
           phase: RideNavigationPhase.approaching,
           rideTitle: rideTitle,
+          rideTitleEn: rideTitleEn,
           currentPlaceName: progress.currentStopName,
+          currentPlaceNameEn: progress.currentStopNameEn,
           nextPlaceName: progress.nextStopName,
+          nextPlaceNameEn: progress.nextStopNameEn,
           stopsUntilBoarding: stopsUntilBoarding,
           vehicleAgeSeconds: progress.vehicleAgeSeconds,
         );
@@ -169,8 +214,11 @@ class RideNavigationProgress {
           stepId: step.stepId,
           phase: RideNavigationPhase.riding,
           rideTitle: rideTitle,
+          rideTitleEn: rideTitleEn,
           currentPlaceName: progress.currentStopName,
+          currentPlaceNameEn: progress.currentStopNameEn,
           nextPlaceName: progress.nextStopName,
+          nextPlaceNameEn: progress.nextStopNameEn,
           remainingStops: progress.remainingStops,
           vehicleAgeSeconds: progress.vehicleAgeSeconds,
         );
@@ -179,7 +227,9 @@ class RideNavigationProgress {
           stepId: step.stepId,
           phase: RideNavigationPhase.arrived,
           rideTitle: rideTitle,
+          rideTitleEn: rideTitleEn,
           currentPlaceName: progress.currentStopName,
+          currentPlaceNameEn: progress.currentStopNameEn,
           remainingStops: 0,
           vehicleAgeSeconds: progress.vehicleAgeSeconds,
         );
