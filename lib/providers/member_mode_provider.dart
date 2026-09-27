@@ -678,6 +678,12 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((
         ? navDisplayState.withNotice(
             statusLabel: '検索中…',
             noticeText: 'Realtimeの位置情報を確認しています\n最後に確認した位置を表示しています',
+            statusLabelToken: const NavigationTextToken(
+              NavigationTextKey.searchingStatus,
+            ),
+            noticeTextToken: const NavigationTextToken(
+              NavigationTextKey.realtimeUnavailableNotice,
+            ),
           )
         : navDisplayState;
 
