@@ -962,6 +962,60 @@
   "settlementReimbursementLong": "いったん支払い・後日支給",
   "farePolicyNormal": "通常運賃",
   "farePolicyTokyoMentalDisabilityPass": "精神障害者都営交通乗車証",
-  "farePolicyNagoyaWelfarePass": "福祉特別乗車券（無料乗車区間）"
+  "farePolicyNagoyaWelfarePass": "福祉特別乗車券（無料乗車区間）",
+  "exploreTitle": "一本で行ける場所を探す",
+  "exploreDescription": "現在地から乗り換えなしで行ける\n都営交通の駅・バス停を探します。",
+  "exploreNearbyButton": "周辺を探索する",
+  "exploreStartPrompt": "ボタンを押して検索を開始してください",
+  "exploreNoNearbyStops": "近くにバス停が見つかりませんでした",
+  "exploreSearching": "検索中...",
+  "exploreContentLoading": "みつける情報を読み込み中...",
+  "exploreSearchFailed": "検索に失敗しました: {error}",
+  "@exploreSearchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exploreContentLoadFailed": "みつける情報の読み込みに失敗しました: {error}",
+  "@exploreContentLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exploreNearestStop": "最寄り: {name}",
+  "@exploreNearestStop": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "exploreDistanceFromCurrent": "現在地から約{meters}m",
+  "@exploreDistanceFromCurrent": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "exploreReachableCount": "{count}箇所の駅・バス停へ一本で行けます",
+  "@exploreReachableCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exploreRouteLabel": "系統: {route}",
+  "@exploreRouteLabel": {
+    "placeholders": {
+      "route": {
+        "type": "String"
+      }
+    }
+  }
 }
-
