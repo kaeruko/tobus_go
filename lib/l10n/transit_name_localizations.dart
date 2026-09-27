@@ -18,6 +18,28 @@ String _requiredEnglish(
   return normalized;
 }
 
+String localizedTransitName(
+  Locale locale, {
+  required String japanese,
+  required String? english,
+  required String field,
+  required String identity,
+}) {
+  final normalizedJapanese = japanese.trim();
+  if (normalizedJapanese.isEmpty) {
+    throw StateError('Transit name is empty: field=$field $identity');
+  }
+  if (!isEnglishTransitLocale(locale)) return normalizedJapanese;
+
+  final normalizedEnglish = _requiredEnglish(
+    english,
+    field: field,
+    identity: identity,
+  );
+  if (normalizedEnglish == normalizedJapanese) return normalizedEnglish;
+  return '$normalizedEnglish ($normalizedJapanese)';
+}
+
 String localizedRideTitle(Locale locale, StepSeg step) {
   if (!step.isRide) {
     throw StateError(
@@ -38,9 +60,10 @@ String localizedRideFromName(Locale locale, StepSeg step) {
   if (value == null || value.isEmpty) {
     throw StateError('Ride step has no origin: stepId=${step.stepId}');
   }
-  if (!isEnglishTransitLocale(locale)) return value;
-  return _requiredEnglish(
-    step.fromNameEn,
+  return localizedTransitName(
+    locale,
+    japanese: value,
+    english: step.fromNameEn,
     field: 'from_en',
     identity: 'stepId=${step.stepId}',
   );
@@ -51,9 +74,10 @@ String localizedRideToName(Locale locale, StepSeg step) {
   if (value == null || value.isEmpty) {
     throw StateError('Ride step has no destination: stepId=${step.stepId}');
   }
-  if (!isEnglishTransitLocale(locale)) return value;
-  return _requiredEnglish(
-    step.toNameEn,
+  return localizedTransitName(
+    locale,
+    japanese: value,
+    english: step.toNameEn,
     field: 'to_en',
     identity: 'stepId=${step.stepId}',
   );
@@ -64,9 +88,10 @@ String localizedStopName(Locale locale, StopPoint stop) {
   if (value.isEmpty) {
     throw StateError('Transit stop has an empty name: stopId=${stop.stopId}');
   }
-  if (!isEnglishTransitLocale(locale)) return value;
-  return _requiredEnglish(
-    stop.nameEn,
+  return localizedTransitName(
+    locale,
+    japanese: value,
+    english: stop.nameEn,
     field: 'name_en',
     identity: 'stopId=${stop.stopId ?? '<unknown>'}',
   );
@@ -79,8 +104,13 @@ String localizedOptionalTransitName(
   required String field,
   required String identity,
 }) {
-  if (!isEnglishTransitLocale(locale)) return japanese;
-  return _requiredEnglish(english, field: field, identity: identity);
+  return localizedTransitName(
+    locale,
+    japanese: japanese,
+    english: english,
+    field: field,
+    identity: identity,
+  );
 }
 
 List<String> localizedCandidateLines(Locale locale, Candidate candidate) {
