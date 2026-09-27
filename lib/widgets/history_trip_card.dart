@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
+import '../models/group_models.dart';
 import '../models/trip_models.dart';
 
 class HistoryTripCard extends StatelessWidget {
@@ -138,7 +139,7 @@ class HistoryTripCard extends StatelessWidget {
   static DateTime? _routeEndAt(Trip trip) {
     DateTime? latest;
     for (final entry in trip.schedule) {
-      if (entry.generatedBy.name != 'route') continue;
+      if (entry.generatedBy != ScheduleEntrySource.route) continue;
       if (latest == null || entry.plannedAt.isAfter(latest)) {
         latest = entry.plannedAt;
       }
@@ -199,7 +200,7 @@ class _StatusIcon extends StatelessWidget {
       width: 38,
       height: 38,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: color.withOpacity(0.12),
         shape: BoxShape.circle,
       ),
       child: Icon(icon, size: 21, color: color),
