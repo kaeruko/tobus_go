@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../core/app_clock.dart';
 import '../l10n/app_localizations.dart';
+import '../l10n/transit_name_localizations.dart';
 import '../models/route_models.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/place_field.dart';
@@ -630,7 +631,17 @@ class _FallbackNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final stopName = meta.fallbackNodeName ?? l10n.nearestStop;
+    final locale = Localizations.localeOf(context);
+    final fallbackName = meta.fallbackNodeName;
+    final stopName = fallbackName == null
+        ? l10n.nearestStop
+        : localizedOptionalTransitName(
+            locale,
+            japanese: fallbackName,
+            english: meta.fallbackNodeNameEn,
+            field: 'fallback_node_name_en',
+            identity: 'route search fallback',
+          );
     final walkMinutes = meta.fallbackWalkMinutes;
     final distance = meta.fallbackDistanceM;
     String walkText;
@@ -677,7 +688,7 @@ class _FallbackNotice extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            l10n.fallbackBody(meta.destinationLabel, stopName, walkText),
+            l10n.fallbackBody(l10n.destinationFallback, stopName, walkText),
             style: const TextStyle(fontSize: 14),
           ),
           const SizedBox(height: 4),
