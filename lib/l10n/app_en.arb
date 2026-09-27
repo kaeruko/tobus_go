@@ -364,5 +364,6 @@
         "type": "String"
       }
     }
-  }
+  },
+  "errorTitle": "Error"
 }
