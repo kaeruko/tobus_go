@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:toeigo/core/city_profile.dart';
+import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/pages/active_route_page.dart';
 import 'package:toeigo/services/bus_location_source.dart';
@@ -59,6 +60,9 @@ void main() {
 
       await tester.pumpWidget(
         CupertinoApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: ActiveRoutePage(
             candidate: candidate,
             cityProfile: yokohamaCityProfile,
@@ -75,4 +79,54 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+  testWidgets(
+    'route-only trip renders English live bus labels',
+    (tester) async {
+      final candidate = Candidate(
+        id: 'route-en',
+        lines: const ['008'],
+        rides: 1,
+        boards: 1,
+        transfers: 0,
+        total: 20,
+        totalTime: 20,
+        points: const [],
+        steps: [
+          StepSeg(
+            stepId: 'bus-en',
+            kind: 'bus',
+            title: 'Route 008',
+            fromName: 'Yokohama Station',
+            toName: 'Yamashita Park',
+            routeId: 'yokohama_bus:008',
+            tripId: 'yokohama_bus:T1',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        CupertinoApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: ActiveRoutePage(
+            candidate: candidate,
+            cityProfile: yokohamaCityProfile,
+            busLocationSource: _BeforeFirstStopSource(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Vehicle 1772'), findsOneWidget);
+      expect(
+        find.text('Heading to 横浜駅前 (first stop)'),
+        findsOneWidget,
+      );
+      expect(find.text('Refresh bus position'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
 }
