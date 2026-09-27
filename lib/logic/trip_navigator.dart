@@ -481,6 +481,7 @@ class NavigationState {
         statusLabelToken: statusLabelToken ??
             const NavigationTextToken(NavigationTextKey.movingStatus),
         nextStopName: destination,
+        nextStopNameEn: step.toNameEn,
         currentStepId: step.stepId,
         step: step,
       );
