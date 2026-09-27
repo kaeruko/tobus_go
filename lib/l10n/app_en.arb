@@ -314,5 +314,55 @@
     }
   },
   "runSearch": "Search",
-  "confirm": "Done"
+  "confirm": "Done",
+  "activeGroupExists": "A group trip is already in progress",
+  "viewGroupDetails": "View group trip",
+  "overlappingTrip": "Another trip overlaps this time\\n({title})",
+  "@overlappingTrip": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "cannotCreate": "Cannot create",
+  "createGroup": "Create group trip",
+  "searchReturnTrip": "Search return trip",
+  "returnDepartureTime": "Return departure time",
+  "departureTime": "Departure time",
+  "searchWithConditions": "Search with these conditions",
+  "outboundSummary": "Duration {minutes} min · {transfers} transfers",
+  "@outboundSummary": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "transfers": {
+        "type": "int"
+      }
+    }
+  },
+  "chooseReturnRouteTitle": "Choose a return route",
+  "chooseReturnRouteMessage": "Choose both outbound and return routes before creating a group trip.",
+  "createRoundTripTitle": "Create a group trip with this round trip",
+  "roundTripSummary": "Outbound: {outbound}\\nReturn: {inbound}",
+  "@roundTripSummary": {
+    "placeholders": {
+      "outbound": {
+        "type": "String"
+      },
+      "inbound": {
+        "type": "String"
+      }
+    }
+  },
+  "create": "Create",
+  "createFailed": "Couldn’t create the trip: {error}",
+  "@createFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }
