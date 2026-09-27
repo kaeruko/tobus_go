@@ -357,24 +357,19 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
             ? destinationEn
             : destinationJa;
 
-    final notifier = ref.read(routeSearchProvider.notifier);
-    notifier.setFrom(
-      '${origin.latitude},${origin.longitude}',
-      name: originDisplay,
-      nameJa: originJa,
-      nameEn: originEn,
-    );
-    notifier.setTo(
-      '${destination.latitude},${destination.longitude}',
-      name: destinationDisplay,
-      nameJa: destinationJa,
-      nameEn: destinationEn,
-    );
     final preference = candidate.preference?.trim();
-    if (preference != null && preference.isNotEmpty) {
-      notifier.setPref(preference);
-    }
-    notifier.setStartTime(appClock.now());
+    ref.read(routeSearchProvider.notifier).prepareSavedRoute(
+      from: '${origin.latitude},${origin.longitude}',
+      to: '${destination.latitude},${destination.longitude}',
+      fromName: originDisplay,
+      toName: destinationDisplay,
+      fromNameJa: originJa,
+      toNameJa: destinationJa,
+      fromNameEn: originEn ?? '',
+      toNameEn: destinationEn ?? '',
+      startTime: appClock.now(),
+      preference: preference == null || preference.isEmpty ? null : preference,
+    );
 
     Navigator.of(context).popUntil((route) => route.isFirst);
     ref.read(tabIndexProvider.notifier).state = 0;
