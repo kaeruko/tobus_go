@@ -26,19 +26,20 @@ void main() {
     vehicleLon: 139.625,
     beforeFirstStop: beforeFirstStop,
     rawStopName: '横浜駅前',
+    rawStopNameEn: 'Yokohama Station',
     currentStatus: status,
   );
 
   test('IN_TRANSIT_TO says the bus is heading to the stop', () {
     expect(
-      busRealtimeStatusText(location(status: 'IN_TRANSIT_TO'), l10n: ja),
+      busRealtimeStatusText(location(status: 'IN_TRANSIT_TO'), l10n: ja, locale: const Locale('ja')),
       '横浜駅前へ向かっています',
     );
   });
 
   test('STOPPED_AT says the bus is stopped at the stop', () {
     expect(
-      busRealtimeStatusText(location(status: 'STOPPED_AT'), l10n: ja),
+      busRealtimeStatusText(location(status: 'STOPPED_AT'), l10n: ja, locale: const Locale('ja')),
       '横浜駅前に停車中',
     );
   });
@@ -48,6 +49,7 @@ void main() {
       busRealtimeStatusText(
         location(status: 'IN_TRANSIT_TO', beforeFirstStop: true),
         l10n: ja,
+        locale: const Locale('ja'),
       ),
       '横浜駅前（始発停留所）へ向かっています',
     );
@@ -55,25 +57,26 @@ void main() {
 
   test('unknown realtime status fails fast', () {
     expect(
-      () => busRealtimeStatusText(location(status: 'UNKNOWN'), l10n: ja),
+      () => busRealtimeStatusText(location(status: 'UNKNOWN'), l10n: ja, locale: const Locale('ja')),
       throwsStateError,
     );
   });
   test('English realtime status uses the same vehicle state', () {
     expect(
-      busRealtimeStatusText(location(status: 'IN_TRANSIT_TO'), l10n: en),
-      'Heading to 横浜駅前',
+      busRealtimeStatusText(location(status: 'IN_TRANSIT_TO'), l10n: en, locale: const Locale('en')),
+      'Heading to Yokohama Station',
     );
     expect(
-      busRealtimeStatusText(location(status: 'STOPPED_AT'), l10n: en),
-      'Stopped at 横浜駅前',
+      busRealtimeStatusText(location(status: 'STOPPED_AT'), l10n: en, locale: const Locale('en')),
+      'Stopped at Yokohama Station',
     );
     expect(
       busRealtimeStatusText(
         location(status: 'IN_TRANSIT_TO', beforeFirstStop: true),
         l10n: en,
+        locale: const Locale('en'),
       ),
-      'Heading to 横浜駅前 (first stop)',
+      'Heading to Yokohama Station (first stop)',
     );
   });
 
