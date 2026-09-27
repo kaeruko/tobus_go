@@ -289,6 +289,23 @@ class FareSummary extends StatelessWidget {
 
   const FareSummary({super.key, required this.fare});
 
+  String _settlementLabel(FareQuote quote, AppLocalizations l10n) {
+    switch (quote.settlementType) {
+      case 'normal':
+        return '';
+      case 'discount':
+        return l10n.settlementDiscount;
+      case 'free_pass':
+        return l10n.settlementFreePass;
+      case 'reimbursement':
+        return l10n.settlementReimbursement;
+      default:
+        throw StateError(
+          'Unsupported settlementType in FareSummary: ${quote.settlementType}',
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -326,7 +343,7 @@ class FareSummary extends StatelessWidget {
           children: [
             if (showSettlementLabel) ...[
               Text(
-                quote.settlementLabel,
+                _settlementLabel(quote, l10n),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               if (lines.isNotEmpty) const SizedBox(height: 4),
