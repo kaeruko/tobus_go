@@ -47,7 +47,7 @@ class RuntimeConfig {
     }
 
     final schemaVersion = json['schema_version'];
-    if (schemaVersion != 1) {
+    if (schemaVersion is! int || schemaVersion != 1) {
       throw StateError(
         'Unsupported runtime config schema_version: $schemaVersion',
       );
