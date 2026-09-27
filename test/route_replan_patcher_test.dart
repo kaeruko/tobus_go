@@ -286,6 +286,17 @@ void main() {
     expect(restored.routeGeometryIsApproximate, isTrue);
   });
 
+  test('missing suffix geometry does not draw only the completed prefix', () {
+    final patch = RouteReplanPatcher.build(
+      trip: trip(),
+      request: movingRequest(),
+      selectedCandidate: selectedCandidate(),
+    );
+    expect(patch.legs.single.candidate.points, isEmpty);
+    final restored = Leg.fromJson(patch.legs.single.toFirestore());
+    expect(restored.candidate.points, isEmpty);
+  });
+
   test('manual entries are preserved without shifting', () {
     final manualAt = DateTime(2026, 8, 15, 10, 22);
     final manual = ScheduleEntry(

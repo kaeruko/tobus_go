@@ -344,18 +344,22 @@ class RouteReplanPatcher {
     final rides = steps.where((step) => step.isRide).length;
     final totalTime = steps.fold<int>(0, (sum, step) => sum + step.minutes);
     final points = <LatLng>[];
-    if (retainedSteps.isNotEmpty && original.originCoords != null) {
-      _appendUniquePoint(points, original.originCoords!);
-    }
-    // Only the retained prefix needs schematic stop geometry. Adding the new
-    // stops before selected.points would draw the new route twice, backwards.
-    for (final step in retainedSteps) {
-      for (final stop in step.stops) {
-        _appendUniquePoint(points, stop.point);
+    // Never present only the completed prefix as the entire route when the
+    // selected suffix has no geometry. The overview will show no map data.
+    if (selected.points.isNotEmpty) {
+      if (retainedSteps.isNotEmpty && original.originCoords != null) {
+        _appendUniquePoint(points, original.originCoords!);
       }
-    }
-    for (final point in selected.points) {
-      _appendUniquePoint(points, point);
+      // Only the retained prefix needs schematic stop geometry. Adding the new
+      // stops before selected.points would draw the new route twice, backwards.
+      for (final step in retainedSteps) {
+        for (final stop in step.stops) {
+          _appendUniquePoint(points, stop.point);
+        }
+      }
+      for (final point in selected.points) {
+        _appendUniquePoint(points, point);
+      }
     }
 
     return Candidate(
