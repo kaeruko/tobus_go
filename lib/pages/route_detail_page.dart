@@ -1087,6 +1087,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
     final profile = ref.watch(cityProfileProvider);
     final features = profile.capabilities.features;
     final savedRoutes = features.savedRoutes
@@ -1096,7 +1097,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
-        middle: Text(widget.candidate.lines.join(' → ')),
+        middle: Text(
+          localizedCandidateLines(locale, widget.candidate).join(' → '),
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
