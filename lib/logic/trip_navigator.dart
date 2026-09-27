@@ -59,6 +59,8 @@ enum NavigationTextKey {
   nowAtSub,
   arrivedMain,
   getOffNextMain,
+  rideCurrentPlaceMain,
+  transitPlace,
   staleBusNotice,
   staleRailNotice,
   tripEndedMain,
@@ -94,6 +96,7 @@ class NavigationState {
   final NavigationTextToken? statusLabelToken;
   final NavigationTextToken? noticeTextToken;
   final String? nextStopName;
+  final String? nextStopNameEn;
   final int? remainingStops;
   final String? currentStepId;
   final BusProgress? busProgress;
@@ -111,6 +114,7 @@ class NavigationState {
     this.statusLabelToken,
     this.noticeTextToken,
     this.nextStopName,
+    this.nextStopNameEn,
     this.remainingStops,
     this.currentStepId,
     this.busProgress,
@@ -135,6 +139,7 @@ class NavigationState {
     statusLabelToken: statusLabelToken,
     noticeTextToken: noticeTextToken,
     nextStopName: nextStopName,
+    nextStopNameEn: nextStopNameEn,
     remainingStops: remainingStops,
     currentStepId: currentStepId,
     busProgress: busProgress,
@@ -172,8 +177,9 @@ class NavigationState {
 
   static NavigationTextToken _rideArrivalToken(
     StepSeg step,
-    String rideTitle,
-  ) {
+    String rideTitle, {
+    String? rideTitleEn,
+  }) {
     final arrivalTime = step.arrivalTime?.trim();
     final destination = step.toName?.trim();
     final normalizedRideTitle = rideTitle.trim();
@@ -185,12 +191,18 @@ class NavigationState {
       _rideArrivalSummary(step, rideTitle);
       throw StateError('unreachable after ride arrival validation');
     }
+    final destinationEn = step.toNameEn?.trim();
+    final normalizedRideTitleEn = rideTitleEn?.trim();
     return NavigationTextToken(
       NavigationTextKey.rideArrivalSummary,
       {
         'arrivalTime': arrivalTime,
         'rideTitle': normalizedRideTitle,
+        if (normalizedRideTitleEn != null && normalizedRideTitleEn.isNotEmpty)
+          'rideTitleEn': normalizedRideTitleEn,
         'destination': destination,
+        if (destinationEn != null && destinationEn.isNotEmpty)
+          'destinationEn': destinationEn,
       },
     );
   }
@@ -248,6 +260,17 @@ class NavigationState {
         return name;
       default:
         throw StateError('乗車地点表示の未対応step kindです: ${step.kind}');
+    }
+  }
+
+  static String? _boardingPlaceNameEn(StepSeg step) {
+    switch (step.kind) {
+      case 'bus':
+        return step.stops.isEmpty ? null : step.stops.first.nameEn?.trim();
+      case 'rail':
+        return step.fromNameEn?.trim();
+      default:
+        throw StateError('乗車地点英語表示の未対応step kindです: ${step.kind}');
     }
   }
 
@@ -419,7 +442,11 @@ class NavigationState {
         statusLabel: statusLabel ?? '移動中',
         mainTextToken: NavigationTextToken(
           NavigationTextKey.walkHeadingMain,
-          {'destination': destination},
+          {
+            'destination': destination,
+            if (step.toNameEn?.trim().isNotEmpty == true)
+              'destinationEn': step.toNameEn!.trim(),
+          },
         ),
         subTextToken: NavigationTextToken(
           NavigationTextKey.walkDistanceSub,
@@ -446,12 +473,21 @@ class NavigationState {
           statusLabel: statusLabel ?? _rideStatusLabel(step),
           mainTextToken: NavigationTextToken(
             NavigationTextKey.positionCheckingMain,
-            {'rideTitle': routeTitle},
+            {
+              'rideTitle': routeTitle,
+              if (step.titleEn?.trim().isNotEmpty == true)
+                'rideTitleEn': step.titleEn!.trim(),
+            },
           ),
-          subTextToken: _rideArrivalToken(step, routeTitle),
+          subTextToken: _rideArrivalToken(
+            step,
+            routeTitle,
+            rideTitleEn: step.titleEn,
+          ),
           statusLabelToken: statusLabelToken ?? _rideStatusToken(step),
           currentStepId: step.stepId,
           nextStopName: step.toName,
+          nextStopNameEn: step.toNameEn,
           step: step,
         );
       }
@@ -497,7 +533,11 @@ class NavigationState {
               )
             : NavigationTextToken(
                 NavigationTextKey.busPositionCheckingAtStopSub,
-                {'stopName': boardingStopName},
+                {
+                  'stopName': boardingStopName,
+                  if (step.stops.first.nameEn?.trim().isNotEmpty == true)
+                    'stopNameEn': step.stops.first.nameEn!.trim(),
+                },
               ),
         statusLabelToken: const NavigationTextToken(
           NavigationTextKey.waitingToBoardStatus,
