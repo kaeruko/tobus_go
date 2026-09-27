@@ -46,6 +46,55 @@ def _validate_feed_id(feed_id: str) -> str:
     return feed_id
 
 
+def _load_english_stop_translations(source_dir: str) -> tuple[dict[str, str], dict[str, str]]:
+    path = os.path.join(source_dir, "translations.txt")
+    if not os.path.isfile(path):
+        return {}, {}
+
+    by_record_id: dict[str, str] = {}
+    by_field_value: dict[str, str] = {}
+    with open(path, encoding="utf-8-sig") as file:
+        for row in csv.DictReader(file):
+            if row.get("table_name") != "stops":
+                continue
+            if row.get("field_name") != "stop_name":
+                continue
+            if row.get("language") != "en":
+                continue
+            translation = (row.get("translation") or "").strip()
+            if not translation:
+                raise ValueError(
+                    "GTFS English stop translation has an empty translation"
+                )
+
+            record_id = (row.get("record_id") or "").strip()
+            field_value = (row.get("field_value") or "").strip()
+            if not record_id and not field_value:
+                raise ValueError(
+                    "GTFS English stop translation has neither record_id nor field_value"
+                )
+
+            if record_id:
+                previous = by_record_id.get(record_id)
+                if previous is not None && previous != translation:
+                    raise ValueError(
+                        f"Conflicting GTFS English stop translation for {record_id}: "
+                        f"{previous!r} != {translation!r}"
+                    )
+                by_record_id[record_id] = translation
+
+            if field_value:
+                previous = by_field_value.get(field_value)
+                if previous is not None && previous != translation:
+                    raise ValueError(
+                        "Conflicting GTFS English stop translation for "
+                        f"stop_name={field_value!r}: {previous!r} != {translation!r}"
+                    )
+                by_field_value[field_value] = translation
+
+    return by_record_id, by_field_value
+
+
 class GtfsRepository:
     """One isolated static GTFS feed.
 
@@ -124,6 +173,10 @@ class GtfsRepository:
 
         logger.info("Loading GTFS feed %s from %s", self.feed_id, source_dir)
 
+        stop_translations_by_id, stop_translations_by_name = (
+            _load_english_stop_translations(source_dir)
+        )
+
         calendar_path = os.path.join(source_dir, "calendar.txt")
         if os.path.exists(calendar_path):
             with open(calendar_path, encoding="utf-8-sig") as file:
@@ -155,8 +208,19 @@ class GtfsRepository:
 
         with open(paths["stops.txt"], encoding="utf-8") as file:
             for row in csv.DictReader(file):
-                stops[row["stop_id"]] = {
-                    "name": row["stop_name"],
+                stop_id = row["stop_id"]
+                stop_name = row["stop_name"]
+                by_id = stop_translations_by_id.get(stop_id)
+                by_name = stop_translations_by_name.get(stop_name)
+                if by_id is not None and by_name is not None and by_id != by_name:
+                    raise ValueError(
+                        "GTFS English stop translation disagrees between "
+                        f"record_id and field_value: stop_id={stop_id!r}, "
+                        f"{by_id!r} != {by_name!r}"
+                    )
+                stops[stop_id] = {
+                    "name": stop_name,
+                    "name_en": by_id if by_id is not None else by_name,
                     "lat": float(row["stop_lat"]),
                     "lon": float(row["stop_lon"]),
                 }
@@ -282,6 +346,7 @@ class GtfsRepository:
         stop_id = stop_time[0]
         stop_info = self.stops.get(stop_id)
         stop_name = stop_info["name"] if stop_info else "Unknown"
+        stop_name_en = stop_info.get("name_en") if stop_info else None
         route_id = trip.get("route_id")
         route_info = self.routes.get(route_id, {})
         return {
@@ -289,6 +354,7 @@ class GtfsRepository:
             "route_short_name": route_info.get("route_short_name", ""),
             "headsign": trip.get("headsign", ""),
             "next_stop_name": stop_name,
+            "next_stop_name_en": stop_name_en,
             "next_stop_id": stop_id,
         }
 
@@ -310,6 +376,7 @@ class GtfsRepository:
                     "sequence": sequence,
                     "stop_id": stop_id,
                     "stop_name": stop_info.get("name", "Unknown"),
+                    "stop_name_en": stop_info.get("name_en"),
                     "arrival_minute": arrival_minute,
                     "departure_minute": departure_minute,
                     "arrival_time": clock(arrival_minute),
