@@ -762,5 +762,14 @@
   "navRealtimeUnavailableNotice": "Realtimeの位置情報を確認しています\n最後に確認した位置を表示しています",
   "scheduleNow": "いま",
   "scheduleNext": "つぎ",
-  "scheduleLater": "そのうち"
+  "scheduleLater": "そのうち",
+  "waitTitle": "待ち時間",
+  "waitAt": "{place} で待機",
+  "@waitAt": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  }
 }
