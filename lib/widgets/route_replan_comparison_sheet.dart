@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
 import '../logic/route_replan_preview.dart';
 import '../models/route_models.dart';
 import '../providers/route_replanner_provider.dart';
@@ -45,6 +46,8 @@ class _RouteReplanComparisonSheetState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
     final currentRequest = ref.watch(currentRouteReplanRequestProvider);
     final blockedReason = ref.watch(routeReplanBlockedReasonProvider);
     final previewMatchesCurrent = currentRequest != null &&
@@ -102,27 +105,32 @@ class _RouteReplanComparisonSheetState
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  '${preview.request.anchor.placeName}から経路を見直す',
+                  l10n.replanTitle(preview.request.anchor.placeName),
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${RouteReplanPreview.formatClock(preview.request.anchor.availableAt)}から利用できる経路を比較します',
+                  l10n.replanCompareFrom(
+                    RouteReplanPreview.formatClock(
+                      preview.request.anchor.availableAt,
+                    ),
+                  ),
                   style: const TextStyle(color: Colors.black54),
                 ),
                 if (_refreshing) ...[
                   const SizedBox(height: 12),
-                  const _RefreshNotice(
-                    message: '移動状況が変わったため、新しい到着見込みで経路を再検索しています…',
+                  _RefreshNotice(
+                    message: l10n.replanRefreshing,
                     loading: true,
                   ),
                 ] else if (currentRequest == null) ...[
                   const SizedBox(height: 12),
                   _RefreshNotice(
-                    message: blockedReason ??
-                        '現在の再探索起点を取得できません。状況が確認できるまで経路変更は確定できません。',
+                    message: locale.languageCode == 'en'
+                        ? l10n.replanBlocked
+                        : (blockedReason ?? l10n.replanBlocked),
                   ),
                 ] else if (!previewMatchesCurrent &&
                     _refreshError != null &&
@@ -144,10 +152,18 @@ class _RouteReplanComparisonSheetState
                 ),
                 const SizedBox(height: 18),
                 _RouteSummaryCard(
-                  title: '現在の予定',
-                  arrivalLabel: '${preview.originalArrivalLabel} 到着予定',
-                  lineSummary:
-                      RouteReplanPreview.lineSummary(preview.originalCandidate),
+                  title: l10n.replanCurrentPlan,
+                  arrivalLabel: l10n.replanArrivalPlanned(
+                    RouteReplanPreview.arrivalLabel(
+                      preview.originalCandidate,
+                      unknownLabel: l10n.replanUnknownTime,
+                    ),
+                  ),
+                  lineSummary: RouteReplanPreview.lineSummary(
+                    preview.originalCandidate,
+                    locale: locale,
+                    walkOnlyLabel: l10n.replanWalkOnly,
+                  ),
                   transfers: preview.originalCandidate.transfers,
                   emphasized: false,
                 ),
@@ -157,7 +173,7 @@ class _RouteReplanComparisonSheetState
                 else ...[
                   if (candidates.length > 1) ...[
                     Text(
-                      '新しい経路の候補',
+                      l10n.replanNewRouteCandidates,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -173,7 +189,13 @@ class _RouteReplanComparisonSheetState
                             child: ChoiceChip(
                               selected: _selectedIndex == index,
                               label: Text(
-                                '候補${index + 1}  ${RouteReplanPreview.arrivalLabel(candidate)}着',
+                                l10n.replanCandidate(
+                                  index + 1,
+                                  RouteReplanPreview.arrivalLabel(
+                                    candidate,
+                                    unknownLabel: l10n.replanUnknownTime,
+                                  ),
+                                ),
                               ),
                               onSelected: _applying || _refreshing
                                   ? null
@@ -189,10 +211,18 @@ class _RouteReplanComparisonSheetState
                     const SizedBox(height: 12),
                   ],
                   _RouteSummaryCard(
-                    title: '新しい経路',
-                    arrivalLabel:
-                        '${RouteReplanPreview.arrivalLabel(selected!)} 到着予定',
-                    lineSummary: RouteReplanPreview.lineSummary(selected!),
+                    title: l10n.replanNewRoute,
+                    arrivalLabel: l10n.replanArrivalPlanned(
+                      RouteReplanPreview.arrivalLabel(
+                        selected!,
+                        unknownLabel: l10n.replanUnknownTime,
+                      ),
+                    ),
+                    lineSummary: RouteReplanPreview.lineSummary(
+                      selected!,
+                      locale: locale,
+                      walkOnlyLabel: l10n.replanWalkOnly,
+                    ),
                     transfers: selected!.transfers,
                     emphasized: true,
                   ),
@@ -206,9 +236,9 @@ class _RouteReplanComparisonSheetState
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.amber.shade200),
                     ),
-                    child: const Text(
-                      'いまは比較だけです。この画面を閉じても予定は変更されません。',
-                      style: TextStyle(fontSize: 13),
+                    child: Text(
+                      l10n.replanCompareOnly,
+                      style: const TextStyle(fontSize: 13),
                     ),
                   ),
                 const SizedBox(height: 16),
@@ -219,7 +249,7 @@ class _RouteReplanComparisonSheetState
                         onPressed: _applying
                             ? null
                             : () => Navigator.of(context).pop(false),
-                        child: const Text('元の経路を続ける'),
+                        child: Text(l10n.replanKeepOriginal),
                       ),
                     ),
                     if (widget.onApply != null && selected != null) ...[
@@ -240,8 +270,8 @@ class _RouteReplanComparisonSheetState
                                   ),
                                 )
                               : _refreshing
-                                  ? const Text('再検索中…')
-                                  : const Text('この経路に変更'),
+                                  ? Text(l10n.researching)
+                                  : Text(l10n.replanApply),
                         ),
                       ),
                     ],
@@ -351,8 +381,9 @@ class _RouteReplanComparisonSheetState
         await _refreshFor(currentRequest);
       }
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('移動状況が変わったため、経路を更新しました。内容を確認してください。')),
+        SnackBar(content: Text(l10n.replanUpdatedNotice)),
       );
       return;
     }
@@ -364,8 +395,9 @@ class _RouteReplanComparisonSheetState
       Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('経路を変更できませんでした: $error')),
+        SnackBar(content: Text(l10n.replanApplyFailed(error.toString()))),
       );
     } finally {
       if (mounted) {
