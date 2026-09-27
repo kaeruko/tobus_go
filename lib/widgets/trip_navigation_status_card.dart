@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import '../l10n/navigation_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../logic/trip_navigator.dart';
+import '../models/route_models.dart';
 
 /// Shared navigation status card used by both solo and group navigation.
 ///
@@ -255,14 +256,14 @@ class TripNavigationStatusCard extends StatelessWidget {
     );
   }
 
-  String _localizedRouteTitle(Locale locale, dynamic step) {
-    final japanese = step.title.trim() as String;
+  String _localizedRouteTitle(Locale locale, StepSeg step) {
+    final japanese = step.title.trim();
     if (japanese.isEmpty) {
       throw StateError('構造化乗車表示に路線名がありません: stepId=${step.stepId}');
     }
     if (!isEnglishTransitLocale(locale)) return japanese;
 
-    final english = (step.titleEn as String?)?.trim();
+    final english = step.titleEn?.trim();
     if (english == null || english.isEmpty) {
       throw StateError(
         '構造化乗車表示に公式英語路線名がありません: stepId=${step.stepId}',
@@ -304,7 +305,7 @@ class TripNavigationStatusCard extends StatelessWidget {
   String? _localizedRideDirection(
     AppLocalizations l10n,
     Locale locale,
-    dynamic step,
+    StepSeg step,
   ) {
     if (step.kind != 'rail') return null;
     final progress = navState.railProgress;
@@ -339,15 +340,15 @@ class TripNavigationStatusCard extends StatelessWidget {
   String _compactArrivalSummary(
     AppLocalizations l10n,
     Locale locale,
-    dynamic step,
+    StepSeg step,
   ) {
-    final arrivalTime = step.arrivalTime?.trim() as String?;
+    final arrivalTime = step.arrivalTime?.trim();
     if (arrivalTime == null || arrivalTime.isEmpty) {
       throw StateError(
         '構造化乗車表示に到着予定時刻がありません: stepId=${step.stepId}',
       );
     }
-    final destination = step.toName?.trim() as String?;
+    final destination = step.toName?.trim();
     if (destination == null || destination.isEmpty) {
       throw StateError(
         '構造化乗車表示に降車地点がありません: stepId=${step.stepId}',
@@ -357,7 +358,7 @@ class TripNavigationStatusCard extends StatelessWidget {
         ? localizedTransitName(
             locale,
             japanese: destination,
-            english: step.toNameEn as String?,
+            english: step.toNameEn,
             field: 'to_en',
             identity: 'stepId=${step.stepId}',
           )
