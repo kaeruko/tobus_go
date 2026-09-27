@@ -9,9 +9,7 @@ import 'package:toeigo/pages/explore_page.dart';
 import 'package:toeigo/providers/explore_provider.dart';
 import 'package:toeigo/providers/location_provider.dart';
 
-class _ExploreNotifier extends StateNotifier<AsyncValue<ReachableResponse?>> {
-  _ExploreNotifier() : super(const AsyncData(null));
-}
+class _ExploreNotifier extends ExploreNotifier {}
 
 Position _position() => Position(
       latitude: 35.6812,
