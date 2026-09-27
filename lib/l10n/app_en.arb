@@ -490,6 +490,40 @@
     }
   },
   "viewFullRoute": "View full route",
+  "historyTitle": "History",
+  "historyEmpty": "No trips yet",
+  "historyLoadFailed": "Couldn’t load history: {error}",
+  "@historyLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "historyTransfers": "Transfers: {count}",
+  "@historyTransfers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyWalkMinutes": "Walk {minutes} min",
+  "@historyWalkMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "historyParticipants": "{count} participants",
+  "@historyParticipants": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "soloTripDetailTitle": "Trip details",
   "soloTripRouteAndSchedule": "Route & schedule",
   "travelPhasePlanning": "Planning",

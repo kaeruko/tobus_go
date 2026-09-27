@@ -490,6 +490,40 @@
     }
   },
   "viewFullRoute": "経路全体を見る",
+  "historyTitle": "履歴",
+  "historyEmpty": "履歴はありません",
+  "historyLoadFailed": "履歴を読み込めませんでした: {error}",
+  "@historyLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "historyTransfers": "乗換 {count}回",
+  "@historyTransfers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyWalkMinutes": "徒歩 {minutes}分",
+  "@historyWalkMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "historyParticipants": "{count}人参加",
+  "@historyParticipants": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "soloTripDetailTitle": "移動の詳細",
   "soloTripRouteAndSchedule": "経路と予定",
   "travelPhasePlanning": "計画中",
