@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/city_profile.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/city_profile_provider.dart';
 import '../services/fare_policy_preferences.dart';
 import 'settings_page.dart';
@@ -68,46 +69,68 @@ class _FarePolicySettingsPageState
     }
   }
 
-  String _settlementLabel(String type) {
+  String _settlementLabel(AppLocalizations l10n, String type) {
     switch (type) {
       case 'normal':
-        return '通常払い';
+        return l10n.settlementNormal;
       case 'discount':
-        return '割引';
+        return l10n.settlementDiscount;
       case 'free_pass':
-        return '無料乗車証';
+        return l10n.settlementFreePass;
       case 'reimbursement':
-        return 'いったん支払い・後日支給';
+        return l10n.settlementReimbursementLong;
       default:
         throw StateError('Unsupported settlement type: $type');
     }
   }
 
+  String _policyDisplayName(
+    AppLocalizations l10n,
+    FarePolicyOption option,
+  ) {
+    switch (option.id) {
+      case 'normal':
+        return l10n.farePolicyNormal;
+      case 'tokyo_toei_transport_pass':
+        return l10n.farePolicyTokyoMentalDisabilityPass;
+      case 'nagoya_welfare_special_pass':
+        return l10n.farePolicyNagoyaWelfarePass;
+      default:
+        throw StateError('Unsupported localized fare policy: ${option.id}');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final profile = ref.watch(cityProfileProvider);
 
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(middle: Text('設定')),
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(l10n.fareSettingsTitle),
+      ),
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           children: [
-            const Text(
-              '運賃・乗車証',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            Text(
+              l10n.fareSettingsHeading,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              '利用する制度や所持乗車証を自分で選択します。住所・障害区分・年齢などから資格を自動判定しません。',
-              style: TextStyle(color: CupertinoColors.systemGrey),
+            Text(
+              l10n.fareSettingsDescription,
+              style: const TextStyle(color: CupertinoColors.systemGrey),
             ),
             const SizedBox(height: 16),
             if (_loading)
               const Center(child: CupertinoActivityIndicator())
             else if (_error != null)
               Text(
-                '設定エラー: $_error',
+                l10n.fareSettingsError(_error!),
                 style: const TextStyle(
                   color: CupertinoColors.destructiveRed,
                 ),
@@ -116,8 +139,12 @@ class _FarePolicySettingsPageState
               ...profile.farePolicies.map(
                 (option) => _PolicyCard(
                   option: option,
+                  displayName: _policyDisplayName(l10n, option),
                   selected: option.id == _selectedPolicyId,
-                  settlementLabel: _settlementLabel(option.settlementType),
+                  settlementLabel: _settlementLabel(
+                    l10n,
+                    option.settlementType,
+                  ),
                   onSelect: () => _select(profile, option.id),
                   onSource: option.sourceUri == null
                       ? null
@@ -132,7 +159,7 @@ class _FarePolicySettingsPageState
                     CupertinoPageRoute(builder: (_) => const SettingsPage()),
                   );
                 },
-                child: const Text('その他の設定を開く'),
+                child: Text(l10n.fareOpenOtherSettings),
               ),
             ],
           ],
@@ -144,6 +171,7 @@ class _FarePolicySettingsPageState
 
 class _PolicyCard extends StatelessWidget {
   final FarePolicyOption option;
+  final String displayName;
   final bool selected;
   final String settlementLabel;
   final VoidCallback onSelect;
@@ -151,6 +179,7 @@ class _PolicyCard extends StatelessWidget {
 
   const _PolicyCard({
     required this.option,
+    required this.displayName,
     required this.selected,
     required this.settlementLabel,
     required this.onSelect,
@@ -187,7 +216,7 @@ class _PolicyCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      option.displayName,
+                      displayName,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 3),
@@ -201,11 +230,11 @@ class _PolicyCard extends StatelessWidget {
                     if (onSource != null)
                       GestureDetector(
                         onTap: onSource,
-                        child: const Padding(
-                          padding: EdgeInsets.only(top: 5),
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 5),
                           child: Text(
-                            '公式情報を確認',
-                            style: TextStyle(
+                            AppLocalizations.of(context).fareOfficialInfo,
+                            style: const TextStyle(
                               fontSize: 13,
                               color: CupertinoColors.activeBlue,
                             ),
