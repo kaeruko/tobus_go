@@ -1,12 +1,15 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:toeigo/core/city_profile.dart';
 import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/pages/route_detail_page.dart';
 import 'package:toeigo/providers/city_profile_provider.dart';
+import 'package:toeigo/providers/navigation_provider.dart';
+import 'package:toeigo/providers/route_search_provider.dart';
 
 void main() {
   testWidgets('Yokohama uses shared detail and exposes realtime action', (
@@ -103,5 +106,83 @@ void main() {
       findsOneWidget,
     );
   });
+  testWidgets('saved route CTA seeds Search without starting a trip', (
+    tester,
+  ) async {
+    final candidate = Candidate(
+      id: 'saved-route',
+      lines: const ['浅草線'],
+      linesEn: const ['Asakusa Line'],
+      rides: 1,
+      boards: 1,
+      transfers: 0,
+      total: 10,
+      totalTime: 10,
+      steps: [
+        StepSeg(
+          stepId: 'rail-saved',
+          kind: 'rail',
+          title: '浅草線',
+          titleEn: 'Asakusa Line',
+          fromName: '押上',
+          fromNameEn: 'Oshiage',
+          toName: '蔵前',
+          toNameEn: 'Kuramae',
+          departureTime: '12:00',
+          arrivalTime: '12:10',
+        ),
+      ],
+      points: const [
+        LatLng(35.7101, 139.8107),
+        LatLng(35.7033, 139.7908),
+      ],
+      originCoords: const LatLng(35.7101, 139.8107),
+      destinationCoords: const LatLng(35.7033, 139.7908),
+      originName: '押上',
+      originNameEn: 'Oshiage',
+      destinationName: '蔵前',
+      destinationNameEn: 'Kuramae',
+      preference: 'fewTransfers',
+      arrivalTime: '12:10',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [cityProfileProvider.overrideWithValue(tokyoCityProfile)],
+        child: CupertinoApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: RouteDetailPage(
+            candidate: candidate,
+            fromSavedRoute: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('この経路でおでかけ'), findsOneWidget);
+    expect(find.text('この経路で行く'), findsNothing);
+
+    await tester.tap(find.text('この経路でおでかけ'));
+    await tester.pump();
+
+    final context = tester.element(find.byType(RouteDetailPage));
+    final container = ProviderScope.containerOf(context);
+    final search = container.read(routeSearchProvider);
+
+    expect(search.from, '35.7101,139.8107');
+    expect(search.to, '35.7033,139.7908');
+    expect(search.fromName, '押上');
+    expect(search.toName, '蔵前');
+    expect(search.fromNameEn, 'Oshiage');
+    expect(search.toNameEn, 'Kuramae');
+    expect(search.pref, 'fewTransfers');
+    expect(search.startTime, isNotNull);
+    expect(search.hasSearched, isFalse);
+    expect(container.read(tabIndexProvider), 0);
+  });
+
 
 }
