@@ -2445,11 +2445,20 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                         # 待ち時間を独立したセグメントとして追加し、UIで表示可能にする
                         flush()
                         segs.append({
-                            "kind": "wait", "title": "待ち時間", "minutes": wait_min,
-                            "edges": 0, "from_": from_name, "to": from_name, "meters": 0,
+                            "kind": "wait",
+                            "title": "待ち時間",
+                            "minutes": wait_min,
+                            "edges": 0,
+                            "from_": from_name,
+                            "from_en": from_name_en,
+                            "to": from_name,
+                            "to_en": from_name_en,
+                            "meters": 0,
                             "departure_time": min_to_time_str(curr_time),
                             "arrival_time": min_to_time_str(dep),
-                            "startLabel": "待ち時間", "place": from_name
+                            "startLabel": "待ち時間",
+                            "place": from_name,
+                            "place_en": from_name_en,
                         })
                 
                 # シミュレーション上の現在時刻を、バスの出発時刻に合わせて進める
@@ -2465,12 +2474,18 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     stop["id"] = converted_id
 
             cur = {
-                "kind": mode, "title": line_disp, "edges": 0, 
-                "from_": from_name, "to": None, "stops": curr_stops, 
+                "kind": mode,
+                "title": line_disp,
+                "title_en": line_disp_en,
+                "edges": 0,
+                "from_": from_name,
+                "from_en": from_name_en,
+                "to": None,
+                "to_en": None,
+                "stops": curr_stops,
                 "departure_time": min_to_time_str(curr_time),
-                
-                "route_id": final_route_id, 
-                "trip_id": final_trip_id, 
+                "route_id": final_route_id,
+                "trip_id": final_trip_id,
             }
 
         elif etype == "ride":
@@ -2485,14 +2500,18 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 node_id = phys_key[1]
                 new_id = _gtfs_stop_id(node_id) or node_id
 
-                if phys_key in G: stop_name = G.nodes[phys_key]["name"]
-                
+                stop_name_en = None
+                if phys_key in G:
+                    stop_name = G.nodes[phys_key]["name"]
+                    stop_name_en = G.nodes[phys_key].get("name_en")
+
                 if not cur["stops"] or cur["stops"][-1]["name"] != stop_name:
                     cur["stops"].append({
                         "name": stop_name,
+                        "name_en": stop_name_en,
                         "lat": G.nodes[phys_key].get("lat"),
                         "lon": G.nodes[phys_key].get("lon"),
-                        "id": new_id # ★新しいIDで保存
+                        "id": new_id,
                     })
             
             # 時間を経過させる (電車は時刻表、その他は距離ベース)
@@ -2539,23 +2558,27 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     new_dest_id = _gtfs_stop_id(node_id) or node_id
 
                     to_name = G.nodes[to_phys]["name"]
+                    to_name_en = G.nodes[to_phys].get("name_en")
                     cur["to"] = to_name
+                    cur["to_en"] = to_name_en
                     stop_lat = G.nodes[to_phys].get("lat")
                     stop_lon = G.nodes[to_phys].get("lon")
-                    
+
                     if not cur["stops"] or cur["stops"][-1]["name"] != to_name:
                         cur["stops"].append({
                             "name": to_name,
+                            "name_en": to_name_en,
                             "is_destination": True,
                             "lat": stop_lat,
                             "lon": stop_lon,
-                            "id": new_dest_id # ★新しいIDで保存
+                            "id": new_dest_id,
                         })
                     else:
                         cur["stops"][-1]["is_destination"] = True
-                        cur["stops"][-1]["id"] = new_dest_id # 上書き
+                        cur["stops"][-1]["id"] = new_dest_id
                         cur["stops"][-1]["lat"] = stop_lat
                         cur["stops"][-1]["lon"] = stop_lon
+                        cur["stops"][-1]["name_en"] = to_name_en
                 if cur["kind"] == "bus":
                     if (
                         active_bus_leg is None
