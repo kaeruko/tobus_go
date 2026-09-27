@@ -309,6 +309,11 @@ class TripCoordinator {
         subText: 'お疲れ様でした',
         color: Colors.grey,
         statusLabel: 'お出かけ終了',
+        mainTextToken: NavigationTextToken(NavigationTextKey.tripEndedMain),
+        subTextToken: NavigationTextToken(NavigationTextKey.tripEndedSub),
+        statusLabelToken: NavigationTextToken(
+          NavigationTextKey.tripEndedStatus,
+        ),
         isMoving: false,
       );
     }
@@ -318,6 +323,15 @@ class TripCoordinator {
         subText: 'グループは解散されました',
         color: Colors.red,
         statusLabel: '中止',
+        mainTextToken: NavigationTextToken(
+          NavigationTextKey.tripCancelledMain,
+        ),
+        subTextToken: NavigationTextToken(
+          NavigationTextKey.tripCancelledSub,
+        ),
+        statusLabelToken: NavigationTextToken(
+          NavigationTextKey.tripCancelledStatus,
+        ),
         isMoving: false,
       );
     }
@@ -391,6 +405,21 @@ class TripCoordinator {
           ),
           color: const Color(0xFFE1F5FE),
           statusLabel: '待機',
+          mainTextToken: NavigationTextToken(
+            NavigationTextKey.departureCountdownMain,
+            {
+              'leaveTime': leaveTime,
+              'minutes': remainingMinutes,
+            },
+          ),
+          subTextToken: _boardingSubTextToken(
+            trip: trip,
+            rideEntry: rideEntry,
+            rideTime: rideTime,
+          ),
+          statusLabelToken: const NavigationTextToken(
+            NavigationTextKey.waitingStatus,
+          ),
           currentStepId: resolved.routeStepId,
           isMoving: false,
           step: step,
@@ -407,6 +436,15 @@ class TripCoordinator {
         ),
         color: const Color(0xFFE1F5FE),
         statusLabel: '待機',
+        subTextToken: _boardingSubTextToken(
+          trip: trip,
+          rideEntry: rideEntry,
+          rideTime: rideTime,
+          planned: true,
+        ),
+        statusLabelToken: const NavigationTextToken(
+          NavigationTextKey.waitingStatus,
+        ),
         currentStepId: resolved.routeStepId,
         isMoving: false,
         step: step,
@@ -447,6 +485,22 @@ class TripCoordinator {
           ),
           color: const Color(0xFF81D4FA),
           statusLabel: '移動中',
+          mainTextToken: NavigationTextToken(
+            NavigationTextKey.walkToRideCountdownMain,
+            {
+              'rideTime': rideTime,
+              'destination': destination,
+              'minutes': remainingMinutes,
+            },
+          ),
+          subTextToken: _boardingSubTextToken(
+            trip: trip,
+            rideEntry: rideEntry,
+            rideTime: rideTime,
+          ),
+          statusLabelToken: const NavigationTextToken(
+            NavigationTextKey.movingStatus,
+          ),
           nextStopName: destination,
           currentStepId: step.stepId,
           step: step,
