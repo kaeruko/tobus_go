@@ -99,15 +99,16 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
 
       if (!mounted) return;
 
+      final l10n = AppLocalizations.of(context);
       await showCupertinoDialog<void>(
         context: context,
         builder: (ctx) => CupertinoAlertDialog(
-          title: const Text('現在地を取得できませんでした'),
+          title: Text(l10n.currentLocationFailed),
           content: Text('$e'),
           actions: [
             CupertinoDialogAction(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('OK'),
+              child: Text(l10n.ok),
             ),
           ],
         ),
@@ -116,20 +117,23 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
   }
 
   Future<void> _openMap(bool forA) async {
+    final l10n = AppLocalizations.of(context);
     final res = await Navigator.of(context).push<LatLng>(
-      CupertinoPageRoute(builder: (_) => const MapPickerPage(title: '地図から選ぶ')),
+      CupertinoPageRoute(
+        builder: (_) => MapPickerPage(title: l10n.mapPickerTitle),
+      ),
     );
     if (res == null) return;
     final s = "${res.latitude},${res.longitude}";
 
     final notifier = ref.read(routeSearchProvider.notifier);
     if (forA) {
-      notifier.setFrom(s, name: '地図で選択した場所');
+      notifier.setFrom(s, name: l10n.mapSelectedPlace);
       if (_canAutoSearchAfterEditingFrom()) {
         notifier.triggerSearch();
       }
     } else {
-      notifier.setTo(s, name: '地図で選択した場所');
+      notifier.setTo(s, name: l10n.mapSelectedPlace);
       if (_canAutoSearchAfterEditingTo()) {
         notifier.triggerSearch();
       }
@@ -137,6 +141,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
   }
 
   void _showTimePicker(DateTime current) {
+    final l10n = AppLocalizations.of(context);
     showCupertinoModalPopup(
       context: context,
       builder: (ctx) => Container(
@@ -160,7 +165,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                 Navigator.pop(ctx);
                 ref.read(routeSearchProvider.notifier).triggerSearch();
               },
-              child: const Text('完了'),
+              child: Text(l10n.done),
             ),
           ],
         ),
