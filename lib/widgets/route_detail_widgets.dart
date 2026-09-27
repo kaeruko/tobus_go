@@ -132,13 +132,16 @@ class RouteFallbackDestinationNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stop = meta.fallbackNodeName ?? '最寄り停留所';
+    final l10n = AppLocalizations.of(context);
+    final stop = meta.fallbackNodeName ?? l10n.nearestStop;
     final minutes = meta.fallbackWalkMinutes;
     final walkText = minutes != null
-        ? '徒歩約${minutes}分'
+        ? l10n.walkAboutMinutes(minutes)
         : (meta.fallbackDistanceM != null
-              ? '徒歩${meta.fallbackDistanceM!.toStringAsFixed(0)}m程度'
-              : '徒歩圏内');
+              ? l10n.walkAboutDistance(
+                  '${meta.fallbackDistanceM!.toStringAsFixed(0)}m',
+                )
+              : l10n.walkWithinRange);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -151,17 +154,17 @@ class RouteFallbackDestinationNotice extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
+              const Icon(
                 CupertinoIcons.exclamationmark_triangle_fill,
                 color: CupertinoColors.systemOrange,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '目的地付近までの経路のみ表示しています',
-                  style: TextStyle(
+                  l10n.fallbackPartialTitle,
+                  style: const TextStyle(
                     color: CupertinoColors.activeOrange,
                     fontWeight: FontWeight.w600,
                   ),
@@ -171,8 +174,7 @@ class RouteFallbackDestinationNotice extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '${meta.destinationLabel}に直接到達できません。'
-            '最寄りは「$stop」で、ここから$walkTextです。',
+            l10n.fallbackPartialBody(meta.destinationLabel, stop, walkText),
             style: const TextStyle(fontSize: 14),
           ),
         ],
