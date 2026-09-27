@@ -198,6 +198,7 @@ class BusRealtimeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
     if (trackedBusStep == null) {
       return _messageCard(context, l10n.noTrackableBus);
     }
@@ -247,7 +248,13 @@ class BusRealtimeCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(l10n.vehicleLabel(current.vehicleId)),
-            Text(busRealtimeStatusText(current, l10n: l10n)),
+            Text(
+              busRealtimeStatusText(
+                current,
+                l10n: l10n,
+                locale: locale,
+              ),
+            ),
             Text(
               l10n.latLonLabel(
                 lat.toStringAsFixed(5),
@@ -289,8 +296,15 @@ class BusRealtimeCard extends StatelessWidget {
 String busRealtimeStatusText(
   BusLocation vehicle, {
   required AppLocalizations l10n,
+  required Locale locale,
 }) {
-  final stopName = vehicle.rawStopName?.trim();
+  final rawStopName = vehicle.rawStopName?.trim();
+  final stopName = switch (locale.languageCode) {
+    'en' when rawStopName != null && rawStopName.isNotEmpty =>
+      _requiredRealtimeEnglishStopName(vehicle),
+    _ => rawStopName,
+  };
+
   if (vehicle.beforeFirstStop) {
     return stopName == null || stopName.isEmpty
         ? l10n.headingToFirstStop
@@ -313,4 +327,15 @@ String busRealtimeStatusText(
         'Unsupported realtime current_status: ${vehicle.currentStatus}',
       );
   }
+}
+
+String _requiredRealtimeEnglishStopName(BusLocation vehicle) {
+  final english = vehicle.rawStopNameEn?.trim();
+  if (english == null || english.isEmpty) {
+    throw StateError(
+      'Official English realtime stop name is missing: '
+      'stopId=${vehicle.rawStopId ?? '<unknown>'}',
+    );
+  }
+  return english;
 }
