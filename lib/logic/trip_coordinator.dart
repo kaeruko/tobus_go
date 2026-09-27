@@ -142,6 +142,13 @@ class TripCoordinator {
     bool planned = false,
   }) {
     final routeTitle = _boardingRouteTitle(trip: trip, rideEntry: rideEntry);
+    final stepId = rideEntry.routeStepId;
+    if (stepId == null || stepId.isEmpty) {
+      throw StateError(
+        '乗車予定にrouteStepIdがありません: entryId=${rideEntry.id}',
+      );
+    }
+    final routeTitleEn = trip.stepsById[stepId]?.titleEn?.trim();
     return NavigationTextToken(
       planned
           ? NavigationTextKey.boardingPlannedSub
@@ -149,6 +156,8 @@ class TripCoordinator {
       {
         'rideTime': rideTime,
         'routeTitle': routeTitle,
+        if (routeTitleEn != null && routeTitleEn.isNotEmpty)
+          'routeTitleEn': routeTitleEn,
       },
     );
   }
@@ -490,6 +499,8 @@ class TripCoordinator {
             {
               'rideTime': rideTime,
               'destination': destination,
+              if (step.toNameEn?.trim().isNotEmpty == true)
+                'destinationEn': step.toNameEn!.trim(),
               'minutes': remainingMinutes,
             },
           ),
@@ -502,6 +513,7 @@ class TripCoordinator {
             NavigationTextKey.movingStatus,
           ),
           nextStopName: destination,
+          nextStopNameEn: step.toNameEn,
           currentStepId: step.stepId,
           step: step,
         );
