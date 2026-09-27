@@ -659,16 +659,16 @@ class _FallbackNotice extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
+              const Icon(
                 CupertinoIcons.exclamationmark_triangle_fill,
                 color: CupertinoColors.systemOrange,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
-                '目的地までの都営経路が見つかりません',
-                style: TextStyle(
+                l10n.fallbackTitle,
+                style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: CupertinoColors.activeOrange,
                 ),
@@ -677,12 +677,12 @@ class _FallbackNotice extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '都営だけでは${meta.destinationLabel}の近くまで行けません。最寄りは「$stopName」で、ここから$walkText。',
+            l10n.fallbackBody(meta.destinationLabel, stopName, walkText),
             style: const TextStyle(fontSize: 14),
           ),
           const SizedBox(height: 4),
           Text(
-            'それでもこの経路を使いますか？$limitText',
+            l10n.fallbackQuestion(limitText),
             style: const TextStyle(
               color: CupertinoColors.inactiveGray,
               fontSize: 13,
