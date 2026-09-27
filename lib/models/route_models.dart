@@ -110,7 +110,13 @@ class Candidate {
     final originNameEn = j['origin_name_en']?.toString();
     final destinationNameEn = j['destination_name_en']?.toString();
 
-    final steps = _readSteps(j, originName, destinationName);
+    final steps = _readSteps(
+      j,
+      originName,
+      destinationName,
+      originNameEn,
+      destinationNameEn,
+    );
     return Candidate(
       id: j['id']?.toString() ?? '',
       lines: (j['lines'] is List) ? List<String>.from(j['lines']) : const [],
@@ -213,6 +219,8 @@ class Candidate {
     Map<String, dynamic> j,
     String? originName,
     String? destinationName,
+    String? originNameEn,
+    String? destinationNameEn,
   ) {
     final out = <StepSeg>[];
     final raw = j['steps'];
@@ -223,9 +231,12 @@ class Candidate {
     final simpleDest = destinationName != null
         ? StringUtils.extractSimpleName(destinationName)
         : null;
+    final simpleOriginEn = originNameEn?.trim();
+    final simpleDestEn = destinationNameEn?.trim();
 
     if (raw is List) {
-      for (final item in raw) {
+      for (var index = 0; index < raw.length; index++) {
+        final item = raw[index];
         if (item is Map) {
           final map = Map<String, dynamic>.from(item);
           // "現在地" / "目的地" の置換ロジック
@@ -236,6 +247,25 @@ class Candidate {
           }
           if (map['to'] == '目的地' && simpleDest != null) {
             map['to'] = simpleDest;
+          }
+
+          if (index == 0 &&
+              simpleOrigin != null &&
+              simpleOriginEn != null &&
+              simpleOriginEn.isNotEmpty &&
+              (map['from_'] == simpleOrigin || map['from'] == simpleOrigin) &&
+              (map['from_en'] == null ||
+                  map['from_en'].toString().trim().isEmpty)) {
+            map['from_en'] = simpleOriginEn;
+          }
+          if (index == raw.length - 1 &&
+              simpleDest != null &&
+              simpleDestEn != null &&
+              simpleDestEn.isNotEmpty &&
+              map['to'] == simpleDest &&
+              (map['to_en'] == null ||
+                  map['to_en'].toString().trim().isEmpty)) {
+            map['to_en'] = simpleDestEn;
           }
 
           out.add(StepSeg.fromJson(map));
