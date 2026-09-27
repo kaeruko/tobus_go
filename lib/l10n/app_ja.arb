@@ -202,5 +202,117 @@
         "type": "String"
       }
     }
-  }
+  },
+  "routeFutureSuggestion": "ご指定の日時は運行終了または運休日のため、\\n{date} の経路を表示しています。",
+  "@routeFutureSuggestion": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "endpointDeparture": "出発",
+  "endpointDestination": "目的地",
+  "fallbackPartialTitle": "目的地付近までの経路のみ表示しています",
+  "fallbackPartialBody": "{destination}に直接到達できません。最寄りは「{stop}」で、ここから{walkText}です。",
+  "@fallbackPartialBody": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      },
+      "stop": {
+        "type": "String"
+      },
+      "walkText": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryDuration": "所要時間",
+  "summaryTransfers": "乗換",
+  "summaryRideSegments": "乗車区間",
+  "summaryWalk": "徒歩",
+  "minutesValue": "{minutes}分",
+  "@minutesValue": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "normalFareLine": "通常運賃 {yen}円",
+  "@normalFareLine": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "payNowFareLine": "今回の支払 {yen}円",
+  "@payNowFareLine": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "effectiveFareLine": "支給後の実質 {yen}円",
+  "@effectiveFareLine": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "approximateMinutes": "約{minutes}分",
+  "@approximateMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "stopCount": "{count}停",
+  "@stopCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "walkTitle": "徒歩",
+  "deleteBookmarkTitle": "ブックマークを削除",
+  "deleteBookmarkMessage": "この経路をMy Routeから削除しますか?",
+  "cancel": "キャンセル",
+  "delete": "削除",
+  "savedTitle": "保存しました",
+  "savedToMyRoute": "My Routeに追加しました。",
+  "notSelected": "未選択",
+  "chooseDifferentRoute": "別の経路を選択してください",
+  "startRoute": "この経路で行く",
+  "preparingTrip": "移動を準備中…",
+  "close": "閉じる",
+  "tripStartFailed": "移動を開始できませんでした",
+  "activeTripExists": "進行中の移動があります",
+  "activeTripMessage": "{title}\\n完了または中止してから、新しい移動を開始してください。",
+  "@activeTripMessage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "openActiveTrip": "進行中の移動を開く",
+  "researching": "再検索中...",
+  "routeAtTimeNotFound": "指定された日時の経路が見つかりませんでした。",
+  "researchFailed": "再検索に失敗しました: {error}",
+  "@researchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "runSearch": "検索実行",
+  "confirm": "決定"
 }
