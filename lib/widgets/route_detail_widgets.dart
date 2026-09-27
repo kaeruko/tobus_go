@@ -5,7 +5,6 @@ import '../l10n/transit_name_localizations.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
 import '../pages/segment_stops_page.dart';
-import '../utils/string_utils.dart';
 import 'timetable_view.dart';
 
 class RouteFutureSuggestionAlert extends StatelessWidget {
@@ -55,37 +54,46 @@ class RouteEndpointSummary extends StatelessWidget {
   const RouteEndpointSummary({super.key, required this.candidate, this.meta});
 
   String _origin(AppLocalizations l10n, Locale locale) {
-    if (!_isPlaceholder(candidate.originName)) {
-      if (!isEnglishTransitLocale(locale)) {
-        return StringUtils.extractSimpleName(candidate.originName!);
-      }
-      final english = candidate.originNameEn?.trim();
-      if (english != null && english.isNotEmpty) {
+    final origin = candidate.originName?.trim();
+    if (origin != null && origin.isNotEmpty) {
+      return localizedOptionalPlaceName(
+        locale,
+        japanese: origin,
+        english: candidate.originNameEn,
+        field: 'origin_name_en',
+        identity: 'candidate=${candidate.id}',
+      );
+    }
+    if (candidate.steps.isEmpty) return l10n.originFallback;
+
+    final first = candidate.steps.first;
+    if (first.isRide) return localizedRideFromName(locale, first);
+    final japanese = first.fromName?.trim();
+    if (japanese == null || japanese.isEmpty) return l10n.originFallback;
+
+    switch (first.kind) {
+      case 'wait':
         return localizedTransitName(
           locale,
-          japanese: StringUtils.extractSimpleName(candidate.originName!),
-          english: english,
-          field: 'origin_name_en',
-          identity: 'candidate=${candidate.id}',
+          japanese: japanese,
+          english: first.fromNameEn,
+          field: 'from_en',
+          identity: 'stepId=${first.stepId}',
         );
-      }
+      case 'walk':
+        return localizedOptionalPlaceName(
+          locale,
+          japanese: japanese,
+          english: first.fromNameEn,
+          field: 'walk_from_en',
+          identity: 'stepId=${first.stepId}',
+        );
+      default:
+        throw StateError(
+          'Unsupported route-summary origin step kind: '
+          'stepId=${first.stepId}, kind=${first.kind}',
+        );
     }
-    if (candidate.steps.isNotEmpty) {
-      final first = candidate.steps.first;
-      if (first.isRide) {
-        return localizedRideFromName(locale, first);
-      }
-      final english = first.fromNameEn?.trim();
-      final value = isEnglishTransitLocale(locale) &&
-              english != null &&
-              english.isNotEmpty
-          ? english
-          : first.from;
-      if (!_isPlaceholder(value)) {
-        return StringUtils.extractSimpleName(value!);
-      }
-    }
-    return l10n.originFallback;
   }
 
   String _destination(AppLocalizations l10n, Locale locale) {
@@ -104,37 +112,47 @@ class RouteEndpointSummary extends StatelessWidget {
       final suffix = minutes != null ? l10n.destinationWalkSuffix(minutes) : '';
       return stop + suffix;
     }
-    if (!_isPlaceholder(candidate.destinationName)) {
-      if (!isEnglishTransitLocale(locale)) {
-        return StringUtils.extractSimpleName(candidate.destinationName!);
-      }
-      final english = candidate.destinationNameEn?.trim();
-      if (english != null && english.isNotEmpty) {
+
+    final destination = candidate.destinationName?.trim();
+    if (destination != null && destination.isNotEmpty) {
+      return localizedOptionalPlaceName(
+        locale,
+        japanese: destination,
+        english: candidate.destinationNameEn,
+        field: 'destination_name_en',
+        identity: 'candidate=${candidate.id}',
+      );
+    }
+    if (candidate.steps.isEmpty) return l10n.destinationFallback;
+
+    final last = candidate.steps.last;
+    if (last.isRide) return localizedRideToName(locale, last);
+    final japanese = last.toName?.trim();
+    if (japanese == null || japanese.isEmpty) return l10n.destinationFallback;
+
+    switch (last.kind) {
+      case 'wait':
         return localizedTransitName(
           locale,
-          japanese: StringUtils.extractSimpleName(candidate.destinationName!),
-          english: english,
-          field: 'destination_name_en',
-          identity: 'candidate=${candidate.id}',
+          japanese: japanese,
+          english: last.toNameEn,
+          field: 'to_en',
+          identity: 'stepId=${last.stepId}',
         );
-      }
+      case 'walk':
+        return localizedOptionalPlaceName(
+          locale,
+          japanese: japanese,
+          english: last.toNameEn,
+          field: 'walk_to_en',
+          identity: 'stepId=${last.stepId}',
+        );
+      default:
+        throw StateError(
+          'Unsupported route-summary destination step kind: '
+          'stepId=${last.stepId}, kind=${last.kind}',
+        );
     }
-    if (candidate.steps.isNotEmpty) {
-      final last = candidate.steps.last;
-      if (last.isRide) {
-        return localizedRideToName(locale, last);
-      }
-      final english = last.toNameEn?.trim();
-      final value = isEnglishTransitLocale(locale) &&
-              english != null &&
-              english.isNotEmpty
-          ? english
-          : last.to;
-      if (!_isPlaceholder(value)) {
-        return StringUtils.extractSimpleName(value!);
-      }
-    }
-    return l10n.destinationFallback;
   }
 
   @override
@@ -579,11 +597,13 @@ class RouteStepTile extends StatelessWidget {
         locale,
         japanese: segment.fromName,
         english: segment.fromNameEn,
+        field: 'walk_from_en',
       );
       final to = _localizedWalkEndpoint(
         locale,
         japanese: segment.toName,
         english: segment.toNameEn,
+        field: 'walk_to_en',
       );
       if (from != null && to != null) return '$from → $to';
       if (segment.meters > 0) {
@@ -599,22 +619,17 @@ class RouteStepTile extends StatelessWidget {
     Locale locale, {
     required String? japanese,
     required String? english,
+    required String field,
   }) {
     final original = japanese?.trim();
     if (original == null || original.isEmpty) return null;
-    final localized = english?.trim();
-    if (isEnglishTransitLocale(locale) &&
-        localized != null &&
-        localized.isNotEmpty) {
-      return localizedTransitName(
-        locale,
-        japanese: original,
-        english: localized,
-        field: 'walk_endpoint_en',
-        identity: 'stepId=${segment.stepId}',
-      );
-    }
-    return original;
+    return localizedOptionalPlaceName(
+      locale,
+      japanese: original,
+      english: english,
+      field: field,
+      identity: 'stepId=${segment.stepId}',
+    );
   }
 
   String _rightText(bool isWalk, AppLocalizations l10n) {
