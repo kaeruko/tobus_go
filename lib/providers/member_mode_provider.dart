@@ -283,6 +283,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         tripStopIds: location.tripStopIds,
         observedStopId: location.rawStopId,
         observedStopName: location.rawStopName,
+        observedStopNameEn: location.rawStopNameEn,
         currentStatus: location.currentStatus,
         vehicleAgeSeconds: location.vehicleAgeSeconds,
       );
