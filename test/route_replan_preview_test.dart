@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:toeigo/logic/replan_anchor.dart';
@@ -131,6 +132,7 @@ void main() {
     return Candidate(
       id: 'new-candidate',
       lines: const ['浅草線', '大江戸線'],
+      linesEn: const ['Asakusa Line', 'Oedo Line'],
       rides: 2,
       boards: 2,
       transfers: 1,
@@ -141,8 +143,11 @@ void main() {
           stepId: 'new-rail',
           kind: 'rail',
           title: '浅草線',
+          titleEn: 'Asakusa Line',
           fromName: '蔵前',
+          fromNameEn: 'Kuramae',
           toName: '目的地最寄り',
+          toNameEn: 'Destination stop',
           arrivalTime: '18:22',
           stops: [
             StopPoint(name: '蔵前', point: anchorPoint),
@@ -522,5 +527,17 @@ void main() {
     final candidate = newCandidate();
     expect(RouteReplanPreview.arrivalLabel(candidate), '18:25');
     expect(RouteReplanPreview.lineSummary(candidate), '浅草線 → 大江戸線');
+  });
+
+  test('comparison line summary uses official English ride labels', () {
+    final candidate = newCandidate();
+    expect(
+      RouteReplanPreview.lineSummary(
+        candidate,
+        locale: const Locale('en'),
+        walkOnlyLabel: 'Walk only',
+      ),
+      'Asakusa Line',
+    );
   });
 }
