@@ -48,6 +48,47 @@ void main() {
     expect(tappedEntryId, 'ride-1');
   });
 
+  testWidgets('listTiles can render a localized entry label', (tester) async {
+    final entry = ScheduleEntry(
+      id: 'ride-en',
+      plannedAt: DateTime(2026, 9, 27, 22, 8),
+      label: '🚇浅草線 押上に乗る',
+      itemKind: ScheduleEntryKind.ride,
+      generatedBy: ScheduleEntrySource.route,
+      routeStepId: 'rail-1',
+      routeRole: 'ride',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TripScheduleWindowCard(
+            title: 'Current route',
+            resolvedEntry: null,
+            entries: [entry],
+            completedCount: 0,
+            totalCount: 1,
+            activeLabel: 'Now',
+            counterLabelBuilder: (completedCount, totalCount) =>
+                '$completedCount / $totalCount steps',
+            entryLabelBuilder: (_) =>
+                'Asakusa Line · Board at Oshiage (押上)',
+            appearance: TripScheduleWindowAppearance.listTiles,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.text('Asakusa Line · Board at Oshiage (押上)'),
+      findsOneWidget,
+    );
+    expect(find.text('🚇浅草線 押上に乗る'), findsNothing);
+  });
+
   testWidgets('listTilesのwait_startは時計アイコンで表示する', (tester) async {
     final entry = ScheduleEntry(
       id: 'wait-1',
