@@ -1,9 +1,19 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/models/fare_models.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/widgets/route_detail_widgets.dart';
+
+Widget localizedApp(Widget home, {Locale locale = const Locale('ja')}) {
+  return CupertinoApp(
+    locale: locale,
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
+}
 
 void main() {
   Candidate candidate() => Candidate(
@@ -43,7 +53,7 @@ void main() {
     'shared summary shows walking distance rather than segment count',
     (tester) async {
       await tester.pumpWidget(
-        CupertinoApp(home: RouteSummary(candidate: candidate())),
+        localizedApp(RouteSummary(candidate: candidate())),
       );
 
       expect(find.text('10:00'), findsOneWidget);
@@ -99,10 +109,43 @@ void main() {
     );
 
     await tester.pumpWidget(
-      const CupertinoApp(home: FareSummary(fare: fare)),
+      localizedApp(const FareSummary(fare: fare)),
     );
 
     expect(find.text('通常払い'), findsNothing);
     expect(find.byType(Container), findsNothing);
   });
+  testWidgets('shared detail widgets render English labels', (tester) async {
+    const fare = FareQuote(
+      normalFareYen: 220,
+      payNowYen: 0,
+      effectiveFareYen: 0,
+      policyId: 'free-pass',
+      settlementType: 'free_pass',
+      status: 'available',
+    );
+
+    await tester.pumpWidget(
+      localizedApp(
+        ListView(
+          children: [
+            RouteEndpointSummary(candidate: candidate()),
+            RouteSummary(candidate: candidate()),
+            const FareSummary(fare: fare),
+            RouteStepTile(segment: candidate().steps.first),
+          ],
+        ),
+        locale: const Locale('en'),
+      ),
+    );
+
+    expect(find.text('From'), findsOneWidget);
+    expect(find.text('To'), findsOneWidget);
+    expect(find.text('Duration'), findsOneWidget);
+    expect(find.text('Ride segments'), findsOneWidget);
+    expect(find.text('Walk'), findsWidgets);
+    expect(find.text('Free pass'), findsOneWidget);
+    expect(find.text('Pay now ¥0'), findsOneWidget);
+  });
+
 }
