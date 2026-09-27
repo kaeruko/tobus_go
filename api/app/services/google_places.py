@@ -7,6 +7,14 @@ from fastapi import HTTPException
 PLACES_AUTOCOMPLETE_URL = "https://places.googleapis.com/v1/places:autocomplete"
 PLACES_DETAILS_URL = "https://places.googleapis.com/v1/places"
 PLACES_DETAILS_FIELD_MASK = "id,displayName,formattedAddress,location"
+SUPPORTED_LANGUAGES = {"ja", "en"}
+
+
+def _require_language(language: str) -> str:
+    normalized = language.strip().lower()
+    if normalized not in SUPPORTED_LANGUAGES:
+        raise HTTPException(400, f"unsupported language: {language}")
+    return normalized
 
 
 def _api_key() -> str:
@@ -37,8 +45,9 @@ def _upstream_json(response: httpx.Response, operation: str) -> dict:
     return payload
 
 
-async def autocomplete_legacy_response(query: str) -> dict:
+async def autocomplete_legacy_response(query: str, language: str = "ja") -> dict:
     query = query.strip()
+    language = _require_language(language)
     if not query:
         raise HTTPException(400, "q must not be empty")
 
@@ -48,7 +57,7 @@ async def autocomplete_legacy_response(query: str) -> dict:
     }
     body = {
         "input": query,
-        "languageCode": "ja",
+        "languageCode": language,
         "includedRegionCodes": ["jp"],
     }
 
@@ -113,8 +122,9 @@ async def autocomplete_legacy_response(query: str) -> dict:
     return {"predictions": predictions, "status": "OK"}
 
 
-async def details_legacy_response(place_id: str) -> dict:
+async def details_legacy_response(place_id: str, language: str = "ja") -> dict:
     place_id = place_id.strip()
+    language = _require_language(language)
     if not place_id:
         raise HTTPException(400, "place_id must not be empty")
 
@@ -124,7 +134,7 @@ async def details_legacy_response(place_id: str) -> dict:
         "X-Goog-Api-Key": _api_key(),
         "X-Goog-FieldMask": PLACES_DETAILS_FIELD_MASK,
     }
-    params = {"languageCode": "ja", "regionCode": "JP"}
+    params = {"languageCode": language, "regionCode": "JP"}
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
