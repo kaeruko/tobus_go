@@ -210,6 +210,7 @@ class RouteReplanPatcher {
       truncatedStops.add(
         StopPoint(
           name: stop.name,
+          nameEn: stop.nameEn,
           point: stop.point,
           stopId: stop.stopId,
           isOrigin: index == 0,
@@ -230,8 +231,11 @@ class RouteReplanPatcher {
       stepId: step.stepId,
       kind: step.kind,
       title: step.title,
+      titleEn: step.titleEn,
       fromName: step.fromName,
+      fromNameEn: step.fromNameEn,
       toName: request.anchor.placeName,
+      toNameEn: truncatedStops.last.nameEn,
       stops: List.unmodifiable(truncatedStops),
       minutes: minutes,
       meters: step.meters,
@@ -241,6 +245,7 @@ class RouteReplanPatcher {
       startLabel: step.startLabel,
       endLabel: step.endLabel,
       place: step.place,
+      placeEn: step.placeEn,
       routeId: step.routeId,
       tripId: step.tripId,
       directionId: step.directionId,
@@ -308,17 +313,28 @@ class RouteReplanPatcher {
     required List<StepSeg> steps,
   }) {
     final lines = <String>[];
+    final linesEn = <String>[];
     for (final step in steps) {
       if (!step.isRide) continue;
       final title = step.title.trim();
       if (title.isNotEmpty && !lines.contains(title)) {
         lines.add(title);
       }
+      final titleEn = step.titleEn?.trim();
+      if (titleEn != null && titleEn.isNotEmpty && !linesEn.contains(titleEn)) {
+        linesEn.add(titleEn);
+      }
     }
     for (final line in selected.lines) {
       final trimmed = line.trim();
       if (trimmed.isNotEmpty && !lines.contains(trimmed)) {
         lines.add(trimmed);
+      }
+    }
+    for (final line in selected.linesEn) {
+      final trimmed = line.trim();
+      if (trimmed.isNotEmpty && !linesEn.contains(trimmed)) {
+        linesEn.add(trimmed);
       }
     }
 
@@ -337,6 +353,7 @@ class RouteReplanPatcher {
     return Candidate(
       id: '${original.id}::replan::${selected.id}',
       lines: List.unmodifiable(lines),
+      linesEn: List.unmodifiable(linesEn),
       rides: rides,
       boards: rides,
       transfers: rides > 0 ? rides - 1 : 0,
