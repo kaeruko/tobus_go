@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../core/app_clock.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
+import '../l10n/trip_display_localizations.dart';
 import '../models/route_models.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/app_navigation_bar.dart';
@@ -753,7 +754,10 @@ class _ActiveTripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final displayTitle = trip.displayTitle;
+    final locale = Localizations.localeOf(context);
+    final displayTitle = trip.isSolo
+        ? localizedSoloTripTitle(locale, trip)
+        : trip.displayTitle;
 
     return GestureDetector(
       onTap: onTap,
