@@ -95,9 +95,9 @@ class ExploreEditorialContentTest(unittest.TestCase):
         (images / "oshiage_01.jpg").write_bytes(b"one")
         (images / "oshiage_02.webp").write_bytes(b"two")
         csv_path.write_text(
-            "stop_name,route_id,comment,image,caption\n"
-            f"押上駅前,{UE23},スカイツリーが近い,oshiage_01.jpg,駅前\n"
-            f"押上駅前,{UE23},,oshiage_02.webp,夕方\n",
+            "stop_name,route_id,comment,comment_en,image,caption,caption_en\n"
+            f"押上駅前,{UE23},スカイツリーが近い,Tokyo Skytree is nearby,oshiage_01.jpg,駅前,At the stop\n"
+            f"押上駅前,{UE23},,,oshiage_02.webp,夕方,Evening\n",
             encoding="utf-8",
         )
 
@@ -109,11 +109,20 @@ class ExploreEditorialContentTest(unittest.TestCase):
         )
         for spot in payload["spots"]:
             self.assertEqual(spot["comment"], "スカイツリーが近い")
+            self.assertEqual(spot["comment_en"], "Tokyo Skytree is nearby")
             self.assertEqual(
                 spot["images"],
                 [
-                    {"file": "oshiage_01.jpg", "caption": "駅前"},
-                    {"file": "oshiage_02.webp", "caption": "夕方"},
+                    {
+                        "file": "oshiage_01.jpg",
+                        "caption": "駅前",
+                        "caption_en": "At the stop",
+                    },
+                    {
+                        "file": "oshiage_02.webp",
+                        "caption": "夕方",
+                        "caption_en": "Evening",
+                    },
                 ],
             )
 
@@ -121,8 +130,8 @@ class ExploreEditorialContentTest(unittest.TestCase):
         temp_dir, csv_path, images, data = self._workspace()
         self.addCleanup(temp_dir.cleanup)
         csv_path.write_text(
-            "stop_name,route_id,comment,image,caption\n"
-            f"押上駅前,{MON33},門33側のメモ,,\n",
+            "stop_name,route_id,comment,comment_en,image,caption,caption_en\n"
+            f"押上駅前,{MON33},門33側のメモ,,,,\n",
             encoding="utf-8",
         )
 
@@ -135,6 +144,7 @@ class ExploreEditorialContentTest(unittest.TestCase):
                     {
                         "stop_id": POLE_MON,
                         "comment": "門33側のメモ",
+                        "comment_en": "",
                         "images": [],
                     }
                 ]
@@ -176,8 +186,8 @@ class ExploreEditorialContentTest(unittest.TestCase):
         temp_dir, csv_path, images, data = self._workspace()
         self.addCleanup(temp_dir.cleanup)
         csv_path.write_text(
-            "stop_name,route_id,comment,image,caption\n"
-            f"業平橋,{MON33},存在しない組み合わせ,,\n",
+            "stop_name,route_id,comment,comment_en,image,caption,caption_en\n"
+            f"業平橋,{MON33},存在しない組み合わせ,,,,\n",
             encoding="utf-8",
         )
 
@@ -191,21 +201,37 @@ class ExploreEditorialContentTest(unittest.TestCase):
         temp_dir, csv_path, images, data = self._workspace()
         self.addCleanup(temp_dir.cleanup)
         csv_path.write_text(
-            "stop_name,route_id,comment,image,caption\n"
-            f"押上駅前,{UE23},first,,\n"
-            f"押上駅前,{UE23},second,,\n",
+            "stop_name,route_id,comment,comment_en,image,caption,caption_en\n"
+            f"押上駅前,{UE23},first,,,,\n"
+            f"押上駅前,{UE23},second,,,,\n",
             encoding="utf-8",
         )
 
         with self.assertRaisesRegex(ExploreContentError, "conflicting comments"):
             compile_csv(csv_path, images, data_dir=data)
 
+    def test_rejects_conflicting_english_comments(self):
+        temp_dir, csv_path, images, data = self._workspace()
+        self.addCleanup(temp_dir.cleanup)
+        csv_path.write_text(
+            "stop_name,route_id,comment,comment_en,image,caption,caption_en\n"
+            f"押上駅前,{UE23},first,First,,,,\n"
+            f"押上駅前,{UE23},,Second,,,,\n",
+            encoding="utf-8",
+        )
+
+        with self.assertRaisesRegex(
+            ExploreContentError,
+            "conflicting English comments",
+        ):
+            compile_csv(csv_path, images, data_dir=data)
+
     def test_rejects_missing_image_before_publish(self):
         temp_dir, csv_path, images, data = self._workspace()
         self.addCleanup(temp_dir.cleanup)
         csv_path.write_text(
-            "stop_name,route_id,comment,image,caption\n"
-            f"押上駅前,{UE23},,missing.jpg,photo\n",
+            "stop_name,route_id,comment,comment_en,image,caption,caption_en\n"
+            f"押上駅前,{UE23},,,missing.jpg,photo,\n",
             encoding="utf-8",
         )
 
@@ -217,8 +243,8 @@ class ExploreEditorialContentTest(unittest.TestCase):
         self.addCleanup(temp_dir.cleanup)
         (images / "unused.jpg").write_bytes(b"unused")
         csv_path.write_text(
-            "stop_name,route_id,comment,image,caption\n"
-            f"押上駅前,{UE23},comment,,\n",
+            "stop_name,route_id,comment,comment_en,image,caption,caption_en\n"
+            f"押上駅前,{UE23},comment,,,,\n",
             encoding="utf-8",
         )
 
