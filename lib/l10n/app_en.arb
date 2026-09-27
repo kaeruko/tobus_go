@@ -762,5 +762,14 @@
   "navRealtimeUnavailableNotice": "Checking Realtime position\nShowing the last confirmed position",
   "scheduleNow": "Now",
   "scheduleNext": "Next",
-  "scheduleLater": "Later"
+  "scheduleLater": "Later",
+  "waitTitle": "Wait",
+  "waitAt": "Wait at {place}",
+  "@waitAt": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  }
 }
