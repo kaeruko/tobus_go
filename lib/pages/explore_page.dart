@@ -228,7 +228,9 @@ class ExplorePage extends ConsumerWidget {
             child: ListTile(
               leading: const Icon(Icons.my_location, color: Colors.blue),
               title: Text(
-                l10n.exploreNearestStop(data.nearestStop!.name),
+                l10n.exploreNearestStop(
+                  data.nearestStop!.nameForLanguageCode(languageCode),
+                ),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               subtitle: Text(
@@ -255,7 +257,7 @@ class ExplorePage extends ConsumerWidget {
 
           return ListTile(
             leading: _stopThumb(stop, spot),
-            title: Text(stop.name),
+            title: Text(stop.nameForLanguageCode(languageCode)),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
