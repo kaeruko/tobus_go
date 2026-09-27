@@ -70,18 +70,23 @@ void main() {
     stepId: 'search-route-bus-1',
     kind: 'bus',
     title: '里22 日暮里駅前行',
+    titleEn: 'Route Sato22 · Nippori Sta.',
     fromName: '亀戸駅前',
+    fromNameEn: 'Kameido Sta.',
     toName: '日暮里駅前',
+    toNameEn: 'Nippori Sta.',
     minutes: 24,
     edges: 2,
     stops: [
       StopPoint(
         name: '亀戸駅前',
+        nameEn: 'Kameido Sta.',
         point: const LatLng(35.6973, 139.8262),
         isOrigin: true,
       ),
       StopPoint(
         name: '日暮里駅前',
+        nameEn: 'Nippori Sta.',
         point: const LatLng(35.7278, 139.7709),
         isDestination: true,
       ),
@@ -201,6 +206,8 @@ void main() {
       ),
     );
 
+    expect(find.text('Kameido Sta.'), findsOneWidget);
+    expect(find.text('Nippori Sta.'), findsOneWidget);
     expect(find.text('Board'), findsOneWidget);
     expect(find.text('Get off'), findsOneWidget);
   });
