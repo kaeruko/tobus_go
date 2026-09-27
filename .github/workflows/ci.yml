@@ -55,6 +55,10 @@ jobs:
             }
           }
 
+      - name: Validate iOS localization script
+        shell: bash
+        run: sh -n scripts/generate_ios_localized_info_plist.sh
+
   flutter:
     name: Flutter analyze and Android flavors
     runs-on: ubuntu-latest
