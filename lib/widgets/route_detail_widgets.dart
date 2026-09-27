@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
 import '../pages/segment_stops_page.dart';
@@ -30,8 +31,9 @@ class RouteFutureSuggestionAlert extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'ご指定の日時は運行終了または運休日のため、\n'
-              '${date?.toString().split(' ')[0]} の経路を表示しています。',
+              AppLocalizations.of(context).routeFutureSuggestion(
+                date?.toString().split(' ')[0] ?? '--',
+              ),
               style: const TextStyle(
                 color: CupertinoColors.activeOrange,
                 fontWeight: FontWeight.bold,
@@ -51,21 +53,25 @@ class RouteEndpointSummary extends StatelessWidget {
 
   const RouteEndpointSummary({super.key, required this.candidate, this.meta});
 
-  String get _origin =>
-      StringUtils.extractSimpleName(routeOriginLabel(candidate));
+  String _origin(AppLocalizations l10n) {
+    final value = StringUtils.extractSimpleName(routeOriginLabel(candidate));
+    return value == '出発地' ? l10n.originFallback : value;
+  }
 
-  String get _destination {
+  String _destination(AppLocalizations l10n) {
     if (meta?.destinationReachable == false) {
-      final stop = meta?.fallbackNodeName ?? '最寄り停留所';
+      final stop = meta?.fallbackNodeName ?? l10n.nearestStop;
       final minutes = meta?.fallbackWalkMinutes;
-      final suffix = minutes != null ? '（目的地まで徒歩約${minutes}分）' : '';
+      final suffix = minutes != null ? l10n.destinationWalkSuffix(minutes) : '';
       return stop + suffix;
     }
-    return StringUtils.extractSimpleName(routeDestinationLabel(candidate));
+    final value = StringUtils.extractSimpleName(routeDestinationLabel(candidate));
+    return value == '目的地' ? l10n.destinationFallback : value;
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Container(
@@ -77,9 +83,17 @@ class RouteEndpointSummary extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _row(CupertinoIcons.location_solid, '出発', _origin),
+            _row(
+              CupertinoIcons.location_solid,
+              l10n.endpointDeparture,
+              _origin(l10n),
+            ),
             const SizedBox(height: 6),
-            _row(CupertinoIcons.flag, '目的地', _destination),
+            _row(
+              CupertinoIcons.flag,
+              l10n.endpointDestination,
+              _destination(l10n),
+            ),
           ],
         ),
       ),
