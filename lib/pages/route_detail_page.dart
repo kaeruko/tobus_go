@@ -267,6 +267,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   }
 
   Widget _roundTripComposer() {
+    final l10n = AppLocalizations.of(context);
     final draftState = ref.watch(tripDraftProvider);
     final outbound = draftState.outbound;
     return Padding(
@@ -298,9 +299,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                   ),
                   child: Column(
                     children: [
-                      const Text(
-                        "現在進行中のお出かけグループがあります",
-                        style: TextStyle(
+                      Text(
+                        l10n.activeGroupExists,
+                        style: const TextStyle(
                           color: CupertinoColors.activeGreen,
                           fontWeight: FontWeight.bold,
                         ),
@@ -319,7 +320,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                               ),
                             );
                           },
-                          child: const Text('お出かけグループ詳細を見る'),
+                          child: Text(l10n.viewGroupDetails),
                         ),
                       ),
                     ],
@@ -337,7 +338,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                   child: Column(
                     children: [
                       Text(
-                        "期間がかぶるおでかけがあります\n(${_conflictingTrip!.title})",
+                        l10n.overlappingTrip(_conflictingTrip!.title),
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: CupertinoColors.systemRed,
@@ -351,9 +352,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                           color: CupertinoColors.systemGrey,
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           onPressed: null, // Disabled
-                          child: const Text(
-                            '作成できません',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                          child: Text(
+                            l10n.cannotCreate,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),
@@ -371,9 +372,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                         _showCreateTripDialog();
                       }
                     },
-                    child: const Text(
-                      'お出かけグループ作成',
-                      style: TextStyle(
+                    child: Text(
+                      l10n.createGroup,
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         decoration: TextDecoration.underline,
                       ),
@@ -390,7 +391,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                       ? null
                       : _startSoloTrip,
                   child: Text(
-                    _isCreatingSolo ? '移動を準備中…' : 'この経路で行く',
+                    _isCreatingSolo ? l10n.preparingTrip : l10n.startRoute,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -466,18 +467,18 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                     ),
                     color: CupertinoColors.activeBlue,
                     borderRadius: BorderRadius.circular(24),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
+                        const Icon(
                           CupertinoIcons.arrow_2_circlepath,
                           color: CupertinoColors.white,
                           size: 20,
                         ),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text(
-                          '帰りも検索する',
-                          style: TextStyle(
+                          l10n.searchReturnTrip,
+                          style: const TextStyle(
                             color: CupertinoColors.white,
                             fontWeight: FontWeight.bold,
                           ),
@@ -491,9 +492,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      '帰りの出発時刻',
-                      style: TextStyle(
+                    Text(
+                      l10n.returnDepartureTime,
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -562,9 +563,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          '出発時刻',
-                          style: TextStyle(color: CupertinoColors.label),
+                        Text(
+                          l10n.departureTime,
+                          style: const TextStyle(color: CupertinoColors.label),
                         ),
                         Text(
                           '${_returnSearchTime.month}/${_returnSearchTime.day} ${_returnSearchTime.hour.toString().padLeft(2, '0')}:${_returnSearchTime.minute.toString().padLeft(2, '0')}',
@@ -587,9 +588,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                       vertical: 12,
                     ),
                     onPressed: _startReturnSearch,
-                    child: const Text(
-                      'この条件で検索',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    child: Text(
+                      l10n.searchWithConditions,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
