@@ -403,15 +403,16 @@ def read_authoring_groups(
                 comments_en[key] = comment_en
                 images_by_key[key] = []
                 seen_images_by_key[key] = set()
-            elif comment:
-                existing = comments[key]
-                if existing and existing != comment:
-                    raise ExploreContentError(
-                        f"CSV row {row_number}: conflicting comments for "
-                        f"stop_name={stop_name!r}, route_id={route_id!r}"
-                    )
-                if not existing:
-                    comments[key] = comment
+            else:
+                if comment:
+                    existing = comments[key]
+                    if existing and existing != comment:
+                        raise ExploreContentError(
+                            f"CSV row {row_number}: conflicting comments for "
+                            f"stop_name={stop_name!r}, route_id={route_id!r}"
+                        )
+                    if not existing:
+                        comments[key] = comment
 
                 if comment_en:
                     existing_en = comments_en[key]
