@@ -14,6 +14,7 @@ class BusStopSchedule {
   final int sequence;
   final String stopId;
   final String stopName;
+  final String? stopNameEn;
   final int arrivalMinute;
   final int departureMinute;
   final String arrivalTime;
@@ -23,6 +24,7 @@ class BusStopSchedule {
     required this.sequence,
     required this.stopId,
     required this.stopName,
+    this.stopNameEn,
     required this.arrivalMinute,
     required this.departureMinute,
     required this.arrivalTime,
@@ -34,6 +36,7 @@ class BusStopSchedule {
       sequence: (json['sequence'] as num).toInt(),
       stopId: json['stop_id'].toString(),
       stopName: json['stop_name'].toString(),
+      stopNameEn: json['stop_name_en']?.toString(),
       arrivalMinute: (json['arrival_minute'] as num).toInt(),
       departureMinute: (json['departure_minute'] as num).toInt(),
       arrivalTime: json['arrival_time'].toString(),
@@ -53,6 +56,7 @@ class BusLocation {
   final List<String> tripStopIds;
   final String? rawStopId;
   final String? rawStopName;
+  final String? rawStopNameEn;
   final int? fromStopSequence;
   final int? observedStopSequence;
   final String? currentStatus;
@@ -76,6 +80,7 @@ class BusLocation {
     this.tripStopIds = const [],
     this.rawStopId,
     this.rawStopName,
+    this.rawStopNameEn,
     this.fromStopSequence,
     this.observedStopSequence,
     this.currentStatus,
@@ -222,6 +227,7 @@ class BusLocation {
       tripStopIds: tripStopIds,
       rawStopId: json['raw_stop_id']?.toString(),
       rawStopName: json['raw_stop_name']?.toString(),
+      rawStopNameEn: json['raw_stop_name_en']?.toString(),
       fromStopSequence: fromStopSequence,
       observedStopSequence: observedStopSequence,
       currentStatus: currentStatus,
