@@ -58,6 +58,55 @@ void main() {
     expect(spot.images.single.captionForLanguageCode('en'), isEmpty);
   });
 
+  test('Explore stop names use official English names without fallback', () {
+    final response = ReachableResponse.fromJson({
+      'found': true,
+      'nearest_stop': {
+        'id': 'origin',
+        'name': '押上駅前',
+        'name_en': 'Oshiage Sta.',
+        'lat': 35.0,
+        'lon': 139.0,
+        'dist_m': 120,
+      },
+      'reachable_stops': [
+        {
+          'id': 'destination',
+          'name': '業平橋',
+          'name_en': 'Narihira-bashi',
+          'lat': 35.1,
+          'lon': 139.1,
+          'via_route': 'odpt.Busroute:Toei.Ue23',
+        },
+      ],
+    });
+
+    expect(response.nearestStop!.nameForLanguageCode('ja'), '押上駅前');
+    expect(response.nearestStop!.nameForLanguageCode('en'), 'Oshiage Sta.');
+    expect(
+      response.reachableStops.single.nameForLanguageCode('en'),
+      'Narihira-bashi',
+    );
+  });
+
+  test('Explore stop parsing fails fast when official English name is missing',
+      () {
+    expect(
+      () => ReachableResponse.fromJson({
+        'found': true,
+        'nearest_stop': {
+          'id': 'origin',
+          'name': '押上駅前',
+          'lat': 35.0,
+          'lon': 139.0,
+          'dist_m': 120,
+        },
+        'reachable_stops': const [],
+      }),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
   test('bilingual schema fails fast when English fields are missing', () {
     expect(
       () => ExploreEditorialContent.fromJson({
