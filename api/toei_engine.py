@@ -2816,6 +2816,7 @@ def parse_realtime_gtfs(content: bytes):
         raw_stop_id = v.stop_id or None
         raw_stop_info = gtfs_repo.stops.get(raw_stop_id) if raw_stop_id else None
         raw_stop_name = raw_stop_info.get('name') if raw_stop_info else None
+        raw_stop_name_en = raw_stop_info.get('name_en') if raw_stop_info else None
         vehicle_timestamp = int(v.timestamp) if v.timestamp else None
 
         # GTFS-RT points at the stop the vehicle is approaching/currently at.
@@ -2855,12 +2856,17 @@ def parse_realtime_gtfs(content: bytes):
                 "vehicle_timestamp": vehicle_timestamp,
                 "raw_stop_id": raw_stop_id,
                 "raw_stop_name": raw_stop_name,
-                
+                "raw_stop_name_en": raw_stop_name_en,
+
                 "route_id": route_id_raw,
                 "route_short_name": route_short_name,
                 "destination": details.get('headsign'),
                 "next_stop": (
                     next_details.get('next_stop_name')
+                    if next_details else None
+                ),
+                "next_stop_en": (
+                    next_details.get('next_stop_name_en')
                     if next_details else None
                 ),
                 "next_stop_id": (
