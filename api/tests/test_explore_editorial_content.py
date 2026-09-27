@@ -215,8 +215,8 @@ class ExploreEditorialContentTest(unittest.TestCase):
         self.addCleanup(temp_dir.cleanup)
         csv_path.write_text(
             "stop_name,route_id,comment,comment_en,image,caption,caption_en\n"
-            f"押上駅前,{UE23},first,First,,,,\n"
-            f"押上駅前,{UE23},first,Second,,,,\n",
+            f"押上駅前,{UE23},first,First,,,\n"
+            f"押上駅前,{UE23},first,Second,,,\n",
             encoding="utf-8",
         )
 
