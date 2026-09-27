@@ -164,9 +164,15 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     return savedRoutes.any((e) => _isSameRoute(e, widget.candidate));
   }
 
-  String _originLabel(Candidate candidate) => routeOriginLabel(candidate);
-  String _destinationLabel(Candidate candidate) =>
-      routeDestinationLabel(candidate);
+  String _originLabel(Candidate candidate) => routeOriginLabel(
+    candidate,
+    fallback: AppLocalizations.of(context).originFallback,
+  );
+
+  String _destinationLabel(Candidate candidate) => routeDestinationLabel(
+    candidate,
+    fallback: AppLocalizations.of(context).destinationFallback,
+  );
 
   // 経路が同じか判定するヘルパー
   bool _isSameRoute(Candidate a, Candidate b) {
