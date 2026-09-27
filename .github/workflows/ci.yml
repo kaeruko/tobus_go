@@ -127,6 +127,10 @@ jobs:
           test -d "$app"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = 'jp.cloxs.go.tokyo'
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist")" = '都営でGO'
+          localized="$app/en.lproj/InfoPlist.strings"
+          test -f "$localized"
+          grep -Fq '"CFBundleDisplayName" = "Toei GO";' "$localized"
+          grep -Fq '"NSLocationWhenInUseUsageDescription" = "Used to show your current location on the map.";' "$localized"
           test -n "$(/usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$app/Info.plist")"
           if /usr/libexec/PlistBuddy -c 'Print :NSAppTransportSecurity:NSAllowsArbitraryLoads' "$app/Info.plist" >/dev/null 2>&1; then
             echo '::error::Tokyo iOS app must not enable NSAllowsArbitraryLoads'
@@ -146,6 +150,9 @@ jobs:
           test -d "$app"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = 'jp.cloxs.nagoyago'
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist")" = '名古屋でGO'
+          localized="$app/en.lproj/InfoPlist.strings"
+          test -f "$localized"
+          grep -Fq '"CFBundleDisplayName" = "Nagoya GO";' "$localized"
           test ! -e "$app/GoogleService-Info.plist"
 
       - name: Build Sendai iOS flavor
@@ -158,6 +165,9 @@ jobs:
           test -d "$app"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = 'jp.cloxs.go.sendai'
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist")" = '仙台でGO'
+          localized="$app/en.lproj/InfoPlist.strings"
+          test -f "$localized"
+          grep -Fq '"CFBundleDisplayName" = "Sendai GO";' "$localized"
           test ! -e "$app/GoogleService-Info.plist"
 
   python:
