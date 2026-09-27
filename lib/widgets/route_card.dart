@@ -209,16 +209,22 @@ class RouteCard extends ConsumerWidget {
                         : '';
                     return l10n.walkSegment(dist, mm);
                   }
-                  final stops = seg.edges > 0
-                      ? l10n.stopsCount(seg.edges)
-                      : '';
                   final mm = seg.minutes > 0
                       ? l10n.approxMinutes(seg.minutes)
                       : '';
-                  final title = seg.isRide
-                      ? localizedRideTitle(locale, seg)
-                      : seg.title;
-                  return '$title$stops$mm';
+                  if (seg.kind == 'wait') {
+                    return '${l10n.waitTitle}$mm';
+                  }
+                  if (seg.isRide) {
+                    final stops = seg.edges > 0
+                        ? l10n.stopsCount(seg.edges)
+                        : '';
+                    return '${localizedRideTitle(locale, seg)}$stops$mm';
+                  }
+                  throw StateError(
+                    'Unsupported route card step kind: '
+                    'stepId=${seg.stepId}, kind=${seg.kind}',
+                  );
                 })
                 .take(2)
                 .join(' / '),
