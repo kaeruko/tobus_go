@@ -308,7 +308,7 @@ def build_compiled_state_from_zip(
         )
 
     required = set(GtfsRepository.REQUIRED_FILES)
-    optional = {"calendar.txt", "calendar_dates.txt"}
+    optional = {"calendar.txt", "calendar_dates.txt", "translations.txt"}
 
     with tempfile.TemporaryDirectory(prefix="toeigo-gtfs-compile-") as directory:
         try:
