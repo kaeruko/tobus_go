@@ -41,6 +41,9 @@ class ExploreReachableNamesTest(unittest.TestCase):
         self.assertTrue(result["found"])
         self.assertEqual(result["nearest_stop"]["name"], "押上駅前")
         self.assertEqual(result["nearest_stop"]["name_en"], "Oshiage Sta.")
+        self.assertAlmostEqual(result["nearest_stop"]["dist_m"], 0.0, places=6)
+        self.assertEqual(result["nearest_stop"]["lat"], 35.0000)
+        self.assertEqual(result["nearest_stop"]["lon"], 139.0000)
         self.assertEqual(result["reachable_stops"][0]["name"], "業平橋")
         self.assertEqual(
             result["reachable_stops"][0]["name_en"],
