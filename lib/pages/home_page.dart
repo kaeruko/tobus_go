@@ -629,23 +629,24 @@ class _FallbackNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stopName = meta.fallbackNodeName ?? '最寄り停留所';
+    final l10n = AppLocalizations.of(context);
+    final stopName = meta.fallbackNodeName ?? l10n.nearestStop;
     final walkMinutes = meta.fallbackWalkMinutes;
     final distance = meta.fallbackDistanceM;
     String walkText;
     if (walkMinutes != null) {
-      walkText = '徒歩約${walkMinutes}分';
+      walkText = l10n.walkAboutMinutes(walkMinutes);
     } else if (distance != null) {
       final formatted = distance >= 1000
           ? '${(distance / 1000).toStringAsFixed(1)}km'
           : '${distance.toStringAsFixed(0)}m';
-      walkText = '徒歩${formatted}程度';
+      walkText = l10n.walkAboutDistance(formatted);
     } else {
-      walkText = '徒歩圏内';
+      walkText = l10n.walkWithinRange;
     }
 
     final limitText = meta.walkLimitM != null
-        ? '（徒歩上限${meta.walkLimitM}m内で探索）'
+        ? l10n.walkLimitNotice(meta.walkLimitM!)
         : '';
 
     return Container(
