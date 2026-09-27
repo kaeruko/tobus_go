@@ -89,7 +89,7 @@ void main() {
     );
 
     expect(find.text('2 stops remaining'), findsOneWidget);
-    expect(find.text('Next: Next Stop'), findsOneWidget);
+    expect(find.text('Next: Next Stop (次の停留所)'), findsOneWidget);
   });
 
   testWidgets('semantic navigation messages render in English', (tester) async {
@@ -180,15 +180,15 @@ void main() {
     );
 
     expect(
-      find.text('Asakusa Line · Aoto · Higashi-nihombashi'),
+      find.text('Asakusa Line · Aoto · Higashi-nihombashi (東日本橋)'),
       findsOneWidget,
     );
     expect(
-      find.text('10:24 Asakusa Line · Aoto · Arrive at Kuramae'),
+      find.text('10:24 Asakusa Line · Aoto · Arrive at Kuramae (蔵前)'),
       findsOneWidget,
     );
-    expect(find.text('Next: Asakusabashi'), findsOneWidget);
-    expect(find.textContaining('東日本橋'), findsNothing);
+    expect(find.text('Next: Asakusabashi (浅草橋)'), findsOneWidget);
+    expect(find.textContaining('東日本橋'), findsWidgets);
   });
 
 }

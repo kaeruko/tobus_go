@@ -64,11 +64,11 @@ void main() {
   test('English realtime status uses the same vehicle state', () {
     expect(
       busRealtimeStatusText(location(status: 'IN_TRANSIT_TO'), l10n: en, locale: const Locale('en')),
-      'Heading to Yokohama Station',
+      'Heading to Yokohama Station (横浜駅前)',
     );
     expect(
       busRealtimeStatusText(location(status: 'STOPPED_AT'), l10n: en, locale: const Locale('en')),
-      'Stopped at Yokohama Station',
+      'Stopped at Yokohama Station (横浜駅前)',
     );
     expect(
       busRealtimeStatusText(
@@ -76,7 +76,7 @@ void main() {
         l10n: en,
         locale: const Locale('en'),
       ),
-      'Heading to Yokohama Station (first stop)',
+      'Heading to Yokohama Station (横浜駅前) (first stop)',
     );
   });
 

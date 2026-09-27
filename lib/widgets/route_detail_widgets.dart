@@ -61,7 +61,7 @@ class RouteEndpointSummary extends StatelessWidget {
     if (candidate.steps.isNotEmpty) {
       final first = candidate.steps.first;
       if (first.isRide) {
-        return StringUtils.extractSimpleName(localizedRideFromName(locale, first));
+        return localizedRideFromName(locale, first);
       }
       final english = first.fromNameEn?.trim();
       final value = isEnglishTransitLocale(locale) &&
@@ -98,7 +98,7 @@ class RouteEndpointSummary extends StatelessWidget {
     if (candidate.steps.isNotEmpty) {
       final last = candidate.steps.last;
       if (last.isRide) {
-        return StringUtils.extractSimpleName(localizedRideToName(locale, last));
+        return localizedRideToName(locale, last);
       }
       final english = last.toNameEn?.trim();
       final value = isEnglishTransitLocale(locale) &&
@@ -582,7 +582,13 @@ class RouteStepTile extends StatelessWidget {
     if (isEnglishTransitLocale(locale) &&
         localized != null &&
         localized.isNotEmpty) {
-      return localized;
+      return localizedTransitName(
+        locale,
+        japanese: original,
+        english: localized,
+        field: 'walk_endpoint_en',
+        identity: 'stepId=${segment.stepId}',
+      );
     }
     return original;
   }
