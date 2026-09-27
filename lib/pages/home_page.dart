@@ -610,9 +610,11 @@ class RoutePreferenceControl extends StatelessWidget {
           // NOTE: Backend expects 'time'/'fast' for fastest route; see
           // RouteSearchNotifier._normalizePreferenceForApi for the mapping
           // from this UI value to the API parameter.
-          children: const {
-            'fewTransfers': Text('乗換少ない優先'),
-            'shortTime': Text('時間短い優先'),
+          children: {
+            'fewTransfers': Text(
+              AppLocalizations.of(context).preferFewTransfers,
+            ),
+            'shortTime': Text(AppLocalizations.of(context).preferShortTime),
           },
           onValueChanged: onValueChanged,
         );
