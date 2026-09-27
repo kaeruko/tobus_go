@@ -106,7 +106,7 @@ class RouteReplanCommitService {
 
       transaction.update(tripRef, {
         'legs': patch.legs
-            .map((leg) => leg.toJson(includePoints: false))
+            .map((leg) => leg.toFirestore())
             .toList(),
         'schedule': patch.schedule.map((entry) => entry.toJson()).toList(),
       });

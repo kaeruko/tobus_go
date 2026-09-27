@@ -1,4 +1,5 @@
 {
+  "routeGeometryApproximate": "This route line is schematic. Part or all of it connects stop and endpoint locations.",
   "@@locale": "en",
   "appNameTokyo": "Toei GO",
   "appNameNagoya": "Nagoya GO",
@@ -963,3 +964,4 @@
   "farePolicyTokyoMentalDisabilityPass": "Toei Transportation Pass for People with Mental Disabilities",
   "farePolicyNagoyaWelfarePass": "Welfare Special Pass (free-ride area)"
 }
+
