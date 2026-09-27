@@ -84,15 +84,25 @@ class TripNavigationStatusCard extends StatelessWidget {
               Align(alignment: Alignment.centerRight, child: headerTrailing!),
             ],
             const SizedBox(height: 18),
-            Text(
-              mainText,
-              style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subText,
-              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
-            ),
+            if (_usesStructuredRideHeading())
+              _buildStructuredRideHeading(context, l10n, locale)
+            else ...[
+              Text(
+                mainText,
+                style: const TextStyle(
+                  fontSize: 42,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                subText,
+                style: const TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
             if (noticeText != null) ...[
               const SizedBox(height: 14),
               Container(
@@ -147,6 +157,214 @@ class TripNavigationStatusCard extends StatelessWidget {
     );
   }
 
+  bool _usesStructuredRideHeading() {
+    return navState.isMoving &&
+        navState.step?.isRide == true &&
+        navState.remainingStops != null &&
+        navState.remainingStops! > 1 &&
+        navState.mainTextToken?.key ==
+            NavigationTextKey.rideCurrentPlaceMain;
+  }
+
+  Widget _buildStructuredRideHeading(
+    BuildContext context,
+    AppLocalizations l10n,
+    Locale locale,
+  ) {
+    final step = navState.step;
+    final token = navState.mainTextToken;
+    if (step == null || !step.isRide || token == null) {
+      throw StateError('構造化乗車表示に乗車stepまたはtokenがありません');
+    }
+
+    final routeTitle = _localizedRouteTitle(locale, step);
+    final place = _localizedCurrentPlace(locale, token);
+    final direction = _localizedRideDirection(l10n, locale, step);
+    final arrivalSummary = _compactArrivalSummary(l10n, locale, step);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              step.kind == 'rail' ? Icons.train : Icons.directions_bus,
+              size: 20,
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                routeTitle,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (direction != null) ...[
+          const SizedBox(height: 3),
+          Padding(
+            padding: const EdgeInsets.only(left: 27),
+            child: Text(
+              direction,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 14),
+        Text(
+          place.primary,
+          maxLines: 2,
+          overflow: TextOverflow.visible,
+          style: const TextStyle(
+            fontSize: 30,
+            height: 1.12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        if (place.secondary != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            place.secondary!,
+            style: const TextStyle(
+              fontSize: 20,
+              height: 1.15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+        const SizedBox(height: 10),
+        Text(
+          arrivalSummary,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 16,
+            height: 1.25,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _localizedRouteTitle(Locale locale, dynamic step) {
+    final japanese = step.title.trim() as String;
+    if (japanese.isEmpty) {
+      throw StateError('構造化乗車表示に路線名がありません: stepId=${step.stepId}');
+    }
+    if (!isEnglishTransitLocale(locale)) return japanese;
+
+    final english = (step.titleEn as String?)?.trim();
+    if (english == null || english.isEmpty) {
+      throw StateError(
+        '構造化乗車表示に公式英語路線名がありません: stepId=${step.stepId}',
+      );
+    }
+    return english;
+  }
+
+  _RidePlaceParts _localizedCurrentPlace(
+    Locale locale,
+    NavigationTextToken token,
+  ) {
+    final japanese = token.args['placeName'];
+    if (japanese is! String || japanese.trim().isEmpty) {
+      throw StateError(
+        '構造化乗車表示に現在地がありません: token=${token.key.name}',
+      );
+    }
+    final normalizedJapanese = japanese.trim();
+    if (!isEnglishTransitLocale(locale)) {
+      return _RidePlaceParts(primary: normalizedJapanese);
+    }
+
+    final english = token.args['placeNameEn'];
+    if (english is! String || english.trim().isEmpty) {
+      throw StateError(
+        '構造化乗車表示に公式英語現在地がありません: token=${token.key.name}',
+      );
+    }
+    final normalizedEnglish = english.trim();
+    return _RidePlaceParts(
+      primary: normalizedEnglish,
+      secondary: normalizedEnglish == normalizedJapanese
+          ? null
+          : '($normalizedJapanese)',
+    );
+  }
+
+  String? _localizedRideDirection(
+    AppLocalizations l10n,
+    Locale locale,
+    dynamic step,
+  ) {
+    if (step.kind != 'rail') return null;
+    final progress = navState.railProgress;
+    if (progress == null) {
+      throw StateError(
+        '構造化鉄道乗車表示にRailProgressがありません: stepId=${step.stepId}',
+      );
+    }
+
+    if (isEnglishTransitLocale(locale)) {
+      final english = progress.tripHeadsignEn?.trim();
+      if (english == null || english.isEmpty) {
+        throw StateError(
+          '構造化鉄道乗車表示に公式英語行先がありません: stepId=${step.stepId}',
+        );
+      }
+      return l10n.navRideDirection(english);
+    }
+
+    var japanese = progress.tripHeadsign.trim();
+    if (japanese.isEmpty) {
+      throw StateError(
+        '構造化鉄道乗車表示に行先がありません: stepId=${step.stepId}',
+      );
+    }
+    if (japanese.endsWith('行')) {
+      japanese = japanese.substring(0, japanese.length - 1);
+    }
+    return l10n.navRideDirection(japanese);
+  }
+
+  String _compactArrivalSummary(
+    AppLocalizations l10n,
+    Locale locale,
+    dynamic step,
+  ) {
+    final arrivalTime = step.arrivalTime?.trim() as String?;
+    if (arrivalTime == null || arrivalTime.isEmpty) {
+      throw StateError(
+        '構造化乗車表示に到着予定時刻がありません: stepId=${step.stepId}',
+      );
+    }
+    final destination = step.toName?.trim() as String?;
+    if (destination == null || destination.isEmpty) {
+      throw StateError(
+        '構造化乗車表示に降車地点がありません: stepId=${step.stepId}',
+      );
+    }
+    final localizedDestination = isEnglishTransitLocale(locale)
+        ? localizedTransitName(
+            locale,
+            japanese: destination,
+            english: step.toNameEn as String?,
+            field: 'to_en',
+            identity: 'stepId=${step.stepId}',
+          )
+        : destination;
+    return l10n.navCompactRideArrival(arrivalTime, localizedDestination);
+  }
+
   String? _localizedNextStopName(Locale locale) {
     final japanese = navState.nextStopName?.trim();
     if (japanese == null || japanese.isEmpty) return null;
@@ -198,4 +416,15 @@ class TripNavigationStatusCard extends StatelessWidget {
         );
     }
   }
+}
+
+
+class _RidePlaceParts {
+  final String primary;
+  final String? secondary;
+
+  const _RidePlaceParts({
+    required this.primary,
+    this.secondary,
+  });
 }
