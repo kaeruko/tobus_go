@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/logic/trip_navigator.dart';
+import 'package:toeigo/models/rail_progress.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/widgets/trip_navigation_status_card.dart';
 
@@ -217,40 +218,63 @@ void main() {
     expect(find.text('お疲れ様でした!'), findsNothing);
   });
 
-  testWidgets('semantic ride entity names use official English values', (
+  testWidgets('structured English ride display separates long transit names', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
     final step = StepSeg(
       stepId: 'rail-en',
       kind: 'rail',
       title: '浅草線',
       titleEn: 'Asakusa Line',
-      fromName: '東日本橋',
-      fromNameEn: 'Higashi-nihombashi',
+      fromName: '押上',
+      fromNameEn: 'Oshiage',
       toName: '蔵前',
       toNameEn: 'Kuramae',
-      arrivalTime: '10:24',
+      arrivalTime: '23:10',
+    );
+    const railProgress = RailProgress(
+      stepId: 'rail-en',
+      tripId: 'trip-en',
+      tripHeadsign: '西馬込',
+      tripHeadsignEn: 'Nishi-magome',
+      phase: RailProgressPhase.riding,
+      boardingSequence: 1,
+      destinationSequence: 5,
+      lastReachedSequence: 3,
+      remainingStops: 2,
+      currentStopName: '本所吾妻橋',
+      currentStopNameEn: 'Honjo-azumabashi',
+      nextStopName: '浅草',
+      nextStopNameEn: 'Asakusa',
+      currentStatus: 'STOPPED_AT',
     );
     final navigation = NavigationState(
-      mainText: '浅草線 青砥行 東日本橋',
-      subText: '10:24 浅草線 青砥行 蔵前到着予定',
+      mainText: '浅草線 西馬込行 本所吾妻橋',
+      subText: '23:10 浅草線 西馬込行 蔵前到着予定',
       color: Colors.blue,
       statusLabel: '🚇乗車中',
       mainTextToken: const NavigationTextToken(
         NavigationTextKey.rideCurrentPlaceMain,
         {
-          'rideTitle': '浅草線 青砥行',
-          'rideTitleEn': 'Asakusa Line · Aoto',
-          'placeName': '東日本橋',
-          'placeNameEn': 'Higashi-nihombashi',
+          'rideTitle': '浅草線 西馬込行',
+          'rideTitleEn': 'Asakusa Line · Nishi-magome',
+          'placeName': '本所吾妻橋',
+          'placeNameEn': 'Honjo-azumabashi',
         },
       ),
       subTextToken: const NavigationTextToken(
         NavigationTextKey.rideArrivalSummary,
         {
-          'arrivalTime': '10:24',
-          'rideTitle': '浅草線 青砥行',
-          'rideTitleEn': 'Asakusa Line · Aoto',
+          'arrivalTime': '23:10',
+          'rideTitle': '浅草線 西馬込行',
+          'rideTitleEn': 'Asakusa Line · Nishi-magome',
           'destination': '蔵前',
           'destinationEn': 'Kuramae',
         },
@@ -259,8 +283,9 @@ void main() {
         NavigationTextKey.railRideStatus,
       ),
       remainingStops: 2,
-      nextStopName: '浅草橋',
-      nextStopNameEn: 'Asakusabashi',
+      nextStopName: '浅草',
+      nextStopNameEn: 'Asakusa',
+      railProgress: railProgress,
       step: step,
     );
 
@@ -272,23 +297,28 @@ void main() {
         home: Scaffold(
           body: TripNavigationStatusCard(
             navState: navigation,
-            tripTitle: 'Higashi-nihombashi → Kuramae',
+            tripTitle: 'Oshiage → Ueno',
             onTapStops: () {},
           ),
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
+    expect(find.text('Asakusa Line'), findsOneWidget);
+    expect(find.text('for Nishi-magome'), findsOneWidget);
+    expect(find.text('Honjo-azumabashi'), findsOneWidget);
+    expect(find.text('(本所吾妻橋)'), findsOneWidget);
     expect(
-      find.text('Asakusa Line · Aoto · Higashi-nihombashi (東日本橋)'),
+      find.text('23:10 · Arrive at Kuramae (蔵前)'),
       findsOneWidget,
     );
+    expect(find.text('Next: Asakusa (浅草)'), findsOneWidget);
     expect(
-      find.text('10:24 Asakusa Line · Aoto · Arrive at Kuramae (蔵前)'),
-      findsOneWidget,
+      find.text('Asakusa Line · Nishi-magome · Honjo-azumabashi (本所吾妻橋)'),
+      findsNothing,
     );
-    expect(find.text('Next: Asakusabashi (浅草橋)'), findsOneWidget);
-    expect(find.textContaining('東日本橋'), findsWidgets);
+    expect(tester.takeException(), isNull);
   });
 
 }
