@@ -77,8 +77,8 @@ void main() {
     final route = candidate();
 
     await tester.pumpWidget(
-      CupertinoApp(
-        home: ListView(
+      localizedApp(
+        ListView(
           children: [
             RouteEndpointSummary(candidate: route),
             const FareSummary(fare: fare),
