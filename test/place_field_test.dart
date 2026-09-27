@@ -283,4 +283,58 @@ void main() {
     expect(find.textContaining('場所候補を取得できませんでした'), findsOneWidget);
     expect(find.textContaining('HTTP 503'), findsOneWidget);
   });
+  testWidgets('English locale requests English place names', (tester) async {
+    var autocompleteLang = '';
+    var detailsLang = '';
+
+    ApiClient.httpClient = MockClient((request) async {
+      if (request.url.path.endsWith('/warmup')) {
+        return _warmupResponse();
+      }
+      if (request.url.path.endsWith('/autocomplete')) {
+        autocompleteLang = request.url.queryParameters['lang'] ?? '';
+        return _jsonResponse(
+          '{"predictions":[{"place_id":"tokyo-station","description":"Tokyo Station, Tokyo"}]}',
+          200,
+        );
+      }
+      if (request.url.path.endsWith('/details')) {
+        detailsLang = request.url.queryParameters['lang'] ?? '';
+        return _jsonResponse(
+          '{"result":{"name":"Tokyo Station","geometry":{"location":{"lat":35.681236,"lng":139.767125}}}}',
+          200,
+        );
+      }
+      return http.Response('unexpected request', 500);
+    });
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: CupertinoPageScaffold(
+          child: PlaceField(
+            label: 'To',
+            value: '',
+            displayValue: '',
+            onChanged: (_, _) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(CupertinoTextField), 'Tokyo');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+
+    expect(autocompleteLang, 'en');
+    expect(find.text('Tokyo Station, Tokyo'), findsOneWidget);
+
+    await tester.tap(find.text('Tokyo Station, Tokyo'));
+    await tester.pumpAndSettle();
+
+    expect(detailsLang, 'en');
+  });
+
 }
