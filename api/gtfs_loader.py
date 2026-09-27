@@ -76,7 +76,7 @@ def _load_english_stop_translations(source_dir: str) -> tuple[dict[str, str], di
 
             if record_id:
                 previous = by_record_id.get(record_id)
-                if previous is not None && previous != translation:
+                if previous is not None and previous != translation:
                     raise ValueError(
                         f"Conflicting GTFS English stop translation for {record_id}: "
                         f"{previous!r} != {translation!r}"
@@ -85,7 +85,7 @@ def _load_english_stop_translations(source_dir: str) -> tuple[dict[str, str], di
 
             if field_value:
                 previous = by_field_value.get(field_value)
-                if previous is not None && previous != translation:
+                if previous is not None and previous != translation:
                     raise ValueError(
                         "Conflicting GTFS English stop translation for "
                         f"stop_name={field_value!r}: {previous!r} != {translation!r}"
