@@ -458,5 +458,90 @@
         "type": "String"
       }
     }
-  }
+  },
+  "tripTitle": "Trip",
+  "tripLoadFailed": "Couldn’t load the trip: {error}",
+  "@tripLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tripNotFound": "Trip not found",
+  "navigationLoadFailed": "Couldn’t show navigation: {error}",
+  "@navigationLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "currentRoute": "Current route",
+  "stepCounter": "{completed} / {total} steps",
+  "@stepCounter": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "viewFullRoute": "View full route",
+  "endingTrip": "Ending trip…",
+  "cancelTrip": "Cancel trip",
+  "arrivalSaveFailed": "Couldn’t save arrival: {error}",
+  "@arrivalSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelTripQuestion": "Cancel this trip?",
+  "cancelTripHistoryNotice": "This trip will remain in your history as cancelled.",
+  "back": "Back",
+  "cancelAction": "Cancel trip",
+  "cancelTripFailed": "Couldn’t cancel the trip: {error}",
+  "@cancelTripFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "arrived": "You’ve arrived",
+  "nextStop": "Next: {stopName}",
+  "@nextStop": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "remainingBusStops": "{count} stops remaining",
+  "@remainingBusStops": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "remainingRailStops": "{count} stations remaining",
+  "@remainingRailStops": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "categoryMeeting": "Meet",
+  "categoryDeparture": "Departure",
+  "categoryRide": "Ride",
+  "categoryWalk": "Walk",
+  "categoryArrival": "Arrival",
+  "categoryGoal": "Goal",
+  "categoryEvent": "Plan"
 }
