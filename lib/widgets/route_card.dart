@@ -154,8 +154,10 @@ class RouteCard extends ConsumerWidget {
                     final dist = m >= 1000
                         ? '${(m / 1000).toStringAsFixed(1)}km'
                         : '${m.toInt()}m';
-                    final mm = seg.minutes > 0 ? '（約${seg.minutes}分）' : '';
-                    return '徒歩 $dist$mm';
+                    final mm = seg.minutes > 0
+                        ? l10n.approxMinutes(seg.minutes)
+                        : '';
+                    return l10n.walkSegment(dist, mm);
                   }
                   final stops = seg.edges > 0 ? ' ${seg.edges}停' : '';
                   final mm = seg.minutes > 0 ? '（約${seg.minutes}分）' : '';
