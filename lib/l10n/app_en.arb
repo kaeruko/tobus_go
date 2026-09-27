@@ -202,5 +202,117 @@
         "type": "String"
       }
     }
-  }
+  },
+  "routeFutureSuggestion": "Service has ended or is not running at the selected time.\\nShowing a route for {date}.",
+  "@routeFutureSuggestion": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "endpointDeparture": "From",
+  "endpointDestination": "To",
+  "fallbackPartialTitle": "Showing the closest available route",
+  "fallbackPartialBody": "This route cannot reach {destination} directly. The nearest stop is “{stop}”, then {walkText}.",
+  "@fallbackPartialBody": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      },
+      "stop": {
+        "type": "String"
+      },
+      "walkText": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryDuration": "Duration",
+  "summaryTransfers": "Transfers",
+  "summaryRideSegments": "Ride segments",
+  "summaryWalk": "Walk",
+  "minutesValue": "{minutes} min",
+  "@minutesValue": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "normalFareLine": "Regular fare ¥{yen}",
+  "@normalFareLine": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "payNowFareLine": "Pay now ¥{yen}",
+  "@payNowFareLine": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "effectiveFareLine": "Effective fare after reimbursement ¥{yen}",
+  "@effectiveFareLine": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "approximateMinutes": "About {minutes} min",
+  "@approximateMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "stopCount": "{count} stops",
+  "@stopCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "walkTitle": "Walk",
+  "deleteBookmarkTitle": "Remove bookmark",
+  "deleteBookmarkMessage": "Remove this route from My Route?",
+  "cancel": "Cancel",
+  "delete": "Remove",
+  "savedTitle": "Saved",
+  "savedToMyRoute": "Added to My Route.",
+  "notSelected": "Not selected",
+  "chooseDifferentRoute": "Choose a different route",
+  "startRoute": "Start this route",
+  "preparingTrip": "Preparing trip…",
+  "close": "Close",
+  "tripStartFailed": "Couldn’t start the trip",
+  "activeTripExists": "A trip is already in progress",
+  "activeTripMessage": "{title}\\nFinish or cancel it before starting a new trip.",
+  "@activeTripMessage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "openActiveTrip": "Open current trip",
+  "researching": "Searching again...",
+  "routeAtTimeNotFound": "No route was found for the selected time.",
+  "researchFailed": "Couldn’t search again: {error}",
+  "@researchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "runSearch": "Search",
+  "confirm": "Done"
 }
