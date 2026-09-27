@@ -739,7 +739,7 @@ class _ActiveTripCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    trip.isSolo ? "現在進行中の移動" : "現在進行中のグループ",
+                    trip.isSolo ? l10n.activeSoloTrip : l10n.activeGroupTrip,
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
