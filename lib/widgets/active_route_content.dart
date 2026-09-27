@@ -197,11 +197,17 @@ class BusRealtimeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     if (trackedBusStep == null) {
-      return _messageCard(context, 'この経路には追跡できるバス便がありません');
+      return _messageCard(context, l10n.noTrackableBus);
     }
     if (!cityProfile.capabilities.realtime.vehiclePosition) {
-      return _messageCard(context, '${cityProfile.appName}ではバス現在位置は未対応です');
+      return _messageCard(
+        context,
+        l10n.vehiclePositionUnsupported(
+          localizedCityAppName(l10n, cityProfile.city),
+        ),
+      );
     }
     if (loading && vehicle == null) {
       return const Padding(
@@ -212,7 +218,7 @@ class BusRealtimeCard extends StatelessWidget {
     if (message != null) return _messageCard(context, message!);
     final current = vehicle;
     if (current == null) {
-      return _messageCard(context, 'リアルタイム位置を取得していません');
+      return _messageCard(context, l10n.realtimeNotLoaded);
     }
 
     final lat = current.vehicleLat;
@@ -235,19 +241,28 @@ class BusRealtimeCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'バス現在位置',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            Text(
+              l10n.busCurrentPosition,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
-            Text('車両 ${current.vehicleId}'),
-            Text(busRealtimeStatusText(current)),
-            Text('緯度 ${lat.toStringAsFixed(5)} / 経度 ${lon.toStringAsFixed(5)}'),
-            if (current.serverNow != null) Text('取得時刻 ${current.serverNow}'),
+            Text(l10n.vehicleLabel(current.vehicleId)),
+            Text(busRealtimeStatusText(current, l10n: l10n)),
+            Text(
+              l10n.latLonLabel(
+                lat.toStringAsFixed(5),
+                lon.toStringAsFixed(5),
+              ),
+            ),
+            if (current.serverNow != null)
+              Text(l10n.fetchedAt(current.serverNow!)),
             const SizedBox(height: 8),
-            const Text(
-              '30秒ごとに更新します',
-              style: TextStyle(color: CupertinoColors.systemGrey, fontSize: 13),
+            Text(
+              l10n.refreshEvery30Seconds,
+              style: const TextStyle(
+                color: CupertinoColors.systemGrey,
+                fontSize: 13,
+              ),
             ),
           ],
         ),
@@ -271,12 +286,15 @@ class BusRealtimeCard extends StatelessWidget {
   }
 }
 
-String busRealtimeStatusText(BusLocation vehicle) {
+String busRealtimeStatusText(
+  BusLocation vehicle, {
+  required AppLocalizations l10n,
+}) {
   final stopName = vehicle.rawStopName?.trim();
   if (vehicle.beforeFirstStop) {
     return stopName == null || stopName.isEmpty
-        ? '始発停留所へ向かっています'
-        : '$stopName（始発停留所）へ向かっています';
+        ? l10n.headingToFirstStop
+        : l10n.headingToNamedFirstStop(stopName);
   }
   if (stopName == null || stopName.isEmpty) {
     throw StateError('realtime vehicle is missing raw stop name');
@@ -284,12 +302,12 @@ String busRealtimeStatusText(BusLocation vehicle) {
   switch (vehicle.currentStatus) {
     case 'STOPPED_AT':
     case '1':
-      return '$stopNameに停車中';
+      return l10n.stoppedAt(stopName);
     case 'IN_TRANSIT_TO':
     case 'INCOMING_AT':
     case '0':
     case '2':
-      return '$stopNameへ向かっています';
+      return l10n.headingToStop(stopName);
     default:
       throw StateError(
         'Unsupported realtime current_status: ${vehicle.currentStatus}',
