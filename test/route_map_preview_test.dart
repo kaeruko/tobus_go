@@ -21,6 +21,9 @@ class TestMaps extends maps.GoogleMapsFlutterPlatform {
 }
 
 class TestLauncher extends launcher.UrlLauncherPlatform {
+  @override
+  launcher.LinkDelegate? get linkDelegate => null;
+
   final urls = <Uri>[];
   final modes = <launcher.PreferredLaunchMode>[];
   bool result = true;

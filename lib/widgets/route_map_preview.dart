@@ -133,7 +133,7 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
 
     final cameraPoints = <LatLng>[
       ...points,
-      if (vehiclePosition != null) vehiclePosition!,
+      if (vehiclePosition != null) vehiclePosition,
     ];
     final center = _centerOf(cameraPoints);
     final zoom = _zoomFor(cameraPoints);
@@ -184,7 +184,7 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                 if (vehiclePosition != null)
                   Marker(
                     markerId: const MarkerId('realtime_vehicle'),
-                    position: vehiclePosition!,
+                    position: vehiclePosition,
                     onTap: () => _openGoogleMaps(vehiclePosition),
                     consumeTapEvents: true,
                     infoWindow: const InfoWindow(title: 'バス現在位置'),
