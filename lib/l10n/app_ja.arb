@@ -5,6 +5,25 @@
   "appNameSendai": "仙台でGO",
   "appNameYokohama": "横浜でGO",
   "bootstrapFailed": "起動に失敗しました",
+  "updateRequiredTitle": "アップデートが必要です",
+  "updateNow": "最新版に更新",
+  "updateStoreUnavailable": "App Store または Google Play を開いて最新版へ更新してください。",
+  "currentVersionLabel": "現在のバージョン: {version}",
+  "@currentVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "minimumVersionLabel": "必要なバージョン: {version} 以降",
+  "@minimumVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
   "retry": "再試行",
   "tabSearch": "検索",
   "tabDiscover": "みつける",
