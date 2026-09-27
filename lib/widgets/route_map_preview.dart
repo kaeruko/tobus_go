@@ -2,8 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class RouteMapPreview extends StatelessWidget {
+import '../l10n/app_localizations.dart';
+import '../utils/stop_map_utils.dart';
+
+class RouteMapPreview extends StatefulWidget {
   final List<LatLng> points;
   final LatLng? vehiclePosition;
 
@@ -12,6 +16,53 @@ class RouteMapPreview extends StatelessWidget {
     required this.points,
     this.vehiclePosition,
   });
+
+  @override
+  State<RouteMapPreview> createState() => _RouteMapPreviewState();
+}
+
+class _RouteMapPreviewState extends State<RouteMapPreview> {
+  LatLng? _cameraTarget;
+  bool _openingMaps = false;
+
+  Future<void> _openGoogleMaps(LatLng point) async {
+    if (_openingMaps) return;
+    final uri = buildGoogleMapsCoordinateUri(
+      latitude: point.latitude,
+      longitude: point.longitude,
+    );
+    setState(() => _openingMaps = true);
+    try {
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened) {
+        throw StateError('Google Maps launch returned false: uri=$uri');
+      }
+    } catch (error, stackTrace) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'route_map_preview',
+        context: ErrorDescription('opening Google Maps: uri=$uri'),
+      ));
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
+      await showCupertinoDialog<void>(
+        context: context,
+        builder: (dialogContext) => CupertinoAlertDialog(
+          title: Text(l10n.googleMapsOpenFailed),
+          content: Text('$error\n$uri'),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(l10n.close),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _openingMaps = false);
+    }
+  }
 
   LatLng _centerOf(List<LatLng> values) {
     var minLat = values.first.latitude;
@@ -60,6 +111,8 @@ class RouteMapPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final points = widget.points;
+    final vehiclePosition = widget.vehiclePosition;
     final decoration = BoxDecoration(
       color: CupertinoColors.systemGrey6,
       borderRadius: BorderRadius.circular(12),
@@ -91,43 +144,76 @@ class RouteMapPreview extends StatelessWidget {
       decoration: decoration,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: GoogleMap(
-          initialCameraPosition: CameraPosition(
-            target: center,
-            zoom: zoom,
-          ),
-          polylines: points.length >= 2
-              ? {
-                  Polyline(
-                    polylineId: const PolylineId('route'),
-                    points: points,
-                    color: CupertinoColors.activeBlue,
-                    width: 5,
-                  ),
-                }
-              : const {},
-          markers: {
-            Marker(
-              markerId: const MarkerId('start'),
-              position: points.first,
-              infoWindow: const InfoWindow(title: 'Start'),
-            ),
-            if (points.length >= 2)
-              Marker(
-                markerId: const MarkerId('end'),
-                position: points.last,
-                infoWindow: const InfoWindow(title: 'End'),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            GoogleMap(
+              onCameraMove: (position) => _cameraTarget = position.target,
+              onTap: _openGoogleMaps,
+              mapToolbarEnabled: false,
+              initialCameraPosition: CameraPosition(
+                target: center,
+                zoom: zoom,
               ),
-            if (vehiclePosition != null)
-              Marker(
-                markerId: const MarkerId('realtime_vehicle'),
-                position: vehiclePosition!,
-                infoWindow: const InfoWindow(title: 'バス現在位置'),
-                icon: BitmapDescriptor.defaultMarkerWithHue(
-                  BitmapDescriptor.hueAzure,
+              polylines: points.length >= 2
+                  ? {
+                      Polyline(
+                        polylineId: const PolylineId('route'),
+                        points: points,
+                        color: CupertinoColors.activeBlue,
+                        width: 5,
+                      ),
+                    }
+                  : const {},
+              markers: {
+                Marker(
+                  markerId: const MarkerId('start'),
+                  position: points.first,
+                  onTap: () => _openGoogleMaps(points.first),
+                  consumeTapEvents: true,
+                  infoWindow: const InfoWindow(title: 'Start'),
+                ),
+                if (points.length >= 2)
+                  Marker(
+                    markerId: const MarkerId('end'),
+                    position: points.last,
+                    onTap: () => _openGoogleMaps(points.last),
+                    consumeTapEvents: true,
+                    infoWindow: const InfoWindow(title: 'End'),
+                  ),
+                if (vehiclePosition != null)
+                  Marker(
+                    markerId: const MarkerId('realtime_vehicle'),
+                    position: vehiclePosition!,
+                    onTap: () => _openGoogleMaps(vehiclePosition),
+                    consumeTapEvents: true,
+                    infoWindow: const InfoWindow(title: 'バス現在位置'),
+                    icon: BitmapDescriptor.defaultMarkerWithHue(
+                      BitmapDescriptor.hueAzure,
+                    ),
+                  ),
+              },
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: CupertinoButton(
+                color: CupertinoColors.systemBackground.resolveFrom(context),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                onPressed: _openingMaps
+                    ? null
+                    : () => _openGoogleMaps(_cameraTarget ?? center),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(CupertinoIcons.arrow_up_right_square, size: 18),
+                    const SizedBox(width: 6),
+                    Text(AppLocalizations.of(context).openInGoogleMaps),
+                  ],
                 ),
               ),
-          },
+            ),
+          ],
         ),
       ),
     );
