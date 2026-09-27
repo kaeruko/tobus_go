@@ -329,6 +329,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
   }
 
   void _requestAutoCompletion(Trip trip, MemberUiState uiState) {
+    final l10n = AppLocalizations.of(context);
     if (_completionRequested || _completionFailed) return;
 
     debugPrint(
@@ -372,6 +373,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
   }
 
   Future<void> _cancelTrip(Trip trip) async {
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -406,6 +408,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
   }
 
   Widget _buildCompleted() {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -414,9 +417,12 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
+                Text(
                   l10n.arrived,
-                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 28),
                 FilledButton(
@@ -432,6 +438,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
   }
 
   Widget _buildCancelled() {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Center(
         child: FilledButton(
