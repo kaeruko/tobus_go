@@ -543,5 +543,14 @@
   "categoryWalk": "徒歩",
   "categoryArrival": "到着",
   "categoryGoal": "ゴール",
-  "categoryEvent": "予定"
+  "categoryEvent": "予定",
+  "realtimeScheduleFallback": "次便のRealtime確認に失敗したため、予定時刻で判定しています: {error}",
+  "@realtimeScheduleFallback": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanHelper": "予定はまだ変更していません。新しい経路を確認してから選べます。"
 }
