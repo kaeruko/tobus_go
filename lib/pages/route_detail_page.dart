@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/app_clock.dart';
 import '../core/city_profile.dart';
 import '../l10n/app_localizations.dart';
+import '../l10n/transit_name_localizations.dart';
 import '../models/route_models.dart';
 import '../models/fare_models.dart';
 import '../providers/city_profile_provider.dart';
@@ -164,15 +165,49 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     return savedRoutes.any((e) => _isSameRoute(e, widget.candidate));
   }
 
-  String _originLabel(Candidate candidate) => routeOriginLabel(
-    candidate,
-    fallback: AppLocalizations.of(context).originFallback,
-  );
+  String _originLabel(Candidate candidate) {
+    final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
+    final direct = candidate.originName?.trim();
+    if (direct != null && direct.isNotEmpty && direct != '出発地') {
+      return direct;
+    }
+    if (candidate.steps.isNotEmpty) {
+      final first = candidate.steps.first;
+      if (first.isRide) return localizedRideFromName(locale, first);
+      final english = first.fromNameEn?.trim();
+      if (isEnglishTransitLocale(locale) &&
+          english != null &&
+          english.isNotEmpty) {
+        return english;
+      }
+      final value = first.fromName?.trim();
+      if (value != null && value.isNotEmpty && value != '出発地') return value;
+    }
+    return l10n.originFallback;
+  }
 
-  String _destinationLabel(Candidate candidate) => routeDestinationLabel(
-    candidate,
-    fallback: AppLocalizations.of(context).destinationFallback,
-  );
+  String _destinationLabel(Candidate candidate) {
+    final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
+    final direct = candidate.destinationName?.trim();
+    if (direct != null && direct.isNotEmpty && direct != '目的地') {
+      return direct;
+    }
+    if (candidate.steps.isNotEmpty) {
+      final last = candidate.steps.last;
+      if (last.isRide) return localizedRideToName(locale, last);
+      final english = last.toNameEn?.trim();
+      if (isEnglishTransitLocale(locale) &&
+          english != null &&
+          english.isNotEmpty) {
+        return english;
+      }
+      final value = last.toName?.trim();
+      if (value != null && value.isNotEmpty && value != '目的地') return value;
+    }
+    return l10n.destinationFallback;
+  }
 
   // 経路が同じか判定するヘルパー
   bool _isSameRoute(Candidate a, Candidate b) {
@@ -252,7 +287,10 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
 
   String _routeLabel(Candidate? candidate) {
     if (candidate == null) return AppLocalizations.of(context).notSelected;
-    return candidate.lines.join(' → ');
+    return localizedCandidateLines(
+      Localizations.localeOf(context),
+      candidate,
+    ).join(' → ');
   }
 
   void _showDuplicateRouteAlert(String message) {
@@ -622,7 +660,10 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
         children: [
           const SizedBox(height: 4),
           Text(
-            candidate.lines.join(' → '),
+            localizedCandidateLines(
+              Localizations.localeOf(context),
+              candidate,
+            ).join(' → '),
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
