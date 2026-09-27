@@ -219,6 +219,7 @@ class ExplorePage extends ConsumerWidget {
     ExploreEditorialContent editorial,
   ) {
     final l10n = AppLocalizations.of(context);
+    final languageCode = Localizations.localeOf(context).languageCode;
     return ListView(
       children: [
         if (data.nearestStop != null)
@@ -246,6 +247,8 @@ class ExplorePage extends ConsumerWidget {
         ),
         ...data.reachableStops.map((stop) {
           final spot = editorial.byStopId[stop.id];
+          final spotComment =
+              spot?.commentForLanguageCode(languageCode) ?? '';
           final routeText = l10n.exploreRouteLabel(
             stop.viaRoute.replaceAll('odpt.Busroute:Toei.', ''),
           );
@@ -260,10 +263,10 @@ class ExplorePage extends ConsumerWidget {
                   routeText,
                   style: const TextStyle(fontSize: 12),
                 ),
-                if (spot != null && spot.comment.isNotEmpty) ...[
+                if (spotComment.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
-                    spot.comment,
+                    spotComment,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
