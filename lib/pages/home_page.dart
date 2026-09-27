@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../core/app_clock.dart';
+import '../l10n/app_localizations.dart';
 import '../models/route_models.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/place_field.dart';
