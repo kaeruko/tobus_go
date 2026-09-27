@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/route_models.dart';
 import '../utils/stop_map_utils.dart';
 
@@ -132,8 +133,10 @@ class _StopRow extends StatelessWidget {
                     ),
                     child: Text(
                       stop.isOrigin
-                          ? '乗車'
-                          : (stop.isDestination ? '降車' : ''),
+                          ? AppLocalizations.of(context).boarding
+                          : (stop.isDestination
+                                ? AppLocalizations.of(context).alighting
+                                : ''),
                       style: const TextStyle(
                         fontSize: 10,
                         color: CupertinoColors.inactiveGray,
@@ -196,16 +199,19 @@ class _StopMapSheet extends StatelessWidget {
 
     await showCupertinoDialog<void>(
       context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('Google Mapsを開けませんでした'),
-        content: Text(uri.toString()),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('閉じる'),
-          ),
-        ],
-      ),
+      builder: (dialogContext) {
+        final l10n = AppLocalizations.of(dialogContext);
+        return CupertinoAlertDialog(
+          title: Text(l10n.googleMapsOpenFailed),
+          content: Text(uri.toString()),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(l10n.close),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -274,7 +280,7 @@ class _StopMapSheet extends StatelessWidget {
                   width: double.infinity,
                   child: CupertinoButton.filled(
                     onPressed: () => _openGoogleMaps(context),
-                    child: const Text('Google Mapsで開く'),
+                    child: Text(AppLocalizations.of(context).openInGoogleMaps),
                   ),
                 ),
               ),
