@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:toeigo/logic/trip_coordinator.dart';
 import 'package:toeigo/logic/trip_navigator.dart';
 import 'package:toeigo/models/group_models.dart';
+import 'package:toeigo/models/leg_models.dart';
+import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/models/trip_models.dart';
 
 import 'fixtures/navigation_v2_fixture.dart';
@@ -160,6 +162,81 @@ void main() {
       expect(navigation.mainText, '10:04 平井七丁目にむかう　あと2分');
       expect(navigation.subText, '10:04 上23 乗車');
       expect(navigation.statusLabel, '移動中');
+    });
+
+    test('goal navigation carries bilingual destination and localized completion text', () {
+      final base = navigationV2Trip();
+      final baseCandidate = base.legs.first.candidate;
+      final candidate = Candidate(
+        id: baseCandidate.id,
+        lines: baseCandidate.lines,
+        linesEn: baseCandidate.linesEn,
+        rides: baseCandidate.rides,
+        boards: baseCandidate.boards,
+        transfers: baseCandidate.transfers,
+        total: baseCandidate.total,
+        totalTime: baseCandidate.totalTime,
+        steps: baseCandidate.steps,
+        points: baseCandidate.points,
+        originName: '押上',
+        originNameEn: 'Oshiage',
+        destinationName: '上野駅',
+        destinationNameEn: 'Ueno Station',
+      );
+      final goal = ScheduleEntry(
+        id: 'goal-en',
+        plannedAt: DateTime(2025, 1, 1, 10, 51),
+        label: '上野駅 到着',
+        description: 'お疲れ様でした!',
+        itemKind: ScheduleEntryKind.goal,
+        legIndex: 0,
+        generatedBy: ScheduleEntrySource.route,
+      );
+      final trip = Trip(
+        schemaVersion: base.schemaVersion,
+        tripType: base.tripType,
+        id: base.id,
+        joinCode: base.joinCode,
+        leaderId: base.leaderId,
+        title: base.title,
+        travelPhase: base.travelPhase,
+        date: base.date,
+        plannedDepartureAt: base.plannedDepartureAt,
+        actualDepartureAt: base.actualDepartureAt,
+        legs: [
+          Leg(
+            direction: LegDirection.outbound,
+            status: LegStatus.confirmed,
+            candidate: candidate,
+          ),
+        ],
+        schedule: [goal],
+        participants: base.participants,
+        memberIds: base.memberIds,
+      );
+      final resolved = TripCoordinator.resolveScheduleState(
+        scheduleEntries: trip.schedule,
+        now: goal.plannedAt,
+      );
+
+      final navigation = TripCoordinator.buildMemberNavigationState(
+        trip: trip,
+        routeState: RouteState(stepsById: trip.stepsById),
+        now: goal.plannedAt,
+        resolvedState: resolved,
+      );
+
+      expect(navigation.mainTextToken?.key, NavigationTextKey.goalArrivedMain);
+      expect(
+        navigation.mainTextToken?.args,
+        containsPair('destination', '上野駅'),
+      );
+      expect(
+        navigation.mainTextToken?.args,
+        containsPair('destinationEn', 'Ueno Station'),
+      );
+      expect(navigation.subTextToken?.key, NavigationTextKey.tripEndedSub);
+      expect(navigation.statusLabelToken?.key, NavigationTextKey.arrivedStatus);
     });
 
     test('meeting entries do not need a route step', () {
