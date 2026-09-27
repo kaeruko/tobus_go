@@ -433,7 +433,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                           onPressed: () {
                             notifier.triggerSearch();
                           },
-                          child: const Text("検索"),
+                          child: Text(l10n.search),
                         ),
                       ),
                     ),
@@ -497,7 +497,9 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                   hasScrollBody: false,
                   child: Center(
                     child: Text(
-                      rs.hasSearched ? '経路が見つかりませんでした' : '出発と到着を選択',
+                      rs.hasSearched
+                          ? l10n.routeNotFound
+                          : l10n.selectDepartureAndArrival,
                       style: TextStyle(
                         color: rs.hasSearched
                             ? CupertinoColors.systemRed
