@@ -114,5 +114,93 @@
       }
     }
   },
-  "unnamedPlace": "Place"
+  "unnamedPlace": "Place",
+  "originFallback": "Origin",
+  "destinationFallback": "Destination",
+  "destinationWalkSuffix": " (about {minutes} min walk to destination)",
+  "@destinationWalkSuffix": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "fareUnavailable": "Fare unavailable",
+  "fareUnknown": "Fare unknown",
+  "fareReimbursement": "Pay ¥{yen} first",
+  "@fareReimbursement": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "fareFreePass": "Pay ¥0 (pass)",
+  "farePay": "Pay ¥{yen}",
+  "@farePay": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "totalTimeChip": "{minutes} min",
+  "@totalTimeChip": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "transfersChip": "Transfers: {count}",
+  "@transfersChip": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ridesChip": "Ride segments: {count}",
+  "@ridesChip": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "walkChip": "Walk: {meters} m",
+  "@walkChip": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "approxMinutes": " (about {minutes} min)",
+  "@approxMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "stopsCount": " {count} stops",
+  "@stopsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "walkSegment": "Walk {distance}{duration}",
+  "@walkSegment": {
+    "placeholders": {
+      "distance": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  }
 }
