@@ -37,11 +37,41 @@ void main() {
     );
     expect(
       localizedRideFromName(const Locale('en'), step),
-      'Hirai-nanachome',
+      'Hirai-nanachome (平井七丁目)',
     );
     expect(
       localizedRideToName(const Locale('en'), step),
-      'Ueno-matsuzakaya-mae',
+      'Ueno-matsuzakaya-mae (上野松坂屋前)',
+    );
+  });
+
+  test('English stop names keep Japanese text for matching signage', () {
+    const stop = StopPoint(
+      name: '蔵前',
+      nameEn: 'Kuramae',
+      stopId: 'odpt.Station:Toei.Asakusa.Kuramae',
+    );
+
+    expect(
+      localizedStopName(const Locale('en'), stop),
+      'Kuramae (蔵前)',
+    );
+    expect(
+      localizedStopName(const Locale('ja'), stop),
+      '蔵前',
+    );
+  });
+
+  test('identical English and Japanese transit names are not duplicated', () {
+    expect(
+      localizedTransitName(
+        const Locale('en'),
+        japanese: 'A1',
+        english: 'A1',
+        field: 'name_en',
+        identity: 'test',
+      ),
+      'A1',
     );
   });
 }
