@@ -2347,13 +2347,33 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             if not cur or cur["kind"] != "walk":
                 flush()
                 from_name = G.nodes[u]["name"] if u[0]=="phys" else "???"
-                cur = { "kind": "walk", "title": "徒歩", "edges": 0, "from_": from_name, "to": None, "meters": 0 }
+                from_name_en = (
+                    G.nodes[u].get("name_en")
+                    if u[0] == "phys" and u in G.nodes
+                    else None
+                )
+                cur = {
+                    "kind": "walk",
+                    "title": "徒歩",
+                    "edges": 0,
+                    "from_": from_name,
+                    "from_en": from_name_en,
+                    "to": None,
+                    "to_en": None,
+                    "meters": 0,
+                }
             cur["edges"] += 1
             cur["meters"] += edge.get("meters", 0)
             if v[0] == "phys":
-                if str(v[1]).startswith("dest:"): cur["to"] = "目的地"
-                elif v in G.nodes: cur["to"] = G.nodes[v]["name"]
-                else: cur["to"] = str(v[1])
+                if str(v[1]).startswith("dest:"):
+                    cur["to"] = "目的地"
+                    cur["to_en"] = None
+                elif v in G.nodes:
+                    cur["to"] = G.nodes[v]["name"]
+                    cur["to_en"] = G.nodes[v].get("name_en")
+                else:
+                    cur["to"] = str(v[1])
+                    cur["to_en"] = None
             # 徒歩速度で時間を加算(分)
             curr_time += (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
             continue
@@ -2361,6 +2381,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
         node = v if v[0] == "line" else (u if u[0] == "line" else None)
         if not node: continue
         line_disp = G.nodes[node].get("disp") or "???"
+        line_disp_en = G.nodes[node].get("disp_en")
         mode = G.nodes[node].get("mode")
 
         if etype == "board":
@@ -2368,10 +2389,20 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             # 乗車開始: 待ち時間があればWaitセグメントを挟み、Rideセグメントを作る
             flush()
             from_name = G.nodes[last_phys]["name"] if last_phys else "???"
+            from_name_en = (
+                G.nodes[last_phys].get("name_en") if last_phys else None
+            )
             origin_lat = G.nodes[last_phys].get("lat") if last_phys else None
             origin_lon = G.nodes[last_phys].get("lon") if last_phys else None
-            
-            curr_stops = [{"name": from_name, "is_origin": True, "lat": origin_lat, "lon": origin_lon, "id": last_phys[1] if last_phys else None}]
+
+            curr_stops = [{
+                "name": from_name,
+                "name_en": from_name_en,
+                "is_origin": True,
+                "lat": origin_lat,
+                "lon": origin_lon,
+                "id": last_phys[1] if last_phys else None,
+            }]
             
             phys_id = u[1]
             final_route_id = G.nodes[v].get("route_id")
