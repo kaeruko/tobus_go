@@ -183,6 +183,7 @@ class RailProgress {
       stepId: stepId,
       tripId: location.tripId,
       tripHeadsign: location.tripHeadsign,
+      tripHeadsignEn: location.tripHeadsignEn,
       phase: RailProgressPhase.riding,
       boardingSequence: location.boardingSequence,
       destinationSequence: location.destinationSequence,
