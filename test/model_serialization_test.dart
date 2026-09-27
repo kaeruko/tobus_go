@@ -64,6 +64,31 @@ void main() {
     expect(legRead.candidate.steps[0].stops[0].lat, 35.123);
   });
 
+  test('Candidate preserves bilingual endpoint names', () {
+    final candidate = Candidate(
+      id: 'bilingual-endpoints',
+      lines: const [],
+      rides: 0,
+      boards: 0,
+      transfers: 0,
+      total: 1,
+      totalTime: 1,
+      steps: const [],
+      points: const [],
+      originName: '押上',
+      destinationName: '上野駅',
+      originNameEn: 'Oshiage',
+      destinationNameEn: 'Ueno Station',
+    );
+
+    final restored = Candidate.fromJson(candidate.toJson());
+
+    expect(restored.originName, '押上');
+    expect(restored.destinationName, '上野駅');
+    expect(restored.originNameEn, 'Oshiage');
+    expect(restored.destinationNameEn, 'Ueno Station');
+  });
+
   test('StepSeg rejects a route response without step_id', () {
     expect(
       () => StepSeg.fromJson({'kind': 'walk', 'title': '徒歩'}),
