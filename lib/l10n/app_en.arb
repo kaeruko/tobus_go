@@ -782,5 +782,95 @@
         "type": "String"
       }
     }
-  }
+  },
+  "replanTitle": "Review route from {place}",
+  "@replanTitle": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "replanCompareFrom": "Compare routes available from {time}",
+  "@replanCompareFrom": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "replanRefreshing": "Your trip status changed. Searching again with the latest estimated arrival…",
+  "replanBlocked": "The current replanning point isn’t available yet. You can’t confirm a route change until the current position is known.",
+  "replanCurrentPlan": "Current plan",
+  "replanArrivalPlanned": "Arrive around {time}",
+  "@replanArrivalPlanned": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "replanNewRouteCandidates": "New route options",
+  "replanCandidate": "Option {index} · arrive {time}",
+  "@replanCandidate": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "replanNewRoute": "New route",
+  "replanCompareOnly": "This is only a comparison. Closing this screen won’t change your plan.",
+  "replanKeepOriginal": "Keep current route",
+  "replanApply": "Use this route",
+  "replanUpdatedNotice": "Your trip status changed, so the route options were updated. Please review them.",
+  "replanApplyFailed": "Couldn’t change the route: {error}",
+  "@replanApplyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanRefreshFailed": "Couldn’t update routes for the latest trip status: {error}",
+  "@replanRefreshFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanRefreshAgain": "Try again",
+  "replanTransfers": "Transfers: {count}",
+  "@replanTransfers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "replanNoRoute": "No new route is available from this time.",
+  "replanUnknownTime": "Time unavailable",
+  "replanWalkOnly": "Walk only",
+  "fareSettingsTitle": "Settings",
+  "fareSettingsHeading": "Fares & passes",
+  "fareSettingsDescription": "Choose the fare program or pass you use. The app does not determine eligibility from your address, disability status, age, or other personal information.",
+  "fareSettingsError": "Settings error: {error}",
+  "@fareSettingsError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fareOpenOtherSettings": "Open other settings",
+  "fareOfficialInfo": "View official information",
+  "settlementNormal": "Regular fare",
+  "settlementReimbursementLong": "Pay first, reimbursed later",
+  "farePolicyNormal": "Regular fare",
+  "farePolicyTokyoMentalDisabilityPass": "Toei Transportation Pass for People with Mental Disabilities",
+  "farePolicyNagoyaWelfarePass": "Welfare Special Pass (free-ride area)"
 }
