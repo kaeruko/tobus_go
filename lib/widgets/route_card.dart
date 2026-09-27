@@ -159,8 +159,12 @@ class RouteCard extends ConsumerWidget {
                         : '';
                     return l10n.walkSegment(dist, mm);
                   }
-                  final stops = seg.edges > 0 ? ' ${seg.edges}停' : '';
-                  final mm = seg.minutes > 0 ? '（約${seg.minutes}分）' : '';
+                  final stops = seg.edges > 0
+                      ? l10n.stopsCount(seg.edges)
+                      : '';
+                  final mm = seg.minutes > 0
+                      ? l10n.approxMinutes(seg.minutes)
+                      : '';
                   return '${seg.title}$stops$mm';
                 })
                 .take(2)
