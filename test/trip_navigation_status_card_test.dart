@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/logic/trip_navigator.dart';
+import 'package:toeigo/models/group_models.dart';
 import 'package:toeigo/models/rail_progress.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/widgets/trip_navigation_status_card.dart';
