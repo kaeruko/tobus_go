@@ -104,6 +104,41 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
 
   int _generation = 0;
 
+  void prepareSavedRoute({
+    required String from,
+    required String to,
+    required String fromName,
+    required String toName,
+    required String fromNameJa,
+    required String toNameJa,
+    required String fromNameEn,
+    required String toNameEn,
+    required DateTime startTime,
+    String? preference,
+  }) {
+    if (from.trim().isEmpty || to.trim().isEmpty) {
+      throw ArgumentError('保存経路の始点・終点座標は空にできません');
+    }
+    if (fromName.trim().isEmpty || toName.trim().isEmpty) {
+      throw ArgumentError('保存経路の表示名は空にできません');
+    }
+
+    _generation++;
+    state = RouteSearchState(
+      from: from,
+      to: to,
+      fromName: fromName,
+      toName: toName,
+      fromNameJa: fromNameJa,
+      toNameJa: toNameJa,
+      fromNameEn: fromNameEn,
+      toNameEn: toNameEn,
+      pref: preference,
+      busOnly: false,
+      startTime: startTime,
+    );
+  }
+
   void setFrom(
     String from, {
     String? name,
