@@ -175,5 +175,54 @@ class GooglePlacesNewTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("maps.googleapis.com/maps/api/place", source)
 
 
+    async def test_autocomplete_accepts_english_language(self):
+        response = httpx.Response(
+            200,
+            json={
+                "suggestions": [
+                    {
+                        "placePrediction": {
+                            "placeId": "place-tokyo-station",
+                            "text": {"text": "Tokyo Station, Tokyo"},
+                        }
+                    }
+                ]
+            },
+        )
+        fake_client = _FakeAsyncClient(response=response)
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_MAPS_API_KEY": "test-backend-key"},
+            clear=False,
+        ):
+            with patch.object(
+                google_places.httpx,
+                "AsyncClient",
+                return_value=fake_client,
+            ):
+                result = await google_places.autocomplete_legacy_response(
+                    "Tokyo Station",
+                    language="en",
+                )
+
+        self.assertEqual(
+            result["predictions"][0]["description"],
+            "Tokyo Station, Tokyo",
+        )
+        self.assertEqual(
+            fake_client.calls[0][2]["json"]["languageCode"],
+            "en",
+        )
+
+    async def test_unsupported_language_fails_fast(self):
+        with self.assertRaises(HTTPException) as caught:
+            await google_places.autocomplete_legacy_response(
+                "Tokyo Station",
+                language="fr",
+            )
+        self.assertEqual(caught.exception.status_code, 400)
+
+
 if __name__ == "__main__":
     unittest.main()
