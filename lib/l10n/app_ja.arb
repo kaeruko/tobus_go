@@ -365,5 +365,8 @@
       }
     }
   },
-  "errorTitle": "エラー"
+  "errorTitle": "エラー",
+  "settlementDiscount": "割引",
+  "settlementFreePass": "無料乗車証",
+  "settlementReimbursement": "後日支給"
 }
