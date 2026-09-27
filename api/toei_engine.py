@@ -1529,7 +1529,14 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
             segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, use_realtime=use_realtime)
             if not segs:
                 return []
-            lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
+            lines = list(dict.fromkeys([
+                s["title"] for s in segs if s["kind"] in ("bus", "rail")
+            ]))
+            lines_en = list(dict.fromkeys([
+                s["title_en"]
+                for s in segs
+                if s["kind"] in ("bus", "rail") and s.get("title_en")
+            ]))
             start_min = time_str_to_min(start_time)
             final_arrival = math.ceil(real_arr)
             duration = int(final_arrival - start_min)
@@ -1539,6 +1546,7 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
             candidates.append({
                 "id": "Fastest",
                 "lines": lines,
+                "lines_en": lines_en,
                 "total_time": duration,
                 "arrival_time": min_to_time_str(final_arrival),
                 "steps": segs,
@@ -1572,7 +1580,14 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
                 segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, use_realtime=use_realtime)
                 if not segs:
                     continue
-                lines = list(dict.fromkeys([s["title"] for s in segs if s["kind"] in ("bus", "rail")]))
+                lines = list(dict.fromkeys([
+                    s["title"] for s in segs if s["kind"] in ("bus", "rail")
+                ]))
+                lines_en = list(dict.fromkeys([
+                    s["title_en"]
+                    for s in segs
+                    if s["kind"] in ("bus", "rail") and s.get("title_en")
+                ]))
                 start_min = time_str_to_min(start_time)
                 final_arrival = math.ceil(real_arr)
                 duration = int(final_arrival - start_min)
@@ -1581,6 +1596,7 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
                 candidates.append({
                     "id": f"Comfort-{valid_count+1}",
                     "lines": lines,
+                    "lines_en": lines_en,
                     "total_time": duration,
                     "arrival_time": min_to_time_str(final_arrival),
                     "steps": segs,
