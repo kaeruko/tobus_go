@@ -15,6 +15,7 @@ class TrainTripStop {
   final int sequence;
   final String stopId;
   final String stopName;
+  final String? stopNameEn;
   final String? arrivalTime;
   final String? departureTime;
 
@@ -22,6 +23,7 @@ class TrainTripStop {
     required this.sequence,
     required this.stopId,
     required this.stopName,
+    this.stopNameEn,
     this.arrivalTime,
     this.departureTime,
   });
@@ -43,6 +45,7 @@ class TrainTripStop {
       sequence: sequence,
       stopId: stopId,
       stopName: stopName,
+      stopNameEn: json['stop_name_en']?.toString(),
       arrivalTime: json['arrival_time']?.toString(),
       departureTime: json['departure_time']?.toString(),
     );
@@ -53,11 +56,13 @@ class TrainLocation {
   final String tripId;
   final String routeId;
   final String tripHeadsign;
+  final String? tripHeadsignEn;
   final String vehicleId;
   final int currentStopSequence;
   final String currentStatus;
   final String currentStopId;
   final String currentStopName;
+  final String? currentStopNameEn;
   final int boardingSequence;
   final int destinationSequence;
   final int? vehicleTimestamp;
@@ -68,11 +73,13 @@ class TrainLocation {
     required this.tripId,
     required this.routeId,
     required this.tripHeadsign,
+    this.tripHeadsignEn,
     required this.vehicleId,
     required this.currentStopSequence,
     required this.currentStatus,
     required this.currentStopId,
     required this.currentStopName,
+    this.currentStopNameEn,
     required this.boardingSequence,
     required this.destinationSequence,
     this.vehicleTimestamp,
@@ -84,11 +91,13 @@ class TrainLocation {
     final tripId = json['trip_id']?.toString();
     final routeId = json['route_id']?.toString();
     final tripHeadsign = json['trip_headsign']?.toString().trim();
+    final tripHeadsignEn = json['trip_headsign_en']?.toString().trim();
     final vehicleId = json['vehicle_id']?.toString();
     final currentStopSequence = (json['current_stop_sequence'] as num?)?.toInt();
     final currentStatus = json['current_status']?.toString();
     final currentStopId = json['current_stop_id']?.toString();
     final currentStopName = json['current_stop_name']?.toString();
+    final currentStopNameEn = json['current_stop_name_en']?.toString();
     final boardingSequence = (json['boarding_sequence'] as num?)?.toInt();
     final destinationSequence = (json['destination_sequence'] as num?)?.toInt();
     final rawTripStops = json['trip_stops'];
@@ -144,11 +153,13 @@ class TrainLocation {
       tripId: tripId,
       routeId: routeId,
       tripHeadsign: tripHeadsign,
+      tripHeadsignEn: tripHeadsignEn,
       vehicleId: vehicleId,
       currentStopSequence: currentStopSequence,
       currentStatus: currentStatus,
       currentStopId: currentStopId,
       currentStopName: currentStopName,
+      currentStopNameEn: currentStopNameEn,
       boardingSequence: boardingSequence,
       destinationSequence: destinationSequence,
       vehicleTimestamp: (json['vehicle_ts'] as num?)?.toInt(),
