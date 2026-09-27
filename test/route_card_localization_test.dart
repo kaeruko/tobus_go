@@ -61,7 +61,11 @@ void main() {
     ],
   );
 
-  Future<void> pumpCard(WidgetTester tester, Locale locale) async {
+  Future<void> pumpCard(
+    WidgetTester tester,
+    Locale locale, {
+    bool showRank = true,
+  }) async {
     await tester.pumpWidget(
       ProviderScope(
         child: CupertinoApp(
@@ -69,13 +73,28 @@ void main() {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: CupertinoPageScaffold(
-            child: RouteCard(candidate: candidate, rank: 1),
+            child: RouteCard(
+              candidate: candidate,
+              rank: 1,
+              showRank: showRank,
+            ),
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('saved-route style card can hide candidate rank', (tester) async {
+    await pumpCard(
+      tester,
+      const Locale('en'),
+      showRank: false,
+    );
+
+    expect(find.text('C1'), findsNothing);
+    expect(find.text('Ueno-Matsuzakaya'), findsOneWidget);
+  });
 
   testWidgets('English route card localizes wait summary', (tester) async {
     await pumpCard(tester, const Locale('en'));
