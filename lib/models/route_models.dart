@@ -6,6 +6,7 @@ class RouteMeta {
   final bool destinationReachable;
   final String destinationLabel;
   final String? fallbackNodeName;
+  final String? fallbackNodeNameEn;
   final double? fallbackDistanceM;
   final int? walkLimitM;
 
@@ -13,6 +14,7 @@ class RouteMeta {
     required this.destinationReachable,
     required this.destinationLabel,
     this.fallbackNodeName,
+    this.fallbackNodeNameEn,
     this.fallbackDistanceM,
     this.walkLimitM,
   });
@@ -22,6 +24,7 @@ class RouteMeta {
       destinationReachable: json['destination_reachable'] == true,
       destinationLabel: json['destination_label']?.toString() ?? '目的地',
       fallbackNodeName: json['fallback_node_name']?.toString(),
+      fallbackNodeNameEn: json['fallback_node_name_en']?.toString(),
       fallbackDistanceM: (json['fallback_distance_m'] as num?)?.toDouble(),
       walkLimitM: (json['walk_limit_m'] as num?)?.toInt(),
     );
