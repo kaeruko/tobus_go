@@ -782,5 +782,95 @@
         "type": "String"
       }
     }
-  }
+  },
+  "replanTitle": "{place}から経路を見直す",
+  "@replanTitle": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "replanCompareFrom": "{time}から利用できる経路を比較します",
+  "@replanCompareFrom": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "replanRefreshing": "移動状況が変わったため、新しい到着見込みで経路を再検索しています…",
+  "replanBlocked": "現在の再探索起点を取得できません。状況が確認できるまで経路変更は確定できません。",
+  "replanCurrentPlan": "現在の予定",
+  "replanArrivalPlanned": "{time} 到着予定",
+  "@replanArrivalPlanned": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "replanNewRouteCandidates": "新しい経路の候補",
+  "replanCandidate": "候補{index}  {time}着",
+  "@replanCandidate": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "replanNewRoute": "新しい経路",
+  "replanCompareOnly": "いまは比較だけです。この画面を閉じても予定は変更されません。",
+  "replanKeepOriginal": "元の経路を続ける",
+  "replanApply": "この経路に変更",
+  "replanUpdatedNotice": "移動状況が変わったため、経路を更新しました。内容を確認してください。",
+  "replanApplyFailed": "経路を変更できませんでした: {error}",
+  "@replanApplyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanRefreshFailed": "最新の移動状況で経路を更新できませんでした: {error}",
+  "@replanRefreshFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanRefreshAgain": "もう一度更新",
+  "replanTransfers": "乗換え {count}回",
+  "@replanTransfers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "replanNoRoute": "この時刻から利用できる新しい経路が見つかりませんでした。",
+  "replanUnknownTime": "時刻不明",
+  "replanWalkOnly": "徒歩のみ",
+  "fareSettingsTitle": "設定",
+  "fareSettingsHeading": "運賃・乗車証",
+  "fareSettingsDescription": "利用する制度や所持乗車証を自分で選択します。住所・障害区分・年齢などから資格を自動判定しません。",
+  "fareSettingsError": "設定エラー: {error}",
+  "@fareSettingsError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fareOpenOtherSettings": "その他の設定を開く",
+  "fareOfficialInfo": "公式情報を確認",
+  "settlementNormal": "通常払い",
+  "settlementReimbursementLong": "いったん支払い・後日支給",
+  "farePolicyNormal": "通常運賃",
+  "farePolicyTokyoMentalDisabilityPass": "精神障害者都営交通乗車証",
+  "farePolicyNagoyaWelfarePass": "福祉特別乗車券（無料乗車区間）"
 }
