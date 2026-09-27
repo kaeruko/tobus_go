@@ -8,10 +8,12 @@ void main() {
         {
           'stop_id': 'stop-a',
           'comment': '川沿いが気持ちいい',
+          'comment_en': 'A pleasant walk along the river',
           'images': [
             {
               'file': 'river.jpg',
               'caption': '川へ向かう道',
+              'caption_en': 'Path toward the river',
             },
           ],
         },
@@ -45,11 +47,13 @@ void main() {
           {
             'stop_id': 'stop-a',
             'comment': 'first',
+            'comment_en': 'first',
             'images': <dynamic>[],
           },
           {
             'stop_id': 'stop-a',
             'comment': 'second',
+            'comment_en': 'second',
             'images': <dynamic>[],
           },
         ],
