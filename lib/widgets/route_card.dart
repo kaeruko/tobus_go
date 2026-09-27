@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_localizations.dart';
+import '../l10n/transit_name_localizations.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
 import '../providers/route_search_provider.dart';
@@ -20,20 +21,38 @@ class RouteCard extends ConsumerWidget {
     this.fare,
   });
 
-  String _origin(AppLocalizations l10n) {
+  String _origin(AppLocalizations l10n, Locale locale) {
     if (candidate.originName != null && candidate.originName!.isNotEmpty) {
       return candidate.originName!;
     }
     if (candidate.steps.isNotEmpty) {
       final firstStep = candidate.steps.first;
+      if (firstStep.isRide) {
+        return localizedRideFromName(locale, firstStep);
+      }
+      final english = firstStep.fromNameEn?.trim();
+      if (isEnglishTransitLocale(locale) &&
+          english != null &&
+          english.isNotEmpty) {
+        return english;
+      }
       return firstStep.from ?? l10n.originFallback;
     }
     return l10n.originFallback;
   }
 
-  String _destination(AppLocalizations l10n) {
+  String _destination(AppLocalizations l10n, Locale locale) {
     if (meta?.destinationReachable == false) {
-      final stopName = meta?.fallbackNodeName ?? l10n.nearestStop;
+      final fallbackName = meta?.fallbackNodeName;
+      final stopName = fallbackName == null
+          ? l10n.nearestStop
+          : localizedOptionalTransitName(
+              locale,
+              japanese: fallbackName,
+              english: meta?.fallbackNodeNameEn,
+              field: 'fallback_node_name_en',
+              identity: 'candidate=${candidate.id}',
+            );
       final walk = meta?.fallbackWalkMinutes;
       final suffix = walk != null ? l10n.destinationWalkSuffix(walk) : '';
       return stopName + suffix;
@@ -44,6 +63,15 @@ class RouteCard extends ConsumerWidget {
     }
     if (candidate.steps.isNotEmpty) {
       final lastStep = candidate.steps.last;
+      if (lastStep.isRide) {
+        return localizedRideToName(locale, lastStep);
+      }
+      final english = lastStep.toNameEn?.trim();
+      if (isEnglishTransitLocale(locale) &&
+          english != null &&
+          english.isNotEmpty) {
+        return english;
+      }
       return lastStep.to ?? l10n.destinationFallback;
     }
     return l10n.destinationFallback;
@@ -66,6 +94,7 @@ class RouteCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
     final effectiveFare =
         fare ??
         ref.watch(
@@ -100,7 +129,7 @@ class RouteCard extends ConsumerWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  candidate.lines.join(' → '),
+                  localizedCandidateLines(locale, candidate).join(' → '),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -122,7 +151,7 @@ class RouteCard extends ConsumerWidget {
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  '${_origin(l10n)} → ${_destination(l10n)}',
+                  '${_origin(l10n, locale)} → ${_destination(l10n, locale)}',
                   style: const TextStyle(
                     fontSize: 14,
                     color: CupertinoColors.systemGrey,
@@ -165,7 +194,10 @@ class RouteCard extends ConsumerWidget {
                   final mm = seg.minutes > 0
                       ? l10n.approxMinutes(seg.minutes)
                       : '';
-                  return '${seg.title}$stops$mm';
+                  final title = seg.isRide
+                      ? localizedRideTitle(locale, seg)
+                      : seg.title;
+                  return '$title$stops$mm';
                 })
                 .take(2)
                 .join(' / '),
