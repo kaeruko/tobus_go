@@ -574,9 +574,11 @@ class RouteTransportControl extends StatelessWidget {
 
         return CupertinoSlidingSegmentedControl<String>(
           groupValue: busOnly ? 'busOnly' : 'subwayAndBus',
-          children: const {
-            'subwayAndBus': Text('都営地下鉄・バス'),
-            'busOnly': Text('都営バスのみ'),
+          children: {
+            'subwayAndBus': Text(
+              AppLocalizations.of(context).transportSubwayAndBus,
+            ),
+            'busOnly': Text(AppLocalizations.of(context).transportBusOnly),
           },
           onValueChanged: onValueChanged,
         );
