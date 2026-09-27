@@ -242,9 +242,11 @@ def register_routes(app):
             "vehicle_ts": target_bus.get("vehicle_timestamp"),
             "raw_stop_id": target_bus.get("raw_stop_id"),
             "raw_stop_name": target_bus.get("raw_stop_name"),
-            
+            "raw_stop_name_en": target_bus.get("raw_stop_name_en"),
+
             # Pass through informative fields
             "next_stop": target_bus.get("next_stop"),
+            "next_stop_en": target_bus.get("next_stop_en"),
             "destination": target_bus.get("destination"),
             "trip_id": target_bus.get("trip_id"),
             "trip_stop_ids": target_bus.get("trip_stop_ids", []),
