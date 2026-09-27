@@ -123,11 +123,15 @@ String? localizedStepEndpointName(
 
   switch (step.kind) {
     case 'wait':
+      final waitPlace = step.place?.trim();
       return localizedTransitName(
         locale,
-        japanese: japanese,
-        english: origin ? step.fromNameEn : step.toNameEn,
-        field: origin ? 'from_en' : 'to_en',
+        japanese: waitPlace == null || waitPlace.isEmpty
+            ? japanese
+            : waitPlace,
+        english: step.placeEn ??
+            (origin ? step.fromNameEn : step.toNameEn),
+        field: 'place_en',
         identity: 'stepId=${step.stepId}',
       );
     case 'walk':
