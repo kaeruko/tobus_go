@@ -171,6 +171,27 @@ void main() {
     );
   });
 
+  test('English goal label uses persisted bilingual destination', () {
+    final goal = ScheduleEntry(
+      id: 'goal',
+      plannedAt: DateTime(2026, 9, 27, 22, 34),
+      label: '上野駅 到着',
+      description: 'お疲れ様でした!',
+      itemKind: ScheduleEntryKind.goal,
+      legIndex: 0,
+      generatedBy: ScheduleEntrySource.route,
+    );
+
+    expect(
+      localizedSoloScheduleEntryLabel(
+        const Locale('en'),
+        trip: trip,
+        entry: goal,
+      ),
+      'Arrive at Ueno Station (上野駅)',
+    );
+  });
+
   test('Japanese active-route rows preserve stored labels', () {
     expect(
       localizedSoloScheduleEntryLabel(
