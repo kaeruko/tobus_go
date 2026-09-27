@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../core/city_profile.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/city_localizations.dart';
+import '../l10n/transit_name_localizations.dart';
 import '../models/route_models.dart';
 import '../services/bus_location_source.dart';
 import 'route_detail_widgets.dart';
@@ -299,11 +300,18 @@ String busRealtimeStatusText(
   required Locale locale,
 }) {
   final rawStopName = vehicle.rawStopName?.trim();
-  final stopName = switch (locale.languageCode) {
-    'en' when rawStopName != null && rawStopName.isNotEmpty =>
-      _requiredRealtimeEnglishStopName(vehicle),
-    _ => rawStopName,
-  };
+  var stopName = rawStopName;
+  if (isEnglishTransitLocale(locale) &&
+      rawStopName != null &&
+      rawStopName.isNotEmpty) {
+    stopName = localizedTransitName(
+      locale,
+      japanese: rawStopName,
+      english: vehicle.rawStopNameEn,
+      field: 'raw_stop_name_en',
+      identity: 'stopId=${vehicle.rawStopId ?? '<unknown>'}',
+    );
+  }
 
   if (vehicle.beforeFirstStop) {
     return stopName == null || stopName.isEmpty
@@ -329,13 +337,3 @@ String busRealtimeStatusText(
   }
 }
 
-String _requiredRealtimeEnglishStopName(BusLocation vehicle) {
-  final english = vehicle.rawStopNameEn?.trim();
-  if (english == null || english.isEmpty) {
-    throw StateError(
-      'Official English realtime stop name is missing: '
-      'stopId=${vehicle.rawStopId ?? '<unknown>'}',
-    );
-  }
-  return english;
-}

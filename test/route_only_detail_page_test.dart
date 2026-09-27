@@ -96,6 +96,12 @@ void main() {
     expect(find.text('Duration'), findsOneWidget);
     expect(find.text('Ride segments'), findsOneWidget);
     expect(find.text('Route 8'), findsNWidgets(2));
+    expect(
+      find.text(
+        'Yokohama Station (横浜駅前) → Yamashita Park (山下公園前)',
+      ),
+      findsOneWidget,
+    );
   });
 
 }
