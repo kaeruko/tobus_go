@@ -962,6 +962,60 @@
   "settlementReimbursementLong": "Pay first, reimbursed later",
   "farePolicyNormal": "Regular fare",
   "farePolicyTokyoMentalDisabilityPass": "Toei Transportation Pass for People with Mental Disabilities",
-  "farePolicyNagoyaWelfarePass": "Welfare Special Pass (free-ride area)"
+  "farePolicyNagoyaWelfarePass": "Welfare Special Pass (free-ride area)",
+  "exploreTitle": "Find places with no transfers",
+  "exploreDescription": "Find Toei subway stations and bus stops you can reach from your current location without transfers.",
+  "exploreNearbyButton": "Explore nearby",
+  "exploreStartPrompt": "Tap the button to start searching.",
+  "exploreNoNearbyStops": "No nearby bus stops were found.",
+  "exploreSearching": "Searching...",
+  "exploreContentLoading": "Loading Explore information...",
+  "exploreSearchFailed": "Search failed: {error}",
+  "@exploreSearchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exploreContentLoadFailed": "Couldn’t load Explore information: {error}",
+  "@exploreContentLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exploreNearestStop": "Nearest: {name}",
+  "@exploreNearestStop": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "exploreDistanceFromCurrent": "About {meters} m from your current location",
+  "@exploreDistanceFromCurrent": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "exploreReachableCount": "You can reach {count} stations and bus stops with no transfers",
+  "@exploreReachableCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exploreRouteLabel": "Route: {route}",
+  "@exploreRouteLabel": {
+    "placeholders": {
+      "route": {
+        "type": "String"
+      }
+    }
+  }
 }
-
