@@ -86,6 +86,80 @@ void main() {
     expect(progress.nextStopName, '浅草橋');
   });
 
+  test('riding rail progress preserves official English realtime text', () {
+    const englishStops = <TrainTripStop>[
+      TrainTripStop(
+        sequence: 9,
+        stopId: '115',
+        stopName: '東日本橋',
+        stopNameEn: 'Higashi-nihombashi',
+      ),
+      TrainTripStop(
+        sequence: 10,
+        stopId: '116',
+        stopName: '浅草橋',
+        stopNameEn: 'Asakusabashi',
+      ),
+      TrainTripStop(
+        sequence: 11,
+        stopId: '117',
+        stopName: '蔵前',
+        stopNameEn: 'Kuramae',
+      ),
+    ];
+    const englishLocation = TrainLocation(
+      tripId: '121603T0',
+      routeId: '1',
+      tripHeadsign: '青砥',
+      tripHeadsignEn: 'Aoto',
+      vehicleId: '121603T0',
+      currentStopSequence: 10,
+      currentStatus: 'IN_TRANSIT_TO',
+      currentStopId: '116',
+      currentStopName: '浅草橋',
+      currentStopNameEn: 'Asakusabashi',
+      boardingSequence: 9,
+      destinationSequence: 11,
+      vehicleAgeSeconds: 5,
+      tripStops: englishStops,
+    );
+
+    final progress = RailProgress.forLocation(
+      stepId: 'rail-1',
+      location: englishLocation,
+    );
+
+    expect(progress.phase, RailProgressPhase.riding);
+    expect(progress.tripHeadsignEn, 'Aoto');
+    expect(progress.currentStopNameEn, 'Higashi-nihombashi');
+    expect(progress.nextStopNameEn, 'Asakusabashi');
+
+    final navigation = NavigationState.navigating(
+      step: StepSeg(
+        stepId: 'rail-1',
+        kind: 'rail',
+        title: '浅草線',
+        titleEn: 'Asakusa Line',
+        fromName: '東日本橋',
+        fromNameEn: 'Higashi-nihombashi',
+        toName: '蔵前',
+        toNameEn: 'Kuramae',
+        arrivalTime: '16:24',
+      ),
+      busProgress: null,
+      railProgress: progress,
+    );
+
+    expect(
+      navigation.mainTextToken?.args['rideTitleEn'],
+      'Asakusa Line · Aoto',
+    );
+    expect(
+      navigation.mainTextToken?.args['placeNameEn'],
+      'Higashi-nihombashi',
+    );
+  });
+
   test('STOPPED_AT reduces remaining stations immediately', () {
     final progress = RailProgress.forLocation(
       stepId: 'rail-1',
