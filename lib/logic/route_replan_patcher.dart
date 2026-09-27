@@ -55,12 +55,14 @@ class RouteReplanPatcher {
       original: oldCandidate,
       selected: selectedCandidate,
       steps: combinedSteps,
+      retainedSteps: retainedSteps,
     );
     final replacementLeg = Leg(
       direction: oldLeg.direction,
       status: oldLeg.status,
       candidate: combinedCandidate,
       confirmedAt: oldLeg.confirmedAt,
+      routeGeometryIsApproximate: retainedSteps.isNotEmpty,
     );
     final legs = List<Leg>.from(trip.legs);
     legs[position.legIndex] = replacementLeg;
@@ -311,6 +313,7 @@ class RouteReplanPatcher {
     required Candidate original,
     required Candidate selected,
     required List<StepSeg> steps,
+    required List<StepSeg> retainedSteps,
   }) {
     final lines = <String>[];
     final linesEn = <String>[];
@@ -341,7 +344,12 @@ class RouteReplanPatcher {
     final rides = steps.where((step) => step.isRide).length;
     final totalTime = steps.fold<int>(0, (sum, step) => sum + step.minutes);
     final points = <LatLng>[];
-    for (final step in steps) {
+    if (retainedSteps.isNotEmpty && original.originCoords != null) {
+      _appendUniquePoint(points, original.originCoords!);
+    }
+    // Only the retained prefix needs schematic stop geometry. Adding the new
+    // stops before selected.points would draw the new route twice, backwards.
+    for (final step in retainedSteps) {
       for (final stop in step.stops) {
         _appendUniquePoint(points, stop.point);
       }

@@ -65,12 +65,15 @@ class Leg {
   final LegStatus status;
   final Candidate candidate;
   final DateTime? confirmedAt;
+  /// Legacy trips and retained replan prefixes only have schematic geometry.
+  final bool routeGeometryIsApproximate;
 
   const Leg({
     required this.direction,
     required this.status,
     required this.candidate,
     this.confirmedAt,
+    this.routeGeometryIsApproximate = false,
   });
 
   factory Leg.fromJson(Map<String, dynamic> json) {
@@ -80,7 +83,37 @@ class Leg {
     }
 
     final candidateJson = Map<String, dynamic>.from(rawCandidate);
-    _restorePersistedCandidatePoints(candidateJson);
+    final rawGeometry = json['routePoints'];
+    final rawApproximate = json['routeGeometryIsApproximate'];
+    if (rawApproximate != null && rawApproximate is! bool) {
+      throw const FormatException('leg routeGeometryIsApproximate must be bool');
+    }
+    var approximate = rawApproximate == true;
+    if (json.containsKey('routePoints')) {
+      // Firestore cannot store arrays inside arrays. Keep the coordinates flat
+      // on disk, without rounding or losing non-stop points along the route.
+      if (rawGeometry is! List || rawGeometry.length.isOdd) {
+        throw const FormatException('leg routePoints must contain lat/lon pairs');
+      }
+      final points = <List<double>>[];
+      for (var i = 0; i < rawGeometry.length; i += 2) {
+        final lat = rawGeometry[i];
+        final lon = rawGeometry[i + 1];
+        if (lat is! num || lon is! num ||
+            !lat.isFinite || !lon.isFinite ||
+            lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+          throw FormatException('invalid leg routePoints pair at index $i');
+        }
+        points.add([lat.toDouble(), lon.toDouble()]);
+      }
+      candidateJson['points'] = points;
+    } else {
+      final points = candidateJson['points'];
+      if (points == null || (points is List && points.isEmpty)) {
+        approximate = true;
+        _restorePersistedCandidatePoints(candidateJson);
+      }
+    }
 
     return Leg(
       direction: LegDirection.values.firstWhere(
@@ -92,6 +125,7 @@ class Leg {
         orElse: () => LegStatus.confirmed,
       ),
       candidate: Candidate.fromJson(candidateJson),
+      routeGeometryIsApproximate: approximate,
       confirmedAt: json['confirmedAt'] != null
           ? DateTime.tryParse(json['confirmedAt'] as String)
           : null,
@@ -104,6 +138,21 @@ class Leg {
       'status': status.name,
       'candidate': candidate.toJson(includePoints: includePoints),
       'confirmedAt': confirmedAt?.toIso8601String(),
+      'routeGeometryIsApproximate': routeGeometryIsApproximate,
+    };
+  }
+
+  Map<String, dynamic> toFirestore() {
+    final coordinates = <double>[];
+    for (final point in candidate.points) {
+      if (!point.latitude.isFinite || !point.longitude.isFinite) {
+        throw FormatException('non-finite route point: candidate=${candidate.id}');
+      }
+      coordinates.addAll([point.latitude, point.longitude]);
+    }
+    return {
+      ...toJson(includePoints: false),
+      'routePoints': coordinates,
     };
   }
 }

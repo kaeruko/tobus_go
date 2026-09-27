@@ -138,7 +138,7 @@ class Trip {
       'actualDepartureAt': actualDepartureAt != null
           ? Timestamp.fromDate(actualDepartureAt!)
           : null,
-      'legs': legs.map((e) => e.toJson(includePoints: false)).toList(),
+      'legs': legs.map((e) => e.toFirestore()).toList(),
       'schedule': schedule.map((e) => e.toJson()).toList(),
       'participants': participants.map((e) => e.toJson()).toList(),
       'memberIds': memberIds,

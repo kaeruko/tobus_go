@@ -5,6 +5,12 @@ import 'app_session_provider.dart';
 
 export '../models/trip_models.dart' show Trip;
 
+// Explicit ID keeps pushed detail routes independent of the navigation scope
+// and the app session (including trips resumed from the home screen).
+final tripRouteProvider = StreamProvider.autoDispose.family<Trip, String>(
+  (ref, tripId) => TripService().streamTrip(tripId),
+);
+
 final tripStreamProvider = StreamProvider.autoDispose<Trip?>(
   (ref) {
     final session = ref.watch(appSessionProvider);
