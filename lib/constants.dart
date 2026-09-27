@@ -1,7 +1,16 @@
 import 'core/city_profile.dart';
 
 const String kTokyoApiGoogleDriveFileId = '11eVn1V2mO7x8wPF-Kg9ZExmA-fqTReQ4';
+const String kTokyoRuntimeConfigGoogleDriveFileId =
+    '1pbE5qFpgDzVhYl8wA1qp4T_7jOsB2s68';
 const String kSendaiApiGoogleDriveFileId = '1Frhq_kZt6kEX_smdSdlcKsmTv4vLnjEf';
+
+String? runtimeConfigGoogleDriveFileIdForCity(AppCity city) {
+  return switch (city) {
+    AppCity.tokyo => kTokyoRuntimeConfigGoogleDriveFileId,
+    AppCity.nagoya || AppCity.sendai || AppCity.yokohama => null,
+  };
+}
 
 String? apiGoogleDriveFileIdForCity(AppCity city) {
   return switch (city) {
