@@ -90,11 +90,9 @@ class TripCoordinator {
     return (seconds + 59) ~/ 60;
   }
 
-  static String _boardingSubText({
+  static String _boardingRouteTitle({
     required Trip trip,
     required ScheduleEntry rideEntry,
-    required String rideTime,
-    bool planned = false,
   }) {
     final stepId = rideEntry.routeStepId;
     if (stepId == null || stepId.isEmpty) {
@@ -124,8 +122,35 @@ class TripCoordinator {
         'entryId=${rideEntry.id}, routeStepId=$stepId',
       );
     }
+    return routeTitle;
+  }
 
+  static String _boardingSubText({
+    required Trip trip,
+    required ScheduleEntry rideEntry,
+    required String rideTime,
+    bool planned = false,
+  }) {
+    final routeTitle = _boardingRouteTitle(trip: trip, rideEntry: rideEntry);
     return '$rideTime $routeTitle ${planned ? '乗車予定' : '乗車'}';
+  }
+
+  static NavigationTextToken _boardingSubTextToken({
+    required Trip trip,
+    required ScheduleEntry rideEntry,
+    required String rideTime,
+    bool planned = false,
+  }) {
+    final routeTitle = _boardingRouteTitle(trip: trip, rideEntry: rideEntry);
+    return NavigationTextToken(
+      planned
+          ? NavigationTextKey.boardingPlannedSub
+          : NavigationTextKey.boardingSub,
+      {
+        'rideTime': rideTime,
+        'routeTitle': routeTitle,
+      },
+    );
   }
 
   static ResolvedScheduleState resolveScheduleState({
