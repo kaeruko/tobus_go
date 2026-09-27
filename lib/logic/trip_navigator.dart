@@ -30,6 +30,57 @@ class RouteState {
       stepId == null ? null : stepsById[stepId];
 }
 
+enum NavigationTextKey {
+  idleStatus,
+  busRideStatus,
+  railRideStatus,
+  rideArrivalSummary,
+  preDepartureMain,
+  plannedDepartureSub,
+  preStartStatus,
+  startsInSub,
+  movingStatus,
+  meetingDefaultSub,
+  meetingStatus,
+  arrivedDefaultSub,
+  arrivedStatus,
+  waitingDefaultSub,
+  waitingStatus,
+  walkHeadingMain,
+  walkDistanceSub,
+  positionCheckingMain,
+  busWaitingMain,
+  positionCheckingSub,
+  busPositionCheckingAtStopSub,
+  waitingToBoardStatus,
+  searchingStatus,
+  approachingBusMain,
+  approachingRailMain,
+  nowAtSub,
+  arrivedMain,
+  getOffNextMain,
+  staleBusNotice,
+  staleRailNotice,
+  tripEndedMain,
+  tripEndedSub,
+  tripEndedStatus,
+  tripCancelledMain,
+  tripCancelledSub,
+  tripCancelledStatus,
+  departureCountdownMain,
+  boardingSub,
+  boardingPlannedSub,
+  walkToRideCountdownMain,
+  realtimeUnavailableNotice,
+}
+
+class NavigationTextToken {
+  final NavigationTextKey key;
+  final Map<String, Object> args;
+
+  const NavigationTextToken(this.key, [this.args = const {}]);
+}
+
 class NavigationState {
   static const double staleRidePositionAfterSeconds = 90;
 
@@ -38,6 +89,10 @@ class NavigationState {
   final Color color;
   final bool isMoving;
   final String statusLabel;
+  final NavigationTextToken? mainTextToken;
+  final NavigationTextToken? subTextToken;
+  final NavigationTextToken? statusLabelToken;
+  final NavigationTextToken? noticeTextToken;
   final String? nextStopName;
   final int? remainingStops;
   final String? currentStepId;
@@ -51,6 +106,10 @@ class NavigationState {
     required this.subText,
     required this.color,
     required this.statusLabel,
+    this.mainTextToken,
+    this.subTextToken,
+    this.statusLabelToken,
+    this.noticeTextToken,
     this.nextStopName,
     this.remainingStops,
     this.currentStepId,
@@ -64,11 +123,17 @@ class NavigationState {
   NavigationState withNotice({
     required String statusLabel,
     required String noticeText,
+    NavigationTextToken? statusLabelToken,
+    NavigationTextToken? noticeTextToken,
   }) => NavigationState(
     mainText: mainText,
     subText: subText,
     color: color,
     statusLabel: statusLabel,
+    mainTextToken: mainTextToken,
+    subTextToken: subTextToken,
+    statusLabelToken: statusLabelToken,
+    noticeTextToken: noticeTextToken,
     nextStopName: nextStopName,
     remainingStops: remainingStops,
     currentStepId: currentStepId,
