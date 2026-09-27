@@ -291,9 +291,9 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                '出発日時',
-                                style: TextStyle(fontSize: 14),
+                              Text(
+                                l10n.departureDateTime,
+                                style: const TextStyle(fontSize: 14),
                               ),
                               Text(
                                 '${startTime.month}/${startTime.day} ${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}',
@@ -314,7 +314,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: PlaceField(
-                        label: '出発(検索)',
+                        label: l10n.departureSearch,
                         value: rs.from,
                         displayValue: rs.fromName,
                         onChanged: (val, desc) {
@@ -364,7 +364,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: PlaceField(
-                        label: '到着(検索)',
+                        label: l10n.arrivalSearch,
                         value: rs.to,
                         displayValue: rs.toName,
                         onChanged: (val, desc) {
