@@ -759,5 +759,8 @@
       }
     }
   },
-  "navRealtimeUnavailableNotice": "Realtimeの位置情報を確認しています\n最後に確認した位置を表示しています"
+  "navRealtimeUnavailableNotice": "Realtimeの位置情報を確認しています\n最後に確認した位置を表示しています",
+  "scheduleNow": "いま",
+  "scheduleNext": "つぎ",
+  "scheduleLater": "そのうち"
 }
