@@ -596,6 +596,14 @@
   "navMeetingStatus": "Meeting",
   "navArrivedDefaultSub": "You’ve arrived",
   "navArrivedStatus": "Arrived",
+  "navGoalArrivedMain": "Arrived at {destination}",
+  "@navGoalArrivedMain": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
   "navWaitingDefaultSub": "Wait until the scheduled time",
   "navWaitingStatus": "Waiting",
   "navWalkHeadingMain": "Head to {destination}",

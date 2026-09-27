@@ -50,6 +50,23 @@ String localizedNavigationText(
     return '$normalizedEnglish ($normalizedJapanese)';
   }
 
+  String bilingualPlaceArg(String name) {
+    final original = stringArg(name);
+    if (locale.languageCode != 'en') return original;
+    final english = token.args['${name}En'];
+    if (english == null) return original;
+    if (english is! String || english.trim().isEmpty) {
+      throw StateError(
+        'Navigation text token ${token.key.name} has invalid optional '
+        'English text ${name}En',
+      );
+    }
+    final normalizedEnglish = english.trim();
+    final normalizedOriginal = original.trim();
+    if (normalizedEnglish == normalizedOriginal) return normalizedEnglish;
+    return '$normalizedEnglish ($normalizedOriginal)';
+  }
+
   String freeformArg(String name) {
     final original = stringArg(name);
     if (locale.languageCode != 'en') return original;
@@ -125,6 +142,8 @@ String localizedNavigationText(
       return l10n.navArrivedDefaultSub;
     case NavigationTextKey.arrivedStatus:
       return l10n.navArrivedStatus;
+    case NavigationTextKey.goalArrivedMain:
+      return l10n.navGoalArrivedMain(bilingualPlaceArg('destination'));
     case NavigationTextKey.waitingDefaultSub:
       return l10n.navWaitingDefaultSub;
     case NavigationTextKey.waitingStatus:

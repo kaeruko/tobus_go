@@ -168,6 +168,55 @@ void main() {
     expect(find.text('🚇浅草線 蔵前に着く'), findsNothing);
   });
 
+  testWidgets('terminal goal card renders bilingual destination in English', (
+    tester,
+  ) async {
+    final navigation = NavigationState(
+      mainText: '上野駅 到着',
+      subText: 'お疲れ様でした!',
+      color: Colors.orange,
+      statusLabel: '到着',
+      mainTextToken: const NavigationTextToken(
+        NavigationTextKey.goalArrivedMain,
+        {
+          'destination': '上野駅',
+          'destinationEn': 'Ueno Station',
+        },
+      ),
+      subTextToken: const NavigationTextToken(
+        NavigationTextKey.tripEndedSub,
+      ),
+      statusLabelToken: const NavigationTextToken(
+        NavigationTextKey.arrivedStatus,
+      ),
+      isMoving: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TripNavigationStatusCard(
+            navState: navigation,
+            tripTitle: 'Oshiage (押上) → Ueno Station (上野駅)',
+            onTapStops: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.text('Arrived at Ueno Station (上野駅)'),
+      findsOneWidget,
+    );
+    expect(find.text('Thanks for traveling with us'), findsOneWidget);
+    expect(find.text('Arrived'), findsOneWidget);
+    expect(find.text('上野駅 到着'), findsNothing);
+    expect(find.text('お疲れ様でした!'), findsNothing);
+  });
+
   testWidgets('semantic ride entity names use official English values', (
     tester,
   ) async {

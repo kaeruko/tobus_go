@@ -44,6 +44,7 @@ enum NavigationTextKey {
   meetingStatus,
   arrivedDefaultSub,
   arrivedStatus,
+  goalArrivedMain,
   waitingDefaultSub,
   waitingStatus,
   walkHeadingMain,
