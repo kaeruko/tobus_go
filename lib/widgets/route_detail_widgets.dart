@@ -351,9 +351,10 @@ class RouteStepTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final isWalk = segment.kind == 'walk';
     final canShowStops = !isWalk && segment.stops.isNotEmpty;
-    final rightText = _rightText(isWalk);
+    final rightText = _rightText(isWalk, l10n);
 
     final content = Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -381,7 +382,7 @@ class RouteStepTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      segment.mainTitle,
+                      isWalk ? l10n.walkTitle : segment.mainTitle,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -450,9 +451,9 @@ class RouteStepTile extends StatelessWidget {
     );
   }
 
-  String _rightText(bool isWalk) {
-    if (segment.minutes > 0) return '約${segment.minutes}分';
-    if (!isWalk && segment.edges > 0) return '${segment.edges}停';
+  String _rightText(bool isWalk, AppLocalizations l10n) {
+    if (segment.minutes > 0) return l10n.approximateMinutes(segment.minutes);
+    if (!isWalk && segment.edges > 0) return l10n.stopCount(segment.edges);
     if (isWalk && segment.meters > 0) {
       return '${segment.meters.round()}m';
     }
