@@ -1092,11 +1092,16 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
         pid = get_id(p)
         lat, lon = get_lat(p), get_lon(p)
         if pid and lat and lon:
+            name_en = get_localized_en(p, "title")
+            if name_en is None:
+                raise ValueError(
+                    f"ODPT BusstopPole has no official title.en: {pid}"
+                )
             phys[pid] = {
                 "lat": float(lat),
                 "lon": float(lon),
                 "name": p.get("dc:title") or pid,
-                "name_en": get_localized_en(p, "title"),
+                "name_en": name_en,
             }
     stations = load_json(stations_path)
     for s in stations:
@@ -1104,11 +1109,16 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
         sid = get_id(s)
         lat, lon = get_lat(s), get_lon(s)
         if sid and lat and lon:
+            name_en = get_localized_en(s, "odpt:stationTitle")
+            if name_en is None:
+                raise ValueError(
+                    f"ODPT Station has no official odpt:stationTitle.en: {sid}"
+                )
             phys[sid] = {
                 "lat": float(lat),
                 "lon": float(lon),
                 "name": s.get("dc:title") or sid,
-                "name_en": get_localized_en(s, "odpt:stationTitle"),
+                "name_en": name_en,
             }
     for pid, d in phys.items():
         G.add_node(("phys", pid), **d, kind="phys")
@@ -1159,6 +1169,10 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
         except: pass
         seq = [o.get("odpt:busstopPole") for o in orders if o.get("odpt:busstopPole") in phys]
         disp_en = _bus_pattern_english_title(full_title, seq, phys)
+        if seq and disp_en is None:
+            raise ValueError(
+                f"ODPT BusroutePattern has no English destination label: {pattern_id}"
+            )
 
         for a, b in zip(seq, seq[1:]):
             na = ensure_line_node(
@@ -1186,6 +1200,10 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
         line_id = get_id(rw)
         disp = rw.get("dc:title") or line_id
         disp_en = get_localized_en(rw, "odpt:railwayTitle")
+        if disp_en is None:
+            raise ValueError(
+                f"ODPT Railway has no official odpt:railwayTitle.en: {line_id}"
+            )
         orders = rw.get("odpt:stationOrder") or []
         try: orders = sorted(orders, key=lambda x: x.get("odpt:index", 0))
         except: pass
