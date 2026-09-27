@@ -365,5 +365,8 @@
       }
     }
   },
-  "errorTitle": "Error"
+  "errorTitle": "Error",
+  "settlementDiscount": "Discount",
+  "settlementFreePass": "Free pass",
+  "settlementReimbursement": "Reimbursed later"
 }
