@@ -579,6 +579,22 @@ class NavigationState {
             subText: 'いま:$boardingPlaceName',
             color: const Color(0xFFE1F5FE),
             statusLabel: '乗車待ち',
+            mainTextToken: NavigationTextToken(
+              step.kind == 'bus'
+                  ? NavigationTextKey.approachingBusMain
+                  : NavigationTextKey.approachingRailMain,
+              {
+                'rideTitle': _shortRideTitle(step),
+                'count': stopsUntilBoarding,
+              },
+            ),
+            subTextToken: NavigationTextToken(
+              NavigationTextKey.nowAtSub,
+              {'placeName': boardingPlaceName},
+            ),
+            statusLabelToken: const NavigationTextToken(
+              NavigationTextKey.waitingToBoardStatus,
+            ),
             nextStopName: boardingPlaceName,
             currentStepId: step.stepId,
             busProgress: busProgress,
@@ -601,6 +617,12 @@ class NavigationState {
             subText: arrivedPlace,
             color: const Color(0xFFFFCC80),
             statusLabel: '到着',
+            mainTextToken: const NavigationTextToken(
+              NavigationTextKey.arrivedMain,
+            ),
+            statusLabelToken: const NavigationTextToken(
+              NavigationTextKey.arrivedStatus,
+            ),
             remainingStops: 0,
             currentStepId: step.stepId,
             busProgress: busProgress,
@@ -633,6 +655,13 @@ class NavigationState {
                 ? const Color(0xFFFFAB91)
                 : const Color(0xFF81D4FA),
             statusLabel: statusLabel ?? _rideStatusLabel(step),
+            mainTextToken: remaining == 1
+                ? const NavigationTextToken(
+                    NavigationTextKey.getOffNextMain,
+                  )
+                : null,
+            subTextToken: _rideArrivalToken(step, progress.rideTitle),
+            statusLabelToken: statusLabelToken ?? _rideStatusToken(step),
             nextStopName: progress.nextPlaceName,
             remainingStops: remaining,
             currentStepId: step.stepId,
@@ -660,6 +689,26 @@ class NavigationState {
     return 'バスがどこかさがしています\n$movementText（$ageText）';
   }
 
+  static NavigationTextToken _staleBusPositionToken(BusProgress progress) {
+    final ageSeconds = progress.vehicleAgeSeconds ?? 0;
+    final ageMinutes = (ageSeconds / 60).round().clamp(1, 999);
+    final stopName = progress.observedStopName;
+    final stopId = progress.observedStopId;
+    return NavigationTextToken(
+      NavigationTextKey.staleBusNotice,
+      {
+        'ageMinutes': ageMinutes,
+        'placeKind': stopName != null && stopName.isNotEmpty
+            ? 'name'
+            : (stopId != null && stopId.isNotEmpty ? 'id' : 'unknown'),
+        'place': stopName != null && stopName.isNotEmpty
+            ? stopName
+            : (stopId ?? ''),
+        'moving': progress.currentStatus == 'IN_TRANSIT_TO',
+      },
+    );
+  }
+
   static String _staleRailPositionText(RailProgress progress) {
     final ageSeconds = progress.vehicleAgeSeconds ?? 0;
     final ageMinutes = (ageSeconds / 60).round().clamp(1, 999);
@@ -668,5 +717,20 @@ class NavigationState {
         ? progress.nextStopName
         : progress.currentStopName;
     return '列車の位置情報を確認しています\n${place ?? '駅不明'}（$ageText）';
+  }
+
+  static NavigationTextToken _staleRailPositionToken(RailProgress progress) {
+    final ageSeconds = progress.vehicleAgeSeconds ?? 0;
+    final ageMinutes = (ageSeconds / 60).round().clamp(1, 999);
+    final place = progress.currentStatus == 'IN_TRANSIT_TO'
+        ? progress.nextStopName
+        : progress.currentStopName;
+    return NavigationTextToken(
+      NavigationTextKey.staleRailNotice,
+      {
+        'ageMinutes': ageMinutes,
+        'placeName': place ?? '',
+      },
+    );
   }
 }
