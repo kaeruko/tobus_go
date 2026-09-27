@@ -42,17 +42,26 @@ nagoya-api  APP_CITY=nagoya
 sendai-api  APP_CITY=sendai
 ```
 
-Tokyo / Sendaiのreleaseアプリは、Google Driveの共有 `api` フォルダにある
-都市別テキストファイルから起動時にAPI URLを取得する。各ファイルはHTTPSの
-ベースURLを空行なしの1行だけで保持する。
+Tokyoの新しいreleaseアプリは、Google Driveの共有 `api` フォルダにある
+`tobus_go_config.json` を起動時に1回取得し、API URLと最低対応アプリバージョンを
+同じレスポンスから解決する。旧releaseアプリが参照する `tobus_go_api.txt` は
+後方互換のため削除・JSON化しない。
 
-| city | Drive file | file ID |
-| --- | --- | --- |
-| Tokyo | `tobus_go_api.txt` | `11eVn1V2mO7x8wPF-Kg9ZExmA-fqTReQ4` |
-| Sendai | `sendaigo_api.txt` | `1Frhq_kZt6kEX_smdSdlcKsmTv4vLnjEf` |
+| city | Drive file | file ID | usage |
+| --- | --- | --- | --- |
+| Tokyo | `tobus_go_config.json` | `1pbE5qFpgDzVhYl8wA1qp4T_7jOsB2s68` | current runtime config |
+| Tokyo | `tobus_go_api.txt` | `11eVn1V2mO7x8wPF-Kg9ZExmA-fqTReQ4` | legacy clients only |
+| Sendai | `sendaigo_api.txt` | `1Frhq_kZt6kEX_smdSdlcKsmTv4vLnjEf` | current API endpoint |
 
-debug/profileでは開発用の`API_BASE`を明示すると上書きできる。releaseでは
-Tokyo / Sendaiとも`API_BASE`を埋め込まず、Driveの値を常に使用する。
+Tokyo runtime config schema v1 requires:
+`schema_version`, `api_base`, `latest_version`,
+`minimum_supported_version`, `update_message_ja`, `update_message_en`。
+`android_store_url` / `ios_store_url` は任意。AndroidはURL省略時に
+applicationIdからGoogle Play URLを構築する。iOSで強制更新時にアプリ内ボタンを
+出す場合は `ios_store_url` を設定する。
+
+debug/profileでは開発用の`API_BASE`を明示するとDrive取得と強制更新判定を
+スキップできる。releaseでは都市ごとに設定済みのDrive値を使用する。
 
 ## Firebase
 
