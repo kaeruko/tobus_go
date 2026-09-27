@@ -96,6 +96,79 @@ void main() {
     expect(find.text('横浜駅前 → 山下公園前'), findsOneWidget);
   });
 
+  testWidgets('English leading wait renders the bilingual origin', (
+    tester,
+  ) async {
+    final route = Candidate.fromJson({
+      'id': 'leading-wait-en',
+      'lines': ['上23'],
+      'lines_en': ['Ueno-Matsuzakaya'],
+      'rides': 1,
+      'walking_distance_meters': 634,
+      'walking_segment_count': 1,
+      'boards': 1,
+      'transfers': 0,
+      'total': 64,
+      'total_time': 64,
+      'origin_name': '押上',
+      'origin_name_en': 'Oshiage',
+      'destination_name': '上野',
+      'destination_name_en': 'Ueno',
+      'steps': [
+        {
+          'step_id': 'walk-origin',
+          'kind': 'walk',
+          'title': '徒歩',
+          'from_': '現在地',
+          'to': '押上駅前',
+          'minutes': 8,
+          'meters': 634.0,
+        },
+        {
+          'step_id': 'wait-origin',
+          'kind': 'wait',
+          'title': '待ち時間',
+          'from_': '押上駅前',
+          'to': '押上駅前',
+          'minutes': 2,
+          'meters': 0.0,
+          'departure_time': '20:45',
+          'arrival_time': '20:47',
+        },
+        {
+          'step_id': 'bus-1',
+          'kind': 'bus',
+          'title': '上23 上野松坂屋前行',
+          'title_en': '上23 · Ueno-Matsuzakaya',
+          'from_': '押上駅前',
+          'from_en': 'Oshiage Sta.',
+          'to': '上野松坂屋前',
+          'to_en': 'Ueno-Matsuzakaya',
+          'minutes': 54,
+          'meters': 0.0,
+          'departure_time': '20:47',
+          'arrival_time': '21:41',
+        },
+      ],
+    });
+
+    await tester.pumpWidget(
+      localizedApp(
+        ListView(
+          children: [
+            RouteStepTile(segment: route.steps.first),
+          ],
+        ),
+        locale: const Locale('en'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Wait'), findsOneWidget);
+    expect(find.text('Wait at Oshiage (押上)'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('normal fare summary disappears when it has no fare amounts', (
     tester,
   ) async {
