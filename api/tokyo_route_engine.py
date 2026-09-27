@@ -83,6 +83,48 @@ class TokyoRouteDependencies:
     now: Callable[[], datetime.datetime] = _tokyo_now
 
 
+def _require_official_english_candidate(candidate: dict[str, Any]) -> None:
+    ride_steps = [
+        step
+        for step in candidate.get("steps", [])
+        if step.get("kind") in ("bus", "rail")
+    ]
+    if not ride_steps:
+        return
+
+    lines = candidate.get("lines")
+    lines_en = candidate.get("lines_en")
+    if not isinstance(lines, list) or not isinstance(lines_en, list):
+        raise ValueError("Tokyo route candidate is missing lines/lines_en")
+    if len(lines_en) != len(lines):
+        raise ValueError(
+            "Tokyo route candidate has incomplete official English line labels: "
+            f"ja={lines!r}, en={lines_en!r}"
+        )
+
+    for step in ride_steps:
+        step_id = step.get("step_id") or "<unassigned>"
+        for key in ("title_en", "from_en", "to_en"):
+            value = step.get(key)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(
+                    "Tokyo ride step is missing official English transit text: "
+                    f"step_id={step_id}, field={key}"
+                )
+        stops = step.get("stops")
+        if not isinstance(stops, list) or not stops:
+            raise ValueError(
+                f"Tokyo ride step has no stops for English validation: {step_id}"
+            )
+        for index, stop in enumerate(stops):
+            value = stop.get("name_en") if isinstance(stop, dict) else None
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(
+                    "Tokyo route stop is missing official English name: "
+                    f"step_id={step_id}, stop_index={index}"
+                )
+
+
 class TokyoRouteEngine:
     """Adapter from the shared route contract to the existing ODPT engine."""
 
@@ -280,9 +322,11 @@ class TokyoRouteEngine:
         for candidate in results:
             if initial_walk_minutes > 0:
                 origin_name = g.nodes[origin_node]["name"]
+                origin_name_en = g.nodes[origin_node].get("name_en")
                 if candidate["steps"] and candidate["steps"][0]["kind"] == "walk":
                     first = candidate["steps"][0]
                     first["from_"] = "現在地"
+                    first["from_en"] = None
                     first["minutes"] += int(initial_walk_minutes)
                     first["meters"] += int(origin_distance)
                     first["edges"] = first.get("edges", 0) + 1
@@ -297,7 +341,9 @@ class TokyoRouteEngine:
                             "title": "徒歩",
                             "edges": 0,
                             "from_": "現在地",
+                            "from_en": None,
                             "to": origin_name,
+                            "to_en": origin_name_en,
                             "meters": int(origin_distance),
                             "minutes": int(initial_walk_minutes),
                         },
@@ -307,6 +353,8 @@ class TokyoRouteEngine:
                     candidate["walking_distance_meters"] += int(origin_distance)
                     candidate["walking_segment_count"] += 1
 
+            _require_official_english_candidate(candidate)
+            candidate["official_english_names"] = True
             candidate["origin_coords"] = [alat, alon]
             candidate["destination_coords"] = [blat, blon]
             candidate.pop("path", None)
@@ -326,8 +374,10 @@ class TokyoRouteEngine:
 
         fallback_distance_m = None
         fallback_node_name = None
+        fallback_node_name_en = None
         if destination_node in g:
             fallback_node_name = g.nodes[destination_node].get("name")
+            fallback_node_name_en = g.nodes[destination_node].get("name_en")
             fallback_lat = g.nodes[destination_node].get("lat")
             fallback_lon = g.nodes[destination_node].get("lon")
             if fallback_lat is not None and fallback_lon is not None:
@@ -346,6 +396,7 @@ class TokyoRouteEngine:
                 "destination_reachable": destination_reachable,
                 "destination_label": destination_label,
                 "fallback_node_name": fallback_node_name,
+                "fallback_node_name_en": fallback_node_name_en,
                 "fallback_distance_m": fallback_distance_m,
                 "walk_limit_m": MAX_WALK_SEG_M,
                 "realtime_applied": use_realtime,
