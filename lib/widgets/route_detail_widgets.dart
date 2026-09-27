@@ -205,6 +205,7 @@ class RouteSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final arrival = candidate.arrivalTime;
     final start = _startTime(arrival, candidate.totalTime);
 
@@ -246,10 +247,16 @@ class RouteSummary extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _stat('所要時間', '${candidate.totalTime}分'),
-              _stat('乗換', candidate.transfers.toString()),
-              _stat('乗車区間', candidate.rides.toString()),
-              _stat('徒歩', '${candidate.walkingDistanceMeters}m'),
+              _stat(
+                l10n.summaryDuration,
+                l10n.minutesValue(candidate.totalTime),
+              ),
+              _stat(l10n.summaryTransfers, candidate.transfers.toString()),
+              _stat(l10n.summaryRideSegments, candidate.rides.toString()),
+              _stat(
+                l10n.summaryWalk,
+                '${candidate.walkingDistanceMeters}m',
+              ),
             ],
           ),
         ),
@@ -284,19 +291,20 @@ class FareSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final quote = fare;
     if (quote == null) return const SizedBox.shrink();
 
     final lines = <String>[];
     if (quote.normalFareYen != null) {
-      lines.add('通常運賃 ${quote.normalFareYen}円');
+      lines.add(l10n.normalFareLine(quote.normalFareYen!));
     }
     if (quote.isAvailable && quote.payNowYen != null) {
-      lines.add('今回の支払 ${quote.payNowYen}円');
+      lines.add(l10n.payNowFareLine(quote.payNowYen!));
     }
     if (quote.settlementType == 'reimbursement' &&
         quote.effectiveFareYen != null) {
-      lines.add('支給後の実質 ${quote.effectiveFareYen}円');
+      lines.add(l10n.effectiveFareLine(quote.effectiveFareYen!));
     }
 
     final showSettlementLabel = quote.settlementType != 'normal';
