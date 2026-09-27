@@ -552,5 +552,212 @@
       }
     }
   },
-  "replanHelper": "Your plan hasn’t changed yet. Review the new route before choosing it."
+  "replanHelper": "Your plan hasn’t changed yet. Review the new route before choosing it.",
+  "navIdleStatus": "Waiting",
+  "navBusRideStatus": "🚌 Riding",
+  "navRailRideStatus": "🚇 Riding",
+  "navRideArrivalSummary": "{arrivalTime} {rideTitle} · Arrive at {destination}",
+  "@navRideArrivalSummary": {
+    "placeholders": {
+      "arrivalTime": {
+        "type": "String"
+      },
+      "rideTitle": {
+        "type": "String"
+      },
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "navPreDepartureMain": "Before departure",
+  "navPlannedDepartureSub": "Departs at {time}",
+  "@navPlannedDepartureSub": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "navPreStartStatus": "Not started",
+  "navStartsInSub": "Starts in {hours}h {minutes}m",
+  "@navStartsInSub": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navMovingStatus": "Moving",
+  "navMeetingDefaultSub": "Head to the meeting point",
+  "navMeetingStatus": "Meeting",
+  "navArrivedDefaultSub": "You’ve arrived",
+  "navArrivedStatus": "Arrived",
+  "navWaitingDefaultSub": "Wait until the scheduled time",
+  "navWaitingStatus": "Waiting",
+  "navWalkHeadingMain": "Head to {destination}",
+  "@navWalkHeadingMain": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "navWalkDistanceSub": "Walk {meters} m",
+  "@navWalkDistanceSub": {
+    "placeholders": {
+      "meters": {
+        "type": "double"
+      }
+    }
+  },
+  "navPositionCheckingMain": "Checking {rideTitle} position",
+  "@navPositionCheckingMain": {
+    "placeholders": {
+      "rideTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "navBusWaitingMain": "Waiting",
+  "navPositionCheckingSub": "Checking the current position",
+  "navBusPositionCheckingAtStopSub": "Checking the bus position at {stopName}",
+  "@navBusPositionCheckingAtStopSub": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "navWaitingToBoardStatus": "Waiting to board",
+  "navSearchingStatus": "Searching…",
+  "navApproachingBusMain": "{rideTitle} · {count} stops away",
+  "@navApproachingBusMain": {
+    "placeholders": {
+      "rideTitle": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "navApproachingRailMain": "{rideTitle} · {count} stations away",
+  "@navApproachingRailMain": {
+    "placeholders": {
+      "rideTitle": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "navNowAtSub": "Now: {placeName}",
+  "@navNowAtSub": {
+    "placeholders": {
+      "placeName": {
+        "type": "String"
+      }
+    }
+  },
+  "navArrivedMain": "Arrived",
+  "navGetOffNextMain": "Get off at the next stop",
+  "navStaleBusNotice": "Looking for the bus\n{movementText} ({ageMinutes} min ago)",
+  "@navStaleBusNotice": {
+    "placeholders": {
+      "movementText": {
+        "type": "String"
+      },
+      "ageMinutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navStopId": "Stop ID {stopId}",
+  "@navStopId": {
+    "placeholders": {
+      "stopId": {
+        "type": "String"
+      }
+    }
+  },
+  "navUnknownStop": "Unknown stop",
+  "navMovingToward": "Heading toward {place}",
+  "@navMovingToward": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "navStaleRailNotice": "Checking train position\n{place} ({ageMinutes} min ago)",
+  "@navStaleRailNotice": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      },
+      "ageMinutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navUnknownStation": "Unknown station",
+  "navTripEndedMain": "Finished",
+  "navTripEndedSub": "Thanks for traveling with us",
+  "navTripEndedStatus": "Trip finished",
+  "navTripCancelledMain": "Cancelled",
+  "navTripCancelledSub": "The group trip has ended",
+  "navTripCancelledStatus": "Cancelled",
+  "navDepartureCountdownMain": "Depart {leaveTime} · {minutes} min to go",
+  "@navDepartureCountdownMain": {
+    "placeholders": {
+      "leaveTime": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navBoardingSub": "{rideTime} {routeTitle} · Board",
+  "@navBoardingSub": {
+    "placeholders": {
+      "rideTime": {
+        "type": "String"
+      },
+      "routeTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "navBoardingPlannedSub": "{rideTime} {routeTitle} · Planned boarding",
+  "@navBoardingPlannedSub": {
+    "placeholders": {
+      "rideTime": {
+        "type": "String"
+      },
+      "routeTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "navWalkToRideCountdownMain": "Head to {destination} for {rideTime} · {minutes} min to go",
+  "@navWalkToRideCountdownMain": {
+    "placeholders": {
+      "rideTime": {
+        "type": "String"
+      },
+      "destination": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navRealtimeUnavailableNotice": "Checking Realtime position\nShowing the last confirmed position"
 }
