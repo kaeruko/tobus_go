@@ -154,8 +154,11 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
             {
                 "kind": "bus",
                 "title": "都01",
+                "title_en": "Route To01 · Shimbashi Sta.",
                 "from_": "東京駅丸の内北口",
+                "from_en": "Tokyo Station Marunouchi North Exit",
                 "to": "新橋駅前",
+                "to_en": "Shimbashi Sta.",
                 "departure_time": "10:05",
                 "arrival_time": "10:15",
                 "minutes": 10,
@@ -201,6 +204,10 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
         candidate = candidates[0]
         self.assertEqual(candidate["id"], "Fastest")
         self.assertEqual(candidate["lines"], ["都01"])
+        self.assertEqual(
+            candidate["lines_en"],
+            ["Route To01 · Shimbashi Sta."],
+        )
         self.assertEqual(candidate["total_time"], 15)
         self.assertEqual(candidate["arrival_time"], "10:15")
         self.assertEqual(candidate["transfers"], 0)
@@ -215,6 +222,7 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
             {
                 "id",
                 "lines",
+                "lines_en",
                 "total_time",
                 "arrival_time",
                 "steps",
