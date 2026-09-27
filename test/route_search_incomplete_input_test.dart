@@ -8,10 +8,12 @@ import 'package:toeigo/services/route_search_service.dart';
 class _RecordingRouteSearchService implements RouteSearchService {
   int callCount = 0;
   Completer<RouteSearchResult>? completer;
+  RouteSearchRequest? lastRequest;
 
   @override
   Future<RouteSearchResult> search(RouteSearchRequest request) {
     callCount++;
+    lastRequest = request;
     final pending = completer;
     if (pending != null) return pending.future;
     throw StateError('unexpected route search call');
@@ -42,6 +44,34 @@ void main() {
     expect(notifier.state.isLoading, isFalse);
     expect(notifier.state.errorMessage, isNull);
     expect(notifier.state.candidates, isEmpty);
+  });
+
+  test('resolved bilingual place names are carried into the route request', () async {
+    final service = _RecordingRouteSearchService();
+    service.completer = Completer<RouteSearchResult>();
+    final notifier = RouteSearchNotifier(service);
+
+    notifier.setFrom(
+      '35.7101,139.8107',
+      name: 'Oshiage',
+      nameJa: '押上',
+      nameEn: 'Oshiage',
+    );
+    notifier.setTo(
+      '35.7137,139.7773',
+      name: 'Ueno Station',
+      nameJa: '上野駅',
+      nameEn: 'Ueno Station',
+    );
+    final searchFuture = notifier.triggerSearch();
+
+    expect(service.lastRequest?.originName, '押上');
+    expect(service.lastRequest?.destinationName, '上野駅');
+    expect(service.lastRequest?.originNameEn, 'Oshiage');
+    expect(service.lastRequest?.destinationNameEn, 'Ueno Station');
+
+    service.completer!.complete(_emptyResult());
+    await searchFuture;
   });
 
   test('地点を編集すると以前の検索エラーを消して入力待ちへ戻る', () async {
