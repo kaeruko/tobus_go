@@ -16,6 +16,7 @@ class BusProgress {
   final BusProgressPhase phase;
   final String? observedStopId;
   final String? observedStopName;
+  final String? observedStopNameEn;
   final String? currentStatus;
   final double? vehicleAgeSeconds;
 
@@ -29,6 +30,7 @@ class BusProgress {
     required this.phase,
     this.observedStopId,
     this.observedStopName,
+    this.observedStopNameEn,
     this.currentStatus,
     this.vehicleAgeSeconds,
   });
@@ -40,6 +42,7 @@ class BusProgress {
     List<String> tripStopIds = const [],
     String? observedStopId,
     String? observedStopName,
+    String? observedStopNameEn,
     String? currentStatus,
     double? vehicleAgeSeconds,
   }) {
@@ -65,6 +68,7 @@ class BusProgress {
         phase: BusProgressPhase.approaching,
         observedStopId: observedStopId,
         observedStopName: observedStopName,
+        observedStopNameEn: observedStopNameEn,
         currentStatus: currentStatus,
         vehicleAgeSeconds: vehicleAgeSeconds,
       );
@@ -93,6 +97,7 @@ class BusProgress {
             : BusProgressPhase.riding,
         observedStopId: observedStopId,
         observedStopName: observedStopName,
+        observedStopNameEn: observedStopNameEn,
         currentStatus: currentStatus,
         vehicleAgeSeconds: vehicleAgeSeconds,
       );
