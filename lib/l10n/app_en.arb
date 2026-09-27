@@ -5,6 +5,25 @@
   "appNameSendai": "Sendai GO",
   "appNameYokohama": "Yokohama GO",
   "bootstrapFailed": "Couldn’t start the app",
+  "updateRequiredTitle": "Update required",
+  "updateNow": "Update now",
+  "updateStoreUnavailable": "Open the App Store or Google Play and update to the latest version.",
+  "currentVersionLabel": "Current version: {version}",
+  "@currentVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "minimumVersionLabel": "Required version: {version} or later",
+  "@minimumVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
   "retry": "Try again",
   "tabSearch": "Search",
   "tabDiscover": "Explore",
