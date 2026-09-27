@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_localizations.dart';
+import '../l10n/transit_name_localizations.dart';
 import '../models/route_models.dart';
 import '../utils/stop_map_utils.dart';
 
@@ -27,6 +28,7 @@ class SegmentStopsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locale = Localizations.localeOf(context);
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         automaticallyImplyLeading: false,
@@ -34,9 +36,7 @@ class SegmentStopsPage extends StatelessWidget {
           key: const ValueKey('segment-stops-back'),
           onPressed: () => _popToPreviousAppPage(context),
         ),
-        middle: Text(
-          segment.title.isEmpty ? segment.mainTitle : segment.title,
-        ),
+        middle: Text(localizedRideTitle(locale, segment)),
       ),
       child: SafeArea(
         child: ListView.builder(
@@ -72,6 +72,8 @@ class _StopRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locale = Localizations.localeOf(context);
+    final stopName = localizedStopName(locale, stop);
     final hasMap = hasUsableTransitCoordinate(stop.lat, stop.lon);
     final nameStyle = TextStyle(
       fontSize: 16,
@@ -119,7 +121,7 @@ class _StopRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(stop.name, style: nameStyle),
+                Text(stopName, style: nameStyle),
                 if (stop.isOrigin || stop.isDestination) ...[
                   const SizedBox(height: 2),
                   Container(
@@ -217,6 +219,8 @@ class _StopMapSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locale = Localizations.localeOf(context);
+    final stopName = localizedStopName(locale, stop);
     final target = LatLng(stop.lat, stop.lon);
 
     return CupertinoPopupSurface(
@@ -233,7 +237,7 @@ class _StopMapSheet extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        stop.name,
+                        stopName,
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -263,7 +267,7 @@ class _StopMapSheet extends StatelessWidget {
                         Marker(
                           markerId: MarkerId(stop.stopId ?? stop.name),
                           position: target,
-                          infoWindow: InfoWindow(title: stop.name),
+                          infoWindow: InfoWindow(title: stopName),
                         ),
                       },
                       myLocationEnabled: false,
