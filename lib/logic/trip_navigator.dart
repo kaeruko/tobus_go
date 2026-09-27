@@ -408,12 +408,26 @@ class NavigationState {
       if (busProgress != null || railProgress != null) {
         throw StateError('徒歩stepに乗車進捗が渡されました: ${step.stepId}');
       }
+      final destination = step.to;
+      if (destination == null || destination.isEmpty) {
+        throw StateError('徒歩stepに目的地がありません: ${step.stepId}');
+      }
       return NavigationState(
-        mainText: '${step.to}にむかう',
+        mainText: '$destinationにむかう',
         subText: '${step.meters}m 徒歩',
         color: const Color(0xFF81D4FA),
         statusLabel: statusLabel ?? '移動中',
-        nextStopName: step.to,
+        mainTextToken: NavigationTextToken(
+          NavigationTextKey.walkHeadingMain,
+          {'destination': destination},
+        ),
+        subTextToken: NavigationTextToken(
+          NavigationTextKey.walkDistanceSub,
+          {'meters': step.meters},
+        ),
+        statusLabelToken: statusLabelToken ??
+            const NavigationTextToken(NavigationTextKey.movingStatus),
+        nextStopName: destination,
         currentStepId: step.stepId,
         step: step,
       );
@@ -430,6 +444,12 @@ class NavigationState {
           subText: _rideArrivalSummary(step, routeTitle),
           color: const Color(0xFF81D4FA),
           statusLabel: statusLabel ?? _rideStatusLabel(step),
+          mainTextToken: NavigationTextToken(
+            NavigationTextKey.positionCheckingMain,
+            {'rideTitle': routeTitle},
+          ),
+          subTextToken: _rideArrivalToken(step, routeTitle),
+          statusLabelToken: statusLabelToken ?? _rideStatusToken(step),
           currentStepId: step.stepId,
           nextStopName: step.toName,
           step: step,
@@ -444,7 +464,9 @@ class NavigationState {
         progress: normalized,
         railProgress: railProgress,
         statusLabel: statusLabel,
+        statusLabelToken: statusLabelToken,
         staleNoticeText: _staleRailPositionText(railProgress),
+        staleNoticeToken: _staleRailPositionToken(railProgress),
       );
     }
 
@@ -466,6 +488,20 @@ class NavigationState {
             : '$boardingStopName（バスの位置を確認中）',
         color: const Color(0xFFE1F5FE),
         statusLabel: '乗車待ち',
+        mainTextToken: const NavigationTextToken(
+          NavigationTextKey.busWaitingMain,
+        ),
+        subTextToken: boardingStopName == null || boardingStopName.isEmpty
+            ? const NavigationTextToken(
+                NavigationTextKey.positionCheckingSub,
+              )
+            : NavigationTextToken(
+                NavigationTextKey.busPositionCheckingAtStopSub,
+                {'stopName': boardingStopName},
+              ),
+        statusLabelToken: const NavigationTextToken(
+          NavigationTextKey.waitingToBoardStatus,
+        ),
         currentStepId: step.stepId,
         isMoving: false,
         step: step,
@@ -481,7 +517,9 @@ class NavigationState {
       progress: normalized,
       busProgress: busProgress,
       statusLabel: statusLabel,
+      statusLabelToken: statusLabelToken,
       staleNoticeText: _staleBusPositionText(busProgress),
+      staleNoticeToken: _staleBusPositionToken(busProgress),
     );
   }
 
@@ -491,7 +529,9 @@ class NavigationState {
     BusProgress? busProgress,
     RailProgress? railProgress,
     String? statusLabel,
+    NavigationTextToken? statusLabelToken,
     required String staleNoticeText,
+    required NavigationTextToken staleNoticeToken,
   }) {
     if (busProgress != null && railProgress != null) {
       throw StateError('共通乗車表示へbus/rail両方の進捗が渡されました');
@@ -515,6 +555,10 @@ class NavigationState {
         ? navigation.withNotice(
             statusLabel: '検索中…',
             noticeText: staleNoticeText,
+            statusLabelToken: const NavigationTextToken(
+              NavigationTextKey.searchingStatus,
+            ),
+            noticeTextToken: staleNoticeToken,
           )
         : navigation;
 
