@@ -157,6 +157,44 @@ class NavigationState {
     }
   }
 
+  static NavigationTextToken _rideStatusToken(StepSeg step) {
+    switch (step.kind) {
+      case 'bus':
+        return const NavigationTextToken(NavigationTextKey.busRideStatus);
+      case 'rail':
+        return const NavigationTextToken(NavigationTextKey.railRideStatus);
+      default:
+        throw StateError(
+          '乗車中ステータスの未対応step kindです: ${step.kind}',
+        );
+    }
+  }
+
+  static NavigationTextToken _rideArrivalToken(
+    StepSeg step,
+    String rideTitle,
+  ) {
+    final arrivalTime = step.arrivalTime?.trim();
+    final destination = step.toName?.trim();
+    final normalizedRideTitle = rideTitle.trim();
+    if (arrivalTime == null ||
+        arrivalTime.isEmpty ||
+        destination == null ||
+        destination.isEmpty ||
+        normalizedRideTitle.isEmpty) {
+      _rideArrivalSummary(step, rideTitle);
+      throw StateError('unreachable after ride arrival validation');
+    }
+    return NavigationTextToken(
+      NavigationTextKey.rideArrivalSummary,
+      {
+        'arrivalTime': arrivalTime,
+        'rideTitle': normalizedRideTitle,
+        'destination': destination,
+      },
+    );
+  }
+
   static String _shortRideTitle(StepSeg step) {
     final title = step.title.trim();
     if (title.isEmpty) {
@@ -218,19 +256,33 @@ class NavigationState {
     subText: '',
     color: Colors.grey,
     statusLabel: '待機中',
+    statusLabelToken: NavigationTextToken(NavigationTextKey.idleStatus),
     isMoving: false,
   );
 
   static NavigationState waitingForDeparture({
     required DateTime plannedAt,
-  }) => NavigationState(
-    mainText: '出発前',
-    subText:
-        '${plannedAt.hour}:${plannedAt.minute.toString().padLeft(2, '0')} 出発予定',
-    color: Colors.white,
-    statusLabel: '開始前',
-    isMoving: false,
-  );
+  }) {
+    final time =
+        '${plannedAt.hour}:${plannedAt.minute.toString().padLeft(2, '0')}';
+    return NavigationState(
+      mainText: '出発前',
+      subText: '$time 出発予定',
+      color: Colors.white,
+      statusLabel: '開始前',
+      mainTextToken: const NavigationTextToken(
+        NavigationTextKey.preDepartureMain,
+      ),
+      subTextToken: NavigationTextToken(
+        NavigationTextKey.plannedDepartureSub,
+        {'time': time},
+      ),
+      statusLabelToken: const NavigationTextToken(
+        NavigationTextKey.preStartStatus,
+      ),
+      isMoving: false,
+    );
+  }
 
   static NavigationState waitingLong({
     required ScheduleEntry entry,
@@ -242,6 +294,16 @@ class NavigationState {
       subText: '開始まで $remainder',
       color: Colors.white,
       statusLabel: '開始前',
+      subTextToken: NavigationTextToken(
+        NavigationTextKey.startsInSub,
+        {
+          'hours': diff.inHours,
+          'minutes': diff.inMinutes % 60,
+        },
+      ),
+      statusLabelToken: const NavigationTextToken(
+        NavigationTextKey.preStartStatus,
+      ),
       currentStepId: entry.routeStepId,
       isMoving: false,
     );
