@@ -368,5 +368,95 @@
   "errorTitle": "Error",
   "settlementDiscount": "Discount",
   "settlementFreePass": "Free pass",
-  "settlementReimbursement": "Reimbursed later"
+  "settlementReimbursement": "Reimbursed later",
+  "dayWeekday": "Weekday",
+  "daySaturday": "Saturday",
+  "dayHoliday": "Holiday",
+  "nextBus": "Next bus ({dayType})",
+  "@nextBus": {
+    "placeholders": {
+      "dayType": {
+        "type": "String"
+      }
+    }
+  },
+  "boarding": "Board",
+  "alighting": "Get off",
+  "googleMapsOpenFailed": "Couldn’t open Google Maps",
+  "openInGoogleMaps": "Open in Google Maps",
+  "refreshVehiclePosition": "Refresh bus position",
+  "endTrip": "End trip",
+  "noTrackableBus": "This route has no bus trip that can be tracked",
+  "vehiclePositionUnsupported": "Live bus position isn’t supported in {appName}",
+  "@vehiclePositionUnsupported": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "realtimeNotLoaded": "Live position hasn’t been loaded yet",
+  "busCurrentPosition": "Live bus position",
+  "vehicleLabel": "Vehicle {vehicleId}",
+  "@vehicleLabel": {
+    "placeholders": {
+      "vehicleId": {
+        "type": "String"
+      }
+    }
+  },
+  "latLonLabel": "Lat {lat} / Lon {lon}",
+  "@latLonLabel": {
+    "placeholders": {
+      "lat": {
+        "type": "String"
+      },
+      "lon": {
+        "type": "String"
+      }
+    }
+  },
+  "fetchedAt": "Updated {time}",
+  "@fetchedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "refreshEvery30Seconds": "Updates every 30 seconds",
+  "realtimeNotAvailable": "Live position for this bus isn’t available yet",
+  "realtimeFetchError": "Couldn’t get live position: {error}",
+  "@realtimeFetchError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "headingToFirstStop": "Heading to the first stop",
+  "headingToNamedFirstStop": "Heading to {stopName} (first stop)",
+  "@headingToNamedFirstStop": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "stoppedAt": "Stopped at {stopName}",
+  "@stoppedAt": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "headingToStop": "Heading to {stopName}",
+  "@headingToStop": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  }
 }
