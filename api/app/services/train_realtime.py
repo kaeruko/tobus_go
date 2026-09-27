@@ -218,26 +218,21 @@ def _read_optional_csv(
         return list(csv.DictReader(text))
 
 
-def _english_translation_map(
+def _english_translation_maps(
     rows: list[dict[str, str]],
-) -> dict[tuple[str, str, str], str]:
-    translations: dict[tuple[str, str, str], str] = {}
-    for row in rows:
-        if row.get("language") != "en":
-            continue
-        table_name = row.get("table_name")
-        field_name = row.get("field_name")
-        field_value = row.get("field_value")
-        translation = row.get("translation")
-        if not table_name or not field_name or not field_value or not translation:
-            raise TrainRealtimeError(
-                "train_static_gtfs_invalid",
-                "English translations.txt row is missing "
-                "table_name/field_name/field_value/translation",
-                503,
-            )
-        key = (table_name, field_name, field_value)
-        previous = translations.get(key)
+) -> tuple[
+    dict[tuple[str, str, str], str],
+    dict[tuple[str, str, str], str],
+]:
+    by_record_id: dict[tuple[str, str, str], str] = {}
+    by_field_value: dict[tuple[str, str, str], str] = {}
+
+    def add(
+        target: dict[tuple[str, str, str], str],
+        key: tuple[str, str, str],
+        translation: str,
+    ) -> None:
+        previous = target.get(key)
         if previous is not None and previous != translation:
             raise TrainRealtimeError(
                 "train_static_gtfs_invalid",
@@ -245,8 +240,42 @@ def _english_translation_map(
                 f"{previous!r} != {translation!r}",
                 503,
             )
-        translations[key] = translation
-    return translations
+        target[key] = translation
+
+    for row in rows:
+        if row.get("language") != "en":
+            continue
+        table_name = (row.get("table_name") or "").strip()
+        field_name = (row.get("field_name") or "").strip()
+        record_id = (row.get("record_id") or "").strip()
+        field_value = (row.get("field_value") or "").strip()
+        translation = (row.get("translation") or "").strip()
+        if not table_name or not field_name or not translation:
+            raise TrainRealtimeError(
+                "train_static_gtfs_invalid",
+                "English translations.txt row is missing "
+                "table_name/field_name/translation",
+                503,
+            )
+        if not record_id and not field_value:
+            raise TrainRealtimeError(
+                "train_static_gtfs_invalid",
+                "English translations.txt row has neither record_id nor field_value",
+                503,
+            )
+        if record_id:
+            add(
+                by_record_id,
+                (table_name, field_name, record_id),
+                translation,
+            )
+        if field_value:
+            add(
+                by_field_value,
+                (table_name, field_name, field_value),
+                translation,
+            )
+    return by_record_id, by_field_value
 
 
 def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
@@ -269,7 +298,9 @@ def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
             503,
         ) from error
 
-    english_translations = _english_translation_map(translation_rows)
+    translations_by_record_id, translations_by_field_value = (
+        _english_translation_maps(translation_rows)
+    )
 
     stop_names: dict[str, tuple[str, str | None]] = {}
     for row in stop_rows:
@@ -281,8 +312,27 @@ def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
                 "stops.txt contains a row without stop_id or stop_name",
                 503,
             )
-        stop_name_en = english_translations.get(
+        stop_name_en_by_id = translations_by_record_id.get(
+            ("stops", "stop_name", stop_id)
+        )
+        stop_name_en_by_value = translations_by_field_value.get(
             ("stops", "stop_name", stop_name)
+        )
+        if (
+            stop_name_en_by_id is not None
+            and stop_name_en_by_value is not None
+            and stop_name_en_by_id != stop_name_en_by_value
+        ):
+            raise TrainRealtimeError(
+                "train_static_gtfs_invalid",
+                "English stop translation disagrees between record_id "
+                f"and field_value: stop_id={stop_id!r}",
+                503,
+            )
+        stop_name_en = (
+            stop_name_en_by_id
+            if stop_name_en_by_id is not None
+            else stop_name_en_by_value
         )
         existing = stop_names.get(stop_id)
         if existing is not None && existing != (stop_name, stop_name_en):
@@ -310,10 +360,29 @@ def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
                 503,
             )
         headsign = row.get("trip_headsign") or None
-        headsign_en = (
-            english_translations.get(("trips", "trip_headsign", headsign))
+        headsign_en_by_id = translations_by_record_id.get(
+            ("trips", "trip_headsign", trip_id)
+        )
+        headsign_en_by_value = (
+            translations_by_field_value.get(("trips", "trip_headsign", headsign))
             if headsign
             else None
+        )
+        if (
+            headsign_en_by_id is not None
+            and headsign_en_by_value is not None
+            and headsign_en_by_id != headsign_en_by_value
+        ):
+            raise TrainRealtimeError(
+                "train_static_gtfs_invalid",
+                "English trip_headsign translation disagrees between "
+                f"record_id and field_value: trip_id={trip_id!r}",
+                503,
+            )
+        headsign_en = (
+            headsign_en_by_id
+            if headsign_en_by_id is not None
+            else headsign_en_by_value
         )
         trip_meta[trip_id] = (route_id, headsign, headsign_en)
 
