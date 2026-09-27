@@ -54,22 +54,18 @@ android {
         create("tokyo") {
             dimension = "city"
             applicationId = "jp.cloxs.toeigo"
-            resValue("string", "app_name", "都営でGO")
         }
         create("nagoya") {
             dimension = "city"
             applicationId = "jp.cloxs.nagoyago"
-            resValue("string", "app_name", "名古屋でGO")
         }
         create("sendai") {
             dimension = "city"
             applicationId = "jp.cloxs.go.sendai"
-            resValue("string", "app_name", "仙台でGO")
         }
         create("yokohama") {
             dimension = "city"
             applicationId = "jp.cloxs.go.yokohama"
-            resValue("string", "app_name", "横浜でGO")
         }
     }
 
