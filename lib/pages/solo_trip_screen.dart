@@ -6,6 +6,7 @@ import '../logic/route_replan_presentation.dart';
 import '../logic/solo_trip_lifecycle.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/city_localizations.dart';
+import '../l10n/trip_display_localizations.dart';
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
 import '../providers/city_profile_provider.dart';
@@ -184,6 +185,8 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     final l10n = AppLocalizations.of(context);
     final cityProfile = ref.watch(cityProfileProvider);
     final appName = localizedCityAppName(l10n, cityProfile.city);
+    final locale = Localizations.localeOf(context);
+    final tripTitle = localizedSoloTripTitle(locale, trip);
     final delayResolution = ref.watch(resolvedDelayImpactProvider);
     final delayImpact = delayResolution.impact;
     final presentation = RouteReplanPresentation.fromDelayImpact(delayImpact);
@@ -218,14 +221,14 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
 
     return ActiveTripNavigationView(
       navState: uiState.navState,
-      tripTitle: trip.displayTitle,
+      tripTitle: tripTitle,
       appBar: AppBar(
         systemOverlayStyle: SystemUiOverlayStyle.dark,
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: ActiveTripAppBarTitle(
           appName: appName,
-          tripTitle: trip.displayTitle,
+          tripTitle: tripTitle,
         ),
         actions: [
           if (!completed) const ActiveTripRealtimeActions(),
@@ -256,6 +259,11 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
           return l10n.stepCounter(completedCount, totalCount);
         },
         appearance: TripScheduleWindowAppearance.listTiles,
+        entryLabelBuilder: (entry) => localizedSoloScheduleEntryLabel(
+          locale,
+          trip: trip,
+          entry: entry,
+        ),
         onTapEntry: (entry) {
           if (entry.itemKind != ScheduleEntryKind.ride) return;
           openRideStops(context: context, trip: trip, entry: entry);
