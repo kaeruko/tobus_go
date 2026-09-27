@@ -21,7 +21,7 @@ import '../widgets/delay_recovery_card.dart';
 import '../widgets/route_replan_preview_button.dart';
 import '../widgets/trip_schedule_window_card.dart';
 import 'ride_stops_navigation.dart';
-import 'solo_trip_detail_page.dart';
+import 'solo_trip_route_page.dart';
 
 class SoloTripScreen extends StatelessWidget {
   final String tripId;
@@ -276,7 +276,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
             OutlinedButton.icon(
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => SoloTripDetailPage(trip: trip),
+                  builder: (_) => SoloTripRoutePage(tripId: trip.id),
                 ),
               ),
               icon: const Icon(Icons.route),

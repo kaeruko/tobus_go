@@ -260,6 +260,43 @@ void main() {
     expect(splitArrival.label, contains('浅草橋に着く'));
   });
 
+  test('replan geometry keeps prefix then selected route exactly once', () {
+    final selected = Candidate.fromJson({
+      ...selectedCandidate().toJson(),
+      'points': [
+        [35.697, 139.785],
+        [35.694123, 139.784123],
+        [35.680, 139.770],
+      ],
+    });
+    final patch = RouteReplanPatcher.build(
+      trip: trip(),
+      request: movingRequest(),
+      selectedCandidate: selected,
+    );
+    final leg = patch.legs.single;
+    expect(leg.candidate.points, [
+      const LatLng(35.710, 139.840),
+      const LatLng(35.708, 139.804),
+      ...selected.points,
+    ]);
+    expect(leg.routeGeometryIsApproximate, isTrue);
+    final restored = Leg.fromJson(leg.toFirestore());
+    expect(restored.candidate.points, leg.candidate.points);
+    expect(restored.routeGeometryIsApproximate, isTrue);
+  });
+
+  test('missing suffix geometry does not draw only the completed prefix', () {
+    final patch = RouteReplanPatcher.build(
+      trip: trip(),
+      request: movingRequest(),
+      selectedCandidate: selectedCandidate(),
+    );
+    expect(patch.legs.single.candidate.points, isEmpty);
+    final restored = Leg.fromJson(patch.legs.single.toFirestore());
+    expect(restored.candidate.points, isEmpty);
+  });
+
   test('manual entries are preserved without shifting', () {
     final manualAt = DateTime(2026, 8, 15, 10, 22);
     final manual = ScheduleEntry(

@@ -1,4 +1,5 @@
 {
+  "routeGeometryApproximate": "経路線は概略です。一部または全体を停留所などの位置で結んでいます。",
   "@@locale": "ja",
   "appNameTokyo": "都営でGO",
   "appNameNagoya": "名古屋でGO",
@@ -963,3 +964,4 @@
   "farePolicyTokyoMentalDisabilityPass": "精神障害者都営交通乗車証",
   "farePolicyNagoyaWelfarePass": "福祉特別乗車券（無料乗車区間）"
 }
+
