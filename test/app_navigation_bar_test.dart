@@ -1,0 +1,49 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:toeigo/core/city_profile.dart';
+import 'package:toeigo/widgets/app_navigation_bar.dart';
+
+void main() {
+  testWidgets('Tokyo brand header uses the Tokyo logo asset', (tester) async {
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: CupertinoPageScaffold(
+          navigationBar: buildAppNavigationBar(
+            middle: cityBrandNavigationTitle(
+              city: AppCity.tokyo,
+              fallbackTitle: '都営でGO',
+            ),
+          ),
+          child: const SizedBox.shrink(),
+        ),
+      ),
+    );
+
+    final image = tester.widget<Image>(find.byType(Image));
+    final provider = image.image;
+    expect(provider, isA<AssetImage>());
+    expect((provider as AssetImage).assetName, 'assets/icon/tokyo.png');
+  });
+
+  testWidgets('cities without a logo asset keep their localized title', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: CupertinoPageScaffold(
+          navigationBar: buildAppNavigationBar(
+            middle: cityBrandNavigationTitle(
+              city: AppCity.nagoya,
+              fallbackTitle: '名古屋でGO',
+            ),
+          ),
+          child: const SizedBox.shrink(),
+        ),
+      ),
+    );
+
+    expect(find.text('名古屋でGO'), findsOneWidget);
+    expect(find.byType(Image), findsNothing);
+  });
+}

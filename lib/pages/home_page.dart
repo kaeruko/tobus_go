@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../models/route_models.dart';
 import '../widgets/bus_loading_indicator.dart';
+import '../widgets/app_navigation_bar.dart';
 import '../widgets/place_field.dart';
 import '../widgets/route_card.dart';
 import 'map_picker_page.dart';
@@ -233,7 +234,12 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
         FocusManager.instance.primaryFocus?.unfocus();
       },
       child: CupertinoPageScaffold(
-        navigationBar: CupertinoNavigationBar(middle: Text(widget.title)),
+        navigationBar: buildAppNavigationBar(
+          middle: cityBrandNavigationTitle(
+            city: ref.watch(cityProfileProvider).city,
+            fallbackTitle: widget.title,
+          ),
+        ),
         child: SafeArea(
           child: CustomScrollView(
             slivers: [
