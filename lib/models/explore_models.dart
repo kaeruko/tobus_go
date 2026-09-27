@@ -72,13 +72,19 @@ class NearestStop {
         'NearestStop.name_en must be a non-empty string',
       );
     }
+    final distM = json['dist_m'];
+    if (distM is! num || !distM.isFinite || distM < 0) {
+      throw const FormatException(
+        'NearestStop.dist_m must be a finite non-negative number',
+      );
+    }
     return NearestStop(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       nameEn: nameEn,
       lat: (json['lat'] as num?)?.toDouble() ?? 0.0,
       lon: (json['lon'] as num?)?.toDouble() ?? 0.0,
-      distM: (json['dist_m'] as num?)?.toDouble() ?? 0.0,
+      distM: distM.toDouble(),
     );
   }
 }
