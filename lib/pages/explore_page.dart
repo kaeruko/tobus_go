@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../constants.dart';
+import '../l10n/app_localizations.dart';
 import '../models/explore_models.dart';
 import '../providers/explore_provider.dart';
 import '../providers/location_provider.dart';
@@ -16,10 +17,11 @@ class ExplorePage extends ConsumerWidget {
     final exploreState = ref.watch(exploreProvider);
     final editorialState = ref.watch(exploreEditorialContentProvider);
     final locationAsync = ref.watch(locationStreamProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('一本で行ける場所を探す'),
+        title: Text(l10n.exploreTitle),
       ),
       body: Column(
         children: [
@@ -29,7 +31,7 @@ class ExplorePage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('現在地から乗り換えなしで行ける\n都営交通の駅・バス停を探します。'),
+                Text(l10n.exploreDescription),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: locationAsync.valueOrNull == null
@@ -44,7 +46,7 @@ class ExplorePage extends ConsumerWidget {
                           ref.read(exploreProvider.notifier).search(pos);
                         },
                   icon: const Icon(Icons.explore),
-                  label: const Text('周辺を探索する'),
+                  label: Text(l10n.exploreNearbyButton),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
@@ -58,46 +60,44 @@ class ExplorePage extends ConsumerWidget {
               data: (editorial) => exploreState.when(
                 data: (data) {
                   if (data == null) {
-                    return const Center(
-                      child: Text('ボタンを押して検索を開始してください'),
+                    return Center(
+                      child: Text(l10n.exploreStartPrompt),
                     );
                   }
                   if (!data.found) {
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
-                        child: Text(
-                          data.message ?? '近くにバス停が見つかりませんでした',
-                        ),
+                        child: Text(l10n.exploreNoNearbyStops),
                       ),
                     );
                   }
                   return _buildResultList(context, data, editorial);
                 },
                 error: (err, stack) => _errorView(
-                  '検索に失敗しました: $err',
+                  l10n.exploreSearchFailed('$err'),
                 ),
-                loading: () => const Center(
+                loading: () => Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('検索中...'),
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text(l10n.exploreSearching),
                     ],
                   ),
                 ),
               ),
               error: (err, stack) => _errorView(
-                'みつける情報の読み込みに失敗しました: $err',
+                l10n.exploreContentLoadFailed('$err'),
               ),
-              loading: () => const Center(
+              loading: () => Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('みつける情報を読み込み中...'),
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text(l10n.exploreContentLoading),
                   ],
                 ),
               ),
@@ -218,6 +218,7 @@ class ExplorePage extends ConsumerWidget {
     ReachableResponse data,
     ExploreEditorialContent editorial,
   ) {
+    final l10n = AppLocalizations.of(context);
     return ListView(
       children: [
         if (data.nearestStop != null)
@@ -226,25 +227,28 @@ class ExplorePage extends ConsumerWidget {
             child: ListTile(
               leading: const Icon(Icons.my_location, color: Colors.blue),
               title: Text(
-                '最寄り: ${data.nearestStop!.name}',
+                l10n.exploreNearestStop(data.nearestStop!.name),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               subtitle: Text(
-                '現在地から約${data.nearestStop!.distM.toStringAsFixed(0)}m',
+                l10n.exploreDistanceFromCurrent(
+                  data.nearestStop!.distM.round(),
+                ),
               ),
             ),
           ),
         Padding(
           padding: const EdgeInsets.all(16.0),
           child: Text(
-            '${data.reachableStops.length}箇所の駅・バス停へ一本で行けます',
+            l10n.exploreReachableCount(data.reachableStops.length),
             style: Theme.of(context).textTheme.titleSmall,
           ),
         ),
         ...data.reachableStops.map((stop) {
           final spot = editorial.byStopId[stop.id];
-          final routeText =
-              '系統: ${stop.viaRoute.replaceAll("odpt.Busroute:Toei.", "")}';
+          final routeText = l10n.exploreRouteLabel(
+            stop.viaRoute.replaceAll('odpt.Busroute:Toei.', ''),
+          );
 
           return ListTile(
             leading: _stopThumb(stop, spot),
