@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/models/group_models.dart';
 import 'package:toeigo/widgets/trip_schedule_window_card.dart';
 
@@ -17,6 +18,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: TripScheduleWindowCard(
             title: '今回の経路',
@@ -57,6 +61,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: TripScheduleWindowCard(
             title: '今回の経路',
@@ -95,6 +102,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: TripScheduleWindowCard(
             title: '今日の予定',
@@ -120,6 +130,9 @@ void main() {
   testWidgets('boxedRowsは予定が空ならemptyLabelを表示する', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: TripScheduleWindowCard(
             title: '今日の予定',
