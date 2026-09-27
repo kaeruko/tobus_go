@@ -782,7 +782,7 @@ class _ActiveTripCard extends StatelessWidget {
                       if (!trip.isSolo) ...[
                         const SizedBox(width: 8),
                         Text(
-                          "${trip.participants.length}人が参加中",
+                          l10n.participantsActive(trip.participants.length),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
