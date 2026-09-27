@@ -21,7 +21,13 @@
   "arrivalSearch": "到着(検索)",
   "search": "検索",
   "errorWithMessage": "エラー: {message}",
-  "@errorWithMessage": {"placeholders": {"message": {"type": "String"}}},
+  "@errorWithMessage": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
   "routeNotFound": "経路が見つかりませんでした",
   "selectDepartureAndArrival": "出発と到着を選択",
   "transportSubwayAndBus": "都営地下鉄・バス",
@@ -30,21 +36,83 @@
   "preferShortTime": "時間短い優先",
   "nearestStop": "最寄り停留所",
   "walkAboutMinutes": "徒歩約{minutes}分",
-  "@walkAboutMinutes": {"placeholders": {"minutes": {"type": "int"}}},
+  "@walkAboutMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "walkAboutDistance": "徒歩{distance}程度",
-  "@walkAboutDistance": {"placeholders": {"distance": {"type": "String"}}},
+  "@walkAboutDistance": {
+    "placeholders": {
+      "distance": {
+        "type": "String"
+      }
+    }
+  },
   "walkWithinRange": "徒歩圏内",
   "walkLimitNotice": "（徒歩上限{meters}m内で探索）",
-  "@walkLimitNotice": {"placeholders": {"meters": {"type": "int"}}},
+  "@walkLimitNotice": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
   "fallbackTitle": "目的地までの都営経路が見つかりません",
   "fallbackBody": "都営だけでは{destination}の近くまで行けません。最寄りは「{stop}」で、ここから{walkText}。",
-  "@fallbackBody": {"placeholders": {"destination": {"type": "String"}, "stop": {"type": "String"}, "walkText": {"type": "String"}}},
+  "@fallbackBody": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      },
+      "stop": {
+        "type": "String"
+      },
+      "walkText": {
+        "type": "String"
+      }
+    }
+  },
   "fallbackQuestion": "それでもこの経路を使いますか？{limitText}",
-  "@fallbackQuestion": {"placeholders": {"limitText": {"type": "String"}}},
+  "@fallbackQuestion": {
+    "placeholders": {
+      "limitText": {
+        "type": "String"
+      }
+    }
+  },
   "activeSoloTrip": "現在進行中の移動",
   "activeGroupTrip": "現在進行中のグループ",
   "statusPlanning": "計画中",
   "statusTraveling": "移動中",
   "participantsActive": "{count}人が参加中",
-  "@participantsActive": {"placeholders": {"count": {"type": "int"}}}
+  "@participantsActive": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pleaseWait": "しばらくお待ち下さい",
+  "placeSearchPlaceholder": "場所名・住所で検索",
+  "placeSuggestionsFailed": "場所候補を取得できませんでした: {error}",
+  "@placeSuggestionsFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "placeMissingId": "場所候補に place_id がありません",
+  "placeCoordinatesFailed": "場所の座標を取得できませんでした: {error}",
+  "@placeCoordinatesFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "unnamedPlace": "地点"
 }
