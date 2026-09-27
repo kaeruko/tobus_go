@@ -306,6 +306,60 @@ class TripCoordinator {
     return entries.sublist(start, end + 1);
   }
 
+  static NavigationState _goalNavigationState({
+    required Trip trip,
+    required ScheduleEntry entry,
+  }) {
+    final legIndex = entry.legIndex;
+    if (legIndex < 0 || legIndex >= trip.legs.length) {
+      throw StateError(
+        'ゴール予定のlegIndexが不正です: '
+        'entryId=${entry.id}, legIndex=$legIndex, legs=${trip.legs.length}',
+      );
+    }
+    final candidate = trip.legs[legIndex].candidate;
+    final destination = candidate.destinationName?.trim().isNotEmpty == true
+        ? candidate.destinationName!.trim()
+        : candidate.steps.isNotEmpty
+            ? candidate.steps.last.toName?.trim()
+            : null;
+    if (destination == null || destination.isEmpty) {
+      throw StateError(
+        'ゴール予定に目的地名がありません: '
+        'entryId=${entry.id}, candidateId=${candidate.id}',
+      );
+    }
+    final destinationEn =
+        candidate.destinationNameEn?.trim().isNotEmpty == true
+            ? candidate.destinationNameEn!.trim()
+            : candidate.steps.isNotEmpty
+                ? candidate.steps.last.toNameEn?.trim()
+                : null;
+
+    return NavigationState(
+      mainText: '$destination 到着',
+      subText: entry.description.isNotEmpty ? entry.description : 'お疲れ様でした',
+      color: const Color(0xFFFFCC80),
+      statusLabel: '到着',
+      mainTextToken: NavigationTextToken(
+        NavigationTextKey.goalArrivedMain,
+        {
+          'destination': destination,
+          if (destinationEn != null && destinationEn.isNotEmpty)
+            'destinationEn': destinationEn,
+        },
+      ),
+      subTextToken: const NavigationTextToken(
+        NavigationTextKey.tripEndedSub,
+      ),
+      statusLabelToken: const NavigationTextToken(
+        NavigationTextKey.arrivedStatus,
+      ),
+      currentStepId: entry.routeStepId,
+      isMoving: false,
+    );
+  }
+
   static NavigationState buildMemberNavigationState({
     required Trip trip,
     required RouteState? routeState,
@@ -367,6 +421,10 @@ class TripCoordinator {
     );
 
     final step = _stepForEntry(routeState, resolved);
+
+    if (resolved.itemKind == ScheduleEntryKind.goal) {
+      return _goalNavigationState(trip: trip, entry: resolved);
+    }
 
     if (resolved.routeRole == 'wait_start') {
       final nextRides =
