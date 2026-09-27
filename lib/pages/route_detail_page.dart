@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_clock.dart';
 import '../core/city_profile.dart';
+import '../l10n/app_localizations.dart';
 import '../models/route_models.dart';
 import '../models/fare_models.dart';
 import '../providers/city_profile_provider.dart';
@@ -190,19 +191,20 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   }
 
   void _showDeleteDialog() {
+    final l10n = AppLocalizations.of(context);
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('ブックマークを削除'),
-        content: const Text('この経路をMy Routeから削除しますか?'),
+        title: Text(l10n.deleteBookmarkTitle),
+        content: Text(l10n.deleteBookmarkMessage),
         actions: [
           CupertinoDialogAction(
-            child: const Text('キャンセル'),
+            child: Text(l10n.cancel),
             onPressed: () => Navigator.pop(ctx),
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
-            child: const Text('削除'),
+            child: Text(l10n.delete),
             onPressed: () {
               Navigator.pop(ctx);
               ref
@@ -216,14 +218,15 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   }
 
   void _showSavedDialog() {
+    final l10n = AppLocalizations.of(context);
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('保存しました'),
-        content: const Text('My Routeに追加しました。'),
+        title: Text(l10n.savedTitle),
+        content: Text(l10n.savedToMyRoute),
         actions: [
           CupertinoDialogAction(
-            child: const Text('OK'),
+            child: Text(l10n.ok),
             onPressed: () => Navigator.pop(ctx),
           ),
         ],
@@ -242,19 +245,20 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   }
 
   String _routeLabel(Candidate? candidate) {
-    if (candidate == null) return '未選択';
+    if (candidate == null) return AppLocalizations.of(context).notSelected;
     return candidate.lines.join(' → ');
   }
 
   void _showDuplicateRouteAlert(String message) {
+    final l10n = AppLocalizations.of(context);
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('別の経路を選択してください'),
+        title: Text(l10n.chooseDifferentRoute),
         content: Text(message),
         actions: [
           CupertinoDialogAction(
-            child: const Text('OK'),
+            child: Text(l10n.ok),
             onPressed: () => Navigator.pop(ctx),
           ),
         ],
