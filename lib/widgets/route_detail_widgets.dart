@@ -66,34 +66,12 @@ class RouteEndpointSummary extends StatelessWidget {
     }
     if (candidate.steps.isEmpty) return l10n.originFallback;
 
-    final first = candidate.steps.first;
-    if (first.isRide) return localizedRideFromName(locale, first);
-    final japanese = first.fromName?.trim();
-    if (japanese == null || japanese.isEmpty) return l10n.originFallback;
-
-    switch (first.kind) {
-      case 'wait':
-        return localizedTransitName(
+    return localizedStepEndpointName(
           locale,
-          japanese: japanese,
-          english: first.fromNameEn,
-          field: 'from_en',
-          identity: 'stepId=${first.stepId}',
-        );
-      case 'walk':
-        return localizedOptionalPlaceName(
-          locale,
-          japanese: japanese,
-          english: first.fromNameEn,
-          field: 'walk_from_en',
-          identity: 'stepId=${first.stepId}',
-        );
-      default:
-        throw StateError(
-          'Unsupported route-summary origin step kind: '
-          'stepId=${first.stepId}, kind=${first.kind}',
-        );
-    }
+          candidate.steps.first,
+          origin: true,
+        ) ??
+        l10n.originFallback;
   }
 
   String _destination(AppLocalizations l10n, Locale locale) {
@@ -125,34 +103,12 @@ class RouteEndpointSummary extends StatelessWidget {
     }
     if (candidate.steps.isEmpty) return l10n.destinationFallback;
 
-    final last = candidate.steps.last;
-    if (last.isRide) return localizedRideToName(locale, last);
-    final japanese = last.toName?.trim();
-    if (japanese == null || japanese.isEmpty) return l10n.destinationFallback;
-
-    switch (last.kind) {
-      case 'wait':
-        return localizedTransitName(
+    return localizedStepEndpointName(
           locale,
-          japanese: japanese,
-          english: last.toNameEn,
-          field: 'to_en',
-          identity: 'stepId=${last.stepId}',
-        );
-      case 'walk':
-        return localizedOptionalPlaceName(
-          locale,
-          japanese: japanese,
-          english: last.toNameEn,
-          field: 'walk_to_en',
-          identity: 'stepId=${last.stepId}',
-        );
-      default:
-        throw StateError(
-          'Unsupported route-summary destination step kind: '
-          'stepId=${last.stepId}, kind=${last.kind}',
-        );
-    }
+          candidate.steps.last,
+          origin: false,
+        ) ??
+        l10n.destinationFallback;
   }
 
   @override
