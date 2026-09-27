@@ -245,7 +245,10 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
             ? trip.schedule.length
             : uiState.completedCount,
         totalCount: trip.schedule.length,
-        activeLabel: uiState.activeLabel,
+        activeLabel: _localizedScheduleActiveLabel(
+          uiState.activeLabel,
+          l10n,
+        ),
         counterLabelBuilder: (completedCount, totalCount) {
           if (totalCount == null) {
             throw StateError('Soloの予定ウィンドウにtotalCountがありません');
@@ -296,6 +299,22 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         ),
       ],
     );
+  }
+
+  String _localizedScheduleActiveLabel(
+    String label,
+    AppLocalizations l10n,
+  ) {
+    switch (label) {
+      case 'いま':
+        return l10n.scheduleNow;
+      case 'つぎ':
+        return l10n.scheduleNext;
+      case 'そのうち':
+        return l10n.scheduleLater;
+      default:
+        throw StateError('Unsupported solo schedule active label: $label');
+    }
   }
 
   void _logDiagnosticState({
