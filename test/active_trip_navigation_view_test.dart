@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/logic/trip_navigator.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/widgets/active_trip_navigation_view.dart';
@@ -8,6 +9,9 @@ void main() {
   testWidgets('移動中ヘッダーはアプリ名を最上段に表示する', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           appBar: AppBar(
             title: const ActiveTripAppBarTitle(
@@ -44,6 +48,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: ActiveTripNavigationView(
           navState: navState,
           tripTitle: 'テスト移動',
@@ -80,6 +87,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: ActiveTripNavigationView(
           navState: navState,
           tripTitle: '   ',
