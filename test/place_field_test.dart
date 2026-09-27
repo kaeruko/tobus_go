@@ -186,7 +186,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(value, '35.681236,139.767125');
-    expect(description, '東京駅, 東京都');
+    expect(description, '東京駅');
   });
 
   testWidgets('missing detail coordinates are shown as an error, not 0,0', (tester) async {
@@ -283,9 +283,14 @@ void main() {
     expect(find.textContaining('場所候補を取得できませんでした'), findsOneWidget);
     expect(find.textContaining('HTTP 503'), findsOneWidget);
   });
-  testWidgets('English locale requests English place names', (tester) async {
+  testWidgets('English locale resolves both Japanese and English place names', (
+    tester,
+  ) async {
     var autocompleteLang = '';
-    var detailsLang = '';
+    final detailsLangs = <String>{};
+    var resolvedJa = '';
+    var resolvedEn = '';
+    var resolvedDisplay = '';
 
     ApiClient.httpClient = MockClient((request) async {
       if (request.url.path.endsWith('/warmup')) {
@@ -299,9 +304,11 @@ void main() {
         );
       }
       if (request.url.path.endsWith('/details')) {
-        detailsLang = request.url.queryParameters['lang'] ?? '';
+        final lang = request.url.queryParameters['lang'] ?? '';
+        detailsLangs.add(lang);
+        final name = lang == 'ja' ? '東京駅' : 'Tokyo Station';
         return _jsonResponse(
-          '{"result":{"name":"Tokyo Station","geometry":{"location":{"lat":35.681236,"lng":139.767125}}}}',
+          '{"result":{"name":"$name","geometry":{"location":{"lat":35.681236,"lng":139.767125}}}}',
           200,
         );
       }
@@ -319,6 +326,11 @@ void main() {
             value: '',
             displayValue: '',
             onChanged: (_, _) {},
+            onResolved: (value, display, nameJa, nameEn) {
+              resolvedDisplay = display;
+              resolvedJa = nameJa;
+              resolvedEn = nameEn;
+            },
           ),
         ),
       ),
@@ -334,7 +346,10 @@ void main() {
     await tester.tap(find.text('Tokyo Station, Tokyo'));
     await tester.pumpAndSettle();
 
-    expect(detailsLang, 'en');
+    expect(detailsLangs, {'ja', 'en'});
+    expect(resolvedDisplay, 'Tokyo Station');
+    expect(resolvedJa, '東京駅');
+    expect(resolvedEn, 'Tokyo Station');
   });
 
 }
