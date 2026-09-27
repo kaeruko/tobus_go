@@ -36,6 +36,19 @@ class _PlaceFieldState extends State<PlaceField> {
   String? _errorMessage;
   int _inputGeneration = 0;
 
+  String _placeLanguageCode() {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    switch (languageCode) {
+      case 'ja':
+      case 'en':
+        return languageCode;
+      default:
+        throw StateError(
+          'Unsupported place-search language: $languageCode',
+        );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -114,7 +127,13 @@ class _PlaceFieldState extends State<PlaceField> {
       // If the user starts typing before startup warmup finishes, wait for the
       // same request instead of racing autocomplete against another cold start.
       await ApiClient.warmUp();
-      final json = await ApiClient.get('/autocomplete', params: {'q': query});
+      final json = await ApiClient.get(
+        '/autocomplete',
+        params: {
+          'q': query,
+          'lang': _placeLanguageCode(),
+        },
+      );
       final raw = json['predictions'];
       if (raw is! List) {
         throw StateError('Autocomplete response is missing predictions list');
@@ -165,7 +184,10 @@ class _PlaceFieldState extends State<PlaceField> {
     try {
       final json = await ApiClient.get(
         '/details',
-        params: {'place_id': placeId},
+        params: {
+          'place_id': placeId,
+          'lang': _placeLanguageCode(),
+        },
       );
       final result = json['result'];
       if (result is! Map) {
