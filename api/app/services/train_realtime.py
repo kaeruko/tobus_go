@@ -50,6 +50,7 @@ class StaticTrainStop:
     stop_name: str
     arrival_time: str | None
     departure_time: str | None
+    stop_name_en: str | None = None
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,7 @@ class StaticTrainTrip:
     route_id: str
     headsign: str | None
     stops: tuple[StaticTrainStop, ...]
+    headsign_en: str | None = None
 
 
 @dataclass(frozen=True)
@@ -194,6 +196,59 @@ def _read_csv(archive: zipfile.ZipFile, filename: str) -> list[dict[str, str]]:
         return list(csv.DictReader(text))
 
 
+def _read_optional_csv(
+    archive: zipfile.ZipFile,
+    filename: str,
+) -> list[dict[str, str]]:
+    matches = [
+        name
+        for name in archive.namelist()
+        if name == filename or name.endswith(f"/{filename}")
+    ]
+    if not matches:
+        return []
+    if len(matches) != 1:
+        raise TrainRealtimeError(
+            "train_static_gtfs_invalid",
+            f"Static train GTFS must contain at most one {filename}: {matches}",
+            503,
+        )
+    with archive.open(matches[0]) as raw:
+        text = io.TextIOWrapper(raw, encoding="utf-8-sig", newline="")
+        return list(csv.DictReader(text))
+
+
+def _english_translation_map(
+    rows: list[dict[str, str]],
+) -> dict[tuple[str, str, str], str]:
+    translations: dict[tuple[str, str, str], str] = {}
+    for row in rows:
+        if row.get("language") != "en":
+            continue
+        table_name = row.get("table_name")
+        field_name = row.get("field_name")
+        field_value = row.get("field_value")
+        translation = row.get("translation")
+        if not table_name or not field_name or not field_value or not translation:
+            raise TrainRealtimeError(
+                "train_static_gtfs_invalid",
+                "English translations.txt row is missing "
+                "table_name/field_name/field_value/translation",
+                503,
+            )
+        key = (table_name, field_name, field_value)
+        previous = translations.get(key)
+        if previous is not None and previous != translation:
+            raise TrainRealtimeError(
+                "train_static_gtfs_invalid",
+                f"Conflicting English translation for {key}: "
+                f"{previous!r} != {translation!r}",
+                503,
+            )
+        translations[key] = translation
+    return translations
+
+
 def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
     if not content:
         raise TrainRealtimeError(
@@ -206,6 +261,7 @@ def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
             trip_rows = _read_csv(archive, "trips.txt")
             stop_rows = _read_csv(archive, "stops.txt")
             stop_time_rows = _read_csv(archive, "stop_times.txt")
+            translation_rows = _read_optional_csv(archive, "translations.txt")
     except zipfile.BadZipFile as error:
         raise TrainRealtimeError(
             "train_static_gtfs_invalid",
@@ -213,7 +269,9 @@ def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
             503,
         ) from error
 
-    stop_names: dict[str, str] = {}
+    english_translations = _english_translation_map(translation_rows)
+
+    stop_names: dict[str, tuple[str, str | None]] = {}
     for row in stop_rows:
         stop_id = row.get("stop_id")
         stop_name = row.get("stop_name")
@@ -223,15 +281,19 @@ def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
                 "stops.txt contains a row without stop_id or stop_name",
                 503,
             )
-        if stop_id in stop_names and stop_names[stop_id] != stop_name:
+        stop_name_en = english_translations.get(
+            ("stops", "stop_name", stop_name)
+        )
+        existing = stop_names.get(stop_id)
+        if existing is not None && existing != (stop_name, stop_name_en):
             raise TrainRealtimeError(
                 "train_static_gtfs_invalid",
                 f"Duplicate train stop_id has different names: {stop_id}",
                 503,
             )
-        stop_names[stop_id] = stop_name
+        stop_names[stop_id] = (stop_name, stop_name_en)
 
-    trip_meta: dict[str, tuple[str, str | None]] = {}
+    trip_meta: dict[str, tuple[str, str | None, str | None]] = {}
     for row in trip_rows:
         trip_id = row.get("trip_id")
         route_id = row.get("route_id")
@@ -247,7 +309,13 @@ def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
                 f"Duplicate train trip_id: {trip_id}",
                 503,
             )
-        trip_meta[trip_id] = (route_id, row.get("trip_headsign") or None)
+        headsign = row.get("trip_headsign") or None
+        headsign_en = (
+            english_translations.get(("trips", "trip_headsign", headsign))
+            if headsign
+            else None
+        )
+        trip_meta[trip_id] = (route_id, headsign, headsign_en)
 
     stops_by_trip: dict[str, list[StaticTrainStop]] = {}
     seen_sequences: set[tuple[str, int]] = set()
@@ -293,14 +361,15 @@ def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
             StaticTrainStop(
                 sequence=sequence,
                 stop_id=stop_id,
-                stop_name=stop_names[stop_id],
+                stop_name=stop_names[stop_id][0],
                 arrival_time=row.get("arrival_time") or None,
                 departure_time=row.get("departure_time") or None,
+                stop_name_en=stop_names[stop_id][1],
             )
         )
 
     trips: dict[str, StaticTrainTrip] = {}
-    for trip_id, (route_id, headsign) in trip_meta.items():
+    for trip_id, (route_id, headsign, headsign_en) in trip_meta.items():
         stops = stops_by_trip.get(trip_id)
         if not stops:
             raise TrainRealtimeError(
@@ -314,6 +383,7 @@ def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
             route_id=route_id,
             headsign=headsign,
             stops=tuple(stops),
+            headsign_en=headsign_en,
         )
 
     return StaticTrainGtfs(trips=trips)
@@ -566,11 +636,13 @@ def build_location_response(
         "trip_id": trip.trip_id,
         "route_id": trip.route_id,
         "trip_headsign": trip.headsign,
+        "trip_headsign_en": trip.headsign_en,
         "vehicle_id": vehicle.vehicle_id,
         "current_stop_sequence": vehicle.current_stop_sequence,
         "current_status": vehicle.current_status,
         "current_stop_id": current_stop.stop_id,
         "current_stop_name": current_stop.stop_name,
+        "current_stop_name_en": current_stop.stop_name_en,
         "boarding_sequence": resolved.boarding_sequence,
         "destination_sequence": resolved.destination_sequence,
         "vehicle_lat": vehicle.latitude,
@@ -584,6 +656,7 @@ def build_location_response(
                 "sequence": stop.sequence,
                 "stop_id": stop.stop_id,
                 "stop_name": stop.stop_name,
+                "stop_name_en": stop.stop_name_en,
                 "arrival_time": stop.arrival_time,
                 "departure_time": stop.departure_time,
             }
