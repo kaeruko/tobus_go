@@ -8,6 +8,7 @@ class RailProgress {
   final String stepId;
   final String tripId;
   final String tripHeadsign;
+  final String? tripHeadsignEn;
   final RailProgressPhase phase;
   final int boardingSequence;
   final int destinationSequence;
@@ -15,7 +16,9 @@ class RailProgress {
   final int remainingStops;
   final int? stopsUntilBoarding;
   final String? currentStopName;
+  final String? currentStopNameEn;
   final String? nextStopName;
+  final String? nextStopNameEn;
   final String currentStatus;
   final double? vehicleAgeSeconds;
 
@@ -23,6 +26,7 @@ class RailProgress {
     required this.stepId,
     required this.tripId,
     required this.tripHeadsign,
+    this.tripHeadsignEn,
     required this.phase,
     required this.boardingSequence,
     required this.destinationSequence,
@@ -30,7 +34,9 @@ class RailProgress {
     required this.remainingStops,
     this.stopsUntilBoarding,
     this.currentStopName,
+    this.currentStopNameEn,
     this.nextStopName,
+    this.nextStopNameEn,
     required this.currentStatus,
     this.vehicleAgeSeconds,
   });
@@ -124,6 +130,7 @@ class RailProgress {
         stepId: stepId,
         tripId: location.tripId,
         tripHeadsign: location.tripHeadsign,
+        tripHeadsignEn: location.tripHeadsignEn,
         phase: RailProgressPhase.approaching,
         boardingSequence: location.boardingSequence,
         destinationSequence: location.destinationSequence,
@@ -133,7 +140,11 @@ class RailProgress {
         currentStopName: lastReachedIndex >= 0
             ? tripStops[lastReachedIndex].stopName
             : null,
+        currentStopNameEn: lastReachedIndex >= 0
+            ? tripStops[lastReachedIndex].stopNameEn
+            : null,
         nextStopName: tripStops[boardingIndex].stopName,
+        nextStopNameEn: tripStops[boardingIndex].stopNameEn,
         currentStatus: location.currentStatus,
         vehicleAgeSeconds: location.vehicleAgeSeconds,
       );
@@ -144,12 +155,14 @@ class RailProgress {
         stepId: stepId,
         tripId: location.tripId,
         tripHeadsign: location.tripHeadsign,
+        tripHeadsignEn: location.tripHeadsignEn,
         phase: RailProgressPhase.arrived,
         boardingSequence: location.boardingSequence,
         destinationSequence: location.destinationSequence,
         lastReachedSequence: lastReachedSequence,
         remainingStops: 0,
         currentStopName: tripStops[destinationIndex].stopName,
+        currentStopNameEn: tripStops[destinationIndex].stopNameEn,
         currentStatus: location.currentStatus,
         vehicleAgeSeconds: location.vehicleAgeSeconds,
       );
@@ -176,7 +189,9 @@ class RailProgress {
       lastReachedSequence: lastReachedSequence,
       remainingStops: destinationIndex - lastReachedIndex,
       currentStopName: tripStops[lastReachedIndex].stopName,
+      currentStopNameEn: tripStops[lastReachedIndex].stopNameEn,
       nextStopName: tripStops[nextStopIndex].stopName,
+      nextStopNameEn: tripStops[nextStopIndex].stopNameEn,
       currentStatus: location.currentStatus,
       vehicleAgeSeconds: location.vehicleAgeSeconds,
     );
