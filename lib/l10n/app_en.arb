@@ -759,5 +759,8 @@
       }
     }
   },
-  "navRealtimeUnavailableNotice": "Checking Realtime position\nShowing the last confirmed position"
+  "navRealtimeUnavailableNotice": "Checking Realtime position\nShowing the last confirmed position",
+  "scheduleNow": "Now",
+  "scheduleNext": "Next",
+  "scheduleLater": "Later"
 }
