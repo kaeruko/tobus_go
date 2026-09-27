@@ -196,5 +196,51 @@ class RouteOnlyPlacesTest(unittest.TestCase):
         )
 
 
+    def test_autocomplete_passes_english_language_to_google(self) -> None:
+        fake = _FakeAsyncClient(
+            _response(
+                200,
+                {
+                    "suggestions": [
+                        {
+                            "placePrediction": {
+                                "placeId": "yokohama-station",
+                                "text": {"text": "Yokohama Station"},
+                            }
+                        }
+                    ]
+                },
+            )
+        )
+        with (
+            patch.dict(os.environ, {"GOOGLE_MAPS_API_KEY": "test-key"}, clear=False),
+            patch("app.route_only_places.httpx.AsyncClient", return_value=fake),
+            _client() as client,
+        ):
+            response = client.get(
+                "/autocomplete",
+                params={"q": "Yokohama Station", "lang": "en"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["predictions"][0]["description"],
+            "Yokohama Station",
+        )
+        self.assertEqual(fake.calls[0][2]["json"]["languageCode"], "en")
+
+    def test_unsupported_language_is_rejected(self) -> None:
+        with _client() as client:
+            response = client.get(
+                "/autocomplete",
+                params={"q": "Yokohama", "lang": "fr"},
+            )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json()["detail"]["code"],
+            "unsupported_language",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
