@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from app.services.route_step_ids import assign_candidate_step_ids
 from route_engine import (
     RouteCandidate,
+    RouteContractError,
     RouteSearchRequest,
     RouteSearchResult,
 )
@@ -42,7 +43,7 @@ def _should_use_realtime(
     now: datetime.datetime,
 ) -> bool:
     if now.tzinfo is None:
-        raise ValueError("Tokyo route realtime policy requires a timezone-aware now")
+        raise RouteContractError("Tokyo route realtime policy requires a timezone-aware now")
 
     now_tokyo = now.astimezone(_TOKYO_TIMEZONE)
     service_date = (
@@ -95,9 +96,9 @@ def _require_official_english_candidate(candidate: dict[str, Any]) -> None:
     lines = candidate.get("lines")
     lines_en = candidate.get("lines_en")
     if not isinstance(lines, list) or not isinstance(lines_en, list):
-        raise ValueError("Tokyo route candidate is missing lines/lines_en")
+        raise RouteContractError("Tokyo route candidate is missing lines/lines_en")
     if len(lines_en) != len(lines):
-        raise ValueError(
+        raise RouteContractError(
             "Tokyo route candidate has incomplete official English line labels: "
             f"ja={lines!r}, en={lines_en!r}"
         )
@@ -107,19 +108,19 @@ def _require_official_english_candidate(candidate: dict[str, Any]) -> None:
         for key in ("title_en", "from_en", "to_en"):
             value = step.get(key)
             if not isinstance(value, str) or not value.strip():
-                raise ValueError(
+                raise RouteContractError(
                     "Tokyo ride step is missing official English transit text: "
                     f"step_id={step_id}, field={key}"
                 )
         stops = step.get("stops")
         if not isinstance(stops, list) or not stops:
-            raise ValueError(
+            raise RouteContractError(
                 f"Tokyo ride step has no stops for English validation: {step_id}"
             )
         for index, stop in enumerate(stops):
             value = stop.get("name_en") if isinstance(stop, dict) else None
             if not isinstance(value, str) or not value.strip():
-                raise ValueError(
+                raise RouteContractError(
                     "Tokyo route stop is missing official English name: "
                     f"step_id={step_id}, stop_index={index}"
                 )
