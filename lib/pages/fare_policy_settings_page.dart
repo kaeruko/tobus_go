@@ -138,7 +138,6 @@ class _FarePolicySettingsPageState
             else
               ...profile.farePolicies.map(
                 (option) => _PolicyCard(
-                  option: option,
                   displayName: _policyDisplayName(l10n, option),
                   selected: option.id == _selectedPolicyId,
                   settlementLabel: _settlementLabel(
@@ -170,7 +169,6 @@ class _FarePolicySettingsPageState
 }
 
 class _PolicyCard extends StatelessWidget {
-  final FarePolicyOption option;
   final String displayName;
   final bool selected;
   final String settlementLabel;
@@ -178,7 +176,6 @@ class _PolicyCard extends StatelessWidget {
   final VoidCallback? onSource;
 
   const _PolicyCard({
-    required this.option,
     required this.displayName,
     required this.selected,
     required this.settlementLabel,
