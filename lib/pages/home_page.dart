@@ -211,6 +211,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final rs = ref.watch(routeSearchProvider);
     final features = ref.watch(
       cityProfileProvider.select((profile) => profile.capabilities.features),
