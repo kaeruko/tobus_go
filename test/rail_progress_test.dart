@@ -133,6 +133,31 @@ void main() {
     expect(progress.tripHeadsignEn, 'Aoto');
     expect(progress.currentStopNameEn, 'Higashi-nihombashi');
     expect(progress.nextStopNameEn, 'Asakusabashi');
+
+    final navigation = NavigationState.navigating(
+      step: StepSeg(
+        stepId: 'rail-1',
+        kind: 'rail',
+        title: '浅草線',
+        titleEn: 'Asakusa Line',
+        fromName: '東日本橋',
+        fromNameEn: 'Higashi-nihombashi',
+        toName: '蔵前',
+        toNameEn: 'Kuramae',
+        arrivalTime: '16:24',
+      ),
+      busProgress: null,
+      railProgress: progress,
+    );
+
+    expect(
+      navigation.mainTextToken?.args['rideTitleEn'],
+      'Asakusa Line · Aoto',
+    );
+    expect(
+      navigation.mainTextToken?.args['placeNameEn'],
+      'Higashi-nihombashi',
+    );
   });
 
   test('STOPPED_AT reduces remaining stations immediately', () {
