@@ -53,10 +53,9 @@ class RouteEndpointSummary extends StatelessWidget {
 
   const RouteEndpointSummary({super.key, required this.candidate, this.meta});
 
-  String _origin(AppLocalizations l10n) {
-    final value = StringUtils.extractSimpleName(routeOriginLabel(candidate));
-    return value == '出発地' ? l10n.originFallback : value;
-  }
+  String _origin(AppLocalizations l10n) => StringUtils.extractSimpleName(
+    routeOriginLabel(candidate, fallback: l10n.originFallback),
+  );
 
   String _destination(AppLocalizations l10n) {
     if (meta?.destinationReachable == false) {
@@ -65,8 +64,9 @@ class RouteEndpointSummary extends StatelessWidget {
       final suffix = minutes != null ? l10n.destinationWalkSuffix(minutes) : '';
       return stop + suffix;
     }
-    final value = StringUtils.extractSimpleName(routeDestinationLabel(candidate));
-    return value == '目的地' ? l10n.destinationFallback : value;
+    return StringUtils.extractSimpleName(
+      routeDestinationLabel(candidate, fallback: l10n.destinationFallback),
+    );
   }
 
   @override
@@ -505,23 +505,26 @@ class _RouteStepIcon extends StatelessWidget {
   }
 }
 
-String routeOriginLabel(Candidate candidate) {
+String routeOriginLabel(Candidate candidate, {String fallback = '出発地'}) {
   if (!_isPlaceholder(candidate.originName)) return candidate.originName!;
   if (candidate.steps.isNotEmpty &&
       !_isPlaceholder(candidate.steps.first.from)) {
     return candidate.steps.first.from!;
   }
-  return '出発地';
+  return fallback;
 }
 
-String routeDestinationLabel(Candidate candidate) {
+String routeDestinationLabel(
+  Candidate candidate, {
+  String fallback = '目的地',
+}) {
   if (!_isPlaceholder(candidate.destinationName)) {
     return candidate.destinationName!;
   }
   if (candidate.steps.isNotEmpty && !_isPlaceholder(candidate.steps.last.to)) {
     return candidate.steps.last.to!;
   }
-  return '目的地';
+  return fallback;
 }
 
 bool _isPlaceholder(String? value) {
