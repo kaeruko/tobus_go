@@ -32,14 +32,15 @@ CMSでは停留所名を検索して、通る系統（例: 上23）を選びま�
 `spots.csv` の形式は次です。
 
 ```csv
-stop_name,route_id,comment,image,caption
-押上駅前,odpt.Busroute:Toei.Ue23,スカイツリーが近い,oshiage_01.jpg,駅前から見たスカイツリー
-押上駅前,odpt.Busroute:Toei.Ue23,,oshiage_02.jpg,夕方
+stop_name,route_id,comment,comment_en,image,caption,caption_en
+押上駅前,odpt.Busroute:Toei.Ue23,スカイツリーが近い,Tokyo Skytree is nearby,oshiage_01.jpg,駅前から見たスカイツリー,Tokyo Skytree from the bus stop
+押上駅前,odpt.Busroute:Toei.Ue23,,,oshiage_02.jpg,夕方,Evening view
 ```
 
 - 1画像につきCSV 1行です。
 - 同じ `stop_name + route_id` に複数画像を付ける場合は行を増やします。
-- `comment` は同じ `stop_name + route_id` で1種類だけにしてください。2行目以降は空欄でも構いません。
+- `comment` / `comment_en` は同じ `stop_name + route_id` で各1種類だけにしてください。2行目以降は空欄でも構いません。
+- `comment_en` / `caption_en` は任意です。空欄の場合、英語UIでは日本語へ自動フォールバックせず、その編集文・キャプションを表示しません。
 - 写真は `images/` に置きます。
 - 対応画像形式は `.jpg` / `.jpeg` / `.png` / `.webp` です。
 - 公開時に `stop_name + route_id` をODPTマスタへ完全一致させ、該当するBusstopPole IDすべてへ展開します。
