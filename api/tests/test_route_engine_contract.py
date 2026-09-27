@@ -137,6 +137,7 @@ class RouteEngineContractTest(unittest.TestCase):
         candidate = {
             "id": "Fastest",
             "lines": ["1"],
+            "lines_en": ["Route 1 · Destination"],
             "boards": 1,
             "transfers": 0,
             "rides": 1,
@@ -148,9 +149,16 @@ class RouteEngineContractTest(unittest.TestCase):
                 {
                     "kind": "bus",
                     "title": "1",
+                    "title_en": "Route 1 · Destination",
                     "from_": "Origin",
+                    "from_en": "Origin",
                     "to": "Destination",
+                    "to_en": "Destination",
                     "minutes": 20,
+                    "stops": [
+                        {"name": "Origin", "name_en": "Origin"},
+                        {"name": "Destination", "name_en": "Destination"},
+                    ],
                 }
             ],
             "points": [[35.0, 139.0], [35.1, 139.1]],
