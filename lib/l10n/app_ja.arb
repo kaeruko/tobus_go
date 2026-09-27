@@ -368,5 +368,95 @@
   "errorTitle": "エラー",
   "settlementDiscount": "割引",
   "settlementFreePass": "無料乗車証",
-  "settlementReimbursement": "後日支給"
+  "settlementReimbursement": "後日支給",
+  "dayWeekday": "平日",
+  "daySaturday": "土曜",
+  "dayHoliday": "休日",
+  "nextBus": "次のバス ({dayType})",
+  "@nextBus": {
+    "placeholders": {
+      "dayType": {
+        "type": "String"
+      }
+    }
+  },
+  "boarding": "乗車",
+  "alighting": "降車",
+  "googleMapsOpenFailed": "Google Mapsを開けませんでした",
+  "openInGoogleMaps": "Google Mapsで開く",
+  "refreshVehiclePosition": "現在位置を更新",
+  "endTrip": "移動を終了",
+  "noTrackableBus": "この経路には追跡できるバス便がありません",
+  "vehiclePositionUnsupported": "{appName}ではバス現在位置は未対応です",
+  "@vehiclePositionUnsupported": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "realtimeNotLoaded": "リアルタイム位置を取得していません",
+  "busCurrentPosition": "バス現在位置",
+  "vehicleLabel": "車両 {vehicleId}",
+  "@vehicleLabel": {
+    "placeholders": {
+      "vehicleId": {
+        "type": "String"
+      }
+    }
+  },
+  "latLonLabel": "緯度 {lat} / 経度 {lon}",
+  "@latLonLabel": {
+    "placeholders": {
+      "lat": {
+        "type": "String"
+      },
+      "lon": {
+        "type": "String"
+      }
+    }
+  },
+  "fetchedAt": "取得時刻 {time}",
+  "@fetchedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "refreshEvery30Seconds": "30秒ごとに更新します",
+  "realtimeNotAvailable": "この便のリアルタイム位置はまだ見つかりません",
+  "realtimeFetchError": "リアルタイム取得エラー: {error}",
+  "@realtimeFetchError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "headingToFirstStop": "始発停留所へ向かっています",
+  "headingToNamedFirstStop": "{stopName}（始発停留所）へ向かっています",
+  "@headingToNamedFirstStop": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "stoppedAt": "{stopName}に停車中",
+  "@stoppedAt": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "headingToStop": "{stopName}へ向かっています",
+  "@headingToStop": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  }
 }
