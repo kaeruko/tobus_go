@@ -68,7 +68,8 @@ void main() {
       color: Colors.blue,
       statusLabel: 'Riding',
       remainingStops: 2,
-      nextStopName: 'Next Stop',
+      nextStopName: '次の停留所',
+      nextStopNameEn: 'Next Stop',
       step: step,
     );
 
@@ -114,6 +115,80 @@ void main() {
     expect(find.text('Before departure'), findsOneWidget);
     expect(find.text('Departs at 8:29'), findsOneWidget);
     expect(find.text('Not started'), findsOneWidget);
+  });
+
+  testWidgets('semantic ride entity names use official English values', (
+    tester,
+  ) async {
+    final step = StepSeg(
+      stepId: 'rail-en',
+      kind: 'rail',
+      title: '浅草線',
+      titleEn: 'Asakusa Line',
+      fromName: '東日本橋',
+      fromNameEn: 'Higashi-nihombashi',
+      toName: '蔵前',
+      toNameEn: 'Kuramae',
+      arrivalTime: '10:24',
+    );
+    final navigation = NavigationState(
+      mainText: '浅草線 青砥行 東日本橋',
+      subText: '10:24 浅草線 青砥行 蔵前到着予定',
+      color: Colors.blue,
+      statusLabel: '🚇乗車中',
+      mainTextToken: const NavigationTextToken(
+        NavigationTextKey.rideCurrentPlaceMain,
+        {
+          'rideTitle': '浅草線 青砥行',
+          'rideTitleEn': 'Asakusa Line · Aoto',
+          'placeName': '東日本橋',
+          'placeNameEn': 'Higashi-nihombashi',
+        },
+      ),
+      subTextToken: const NavigationTextToken(
+        NavigationTextKey.rideArrivalSummary,
+        {
+          'arrivalTime': '10:24',
+          'rideTitle': '浅草線 青砥行',
+          'rideTitleEn': 'Asakusa Line · Aoto',
+          'destination': '蔵前',
+          'destinationEn': 'Kuramae',
+        },
+      ),
+      statusLabelToken: const NavigationTextToken(
+        NavigationTextKey.railRideStatus,
+      ),
+      remainingStops: 2,
+      nextStopName: '浅草橋',
+      nextStopNameEn: 'Asakusabashi',
+      step: step,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TripNavigationStatusCard(
+            navState: navigation,
+            tripTitle: 'Higashi-nihombashi → Kuramae',
+            onTapStops: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.text('Asakusa Line · Aoto · Higashi-nihombashi'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('10:24 Asakusa Line · Aoto · Arrive at Kuramae'),
+      findsOneWidget,
+    );
+    expect(find.text('Next: Asakusabashi'), findsOneWidget);
+    expect(find.textContaining('東日本橋'), findsNothing);
   });
 
 }
