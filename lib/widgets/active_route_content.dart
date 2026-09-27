@@ -4,6 +4,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../core/city_profile.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/city_localizations.dart';
 import '../models/route_models.dart';
 import '../services/bus_location_source.dart';
 import 'route_detail_widgets.dart';
@@ -108,23 +110,26 @@ class _ActiveRouteContentState extends State<ActiveRouteContent> {
       });
     } on BusLocationNotAvailableException {
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
       setState(() {
         _vehicle = null;
         _loadingRealtime = false;
-        _realtimeMessage = 'この便のリアルタイム位置はまだ見つかりません';
+        _realtimeMessage = l10n.realtimeNotAvailable;
       });
     } catch (error) {
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
       setState(() {
         _vehicle = null;
         _loadingRealtime = false;
-        _realtimeMessage = 'リアルタイム取得エラー: $error';
+        _realtimeMessage = l10n.realtimeFetchError(error.toString());
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return ListView(
       padding: const EdgeInsets.only(top: 16, bottom: 32),
       children: [
@@ -149,7 +154,7 @@ class _ActiveRouteContentState extends State<ActiveRouteContent> {
               onPressed: _loadingRealtime
                   ? null
                   : () => _refreshRealtime(forceRefresh: true),
-              child: const Text('現在位置を更新'),
+              child: Text(l10n.refreshVehiclePosition),
             ),
           ),
         ],
@@ -165,7 +170,7 @@ class _ActiveRouteContentState extends State<ActiveRouteContent> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: CupertinoButton.filled(
               onPressed: widget.onEnd,
-              child: const Text('移動を終了'),
+              child: Text(l10n.endTrip),
             ),
           ),
         ],
