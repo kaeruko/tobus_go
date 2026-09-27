@@ -107,6 +107,45 @@ String localizedRideToName(Locale locale, StepSeg step) {
   );
 }
 
+String? localizedStepEndpointName(
+  Locale locale,
+  StepSeg step, {
+  required bool origin,
+}) {
+  if (step.isRide) {
+    return origin
+        ? localizedRideFromName(locale, step)
+        : localizedRideToName(locale, step);
+  }
+
+  final japanese = (origin ? step.fromName : step.toName)?.trim();
+  if (japanese == null || japanese.isEmpty) return null;
+
+  switch (step.kind) {
+    case 'wait':
+      return localizedTransitName(
+        locale,
+        japanese: japanese,
+        english: origin ? step.fromNameEn : step.toNameEn,
+        field: origin ? 'from_en' : 'to_en',
+        identity: 'stepId=${step.stepId}',
+      );
+    case 'walk':
+      return localizedOptionalPlaceName(
+        locale,
+        japanese: japanese,
+        english: origin ? step.fromNameEn : step.toNameEn,
+        field: origin ? 'walk_from_en' : 'walk_to_en',
+        identity: 'stepId=${step.stepId}',
+      );
+    default:
+      throw StateError(
+        'Unsupported route endpoint step kind: '
+        'stepId=${step.stepId}, kind=${step.kind}',
+      );
+  }
+}
+
 String localizedStopName(Locale locale, StopPoint stop) {
   final value = stop.name.trim();
   if (value.isEmpty) {
