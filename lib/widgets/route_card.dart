@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
 import '../providers/route_search_provider.dart';
