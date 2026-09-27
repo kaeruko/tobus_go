@@ -552,5 +552,212 @@
       }
     }
   },
-  "replanHelper": "予定はまだ変更していません。新しい経路を確認してから選べます。"
+  "replanHelper": "予定はまだ変更していません。新しい経路を確認してから選べます。",
+  "navIdleStatus": "待機中",
+  "navBusRideStatus": "🚌乗車中",
+  "navRailRideStatus": "🚇乗車中",
+  "navRideArrivalSummary": "{arrivalTime} {rideTitle} {destination}到着予定",
+  "@navRideArrivalSummary": {
+    "placeholders": {
+      "arrivalTime": {
+        "type": "String"
+      },
+      "rideTitle": {
+        "type": "String"
+      },
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "navPreDepartureMain": "出発前",
+  "navPlannedDepartureSub": "{time} 出発予定",
+  "@navPlannedDepartureSub": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "navPreStartStatus": "開始前",
+  "navStartsInSub": "開始まで あと {hours}時間{minutes}分",
+  "@navStartsInSub": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navMovingStatus": "移動中",
+  "navMeetingDefaultSub": "集合場所へ向かいましょう",
+  "navMeetingStatus": "集合",
+  "navArrivedDefaultSub": "到着しました",
+  "navArrivedStatus": "到着",
+  "navWaitingDefaultSub": "時間まで待機しましょう",
+  "navWaitingStatus": "待機",
+  "navWalkHeadingMain": "{destination}にむかう",
+  "@navWalkHeadingMain": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "navWalkDistanceSub": "{meters}m 徒歩",
+  "@navWalkDistanceSub": {
+    "placeholders": {
+      "meters": {
+        "type": "double"
+      }
+    }
+  },
+  "navPositionCheckingMain": "{rideTitle} 位置確認中",
+  "@navPositionCheckingMain": {
+    "placeholders": {
+      "rideTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "navBusWaitingMain": "待機中",
+  "navPositionCheckingSub": "現在の位置を確認中です",
+  "navBusPositionCheckingAtStopSub": "{stopName}（バスの位置を確認中）",
+  "@navBusPositionCheckingAtStopSub": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "navWaitingToBoardStatus": "乗車待ち",
+  "navSearchingStatus": "検索中…",
+  "navApproachingBusMain": "{rideTitle} {count}停留所前",
+  "@navApproachingBusMain": {
+    "placeholders": {
+      "rideTitle": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "navApproachingRailMain": "{rideTitle} {count}駅前",
+  "@navApproachingRailMain": {
+    "placeholders": {
+      "rideTitle": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "navNowAtSub": "いま:{placeName}",
+  "@navNowAtSub": {
+    "placeholders": {
+      "placeName": {
+        "type": "String"
+      }
+    }
+  },
+  "navArrivedMain": "到着",
+  "navGetOffNextMain": "次で降ります",
+  "navStaleBusNotice": "バスがどこかさがしています\n{movementText}（約{ageMinutes}分前）",
+  "@navStaleBusNotice": {
+    "placeholders": {
+      "movementText": {
+        "type": "String"
+      },
+      "ageMinutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navStopId": "停留所ID {stopId}",
+  "@navStopId": {
+    "placeholders": {
+      "stopId": {
+        "type": "String"
+      }
+    }
+  },
+  "navUnknownStop": "不明",
+  "navMovingToward": "{place}へ走行中",
+  "@navMovingToward": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "navStaleRailNotice": "列車の位置情報を確認しています\n{place}（約{ageMinutes}分前）",
+  "@navStaleRailNotice": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      },
+      "ageMinutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navUnknownStation": "駅不明",
+  "navTripEndedMain": "終了",
+  "navTripEndedSub": "お疲れ様でした",
+  "navTripEndedStatus": "お出かけ終了",
+  "navTripCancelledMain": "中止",
+  "navTripCancelledSub": "グループは解散されました",
+  "navTripCancelledStatus": "中止",
+  "navDepartureCountdownMain": "{leaveTime} 出発　あと{minutes}分",
+  "@navDepartureCountdownMain": {
+    "placeholders": {
+      "leaveTime": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navBoardingSub": "{rideTime} {routeTitle} 乗車",
+  "@navBoardingSub": {
+    "placeholders": {
+      "rideTime": {
+        "type": "String"
+      },
+      "routeTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "navBoardingPlannedSub": "{rideTime} {routeTitle} 乗車予定",
+  "@navBoardingPlannedSub": {
+    "placeholders": {
+      "rideTime": {
+        "type": "String"
+      },
+      "routeTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "navWalkToRideCountdownMain": "{rideTime} {destination}にむかう　あと{minutes}分",
+  "@navWalkToRideCountdownMain": {
+    "placeholders": {
+      "rideTime": {
+        "type": "String"
+      },
+      "destination": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navRealtimeUnavailableNotice": "Realtimeの位置情報を確認しています\n最後に確認した位置を表示しています"
 }
