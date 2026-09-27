@@ -25,6 +25,8 @@ void main() {
           stepId: 'bus-1',
           kind: 'bus',
           title: '8系統',
+          fromName: '横浜駅前',
+          toName: '山下公園前',
           routeId: 'yokohama_bus:R1',
           tripId: 'yokohama_bus:T1',
         ),
