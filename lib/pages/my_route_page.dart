@@ -76,7 +76,11 @@ class MyRoutePage extends ConsumerWidget {
                           ),
                         );
                       },
-                      child: RouteCard(candidate: candidate, rank: index + 1),
+                      child: RouteCard(
+                        candidate: candidate,
+                        rank: index + 1,
+                        showRank: false,
+                      ),
                     ),
                   );
                 },

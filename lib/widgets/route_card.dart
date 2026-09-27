@@ -10,6 +10,7 @@ import '../providers/route_search_provider.dart';
 class RouteCard extends ConsumerWidget {
   final Candidate candidate;
   final int rank;
+  final bool showRank;
   final RouteMeta? meta;
   final FareQuote? fare;
 
@@ -17,6 +18,7 @@ class RouteCard extends ConsumerWidget {
     super.key,
     required this.candidate,
     required this.rank,
+    this.showRank = true,
     this.meta,
     this.fare,
   });
@@ -136,18 +138,23 @@ class RouteCard extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: CupertinoColors.activeBlue,
-                  borderRadius: BorderRadius.circular(8),
+              if (showRank) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.activeBlue,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'C$rank',
+                    style: const TextStyle(color: CupertinoColors.white),
+                  ),
                 ),
-                child: Text(
-                  'C$rank',
-                  style: const TextStyle(color: CupertinoColors.white),
-                ),
-              ),
-              const SizedBox(width: 8),
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 child: Text(
                   localizedCandidateLines(locale, candidate).join(' → '),
