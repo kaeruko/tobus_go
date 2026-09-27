@@ -21,7 +21,7 @@ String localizedNavigationText(
     return value;
   }
 
-  String transitArg(String name) {
+  String officialTransitArg(String name) {
     final japanese = stringArg(name);
     if (locale.languageCode != 'en') return japanese;
     final english = token.args['${name}En'];
@@ -32,6 +32,22 @@ String localizedNavigationText(
       );
     }
     return english.trim();
+  }
+
+  String transitPlaceArg(String name) {
+    final japanese = stringArg(name);
+    if (locale.languageCode != 'en') return japanese;
+    final english = token.args['${name}En'];
+    if (english is! String || english.trim().isEmpty) {
+      throw StateError(
+        'Navigation text token ${token.key.name} requires official English '
+        'transit text ${name}En',
+      );
+    }
+    final normalizedEnglish = english.trim();
+    final normalizedJapanese = japanese.trim();
+    if (normalizedEnglish == normalizedJapanese) return normalizedEnglish;
+    return '$normalizedEnglish ($normalizedJapanese)';
   }
 
   String freeformArg(String name) {
@@ -88,8 +104,8 @@ String localizedNavigationText(
     case NavigationTextKey.rideArrivalSummary:
       return l10n.navRideArrivalSummary(
         stringArg('arrivalTime'),
-        transitArg('rideTitle'),
-        transitArg('destination'),
+        officialTransitArg('rideTitle'),
+        transitPlaceArg('destination'),
       );
     case NavigationTextKey.preDepartureMain:
       return l10n.navPreDepartureMain;
@@ -118,46 +134,46 @@ String localizedNavigationText(
     case NavigationTextKey.walkDistanceSub:
       return l10n.navWalkDistanceSub(doubleArg('meters'));
     case NavigationTextKey.positionCheckingMain:
-      return l10n.navPositionCheckingMain(transitArg('rideTitle'));
+      return l10n.navPositionCheckingMain(officialTransitArg('rideTitle'));
     case NavigationTextKey.busWaitingMain:
       return l10n.navBusWaitingMain;
     case NavigationTextKey.positionCheckingSub:
       return l10n.navPositionCheckingSub;
     case NavigationTextKey.busPositionCheckingAtStopSub:
-      return l10n.navBusPositionCheckingAtStopSub(transitArg('stopName'));
+      return l10n.navBusPositionCheckingAtStopSub(transitPlaceArg('stopName'));
     case NavigationTextKey.waitingToBoardStatus:
       return l10n.navWaitingToBoardStatus;
     case NavigationTextKey.searchingStatus:
       return l10n.navSearchingStatus;
     case NavigationTextKey.approachingBusMain:
       return l10n.navApproachingBusMain(
-        transitArg('rideTitle'),
+        officialTransitArg('rideTitle'),
         intArg('count'),
       );
     case NavigationTextKey.approachingRailMain:
       return l10n.navApproachingRailMain(
-        transitArg('rideTitle'),
+        officialTransitArg('rideTitle'),
         intArg('count'),
       );
     case NavigationTextKey.nowAtSub:
-      return l10n.navNowAtSub(transitArg('placeName'));
+      return l10n.navNowAtSub(transitPlaceArg('placeName'));
     case NavigationTextKey.arrivedMain:
       return l10n.navArrivedMain;
     case NavigationTextKey.getOffNextMain:
       return l10n.navGetOffNextMain;
     case NavigationTextKey.rideCurrentPlaceMain:
       return l10n.navRideCurrentPlaceMain(
-        transitArg('rideTitle'),
-        transitArg('placeName'),
+        officialTransitArg('rideTitle'),
+        transitPlaceArg('placeName'),
       );
     case NavigationTextKey.transitPlace:
-      return transitArg('placeName');
+      return transitPlaceArg('placeName');
     case NavigationTextKey.staleBusNotice:
       final placeKind = stringArg('placeKind');
       final rawPlace = stringArg('place');
       final place = switch (placeKind) {
         'name' => locale.languageCode == 'en'
-            ? transitArg('place')
+            ? transitPlaceArg('place')
             : rawPlace,
         'id' => l10n.navStopId(rawPlace),
         'unknown' => l10n.navUnknownStop,
@@ -176,7 +192,7 @@ String localizedNavigationText(
       final rawPlace = stringArg('placeName');
       final place = rawPlace.isEmpty
           ? l10n.navUnknownStation
-          : transitArg('placeName');
+          : transitPlaceArg('placeName');
       return l10n.navStaleRailNotice(place, intArg('ageMinutes'));
     case NavigationTextKey.tripEndedMain:
       return l10n.navTripEndedMain;
@@ -198,17 +214,17 @@ String localizedNavigationText(
     case NavigationTextKey.boardingSub:
       return l10n.navBoardingSub(
         stringArg('rideTime'),
-        transitArg('routeTitle'),
+        officialTransitArg('routeTitle'),
       );
     case NavigationTextKey.boardingPlannedSub:
       return l10n.navBoardingPlannedSub(
         stringArg('rideTime'),
-        transitArg('routeTitle'),
+        officialTransitArg('routeTitle'),
       );
     case NavigationTextKey.walkToRideCountdownMain:
       return l10n.navWalkToRideCountdownMain(
         stringArg('rideTime'),
-        transitArg('destination'),
+        transitPlaceArg('destination'),
         intArg('minutes'),
       );
     case NavigationTextKey.realtimeUnavailableNotice:
