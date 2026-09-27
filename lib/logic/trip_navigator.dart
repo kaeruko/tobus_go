@@ -321,6 +321,9 @@ class NavigationState {
         busProgress: null,
         railProgress: null,
         statusLabel: '移動中',
+        statusLabelToken: const NavigationTextToken(
+          NavigationTextKey.movingStatus,
+        ),
       );
     }
 
@@ -330,6 +333,7 @@ class NavigationState {
         busProgress: busProgress,
         railProgress: railProgress,
         statusLabel: _rideStatusLabel(step),
+        statusLabelToken: _rideStatusToken(step),
       );
     }
 
@@ -341,6 +345,14 @@ class NavigationState {
             : '集合場所へ向かいましょう',
         color: const Color(0xFFC8E6C9),
         statusLabel: '集合',
+        subTextToken: entry.description.isEmpty
+            ? const NavigationTextToken(
+                NavigationTextKey.meetingDefaultSub,
+              )
+            : null,
+        statusLabelToken: const NavigationTextToken(
+          NavigationTextKey.meetingStatus,
+        ),
         isMoving: false,
       );
     }
@@ -352,6 +364,14 @@ class NavigationState {
         subText: entry.description.isNotEmpty ? entry.description : '到着しました',
         color: const Color(0xFFFFCC80),
         statusLabel: '到着',
+        subTextToken: entry.description.isEmpty
+            ? const NavigationTextToken(
+                NavigationTextKey.arrivedDefaultSub,
+              )
+            : null,
+        statusLabelToken: const NavigationTextToken(
+          NavigationTextKey.arrivedStatus,
+        ),
         currentStepId: entry.routeStepId,
         isMoving: false,
         step: step,
@@ -363,6 +383,14 @@ class NavigationState {
       subText: entry.description.isNotEmpty ? entry.description : '時間まで待機しましょう',
       color: const Color(0xFFE1F5FE),
       statusLabel: '待機',
+      subTextToken: entry.description.isEmpty
+          ? const NavigationTextToken(
+              NavigationTextKey.waitingDefaultSub,
+            )
+          : null,
+      statusLabelToken: const NavigationTextToken(
+        NavigationTextKey.waitingStatus,
+      ),
       currentStepId: entry.routeStepId,
       isMoving: false,
       step: step,
@@ -374,6 +402,7 @@ class NavigationState {
     required BusProgress? busProgress,
     RailProgress? railProgress,
     String? statusLabel,
+    NavigationTextToken? statusLabelToken,
   }) {
     if (step.kind == 'walk') {
       if (busProgress != null || railProgress != null) {
