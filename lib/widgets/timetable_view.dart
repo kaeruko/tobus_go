@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../core/app_clock.dart';
+import '../l10n/app_localizations.dart';
 import '../services/timetable_service.dart';
 
 class TimetableView extends StatefulWidget {
@@ -81,9 +82,13 @@ class _TimetableViewState extends State<TimetableView> {
 
   @override
   Widget build(BuildContext context) {
-    final dayTypeJa = {
-      'Weekday': '平日', 'Saturday': '土曜', 'Holiday': '休日'
-    }[_dayType] ?? _dayType;
+    final l10n = AppLocalizations.of(context);
+    final dayTypeLabel = switch (_dayType) {
+      'Weekday' => l10n.dayWeekday,
+      'Saturday' => l10n.daySaturday,
+      'Holiday' => l10n.dayHoliday,
+      _ => throw StateError('Unsupported timetable day type: $_dayType'),
+    };
 
     if (_isLoading) return const SizedBox.shrink();
     if (_busGroups.isEmpty) {
@@ -99,7 +104,10 @@ class _TimetableViewState extends State<TimetableView> {
           children: [
             Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
             const SizedBox(width: 4),
-            Text("次のバス ($dayTypeJa)", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            Text(
+              l10n.nextBus(dayTypeLabel),
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
           ],
         ),
         const SizedBox(height: 4),
