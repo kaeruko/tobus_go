@@ -59,8 +59,10 @@ def save_group(
     stop_name: str,
     route_id: str,
     comment: str,
+    comment_en: str,
     uploaded_file,
     caption: str,
+    caption_en: str,
 ) -> str | None:
     groups = load_groups()
     group_index = find_group_index(
@@ -99,7 +101,13 @@ def save_group(
         if group_index is None:
             images = []
             if new_filename is not None:
-                images.append({"file": new_filename, "caption": caption})
+                images.append(
+                    {
+                        "file": new_filename,
+                        "caption": caption,
+                        "caption_en": caption_en,
+                    }
+                )
             if not comment and not images:
                 raise ExploreContentError(
                     "comment or image is required for a new entry"
@@ -109,6 +117,7 @@ def save_group(
                     "stop_name": stop_name,
                     "route_id": route_id,
                     "comment": comment,
+                    "comment_en": comment_en,
                     "images": images,
                 }
             )
@@ -117,13 +126,18 @@ def save_group(
                 "stop_name": groups[group_index]["stop_name"],
                 "route_id": groups[group_index]["route_id"],
                 "comment": comment,
+                "comment_en": comment_en,
                 "images": [
                     dict(image) for image in groups[group_index]["images"]
                 ],
             }
             if new_filename is not None:
                 group["images"].append(
-                    {"file": new_filename, "caption": caption}
+                    {
+                        "file": new_filename,
+                        "caption": caption,
+                        "caption_en": caption_en,
+                    }
                 )
             if not group["comment"] and not group["images"]:
                 raise ExploreContentError(
@@ -243,10 +257,16 @@ def main() -> None:
 
             widget_scope = f"{selected_stop_name}::{selected_route_id}"
             comment = st.text_area(
-                "コメント",
+                "コメント（日本語）",
                 value=existing["comment"] if existing else "",
                 height=120,
                 key=f"comment::{widget_scope}",
+            )
+            comment_en = st.text_area(
+                "コメント（英語・任意）",
+                value=existing["comment_en"] if existing else "",
+                height=120,
+                key=f"comment_en::{widget_scope}",
             )
 
             if existing and existing["images"]:
@@ -266,9 +286,14 @@ def main() -> None:
                 key=f"upload::{widget_scope}",
             )
             caption = st.text_input(
-                "追加する写真のキャプション",
+                "追加する写真のキャプション（日本語）",
                 disabled=uploaded is None,
                 key=f"caption::{widget_scope}",
+            )
+            caption_en = st.text_input(
+                "追加する写真のキャプション（英語・任意）",
+                disabled=uploaded is None,
+                key=f"caption_en::{widget_scope}",
             )
 
             if st.button("CSVに保存", key=f"save::{widget_scope}"):
@@ -277,8 +302,10 @@ def main() -> None:
                         stop_name=selected_stop_name,
                         route_id=selected_route_id,
                         comment=comment,
+                        comment_en=comment_en,
                         uploaded_file=uploaded,
                         caption=caption,
+                        caption_en=caption_en,
                     )
                 except ExploreContentError as error:
                     st.error(str(error))
@@ -305,6 +332,7 @@ def main() -> None:
                 "停留所": group["stop_name"],
                 "系統": route_labels.get(group["route_id"], group["route_id"]),
                 "コメント": group["comment"],
+                "英語コメント": group["comment_en"],
                 "写真数": len(group["images"]),
             }
             for group in groups
