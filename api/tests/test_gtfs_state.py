@@ -40,6 +40,11 @@ def _gtfs_zip(path: str) -> str:
             "S1,1,1,1,1,1,0,0,20260101,20261231\n"
         ),
         "calendar_dates.txt": "service_id,date,exception_type\n",
+        "translations.txt": (
+            "table_name,field_name,language,translation,record_id,record_sub_id,field_value\n"
+            "stops,stop_name,en,Hirai-nanachome,A,,\n"
+            "stops,stop_name,en,Asakusa-kaminarimon,,,浅草雷門\n"
+        ),
     }
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
         for name, content in files.items():
@@ -76,12 +81,22 @@ class CompiledGtfsStateTest(unittest.TestCase):
             self.assertTrue(repository.is_loaded)
             self.assertEqual(repository.source_dir, f"compiled:{source_sha256}")
             self.assertEqual(repository.stops["A"]["name"], "平井七丁目")
+            self.assertEqual(repository.stops["A"]["name_en"], "Hirai-nanachome")
+            self.assertEqual(
+                repository.stops["B"]["name_en"],
+                "Asakusa-kaminarimon",
+            )
             self.assertEqual(repository.routes["R1"]["route_short_name"], "上23")
             self.assertEqual(repository.get_trip_stop_ids("T1"), ["A", "B"])
             schedule = repository.get_trip_stop_schedule("T1")
             self.assertEqual(len(schedule), 2)
             self.assertEqual(schedule[0]["stop_id"], "A")
+            self.assertEqual(schedule[0]["stop_name_en"], "Hirai-nanachome")
             self.assertEqual(schedule[1]["stop_id"], "B")
+            self.assertEqual(
+                schedule[1]["stop_name_en"],
+                "Asakusa-kaminarimon",
+            )
             self.assertEqual(artifact.record_counts["stop_times"], 2)
 
     def test_same_repository_state_serializes_to_identical_bytes(self):
