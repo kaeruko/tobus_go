@@ -770,7 +770,9 @@ class _ActiveTripCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          trip.status == TripStatus.planning ? "計画中" : "移動中",
+                          trip.status == TripStatus.planning
+                              ? l10n.statusPlanning
+                              : l10n.statusTraveling,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
