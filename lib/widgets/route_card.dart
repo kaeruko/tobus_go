@@ -65,6 +65,7 @@ class RouteCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final effectiveFare =
         fare ??
         ref.watch(
@@ -72,7 +73,7 @@ class RouteCard extends ConsumerWidget {
             (state) => state.fareByCandidateId[candidate.id],
           ),
         );
-    final fareChip = _fareChip(effectiveFare);
+    final fareChip = _fareChip(effectiveFare, l10n);
 
     return Container(
       decoration: BoxDecoration(
@@ -121,7 +122,7 @@ class RouteCard extends ConsumerWidget {
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  '$_origin → $_destination',
+                  '${_origin(l10n)} → ${_destination(l10n)}',
                   style: const TextStyle(
                     fontSize: 14,
                     color: CupertinoColors.systemGrey,
