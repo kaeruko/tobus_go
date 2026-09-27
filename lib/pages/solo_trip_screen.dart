@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 
 import '../logic/route_replan_presentation.dart';
 import '../logic/solo_trip_lifecycle.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/city_localizations.dart';
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
 import '../providers/city_profile_provider.dart';
@@ -85,9 +87,11 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final tripAsync = ref.watch(tripStreamProvider);
     final uiAsync = ref.watch(memberUiStateProvider);
-    final appName = ref.watch(cityProfileProvider).appName;
+    final cityProfile = ref.watch(cityProfileProvider);
+    final appName = localizedCityAppName(l10n, cityProfile.city);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark.copyWith(
@@ -103,11 +107,11 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
             systemOverlayStyle: SystemUiOverlayStyle.dark,
             title: Text(appName),
           ),
-          body: Center(child: Text('移動を読み込めませんでした: $error')),
+          body: Center(child: Text(l10n.tripLoadFailed(error.toString()))),
         ),
         data: (trip) {
           if (trip == null) {
-            return const Scaffold(body: Center(child: Text('移動が見つかりません')));
+            return Scaffold(body: Center(child: Text(l10n.tripNotFound)));
           }
           if (trip.travelPhase == TravelPhase.completed) {
             final arrivalUiSnapshot = _arrivalUiSnapshot;
@@ -140,7 +144,9 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
                 systemOverlayStyle: SystemUiOverlayStyle.dark,
                 title: Text(appName),
               ),
-              body: Center(child: Text('ナビを表示できませんでした: $error')),
+              body: Center(
+                child: Text(l10n.navigationLoadFailed(error.toString())),
+              ),
             ),
             data: (uiState) {
               final terminalArrival = shouldAutoCompleteSoloTrip(
@@ -175,7 +181,9 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     required bool terminalArrival,
     required bool completed,
   }) {
-    final appName = ref.watch(cityProfileProvider).appName;
+    final l10n = AppLocalizations.of(context);
+    final cityProfile = ref.watch(cityProfileProvider);
+    final appName = localizedCityAppName(l10n, cityProfile.city);
     final delayResolution = ref.watch(resolvedDelayImpactProvider);
     final delayImpact = delayResolution.impact;
     final presentation = RouteReplanPresentation.fromDelayImpact(delayImpact);
@@ -188,8 +196,9 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         presentation.showAction;
     final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
         ? null
-        : '次便のRealtime確認に失敗したため、予定時刻で判定しています: '
-            '${delayResolution.nextRideRealtimeError}';
+        : l10n.realtimeScheduleFallback(
+            delayResolution.nextRideRealtimeError.toString(),
+          );
 
     final beforeScheduleSections = <Widget>[];
     if (showDelayWarning) {
@@ -199,7 +208,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
           nextRideRealtime: delayResolution.nextRideRealtime,
           scheduledNextDepartureAt: delayResolution.scheduledNextDepartureAt,
           realtimeDiagnostic: realtimeDiagnostic,
-          helperText: '予定はまだ変更していません。新しい経路を確認してから選べます。',
+          helperText: l10n.replanHelper,
           action: RouteReplanPreviewButton(trip: trip),
         ),
       );
@@ -229,7 +238,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
       ),
       beforeScheduleSections: beforeScheduleSections,
       scheduleSection: TripScheduleWindowCard(
-        title: '今回の経路',
+        title: l10n.currentRoute,
         resolvedEntry: uiState.resolvedEntry,
         entries: uiState.windowEntries,
         completedCount: completed
@@ -241,7 +250,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
           if (totalCount == null) {
             throw StateError('Soloの予定ウィンドウにtotalCountがありません');
           }
-          return '$completedCount / $totalCount ステップ';
+          return l10n.stepCounter(completedCount, totalCount);
         },
         appearance: TripScheduleWindowAppearance.listTiles,
         onTapEntry: (entry) {
@@ -260,19 +269,19 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
                 ),
               ),
               icon: const Icon(Icons.route),
-              label: const Text('経路全体を見る'),
+              label: Text(l10n.viewFullRoute),
             ),
             const SizedBox(height: 8),
             if (completed)
               FilledButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('閉じる'),
+                child: Text(l10n.close),
               )
             else if (terminalArrival)
               if (_completionFailed)
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('閉じる'),
+                  child: Text(l10n.close),
                 )
               else
                 const SizedBox.shrink()
@@ -280,7 +289,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
               TextButton(
                 onPressed: _cancelling ? null : () => _cancelTrip(trip),
                 child: Text(
-                  _cancelling ? '終了処理中…' : '移動を中止する',
+                  _cancelling ? l10n.endingTrip : l10n.cancelTrip,
                 ),
               ),
           ],
@@ -355,7 +364,9 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         });
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('到着の保存に失敗しました: $error')));
+        ).showSnackBar(
+          SnackBar(content: Text(l10n.arrivalSaveFailed(error.toString()))),
+        );
       }
     });
   }
@@ -364,16 +375,16 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('移動を中止しますか？'),
-        content: const Text('この移動は中止として履歴に残ります。'),
+        title: Text(l10n.cancelTripQuestion),
+        content: Text(l10n.cancelTripHistoryNotice),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('戻る'),
+            child: Text(l10n.back),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('中止する'),
+            child: Text(l10n.cancelAction),
           ),
         ],
       ),
@@ -387,7 +398,9 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         setState(() => _cancelling = false);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('移動を中止できませんでした: $error')));
+        ).showSnackBar(
+          SnackBar(content: Text(l10n.cancelTripFailed(error.toString()))),
+        );
       }
     }
   }
@@ -402,13 +415,13 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  '到着しました',
+                  l10n.arrived,
                   style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 28),
                 FilledButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('閉じる'),
+                  child: Text(l10n.close),
                 ),
               ],
             ),
@@ -423,7 +436,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
       body: Center(
         child: FilledButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('閉じる'),
+          child: Text(l10n.close),
         ),
       ),
     );
