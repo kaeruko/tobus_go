@@ -124,7 +124,7 @@ void main() {
 
       expect(find.text('Vehicle 1772'), findsOneWidget);
       expect(
-        find.text('Heading to Yokohama Station (first stop)'),
+        find.text('Heading to Yokohama Station (横浜駅前) (first stop)'),
         findsOneWidget,
       );
       expect(find.text('Refresh bus position'), findsOneWidget);
