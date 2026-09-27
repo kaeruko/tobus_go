@@ -13,6 +13,7 @@ typedef TripScheduleCounterLabelBuilder = String Function(
   int completedCount,
   int? totalCount,
 );
+typedef TripScheduleEntryLabelBuilder = String Function(ScheduleEntry entry);
 
 class TripScheduleWindowCard extends StatelessWidget {
   final String title;
@@ -22,6 +23,7 @@ class TripScheduleWindowCard extends StatelessWidget {
   final int? totalCount;
   final String activeLabel;
   final TripScheduleCounterLabelBuilder counterLabelBuilder;
+  final TripScheduleEntryLabelBuilder? entryLabelBuilder;
   final ValueChanged<ScheduleEntry>? onTapEntry;
   final TripScheduleWindowAppearance appearance;
   final String? emptyLabel;
@@ -35,6 +37,7 @@ class TripScheduleWindowCard extends StatelessWidget {
     required this.activeLabel,
     required this.counterLabelBuilder,
     required this.appearance,
+    this.entryLabelBuilder,
     this.totalCount,
     this.onTapEntry,
     this.emptyLabel,
@@ -106,7 +109,7 @@ class TripScheduleWindowCard extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   onTap: _entryTap(entry),
                   leading: Icon(_listTileIcon(entry)),
-                  title: Text(entry.label),
+                  title: Text(_entryLabel(entry)),
                   subtitle: isActive ? Text(activeLabel) : null,
                   trailing: Text(_format24Hour(entry.plannedAt)),
                   tileColor: isActive ? Colors.green.shade50 : null,
@@ -153,6 +156,7 @@ class TripScheduleWindowCard extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: _BoxedScheduleRow(
                     entry: entry,
+                    displayLabel: _entryLabel(entry),
                     isActive: isActive,
                     activeLabel: activeLabel,
                     onTap: _entryTap(entry),
@@ -176,6 +180,17 @@ class TripScheduleWindowCard extends StatelessWidget {
         Text(counterLabel, style: TextStyle(color: counterColor)),
       ],
     );
+  }
+
+  String _entryLabel(ScheduleEntry entry) {
+    final value = entryLabelBuilder?.call(entry) ?? entry.label;
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      throw StateError(
+        '予定ウィンドウのentry labelが空です: entryId=${entry.id}',
+      );
+    }
+    return normalized;
   }
 
   VoidCallback? _entryTap(ScheduleEntry entry) {
@@ -204,12 +219,14 @@ class TripScheduleWindowCard extends StatelessWidget {
 
 class _BoxedScheduleRow extends StatelessWidget {
   final ScheduleEntry entry;
+  final String displayLabel;
   final bool isActive;
   final String activeLabel;
   final VoidCallback? onTap;
 
   const _BoxedScheduleRow({
     required this.entry,
+    required this.displayLabel,
     required this.isActive,
     required this.activeLabel,
     required this.onTap,
@@ -284,7 +301,7 @@ class _BoxedScheduleRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  entry.label,
+                  displayLabel,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
