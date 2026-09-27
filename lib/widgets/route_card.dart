@@ -20,22 +20,22 @@ class RouteCard extends ConsumerWidget {
     this.fare,
   });
 
-  String get _origin {
+  String _origin(AppLocalizations l10n) {
     if (candidate.originName != null && candidate.originName!.isNotEmpty) {
       return candidate.originName!;
     }
     if (candidate.steps.isNotEmpty) {
       final firstStep = candidate.steps.first;
-      return firstStep.from ?? '出発地';
+      return firstStep.from ?? l10n.originFallback;
     }
-    return '出発地';
+    return l10n.originFallback;
   }
 
-  String get _destination {
+  String _destination(AppLocalizations l10n) {
     if (meta?.destinationReachable == false) {
-      final stopName = meta?.fallbackNodeName ?? '最寄り停留所';
+      final stopName = meta?.fallbackNodeName ?? l10n.nearestStop;
       final walk = meta?.fallbackWalkMinutes;
-      final suffix = walk != null ? '（目的地まで徒歩約${walk}分）' : '';
+      final suffix = walk != null ? l10n.destinationWalkSuffix(walk) : '';
       return stopName + suffix;
     }
     if (candidate.destinationName != null &&
@@ -44,23 +44,23 @@ class RouteCard extends ConsumerWidget {
     }
     if (candidate.steps.isNotEmpty) {
       final lastStep = candidate.steps.last;
-      return lastStep.to ?? '目的地';
+      return lastStep.to ?? l10n.destinationFallback;
     }
-    return '目的地';
+    return l10n.destinationFallback;
   }
 
-  String? _fareChip(FareQuote? quote) {
+  String? _fareChip(FareQuote? quote, AppLocalizations l10n) {
     if (quote == null) return null;
-    if (!quote.isAvailable) return '運賃計算対象外';
+    if (!quote.isAvailable) return l10n.fareUnavailable;
     final payNow = quote.payNowYen;
-    if (payNow == null) return '支払額不明';
+    if (payNow == null) return l10n.fareUnknown;
     if (quote.settlementType == 'reimbursement') {
-      return 'いったん $payNow円';
+      return l10n.fareReimbursement(payNow);
     }
     if (quote.settlementType == 'free_pass') {
-      return '支払 0円（乗車証）';
+      return l10n.fareFreePass;
     }
-    return '支払 $payNow円';
+    return l10n.farePay(payNow);
   }
 
   @override
