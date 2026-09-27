@@ -16,12 +16,14 @@ class InitialWalkCandidateMetricsTest(unittest.TestCase):
         self.graph.add_node(
             self.origin,
             name="平井七丁目",
+            name_en="Hirai-nanachome",
             lat=35.7100,
             lon=139.8400,
         )
         self.graph.add_node(
             self.destination,
             name="池袋駅東口",
+            name_en="Ikebukuro Station East Exit",
             lat=35.7300,
             lon=139.7100,
         )
@@ -93,13 +95,28 @@ class InitialWalkCandidateMetricsTest(unittest.TestCase):
 
     def test_new_first_walk_updates_distance_and_segment_count(self):
         candidate = {
+            "lines": ["上23"],
+            "lines_en": ["Route Ue23 · Ueno-Matsuzakaya-mae"],
             "steps": [
                 {
                     "kind": "bus",
                     "title": "上23",
+                    "title_en": "Route Ue23 · Ueno-Matsuzakaya-mae",
                     "from_": "平井七丁目",
+                    "from_en": "Hirai-nanachome",
                     "to": "上野松坂屋前",
+                    "to_en": "Ueno-Matsuzakaya-mae",
                     "minutes": 20,
+                    "stops": [
+                        {
+                            "name": "平井七丁目",
+                            "name_en": "Hirai-nanachome",
+                        },
+                        {
+                            "name": "上野松坂屋前",
+                            "name_en": "Ueno-Matsuzakaya-mae",
+                        },
+                    ],
                 }
             ],
             "points": [[35.7100, 139.8400]],
