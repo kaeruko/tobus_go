@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/pages/home_page.dart';
 
 void main() {
@@ -12,6 +13,9 @@ void main() {
 
       await tester.pumpWidget(
         CupertinoApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: StatefulBuilder(
             builder: (context, setState) {
               setTestState = setState;
@@ -61,6 +65,9 @@ void main() {
 
       await tester.pumpWidget(
         CupertinoApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Center(
             child: SizedBox(
               width: 320,
