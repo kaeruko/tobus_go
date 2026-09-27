@@ -941,16 +941,17 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
 
   // --- お出かけグループ作成機能 (行き・帰りが揃った時だけ表示) ---
   void _showCreateTripDialog() {
+    final l10n = AppLocalizations.of(context);
     final draftState = ref.read(tripDraftProvider);
     if (!draftState.isComplete) {
       showCupertinoDialog(
         context: context,
         builder: (ctx) => CupertinoAlertDialog(
-          title: const Text('帰りの経路を選択してください'),
-          content: const Text('行きと帰りが揃ってからお出かけグループ作成ができます。'),
+          title: Text(l10n.chooseReturnRouteTitle),
+          content: Text(l10n.chooseReturnRouteMessage),
           actions: [
             CupertinoDialogAction(
-              child: const Text('OK'),
+              child: Text(l10n.ok),
               onPressed: () => Navigator.pop(ctx),
             ),
           ],
@@ -962,17 +963,20 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('この往復でお出かけグループを作成'),
+        title: Text(l10n.createRoundTripTitle),
         content: Text(
-          '行き: ${_routeLabel(draftState.outbound)}\n帰り: ${_routeLabel(draftState.inbound)}',
+          l10n.roundTripSummary(
+            _routeLabel(draftState.outbound),
+            _routeLabel(draftState.inbound),
+          ),
         ),
         actions: [
           CupertinoDialogAction(
-            child: const Text('キャンセル'),
+            child: Text(l10n.cancel),
             onPressed: () => Navigator.pop(ctx),
           ),
           CupertinoDialogAction(
-            child: const Text('作成する'),
+            child: Text(l10n.create),
             onPressed: () {
               Navigator.pop(ctx);
               _createTrip();
@@ -1016,14 +1020,15 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     } catch (e, stack) {
       print('[DEBUG] Error in _createTrip: $e\n$stack');
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
       showCupertinoDialog(
         context: context,
         builder: (ctx) => CupertinoAlertDialog(
-          title: const Text('エラー'),
-          content: Text('作成に失敗しました: $e'),
+          title: Text(l10n.errorTitle),
+          content: Text(l10n.createFailed(e.toString())),
           actions: [
             CupertinoDialogAction(
-              child: const Text('OK'),
+              child: Text(l10n.ok),
               onPressed: () => Navigator.pop(ctx),
             ),
           ],
