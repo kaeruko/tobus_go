@@ -165,7 +165,10 @@ void main() {
     expect(find.text('この経路でおでかけ'), findsOneWidget);
     expect(find.text('この経路で行く'), findsNothing);
 
-    await tester.tap(find.text('この経路でおでかけ'));
+    final planButton = find.text('この経路でおでかけ');
+    await tester.ensureVisible(planButton);
+    await tester.pumpAndSettle();
+    await tester.tap(planButton);
     await tester.pump();
 
     final context = tester.element(find.byType(RouteDetailPage));
