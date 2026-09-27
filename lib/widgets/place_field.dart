@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 
 import '../core/api_client.dart';
+import '../l10n/app_localizations.dart';
 
 class PlaceField extends StatefulWidget {
   final String label;
@@ -136,7 +137,9 @@ class _PlaceFieldState extends State<PlaceField> {
       setState(() {
         _loading = false;
         _preds = [];
-        _errorMessage = '場所候補を取得できませんでした: $error';
+        _errorMessage = AppLocalizations.of(context).placeSuggestionsFailed(
+          error.toString(),
+        );
       });
     }
   }
@@ -149,7 +152,7 @@ class _PlaceFieldState extends State<PlaceField> {
     if (placeId is! String || placeId.trim().isEmpty) {
       setState(() {
         _preds = [];
-        _errorMessage = '場所候補に place_id がありません';
+        _errorMessage = AppLocalizations.of(context).placeMissingId;
       });
       return;
     }
@@ -220,7 +223,9 @@ class _PlaceFieldState extends State<PlaceField> {
       setState(() {
         _loading = false;
         _preds = [];
-        _errorMessage = '場所の座標を取得できませんでした: $error';
+        _errorMessage = AppLocalizations.of(context).placeCoordinatesFailed(
+          error.toString(),
+        );
       });
     }
   }
@@ -242,7 +247,7 @@ class _PlaceFieldState extends State<PlaceField> {
         ),
         CupertinoTextField(
           controller: _ctrl,
-          placeholder: '場所名・住所で検索',
+          placeholder: AppLocalizations.of(context).placeSearchPlaceholder,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           suffix: widget.onCurrentLocationPressed != null
               ? CupertinoButton(
@@ -283,7 +288,8 @@ class _PlaceFieldState extends State<PlaceField> {
                 itemCount: _preds.length > 6 ? 6 : _preds.length,
                 itemBuilder: (context, index) {
                   final prediction = _preds[index];
-                  final text = prediction['description']?.toString() ?? '地点';
+                  final text = prediction['description']?.toString() ??
+                      AppLocalizations.of(context).unnamedPlace;
                   return CupertinoButton(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
