@@ -596,6 +596,14 @@
   "navMeetingStatus": "集合",
   "navArrivedDefaultSub": "到着しました",
   "navArrivedStatus": "到着",
+  "navGoalArrivedMain": "{destination} 到着",
+  "@navGoalArrivedMain": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
   "navWaitingDefaultSub": "時間まで待機しましょう",
   "navWaitingStatus": "待機",
   "navWalkHeadingMain": "{destination}にむかう",
