@@ -46,10 +46,13 @@ class _RootTabsState extends ConsumerState<RootTabs> {
     super.dispose();
   }
 
-  List<_RootTabEntry> _buildEntries() {
+  List<_RootTabEntry> _buildEntries(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final cityProfile = ref.watch(cityProfileProvider);
     final features = cityProfile.capabilities.features;
-    final searchPage = RouteSearchPage(title: cityProfile.appName);
+    final searchPage = RouteSearchPage(
+      title: localizedCityAppName(l10n, cityProfile.city),
+    );
 
     return [
       _RootTabEntry(
@@ -96,7 +99,7 @@ class _RootTabsState extends ConsumerState<RootTabs> {
   @override
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(tabIndexProvider);
-    final entries = _buildEntries();
+    final entries = _buildEntries(context);
 
     if (entries.isEmpty) {
       throw StateError('RootTabs requires at least one enabled tab');
