@@ -335,7 +335,7 @@ def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
             else stop_name_en_by_value
         )
         existing = stop_names.get(stop_id)
-        if existing is not None && existing != (stop_name, stop_name_en):
+        if existing is not None and existing != (stop_name, stop_name_en):
             raise TrainRealtimeError(
                 "train_static_gtfs_invalid",
                 f"Duplicate train stop_id has different names: {stop_id}",
