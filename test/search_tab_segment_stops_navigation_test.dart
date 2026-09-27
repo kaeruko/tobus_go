@@ -3,6 +3,7 @@ import 'package:flutter/material.dart' show BottomNavigationBarItem;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/pages/segment_stops_page.dart';
 import 'package:toeigo/widgets/route_detail_widgets.dart';
@@ -96,6 +97,9 @@ void main() {
 
       await tester.pumpWidget(
         CupertinoApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           navigatorObservers: [rootObserver],
           home: CupertinoTabScaffold(
             tabBar: CupertinoTabBar(
@@ -174,7 +178,12 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      CupertinoApp(home: SegmentStopsPage(segment: busSegment())),
+      CupertinoApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: SegmentStopsPage(segment: busSegment()),
+      ),
     );
 
     await tester.tap(find.byKey(const ValueKey('segment-stops-back')));
@@ -182,4 +191,18 @@ void main() {
 
     expect(tester.takeException(), isA<StateError>());
   });
+  testWidgets('stop list renders English boarding labels', (tester) async {
+    await tester.pumpWidget(
+      CupertinoApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: SegmentStopsPage(segment: busSegment()),
+      ),
+    );
+
+    expect(find.text('Board'), findsOneWidget);
+    expect(find.text('Get off'), findsOneWidget);
+  });
+
 }
