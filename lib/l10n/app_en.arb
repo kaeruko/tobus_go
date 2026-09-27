@@ -21,7 +21,13 @@
   "arrivalSearch": "To",
   "search": "Search",
   "errorWithMessage": "Error: {message}",
-  "@errorWithMessage": {"placeholders": {"message": {"type": "String"}}},
+  "@errorWithMessage": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
   "routeNotFound": "No route found",
   "selectDepartureAndArrival": "Select departure and destination",
   "transportSubwayAndBus": "Toei subway & bus",
@@ -30,21 +36,83 @@
   "preferShortTime": "Shortest time",
   "nearestStop": "nearest stop",
   "walkAboutMinutes": "about {minutes} min walk",
-  "@walkAboutMinutes": {"placeholders": {"minutes": {"type": "int"}}},
+  "@walkAboutMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "walkAboutDistance": "about {distance} walk",
-  "@walkAboutDistance": {"placeholders": {"distance": {"type": "String"}}},
+  "@walkAboutDistance": {
+    "placeholders": {
+      "distance": {
+        "type": "String"
+      }
+    }
+  },
   "walkWithinRange": "within walking distance",
   "walkLimitNotice": " (searched within a {meters} m walking limit)",
-  "@walkLimitNotice": {"placeholders": {"meters": {"type": "int"}}},
+  "@walkLimitNotice": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
   "fallbackTitle": "No Toei-only route reaches the destination",
   "fallbackBody": "Toei services alone can’t get close to {destination}. The nearest stop is “{stop}”, then {walkText}.",
-  "@fallbackBody": {"placeholders": {"destination": {"type": "String"}, "stop": {"type": "String"}, "walkText": {"type": "String"}}},
+  "@fallbackBody": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      },
+      "stop": {
+        "type": "String"
+      },
+      "walkText": {
+        "type": "String"
+      }
+    }
+  },
   "fallbackQuestion": "Use this route anyway?{limitText}",
-  "@fallbackQuestion": {"placeholders": {"limitText": {"type": "String"}}},
+  "@fallbackQuestion": {
+    "placeholders": {
+      "limitText": {
+        "type": "String"
+      }
+    }
+  },
   "activeSoloTrip": "Trip in progress",
   "activeGroupTrip": "Group trip in progress",
   "statusPlanning": "Planning",
   "statusTraveling": "Traveling",
   "participantsActive": "{count, plural, =0{No participants} =1{1 participant} other{{count} participants}}",
-  "@participantsActive": {"placeholders": {"count": {"type": "int"}}}
+  "@participantsActive": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pleaseWait": "Please wait",
+  "placeSearchPlaceholder": "Search by place name or address",
+  "placeSuggestionsFailed": "Couldn’t load place suggestions: {error}",
+  "@placeSuggestionsFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "placeMissingId": "The selected place is missing a place_id",
+  "placeCoordinatesFailed": "Couldn’t get coordinates for this place: {error}",
+  "@placeCoordinatesFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "unnamedPlace": "Place"
 }
