@@ -543,5 +543,14 @@
   "categoryWalk": "Walk",
   "categoryArrival": "Arrival",
   "categoryGoal": "Goal",
-  "categoryEvent": "Plan"
+  "categoryEvent": "Plan",
+  "realtimeScheduleFallback": "Realtime check for the next ride failed, so the scheduled time is being used: {error}",
+  "@realtimeScheduleFallback": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanHelper": "Your plan hasn’t changed yet. Review the new route before choosing it."
 }
