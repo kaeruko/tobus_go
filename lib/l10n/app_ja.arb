@@ -314,5 +314,55 @@
     }
   },
   "runSearch": "検索実行",
-  "confirm": "決定"
+  "confirm": "決定",
+  "activeGroupExists": "現在進行中のお出かけグループがあります",
+  "viewGroupDetails": "お出かけグループ詳細を見る",
+  "overlappingTrip": "期間がかぶるおでかけがあります\\n({title})",
+  "@overlappingTrip": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "cannotCreate": "作成できません",
+  "createGroup": "お出かけグループ作成",
+  "searchReturnTrip": "帰りも検索する",
+  "returnDepartureTime": "帰りの出発時刻",
+  "departureTime": "出発時刻",
+  "searchWithConditions": "この条件で検索",
+  "outboundSummary": "所要時間 {minutes}分・乗換 {transfers}回",
+  "@outboundSummary": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "transfers": {
+        "type": "int"
+      }
+    }
+  },
+  "chooseReturnRouteTitle": "帰りの経路を選択してください",
+  "chooseReturnRouteMessage": "行きと帰りが揃ってからお出かけグループ作成ができます。",
+  "createRoundTripTitle": "この往復でお出かけグループを作成",
+  "roundTripSummary": "行き: {outbound}\\n帰り: {inbound}",
+  "@roundTripSummary": {
+    "placeholders": {
+      "outbound": {
+        "type": "String"
+      },
+      "inbound": {
+        "type": "String"
+      }
+    }
+  },
+  "create": "作成する",
+  "createFailed": "作成に失敗しました: {error}",
+  "@createFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }
