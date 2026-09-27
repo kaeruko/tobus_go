@@ -1,0 +1,206 @@
+{
+  "@@locale": "en",
+  "appNameTokyo": "Toei GO",
+  "appNameNagoya": "Nagoya GO",
+  "appNameSendai": "Sendai GO",
+  "appNameYokohama": "Yokohama GO",
+  "bootstrapFailed": "Couldn’t start the app",
+  "retry": "Try again",
+  "tabSearch": "Search",
+  "tabDiscover": "Explore",
+  "tabFavorites": "Favorites",
+  "tabHistory": "History",
+  "tabSettings": "Settings",
+  "currentLocationFailed": "Couldn’t get your current location",
+  "ok": "OK",
+  "mapPickerTitle": "Choose on map",
+  "mapSelectedPlace": "Selected on map",
+  "done": "Done",
+  "departureDateTime": "Departure",
+  "departureSearch": "From",
+  "arrivalSearch": "To",
+  "search": "Search",
+  "errorWithMessage": "Error: {message}",
+  "@errorWithMessage": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "routeNotFound": "No route found",
+  "selectDepartureAndArrival": "Select departure and destination",
+  "transportSubwayAndBus": "Toei subway & bus",
+  "transportBusOnly": "Toei bus only",
+  "preferFewTransfers": "Fewer transfers",
+  "preferShortTime": "Shortest time",
+  "nearestStop": "nearest stop",
+  "walkAboutMinutes": "about {minutes} min walk",
+  "@walkAboutMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "walkAboutDistance": "about {distance} walk",
+  "@walkAboutDistance": {
+    "placeholders": {
+      "distance": {
+        "type": "String"
+      }
+    }
+  },
+  "walkWithinRange": "within walking distance",
+  "walkLimitNotice": " (searched within a {meters} m walking limit)",
+  "@walkLimitNotice": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "fallbackTitle": "No Toei-only route reaches the destination",
+  "fallbackBody": "Toei services alone can’t get close to {destination}. The nearest stop is “{stop}”, then {walkText}.",
+  "@fallbackBody": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      },
+      "stop": {
+        "type": "String"
+      },
+      "walkText": {
+        "type": "String"
+      }
+    }
+  },
+  "fallbackQuestion": "Use this route anyway?{limitText}",
+  "@fallbackQuestion": {
+    "placeholders": {
+      "limitText": {
+        "type": "String"
+      }
+    }
+  },
+  "activeSoloTrip": "Trip in progress",
+  "activeGroupTrip": "Group trip in progress",
+  "statusPlanning": "Planning",
+  "statusTraveling": "Traveling",
+  "participantsActive": "Participants: {count}",
+  "@participantsActive": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pleaseWait": "Please wait",
+  "placeSearchPlaceholder": "Search by place name or address",
+  "placeSuggestionsFailed": "Couldn’t load place suggestions: {error}",
+  "@placeSuggestionsFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "placeMissingId": "The selected place is missing a place_id",
+  "placeCoordinatesFailed": "Couldn’t get coordinates for this place: {error}",
+  "@placeCoordinatesFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "unnamedPlace": "Place",
+  "originFallback": "Origin",
+  "destinationFallback": "Destination",
+  "destinationWalkSuffix": " (about {minutes} min walk to destination)",
+  "@destinationWalkSuffix": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "fareUnavailable": "Fare unavailable",
+  "fareUnknown": "Fare unknown",
+  "fareReimbursement": "Pay ¥{yen} first",
+  "@fareReimbursement": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "fareFreePass": "Pay ¥0 (pass)",
+  "farePay": "Pay ¥{yen}",
+  "@farePay": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "totalTimeChip": "{minutes} min",
+  "@totalTimeChip": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "transfersChip": "Transfers: {count}",
+  "@transfersChip": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ridesChip": "Ride segments: {count}",
+  "@ridesChip": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "walkChip": "Walk: {meters} m",
+  "@walkChip": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "approxMinutes": " (about {minutes} min)",
+  "@approxMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "stopsCount": " {count} stops",
+  "@stopsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "walkSegment": "Walk {distance}{duration}",
+  "@walkSegment": {
+    "placeholders": {
+      "distance": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  }
+}

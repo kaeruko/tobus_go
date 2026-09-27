@@ -1,5 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
+import '../l10n/app_localizations.dart';
+
 class BusLoadingIndicator extends StatefulWidget {
   const BusLoadingIndicator({super.key});
 
@@ -64,7 +66,10 @@ class _BusLoadingIndicatorState extends State<BusLoadingIndicator>
             },
           ),
         ),
-        const Text('しばらくお待ち下さい', style: TextStyle(color: CupertinoColors.inactiveGray)),
+        Text(
+          AppLocalizations.of(context).pleaseWait,
+          style: const TextStyle(color: CupertinoColors.inactiveGray),
+        ),
       ],
     );
   }

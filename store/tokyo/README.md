@@ -10,3 +10,12 @@ Store listingを変更する場合は、東京都交通局等の公式サービ�
 交通・運賃・福祉制度を説明する箇所には対応する公式情報源を示し、アプリ内およびストア文面に非公式アプリである旨を明示する。
 
 このディレクトリはTokyo版だけのlisting・スクリーンショット・release noteを置く境界とし、他都市のmetadataを混在させない。
+
+## Localized store assets
+
+- Japanese listing: `listing_ja.md`
+- English listing: `listing_en.md`
+- Japanese screenshots: `screenshots/ja-JP/`
+- English screenshots: `screenshots/en-US/`
+
+Keep the application binary shared across languages. Localize the store text and screenshots independently for each locale.

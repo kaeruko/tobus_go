@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/city_localizations.dart';
 import '../providers/city_profile_provider.dart';
 import '../providers/navigation_provider.dart';
 import 'explore_page.dart';
@@ -44,49 +46,52 @@ class _RootTabsState extends ConsumerState<RootTabs> {
     super.dispose();
   }
 
-  List<_RootTabEntry> _buildEntries() {
+  List<_RootTabEntry> _buildEntries(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final cityProfile = ref.watch(cityProfileProvider);
     final features = cityProfile.capabilities.features;
-    final searchPage = RouteSearchPage(title: cityProfile.appName);
+    final searchPage = RouteSearchPage(
+      title: localizedCityAppName(l10n, cityProfile.city),
+    );
 
     return [
       _RootTabEntry(
-        item: const BottomNavigationBarItem(
-          icon: Icon(CupertinoIcons.search),
-          label: '検索',
+        item: BottomNavigationBarItem(
+          icon: const Icon(CupertinoIcons.search),
+          label: l10n.tabSearch,
         ),
         page: searchPage,
       ),
       if (features.outingDiscovery)
-        const _RootTabEntry(
+        _RootTabEntry(
           item: BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.compass),
-            label: 'みつける',
+            icon: const Icon(CupertinoIcons.compass),
+            label: l10n.tabDiscover,
           ),
-          page: ExplorePage(),
+          page: const ExplorePage(),
         ),
       if (features.savedRoutes)
-        const _RootTabEntry(
+        _RootTabEntry(
           item: BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.bookmark),
-            label: 'お気に入り',
+            icon: const Icon(CupertinoIcons.bookmark),
+            label: l10n.tabFavorites,
           ),
-          page: MyRoutePage(),
+          page: const MyRoutePage(),
         ),
       if (features.history)
-        const _RootTabEntry(
+        _RootTabEntry(
           item: BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.clock),
-            label: '履歴',
+            icon: const Icon(CupertinoIcons.clock),
+            label: l10n.tabHistory,
           ),
-          page: HistoryPage(),
+          page: const HistoryPage(),
         ),
-      const _RootTabEntry(
+      _RootTabEntry(
         item: BottomNavigationBarItem(
-          icon: Icon(CupertinoIcons.settings),
-          label: '設定',
+          icon: const Icon(CupertinoIcons.settings),
+          label: l10n.tabSettings,
         ),
-        page: FarePolicySettingsPage(),
+        page: const FarePolicySettingsPage(),
       ),
     ];
   }
@@ -94,7 +99,7 @@ class _RootTabsState extends ConsumerState<RootTabs> {
   @override
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(tabIndexProvider);
-    final entries = _buildEntries();
+    final entries = _buildEntries(context);
 
     if (entries.isEmpty) {
       throw StateError('RootTabs requires at least one enabled tab');

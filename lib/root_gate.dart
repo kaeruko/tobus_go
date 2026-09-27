@@ -8,6 +8,7 @@ import 'api_endpoint_source.dart';
 import 'constants.dart';
 import 'core/city_profile.dart';
 import 'firebase_options.dart';
+import 'l10n/app_localizations.dart';
 import 'pages/member_mode_page.dart';
 import 'pages/root_tabs.dart';
 import 'providers/app_session_provider.dart';
@@ -99,6 +100,8 @@ class _RootGateState extends ConsumerState<RootGate> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return FutureBuilder<void>(
       future: _bootstrapFuture,
       builder: (context, snapshot) {
@@ -117,9 +120,9 @@ class _RootGateState extends ConsumerState<RootGate> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        '起動に失敗しました',
-                        style: TextStyle(
+                      Text(
+                        l10n.bootstrapFailed,
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                         ),
@@ -132,7 +135,7 @@ class _RootGateState extends ConsumerState<RootGate> {
                       const SizedBox(height: 20),
                       CupertinoButton.filled(
                         onPressed: _retry,
-                        child: const Text('再試行'),
+                        child: Text(l10n.retry),
                       ),
                     ],
                   ),

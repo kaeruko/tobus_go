@@ -1,9 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/app_clock.dart';
+import 'l10n/app_localizations.dart';
+import 'l10n/city_localizations.dart';
 import 'providers/city_profile_provider.dart';
 import 'root_gate.dart';
 
@@ -31,15 +32,12 @@ class App extends ConsumerWidget {
 
     return CupertinoApp(
       debugShowCheckedModeBanner: false,
-      title: cityProfile.appName,
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('ja', 'JP'),
-      ],
+      onGenerateTitle: (context) => localizedCityAppName(
+        AppLocalizations.of(context),
+        cityProfile.city,
+      ),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) => ScaffoldMessenger(child: child!),
       home: const RootGate(),
     );

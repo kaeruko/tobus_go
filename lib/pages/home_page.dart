@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../core/app_clock.dart';
+import '../l10n/app_localizations.dart';
 import '../models/route_models.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/place_field.dart';
@@ -31,7 +32,7 @@ class RouteSearchPage extends ConsumerStatefulWidget {
   final ValueListenable<int>? tabIndexListenable;
   const RouteSearchPage({
     super.key,
-    this.title = '都営でGO',
+    required this.title,
     this.tabIndexListenable,
   });
 
@@ -98,15 +99,16 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
 
       if (!mounted) return;
 
+      final l10n = AppLocalizations.of(context);
       await showCupertinoDialog<void>(
         context: context,
         builder: (ctx) => CupertinoAlertDialog(
-          title: const Text('現在地を取得できませんでした'),
+          title: Text(l10n.currentLocationFailed),
           content: Text('$e'),
           actions: [
             CupertinoDialogAction(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('OK'),
+              child: Text(l10n.ok),
             ),
           ],
         ),
@@ -115,20 +117,23 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
   }
 
   Future<void> _openMap(bool forA) async {
+    final l10n = AppLocalizations.of(context);
     final res = await Navigator.of(context).push<LatLng>(
-      CupertinoPageRoute(builder: (_) => const MapPickerPage(title: '地図から選ぶ')),
+      CupertinoPageRoute(
+        builder: (_) => MapPickerPage(title: l10n.mapPickerTitle),
+      ),
     );
     if (res == null) return;
     final s = "${res.latitude},${res.longitude}";
 
     final notifier = ref.read(routeSearchProvider.notifier);
     if (forA) {
-      notifier.setFrom(s, name: '地図で選択した場所');
+      notifier.setFrom(s, name: l10n.mapSelectedPlace);
       if (_canAutoSearchAfterEditingFrom()) {
         notifier.triggerSearch();
       }
     } else {
-      notifier.setTo(s, name: '地図で選択した場所');
+      notifier.setTo(s, name: l10n.mapSelectedPlace);
       if (_canAutoSearchAfterEditingTo()) {
         notifier.triggerSearch();
       }
@@ -136,6 +141,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
   }
 
   void _showTimePicker(DateTime current) {
+    final l10n = AppLocalizations.of(context);
     showCupertinoModalPopup(
       context: context,
       builder: (ctx) => Container(
@@ -159,7 +165,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                 Navigator.pop(ctx);
                 ref.read(routeSearchProvider.notifier).triggerSearch();
               },
-              child: const Text('完了'),
+              child: Text(l10n.done),
             ),
           ],
         ),
@@ -205,6 +211,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final rs = ref.watch(routeSearchProvider);
     final features = ref.watch(
       cityProfileProvider.select((profile) => profile.capabilities.features),
@@ -284,9 +291,9 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                '出発日時',
-                                style: TextStyle(fontSize: 14),
+                              Text(
+                                l10n.departureDateTime,
+                                style: const TextStyle(fontSize: 14),
                               ),
                               Text(
                                 '${startTime.month}/${startTime.day} ${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}',
@@ -307,7 +314,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: PlaceField(
-                        label: '出発(検索)',
+                        label: l10n.departureSearch,
                         value: rs.from,
                         displayValue: rs.fromName,
                         onChanged: (val, desc) {
@@ -357,7 +364,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: PlaceField(
-                        label: '到着(検索)',
+                        label: l10n.arrivalSearch,
                         value: rs.to,
                         displayValue: rs.toName,
                         onChanged: (val, desc) {
@@ -426,7 +433,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                           onPressed: () {
                             notifier.triggerSearch();
                           },
-                          child: const Text("検索"),
+                          child: Text(l10n.search),
                         ),
                       ),
                     ),
@@ -478,7 +485,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                   hasScrollBody: false,
                   child: Center(
                     child: Text(
-                      'エラー: ${rs.errorMessage}',
+                      l10n.errorWithMessage(rs.errorMessage!),
                       style: const TextStyle(
                         color: CupertinoColors.destructiveRed,
                       ),
@@ -490,7 +497,9 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                   hasScrollBody: false,
                   child: Center(
                     child: Text(
-                      rs.hasSearched ? '経路が見つかりませんでした' : '出発と到着を選択',
+                      rs.hasSearched
+                          ? l10n.routeNotFound
+                          : l10n.selectDepartureAndArrival,
                       style: TextStyle(
                         color: rs.hasSearched
                             ? CupertinoColors.systemRed
@@ -565,9 +574,11 @@ class RouteTransportControl extends StatelessWidget {
 
         return CupertinoSlidingSegmentedControl<String>(
           groupValue: busOnly ? 'busOnly' : 'subwayAndBus',
-          children: const {
-            'subwayAndBus': Text('都営地下鉄・バス'),
-            'busOnly': Text('都営バスのみ'),
+          children: {
+            'subwayAndBus': Text(
+              AppLocalizations.of(context).transportSubwayAndBus,
+            ),
+            'busOnly': Text(AppLocalizations.of(context).transportBusOnly),
           },
           onValueChanged: onValueChanged,
         );
@@ -599,9 +610,11 @@ class RoutePreferenceControl extends StatelessWidget {
           // NOTE: Backend expects 'time'/'fast' for fastest route; see
           // RouteSearchNotifier._normalizePreferenceForApi for the mapping
           // from this UI value to the API parameter.
-          children: const {
-            'fewTransfers': Text('乗換少ない優先'),
-            'shortTime': Text('時間短い優先'),
+          children: {
+            'fewTransfers': Text(
+              AppLocalizations.of(context).preferFewTransfers,
+            ),
+            'shortTime': Text(AppLocalizations.of(context).preferShortTime),
           },
           onValueChanged: onValueChanged,
         );
@@ -616,23 +629,24 @@ class _FallbackNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stopName = meta.fallbackNodeName ?? '最寄り停留所';
+    final l10n = AppLocalizations.of(context);
+    final stopName = meta.fallbackNodeName ?? l10n.nearestStop;
     final walkMinutes = meta.fallbackWalkMinutes;
     final distance = meta.fallbackDistanceM;
     String walkText;
     if (walkMinutes != null) {
-      walkText = '徒歩約${walkMinutes}分';
+      walkText = l10n.walkAboutMinutes(walkMinutes);
     } else if (distance != null) {
       final formatted = distance >= 1000
           ? '${(distance / 1000).toStringAsFixed(1)}km'
           : '${distance.toStringAsFixed(0)}m';
-      walkText = '徒歩${formatted}程度';
+      walkText = l10n.walkAboutDistance(formatted);
     } else {
-      walkText = '徒歩圏内';
+      walkText = l10n.walkWithinRange;
     }
 
     final limitText = meta.walkLimitM != null
-        ? '（徒歩上限${meta.walkLimitM}m内で探索）'
+        ? l10n.walkLimitNotice(meta.walkLimitM!)
         : '';
 
     return Container(
@@ -645,16 +659,16 @@ class _FallbackNotice extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
+              const Icon(
                 CupertinoIcons.exclamationmark_triangle_fill,
                 color: CupertinoColors.systemOrange,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
-                '目的地までの都営経路が見つかりません',
-                style: TextStyle(
+                l10n.fallbackTitle,
+                style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: CupertinoColors.activeOrange,
                 ),
@@ -663,12 +677,12 @@ class _FallbackNotice extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '都営だけでは${meta.destinationLabel}の近くまで行けません。最寄りは「$stopName」で、ここから$walkText。',
+            l10n.fallbackBody(meta.destinationLabel, stopName, walkText),
             style: const TextStyle(fontSize: 14),
           ),
           const SizedBox(height: 4),
           Text(
-            'それでもこの経路を使いますか？$limitText',
+            l10n.fallbackQuestion(limitText),
             style: const TextStyle(
               color: CupertinoColors.inactiveGray,
               fontSize: 13,
@@ -689,6 +703,7 @@ class _ActiveTripCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final displayTitle = trip.displayTitle;
 
     return GestureDetector(
@@ -724,7 +739,7 @@ class _ActiveTripCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    trip.isSolo ? "現在進行中の移動" : "現在進行中のグループ",
+                    trip.isSolo ? l10n.activeSoloTrip : l10n.activeGroupTrip,
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
@@ -755,7 +770,9 @@ class _ActiveTripCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          trip.status == TripStatus.planning ? "計画中" : "移動中",
+                          trip.status == TripStatus.planning
+                              ? l10n.statusPlanning
+                              : l10n.statusTraveling,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -765,7 +782,7 @@ class _ActiveTripCard extends StatelessWidget {
                       if (!trip.isSolo) ...[
                         const SizedBox(width: 8),
                         Text(
-                          "${trip.participants.length}人が参加中",
+                          l10n.participantsActive(trip.participants.length),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
