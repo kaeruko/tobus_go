@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:toeigo/l10n/transit_name_localizations.dart';
 import 'package:toeigo/models/route_models.dart';
@@ -46,9 +47,10 @@ void main() {
   });
 
   test('English stop names keep Japanese text for matching signage', () {
-    const stop = StopPoint(
+    final stop = StopPoint(
       name: '蔵前',
       nameEn: 'Kuramae',
+      point: const LatLng(35.703, 139.790),
       stopId: 'odpt.Station:Toei.Asakusa.Kuramae',
     );
 
