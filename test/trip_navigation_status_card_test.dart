@@ -91,4 +91,29 @@ void main() {
     expect(find.text('Next: Next Stop'), findsOneWidget);
   });
 
+  testWidgets('semantic navigation messages render in English', (tester) async {
+    final navigation = NavigationState.waitingForDeparture(
+      plannedAt: DateTime(2026, 9, 27, 8, 29),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TripNavigationStatusCard(
+            navState: navigation,
+            tripTitle: 'Tokyo Station → Asakusa',
+            onTapStops: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Before departure'), findsOneWidget);
+    expect(find.text('Departs at 8:29'), findsOneWidget);
+    expect(find.text('Not started'), findsOneWidget);
+  });
+
 }
