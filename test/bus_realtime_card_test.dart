@@ -17,6 +17,7 @@ void main() {
   BusLocation location({
     required String status,
     bool beforeFirstStop = false,
+    String? rawStopNameEn = 'Yokohama Station',
   }) => BusLocation(
     vehicleId: '3438',
     fromStopId: beforeFirstStop ? null : 'stop-1',
@@ -25,8 +26,9 @@ void main() {
     vehicleLat: 35.465,
     vehicleLon: 139.625,
     beforeFirstStop: beforeFirstStop,
+    rawStopId: 'stop-1',
     rawStopName: '横浜駅前',
-    rawStopNameEn: 'Yokohama Station',
+    rawStopNameEn: rawStopNameEn,
     currentStatus: status,
   );
 
@@ -61,6 +63,28 @@ void main() {
       throwsStateError,
     );
   });
+  test('English realtime stop requires official English diagnostics', () {
+    for (final english in <String?>[null, '', '   ']) {
+      expect(
+        () => busRealtimeStatusText(
+          location(status: 'IN_TRANSIT_TO', rawStopNameEn: english),
+          l10n: en,
+          locale: const Locale('en'),
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message.toString(),
+            'diagnostic',
+            allOf(
+              contains('field=raw_stop_name_en'),
+              contains('stopId=stop-1'),
+            ),
+          ),
+        ),
+      );
+    }
+  });
+
   test('English realtime status uses the same vehicle state', () {
     expect(
       busRealtimeStatusText(location(status: 'IN_TRANSIT_TO'), l10n: en, locale: const Locale('en')),
