@@ -114,5 +114,93 @@
       }
     }
   },
-  "unnamedPlace": "地点"
+  "unnamedPlace": "地点",
+  "originFallback": "出発地",
+  "destinationFallback": "目的地",
+  "destinationWalkSuffix": "（目的地まで徒歩約{minutes}分）",
+  "@destinationWalkSuffix": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "fareUnavailable": "運賃計算対象外",
+  "fareUnknown": "支払額不明",
+  "fareReimbursement": "いったん {yen}円",
+  "@fareReimbursement": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "fareFreePass": "支払 0円（乗車証）",
+  "farePay": "支払 {yen}円",
+  "@farePay": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "totalTimeChip": "所要 {minutes}分",
+  "@totalTimeChip": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "transfersChip": "乗換 {count}",
+  "@transfersChip": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ridesChip": "乗車区間 {count}",
+  "@ridesChip": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "walkChip": "徒歩 {meters}m",
+  "@walkChip": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "approxMinutes": "（約{minutes}分）",
+  "@approxMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "stopsCount": " {count}停",
+  "@stopsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "walkSegment": "徒歩 {distance}{duration}",
+  "@walkSegment": {
+    "placeholders": {
+      "distance": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  }
 }
