@@ -93,8 +93,8 @@ def _decode_google_response(response: httpx.Response, *, operation: str) -> dict
 
 
 async def _request_autocomplete(q: str, language: str) -> dict[str, Any]:
-    key = _require_api_key()
     language = _require_language(language)
+    key = _require_api_key()
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
@@ -121,8 +121,8 @@ async def _request_autocomplete(q: str, language: str) -> dict[str, Any]:
 
 
 async def _request_details(place_id: str, language: str) -> dict[str, Any]:
-    key = _require_api_key()
     language = _require_language(language)
+    key = _require_api_key()
     encoded_place_id = quote(place_id, safe="")
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
