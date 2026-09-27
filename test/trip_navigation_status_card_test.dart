@@ -4,7 +4,6 @@ import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/logic/trip_navigator.dart';
 import 'package:toeigo/models/group_models.dart';
 import 'package:toeigo/models/rail_progress.dart';
-import 'package:toeigo/models/group_models.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/widgets/trip_navigation_status_card.dart';
 
@@ -94,6 +93,90 @@ void main() {
     expect(find.text('2 stops remaining'), findsOneWidget);
     expect(find.text('Next: Next Stop (次の停留所)'), findsOneWidget);
   });
+
+  testWidgets(
+    'generated walk navigation keeps heading and Next bilingual',
+    (tester) async {
+      final step = StepSeg(
+        stepId: 'walk-en',
+        kind: 'walk',
+        title: '徒歩',
+        titleEn: 'Walk',
+        fromName: '交差点',
+        fromNameEn: 'Intersection',
+        toName: '横浜駅前',
+        toNameEn: 'Yokohama Station',
+        meters: 420,
+      );
+      final navigation = NavigationState.navigating(
+        step: step,
+        busProgress: null,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: TripNavigationStatusCard(
+              navState: navigation,
+              tripTitle: 'Walk test',
+              onTapStops: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Head to Yokohama Station (横浜駅前)'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Next: Yokohama Station (横浜駅前)'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'generic walk navigation may omit optional English destination',
+    (tester) async {
+      final step = StepSeg(
+        stepId: 'walk-ja-only',
+        kind: 'walk',
+        title: '徒歩',
+        fromName: '入口',
+        toName: '公園内広場',
+        meters: 120,
+      );
+      final navigation = NavigationState.navigating(
+        step: step,
+        busProgress: null,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: TripNavigationStatusCard(
+              navState: navigation,
+              tripTitle: 'Walk test',
+              onTapStops: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Head to 公園内広場'), findsOneWidget);
+      expect(find.text('Next: 公園内広場'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('semantic navigation messages render in English', (tester) async {
     final navigation = NavigationState.waitingForDeparture(
