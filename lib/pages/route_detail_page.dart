@@ -762,15 +762,16 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       }
     } catch (error) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         showCupertinoDialog(
           context: context,
           builder: (context) => CupertinoAlertDialog(
-            title: const Text('移動を開始できませんでした'),
+            title: Text(l10n.tripStartFailed),
             content: Text('$error'),
             actions: [
               CupertinoDialogAction(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('閉じる'),
+                child: Text(l10n.close),
               ),
             ],
           ),
@@ -782,15 +783,16 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   }
 
   Future<void> _showActiveTripDialog(Trip trip) {
+    final l10n = AppLocalizations.of(context);
     return showCupertinoDialog<void>(
       context: context,
       builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('進行中の移動があります'),
-        content: Text('${trip.displayTitle}\n完了または中止してから、新しい移動を開始してください。'),
+        title: Text(l10n.activeTripExists),
+        content: Text(l10n.activeTripMessage(trip.displayTitle)),
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('閉じる'),
+            child: Text(l10n.close),
           ),
           CupertinoDialogAction(
             onPressed: () {
@@ -799,7 +801,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                 CupertinoPageRoute(builder: (_) => TripPage(tripId: trip.id)),
               );
             },
-            child: const Text('進行中の移動を開く'),
+            child: Text(l10n.openActiveTrip),
           ),
         ],
       ),
@@ -811,6 +813,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     bool startReturnFlow = false,
     DateTime? overrideTime,
   }) async {
+    final l10n = AppLocalizations.of(context);
     final original = widget.candidate;
     if (original.points.isEmpty) return;
 
@@ -832,12 +835,12 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
             color: CupertinoColors.systemBackground,
             borderRadius: BorderRadius.circular(16),
           ),
-          child: const Column(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              BusLoadingIndicator(),
-              SizedBox(height: 16),
-              Text('再検索中...', style: TextStyle(fontSize: 14)),
+              const BusLoadingIndicator(),
+              const SizedBox(height: 16),
+              Text(l10n.researching, style: const TextStyle(fontSize: 14)),
             ],
           ),
         ),
