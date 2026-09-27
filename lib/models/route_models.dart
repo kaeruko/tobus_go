@@ -52,6 +52,8 @@ class Candidate {
   final List<LatLng> points;
   final String? originName;
   final String? destinationName;
+  final String? originNameEn;
+  final String? destinationNameEn;
   final String? preference;
   final DateTime? departureDate;
   final bool isFutureSuggestion;
@@ -74,6 +76,8 @@ class Candidate {
     required this.points,
     this.originName,
     this.destinationName,
+    this.originNameEn,
+    this.destinationNameEn,
     this.preference,
     this.departureDate,
     this.isFutureSuggestion = false,
@@ -103,6 +107,8 @@ class Candidate {
   factory Candidate.fromJson(Map<String, dynamic> j) {
     final originName = j['origin_name']?.toString();
     final destinationName = j['destination_name']?.toString();
+    final originNameEn = j['origin_name_en']?.toString();
+    final destinationNameEn = j['destination_name_en']?.toString();
 
     final steps = _readSteps(j, originName, destinationName);
     return Candidate(
@@ -139,6 +145,8 @@ class Candidate {
           const [],
       originName: originName,
       destinationName: destinationName,
+      originNameEn: originNameEn,
+      destinationNameEn: destinationNameEn,
       preference: j['preference']?.toString(),
       departureDate: j['departure_date'] != null
           ? DateTime.tryParse(j['departure_date'])
@@ -404,6 +412,8 @@ class Candidate {
           : [],
       'origin_name': originName,
       'destination_name': destinationName,
+      'origin_name_en': originNameEn,
+      'destination_name_en': destinationNameEn,
       'preference': preference,
       'departure_date': departureDate?.toIso8601String(),
       'is_future_suggestion': isFutureSuggestion,
