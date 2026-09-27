@@ -75,8 +75,18 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
     final rs = ref.read(routeSearchProvider);
     final notifier = ref.read(routeSearchProvider.notifier);
 
-    notifier.setFrom(rs.to, name: rs.toName);
-    notifier.setTo(rs.from, name: rs.fromName);
+    notifier.setFrom(
+      rs.to,
+      name: rs.toName,
+      nameJa: rs.toNameJa.isEmpty ? null : rs.toNameJa,
+      nameEn: rs.toNameEn.isEmpty ? null : rs.toNameEn,
+    );
+    notifier.setTo(
+      rs.from,
+      name: rs.fromName,
+      nameJa: rs.fromNameJa.isEmpty ? null : rs.fromNameJa,
+      nameEn: rs.fromNameEn.isEmpty ? null : rs.fromNameEn,
+    );
 
     final after = ref.read(routeSearchProvider);
     final ok =
@@ -334,6 +344,17 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                             notifier.triggerSearch();
                           }
                         },
+                        onResolved: (val, desc, nameJa, nameEn) {
+                          notifier.setFrom(
+                            val,
+                            name: desc,
+                            nameJa: nameJa,
+                            nameEn: nameEn,
+                          );
+                          if (_canAutoSearchAfterEditingFrom()) {
+                            notifier.triggerSearch();
+                          }
+                        },
                         onCurrentLocationPressed: _useEffectiveLocation,
                       ),
                     ),
@@ -381,6 +402,17 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                           );
                           if (_isCoordinate(val) &&
                               _canAutoSearchAfterEditingTo()) {
+                            notifier.triggerSearch();
+                          }
+                        },
+                        onResolved: (val, desc, nameJa, nameEn) {
+                          notifier.setTo(
+                            val,
+                            name: desc,
+                            nameJa: nameJa,
+                            nameEn: nameEn,
+                          );
+                          if (_canAutoSearchAfterEditingTo()) {
                             notifier.triggerSearch();
                           }
                         },
