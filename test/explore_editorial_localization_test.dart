@@ -107,6 +107,23 @@ void main() {
     );
   });
 
+  test('Explore stop parsing fails fast when distance is missing', () {
+    expect(
+      () => ReachableResponse.fromJson({
+        'found': true,
+        'nearest_stop': {
+          'id': 'origin',
+          'name': '押上駅前',
+          'name_en': 'Oshiage Sta.',
+          'lat': 35.0,
+          'lon': 139.0,
+        },
+        'reachable_stops': const [],
+      }),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
   test('bilingual schema fails fast when English fields are missing', () {
     expect(
       () => ExploreEditorialContent.fromJson({
