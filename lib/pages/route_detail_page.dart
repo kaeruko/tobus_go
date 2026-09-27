@@ -926,7 +926,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       showCupertinoDialog(
         context: context,
         builder: (ctx) => CupertinoAlertDialog(
-          title: Text(l10n.errorWithMessage('')),
+          title: Text(l10n.errorTitle),
           content: Text(l10n.researchFailed(e.toString())),
           actions: [
             CupertinoDialogAction(
