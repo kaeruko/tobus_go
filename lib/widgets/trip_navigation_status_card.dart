@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../logic/trip_navigator.dart';
 
 /// Shared navigation status card used by both solo and group navigation.
@@ -24,6 +25,7 @@ class TripNavigationStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Card(
       margin: EdgeInsets.zero,
       elevation: 4,
@@ -99,11 +101,13 @@ class TripNavigationStatusCard extends StatelessWidget {
                   if (navState.remainingStops != null)
                     ActionChip(
                       avatar: Icon(_remainingIcon(), size: 18),
-                      label: Text(_remainingLabel()),
+                      label: Text(_remainingLabel(l10n)),
                       onPressed: onTapStops,
                     ),
                   if (navState.nextStopName?.isNotEmpty ?? false)
-                    Chip(label: Text('次: ${navState.nextStopName}')),
+                    Chip(
+                      label: Text(l10n.nextStop(navState.nextStopName!)),
+                    ),
                 ],
               ),
             ],
@@ -113,7 +117,7 @@ class TripNavigationStatusCard extends StatelessWidget {
     );
   }
 
-  String _remainingLabel() {
+  String _remainingLabel(AppLocalizations l10n) {
     final remaining = navState.remainingStops;
     if (remaining == null) {
       throw StateError('remainingStops がない状態で残り表示を構築しました');
@@ -121,9 +125,9 @@ class TripNavigationStatusCard extends StatelessWidget {
 
     switch (navState.step?.kind) {
       case 'bus':
-        return 'のこり $remaining 回停車';
+        return l10n.remainingBusStops(remaining);
       case 'rail':
-        return 'のこり $remaining 駅';
+        return l10n.remainingRailStops(remaining);
       default:
         throw StateError(
           '残り停車数表示の未対応step kindです: ${navState.step?.kind}',
