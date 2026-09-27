@@ -49,6 +49,7 @@ dependencies:
   flutter_riverpod: ^2.6.1
 
 dev_dependencies:
+  google_maps_flutter_platform_interface: ^2.14.0
   flutter_test:
     sdk: flutter
 

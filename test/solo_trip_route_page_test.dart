@@ -10,7 +10,6 @@ import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/logic/solo_trip_factory.dart';
 import 'package:toeigo/models/leg_models.dart';
 import 'package:toeigo/models/route_models.dart';
-import 'package:toeigo/models/trip_models.dart';
 import 'package:toeigo/pages/solo_trip_route_page.dart';
 import 'package:toeigo/providers/trip_provider.dart';
 import 'package:toeigo/widgets/route_detail_widgets.dart';

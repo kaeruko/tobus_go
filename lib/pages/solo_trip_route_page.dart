@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/city_profile.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
-import '../models/trip_models.dart';
 import '../providers/city_profile_provider.dart';
 import '../providers/trip_provider.dart';
 import '../widgets/app_navigation_bar.dart';
@@ -96,7 +95,7 @@ class SoloTripRoutePage extends ConsumerWidget {
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            child: SelectableText('tripId=$tripId\n$error'),
+            child: Text('tripId=$tripId\n$error'),
           ),
         ),
       ),
