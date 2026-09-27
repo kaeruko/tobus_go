@@ -24,6 +24,7 @@ class _BeforeFirstStopSource implements BusLocationSource {
       beforeFirstStop: true,
       rawStopId: 'A',
       rawStopName: '横浜駅前',
+      rawStopNameEn: 'Yokohama Station',
       fromStopSequence: null,
       observedStopSequence: 1,
       currentStatus: 'IN_TRANSIT_TO',
@@ -95,9 +96,12 @@ void main() {
           StepSeg(
             stepId: 'bus-en',
             kind: 'bus',
-            title: 'Route 008',
-            fromName: 'Yokohama Station',
-            toName: 'Yamashita Park',
+            title: '008系統',
+            titleEn: 'Route 008',
+            fromName: '横浜駅前',
+            fromNameEn: 'Yokohama Station',
+            toName: '山下公園前',
+            toNameEn: 'Yamashita Park',
             routeId: 'yokohama_bus:008',
             tripId: 'yokohama_bus:T1',
           ),
@@ -120,7 +124,7 @@ void main() {
 
       expect(find.text('Vehicle 1772'), findsOneWidget);
       expect(
-        find.text('Heading to 横浜駅前 (first stop)'),
+        find.text('Heading to Yokohama Station (first stop)'),
         findsOneWidget,
       );
       expect(find.text('Refresh bus position'), findsOneWidget);
