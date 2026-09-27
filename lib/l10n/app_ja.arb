@@ -458,5 +458,90 @@
         "type": "String"
       }
     }
-  }
+  },
+  "tripTitle": "移動",
+  "tripLoadFailed": "移動を読み込めませんでした: {error}",
+  "@tripLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tripNotFound": "移動が見つかりません",
+  "navigationLoadFailed": "ナビを表示できませんでした: {error}",
+  "@navigationLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "currentRoute": "今回の経路",
+  "stepCounter": "{completed} / {total} ステップ",
+  "@stepCounter": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "viewFullRoute": "経路全体を見る",
+  "endingTrip": "終了処理中…",
+  "cancelTrip": "移動を中止する",
+  "arrivalSaveFailed": "到着の保存に失敗しました: {error}",
+  "@arrivalSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelTripQuestion": "移動を中止しますか？",
+  "cancelTripHistoryNotice": "この移動は中止として履歴に残ります。",
+  "back": "戻る",
+  "cancelAction": "中止する",
+  "cancelTripFailed": "移動を中止できませんでした: {error}",
+  "@cancelTripFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "arrived": "到着しました",
+  "nextStop": "次: {stopName}",
+  "@nextStop": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "remainingBusStops": "のこり {count} 回停車",
+  "@remainingBusStops": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "remainingRailStops": "のこり {count} 駅",
+  "@remainingRailStops": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "categoryMeeting": "集合",
+  "categoryDeparture": "出発",
+  "categoryRide": "移動",
+  "categoryWalk": "徒歩",
+  "categoryArrival": "到着",
+  "categoryGoal": "ゴール",
+  "categoryEvent": "予定"
 }
