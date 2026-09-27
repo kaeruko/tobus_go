@@ -83,14 +83,14 @@ class _TimetableViewState extends State<TimetableView> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    if (_isLoading) return const SizedBox.shrink();
+
     final dayTypeLabel = switch (_dayType) {
       'Weekday' => l10n.dayWeekday,
       'Saturday' => l10n.daySaturday,
       'Holiday' => l10n.dayHoliday,
       _ => throw StateError('Unsupported timetable day type: $_dayType'),
     };
-
-    if (_isLoading) return const SizedBox.shrink();
     if (_busGroups.isEmpty) {
       // データがない場合は何も表示しない（あるいは運行終了を表示）
       return const SizedBox.shrink();
