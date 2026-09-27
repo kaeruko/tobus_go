@@ -10,6 +10,12 @@ class PlaceField extends StatefulWidget {
   final String value;
   final String displayValue;
   final void Function(String value, String desc) onChanged;
+  final void Function(
+    String value,
+    String desc,
+    String nameJa,
+    String nameEn,
+  )? onResolved;
   final VoidCallback? onCurrentLocationPressed;
 
   const PlaceField({
@@ -18,11 +24,75 @@ class PlaceField extends StatefulWidget {
     required this.value,
     required this.displayValue,
     required this.onChanged,
+    this.onResolved,
     this.onCurrentLocationPressed,
   });
 
   @override
   State<PlaceField> createState() => _PlaceFieldState();
+}
+
+class _ResolvedPlaceDetail {
+  final String name;
+  final double lat;
+  final double lon;
+
+  const _ResolvedPlaceDetail({
+    required this.name,
+    required this.lat,
+    required this.lon,
+  });
+}
+
+_ResolvedPlaceDetail _parsePlaceDetail(
+  Map<String, dynamic> json, {
+  required String language,
+}) {
+  final result = json['result'];
+  if (result is! Map) {
+    throw StateError(
+      'Place details response is missing result object: language=$language',
+    );
+  }
+  final name = result['name']?.toString().trim();
+  if (name == null || name.isEmpty) {
+    throw StateError(
+      'Place details response is missing a display name: language=$language',
+    );
+  }
+  final geometry = result['geometry'];
+  if (geometry is! Map) {
+    throw StateError(
+      'Place details response is missing geometry object: language=$language',
+    );
+  }
+  final location = geometry['location'];
+  if (location is! Map) {
+    throw StateError(
+      'Place details response is missing location object: language=$language',
+    );
+  }
+  final latValue = location['lat'];
+  final lonValue = location['lng'];
+  if (latValue is! num || lonValue is! num) {
+    throw StateError(
+      'Place details response has non-numeric coordinates: language=$language',
+    );
+  }
+  final lat = latValue.toDouble();
+  final lon = lonValue.toDouble();
+  if (!lat.isFinite || !lon.isFinite) {
+    throw StateError(
+      'Place details response has non-finite coordinates: language=$language',
+    );
+  }
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    throw RangeError(
+      'Place details response has out-of-range coordinates: '
+      'language=$language $lat,$lon',
+    );
+  }
+  return _ResolvedPlaceDetail(name: name, lat: lat, lon: lon);
 }
 
 class _PlaceFieldState extends State<PlaceField> {
@@ -182,54 +252,43 @@ class _PlaceFieldState extends State<PlaceField> {
     });
 
     try {
-      final json = await ApiClient.get(
-        '/details',
-        params: {
-          'place_id': placeId,
-          'lang': _placeLanguageCode(),
-        },
-      );
-      final result = json['result'];
-      if (result is! Map) {
-        throw StateError('Place details response is missing result object');
-      }
-      final geometry = result['geometry'];
-      if (geometry is! Map) {
-        throw StateError('Place details response is missing geometry object');
-      }
-      final location = geometry['location'];
-      if (location is! Map) {
-        throw StateError('Place details response is missing location object');
+      final detailResponses = await Future.wait([
+        ApiClient.get(
+          '/details',
+          params: {
+            'place_id': placeId,
+            'lang': 'ja',
+          },
+        ),
+        ApiClient.get(
+          '/details',
+          params: {
+            'place_id': placeId,
+            'lang': 'en',
+          },
+        ),
+      ]);
+      final japanese = _parsePlaceDetail(detailResponses[0], language: 'ja');
+      final english = _parsePlaceDetail(detailResponses[1], language: 'en');
+
+      if ((japanese.lat - english.lat).abs() > 0.0000001 ||
+          (japanese.lon - english.lon).abs() > 0.0000001) {
+        throw StateError(
+          'Japanese/English place details coordinates disagree: '
+          'ja=${japanese.lat},${japanese.lon} '
+          'en=${english.lat},${english.lon}',
+        );
       }
 
-      final latValue = location['lat'];
-      final lonValue = location['lng'];
-      if (latValue is! num || lonValue is! num) {
-        throw StateError('Place details response has non-numeric coordinates');
-      }
-      final lat = latValue.toDouble();
-      final lon = lonValue.toDouble();
-      if (!lat.isFinite || !lon.isFinite) {
-        throw StateError('Place details response has non-finite coordinates');
-      }
-      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-        throw RangeError('Place details response has out-of-range coordinates: $lat,$lon');
-      }
-
-      final predictionName = prediction['description']?.toString().trim();
-      final detailName = result['name']?.toString().trim();
-      final name = (predictionName != null && predictionName.isNotEmpty)
-          ? predictionName
-          : detailName;
-      if (name == null || name.isEmpty) {
-        throw StateError('Place details response is missing a display name');
-      }
+      final displayName = _placeLanguageCode() == 'en'
+          ? english.name
+          : japanese.name;
 
       if (!mounted || generation != _inputGeneration) return;
 
       _isSyncing = true;
       try {
-        _ctrl.text = name;
+        _ctrl.text = displayName;
       } finally {
         _isSyncing = false;
       }
@@ -239,7 +298,13 @@ class _PlaceFieldState extends State<PlaceField> {
         _preds = [];
         _errorMessage = null;
       });
-      widget.onChanged('$lat,$lon', name);
+      final value = '${japanese.lat},${japanese.lon}';
+      final resolved = widget.onResolved;
+      if (resolved != null) {
+        resolved(value, displayName, japanese.name, english.name);
+      } else {
+        widget.onChanged(value, displayName);
+      }
     } catch (error) {
       if (!mounted || generation != _inputGeneration) return;
       setState(() {

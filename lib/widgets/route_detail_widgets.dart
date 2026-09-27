@@ -56,7 +56,19 @@ class RouteEndpointSummary extends StatelessWidget {
 
   String _origin(AppLocalizations l10n, Locale locale) {
     if (!_isPlaceholder(candidate.originName)) {
-      return StringUtils.extractSimpleName(candidate.originName!);
+      if (!isEnglishTransitLocale(locale)) {
+        return StringUtils.extractSimpleName(candidate.originName!);
+      }
+      final english = candidate.originNameEn?.trim();
+      if (english != null && english.isNotEmpty) {
+        return localizedTransitName(
+          locale,
+          japanese: StringUtils.extractSimpleName(candidate.originName!),
+          english: english,
+          field: 'origin_name_en',
+          identity: 'candidate=${candidate.id}',
+        );
+      }
     }
     if (candidate.steps.isNotEmpty) {
       final first = candidate.steps.first;
@@ -93,7 +105,19 @@ class RouteEndpointSummary extends StatelessWidget {
       return stop + suffix;
     }
     if (!_isPlaceholder(candidate.destinationName)) {
-      return StringUtils.extractSimpleName(candidate.destinationName!);
+      if (!isEnglishTransitLocale(locale)) {
+        return StringUtils.extractSimpleName(candidate.destinationName!);
+      }
+      final english = candidate.destinationNameEn?.trim();
+      if (english != null && english.isNotEmpty) {
+        return localizedTransitName(
+          locale,
+          japanese: StringUtils.extractSimpleName(candidate.destinationName!),
+          english: english,
+          field: 'destination_name_en',
+          identity: 'candidate=${candidate.id}',
+        );
+      }
     }
     if (candidate.steps.isNotEmpty) {
       final last = candidate.steps.last;

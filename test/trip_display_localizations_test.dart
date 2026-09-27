@@ -20,6 +20,8 @@ void main() {
     points: const [],
     originName: '押上',
     destinationName: '上野駅',
+    originNameEn: 'Oshiage',
+    destinationNameEn: 'Ueno Station',
     steps: [
       StepSeg(
         stepId: 'walk-1',
@@ -27,7 +29,6 @@ void main() {
         title: '徒歩',
         titleEn: 'Walk',
         fromName: '押上',
-        fromNameEn: 'Oshiage',
         toName: '押上',
         toNameEn: 'Oshiage',
         minutes: 5,
@@ -62,7 +63,6 @@ void main() {
         fromName: '上野御徒町',
         fromNameEn: 'Ueno-okachimachi',
         toName: '上野駅',
-        toNameEn: 'Ueno Station',
         minutes: 6,
       ),
     ],

@@ -363,6 +363,9 @@ class RouteReplanPatcher {
       points: List.unmodifiable(points),
       originName: original.originName,
       destinationName: original.destinationName ?? selected.destinationName,
+      originNameEn: original.originNameEn ?? selected.originNameEn,
+      destinationNameEn:
+          original.destinationNameEn ?? selected.destinationNameEn,
       preference: original.preference ?? selected.preference,
       departureDate: original.departureDate,
       isFutureSuggestion: false,

@@ -11,6 +11,8 @@ class RouteSearchRequest {
   final LatLng destination;
   final String originName;
   final String destinationName;
+  final String? originNameEn;
+  final String? destinationNameEn;
   final DateTime startTime;
   final String? preference;
   final bool busOnly;
@@ -20,11 +22,15 @@ class RouteSearchRequest {
     required this.destination,
     required String originName,
     required String destinationName,
+    String? originNameEn,
+    String? destinationNameEn,
     required this.startTime,
     this.preference,
     this.busOnly = false,
   }) : originName = originName.trim(),
-       destinationName = destinationName.trim() {
+       destinationName = destinationName.trim(),
+       originNameEn = _trimNullable(originNameEn),
+       destinationNameEn = _trimNullable(destinationNameEn) {
     _validatePoint(origin, 'origin');
     _validatePoint(destination, 'destination');
   }
@@ -46,6 +52,11 @@ class RouteSearchRequest {
           '${localStartTime.month.toString().padLeft(2, '0')}-'
           '${localStartTime.day.toString().padLeft(2, '0')}',
     };
+  }
+
+  static String? _trimNullable(String? value) {
+    final normalized = value?.trim();
+    return normalized == null || normalized.isEmpty ? null : normalized;
   }
 
   static void _validatePoint(LatLng point, String label) {
@@ -148,6 +159,12 @@ class ApiRouteSearchService implements RouteSearchService {
       if (map['origin_name'] == null ||
           map['origin_name'].toString().trim().isEmpty) {
         map['origin_name'] = request.originName;
+      }
+      if (request.destinationNameEn != null) {
+        map['destination_name_en'] = request.destinationNameEn;
+      }
+      if (request.originNameEn != null) {
+        map['origin_name_en'] = request.originNameEn;
       }
 
       final candidate = Candidate.fromJson(map);

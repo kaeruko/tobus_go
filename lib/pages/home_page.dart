@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../core/app_clock.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
+import '../l10n/trip_display_localizations.dart';
 import '../models/route_models.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/app_navigation_bar.dart';
@@ -75,8 +76,18 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
     final rs = ref.read(routeSearchProvider);
     final notifier = ref.read(routeSearchProvider.notifier);
 
-    notifier.setFrom(rs.to, name: rs.toName);
-    notifier.setTo(rs.from, name: rs.fromName);
+    notifier.setFrom(
+      rs.to,
+      name: rs.toName,
+      nameJa: rs.toNameJa.isEmpty ? null : rs.toNameJa,
+      nameEn: rs.toNameEn.isEmpty ? null : rs.toNameEn,
+    );
+    notifier.setTo(
+      rs.from,
+      name: rs.fromName,
+      nameJa: rs.fromNameJa.isEmpty ? null : rs.fromNameJa,
+      nameEn: rs.fromNameEn.isEmpty ? null : rs.fromNameEn,
+    );
 
     final after = ref.read(routeSearchProvider);
     final ok =
@@ -334,6 +345,17 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                             notifier.triggerSearch();
                           }
                         },
+                        onResolved: (val, desc, nameJa, nameEn) {
+                          notifier.setFrom(
+                            val,
+                            name: desc,
+                            nameJa: nameJa,
+                            nameEn: nameEn,
+                          );
+                          if (_canAutoSearchAfterEditingFrom()) {
+                            notifier.triggerSearch();
+                          }
+                        },
                         onCurrentLocationPressed: _useEffectiveLocation,
                       ),
                     ),
@@ -381,6 +403,17 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                           );
                           if (_isCoordinate(val) &&
                               _canAutoSearchAfterEditingTo()) {
+                            notifier.triggerSearch();
+                          }
+                        },
+                        onResolved: (val, desc, nameJa, nameEn) {
+                          notifier.setTo(
+                            val,
+                            name: desc,
+                            nameJa: nameJa,
+                            nameEn: nameEn,
+                          );
+                          if (_canAutoSearchAfterEditingTo()) {
                             notifier.triggerSearch();
                           }
                         },
@@ -721,7 +754,10 @@ class _ActiveTripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final displayTitle = trip.displayTitle;
+    final locale = Localizations.localeOf(context);
+    final displayTitle = trip.isSolo
+        ? localizedSoloTripTitle(locale, trip)
+        : trip.displayTitle;
 
     return GestureDetector(
       onTap: onTap,
