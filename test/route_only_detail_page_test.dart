@@ -95,7 +95,7 @@ void main() {
     expect(find.text('Start this route'), findsOneWidget);
     expect(find.text('Duration'), findsOneWidget);
     expect(find.text('Ride segments'), findsOneWidget);
-    expect(find.text('Route 8'), findsOneWidget);
+    expect(find.text('Route 8'), findsNWidgets(2));
   });
 
 }
