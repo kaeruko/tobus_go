@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
+import '../widgets/history_trip_card.dart';
 import 'solo_trip_detail_page.dart';
 import 'trip_page.dart';
 import 'trip_report_page.dart';
@@ -11,8 +13,10 @@ class HistoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('履歴')),
+      appBar: AppBar(title: Text(l10n.historyTitle)),
       body: FutureBuilder<List<Trip>>(
         future: TripService().getAllTrips(),
         builder: (context, snapshot) {
@@ -24,7 +28,7 @@ class HistoryPage extends StatelessWidget {
 
           if (snapshot.hasError) {
             return Center(
-              child: Text('エラーが発生しました: ${snapshot.error}'),
+              child: Text(l10n.historyLoadFailed('${snapshot.error}')),
             );
           }
 
@@ -37,10 +41,10 @@ class HistoryPage extends StatelessWidget {
               .toList();
 
           if (trips.isEmpty) {
-            return const Center(
+            return Center(
               child: Text(
-                '履歴はありません',
-                style: TextStyle(color: Colors.grey),
+                l10n.historyEmpty,
+                style: const TextStyle(color: Colors.grey),
               ),
             );
           }
@@ -50,30 +54,16 @@ class HistoryPage extends StatelessWidget {
             itemBuilder: (context, index) {
               final trip = trips[index];
 
-              return Card(
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: ListTile(
-                  leading: Text(
-                    _statusEmoji(trip.travelPhase),
-                    style: const TextStyle(fontSize: 24),
-                  ),
-                  title: Text(trip.displayTitle),
-                  subtitle: Text(
-                    '${trip.date.year}/${trip.date.month}/${trip.date.day}',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => _historyDestination(trip),
-                      ),
-                    );
-                  },
-                ),
+              return HistoryTripCard(
+                trip: trip,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => _historyDestination(trip),
+                    ),
+                  );
+                },
               );
             },
           );
@@ -98,17 +88,4 @@ class HistoryPage extends StatelessWidget {
     }
   }
 
-  String _statusEmoji(TravelPhase phase) {
-    switch (phase) {
-      case TravelPhase.active:
-        return '🚌';
-      case TravelPhase.completed:
-        return '✅';
-      case TravelPhase.planning:
-      case TravelPhase.cancelled:
-        throw StateError(
-          '履歴画面に表示対象外の状態が渡されました: ${phase.name}',
-        );
-    }
-  }
 }
