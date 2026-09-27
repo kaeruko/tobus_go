@@ -22,8 +22,19 @@ class RouteCard extends ConsumerWidget {
   });
 
   String _origin(AppLocalizations l10n, Locale locale) {
-    if (candidate.originName != null && candidate.originName!.isNotEmpty) {
-      return candidate.originName!;
+    final origin = candidate.originName?.trim();
+    final originEn = candidate.originNameEn?.trim();
+    if (origin != null && origin.isNotEmpty) {
+      if (!isEnglishTransitLocale(locale)) return origin;
+      if (originEn != null && originEn.isNotEmpty) {
+        return localizedTransitName(
+          locale,
+          japanese: origin,
+          english: originEn,
+          field: 'origin_name_en',
+          identity: 'candidate=${candidate.id}',
+        );
+      }
     }
     if (candidate.steps.isNotEmpty) {
       final firstStep = candidate.steps.first;
@@ -57,9 +68,19 @@ class RouteCard extends ConsumerWidget {
       final suffix = walk != null ? l10n.destinationWalkSuffix(walk) : '';
       return stopName + suffix;
     }
-    if (candidate.destinationName != null &&
-        candidate.destinationName!.isNotEmpty) {
-      return candidate.destinationName!;
+    final destination = candidate.destinationName?.trim();
+    final destinationEn = candidate.destinationNameEn?.trim();
+    if (destination != null && destination.isNotEmpty) {
+      if (!isEnglishTransitLocale(locale)) return destination;
+      if (destinationEn != null && destinationEn.isNotEmpty) {
+        return localizedTransitName(
+          locale,
+          japanese: destination,
+          english: destinationEn,
+          field: 'destination_name_en',
+          identity: 'candidate=${candidate.id}',
+        );
+      }
     }
     if (candidate.steps.isNotEmpty) {
       final lastStep = candidate.steps.last;
