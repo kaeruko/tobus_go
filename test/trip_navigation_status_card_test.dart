@@ -117,6 +117,57 @@ void main() {
     expect(find.text('Not started'), findsOneWidget);
   });
 
+  testWidgets('route arrival heading renders in English', (tester) async {
+    final step = StepSeg(
+      stepId: 'rail-arrival-en',
+      kind: 'rail',
+      title: '浅草線',
+      titleEn: 'Asakusa Line',
+      fromName: '押上',
+      fromNameEn: 'Oshiage',
+      toName: '蔵前',
+      toNameEn: 'Kuramae',
+      arrivalTime: '22:13',
+    );
+    final entry = ScheduleEntry(
+      id: 'rail-arrival-entry',
+      plannedAt: DateTime(2026, 9, 27, 22, 13),
+      label: '🚇浅草線 蔵前に着く',
+      itemKind: ScheduleEntryKind.arrival,
+      generatedBy: ScheduleEntrySource.route,
+      routeStepId: step.stepId,
+      routeRole: 'arrival',
+    );
+    final navigation = NavigationState.fromEntry(
+      entry: entry,
+      step: step,
+      busProgress: null,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TripNavigationStatusCard(
+            navState: navigation,
+            tripTitle: 'Oshiage (押上) → Ueno Station (上野駅)',
+            onTapStops: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.text('Asakusa Line · Kuramae (蔵前)'),
+      findsOneWidget,
+    );
+    expect(find.text('You’ve arrived'), findsOneWidget);
+    expect(find.text('Arrived'), findsOneWidget);
+    expect(find.text('🚇浅草線 蔵前に着く'), findsNothing);
+  });
+
   testWidgets('semantic ride entity names use official English values', (
     tester,
   ) async {

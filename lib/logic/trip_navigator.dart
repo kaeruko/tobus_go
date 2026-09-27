@@ -382,11 +382,36 @@ class NavigationState {
 
     if (entry.itemKind == ScheduleEntryKind.arrival ||
         entry.itemKind == ScheduleEntryKind.goal) {
+      NavigationTextToken? mainTextToken;
+      if (entry.itemKind == ScheduleEntryKind.arrival &&
+          step != null &&
+          step.isRide) {
+        final routeTitle = _shortRideTitle(step);
+        final destination = step.toName?.trim();
+        if (destination == null || destination.isEmpty) {
+          throw StateError(
+            '到着予定に降車地点がありません: stepId=${step.stepId}',
+          );
+        }
+        mainTextToken = NavigationTextToken(
+          NavigationTextKey.rideCurrentPlaceMain,
+          {
+            'rideTitle': routeTitle,
+            if (step.titleEn?.trim().isNotEmpty == true)
+              'rideTitleEn': step.titleEn!.trim(),
+            'placeName': destination,
+            if (step.toNameEn?.trim().isNotEmpty == true)
+              'placeNameEn': step.toNameEn!.trim(),
+          },
+        );
+      }
+
       return NavigationState(
         mainText: entry.label,
         subText: entry.description.isNotEmpty ? entry.description : '到着しました',
         color: const Color(0xFFFFCC80),
         statusLabel: '到着',
+        mainTextToken: mainTextToken,
         subTextToken: entry.description.isEmpty
             ? const NavigationTextToken(
                 NavigationTextKey.arrivedDefaultSub,
