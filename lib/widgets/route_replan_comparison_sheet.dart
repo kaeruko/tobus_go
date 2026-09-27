@@ -449,6 +449,7 @@ class _RefreshErrorNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -459,14 +460,14 @@ class _RefreshErrorNotice extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('最新の移動状況で経路を更新できませんでした: $error'),
+          Text(l10n.replanRefreshFailed(error.toString())),
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
-              label: const Text('もう一度更新'),
+              label: Text(l10n.replanRefreshAgain),
             ),
           ),
         ],
@@ -492,6 +493,7 @@ class _RouteSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -514,7 +516,7 @@ class _RouteSummaryCard extends StatelessWidget {
           Text(lineSummary),
           const SizedBox(height: 4),
           Text(
-            '乗換え $transfers回',
+            l10n.replanTransfers(transfers),
             style: const TextStyle(color: Colors.black54),
           ),
         ],
@@ -528,6 +530,7 @@ class _NoRouteFoundCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -535,7 +538,7 @@ class _NoRouteFoundCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.orange.shade200),
       ),
-      child: const Text('この時刻から利用できる新しい経路が見つかりませんでした。'),
+      child: Text(l10n.replanNoRoute),
     );
   }
 }
