@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/city_localizations.dart';
 import '../providers/city_profile_provider.dart';
 import '../providers/navigation_provider.dart';
 import 'explore_page.dart';
