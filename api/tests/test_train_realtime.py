@@ -1,4 +1,6 @@
+import io
 import unittest
+import zipfile
 
 from app.services.train_realtime import (
     StaticTrainGtfs,
@@ -7,6 +9,7 @@ from app.services.train_realtime import (
     TrainRealtimeError,
     TrainVehicleRecord,
     build_location_response,
+    parse_static_gtfs,
     resolve_train_vehicle,
 )
 
@@ -96,6 +99,42 @@ class TrainRealtimeResolverTest(unittest.TestCase):
             [stop["sequence"] for stop in response["trip_stops"]],
             [9, 10, 11],
         )
+
+
+    def test_parses_official_english_translations(self):
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr(
+                "stops.txt",
+                "stop_id,stop_name,stop_lat,stop_lon\n"
+                "115,東日本橋,35.0,139.0\n"
+                "116,浅草橋,35.1,139.1\n",
+            )
+            archive.writestr(
+                "trips.txt",
+                "route_id,service_id,trip_id,trip_headsign\n"
+                "1,WK,trip-1,青砥\n",
+            )
+            archive.writestr(
+                "stop_times.txt",
+                "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
+                "trip-1,10:00:00,10:00:30,115,1\n"
+                "trip-1,10:02:00,10:02:30,116,2\n",
+            )
+            archive.writestr(
+                "translations.txt",
+                "table_name,field_name,language,translation,record_id,record_sub_id,field_value\n"
+                "stops,stop_name,en,Higashi-nihombashi,115,,\n"
+                "stops,stop_name,en,Asakusabashi,,,浅草橋\n"
+                "trips,trip_headsign,en,Aoto,,,青砥\n",
+            )
+
+        parsed = parse_static_gtfs(buffer.getvalue())
+        trip = parsed.trips["trip-1"]
+
+        self.assertEqual(trip.headsign_en, "Aoto")
+        self.assertEqual(trip.stops[0].stop_name_en, "Higashi-nihombashi")
+        self.assertEqual(trip.stops[1].stop_name_en, "Asakusabashi")
 
 
 if __name__ == "__main__":
