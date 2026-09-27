@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
 import '../l10n/app_localizations.dart';
+import '../l10n/transit_name_localizations.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
 import '../pages/segment_stops_page.dart';
@@ -53,25 +54,69 @@ class RouteEndpointSummary extends StatelessWidget {
 
   const RouteEndpointSummary({super.key, required this.candidate, this.meta});
 
-  String _origin(AppLocalizations l10n) => StringUtils.extractSimpleName(
-    routeOriginLabel(candidate, fallback: l10n.originFallback),
-  );
+  String _origin(AppLocalizations l10n, Locale locale) {
+    if (!_isPlaceholder(candidate.originName)) {
+      return StringUtils.extractSimpleName(candidate.originName!);
+    }
+    if (candidate.steps.isNotEmpty) {
+      final first = candidate.steps.first;
+      if (first.isRide) {
+        return StringUtils.extractSimpleName(localizedRideFromName(locale, first));
+      }
+      final english = first.fromNameEn?.trim();
+      final value = isEnglishTransitLocale(locale) &&
+              english != null &&
+              english.isNotEmpty
+          ? english
+          : first.from;
+      if (!_isPlaceholder(value)) {
+        return StringUtils.extractSimpleName(value!);
+      }
+    }
+    return l10n.originFallback;
+  }
 
-  String _destination(AppLocalizations l10n) {
+  String _destination(AppLocalizations l10n, Locale locale) {
     if (meta?.destinationReachable == false) {
-      final stop = meta?.fallbackNodeName ?? l10n.nearestStop;
+      final fallbackName = meta?.fallbackNodeName;
+      final stop = fallbackName == null
+          ? l10n.nearestStop
+          : localizedOptionalTransitName(
+              locale,
+              japanese: fallbackName,
+              english: meta?.fallbackNodeNameEn,
+              field: 'fallback_node_name_en',
+              identity: 'candidate=${candidate.id}',
+            );
       final minutes = meta?.fallbackWalkMinutes;
       final suffix = minutes != null ? l10n.destinationWalkSuffix(minutes) : '';
       return stop + suffix;
     }
-    return StringUtils.extractSimpleName(
-      routeDestinationLabel(candidate, fallback: l10n.destinationFallback),
-    );
+    if (!_isPlaceholder(candidate.destinationName)) {
+      return StringUtils.extractSimpleName(candidate.destinationName!);
+    }
+    if (candidate.steps.isNotEmpty) {
+      final last = candidate.steps.last;
+      if (last.isRide) {
+        return StringUtils.extractSimpleName(localizedRideToName(locale, last));
+      }
+      final english = last.toNameEn?.trim();
+      final value = isEnglishTransitLocale(locale) &&
+              english != null &&
+              english.isNotEmpty
+          ? english
+          : last.to;
+      if (!_isPlaceholder(value)) {
+        return StringUtils.extractSimpleName(value!);
+      }
+    }
+    return l10n.destinationFallback;
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Container(
@@ -86,13 +131,13 @@ class RouteEndpointSummary extends StatelessWidget {
             _row(
               CupertinoIcons.location_solid,
               l10n.endpointDeparture,
-              _origin(l10n),
+              _origin(l10n, locale),
             ),
             const SizedBox(height: 6),
             _row(
               CupertinoIcons.flag,
               l10n.endpointDestination,
-              _destination(l10n),
+              _destination(l10n, locale),
             ),
           ],
         ),
@@ -133,7 +178,17 @@ class RouteFallbackDestinationNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final stop = meta.fallbackNodeName ?? l10n.nearestStop;
+    final locale = Localizations.localeOf(context);
+    final fallbackName = meta.fallbackNodeName;
+    final stop = fallbackName == null
+        ? l10n.nearestStop
+        : localizedOptionalTransitName(
+            locale,
+            japanese: fallbackName,
+            english: meta.fallbackNodeNameEn,
+            field: 'fallback_node_name_en',
+            identity: 'route fallback notice',
+          );
     final minutes = meta.fallbackWalkMinutes;
     final walkText = minutes != null
         ? l10n.walkAboutMinutes(minutes)
@@ -174,7 +229,7 @@ class RouteFallbackDestinationNotice extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            l10n.fallbackPartialBody(meta.destinationLabel, stop, walkText),
+            l10n.fallbackPartialBody(l10n.destinationFallback, stop, walkText),
             style: const TextStyle(fontSize: 14),
           ),
         ],
@@ -369,9 +424,17 @@ class RouteStepTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
     final isWalk = segment.kind == 'walk';
     final canShowStops = !isWalk && segment.stops.isNotEmpty;
     final rightText = _rightText(isWalk, l10n);
+    final displayTitle = switch (segment.kind) {
+      'walk' => l10n.walkTitle,
+      'wait' => l10n.waitTitle,
+      'bus' || 'rail' => localizedRideTitle(locale, segment),
+      _ => throw StateError('Unsupported route step kind: ${segment.kind}'),
+    };
+    final subTitle = _localizedSubTitle(locale, l10n);
 
     final content = Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -399,7 +462,7 @@ class RouteStepTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isWalk ? l10n.walkTitle : segment.mainTitle,
+                      displayTitle,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -415,10 +478,10 @@ class RouteStepTile extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                    if (segment.subTitle != null) ...[
+                    if (subTitle != null) ...[
                       const SizedBox(height: 4),
                       Text(
-                        segment.subTitle!,
+                        subTitle,
                         style: const TextStyle(
                           color: CupertinoColors.inactiveGray,
                         ),
@@ -466,6 +529,62 @@ class RouteStepTile extends StatelessWidget {
       ),
       child: content,
     );
+  }
+
+  String? _localizedSubTitle(Locale locale, AppLocalizations l10n) {
+    if (segment.isRide) {
+      return '${localizedRideFromName(locale, segment)} → '
+          '${localizedRideToName(locale, segment)}';
+    }
+
+    if (segment.kind == 'wait') {
+      final place = segment.place ?? segment.fromName;
+      if (place == null || place.trim().isEmpty) return null;
+      final localizedPlace = localizedOptionalTransitName(
+        locale,
+        japanese: place,
+        english: segment.placeEn ?? segment.fromNameEn,
+        field: 'place_en',
+        identity: 'stepId=${segment.stepId}',
+      );
+      return l10n.waitAt(localizedPlace);
+    }
+
+    if (segment.kind == 'walk') {
+      final from = _localizedWalkEndpoint(
+        locale,
+        japanese: segment.fromName,
+        english: segment.fromNameEn,
+      );
+      final to = _localizedWalkEndpoint(
+        locale,
+        japanese: segment.toName,
+        english: segment.toNameEn,
+      );
+      if (from != null && to != null) return '$from → $to';
+      if (segment.meters > 0) {
+        return l10n.walkSegment('${segment.meters.round()}m', '');
+      }
+      return l10n.walkTitle;
+    }
+
+    throw StateError('Unsupported route step kind: ${segment.kind}');
+  }
+
+  String? _localizedWalkEndpoint(
+    Locale locale, {
+    required String? japanese,
+    required String? english,
+  }) {
+    final original = japanese?.trim();
+    if (original == null || original.isEmpty) return null;
+    final localized = english?.trim();
+    if (isEnglishTransitLocale(locale) &&
+        localized != null &&
+        localized.isNotEmpty) {
+      return localized;
+    }
+    return original;
   }
 
   String _rightText(bool isWalk, AppLocalizations l10n) {
