@@ -11,7 +11,15 @@ from pathlib import Path
 from typing import Any
 
 
-EXPECTED_COLUMNS = ("stop_name", "route_id", "comment", "image", "caption")
+EXPECTED_COLUMNS = (
+    "stop_name",
+    "route_id",
+    "comment",
+    "comment_en",
+    "image",
+    "caption",
+    "caption_en",
+)
 ALLOWED_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
 _IMAGE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
@@ -249,12 +257,13 @@ def validate_payload(payload: Any) -> dict[str, Any]:
             raise ExploreContentError(f"{where} must be an object")
         _validate_exact_keys(
             spot,
-            {"stop_id", "comment", "images"},
+            {"stop_id", "comment", "comment_en", "images"},
             where=where,
         )
 
         stop_id = spot["stop_id"]
         comment = spot["comment"]
+        comment_en = spot["comment_en"]
         images = spot["images"]
 
         if not isinstance(stop_id, str) or not stop_id.strip():
@@ -269,6 +278,8 @@ def validate_payload(payload: Any) -> dict[str, Any]:
 
         if not isinstance(comment, str):
             raise ExploreContentError(f"{where}.comment must be a string")
+        if not isinstance(comment_en, str):
+            raise ExploreContentError(f"{where}.comment_en must be a string")
         if not isinstance(images, list):
             raise ExploreContentError(f"{where}.images must be a list")
         if not comment and not images:
@@ -284,24 +295,36 @@ def validate_payload(payload: Any) -> dict[str, Any]:
                 raise ExploreContentError(f"{image_where} must be an object")
             _validate_exact_keys(
                 image,
-                {"file", "caption"},
+                {"file", "caption", "caption_en"},
                 where=image_where,
             )
             filename = validate_image_name(image["file"])
             caption = image["caption"]
+            caption_en = image["caption_en"]
             if not isinstance(caption, str):
                 raise ExploreContentError(f"{image_where}.caption must be a string")
+            if not isinstance(caption_en, str):
+                raise ExploreContentError(
+                    f"{image_where}.caption_en must be a string"
+                )
             if filename in seen_images:
                 raise ExploreContentError(
                     f"{where} references image {filename!r} more than once"
                 )
             seen_images.add(filename)
-            validated_images.append({"file": filename, "caption": caption})
+            validated_images.append(
+                {
+                    "file": filename,
+                    "caption": caption,
+                    "caption_en": caption_en,
+                }
+            )
 
         validated_spots.append(
             {
                 "stop_id": stop_id,
                 "comment": comment,
+                "comment_en": comment_en,
                 "images": validated_images,
             }
         )
@@ -318,6 +341,7 @@ def read_authoring_groups(
 
     order: list[tuple[str, str]] = []
     comments: dict[tuple[str, str], str] = {}
+    comments_en: dict[tuple[str, str], str] = {}
     images_by_key: dict[tuple[str, str], list[dict[str, str]]] = {}
     seen_images_by_key: dict[tuple[str, str], set[str]] = {}
     referenced_images: set[str] = set()
@@ -344,8 +368,10 @@ def read_authoring_groups(
             stop_name = values["stop_name"]
             route_id = values["route_id"]
             comment = values["comment"]
+            comment_en = values["comment_en"]
             image = values["image"]
             caption = values["caption"]
+            caption_en = values["caption_en"]
 
             if stop_name != stop_name.strip() or not stop_name:
                 raise ExploreContentError(
@@ -365,11 +391,16 @@ def read_authoring_groups(
                 raise ExploreContentError(
                     f"CSV row {row_number}: caption requires image"
                 )
+            if caption_en and not image:
+                raise ExploreContentError(
+                    f"CSV row {row_number}: caption_en requires image"
+                )
 
             key = (stop_name, route_id)
             if key not in comments:
                 order.append(key)
                 comments[key] = comment
+                comments_en[key] = comment_en
                 images_by_key[key] = []
                 seen_images_by_key[key] = set()
             elif comment:
@@ -381,6 +412,16 @@ def read_authoring_groups(
                     )
                 if not existing:
                     comments[key] = comment
+
+                if comment_en:
+                    existing_en = comments_en[key]
+                    if existing_en and existing_en != comment_en:
+                        raise ExploreContentError(
+                            f"CSV row {row_number}: conflicting English comments for "
+                            f"stop_name={stop_name!r}, route_id={route_id!r}"
+                        )
+                    if not existing_en:
+                        comments_en[key] = comment_en
 
             if image:
                 filename = validate_image_name(image)
@@ -397,7 +438,11 @@ def read_authoring_groups(
                 seen_images_by_key[key].add(filename)
                 referenced_images.add(filename)
                 images_by_key[key].append(
-                    {"file": filename, "caption": caption}
+                    {
+                        "file": filename,
+                        "caption": caption,
+                        "caption_en": caption_en,
+                    }
                 )
 
     if images_dir.exists():
@@ -421,6 +466,7 @@ def read_authoring_groups(
             "stop_name": stop_name,
             "route_id": route_id,
             "comment": comments[(stop_name, route_id)],
+            "comment_en": comments_en[(stop_name, route_id)],
             "images": images_by_key[(stop_name, route_id)],
         }
         for stop_name, route_id in order
@@ -438,7 +484,7 @@ def write_authoring_groups(
         for group_index, group in enumerate(groups):
             _validate_exact_keys(
                 group,
-                {"stop_name", "route_id", "comment", "images"},
+                {"stop_name", "route_id", "comment", "comment_en", "images"},
                 where=f"authoring_groups[{group_index}]",
             )
             stop_name = _required_string(
@@ -450,10 +496,15 @@ def write_authoring_groups(
                 where=f"authoring_groups[{group_index}].route_id",
             )
             comment = group["comment"]
+            comment_en = group["comment_en"]
             images = group["images"]
             if not isinstance(comment, str):
                 raise ExploreContentError(
                     f"authoring_groups[{group_index}].comment must be a string"
+                )
+            if not isinstance(comment_en, str):
+                raise ExploreContentError(
+                    f"authoring_groups[{group_index}].comment_en must be a string"
                 )
             if not isinstance(images, list):
                 raise ExploreContentError(
@@ -473,25 +524,33 @@ def write_authoring_groups(
                         )
                     _validate_exact_keys(
                         image,
-                        {"file", "caption"},
+                        {"file", "caption", "caption_en"},
                         where=(
                             f"authoring_groups[{group_index}].images[{image_index}]"
                         ),
                     )
                     filename = validate_image_name(image["file"])
                     caption = image["caption"]
+                    caption_en = image["caption_en"]
                     if not isinstance(caption, str):
                         raise ExploreContentError(
                             f"authoring_groups[{group_index}].images[{image_index}]."
                             "caption must be a string"
+                        )
+                    if not isinstance(caption_en, str):
+                        raise ExploreContentError(
+                            f"authoring_groups[{group_index}].images[{image_index}]."
+                            "caption_en must be a string"
                         )
                     writer.writerow(
                         {
                             "stop_name": stop_name,
                             "route_id": route_id,
                             "comment": comment if image_index == 0 else "",
+                            "comment_en": comment_en if image_index == 0 else "",
                             "image": filename,
                             "caption": caption,
+                            "caption_en": caption_en,
                         }
                     )
             else:
@@ -500,8 +559,10 @@ def write_authoring_groups(
                         "stop_name": stop_name,
                         "route_id": route_id,
                         "comment": comment,
+                        "comment_en": comment_en,
                         "image": "",
                         "caption": "",
+                        "caption_en": "",
                     }
                 )
 
@@ -543,6 +604,7 @@ def compile_csv(
                 {
                     "stop_id": pole_id,
                     "comment": group["comment"],
+                    "comment_en": group["comment_en"],
                     "images": [dict(image) for image in group["images"]],
                 }
             )
