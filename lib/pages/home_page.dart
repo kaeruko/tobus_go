@@ -485,7 +485,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                   hasScrollBody: false,
                   child: Center(
                     child: Text(
-                      'エラー: ${rs.errorMessage}',
+                      l10n.errorWithMessage(rs.errorMessage!),
                       style: const TextStyle(
                         color: CupertinoColors.destructiveRed,
                       ),
