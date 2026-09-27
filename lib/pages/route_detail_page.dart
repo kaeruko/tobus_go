@@ -910,10 +910,10 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
         showCupertinoDialog(
           context: context,
           builder: (ctx) => CupertinoAlertDialog(
-            content: const Text('指定された日時の経路が見つかりませんでした。'),
+            content: Text(l10n.routeAtTimeNotFound),
             actions: [
               CupertinoDialogAction(
-                child: const Text('OK'),
+                child: Text(l10n.ok),
                 onPressed: () => Navigator.pop(ctx),
               ),
             ],
@@ -926,11 +926,11 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       showCupertinoDialog(
         context: context,
         builder: (ctx) => CupertinoAlertDialog(
-          title: const Text('エラー'),
-          content: Text('再検索に失敗しました: $e'),
+          title: Text(l10n.errorWithMessage('')),
+          content: Text(l10n.researchFailed(e.toString())),
           actions: [
             CupertinoDialogAction(
-              child: const Text('OK'),
+              child: Text(l10n.ok),
               onPressed: () => Navigator.pop(ctx),
             ),
           ],
