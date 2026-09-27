@@ -64,7 +64,12 @@ void main() {
         StepSeg(
           stepId: 'bus-1',
           kind: 'bus',
-          title: 'Route 8',
+          title: '8系統',
+          titleEn: 'Route 8',
+          fromName: '横浜駅前',
+          fromNameEn: 'Yokohama Station',
+          toName: '山下公園前',
+          toNameEn: 'Yamashita Park',
           routeId: 'yokohama_bus:R1',
           tripId: 'yokohama_bus:T1',
         ),
