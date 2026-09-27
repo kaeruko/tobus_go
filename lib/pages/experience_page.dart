@@ -183,6 +183,8 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
   }
 
   Widget _editorialSection(ExploreEditorialSpot editorial) {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final comment = editorial.commentForLanguageCode(languageCode);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -192,9 +194,9 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
                 fontWeight: FontWeight.bold,
               ),
         ),
-        if (editorial.comment.isNotEmpty) ...[
+        if (comment.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(editorial.comment),
+          Text(comment),
         ],
         if (editorial.images.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -206,6 +208,7 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
               separatorBuilder: (context, index) => const SizedBox(width: 10),
               itemBuilder: (context, index) {
                 final image = editorial.images[index];
+                final caption = image.captionForLanguageCode(languageCode);
                 return SizedBox(
                   width: 240,
                   child: Column(
@@ -246,10 +249,10 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
                           ),
                         ),
                       ),
-                      if (image.caption.isNotEmpty) ...[
+                      if (caption.isNotEmpty) ...[
                         const SizedBox(height: 6),
                         Text(
-                          image.caption,
+                          caption,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.bodySmall,
