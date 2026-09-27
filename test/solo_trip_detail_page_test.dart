@@ -1,0 +1,169 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:toeigo/l10n/app_localizations.dart';
+import 'package:toeigo/models/group_models.dart';
+import 'package:toeigo/models/leg_models.dart';
+import 'package:toeigo/models/route_models.dart';
+import 'package:toeigo/models/trip_models.dart';
+import 'package:toeigo/pages/solo_trip_detail_page.dart';
+
+void main() {
+  final candidate = Candidate(
+    id: 'detail-en',
+    lines: const ['浅草線'],
+    linesEn: const ['Asakusa Line'],
+    rides: 1,
+    boards: 1,
+    transfers: 0,
+    total: 16,
+    totalTime: 16,
+    points: const [],
+    originName: '押上',
+    originNameEn: 'Oshiage',
+    destinationName: '上野駅',
+    destinationNameEn: 'Ueno Station',
+    steps: [
+      StepSeg(
+        stepId: 'walk-1',
+        kind: 'walk',
+        title: '徒歩',
+        titleEn: 'Walk',
+        fromName: '押上',
+        toName: '押上',
+        toNameEn: 'Oshiage',
+        minutes: 5,
+      ),
+      StepSeg(
+        stepId: 'rail-1',
+        kind: 'rail',
+        title: '浅草線',
+        titleEn: 'Asakusa Line',
+        fromName: '押上',
+        fromNameEn: 'Oshiage',
+        toName: '蔵前',
+        toNameEn: 'Kuramae',
+        minutes: 5,
+      ),
+      StepSeg(
+        stepId: 'walk-2',
+        kind: 'walk',
+        title: '徒歩',
+        titleEn: 'Walk',
+        fromName: '蔵前',
+        fromNameEn: 'Kuramae',
+        toName: '上野駅',
+        minutes: 6,
+      ),
+    ],
+  );
+
+  final schedule = [
+    ScheduleEntry(
+      id: 'walk',
+      plannedAt: DateTime(2026, 9, 27, 22, 3),
+      label: '押上まで歩く (5分)',
+      itemKind: ScheduleEntryKind.walk,
+      generatedBy: ScheduleEntrySource.route,
+      routeStepId: 'walk-1',
+      routeRole: 'walk',
+    ),
+    ScheduleEntry(
+      id: 'ride',
+      plannedAt: DateTime(2026, 9, 27, 22, 8),
+      label: '🚇浅草線 押上に乗る',
+      itemKind: ScheduleEntryKind.ride,
+      generatedBy: ScheduleEntrySource.route,
+      routeStepId: 'rail-1',
+      routeRole: 'ride',
+    ),
+    ScheduleEntry(
+      id: 'arrival',
+      plannedAt: DateTime(2026, 9, 27, 22, 13),
+      label: '🚇浅草線 蔵前に着く',
+      itemKind: ScheduleEntryKind.arrival,
+      generatedBy: ScheduleEntrySource.route,
+      routeStepId: 'rail-1',
+      routeRole: 'arrival',
+    ),
+    ScheduleEntry(
+      id: 'goal',
+      plannedAt: DateTime(2026, 9, 27, 22, 19),
+      label: '上野駅 到着',
+      description: 'お疲れ様でした!',
+      itemKind: ScheduleEntryKind.goal,
+      legIndex: 0,
+      generatedBy: ScheduleEntrySource.route,
+    ),
+  ];
+
+  final trip = Trip(
+    tripType: TripType.solo,
+    id: 'detail-trip-en',
+    joinCode: '',
+    leaderId: 'user',
+    title: '',
+    travelPhase: TravelPhase.completed,
+    date: DateTime(2026, 9, 27),
+    plannedDepartureAt: DateTime(2026, 9, 27, 22, 3),
+    actualDepartureAt: DateTime(2026, 9, 27, 22, 3),
+    legs: [
+      Leg(
+        direction: LegDirection.outbound,
+        status: LegStatus.confirmed,
+        candidate: candidate,
+      ),
+    ],
+    schedule: schedule,
+    participants: const [],
+    memberIds: const ['user'],
+  );
+
+  testWidgets('English solo trip detail localizes the full route history', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: SoloTripDetailPage(trip: trip),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Trip details'), findsOneWidget);
+    expect(
+      find.text('Oshiage (押上) → Ueno Station (上野駅)'),
+      findsOneWidget,
+    );
+    expect(find.text('2026/9/27 · Completed'), findsOneWidget);
+    expect(find.text('Route & schedule'), findsOneWidget);
+    expect(find.text('Walk to Oshiage (押上) (5 min)'), findsOneWidget);
+    expect(
+      find.text('Asakusa Line · Board at Oshiage (押上)'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Asakusa Line · Arrive at Kuramae (蔵前)'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Arrive at Ueno Station (上野駅)'),
+      findsOneWidget,
+    );
+    expect(find.text('Thanks for traveling with us'), findsOneWidget);
+
+    expect(find.text('移動の詳細'), findsNothing);
+    expect(find.text('経路と予定'), findsNothing);
+    expect(find.text('上野駅 到着'), findsNothing);
+    expect(find.text('お疲れ様でした!'), findsNothing);
+  });
+}

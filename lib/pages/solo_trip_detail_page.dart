@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/trip_display_localizations.dart';
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
 import 'ride_stops_navigation.dart';
@@ -11,8 +13,12 @@ class SoloTripDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
+    final tripTitle = localizedSoloTripTitle(locale, trip);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('移動の詳細')),
+      appBar: AppBar(title: Text(l10n.soloTripDetailTitle)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -24,7 +30,7 @@ class SoloTripDetailPage extends StatelessWidget {
                 children: [
                   const SizedBox(height: 6),
                   Text(
-                    trip.displayTitle,
+                    tripTitle,
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -32,16 +38,17 @@ class SoloTripDetailPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    '${_formatDate(trip.date)} ・ ${_phaseLabel(trip.travelPhase)}',
+                    '${_formatDate(trip.date)} · '
+                    '${_phaseLabel(l10n, trip.travelPhase)}',
                   ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            '経路と予定',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Text(
+            l10n.soloTripRouteAndSchedule,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           ...trip.schedule.map(
@@ -50,10 +57,14 @@ class SoloTripDetailPage extends StatelessWidget {
                 leading: CircleAvatar(
                   child: Icon(_entryIcon(entry.itemKind), size: 20),
                 ),
-                title: Text(entry.label),
-                subtitle: entry.description.isEmpty
-                    ? null
-                    : Text(entry.description),
+                title: Text(
+                  localizedSoloScheduleEntryLabel(
+                    locale,
+                    trip: trip,
+                    entry: entry,
+                  ),
+                ),
+                subtitle: _localizedDescription(l10n, locale, entry),
                 trailing: Text(_formatTime(entry.plannedAt)),
                 onTap: entry.itemKind == ScheduleEntryKind.ride
                     ? () => openRideStops(
@@ -76,17 +87,31 @@ class SoloTripDetailPage extends StatelessWidget {
   static String _formatTime(DateTime value) =>
       '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
 
-  static String _phaseLabel(TravelPhase phase) {
+  static String _phaseLabel(AppLocalizations l10n, TravelPhase phase) {
     switch (phase) {
       case TravelPhase.planning:
-        return '計画中';
+        return l10n.travelPhasePlanning;
       case TravelPhase.active:
-        return '移動中';
+        return l10n.travelPhaseActive;
       case TravelPhase.completed:
-        return '完了';
+        return l10n.travelPhaseCompleted;
       case TravelPhase.cancelled:
-        return '中止';
+        return l10n.travelPhaseCancelled;
     }
+  }
+
+  static Widget? _localizedDescription(
+    AppLocalizations l10n,
+    Locale locale,
+    ScheduleEntry entry,
+  ) {
+    if (entry.description.isEmpty) return null;
+    if (locale.languageCode == 'en' &&
+        entry.generatedBy == ScheduleEntrySource.route &&
+        entry.itemKind == ScheduleEntryKind.goal) {
+      return Text(l10n.navTripEndedSub);
+    }
+    return Text(entry.description);
   }
 
   static IconData _entryIcon(ScheduleEntryKind kind) {

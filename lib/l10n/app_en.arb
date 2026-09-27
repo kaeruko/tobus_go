@@ -490,6 +490,12 @@
     }
   },
   "viewFullRoute": "View full route",
+  "soloTripDetailTitle": "Trip details",
+  "soloTripRouteAndSchedule": "Route & schedule",
+  "travelPhasePlanning": "Planning",
+  "travelPhaseActive": "In progress",
+  "travelPhaseCompleted": "Completed",
+  "travelPhaseCancelled": "Cancelled",
   "endingTrip": "Ending trip…",
   "cancelTrip": "Cancel trip",
   "arrivalSaveFailed": "Couldn’t save arrival: {error}",

@@ -146,10 +146,10 @@ String _localizedGoalLabel(
   final last = candidate.steps.last;
   final destination = _localizedEndpoint(
     locale,
-    japanese: last.toName,
-    english: last.toNameEn,
-    field: 'to_en',
-    identity: 'stepId=${last.stepId}',
+    japanese: candidate.destinationName ?? last.toName,
+    english: candidate.destinationNameEn ?? last.toNameEn,
+    field: 'destination_name_en',
+    identity: 'candidateId=${candidate.id}',
   );
   return 'Arrive at $destination';
 }

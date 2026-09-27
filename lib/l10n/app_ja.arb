@@ -490,6 +490,12 @@
     }
   },
   "viewFullRoute": "経路全体を見る",
+  "soloTripDetailTitle": "移動の詳細",
+  "soloTripRouteAndSchedule": "経路と予定",
+  "travelPhasePlanning": "計画中",
+  "travelPhaseActive": "移動中",
+  "travelPhaseCompleted": "完了",
+  "travelPhaseCancelled": "中止",
   "endingTrip": "終了処理中…",
   "cancelTrip": "移動を中止する",
   "arrivalSaveFailed": "到着の保存に失敗しました: {error}",
