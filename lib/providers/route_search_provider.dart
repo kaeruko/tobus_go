@@ -10,6 +10,10 @@ class RouteSearchState {
   final String to;
   final String fromName;
   final String toName;
+  final String fromNameJa;
+  final String toNameJa;
+  final String fromNameEn;
+  final String toNameEn;
   final String? pref;
   final bool busOnly;
   final DateTime? startTime;
@@ -26,6 +30,10 @@ class RouteSearchState {
     this.to = '',
     this.fromName = '',
     this.toName = '',
+    this.fromNameJa = '',
+    this.toNameJa = '',
+    this.fromNameEn = '',
+    this.toNameEn = '',
     this.pref,
     this.busOnly = false,
     this.startTime,
@@ -43,6 +51,10 @@ class RouteSearchState {
     String? to,
     String? fromName,
     String? toName,
+    String? fromNameJa,
+    String? toNameJa,
+    String? fromNameEn,
+    String? toNameEn,
     String? pref,
     bool? busOnly,
     DateTime? startTime,
@@ -61,6 +73,10 @@ class RouteSearchState {
       to: to ?? this.to,
       fromName: fromName ?? this.fromName,
       toName: toName ?? this.toName,
+      fromNameJa: fromNameJa ?? this.fromNameJa,
+      toNameJa: toNameJa ?? this.toNameJa,
+      fromNameEn: fromNameEn ?? this.fromNameEn,
+      toNameEn: toNameEn ?? this.toNameEn,
       pref: pref ?? this.pref,
       busOnly: busOnly ?? this.busOnly,
       startTime: startTime ?? this.startTime,
@@ -88,11 +104,18 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
 
   int _generation = 0;
 
-  void setFrom(String from, {String? name}) {
+  void setFrom(
+    String from, {
+    String? name,
+    String? nameJa,
+    String? nameEn,
+  }) {
     _generation++;
     state = state.copyWith(
       from: from,
       fromName: name ?? from,
+      fromNameJa: nameJa ?? '',
+      fromNameEn: nameEn ?? '',
       isLoading: false,
       hasSearched: false,
       candidates: const [],
@@ -102,11 +125,18 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     );
   }
 
-  void setTo(String to, {String? name}) {
+  void setTo(
+    String to, {
+    String? name,
+    String? nameJa,
+    String? nameEn,
+  }) {
     _generation++;
     state = state.copyWith(
       to: to,
       toName: name ?? to,
+      toNameJa: nameJa ?? '',
+      toNameEn: nameEn ?? '',
       isLoading: false,
       hasSearched: false,
       candidates: const [],
@@ -162,8 +192,14 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
         RouteSearchRequest(
           origin: origin,
           destination: destination,
-          originName: state.fromName,
-          destinationName: state.toName,
+          originName: state.fromNameJa.trim().isNotEmpty
+              ? state.fromNameJa
+              : state.fromName,
+          destinationName: state.toNameJa.trim().isNotEmpty
+              ? state.toNameJa
+              : state.toName,
+          originNameEn: state.fromNameEn,
+          destinationNameEn: state.toNameEn,
           startTime: searchTime,
           preference: state.pref,
           busOnly: state.busOnly,
