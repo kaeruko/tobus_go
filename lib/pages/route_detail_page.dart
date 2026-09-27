@@ -603,6 +603,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   }
 
   Widget _selectedOutboundSummary(Candidate candidate) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -620,7 +621,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            '所要時間 ${candidate.totalTime}分・乗換 ${candidate.transfers}回',
+            l10n.outboundSummary(candidate.totalTime, candidate.transfers),
             style: const TextStyle(
               fontSize: 12,
               color: CupertinoColors.systemGrey,
@@ -633,6 +634,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
 
   // --- 再検索機能 (既存維持) ---
   void _showReSearchPicker() {
+    final l10n = AppLocalizations.of(context);
     _searchTime = appClock.now();
     showCupertinoModalPopup(
       context: context,
@@ -644,7 +646,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
             Container(
               alignment: Alignment.centerRight,
               child: CupertinoButton(
-                child: const Text('検索実行'),
+                child: Text(l10n.runSearch),
                 onPressed: () {
                   Navigator.pop(ctx);
                   _executeReSearch(startReturnFlow: _isReturnSelection);
@@ -670,6 +672,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
 
   // 置き換え
   Future<void> _showReturnTimePicker() async {
+    final l10n = AppLocalizations.of(context);
     FocusManager.instance.primaryFocus?.unfocus();
     await Future.delayed(const Duration(milliseconds: 200));
 
@@ -694,7 +697,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
             Container(
               alignment: Alignment.centerRight,
               child: CupertinoButton(
-                child: const Text('決定'),
+                child: Text(l10n.confirm),
                 onPressed: () {
                   Navigator.pop(ctx);
                   setState(() {});
