@@ -771,5 +771,16 @@
         "type": "String"
       }
     }
+  },
+  "navRideCurrentPlaceMain": "{rideTitle} {placeName}",
+  "@navRideCurrentPlaceMain": {
+    "placeholders": {
+      "rideTitle": {
+        "type": "String"
+      },
+      "placeName": {
+        "type": "String"
+      }
+    }
   }
 }
