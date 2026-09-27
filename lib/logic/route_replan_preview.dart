@@ -1,6 +1,8 @@
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/route_models.dart';
+import '../l10n/transit_name_localizations.dart';
 import '../models/trip_models.dart';
 import 'replan_anchor.dart';
 import 'replan_debug_log.dart';
@@ -88,17 +90,33 @@ class RouteReplanPreview {
 
   String get originalArrivalLabel => arrivalLabel(originalCandidate);
 
-  static String arrivalLabel(Candidate candidate) {
+  static String arrivalLabel(
+    Candidate candidate, {
+    String unknownLabel = '時刻不明',
+  }) {
     final direct = candidate.arrivalTime?.trim();
     if (direct != null && direct.isNotEmpty) return direct;
     for (final step in candidate.steps.reversed) {
       final value = step.arrivalTime?.trim();
       if (value != null && value.isNotEmpty) return value;
     }
-    return '時刻不明';
+    return unknownLabel;
   }
 
-  static String lineSummary(Candidate candidate) {
+  static String lineSummary(
+    Candidate candidate, {
+    Locale? locale,
+    String walkOnlyLabel = '徒歩のみ',
+  }) {
+    if (locale != null) {
+      final localized = localizedCandidateLines(locale, candidate)
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty)
+          .toList(growable: false);
+      if (localized.isNotEmpty) return localized.join(' → ');
+      return walkOnlyLabel;
+    }
+
     final lines = candidate.lines
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
@@ -114,7 +132,7 @@ class RouteReplanPreview {
         rideTitles.add(title);
       }
     }
-    return rideTitles.isEmpty ? '徒歩のみ' : rideTitles.join(' → ');
+    return rideTitles.isEmpty ? walkOnlyLabel : rideTitles.join(' → ');
   }
 
   static String formatClock(DateTime dateTime) {
