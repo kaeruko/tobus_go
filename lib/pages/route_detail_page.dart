@@ -9,6 +9,8 @@ import '../l10n/transit_name_localizations.dart';
 import '../models/route_models.dart';
 import '../models/fare_models.dart';
 import '../providers/city_profile_provider.dart';
+import '../providers/navigation_provider.dart';
+import '../providers/route_search_provider.dart';
 import '../providers/saved_routes_provider.dart';
 import '../models/leg_models.dart';
 import '../providers/trip_draft_provider.dart';
@@ -27,6 +29,7 @@ import 'active_route_page.dart';
 class RouteDetailPage extends ConsumerStatefulWidget {
   final Candidate candidate;
   final bool isReturnSelection;
+  final bool fromSavedRoute;
   final RouteMeta? meta;
   final FareQuote? fare;
 
@@ -34,6 +37,7 @@ class RouteDetailPage extends ConsumerStatefulWidget {
     super.key,
     required this.candidate,
     this.isReturnSelection = false,
+    this.fromSavedRoute = false,
     this.meta,
     this.fare,
   });
@@ -63,7 +67,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   @override
   void initState() {
     super.initState();
-    if (ref.read(cityProfileProvider).capabilities.features.groupTrips) {
+    if (widget.fromSavedRoute) {
+      _isLoadingTrip = false;
+    } else if (ref.read(cityProfileProvider).capabilities.features.groupTrips) {
       _tripService = TripService();
       _checkActiveTrip();
     } else {
@@ -311,6 +317,69 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     );
   }
 
+  void _planSavedRoute() {
+    if (!widget.fromSavedRoute) {
+      throw StateError('保存経路以外から保存経路検索が呼ばれました');
+    }
+
+    final candidate = widget.candidate;
+    final origin = candidate.originCoords;
+    final destination = candidate.destinationCoords;
+    if (origin == null || destination == null) {
+      throw StateError(
+        '保存経路に検索用の始点・終点座標がありません: '
+        'candidateId=${candidate.id}, '
+        'originCoords=$origin, destinationCoords=$destination',
+      );
+    }
+
+    final originJa = candidate.originName?.trim();
+    final destinationJa = candidate.destinationName?.trim();
+    if (originJa == null || originJa.isEmpty) {
+      throw StateError(
+        '保存経路に出発地名がありません: candidateId=${candidate.id}',
+      );
+    }
+    if (destinationJa == null || destinationJa.isEmpty) {
+      throw StateError(
+        '保存経路に到着地名がありません: candidateId=${candidate.id}',
+      );
+    }
+
+    final originEn = candidate.originNameEn?.trim();
+    final destinationEn = candidate.destinationNameEn?.trim();
+    final english = isEnglishTransitLocale(Localizations.localeOf(context));
+    final originDisplay = english && originEn != null && originEn.isNotEmpty
+        ? originEn
+        : originJa;
+    final destinationDisplay =
+        english && destinationEn != null && destinationEn.isNotEmpty
+            ? destinationEn
+            : destinationJa;
+
+    final notifier = ref.read(routeSearchProvider.notifier);
+    notifier.setFrom(
+      '${origin.latitude},${origin.longitude}',
+      name: originDisplay,
+      nameJa: originJa,
+      nameEn: originEn,
+    );
+    notifier.setTo(
+      '${destination.latitude},${destination.longitude}',
+      name: destinationDisplay,
+      nameJa: destinationJa,
+      nameEn: destinationEn,
+    );
+    final preference = candidate.preference?.trim();
+    if (preference != null && preference.isNotEmpty) {
+      notifier.setPref(preference);
+    }
+    notifier.setStartTime(appClock.now());
+
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    ref.read(tabIndexProvider.notifier).state = 0;
+  }
+
   Widget _roundTripComposer() {
     final l10n = AppLocalizations.of(context);
     final draftState = ref.watch(tripDraftProvider);
@@ -330,7 +399,18 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               _selectedOutboundSummary(outbound),
               const SizedBox(height: 12),
             ],
-            if (_isReturnSelection) ...[
+            if (widget.fromSavedRoute) ...[
+              SizedBox(
+                width: double.infinity,
+                child: CupertinoButton.filled(
+                  onPressed: _planSavedRoute,
+                  child: Text(
+                    l10n.planSavedRoute,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ] else if (_isReturnSelection) ...[
               if (_isLoadingTrip)
                 const Center(child: CupertinoActivityIndicator())
               else if (_activeTrip != null) ...[
