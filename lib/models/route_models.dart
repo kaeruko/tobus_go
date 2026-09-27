@@ -37,6 +37,7 @@ class RouteMeta {
 class Candidate {
   final String id;
   final List<String> lines;
+  final List<String> linesEn;
   final int rides;
   final int walkingDistanceMeters;
   final int walkingSegmentCount;
@@ -58,6 +59,7 @@ class Candidate {
   Candidate({
     required this.id,
     required this.lines,
+    this.linesEn = const [],
     required this.rides,
     int? walkingDistanceMeters,
     int? walkingSegmentCount,
@@ -103,6 +105,9 @@ class Candidate {
     return Candidate(
       id: j['id']?.toString() ?? '',
       lines: (j['lines'] is List) ? List<String>.from(j['lines']) : const [],
+      linesEn: (j['lines_en'] is List)
+          ? List<String>.from(j['lines_en'])
+          : const [],
       rides: (j['rides'] as num? ?? 0).toInt(),
       walkingDistanceMeters: _readRequiredNonNegativeInt(
         j,
@@ -293,8 +298,11 @@ class Candidate {
       stepId: wait.stepId,
       kind: wait.kind,
       title: wait.title,
+      titleEn: wait.titleEn,
       fromName: origin,
+      fromNameEn: walk.fromNameEn,
       toName: origin,
+      toNameEn: walk.fromNameEn,
       stops: wait.stops,
       minutes: normalizedWaitMinutes,
       meters: wait.meters,
@@ -304,6 +312,7 @@ class Candidate {
       startLabel: wait.startLabel,
       endLabel: wait.endLabel,
       place: origin,
+      placeEn: walk.fromNameEn,
       routeId: wait.routeId,
       tripId: wait.tripId,
       directionId: wait.directionId,
@@ -315,8 +324,11 @@ class Candidate {
       stepId: walk.stepId,
       kind: walk.kind,
       title: walk.title,
+      titleEn: walk.titleEn,
       fromName: walk.fromName,
+      fromNameEn: walk.fromNameEn,
       toName: walk.toName,
+      toNameEn: walk.toNameEn,
       stops: walk.stops,
       minutes: walk.minutes,
       meters: walk.meters,
@@ -326,6 +338,7 @@ class Candidate {
       startLabel: walk.startLabel,
       endLabel: walk.endLabel,
       place: walk.place,
+      placeEn: walk.placeEn,
       routeId: walk.routeId,
       tripId: walk.tripId,
       directionId: walk.directionId,
@@ -374,6 +387,7 @@ class Candidate {
     return {
       'id': id,
       'lines': lines,
+      'lines_en': linesEn,
       'rides': rides,
       'walking_distance_meters': walkingDistanceMeters,
       'walking_segment_count': walkingSegmentCount,
@@ -405,8 +419,11 @@ class StepSeg {
   final String stepId;
   final String kind; // 'walk', 'bus', 'rail', 'wait'
   final String title;
+  final String? titleEn;
   final String? fromName;
+  final String? fromNameEn;
   final String? toName;
+  final String? toNameEn;
   final List<StopPoint> stops;
   final int minutes;
   final double meters;
@@ -416,6 +433,7 @@ class StepSeg {
   final String? startLabel;
   final String? endLabel;
   final String? place;
+  final String? placeEn;
 
   final String? routeId; // 系統ID
   final String? tripId; // 便ID (GTFS-RTとの紐付け用)
@@ -430,8 +448,11 @@ class StepSeg {
     required this.stepId,
     required this.kind,
     required this.title,
+    this.titleEn,
     this.fromName,
+    this.fromNameEn,
     this.toName,
+    this.toNameEn,
     this.stops = const [],
     this.minutes = 0,
     this.meters = 0.0,
@@ -441,6 +462,7 @@ class StepSeg {
     this.startLabel,
     this.endLabel,
     this.place,
+    this.placeEn,
     this.routeId, // ★
     this.tripId, // ★
     this.directionId, // ★
@@ -469,8 +491,11 @@ class StepSeg {
       stepId: stepId,
       kind: json['kind'] ?? 'walk',
       title: json['title'] ?? '',
+      titleEn: json['title_en']?.toString(),
       fromName: json['from_'] ?? json['from'],
+      fromNameEn: json['from_en']?.toString(),
       toName: json['to'],
+      toNameEn: json['to_en']?.toString(),
       stops: parsedStops,
       minutes: json['minutes'] ?? 0,
       meters: (json['meters'] as num?)?.toDouble() ?? 0.0,
@@ -480,6 +505,7 @@ class StepSeg {
       startLabel: json['startLabel'],
       endLabel: json['endLabel'],
       place: json['place'],
+      placeEn: json['place_en']?.toString(),
 
       // ★追加: IDパース
       routeId:
@@ -519,8 +545,11 @@ class StepSeg {
       'step_id': stepId,
       'kind': kind,
       'title': title,
+      'title_en': titleEn,
       'from_': fromName,
+      'from_en': fromNameEn,
       'to': toName,
+      'to_en': toNameEn,
       'stops': stops.map((e) => e.toJson()).toList(),
       'minutes': minutes,
       'meters': meters,
@@ -530,6 +559,7 @@ class StepSeg {
       'startLabel': startLabel,
       'endLabel': endLabel,
       'place': place,
+      'place_en': placeEn,
       'route_id': routeId,
       'trip_id': tripId,
       'direction_id': directionId,
@@ -542,6 +572,7 @@ class StepSeg {
 
 class StopPoint {
   final String name;
+  final String? nameEn;
   final LatLng point;
   final bool isOrigin;
   final bool isDestination;
@@ -549,6 +580,7 @@ class StopPoint {
 
   StopPoint({
     required this.name,
+    this.nameEn,
     required this.point,
     this.isOrigin = false,
     this.isDestination = false,
@@ -558,6 +590,7 @@ class StopPoint {
   factory StopPoint.fromJson(Map<String, dynamic> json) {
     return StopPoint(
       name: json['name'] ?? '',
+      nameEn: json['name_en']?.toString(),
       point: LatLng(
         (json['lat'] as num?)?.toDouble() ?? 0.0,
         (json['lon'] as num?)?.toDouble() ?? 0.0,
@@ -575,6 +608,7 @@ class StopPoint {
   Map<String, dynamic> toJson() {
     return {
       'name': name,
+      'name_en': nameEn,
       'is_origin': isOrigin,
       'is_destination': isDestination,
       'lat': point.latitude,
