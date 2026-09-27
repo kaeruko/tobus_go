@@ -1,6 +1,7 @@
 class ReachableStop {
   final String id;
   final String name;
+  final String? nameEn;
   final double lat;
   final double lon;
   final String viaRoute; // 系統ID (例: odpt.Busroute:Toei.Higashi22)
@@ -8,15 +9,34 @@ class ReachableStop {
   ReachableStop({
     required this.id,
     required this.name,
+    this.nameEn,
     required this.lat,
     required this.lon,
     required this.viaRoute,
   });
 
+  String nameForLanguageCode(String languageCode) {
+    if (languageCode != 'en') return name;
+    final value = nameEn;
+    if (value == null || value.trim().isEmpty) {
+      throw const FormatException(
+        'ReachableStop.name_en is required for English UI',
+      );
+    }
+    return value;
+  }
+
   factory ReachableStop.fromJson(Map<String, dynamic> json) {
+    final nameEn = json['name_en'];
+    if (nameEn is! String || nameEn.trim().isEmpty) {
+      throw const FormatException(
+        'ReachableStop.name_en must be a non-empty string',
+      );
+    }
     return ReachableStop(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
+      nameEn: nameEn,
       lat: (json['lat'] as num?)?.toDouble() ?? 0.0,
       lon: (json['lon'] as num?)?.toDouble() ?? 0.0,
       viaRoute: json['via_route'] as String? ?? '',
@@ -27,6 +47,7 @@ class ReachableStop {
 class NearestStop {
   final String id;
   final String name;
+  final String nameEn;
   final double lat;
   final double lon;
   final double distM;
@@ -34,15 +55,27 @@ class NearestStop {
   NearestStop({
     required this.id,
     required this.name,
+    required this.nameEn,
     required this.lat,
     required this.lon,
     required this.distM,
   });
 
+  String nameForLanguageCode(String languageCode) {
+    return languageCode == 'en' ? nameEn : name;
+  }
+
   factory NearestStop.fromJson(Map<String, dynamic> json) {
+    final nameEn = json['name_en'];
+    if (nameEn is! String || nameEn.trim().isEmpty) {
+      throw const FormatException(
+        'NearestStop.name_en must be a non-empty string',
+      );
+    }
     return NearestStop(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
+      nameEn: nameEn,
       lat: (json['lat'] as num?)?.toDouble() ?? 0.0,
       lon: (json['lon'] as num?)?.toDouble() ?? 0.0,
       distM: (json['dist_m'] as num?)?.toDouble() ?? 0.0,
