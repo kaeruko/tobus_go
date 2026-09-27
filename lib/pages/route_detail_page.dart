@@ -17,6 +17,7 @@ import '../models/trip_models.dart';
 import 'leader_mode_page.dart';
 import '../core/api_client.dart';
 import '../widgets/bus_loading_indicator.dart';
+import '../widgets/app_navigation_bar.dart';
 import '../widgets/route_map_preview.dart';
 import '../widgets/route_detail_widgets.dart';
 import 'trip_page.dart';
@@ -1096,7 +1097,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     final isSaved = _checkIsSaved(savedRoutes);
 
     return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
+      navigationBar: buildAppNavigationBar(
         middle: Text(
           localizedCandidateLines(locale, widget.candidate).join(' → '),
         ),
