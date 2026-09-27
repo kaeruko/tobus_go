@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/logic/trip_navigator.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/widgets/trip_navigation_status_card.dart';
@@ -31,6 +32,9 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: TripNavigationStatusCard(
               navState: navigation,
@@ -50,4 +54,41 @@ void main() {
     expect(find.text('のこり 3 駅'), findsOneWidget);
     expect(find.text('のこり 2 回停車'), findsNothing);
   });
+  testWidgets('English stop labels are localized', (tester) async {
+    final step = StepSeg(
+      stepId: 'bus-en',
+      kind: 'bus',
+      title: 'Route 8',
+      fromName: 'Origin',
+      toName: 'Destination',
+    );
+    final navigation = NavigationState(
+      mainText: 'Moving',
+      subText: 'Stay on board',
+      color: Colors.blue,
+      statusLabel: 'Riding',
+      remainingStops: 2,
+      nextStopName: 'Next Stop',
+      step: step,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TripNavigationStatusCard(
+            navState: navigation,
+            tripTitle: 'Origin → Destination',
+            onTapStops: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('2 stops remaining'), findsOneWidget);
+    expect(find.text('Next: Next Stop'), findsOneWidget);
+  });
+
 }
