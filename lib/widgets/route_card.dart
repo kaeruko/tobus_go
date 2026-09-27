@@ -36,36 +36,12 @@ class RouteCard extends ConsumerWidget {
     }
     if (candidate.steps.isEmpty) return l10n.originFallback;
 
-    final firstStep = candidate.steps.first;
-    if (firstStep.isRide) {
-      return localizedRideFromName(locale, firstStep);
-    }
-    final japanese = firstStep.fromName?.trim();
-    if (japanese == null || japanese.isEmpty) return l10n.originFallback;
-
-    switch (firstStep.kind) {
-      case 'wait':
-        return localizedTransitName(
+    return localizedStepEndpointName(
           locale,
-          japanese: japanese,
-          english: firstStep.fromNameEn,
-          field: 'from_en',
-          identity: 'stepId=${firstStep.stepId}',
-        );
-      case 'walk':
-        return localizedOptionalPlaceName(
-          locale,
-          japanese: japanese,
-          english: firstStep.fromNameEn,
-          field: 'walk_from_en',
-          identity: 'stepId=${firstStep.stepId}',
-        );
-      default:
-        throw StateError(
-          'Unsupported route-card origin step kind: '
-          'stepId=${firstStep.stepId}, kind=${firstStep.kind}',
-        );
-    }
+          candidate.steps.first,
+          origin: true,
+        ) ??
+        l10n.originFallback;
   }
 
   String _destination(AppLocalizations l10n, Locale locale) {
@@ -97,36 +73,12 @@ class RouteCard extends ConsumerWidget {
     }
     if (candidate.steps.isEmpty) return l10n.destinationFallback;
 
-    final lastStep = candidate.steps.last;
-    if (lastStep.isRide) {
-      return localizedRideToName(locale, lastStep);
-    }
-    final japanese = lastStep.toName?.trim();
-    if (japanese == null || japanese.isEmpty) return l10n.destinationFallback;
-
-    switch (lastStep.kind) {
-      case 'wait':
-        return localizedTransitName(
+    return localizedStepEndpointName(
           locale,
-          japanese: japanese,
-          english: lastStep.toNameEn,
-          field: 'to_en',
-          identity: 'stepId=${lastStep.stepId}',
-        );
-      case 'walk':
-        return localizedOptionalPlaceName(
-          locale,
-          japanese: japanese,
-          english: lastStep.toNameEn,
-          field: 'walk_to_en',
-          identity: 'stepId=${lastStep.stepId}',
-        );
-      default:
-        throw StateError(
-          'Unsupported route-card destination step kind: '
-          'stepId=${lastStep.stepId}, kind=${lastStep.kind}',
-        );
-    }
+          candidate.steps.last,
+          origin: false,
+        ) ??
+        l10n.destinationFallback;
   }
 
   String? _fareChip(FareQuote? quote, AppLocalizations l10n) {
