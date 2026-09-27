@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/group_models.dart';
 
 enum TripScheduleWindowAppearance {
@@ -217,7 +218,7 @@ class _BoxedScheduleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timeStr = TimeOfDay.fromDateTime(entry.plannedAt).format(context);
-    final label = _categoryLabel(entry.itemKind);
+    final label = _categoryLabel(context, entry.itemKind);
     final pillText = isActive ? activeLabel : label;
 
     final content = Container(
@@ -326,15 +327,16 @@ class _BoxedScheduleRow extends StatelessWidget {
     };
   }
 
-  String _categoryLabel(ScheduleEntryKind kind) {
+  String _categoryLabel(BuildContext context, ScheduleEntryKind kind) {
+    final l10n = AppLocalizations.of(context);
     return switch (kind) {
-      ScheduleEntryKind.meeting => '集合',
-      ScheduleEntryKind.departure => '出発',
-      ScheduleEntryKind.ride => '移動',
-      ScheduleEntryKind.walk => '徒歩',
-      ScheduleEntryKind.arrival => '到着',
-      ScheduleEntryKind.goal => 'ゴール',
-      ScheduleEntryKind.event => '予定',
+      ScheduleEntryKind.meeting => l10n.categoryMeeting,
+      ScheduleEntryKind.departure => l10n.categoryDeparture,
+      ScheduleEntryKind.ride => l10n.categoryRide,
+      ScheduleEntryKind.walk => l10n.categoryWalk,
+      ScheduleEntryKind.arrival => l10n.categoryArrival,
+      ScheduleEntryKind.goal => l10n.categoryGoal,
+      ScheduleEntryKind.event => l10n.categoryEvent,
     };
   }
 }
