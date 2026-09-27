@@ -164,50 +164,75 @@ void _expectExactKeys(
 class ExploreEditorialImage {
   final String file;
   final String caption;
+  final String captionEn;
 
   const ExploreEditorialImage({
     required this.file,
     required this.caption,
+    required this.captionEn,
   });
+
+  String captionForLanguageCode(String languageCode) {
+    return languageCode == 'en' ? captionEn : caption;
+  }
 
   factory ExploreEditorialImage.fromJson(
     Map<String, dynamic> json, {
     required String where,
   }) {
-    _expectExactKeys(json, {'file', 'caption'}, where);
+    _expectExactKeys(json, {'file', 'caption', 'caption_en'}, where);
 
     final file = json['file'];
     final caption = json['caption'];
+    final captionEn = json['caption_en'];
     if (file is! String || file.isEmpty) {
       throw FormatException('$where.file must be a non-empty string');
     }
     if (caption is! String) {
       throw FormatException('$where.caption must be a string');
     }
+    if (captionEn is! String) {
+      throw FormatException('$where.caption_en must be a string');
+    }
 
-    return ExploreEditorialImage(file: file, caption: caption);
+    return ExploreEditorialImage(
+      file: file,
+      caption: caption,
+      captionEn: captionEn,
+    );
   }
 }
 
 class ExploreEditorialSpot {
   final String stopId;
   final String comment;
+  final String commentEn;
   final List<ExploreEditorialImage> images;
 
   const ExploreEditorialSpot({
     required this.stopId,
     required this.comment,
+    required this.commentEn,
     required this.images,
   });
+
+  String commentForLanguageCode(String languageCode) {
+    return languageCode == 'en' ? commentEn : comment;
+  }
 
   factory ExploreEditorialSpot.fromJson(
     Map<String, dynamic> json, {
     required String where,
   }) {
-    _expectExactKeys(json, {'stop_id', 'comment', 'images'}, where);
+    _expectExactKeys(
+      json,
+      {'stop_id', 'comment', 'comment_en', 'images'},
+      where,
+    );
 
     final stopId = json['stop_id'];
     final comment = json['comment'];
+    final commentEn = json['comment_en'];
     final rawImages = json['images'];
 
     if (stopId is! String || stopId.isEmpty || stopId.trim() != stopId) {
@@ -217,6 +242,9 @@ class ExploreEditorialSpot {
     }
     if (comment is! String) {
       throw FormatException('$where.comment must be a string');
+    }
+    if (commentEn is! String) {
+      throw FormatException('$where.comment_en must be a string');
     }
     if (rawImages is! List<dynamic>) {
       throw FormatException('$where.images must be a list');
@@ -248,6 +276,7 @@ class ExploreEditorialSpot {
     return ExploreEditorialSpot(
       stopId: stopId,
       comment: comment,
+      commentEn: commentEn,
       images: images,
     );
   }
