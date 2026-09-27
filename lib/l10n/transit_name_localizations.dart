@@ -40,6 +40,30 @@ String localizedTransitName(
   return '$normalizedEnglish ($normalizedJapanese)';
 }
 
+String localizedOptionalPlaceName(
+  Locale locale, {
+  required String japanese,
+  required String? english,
+  required String field,
+  required String identity,
+}) {
+  final normalizedJapanese = japanese.trim();
+  if (normalizedJapanese.isEmpty) {
+    throw StateError('Place name is empty: field=$field $identity');
+  }
+  if (!isEnglishTransitLocale(locale)) return normalizedJapanese;
+
+  if (english == null) return normalizedJapanese;
+  final normalizedEnglish = english.trim();
+  if (normalizedEnglish.isEmpty) {
+    throw StateError(
+      'Optional English place name is blank: field=$field $identity',
+    );
+  }
+  if (normalizedEnglish == normalizedJapanese) return normalizedEnglish;
+  return '$normalizedEnglish ($normalizedJapanese)';
+}
+
 String localizedRideTitle(Locale locale, StepSeg step) {
   if (!step.isRide) {
     throw StateError(
@@ -81,6 +105,49 @@ String localizedRideToName(Locale locale, StepSeg step) {
     field: 'to_en',
     identity: 'stepId=${step.stepId}',
   );
+}
+
+String? localizedStepEndpointName(
+  Locale locale,
+  StepSeg step, {
+  required bool origin,
+}) {
+  if (step.isRide) {
+    return origin
+        ? localizedRideFromName(locale, step)
+        : localizedRideToName(locale, step);
+  }
+
+  final japanese = (origin ? step.fromName : step.toName)?.trim();
+  if (japanese == null || japanese.isEmpty) return null;
+
+  switch (step.kind) {
+    case 'wait':
+      final waitPlace = step.place?.trim();
+      return localizedTransitName(
+        locale,
+        japanese: waitPlace == null || waitPlace.isEmpty
+            ? japanese
+            : waitPlace,
+        english: step.placeEn ??
+            (origin ? step.fromNameEn : step.toNameEn),
+        field: 'place_en',
+        identity: 'stepId=${step.stepId}',
+      );
+    case 'walk':
+      return localizedOptionalPlaceName(
+        locale,
+        japanese: japanese,
+        english: origin ? step.fromNameEn : step.toNameEn,
+        field: origin ? 'walk_from_en' : 'walk_to_en',
+        identity: 'stepId=${step.stepId}',
+      );
+    default:
+      throw StateError(
+        'Unsupported route endpoint step kind: '
+        'stepId=${step.stepId}, kind=${step.kind}',
+      );
+  }
 }
 
 String localizedStopName(Locale locale, StopPoint stop) {

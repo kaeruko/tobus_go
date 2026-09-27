@@ -178,6 +178,34 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'English wait location fails fast when official English is missing',
+    (tester) async {
+      final wait = StepSeg(
+        stepId: 'wait-missing-en',
+        kind: 'wait',
+        title: '待ち時間',
+        fromName: '横浜駅前',
+        toName: '横浜駅前',
+        place: '横浜駅前',
+        minutes: 2,
+      );
+
+      await tester.pumpWidget(
+        localizedApp(
+          ListView(children: [RouteStepTile(segment: wait)]),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pump();
+
+      final error = tester.takeException();
+      expect(error, isA<StateError>());
+      expect(error.toString(), contains('field=place_en'));
+      expect(error.toString(), contains('stepId=wait-missing-en'));
+    },
+  );
+
   testWidgets('normal fare summary disappears when it has no fare amounts', (
     tester,
   ) async {

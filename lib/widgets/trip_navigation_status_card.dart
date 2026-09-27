@@ -380,11 +380,13 @@ class TripNavigationStatusCard extends StatelessWidget {
       );
     }
 
-    if (isEnglishTransitLocale(locale)) {
-      final english = navState.nextStopNameEn?.trim();
-      if (english != null && english.isNotEmpty) return english;
-    }
-    return japanese;
+    return localizedOptionalPlaceName(
+      locale,
+      japanese: japanese,
+      english: navState.nextStopNameEn,
+      field: 'nextStopNameEn',
+      identity: 'stepId=${navState.step?.stepId ?? '<unknown>'}',
+    );
   }
 
   String _remainingLabel(AppLocalizations l10n) {
