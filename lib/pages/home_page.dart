@@ -32,7 +32,7 @@ class RouteSearchPage extends ConsumerStatefulWidget {
   final ValueListenable<int>? tabIndexListenable;
   const RouteSearchPage({
     super.key,
-    this.title = '都営でGO',
+    required this.title,
     this.tabIndexListenable,
   });
 
