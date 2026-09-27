@@ -3,6 +3,16 @@ import 'package:toeigo/constants.dart';
 import 'package:toeigo/core/city_profile.dart';
 
 void main() {
+  test('Tokyo uses the runtime config Drive file', () {
+    expect(
+      runtimeConfigGoogleDriveFileIdForCity(AppCity.tokyo),
+      kTokyoRuntimeConfigGoogleDriveFileId,
+    );
+    expect(runtimeConfigGoogleDriveFileIdForCity(AppCity.sendai), isNull);
+    expect(runtimeConfigGoogleDriveFileIdForCity(AppCity.nagoya), isNull);
+    expect(runtimeConfigGoogleDriveFileIdForCity(AppCity.yokohama), isNull);
+  });
+
   test('Tokyo and Sendai use city-specific Google Drive endpoint files', () {
     expect(
       apiGoogleDriveFileIdForCity(AppCity.tokyo),
