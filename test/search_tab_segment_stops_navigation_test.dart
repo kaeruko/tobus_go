@@ -206,8 +206,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Kameido Sta.'), findsOneWidget);
-    expect(find.text('Nippori Sta.'), findsOneWidget);
+    expect(find.text('Kameido Sta. (亀戸駅前)'), findsOneWidget);
+    expect(find.text('Nippori Sta. (日暮里駅前)'), findsOneWidget);
     expect(find.text('Board'), findsOneWidget);
     expect(find.text('Get off'), findsOneWidget);
   });
