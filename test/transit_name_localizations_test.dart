@@ -76,4 +76,57 @@ void main() {
       'A1',
     );
   });
+
+  test('official English stop names fail fast for null, empty, and blank', () {
+    for (final english in <String?>[null, '', '   ']) {
+      final stop = StopPoint(
+        name: '蔵前',
+        nameEn: english,
+        point: const LatLng(35.703, 139.790),
+        stopId: 'stop-kuramae',
+      );
+
+      expect(
+        () => localizedStopName(const Locale('en'), stop),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message.toString(),
+            'diagnostic',
+            allOf(contains('field=name_en'), contains('stopId=stop-kuramae')),
+          ),
+        ),
+      );
+    }
+  });
+
+  test('generic walk place may omit English but rejects blank English', () {
+    expect(
+      localizedOptionalPlaceName(
+        const Locale('en'),
+        japanese: '横浜赤レンガ倉庫入口',
+        english: null,
+        field: 'walk_to_en',
+        identity: 'stepId=walk-1',
+      ),
+      '横浜赤レンガ倉庫入口',
+    );
+
+    expect(
+      () => localizedOptionalPlaceName(
+        const Locale('en'),
+        japanese: '横浜赤レンガ倉庫入口',
+        english: '   ',
+        field: 'walk_to_en',
+        identity: 'stepId=walk-1',
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message.toString(),
+          'diagnostic',
+          allOf(contains('field=walk_to_en'), contains('stepId=walk-1')),
+        ),
+      ),
+    );
+  });
+
 }
