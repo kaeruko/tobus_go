@@ -16,6 +16,20 @@ _AUTOCOMPLETE_FIELD_MASK = (
     "suggestions.placePrediction.text.text"
 )
 _DETAILS_FIELD_MASK = "id,displayName,formattedAddress,location"
+_SUPPORTED_LANGUAGES = {"ja", "en"}
+
+
+def _require_language(language: str) -> str:
+    normalized = language.strip().lower()
+    if normalized not in _SUPPORTED_LANGUAGES:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "unsupported_language",
+                "message": f"unsupported language: {language}",
+            },
+        )
+    return normalized
 
 
 def _require_api_key() -> str:
@@ -78,8 +92,9 @@ def _decode_google_response(response: httpx.Response, *, operation: str) -> dict
     return payload
 
 
-async def _request_autocomplete(q: str) -> dict[str, Any]:
+async def _request_autocomplete(q: str, language: str) -> dict[str, Any]:
     key = _require_api_key()
+    language = _require_language(language)
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
@@ -87,7 +102,7 @@ async def _request_autocomplete(q: str) -> dict[str, Any]:
                 headers=_google_headers(key, _AUTOCOMPLETE_FIELD_MASK),
                 json={
                     "input": q,
-                    "languageCode": "ja",
+                    "languageCode": language,
                     "regionCode": "JP",
                     "includedRegionCodes": ["JP"],
                 },
@@ -105,8 +120,9 @@ async def _request_autocomplete(q: str) -> dict[str, Any]:
     return _decode_google_response(response, operation="autocomplete")
 
 
-async def _request_details(place_id: str) -> dict[str, Any]:
+async def _request_details(place_id: str, language: str) -> dict[str, Any]:
     key = _require_api_key()
+    language = _require_language(language)
     encoded_place_id = quote(place_id, safe="")
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -114,7 +130,7 @@ async def _request_details(place_id: str) -> dict[str, Any]:
                 f"{_DETAILS_BASE_URL}/{encoded_place_id}",
                 headers=_google_headers(key, _DETAILS_FIELD_MASK),
                 params={
-                    "languageCode": "ja",
+                    "languageCode": language,
                     "regionCode": "JP",
                 },
             )
@@ -254,11 +270,17 @@ def _legacy_details_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 def register_route_only_places_routes(app) -> None:
     @app.get("/autocomplete")
-    async def autocomplete(q: str = Query(...)):
-        payload = await _request_autocomplete(q)
+    async def autocomplete(
+        q: str = Query(...),
+        lang: str = Query("ja"),
+    ):
+        payload = await _request_autocomplete(q, lang)
         return _legacy_autocomplete_payload(payload)
 
     @app.get("/details")
-    async def details(place_id: str = Query(...)):
-        payload = await _request_details(place_id)
+    async def details(
+        place_id: str = Query(...),
+        lang: str = Query("ja"),
+    ):
+        payload = await _request_details(place_id, lang)
         return _legacy_details_payload(payload)
