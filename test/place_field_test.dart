@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:toeigo/constants.dart';
+import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/core/api_client.dart';
 import 'package:toeigo/widgets/place_field.dart';
 
@@ -54,6 +55,9 @@ void main() {
 
     await tester.pumpWidget(
       CupertinoApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CupertinoPageScaffold(
           child: PlaceField(
             label: '到着(検索)',
@@ -101,6 +105,9 @@ void main() {
 
     await tester.pumpWidget(
       CupertinoApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CupertinoPageScaffold(
           child: Column(
             children: [
@@ -151,6 +158,9 @@ void main() {
 
     await tester.pumpWidget(
       CupertinoApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CupertinoPageScaffold(
           child: PlaceField(
             label: '到着(検索)',
@@ -201,6 +211,9 @@ void main() {
 
     await tester.pumpWidget(
       CupertinoApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CupertinoPageScaffold(
           child: PlaceField(
             label: '到着(検索)',
@@ -247,6 +260,9 @@ void main() {
 
     await tester.pumpWidget(
       CupertinoApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CupertinoPageScaffold(
           child: PlaceField(
             label: '到着(検索)',
