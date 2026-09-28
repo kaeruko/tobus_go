@@ -74,10 +74,6 @@ class TripNavigationStatusCard extends StatelessWidget {
                   avatar: const Icon(Icons.location_on, size: 18),
                   label: Text(statusLabel),
                 ),
-                Chip(
-                  avatar: const Icon(Icons.route, size: 18),
-                  label: Text(tripTitle),
-                ),
               ],
             ),
             if (headerTrailing != null) ...[
