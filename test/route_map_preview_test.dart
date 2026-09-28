@@ -112,7 +112,9 @@ void main() {
     expect(urlLauncher.urls, hasLength(3));
   });
 
-  testWidgets('compact static map disables external interactions', (tester) async {
+  testWidgets('compact map allows pan and zoom without external navigation', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       CupertinoApp(
         locale: const Locale('ja'),
@@ -124,7 +126,10 @@ void main() {
             showOpenButton: false,
             height: 150,
             margin: EdgeInsets.zero,
-            interactive: false,
+            interactive: true,
+            openExternalOnTap: false,
+            rotateGesturesEnabled: false,
+            tiltGesturesEnabled: false,
           ),
         ),
       ),
@@ -136,8 +141,14 @@ void main() {
 
     final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
     expect(map.onTap, isNull);
-    expect(map.scrollGesturesEnabled, isFalse);
-    expect(map.zoomGesturesEnabled, isFalse);
+    expect(map.scrollGesturesEnabled, isTrue);
+    expect(map.zoomGesturesEnabled, isTrue);
+    expect(map.rotateGesturesEnabled, isFalse);
+    expect(map.tiltGesturesEnabled, isFalse);
+    for (final marker in map.markers) {
+      expect(marker.consumeTapEvents, isFalse);
+      expect(marker.onTap, isNull);
+    }
     expect(urlLauncher.urls, isEmpty);
   });
 
