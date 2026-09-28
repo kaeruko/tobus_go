@@ -15,13 +15,17 @@ class MyRoutePage extends ConsumerWidget {
     final savedRoutes = ref.watch(savedRoutesProvider);
 
     return CupertinoPageScaffold(
+      backgroundColor: CupertinoColors.white,
       navigationBar: CupertinoNavigationBar(
+        backgroundColor: CupertinoColors.white,
         middle: Text(l10n.myRouteTitle),
       ),
-      child: SafeArea(
-        child: savedRoutes.isEmpty
-            ? Center(child: Text(l10n.savedRoutesEmpty))
-            : ListView.separated(
+      child: ColoredBox(
+        color: CupertinoColors.white,
+        child: SafeArea(
+          child: savedRoutes.isEmpty
+              ? Center(child: Text(l10n.savedRoutesEmpty))
+              : ListView.separated(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                 itemCount: savedRoutes.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -84,7 +88,8 @@ class MyRoutePage extends ConsumerWidget {
                     ),
                   );
                 },
-              ),
+                ),
+        ),
       ),
     );
   }
