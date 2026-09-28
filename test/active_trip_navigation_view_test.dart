@@ -110,15 +110,15 @@ void main() {
     expect(error, isA<StateError>());
     expect(error.toString(), contains('tripTitleが空'));
   });
-  testWidgets('現在地と目的地を大きい経路カードで表示できる', (tester) async {
+  testWidgets('出発地と目的地を大きい経路カードで表示できる', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
           body: Padding(
             padding: EdgeInsets.all(16),
             child: ActiveTripEndpointCard(
-              currentLabel: '現在地',
-              currentPlace: '平井七丁目第三アパート前',
+              originLabel: '出発地',
+              originPlace: '平井七丁目第三アパート前',
               destinationLabel: '目的地',
               destinationPlace: '上野松坂屋前',
             ),
@@ -127,7 +127,7 @@ void main() {
       ),
     );
 
-    expect(find.text('現在地'), findsOneWidget);
+    expect(find.text('出発地'), findsOneWidget);
     expect(find.text('平井七丁目第三アパート前'), findsOneWidget);
     expect(find.text('目的地'), findsOneWidget);
     expect(find.text('上野松坂屋前'), findsOneWidget);
@@ -136,13 +136,13 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('現在地・目的地カードは空文字をfail-fastする', (tester) async {
+  testWidgets('出発地・目的地カードは空文字をfail-fastする', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
           body: ActiveTripEndpointCard(
-            currentLabel: '現在地',
-            currentPlace: ' ',
+            originLabel: '出発地',
+            originPlace: ' ',
             destinationLabel: '目的地',
             destinationPlace: '上野松坂屋前',
           ),
