@@ -11,13 +11,19 @@ class RouteMapPreview extends StatefulWidget {
   final List<LatLng> points;
   final LatLng? vehiclePosition;
   final bool showOpenButton;
+  final double height;
+  final EdgeInsetsGeometry margin;
+  final bool interactive;
 
   const RouteMapPreview({
     super.key,
     required this.points,
     this.vehiclePosition,
     this.showOpenButton = true,
-  });
+    this.height = 200,
+    this.margin = const EdgeInsets.symmetric(horizontal: 16),
+    this.interactive = true,
+  }) : assert(height > 0);
 
   @override
   State<RouteMapPreview> createState() => _RouteMapPreviewState();
@@ -122,8 +128,8 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
 
     if (points.isEmpty) {
       return Container(
-        height: 200,
-        margin: const EdgeInsets.symmetric(horizontal: 16),
+        height: widget.height,
+        margin: widget.margin,
         decoration: decoration,
         alignment: Alignment.center,
         child: const Text(
@@ -141,8 +147,8 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
     final zoom = _zoomFor(cameraPoints);
 
     return Container(
-      height: 200,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      height: widget.height,
+      margin: widget.margin,
       decoration: decoration,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
@@ -150,9 +156,15 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
           fit: StackFit.expand,
           children: [
             GoogleMap(
-              onCameraMove: (position) => _cameraTarget = position.target,
-              onTap: _openGoogleMaps,
+              onCameraMove: widget.interactive
+                  ? (position) => _cameraTarget = position.target
+                  : null,
+              onTap: widget.interactive ? _openGoogleMaps : null,
               mapToolbarEnabled: false,
+              scrollGesturesEnabled: widget.interactive,
+              zoomGesturesEnabled: widget.interactive,
+              rotateGesturesEnabled: widget.interactive,
+              tiltGesturesEnabled: widget.interactive,
               initialCameraPosition: CameraPosition(
                 target: center,
                 zoom: zoom,
@@ -171,24 +183,30 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                 Marker(
                   markerId: const MarkerId('start'),
                   position: points.first,
-                  onTap: () => _openGoogleMaps(points.first),
-                  consumeTapEvents: true,
+                  onTap: widget.interactive
+                      ? () => _openGoogleMaps(points.first)
+                      : null,
+                  consumeTapEvents: widget.interactive,
                   infoWindow: const InfoWindow(title: 'Start'),
                 ),
                 if (points.length >= 2)
                   Marker(
                     markerId: const MarkerId('end'),
                     position: points.last,
-                    onTap: () => _openGoogleMaps(points.last),
-                    consumeTapEvents: true,
+                    onTap: widget.interactive
+                        ? () => _openGoogleMaps(points.last)
+                        : null,
+                    consumeTapEvents: widget.interactive,
                     infoWindow: const InfoWindow(title: 'End'),
                   ),
                 if (vehiclePosition != null)
                   Marker(
                     markerId: const MarkerId('realtime_vehicle'),
                     position: vehiclePosition,
-                    onTap: () => _openGoogleMaps(vehiclePosition),
-                    consumeTapEvents: true,
+                    onTap: widget.interactive
+                        ? () => _openGoogleMaps(vehiclePosition)
+                        : null,
+                    consumeTapEvents: widget.interactive,
                     infoWindow: const InfoWindow(title: 'バス現在位置'),
                     icon: BitmapDescriptor.defaultMarkerWithHue(
                       BitmapDescriptor.hueAzure,
@@ -196,7 +214,7 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                   ),
               },
             ),
-            if (widget.showOpenButton)
+            if (widget.showOpenButton && widget.interactive)
               Positioned(
                 top: 8,
                 right: 8,
