@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../logic/trip_navigator.dart';
-import 'trip_navigation_status_card.dart';
 
 class ActiveTripAppBarTitle extends StatelessWidget {
   final String appName;
@@ -108,14 +107,15 @@ class ActiveTripNavigationView extends StatelessWidget {
         child: ListView(
           padding: contentPadding,
           children: [
-            TripNavigationStatusCard(
-              navState: navState,
-              tripTitle: normalizedTitle,
-              onTapStops: onTapStops,
-              headerTrailing: statusHeaderTrailing,
-            ),
+            if (statusHeaderTrailing != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: statusHeaderTrailing!,
+              ),
             ..._withSpacing(beforeScheduleSections, 10),
-            const SizedBox(height: 14),
+            if (statusHeaderTrailing != null ||
+                beforeScheduleSections.isNotEmpty)
+              const SizedBox(height: 14),
             scheduleSection,
             ..._withSpacing(afterScheduleSections, 14),
           ],

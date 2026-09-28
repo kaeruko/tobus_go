@@ -8,6 +8,60 @@ import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/widgets/trip_navigation_status_card.dart';
 
 void main() {
+  testWidgets('compact inline status hides generic waiting heading', (
+    tester,
+  ) async {
+    final step = StepSeg(
+      stepId: 'bus-waiting',
+      kind: 'bus',
+      title: '錦37',
+      fromName: '十間橋通り',
+      toName: '押上駅前',
+    );
+    final navigation = NavigationState(
+      mainText: '待機中',
+      subText: '十間橋通り（バスの位置を確認中）',
+      color: Colors.blue,
+      statusLabel: '検索中...',
+      mainTextToken: const NavigationTextToken(
+        NavigationTextKey.busWaitingMain,
+      ),
+      subTextToken: const NavigationTextToken(
+        NavigationTextKey.busPositionCheckingAtStopSub,
+        {'stopName': '十間橋通り'},
+      ),
+      noticeText: 'Realtimeの位置情報を確認しています',
+      noticeTextToken: const NavigationTextToken(
+        NavigationTextKey.realtimeUnavailableNotice,
+      ),
+      step: step,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TripNavigationInlineStatus(
+            navState: navigation,
+            onTapStops: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('待機中'), findsNothing);
+    expect(find.text('検索中...'), findsNothing);
+    expect(find.text('十間橋通り（バスの位置を確認中）'), findsOneWidget);
+    expect(
+      find.text(
+        'Realtimeの位置情報を確認しています\n最後に確認した位置を表示しています',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('bus and rail remaining counts use transport-specific wording', (
     tester,
   ) async {

@@ -638,3 +638,203 @@ class _RidePlaceParts {
     this.secondary,
   });
 }
+
+
+/// Compact navigation details rendered inside the active schedule row.
+///
+/// Unlike [TripNavigationStatusCard], this widget does not repeat the trip title
+/// or render a large status heading. It keeps only the actionable navigation
+/// details next to the step the user is currently following.
+class TripNavigationInlineStatus extends StatelessWidget {
+  final NavigationState navState;
+  final VoidCallback onTapStops;
+
+  const TripNavigationInlineStatus({
+    super.key,
+    required this.navState,
+    required this.onTapStops,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
+    final mainText = localizedNavigationText(
+      l10n,
+      locale,
+      navState.mainTextToken,
+      fallback: navState.mainText,
+    ).trim();
+    final subText = localizedNavigationText(
+      l10n,
+      locale,
+      navState.subTextToken,
+      fallback: navState.subText,
+    ).trim();
+    final noticeText = navState.noticeText == null
+        ? null
+        : localizedNavigationText(
+            l10n,
+            locale,
+            navState.noticeTextToken,
+            fallback: navState.noticeText!,
+          ).trim();
+    final nextStopName = _localizedInlineNextStopName(locale);
+
+    final hideGenericWaitingHeading =
+        navState.mainTextToken?.key == NavigationTextKey.busWaitingMain;
+    final showMain =
+        mainText.isNotEmpty &&
+        !hideGenericWaitingHeading &&
+        mainText != subText;
+    final showSub = subText.isNotEmpty;
+
+    return Column(
+      key: const ValueKey('trip-navigation-inline-status'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showMain)
+          Text(
+            mainText,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.25,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        if (showMain && showSub) const SizedBox(height: 3),
+        if (showSub)
+          Text(
+            subText,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.3,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        if (noticeText != null && noticeText.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade100,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.sync, size: 17),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    noticeText,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.3,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (navState.remainingStops != null ||
+            (nextStopName?.isNotEmpty ?? false)) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if ((nextStopName?.isNotEmpty ?? false))
+                Text(
+                  l10n.nextStop(nextStopName!),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              if (navState.remainingStops != null)
+                InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: onTapStops,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 2,
+                      vertical: 2,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_inlineRemainingIcon(), size: 15),
+                        const SizedBox(width: 4),
+                        Text(
+                          _inlineRemainingLabel(l10n),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  String? _localizedInlineNextStopName(Locale locale) {
+    final japanese = navState.nextStopName?.trim();
+    if (japanese == null || japanese.isEmpty) return null;
+
+    if (navState.step?.isRide == true) {
+      return localizedOptionalTransitName(
+        locale,
+        japanese: japanese,
+        english: navState.nextStopNameEn,
+        field: 'nextStopNameEn',
+        identity: 'stepId=${navState.step!.stepId}',
+      );
+    }
+
+    return localizedOptionalPlaceName(
+      locale,
+      japanese: japanese,
+      english: navState.nextStopNameEn,
+      field: 'nextStopNameEn',
+      identity: 'stepId=${navState.step?.stepId ?? '<unknown>'}',
+    );
+  }
+
+  String _inlineRemainingLabel(AppLocalizations l10n) {
+    final remaining = navState.remainingStops;
+    if (remaining == null) {
+      throw StateError('remainingStops がない状態でインライン残り表示を構築しました');
+    }
+
+    return switch (navState.step?.kind) {
+      'bus' => l10n.remainingBusStops(remaining),
+      'rail' => l10n.remainingRailStops(remaining),
+      _ => throw StateError(
+          'インライン残り停車数表示の未対応step kindです: '
+          '${navState.step?.kind}',
+        ),
+    };
+  }
+
+  IconData _inlineRemainingIcon() {
+    return switch (navState.step?.kind) {
+      'bus' => Icons.directions_bus,
+      'rail' => Icons.train,
+      _ => throw StateError(
+          'インライン残り停車数アイコンの未対応step kindです: '
+          '${navState.step?.kind}',
+        ),
+    };
+  }
+}
