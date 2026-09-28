@@ -19,6 +19,7 @@ import '../widgets/active_trip_navigation_view.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/active_trip_realtime_actions.dart';
 import '../widgets/delay_recovery_card.dart';
+import '../widgets/route_map_preview.dart';
 import '../widgets/route_replan_preview_button.dart';
 import '../widgets/trip_navigation_status_card.dart';
 import '../widgets/trip_schedule_window_card.dart';
@@ -210,8 +211,25 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         : l10n.realtimeScheduleFallback(
             delayResolution.nextRideRealtimeError.toString(),
           );
+    if (!trip.isSolo || trip.legs.length != 1) {
+      throw StateError(
+        'SoloTripView requires a single-leg solo trip: '
+        'tripId=${trip.id}, type=${trip.tripType.name}, legs=${trip.legs.length}',
+      );
+    }
+    final routePoints = trip.legs.single.candidate.points;
 
-    final beforeScheduleSections = <Widget>[];
+    final beforeScheduleSections = <Widget>[
+      if (routePoints.isNotEmpty)
+        RouteMapPreview(
+          key: ValueKey(Object.hashAll(routePoints)),
+          points: routePoints,
+          showOpenButton: false,
+          height: 150,
+          margin: EdgeInsets.zero,
+          interactive: false,
+        ),
+    ];
     if (showDelayWarning) {
       beforeScheduleSections.add(
         DelayRecoveryCard(
