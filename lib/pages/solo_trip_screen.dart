@@ -220,6 +220,15 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     final routePoints = trip.legs.single.candidate.points;
 
     final beforeScheduleSections = <Widget>[
+      TripNavigationStatusCard(
+        navState: uiState.navState,
+        tripTitle: tripTitle,
+        onTapStops: () => openCurrentRideStops(
+          context: context,
+          trip: trip,
+          currentStepId: ref.read(memberNavProgressProvider).currentStepId,
+        ),
+      ),
       if (routePoints.isNotEmpty)
         RouteMapPreview(
           key: ValueKey(Object.hashAll(routePoints)),
@@ -292,14 +301,6 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
           return l10n.stepCounter(completedCount, totalCount);
         },
         appearance: TripScheduleWindowAppearance.listTiles,
-        activeDetail: TripNavigationInlineStatus(
-          navState: uiState.navState,
-          onTapStops: () => openCurrentRideStops(
-            context: context,
-            trip: trip,
-            currentStepId: ref.read(memberNavProgressProvider).currentStepId,
-          ),
-        ),
         entryLabelBuilder: (entry) => localizedSoloScheduleEntryCompactLabel(
           locale,
           trip: trip,
