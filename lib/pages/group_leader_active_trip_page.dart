@@ -12,6 +12,7 @@ import '../services/trip_service.dart';
 import '../widgets/active_trip_navigation_view.dart';
 import '../widgets/active_trip_realtime_actions.dart';
 import '../widgets/group_leader_route_replan_panel.dart';
+import '../widgets/trip_navigation_status_card.dart';
 import '../widgets/trip_schedule_window_card.dart';
 import 'group_detail_page.dart';
 import 'ride_stops_navigation.dart';
@@ -166,6 +167,14 @@ class _GroupLeaderActiveTripBodyState
         counterLabelBuilder: (completedCount, totalCount) =>
             '完了 $completedCount 件',
         appearance: TripScheduleWindowAppearance.boxedRows,
+        activeDetail: TripNavigationInlineStatus(
+          navState: uiState.navState,
+          onTapStops: () => openCurrentRideStops(
+            context: context,
+            trip: trip,
+            currentStepId: ref.read(memberNavProgressProvider).currentStepId,
+          ),
+        ),
         emptyLabel: 'すべての予定を完了しました。',
         onTapEntry: (entry) {
           if (entry.itemKind != ScheduleEntryKind.ride) return;
