@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import '../logic/route_replan_presentation.dart';
-import '../logic/trip_navigator.dart';
 import '../logic/solo_trip_lifecycle.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/city_localizations.dart';
@@ -230,13 +229,12 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     }
     final routePoints = trip.legs.single.candidate.points;
 
-    final currentEndpoint = _currentEndpoint(trip, uiState.navState);
+    final originEndpoint = _originEndpoint(trip);
     final destinationEndpoint = _destinationEndpoint(trip);
     final beforeScheduleSections = <Widget>[
       ActiveTripEndpointCard(
-        currentLabel:
-            locale.languageCode == 'en' ? 'Current location' : '現在地',
-        currentPlace: _localizedEndpoint(locale, currentEndpoint),
+        originLabel: locale.languageCode == 'en' ? 'Origin' : '出発地',
+        originPlace: _localizedEndpoint(locale, originEndpoint),
         destinationLabel:
             locale.languageCode == 'en' ? 'Destination' : '目的地',
         destinationPlace: _localizedEndpoint(locale, destinationEndpoint),
@@ -368,73 +366,35 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     );
   }
 
-  _EndpointText _currentEndpoint(Trip trip, NavigationState navState) {
-    final busProgress = navState.busProgress;
-    if (busProgress != null) {
-      final observedName = busProgress.observedStopName?.trim();
-      if (observedName != null && observedName.isNotEmpty) {
-        return _EndpointText(
-          japanese: observedName,
-          english: busProgress.observedStopNameEn,
-        );
-      }
-
-      final step = navState.step;
-      final fromIndex = busProgress.fromStopIndex;
-      if (step != null &&
-          step.kind == 'bus' &&
-          fromIndex != null &&
-          fromIndex >= 0 &&
-          fromIndex < step.stops.length) {
-        final stop = step.stops[fromIndex];
-        return _EndpointText(
-          japanese: stop.name,
-          english: stop.nameEn,
-        );
-      }
-    }
-
-    final railProgress = navState.railProgress;
-    final railCurrentName = railProgress?.currentStopName?.trim();
-    if (railCurrentName != null && railCurrentName.isNotEmpty) {
+  _EndpointText _originEndpoint(Trip trip) {
+    final candidate = trip.legs.single.candidate;
+    final originName = candidate.originName?.trim();
+    if (originName != null && originName.isNotEmpty) {
       return _EndpointText(
-        japanese: railCurrentName,
-        english: railProgress?.currentStopNameEn,
+        japanese: originName,
+        english: candidate.originNameEn,
       );
     }
 
-    final step = navState.step;
-    if (step != null) {
-      if (step.kind == 'bus' && step.stops.isNotEmpty) {
-        final stop = step.stops.first;
-        if (stop.name.trim().isNotEmpty) {
-          return _EndpointText(
-            japanese: stop.name,
-            english: stop.nameEn,
-          );
-        }
-      }
-
-      final fromName = step.fromName?.trim();
-      if (fromName != null && fromName.isNotEmpty) {
-        return _EndpointText(
-          japanese: fromName,
-          english: step.fromNameEn,
-        );
-      }
-    }
-
-    final candidate = trip.legs.single.candidate;
-    final originName = candidate.originName?.trim();
-    if (originName == null || originName.isEmpty) {
+    if (candidate.steps.isEmpty) {
       throw StateError(
-        'Solo移動中ヘッダーの現在地を特定できません: '
+        'Solo移動中ヘッダーの出発地を特定できません: '
         'tripId=${trip.id}, candidateId=${candidate.id}',
       );
     }
+
+    final first = candidate.steps.first;
+    final fromName = first.fromName?.trim();
+    if (fromName == null || fromName.isEmpty) {
+      throw StateError(
+        'Solo移動中ヘッダーの出発地を特定できません: '
+        'tripId=${trip.id}, candidateId=${candidate.id}, '
+        'firstStepId=${first.stepId}',
+      );
+    }
     return _EndpointText(
-      japanese: originName,
-      english: candidate.originNameEn,
+      japanese: fromName,
+      english: first.fromNameEn,
     );
   }
 
