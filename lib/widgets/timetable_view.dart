@@ -58,9 +58,38 @@ class _TimetableViewState extends State<TimetableView> {
 
   Future<void> _initData() async {
     _dayType = _service.getTodayType();
-    await _updateBusInfo();
-    if (mounted) {
-      setState(() => _isLoading = false);
+    try {
+      await _updateBusInfo();
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _selectDayType(String dayType) async {
+    const supportedDayTypes = {'Weekday', 'Saturday', 'Holiday'};
+    if (!supportedDayTypes.contains(dayType)) {
+      throw ArgumentError.value(
+        dayType,
+        'dayType',
+        'must be Weekday, Saturday, or Holiday',
+      );
+    }
+    if (_dayType == dayType || _isLoading) return;
+
+    setState(() {
+      _dayType = dayType;
+      _isLoading = true;
+      _didAutoScroll = false;
+    });
+
+    try {
+      await _updateBusInfo();
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -69,6 +98,7 @@ class _TimetableViewState extends State<TimetableView> {
       widget.routeId,
       widget.stopId,
       targetPoleId: widget.targetPoleId,
+      dayType: widget.showFullDay ? _dayType : null,
       limit: widget.limit,
       includeAllDay: widget.showFullDay,
     );
@@ -98,12 +128,12 @@ class _TimetableViewState extends State<TimetableView> {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
 
-    final dayTypeLabel = switch (_dayType) {
-      'Weekday' => l10n.dayWeekday,
-      'Saturday' => l10n.daySaturday,
-      'Holiday' => l10n.dayHoliday,
-      _ => throw StateError('Unsupported timetable day type: $_dayType'),
-    };
+    final dayTypeLabel = _dayTypeLabel(l10n, _dayType);
+    final locale = Localizations.localeOf(context);
+
+    if (widget.showFullDay) {
+      return _buildFullDay(l10n, locale);
+    }
 
     if (_busGroups.isEmpty) {
       if (!widget.showEmptyState) return const SizedBox.shrink();
@@ -113,11 +143,16 @@ class _TimetableViewState extends State<TimetableView> {
       );
     }
 
-    final locale = Localizations.localeOf(context);
-    if (widget.showFullDay) {
-      return _buildFullDay(l10n, locale, dayTypeLabel);
-    }
     return _buildUpcoming(l10n, locale, dayTypeLabel);
+  }
+
+  String _dayTypeLabel(AppLocalizations l10n, String dayType) {
+    return switch (dayType) {
+      'Weekday' => l10n.dayWeekday,
+      'Saturday' => l10n.daySaturday,
+      'Holiday' => l10n.dayHoliday,
+      _ => throw StateError('Unsupported timetable day type: $dayType'),
+    };
   }
 
   Widget _buildUpcoming(
@@ -150,15 +185,10 @@ class _TimetableViewState extends State<TimetableView> {
   Widget _buildFullDay(
     AppLocalizations l10n,
     Locale locale,
-    String dayTypeLabel,
   ) {
-    final upcomingGroups = _busGroups
-        .where((group) => (group['times'] as List<String>).isNotEmpty)
-        .toList();
     final fullGroups = _busGroups
         .where((group) => (group['allTimes'] as List<String>).isNotEmpty)
         .toList();
-
     final targetHour = _relevantHour(fullGroups);
     var currentHourKeyAssigned = false;
     final fullDayChildren = <Widget>[];
@@ -170,92 +200,49 @@ class _TimetableViewState extends State<TimetableView> {
 
       fullDayChildren.add(
         Padding(
-          padding: const EdgeInsets.fromLTRB(0, 8, 0, 6),
+          padding: const EdgeInsets.fromLTRB(2, 14, 2, 7),
           child: Text(
             destination,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       );
 
       final hours = grouped.keys.toList()..sort();
       for (final hour in hours) {
-        final useCurrentKey =
-            !currentHourKeyAssigned && targetHour != null && hour == targetHour;
+        final isCurrentHour = targetHour != null && hour == targetHour;
+        final useCurrentKey = !currentHourKeyAssigned && isCurrentHour;
         if (useCurrentKey) currentHourKeyAssigned = true;
 
         fullDayChildren.add(
-          Container(
-            key: useCurrentKey ? _currentHourKey : null,
-            padding: const EdgeInsets.symmetric(vertical: 7),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 54,
-                  child: Text(
-                    l10n.timetableHour(hour),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: hour == targetHour
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Wrap(
-                    spacing: 14,
-                    runSpacing: 6,
-                    children: grouped[hour]!
-                        .map(
-                          (minute) => Text(
-                            minute,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-              ],
-            ),
+          _timetableHourRow(
+            hour: hour,
+            minutes: grouped[hour]!,
+            isCurrentHour: isCurrentHour,
+            rowKey: useCurrentKey ? _currentHourKey : null,
           ),
         );
       }
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _sectionHeader(l10n.nextThreeBuses(dayTypeLabel)),
-        const SizedBox(height: 6),
-        if (upcomingGroups.isEmpty)
-          Text(
-            l10n.timetableNoDepartures,
-            style: const TextStyle(fontSize: 14, color: Colors.grey),
-          )
-        else
-          ...upcomingGroups.map(
-            (group) => _upcomingDestinationRow(locale, group),
-          ),
-        const SizedBox(height: 12),
-        const Divider(height: 1),
-        const SizedBox(height: 12),
-        _sectionHeader(l10n.fullTimetable),
+        _dayTypeTabs(l10n),
         const SizedBox(height: 4),
         Expanded(
           child: fullDayChildren.isEmpty
-              ? Text(
-                  l10n.timetableNoDepartures,
-                  style: const TextStyle(fontSize: 14, color: Colors.grey),
+              ? Center(
+                  child: Text(
+                    l10n.timetableNoDepartures,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
+                  ),
                 )
               : ListView(
                   padding: EdgeInsets.zero,
@@ -263,6 +250,124 @@ class _TimetableViewState extends State<TimetableView> {
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _dayTypeTabs(AppLocalizations l10n) {
+    final tabs = <(String, String)>[
+      ('Weekday', l10n.dayWeekday),
+      ('Saturday', l10n.daySaturday),
+      ('Holiday', l10n.dayHoliday),
+    ];
+
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F0F4),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          for (final tab in tabs)
+            Expanded(
+              child: GestureDetector(
+                key: ValueKey('timetable-day-${tab.$1}'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _selectDayType(tab.$1),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeOut,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _dayType == tab.$1
+                        ? const Color(0xFF0A84FF)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    tab.$2,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _dayType == tab.$1
+                          ? Colors.white
+                          : const Color(0xFF2C2C2E),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _timetableHourRow({
+    required int hour,
+    required List<String> minutes,
+    required bool isCurrentHour,
+    Key? rowKey,
+  }) {
+    return Container(
+      key: rowKey ?? ValueKey('timetable-hour-$hour'),
+      decoration: BoxDecoration(
+        color: isCurrentHour ? const Color(0xFFF1F7FF) : Colors.transparent,
+        border: const Border(
+          bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            width: 50,
+            constraints: const BoxConstraints(minHeight: 43),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isCurrentHour
+                  ? const Color(0xFF0A84FF)
+                  : const Color(0xFFF7F7F9),
+              border: const Border(
+                right: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
+              ),
+            ),
+            child: Text(
+              hour.toString().padLeft(2, '0'),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: isCurrentHour
+                    ? Colors.white
+                    : const Color(0xFF1C1C1E),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              child: Wrap(
+                spacing: 18,
+                runSpacing: 8,
+                children: [
+                  for (final minute in minutes)
+                    Text(
+                      minute,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1C1C1E),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
