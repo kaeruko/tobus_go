@@ -344,6 +344,7 @@ def register_routes(app):
         date: str = Query(None),
         target_pole_id: str = Query(None),
         limit: int = Query(5),
+        include_all: bool = Query(False),
         debug: bool = Query(True),
     ):
         if getattr(app.state, "loading_status", "starting") != "ready":
@@ -385,22 +386,45 @@ def register_routes(app):
             dest = t.get("dest") or "unknown"
             groups.setdefault(dest, []).append(min_to_time_str(t["dep"]))
 
+        all_groups = {}
+        if include_all:
+            all_trips = tm.get_future_bus_trips(
+                pole_id,
+                route_id,
+                0,
+                limit=10000,
+                pole_name=pole_name,
+                day_type=day_type,
+                target_pole_id=target_pole_id,
+                debug=debug,
+            )
+            for t in all_trips:
+                dest = t.get("dest") or "unknown"
+                all_groups.setdefault(dest, []).append(min_to_time_str(t["dep"]))
+
+        destination_ids = list(groups.keys())
+        for dest_id in all_groups:
+            if dest_id not in groups:
+                destination_ids.append(dest_id)
+
         destinations = []
-        for dest_id, times in groups.items():
+        for dest_id in destination_ids:
+            times = groups.get(dest_id, [])
             dest_name = None
             dest_name_en = None
             if dest_id != "unknown" and ("phys", dest_id) in g:
                 dest_node = g.nodes[("phys", dest_id)]
                 dest_name = dest_node.get("name")
                 dest_name_en = dest_node.get("name_en")
-            destinations.append(
-                {
-                    "destination_pole_id": None if dest_id == "unknown" else dest_id,
-                    "destination_name": dest_name,
-                    "destination_name_en": dest_name_en,
-                    "times": times[: max(1, limit)],
-                }
-            )
+            destination = {
+                "destination_pole_id": None if dest_id == "unknown" else dest_id,
+                "destination_name": dest_name,
+                "destination_name_en": dest_name_en,
+                "times": times[: max(1, limit)],
+            }
+            if include_all:
+                destination["all_times"] = all_groups.get(dest_id, [])
+            destinations.append(destination)
 
         return {
             "pole_id": pole_id,
@@ -410,6 +434,7 @@ def register_routes(app):
             "day_type": day_type,
             "time": time,
             "target_pole_id": target_pole_id,
+            "include_all": include_all,
             "destinations": destinations,
         }
 
