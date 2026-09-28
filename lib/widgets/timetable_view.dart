@@ -107,7 +107,7 @@ class _TimetableViewState extends State<TimetableView> {
         l10n.timetableNoDepartures,
         style: const TextStyle(
           fontSize: 14,
-          color: CupertinoColors.secondaryLabel,
+          color: Colors.grey,
         ),
       );
     }
