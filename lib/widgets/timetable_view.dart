@@ -317,56 +317,58 @@ class _TimetableViewState extends State<TimetableView> {
           bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
         ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            width: 50,
-            constraints: const BoxConstraints(minHeight: 43),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: isCurrentHour
-                  ? const Color(0xFF0A84FF)
-                  : const Color(0xFFF7F7F9),
-              border: const Border(
-                right: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
-              ),
-            ),
-            child: Text(
-              hour.toString().padLeft(2, '0'),
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: 50,
+              constraints: const BoxConstraints(minHeight: 43),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
                 color: isCurrentHour
-                    ? Colors.white
-                    : const Color(0xFF1C1C1E),
+                    ? const Color(0xFF0A84FF)
+                    : const Color(0xFFF7F7F9),
+                border: const Border(
+                  right: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
+                ),
+              ),
+              child: Text(
+                hour.toString().padLeft(2, '0'),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isCurrentHour
+                      ? Colors.white
+                      : const Color(0xFF1C1C1E),
+                ),
               ),
             ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-              child: Wrap(
-                spacing: 18,
-                runSpacing: 8,
-                children: [
-                  for (final minute in minutes)
-                    Text(
-                      minute,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1C1C1E),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                child: Wrap(
+                  spacing: 18,
+                  runSpacing: 8,
+                  children: [
+                    for (final minute in minutes)
+                      Text(
+                        minute,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1C1C1E),
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
