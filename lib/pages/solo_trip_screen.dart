@@ -16,6 +16,7 @@ import '../providers/member_nav_progress_provider.dart';
 import '../providers/trip_provider.dart';
 import '../services/trip_service.dart';
 import '../widgets/active_trip_navigation_view.dart';
+import '../widgets/app_navigation_bar.dart';
 import '../widgets/active_trip_realtime_actions.dart';
 import '../widgets/delay_recovery_card.dart';
 import '../widgets/route_replan_preview_button.dart';
@@ -106,7 +107,10 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         error: (error, stack) => Scaffold(
           appBar: AppBar(
             systemOverlayStyle: SystemUiOverlayStyle.dark,
-            title: Text(appName),
+            title: cityBrandNavigationTitle(
+              city: cityProfile.city,
+              fallbackTitle: appName,
+            ),
           ),
           body: Center(child: Text(l10n.tripLoadFailed(error.toString()))),
         ),
@@ -143,7 +147,10 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
             error: (error, stack) => Scaffold(
               appBar: AppBar(
                 systemOverlayStyle: SystemUiOverlayStyle.dark,
-                title: Text(appName),
+                title: cityBrandNavigationTitle(
+                  city: cityProfile.city,
+                  fallbackTitle: appName,
+                ),
               ),
               body: Center(
                 child: Text(l10n.navigationLoadFailed(error.toString())),
@@ -229,6 +236,10 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         title: ActiveTripAppBarTitle(
           appName: appName,
           tripTitle: tripTitle,
+          brand: cityBrandNavigationTitle(
+            city: cityProfile.city,
+            fallbackTitle: appName,
+          ),
         ),
         actions: [
           if (!completed) const ActiveTripRealtimeActions(),
