@@ -270,7 +270,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
           return l10n.stepCounter(completedCount, totalCount);
         },
         appearance: TripScheduleWindowAppearance.listTiles,
-        entryLabelBuilder: (entry) => localizedSoloScheduleEntryLabel(
+        entryLabelBuilder: (entry) => localizedSoloScheduleEntryCompactLabel(
           locale,
           trip: trip,
           entry: entry,
