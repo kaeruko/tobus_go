@@ -63,6 +63,136 @@ class ActiveTripAppBarTitle extends StatelessWidget {
   }
 }
 
+
+class ActiveTripEndpointCard extends StatelessWidget {
+  final String currentLabel;
+  final String currentPlace;
+  final String destinationLabel;
+  final String destinationPlace;
+
+  const ActiveTripEndpointCard({
+    super.key,
+    required this.currentLabel,
+    required this.currentPlace,
+    required this.destinationLabel,
+    required this.destinationPlace,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedCurrentLabel = currentLabel.trim();
+    final normalizedCurrentPlace = currentPlace.trim();
+    final normalizedDestinationLabel = destinationLabel.trim();
+    final normalizedDestinationPlace = destinationPlace.trim();
+
+    if (normalizedCurrentLabel.isEmpty ||
+        normalizedCurrentPlace.isEmpty ||
+        normalizedDestinationLabel.isEmpty ||
+        normalizedDestinationPlace.isEmpty) {
+      throw StateError(
+        '移動中の現在地・目的地カードに空の表示値があります: '
+        'currentLabel="$currentLabel", currentPlace="$currentPlace", '
+        'destinationLabel="$destinationLabel", '
+        'destinationPlace="$destinationPlace"',
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: _EndpointBlock(
+              markerColor: const Color(0xFF2D8CFF),
+              label: normalizedCurrentLabel,
+              place: normalizedCurrentPlace,
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: Icon(
+              Icons.arrow_right_alt_rounded,
+              color: Color(0xFF8A94A6),
+              size: 28,
+            ),
+          ),
+          Expanded(
+            child: _EndpointBlock(
+              markerColor: const Color(0xFFE94B43),
+              label: normalizedDestinationLabel,
+              place: normalizedDestinationPlace,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EndpointBlock extends StatelessWidget {
+  final Color markerColor;
+  final String label;
+  final String place;
+
+  const _EndpointBlock({
+    required this.markerColor,
+    required this.label,
+    required this.place,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.location_on, color: markerColor, size: 22),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Text(
+          place,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 14,
+            height: 1.25,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Solo / Group の移動中ナビゲーションで共有する画面骨格。
 ///
 /// この Widget は role や権限を判定しない。Solo / Group member / Group leader
