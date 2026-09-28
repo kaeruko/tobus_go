@@ -5,9 +5,12 @@ import 'package:toeigo/core/city_profile.dart';
 import 'package:toeigo/widgets/app_navigation_bar.dart';
 
 void main() {
-  testWidgets('Tokyo brand header uses the Tokyo logo asset', (tester) async {
+  testWidgets('Tokyo brand header uses the Japanese logo in Japanese', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       CupertinoApp(
+        locale: const Locale('ja'),
         home: CupertinoPageScaffold(
           navigationBar: buildAppNavigationBar(
             middle: cityBrandNavigationTitle(
@@ -24,6 +27,32 @@ void main() {
     final provider = image.image;
     expect(provider, isA<AssetImage>());
     expect((provider as AssetImage).assetName, 'assets/icon/tokyo.png');
+    expect(image.height, 34);
+  });
+
+  testWidgets('Tokyo brand header uses the English logo in English', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      CupertinoApp(
+        locale: const Locale('en'),
+        home: CupertinoPageScaffold(
+          navigationBar: buildAppNavigationBar(
+            middle: cityBrandNavigationTitle(
+              city: AppCity.tokyo,
+              fallbackTitle: 'Toei GO',
+            ),
+          ),
+          child: const SizedBox.shrink(),
+        ),
+      ),
+    );
+
+    final image = tester.widget<Image>(find.byType(Image));
+    final provider = image.image;
+    expect(provider, isA<AssetImage>());
+    expect((provider as AssetImage).assetName, 'assets/icon/tokyo_en.webp');
+    expect(image.height, 34);
   });
 
   testWidgets('cities without a logo asset keep their localized title', (
