@@ -210,7 +210,7 @@ void main() {
     );
   });
 
-  test('does not request a timetable without a stop ID', () async {
+  test('rejects a timetable request without a stop ID', () async {
     final originalClient = ApiClient.httpClient;
     var requestCount = 0;
     ApiClient.httpClient = MockClient((request) async {
@@ -219,9 +219,11 @@ void main() {
     });
     addTearDown(() => ApiClient.httpClient = originalClient);
 
-    final result = await TimetableService().getNextBusesFromApi('070', '');
+    await expectLater(
+      TimetableService().getNextBusesFromApi('070', ''),
+      throwsArgumentError,
+    );
 
-    expect(result, isEmpty);
     expect(requestCount, 0);
   });
 }
