@@ -86,6 +86,7 @@ class InitialWalkCandidateMetricsTest(unittest.TestCase):
         result = self._compute(candidate)
 
         self.assertEqual(result["steps"][0]["from_"], "現在地")
+        self.assertEqual(result["steps"][0]["from_en"], "Current location")
         self.assertEqual(result["steps"][0]["meters"], 170)
         self.assertEqual(result["steps"][0]["minutes"], 3)
         self.assertEqual(result["walking_distance_meters"], 170)
@@ -131,6 +132,7 @@ class InitialWalkCandidateMetricsTest(unittest.TestCase):
         first = result["steps"][0]
         self.assertEqual(first["kind"], "walk")
         self.assertEqual(first["from_"], "現在地")
+        self.assertEqual(first["from_en"], "Current location")
         self.assertEqual(first["to"], "平井七丁目")
         self.assertEqual(first["meters"], 120)
         self.assertEqual(first["minutes"], 2)
