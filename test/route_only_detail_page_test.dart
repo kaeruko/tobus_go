@@ -163,13 +163,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('この経路でおでかけ'), findsOneWidget);
-    expect(find.text('この経路で行く'), findsNothing);
     expect(find.text('お気に入りに追加'), findsOneWidget);
 
     final planButton = find.text('この経路でおでかけ');
-    await tester.ensureVisible(planButton);
+    await tester.scrollUntilVisible(
+      planButton,
+      300,
+      scrollable: find.byType(Scrollable),
+    );
     await tester.pumpAndSettle();
+
+    expect(planButton, findsOneWidget);
+    expect(find.text('この経路で行く'), findsNothing);
     await tester.tap(planButton);
     await tester.pump();
 
