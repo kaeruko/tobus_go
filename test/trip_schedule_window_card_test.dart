@@ -48,6 +48,41 @@ void main() {
     expect(tappedEntryId, 'ride-1');
   });
 
+  testWidgets('active row can show compact navigation detail', (tester) async {
+    final entry = ScheduleEntry(
+      id: 'ride-inline',
+      plannedAt: DateTime(2026, 9, 28, 20, 57),
+      label: '錦37 押上駅前行 十間橋通りに乗る',
+      itemKind: ScheduleEntryKind.ride,
+      generatedBy: ScheduleEntrySource.route,
+      routeStepId: 'bus-inline',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TripScheduleWindowCard(
+            title: '今回の経路',
+            resolvedEntry: entry,
+            entries: [entry],
+            completedCount: 1,
+            totalCount: 4,
+            activeLabel: 'いま',
+            counterLabelBuilder: (completedCount, totalCount) =>
+                '$completedCount / $totalCount ステップ',
+            appearance: TripScheduleWindowAppearance.listTiles,
+            activeDetail: const Text('バスの位置を確認中…'),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('バスの位置を確認中…'), findsOneWidget);
+  });
+
   testWidgets('listTiles can render a localized entry label', (tester) async {
     final entry = ScheduleEntry(
       id: 'ride-en',
