@@ -6,9 +6,10 @@ import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../models/route_models.dart';
 import '../utils/stop_map_utils.dart';
+import '../widgets/route_map_preview.dart';
 import '../widgets/timetable_view.dart';
 
-class SegmentStopsPage extends StatelessWidget {
+class SegmentStopsPage extends StatefulWidget {
   final StepSeg segment;
 
   const SegmentStopsPage({
@@ -16,20 +17,34 @@ class SegmentStopsPage extends StatelessWidget {
     required this.segment,
   });
 
+  @override
+  State<SegmentStopsPage> createState() => _SegmentStopsPageState();
+}
+
+class _SegmentStopsPageState extends State<SegmentStopsPage> {
+  bool _expanded = true;
+
   void _popToPreviousAppPage(BuildContext context) {
     final navigator = Navigator.of(context);
     if (!navigator.canPop()) {
       throw StateError(
         'SegmentStopsPage must be pushed onto a Navigator stack with a '
-        'previous app route: stepId=${segment.stepId}',
+        'previous app route: stepId=${widget.segment.stepId}',
       );
     }
     navigator.pop();
   }
 
+  List<LatLng> get _mapPoints => widget.segment.stops
+      .where((stop) => hasUsableTransitCoordinate(stop.lat, stop.lon))
+      .map((stop) => LatLng(stop.lat, stop.lon))
+      .toList(growable: false);
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context);
+
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         automaticallyImplyLeading: false,
@@ -37,26 +52,127 @@ class SegmentStopsPage extends StatelessWidget {
           key: const ValueKey('segment-stops-back'),
           onPressed: () => _popToPreviousAppPage(context),
         ),
-        middle: Text(localizedRideTitle(locale, segment)),
+        middle: Text(l10n.segmentGuideTitle),
       ),
       child: SafeArea(
-        child: ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          itemCount: segment.stops.length,
-          itemBuilder: (context, index) {
-            final stop = segment.stops[index];
-            final isFirst = index == 0;
-            final isLast = index == segment.stops.length - 1;
-
-            return _StopRow(
-              segment: segment,
-              stop: stop,
-              isFirst: isFirst,
-              isLast: isLast,
-            );
-          },
+        child: ListView(
+          padding: const EdgeInsets.only(bottom: 24),
+          children: [
+            CupertinoButton(
+              key: const ValueKey('segment-guide-toggle'),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+              onPressed: () => setState(() => _expanded = !_expanded),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      localizedRideTitle(locale, widget.segment),
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: CupertinoColors.label,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(
+                    _expanded
+                        ? CupertinoIcons.chevron_up
+                        : CupertinoIcons.chevron_down,
+                    size: 20,
+                    color: CupertinoColors.secondaryLabel,
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              height: 0.5,
+              color: CupertinoColors.separator,
+            ),
+            if (_expanded) ...[
+              const SizedBox(height: 12),
+              KeyedSubtree(
+                key: const ValueKey('segment-route-map'),
+                child: RouteMapPreview(
+                  points: _mapPoints,
+                  showOpenButton: false,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                child: _SegmentSummary(segment: widget.segment),
+              ),
+              Container(
+                height: 0.5,
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                color: CupertinoColors.separator,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                child: Column(
+                  children: [
+                    for (var index = 0;
+                        index < widget.segment.stops.length;
+                        index++)
+                      _StopRow(
+                        segment: widget.segment,
+                        stop: widget.segment.stops[index],
+                        isFirst: index == 0,
+                        isLast: index == widget.segment.stops.length - 1,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _SegmentSummary extends StatelessWidget {
+  final StepSeg segment;
+
+  const _SegmentSummary({required this.segment});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final departure = segment.departureTime?.trim();
+    final arrival = segment.arrivalTime?.trim();
+    final hasDeparture = departure != null && departure.isNotEmpty;
+    final hasArrival = arrival != null && arrival.isNotEmpty;
+
+    return Row(
+      children: [
+        if (hasDeparture)
+          Text(
+            l10n.segmentDepartureAt(departure),
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        Expanded(
+          child: Text(
+            l10n.segmentRideSummary(segment.minutes, segment.stops.length),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13,
+              color: CupertinoColors.secondaryLabel,
+            ),
+          ),
+        ),
+        if (hasArrival)
+          Text(
+            l10n.segmentArrivalAt(arrival),
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+      ],
     );
   }
 }
@@ -76,6 +192,7 @@ class _StopRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context);
     final stopName = localizedStopName(locale, stop);
     final hasMap = hasUsableTransitCoordinate(stop.lat, stop.lon);
@@ -87,116 +204,172 @@ class _StopRow extends StatelessWidget {
         routeId.isNotEmpty &&
         stopId != null &&
         stopId.isNotEmpty;
-    final nameStyle = TextStyle(
-      fontSize: 16,
-      fontWeight:
-          (stop.isOrigin || stop.isDestination)
-              ? FontWeight.w600
-              : FontWeight.w400,
-    );
+    final isEndpoint = isFirst || isLast;
+    final endpointTime = isFirst
+        ? segment.departureTime?.trim()
+        : (isLast ? segment.arrivalTime?.trim() : null);
+    final endpointTimeLabel =
+        endpointTime == null || endpointTime.isEmpty
+            ? null
+            : (isFirst
+                  ? l10n.segmentDepartureAt(endpointTime)
+                  : l10n.segmentArrivalAt(endpointTime));
 
-    final row = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 32,
-          child: Column(
-            children: [
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: CupertinoColors.activeGreen,
-                    width: 2,
-                  ),
-                  color:
-                      stop.isOrigin || stop.isDestination
-                          ? CupertinoColors.activeGreen
-                          : CupertinoColors.white,
-                ),
-              ),
-              if (!isLast)
-                Container(
-                  width: 2,
-                  height: 42,
-                  color: CupertinoColors.systemGrey4,
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 30,
+            child: Stack(
+              alignment: Alignment.topCenter,
               children: [
-                Text(stopName, style: nameStyle),
-                if (stop.isOrigin || stop.isDestination) ...[
-                  const SizedBox(height: 2),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: CupertinoColors.systemGrey5,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      stop.isOrigin
-                          ? AppLocalizations.of(context).boarding
-                          : (stop.isDestination
-                                ? AppLocalizations.of(context).alighting
-                                : ''),
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: CupertinoColors.inactiveGray,
-                      ),
+                if (!isFirst)
+                  const Positioned(
+                    top: 0,
+                    height: 10,
+                    child: SizedBox(
+                      width: 2,
+                      child: ColoredBox(color: CupertinoColors.systemGrey4),
                     ),
                   ),
-                ],
+                if (!isLast)
+                  const Positioned(
+                    top: 10,
+                    bottom: 0,
+                    child: SizedBox(
+                      width: 2,
+                      child: ColoredBox(color: CupertinoColors.systemGrey4),
+                    ),
+                  ),
+                Positioned(
+                  top: 1,
+                  child: Container(
+                    width: isEndpoint ? 20 : 14,
+                    height: isEndpoint ? 20 : 14,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: CupertinoColors.activeGreen,
+                        width: 2,
+                      ),
+                      color: isEndpoint
+                          ? CupertinoColors.activeGreen
+                          : CupertinoColors.systemBackground,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-        ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (hasTimetable)
-              CupertinoButton(
-                key: ValueKey('stop-timetable-${stop.stopId}'),
-                padding: const EdgeInsets.all(6),
-                onPressed: () => _showStopTimetable(
-                  context,
-                  segment: segment,
-                  stop: stop,
-                ),
-                child: const Icon(
-                  CupertinoIcons.clock,
-                  size: 19,
-                  color: CupertinoColors.systemGrey,
-                ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (isEndpoint) ...[
+                    Row(
+                      children: [
+                        Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: CupertinoColors.activeBlue.withValues(
+                              alpha: 0.12,
+                            ),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            CupertinoIcons.bus,
+                            size: 15,
+                            color: CupertinoColors.activeBlue,
+                          ),
+                        ),
+                        const SizedBox(width: 7),
+                        Text(
+                          isFirst ? l10n.boarding : l10n.alighting,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: CupertinoColors.secondaryLabel,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (endpointTimeLabel != null)
+                          Text(
+                            endpointTimeLabel,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: CupertinoColors.label,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          stopName,
+                          style: TextStyle(
+                            fontSize: isEndpoint ? 17 : 15,
+                            fontWeight:
+                                isEndpoint ? FontWeight.w700 : FontWeight.w400,
+                            color: CupertinoColors.label,
+                          ),
+                        ),
+                      ),
+                      if (hasTimetable)
+                        CupertinoButton(
+                          key: ValueKey('stop-timetable-${stop.stopId}'),
+                          minSize: 30,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          onPressed: () => _showStopTimetable(
+                            context,
+                            segment: segment,
+                            stop: stop,
+                          ),
+                          child: const Icon(
+                            CupertinoIcons.clock,
+                            size: 18,
+                            color: CupertinoColors.systemGrey,
+                          ),
+                        ),
+                      if (hasMap)
+                        CupertinoButton(
+                          key: ValueKey(
+                            'stop-map-${stop.stopId ?? stop.name}',
+                          ),
+                          minSize: 30,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          onPressed: () => _showStopMap(context, stop),
+                          child: const Icon(
+                            CupertinoIcons.map,
+                            size: 18,
+                            color: CupertinoColors.systemGrey,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
               ),
-            if (hasMap)
-              CupertinoButton(
-                key: ValueKey('stop-map-${stop.stopId ?? stop.name}'),
-                padding: const EdgeInsets.all(6),
-                onPressed: () => _showStopMap(context, stop),
-                child: const Icon(
-                  CupertinoIcons.map,
-                  size: 18,
-                  color: CupertinoColors.systemGrey,
-                ),
-              ),
-          ],
-        ),
-      ],
+            ),
+          ),
+        ],
+      ),
     );
-
-    return row;
   }
 }
 

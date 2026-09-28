@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show BottomNavigationBarItem;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart'
+    as maps;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -11,6 +13,17 @@ import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/pages/segment_stops_page.dart';
 import 'package:toeigo/widgets/route_detail_widgets.dart';
+
+class TestMaps extends maps.GoogleMapsFlutterPlatform {
+  @override
+  Widget buildViewWithConfiguration(
+    int creationId,
+    void Function(int) onPlatformViewCreated, {
+    required maps.MapWidgetConfiguration widgetConfiguration,
+    maps.MapConfiguration mapConfiguration = const maps.MapConfiguration(),
+    maps.MapObjects mapObjects = const maps.MapObjects(),
+  }) => const SizedBox();
+}
 
 class _RootPopObserver extends NavigatorObserver {
   int popCount = 0;
@@ -70,6 +83,12 @@ class _RouteDetailHarness extends StatelessWidget {
 }
 
 void main() {
+  setUp(() {
+    final previous = maps.GoogleMapsFlutterPlatform.instance;
+    maps.GoogleMapsFlutterPlatform.instance = TestMaps();
+    addTearDown(() => maps.GoogleMapsFlutterPlatform.instance = previous);
+  });
+
   StepSeg busSegment() => StepSeg(
     stepId: 'search-route-bus-1',
     kind: 'bus',
@@ -82,6 +101,8 @@ void main() {
     toName: '日暮里駅前',
     toNameEn: 'Nippori Sta.',
     minutes: 24,
+    departureTime: '11:03',
+    arrivalTime: '11:27',
     edges: 2,
     stops: [
       StopPoint(
@@ -186,6 +207,53 @@ void main() {
       expect(rootObserver.popCount, 0);
     },
   );
+
+  testWidgets('segment stops shows a route guide from existing segment data', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      CupertinoApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: SegmentStopsPage(segment: busSegment()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('経路案内'), findsOneWidget);
+    expect(find.text('里22 日暮里駅前行'), findsOneWidget);
+    expect(find.byKey(const ValueKey('segment-route-map')), findsOneWidget);
+    expect(find.byType(GoogleMap), findsOneWidget);
+    expect(find.text('11:03発'), findsWidgets);
+    expect(find.text('11:27着'), findsWidgets);
+    expect(find.text('乗車24分 / 2停留所'), findsOneWidget);
+    expect(find.text('Google Mapsで開く'), findsNothing);
+    expect(find.text('亀戸駅前'), findsOneWidget);
+    expect(find.text('日暮里駅前'), findsOneWidget);
+  });
+
+  testWidgets('route guide collapses without requesting more route data', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      CupertinoApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: SegmentStopsPage(segment: busSegment()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('segment-route-map')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('segment-guide-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('segment-route-map')), findsNothing);
+    expect(find.text('乗車24分 / 2停留所'), findsNothing);
+    expect(find.text('里22 日暮里駅前行'), findsOneWidget);
+  });
 
   testWidgets('stops back fails fast when no previous app route exists', (
     tester,

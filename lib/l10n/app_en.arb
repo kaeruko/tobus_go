@@ -433,6 +433,34 @@
   },
   "boarding": "Board",
   "alighting": "Get off",
+  "segmentGuideTitle": "Route guide",
+  "segmentRideSummary": "Ride {minutes} min / {count} stops",
+  "@segmentRideSummary": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "segmentDepartureAt": "Depart {time}",
+  "@segmentDepartureAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "segmentArrivalAt": "Arrive {time}",
+  "@segmentArrivalAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "googleMapsOpenFailed": "Couldn’t open Google Maps",
   "openInGoogleMaps": "Open in Google Maps",
   "refreshVehiclePosition": "Refresh bus position",
