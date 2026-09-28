@@ -327,7 +327,7 @@ class TokyoRouteEngine:
                 if candidate["steps"] and candidate["steps"][0]["kind"] == "walk":
                     first = candidate["steps"][0]
                     first["from_"] = "現在地"
-                    first["from_en"] = None
+                    first["from_en"] = "Current location"
                     first["minutes"] += int(initial_walk_minutes)
                     first["meters"] += int(origin_distance)
                     first["edges"] = first.get("edges", 0) + 1
@@ -342,7 +342,7 @@ class TokyoRouteEngine:
                             "title": "徒歩",
                             "edges": 0,
                             "from_": "現在地",
-                            "from_en": None,
+                            "from_en": "Current location",
                             "to": origin_name,
                             "to_en": origin_name_en,
                             "meters": int(origin_distance),
