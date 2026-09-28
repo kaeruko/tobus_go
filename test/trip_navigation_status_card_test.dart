@@ -141,6 +141,83 @@ void main() {
   );
 
   testWidgets(
+    'walk to ride countdown is rendered as structured transport data',
+    (tester) async {
+      final step = StepSeg(
+        stepId: 'walk-to-bus',
+        kind: 'walk',
+        title: '徒歩',
+        titleEn: 'Walk',
+        fromName: '現在地',
+        fromNameEn: 'Current location',
+        toName: '平井七丁目',
+        toNameEn: 'Hirai-Nanachome',
+        minutes: 3,
+      );
+      final navigation = NavigationState(
+        mainText: '9:08 平井七丁目にむかう　あと3分',
+        subText: '9:08 上23 乗車',
+        color: Colors.blue,
+        statusLabel: '移動中',
+        mainTextToken: const NavigationTextToken(
+          NavigationTextKey.walkToRideCountdownMain,
+          {
+            'rideTime': '9:08',
+            'destination': '平井七丁目',
+            'destinationEn': 'Hirai-Nanachome',
+            'minutes': 3,
+          },
+        ),
+        subTextToken: const NavigationTextToken(
+          NavigationTextKey.boardingSub,
+          {
+            'rideTime': '9:08',
+            'routeTitle': '上23・上野松坂屋',
+            'routeTitleEn': '上23 · Ueno-Matsuzakaya',
+          },
+        ),
+        statusLabelToken: const NavigationTextToken(
+          NavigationTextKey.movingStatus,
+        ),
+        nextStopName: '平井七丁目',
+        nextStopNameEn: 'Hirai-Nanachome',
+        currentStepId: step.stepId,
+        step: step,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: TripNavigationStatusCard(
+              navState: navigation,
+              tripTitle: 'Current location → Ueno Station',
+              onTapStops: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('WALK'), findsOneWidget);
+      expect(find.text('3 min'), findsOneWidget);
+      expect(find.text('Hirai-Nanachome'), findsOneWidget);
+      expect(find.text('平井七丁目'), findsOneWidget);
+      expect(find.text('9:08'), findsOneWidget);
+      expect(find.text('上23 · Ueno-Matsuzakaya'), findsOneWidget);
+      expect(find.text('上23・上野松坂屋'), findsOneWidget);
+      expect(
+        find.text('Head to Hirai-Nanachome (平井七丁目) for 9:08 · 3 min to go'),
+        findsNothing,
+      );
+      expect(find.text('Next: Hirai-Nanachome (平井七丁目)'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'generic walk navigation may omit optional English destination',
     (tester) async {
       final step = StepSeg(
