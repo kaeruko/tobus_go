@@ -1,11 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../utils/location_helper.dart';
 import 'location_provider.dart';
 
 class EffectiveLocation {
   final String loc;
-  final String name;
-  EffectiveLocation(this.loc, this.name);
+  final String nameJa;
+  final String nameEn;
+
+  const EffectiveLocation({
+    required this.loc,
+    required this.nameJa,
+    required this.nameEn,
+  });
 }
 
 /// 本番用のGPS取得と、デバッグ用の位置情報オーバーライドを統合するProvider。
@@ -14,10 +21,17 @@ final effectiveLocationProvider = FutureProvider<EffectiveLocation>((ref) async 
   final override = ref.watch(locationOverrideProvider);
 
   if (override != null) {
-    final loc = "${override.latitude},${override.longitude}";
-    return EffectiveLocation(loc, "現在地(設定)");
+    return EffectiveLocation(
+      loc: '${override.latitude},${override.longitude}',
+      nameJa: '現在地(設定)',
+      nameEn: 'Current location (set)',
+    );
   }
 
   final loc = await LocationHelper.getCurrentLocationString();
-  return EffectiveLocation(loc, "現在地");
+  return EffectiveLocation(
+    loc: loc,
+    nameJa: '現在地',
+    nameEn: 'Current location',
+  );
 });
