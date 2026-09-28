@@ -215,6 +215,59 @@ def _gtfs_bus_timetable_destinations(
     return destinations
 
 
+def _resolve_bus_timetable_day_type(
+    date: str | None,
+    day_type: str | None,
+):
+    if date is not None and day_type is not None:
+        raise HTTPException(
+            400,
+            detail={
+                "code": "bus_timetable_day_selector_conflict",
+                "message": "Specify either date or day_type, not both",
+            },
+        )
+
+    if day_type is None:
+        if date is not None:
+            try:
+                datetime.datetime.strptime(date, "%Y-%m-%d")
+            except ValueError as exc:
+                raise HTTPException(
+                    400,
+                    detail={
+                        "code": "bus_timetable_date_invalid",
+                        "message": "date must use YYYY-MM-DD format",
+                        "date": date,
+                    },
+                ) from exc
+        return determine_day_type(date)
+
+    requested_day_type = day_type.strip().lower()
+    supported_day_types = {"weekday", "saturday", "holiday"}
+    if requested_day_type not in supported_day_types:
+        raise HTTPException(
+            400,
+            detail={
+                "code": "bus_timetable_day_type_invalid",
+                "message": "day_type must be weekday, saturday, or holiday",
+                "day_type": day_type,
+            },
+        )
+
+    today = datetime.date.today()
+    for offset in range(14):
+        candidate = today + datetime.timedelta(days=offset)
+        candidate_day_type = determine_day_type(candidate)
+        if str(candidate_day_type) == requested_day_type:
+            return candidate_day_type
+
+    raise RuntimeError(
+        "Could not resolve a representative timetable date for "
+        f"day_type={requested_day_type!r}"
+    )
+
+
 def register_routes(app):
     register_route_endpoint(
         app,
@@ -435,6 +488,7 @@ def register_routes(app):
         route_id: str = Query(...),
         time: str = Query(None),
         date: str = Query(None),
+        day_type: str = Query(None),
         target_pole_id: str = Query(None),
         limit: int = Query(5),
         include_all: bool = Query(False),
@@ -448,7 +502,10 @@ def register_routes(app):
         if g is None or tm is None:
             raise HTTPException(500, "Server not ready")
 
-        day_type = determine_day_type(date)
+        service_day_type = _resolve_bus_timetable_day_type(
+            date,
+            day_type,
+        )
 
         if not time:
             now = datetime.datetime.now()
@@ -489,7 +546,7 @@ def register_routes(app):
                 route_id=route_id,
                 pole_id=pole_id,
                 target_pole_id=target_pole_id,
-                day_type=day_type,
+                day_type=service_day_type,
                 current_minute=curr_min,
                 limit=limit,
                 include_all=include_all,
@@ -509,7 +566,7 @@ def register_routes(app):
                 curr_min,
                 limit=max(1, limit) * 20,
                 pole_name=pole_name,
-                day_type=day_type,
+                day_type=service_day_type,
                 target_pole_id=target_pole_id,
                 debug=debug,
             )
@@ -527,7 +584,7 @@ def register_routes(app):
                     0,
                     limit=10000,
                     pole_name=pole_name,
-                    day_type=day_type,
+                    day_type=service_day_type,
                     target_pole_id=target_pole_id,
                     debug=debug,
                 )
@@ -568,7 +625,7 @@ def register_routes(app):
             "pole_name": pole_name,
             "pole_name_en": pole_name_en,
             "route_id": route_id,
-            "day_type": day_type,
+            "day_type": str(service_day_type),
             "time": time,
             "target_pole_id": target_pole_id,
             "include_all": include_all,

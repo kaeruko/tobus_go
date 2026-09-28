@@ -49,68 +49,103 @@ class TimetableService {
     String routeId,
     String poleId, {
     String? targetPoleId,
+    String? dayType,
     int limit = 3,
     bool includeAllDay = false,
   }) async {
-    if (routeId.trim().isEmpty || poleId.trim().isEmpty) {
-      return [];
+    if (routeId.trim().isEmpty) {
+      throw ArgumentError.value(routeId, 'routeId', 'must not be empty');
+    }
+    if (poleId.trim().isEmpty) {
+      throw ArgumentError.value(poleId, 'poleId', 'must not be empty');
     }
     if (limit < 1) {
       throw ArgumentError.value(limit, 'limit', 'must be at least 1');
+    }
+    const supportedDayTypes = {'Weekday', 'Saturday', 'Holiday'};
+    if (dayType != null && !supportedDayTypes.contains(dayType)) {
+      throw ArgumentError.value(
+        dayType,
+        'dayType',
+        'must be Weekday, Saturday, or Holiday',
+      );
     }
 
     print('[TimetableService] getNextBusesFromApi呼び出し:');
     print('  - routeId: $routeId');
     print('  - poleId: $poleId');
     print('  - targetPoleId: $targetPoleId');
+    print('  - dayType: $dayType');
     print('  - includeAllDay: $includeAllDay');
 
-    try {
-      final params = {
-        'pole_id': poleId,
-        'route_id': routeId,
-        'limit': '$limit',
-        'debug': 'true',
-      };
-      if (targetPoleId != null && targetPoleId.isNotEmpty) {
-        params['target_pole_id'] = targetPoleId;
-      }
-      if (includeAllDay) {
-        params['include_all'] = 'true';
-      }
-
-      final json = await ApiClient.get('/bus/next', params: params);
-      final destinations = json['destinations'] as List?;
-      if (destinations == null) return [];
-
-      final results = <Map<String, dynamic>>[];
-      for (final dest in destinations) {
-        if (dest is! Map) continue;
-        final name = dest['destination_name']?.toString() ?? '行き先不明';
-        final nameEn = dest['destination_name_en']?.toString();
-        final destinationPoleId = dest['destination_pole_id']?.toString();
-        final times =
-            (dest['times'] as List?)?.map((e) => e.toString()).toList() ??
-            const <String>[];
-        final allTimes =
-            (dest['all_times'] as List?)?.map((e) => e.toString()).toList() ??
-            const <String>[];
-
-        if (times.isNotEmpty || allTimes.isNotEmpty) {
-          results.add({
-            'destinationName': name,
-            'destinationNameEn': nameEn,
-            'destinationPoleId': destinationPoleId,
-            'times': times,
-            'allTimes': allTimes,
-          });
-        }
-      }
-      return results;
-    } catch (e) {
-      print('[TimetableService] API呼び出し失敗: $e');
-      return [];
+    final params = {
+      'pole_id': poleId,
+      'route_id': routeId,
+      'limit': '$limit',
+      'debug': 'true',
+    };
+    if (targetPoleId != null && targetPoleId.isNotEmpty) {
+      params['target_pole_id'] = targetPoleId;
     }
+    if (dayType != null) {
+      params['day_type'] = dayType.toLowerCase();
+    }
+    if (includeAllDay) {
+      params['include_all'] = 'true';
+    }
+
+    final json = await ApiClient.get('/bus/next', params: params);
+    final destinations = json['destinations'];
+    if (destinations is! List) {
+      throw StateError(
+        'Invalid /bus/next response: destinations must be a list',
+      );
+    }
+
+    final results = <Map<String, dynamic>>[];
+    for (final dest in destinations) {
+      if (dest is! Map) {
+        throw StateError(
+          'Invalid /bus/next response: destination must be an object',
+        );
+      }
+      final rawName = dest['destination_name'];
+      if (rawName == null || rawName.toString().trim().isEmpty) {
+        throw StateError(
+          'Invalid /bus/next response: destination_name is required',
+        );
+      }
+      final name = rawName.toString();
+      final nameEn = dest['destination_name_en']?.toString();
+      final destinationPoleId = dest['destination_pole_id']?.toString();
+      final rawTimes = dest['times'];
+      if (rawTimes is! List) {
+        throw StateError(
+          'Invalid /bus/next response: times must be a list',
+        );
+      }
+      final times = rawTimes.map((e) => e.toString()).toList();
+      final rawAllTimes = dest['all_times'];
+      if (includeAllDay && rawAllTimes is! List) {
+        throw StateError(
+          'Invalid /bus/next response: all_times must be a list',
+        );
+      }
+      final allTimes = rawAllTimes is List
+          ? rawAllTimes.map((e) => e.toString()).toList()
+          : const <String>[];
+
+      if (times.isNotEmpty || allTimes.isNotEmpty) {
+        results.add({
+          'destinationName': name,
+          'destinationNameEn': nameEn,
+          'destinationPoleId': destinationPoleId,
+          'times': times,
+          'allTimes': allTimes,
+        });
+      }
+    }
+    return results;
   }
 
   // 指定された系統・バス停における、全方向の次のバスを取得する (ローカル版 - 旧)

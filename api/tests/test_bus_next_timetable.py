@@ -2,7 +2,12 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from app.routes import _gtfs_bus_timetable_destinations
+from fastapi import HTTPException
+
+from app.routes import (
+    _gtfs_bus_timetable_destinations,
+    _resolve_bus_timetable_day_type,
+)
 
 
 class _FakeGtfsRepository:
@@ -57,6 +62,52 @@ class _FakeGtfsRepository:
 
 
 class BusNextTimetableTest(unittest.TestCase):
+    def test_day_type_selector_finds_requested_schedule(self):
+        def fake_determine_day_type(value):
+            if value.weekday() == 5:
+                return "saturday"
+            if value.weekday() == 6:
+                return "holiday"
+            return "weekday"
+
+        with patch(
+            "app.routes.determine_day_type",
+            side_effect=fake_determine_day_type,
+        ):
+            result = _resolve_bus_timetable_day_type(None, "Saturday")
+
+        self.assertEqual(result, "saturday")
+
+    def test_day_type_selector_rejects_ambiguous_date_and_day_type(self):
+        with self.assertRaises(HTTPException) as raised:
+            _resolve_bus_timetable_day_type("2026-09-28", "weekday")
+
+        self.assertEqual(raised.exception.status_code, 400)
+        self.assertEqual(
+            raised.exception.detail["code"],
+            "bus_timetable_day_selector_conflict",
+        )
+
+    def test_day_type_selector_rejects_invalid_date(self):
+        with self.assertRaises(HTTPException) as raised:
+            _resolve_bus_timetable_day_type("2026/09/28", None)
+
+        self.assertEqual(raised.exception.status_code, 400)
+        self.assertEqual(
+            raised.exception.detail["code"],
+            "bus_timetable_date_invalid",
+        )
+
+    def test_day_type_selector_rejects_unknown_value(self):
+        with self.assertRaises(HTTPException) as raised:
+            _resolve_bus_timetable_day_type(None, "weekend")
+
+        self.assertEqual(raised.exception.status_code, 400)
+        self.assertEqual(
+            raised.exception.detail["code"],
+            "bus_timetable_day_type_invalid",
+        )
+
     def test_full_day_remains_visible_after_last_upcoming_bus(self):
         fake_repo = _FakeGtfsRepository()
         day_type = SimpleNamespace(

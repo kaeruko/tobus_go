@@ -191,11 +191,13 @@ void main() {
       'route-ueno',
       'stop-hirai',
       targetPoleId: 'stop-oshiage',
+      dayType: 'Saturday',
       limit: 3,
       includeAllDay: true,
     );
 
     expect(requestedUri?.queryParameters['include_all'], 'true');
+    expect(requestedUri?.queryParameters['day_type'], 'saturday');
     expect(requestedUri?.queryParameters['limit'], '3');
     expect(requestedUri?.queryParameters['target_pole_id'], 'stop-oshiage');
     expect(result, hasLength(1));
@@ -208,7 +210,7 @@ void main() {
     );
   });
 
-  test('does not request a timetable without a stop ID', () async {
+  test('rejects a timetable request without a stop ID', () async {
     final originalClient = ApiClient.httpClient;
     var requestCount = 0;
     ApiClient.httpClient = MockClient((request) async {
@@ -217,9 +219,11 @@ void main() {
     });
     addTearDown(() => ApiClient.httpClient = originalClient);
 
-    final result = await TimetableService().getNextBusesFromApi('070', '');
+    await expectLater(
+      TimetableService().getNextBusesFromApi('070', ''),
+      throwsArgumentError,
+    );
 
-    expect(result, isEmpty);
     expect(requestCount, 0);
   });
 }

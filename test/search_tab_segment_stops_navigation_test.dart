@@ -204,8 +204,11 @@ void main() {
 
     expect(tester.takeException(), isA<StateError>());
   });
-  testWidgets('stop timetable opens in Japanese', (tester) async {
+  testWidgets('stop timetable opens as an hour grid and switches day type', (
+    tester,
+  ) async {
     final originalClient = ApiClient.httpClient;
+    final requestedDayTypes = <String>[];
     configureApiBase(Uri.parse('https://api.example.test'));
     ApiClient.httpClient = MockClient((request) async {
       expect(request.url.path, '/bus/next');
@@ -217,6 +220,9 @@ void main() {
       expect(request.url.queryParameters['target_pole_id'], 'stop-nippori');
       expect(request.url.queryParameters['limit'], '3');
       expect(request.url.queryParameters['include_all'], 'true');
+      final dayType = request.url.queryParameters['day_type'];
+      expect(dayType, isIn(['weekday', 'saturday', 'holiday']));
+      requestedDayTypes.add(dayType!);
       return http.Response(
         '{"destinations":[{"destination_pole_id":"stop-nippori",'
         '"destination_name":"日暮里駅前",'
@@ -245,13 +251,28 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('亀戸駅前 発の時刻表'), findsOneWidget);
-    expect(find.text('次の3本（平日）'), findsOneWidget);
-    expect(find.text('全時刻表'), findsOneWidget);
+    expect(find.text('平日'), findsOneWidget);
+    expect(find.text('土曜'), findsOneWidget);
+    expect(find.text('日・祝'), findsOneWidget);
     expect(find.text('日暮里駅前'), findsWidgets);
-    expect(find.text('15:10'), findsOneWidget);
+    expect(find.text('14'), findsOneWidget);
+    expect(find.text('15'), findsOneWidget);
+    expect(find.text('16'), findsOneWidget);
+    expect(find.text('15:10'), findsNothing);
+
+    final initialDayType = requestedDayTypes.single;
+    final targetDayType = initialDayType == 'weekday'
+        ? 'Saturday'
+        : 'Weekday';
+    await tester.tap(
+      find.byKey(ValueKey('timetable-day-$targetDayType')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(requestedDayTypes.last, targetDayType.toLowerCase());
   });
 
-  testWidgets('stop timetable opens in English with bilingual names', (
+  testWidgets('stop timetable keeps bilingual destination in English', (
     tester,
   ) async {
     final originalClient = ApiClient.httpClient;
@@ -259,6 +280,10 @@ void main() {
     ApiClient.httpClient = MockClient((request) async {
       expect(request.url.queryParameters['limit'], '3');
       expect(request.url.queryParameters['include_all'], 'true');
+      expect(
+        request.url.queryParameters['day_type'],
+        isIn(['weekday', 'saturday', 'holiday']),
+      );
       return http.Response(
         '{"destinations":[{"destination_pole_id":"stop-nippori",'
         '"destination_name":"日暮里駅前",'
@@ -289,10 +314,12 @@ void main() {
       find.text('Timetable from Kameido Sta. (亀戸駅前)'),
       findsOneWidget,
     );
-    expect(find.text('Next 3 buses (Weekday)'), findsOneWidget);
-    expect(find.text('Full timetable'), findsOneWidget);
+    expect(find.text('Weekday'), findsOneWidget);
+    expect(find.text('Saturday'), findsOneWidget);
+    expect(find.text('Holiday'), findsOneWidget);
     expect(find.text('Nippori Sta. (日暮里駅前)'), findsWidgets);
-    expect(find.text('15:10'), findsOneWidget);
+    expect(find.text('14'), findsOneWidget);
+    expect(find.text('15:10'), findsNothing);
   });
 
   testWidgets('stop list renders English boarding labels', (tester) async {

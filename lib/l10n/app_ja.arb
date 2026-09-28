@@ -396,7 +396,7 @@
   "settlementReimbursement": "後日支給",
   "dayWeekday": "平日",
   "daySaturday": "土曜",
-  "dayHoliday": "休日",
+  "dayHoliday": "日・祝",
   "timetableAtStop": "{stop} 発の時刻表",
   "@timetableAtStop": {
     "placeholders": {
