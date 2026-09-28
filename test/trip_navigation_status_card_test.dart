@@ -143,6 +143,13 @@ void main() {
   testWidgets(
     'walk to ride countdown is rendered as structured transport data',
     (tester) async {
+      tester.view.physicalSize = const Size(320, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
       final step = StepSeg(
         stepId: 'walk-to-bus',
         kind: 'walk',
