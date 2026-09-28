@@ -677,11 +677,9 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((
     );
     final displayState = navProgress.rideRealtimeUnavailable
         ? navDisplayState.withNotice(
-            statusLabel: '検索中…',
-            noticeText: 'Realtimeの位置情報を確認しています\n最後に確認した位置を表示しています',
-            statusLabelToken: const NavigationTextToken(
-              NavigationTextKey.searchingStatus,
-            ),
+            statusLabel: navDisplayState.statusLabel,
+            noticeText: '📍',
+            statusLabelToken: navDisplayState.statusLabelToken,
             noticeTextToken: const NavigationTextToken(
               NavigationTextKey.realtimeUnavailableNotice,
             ),
