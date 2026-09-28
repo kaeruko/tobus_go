@@ -215,6 +215,47 @@ def _gtfs_bus_timetable_destinations(
     return destinations
 
 
+def _resolve_bus_timetable_day_type(
+    date: str | None,
+    day_type: str | None,
+):
+    if date is not None and day_type is not None:
+        raise HTTPException(
+            400,
+            detail={
+                "code": "bus_timetable_day_selector_conflict",
+                "message": "Specify either date or day_type, not both",
+            },
+        )
+
+    if day_type is None:
+        return determine_day_type(date)
+
+    requested_day_type = day_type.strip().lower()
+    supported_day_types = {"weekday", "saturday", "holiday"}
+    if requested_day_type not in supported_day_types:
+        raise HTTPException(
+            400,
+            detail={
+                "code": "bus_timetable_day_type_invalid",
+                "message": "day_type must be weekday, saturday, or holiday",
+                "day_type": day_type,
+            },
+        )
+
+    today = datetime.date.today()
+    for offset in range(14):
+        candidate = today + datetime.timedelta(days=offset)
+        candidate_day_type = determine_day_type(candidate)
+        if str(candidate_day_type) == requested_day_type:
+            return candidate_day_type
+
+    raise RuntimeError(
+        "Could not resolve a representative timetable date for "
+        f"day_type={requested_day_type!r}"
+    )
+
+
 def register_routes(app):
     register_route_endpoint(
         app,
@@ -449,45 +490,10 @@ def register_routes(app):
         if g is None or tm is None:
             raise HTTPException(500, "Server not ready")
 
-        if date is not None and day_type is not None:
-            raise HTTPException(
-                400,
-                detail={
-                    "code": "bus_timetable_day_selector_conflict",
-                    "message": "Specify either date or day_type, not both",
-                },
-            )
-
-        if day_type is None:
-            service_day_type = determine_day_type(date)
-        else:
-            requested_day_type = day_type.strip().lower()
-            supported_day_types = {"weekday", "saturday", "holiday"}
-            if requested_day_type not in supported_day_types:
-                raise HTTPException(
-                    400,
-                    detail={
-                        "code": "bus_timetable_day_type_invalid",
-                        "message": (
-                            "day_type must be weekday, saturday, or holiday"
-                        ),
-                        "day_type": day_type,
-                    },
-                )
-
-            today = datetime.date.today()
-            service_day_type = None
-            for offset in range(14):
-                candidate = today + datetime.timedelta(days=offset)
-                candidate_day_type = determine_day_type(candidate)
-                if str(candidate_day_type) == requested_day_type:
-                    service_day_type = candidate_day_type
-                    break
-            if service_day_type is None:
-                raise RuntimeError(
-                    "Could not resolve a representative timetable date for "
-                    f"day_type={requested_day_type!r}"
-                )
+        service_day_type = _resolve_bus_timetable_day_type(
+            date,
+            day_type,
+        )
 
         if not time:
             now = datetime.datetime.now()
