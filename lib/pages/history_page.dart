@@ -16,8 +16,15 @@ class HistoryPage extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.historyTitle)),
-      body: FutureBuilder<List<Trip>>(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: Text(l10n.historyTitle),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: ColoredBox(
+        color: Colors.white,
+        child: FutureBuilder<List<Trip>>(
         future: TripService().getAllTrips(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -67,7 +74,8 @@ class HistoryPage extends StatelessWidget {
               );
             },
           );
-        },
+          },
+        ),
       ),
     );
   }
