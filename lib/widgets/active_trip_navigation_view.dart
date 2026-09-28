@@ -7,12 +7,14 @@ class ActiveTripAppBarTitle extends StatelessWidget {
   final String appName;
   final String tripTitle;
   final String? contextLabel;
+  final Widget? brand;
 
   const ActiveTripAppBarTitle({
     super.key,
     required this.appName,
     required this.tripTitle,
     this.contextLabel,
+    this.brand,
   });
 
   @override
@@ -37,16 +39,17 @@ class ActiveTripAppBarTitle extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          normalizedAppName,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        brand ??
+            Text(
+              normalizedAppName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
         Text(
           subtitle,
           maxLines: 1,
