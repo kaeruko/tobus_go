@@ -11,6 +11,7 @@ from app.services.bus_location_matcher import (
 from app.services.route_step_ids import assign_candidate_step_ids
 from app.route_endpoint import register_route_endpoint
 from route_engine import normalize_route_preference
+from gtfs_loader import gtfs_repo
 from tokyo_route_engine import TokyoRouteDependencies, TokyoRouteEngine
 
 from fastapi import HTTPException, Form, Query, Body, BackgroundTasks
