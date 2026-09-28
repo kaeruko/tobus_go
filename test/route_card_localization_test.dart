@@ -108,4 +108,71 @@ void main() {
 
     expect(find.textContaining('待ち時間（約38分）'), findsOneWidget);
   });
+
+  testWidgets('English route card localizes current location', (tester) async {
+    final currentLocationCandidate = Candidate(
+      id: 'current-location-en',
+      lines: const ['上23'],
+      linesEn: const ['Ueno-Matsuzakaya'],
+      rides: 1,
+      boards: 1,
+      transfers: 0,
+      total: 49,
+      totalTime: 49,
+      points: const [],
+      originName: '現在地',
+      originNameEn: 'Current location',
+      destinationName: '上野駅',
+      destinationNameEn: 'Ueno Station',
+      steps: [
+        StepSeg(
+          stepId: 'walk-origin',
+          kind: 'walk',
+          title: '徒歩',
+          titleEn: 'Walk',
+          fromName: '現在地',
+          fromNameEn: 'Current location',
+          toName: '平井七丁目',
+          toNameEn: 'Hirai-nanachome',
+          minutes: 3,
+          meters: 213,
+        ),
+        StepSeg(
+          stepId: 'bus-1',
+          kind: 'bus',
+          title: '上23 上野松坂屋前行',
+          titleEn: 'Ueno-Matsuzakaya',
+          fromName: '平井七丁目',
+          fromNameEn: 'Hirai-nanachome',
+          toName: '上野松坂屋前',
+          toNameEn: 'Ueno-Matsuzakaya',
+          minutes: 45,
+          edges: 23,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: CupertinoApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: CupertinoPageScaffold(
+            child: RouteCard(
+              candidate: currentLocationCandidate,
+              rank: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Current location (現在地) → Ueno Station (上野駅)'),
+      findsOneWidget,
+    );
+  });
+
 }
