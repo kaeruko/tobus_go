@@ -119,19 +119,19 @@ class TripScheduleWindowCard extends StatelessWidget {
                   ),
                 );
                 if (!isActive || activeDetail == null) {
-                  return DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: isActive ? Colors.green.shade50 : null,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                  return Material(
+                    color: isActive
+                        ? Colors.green.shade50
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    clipBehavior: Clip.antiAlias,
                     child: tile,
                   );
                 }
-                return Container(
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                return Material(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  clipBehavior: Clip.antiAlias,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
