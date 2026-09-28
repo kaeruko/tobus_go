@@ -112,6 +112,41 @@ void main() {
     expect(urlLauncher.urls, hasLength(3));
   });
 
+  testWidgets('compact static map disables external interactions', (tester) async {
+    await tester.pumpWidget(
+      CupertinoApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const CupertinoPageScaffold(
+          child: RouteMapPreview(
+            points: [LatLng(35, 139), LatLng(36, 140)],
+            showOpenButton: false,
+            height: 150,
+            margin: EdgeInsets.zero,
+            interactive: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final container = tester.widget<Container>(
+      find.ancestor(
+        of: find.byType(GoogleMap),
+        matching: find.byType(Container),
+      ).first,
+    );
+    expect(container.constraints?.maxHeight ?? 150, greaterThan(0));
+    expect(find.text('Google Mapsで開く'), findsNothing);
+
+    final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(map.onTap, isNull);
+    expect(map.scrollGesturesEnabled, isFalse);
+    expect(map.zoomGesturesEnabled, isFalse);
+    expect(urlLauncher.urls, isEmpty);
+  });
+
   testWidgets('no geometry means no external map action', (tester) async {
     await showMap(tester, points: const []);
     expect(find.byType(GoogleMap), findsNothing);
