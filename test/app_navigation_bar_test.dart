@@ -51,7 +51,7 @@ void main() {
     final image = tester.widget<Image>(find.byType(Image));
     final provider = image.image;
     expect(provider, isA<AssetImage>());
-    expect((provider as AssetImage).assetName, 'assets/icon/tokyo_en.webp');
+    expect((provider as AssetImage).assetName, 'assets/icon/tokyo_en.png');
     expect(image.height, 34);
   });
 
