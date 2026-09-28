@@ -170,6 +170,44 @@ void main() {
     expect(location.tripStopSchedule.single.arrivalTime, '13:33');
   });
 
+  test('requests and parses a full-day bilingual timetable', () async {
+    final originalClient = ApiClient.httpClient;
+    Uri? requestedUri;
+    ApiClient.httpClient = MockClient((request) async {
+      requestedUri = request.url;
+      return http.Response(
+        '{"destinations":[{"destination_pole_id":"stop-ueno",'
+        '"destination_name":"上野松坂屋前",'
+        '"destination_name_en":"Ueno-matsuzakaya",'
+        '"times":["16:10","16:25","16:40"],'
+        '"all_times":["06:10","06:30","16:10","16:25","16:40","22:15"]}]}',
+        200,
+        headers: const {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+    addTearDown(() => ApiClient.httpClient = originalClient);
+
+    final result = await TimetableService().getNextBusesFromApi(
+      'route-ueno',
+      'stop-hirai',
+      targetPoleId: 'stop-oshiage',
+      limit: 3,
+      includeAllDay: true,
+    );
+
+    expect(requestedUri?.queryParameters['include_all'], 'true');
+    expect(requestedUri?.queryParameters['limit'], '3');
+    expect(requestedUri?.queryParameters['target_pole_id'], 'stop-oshiage');
+    expect(result, hasLength(1));
+    expect(result.single['destinationName'], '上野松坂屋前');
+    expect(result.single['destinationNameEn'], 'Ueno-matsuzakaya');
+    expect(result.single['times'], ['16:10', '16:25', '16:40']);
+    expect(
+      result.single['allTimes'],
+      ['06:10', '06:30', '16:10', '16:25', '16:40', '22:15'],
+    );
+  });
+
   test('does not request a timetable without a stop ID', () async {
     final originalClient = ApiClient.httpClient;
     var requestCount = 0;
