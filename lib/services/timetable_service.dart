@@ -50,6 +50,7 @@ class TimetableService {
     String poleId, {
     String? targetPoleId,
     int limit = 3,
+    bool includeAllDay = false,
   }) async {
     if (routeId.trim().isEmpty || poleId.trim().isEmpty) {
       return [];
@@ -57,10 +58,12 @@ class TimetableService {
     if (limit < 1) {
       throw ArgumentError.value(limit, 'limit', 'must be at least 1');
     }
+
     print('[TimetableService] getNextBusesFromApi呼び出し:');
     print('  - routeId: $routeId');
     print('  - poleId: $poleId');
     print('  - targetPoleId: $targetPoleId');
+    print('  - includeAllDay: $includeAllDay');
 
     try {
       final params = {
@@ -71,6 +74,9 @@ class TimetableService {
       };
       if (targetPoleId != null && targetPoleId.isNotEmpty) {
         params['target_pole_id'] = targetPoleId;
+      }
+      if (includeAllDay) {
+        params['include_all'] = 'true';
       }
 
       final json = await ApiClient.get('/bus/next', params: params);
@@ -86,13 +92,17 @@ class TimetableService {
         final times =
             (dest['times'] as List?)?.map((e) => e.toString()).toList() ??
             const <String>[];
+        final allTimes =
+            (dest['all_times'] as List?)?.map((e) => e.toString()).toList() ??
+            const <String>[];
 
-        if (times.isNotEmpty) {
+        if (times.isNotEmpty || allTimes.isNotEmpty) {
           results.add({
             'destinationName': name,
             'destinationNameEn': nameEn,
             'destinationPoleId': destinationPoleId,
             'times': times,
+            'allTimes': allTimes,
           });
         }
       }
