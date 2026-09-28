@@ -87,6 +87,8 @@ class TripNavigationStatusCard extends StatelessWidget {
             const SizedBox(height: 18),
             if (_usesStructuredRideHeading())
               _buildStructuredRideHeading(context, l10n, locale)
+            else if (_usesStructuredWalkToRideHeading())
+              _buildStructuredWalkToRideHeading(context, l10n, locale)
             else ...[
               Text(
                 mainText,
@@ -133,7 +135,8 @@ class TripNavigationStatusCard extends StatelessWidget {
               ),
             ],
             if (navState.remainingStops != null ||
-                (nextStopName?.isNotEmpty ?? false)) ...[
+                ((nextStopName?.isNotEmpty ?? false) &&
+                    !_usesStructuredWalkToRideHeading())) ...[
               const SizedBox(height: 14),
               Wrap(
                 spacing: 8,
@@ -145,7 +148,8 @@ class TripNavigationStatusCard extends StatelessWidget {
                       label: Text(_remainingLabel(l10n)),
                       onPressed: onTapStops,
                     ),
-                  if (nextStopName?.isNotEmpty ?? false)
+                  if ((nextStopName?.isNotEmpty ?? false) &&
+                      !_usesStructuredWalkToRideHeading())
                     Chip(
                       label: Text(l10n.nextStop(nextStopName!)),
                     ),
@@ -165,6 +169,209 @@ class TripNavigationStatusCard extends StatelessWidget {
         navState.remainingStops! > 1 &&
         navState.mainTextToken?.key ==
             NavigationTextKey.rideCurrentPlaceMain;
+  }
+
+  bool _usesStructuredWalkToRideHeading() {
+    return navState.mainTextToken?.key ==
+        NavigationTextKey.walkToRideCountdownMain;
+  }
+
+  Widget _buildStructuredWalkToRideHeading(
+    BuildContext context,
+    AppLocalizations l10n,
+    Locale locale,
+  ) {
+    final mainToken = navState.mainTextToken;
+    if (mainToken == null ||
+        mainToken.key != NavigationTextKey.walkToRideCountdownMain) {
+      throw StateError('徒歩→乗車の構造化表示にmain tokenがありません');
+    }
+
+    String requiredString(
+      NavigationTextToken token,
+      String name, {
+      required String role,
+    }) {
+      final value = token.args[name];
+      if (value is! String || value.trim().isEmpty) {
+        throw StateError(
+          '徒歩→乗車の構造化表示に$role.$nameがありません',
+        );
+      }
+      return value.trim();
+    }
+
+    final minutesValue = mainToken.args['minutes'];
+    if (minutesValue is! int) {
+      throw StateError('徒歩→乗車の構造化表示にmain.minutesがありません');
+    }
+    final destinationJa = requiredString(
+      mainToken,
+      'destination',
+      role: 'main',
+    );
+    final destinationEnValue = mainToken.args['destinationEn'];
+    if (destinationEnValue != null &&
+        (destinationEnValue is! String ||
+            destinationEnValue.trim().isEmpty)) {
+      throw StateError('徒歩→乗車のdestinationEnが不正です');
+    }
+    final destinationEn = destinationEnValue is String
+        ? destinationEnValue.trim()
+        : null;
+
+    final primaryDestination =
+        locale.languageCode == 'en' && destinationEn != null
+        ? destinationEn
+        : destinationJa;
+    final secondaryDestination =
+        locale.languageCode == 'en' &&
+            destinationEn != null &&
+            destinationEn != destinationJa
+        ? destinationJa
+        : null;
+
+    final boardingToken = navState.subTextToken;
+    if (boardingToken == null ||
+        (boardingToken.key != NavigationTextKey.boardingSub &&
+            boardingToken.key != NavigationTextKey.boardingPlannedSub)) {
+      throw StateError('徒歩→乗車の構造化表示にboarding tokenがありません');
+    }
+    final rideTime = requiredString(
+      boardingToken,
+      'rideTime',
+      role: 'boarding',
+    );
+    final routeTitleJa = requiredString(
+      boardingToken,
+      'routeTitle',
+      role: 'boarding',
+    );
+    final routeTitleEnValue = boardingToken.args['routeTitleEn'];
+    if (locale.languageCode == 'en' &&
+        (routeTitleEnValue is! String ||
+            routeTitleEnValue.trim().isEmpty)) {
+      throw StateError(
+        '徒歩→乗車の構造化表示にboarding.routeTitleEnがありません',
+      );
+    }
+    final routeTitleEn = routeTitleEnValue is String
+        ? routeTitleEnValue.trim()
+        : null;
+    final primaryRouteTitle =
+        locale.languageCode == 'en' && routeTitleEn != null
+        ? routeTitleEn
+        : routeTitleJa;
+    final secondaryRouteTitle =
+        locale.languageCode == 'en' &&
+            routeTitleEn != null &&
+            routeTitleEn != routeTitleJa
+        ? routeTitleJa
+        : null;
+    final countdown = locale.languageCode == 'en'
+        ? '$minutesValue min'
+        : '$minutesValue分';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.directions_walk, size: 20),
+            const SizedBox(width: 7),
+            Text(
+              l10n.categoryWalk.toUpperCase(),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              countdown,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(
+          primaryDestination,
+          maxLines: 2,
+          overflow: TextOverflow.visible,
+          style: const TextStyle(
+            fontSize: 34,
+            height: 1.08,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        if (secondaryDestination != null) ...[
+          const SizedBox(height: 3),
+          Text(
+            secondaryDestination,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.directions_bus, size: 20),
+              const SizedBox(width: 9),
+              Text(
+                rideTime,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      primaryRouteTitle,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (secondaryRouteTitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        secondaryRouteTitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildStructuredRideHeading(
