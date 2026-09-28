@@ -189,6 +189,86 @@ void main() {
     expect(description, '東京駅');
   });
 
+  testWidgets(
+    'generic chome detail expands to town and chome from formatted address',
+    (tester) async {
+      var resolvedValue = '';
+      var resolvedDisplay = '';
+      var resolvedJa = '';
+      var resolvedEn = '';
+
+      ApiClient.httpClient = MockClient((request) async {
+        if (request.url.path.endsWith('/warmup')) {
+          return _warmupResponse();
+        }
+        if (request.url.path.endsWith('/autocomplete')) {
+          return _jsonResponse(
+            '{"predictions":[{"place_id":"hirai-7","description":"日本、東京都江戸川区平井7丁目8-8"}]}',
+            200,
+          );
+        }
+        if (request.url.path.endsWith('/details')) {
+          final lang = request.url.queryParameters['lang'];
+          if (lang == 'ja') {
+            return _jsonResponse(
+              '{"result":{"name":"7丁目","formatted_address":"日本、東京都江戸川区平井7丁目8-8","geometry":{"location":{"lat":35.706,"lng":139.842}}}}',
+              200,
+            );
+          }
+          if (lang == 'en') {
+            return _jsonResponse(
+              '{"result":{"name":"Hirai 7-chome","formatted_address":"7 Chome-8-8 Hirai, Edogawa City, Tokyo, Japan","geometry":{"location":{"lat":35.706,"lng":139.842}}}}',
+              200,
+            );
+          }
+          return http.Response('unexpected details language', 500);
+        }
+        return http.Response('unexpected request', 500);
+      });
+
+      await tester.pumpWidget(
+        CupertinoApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: CupertinoPageScaffold(
+            child: PlaceField(
+              label: '出発(検索)',
+              value: '',
+              displayValue: '',
+              onChanged: (_, _) {},
+              onResolved: (value, display, nameJa, nameEn) {
+                resolvedValue = value;
+                resolvedDisplay = display;
+                resolvedJa = nameJa;
+                resolvedEn = nameEn;
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(CupertinoTextField), '平井七丁目');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      expect(find.text('日本、東京都江戸川区平井7丁目8-8'), findsOneWidget);
+      await tester.tap(find.text('日本、東京都江戸川区平井7丁目8-8'));
+      await tester.pumpAndSettle();
+
+      expect(resolvedValue, '35.706,139.842');
+      expect(resolvedDisplay, '平井7丁目');
+      expect(resolvedJa, '平井7丁目');
+      expect(resolvedEn, 'Hirai 7-chome');
+      expect(
+        tester.widget<CupertinoTextField>(find.byType(CupertinoTextField))
+            .controller!
+            .text,
+        '平井7丁目',
+      );
+    },
+  );
+
   testWidgets('missing detail coordinates are shown as an error, not 0,0', (tester) async {
     var value = '';
     var description = '';
