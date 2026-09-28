@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
+import '../widgets/route_map_preview.dart';
 import 'ride_stops_navigation.dart';
 
 class SoloTripDetailPage extends StatelessWidget {
@@ -16,6 +17,13 @@ class SoloTripDetailPage extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context);
     final tripTitle = localizedSoloTripTitle(locale, trip);
+    if (!trip.isSolo || trip.legs.length != 1) {
+      throw StateError(
+        'SoloTripDetailPage requires a single-leg solo trip: '
+        'tripId=${trip.id}, type=${trip.tripType.name}, legs=${trip.legs.length}',
+      );
+    }
+    final routePoints = trip.legs.single.candidate.points;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.soloTripDetailTitle)),
@@ -45,6 +53,17 @@ class SoloTripDetailPage extends StatelessWidget {
               ),
             ),
           ),
+          if (routePoints.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            RouteMapPreview(
+              key: ValueKey(Object.hashAll(routePoints)),
+              points: routePoints,
+              showOpenButton: false,
+              height: 150,
+              margin: EdgeInsets.zero,
+              interactive: false,
+            ),
+          ],
           const SizedBox(height: 16),
           Text(
             l10n.soloTripRouteAndSchedule,
