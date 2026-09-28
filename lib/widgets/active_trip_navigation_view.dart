@@ -65,33 +65,33 @@ class ActiveTripAppBarTitle extends StatelessWidget {
 
 
 class ActiveTripEndpointCard extends StatelessWidget {
-  final String currentLabel;
-  final String currentPlace;
+  final String originLabel;
+  final String originPlace;
   final String destinationLabel;
   final String destinationPlace;
 
   const ActiveTripEndpointCard({
     super.key,
-    required this.currentLabel,
-    required this.currentPlace,
+    required this.originLabel,
+    required this.originPlace,
     required this.destinationLabel,
     required this.destinationPlace,
   });
 
   @override
   Widget build(BuildContext context) {
-    final normalizedCurrentLabel = currentLabel.trim();
-    final normalizedCurrentPlace = currentPlace.trim();
+    final normalizedOriginLabel = originLabel.trim();
+    final normalizedOriginPlace = originPlace.trim();
     final normalizedDestinationLabel = destinationLabel.trim();
     final normalizedDestinationPlace = destinationPlace.trim();
 
-    if (normalizedCurrentLabel.isEmpty ||
-        normalizedCurrentPlace.isEmpty ||
+    if (normalizedOriginLabel.isEmpty ||
+        normalizedOriginPlace.isEmpty ||
         normalizedDestinationLabel.isEmpty ||
         normalizedDestinationPlace.isEmpty) {
       throw StateError(
-        '移動中の現在地・目的地カードに空の表示値があります: '
-        'currentLabel="$currentLabel", currentPlace="$currentPlace", '
+        '移動中の出発地・目的地カードに空の表示値があります: '
+        'originLabel="$originLabel", originPlace="$originPlace", '
         'destinationLabel="$destinationLabel", '
         'destinationPlace="$destinationPlace"',
       );
@@ -116,8 +116,8 @@ class ActiveTripEndpointCard extends StatelessWidget {
           Expanded(
             child: _EndpointBlock(
               markerColor: const Color(0xFF2D8CFF),
-              label: normalizedCurrentLabel,
-              place: normalizedCurrentPlace,
+              label: normalizedOriginLabel,
+              place: normalizedOriginPlace,
             ),
           ),
           const Padding(
