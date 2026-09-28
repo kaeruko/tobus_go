@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:toeigo/core/city_profile.dart';
+import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/widgets/app_navigation_bar.dart';
 
 void main() {
@@ -11,10 +12,8 @@ void main() {
     await tester.pumpWidget(
       CupertinoApp(
         locale: const Locale('ja'),
-        supportedLocales: const [
-          Locale('ja'),
-          Locale('en'),
-        ],
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CupertinoPageScaffold(
           navigationBar: buildAppNavigationBar(
             middle: cityBrandNavigationTitle(
@@ -40,10 +39,8 @@ void main() {
     await tester.pumpWidget(
       CupertinoApp(
         locale: const Locale('en'),
-        supportedLocales: const [
-          Locale('ja'),
-          Locale('en'),
-        ],
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CupertinoPageScaffold(
           navigationBar: buildAppNavigationBar(
             middle: cityBrandNavigationTitle(
