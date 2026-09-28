@@ -171,6 +171,41 @@ void main() {
     );
   });
 
+  test('English active-route compact labels avoid sentence-style rows', () {
+    expect(
+      localizedSoloScheduleEntryCompactLabel(
+        const Locale('en'),
+        trip: trip,
+        entry: entries[0],
+      ),
+      'Oshiage\n押上\n5 min',
+    );
+    expect(
+      localizedSoloScheduleEntryCompactLabel(
+        const Locale('en'),
+        trip: trip,
+        entry: entries[1],
+      ),
+      'Asakusa Line\nOshiage\n押上',
+    );
+    expect(
+      localizedSoloScheduleEntryCompactLabel(
+        const Locale('en'),
+        trip: trip,
+        entry: entries[2],
+      ),
+      'Kuramae\n蔵前',
+    );
+    expect(
+      localizedSoloScheduleEntryCompactLabel(
+        const Locale('en'),
+        trip: trip,
+        entry: entries[3],
+      ),
+      'Oedo Line\nKuramae\n蔵前',
+    );
+  });
+
   test('English goal label uses persisted bilingual destination', () {
     final goal = ScheduleEntry(
       id: 'goal',
