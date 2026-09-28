@@ -53,8 +53,11 @@ class TimetableService {
     int limit = 3,
     bool includeAllDay = false,
   }) async {
-    if (routeId.trim().isEmpty || poleId.trim().isEmpty) {
-      return [];
+    if (routeId.trim().isEmpty) {
+      throw ArgumentError.value(routeId, 'routeId', 'must not be empty');
+    }
+    if (poleId.trim().isEmpty) {
+      throw ArgumentError.value(poleId, 'poleId', 'must not be empty');
     }
     if (limit < 1) {
       throw ArgumentError.value(limit, 'limit', 'must be at least 1');
