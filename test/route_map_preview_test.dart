@@ -131,13 +131,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final container = tester.widget<Container>(
-      find.ancestor(
-        of: find.byType(GoogleMap),
-        matching: find.byType(Container),
-      ).first,
-    );
-    expect(container.constraints?.maxHeight ?? 150, greaterThan(0));
+    expect(tester.getSize(find.byType(RouteMapPreview)).height, 150);
     expect(find.text('Google Mapsで開く'), findsNothing);
 
     final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
