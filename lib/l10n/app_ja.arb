@@ -741,7 +741,7 @@
       }
     }
   },
-  "navPositionCheckingMain": "{rideTitle} 位置確認中",
+  "navPositionCheckingMain": "{rideTitle} 📍",
   "@navPositionCheckingMain": {
     "placeholders": {
       "rideTitle": {
@@ -750,8 +750,8 @@
     }
   },
   "navBusWaitingMain": "待機中",
-  "navPositionCheckingSub": "現在の位置を確認中です",
-  "navBusPositionCheckingAtStopSub": "{stopName}（バスの位置を確認中）",
+  "navPositionCheckingSub": "📍",
+  "navBusPositionCheckingAtStopSub": "{stopName} 📍",
   "@navBusPositionCheckingAtStopSub": {
     "placeholders": {
       "stopName": {
@@ -886,7 +886,7 @@
       }
     }
   },
-  "navRealtimeUnavailableNotice": "Realtimeの位置情報を確認しています\n最後に確認した位置を表示しています",
+  "navRealtimeUnavailableNotice": "📍",
   "scheduleNow": "いま",
   "scheduleNext": "つぎ",
   "scheduleLater": "そのうち",
