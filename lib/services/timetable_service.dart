@@ -45,9 +45,17 @@ class TimetableService {
 
   // 指定された系統・バス停における、全方向の次のバスを取得する (API版)
   // 戻り値: [ { "directionId": "1", "name": "上野行き", "times": ["12:14", ...] }, ... ]
-  Future<List<Map<String, dynamic>>> getNextBusesFromApi(String routeId, String poleId, {String? targetPoleId}) async {
+  Future<List<Map<String, dynamic>>> getNextBusesFromApi(
+    String routeId,
+    String poleId, {
+    String? targetPoleId,
+    int limit = 3,
+  }) async {
     if (routeId.trim().isEmpty || poleId.trim().isEmpty) {
       return [];
+    }
+    if (limit < 1) {
+      throw ArgumentError.value(limit, 'limit', 'must be at least 1');
     }
     print('[TimetableService] getNextBusesFromApi呼び出し:');
     print('  - routeId: $routeId');
@@ -58,7 +66,7 @@ class TimetableService {
       final params = {
         'pole_id': poleId,
         'route_id': routeId,
-        'limit': '3',
+        'limit': '$limit',
         'debug': 'true',
       };
       if (targetPoleId != null && targetPoleId.isNotEmpty) {
@@ -69,21 +77,26 @@ class TimetableService {
       final destinations = json['destinations'] as List?;
       if (destinations == null) return [];
 
-      List<Map<String, dynamic>> results = [];
-      for (var dest in destinations) {
+      final results = <Map<String, dynamic>>[];
+      for (final dest in destinations) {
         if (dest is! Map) continue;
         final name = dest['destination_name']?.toString() ?? '行き先不明';
-        final times = (dest['times'] as List?)?.map((e) => e.toString()).toList() ?? [];
+        final nameEn = dest['destination_name_en']?.toString();
+        final destinationPoleId = dest['destination_pole_id']?.toString();
+        final times =
+            (dest['times'] as List?)?.map((e) => e.toString()).toList() ??
+            const <String>[];
 
         if (times.isNotEmpty) {
           results.add({
-            "destinationName": name,
-            "times": times,
+            'destinationName': name,
+            'destinationNameEn': nameEn,
+            'destinationPoleId': destinationPoleId,
+            'times': times,
           });
         }
       }
       return results;
-
     } catch (e) {
       print('[TimetableService] API呼び出し失敗: $e');
       return [];

@@ -397,6 +397,15 @@
   "dayWeekday": "平日",
   "daySaturday": "土曜",
   "dayHoliday": "休日",
+  "timetableAtStop": "{stop} 発の時刻表",
+  "@timetableAtStop": {
+    "placeholders": {
+      "stop": {
+        "type": "String"
+      }
+    }
+  },
+  "timetableNoDepartures": "このあと発車する便はありません",
   "nextBus": "次のバス ({dayType})",
   "@nextBus": {
     "placeholders": {

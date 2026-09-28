@@ -2,7 +2,11 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show BottomNavigationBarItem;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
+import 'package:toeigo/constants.dart';
+import 'package:toeigo/core/api_client.dart';
 import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/pages/segment_stops_page.dart';
@@ -71,6 +75,8 @@ void main() {
     kind: 'bus',
     title: '里22 日暮里駅前行',
     titleEn: 'Route Sato22 · Nippori Sta.',
+    routeId: 'odpt.Busroute:Toei.Sato22',
+    arrivalPoleId: 'stop-nippori',
     fromName: '亀戸駅前',
     fromNameEn: 'Kameido Sta.',
     toName: '日暮里駅前',
@@ -83,12 +89,14 @@ void main() {
         nameEn: 'Kameido Sta.',
         point: const LatLng(35.6973, 139.8262),
         isOrigin: true,
+        stopId: 'stop-kameido',
       ),
       StopPoint(
         name: '日暮里駅前',
         nameEn: 'Nippori Sta.',
         point: const LatLng(35.7278, 139.7709),
         isDestination: true,
+        stopId: 'stop-nippori',
       ),
     ],
   );
@@ -196,6 +204,88 @@ void main() {
 
     expect(tester.takeException(), isA<StateError>());
   });
+  testWidgets('stop timetable opens in Japanese', (tester) async {
+    final originalClient = ApiClient.httpClient;
+    configureApiBase(Uri.parse('https://api.example.test'));
+    ApiClient.httpClient = MockClient((request) async {
+      expect(request.url.path, '/bus/next');
+      expect(request.url.queryParameters['pole_id'], 'stop-kameido');
+      expect(
+        request.url.queryParameters['route_id'],
+        'odpt.Busroute:Toei.Sato22',
+      );
+      expect(request.url.queryParameters['target_pole_id'], 'stop-nippori');
+      expect(request.url.queryParameters['limit'], '8');
+      return http.Response(
+        '{"destinations":[{"destination_pole_id":"stop-nippori",'
+        '"destination_name":"日暮里駅前",'
+        '"destination_name_en":"Nippori Sta.",'
+        '"times":["15:10","15:25","15:40"]}]}',
+        200,
+        headers: const {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+    addTearDown(() => ApiClient.httpClient = originalClient);
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: SegmentStopsPage(segment: busSegment()),
+      ),
+    );
+
+    expect(find.byIcon(CupertinoIcons.clock), findsNWidgets(2));
+    await tester.tap(
+      find.byKey(const ValueKey('stop-timetable-stop-kameido')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('亀戸駅前 発の時刻表'), findsOneWidget);
+    expect(find.text('日暮里駅前'), findsOneWidget);
+    expect(find.text('15:10'), findsOneWidget);
+  });
+
+  testWidgets('stop timetable opens in English with bilingual names', (
+    tester,
+  ) async {
+    final originalClient = ApiClient.httpClient;
+    configureApiBase(Uri.parse('https://api.example.test'));
+    ApiClient.httpClient = MockClient((request) async {
+      return http.Response(
+        '{"destinations":[{"destination_pole_id":"stop-nippori",'
+        '"destination_name":"日暮里駅前",'
+        '"destination_name_en":"Nippori Sta.",'
+        '"times":["15:10","15:25","15:40"]}]}',
+        200,
+        headers: const {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+    addTearDown(() => ApiClient.httpClient = originalClient);
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: SegmentStopsPage(segment: busSegment()),
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('stop-timetable-stop-kameido')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Timetable from Kameido Sta. (亀戸駅前)'),
+      findsOneWidget,
+    );
+    expect(find.text('Nippori Sta. (日暮里駅前)'), findsOneWidget);
+    expect(find.text('15:10'), findsOneWidget);
+  });
+
   testWidgets('stop list renders English boarding labels', (tester) async {
     await tester.pumpWidget(
       CupertinoApp(

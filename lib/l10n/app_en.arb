@@ -397,6 +397,15 @@
   "dayWeekday": "Weekday",
   "daySaturday": "Saturday",
   "dayHoliday": "Holiday",
+  "timetableAtStop": "Timetable from {stop}",
+  "@timetableAtStop": {
+    "placeholders": {
+      "stop": {
+        "type": "String"
+      }
+    }
+  },
+  "timetableNoDepartures": "No upcoming departures.",
   "nextBus": "Next bus ({dayType})",
   "@nextBus": {
     "placeholders": {

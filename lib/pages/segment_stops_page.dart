@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../models/route_models.dart';
 import '../utils/stop_map_utils.dart';
+import '../widgets/timetable_view.dart';
 
 class SegmentStopsPage extends StatelessWidget {
   final StepSeg segment;
@@ -48,6 +49,7 @@ class SegmentStopsPage extends StatelessWidget {
             final isLast = index == segment.stops.length - 1;
 
             return _StopRow(
+              segment: segment,
               stop: stop,
               isFirst: isFirst,
               isLast: isLast,
@@ -60,11 +62,13 @@ class SegmentStopsPage extends StatelessWidget {
 }
 
 class _StopRow extends StatelessWidget {
+  final StepSeg segment;
   final StopPoint stop;
   final bool isFirst;
   final bool isLast;
 
   const _StopRow({
+    required this.segment,
     required this.stop,
     required this.isFirst,
     required this.isLast,
@@ -75,6 +79,14 @@ class _StopRow extends StatelessWidget {
     final locale = Localizations.localeOf(context);
     final stopName = localizedStopName(locale, stop);
     final hasMap = hasUsableTransitCoordinate(stop.lat, stop.lon);
+    final routeId = segment.routeId?.trim();
+    final stopId = stop.stopId?.trim();
+    final hasTimetable =
+        segment.kind == 'bus' &&
+        routeId != null &&
+        routeId.isNotEmpty &&
+        stopId != null &&
+        stopId.isNotEmpty;
     final nameStyle = TextStyle(
       fontSize: 16,
       fontWeight:
@@ -150,24 +162,161 @@ class _StopRow extends StatelessWidget {
             ),
           ),
         ),
-        if (hasMap)
-          const Padding(
-            padding: EdgeInsets.only(top: 1),
-            child: Icon(
-              CupertinoIcons.map,
-              size: 18,
-              color: CupertinoColors.systemGrey,
-            ),
-          ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (hasTimetable)
+              CupertinoButton(
+                key: ValueKey('stop-timetable-${stop.stopId}'),
+                padding: const EdgeInsets.all(6),
+                onPressed: () => _showStopTimetable(
+                  context,
+                  segment: segment,
+                  stop: stop,
+                ),
+                child: const Icon(
+                  CupertinoIcons.clock,
+                  size: 19,
+                  color: CupertinoColors.systemGrey,
+                ),
+              ),
+            if (hasMap)
+              CupertinoButton(
+                key: ValueKey('stop-map-${stop.stopId ?? stop.name}'),
+                padding: const EdgeInsets.all(6),
+                onPressed: () => _showStopMap(context, stop),
+                child: const Icon(
+                  CupertinoIcons.map,
+                  size: 18,
+                  color: CupertinoColors.systemGrey,
+                ),
+              ),
+          ],
+        ),
       ],
     );
 
-    if (!hasMap) return row;
+    return row;
+  }
+}
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => _showStopMap(context, stop),
-      child: row,
+Future<void> _showStopTimetable(
+  BuildContext context, {
+  required StepSeg segment,
+  required StopPoint stop,
+}) {
+  final routeId = segment.routeId?.trim();
+  final stopId = stop.stopId?.trim();
+  if (segment.kind != 'bus' ||
+      routeId == null ||
+      routeId.isEmpty ||
+      stopId == null ||
+      stopId.isEmpty) {
+    throw StateError(
+      'Cannot show stop timetable without bus route/stop IDs: '
+      'stepId=${segment.stepId}, routeId=${segment.routeId}, '
+      'stopId=${stop.stopId}',
+    );
+  }
+
+  final targetPoleId = segment.stops.isEmpty
+      ? null
+      : segment.stops.last.stopId?.trim();
+
+  return showCupertinoModalPopup<void>(
+    context: context,
+    builder: (context) => _StopTimetableSheet(
+      segment: segment,
+      stop: stop,
+      routeId: routeId,
+      stopId: stopId,
+      targetPoleId:
+          targetPoleId == null || targetPoleId.isEmpty ? null : targetPoleId,
+    ),
+  );
+}
+
+class _StopTimetableSheet extends StatelessWidget {
+  final StepSeg segment;
+  final StopPoint stop;
+  final String routeId;
+  final String stopId;
+  final String? targetPoleId;
+
+  const _StopTimetableSheet({
+    required this.segment,
+    required this.stop,
+    required this.routeId,
+    required this.stopId,
+    required this.targetPoleId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
+    final stopName = localizedStopName(locale, stop);
+
+    return CupertinoPopupSurface(
+      isSurfacePainted: true,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 360,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.timetableAtStop(stopName),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            localizedRideTitle(locale, segment),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: CupertinoColors.secondaryLabel,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    CupertinoButton(
+                      padding: const EdgeInsets.all(8),
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Icon(CupertinoIcons.xmark_circle_fill),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  child: TimetableView(
+                    routeId: routeId,
+                    stopId: stopId,
+                    targetPoleId: targetPoleId,
+                    limit: 8,
+                    showEmptyState: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -2,18 +2,23 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../core/app_clock.dart';
 import '../l10n/app_localizations.dart';
+import '../l10n/transit_name_localizations.dart';
 import '../services/timetable_service.dart';
 
 class TimetableView extends StatefulWidget {
   final String routeId;
   final String stopId;
-  final String? targetPoleId; // 追加
+  final String? targetPoleId;
+  final int limit;
+  final bool showEmptyState;
 
   const TimetableView({
     super.key,
     required this.routeId,
     required this.stopId,
     this.targetPoleId,
+    this.limit = 3,
+    this.showEmptyState = false,
   });
 
   @override
@@ -72,7 +77,12 @@ class _TimetableViewState extends State<TimetableView> {
 
   Future<void> _updateBusInfo() async {
     // 変更点: API版のメソッドを非同期で呼ぶ
-    final groups = await _service.getNextBusesFromApi(widget.routeId, widget.stopId, targetPoleId: widget.targetPoleId);
+    final groups = await _service.getNextBusesFromApi(
+      widget.routeId,
+      widget.stopId,
+      targetPoleId: widget.targetPoleId,
+      limit: widget.limit,
+    );
     if (mounted) {
       setState(() {
          _busGroups = groups;
@@ -92,9 +102,17 @@ class _TimetableViewState extends State<TimetableView> {
       _ => throw StateError('Unsupported timetable day type: $_dayType'),
     };
     if (_busGroups.isEmpty) {
-      // データがない場合は何も表示しない（あるいは運行終了を表示）
-      return const SizedBox.shrink();
+      if (!widget.showEmptyState) return const SizedBox.shrink();
+      return Text(
+        l10n.timetableNoDepartures,
+        style: const TextStyle(
+          fontSize: 14,
+          color: CupertinoColors.secondaryLabel,
+        ),
+      );
     }
+
+    final locale = Localizations.localeOf(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,6 +133,16 @@ class _TimetableViewState extends State<TimetableView> {
         // 行き先ごとにリストを表示
         ..._busGroups.map((group) {
           final destName = group['destinationName'] as String;
+          final destNameEn = group['destinationNameEn'] as String?;
+          final destinationPoleId = group['destinationPoleId'] as String?;
+          final displayDestination = localizedTransitName(
+            locale,
+            japanese: destName,
+            english: destNameEn,
+            field: 'destination_name_en',
+            identity:
+                'destinationPoleId=${destinationPoleId ?? '<unknown>'}',
+          );
           final times = group['times'] as List<String>;
           
           return Padding(
@@ -132,7 +160,7 @@ class _TimetableViewState extends State<TimetableView> {
                     border: Border.all(color: Colors.blue[100]!),
                   ),
                   child: Text(
-                    destName,
+                    displayDestination,
                     style: TextStyle(fontSize: 11, color: Colors.blue[900], fontWeight: FontWeight.bold),
                     overflow: TextOverflow.ellipsis,
                   ),

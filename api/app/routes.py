@@ -363,8 +363,11 @@ def register_routes(app):
         curr_min = time_str_to_min(time)
 
         pole_name = None
+        pole_name_en = None
         if ("phys", pole_id) in g:
-            pole_name = g.nodes[("phys", pole_id)].get("name")
+            pole_node = g.nodes[("phys", pole_id)]
+            pole_name = pole_node.get("name")
+            pole_name_en = pole_node.get("name_en")
 
         trips = tm.get_future_bus_trips(
             pole_id,
@@ -385,12 +388,16 @@ def register_routes(app):
         destinations = []
         for dest_id, times in groups.items():
             dest_name = None
+            dest_name_en = None
             if dest_id != "unknown" and ("phys", dest_id) in g:
-                dest_name = g.nodes[("phys", dest_id)].get("name")
+                dest_node = g.nodes[("phys", dest_id)]
+                dest_name = dest_node.get("name")
+                dest_name_en = dest_node.get("name_en")
             destinations.append(
                 {
                     "destination_pole_id": None if dest_id == "unknown" else dest_id,
                     "destination_name": dest_name,
+                    "destination_name_en": dest_name_en,
                     "times": times[: max(1, limit)],
                 }
             )
@@ -398,6 +405,7 @@ def register_routes(app):
         return {
             "pole_id": pole_id,
             "pole_name": pole_name,
+            "pole_name_en": pole_name_en,
             "route_id": route_id,
             "day_type": day_type,
             "time": time,
