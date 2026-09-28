@@ -174,31 +174,9 @@ String localizedNavigationText(
     case NavigationTextKey.transitPlace:
       return transitPlaceArg('placeName');
     case NavigationTextKey.staleBusNotice:
-      final placeKind = stringArg('placeKind');
-      final rawPlace = stringArg('place');
-      final place = switch (placeKind) {
-        'name' => locale.languageCode == 'en'
-            ? transitPlaceArg('place')
-            : rawPlace,
-        'id' => l10n.navStopId(rawPlace),
-        'unknown' => l10n.navUnknownStop,
-        _ => throw StateError(
-            'Unsupported stale bus place kind: $placeKind',
-          ),
-      };
-      final movementText = boolArg('moving')
-          ? l10n.navMovingToward(place)
-          : place;
-      return l10n.navStaleBusNotice(
-        movementText,
-        intArg('ageMinutes'),
-      );
+      return '📍';
     case NavigationTextKey.staleRailNotice:
-      final rawPlace = stringArg('placeName');
-      final place = rawPlace.isEmpty
-          ? l10n.navUnknownStation
-          : transitPlaceArg('placeName');
-      return l10n.navStaleRailNotice(place, intArg('ageMinutes'));
+      return '📍';
     case NavigationTextKey.tripEndedMain:
       return l10n.navTripEndedMain;
     case NavigationTextKey.tripEndedSub:
@@ -233,6 +211,6 @@ String localizedNavigationText(
         intArg('minutes'),
       );
     case NavigationTextKey.realtimeUnavailableNotice:
-      return l10n.navRealtimeUnavailableNotice;
+      return '📍';
   }
 }
