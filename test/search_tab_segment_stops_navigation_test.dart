@@ -215,12 +215,14 @@ void main() {
         'odpt.Busroute:Toei.Sato22',
       );
       expect(request.url.queryParameters['target_pole_id'], 'stop-nippori');
-      expect(request.url.queryParameters['limit'], '8');
+      expect(request.url.queryParameters['limit'], '3');
+      expect(request.url.queryParameters['include_all'], 'true');
       return http.Response(
         '{"destinations":[{"destination_pole_id":"stop-nippori",'
         '"destination_name":"日暮里駅前",'
         '"destination_name_en":"Nippori Sta.",'
-        '"times":["15:10","15:25","15:40"]}]}',
+        '"times":["15:10","15:25","15:40"],'
+        '"all_times":["14:10","14:25","14:40","15:10","15:25","15:40","16:05","16:20"]}]}',
         200,
         headers: const {'content-type': 'application/json; charset=utf-8'},
       );
@@ -243,7 +245,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('亀戸駅前 発の時刻表'), findsOneWidget);
-    expect(find.text('日暮里駅前'), findsOneWidget);
+    expect(find.text('次の3本（平日）'), findsOneWidget);
+    expect(find.text('全時刻表'), findsOneWidget);
+    expect(find.text('日暮里駅前'), findsWidgets);
     expect(find.text('15:10'), findsOneWidget);
   });
 
@@ -253,11 +257,14 @@ void main() {
     final originalClient = ApiClient.httpClient;
     configureApiBase(Uri.parse('https://api.example.test'));
     ApiClient.httpClient = MockClient((request) async {
+      expect(request.url.queryParameters['limit'], '3');
+      expect(request.url.queryParameters['include_all'], 'true');
       return http.Response(
         '{"destinations":[{"destination_pole_id":"stop-nippori",'
         '"destination_name":"日暮里駅前",'
         '"destination_name_en":"Nippori Sta.",'
-        '"times":["15:10","15:25","15:40"]}]}',
+        '"times":["15:10","15:25","15:40"],'
+        '"all_times":["14:10","14:25","14:40","15:10","15:25","15:40","16:05","16:20"]}]}',
         200,
         headers: const {'content-type': 'application/json; charset=utf-8'},
       );
@@ -282,7 +289,9 @@ void main() {
       find.text('Timetable from Kameido Sta. (亀戸駅前)'),
       findsOneWidget,
     );
-    expect(find.text('Nippori Sta. (日暮里駅前)'), findsOneWidget);
+    expect(find.text('Next 3 buses (Weekday)'), findsOneWidget);
+    expect(find.text('Full timetable'), findsOneWidget);
+    expect(find.text('Nippori Sta. (日暮里駅前)'), findsWidgets);
     expect(find.text('15:10'), findsOneWidget);
   });
 
