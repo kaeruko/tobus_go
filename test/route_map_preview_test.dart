@@ -142,6 +142,7 @@ void main() {
     final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
     expect(map.onTap, isNull);
     expect(map.scrollGesturesEnabled, isTrue);
+    expect(map.gestureRecognizers, hasLength(1));
     expect(map.zoomGesturesEnabled, isTrue);
     expect(map.rotateGesturesEnabled, isFalse);
     expect(map.tiltGesturesEnabled, isFalse);
