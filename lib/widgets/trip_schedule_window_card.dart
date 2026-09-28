@@ -27,6 +27,7 @@ class TripScheduleWindowCard extends StatelessWidget {
   final ValueChanged<ScheduleEntry>? onTapEntry;
   final TripScheduleWindowAppearance appearance;
   final String? emptyLabel;
+  final Widget? activeDetail;
 
   const TripScheduleWindowCard({
     super.key,
@@ -41,6 +42,7 @@ class TripScheduleWindowCard extends StatelessWidget {
     this.totalCount,
     this.onTapEntry,
     this.emptyLabel,
+    this.activeDetail,
   });
 
   @override
@@ -105,16 +107,40 @@ class TripScheduleWindowCard extends StatelessWidget {
             else
               ...entries.map((entry) {
                 final isActive = resolvedEntry?.id == entry.id;
-                return ListTile(
+                final tile = ListTile(
                   contentPadding: EdgeInsets.zero,
                   onTap: _entryTap(entry),
                   leading: Icon(_listTileIcon(entry)),
                   title: Text(_entryLabel(entry)),
                   subtitle: isActive ? Text(activeLabel) : null,
                   trailing: Text(_format24Hour(entry.plannedAt)),
-                  tileColor: isActive ? Colors.green.shade50 : null,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
+                  ),
+                );
+                if (!isActive || activeDetail == null) {
+                  return DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: isActive ? Colors.green.shade50 : null,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: tile,
+                  );
+                }
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      tile,
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: activeDetail!,
+                      ),
+                    ],
                   ),
                 );
               }),
@@ -160,6 +186,7 @@ class TripScheduleWindowCard extends StatelessWidget {
                     isActive: isActive,
                     activeLabel: activeLabel,
                     onTap: _entryTap(entry),
+                    activeDetail: isActive ? activeDetail : null,
                   ),
                 );
               }).toList(),
@@ -223,6 +250,7 @@ class _BoxedScheduleRow extends StatelessWidget {
   final bool isActive;
   final String activeLabel;
   final VoidCallback? onTap;
+  final Widget? activeDetail;
 
   const _BoxedScheduleRow({
     required this.entry,
@@ -230,6 +258,7 @@ class _BoxedScheduleRow extends StatelessWidget {
     required this.isActive,
     required this.activeLabel,
     required this.onTap,
+    required this.activeDetail,
   });
 
   @override
@@ -313,6 +342,10 @@ class _BoxedScheduleRow extends StatelessWidget {
                     entry.description,
                     style: const TextStyle(color: Colors.black54),
                   ),
+                ],
+                if (activeDetail != null) ...[
+                  const SizedBox(height: 10),
+                  activeDetail!,
                 ],
               ],
             ),
