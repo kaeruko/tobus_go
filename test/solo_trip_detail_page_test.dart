@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart'
+    as maps;
 
 import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/models/group_models.dart';
@@ -8,7 +11,24 @@ import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/models/trip_models.dart';
 import 'package:toeigo/pages/solo_trip_detail_page.dart';
 
+class TestMaps extends maps.GoogleMapsFlutterPlatform {
+  @override
+  Widget buildViewWithConfiguration(
+    int creationId,
+    void Function(int) onPlatformViewCreated, {
+    required maps.MapWidgetConfiguration widgetConfiguration,
+    maps.MapConfiguration mapConfiguration = const maps.MapConfiguration(),
+    maps.MapObjects mapObjects = const maps.MapObjects(),
+  }) => const SizedBox();
+}
+
 void main() {
+  setUp(() {
+    final previous = maps.GoogleMapsFlutterPlatform.instance;
+    maps.GoogleMapsFlutterPlatform.instance = TestMaps();
+    addTearDown(() => maps.GoogleMapsFlutterPlatform.instance = previous);
+  });
+
   final candidate = Candidate(
     id: 'detail-en',
     lines: const ['浅草線'],
@@ -18,7 +38,10 @@ void main() {
     transfers: 0,
     total: 16,
     totalTime: 16,
-    points: const [],
+    points: const [
+      LatLng(35.7100, 139.8130),
+      LatLng(35.7138, 139.7773),
+    ],
     originName: '押上',
     originNameEn: 'Oshiage',
     destinationName: '上野駅',
@@ -146,6 +169,7 @@ void main() {
     );
     expect(find.text('2026/9/27 · Completed'), findsOneWidget);
     expect(find.text('Route & schedule'), findsOneWidget);
+    expect(find.byType(GoogleMap), findsOneWidget);
     expect(find.text('Walk to Oshiage (押上) (5 min)'), findsOneWidget);
     expect(
       find.text('Asakusa Line · Board at Oshiage (押上)'),
