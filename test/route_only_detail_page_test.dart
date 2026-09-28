@@ -163,7 +163,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('お気に入りに追加'), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.bookmark), findsOneWidget);
+    expect(find.text('お気に入りに追加'), findsNothing);
 
     final planButton = find.text('この経路でおでかけ');
     await tester.scrollUntilVisible(
