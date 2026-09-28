@@ -405,6 +405,23 @@
       }
     }
   },
+  "nextThreeBuses": "Next 3 buses ({dayType})",
+  "@nextThreeBuses": {
+    "placeholders": {
+      "dayType": {
+        "type": "String"
+      }
+    }
+  },
+  "fullTimetable": "Full timetable",
+  "timetableHour": "{hour}:00",
+  "@timetableHour": {
+    "placeholders": {
+      "hour": {
+        "type": "int"
+      }
+    }
+  },
   "timetableNoDepartures": "No upcoming departures.",
   "nextBus": "Next bus ({dayType})",
   "@nextBus": {
