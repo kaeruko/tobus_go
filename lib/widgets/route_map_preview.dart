@@ -10,11 +10,13 @@ import '../utils/stop_map_utils.dart';
 class RouteMapPreview extends StatefulWidget {
   final List<LatLng> points;
   final LatLng? vehiclePosition;
+  final bool showOpenButton;
 
   const RouteMapPreview({
     super.key,
     required this.points,
     this.vehiclePosition,
+    this.showOpenButton = true,
   });
 
   @override
@@ -194,25 +196,32 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                   ),
               },
             ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: CupertinoButton(
-                color: CupertinoColors.systemBackground.resolveFrom(context),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                onPressed: _openingMaps
-                    ? null
-                    : () => _openGoogleMaps(_cameraTarget ?? center),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(CupertinoIcons.arrow_up_right_square, size: 18),
-                    const SizedBox(width: 6),
-                    Text(AppLocalizations.of(context).openInGoogleMaps),
-                  ],
+            if (widget.showOpenButton)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: CupertinoButton(
+                  color: CupertinoColors.systemBackground.resolveFrom(context),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  onPressed: _openingMaps
+                      ? null
+                      : () => _openGoogleMaps(_cameraTarget ?? center),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        CupertinoIcons.arrow_up_right_square,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(AppLocalizations.of(context).openInGoogleMaps),
+                    ],
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),
