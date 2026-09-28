@@ -405,6 +405,23 @@
       }
     }
   },
+  "nextThreeBuses": "次の3本（{dayType}）",
+  "@nextThreeBuses": {
+    "placeholders": {
+      "dayType": {
+        "type": "String"
+      }
+    }
+  },
+  "fullTimetable": "全時刻表",
+  "timetableHour": "{hour}時",
+  "@timetableHour": {
+    "placeholders": {
+      "hour": {
+        "type": "int"
+      }
+    }
+  },
   "timetableNoDepartures": "このあと発車する便はありません",
   "nextBus": "次のバス ({dayType})",
   "@nextBus": {
