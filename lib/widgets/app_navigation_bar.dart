@@ -2,7 +2,8 @@ import 'package:flutter/cupertino.dart';
 
 import '../core/city_profile.dart';
 
-const String _tokyoHeaderLogoAsset = 'assets/icon/tokyo.png';
+const String _tokyoHeaderLogoAssetJa = 'assets/icon/tokyo.png';
+const String _tokyoHeaderLogoAssetEn = 'assets/icon/tokyo_en.webp';
 
 CupertinoNavigationBar buildAppNavigationBar({
   required Widget middle,
@@ -24,15 +25,23 @@ Widget cityBrandNavigationTitle({
 }) {
   switch (city) {
     case AppCity.tokyo:
-      return Semantics(
-        label: fallbackTitle,
-        child: Image.asset(
-          _tokyoHeaderLogoAsset,
-          height: 34,
-          fit: BoxFit.contain,
-          filterQuality: FilterQuality.medium,
-          excludeFromSemantics: true,
-        ),
+      return Builder(
+        builder: (context) {
+          final languageCode = Localizations.localeOf(context).languageCode;
+          final asset = languageCode == 'en'
+              ? _tokyoHeaderLogoAssetEn
+              : _tokyoHeaderLogoAssetJa;
+          return Semantics(
+            label: fallbackTitle,
+            child: Image.asset(
+              asset,
+              height: 34,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.medium,
+              excludeFromSemantics: true,
+            ),
+          );
+        },
       );
     case AppCity.nagoya:
     case AppCity.sendai:
