@@ -417,7 +417,11 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
     final currentAsync = ref.read(locationStreamProvider);
 
     String fromVal = '';
-    const fromName = '現在地';
+    const fromNameJa = '現在地';
+    const fromNameEn = 'Current location';
+    final fromName = Localizations.localeOf(context).languageCode == 'en'
+        ? fromNameEn
+        : fromNameJa;
 
     if (override != null) {
       print('[ExperiencePage] Using override location');
@@ -433,7 +437,12 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
     final notifier = ref.read(routeSearchProvider.notifier);
 
     if (fromVal.isNotEmpty) {
-      notifier.setFrom(fromVal, name: fromName);
+      notifier.setFrom(
+        fromVal,
+        name: fromName,
+        nameJa: fromNameJa,
+        nameEn: fromNameEn,
+      );
     }
 
     notifier.setTo(
