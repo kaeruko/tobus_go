@@ -35,8 +35,7 @@ void main() {
     expect((image.image as AssetImage).assetName, 'assets/icon/tokyo_en.png');
   });
 
-  testWidgets('共通statusとmode固有slotを同じ骨格へ配置する', (tester) async {
-    var stopsTapped = false;
+  testWidgets('大きいstatusカードを出さずmode固有slotを配置する', (tester) async {
     final busStep = StepSeg(
       stepId: 'bus-1',
       kind: 'bus',
@@ -63,7 +62,7 @@ void main() {
           navState: navState,
           tripTitle: 'テスト移動',
           appBar: AppBar(title: const Text('共通ナビ')),
-          onTapStops: () => stopsTapped = true,
+          onTapStops: () {},
           statusHeaderTrailing: const Text('09:30'),
           beforeScheduleSections: const [Text('遅延セクション')],
           scheduleSection: const Text('予定ウィンドウ'),
@@ -74,15 +73,14 @@ void main() {
     );
 
     expect(find.text('共通ナビ'), findsOneWidget);
-    expect(find.text('テスト移動'), findsOneWidget);
     expect(find.text('09:30'), findsOneWidget);
     expect(find.text('遅延セクション'), findsOneWidget);
     expect(find.text('予定ウィンドウ'), findsOneWidget);
     expect(find.text('モード固有操作'), findsOneWidget);
     expect(find.text('下部操作'), findsOneWidget);
-
-    await tester.tap(find.text('のこり 2 回停車'));
-    expect(stopsTapped, isTrue);
+    expect(find.text('上23 乗車中'), findsNothing);
+    expect(find.text('🚌乗車中'), findsNothing);
+    expect(find.text('テスト移動'), findsNothing);
   });
 
   testWidgets('roleを知らず空のtripTitleはfail-fastする', (tester) async {
