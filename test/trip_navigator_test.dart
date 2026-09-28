@@ -123,7 +123,7 @@ void main() {
       );
 
       expect(navigation.statusLabel, '🚇乗車中');
-      expect(navigation.mainText, '浅草線 位置確認中');
+      expect(navigation.mainText, '浅草線 📍');
       expect(navigation.subText, '10:05 浅草線 東銀座到着予定');
     });
 
