@@ -11,6 +11,10 @@ void main() {
     await tester.pumpWidget(
       CupertinoApp(
         locale: const Locale('ja'),
+        supportedLocales: const [
+          Locale('ja'),
+          Locale('en'),
+        ],
         home: CupertinoPageScaffold(
           navigationBar: buildAppNavigationBar(
             middle: cityBrandNavigationTitle(
@@ -36,6 +40,10 @@ void main() {
     await tester.pumpWidget(
       CupertinoApp(
         locale: const Locale('en'),
+        supportedLocales: const [
+          Locale('ja'),
+          Locale('en'),
+        ],
         home: CupertinoPageScaffold(
           navigationBar: buildAppNavigationBar(
             middle: cityBrandNavigationTitle(
