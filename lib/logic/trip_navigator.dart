@@ -494,7 +494,7 @@ class NavigationState {
       if (railProgress == null) {
         final routeTitle = _shortRideTitle(step);
         return NavigationState(
-          mainText: '$routeTitle 位置確認中',
+          mainText: '$routeTitle 📍',
           subText: _rideArrivalSummary(step, routeTitle),
           color: const Color(0xFF81D4FA),
           statusLabel: statusLabel ?? _rideStatusLabel(step),
@@ -547,8 +547,8 @@ class NavigationState {
       return NavigationState(
         mainText: '待機中',
         subText: boardingStopName == null || boardingStopName.isEmpty
-            ? '現在の位置を確認中です'
-            : '$boardingStopName（バスの位置を確認中）',
+            ? '📍'
+            : '$boardingStopName 📍',
         color: const Color(0xFFE1F5FE),
         statusLabel: '乗車待ち',
         mainTextToken: const NavigationTextToken(
@@ -620,11 +620,9 @@ class NavigationState {
         (progress.vehicleAgeSeconds ?? 0) >= staleRidePositionAfterSeconds;
     NavigationState withFreshnessNotice(NavigationState navigation) => isStale
         ? navigation.withNotice(
-            statusLabel: '検索中…',
-            noticeText: staleNoticeText,
-            statusLabelToken: const NavigationTextToken(
-              NavigationTextKey.searchingStatus,
-            ),
+            statusLabel: navigation.statusLabel,
+            noticeText: '📍',
+            statusLabelToken: navigation.statusLabelToken,
             noticeTextToken: staleNoticeToken,
           )
         : navigation;
