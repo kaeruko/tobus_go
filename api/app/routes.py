@@ -122,6 +122,98 @@ async def _fetch_and_update_realtime(app_state):
         except Exception as e:
             print(f"[WARN] Failed to update train info: {e}")
 
+def _gtfs_bus_timetable_destinations(
+    *,
+    route_id: str,
+    pole_id: str,
+    target_pole_id: str | None,
+    day_type,
+    current_minute: int,
+    limit: int,
+    include_all: bool,
+    delay_min: float,
+) -> list[dict]:
+    schedule = gtfs_repo.timetable_index.get(f"{route_id}|{pole_id}") or []
+    active_services = (
+        day_type.active_service_ids
+        if getattr(day_type, "has_gtfs_calendar", False)
+        else None
+    )
+    effective_search_minute = current_minute - delay_min
+
+    upcoming_by_destination: dict[str, list[str]] = {}
+    all_by_destination: dict[str, list[str]] = {}
+
+    for departure_minute, origin_sequence, trip_id in schedule:
+        trip = gtfs_repo.trips.get(trip_id)
+        if trip is None:
+            raise RuntimeError(
+                f"GTFS timetable references unknown trip_id={trip_id!r}"
+            )
+        if active_services is not None:
+            service_id = trip.get("service_id")
+            if service_id not in active_services:
+                continue
+
+        if target_pole_id:
+            target_time = gtfs_repo.get_trip_stop_time_after(
+                trip_id,
+                target_pole_id,
+                after_sequence=origin_sequence,
+            )
+            if target_time is None:
+                continue
+
+        stops_by_sequence = gtfs_repo.stop_times.get(trip_id)
+        if not stops_by_sequence:
+            raise RuntimeError(
+                f"GTFS trip has no stop_times: trip_id={trip_id!r}"
+            )
+        _, final_stop_time = max(stops_by_sequence.items())
+        destination_stop_id = final_stop_time[0]
+        if destination_stop_id not in gtfs_repo.stops:
+            raise RuntimeError(
+                "GTFS trip destination is missing from stops: "
+                f"trip_id={trip_id!r} stop_id={destination_stop_id!r}"
+            )
+
+        departure_text = min_to_time_str(departure_minute)
+        if include_all:
+            all_by_destination.setdefault(destination_stop_id, []).append(
+                departure_text
+            )
+
+        if departure_minute >= effective_search_minute:
+            upcoming = upcoming_by_destination.setdefault(
+                destination_stop_id,
+                [],
+            )
+            if len(upcoming) < max(1, limit):
+                upcoming.append(departure_text)
+
+    destination_ids = list(upcoming_by_destination)
+    for destination_stop_id in all_by_destination:
+        if destination_stop_id not in upcoming_by_destination:
+            destination_ids.append(destination_stop_id)
+
+    destinations = []
+    for destination_stop_id in destination_ids:
+        stop = gtfs_repo.stops[destination_stop_id]
+        destination = {
+            "destination_pole_id": destination_stop_id,
+            "destination_name": stop.get("name"),
+            "destination_name_en": stop.get("name_en"),
+            "times": upcoming_by_destination.get(destination_stop_id, []),
+        }
+        if include_all:
+            destination["all_times"] = all_by_destination.get(
+                destination_stop_id,
+                [],
+            )
+        destinations.append(destination)
+    return destinations
+
+
 def register_routes(app):
     register_route_endpoint(
         app,
@@ -363,68 +455,112 @@ def register_routes(app):
 
         curr_min = time_str_to_min(time)
 
-        pole_name = None
-        pole_name_en = None
-        if ("phys", pole_id) in g:
-            pole_node = g.nodes[("phys", pole_id)]
-            pole_name = pole_node.get("name")
-            pole_name_en = pole_node.get("name_en")
+        uses_gtfs_route = route_id in gtfs_repo.routes
+        uses_gtfs_pole = pole_id in gtfs_repo.stops
+        if uses_gtfs_route != uses_gtfs_pole:
+            raise HTTPException(
+                400,
+                detail={
+                    "code": "bus_timetable_identity_mismatch",
+                    "message": (
+                        "route_id and pole_id must both use GTFS IDs or both use "
+                        "legacy ODPT IDs"
+                    ),
+                    "route_id": route_id,
+                    "pole_id": pole_id,
+                },
+            )
 
-        trips = tm.get_future_bus_trips(
-            pole_id,
-            route_id,
-            curr_min,
-            limit=max(1, limit) * 20,
-            pole_name=pole_name,
-            day_type=day_type,
-            target_pole_id=target_pole_id,
-            debug=debug,
-        )
+        if uses_gtfs_route:
+            if target_pole_id and target_pole_id not in gtfs_repo.stops:
+                raise HTTPException(
+                    400,
+                    detail={
+                        "code": "bus_timetable_target_stop_unknown",
+                        "message": "target_pole_id is not a GTFS stop ID",
+                        "target_pole_id": target_pole_id,
+                    },
+                )
+            pole = gtfs_repo.stops[pole_id]
+            pole_name = pole.get("name")
+            pole_name_en = pole.get("name_en")
+            destinations = _gtfs_bus_timetable_destinations(
+                route_id=route_id,
+                pole_id=pole_id,
+                target_pole_id=target_pole_id,
+                day_type=day_type,
+                current_minute=curr_min,
+                limit=limit,
+                include_all=include_all,
+                delay_min=tm.bus_realtime_delays.get(route_id, 0.0),
+            )
+        else:
+            pole_name = None
+            pole_name_en = None
+            if ("phys", pole_id) in g:
+                pole_node = g.nodes[("phys", pole_id)]
+                pole_name = pole_node.get("name")
+                pole_name_en = pole_node.get("name_en")
 
-        groups = {}
-        for t in trips:
-            dest = t.get("dest") or "unknown"
-            groups.setdefault(dest, []).append(min_to_time_str(t["dep"]))
-
-        all_groups = {}
-        if include_all:
-            all_trips = tm.get_future_bus_trips(
+            trips = tm.get_future_bus_trips(
                 pole_id,
                 route_id,
-                0,
-                limit=10000,
+                curr_min,
+                limit=max(1, limit) * 20,
                 pole_name=pole_name,
                 day_type=day_type,
                 target_pole_id=target_pole_id,
                 debug=debug,
             )
-            for t in all_trips:
+
+            groups = {}
+            for t in trips:
                 dest = t.get("dest") or "unknown"
-                all_groups.setdefault(dest, []).append(min_to_time_str(t["dep"]))
+                groups.setdefault(dest, []).append(min_to_time_str(t["dep"]))
 
-        destination_ids = list(groups.keys())
-        for dest_id in all_groups:
-            if dest_id not in groups:
-                destination_ids.append(dest_id)
-
-        destinations = []
-        for dest_id in destination_ids:
-            times = groups.get(dest_id, [])
-            dest_name = None
-            dest_name_en = None
-            if dest_id != "unknown" and ("phys", dest_id) in g:
-                dest_node = g.nodes[("phys", dest_id)]
-                dest_name = dest_node.get("name")
-                dest_name_en = dest_node.get("name_en")
-            destination = {
-                "destination_pole_id": None if dest_id == "unknown" else dest_id,
-                "destination_name": dest_name,
-                "destination_name_en": dest_name_en,
-                "times": times[: max(1, limit)],
-            }
+            all_groups = {}
             if include_all:
-                destination["all_times"] = all_groups.get(dest_id, [])
-            destinations.append(destination)
+                all_trips = tm.get_future_bus_trips(
+                    pole_id,
+                    route_id,
+                    0,
+                    limit=10000,
+                    pole_name=pole_name,
+                    day_type=day_type,
+                    target_pole_id=target_pole_id,
+                    debug=debug,
+                )
+                for t in all_trips:
+                    dest = t.get("dest") or "unknown"
+                    all_groups.setdefault(dest, []).append(
+                        min_to_time_str(t["dep"])
+                    )
+
+            destination_ids = list(groups.keys())
+            for dest_id in all_groups:
+                if dest_id not in groups:
+                    destination_ids.append(dest_id)
+
+            destinations = []
+            for dest_id in destination_ids:
+                times = groups.get(dest_id, [])
+                dest_name = None
+                dest_name_en = None
+                if dest_id != "unknown" and ("phys", dest_id) in g:
+                    dest_node = g.nodes[("phys", dest_id)]
+                    dest_name = dest_node.get("name")
+                    dest_name_en = dest_node.get("name_en")
+                destination = {
+                    "destination_pole_id": (
+                        None if dest_id == "unknown" else dest_id
+                    ),
+                    "destination_name": dest_name,
+                    "destination_name_en": dest_name_en,
+                    "times": times[: max(1, limit)],
+                }
+                if include_all:
+                    destination["all_times"] = all_groups.get(dest_id, [])
+                destinations.append(destination)
 
         return {
             "pole_id": pole_id,
