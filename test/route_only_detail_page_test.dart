@@ -55,7 +55,7 @@ void main() {
     expect(find.text('乗車区間'), findsOneWidget);
     expect(find.text('8系統'), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.bookmark), findsNothing);
-    expect(find.text('My Routeに追加'), findsNothing);
+    expect(find.text('お気に入りに追加'), findsNothing);
   });
   testWidgets('Yokohama route detail renders English labels', (tester) async {
     final candidate = Candidate(
@@ -165,7 +165,7 @@ void main() {
 
     expect(find.text('この経路でおでかけ'), findsOneWidget);
     expect(find.text('この経路で行く'), findsNothing);
-    expect(find.text('My Routeに追加'), findsOneWidget);
+    expect(find.text('お気に入りに追加'), findsOneWidget);
 
     final planButton = find.text('この経路でおでかけ');
     await tester.ensureVisible(planButton);
