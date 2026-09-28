@@ -282,47 +282,6 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     );
   }
 
-  Widget _myRouteButton(bool isSaved) {
-    final l10n = AppLocalizations.of(context);
-    if (isSaved) {
-      return SizedBox(
-        width: double.infinity,
-        child: CupertinoButton(
-          onPressed: () => _toggleBookmark(true),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(CupertinoIcons.bookmark_fill),
-              const SizedBox(width: 8),
-              Text(
-                l10n.removeFromMyRoute,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return SizedBox(
-      width: double.infinity,
-      child: CupertinoButton.filled(
-        onPressed: () => _toggleBookmark(false),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(CupertinoIcons.bookmark),
-            const SizedBox(width: 8),
-            Text(
-              l10n.addToMyRoute,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _setDirection(LegDirection direction) {
     try {
       ref
@@ -1276,15 +1235,6 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               ),
 
               SliverToBoxAdapter(child: FareSummary(fare: widget.fare)),
-
-              if (features.savedRoutes)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                    child: _myRouteButton(isSaved),
-                  ),
-                ),
-
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
               SliverToBoxAdapter(
