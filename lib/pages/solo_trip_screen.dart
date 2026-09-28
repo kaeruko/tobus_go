@@ -227,7 +227,10 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
           showOpenButton: false,
           height: 150,
           margin: EdgeInsets.zero,
-          interactive: false,
+          interactive: true,
+          openExternalOnTap: false,
+          rotateGesturesEnabled: false,
+          tiltGesturesEnabled: false,
         ),
     ];
     if (showDelayWarning) {
