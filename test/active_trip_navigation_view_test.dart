@@ -3,28 +3,36 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/logic/trip_navigator.dart';
 import 'package:toeigo/models/route_models.dart';
+import 'package:toeigo/core/city_profile.dart';
 import 'package:toeigo/widgets/active_trip_navigation_view.dart';
+import 'package:toeigo/widgets/app_navigation_bar.dart';
 
 void main() {
-  testWidgets('移動中ヘッダーはアプリ名を最上段に表示する', (tester) async {
+  testWidgets('移動中ヘッダーはブランド画像と経路名を表示できる', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        locale: const Locale('ja'),
+        locale: const Locale('en'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           appBar: AppBar(
-            title: const ActiveTripAppBarTitle(
-              appName: '都営でGO',
-              tripTitle: '現在地 → 新橋駅',
+            title: ActiveTripAppBarTitle(
+              appName: 'Toei GO',
+              tripTitle: 'Current location → Ueno Station',
+              brand: cityBrandNavigationTitle(
+                city: AppCity.tokyo,
+                fallbackTitle: 'Toei GO',
+              ),
             ),
           ),
         ),
       ),
     );
 
-    expect(find.text('都営でGO'), findsOneWidget);
-    expect(find.text('現在地 → 新橋駅'), findsOneWidget);
+    expect(find.text('Toei GO'), findsNothing);
+    expect(find.text('Current location → Ueno Station'), findsOneWidget);
+    final image = tester.widget<Image>(find.byType(Image));
+    expect((image.image as AssetImage).assetName, 'assets/icon/tokyo_en.png');
   });
 
   testWidgets('共通statusとmode固有slotを同じ骨格へ配置する', (tester) async {
