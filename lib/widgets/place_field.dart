@@ -34,14 +34,88 @@ class PlaceField extends StatefulWidget {
 
 class _ResolvedPlaceDetail {
   final String name;
+  final String? formattedAddress;
   final double lat;
   final double lon;
 
   const _ResolvedPlaceDetail({
     required this.name,
+    required this.formattedAddress,
     required this.lat,
     required this.lon,
   });
+}
+
+bool _isGenericJapaneseAddressFragment(String value) {
+  final normalized = value.trim();
+  return RegExp(
+    r'^[0-9０-９一二三四五六七八九十百]+丁目$',
+  ).hasMatch(normalized) ||
+      RegExp(
+        r'^[0-9０-９一二三四五六七八九十百]+番(?:地)?$',
+      ).hasMatch(normalized) ||
+      RegExp(
+        r'^[0-9０-９一二三四五六七八九十百]+号$',
+      ).hasMatch(normalized) ||
+      RegExp(
+        r'^[0-9０-９]+(?:[-‐‑–—−][0-9０-９]+){1,2}$',
+      ).hasMatch(normalized);
+}
+
+String _shortJapaneseAddress(String formattedAddress) {
+  var normalized = formattedAddress.trim();
+  normalized = normalized.replaceFirst(
+    RegExp(r'^日本[、,]?\s*'),
+    '',
+  );
+  normalized = normalized.replaceFirst(
+    RegExp(r'^〒?\s*[0-9０-９]{3}[-‐‑–—−]?[0-9０-９]{4}\s*'),
+    '',
+  );
+
+  final cityWard = RegExp(
+    r'^.*?市.*?区(.+?[0-9０-９一二三四五六七八九十百]+丁目)',
+  ).firstMatch(normalized);
+  if (cityWard != null) {
+    return cityWard.group(1)!.trim();
+  }
+
+  final districtTown = RegExp(
+    r'^.*?郡.*?[町村](.+?[0-9０-９一二三四五六七八九十百]+丁目)',
+  ).firstMatch(normalized);
+  if (districtTown != null) {
+    return districtTown.group(1)!.trim();
+  }
+
+  final municipality = RegExp(
+    r'^.*?[市区](.+?[0-9０-９一二三四五六七八九十百]+丁目)',
+  ).firstMatch(normalized);
+  if (municipality != null) {
+    return municipality.group(1)!.trim();
+  }
+
+  throw StateError(
+    'Generic Japanese address name could not be expanded from '
+    'formatted_address: $formattedAddress',
+  );
+}
+
+String _resolvedPlaceName(
+  _ResolvedPlaceDetail detail, {
+  required String language,
+}) {
+  if (language != 'ja' || !_isGenericJapaneseAddressFragment(detail.name)) {
+    return detail.name;
+  }
+
+  final formattedAddress = detail.formattedAddress?.trim();
+  if (formattedAddress == null || formattedAddress.isEmpty) {
+    throw StateError(
+      'Generic Japanese address name requires formatted_address: '
+      'name=${detail.name}',
+    );
+  }
+  return _shortJapaneseAddress(formattedAddress);
 }
 
 _ResolvedPlaceDetail _parsePlaceDetail(
@@ -60,6 +134,7 @@ _ResolvedPlaceDetail _parsePlaceDetail(
       'Place details response is missing a display name: language=$language',
     );
   }
+  final formattedAddress = result['formatted_address']?.toString().trim();
   final geometry = result['geometry'];
   if (geometry is! Map) {
     throw StateError(
@@ -92,7 +167,15 @@ _ResolvedPlaceDetail _parsePlaceDetail(
       'language=$language $lat,$lon',
     );
   }
-  return _ResolvedPlaceDetail(name: name, lat: lat, lon: lon);
+  return _ResolvedPlaceDetail(
+    name: name,
+    formattedAddress:
+        formattedAddress == null || formattedAddress.isEmpty
+            ? null
+            : formattedAddress,
+    lat: lat,
+    lon: lon,
+  );
 }
 
 class _PlaceFieldState extends State<PlaceField> {
@@ -280,9 +363,17 @@ class _PlaceFieldState extends State<PlaceField> {
         );
       }
 
+      final resolvedNameJa = _resolvedPlaceName(
+        japanese,
+        language: 'ja',
+      );
+      final resolvedNameEn = _resolvedPlaceName(
+        english,
+        language: 'en',
+      );
       final displayName = _placeLanguageCode() == 'en'
-          ? english.name
-          : japanese.name;
+          ? resolvedNameEn
+          : resolvedNameJa;
 
       if (!mounted || generation != _inputGeneration) return;
 
@@ -301,7 +392,7 @@ class _PlaceFieldState extends State<PlaceField> {
       final value = '${japanese.lat},${japanese.lon}';
       final resolved = widget.onResolved;
       if (resolved != null) {
-        resolved(value, displayName, japanese.name, english.name);
+        resolved(value, displayName, resolvedNameJa, resolvedNameEn);
       } else {
         widget.onChanged(value, displayName);
       }
