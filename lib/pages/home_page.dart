@@ -100,8 +100,18 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
   Future<void> _useEffectiveLocation() async {
     try {
       final effective = await ref.read(effectiveLocationProvider.future);
+      if (!mounted) return;
+
+      final locale = Localizations.localeOf(context);
+      final displayName =
+          locale.languageCode == 'en' ? effective.nameEn : effective.nameJa;
       final notifier = ref.read(routeSearchProvider.notifier);
-      notifier.setFrom(effective.loc, name: effective.name);
+      notifier.setFrom(
+        effective.loc,
+        name: displayName,
+        nameJa: effective.nameJa,
+        nameEn: effective.nameEn,
+      );
 
       if (_canAutoSearchAfterEditingFrom()) {
         notifier.triggerSearch();
@@ -222,9 +232,25 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
     return _isCoordinateOrEmpty(rs.from);
   }
 
+  String _localizedSearchName({
+    required Locale locale,
+    required String fallback,
+    required String japanese,
+    required String english,
+  }) {
+    if (locale.languageCode == 'en' && english.trim().isNotEmpty) {
+      return english;
+    }
+    if (locale.languageCode != 'en' && japanese.trim().isNotEmpty) {
+      return japanese;
+    }
+    return fallback;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
     final rs = ref.watch(routeSearchProvider);
     final features = ref.watch(
       cityProfileProvider.select((profile) => profile.capabilities.features),
@@ -334,7 +360,12 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                       child: PlaceField(
                         label: l10n.departureSearch,
                         value: rs.from,
-                        displayValue: rs.fromName,
+                        displayValue: _localizedSearchName(
+                          locale: locale,
+                          fallback: rs.fromName,
+                          japanese: rs.fromNameJa,
+                          english: rs.fromNameEn,
+                        ),
                         onChanged: (val, desc) {
                           notifier.setFrom(
                             val,
@@ -395,7 +426,12 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                       child: PlaceField(
                         label: l10n.arrivalSearch,
                         value: rs.to,
-                        displayValue: rs.toName,
+                        displayValue: _localizedSearchName(
+                          locale: locale,
+                          fallback: rs.toName,
+                          japanese: rs.toNameJa,
+                          english: rs.toNameEn,
+                        ),
                         onChanged: (val, desc) {
                           notifier.setTo(
                             val,
