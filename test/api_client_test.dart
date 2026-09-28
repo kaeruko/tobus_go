@@ -191,11 +191,13 @@ void main() {
       'route-ueno',
       'stop-hirai',
       targetPoleId: 'stop-oshiage',
+      dayType: 'Saturday',
       limit: 3,
       includeAllDay: true,
     );
 
     expect(requestedUri?.queryParameters['include_all'], 'true');
+    expect(requestedUri?.queryParameters['day_type'], 'saturday');
     expect(requestedUri?.queryParameters['limit'], '3');
     expect(requestedUri?.queryParameters['target_pole_id'], 'stop-oshiage');
     expect(result, hasLength(1));
