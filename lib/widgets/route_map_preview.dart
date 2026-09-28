@@ -14,6 +14,9 @@ class RouteMapPreview extends StatefulWidget {
   final double height;
   final EdgeInsetsGeometry margin;
   final bool interactive;
+  final bool openExternalOnTap;
+  final bool rotateGesturesEnabled;
+  final bool tiltGesturesEnabled;
 
   const RouteMapPreview({
     super.key,
@@ -23,6 +26,9 @@ class RouteMapPreview extends StatefulWidget {
     this.height = 200,
     this.margin = const EdgeInsets.symmetric(horizontal: 16),
     this.interactive = true,
+    this.openExternalOnTap = true,
+    this.rotateGesturesEnabled = true,
+    this.tiltGesturesEnabled = true,
   }) : assert(height > 0);
 
   @override
@@ -159,12 +165,16 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
               onCameraMove: widget.interactive
                   ? (position) => _cameraTarget = position.target
                   : null,
-              onTap: widget.interactive ? _openGoogleMaps : null,
+              onTap: widget.interactive && widget.openExternalOnTap
+                  ? _openGoogleMaps
+                  : null,
               mapToolbarEnabled: false,
               scrollGesturesEnabled: widget.interactive,
               zoomGesturesEnabled: widget.interactive,
-              rotateGesturesEnabled: widget.interactive,
-              tiltGesturesEnabled: widget.interactive,
+              rotateGesturesEnabled:
+                  widget.interactive && widget.rotateGesturesEnabled,
+              tiltGesturesEnabled:
+                  widget.interactive && widget.tiltGesturesEnabled,
               initialCameraPosition: CameraPosition(
                 target: center,
                 zoom: zoom,
@@ -183,30 +193,33 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                 Marker(
                   markerId: const MarkerId('start'),
                   position: points.first,
-                  onTap: widget.interactive
+                  onTap: widget.interactive && widget.openExternalOnTap
                       ? () => _openGoogleMaps(points.first)
                       : null,
-                  consumeTapEvents: widget.interactive,
+                  consumeTapEvents:
+                      widget.interactive && widget.openExternalOnTap,
                   infoWindow: const InfoWindow(title: 'Start'),
                 ),
                 if (points.length >= 2)
                   Marker(
                     markerId: const MarkerId('end'),
                     position: points.last,
-                    onTap: widget.interactive
+                    onTap: widget.interactive && widget.openExternalOnTap
                         ? () => _openGoogleMaps(points.last)
                         : null,
-                    consumeTapEvents: widget.interactive,
+                    consumeTapEvents:
+                        widget.interactive && widget.openExternalOnTap,
                     infoWindow: const InfoWindow(title: 'End'),
                   ),
                 if (vehiclePosition != null)
                   Marker(
                     markerId: const MarkerId('realtime_vehicle'),
                     position: vehiclePosition,
-                    onTap: widget.interactive
+                    onTap: widget.interactive && widget.openExternalOnTap
                         ? () => _openGoogleMaps(vehiclePosition)
                         : null,
-                    consumeTapEvents: widget.interactive,
+                    consumeTapEvents:
+                        widget.interactive && widget.openExternalOnTap,
                     infoWindow: const InfoWindow(title: 'バス現在位置'),
                     icon: BitmapDescriptor.defaultMarkerWithHue(
                       BitmapDescriptor.hueAzure,
