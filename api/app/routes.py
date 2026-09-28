@@ -229,6 +229,18 @@ def _resolve_bus_timetable_day_type(
         )
 
     if day_type is None:
+        if date is not None:
+            try:
+                datetime.datetime.strptime(date, "%Y-%m-%d")
+            except ValueError as exc:
+                raise HTTPException(
+                    400,
+                    detail={
+                        "code": "bus_timetable_date_invalid",
+                        "message": "date must use YYYY-MM-DD format",
+                        "date": date,
+                    },
+                ) from exc
         return determine_day_type(date)
 
     requested_day_type = day_type.strip().lower()
