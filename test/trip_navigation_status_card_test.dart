@@ -20,9 +20,9 @@ void main() {
     );
     final navigation = NavigationState(
       mainText: '待機中',
-      subText: '十間橋通り（バスの位置を確認中）',
+      subText: '十間橋通り 📍',
       color: Colors.blue,
-      statusLabel: '検索中...',
+      statusLabel: '乗車待ち',
       mainTextToken: const NavigationTextToken(
         NavigationTextKey.busWaitingMain,
       ),
@@ -30,7 +30,7 @@ void main() {
         NavigationTextKey.busPositionCheckingAtStopSub,
         {'stopName': '十間橋通り'},
       ),
-      noticeText: 'Realtimeの位置情報を確認しています',
+      noticeText: '📍',
       noticeTextToken: const NavigationTextToken(
         NavigationTextKey.realtimeUnavailableNotice,
       ),
@@ -52,14 +52,9 @@ void main() {
     );
 
     expect(find.text('待機中'), findsNothing);
-    expect(find.text('検索中...'), findsNothing);
-    expect(find.text('十間橋通り（バスの位置を確認中）'), findsOneWidget);
-    expect(
-      find.text(
-        'Realtimeの位置情報を確認しています\n最後に確認した位置を表示しています',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('乗車待ち'), findsNothing);
+    expect(find.text('十間橋通り 📍'), findsOneWidget);
+    expect(find.text('📍'), findsOneWidget);
   });
 
   testWidgets('bus and rail remaining counts use transport-specific wording', (
