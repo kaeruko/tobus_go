@@ -3,7 +3,7 @@ import 'package:flutter/cupertino.dart';
 import '../core/city_profile.dart';
 
 const String _tokyoHeaderLogoAssetJa = 'assets/icon/tokyo.png';
-const String _tokyoHeaderLogoAssetEn = 'assets/icon/tokyo_en.webp';
+const String _tokyoHeaderLogoAssetEn = 'assets/icon/tokyo_en.png';
 
 CupertinoNavigationBar buildAppNavigationBar({
   required Widget middle,
