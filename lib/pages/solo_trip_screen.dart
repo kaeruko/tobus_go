@@ -20,6 +20,7 @@ import '../widgets/app_navigation_bar.dart';
 import '../widgets/active_trip_realtime_actions.dart';
 import '../widgets/delay_recovery_card.dart';
 import '../widgets/route_replan_preview_button.dart';
+import '../widgets/trip_navigation_status_card.dart';
 import '../widgets/trip_schedule_window_card.dart';
 import 'ride_stops_navigation.dart';
 import 'solo_trip_route_page.dart';
@@ -270,6 +271,14 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
           return l10n.stepCounter(completedCount, totalCount);
         },
         appearance: TripScheduleWindowAppearance.listTiles,
+        activeDetail: TripNavigationInlineStatus(
+          navState: uiState.navState,
+          onTapStops: () => openCurrentRideStops(
+            context: context,
+            trip: trip,
+            currentStepId: ref.read(memberNavProgressProvider).currentStepId,
+          ),
+        ),
         entryLabelBuilder: (entry) => localizedSoloScheduleEntryCompactLabel(
           locale,
           trip: trip,
