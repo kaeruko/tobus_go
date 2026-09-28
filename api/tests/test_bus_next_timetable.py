@@ -88,6 +88,16 @@ class BusNextTimetableTest(unittest.TestCase):
             "bus_timetable_day_selector_conflict",
         )
 
+    def test_day_type_selector_rejects_invalid_date(self):
+        with self.assertRaises(HTTPException) as raised:
+            _resolve_bus_timetable_day_type("2026/09/28", None)
+
+        self.assertEqual(raised.exception.status_code, 400)
+        self.assertEqual(
+            raised.exception.detail["code"],
+            "bus_timetable_date_invalid",
+        )
+
     def test_day_type_selector_rejects_unknown_value(self):
         with self.assertRaises(HTTPException) as raised:
             _resolve_bus_timetable_day_type(None, "weekend")
