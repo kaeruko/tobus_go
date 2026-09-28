@@ -433,6 +433,34 @@
   },
   "boarding": "乗車",
   "alighting": "降車",
+  "segmentGuideTitle": "経路案内",
+  "segmentRideSummary": "乗車{minutes}分 / {count}停留所",
+  "@segmentRideSummary": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "segmentDepartureAt": "{time}発",
+  "@segmentDepartureAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "segmentArrivalAt": "{time}着",
+  "@segmentArrivalAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "googleMapsOpenFailed": "Google Mapsを開けませんでした",
   "openInGoogleMaps": "Google Mapsで開く",
   "refreshVehiclePosition": "現在位置を更新",
