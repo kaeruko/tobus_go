@@ -262,7 +262,7 @@ class _StopTimetableSheet extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 360,
+          height: MediaQuery.sizeOf(context).height * 0.78,
           child: Column(
             children: [
               Padding(
@@ -300,16 +300,20 @@ class _StopTimetableSheet extends StatelessWidget {
                   ],
                 ),
               ),
-              const Divider(height: 1),
+              Container(
+                height: 0.5,
+                color: CupertinoColors.separator,
+              ),
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                   child: TimetableView(
                     routeId: routeId,
                     stopId: stopId,
                     targetPoleId: targetPoleId,
-                    limit: 8,
+                    limit: 3,
                     showEmptyState: true,
+                    showFullDay: true,
                   ),
                 ),
               ),
