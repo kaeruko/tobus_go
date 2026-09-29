@@ -108,6 +108,9 @@ void main() {
   testWidgets(
     'bus realtime indicator sits beside route title without notice row',
     (tester) async {
+      final semantics = tester.ensureSemantics();
+      addTearDown(semantics.dispose);
+
       final step = StepSeg(
         stepId: 'bus-realtime-indicator',
         kind: 'bus',
