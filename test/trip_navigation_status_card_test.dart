@@ -105,6 +105,79 @@ void main() {
     expect(find.text('のこり 3 駅'), findsOneWidget);
     expect(find.text('のこり 2 回停車'), findsNothing);
   });
+  testWidgets(
+    'bus realtime indicator sits beside route title without notice row',
+    (tester) async {
+      final step = StepSeg(
+        stepId: 'bus-realtime-indicator',
+        kind: 'bus',
+        title: '上23 上野松坂屋前行',
+        fromName: '平井七丁目',
+        toName: '社会福祉会館前',
+        arrivalTime: '19:24',
+      );
+      final navigation = NavigationState(
+        mainText: '上23 上野松坂屋前行 平井七丁目',
+        subText: '19:24 社会福祉会館前到着予定',
+        color: Colors.blue,
+        statusLabel: '🚌乗車中',
+        mainTextToken: const NavigationTextToken(
+          NavigationTextKey.rideCurrentPlaceMain,
+          {
+            'rideTitle': '上23 上野松坂屋前行',
+            'placeName': '平井七丁目',
+          },
+        ),
+        subTextToken: const NavigationTextToken(
+          NavigationTextKey.rideArrivalSummary,
+          {
+            'arrivalTime': '19:24',
+            'rideTitle': '上23 上野松坂屋前行',
+            'destination': '社会福祉会館前',
+          },
+        ),
+        statusLabelToken: const NavigationTextToken(
+          NavigationTextKey.busRideStatus,
+        ),
+        noticeText: '📍',
+        noticeTextToken: const NavigationTextToken(
+          NavigationTextKey.realtimeUnavailableNotice,
+        ),
+        remainingStops: 7,
+        nextStopName: '平井七丁目北公園前',
+        step: step,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: TripNavigationStatusCard(
+              navState: navigation,
+              tripTitle: '現在地 → ベルクス 東墨田店',
+              onTapStops: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('上23 上野松坂屋前行'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('ride-realtime-status-indicator')),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel('リアルタイム位置情報を更新中'),
+        findsOneWidget,
+      );
+      expect(find.text('📍'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('English stop labels are localized', (tester) async {
     final step = StepSeg(
       stepId: 'bus-en',
