@@ -887,6 +887,7 @@
     }
   },
   "navRealtimeUnavailableNotice": "📍",
+  "navRealtimeRefreshingSemantics": "Refreshing real-time location",
   "scheduleNow": "Now",
   "scheduleNext": "Next",
   "scheduleLater": "Later",
