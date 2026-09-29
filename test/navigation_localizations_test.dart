@@ -38,7 +38,7 @@ void main() {
     for (final english in <String?>[null, '', '   ']) {
       final token = NavigationTextToken(NavigationTextKey.nowAtSub, {
         'placeName': '蔵前',
-        'placeNameEn': english,
+        if (english != null) 'placeNameEn': english,
       });
 
       expect(
@@ -57,7 +57,7 @@ void main() {
     for (final english in <String?>[null, 'Park plaza']) {
       final token = NavigationTextToken(NavigationTextKey.walkHeadingMain, {
         'destination': '公園内広場',
-        'destinationEn': english,
+        if (english != null) 'destinationEn': english,
       });
 
       expect(
