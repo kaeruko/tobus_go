@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -8,11 +9,13 @@ import '../l10n/app_localizations.dart';
 import '../l10n/city_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
 import '../models/group_models.dart';
+import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../providers/city_profile_provider.dart';
 import '../providers/delay_impact_provider.dart';
 import '../providers/member_mode_provider.dart';
 import '../providers/member_nav_progress_provider.dart';
+import '../providers/saved_routes_provider.dart';
 import '../providers/trip_provider.dart';
 import '../services/trip_service.dart';
 import '../widgets/active_trip_navigation_view.dart';
@@ -227,7 +230,11 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         'tripId=${trip.id}, type=${trip.tripType.name}, legs=${trip.legs.length}',
       );
     }
-    final routePoints = trip.legs.single.candidate.points;
+    final candidate = trip.legs.single.candidate;
+    final routePoints = candidate.points;
+    final isFavorite = ref
+        .watch(savedRoutesProvider)
+        .any((saved) => _isSameRoute(saved, candidate));
 
     final originEndpoint = _originEndpoint(trip);
     final destinationEndpoint = _destinationEndpoint(trip);
@@ -288,6 +295,18 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
           fallbackTitle: appName,
         ),
         actions: [
+          if (cityProfile.capabilities.features.savedRoutes)
+            IconButton(
+              tooltip: isFavorite
+                  ? l10n.removeFromMyRoute
+                  : l10n.addToMyRoute,
+              icon: Icon(
+                isFavorite
+                    ? CupertinoIcons.bookmark_fill
+                    : CupertinoIcons.bookmark,
+              ),
+              onPressed: () => _toggleFavorite(candidate, isFavorite),
+            ),
           if (!completed) const ActiveTripRealtimeActions(),
         ],
       ),
@@ -364,6 +383,65 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         ),
       ],
     );
+  }
+
+  bool _isSameRoute(Candidate a, Candidate b) {
+    if (a.id != b.id) return false;
+    if (a.points.isEmpty || b.points.isEmpty) return false;
+    final sameStart =
+        a.points.first.latitude == b.points.first.latitude &&
+        a.points.first.longitude == b.points.first.longitude;
+    final sameEnd =
+        a.points.last.latitude == b.points.last.latitude &&
+        a.points.last.longitude == b.points.last.longitude;
+    return sameStart && sameEnd;
+  }
+
+  Future<void> _toggleFavorite(Candidate candidate, bool isFavorite) async {
+    final l10n = AppLocalizations.of(context);
+
+    if (!isFavorite) {
+      await ref.read(savedRoutesProvider.notifier).add(candidate);
+      if (!mounted) return;
+      await showCupertinoDialog<void>(
+        context: context,
+        builder: (dialogContext) => CupertinoAlertDialog(
+          title: Text(l10n.savedTitle),
+          content: Text(l10n.savedToMyRoute),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(l10n.ok),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: Text(l10n.deleteBookmarkTitle),
+        content: Text(l10n.deleteBookmarkMessage),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(l10n.cancel),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(l10n.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await ref
+        .read(savedRoutesProvider.notifier)
+        .removeWhere((saved) => _isSameRoute(saved, candidate));
   }
 
   _EndpointText _originEndpoint(Trip trip) {
