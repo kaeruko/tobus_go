@@ -1228,5 +1228,98 @@
   "settingsOpenAsMemberDescription": "Show the participant view for the most recently created trip",
   "settingsNoTrip": "No trip found. Create a trip first.",
   "settingsMemberModeEnabled": "Switched to member mode",
-  "settingsNoJoinableTrip": "No trip available to join"
+  "settingsNoJoinableTrip": "No trip available to join",
+  "replanPrepareFailed": "Couldn’t prepare route review: {error}",
+  "@replanPrepareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupTripStartChecking": "Checking trip start status…",
+  "groupReplanLeaderNotice": "Only the group leader can confirm a group route change.",
+  "groupScheduleManualNotice": "Changing the schedule shifts later planned times without changing the route.",
+  "groupReplanTitle": "Review the group route",
+  "groupReplanDescription": "Compare new routes from the current location and trip status. Only the group leader can confirm a change.",
+  "groupScheduleUpdating": "Updating schedule…",
+  "groupScheduleShift": "Shift later plans by {minutes} min",
+  "@groupScheduleShift": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupSchedulePrepareFailed": "Couldn’t prepare the schedule change: {error}",
+  "@groupSchedulePrepareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupScheduleShiftQuestion": "Shift later plans by {minutes} min?",
+  "@groupScheduleShiftQuestion": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleShiftScope": "This shifts planned times after now together. It does not change the route.",
+  "groupScheduleShiftAction": "Shift by {minutes} min",
+  "@groupScheduleShiftAction": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleEstimateChanged": "The estimated arrival changed while you were confirming. Please review again.",
+  "groupScheduleUserUnavailable": "Couldn’t identify the user making the schedule change.",
+  "groupScheduleShifted": "Shifted later plans by {minutes} min.",
+  "@groupScheduleShifted": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleShiftFailed": "Couldn’t change the schedule: {error}",
+  "@groupScheduleShiftFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "routeMapUnavailable": "Route map unavailable",
+  "routeMapStart": "Start",
+  "routeMapEnd": "Destination",
+  "replanMapAnchor": "Route review point",
+  "replanReviewAction": "Review route",
+  "replanSearching": "Searching for a new route…",
+  "replanSearchStateChanged": "Your trip status changed while searching. Tap “Review route” again.",
+  "replanTripUnavailable": "Couldn’t get the current trip.",
+  "replanAppliedFrom": "Changed to the new route from {place}.",
+  "@replanAppliedFrom": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "replanSearchFailed": "Couldn’t search for a new route: {error}",
+  "@replanSearchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanPreviewStateChanged": "Your trip status changed while comparing routes. Update to the latest route options and choose again.",
+  "replanUserUnavailable": "Couldn’t identify the user making the route change.",
+  "groupReplanUnavailableHere": "Group routes can’t be changed from this screen.",
+  "groupReplanLeaderOnly": "Only the group leader can change the group route."
 }

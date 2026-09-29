@@ -1228,5 +1228,98 @@
   "settingsOpenAsMemberDescription": "最後に作成されたおでかけの参加者画面を表示",
   "settingsNoTrip": "おでかけが見つかりません。まずは作成してください。",
   "settingsMemberModeEnabled": "メンバーモードに切り替わりました",
-  "settingsNoJoinableTrip": "参加可能なおでかけが見つかりません"
+  "settingsNoJoinableTrip": "参加可能なおでかけが見つかりません",
+  "replanPrepareFailed": "経路見直しの準備に失敗しました: {error}",
+  "@replanPrepareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupTripStartChecking": "おでかけ開始状況を確認中…",
+  "groupReplanLeaderNotice": "グループの経路変更はリーダーだけが確定できます。",
+  "groupScheduleManualNotice": "予定時刻の変更は経路を変更せず、以降の予定時刻だけをずらします。",
+  "groupReplanTitle": "グループの経路を見直す",
+  "groupReplanDescription": "現在地と移動状況から新しい経路を比較できます。変更を確定できるのはリーダーだけです。",
+  "groupScheduleUpdating": "予定を更新中…",
+  "groupScheduleShift": "以降の予定を{minutes}分ずらす",
+  "@groupScheduleShift": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupSchedulePrepareFailed": "予定変更の準備に失敗しました: {error}",
+  "@groupSchedulePrepareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupScheduleShiftQuestion": "以降の予定を{minutes}分ずらしますか？",
+  "@groupScheduleShiftQuestion": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleShiftScope": "現在より後の予定時刻をまとめて変更します。経路自体は変更しません。",
+  "groupScheduleShiftAction": "{minutes}分ずらす",
+  "@groupScheduleShiftAction": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleEstimateChanged": "確認中に到着見込みが変わりました。もう一度確認してください。",
+  "groupScheduleUserUnavailable": "予定変更を行うユーザーIDを取得できません",
+  "groupScheduleShifted": "以降の予定を{minutes}分ずらしました",
+  "@groupScheduleShifted": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleShiftFailed": "予定を変更できませんでした: {error}",
+  "@groupScheduleShiftFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "routeMapUnavailable": "経路を地図に表示できません",
+  "routeMapStart": "出発地",
+  "routeMapEnd": "目的地",
+  "replanMapAnchor": "経路見直し地点",
+  "replanReviewAction": "経路を見直す",
+  "replanSearching": "新しい経路を検索中…",
+  "replanSearchStateChanged": "検索中に移動状況が変わりました。もう一度「経路を見直す」を押してください。",
+  "replanTripUnavailable": "現在のTripを取得できません",
+  "replanAppliedFrom": "{place}からの新しい経路に変更しました",
+  "@replanAppliedFrom": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "replanSearchFailed": "新しい経路を検索できませんでした: {error}",
+  "@replanSearchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanPreviewStateChanged": "比較表示中に移動状況が変わりました。最新の経路へ更新してから選び直してください。",
+  "replanUserUnavailable": "経路変更を行うユーザーIDを取得できません",
+  "groupReplanUnavailableHere": "この画面からグループ経路は変更できません",
+  "groupReplanLeaderOnly": "グループの経路を変更できるのはリーダーだけです"
 }

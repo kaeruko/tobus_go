@@ -1228,5 +1228,98 @@
   "settingsOpenAsMemberDescription": "显示最近创建行程的参与者页面",
   "settingsNoTrip": "未找到行程。请先创建行程。",
   "settingsMemberModeEnabled": "已切换到成员模式",
-  "settingsNoJoinableTrip": "没有可加入的行程"
+  "settingsNoJoinableTrip": "没有可加入的行程",
+  "replanPrepareFailed": "准备重新规划路线失败：{error}",
+  "@replanPrepareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupTripStartChecking": "正在确认行程开始状态…",
+  "groupReplanLeaderNotice": "只有群组领队可以确认群组路线变更。",
+  "groupScheduleManualNotice": "调整时间只会移动后续计划时间，不会更改路线。",
+  "groupReplanTitle": "重新规划群组路线",
+  "groupReplanDescription": "可根据当前位置和行程状态比较新路线。只有群组领队可以确认变更。",
+  "groupScheduleUpdating": "正在更新计划…",
+  "groupScheduleShift": "将后续计划顺延 {minutes} 分钟",
+  "@groupScheduleShift": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupSchedulePrepareFailed": "准备调整计划失败：{error}",
+  "@groupSchedulePrepareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupScheduleShiftQuestion": "要将后续计划顺延 {minutes} 分钟吗？",
+  "@groupScheduleShiftQuestion": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleShiftScope": "将统一调整当前时间之后的计划时间，不会更改路线本身。",
+  "groupScheduleShiftAction": "顺延 {minutes} 分钟",
+  "@groupScheduleShiftAction": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleEstimateChanged": "确认期间预计到达时间发生了变化。请再次确认。",
+  "groupScheduleUserUnavailable": "无法获取执行计划变更的用户 ID",
+  "groupScheduleShifted": "已将后续计划顺延 {minutes} 分钟",
+  "@groupScheduleShifted": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleShiftFailed": "无法调整计划：{error}",
+  "@groupScheduleShiftFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "routeMapUnavailable": "无法在地图上显示路线",
+  "routeMapStart": "出发地",
+  "routeMapEnd": "目的地",
+  "replanMapAnchor": "路线重新规划地点",
+  "replanReviewAction": "重新规划路线",
+  "replanSearching": "正在搜索新路线…",
+  "replanSearchStateChanged": "搜索期间行程状态发生了变化。请再次点击“重新规划路线”。",
+  "replanTripUnavailable": "无法获取当前行程",
+  "replanAppliedFrom": "已切换为从 {place} 出发的新路线",
+  "@replanAppliedFrom": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "replanSearchFailed": "无法搜索新路线：{error}",
+  "@replanSearchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanPreviewStateChanged": "比较路线期间行程状态发生了变化。请更新到最新路线后重新选择。",
+  "replanUserUnavailable": "无法获取执行路线变更的用户 ID",
+  "groupReplanUnavailableHere": "无法从此页面更改群组路线",
+  "groupReplanLeaderOnly": "只有群组领队可以更改群组路线"
 }
