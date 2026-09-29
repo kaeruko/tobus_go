@@ -1,0 +1,1232 @@
+{
+  "routeGeometryApproximate": "此路线图仅为示意图，部分或全部线路由站点等位置连接而成。",
+  "@@locale": "zh",
+  "appNameTokyo": "都营GO",
+  "appNameNagoya": "名古屋GO",
+  "appNameSendai": "仙台GO",
+  "appNameYokohama": "横滨GO",
+  "bootstrapFailed": "应用启动失败",
+  "updateRequiredTitle": "需要更新",
+  "updateNow": "更新至最新版本",
+  "updateStoreUnavailable": "请打开 App Store 或 Google Play，更新至最新版本。",
+  "currentVersionLabel": "当前版本：{version}",
+  "@currentVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "minimumVersionLabel": "所需版本：{version} 或更高版本",
+  "@minimumVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "retry": "重试",
+  "tabSearch": "搜索",
+  "tabDiscover": "探索",
+  "tabFavorites": "收藏",
+  "myRouteTitle": "收藏",
+  "savedRoutesEmpty": "暂无已保存的路线",
+  "planSavedRoute": "使用此路线规划行程",
+  "addToMyRoute": "添加到收藏",
+  "removeFromMyRoute": "从收藏中移除",
+  "tabHistory": "历史记录",
+  "tabSettings": "设置",
+  "currentLocationFailed": "无法获取当前位置",
+  "ok": "确定",
+  "mapPickerTitle": "在地图上选择",
+  "mapSelectedPlace": "在地图上选择的地点",
+  "done": "完成",
+  "departureDateTime": "出发日期和时间",
+  "departureSearch": "出发地",
+  "arrivalSearch": "目的地",
+  "search": "搜索",
+  "errorWithMessage": "错误：{message}",
+  "@errorWithMessage": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "routeNotFound": "未找到路线",
+  "selectDepartureAndArrival": "请选择出发地和目的地",
+  "transportSubwayAndBus": "都营地铁及巴士",
+  "transportBusOnly": "仅都营巴士",
+  "preferFewTransfers": "换乘较少优先",
+  "preferShortTime": "时间较短优先",
+  "nearestStop": "最近的站点",
+  "walkAboutMinutes": "步行约{minutes}分钟",
+  "@walkAboutMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "walkAboutDistance": "步行约{distance}",
+  "@walkAboutDistance": {
+    "placeholders": {
+      "distance": {
+        "type": "String"
+      }
+    }
+  },
+  "walkWithinRange": "步行可达",
+  "walkLimitNotice": "（已在步行上限{meters}米内搜索）",
+  "@walkLimitNotice": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "fallbackTitle": "未找到仅乘坐都营交通即可到达目的地的路线",
+  "fallbackBody": "仅乘坐都营交通无法到达{destination}附近。最近的站点为“{stop}”，下车后需{walkText}。",
+  "@fallbackBody": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      },
+      "stop": {
+        "type": "String"
+      },
+      "walkText": {
+        "type": "String"
+      }
+    }
+  },
+  "fallbackQuestion": "仍要使用此路线吗？{limitText}",
+  "@fallbackQuestion": {
+    "placeholders": {
+      "limitText": {
+        "type": "String"
+      }
+    }
+  },
+  "activeSoloTrip": "正在进行的行程",
+  "activeGroupTrip": "正在进行的团体行程",
+  "statusPlanning": "规划中",
+  "statusTraveling": "行程中",
+  "participantsActive": "{count}人参与",
+  "@participantsActive": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pleaseWait": "请稍候",
+  "placeSearchPlaceholder": "按地点名称或地址搜索",
+  "placeSuggestionsFailed": "无法获取地点建议：{error}",
+  "@placeSuggestionsFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "placeMissingId": "所选地点缺少 place_id",
+  "placeCoordinatesFailed": "无法获取地点坐标：{error}",
+  "@placeCoordinatesFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "unnamedPlace": "地点",
+  "originFallback": "出发地",
+  "destinationFallback": "目的地",
+  "destinationWalkSuffix": "（步行至目的地约{minutes}分钟）",
+  "@destinationWalkSuffix": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "fareUnavailable": "不支持票价计算",
+  "fareUnknown": "应付金额未知",
+  "fareReimbursement": "先支付{yen}日元",
+  "@fareReimbursement": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "fareFreePass": "支付0日元（乘车证）",
+  "farePay": "支付{yen}日元",
+  "@farePay": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "totalTimeChip": "用时{minutes}分钟",
+  "@totalTimeChip": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "transfersChip": "换乘{count}次",
+  "@transfersChip": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ridesChip": "乘车区间{count}段",
+  "@ridesChip": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "walkChip": "步行{meters}米",
+  "@walkChip": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "approxMinutes": "（约{minutes}分钟）",
+  "@approxMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "stopsCount": " {count}站",
+  "@stopsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "walkSegment": "步行{distance}{duration}",
+  "@walkSegment": {
+    "placeholders": {
+      "distance": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "routeFutureSuggestion": "所选时间已结束运营或不运营。\\n现显示{date}的路线。",
+  "@routeFutureSuggestion": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "endpointDeparture": "出发地",
+  "endpointDestination": "目的地",
+  "fallbackPartialTitle": "仅显示可到达目的地附近的路线",
+  "fallbackPartialBody": "无法直接到达{destination}。最近的站点为“{stop}”，下车后需{walkText}。",
+  "@fallbackPartialBody": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      },
+      "stop": {
+        "type": "String"
+      },
+      "walkText": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryDuration": "所需时间",
+  "summaryTransfers": "换乘",
+  "summaryRideSegments": "乘车区间",
+  "summaryWalk": "步行",
+  "minutesValue": "{minutes}分钟",
+  "@minutesValue": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "normalFareLine": "普通票价{yen}日元",
+  "@normalFareLine": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "payNowFareLine": "本次支付{yen}日元",
+  "@payNowFareLine": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "effectiveFareLine": "补贴后实际费用{yen}日元",
+  "@effectiveFareLine": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "approximateMinutes": "约{minutes}分钟",
+  "@approximateMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "stopCount": "{count}站",
+  "@stopCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "walkTitle": "步行",
+  "deleteBookmarkTitle": "从收藏中移除",
+  "deleteBookmarkMessage": "要将此路线从收藏中移除吗？",
+  "cancel": "取消",
+  "delete": "移除",
+  "savedTitle": "已保存",
+  "savedToMyRoute": "已添加到收藏。",
+  "notSelected": "未选择",
+  "chooseDifferentRoute": "请选择其他路线",
+  "startRoute": "使用此路线出发",
+  "preparingTrip": "正在准备行程…",
+  "close": "关闭",
+  "tripStartFailed": "无法开始行程",
+  "activeTripExists": "已有正在进行的行程",
+  "activeTripMessage": "{title}\\n请先完成或取消该行程，再开始新行程。",
+  "@activeTripMessage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "openActiveTrip": "打开当前行程",
+  "researching": "正在重新搜索…",
+  "routeAtTimeNotFound": "未找到所选时间的路线。",
+  "researchFailed": "重新搜索失败：{error}",
+  "@researchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "runSearch": "开始搜索",
+  "confirm": "确定",
+  "activeGroupExists": "已有正在进行的团体行程",
+  "viewGroupDetails": "查看团体行程",
+  "overlappingTrip": "已有其他行程与此时间重叠\\n（{title}）",
+  "@overlappingTrip": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "cannotCreate": "无法创建",
+  "createGroup": "创建团体行程",
+  "searchReturnTrip": "搜索返程",
+  "returnDepartureTime": "返程出发时间",
+  "departureTime": "出发时间",
+  "searchWithConditions": "按此条件搜索",
+  "outboundSummary": "用时{minutes}分钟 · 换乘{transfers}次",
+  "@outboundSummary": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "transfers": {
+        "type": "int"
+      }
+    }
+  },
+  "chooseReturnRouteTitle": "请选择返程路线",
+  "chooseReturnRouteMessage": "选择去程和返程路线后，即可创建团体行程。",
+  "createRoundTripTitle": "使用此往返路线创建团体行程",
+  "roundTripSummary": "去程：{outbound}\\n返程：{inbound}",
+  "@roundTripSummary": {
+    "placeholders": {
+      "outbound": {
+        "type": "String"
+      },
+      "inbound": {
+        "type": "String"
+      }
+    }
+  },
+  "create": "创建",
+  "createFailed": "创建失败：{error}",
+  "@createFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "errorTitle": "错误",
+  "settlementDiscount": "优惠",
+  "settlementFreePass": "免费乘车证",
+  "settlementReimbursement": "日后发放补贴",
+  "dayWeekday": "工作日",
+  "daySaturday": "周六",
+  "dayHoliday": "周日及节假日",
+  "timetableAtStop": "{stop}出发时刻表",
+  "@timetableAtStop": {
+    "placeholders": {
+      "stop": {
+        "type": "String"
+      }
+    }
+  },
+  "nextThreeBuses": "接下来3班（{dayType}）",
+  "@nextThreeBuses": {
+    "placeholders": {
+      "dayType": {
+        "type": "String"
+      }
+    }
+  },
+  "fullTimetable": "完整时刻表",
+  "timetableHour": "{hour}时",
+  "@timetableHour": {
+    "placeholders": {
+      "hour": {
+        "type": "int"
+      }
+    }
+  },
+  "timetableNoDepartures": "之后暂无发车班次",
+  "nextBus": "下一班巴士（{dayType}）",
+  "@nextBus": {
+    "placeholders": {
+      "dayType": {
+        "type": "String"
+      }
+    }
+  },
+  "boarding": "上车",
+  "alighting": "下车",
+  "segmentGuideTitle": "路线指引",
+  "segmentRideSummary": "乘车{minutes}分钟 / {count}站",
+  "@segmentRideSummary": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "segmentDepartureAt": "{time}出发",
+  "@segmentDepartureAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "segmentArrivalAt": "{time}到达",
+  "@segmentArrivalAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "googleMapsOpenFailed": "无法打开 Google 地图",
+  "openInGoogleMaps": "在 Google 地图中打开",
+  "refreshVehiclePosition": "刷新巴士位置",
+  "endTrip": "结束行程",
+  "noTrackableBus": "此路线没有可追踪的巴士班次",
+  "vehiclePositionUnsupported": "{appName}暂不支持巴士实时位置",
+  "@vehiclePositionUnsupported": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "realtimeNotLoaded": "尚未获取实时位置",
+  "busCurrentPosition": "巴士实时位置",
+  "vehicleLabel": "车辆{vehicleId}",
+  "@vehicleLabel": {
+    "placeholders": {
+      "vehicleId": {
+        "type": "String"
+      }
+    }
+  },
+  "latLonLabel": "纬度{lat} / 经度{lon}",
+  "@latLonLabel": {
+    "placeholders": {
+      "lat": {
+        "type": "String"
+      },
+      "lon": {
+        "type": "String"
+      }
+    }
+  },
+  "fetchedAt": "更新时间{time}",
+  "@fetchedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "refreshEvery30Seconds": "每30秒更新一次",
+  "realtimeNotAvailable": "尚未找到此班次的实时位置",
+  "realtimeFetchError": "获取实时位置失败：{error}",
+  "@realtimeFetchError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "headingToFirstStop": "正在前往始发站",
+  "headingToNamedFirstStop": "正在前往{stopName}（始发站）",
+  "@headingToNamedFirstStop": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "stoppedAt": "正在{stopName}停靠",
+  "@stoppedAt": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "headingToStop": "正在前往{stopName}",
+  "@headingToStop": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "tripTitle": "行程",
+  "tripLoadFailed": "无法加载行程：{error}",
+  "@tripLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tripNotFound": "未找到行程",
+  "navigationLoadFailed": "无法显示导航：{error}",
+  "@navigationLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "currentRoute": "当前路线",
+  "stepCounter": "{completed} / {total}步",
+  "@stepCounter": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "viewFullRoute": "查看完整路线",
+  "historyTitle": "历史记录",
+  "historyEmpty": "暂无行程记录",
+  "historyLoadFailed": "无法加载历史记录：{error}",
+  "@historyLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "historyTransfers": "换乘{count}次",
+  "@historyTransfers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyWalkMinutes": "步行{minutes}分钟",
+  "@historyWalkMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "historyParticipants": "{count}人参与",
+  "@historyParticipants": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "soloTripDetailTitle": "行程详情",
+  "soloTripRouteAndSchedule": "路线与行程安排",
+  "travelPhasePlanning": "规划中",
+  "travelPhaseActive": "进行中",
+  "travelPhaseCompleted": "已完成",
+  "travelPhaseCancelled": "已取消",
+  "endingTrip": "正在结束行程…",
+  "cancelTrip": "取消行程",
+  "arrivalSaveFailed": "无法保存到达记录：{error}",
+  "@arrivalSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelTripQuestion": "要取消此行程吗？",
+  "cancelTripHistoryNotice": "此行程将以已取消状态保留在历史记录中。",
+  "back": "返回",
+  "cancelAction": "取消行程",
+  "cancelTripFailed": "无法取消行程：{error}",
+  "@cancelTripFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "arrived": "已到达",
+  "nextStop": "下一站：{stopName}",
+  "@nextStop": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "remainingBusStops": "还剩{count}站",
+  "@remainingBusStops": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "remainingRailStops": "还剩{count}站",
+  "@remainingRailStops": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "categoryMeeting": "集合",
+  "categoryDeparture": "出发",
+  "categoryRide": "乘车",
+  "categoryWalk": "步行",
+  "categoryArrival": "到达",
+  "categoryGoal": "终点",
+  "categoryEvent": "安排",
+  "realtimeScheduleFallback": "无法获取下一班车的实时信息，现使用计划时间：{error}",
+  "@realtimeScheduleFallback": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanHelper": "行程尚未更改。请先确认新路线，再决定是否使用。",
+  "navIdleStatus": "等候中",
+  "navBusRideStatus": "🚌 乘车中",
+  "navRailRideStatus": "🚇 乘车中",
+  "navRideArrivalSummary": "{rideTitle} · 预计{arrivalTime}到达{destination}",
+  "@navRideArrivalSummary": {
+    "placeholders": {
+      "arrivalTime": {
+        "type": "String"
+      },
+      "rideTitle": {
+        "type": "String"
+      },
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "navPreDepartureMain": "出发前",
+  "navPlannedDepartureSub": "预计{time}出发",
+  "@navPlannedDepartureSub": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "navPreStartStatus": "尚未开始",
+  "navStartsInSub": "距离开始还有{hours}小时{minutes}分钟",
+  "@navStartsInSub": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navMovingStatus": "行程中",
+  "navMeetingDefaultSub": "请前往集合地点",
+  "navMeetingStatus": "集合",
+  "navArrivedDefaultSub": "已到达",
+  "navArrivedStatus": "已到达",
+  "navGoalArrivedMain": "已到达{destination}",
+  "@navGoalArrivedMain": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "navWaitingDefaultSub": "请等候至预定时间",
+  "navWaitingStatus": "等候中",
+  "navWalkHeadingMain": "前往{destination}",
+  "@navWalkHeadingMain": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "navWalkDistanceSub": "步行{meters}米",
+  "@navWalkDistanceSub": {
+    "placeholders": {
+      "meters": {
+        "type": "double"
+      }
+    }
+  },
+  "navPositionCheckingMain": "{rideTitle} 📍",
+  "@navPositionCheckingMain": {
+    "placeholders": {
+      "rideTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "navBusWaitingMain": "等候中",
+  "navPositionCheckingSub": "📍",
+  "navBusPositionCheckingAtStopSub": "{stopName} 📍",
+  "@navBusPositionCheckingAtStopSub": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "navWaitingToBoardStatus": "候车中",
+  "navSearchingStatus": "搜索中…",
+  "navApproachingBusMain": "{rideTitle} · 还有{count}站",
+  "@navApproachingBusMain": {
+    "placeholders": {
+      "rideTitle": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "navApproachingRailMain": "{rideTitle} · 还有{count}站",
+  "@navApproachingRailMain": {
+    "placeholders": {
+      "rideTitle": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "navNowAtSub": "当前位置：{placeName}",
+  "@navNowAtSub": {
+    "placeholders": {
+      "placeName": {
+        "type": "String"
+      }
+    }
+  },
+  "navArrivedMain": "已到达",
+  "navGetOffNextMain": "请在下一站下车",
+  "navStaleBusNotice": "正在查找巴士位置\n{movementText}（约{ageMinutes}分钟前）",
+  "@navStaleBusNotice": {
+    "placeholders": {
+      "movementText": {
+        "type": "String"
+      },
+      "ageMinutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navStopId": "站点ID {stopId}",
+  "@navStopId": {
+    "placeholders": {
+      "stopId": {
+        "type": "String"
+      }
+    }
+  },
+  "navUnknownStop": "未知站点",
+  "navMovingToward": "正在驶向{place}",
+  "@navMovingToward": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "navStaleRailNotice": "正在确认列车位置\n{place}（约{ageMinutes}分钟前）",
+  "@navStaleRailNotice": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      },
+      "ageMinutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navUnknownStation": "未知车站",
+  "navTripEndedMain": "已结束",
+  "navTripEndedSub": "感谢您的使用",
+  "navTripEndedStatus": "行程已结束",
+  "navTripCancelledMain": "已取消",
+  "navTripCancelledSub": "团体行程已结束",
+  "navTripCancelledStatus": "已取消",
+  "navDepartureCountdownMain": "{leaveTime}出发 · 还有{minutes}分钟",
+  "@navDepartureCountdownMain": {
+    "placeholders": {
+      "leaveTime": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navBoardingSub": "{rideTime}乘坐{routeTitle}",
+  "@navBoardingSub": {
+    "placeholders": {
+      "rideTime": {
+        "type": "String"
+      },
+      "routeTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "navBoardingPlannedSub": "预计{rideTime}乘坐{routeTitle}",
+  "@navBoardingPlannedSub": {
+    "placeholders": {
+      "rideTime": {
+        "type": "String"
+      },
+      "routeTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "navWalkToRideCountdownMain": "前往{destination}，搭乘{rideTime}的班次 · 还有{minutes}分钟",
+  "@navWalkToRideCountdownMain": {
+    "placeholders": {
+      "rideTime": {
+        "type": "String"
+      },
+      "destination": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navRealtimeUnavailableNotice": "📍",
+  "navRealtimeRefreshingSemantics": "正在刷新实时位置",
+  "scheduleNow": "当前",
+  "scheduleNext": "接下来",
+  "scheduleLater": "稍后",
+  "waitTitle": "等候",
+  "waitAt": "在{place}等候",
+  "@waitAt": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "navRideDirection": "开往{destination}",
+  "@navRideDirection": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "navCompactRideArrival": "预计{arrivalTime}到达{destination}",
+  "@navCompactRideArrival": {
+    "placeholders": {
+      "arrivalTime": {
+        "type": "String"
+      },
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "navRideCurrentPlaceMain": "{rideTitle} · {placeName}",
+  "@navRideCurrentPlaceMain": {
+    "placeholders": {
+      "rideTitle": {
+        "type": "String"
+      },
+      "placeName": {
+        "type": "String"
+      }
+    }
+  },
+  "replanTitle": "重新规划从{place}出发的路线",
+  "@replanTitle": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "replanCompareFrom": "比较{time}起可用的路线",
+  "@replanCompareFrom": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "replanRefreshing": "行程状态已变化，正在根据最新预计到达时间重新搜索路线…",
+  "replanBlocked": "暂时无法获取重新规划路线的起点。确认当前位置后，才能更改路线。",
+  "replanCurrentPlan": "当前计划",
+  "replanArrivalPlanned": "预计{time}到达",
+  "@replanArrivalPlanned": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "replanNewRouteCandidates": "新路线选项",
+  "replanCandidate": "方案{index} · {time}到达",
+  "@replanCandidate": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "replanNewRoute": "新路线",
+  "replanCompareOnly": "当前仅供比较。关闭此页面不会更改行程。",
+  "replanKeepOriginal": "继续使用当前路线",
+  "replanApply": "改用此路线",
+  "replanUpdatedNotice": "行程状态已变化，路线选项已更新。请确认。",
+  "replanApplyFailed": "无法更改路线：{error}",
+  "@replanApplyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanRefreshFailed": "无法根据最新行程状态更新路线：{error}",
+  "@replanRefreshFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanRefreshAgain": "重试",
+  "replanTransfers": "换乘{count}次",
+  "@replanTransfers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "replanNoRoute": "未找到此时间起可用的新路线。",
+  "replanUnknownTime": "时间未知",
+  "replanWalkOnly": "仅步行",
+  "fareSettingsTitle": "设置",
+  "fareSettingsHeading": "票价与乘车证",
+  "fareSettingsDescription": "请自行选择适用的优惠制度或持有的乘车证。应用不会根据地址、残障类别、年龄等个人信息自动判断资格。",
+  "fareSettingsError": "设置错误：{error}",
+  "@fareSettingsError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fareOpenOtherSettings": "打开其他设置",
+  "fareOfficialInfo": "查看官方信息",
+  "settlementNormal": "普通票价",
+  "settlementReimbursementLong": "先支付，日后发放补贴",
+  "farePolicyNormal": "普通票价",
+  "farePolicyTokyoMentalDisabilityPass": "精神障碍者都营交通乘车证",
+  "farePolicyNagoyaWelfarePass": "福利特别乘车券（免费乘车区间）",
+  "exploreTitle": "探索无需换乘即可到达的地点",
+  "exploreDescription": "查找从当前位置出发，无需换乘即可到达的都营地铁站和巴士站。",
+  "exploreNearbyButton": "探索附近",
+  "exploreStartPrompt": "点击按钮开始搜索",
+  "exploreNoNearbyStops": "附近未找到巴士站",
+  "exploreSearching": "搜索中…",
+  "exploreContentLoading": "正在加载探索信息…",
+  "exploreSearchFailed": "搜索失败：{error}",
+  "@exploreSearchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exploreContentLoadFailed": "无法加载探索信息：{error}",
+  "@exploreContentLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exploreNearestStop": "最近站点：{name}",
+  "@exploreNearestStop": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "exploreDistanceFromCurrent": "距当前位置约{meters}米",
+  "@exploreDistanceFromCurrent": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "exploreReachableCount": "无需换乘即可到达{count}个地铁站和巴士站",
+  "@exploreReachableCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exploreRouteLabel": "线路：{route}",
+  "@exploreRouteLabel": {
+    "placeholders": {
+      "route": {
+        "type": "String"
+      }
+    }
+  },
+  "languageSettingsTitle": "语言",
+  "languageSystem": "跟随系统",
+  "languageSaveFailed": "无法保存语言设置：{error}",
+  "@languageSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleWalkTo": "步行至 {destination}{duration}",
+  "@scheduleWalkTo": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleBoardAt": "在 {place} 上车",
+  "@scheduleBoardAt": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleArriveAt": "到达 {place}",
+  "@scheduleArriveAt": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "currentLocationLabel": "当前位置",
+  "currentLocationSetLabel": "当前位置（已设置）",
+  "mapLongPress": "长按选择地点",
+  "mapConfirm": "使用此地点",
+  "experienceAround": "{name} 周边",
+  "@experienceAround": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "experienceLoadFailed": "无法加载周边信息",
+  "experienceEmpty": "未找到推荐地点",
+  "experienceCentralStop": "中心站点：{name}",
+  "@experienceCentralStop": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "experienceSpotCount": "包含 {count} 个地点",
+  "@experienceSpotCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "experienceGoHere": "前往这里",
+  "experienceMemo": "探索笔记",
+  "experienceSurroundings": "周边景观",
+  "experienceTagWater": "河畔",
+  "experienceTagPark": "公园",
+  "experienceTagShopping": "商店街",
+  "experienceTagHistory": "历史",
+  "experienceWaterPark": "适合沿河悠闲散步的区域",
+  "experienceShopping": "漫步传统商店街，感受当地风情",
+  "experienceHistory": "寺庙与神社散布其间的宁静老城区",
+  "experiencePark": "适合在附近轻松休憩的区域",
+  "experienceResidential": "感受宁静住宅区的氛围",
+  "settingsUserInfo": "用户信息",
+  "settingsUserName": "用户名",
+  "settingsChangeUserName": "更改用户名",
+  "settingsNewName": "新用户名",
+  "settingsSave": "保存",
+  "settingsGuest": "访客",
+  "settingsUserId": "用户 ID",
+  "settingsLoading": "正在加载…",
+  "settingsIdCopied": "已复制 ID",
+  "settingsEnableStaff": "启用工作人员和管理员功能",
+  "settingsStaffDescription": "显示报告和高级管理功能",
+  "settingsManualLocation": "手动设置当前位置",
+  "settingsSearchLocation": "搜索并设置位置",
+  "settingsCurrentCoordinates": "当前设置：{latitude}, {longitude}",
+  "@settingsCurrentCoordinates": {
+    "placeholders": {
+      "latitude": {
+        "type": "String"
+      },
+      "longitude": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsUsingGps": "当前设置：使用 GPS 位置",
+  "settingsResetGps": "清除并使用 GPS",
+  "settingsAdminMenu": "调试和管理员菜单",
+  "settingsTimeOffset": "设置时间偏移",
+  "settingsTimeOffsetDescription": "将当前时间按指定时长偏移，用于调试。",
+  "settingsHours": "小时",
+  "settingsMinutes": "分钟",
+  "settingsReset": "重置",
+  "settingsApply": "应用",
+  "settingsNoTimeOffset": "无偏移（当前时间：{time}）",
+  "@settingsNoTimeOffset": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsTimeOffsetSummary": "偏移：{hours}小时 {minutes}分钟\n模拟时间：{time}",
+  "@settingsTimeOffsetSummary": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsCreateDebugTrip": "调试：创建 Higashi-Sumida 3 (東墨田三丁目)–Nakaibori (中居堀) 路线",
+  "settingsDebugTripDescription": "去程：15分钟后；返程：2小时后\nHigashi-Sumida 3 (東墨田三丁目) ⇔ Nakaibori (中居堀)",
+  "settingsCreatingDebugTrip": "正在创建调试行程…",
+  "settingsDebugOutboundNotFound": "未找到去程路线",
+  "settingsDebugInboundNotFound": "未找到返程路线",
+  "settingsDeleteAllTrips": "危险：删除所有行程数据",
+  "settingsDeleteAllTripsDescription": "清空 Firestore 中的 trips 集合",
+  "settingsDeleteAllTitle": "删除所有数据",
+  "settingsDeleteAllConfirmation": "确定删除所有行程数据吗？\n此操作无法撤销。",
+  "settingsDeleting": "正在删除…",
+  "settingsAllTripsDeleted": "已删除所有数据",
+  "settingsOpenAsLeader": "以领队身份打开最新行程",
+  "settingsOpenAsLeaderDescription": "显示最近创建行程的管理页面",
+  "settingsTripReports": "行程列表和活动报告",
+  "settingsTripReportsDescription": "查看过往行程并创建报告",
+  "settingsOpenAsMember": "以成员身份打开最新行程",
+  "settingsOpenAsMemberDescription": "显示最近创建行程的参与者页面",
+  "settingsNoTrip": "未找到行程。请先创建行程。",
+  "settingsMemberModeEnabled": "已切换到成员模式",
+  "settingsNoJoinableTrip": "没有可加入的行程"
+}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
 import '../logic/group_schedule_impact.dart';
 import '../logic/group_schedule_shift.dart';
 import '../models/trip_models.dart';
@@ -29,6 +30,7 @@ class _GroupScheduleShiftButtonState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final minutes = _ceilMinutes(widget.impact.overrun);
     return OutlinedButton.icon(
       onPressed: _loading ? null : _openConfirmation,
@@ -39,12 +41,17 @@ class _GroupScheduleShiftButtonState
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : const Icon(Icons.update),
-      label: Text(_loading ? '予定を更新中…' : 'グループ予定を+$minutes分ずらす'),
+      label: Text(
+        _loading
+            ? l10n.groupScheduleUpdating
+            : l10n.groupScheduleShift(minutes),
+      ),
     );
   }
 
   Future<void> _openConfirmation() async {
     if (_loading) return;
+    final l10n = AppLocalizations.of(context);
 
     GroupScheduleShiftPlan plan;
     try {
@@ -55,7 +62,9 @@ class _GroupScheduleShiftButtonState
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('予定調整を準備できませんでした: $error')),
+        SnackBar(
+          content: Text(l10n.groupSchedulePrepareFailed(error.toString())),
+        ),
       );
       return;
     }
@@ -63,7 +72,7 @@ class _GroupScheduleShiftButtonState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('この予定以降を${plan.shiftMinutes}分ずらしますか？'),
+        title: Text(l10n.groupScheduleShiftQuestion(plan.shiftMinutes)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -77,9 +86,9 @@ class _GroupScheduleShiftButtonState
                 ),
                 const SizedBox(height: 10),
               ],
-              const Text(
-                '電車・バスなど経路由来の予定と、別legの帰りの経路は変更しません。',
-                style: TextStyle(color: Colors.black54, fontSize: 13),
+              Text(
+                l10n.groupScheduleShiftScope,
+                style: const TextStyle(color: Colors.black54, fontSize: 13),
               ),
             ],
           ),
@@ -87,11 +96,11 @@ class _GroupScheduleShiftButtonState
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('キャンセル'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('${plan.shiftMinutes}分ずらす'),
+            child: Text(l10n.groupScheduleShiftAction(plan.shiftMinutes)),
           ),
         ],
       ),
@@ -101,9 +110,7 @@ class _GroupScheduleShiftButtonState
     final latestImpact = ref.read(groupScheduleImpactProvider);
     if (latestImpact == null || !_sameImpact(latestImpact, widget.impact)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('到着見込みが変わりました。最新の警告内容を確認して、もう一度調整してください。'),
-        ),
+        SnackBar(content: Text(l10n.groupScheduleEstimateChanged)),
       );
       return;
     }
@@ -111,7 +118,7 @@ class _GroupScheduleShiftButtonState
     final actorUserId = UserService().currentUserId;
     if (actorUserId == null || actorUserId.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('予定を変更するユーザーIDを取得できません')),
+        SnackBar(content: Text(l10n.groupScheduleUserUnavailable)),
       );
       return;
     }
@@ -125,12 +132,14 @@ class _GroupScheduleShiftButtonState
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('グループ予定を${plan.shiftMinutes}分ずらしました')),
+        SnackBar(content: Text(l10n.groupScheduleShifted(plan.shiftMinutes))),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('グループ予定を変更できませんでした: $error')),
+        SnackBar(
+          content: Text(l10n.groupScheduleShiftFailed(error.toString())),
+        ),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -139,11 +148,13 @@ class _GroupScheduleShiftButtonState
 
   bool _sameImpact(GroupScheduleImpact latest, GroupScheduleImpact shown) {
     return latest.affectedEntry.id == shown.affectedEntry.id &&
-        latest.affectedEntry.plannedAt
-            .isAtSameMomentAs(shown.affectedEntry.plannedAt) &&
+        latest.affectedEntry.plannedAt.isAtSameMomentAs(
+          shown.affectedEntry.plannedAt,
+        ) &&
         latest.arrival.legIndex == shown.arrival.legIndex &&
-        latest.arrival.expectedArrivalAt
-            .isAtSameMomentAs(shown.arrival.expectedArrivalAt) &&
+        latest.arrival.expectedArrivalAt.isAtSameMomentAs(
+          shown.arrival.expectedArrivalAt,
+        ) &&
         latest.overrun == shown.overrun;
   }
 

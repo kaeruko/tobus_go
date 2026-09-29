@@ -133,6 +133,7 @@ def build_stop_card(stop: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "stop_id": stop["stop_id"],
         "stop_name": stop.get("stop_name", ""),
+        "stop_name_en": stop.get("stop_name_en"),
         "lat": stop["lat"],
         "lon": stop["lon"],
         "tags": tags,
@@ -161,12 +162,14 @@ def group_cards(cards: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "representative_stop": {
                     "stop_id": rep["stop_id"],
                     "stop_name": rep["stop_name"],
+                    "stop_name_en": rep.get("stop_name_en"),
                     "lat": rep["lat"],
                     "lon": rep["lon"],
                 },
                 "stop_count": len(items),
                 "stops": [
-                    {"stop_id": i["stop_id"], "stop_name": i.get("stop_name", "")}
+                    {"stop_id": i["stop_id"], "stop_name": i.get("stop_name", ""),
+                     "stop_name_en": i.get("stop_name_en")}
                     for i in items
                 ],
             }

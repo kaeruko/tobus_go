@@ -158,9 +158,7 @@ class TripNavigationStatusCard extends StatelessWidget {
                     ),
                   if ((nextStopName?.isNotEmpty ?? false) &&
                       !_usesStructuredWalkToRideHeading())
-                    Chip(
-                      label: Text(l10n.nextStop(nextStopName!)),
-                    ),
+                    Chip(label: Text(l10n.nextStop(nextStopName!))),
                 ],
               ),
             ],
@@ -175,8 +173,7 @@ class TripNavigationStatusCard extends StatelessWidget {
         navState.step?.isRide == true &&
         navState.remainingStops != null &&
         navState.remainingStops! > 1 &&
-        navState.mainTextToken?.key ==
-            NavigationTextKey.rideCurrentPlaceMain;
+        navState.mainTextToken?.key == NavigationTextKey.rideCurrentPlaceMain;
   }
 
   bool _usesStructuredWalkToRideHeading() {
@@ -202,9 +199,7 @@ class TripNavigationStatusCard extends StatelessWidget {
     }) {
       final value = token.args[name];
       if (value is! String || value.trim().isEmpty) {
-        throw StateError(
-          '徒歩→乗車の構造化表示に$role.$nameがありません',
-        );
+        throw StateError('徒歩→乗車の構造化表示に$role.$nameがありません');
       }
       return value.trim();
     }
@@ -220,8 +215,7 @@ class TripNavigationStatusCard extends StatelessWidget {
     );
     final destinationEnValue = mainToken.args['destinationEn'];
     if (destinationEnValue != null &&
-        (destinationEnValue is! String ||
-            destinationEnValue.trim().isEmpty)) {
+        (destinationEnValue is! String || destinationEnValue.trim().isEmpty)) {
       throw StateError('徒歩→乗車のdestinationEnが不正です');
     }
     final destinationEn = destinationEnValue is String
@@ -229,11 +223,11 @@ class TripNavigationStatusCard extends StatelessWidget {
         : null;
 
     final primaryDestination =
-        locale.languageCode == 'en' && destinationEn != null
+        isEnglishTransitLocale(locale) && destinationEn != null
         ? destinationEn
         : destinationJa;
     final secondaryDestination =
-        locale.languageCode == 'en' &&
+        isEnglishTransitLocale(locale) &&
             destinationEn != null &&
             destinationEn != destinationJa
         ? destinationJa
@@ -256,29 +250,24 @@ class TripNavigationStatusCard extends StatelessWidget {
       role: 'boarding',
     );
     final routeTitleEnValue = boardingToken.args['routeTitleEn'];
-    if (locale.languageCode == 'en' &&
-        (routeTitleEnValue is! String ||
-            routeTitleEnValue.trim().isEmpty)) {
-      throw StateError(
-        '徒歩→乗車の構造化表示にboarding.routeTitleEnがありません',
-      );
+    if (isEnglishTransitLocale(locale) &&
+        (routeTitleEnValue is! String || routeTitleEnValue.trim().isEmpty)) {
+      throw StateError('徒歩→乗車の構造化表示にboarding.routeTitleEnがありません');
     }
     final routeTitleEn = routeTitleEnValue is String
         ? routeTitleEnValue.trim()
         : null;
     final primaryRouteTitle =
-        locale.languageCode == 'en' && routeTitleEn != null
+        isEnglishTransitLocale(locale) && routeTitleEn != null
         ? routeTitleEn
         : routeTitleJa;
     final secondaryRouteTitle =
-        locale.languageCode == 'en' &&
+        isEnglishTransitLocale(locale) &&
             routeTitleEn != null &&
             routeTitleEn != routeTitleJa
         ? routeTitleJa
         : null;
-    final countdown = locale.languageCode == 'en'
-        ? '$minutesValue min'
-        : '$minutesValue分';
+    final countdown = l10n.minutesValue(minutesValue);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,10 +288,7 @@ class TripNavigationStatusCard extends StatelessWidget {
             const Spacer(),
             Text(
               countdown,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
           ],
         ),
@@ -366,9 +352,7 @@ class TripNavigationStatusCard extends StatelessWidget {
                         secondaryRouteTitle,
                         style: TextStyle(
                           fontSize: 13,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurfaceVariant,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -501,9 +485,7 @@ class TripNavigationStatusCard extends StatelessWidget {
 
     final english = step.titleEn?.trim();
     if (english == null || english.isEmpty) {
-      throw StateError(
-        '構造化乗車表示に公式英語路線名がありません: stepId=${step.stepId}',
-      );
+      throw StateError('構造化乗車表示に公式英語路線名がありません: stepId=${step.stepId}');
     }
     return english;
   }
@@ -514,9 +496,7 @@ class TripNavigationStatusCard extends StatelessWidget {
   ) {
     final japanese = token.args['placeName'];
     if (japanese is! String || japanese.trim().isEmpty) {
-      throw StateError(
-        '構造化乗車表示に現在地がありません: token=${token.key.name}',
-      );
+      throw StateError('構造化乗車表示に現在地がありません: token=${token.key.name}');
     }
     final normalizedJapanese = japanese.trim();
     if (!isEnglishTransitLocale(locale)) {
@@ -525,9 +505,7 @@ class TripNavigationStatusCard extends StatelessWidget {
 
     final english = token.args['placeNameEn'];
     if (english is! String || english.trim().isEmpty) {
-      throw StateError(
-        '構造化乗車表示に公式英語現在地がありません: token=${token.key.name}',
-      );
+      throw StateError('構造化乗車表示に公式英語現在地がありません: token=${token.key.name}');
     }
     final normalizedEnglish = english.trim();
     return _RidePlaceParts(
@@ -546,26 +524,20 @@ class TripNavigationStatusCard extends StatelessWidget {
     if (step.kind != 'rail') return null;
     final progress = navState.railProgress;
     if (progress == null) {
-      throw StateError(
-        '構造化鉄道乗車表示にRailProgressがありません: stepId=${step.stepId}',
-      );
+      throw StateError('構造化鉄道乗車表示にRailProgressがありません: stepId=${step.stepId}');
     }
 
     if (isEnglishTransitLocale(locale)) {
       final english = progress.tripHeadsignEn?.trim();
       if (english == null || english.isEmpty) {
-        throw StateError(
-          '構造化鉄道乗車表示に公式英語行先がありません: stepId=${step.stepId}',
-        );
+        throw StateError('構造化鉄道乗車表示に公式英語行先がありません: stepId=${step.stepId}');
       }
       return l10n.navRideDirection(english);
     }
 
     var japanese = progress.tripHeadsign.trim();
     if (japanese.isEmpty) {
-      throw StateError(
-        '構造化鉄道乗車表示に行先がありません: stepId=${step.stepId}',
-      );
+      throw StateError('構造化鉄道乗車表示に行先がありません: stepId=${step.stepId}');
     }
     if (japanese.endsWith('行')) {
       japanese = japanese.substring(0, japanese.length - 1);
@@ -580,15 +552,11 @@ class TripNavigationStatusCard extends StatelessWidget {
   ) {
     final arrivalTime = step.arrivalTime?.trim();
     if (arrivalTime == null || arrivalTime.isEmpty) {
-      throw StateError(
-        '構造化乗車表示に到着予定時刻がありません: stepId=${step.stepId}',
-      );
+      throw StateError('構造化乗車表示に到着予定時刻がありません: stepId=${step.stepId}');
     }
     final destination = step.toName?.trim();
     if (destination == null || destination.isEmpty) {
-      throw StateError(
-        '構造化乗車表示に降車地点がありません: stepId=${step.stepId}',
-      );
+      throw StateError('構造化乗車表示に降車地点がありません: stepId=${step.stepId}');
     }
     final localizedDestination = isEnglishTransitLocale(locale)
         ? localizedTransitName(
@@ -637,9 +605,7 @@ class TripNavigationStatusCard extends StatelessWidget {
       case 'rail':
         return l10n.remainingRailStops(remaining);
       default:
-        throw StateError(
-          '残り停車数表示の未対応step kindです: ${navState.step?.kind}',
-        );
+        throw StateError('残り停車数表示の未対応step kindです: ${navState.step?.kind}');
     }
   }
 
@@ -650,24 +616,17 @@ class TripNavigationStatusCard extends StatelessWidget {
       case 'rail':
         return Icons.train;
       default:
-        throw StateError(
-          '残り停車数アイコンの未対応step kindです: ${navState.step?.kind}',
-        );
+        throw StateError('残り停車数アイコンの未対応step kindです: ${navState.step?.kind}');
     }
   }
 }
-
 
 class _RidePlaceParts {
   final String primary;
   final String? secondary;
 
-  const _RidePlaceParts({
-    required this.primary,
-    this.secondary,
-  });
+  const _RidePlaceParts({required this.primary, this.secondary});
 }
-
 
 /// Compact navigation details rendered inside the active schedule row.
 ///
@@ -850,9 +809,9 @@ class TripNavigationInlineStatus extends StatelessWidget {
       'bus' => l10n.remainingBusStops(remaining),
       'rail' => l10n.remainingRailStops(remaining),
       _ => throw StateError(
-          'インライン残り停車数表示の未対応step kindです: '
-          '${navState.step?.kind}',
-        ),
+        'インライン残り停車数表示の未対応step kindです: '
+        '${navState.step?.kind}',
+      ),
     };
   }
 
@@ -861,9 +820,9 @@ class TripNavigationInlineStatus extends StatelessWidget {
       'bus' => Icons.directions_bus,
       'rail' => Icons.train,
       _ => throw StateError(
-          'インライン残り停車数アイコンの未対応step kindです: '
-          '${navState.step?.kind}',
-        ),
+        'インライン残り停車数アイコンの未対応step kindです: '
+        '${navState.step?.kind}',
+      ),
     };
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../constants.dart';
+import '../l10n/app_localizations.dart';
 import '../models/explore_models.dart';
 import '../providers/explore_provider.dart';
 import '../providers/location_provider.dart';
@@ -50,23 +51,25 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final editorialState = ref.watch(exploreEditorialContentProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text('${widget.stop.name}周辺')),
+      appBar: AppBar(title: Text(l10n.experienceAround(widget.stop.nameForLanguageCode(Localizations.localeOf(context).languageCode)))),
       body: _buildBody(editorialState),
     );
   }
 
   Widget _buildBody(AsyncValue<ExploreEditorialContent> editorialState) {
+    final l10n = AppLocalizations.of(context);
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return _errorView('エラー: $_error');
+      return _errorView(l10n.errorWithMessage(_error!));
     }
     if (_data == null) {
-      return _errorView('周辺情報を取得できませんでした');
+      return _errorView(l10n.experienceLoadFailed);
     }
 
     return editorialState.when(
@@ -74,7 +77,7 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
         editorial.byStopId[widget.stop.id],
       ),
       error: (err, stack) => _errorView(
-        'みつける情報の読み込みに失敗しました: $err',
+        l10n.exploreContentLoadFailed(err.toString()),
       ),
       loading: () => const Center(child: CircularProgressIndicator()),
     );
@@ -103,9 +106,9 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
         _streetViewGallery(widget.stop),
         const SizedBox(height: 20),
         if (_data!.groups.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text('おすすめのスポットが見つかりませんでした'),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Text(AppLocalizations.of(context).experienceEmpty),
           )
         else
           ..._data!.groups.map(_experienceCard),
@@ -114,6 +117,9 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
   }
 
   Widget _experienceCard(ExperienceGroup group) {
+    final l10n = AppLocalizations.of(context);
+    final stop = group.representativeStop.id == widget.stop.id
+        ? widget.stop : group.representativeStop;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
@@ -127,7 +133,7 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
               children: group.tags
                   .map(
                     (t) => Chip(
-                      label: Text(t),
+                      label: Text(_experienceTag(t)),
                       backgroundColor: Colors.teal.shade50,
                       labelStyle: TextStyle(color: Colors.teal.shade900),
                     ),
@@ -136,14 +142,14 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
             ),
             const SizedBox(height: 12),
             Text(
-              group.description,
+              _experienceDescription(group.description),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
             ),
             const SizedBox(height: 8),
             Text(
-              '中心となるバス停: ${group.representativeStop.name}',
+              l10n.experienceCentralStop(stop.nameForLanguageCode(Localizations.localeOf(context).languageCode)),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 12),
@@ -152,7 +158,7 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
                 const Icon(Icons.place, size: 16, color: Colors.grey),
                 const SizedBox(width: 4),
                 Text(
-                  '${group.stopCount}箇所のスポットが含まれます',
+                  l10n.experienceSpotCount(group.stopCount),
                   style: const TextStyle(color: Colors.grey),
                 ),
               ],
@@ -163,10 +169,10 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
               children: [
                 TextButton.icon(
                   onPressed: () {
-                    _goToRouteSearch(context, group.representativeStop);
+                    _goToRouteSearch(context, stop);
                   },
                   icon: const Icon(Icons.directions),
-                  label: const Text('ここに行く'),
+                  label: Text(l10n.experienceGoHere),
                 ),
               ],
             ),
@@ -174,6 +180,29 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
         ),
       ),
     );
+  }
+
+  String _experienceTag(String tag) {
+    final l10n = AppLocalizations.of(context);
+    return switch (tag) {
+      '川沿い' => l10n.experienceTagWater,
+      '公園' => l10n.experienceTagPark,
+      '商店街' => l10n.experienceTagShopping,
+      '歴史' => l10n.experienceTagHistory,
+      _ => tag,
+    };
+  }
+
+  String _experienceDescription(String description) {
+    final l10n = AppLocalizations.of(context);
+    return switch (description) {
+      '川沿いをのんびり散歩できるエリア' => l10n.experienceWaterPark,
+      '昔ながらの商店街をぶらぶら楽しめる' => l10n.experienceShopping,
+      '寺社が点在する落ち着いた下町エリア' => l10n.experienceHistory,
+      '近所で気軽にひと休みできるエリア' => l10n.experiencePark,
+      '静かな住宅エリアを感じられる' => l10n.experienceResidential,
+      _ => description,
+    };
   }
 
   Uri _editorialImageUri(ExploreEditorialImage image) {
@@ -189,7 +218,7 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'みつけるメモ',
+          AppLocalizations.of(context).experienceMemo,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -355,7 +384,7 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '周辺のようす',
+          AppLocalizations.of(context).experienceSurroundings,
           style: Theme.of(context).textTheme.titleSmall,
         ),
         const SizedBox(height: 8),
@@ -419,9 +448,7 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
     String fromVal = '';
     const fromNameJa = '現在地';
     const fromNameEn = 'Current location';
-    final fromName = Localizations.localeOf(context).languageCode == 'en'
-        ? fromNameEn
-        : fromNameJa;
+    final fromName = AppLocalizations.of(context).currentLocationLabel;
 
     if (override != null) {
       print('[ExperiencePage] Using override location');
@@ -447,7 +474,9 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
 
     notifier.setTo(
       '${stop.lat},${stop.lon}',
-      name: stop.name,
+      name: stop.nameForLanguageCode(Localizations.localeOf(context).languageCode),
+      nameJa: stop.name,
+      nameEn: stop.nameEn,
     );
     print(
       '[ExperiencePage] RouteSearch params set. '

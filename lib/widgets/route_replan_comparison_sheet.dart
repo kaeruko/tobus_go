@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_localizations.dart';
+import '../l10n/transit_name_localizations.dart';
 import '../logic/route_replan_preview.dart';
 import '../models/route_models.dart';
 import '../providers/route_replanner_provider.dart';
@@ -128,7 +129,7 @@ class _RouteReplanComparisonSheetState
                 ] else if (currentRequest == null) ...[
                   const SizedBox(height: 12),
                   _RefreshNotice(
-                    message: locale.languageCode == 'en'
+                    message: isEnglishTransitLocale(locale)
                         ? l10n.replanBlocked
                         : (blockedReason ?? l10n.replanBlocked),
                   ),

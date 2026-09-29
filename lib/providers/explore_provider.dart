@@ -43,6 +43,7 @@ class ExploreNotifier extends StateNotifier<AsyncValue<ReachableResponse?>> {
         {
           "stop_id": stop.id,
           "stop_name": stop.name,
+          "stop_name_en": stop.nameEn,
           "lat": stop.lat,
           "lon": stop.lon,
         }

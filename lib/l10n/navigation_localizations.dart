@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../logic/trip_navigator.dart';
 import 'app_localizations.dart';
+import 'transit_name_localizations.dart';
 
 String localizedNavigationText(
   AppLocalizations l10n,
@@ -23,7 +24,7 @@ String localizedNavigationText(
 
   String officialTransitArg(String name) {
     final japanese = stringArg(name);
-    if (locale.languageCode != 'en') return japanese;
+    if (!isEnglishTransitLocale(locale)) return japanese;
     final english = token.args['${name}En'];
     if (english is! String || english.trim().isEmpty) {
       throw StateError(
@@ -36,7 +37,7 @@ String localizedNavigationText(
 
   String transitPlaceArg(String name) {
     final japanese = stringArg(name);
-    if (locale.languageCode != 'en') return japanese;
+    if (!isEnglishTransitLocale(locale)) return japanese;
     final english = token.args['${name}En'];
     if (english is! String || english.trim().isEmpty) {
       throw StateError(
@@ -52,7 +53,7 @@ String localizedNavigationText(
 
   String bilingualPlaceArg(String name) {
     final original = stringArg(name);
-    if (locale.languageCode != 'en') return original;
+    if (!isEnglishTransitLocale(locale)) return original;
     final english = token.args['${name}En'];
     if (english == null) return original;
     if (english is! String || english.trim().isEmpty) {

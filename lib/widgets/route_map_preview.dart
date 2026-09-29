@@ -54,12 +54,14 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
         throw StateError('Google Maps launch returned false: uri=$uri');
       }
     } catch (error, stackTrace) {
-      FlutterError.reportError(FlutterErrorDetails(
-        exception: error,
-        stack: stackTrace,
-        library: 'route_map_preview',
-        context: ErrorDescription('opening Google Maps: uri=$uri'),
-      ));
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'route_map_preview',
+          context: ErrorDescription('opening Google Maps: uri=$uri'),
+        ),
+      );
       if (!mounted) return;
       final l10n = AppLocalizations.of(context);
       await showCupertinoDialog<void>(
@@ -93,10 +95,7 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
       maxLon = math.max(maxLon, point.longitude);
     }
 
-    return LatLng(
-      (minLat + maxLat) / 2,
-      (minLon + maxLon) / 2,
-    );
+    return LatLng((minLat + maxLat) / 2, (minLon + maxLon) / 2);
   }
 
   double _zoomFor(List<LatLng> values) {
@@ -127,6 +126,7 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final points = widget.points;
     final vehiclePosition = widget.vehiclePosition;
     final decoration = BoxDecoration(
@@ -140,9 +140,9 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
         margin: widget.margin,
         decoration: decoration,
         alignment: Alignment.center,
-        child: const Text(
-          '地図情報がありません',
-          style: TextStyle(color: CupertinoColors.systemGrey),
+        child: Text(
+          l10n.routeMapUnavailable,
+          style: const TextStyle(color: CupertinoColors.systemGrey),
         ),
       );
     }
@@ -184,10 +184,7 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                   widget.interactive && widget.rotateGesturesEnabled,
               tiltGesturesEnabled:
                   widget.interactive && widget.tiltGesturesEnabled,
-              initialCameraPosition: CameraPosition(
-                target: center,
-                zoom: zoom,
-              ),
+              initialCameraPosition: CameraPosition(target: center, zoom: zoom),
               polylines: points.length >= 2
                   ? {
                       Polyline(
@@ -207,7 +204,7 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                       : null,
                   consumeTapEvents:
                       widget.interactive && widget.openExternalOnTap,
-                  infoWindow: const InfoWindow(title: 'Start'),
+                  infoWindow: InfoWindow(title: l10n.routeMapStart),
                 ),
                 if (points.length >= 2)
                   Marker(
@@ -218,7 +215,7 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                         : null,
                     consumeTapEvents:
                         widget.interactive && widget.openExternalOnTap,
-                    infoWindow: const InfoWindow(title: 'End'),
+                    infoWindow: InfoWindow(title: l10n.routeMapEnd),
                   ),
                 if (vehiclePosition != null)
                   Marker(
@@ -229,7 +226,7 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                         : null,
                     consumeTapEvents:
                         widget.interactive && widget.openExternalOnTap,
-                    infoWindow: const InfoWindow(title: 'バス現在位置'),
+                    infoWindow: InfoWindow(title: l10n.busCurrentPosition),
                     icon: BitmapDescriptor.defaultMarkerWithHue(
                       BitmapDescriptor.hueAzure,
                     ),
@@ -257,7 +254,7 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                         size: 18,
                       ),
                       const SizedBox(width: 6),
-                      Text(AppLocalizations.of(context).openInGoogleMaps),
+                      Text(l10n.openInGoogleMaps),
                     ],
                   ),
                 ),

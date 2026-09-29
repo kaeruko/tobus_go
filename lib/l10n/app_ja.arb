@@ -1074,5 +1074,159 @@
         "type": "String"
       }
     }
-  }
+  },
+  "languageSettingsTitle": "言語",
+  "languageSystem": "端末の設定に合わせる",
+  "languageSaveFailed": "言語設定を保存できませんでした: {error}",
+  "@languageSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleWalkTo": "{destination}まで歩く{duration}",
+  "@scheduleWalkTo": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleBoardAt": "{place}で乗車",
+  "@scheduleBoardAt": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleArriveAt": "{place}に到着",
+  "@scheduleArriveAt": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "currentLocationLabel": "現在地",
+  "currentLocationSetLabel": "現在地(設定)",
+  "mapLongPress": "長押しで地点を選択",
+  "mapConfirm": "この地点を決定",
+  "experienceAround": "{name}周辺",
+  "@experienceAround": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "experienceLoadFailed": "周辺情報を取得できませんでした",
+  "experienceEmpty": "おすすめのスポットが見つかりませんでした",
+  "experienceCentralStop": "中心となるバス停: {name}",
+  "@experienceCentralStop": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "experienceSpotCount": "{count}箇所のスポットが含まれます",
+  "@experienceSpotCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "experienceGoHere": "ここに行く",
+  "experienceMemo": "みつけるメモ",
+  "experienceSurroundings": "周辺のようす",
+  "experienceTagWater": "川沿い",
+  "experienceTagPark": "公園",
+  "experienceTagShopping": "商店街",
+  "experienceTagHistory": "歴史",
+  "experienceWaterPark": "川沿いをのんびり散歩できるエリア",
+  "experienceShopping": "昔ながらの商店街をぶらぶら楽しめる",
+  "experienceHistory": "寺社が点在する落ち着いた下町エリア",
+  "experiencePark": "近所で気軽にひと休みできるエリア",
+  "experienceResidential": "静かな住宅エリアを感じられる",
+  "settingsUserInfo": "ユーザー情報",
+  "settingsUserName": "ユーザー名",
+  "settingsChangeUserName": "ユーザー名の変更",
+  "settingsNewName": "新しい名前",
+  "settingsSave": "保存",
+  "settingsGuest": "ゲスト",
+  "settingsUserId": "ユーザーID",
+  "settingsLoading": "読み込み中...",
+  "settingsIdCopied": "IDをコピーしました",
+  "settingsEnableStaff": "職員・管理者向け機能を有効にする",
+  "settingsStaffDescription": "報告書作成や詳細な管理機能を表示します",
+  "settingsManualLocation": "現在地を手動入力",
+  "settingsSearchLocation": "位置を検索して設定",
+  "settingsCurrentCoordinates": "現在の設定: {latitude}, {longitude}",
+  "@settingsCurrentCoordinates": {
+    "placeholders": {
+      "latitude": {
+        "type": "String"
+      },
+      "longitude": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsUsingGps": "現在の設定: GPSの値を使用中",
+  "settingsResetGps": "クリアしてGPSに戻す",
+  "settingsAdminMenu": "デバッグ・管理者メニュー",
+  "settingsTimeOffset": "時間オフセット設定",
+  "settingsTimeOffsetDescription": "現在時刻を指定した時間だけずらします（デバッグ用）",
+  "settingsHours": "時間",
+  "settingsMinutes": "分",
+  "settingsReset": "リセット",
+  "settingsApply": "設定",
+  "settingsNoTimeOffset": "設定なし（現在時刻: {time}）",
+  "@settingsNoTimeOffset": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsTimeOffsetSummary": "オフセット: {hours}時間 {minutes}分\n設定後の時刻: {time}",
+  "@settingsTimeOffsetSummary": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsCreateDebugTrip": "デバッグ: 東墨田三丁目〜中居堀の経路を作成",
+  "settingsDebugTripDescription": "行き: 15分後、帰り: 2時間後\n東墨田三丁目 ⇔ 中居堀",
+  "settingsCreatingDebugTrip": "デバッグ用のおでかけを作成中...",
+  "settingsDebugOutboundNotFound": "行きの経路が見つかりません",
+  "settingsDebugInboundNotFound": "帰りの経路が見つかりません",
+  "settingsDeleteAllTrips": "【危険】全おでかけデータ削除",
+  "settingsDeleteAllTripsDescription": "Firestoreのtripsコレクションを空にします",
+  "settingsDeleteAllTitle": "全データ削除",
+  "settingsDeleteAllConfirmation": "全ての「おでかけ」データを削除します。\n本当によろしいですか？\nこの操作は取り消せません。",
+  "settingsDeleting": "削除中...",
+  "settingsAllTripsDeleted": "全てのデータを削除しました",
+  "settingsOpenAsLeader": "最新の旅を「リーダー」として開く",
+  "settingsOpenAsLeaderDescription": "最後に作成されたおでかけの管理画面を表示",
+  "settingsTripReports": "おでかけ一覧・実施報告書",
+  "settingsTripReportsDescription": "過去の旅の確認と報告書作成",
+  "settingsOpenAsMember": "最新の旅を「メンバー」として開く",
+  "settingsOpenAsMemberDescription": "最後に作成されたおでかけの参加者画面を表示",
+  "settingsNoTrip": "おでかけが見つかりません。まずは作成してください。",
+  "settingsMemberModeEnabled": "メンバーモードに切り替わりました",
+  "settingsNoJoinableTrip": "参加可能なおでかけが見つかりません"
 }

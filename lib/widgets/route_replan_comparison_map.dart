@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../l10n/app_localizations.dart';
+
 class RouteReplanComparisonMap extends StatefulWidget {
   final List<LatLng> originalPoints;
   final List<LatLng> newPoints;
@@ -45,6 +47,7 @@ class _RouteReplanComparisonMapState extends State<RouteReplanComparisonMap> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final allPoints = _allPoints(widget);
 
     return Column(
@@ -62,9 +65,7 @@ class _RouteReplanComparisonMapState extends State<RouteReplanComparisonMap> {
               onMapCreated: (controller) {
                 if (_controller != null) {
                   controller.dispose();
-                  throw StateError(
-                    '経路比較MapのGoogleMapControllerが重複生成されました',
-                  );
+                  throw StateError('経路比較MapのGoogleMapControllerが重複生成されました');
                 }
                 _controller = controller;
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -92,12 +93,12 @@ class _RouteReplanComparisonMapState extends State<RouteReplanComparisonMap> {
                 Marker(
                   markerId: const MarkerId('replan-anchor'),
                   position: widget.anchor,
-                  infoWindow: const InfoWindow(title: '経路見直し地点'),
+                  infoWindow: InfoWindow(title: l10n.replanMapAnchor),
                 ),
                 Marker(
                   markerId: const MarkerId('destination'),
                   position: widget.destination,
-                  infoWindow: const InfoWindow(title: '目的地'),
+                  infoWindow: InfoWindow(title: l10n.destinationFallback),
                 ),
               },
               zoomControlsEnabled: false,
@@ -112,12 +113,12 @@ class _RouteReplanComparisonMapState extends State<RouteReplanComparisonMap> {
           ),
         ),
         const SizedBox(height: 8),
-        const Wrap(
+        Wrap(
           spacing: 16,
           runSpacing: 6,
           children: [
-            _Legend(color: Colors.grey, label: '現在の予定'),
-            _Legend(color: Colors.blue, label: '新しい経路'),
+            _Legend(color: Colors.grey, label: l10n.replanCurrentPlan),
+            _Legend(color: Colors.blue, label: l10n.replanNewRoute),
           ],
         ),
       ],

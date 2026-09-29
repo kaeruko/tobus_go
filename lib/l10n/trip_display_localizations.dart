@@ -2,10 +2,11 @@ import 'package:flutter/widgets.dart';
 
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
+import 'app_localizations.dart';
 import 'transit_name_localizations.dart';
 
 String localizedSoloTripTitle(Locale locale, Trip trip) {
-  if (!trip.isSolo || locale.languageCode != 'en') {
+  if (!trip.isSolo || !isEnglishTransitLocale(locale)) {
     return trip.displayTitle;
   }
   if (trip.legs.isEmpty) {
@@ -43,7 +44,7 @@ String localizedSoloScheduleEntryLabel(
   required Trip trip,
   required ScheduleEntry entry,
 }) {
-  if (locale.languageCode != 'en') return entry.label;
+  if (!isEnglishTransitLocale(locale)) return entry.label;
   if (!trip.isSolo) {
     throw StateError(
       'localizedSoloScheduleEntryLabel requires a solo trip: tripId=${trip.id}',
@@ -72,6 +73,7 @@ String localizedSoloScheduleEntryLabel(
     );
   }
 
+  final l10n = lookupAppLocalizations(locale);
   switch (entry.routeRole) {
     case 'walk':
       final destination = _localizedEndpoint(
@@ -81,8 +83,10 @@ String localizedSoloScheduleEntryLabel(
         field: 'to_en',
         identity: 'stepId=${step.stepId}',
       );
-      final duration = step.minutes > 0 ? ' (${step.minutes} min)' : '';
-      return 'Walk to $destination$duration';
+      final duration = step.minutes > 0
+          ? ' (${l10n.minutesValue(step.minutes)})'
+          : '';
+      return l10n.scheduleWalkTo(destination, duration);
     case 'ride':
       if (!step.isRide) {
         throw StateError(
@@ -91,7 +95,7 @@ String localizedSoloScheduleEntryLabel(
         );
       }
       return '${localizedRideTitle(locale, step)} · '
-          'Board at ${localizedRideFromName(locale, step)}';
+          '${l10n.scheduleBoardAt(localizedRideFromName(locale, step))}';
     case 'arrival':
       if (!step.isRide) {
         throw StateError(
@@ -100,7 +104,7 @@ String localizedSoloScheduleEntryLabel(
         );
       }
       return '${localizedRideTitle(locale, step)} · '
-          'Arrive at ${localizedRideToName(locale, step)}';
+          '${l10n.scheduleArriveAt(localizedRideToName(locale, step))}';
     case 'wait_start':
       final japanese = step.place ?? step.fromName;
       final english = step.placeEn ?? step.fromNameEn;
@@ -111,7 +115,7 @@ String localizedSoloScheduleEntryLabel(
         field: 'place_en',
         identity: 'stepId=${step.stepId}',
       );
-      return 'Wait at $place';
+      return l10n.waitAt(place);
     case null:
       throw StateError(
         'English route schedule entry is missing routeRole: '
@@ -125,18 +129,13 @@ String localizedSoloScheduleEntryLabel(
   }
 }
 
-
 String localizedSoloScheduleEntryCompactLabel(
   Locale locale, {
   required Trip trip,
   required ScheduleEntry entry,
 }) {
-  if (locale.languageCode != 'en') {
-    return localizedSoloScheduleEntryLabel(
-      locale,
-      trip: trip,
-      entry: entry,
-    );
+  if (!isEnglishTransitLocale(locale)) {
+    return localizedSoloScheduleEntryLabel(locale, trip: trip, entry: entry);
   }
   if (!trip.isSolo) {
     throw StateError(
@@ -227,7 +226,8 @@ String localizedSoloScheduleEntryCompactLabel(
         requireEnglish: false,
       );
       if (step.minutes <= 0) return destination;
-      return '$destination\n${step.minutes} min';
+      return '$destination\n'
+          '${lookupAppLocalizations(locale).minutesValue(step.minutes)}';
     case 'ride':
       if (!step.isRide) {
         throw StateError(
@@ -305,7 +305,7 @@ String _localizedGoalLabel(
     field: 'destination_name_en',
     identity: 'candidateId=${candidate.id}',
   );
-  return 'Arrive at $destination';
+  return lookupAppLocalizations(locale).scheduleArriveAt(destination);
 }
 
 String _localizedEndpoint(
@@ -319,7 +319,7 @@ String _localizedEndpoint(
   if (normalizedJapanese == null || normalizedJapanese.isEmpty) {
     throw StateError('Route endpoint is missing: field=$field $identity');
   }
-  if (locale.languageCode != 'en') return normalizedJapanese;
+  if (!isEnglishTransitLocale(locale)) return normalizedJapanese;
 
   final normalizedEnglish = english?.trim();
   if (normalizedEnglish == null || normalizedEnglish.isEmpty) {

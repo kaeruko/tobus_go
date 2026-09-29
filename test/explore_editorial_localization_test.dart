@@ -24,6 +24,7 @@ void main() {
         content.byStopId['odpt.BusstopPole:Toei.OshiageStation.100.1']!;
     expect(spot.commentForLanguageCode('ja'), 'スカイツリーが近い');
     expect(spot.commentForLanguageCode('en'), 'Tokyo Skytree is nearby');
+    expect(spot.commentForLanguageCode('zh'), 'Tokyo Skytree is nearby');
     expect(
       spot.images.single.captionForLanguageCode('ja'),
       '駅前から見たスカイツリー',
@@ -82,10 +83,12 @@ void main() {
     });
 
     expect(response.nearestStop!.nameForLanguageCode('ja'), '押上駅前');
-    expect(response.nearestStop!.nameForLanguageCode('en'), 'Oshiage Sta.');
+    expect(response.nearestStop!.nameForLanguageCode('zh'), 'Oshiage Sta. (押上駅前)');
+    expect(response.reachableStops.single.nameForLanguageCode('zh'), 'Narihira-bashi (業平橋)');
+    expect(response.nearestStop!.nameForLanguageCode('en'), 'Oshiage Sta. (押上駅前)');
     expect(
       response.reachableStops.single.nameForLanguageCode('en'),
-      'Narihira-bashi',
+      'Narihira-bashi (業平橋)',
     );
   });
 

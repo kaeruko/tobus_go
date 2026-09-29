@@ -237,4 +237,83 @@ void main() {
       '🚇浅草線 押上に乗る',
     );
   });
+
+  test('Chinese trip titles use the same bilingual endpoints as English', () {
+    expect(
+      localizedSoloTripTitle(const Locale('zh'), trip),
+      'Oshiage (押上) → Ueno Station (上野駅)',
+    );
+  });
+
+  test('Chinese schedule instructions retain the official transit names', () {
+    const expected = [
+      '步行至 Oshiage (押上) (5分钟)',
+      'Asakusa Line · 在 Oshiage (押上) 上车',
+      'Asakusa Line · 到达 Kuramae (蔵前)',
+      'Oedo Line · 在 Kuramae (蔵前) 上车',
+    ];
+    for (var i = 0; i < entries.length; i++) {
+      expect(
+        localizedSoloScheduleEntryLabel(
+          const Locale('zh'),
+          trip: trip,
+          entry: entries[i],
+        ),
+        expected[i],
+      );
+    }
+    expect(
+      localizedSoloScheduleEntryCompactLabel(
+        const Locale('zh'),
+        trip: trip,
+        entry: entries[0],
+      ),
+      'Oshiage\n押上\n5分钟',
+    );
+    expect(
+      localizedSoloScheduleEntryCompactLabel(
+        const Locale('zh'),
+        trip: trip,
+        entry: entries[1],
+      ),
+      'Asakusa Line\nOshiage\n押上',
+    );
+  });
+
+  test('Chinese goal rows use bilingual destinations', () {
+    final goal = ScheduleEntry(
+      id: 'goal-zh',
+      plannedAt: DateTime(2026, 9, 27, 22, 34),
+      label: '上野駅 到着',
+      itemKind: ScheduleEntryKind.goal,
+      generatedBy: ScheduleEntrySource.route,
+    );
+
+    expect(
+      localizedSoloScheduleEntryLabel(
+        const Locale('zh'),
+        trip: trip,
+        entry: goal,
+      ),
+      '到达 Ueno Station (上野駅)',
+    );
+  });
+
+  test('Chinese user-authored schedule labels remain untouched', () {
+    final custom = ScheduleEntry(
+      id: 'custom',
+      plannedAt: DateTime(2026, 9, 27, 22, 34),
+      label: 'カフェで休憩',
+      itemKind: ScheduleEntryKind.goal,
+    );
+
+    expect(
+      localizedSoloScheduleEntryLabel(
+        const Locale('zh'),
+        trip: trip,
+        entry: custom,
+      ),
+      'カフェで休憩',
+    );
+  });
 }

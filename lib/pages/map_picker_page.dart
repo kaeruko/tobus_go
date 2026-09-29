@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../l10n/app_localizations.dart';
+
 class MapPickerPage extends StatefulWidget {
   final String? title;
   const MapPickerPage({super.key, this.title});
@@ -15,7 +17,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
-        middle: Text(widget.title ?? '地図から選ぶ'),
+        middle: Text(widget.title ?? AppLocalizations.of(context).mapPickerTitle),
       ),
       child: SafeArea(
         child: Stack(
@@ -40,7 +42,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
                 onPressed: _picked == null
                     ? null
                     : () => Navigator.pop(context, _picked),
-                child: Text(_picked == null ? '長押しで地点を選択' : 'この地点を決定'),
+                child: Text(_picked == null ? AppLocalizations.of(context).mapLongPress : AppLocalizations.of(context).mapConfirm),
               ),
             ),
           ],

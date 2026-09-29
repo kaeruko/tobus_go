@@ -102,9 +102,9 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
       final effective = await ref.read(effectiveLocationProvider.future);
       if (!mounted) return;
 
-      final locale = Localizations.localeOf(context);
-      final displayName =
-          locale.languageCode == 'en' ? effective.nameEn : effective.nameJa;
+      final l10n = AppLocalizations.of(context);
+      final displayName = effective.nameJa == '現在地(設定)'
+          ? l10n.currentLocationSetLabel : l10n.currentLocationLabel;
       final notifier = ref.read(routeSearchProvider.notifier);
       notifier.setFrom(
         effective.loc,
@@ -238,10 +238,13 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
     required String japanese,
     required String english,
   }) {
-    if (locale.languageCode == 'en' && english.trim().isNotEmpty) {
+    final l10n = lookupAppLocalizations(locale);
+    if (japanese == '現在地') return l10n.currentLocationLabel;
+    if (japanese == '現在地(設定)') return l10n.currentLocationSetLabel;
+    if (isEnglishTransitLocale(locale) && english.trim().isNotEmpty) {
       return english;
     }
-    if (locale.languageCode != 'en' && japanese.trim().isNotEmpty) {
+    if (!isEnglishTransitLocale(locale) && japanese.trim().isNotEmpty) {
       return japanese;
     }
     return fallback;

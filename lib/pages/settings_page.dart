@@ -17,6 +17,7 @@ import '../core/api_client.dart';
 import '../models/leg_models.dart';
 import '../models/group_models.dart';
 import '../models/route_models.dart';
+import '../l10n/app_localizations.dart';
 import 'trip_list_page.dart';
 import 'solo_trip_detail_page.dart';
 import 'trip_page.dart';
@@ -62,20 +63,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _updateUserName() async {
+    final l10n = AppLocalizations.of(context);
     final controller = TextEditingController(text: _userName);
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('ユーザー名の変更'),
+        title: Text(l10n.settingsChangeUserName),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(labelText: '新しい名前'),
+          decoration: InputDecoration(labelText: l10n.settingsNewName),
           autofocus: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('キャンセル'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () async {
@@ -88,7 +90,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               }
               if (context.mounted) Navigator.pop(context);
             },
-            child: const Text('保存'),
+            child: Text(l10n.settingsSave),
           ),
         ],
       ),
@@ -126,6 +128,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   // ★追加: 時間オフセットの設定ダイアログ
   Future<void> _updateTimeOffset() async {
+    final l10n = AppLocalizations.of(context);
     final currentOffset = AppClock.instance.offset;
     // 初期値設定
     final hController = TextEditingController(
@@ -138,13 +141,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('時間オフセット設定'),
+        title: Text(l10n.settingsTimeOffset),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              '現在時刻を指定した時間だけずらします（デバッグ用）',
-              style: TextStyle(fontSize: 12),
+            Text(
+              l10n.settingsTimeOffsetDescription,
+              style: const TextStyle(fontSize: 12),
             ),
             const SizedBox(height: 16),
             Row(
@@ -153,9 +156,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   child: TextField(
                     controller: hController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: '時間 (Hours)',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: l10n.settingsHours,
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                 ),
@@ -164,9 +167,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   child: TextField(
                     controller: mController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: '分 (Minutes)',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: l10n.settingsMinutes,
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                 ),
@@ -184,11 +187,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               setState(() {}); // 画面更新
               Navigator.pop(context);
             },
-            child: const Text('リセット', style: TextStyle(color: Colors.red)),
+            child: Text(
+              l10n.settingsReset,
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('キャンセル'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -201,7 +207,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               setState(() {}); // 画面更新
               Navigator.pop(context);
             },
-            child: const Text('設定'),
+            child: Text(l10n.settingsApply),
           ),
         ],
       ),
@@ -260,11 +266,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           if (mounted) {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => TripPage(
-                  tripId: soloTrip.id,
-                ),
-              ),
+              MaterialPageRoute(builder: (_) => TripPage(tripId: soloTrip.id)),
             );
           }
           return;
@@ -283,16 +285,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         debugPrint("[Settings] No tripId found for Leader Mode.");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Tripが見つかりません。まずは作成してください。')),
+            SnackBar(
+              content: Text(AppLocalizations.of(context).settingsNoTrip),
+            ),
           );
         }
       }
     } catch (e) {
       debugPrint("[Settings] Error in _openLatestTripAsLeader: $e");
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('エラー: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).errorWithMessage(e.toString()),
+            ),
+          ),
+        );
       }
     }
   }
@@ -370,9 +378,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           if (mounted) {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => TripPage(tripId: soloTrip.id),
-              ),
+              MaterialPageRoute(builder: (_) => TripPage(tripId: soloTrip.id)),
             );
           }
           return;
@@ -382,24 +388,36 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         );
         await ref.read(appSessionProvider.notifier).enterMemberMode(tripId);
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('メンバーモードに切り替わりました')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context).settingsMemberModeEnabled,
+              ),
+            ),
+          );
           // SettingsPageを閉じて、RootGateの切り替えを表示させる
           Navigator.of(context).pop();
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('参加可能なTripが見つかりません')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context).settingsNoJoinableTrip,
+              ),
+            ),
+          );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('エラー: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).errorWithMessage(e.toString()),
+            ),
+          ),
+        );
       }
     }
   }
@@ -410,11 +428,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _createDebugTrip() async {
+    final l10n = AppLocalizations.of(context);
     try {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('デバッグ用Tripを作成中...')));
+      ).showSnackBar(SnackBar(content: Text(l10n.settingsCreatingDebugTrip)));
 
       final now = AppClock.instance.now();
       final outboundTime = now.add(const Duration(minutes: 15));
@@ -435,7 +454,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
       final rOut = await ApiClient.post('/route', body: outboundBody);
       final cOutList = rOut['candidates'] as List? ?? [];
-      if (cOutList.isEmpty) throw Exception('行き(Outbound)のルートが見つかりません');
+      if (cOutList.isEmpty) throw Exception(l10n.settingsDebugOutboundNotFound);
 
       final cOutMap = Map<String, dynamic>.from(cOutList.first as Map);
       // Hack names if missing
@@ -458,7 +477,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
       final rIn = await ApiClient.post('/route', body: inboundBody);
       final cInList = rIn['candidates'] as List? ?? [];
-      if (cInList.isEmpty) throw Exception('帰り(Inbound)のルートが見つかりません');
+      if (cInList.isEmpty) throw Exception(l10n.settingsDebugInboundNotFound);
 
       final cInMap = Map<String, dynamic>.from(cInList.first as Map);
       cInMap['origin_name'] = '中居堀';
@@ -502,32 +521,35 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     } catch (e) {
       debugPrint('Diff debug trip failed: $e');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('エラー: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).errorWithMessage(e.toString()),
+            ),
+          ),
+        );
       }
     }
   }
 
   Future<void> _deleteAllTrips() async {
+    final l10n = AppLocalizations.of(context);
     try {
       if (!mounted) return;
       final confirm = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('全データ削除'),
-          content: const Text(
-            '全ての「おでかけ」データを削除します。\n本当によろしいですか？\n※この操作は取り消せません。',
-          ),
+          title: Text(l10n.settingsDeleteAllTitle),
+          content: Text(l10n.settingsDeleteAllConfirmation),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('キャンセル'),
+              child: Text(l10n.cancel),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('削除する'),
+              child: Text(l10n.delete),
             ),
           ],
         ),
@@ -538,7 +560,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('削除中...')));
+        ).showSnackBar(SnackBar(content: Text(l10n.settingsDeleting)));
       }
 
       final snapshot = await FirebaseFirestore.instance
@@ -551,21 +573,28 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       await batch.commit();
 
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('全てのデータを削除しました')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context).settingsAllTripsDeleted),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('エラー: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).errorWithMessage(e.toString()),
+            ),
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     // 修正: ref.listen は build メソッド内で呼び出す
     ref.listen<LatLng?>(locationOverrideProvider, (prev, next) {
       setState(() {
@@ -580,15 +609,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final simulatedTime = AppClock.instance.now();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('設定')),
+      appBar: AppBar(title: Text(l10n.tabSettings)),
       body: ListView(
         children: [
           // --- ユーザー情報 ---
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
             child: Text(
-              'ユーザー情報',
-              style: TextStyle(
+              l10n.settingsUserInfo,
+              style: const TextStyle(
                 color: Colors.blueGrey,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
@@ -597,16 +626,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           ListTile(
             leading: const Icon(Icons.account_circle),
-            title: const Text('ユーザー名'),
-            subtitle: Text(_userName.isEmpty ? 'ゲスト' : _userName),
+            title: Text(l10n.settingsUserName),
+            subtitle: Text(_userName.isEmpty ? l10n.settingsGuest : _userName),
             trailing: const Icon(Icons.edit, size: 20),
             onTap: _updateUserName,
           ),
           ListTile(
             leading: const Icon(Icons.fingerprint),
-            title: const Text('ユーザーID'),
+            title: Text(l10n.settingsUserId),
             subtitle: Text(
-              _userId ?? '読み込み中...',
+              _userId ?? l10n.settingsLoading,
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
             trailing: IconButton(
@@ -614,9 +643,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               onPressed: () {
                 if (_userId != null) {
                   Clipboard.setData(ClipboardData(text: _userId!));
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('IDをコピーしました')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.settingsIdCopied)),
+                  );
                 }
               },
             ),
@@ -625,19 +654,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
           // --- 既存の設定 ---
           SwitchListTile(
-            title: const Text('職員・管理者向け機能を有効にする'),
-            subtitle: const Text('報告書作成や詳細な管理機能を表示します'),
+            title: Text(l10n.settingsEnableStaff),
+            subtitle: Text(l10n.settingsStaffDescription),
             value: _isStaffMode,
             onChanged: _toggleStaffMode,
           ),
 
           const Divider(),
 
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
             child: Text(
-              '現在地を手動入力',
-              style: TextStyle(
+              l10n.settingsManualLocation,
+              style: const TextStyle(
                 color: Colors.blueGrey,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
@@ -650,7 +679,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 PlaceField(
-                  label: '位置を検索して設定',
+                  label: l10n.settingsSearchLocation,
                   value: _manualLocationInput,
                   displayValue: _manualLocationInput,
                   onChanged: _updateManualLocation,
@@ -661,15 +690,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     Expanded(
                       child: Text(
                         manualOverride != null
-                            ? '現在の設定: ${manualOverride.latitude.toStringAsFixed(5)}, ${manualOverride.longitude.toStringAsFixed(5)}'
-                            : '現在の設定: GPSの値を使用中',
+                            ? l10n.settingsCurrentCoordinates(
+                                manualOverride.latitude.toStringAsFixed(5),
+                                manualOverride.longitude.toStringAsFixed(5),
+                              )
+                            : l10n.settingsUsingGps,
                       ),
                     ),
                     TextButton(
                       onPressed: manualOverride != null
                           ? _clearManualLocation
                           : null,
-                      child: const Text('クリアしてGPSに戻す'),
+                      child: Text(l10n.settingsResetGps),
                     ),
                   ],
                 ),
@@ -679,11 +711,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
           if (_isStaffMode) ...[
             const Divider(),
-            const Padding(
-              padding: EdgeInsets.all(16),
+            Padding(
+              padding: const EdgeInsets.all(16),
               child: Text(
-                '【デバッグ・管理者メニュー】',
-                style: TextStyle(
+                l10n.settingsAdminMenu,
+                style: const TextStyle(
                   color: Colors.red,
                   fontWeight: FontWeight.bold,
                 ),
@@ -692,40 +724,44 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
             ListTile(
               leading: const Icon(Icons.access_time, color: Colors.orange),
-              title: const Text('時間オフセット設定'),
+              title: Text(l10n.settingsTimeOffset),
               subtitle: Text(
                 currentOffset == Duration.zero
-                    ? '設定なし (現在時刻: ${_formatTime(simulatedTime)})'
-                    : 'Offset: +${currentOffset.inHours}h ${currentOffset.inMinutes % 60}m\nSimulated: ${_formatTime(simulatedTime)}',
+                    ? l10n.settingsNoTimeOffset(_formatTime(simulatedTime))
+                    : l10n.settingsTimeOffsetSummary(
+                        currentOffset.inHours.toString(),
+                        currentOffset.inMinutes.remainder(60).toString(),
+                        _formatTime(simulatedTime),
+                      ),
               ),
               onTap: _updateTimeOffset,
             ),
 
             ListTile(
               leading: const Icon(Icons.bug_report, color: Colors.purple),
-              title: const Text('Debug: 東墨田3-中居堀ルート作成'),
-              subtitle: const Text('行き:15分後, 帰り:2時間後\n東墨田三丁目 ⇔ 中居堀'),
+              title: Text(l10n.settingsCreateDebugTrip),
+              subtitle: Text(l10n.settingsDebugTripDescription),
               onTap: _createDebugTrip,
             ),
 
             ListTile(
               leading: const Icon(Icons.delete_forever, color: Colors.red),
-              title: const Text('【危険】全おでかけデータ削除'),
-              subtitle: const Text('Firestoreのtripsコレクションを空にします'),
+              title: Text(l10n.settingsDeleteAllTrips),
+              subtitle: Text(l10n.settingsDeleteAllTripsDescription),
               onTap: _deleteAllTrips,
             ),
 
             ListTile(
               leading: const Icon(Icons.star, color: Colors.green),
-              title: const Text('最新の旅を「リーダー」として開く'),
-              subtitle: const Text('最後に作成されたTripの管理画面を表示'),
+              title: Text(l10n.settingsOpenAsLeader),
+              subtitle: Text(l10n.settingsOpenAsLeaderDescription),
               onTap: _openLatestTripAsLeader,
             ),
 
             ListTile(
               leading: const Icon(Icons.description, color: Colors.blueGrey),
-              title: const Text('お出かけ一覧・実施報告書'),
-              subtitle: const Text('過去の旅の確認と報告書作成'),
+              title: Text(l10n.settingsTripReports),
+              subtitle: Text(l10n.settingsTripReportsDescription),
               onTap: () {
                 Navigator.push(
                   context,
@@ -737,8 +773,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
           ListTile(
             leading: const Icon(Icons.person, color: Colors.blue),
-            title: const Text('最新の旅を「メンバー」として開く'),
-            subtitle: const Text('最後に作成されたTripの参加者画面を表示'),
+            title: Text(l10n.settingsOpenAsMember),
+            subtitle: Text(l10n.settingsOpenAsMemberDescription),
             onTap: _openLatestTripAsMember,
           ),
 

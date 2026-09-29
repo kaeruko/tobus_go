@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../logic/route_replan_presentation.dart';
 import '../logic/solo_trip_lifecycle.dart';
 import '../l10n/app_localizations.dart';
+import '../l10n/transit_name_localizations.dart';
 import '../l10n/city_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
 import '../models/group_models.dart';
@@ -240,10 +241,9 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     final destinationEndpoint = _destinationEndpoint(trip);
     final beforeScheduleSections = <Widget>[
       ActiveTripEndpointCard(
-        originLabel: locale.languageCode == 'en' ? 'Origin' : '出発地',
+        originLabel: l10n.originFallback,
         originPlace: _localizedEndpoint(locale, originEndpoint),
-        destinationLabel:
-            locale.languageCode == 'en' ? 'Destination' : '目的地',
+        destinationLabel: l10n.destinationFallback,
         destinationPlace: _localizedEndpoint(locale, destinationEndpoint),
       ),
       TripNavigationStatusCard(
@@ -513,7 +513,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     if (japanese.isEmpty) {
       throw StateError('Solo移動中ヘッダーの日本語地点名が空です');
     }
-    if (locale.languageCode != 'en') return japanese;
+    if (!isEnglishTransitLocale(locale)) return japanese;
 
     final english = endpoint.english?.trim();
     if (english == null || english.isEmpty || english == japanese) {

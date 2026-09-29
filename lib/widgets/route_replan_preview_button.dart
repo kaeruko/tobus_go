@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
 import '../logic/replan_debug_log.dart';
 import '../logic/route_replan_patcher.dart';
 import '../logic/route_replan_preview.dart';
@@ -34,6 +35,8 @@ class _RouteReplanPreviewButtonState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
     final request = ref.watch(currentRouteReplanRequestProvider);
     final blockedReason = ref.watch(routeReplanBlockedReasonProvider);
     if (request == null) {
@@ -46,11 +49,11 @@ class _RouteReplanPreviewButtonState
             OutlinedButton.icon(
               onPressed: null,
               icon: const Icon(Icons.alt_route),
-              label: const Text('経路を見直す'),
+              label: Text(l10n.replanReviewAction),
             ),
             const SizedBox(height: 6),
             Text(
-              blockedReason,
+              locale.languageCode == 'ja' ? blockedReason : l10n.replanBlocked,
               style: const TextStyle(fontSize: 12, color: Colors.black54),
             ),
           ],
@@ -69,12 +72,13 @@ class _RouteReplanPreviewButtonState
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : const Icon(Icons.alt_route),
-        label: Text(_loading ? '新しい経路を検索中…' : '経路を見直す'),
+        label: Text(_loading ? l10n.replanSearching : l10n.replanReviewAction),
       ),
     );
   }
 
   Future<void> _openPreview() async {
+    final l10n = AppLocalizations.of(context);
     final request = ref.read(currentRouteReplanRequestProvider);
     if (request == null || _loading) {
       ReplanDebugLog.emit('replan_preview_tap_ignored', {
@@ -111,15 +115,13 @@ class _RouteReplanPreviewButtonState
           'latestAnchorAt': latestRequest?.anchor.availableAt.toIso8601String(),
           'candidateCount': result.candidates.length,
         });
-        throw StateError(
-          '検索中に移動状況が変わりました。もう一度「経路を見直す」を押してください。',
-        );
+        throw StateError(l10n.replanSearchStateChanged);
       }
       final latestTrip = ref.read(tripStreamProvider).value;
       if (latestTrip == null) {
-        throw StateError('現在のTripを取得できません');
+        throw StateError(l10n.replanTripUnavailable);
       }
-      _validateApplyPermission(latestTrip);
+      _validateApplyPermission(latestTrip, l10n);
 
       final preview = RouteReplanPreview.build(
         trip: latestTrip,
@@ -157,7 +159,10 @@ class _RouteReplanPreviewButtonState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${ref.read(currentRouteReplanRequestProvider)?.anchor.placeName ?? preview.request.anchor.placeName}からの新しい経路に変更しました',
+            l10n.replanAppliedFrom(
+              ref.read(currentRouteReplanRequestProvider)?.anchor.placeName ??
+                  preview.request.anchor.placeName,
+            ),
           ),
         ),
       );
@@ -169,7 +174,7 @@ class _RouteReplanPreviewButtonState
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('新しい経路を検索できませんでした: $error')),
+        SnackBar(content: Text(l10n.replanSearchFailed(error.toString()))),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -180,6 +185,7 @@ class _RouteReplanPreviewButtonState
     RouteReplanPreview preview,
     Candidate selectedCandidate,
   ) async {
+    final l10n = AppLocalizations.of(context);
     final currentRequest = ref.read(currentRouteReplanRequestProvider);
     if (currentRequest == null ||
         !sameRouteReplanRequestState(currentRequest, preview.request)) {
@@ -193,21 +199,19 @@ class _RouteReplanPreviewButtonState
         'currentAnchorPlace': currentRequest?.anchor.placeName,
         'currentAnchorAt': currentRequest?.anchor.availableAt.toIso8601String(),
       });
-      throw StateError(
-        '比較表示中に移動状況が変わりました。最新の経路へ更新してから選び直してください。',
-      );
+      throw StateError(l10n.replanPreviewStateChanged);
     }
 
     final tripAsync = ref.read(tripStreamProvider);
     final currentTrip = tripAsync.value;
     if (currentTrip == null) {
-      throw StateError('現在のTripを取得できません');
+      throw StateError(l10n.replanTripUnavailable);
     }
-    _validateApplyPermission(currentTrip);
+    _validateApplyPermission(currentTrip, l10n);
 
     final actorUserId = UserService().currentUserId;
     if (actorUserId == null || actorUserId.trim().isEmpty) {
-      throw StateError('経路変更を行うユーザーIDを取得できません');
+      throw StateError(l10n.replanUserUnavailable);
     }
 
     final patch = RouteReplanPatcher.build(
@@ -232,18 +236,18 @@ class _RouteReplanPreviewButtonState
     });
   }
 
-  void _validateApplyPermission(Trip trip) {
+  void _validateApplyPermission(Trip trip, AppLocalizations l10n) {
     if (trip.isSolo) return;
     if (!widget.allowGroupLeaderApply) {
-      throw StateError('この画面からグループ経路は変更できません');
+      throw StateError(l10n.groupReplanUnavailableHere);
     }
 
     final actorUserId = UserService().currentUserId;
     if (actorUserId == null || actorUserId.trim().isEmpty) {
-      throw StateError('経路変更を行うユーザーIDを取得できません');
+      throw StateError(l10n.replanUserUnavailable);
     }
     if (actorUserId != trip.leaderId) {
-      throw StateError('グループの経路を変更できるのはリーダーだけです');
+      throw StateError(l10n.groupReplanLeaderOnly);
     }
   }
 }

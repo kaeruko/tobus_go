@@ -2,7 +2,10 @@ import 'package:flutter/widgets.dart';
 
 import '../models/route_models.dart';
 
-bool isEnglishTransitLocale(Locale locale) => locale.languageCode == 'en';
+/// Both English and Chinese UI use the API's official English transit names.
+/// Japanese names remain alongside stop/place names for matching local signs.
+bool isEnglishTransitLocale(Locale locale) =>
+    locale.languageCode == 'en' || locale.languageCode == 'zh';
 
 String _requiredEnglish(
   String? value, {
@@ -126,11 +129,8 @@ String? localizedStepEndpointName(
       final waitPlace = step.place?.trim();
       return localizedTransitName(
         locale,
-        japanese: waitPlace == null || waitPlace.isEmpty
-            ? japanese
-            : waitPlace,
-        english: step.placeEn ??
-            (origin ? step.fromNameEn : step.toNameEn),
+        japanese: waitPlace == null || waitPlace.isEmpty ? japanese : waitPlace,
+        english: step.placeEn ?? (origin ? step.fromNameEn : step.toNameEn),
         field: 'place_en',
         identity: 'stepId=${step.stepId}',
       );

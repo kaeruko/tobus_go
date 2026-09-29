@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
+import '../l10n/transit_name_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
@@ -128,7 +129,7 @@ class SoloTripDetailPage extends StatelessWidget {
     ScheduleEntry entry,
   ) {
     if (entry.description.isEmpty) return null;
-    if (locale.languageCode == 'en' &&
+    if (isEnglishTransitLocale(locale) &&
         entry.generatedBy == ScheduleEntrySource.route &&
         entry.itemKind == ScheduleEntryKind.goal) {
       return Text(l10n.navTripEndedSub);

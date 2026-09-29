@@ -1074,5 +1074,159 @@
         "type": "String"
       }
     }
-  }
+  },
+  "languageSettingsTitle": "Language",
+  "languageSystem": "System default",
+  "languageSaveFailed": "Could not save language: {error}",
+  "@languageSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleWalkTo": "Walk to {destination}{duration}",
+  "@scheduleWalkTo": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleBoardAt": "Board at {place}",
+  "@scheduleBoardAt": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleArriveAt": "Arrive at {place}",
+  "@scheduleArriveAt": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "currentLocationLabel": "Current location",
+  "currentLocationSetLabel": "Current location (set)",
+  "mapLongPress": "Touch and hold to choose a location",
+  "mapConfirm": "Use this location",
+  "experienceAround": "Around {name}",
+  "@experienceAround": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "experienceLoadFailed": "Could not load nearby information",
+  "experienceEmpty": "No recommended places were found",
+  "experienceCentralStop": "Central stop: {name}",
+  "@experienceCentralStop": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "experienceSpotCount": "Includes {count} places",
+  "@experienceSpotCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "experienceGoHere": "Go here",
+  "experienceMemo": "Explore notes",
+  "experienceSurroundings": "Around the area",
+  "experienceTagWater": "Riverside",
+  "experienceTagPark": "Park",
+  "experienceTagShopping": "Shopping street",
+  "experienceTagHistory": "History",
+  "experienceWaterPark": "An area for a leisurely riverside walk",
+  "experienceShopping": "Enjoy a stroll through a traditional shopping street",
+  "experienceHistory": "A quiet old-town area dotted with temples and shrines",
+  "experiencePark": "A nearby area for a relaxing break",
+  "experienceResidential": "Experience a quiet residential neighborhood",
+  "settingsUserInfo": "User information",
+  "settingsUserName": "User name",
+  "settingsChangeUserName": "Change user name",
+  "settingsNewName": "New name",
+  "settingsSave": "Save",
+  "settingsGuest": "Guest",
+  "settingsUserId": "User ID",
+  "settingsLoading": "Loading…",
+  "settingsIdCopied": "ID copied",
+  "settingsEnableStaff": "Enable staff and administrator features",
+  "settingsStaffDescription": "Show reports and advanced management features",
+  "settingsManualLocation": "Set location manually",
+  "settingsSearchLocation": "Search for a location",
+  "settingsCurrentCoordinates": "Current setting: {latitude}, {longitude}",
+  "@settingsCurrentCoordinates": {
+    "placeholders": {
+      "latitude": {
+        "type": "String"
+      },
+      "longitude": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsUsingGps": "Current setting: using GPS",
+  "settingsResetGps": "Clear and use GPS",
+  "settingsAdminMenu": "Debug and administrator menu",
+  "settingsTimeOffset": "Set time offset",
+  "settingsTimeOffsetDescription": "Shift the current time by the specified amount for debugging.",
+  "settingsHours": "Hours",
+  "settingsMinutes": "Minutes",
+  "settingsReset": "Reset",
+  "settingsApply": "Apply",
+  "settingsNoTimeOffset": "No offset (current time: {time})",
+  "@settingsNoTimeOffset": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsTimeOffsetSummary": "Offset: {hours}h {minutes}m\nSimulated time: {time}",
+  "@settingsTimeOffsetSummary": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsCreateDebugTrip": "Debug: create Higashi-Sumida 3 (東墨田三丁目)–Nakaibori (中居堀) route",
+  "settingsDebugTripDescription": "Outbound: in 15 min; return: in 2 hours\nHigashi-Sumida 3 (東墨田三丁目) ⇔ Nakaibori (中居堀)",
+  "settingsCreatingDebugTrip": "Creating a debug trip…",
+  "settingsDebugOutboundNotFound": "No outbound route found",
+  "settingsDebugInboundNotFound": "No return route found",
+  "settingsDeleteAllTrips": "Danger: delete all trip data",
+  "settingsDeleteAllTripsDescription": "Empty the trips collection in Firestore",
+  "settingsDeleteAllTitle": "Delete all data",
+  "settingsDeleteAllConfirmation": "Delete all trip data?\nThis cannot be undone.",
+  "settingsDeleting": "Deleting…",
+  "settingsAllTripsDeleted": "All data deleted",
+  "settingsOpenAsLeader": "Open latest trip as leader",
+  "settingsOpenAsLeaderDescription": "Show management for the most recently created trip",
+  "settingsTripReports": "Trips and reports",
+  "settingsTripReportsDescription": "Review past trips and create reports",
+  "settingsOpenAsMember": "Open latest trip as member",
+  "settingsOpenAsMemberDescription": "Show the participant view for the most recently created trip",
+  "settingsNoTrip": "No trip found. Create a trip first.",
+  "settingsMemberModeEnabled": "Switched to member mode",
+  "settingsNoJoinableTrip": "No trip available to join"
 }

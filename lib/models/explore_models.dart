@@ -1,3 +1,7 @@
+import 'package:flutter/widgets.dart';
+
+import '../l10n/transit_name_localizations.dart';
+
 class ReachableStop {
   final String id;
   final String name;
@@ -16,14 +20,14 @@ class ReachableStop {
   });
 
   String nameForLanguageCode(String languageCode) {
-    if (languageCode != 'en') return name;
+    if (languageCode != 'en' && languageCode != 'zh') return name;
     final value = nameEn;
     if (value == null || value.trim().isEmpty) {
       throw const FormatException(
         'ReachableStop.name_en is required for English UI',
       );
     }
-    return value;
+    return localizedTransitName(Locale(languageCode), japanese: name, english: value, field: 'name_en', identity: 'stopId=$id');
   }
 
   factory ReachableStop.fromJson(Map<String, dynamic> json) {
@@ -62,7 +66,7 @@ class NearestStop {
   });
 
   String nameForLanguageCode(String languageCode) {
-    return languageCode == 'en' ? nameEn : name;
+    return localizedTransitName(Locale(languageCode), japanese: name, english: nameEn, field: 'name_en', identity: 'stopId=$id');
   }
 
   factory NearestStop.fromJson(Map<String, dynamic> json) {
@@ -138,6 +142,7 @@ class ExperienceGroup {
     final representativeStop = ReachableStop(
       id: repData['stop_id'] as String? ?? '',
       name: repData['stop_name'] as String? ?? '',
+      nameEn: repData['stop_name_en'] as String?,
       lat: (repData['lat'] as num?)?.toDouble() ?? 0.0,
       lon: (repData['lon'] as num?)?.toDouble() ?? 0.0,
       viaRoute: '',
@@ -148,6 +153,7 @@ class ExperienceGroup {
           return ReachableStop(
             id: m['stop_id'] ?? '',
             name: m['stop_name'] ?? '',
+            nameEn: m['stop_name_en'] as String?,
             lat: 0,
             lon: 0,
             viaRoute: '',
@@ -212,7 +218,7 @@ class ExploreEditorialImage {
   });
 
   String captionForLanguageCode(String languageCode) {
-    return languageCode == 'en' ? captionEn : caption;
+    return languageCode == 'en' || languageCode == 'zh' ? captionEn : caption;
   }
 
   factory ExploreEditorialImage.fromJson(
@@ -256,7 +262,7 @@ class ExploreEditorialSpot {
   });
 
   String commentForLanguageCode(String languageCode) {
-    return languageCode == 'en' ? commentEn : comment;
+    return languageCode == 'en' || languageCode == 'zh' ? commentEn : comment;
   }
 
   factory ExploreEditorialSpot.fromJson(

@@ -6,6 +6,7 @@ import 'core/app_clock.dart';
 import 'l10n/app_localizations.dart';
 import 'l10n/city_localizations.dart';
 import 'providers/city_profile_provider.dart';
+import 'providers/locale_provider.dart';
 import 'root_gate.dart';
 
 void main() {
@@ -38,6 +39,7 @@ class App extends ConsumerWidget {
       ),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      locale: ref.watch(localeProvider).valueOrNull,
       builder: (context, child) => ScaffoldMessenger(child: child!),
       home: const RootGate(),
     );

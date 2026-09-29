@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
 import '../logic/route_replan_presentation.dart';
 import '../models/trip_models.dart';
 import '../providers/delay_impact_provider.dart';
@@ -104,6 +105,7 @@ class GroupLeaderRouteReplanContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final tripAsync = ref.watch(tripStreamProvider);
     final delayResolution = ref.watch(resolvedDelayImpactProvider);
     final delayImpact = delayResolution.impact;
@@ -111,8 +113,9 @@ class GroupLeaderRouteReplanContent extends ConsumerWidget {
     final scheduleImpact = ref.watch(groupScheduleImpactProvider);
     final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
         ? null
-        : '次便のRealtime確認に失敗したため、予定時刻で判定しています: '
-            '${delayResolution.nextRideRealtimeError}';
+        : l10n.realtimeScheduleFallback(
+            delayResolution.nextRideRealtimeError.toString(),
+          );
 
     return tripAsync.when(
       loading: () => alwaysShowAction && !warningOnly
@@ -128,7 +131,7 @@ class GroupLeaderRouteReplanContent extends ConsumerWidget {
               color: Colors.red.shade50,
               child: Padding(
                 padding: const EdgeInsets.all(14),
-                child: Text('経路見直しを準備できませんでした: $error'),
+                child: Text(l10n.replanPrepareFailed(error.toString())),
               ),
             ),
       data: (trip) {
@@ -139,9 +142,9 @@ class GroupLeaderRouteReplanContent extends ConsumerWidget {
             return Card(
               elevation: 0,
               color: Colors.grey.shade100,
-              child: const Padding(
-                padding: EdgeInsets.all(14),
-                child: Text('おでかけの開始状態を確認しています…'),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Text(l10n.groupTripStartChecking),
               ),
             );
           }
@@ -162,8 +165,7 @@ class GroupLeaderRouteReplanContent extends ConsumerWidget {
               scheduledNextDepartureAt:
                   delayResolution.scheduledNextDepartureAt,
               realtimeDiagnostic: realtimeDiagnostic,
-              helperText:
-                  'この変更はリーダーだけが確定できます。確定後は参加者の画面にも反映されます。',
+              helperText: l10n.groupReplanLeaderNotice,
               action: replanButton,
             ),
           );
@@ -176,8 +178,7 @@ class GroupLeaderRouteReplanContent extends ConsumerWidget {
           warnings.add(
             GroupScheduleImpactCard(
               impact: scheduleImpact,
-              helperText:
-                  '休憩などの手動予定だけを調整できます。交通便と帰りの経路は自動では動かしません。',
+              helperText: l10n.groupScheduleManualNotice,
               action: GroupScheduleShiftButton(
                 trip: trip,
                 impact: scheduleImpact,
@@ -237,6 +238,7 @@ class _DefaultGroupReplanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Card(
       elevation: 0,
       color: Colors.blue.shade50,
@@ -253,18 +255,18 @@ class _DefaultGroupReplanCard extends StatelessWidget {
               children: [
                 Icon(Icons.alt_route, color: Colors.blue.shade700),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    '移動中の経路を調整',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    l10n.groupReplanTitle,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            const Text(
-              '駅・停留所の進捗から再検索します。変更すると参加者の画面にも反映されます。',
-              style: TextStyle(fontSize: 13, color: Colors.black54),
+            Text(
+              l10n.groupReplanDescription,
+              style: const TextStyle(fontSize: 13, color: Colors.black54),
             ),
             replanButton,
           ],

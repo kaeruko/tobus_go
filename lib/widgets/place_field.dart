@@ -188,6 +188,7 @@ class _PlaceFieldState extends State<PlaceField> {
   bool _isSyncing = false;
   String? _errorMessage;
   int _inputGeneration = 0;
+  String? _lastLocaleCode;
 
   String _placeLanguageCode() {
     final languageCode = Localizations.localeOf(context).languageCode;
@@ -195,6 +196,9 @@ class _PlaceFieldState extends State<PlaceField> {
       case 'ja':
       case 'en':
         return languageCode;
+      case 'zh':
+        // Reuse the same official English/Japanese place data in Chinese UI.
+        return 'en';
       default:
         throw StateError(
           'Unsupported place-search language: $languageCode',
@@ -217,6 +221,20 @@ class _PlaceFieldState extends State<PlaceField> {
       debugPrint('[PlaceField] backend warmup failed: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final code = Localizations.localeOf(context).languageCode;
+    if (_lastLocaleCode != null && _lastLocaleCode != code) {
+      _autocompleteTimer?.cancel();
+      ++_inputGeneration;
+      _preds = [];
+      _loading = false;
+      _errorMessage = null;
+    }
+    _lastLocaleCode = code;
   }
 
   @override
@@ -260,7 +278,8 @@ class _PlaceFieldState extends State<PlaceField> {
       });
     }
 
-    if (query.isEmpty) return;
+    // Wait for IME confirmation; pinyin/kana composition is not a search yet.
+    if (query.isEmpty || !_ctrl.value.composing.isCollapsed) return;
 
     _autocompleteTimer = Timer(
       _autocompleteDebounce,
@@ -280,6 +299,7 @@ class _PlaceFieldState extends State<PlaceField> {
       // If the user starts typing before startup warmup finishes, wait for the
       // same request instead of racing autocomplete against another cold start.
       await ApiClient.warmUp();
+      if (!mounted || generation != _inputGeneration) return;
       final json = await ApiClient.get(
         '/autocomplete',
         params: {
@@ -371,6 +391,7 @@ class _PlaceFieldState extends State<PlaceField> {
         english,
         language: 'en',
       );
+      if (!mounted || generation != _inputGeneration) return;
       final displayName = _placeLanguageCode() == 'en'
           ? resolvedNameEn
           : resolvedNameJa;
