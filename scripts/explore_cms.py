@@ -232,6 +232,89 @@ def save_group(
     return new_filename
 
 
+
+def delete_group_image(
+    *,
+    stop_name: str,
+    route_id: str,
+    filename: str,
+) -> None:
+    filename = validate_image_name(filename)
+    groups = load_groups()
+    group_index = find_group_index(
+        groups,
+        stop_name=stop_name,
+        route_id=route_id,
+    )
+    if group_index is None:
+        raise ExploreContentError(
+            "entry was not found for image deletion: "
+            f"stop_name={stop_name!r}, route_id={route_id!r}"
+        )
+
+    group = groups[group_index]
+    matching_indexes = [
+        index
+        for index, image in enumerate(group["images"])
+        if image["file"] == filename
+    ]
+    if len(matching_indexes) != 1:
+        raise ExploreContentError(
+            "image reference count must be exactly 1 before deletion: "
+            f"filename={filename!r}, count={len(matching_indexes)}"
+        )
+
+    image_path = IMAGES_DIR / filename
+    if not image_path.is_file():
+        raise ExploreContentError(
+            f"image file was not found for deletion: {image_path}"
+        )
+    image_content = image_path.read_bytes()
+
+    updated_group = {
+        "stop_name": group["stop_name"],
+        "route_id": group["route_id"],
+        "comment": group["comment"],
+        "comment_en": group["comment_en"],
+        "images": [
+            dict(image)
+            for index, image in enumerate(group["images"])
+            if index != matching_indexes[0]
+        ],
+    }
+    if updated_group["comment"] or updated_group["images"]:
+        groups[group_index] = updated_group
+    else:
+        groups.pop(group_index)
+
+    temp_csv = CSV_PATH.parent / f".spots.{uuid.uuid4().hex}.tmp.csv"
+    image_removed = False
+    try:
+        image_path.unlink()
+        image_removed = True
+        write_authoring_groups(temp_csv, groups)
+        compile_csv(
+            temp_csv,
+            IMAGES_DIR,
+            data_dir=DATA_DIR,
+        )
+        temp_csv.replace(CSV_PATH)
+    except Exception as error:
+        if image_removed:
+            try:
+                image_path.write_bytes(image_content)
+            except Exception as restore_error:
+                raise ExploreContentError(
+                    "image deletion failed and rollback also failed: "
+                    f"filename={filename!r}, "
+                    f"original_error={error!r}, "
+                    f"restore_error={restore_error!r}"
+                ) from error
+        raise
+    finally:
+        if temp_csv.exists():
+            temp_csv.unlink()
+
 def publish() -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(PUBLISH_SCRIPT)],
@@ -344,6 +427,23 @@ def main() -> None:
                         caption=image["caption"] or image["file"],
                         width=320,
                     )
+                    if st.button(
+                        "この写真を削除",
+                        key=f"delete::{widget_scope}::{image['file']}",
+                    ):
+                        try:
+                            delete_group_image(
+                                stop_name=selected_stop_name,
+                                route_id=selected_route_id,
+                                filename=image["file"],
+                            )
+                        except ExploreContentError as error:
+                            st.error(str(error))
+                        except Exception as error:
+                            st.exception(error)
+                        else:
+                            st.success("写真を削除しました。")
+                            st.rerun()
 
             uploaded = st.file_uploader(
                 "写真を追加",
