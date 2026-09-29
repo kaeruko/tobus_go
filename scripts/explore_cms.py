@@ -4,9 +4,11 @@ from __future__ import annotations
 import subprocess
 import sys
 import uuid
+from io import BytesIO
 from pathlib import Path
 
 import streamlit as st
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -54,6 +56,58 @@ def find_group_index(
     return None
 
 
+IMAGE_FORMAT_BY_SUFFIX = {
+    ".jpg": "JPEG",
+    ".jpeg": "JPEG",
+    ".png": "PNG",
+    ".webp": "WEBP",
+}
+EXIF_ORIENTATION_TAG = 274
+VALID_EXIF_ORIENTATIONS = frozenset(range(1, 9))
+
+
+def normalize_uploaded_image(content: bytes, *, suffix: str) -> bytes:
+    expected_format = IMAGE_FORMAT_BY_SUFFIX.get(suffix)
+    if expected_format is None:
+        raise ExploreContentError(
+            f"unsupported uploaded image extension {suffix!r}"
+        )
+
+    try:
+        with Image.open(BytesIO(content)) as image:
+            image.load()
+            if image.format != expected_format:
+                raise ExploreContentError(
+                    "uploaded image format does not match its extension: "
+                    f"extension={suffix!r}, detected_format={image.format!r}"
+                )
+
+            orientation = image.getexif().get(EXIF_ORIENTATION_TAG, 1)
+            if orientation not in VALID_EXIF_ORIENTATIONS:
+                raise ExploreContentError(
+                    f"invalid EXIF orientation value: {orientation!r}"
+                )
+            if orientation == 1:
+                return content
+
+            normalized = ImageOps.exif_transpose(image)
+            output = BytesIO()
+            save_kwargs = {}
+            icc_profile = image.info.get("icc_profile")
+            if icc_profile is not None:
+                save_kwargs["icc_profile"] = icc_profile
+            normalized.save(output, format=expected_format, **save_kwargs)
+            return output.getvalue()
+    except UnidentifiedImageError as error:
+        raise ExploreContentError(
+            "uploaded file could not be decoded as an image"
+        ) from error
+    except OSError as error:
+        raise ExploreContentError(
+            f"failed to decode or normalize uploaded image: {error}"
+        ) from error
+
+
 def save_group(
     *,
     stop_name: str,
@@ -85,6 +139,7 @@ def save_group(
         content = uploaded_file.getvalue()
         if not content:
             raise ExploreContentError("uploaded image is empty")
+        content = normalize_uploaded_image(content, suffix=suffix)
 
         new_filename = validate_image_name(
             f"explore_{uuid.uuid4().hex}{suffix}"
