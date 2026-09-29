@@ -6,7 +6,6 @@ import '../core/city_profile.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/city_profile_provider.dart';
 import '../services/fare_policy_preferences.dart';
-import '../widgets/language_settings_section.dart';
 import 'settings_page.dart';
 
 class FarePolicySettingsPage extends ConsumerStatefulWidget {
@@ -114,8 +113,6 @@ class _FarePolicySettingsPageState
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           children: [
-            const LanguageSettingsSection(),
-            const SizedBox(height: 24),
             Text(
               l10n.fareSettingsHeading,
               style: const TextStyle(
