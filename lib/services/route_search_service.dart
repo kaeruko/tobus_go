@@ -1,10 +1,8 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../core/api_client.dart';
-import '../core/city_profile.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
-import 'fare_policy_preferences.dart';
 
 class RouteSearchRequest {
   final LatLng origin;
@@ -125,28 +123,9 @@ class ApiRouteSearchService implements RouteSearchService {
       rawCandidates = resolvedCandidates;
     }
 
-    final policyId = await FarePolicyPreferences.load(configuredCityProfile);
-    final fareResponse = await ApiClient.post(
-      '/fare/apply',
-      body: {
-        'policy_id': policyId,
-        'candidates': rawCandidates,
-      },
-    );
-    final fareCandidates = fareResponse['candidates'];
-    if (fareCandidates is! List) {
-      throw const FormatException('fare response is missing candidates list');
-    }
-    if (fareCandidates.length != rawCandidates.length) {
-      throw StateError(
-        'fare response candidate count changed: '
-        '${rawCandidates.length} -> ${fareCandidates.length}',
-      );
-    }
-
     final candidates = <Candidate>[];
-    final fares = <String, FareQuote>{};
-    for (final rawCandidate in fareCandidates) {
+    final candidateIds = <String>{};
+    for (final rawCandidate in rawCandidates) {
       if (rawCandidate is! Map) {
         throw const FormatException('route candidate must be an object');
       }
@@ -171,28 +150,16 @@ class ApiRouteSearchService implements RouteSearchService {
       if (candidate.id.isEmpty) {
         throw const FormatException('route candidate is missing id');
       }
-      if (fares.containsKey(candidate.id)) {
+      if (!candidateIds.add(candidate.id)) {
         throw FormatException('duplicate route candidate id: ${candidate.id}');
       }
-      final rawFare = map['fare'];
-      if (rawFare is! Map) {
-        throw FormatException('route candidate ${candidate.id} is missing fare');
-      }
-      final fare = FareQuote.fromJson(Map<String, dynamic>.from(rawFare));
-      if (fare.policyId != policyId) {
-        throw StateError(
-          'fare policy mismatch for ${candidate.id}: '
-          'selected=$policyId response=${fare.policyId}',
-        );
-      }
       candidates.add(candidate);
-      fares[candidate.id] = fare;
     }
 
     return RouteSearchResult(
       candidates: List.unmodifiable(candidates),
       meta: RouteMeta.fromJson(Map<String, dynamic>.from(rawMeta)),
-      fareByCandidateId: Map.unmodifiable(fares),
+      fareByCandidateId: const {},
     );
   }
 

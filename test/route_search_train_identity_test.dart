@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:toeigo/constants.dart';
 import 'package:toeigo/core/api_client.dart';
 import 'package:toeigo/services/route_search_service.dart';
@@ -17,7 +16,6 @@ void main() {
   setUp(() {
     originalClient = ApiClient.httpClient;
     configureApiBase(Uri.parse('https://api.example.test'));
-    SharedPreferences.setMockInitialValues({});
   });
 
   tearDown(() {
@@ -89,7 +87,7 @@ void main() {
     'walk_limit_m': 1000,
   };
 
-  test('rail candidates are resolved to exact trip_id before fare parsing', () async {
+  test('rail candidates are resolved to exact trip_id before route parsing', () async {
     final calls = <String>[];
     ApiClient.httpClient = MockClient((request) async {
       calls.add(request.url.path);
@@ -117,33 +115,6 @@ void main() {
           headers: {'content-type': 'application/json; charset=utf-8'},
         );
       }
-      if (request.url.path == '/fare/apply') {
-        final body = jsonDecode(request.body) as Map<String, dynamic>;
-        expect(body['policy_id'], 'normal');
-        final candidates = body['candidates'] as List<dynamic>;
-        final candidate = Map<String, dynamic>.from(
-          candidates.single as Map,
-        );
-        final steps = candidate['steps'] as List<dynamic>;
-        final rail = Map<String, dynamic>.from(steps.single as Map);
-        expect(rail['trip_id'], '121603T0');
-        expect(rail['route_id'], '1');
-        candidate['fare'] = {
-          'normalFareYen': null,
-          'payNowYen': null,
-          'effectiveFareYen': null,
-          'policyId': 'normal',
-          'settlementType': 'normal',
-          'status': 'unavailable',
-          'unavailableReason':
-              'normal_fare_not_calculable_from_current_route_data',
-        };
-        return http.Response(
-          jsonEncode({'candidates': [candidate]}),
-          200,
-          headers: {'content-type': 'application/json; charset=utf-8'},
-        );
-      }
       return http.Response('not found', 404);
     });
 
@@ -152,12 +123,11 @@ void main() {
     expect(calls, [
       '/route',
       '/train/resolve-route-identities',
-      '/fare/apply',
     ]);
     expect(result.candidates, hasLength(1));
     expect(result.candidates.single.steps.single.tripId, '121603T0');
     expect(result.candidates.single.steps.single.routeId, '1');
-    expect(result.fareByCandidateId['Fastest']?.status, 'unavailable');
+    expect(result.fareByCandidateId, isEmpty);
   });
 
   test('all rejected rail identities fail instead of falling back', () async {

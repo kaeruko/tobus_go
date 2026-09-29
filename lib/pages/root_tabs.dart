@@ -7,7 +7,6 @@ import '../l10n/city_localizations.dart';
 import '../providers/city_profile_provider.dart';
 import '../providers/navigation_provider.dart';
 import 'explore_page.dart';
-import 'fare_policy_settings_page.dart';
 import 'history_page.dart';
 import 'my_route_page.dart';
 import 'route_search_page.dart';
@@ -30,7 +29,7 @@ class _RootTabsState extends ConsumerState<RootTabs> {
   late CupertinoTabController _controller;
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys = List.generate(
-    5,
+    4,
     (_) => GlobalKey<NavigatorState>(),
   );
 
@@ -86,13 +85,6 @@ class _RootTabsState extends ConsumerState<RootTabs> {
           ),
           page: const HistoryPage(),
         ),
-      _RootTabEntry(
-        item: BottomNavigationBarItem(
-          icon: const Icon(CupertinoIcons.settings),
-          label: l10n.tabSettings,
-        ),
-        page: const FarePolicySettingsPage(),
-      ),
     ];
   }
 
