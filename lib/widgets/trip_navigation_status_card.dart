@@ -57,6 +57,11 @@ class TripNavigationStatusCard extends StatelessWidget {
             fallback: navState.noticeText!,
           );
     final nextStopName = _localizedNextStopName(locale);
+    final showRideRealtimeIndicator =
+        noticeText != null &&
+        noticeText.isNotEmpty &&
+        _usesStructuredRideHeading() &&
+        navState.step?.kind == 'bus';
     return Card(
       margin: EdgeInsets.zero,
       elevation: 4,
@@ -82,7 +87,12 @@ class TripNavigationStatusCard extends StatelessWidget {
             ],
             const SizedBox(height: 18),
             if (_usesStructuredRideHeading())
-              _buildStructuredRideHeading(context, l10n, locale)
+              _buildStructuredRideHeading(
+                context,
+                l10n,
+                locale,
+                showRealtimeIndicator: showRideRealtimeIndicator,
+              )
             else if (_usesStructuredWalkToRideHeading())
               _buildStructuredWalkToRideHeading(context, l10n, locale)
             else ...[
@@ -102,7 +112,9 @@ class TripNavigationStatusCard extends StatelessWidget {
                 ),
               ),
             ],
-            if (noticeText != null) ...[
+            if (noticeText != null &&
+                noticeText.isNotEmpty &&
+                !showRideRealtimeIndicator) ...[
               const SizedBox(height: 14),
               Container(
                 width: double.infinity,
@@ -373,8 +385,9 @@ class TripNavigationStatusCard extends StatelessWidget {
   Widget _buildStructuredRideHeading(
     BuildContext context,
     AppLocalizations l10n,
-    Locale locale,
-  ) {
+    Locale locale, {
+    bool showRealtimeIndicator = false,
+  }) {
     final step = navState.step;
     final token = navState.mainTextToken;
     if (step == null || !step.isRide || token == null) {
@@ -398,12 +411,32 @@ class TripNavigationStatusCard extends StatelessWidget {
             ),
             const SizedBox(width: 7),
             Expanded(
-              child: Text(
-                routeTitle,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      routeTitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (showRealtimeIndicator) ...[
+                    const SizedBox(width: 6),
+                    Semantics(
+                      key: const ValueKey('ride-realtime-status-indicator'),
+                      label: l10n.navRealtimeRefreshingSemantics,
+                      child: Icon(
+                        Icons.sync,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ],
