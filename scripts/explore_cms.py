@@ -62,6 +62,12 @@ IMAGE_FORMAT_BY_SUFFIX = {
     ".png": "PNG",
     ".webp": "WEBP",
 }
+ACCEPTED_SOURCE_FORMATS_BY_SUFFIX = {
+    ".jpg": frozenset({"JPEG", "MPO"}),
+    ".jpeg": frozenset({"JPEG", "MPO"}),
+    ".png": frozenset({"PNG"}),
+    ".webp": frozenset({"WEBP"}),
+}
 EXIF_ORIENTATION_TAG = 274
 VALID_EXIF_ORIENTATIONS = frozenset(range(1, 9))
 
@@ -73,13 +79,16 @@ def normalize_uploaded_image(content: bytes, *, suffix: str) -> bytes:
             f"unsupported uploaded image extension {suffix!r}"
         )
 
+    accepted_source_formats = ACCEPTED_SOURCE_FORMATS_BY_SUFFIX[suffix]
+
     try:
         with Image.open(BytesIO(content)) as image:
             image.load()
-            if image.format != expected_format:
+            detected_format = image.format
+            if detected_format not in accepted_source_formats:
                 raise ExploreContentError(
                     "uploaded image format does not match its extension: "
-                    f"extension={suffix!r}, detected_format={image.format!r}"
+                    f"extension={suffix!r}, detected_format={detected_format!r}"
                 )
 
             orientation = image.getexif().get(EXIF_ORIENTATION_TAG, 1)
@@ -87,7 +96,9 @@ def normalize_uploaded_image(content: bytes, *, suffix: str) -> bytes:
                 raise ExploreContentError(
                     f"invalid EXIF orientation value: {orientation!r}"
                 )
-            if orientation == 1:
+
+            needs_transcode = detected_format != expected_format
+            if orientation == 1 and not needs_transcode:
                 return content
 
             normalized = ImageOps.exif_transpose(image)
