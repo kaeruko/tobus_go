@@ -2,6 +2,11 @@ name: iOS TestFlight
 
 on:
   workflow_dispatch:
+    inputs:
+      app_version:
+        description: "TestFlight version (例: 1.0.5)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -45,17 +50,20 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Resolve version and automatic build number
+      - name: Resolve requested version and automatic build number
         shell: bash
+        env:
+          REQUESTED_APP_VERSION: ${{ inputs.app_version }}
         run: |
           set -euo pipefail
 
-          PUBSPEC_VERSION="$(sed -nE 's/^version:[[:space:]]*([^[:space:]]+).*$/\1/p' pubspec.yaml)"
-          [[ -n "$PUBSPEC_VERSION" ]] || { echo "::error::pubspec.yaml version was not found"; exit 1; }
-
-          BUILD_NAME="${PUBSPEC_VERSION%%+*}"
+          BUILD_NAME="${REQUESTED_APP_VERSION}"
+          [[ -n "$BUILD_NAME" ]] || {
+            echo "::error::TestFlight version is required"
+            exit 1
+          }
           [[ "$BUILD_NAME" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] || {
-            echo "::error::Unsupported pubspec version: $PUBSPEC_VERSION"
+            echo "::error::Unsupported TestFlight version: $BUILD_NAME (expected e.g. 1.0.5)"
             exit 1
           }
 
@@ -73,6 +81,9 @@ jobs:
           echo "BUILD_NAME=$BUILD_NAME" >> "$GITHUB_ENV"
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
           echo "TestFlight version: $BUILD_NAME ($BUILD_NUMBER)"
+          echo "### TestFlight build" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: $BUILD_NAME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Build: $BUILD_NUMBER" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Force CocoaPods plugin integration
         shell: bash
