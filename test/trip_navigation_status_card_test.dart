@@ -108,9 +108,6 @@ void main() {
   testWidgets(
     'bus realtime indicator sits beside route title without notice row',
     (tester) async {
-      final semantics = tester.ensureSemantics();
-      addTearDown(semantics.dispose);
-
       final step = StepSeg(
         stepId: 'bus-realtime-indicator',
         kind: 'bus',
@@ -172,10 +169,10 @@ void main() {
         find.byKey(const ValueKey('ride-realtime-status-indicator')),
         findsOneWidget,
       );
-      expect(
-        find.bySemanticsLabel('リアルタイム位置情報を更新中'),
-        findsOneWidget,
+      final semantics = tester.widget<Semantics>(
+        find.byKey(const ValueKey('ride-realtime-status-indicator')),
       );
+      expect(semantics.properties.label, 'リアルタイム位置情報を更新中');
       expect(find.text('📍'), findsNothing);
       expect(tester.takeException(), isNull);
     },
