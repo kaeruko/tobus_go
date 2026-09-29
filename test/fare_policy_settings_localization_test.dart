@@ -13,12 +13,12 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('Tokyo fare settings render English policy names', (tester) async {
+  testWidgets('Tokyo fare settings render English policy names', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          cityProfileProvider.overrideWithValue(tokyoCityProfile),
-        ],
+        overrides: [cityProfileProvider.overrideWithValue(tokyoCityProfile)],
         child: CupertinoApp(
           locale: const Locale('en'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -32,13 +32,12 @@ void main() {
     expect(find.text('Fares & passes'), findsOneWidget);
     expect(find.text('Regular fare'), findsWidgets);
     expect(
-      find.text(
-        'Toei Transportation Pass for People with Mental Disabilities',
-      ),
+      find.text('Toei Transportation Pass for People with Mental Disabilities'),
       findsOneWidget,
     );
     expect(find.text('Free pass'), findsOneWidget);
     expect(find.text('View official information'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Open other settings'), 200);
     expect(find.text('Open other settings'), findsOneWidget);
   });
 }

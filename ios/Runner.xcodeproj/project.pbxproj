@@ -240,6 +240,7 @@
 			knownRegions = (
 				en,
 				ja,
+				"zh-Hans",
 				Base,
 			);
 			mainGroup = 97C146E51CF9000F007C117D;
@@ -289,6 +290,7 @@
 			outputPaths = (
 				"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/en.lproj/InfoPlist.strings",
 				"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/ja.lproj/InfoPlist.strings",
+				"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/zh-Hans.lproj/InfoPlist.strings",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

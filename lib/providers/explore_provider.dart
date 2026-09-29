@@ -4,16 +4,18 @@ import '../core/api_client.dart';
 import '../models/explore_models.dart';
 
 final exploreProvider =
-    StateNotifierProvider<ExploreNotifier, AsyncValue<ReachableResponse?>>(
-        (ref) {
-  return ExploreNotifier();
-});
+    StateNotifierProvider<ExploreNotifier, AsyncValue<ReachableResponse?>>((
+      ref,
+    ) {
+      return ExploreNotifier();
+    });
 
-final exploreEditorialContentProvider =
-    FutureProvider<ExploreEditorialContent>((ref) async {
-  final json = await ApiClient.get('/explore/content');
-  return ExploreEditorialContent.fromJson(json);
-});
+final exploreEditorialContentProvider = FutureProvider<ExploreEditorialContent>(
+  (ref) async {
+    final json = await ApiClient.get('/explore/content');
+    return ExploreEditorialContent.fromJson(json);
+  },
+);
 
 class ExploreNotifier extends StateNotifier<AsyncValue<ReachableResponse?>> {
   ExploreNotifier() : super(const AsyncData(null));
@@ -46,7 +48,7 @@ class ExploreNotifier extends StateNotifier<AsyncValue<ReachableResponse?>> {
           "stop_name_en": stop.nameEn,
           "lat": stop.lat,
           "lon": stop.lon,
-        }
+        },
       ],
     );
     return ExperienceResponse.fromJson(json);

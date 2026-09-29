@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/city_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_clock.dart';
@@ -49,21 +51,29 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   @override
   Widget build(BuildContext context) {
     final uiStateAsync = ref.watch(memberUiStateProvider);
-    final appName = ref.watch(cityProfileProvider).appName;
+    final appName = localizedCityAppName(
+      AppLocalizations.of(context),
+      ref.watch(cityProfileProvider).city,
+    );
     final delayResolution = ref.watch(resolvedDelayImpactProvider);
     final delayImpact = delayResolution.impact;
     final scheduleImpact = ref.watch(groupScheduleImpactProvider);
     final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
         ? null
-        : '次便のRealtime確認に失敗したため、予定時刻で判定しています: '
-            '${delayResolution.nextRideRealtimeError}';
+        : AppLocalizations.of(context).realtimeScheduleFallback(
+            delayResolution.nextRideRealtimeError.toString(),
+          );
 
     return uiStateAsync.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (err, stack) => Scaffold(
         appBar: CupertinoNavigationBar(middle: Text(appName)),
-        body: Center(child: Text('エラーが発生しました: $err')),
+        body: Center(
+          child: Text(
+            AppLocalizations.of(context).errorWithMessage(err.toString()),
+          ),
+        ),
       ),
       data: (uiState) {
         final trip = ref.read(tripStreamProvider).value!;
@@ -86,8 +96,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
               scheduledNextDepartureAt:
                   delayResolution.scheduledNextDepartureAt,
               realtimeDiagnostic: realtimeDiagnostic,
-              helperText:
-                  '経路変更はリーダーだけが確定できます。必要ならリーダーに確認してください。',
+              helperText: AppLocalizations.of(context).groupMemberReplanNotice,
             ),
           );
         }
@@ -95,8 +104,9 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           beforeScheduleSections.add(
             GroupScheduleImpactCard(
               impact: scheduleImpact,
-              helperText:
-                  '予定の変更はリーダーが行います。必要ならリーダーに確認してください。',
+              helperText: AppLocalizations.of(
+                context,
+              ).groupMemberScheduleNotice,
             ),
           );
         }
@@ -104,12 +114,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         return ActiveTripNavigationView(
           navState: uiState.navState,
           tripTitle: uiState.displayTitle,
-          appBar: _buildAppBar(
-            context,
-            appName,
-            uiState.displayTitle,
-            trip,
-          ),
+          appBar: _buildAppBar(context, appName, uiState.displayTitle, trip),
           onTapStops: () => openCurrentRideStops(
             context: context,
             trip: trip,
@@ -118,23 +123,27 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           statusHeaderTrailing: const _LiveClock(),
           beforeScheduleSections: beforeScheduleSections,
           scheduleSection: TripScheduleWindowCard(
-            title: '今日の予定',
+            title: AppLocalizations.of(context).groupTodaySchedule,
             resolvedEntry: uiState.resolvedEntry,
             entries: uiState.windowEntries,
             completedCount: uiState.completedCount,
             activeLabel: uiState.activeLabel,
             counterLabelBuilder: (completedCount, totalCount) =>
-                '完了 $completedCount 件',
+                AppLocalizations.of(
+                  context,
+                ).groupCompletedCount(completedCount),
             appearance: TripScheduleWindowAppearance.boxedRows,
-        activeDetail: TripNavigationInlineStatus(
-          navState: uiState.navState,
-          onTapStops: () => openCurrentRideStops(
-              context: context,
-              trip: trip,
-              currentStepId: ref.read(memberNavProgressProvider).currentStepId,
+            activeDetail: TripNavigationInlineStatus(
+              navState: uiState.navState,
+              onTapStops: () => openCurrentRideStops(
+                context: context,
+                trip: trip,
+                currentStepId: ref
+                    .read(memberNavProgressProvider)
+                    .currentStepId,
+              ),
             ),
-        ),
-            emptyLabel: 'すべての予定を完了しました。',
+            emptyLabel: AppLocalizations.of(context).groupScheduleAllCompleted,
           ),
           afterScheduleSections: [
             _HelperNotice(onHelp: () => _sendSOS(trip.id)),
@@ -159,9 +168,10 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   }
 
   void _openGroupDetail(Trip trip) {
-    Navigator.of(context, rootNavigator: true).push(
-      CupertinoPageRoute(builder: (_) => GroupDetailPage(trip: trip)),
-    );
+    Navigator.of(
+      context,
+      rootNavigator: true,
+    ).push(CupertinoPageRoute(builder: (_) => GroupDetailPage(trip: trip)));
   }
 
   Future<void> _sendSOS(String tripId) async {
@@ -169,10 +179,10 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
         title: const Text('SOS'),
-        content: const Text('引率者に通知を送りますか?'),
+        content: Text(AppLocalizations.of(context).groupNotifyQuestion),
         actions: [
           CupertinoDialogAction(
-            child: const Text('キャンセル'),
+            child: Text(AppLocalizations.of(context).cancel),
             onPressed: () => Navigator.pop(ctx),
           ),
           CupertinoDialogAction(
@@ -184,10 +194,10 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                 showCupertinoDialog(
                   context: context,
                   builder: (ctx2) => CupertinoAlertDialog(
-                    content: const Text('引率者に通知しました!'),
+                    content: Text(AppLocalizations.of(context).groupNotified),
                     actions: [
                       CupertinoDialogAction(
-                        child: const Text('OK'),
+                        child: Text(AppLocalizations.of(context).ok),
                         onPressed: () => Navigator.pop(ctx2),
                       ),
                     ],
@@ -195,7 +205,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                 );
               }
             },
-            child: const Text('通知する'),
+            child: Text(AppLocalizations.of(context).groupNotify),
           ),
         ],
       ),
@@ -216,7 +226,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
       title: ActiveTripAppBarTitle(
         appName: appName,
         tripTitle: title,
-        contextLabel: 'おでかけモード',
+        contextLabel: AppLocalizations.of(context).groupMemberMode,
       ),
       leading: IconButton(
         icon: const Icon(CupertinoIcons.doc_text, color: Colors.black87),
@@ -234,11 +244,11 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           onPressed: () => showCupertinoDialog(
             context: context,
             builder: (ctx) => CupertinoAlertDialog(
-              title: const Text('モード終了'),
-              content: const Text('通常モードに戻りますか?'),
+              title: Text(AppLocalizations.of(context).groupExitMode),
+              content: Text(AppLocalizations.of(context).groupExitQuestion),
               actions: [
                 CupertinoDialogAction(
-                  child: const Text('いいえ'),
+                  child: Text(AppLocalizations.of(context).groupNo),
                   onPressed: () => Navigator.pop(ctx),
                 ),
                 CupertinoDialogAction(
@@ -247,13 +257,13 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                     Navigator.pop(ctx);
                     _leaveGroup();
                   },
-                  child: const Text('はい'),
+                  child: Text(AppLocalizations.of(context).groupYes),
                 ),
               ],
             ),
           ),
-          child: const Text(
-            '終了',
+          child: Text(
+            AppLocalizations.of(context).navTripEndedMain,
             style: TextStyle(color: CupertinoColors.destructiveRed),
           ),
         ),
@@ -281,9 +291,9 @@ class _HelperNotice extends StatelessWidget {
             color: Colors.red,
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Text(
-              '困ったときは「ヘルプ／連絡する」を押してください。音声で読み上げます。',
+              AppLocalizations.of(context).groupHelpNotice,
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
@@ -293,7 +303,7 @@ class _HelperNotice extends StatelessWidget {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('ヘルプ'),
+            child: Text(AppLocalizations.of(context).groupHelp),
           ),
         ],
       ),
@@ -326,10 +336,10 @@ class _MemberActionBar extends StatelessWidget {
                   child: ElevatedButton.icon(
                     onPressed: onHelp,
                     icon: const Icon(CupertinoIcons.phone),
-                    label: const Padding(
+                    label: Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Text(
-                        'ヘルプ / 連絡',
+                        AppLocalizations.of(context).groupHelpContact,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -350,10 +360,10 @@ class _MemberActionBar extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onOpenDetail,
                     icon: const Icon(CupertinoIcons.doc_text),
-                    label: const Padding(
+                    label: Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Text(
-                        'たびのしおり',
+                        AppLocalizations.of(context).groupGuideTitle,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -362,10 +372,7 @@ class _MemberActionBar extends StatelessWidget {
                     ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.black,
-                      side: const BorderSide(
-                        color: Colors.black87,
-                        width: 1.2,
-                      ),
+                      side: const BorderSide(color: Colors.black87, width: 1.2),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -379,10 +386,10 @@ class _MemberActionBar extends StatelessWidget {
               width: double.infinity,
               child: TextButton(
                 onPressed: onExit,
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 10),
                   child: Text(
-                    '通常モードに戻る',
+                    AppLocalizations.of(context).groupReturnNormal,
                     style: TextStyle(
                       color: Colors.black87,
                       fontWeight: FontWeight.bold,
@@ -435,11 +442,7 @@ class _LiveClockState extends State<_LiveClock> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            CupertinoIcons.clock,
-            size: 16,
-            color: Colors.black54,
-          ),
+          const Icon(CupertinoIcons.clock, size: 16, color: Colors.black54),
           const SizedBox(width: 4),
           Text(
             timeStr,

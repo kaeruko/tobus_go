@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
@@ -35,64 +36,161 @@ void main() {
     ApiClient.resetWarmUpForTesting();
   });
 
-  testWidgets('Chinese IME waits for confirmation and reuses two details calls',
-      (tester) async {
-    final autocompleteLanguages = <String?>[];
-    final detailLanguages = <String?>[];
-    String? selected;
+  testWidgets('changing language preserves a pending place selection', (
+    tester,
+  ) async {
+    final locale = ValueNotifier(const Locale('ja'));
+    addTearDown(locale.dispose);
+    final details = <String, Completer<http.Response>>{};
+    var selectedValue = '';
+    var selectedName = '';
     ApiClient.httpClient = MockClient((request) async {
       if (request.url.path == '/warmup') return _warmupResponse();
       if (request.url.path == '/autocomplete') {
-        autocompleteLanguages.add(request.url.queryParameters['lang']);
-        return _jsonResponse(jsonEncode({
-          'predictions': [
-            {'place_id': 'tokyo', 'description': 'Tokyo Station'}
-          ],
-        }), 200);
+        return _jsonResponse(
+          jsonEncode({
+            'predictions': [
+              {'place_id': 'tokyo', 'description': '東京駅'},
+            ],
+          }),
+          200,
+        );
       }
-      if (request.url.path == '/details') {
-        final language = request.url.queryParameters['lang'];
-        detailLanguages.add(language);
-        return _jsonResponse(jsonEncode({
-          'result': {
-            'name': language == 'ja' ? '東京駅' : 'Tokyo Station',
-            'geometry': {'location': {'lat': 35.0, 'lng': 139.0}},
-          },
-        }), 200);
-      }
-      return http.Response('Unexpected request', 500);
+      final language = request.url.queryParameters['lang']!;
+      return (details[language] = Completer<http.Response>()).future;
     });
-    await tester.pumpWidget(CupertinoApp(
-      locale: const Locale('zh'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: CupertinoPageScaffold(child: PlaceField(
-        label: '目的地', value: '', displayValue: '',
-        onChanged: (value, _) => selected = value,
-      )),
-    ));
-    await tester.showKeyboard(find.byType(CupertinoTextField));
-    tester.testTextInput.updateEditingValue(const TextEditingValue(
-      text: 'dongjing',
-      selection: TextSelection.collapsed(offset: 8),
-      composing: TextRange(start: 0, end: 8),
-    ));
-    await tester.pump(const Duration(seconds: 1));
-    expect(autocompleteLanguages, isEmpty);
-    tester.testTextInput.updateEditingValue(const TextEditingValue(
-      text: '东京', selection: TextSelection.collapsed(offset: 2),
-    ));
+    await tester.pumpWidget(
+      ValueListenableBuilder<Locale>(
+        valueListenable: locale,
+        builder: (context, value, child) => CupertinoApp(
+          locale: value,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: CupertinoPageScaffold(
+            child: PlaceField(
+              label: 'Destination',
+              value: '',
+              displayValue: '',
+              onChanged: (value, name) {
+                selectedValue = value;
+                selectedName = name;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(CupertinoTextField), 'Tokyo');
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
-    expect(autocompleteLanguages, ['en']);
-    await tester.tap(find.text('Tokyo Station'));
+    await tester.tap(find.text('東京駅'));
+    await tester.pump();
+    expect(details.keys, unorderedEquals(['ja', 'en']));
+    locale.value = const Locale('zh');
+    await tester.pump();
+    await tester.pump();
+    for (final entry in details.entries) {
+      entry.value.complete(
+        _jsonResponse(
+          jsonEncode({
+            'result': {
+              'name': entry.key == 'ja' ? '東京駅' : 'Tokyo Station',
+              'geometry': {
+                'location': {'lat': 35.0, 'lng': 139.0},
+              },
+            },
+          }),
+          200,
+        ),
+      );
+    }
     await tester.pumpAndSettle();
-    expect(detailLanguages, unorderedEquals(['ja', 'en']));
-    expect(selected, '35.0,139.0');
+    expect(selectedValue, '35.0,139.0');
+    expect(selectedName, 'Tokyo Station');
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('typed text is not exposed as a route coordinate', (tester) async {
+  testWidgets(
+    'Chinese IME waits for confirmation and reuses two details calls',
+    (tester) async {
+      final autocompleteLanguages = <String?>[];
+      final detailLanguages = <String?>[];
+      String? selected;
+      ApiClient.httpClient = MockClient((request) async {
+        if (request.url.path == '/warmup') return _warmupResponse();
+        if (request.url.path == '/autocomplete') {
+          autocompleteLanguages.add(request.url.queryParameters['lang']);
+          return _jsonResponse(
+            jsonEncode({
+              'predictions': [
+                {'place_id': 'tokyo', 'description': 'Tokyo Station'},
+              ],
+            }),
+            200,
+          );
+        }
+        if (request.url.path == '/details') {
+          final language = request.url.queryParameters['lang'];
+          detailLanguages.add(language);
+          return _jsonResponse(
+            jsonEncode({
+              'result': {
+                'name': language == 'ja' ? '東京駅' : 'Tokyo Station',
+                'geometry': {
+                  'location': {'lat': 35.0, 'lng': 139.0},
+                },
+              },
+            }),
+            200,
+          );
+        }
+        return http.Response('Unexpected request', 500);
+      });
+      await tester.pumpWidget(
+        CupertinoApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: CupertinoPageScaffold(
+            child: PlaceField(
+              label: '目的地',
+              value: '',
+              displayValue: '',
+              onChanged: (value, _) => selected = value,
+            ),
+          ),
+        ),
+      );
+      await tester.showKeyboard(find.byType(CupertinoTextField));
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'dongjing',
+          selection: TextSelection.collapsed(offset: 8),
+          composing: TextRange(start: 0, end: 8),
+        ),
+      );
+      await tester.pump(const Duration(seconds: 1));
+      expect(autocompleteLanguages, isEmpty);
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: '东京',
+          selection: TextSelection.collapsed(offset: 2),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      expect(autocompleteLanguages, ['en']);
+      await tester.tap(find.text('Tokyo Station'));
+      await tester.pumpAndSettle();
+      expect(detailLanguages, unorderedEquals(['ja', 'en']));
+      expect(selected, '35.0,139.0');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('typed text is not exposed as a route coordinate', (
+    tester,
+  ) async {
     var value = '35.0,139.0';
     var description = 'old';
     var autocompleteRequestCount = 0;
@@ -190,7 +288,9 @@ void main() {
     expect(warmupRequestCount, 1);
   });
 
-  testWidgets('selecting a suggestion commits only resolved coordinates', (tester) async {
+  testWidgets('selecting a suggestion commits only resolved coordinates', (
+    tester,
+  ) async {
     var value = '';
     var description = '';
 
@@ -318,7 +418,8 @@ void main() {
       expect(resolvedJa, '平井7丁目');
       expect(resolvedEn, 'Hirai 7-chome');
       expect(
-        tester.widget<CupertinoTextField>(find.byType(CupertinoTextField))
+        tester
+            .widget<CupertinoTextField>(find.byType(CupertinoTextField))
             .controller!
             .text,
         '平井7丁目',
@@ -326,7 +427,9 @@ void main() {
     },
   );
 
-  testWidgets('missing detail coordinates are shown as an error, not 0,0', (tester) async {
+  testWidgets('missing detail coordinates are shown as an error, not 0,0', (
+    tester,
+  ) async {
     var value = '';
     var description = '';
 
@@ -488,5 +591,4 @@ void main() {
     expect(resolvedJa, '東京駅');
     expect(resolvedEn, 'Tokyo Station');
   });
-
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/trip_models.dart';
 import '../models/group_models.dart';
 import '../services/trip_service.dart';
@@ -36,13 +37,19 @@ class _TripReportPageState extends State<TripReportPage> {
       await _tripService.updateTripNotes(widget.trip.id, _memoController.text);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('メモを保存しました')),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).groupReportMemoSaved),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存に失敗しました: $e')),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).groupReportSaveFailed(e.toString()),
+            ),
+          ),
         );
       }
     } finally {
@@ -70,7 +77,7 @@ class _TripReportPageState extends State<TripReportPage> {
   Widget build(BuildContext context) {
     final trip = widget.trip;
     final startAt = trip.actualDepartureAt ?? trip.plannedDepartureAt;
-    
+
     // スケジュールから終了時間を推定
     DateTime? endAt;
     if (trip.schedule.isNotEmpty) {
@@ -81,7 +88,7 @@ class _TripReportPageState extends State<TripReportPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('実施報告書'),
+        title: Text(AppLocalizations.of(context).groupReportTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.save),
@@ -96,16 +103,20 @@ class _TripReportPageState extends State<TripReportPage> {
           children: [
             _buildHeader(trip),
             const SizedBox(height: 24),
-            _buildSectionTitle('実施日程と時間'),
+            _buildSectionTitle(
+              AppLocalizations.of(context).groupReportSchedule,
+            ),
             _buildScheduleInfo(trip, startAt, endAt),
             const SizedBox(height: 24),
-            _buildSectionTitle('出席者と出欠状況'),
+            _buildSectionTitle(
+              AppLocalizations.of(context).groupReportAttendance,
+            ),
             _buildParticipantsList(trip),
             const SizedBox(height: 24),
-            _buildSectionTitle('SOS発生状況'),
+            _buildSectionTitle(AppLocalizations.of(context).groupReportSos),
             _buildSosInfo(hasSos, trip),
             const SizedBox(height: 24),
-            _buildSectionTitle('対応メモ'),
+            _buildSectionTitle(AppLocalizations.of(context).groupReportNotes),
             const SizedBox(height: 8),
             _buildMemoField(),
             const SizedBox(height: 40),
@@ -136,14 +147,24 @@ class _TripReportPageState extends State<TripReportPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(trip.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(
+            trip.title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
-          Text('ID: ${trip.id}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          Text('実施日: ${trip.date.year}/${trip.date.month}/${trip.date.day}'),
+          Text(
+            'ID: ${trip.id}',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          Text(
+            AppLocalizations.of(context).groupReportDate(
+              '${trip.date.year}/${trip.date.month}/${trip.date.day}',
+            ),
+          ),
           const SizedBox(height: 4),
           Row(
             children: [
-              const Text('ステータス: '),
+              Text(AppLocalizations.of(context).groupReportStatus),
               _buildStatusChip(trip.travelPhase),
             ],
           ),
@@ -157,24 +178,27 @@ class _TripReportPageState extends State<TripReportPage> {
     Color color;
     switch (phase) {
       case TravelPhase.planning:
-        label = '計画中';
+        label = AppLocalizations.of(context).travelPhasePlanning;
         color = Colors.orange;
         break;
       case TravelPhase.active:
-        label = '実施中';
+        label = AppLocalizations.of(context).groupReportActive;
         color = Colors.green;
         break;
       case TravelPhase.completed:
-        label = '完了';
+        label = AppLocalizations.of(context).travelPhaseCompleted;
         color = Colors.blue;
         break;
       case TravelPhase.cancelled:
-        label = '中止';
+        label = AppLocalizations.of(context).travelPhaseCancelled;
         color = Colors.grey;
         break;
     }
     return Chip(
-      label: Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+      label: Text(
+        label,
+        style: const TextStyle(color: Colors.white, fontSize: 12),
+      ),
       backgroundColor: color,
       padding: EdgeInsets.zero,
       visualDensity: VisualDensity.compact,
@@ -190,16 +214,28 @@ class _TripReportPageState extends State<TripReportPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('開始'),
-                Text(_formatTime(start), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(AppLocalizations.of(context).groupReportStart),
+                Text(
+                  _formatTime(start),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
               ],
             ),
             const Divider(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('終了(予定)'),
-                Text(_formatTime(end), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(AppLocalizations.of(context).groupReportEnd),
+                Text(
+                  _formatTime(end),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
               ],
             ),
           ],
@@ -229,10 +265,24 @@ class _TripReportPageState extends State<TripReportPage> {
         itemBuilder: (context, index) {
           final p = displayParticipants[index];
           return ListTile(
-            leading: Icon(p.isLeader ? Icons.star : Icons.person, color: p.isLeader ? Colors.orange : Colors.grey),
+            leading: Icon(
+              p.isLeader ? Icons.star : Icons.person,
+              color: p.isLeader ? Colors.orange : Colors.grey,
+            ),
             title: Text(p.name),
-            subtitle: (p.sosCount ?? 0) > 0 ? Text('SOS回数: ${p.sosCount}', style: const TextStyle(color: Colors.red)) : null,
-            trailing: Text(p.isLeader ? 'リーダー' : '参加者'),
+            subtitle: (p.sosCount ?? 0) > 0
+                ? Text(
+                    AppLocalizations.of(
+                      context,
+                    ).groupReportSosCount(p.sosCount ?? 0),
+                    style: const TextStyle(color: Colors.red),
+                  )
+                : null,
+            trailing: Text(
+              p.isLeader
+                  ? AppLocalizations.of(context).groupLeader
+                  : AppLocalizations.of(context).groupParticipants,
+            ),
           );
         },
       ),
@@ -242,9 +292,21 @@ class _TripReportPageState extends State<TripReportPage> {
   Widget _buildSosInfo(bool hasSos, Trip trip) {
     // ダミーSOSデータを強制表示（ユーザー要望）
     final dummySosLog = [
-      {'name': '鈴木 一郎', 'time': '10:15', 'msg': '転倒により軽傷'},
-      {'name': '田中 美咲', 'time': '11:30', 'msg': 'はぐれてしまった'},
-      {'name': '田中 美咲', 'time': '11:45', 'msg': '合流完了'},
+      {
+        'name': '鈴木 一郎',
+        'time': '10:15',
+        'msg': AppLocalizations.of(context).groupReportDemoFall,
+      },
+      {
+        'name': '田中 美咲',
+        'time': '11:30',
+        'msg': AppLocalizations.of(context).groupReportDemoLost,
+      },
+      {
+        'name': '田中 美咲',
+        'time': '11:45',
+        'msg': AppLocalizations.of(context).groupReportDemoReunited,
+      },
     ];
 
     return Card(
@@ -254,33 +316,53 @@ class _TripReportPageState extends State<TripReportPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
                 Icon(Icons.warning, color: Colors.red),
                 SizedBox(width: 8),
-                Text('SOS通知記録 (ダミーデータ)', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                Text(
+                  AppLocalizations.of(context).groupReportDemoSos,
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
-            ...dummySosLog.map((log) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(log['time']!, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(log['name']!, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text(log['msg']!, style: const TextStyle(color: Colors.black87)),
-                      ],
+            ...dummySosLog.map(
+              (log) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      log['time']!,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black54,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            log['name']!,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            log['msg']!,
+                            style: const TextStyle(color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            )),
+            ),
           ],
         ),
       ),
@@ -291,9 +373,9 @@ class _TripReportPageState extends State<TripReportPage> {
     return TextField(
       controller: _memoController,
       maxLines: 5,
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         border: OutlineInputBorder(),
-        hintText: '特記事項や対応内容を入力してください',
+        hintText: AppLocalizations.of(context).groupReportNotesHint,
         filled: true,
         fillColor: Colors.white,
       ),

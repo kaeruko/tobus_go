@@ -10,12 +10,8 @@ class PlaceField extends StatefulWidget {
   final String value;
   final String displayValue;
   final void Function(String value, String desc) onChanged;
-  final void Function(
-    String value,
-    String desc,
-    String nameJa,
-    String nameEn,
-  )? onResolved;
+  final void Function(String value, String desc, String nameJa, String nameEn)?
+  onResolved;
   final VoidCallback? onCurrentLocationPressed;
 
   const PlaceField({
@@ -48,26 +44,15 @@ class _ResolvedPlaceDetail {
 
 bool _isGenericJapaneseAddressFragment(String value) {
   final normalized = value.trim();
-  return RegExp(
-    r'^[0-9０-９一二三四五六七八九十百]+丁目$',
-  ).hasMatch(normalized) ||
-      RegExp(
-        r'^[0-9０-９一二三四五六七八九十百]+番(?:地)?$',
-      ).hasMatch(normalized) ||
-      RegExp(
-        r'^[0-9０-９一二三四五六七八九十百]+号$',
-      ).hasMatch(normalized) ||
-      RegExp(
-        r'^[0-9０-９]+(?:[-‐‑–—−][0-9０-９]+){1,2}$',
-      ).hasMatch(normalized);
+  return RegExp(r'^[0-9０-９一二三四五六七八九十百]+丁目$').hasMatch(normalized) ||
+      RegExp(r'^[0-9０-９一二三四五六七八九十百]+番(?:地)?$').hasMatch(normalized) ||
+      RegExp(r'^[0-9０-９一二三四五六七八九十百]+号$').hasMatch(normalized) ||
+      RegExp(r'^[0-9０-９]+(?:[-‐‑–—−][0-9０-９]+){1,2}$').hasMatch(normalized);
 }
 
 String _shortJapaneseAddress(String formattedAddress) {
   var normalized = formattedAddress.trim();
-  normalized = normalized.replaceFirst(
-    RegExp(r'^日本[、,]?\s*'),
-    '',
-  );
+  normalized = normalized.replaceFirst(RegExp(r'^日本[、,]?\s*'), '');
   normalized = normalized.replaceFirst(
     RegExp(r'^〒?\s*[0-9０-９]{3}[-‐‑–—−]?[0-9０-９]{4}\s*'),
     '',
@@ -169,10 +154,9 @@ _ResolvedPlaceDetail _parsePlaceDetail(
   }
   return _ResolvedPlaceDetail(
     name: name,
-    formattedAddress:
-        formattedAddress == null || formattedAddress.isEmpty
-            ? null
-            : formattedAddress,
+    formattedAddress: formattedAddress == null || formattedAddress.isEmpty
+        ? null
+        : formattedAddress,
     lat: lat,
     lon: lon,
   );
@@ -185,6 +169,7 @@ class _PlaceFieldState extends State<PlaceField> {
   Timer? _autocompleteTimer;
   List<Map<String, dynamic>> _preds = [];
   bool _loading = false;
+  bool _resolvingPlace = false;
   bool _isSyncing = false;
   String? _errorMessage;
   int _inputGeneration = 0;
@@ -200,9 +185,7 @@ class _PlaceFieldState extends State<PlaceField> {
         // Reuse the same official English/Japanese place data in Chinese UI.
         return 'en';
       default:
-        throw StateError(
-          'Unsupported place-search language: $languageCode',
-        );
+        throw StateError('Unsupported place-search language: $languageCode');
     }
   }
 
@@ -229,9 +212,11 @@ class _PlaceFieldState extends State<PlaceField> {
     final code = Localizations.localeOf(context).languageCode;
     if (_lastLocaleCode != null && _lastLocaleCode != code) {
       _autocompleteTimer?.cancel();
-      ++_inputGeneration;
+      // The details pair already contains both names. Keep an active selection
+      // and choose its display name using the new locale when it completes.
+      if (!_resolvingPlace) ++_inputGeneration;
       _preds = [];
-      _loading = false;
+      _loading = _resolvingPlace;
       _errorMessage = null;
     }
     _lastLocaleCode = code;
@@ -265,6 +250,7 @@ class _PlaceFieldState extends State<PlaceField> {
     final query = text.trim();
     final generation = ++_inputGeneration;
     _autocompleteTimer?.cancel();
+    _resolvingPlace = false;
 
     // Raw text is only a display/query value. It is not a route coordinate until
     // the user selects one autocomplete result and /details resolves it.
@@ -302,22 +288,23 @@ class _PlaceFieldState extends State<PlaceField> {
       if (!mounted || generation != _inputGeneration) return;
       final json = await ApiClient.get(
         '/autocomplete',
-        params: {
-          'q': query,
-          'lang': _placeLanguageCode(),
-        },
+        params: {'q': query, 'lang': _placeLanguageCode()},
       );
       final raw = json['predictions'];
       if (raw is! List) {
         throw StateError('Autocomplete response is missing predictions list');
       }
 
-      final predictions = raw.map<Map<String, dynamic>>((entry) {
-        if (entry is! Map) {
-          throw StateError('Autocomplete prediction is not an object: $entry');
-        }
-        return Map<String, dynamic>.from(entry);
-      }).toList(growable: false);
+      final predictions = raw
+          .map<Map<String, dynamic>>((entry) {
+            if (entry is! Map) {
+              throw StateError(
+                'Autocomplete prediction is not an object: $entry',
+              );
+            }
+            return Map<String, dynamic>.from(entry);
+          })
+          .toList(growable: false);
 
       if (!mounted || generation != _inputGeneration) return;
       setState(() {
@@ -329,9 +316,9 @@ class _PlaceFieldState extends State<PlaceField> {
       setState(() {
         _loading = false;
         _preds = [];
-        _errorMessage = AppLocalizations.of(context).placeSuggestionsFailed(
-          error.toString(),
-        );
+        _errorMessage = AppLocalizations.of(
+          context,
+        ).placeSuggestionsFailed(error.toString());
       });
     }
   }
@@ -350,26 +337,15 @@ class _PlaceFieldState extends State<PlaceField> {
     }
 
     setState(() {
+      _resolvingPlace = true;
       _loading = true;
       _errorMessage = null;
     });
 
     try {
       final detailResponses = await Future.wait([
-        ApiClient.get(
-          '/details',
-          params: {
-            'place_id': placeId,
-            'lang': 'ja',
-          },
-        ),
-        ApiClient.get(
-          '/details',
-          params: {
-            'place_id': placeId,
-            'lang': 'en',
-          },
-        ),
+        ApiClient.get('/details', params: {'place_id': placeId, 'lang': 'ja'}),
+        ApiClient.get('/details', params: {'place_id': placeId, 'lang': 'en'}),
       ]);
       final japanese = _parsePlaceDetail(detailResponses[0], language: 'ja');
       final english = _parsePlaceDetail(detailResponses[1], language: 'en');
@@ -383,14 +359,8 @@ class _PlaceFieldState extends State<PlaceField> {
         );
       }
 
-      final resolvedNameJa = _resolvedPlaceName(
-        japanese,
-        language: 'ja',
-      );
-      final resolvedNameEn = _resolvedPlaceName(
-        english,
-        language: 'en',
-      );
+      final resolvedNameJa = _resolvedPlaceName(japanese, language: 'ja');
+      final resolvedNameEn = _resolvedPlaceName(english, language: 'en');
       if (!mounted || generation != _inputGeneration) return;
       final displayName = _placeLanguageCode() == 'en'
           ? resolvedNameEn
@@ -406,6 +376,7 @@ class _PlaceFieldState extends State<PlaceField> {
       }
 
       setState(() {
+        _resolvingPlace = false;
         _loading = false;
         _preds = [];
         _errorMessage = null;
@@ -420,11 +391,12 @@ class _PlaceFieldState extends State<PlaceField> {
     } catch (error) {
       if (!mounted || generation != _inputGeneration) return;
       setState(() {
+        _resolvingPlace = false;
         _loading = false;
         _preds = [];
-        _errorMessage = AppLocalizations.of(context).placeCoordinatesFailed(
-          error.toString(),
-        );
+        _errorMessage = AppLocalizations.of(
+          context,
+        ).placeCoordinatesFailed(error.toString());
       });
     }
   }
@@ -487,7 +459,8 @@ class _PlaceFieldState extends State<PlaceField> {
                 itemCount: _preds.length > 6 ? 6 : _preds.length,
                 itemBuilder: (context, index) {
                   final prediction = _preds[index];
-                  final text = prediction['description']?.toString() ??
+                  final text =
+                      prediction['description']?.toString() ??
                       AppLocalizations.of(context).unnamedPlace;
                   return CupertinoButton(
                     padding: const EdgeInsets.symmetric(

@@ -27,7 +27,13 @@ class ReachableStop {
         'ReachableStop.name_en is required for English UI',
       );
     }
-    return localizedTransitName(Locale(languageCode), japanese: name, english: value, field: 'name_en', identity: 'stopId=$id');
+    return localizedTransitName(
+      Locale(languageCode),
+      japanese: name,
+      english: value,
+      field: 'name_en',
+      identity: 'stopId=$id',
+    );
   }
 
   factory ReachableStop.fromJson(Map<String, dynamic> json) {
@@ -66,7 +72,13 @@ class NearestStop {
   });
 
   String nameForLanguageCode(String languageCode) {
-    return localizedTransitName(Locale(languageCode), japanese: name, english: nameEn, field: 'name_en', identity: 'stopId=$id');
+    return localizedTransitName(
+      Locale(languageCode),
+      japanese: name,
+      english: nameEn,
+      field: 'name_en',
+      identity: 'stopId=$id',
+    );
   }
 
   factory NearestStop.fromJson(Map<String, dynamic> json) {
@@ -113,7 +125,8 @@ class ReachableResponse {
       nearestStop: json['nearest_stop'] != null
           ? NearestStop.fromJson(json['nearest_stop'] as Map<String, dynamic>)
           : null,
-      reachableStops: (json['reachable_stops'] as List<dynamic>?)
+      reachableStops:
+          (json['reachable_stops'] as List<dynamic>?)
               ?.map((e) => ReachableStop.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -148,7 +161,8 @@ class ExperienceGroup {
       viaRoute: '',
     );
 
-    final stopsList = (json['stops'] as List<dynamic>?)?.map((s) {
+    final stopsList =
+        (json['stops'] as List<dynamic>?)?.map((s) {
           final m = s as Map<String, dynamic>;
           return ReachableStop(
             id: m['stop_id'] ?? '',
@@ -162,9 +176,8 @@ class ExperienceGroup {
         [];
 
     return ExperienceGroup(
-      tags: (json['tags'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
+      tags:
+          (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
           [],
       description: json['description'] as String? ?? '',
       representativeStop: representativeStop,
@@ -181,10 +194,9 @@ class ExperienceResponse {
 
   factory ExperienceResponse.fromJson(Map<String, dynamic> json) {
     return ExperienceResponse(
-      groups: (json['groups'] as List<dynamic>?)
-              ?.map(
-                (e) => ExperienceGroup.fromJson(e as Map<String, dynamic>),
-              )
+      groups:
+          (json['groups'] as List<dynamic>?)
+              ?.map((e) => ExperienceGroup.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
     );
@@ -269,11 +281,12 @@ class ExploreEditorialSpot {
     Map<String, dynamic> json, {
     required String where,
   }) {
-    _expectExactKeys(
-      json,
-      {'stop_id', 'comment', 'comment_en', 'images'},
-      where,
-    );
+    _expectExactKeys(json, {
+      'stop_id',
+      'comment',
+      'comment_en',
+      'images',
+    }, where);
 
     final stopId = json['stop_id'];
     final comment = json['comment'];
@@ -331,7 +344,7 @@ class ExploreEditorialContent {
   final Map<String, ExploreEditorialSpot> byStopId;
 
   ExploreEditorialContent({required Map<String, ExploreEditorialSpot> byStopId})
-      : byStopId = Map.unmodifiable(byStopId);
+    : byStopId = Map.unmodifiable(byStopId);
 
   factory ExploreEditorialContent.fromJson(Map<String, dynamic> json) {
     _expectExactKeys(json, {'spots'}, 'root');
@@ -347,10 +360,7 @@ class ExploreEditorialContent {
       if (rawSpot is! Map<String, dynamic>) {
         throw FormatException('spots[$i] must be an object');
       }
-      final spot = ExploreEditorialSpot.fromJson(
-        rawSpot,
-        where: 'spots[$i]',
-      );
+      final spot = ExploreEditorialSpot.fromJson(rawSpot, where: 'spots[$i]');
       if (byStopId.containsKey(spot.stopId)) {
         throw FormatException('duplicate stop_id: ${spot.stopId}');
       }

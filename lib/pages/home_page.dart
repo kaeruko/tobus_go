@@ -104,7 +104,8 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
 
       final l10n = AppLocalizations.of(context);
       final displayName = effective.nameJa == '現在地(設定)'
-          ? l10n.currentLocationSetLabel : l10n.currentLocationLabel;
+          ? l10n.currentLocationSetLabel
+          : l10n.currentLocationLabel;
       final notifier = ref.read(routeSearchProvider.notifier);
       notifier.setFrom(
         effective.loc,
@@ -146,17 +147,20 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
         builder: (_) => MapPickerPage(title: l10n.mapPickerTitle),
       ),
     );
-    if (res == null) return;
+    if (res == null || !mounted) return;
     final s = "${res.latitude},${res.longitude}";
+    final displayName = AppLocalizations.of(context).mapSelectedPlace;
+    final nameJa = lookupAppLocalizations(const Locale('ja')).mapSelectedPlace;
+    final nameEn = lookupAppLocalizations(const Locale('en')).mapSelectedPlace;
 
     final notifier = ref.read(routeSearchProvider.notifier);
     if (forA) {
-      notifier.setFrom(s, name: l10n.mapSelectedPlace);
+      notifier.setFrom(s, name: displayName, nameJa: nameJa, nameEn: nameEn);
       if (_canAutoSearchAfterEditingFrom()) {
         notifier.triggerSearch();
       }
     } else {
-      notifier.setTo(s, name: l10n.mapSelectedPlace);
+      notifier.setTo(s, name: displayName, nameJa: nameJa, nameEn: nameEn);
       if (_canAutoSearchAfterEditingTo()) {
         notifier.triggerSearch();
       }
@@ -241,6 +245,10 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
     final l10n = lookupAppLocalizations(locale);
     if (japanese == '現在地') return l10n.currentLocationLabel;
     if (japanese == '現在地(設定)') return l10n.currentLocationSetLabel;
+    if (japanese ==
+        lookupAppLocalizations(const Locale('ja')).mapSelectedPlace) {
+      return l10n.mapSelectedPlace;
+    }
     if (isEnglishTransitLocale(locale) && english.trim().isNotEmpty) {
       return english;
     }

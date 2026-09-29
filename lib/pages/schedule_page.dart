@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../core/app_clock.dart'; // Still needed for add dialog datetime
 import '../models/group_models.dart';
 import '../services/trip_service.dart';
@@ -61,7 +62,9 @@ class _SchedulePageState extends State<SchedulePage> {
 
   void _showScheduleDialog({int? index, ScheduleEntry? item}) {
     final isEditing = (index != null && item != null);
-    DateTime base = item?.plannedAt ?? (_schedule.isNotEmpty ? _schedule.last.plannedAt : appClock.now());
+    DateTime base =
+        item?.plannedAt ??
+        (_schedule.isNotEmpty ? _schedule.last.plannedAt : appClock.now());
     TimeOfDay selected = TimeOfDay.fromDateTime(base);
     String label = item?.label ?? '';
     String desc = item?.description ?? '';
@@ -70,74 +73,123 @@ class _SchedulePageState extends State<SchedulePage> {
     showDialog(
       context: context,
       builder: (ctx) {
-        return StatefulBuilder(builder: (context, setStateDialog) {
-          return AlertDialog(
-            title: Text(isEditing ? '予定を編集' : '予定を追加'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ListTile(
-                    title: Text('時刻: ${selected.format(context)}'),
-                    trailing: const Icon(Icons.access_time),
-                    onTap: () async {
-                      final picked = await showTimePicker(
-                        context: context,
-                        initialTime: selected,
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: Text(
+                isEditing
+                    ? AppLocalizations.of(context).groupScheduleEdit
+                    : AppLocalizations.of(context).groupScheduleAdd,
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      title: Text(
+                        AppLocalizations.of(
+                          context,
+                        ).groupTimeLabel(selected.format(context)),
+                      ),
+                      trailing: const Icon(Icons.access_time),
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: selected,
+                        );
+                        if (picked != null) {
+                          setStateDialog(() {
+                            selected = picked;
+                          });
+                        }
+                      },
+                    ),
+                    DropdownButtonFormField<int>(
+                      value: legIndex,
+                      items: [
+                        DropdownMenuItem(
+                          value: 0,
+                          child: Text(
+                            AppLocalizations.of(context).groupOutbound,
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 1,
+                          child: Text(
+                            AppLocalizations.of(context).groupInbound,
+                          ),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setStateDialog(() => legIndex = v);
+                      },
+                      decoration: InputDecoration(
+                        labelText: AppLocalizations.of(
+                          context,
+                        ).groupScheduleLegField,
+                      ),
+                    ),
+                    TextField(
+                      decoration: InputDecoration(
+                        labelText: AppLocalizations.of(
+                          context,
+                        ).groupScheduleTitleField,
+                      ),
+                      controller: TextEditingController(text: label),
+                      onChanged: (v) => label = v,
+                    ),
+                    TextField(
+                      decoration: InputDecoration(
+                        labelText: AppLocalizations.of(
+                          context,
+                        ).groupScheduleDetailsField,
+                      ),
+                      controller: TextEditingController(text: desc),
+                      onChanged: (v) => desc = v,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(AppLocalizations.of(context).cancel),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (label.isNotEmpty) {
+                      final date = DateTime(
+                        base.year,
+                        base.month,
+                        base.day,
+                        selected.hour,
+                        selected.minute,
                       );
-                      if (picked != null) {
-                        setStateDialog(() {
-                          selected = picked;
-                        });
+                      if (isEditing) {
+                        _editScheduleEntry(
+                          index,
+                          date,
+                          label,
+                          desc,
+                          legIndex,
+                          item,
+                        );
+                      } else {
+                        _addScheduleEntry(date, label, desc, legIndex);
                       }
-                    },
-                  ),
-                  DropdownButtonFormField<int>(
-                    value: legIndex,
-                    items: const [
-                      DropdownMenuItem(value: 0, child: Text('行き')), 
-                      DropdownMenuItem(value: 1, child: Text('帰り')),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) setStateDialog(() => legIndex = v);
-                    },
-                    decoration: const InputDecoration(labelText: 'leg'),
-                  ),
-                  TextField(
-                    decoration: const InputDecoration(labelText: 'タイトル'),
-                    controller: TextEditingController(text: label),
-                    onChanged: (v) => label = v,
-                  ),
-                  TextField(
-                    decoration: const InputDecoration(labelText: '詳細 (任意)'),
-                    controller: TextEditingController(text: desc),
-                    onChanged: (v) => desc = v,
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('キャンセル'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  if (label.isNotEmpty) {
-                    final date = DateTime(base.year, base.month, base.day, selected.hour, selected.minute);
-                    if (isEditing) {
-                      _editScheduleEntry(index, date, label, desc, legIndex, item);
-                    } else {
-                      _addScheduleEntry(date, label, desc, legIndex);
+                      Navigator.pop(ctx);
                     }
-                    Navigator.pop(ctx);
-                  }
-                },
-                child: Text(isEditing ? '保存' : '追加'),
-              ),
-            ],
-          );
-        });
+                  },
+                  child: Text(
+                    isEditing
+                        ? AppLocalizations.of(context).settingsSave
+                        : AppLocalizations.of(context).groupAdd,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
       },
     );
   }
@@ -171,14 +223,12 @@ class _SchedulePageState extends State<SchedulePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('スケジュール'),
-      ),
+      appBar: AppBar(title: Text(AppLocalizations.of(context).groupSchedule)),
       floatingActionButton: widget.isLeader
           ? FloatingActionButton.extended(
               onPressed: () => _showScheduleDialog(),
               icon: const Icon(Icons.add),
-              label: const Text('予定を追加'),
+              label: Text(AppLocalizations.of(context).groupScheduleAdd),
               backgroundColor: Colors.orange,
             )
           : null,
@@ -187,10 +237,11 @@ class _SchedulePageState extends State<SchedulePage> {
         itemCount: _schedule.length,
         itemBuilder: (context, index) {
           final item = _schedule[index];
-          
+
           // RideとWalkは編集不可
-          final canEdit = widget.isLeader && 
-              item.itemKind != ScheduleEntryKind.ride && 
+          final canEdit =
+              widget.isLeader &&
+              item.itemKind != ScheduleEntryKind.ride &&
               item.itemKind != ScheduleEntryKind.walk;
 
           final cardContent = Card(
@@ -201,7 +252,7 @@ class _SchedulePageState extends State<SchedulePage> {
             ),
             margin: const EdgeInsets.only(bottom: 12),
             child: InkWell(
-              onTap: null, 
+              onTap: null,
               onLongPress: canEdit
                   ? () {
                       _showScheduleDialog(index: index, item: item);
@@ -240,13 +291,16 @@ class _SchedulePageState extends State<SchedulePage> {
                           if (item.description.isNotEmpty)
                             Text(
                               item.description,
-                              style: TextStyle(
-                                  color: Colors.grey.shade700),
+                              style: TextStyle(color: Colors.grey.shade700),
                             ),
                         ],
                       ),
                     ),
-                    const Icon(Icons.circle_outlined, color: Colors.grey, size: 12),
+                    const Icon(
+                      Icons.circle_outlined,
+                      color: Colors.grey,
+                      size: 12,
+                    ),
                   ],
                 ),
               ),
@@ -267,16 +321,26 @@ class _SchedulePageState extends State<SchedulePage> {
                 return await showDialog(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: const Text('削除しますか？'),
-                    content: Text('「${item.label}」をスケジュールから削除します。'),
+                    title: Text(
+                      AppLocalizations.of(context).groupScheduleDeleteQuestion,
+                    ),
+                    content: Text(
+                      AppLocalizations.of(
+                        context,
+                      ).groupScheduleDeleteDescription(item.label),
+                    ),
                     actions: [
                       TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('キャンセル')),
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text(AppLocalizations.of(context).cancel),
+                      ),
                       TextButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('削除',
-                              style: TextStyle(color: Colors.red))),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: Text(
+                          AppLocalizations.of(context).delete,
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
                     ],
                   ),
                 );

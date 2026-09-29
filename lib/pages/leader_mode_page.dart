@@ -1,7 +1,9 @@
 // lib/pages/leader_mode_page.dart
 import 'dart:async';
+import 'package:intl/intl.dart';
 
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -31,6 +33,16 @@ class _LeaderModePageState extends State<LeaderModePage> {
   bool _starting = false;
   Timer? _clockTimer;
 
+  String _travelPhaseLabel(TravelPhase phase) {
+    final l10n = AppLocalizations.of(context);
+    return switch (phase) {
+      TravelPhase.planning => l10n.travelPhasePlanning,
+      TravelPhase.active => l10n.travelPhaseActive,
+      TravelPhase.completed => l10n.travelPhaseCompleted,
+      TravelPhase.cancelled => l10n.travelPhaseCancelled,
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -48,7 +60,9 @@ class _LeaderModePageState extends State<LeaderModePage> {
   }
 
   ScheduleEntry? _findFirstByKind(
-      List<ScheduleEntry> schedule, ScheduleEntryKind kind) {
+    List<ScheduleEntry> schedule,
+    ScheduleEntryKind kind,
+  ) {
     final entries = List<ScheduleEntry>.from(schedule)
       ..sort((a, b) => a.plannedAt.compareTo(b.plannedAt));
     for (final entry in entries) {
@@ -71,17 +85,15 @@ class _LeaderModePageState extends State<LeaderModePage> {
   }
 
   String _formatScheduleWindow(DateTime? start, DateTime? end) {
-    if (start == null || end == null) return '日程情報がありません';
-    final dateLabel = '${start.month}/${start.day} (${_weekdayLabel(start.weekday)})';
+    if (start == null || end == null) {
+      return AppLocalizations.of(context).groupNoScheduleInfo;
+    }
+    final dateLabel = DateFormat.MMMEd(
+      AppLocalizations.of(context).localeName,
+    ).format(start);
     final startLabel = _formatTime(start);
     final endLabel = _formatTime(end);
     return '$dateLabel  $startLabel〜$endLabel';
-  }
-
-  String _weekdayLabel(int weekday) {
-    const labels = ['月', '火', '水', '木', '金', '土', '日'];
-    final index = (weekday - 1).clamp(0, labels.length - 1).toInt();
-    return labels[index];
   }
 
   Future<void> _handleStartTrip(Trip trip, TripService service) async {
@@ -90,7 +102,8 @@ class _LeaderModePageState extends State<LeaderModePage> {
 
     try {
       final now = appClock.now();
-      final planned = trip.plannedDepartureAt ??
+      final planned =
+          trip.plannedDepartureAt ??
           (trip.schedule.isNotEmpty ? trip.schedule.first.plannedAt : now);
       final deltaMinutes = now.difference(planned).inMinutes;
 
@@ -102,13 +115,17 @@ class _LeaderModePageState extends State<LeaderModePage> {
         await _showDepartureReplanDialog(trip.id, deltaMinutes);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('おでかけを開始しました')),
+          SnackBar(content: Text(AppLocalizations.of(context).groupStarted)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('開始に失敗しました: $e')),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).groupStartFailed(e.toString()),
+            ),
+          ),
         );
       }
     } finally {
@@ -125,20 +142,18 @@ class _LeaderModePageState extends State<LeaderModePage> {
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('経路を見直しますか？'),
+        title: Text(AppLocalizations.of(context).groupReplanQuestion),
         content: Text(
-          '予定より$deltaMinutes分遅れて開始しました。\n\n'
-          '電車・バスの時刻を予定差ぶん横にずらすことはせず、'
-          '必要なら現在時刻と経路上の出発地点を基準に経路を再検索します。',
+          AppLocalizations.of(context).groupLateStartDescription(deltaMinutes),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('そのまま続行'),
+            child: Text(AppLocalizations.of(context).groupContinue),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('経路を見直す'),
+            child: Text(AppLocalizations.of(context).replanReviewAction),
           ),
         ],
       ),
@@ -161,25 +176,42 @@ class _LeaderModePageState extends State<LeaderModePage> {
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Scaffold(
-              body: Center(child: Text('エラー: ${snapshot.error}')));
+            body: Center(
+              child: Text(
+                AppLocalizations.of(
+                  context,
+                ).errorWithMessage(snapshot.error.toString()),
+              ),
+            ),
+          );
         }
         if (!snapshot.hasData) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
 
         final trip = snapshot.data!;
 
-        final meetingEntry = _findFirstByKind(trip.schedule, ScheduleEntryKind.meeting);
-        final goalEntry = _findFirstByKind(trip.schedule, ScheduleEntryKind.goal);
+        final meetingEntry = _findFirstByKind(
+          trip.schedule,
+          ScheduleEntryKind.meeting,
+        );
+        final goalEntry = _findFirstByKind(
+          trip.schedule,
+          ScheduleEntryKind.goal,
+        );
         final lastEntryAt = _findLastPlannedAt(trip.schedule);
-        final scheduleStart = meetingEntry?.plannedAt ?? trip.plannedDepartureAt;
+        final scheduleStart =
+            meetingEntry?.plannedAt ?? trip.plannedDepartureAt;
         final scheduleEnd = lastEntryAt ?? trip.plannedDepartureAt ?? trip.date;
         String titlePrefix;
         String? destName;
         if (trip.legs.isNotEmpty) {
           final outboundLeg = trip.legs.firstWhere(
-              (l) => l.direction == LegDirection.outbound,
-              orElse: () => trip.legs.first);
+            (l) => l.direction == LegDirection.outbound,
+            orElse: () => trip.legs.first,
+          );
           destName = outboundLeg.candidate.destinationName;
         }
 
@@ -188,17 +220,19 @@ class _LeaderModePageState extends State<LeaderModePage> {
         } else {
           titlePrefix = (goalEntry?.label.isNotEmpty ?? false)
               ? goalEntry!.label
-              : (trip.title.isNotEmpty ? trip.title : '目的地');
+              : (trip.title.isNotEmpty
+                    ? trip.title
+                    : AppLocalizations.of(context).destinationFallback);
         }
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('おでかけ編集'),
+            title: Text(AppLocalizations.of(context).groupEdit),
             backgroundColor: Colors.green,
             actions: [
               IconButton(
                 icon: const Icon(Icons.delete_forever),
-                tooltip: 'おでかけを中止',
+                tooltip: AppLocalizations.of(context).groupCancelTooltip,
                 onPressed: () => _confirmCancel(context, trip),
               ),
               IconButton(
@@ -212,16 +246,11 @@ class _LeaderModePageState extends State<LeaderModePage> {
               children: [
                 _buildHeader(
                   context,
-                  '$titlePrefixへのおでかけ',
+                  AppLocalizations.of(context).groupTripTo(titlePrefix),
                   _formatScheduleWindow(scheduleStart, scheduleEnd),
                   trip,
                 ),
-                Expanded(
-                  child: _buildMainArea(
-                    context,
-                    trip,
-                  ),
-                ),
+                Expanded(child: _buildMainArea(context, trip)),
                 _buildActionArea(trip, tripService, meetingEntry?.plannedAt),
               ],
             ),
@@ -242,9 +271,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       decoration: BoxDecoration(
         color: Colors.green.shade50,
-        border: Border(
-          bottom: BorderSide(color: Colors.green.shade100),
-        ),
+        border: Border(bottom: BorderSide(color: Colors.green.shade100)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,8 +318,8 @@ class _LeaderModePageState extends State<LeaderModePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '参加コード',
+                      Text(
+                        AppLocalizations.of(context).groupJoinCode,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -309,8 +336,8 @@ class _LeaderModePageState extends State<LeaderModePage> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
-                        'いつでも確認・コピーできます',
+                      Text(
+                        AppLocalizations.of(context).groupCodeHint,
                         style: TextStyle(color: Colors.grey),
                       ),
                     ],
@@ -321,16 +348,22 @@ class _LeaderModePageState extends State<LeaderModePage> {
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: trip.joinCode));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('コードをコピーしました')),
+                      SnackBar(
+                        content: Text(
+                          AppLocalizations.of(context).groupJoinCodeCopied,
+                        ),
+                      ),
                     );
                   },
                   icon: const Icon(Icons.copy, size: 18),
-                  label: const Text('コピー'),
+                  label: Text(AppLocalizations.of(context).groupCopy),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -344,10 +377,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
     );
   }
 
-  Widget _buildMainArea(
-    BuildContext context,
-    Trip trip,
-  ) {
+  Widget _buildMainArea(BuildContext context, Trip trip) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Column(
@@ -356,7 +386,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
           _buildScheduleShortcut(context, trip),
           const SizedBox(height: 12),
           // 帰りの時間が遅れた場合の調整用UI
-          _buildScheduleAdjustment(context, trip), 
+          _buildScheduleAdjustment(context, trip),
           const SizedBox(height: 12),
           _buildGuideLink(context, trip),
           const SizedBox(height: 16),
@@ -371,7 +401,9 @@ class _LeaderModePageState extends State<LeaderModePage> {
 
   Widget _buildScheduleAdjustment(BuildContext context, Trip trip) {
     // 帰りの行程が存在する場合のみ表示
-    final hasInbound = trip.legs.any((leg) => leg.direction == LegDirection.inbound);
+    final hasInbound = trip.legs.any(
+      (leg) => leg.direction == LegDirection.inbound,
+    );
     if (!hasInbound) return const SizedBox.shrink();
 
     return Card(
@@ -380,21 +412,24 @@ class _LeaderModePageState extends State<LeaderModePage> {
       color: Colors.orange.shade50,
       child: ListTile(
         leading: const Icon(Icons.update, color: Colors.orange),
-        title: const Text(
-          '帰りの時間を変更',
+        title: Text(
+          AppLocalizations.of(context).groupChangeReturnTime,
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: const Text('予定より遅れている場合はこちら'),
+        subtitle: Text(AppLocalizations.of(context).groupReturnDelayedHint),
         onTap: () => _showReturnTimeAdjustmentDialog(context, trip),
       ),
     );
   }
 
-  Future<void> _showReturnTimeAdjustmentDialog(BuildContext context, Trip trip) async {
+  Future<void> _showReturnTimeAdjustmentDialog(
+    BuildContext context,
+    Trip trip,
+  ) async {
     final service = TripService();
     // デフォルトは現在時刻
     DateTime initialDate = appClock.now();
-    
+
     // 現在の帰りの出発時刻を探す (inbound Anchorに近いもの)
     // createScheduleFromLegsでは inboundAnchor = UserSelectedReturnTime ?? InboundDeparture
     // InboundDepartureは scheduleから推測するか、candidatesから取るか
@@ -403,17 +438,18 @@ class _LeaderModePageState extends State<LeaderModePage> {
       (e) => e.itemKind == ScheduleEntryKind.meeting && e.label.contains('帰り'),
       orElse: () => ScheduleEntry(plannedAt: initialDate, label: ''),
     );
-    
+
     if (inboundMeeting.label.isNotEmpty) {
       initialDate = inboundMeeting.plannedAt.add(const Duration(minutes: 10));
     } else {
-        // Fallback: Inbound Leg Departure
-        for(final leg in trip.legs) {
-            if (leg.direction == LegDirection.inbound && leg.candidate.departureDate != null) {
-                initialDate = leg.candidate.departureDate!;
-                break;
-            }
+      // Fallback: Inbound Leg Departure
+      for (final leg in trip.legs) {
+        if (leg.direction == LegDirection.inbound &&
+            leg.candidate.departureDate != null) {
+          initialDate = leg.candidate.departureDate!;
+          break;
         }
+      }
     }
 
     // iOS style picker (Bottom Sheet)
@@ -428,16 +464,19 @@ class _LeaderModePageState extends State<LeaderModePage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                   TextButton(
+                  TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('キャンセル'),
+                    child: Text(AppLocalizations.of(context).cancel),
                   ),
                   TextButton(
                     onPressed: () async {
                       Navigator.pop(context);
                       await _updateReturnTime(trip, service, newTime);
                     },
-                    child: const Text('決定', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text(
+                      AppLocalizations.of(context).confirm,
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ],
               ),
@@ -457,21 +496,31 @@ class _LeaderModePageState extends State<LeaderModePage> {
     );
   }
 
-  Future<void> _updateReturnTime(Trip trip, TripService service, DateTime newTime) async {
-      try {
-          await service.updateTripScheduleWithNewReturnTime(trip.id, newTime);
-          if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('帰りのスケジュールを更新しました')),
-              );
-          }
-      } catch (e) {
-          if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('更新に失敗しました: $e')),
-              );
-          }
+  Future<void> _updateReturnTime(
+    Trip trip,
+    TripService service,
+    DateTime newTime,
+  ) async {
+    try {
+      await service.updateTripScheduleWithNewReturnTime(trip.id, newTime);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context).groupReturnUpdated),
+          ),
+        );
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).groupUpdateFailed(e.toString()),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildGuideLink(BuildContext context, Trip trip) {
@@ -480,18 +529,19 @@ class _LeaderModePageState extends State<LeaderModePage> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
         leading: const Icon(Icons.menu_book, color: Colors.orange),
-        title: const Text(
-          'おでかけのしおり',
+        title: Text(
+          AppLocalizations.of(context).groupGuideTitle,
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: const Text('グループ詳細や参加コードを確認'),
-        trailing: const Icon(Icons.arrow_forward_ios,
-            size: 16, color: Colors.orange),
+        subtitle: Text(AppLocalizations.of(context).groupGuideHint),
+        trailing: const Icon(
+          Icons.arrow_forward_ios,
+          size: 16,
+          color: Colors.orange,
+        ),
         onTap: () {
           Navigator.of(context, rootNavigator: true).push(
-            MaterialPageRoute(
-              builder: (_) => GroupDetailPage(trip: trip),
-            ),
+            MaterialPageRoute(builder: (_) => GroupDetailPage(trip: trip)),
           );
         },
       ),
@@ -505,12 +555,16 @@ class _LeaderModePageState extends State<LeaderModePage> {
       color: Colors.green.shade50,
       child: ListTile(
         leading: const Icon(Icons.list_alt, color: Colors.green),
-        title: const Text(
-          'Schedule Page',
+        title: Text(
+          AppLocalizations.of(context).groupSchedule,
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: const Text('同じ画面からスケジュールを確認・編集'),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.green),
+        subtitle: Text(AppLocalizations.of(context).groupScheduleHint),
+        trailing: const Icon(
+          Icons.arrow_forward_ios,
+          size: 16,
+          color: Colors.green,
+        ),
         onTap: () {
           Navigator.of(context, rootNavigator: true).push(
             MaterialPageRoute(
@@ -553,12 +607,9 @@ class _LeaderModePageState extends State<LeaderModePage> {
                 children: [
                   Icon(Icons.map, color: Colors.blue.shade700),
                   const SizedBox(width: 8),
-                  const Text(
-                    '地図 (Map)',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Text(
+                    AppLocalizations.of(context).groupMap,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -578,7 +629,9 @@ class _LeaderModePageState extends State<LeaderModePage> {
                     );
                   },
                   icon: const Icon(Icons.list, size: 18),
-                  label: const Text('目的地までの乗り換え'),
+                  label: Text(
+                    AppLocalizations.of(context).groupTransfersToDestination,
+                  ),
                 ),
               ),
             ],
@@ -601,92 +654,99 @@ class _LeaderModePageState extends State<LeaderModePage> {
               children: [
                 Icon(Icons.group, color: Colors.teal.shade700),
                 const SizedBox(width: 8),
-                const Text(
-                  'メンバー (Members)',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Text(
+                  AppLocalizations.of(context).groupMembers,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(width: 8),
-                const Text(
-                  '点呼用',
+                Text(
+                  AppLocalizations.of(context).groupRollCall,
                   style: TextStyle(color: Colors.grey),
-                )
+                ),
               ],
             ),
             const SizedBox(height: 12),
             if (trip.participants.isEmpty)
-              const Text('参加者がまだいません')
+              Text(AppLocalizations.of(context).groupNoParticipants)
             else
-              ...trip.participants.map((member) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor:
-                              member.isLeader ? Colors.green : Colors.blue,
-                          child: Icon(
-                            member.isLeader ? Icons.star : Icons.person,
-                            color: Colors.white,
-                          ),
+              ...trip.participants.map(
+                (member) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: member.isLeader
+                            ? Colors.green
+                            : Colors.blue,
+                        child: Icon(
+                          member.isLeader ? Icons.star : Icons.person,
+                          color: Colors.white,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              member.name,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              member.isLeader
+                                  ? AppLocalizations.of(context).groupLeader
+                                  : AppLocalizations.of(context).groupJoined,
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (member.sosCount != null && member.sosCount! > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
                             children: [
+                              const Icon(
+                                Icons.warning,
+                                color: Colors.red,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 4),
                               Text(
-                                member.name,
+                                'SOS ${member.sosCount}',
                                 style: const TextStyle(
-                                  fontSize: 15,
+                                  color: Colors.red,
                                   fontWeight: FontWeight.bold,
                                 ),
-                              ),
-                              Text(
-                                member.isLeader ? 'リーダー' : '参加済み',
-                                style: const TextStyle(color: Colors.grey),
                               ),
                             ],
                           ),
                         ),
-                        if (member.sosCount != null && member.sosCount! > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.warning,
-                                    color: Colors.red, size: 18),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'SOS ${member.sosCount}',
-                                  style: const TextStyle(
-                                    color: Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  )),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildActionArea(
-      Trip trip, TripService service, DateTime? meetingAt) {
+  Widget _buildActionArea(Trip trip, TripService service, DateTime? meetingAt) {
     final now = appClock.now();
-    final canStart =
-        meetingAt != null ? !now.isBefore(meetingAt) && !_starting : false;
+    final canStart = meetingAt != null
+        ? !now.isBefore(meetingAt) && !_starting
+        : false;
 
     if (trip.travelPhase == TravelPhase.planning) {
       return Container(
@@ -709,8 +769,8 @@ class _LeaderModePageState extends State<LeaderModePage> {
           children: [
             Text(
               meetingAt != null
-                  ? '集合時間になると開始できます'
-                  : '集合の予定が未設定です',
+                  ? AppLocalizations.of(context).groupStartAtMeeting
+                  : AppLocalizations.of(context).groupMeetingNotSet,
               style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 8),
@@ -730,8 +790,8 @@ class _LeaderModePageState extends State<LeaderModePage> {
                         ),
                       )
                     : const Icon(Icons.play_arrow),
-                label: const Text(
-                  'お出かけを開始する',
+                label: Text(
+                  AppLocalizations.of(context).groupStartTrip,
                   style: TextStyle(fontSize: 18),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -775,7 +835,9 @@ class _LeaderModePageState extends State<LeaderModePage> {
                 const Icon(Icons.location_on, color: Colors.green),
                 const SizedBox(width: 8),
                 Text(
-                  isOutboundMode ? '往路 移動中' : '復路 移動中',
+                  isOutboundMode
+                      ? AppLocalizations.of(context).groupOutboundActive
+                      : AppLocalizations.of(context).groupInboundActive,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -790,7 +852,9 @@ class _LeaderModePageState extends State<LeaderModePage> {
                 child: ElevatedButton.icon(
                   onPressed: () => _handleArrivedAtGoal(context, trip, service),
                   icon: const Icon(Icons.flag),
-                  label: const Text('目的地に到着（帰り支度）'),
+                  label: Text(
+                    AppLocalizations.of(context).groupArriveAndReturn,
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green.shade600,
                     foregroundColor: Colors.white,
@@ -807,7 +871,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
                 child: ElevatedButton.icon(
                   onPressed: () => _showCompleteDialog(context, trip),
                   icon: const Icon(Icons.check_circle),
-                  label: const Text('お出かけを終了する'),
+                  label: Text(AppLocalizations.of(context).groupEndTrip),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.grey.shade700,
                     foregroundColor: Colors.white,
@@ -838,21 +902,33 @@ class _LeaderModePageState extends State<LeaderModePage> {
         ],
       ),
       child: Text(
-        '状態: ${trip.travelPhase.name}',
+        AppLocalizations.of(
+          context,
+        ).groupPhaseLabel(_travelPhaseLabel(trip.travelPhase)),
         style: const TextStyle(color: Colors.grey),
       ),
     );
   }
 
-  Future<void> _handleArrivedAtGoal(BuildContext context, Trip trip, TripService service) async {
+  Future<void> _handleArrivedAtGoal(
+    BuildContext context,
+    Trip trip,
+    TripService service,
+  ) async {
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('目的地に到着'),
-        content: const Text('往路（行き）が完了しましたか？\n「はい」を押すと、帰りのナビゲーションが準備されます。'),
+        title: Text(AppLocalizations.of(context).groupArrivedTitle),
+        content: Text(AppLocalizations.of(context).groupArrivedQuestion),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('いいえ')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('はい')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(AppLocalizations.of(context).groupNo),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(AppLocalizations.of(context).groupYes),
+          ),
         ],
       ),
     );
@@ -861,15 +937,21 @@ class _LeaderModePageState extends State<LeaderModePage> {
       try {
         // 往路(0)完了としてインデックスを0に更新（activeLegIndexは1になる）
         await service.updateCompletedLegIndex(trip.id, 0);
-        if (mounted) {
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('到着を記録しました。帰りもお気をつけて！')),
+            SnackBar(
+              content: Text(AppLocalizations.of(context).groupArrivalRecorded),
+            ),
           );
         }
       } catch (e) {
-        if (mounted) {
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('更新に失敗しました: $e')),
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context).groupUpdateFailed(e.toString()),
+              ),
+            ),
           );
         }
       }
@@ -880,12 +962,12 @@ class _LeaderModePageState extends State<LeaderModePage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('お出かけ終了'),
-        content: const Text('本当に終了しますか?\nメンバーの画面も「終了」に切り替わります。'),
+        title: Text(AppLocalizations.of(context).groupEndTitle),
+        content: Text(AppLocalizations.of(context).groupEndQuestion),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('キャンセル'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -899,19 +981,27 @@ class _LeaderModePageState extends State<LeaderModePage> {
                 await TripService().completeTrip(trip.id);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('お出かけを終了しました')),
+                    SnackBar(
+                      content: Text(AppLocalizations.of(context).groupEnded),
+                    ),
                   );
                   Navigator.pop(context); // リーダー画面を閉じる
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('終了処理に失敗しました: $e')),
+                    SnackBar(
+                      content: Text(
+                        AppLocalizations.of(
+                          context,
+                        ).groupEndFailed(e.toString()),
+                      ),
+                    ),
                   );
                 }
               }
             },
-            child: const Text('終了する'),
+            child: Text(AppLocalizations.of(context).groupEndAction),
           ),
         ],
       ),
@@ -922,15 +1012,12 @@ class _LeaderModePageState extends State<LeaderModePage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('おでかけを中止しますか？'),
-        content: const Text(
-            'この操作は取り消せません。\n'
-            '中止すると、参加者全員の画面で「解散」と表示され、旅が終了します。'
-        ),
+        title: Text(AppLocalizations.of(context).groupCancelQuestion),
+        content: Text(AppLocalizations.of(context).groupCancelDescription),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('キャンセル'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -938,25 +1025,31 @@ class _LeaderModePageState extends State<LeaderModePage> {
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('中止する'),
+            child: Text(AppLocalizations.of(context).cancelAction),
           ),
         ],
       ),
     );
 
-    if (confirmed == true && mounted) {
+    if (confirmed == true && context.mounted) {
       try {
         await TripService().cancelTrip(trip.id);
-        if (mounted) {
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('おでかけを中止しました')),
+            SnackBar(
+              content: Text(AppLocalizations.of(context).groupCancelled),
+            ),
           );
           Navigator.pop(context); // Close the leader page
         }
       } catch (e) {
-        if (mounted) {
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('エラーが発生しました: $e')),
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context).errorWithMessage(e.toString()),
+              ),
+            ),
           );
         }
       }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
 import 'trip_report_page.dart'; // 次に作るファイル
@@ -34,9 +35,13 @@ class _TripListPageState extends State<TripListPage> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('エラーが発生しました: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).errorWithMessage(e.toString()),
+            ),
+          ),
+        );
       }
     }
   }
@@ -44,11 +49,11 @@ class _TripListPageState extends State<TripListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('お出かけ一覧')),
+      appBar: AppBar(title: Text(AppLocalizations.of(context).groupTripList)),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _trips == null || _trips!.isEmpty
-          ? const Center(child: Text('お出かけの記録がありません'))
+          ? Center(child: Text(AppLocalizations.of(context).groupTripListEmpty))
           : ListView.builder(
               itemCount: _trips!.length,
               itemBuilder: (context, index) {
@@ -92,8 +97,10 @@ class _TripListItem extends StatelessWidget {
       title: Text(trip.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         trip.isSolo
-            ? '$dateStr - 移動'
-            : '$dateStr - おでかけ・${trip.participants.length}名参加',
+            ? AppLocalizations.of(context).groupSoloSummary(dateStr)
+            : AppLocalizations.of(
+                context,
+              ).groupTripSummary(dateStr, trip.participants.length),
       ),
       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: onTap,

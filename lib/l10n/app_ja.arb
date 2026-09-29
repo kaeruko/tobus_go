@@ -1321,5 +1321,229 @@
   "replanPreviewStateChanged": "比較表示中に移動状況が変わりました。最新の経路へ更新してから選び直してください。",
   "replanUserUnavailable": "経路変更を行うユーザーIDを取得できません",
   "groupReplanUnavailableHere": "この画面からグループ経路は変更できません",
-  "groupReplanLeaderOnly": "グループの経路を変更できるのはリーダーだけです"
+  "groupReplanLeaderOnly": "グループの経路を変更できるのはリーダーだけです",
+  "groupGuideTitle": "おでかけのしおり",
+  "groupJoinCode": "参加コード",
+  "groupJoinCodeCopied": "参加コードをコピーしました",
+  "groupBasicInfo": "基本情報",
+  "groupLeader": "リーダー",
+  "groupDate": "実施日",
+  "groupParticipants": "参加者",
+  "groupGuideSchedule": "しおり (予定)",
+  "groupEdit": "おでかけ編集",
+  "groupLoadFailed": "おでかけを読み込めませんでした: {error}",
+  "@groupLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupNotFound": "おでかけが見つかりません",
+  "groupNotActive": "移動中ではありません: {phase}",
+  "@groupNotActive": {
+    "placeholders": {
+      "phase": {
+        "type": "String"
+      }
+    }
+  },
+  "groupLeaderTraveling": "リーダー移動中",
+  "groupManagement": "おでかけ管理",
+  "groupTodaySchedule": "今日の予定",
+  "groupCompletedCount": "完了 {count} 件",
+  "@groupCompletedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleAllCompleted": "すべての予定を完了しました。",
+  "groupOpenManagement": "おでかけ管理を開く",
+  "groupArrivedTitle": "目的地に到着",
+  "groupArrivedQuestion": "往路（行き）が完了しましたか？\n「はい」を押すと、帰りのナビゲーションが準備されます。",
+  "groupNo": "いいえ",
+  "groupYes": "はい",
+  "groupArrivalRecorded": "到着を記録しました。帰りもお気をつけて！",
+  "groupUpdateFailed": "更新に失敗しました: {error}",
+  "@groupUpdateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupEndTitle": "おでかけ終了",
+  "groupEndQuestion": "本当に終了しますか？\nメンバーの画面も「終了」に切り替わります。",
+  "groupEndAction": "終了する",
+  "groupEnded": "おでかけを終了しました",
+  "groupEndFailed": "終了処理に失敗しました: {error}",
+  "@groupEndFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupUpdating": "更新中…",
+  "groupArriveAndReturn": "目的地に到着（帰り支度）",
+  "groupEndTrip": "おでかけを終了する",
+  "groupReplanExplanation": "乗車前は保存済みの経路出発地点、移動中は確認できた駅・停留所を基準に、目的地までの経路を現在の時刻で再検索します。",
+  "groupMemberReplanNotice": "経路変更はリーダーだけが確定できます。必要ならリーダーに確認してください。",
+  "groupMemberScheduleNotice": "予定の変更はリーダーが行います。必要ならリーダーに確認してください。",
+  "groupNotifyQuestion": "引率者に通知を送りますか?",
+  "groupNotified": "引率者に通知しました!",
+  "groupNotify": "通知する",
+  "groupMemberMode": "おでかけモード",
+  "groupExitMode": "モード終了",
+  "groupExitQuestion": "通常モードに戻りますか?",
+  "groupHelpNotice": "困ったときは「ヘルプ／連絡する」を押してください。音声で読み上げます。",
+  "groupHelp": "ヘルプ",
+  "groupHelpContact": "ヘルプ / 連絡",
+  "groupReturnNormal": "通常モードに戻る",
+  "groupScheduleEdit": "予定を編集",
+  "groupScheduleAdd": "予定を追加",
+  "groupTimeLabel": "時刻: {time}",
+  "@groupTimeLabel": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "groupOutbound": "行き",
+  "groupInbound": "帰り",
+  "groupScheduleTitleField": "タイトル",
+  "groupScheduleDetailsField": "詳細 (任意)",
+  "groupScheduleLegField": "区間",
+  "groupAdd": "追加",
+  "groupSchedule": "スケジュール",
+  "groupScheduleDeleteQuestion": "削除しますか？",
+  "groupScheduleDeleteDescription": "「{title}」をスケジュールから削除します。",
+  "@groupScheduleDeleteDescription": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "groupTripList": "お出かけ一覧",
+  "groupTripListEmpty": "お出かけの記録がありません",
+  "groupSoloSummary": "{date} - 移動",
+  "@groupSoloSummary": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "groupTripSummary": "{date} - おでかけ・{count}名参加",
+  "@groupTripSummary": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupNoScheduleInfo": "日程情報がありません",
+  "groupStarted": "おでかけを開始しました",
+  "groupStartFailed": "開始に失敗しました: {error}",
+  "@groupStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupReplanQuestion": "経路を見直しますか？",
+  "groupLateStartDescription": "予定より{minutes}分遅れて開始しました。\n\n電車・バスの時刻を予定差ぶん横にずらすことはせず、必要なら現在時刻と経路上の出発地点を基準に経路を再検索します。",
+  "@groupLateStartDescription": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupContinue": "そのまま続行",
+  "groupCancelTooltip": "おでかけを中止",
+  "groupTripTo": "{destination}へのおでかけ",
+  "@groupTripTo": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "groupCodeHint": "いつでも確認・コピーできます",
+  "groupCopy": "コピー",
+  "groupChangeReturnTime": "帰りの時間を変更",
+  "groupReturnDelayedHint": "予定より遅れている場合はこちら",
+  "groupReturnUpdated": "帰りのスケジュールを更新しました",
+  "groupGuideHint": "グループ詳細や参加コードを確認",
+  "groupScheduleHint": "同じ画面からスケジュールを確認・編集",
+  "groupMap": "地図 (Map)",
+  "groupTransfersToDestination": "目的地までの乗り換え",
+  "groupMembers": "メンバー (Members)",
+  "groupRollCall": "点呼用",
+  "groupNoParticipants": "参加者がまだいません",
+  "groupJoined": "参加済み",
+  "groupStartAtMeeting": "集合時間になると開始できます",
+  "groupMeetingNotSet": "集合の予定が未設定です",
+  "groupStartTrip": "お出かけを開始する",
+  "groupOutboundActive": "往路 移動中",
+  "groupInboundActive": "復路 移動中",
+  "groupPhaseLabel": "状態: {phase}",
+  "@groupPhaseLabel": {
+    "placeholders": {
+      "phase": {
+        "type": "String"
+      }
+    }
+  },
+  "groupCancelQuestion": "おでかけを中止しますか？",
+  "groupCancelDescription": "この操作は取り消せません。\n中止すると、参加者全員の画面で「解散」と表示され、旅が終了します。",
+  "groupCancelled": "おでかけを中止しました",
+  "groupReportMemoSaved": "メモを保存しました",
+  "groupReportSaveFailed": "保存に失敗しました: {error}",
+  "@groupReportSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupReportTitle": "実施報告書",
+  "groupReportSchedule": "実施日程と時間",
+  "groupReportAttendance": "出席者と出欠状況",
+  "groupReportSos": "SOS発生状況",
+  "groupReportNotes": "対応メモ",
+  "groupReportDate": "実施日: {date}",
+  "@groupReportDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "groupReportStatus": "ステータス: ",
+  "groupReportActive": "実施中",
+  "groupReportStart": "開始",
+  "groupReportEnd": "終了(予定)",
+  "groupReportSosCount": "SOS回数: {count}",
+  "@groupReportSosCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupReportDemoSos": "SOS通知記録 (ダミーデータ)",
+  "groupReportDemoFall": "転倒により軽傷",
+  "groupReportDemoLost": "はぐれてしまった",
+  "groupReportDemoReunited": "合流完了",
+  "groupReportNotesHint": "特記事項や対応内容を入力してください"
 }

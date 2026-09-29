@@ -25,39 +25,35 @@ void main() {
     expect(spot.commentForLanguageCode('ja'), 'スカイツリーが近い');
     expect(spot.commentForLanguageCode('en'), 'Tokyo Skytree is nearby');
     expect(spot.commentForLanguageCode('zh'), 'Tokyo Skytree is nearby');
-    expect(
-      spot.images.single.captionForLanguageCode('ja'),
-      '駅前から見たスカイツリー',
-    );
+    expect(spot.images.single.captionForLanguageCode('ja'), '駅前から見たスカイツリー');
     expect(
       spot.images.single.captionForLanguageCode('en'),
       'Tokyo Skytree from the bus stop',
     );
   });
 
-  test('missing English editorial copy stays empty instead of falling back', () {
-    final content = ExploreEditorialContent.fromJson({
-      'spots': [
-        {
-          'stop_id': 'odpt.BusstopPole:Toei.OshiageStation.100.1',
-          'comment': '日本語だけ',
-          'comment_en': '',
-          'images': [
-            {
-              'file': 'oshiage.jpg',
-              'caption': '日本語キャプション',
-              'caption_en': '',
-            },
-          ],
-        },
-      ],
-    });
+  test(
+    'missing English editorial copy stays empty instead of falling back',
+    () {
+      final content = ExploreEditorialContent.fromJson({
+        'spots': [
+          {
+            'stop_id': 'odpt.BusstopPole:Toei.OshiageStation.100.1',
+            'comment': '日本語だけ',
+            'comment_en': '',
+            'images': [
+              {'file': 'oshiage.jpg', 'caption': '日本語キャプション', 'caption_en': ''},
+            ],
+          },
+        ],
+      });
 
-    final spot =
-        content.byStopId['odpt.BusstopPole:Toei.OshiageStation.100.1']!;
-    expect(spot.commentForLanguageCode('en'), isEmpty);
-    expect(spot.images.single.captionForLanguageCode('en'), isEmpty);
-  });
+      final spot =
+          content.byStopId['odpt.BusstopPole:Toei.OshiageStation.100.1']!;
+      expect(spot.commentForLanguageCode('en'), isEmpty);
+      expect(spot.images.single.captionForLanguageCode('en'), isEmpty);
+    },
+  );
 
   test('Explore stop names use official English names without fallback', () {
     final response = ReachableResponse.fromJson({
@@ -83,32 +79,43 @@ void main() {
     });
 
     expect(response.nearestStop!.nameForLanguageCode('ja'), '押上駅前');
-    expect(response.nearestStop!.nameForLanguageCode('zh'), 'Oshiage Sta. (押上駅前)');
-    expect(response.reachableStops.single.nameForLanguageCode('zh'), 'Narihira-bashi (業平橋)');
-    expect(response.nearestStop!.nameForLanguageCode('en'), 'Oshiage Sta. (押上駅前)');
+    expect(
+      response.nearestStop!.nameForLanguageCode('zh'),
+      'Oshiage Sta. (押上駅前)',
+    );
+    expect(
+      response.reachableStops.single.nameForLanguageCode('zh'),
+      'Narihira-bashi (業平橋)',
+    );
+    expect(
+      response.nearestStop!.nameForLanguageCode('en'),
+      'Oshiage Sta. (押上駅前)',
+    );
     expect(
       response.reachableStops.single.nameForLanguageCode('en'),
       'Narihira-bashi (業平橋)',
     );
   });
 
-  test('Explore stop parsing fails fast when official English name is missing',
-      () {
-    expect(
-      () => ReachableResponse.fromJson({
-        'found': true,
-        'nearest_stop': {
-          'id': 'origin',
-          'name': '押上駅前',
-          'lat': 35.0,
-          'lon': 139.0,
-          'dist_m': 120,
-        },
-        'reachable_stops': const [],
-      }),
-      throwsA(isA<FormatException>()),
-    );
-  });
+  test(
+    'Explore stop parsing fails fast when official English name is missing',
+    () {
+      expect(
+        () => ReachableResponse.fromJson({
+          'found': true,
+          'nearest_stop': {
+            'id': 'origin',
+            'name': '押上駅前',
+            'lat': 35.0,
+            'lon': 139.0,
+            'dist_m': 120,
+          },
+          'reachable_stops': const [],
+        }),
+        throwsA(isA<FormatException>()),
+      );
+    },
+  );
 
   test('Explore stop parsing fails fast when distance is missing', () {
     expect(

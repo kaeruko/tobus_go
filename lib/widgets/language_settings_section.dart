@@ -23,9 +23,9 @@ class _LanguageSettingsSectionState
       _error = null;
     });
     try {
-      await ref.read(localeProvider.notifier).setLocale(
-        code == null ? null : Locale(code),
-      );
+      await ref
+          .read(localeProvider.notifier)
+          .setLocale(code == null ? null : Locale(code));
     } catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {

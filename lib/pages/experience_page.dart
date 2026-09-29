@@ -31,8 +31,9 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
 
   Future<void> _load() async {
     try {
-      final res =
-          await ref.read(exploreProvider.notifier).fetchExperiences(widget.stop);
+      final res = await ref
+          .read(exploreProvider.notifier)
+          .fetchExperiences(widget.stop);
       if (mounted) {
         setState(() {
           _data = res;
@@ -55,7 +56,15 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
     final editorialState = ref.watch(exploreEditorialContentProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.experienceAround(widget.stop.nameForLanguageCode(Localizations.localeOf(context).languageCode)))),
+      appBar: AppBar(
+        title: Text(
+          l10n.experienceAround(
+            widget.stop.nameForLanguageCode(
+              Localizations.localeOf(context).languageCode,
+            ),
+          ),
+        ),
+      ),
       body: _buildBody(editorialState),
     );
   }
@@ -73,12 +82,9 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
     }
 
     return editorialState.when(
-      data: (editorial) => _buildLoadedBody(
-        editorial.byStopId[widget.stop.id],
-      ),
-      error: (err, stack) => _errorView(
-        l10n.exploreContentLoadFailed(err.toString()),
-      ),
+      data: (editorial) => _buildLoadedBody(editorial.byStopId[widget.stop.id]),
+      error: (err, stack) =>
+          _errorView(l10n.exploreContentLoadFailed(err.toString())),
       loading: () => const Center(child: CircularProgressIndicator()),
     );
   }
@@ -87,10 +93,7 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Text(
-          message,
-          style: const TextStyle(color: Colors.red),
-        ),
+        child: Text(message, style: const TextStyle(color: Colors.red)),
       ),
     );
   }
@@ -119,7 +122,8 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
   Widget _experienceCard(ExperienceGroup group) {
     final l10n = AppLocalizations.of(context);
     final stop = group.representativeStop.id == widget.stop.id
-        ? widget.stop : group.representativeStop;
+        ? widget.stop
+        : group.representativeStop;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
@@ -143,13 +147,17 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
             const SizedBox(height: 12),
             Text(
               _experienceDescription(group.description),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
-              l10n.experienceCentralStop(stop.nameForLanguageCode(Localizations.localeOf(context).languageCode)),
+              l10n.experienceCentralStop(
+                stop.nameForLanguageCode(
+                  Localizations.localeOf(context).languageCode,
+                ),
+              ),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 12),
@@ -206,9 +214,9 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
   }
 
   Uri _editorialImageUri(ExploreEditorialImage image) {
-    return Uri.parse('$kApiBase/explore/content/image').replace(
-      queryParameters: {'file': image.file},
-    );
+    return Uri.parse(
+      '$kApiBase/explore/content/image',
+    ).replace(queryParameters: {'file': image.file});
   }
 
   Widget _editorialSection(ExploreEditorialSpot editorial) {
@@ -219,14 +227,11 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
       children: [
         Text(
           AppLocalizations.of(context).experienceMemo,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
-        if (comment.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(comment),
-        ],
+        if (comment.isNotEmpty) ...[const SizedBox(height: 8), Text(comment)],
         if (editorial.images.isNotEmpty) ...[
           const SizedBox(height: 12),
           SizedBox(
@@ -266,14 +271,14 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
                               },
                               loadingBuilder:
                                   (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Container(
-                                  color: Colors.grey.shade100,
-                                  child: const Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                );
-                              },
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      color: Colors.grey.shade100,
+                                      child: const Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    );
+                                  },
                             ),
                           ),
                         ),
@@ -331,16 +336,18 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
     required int h,
     required int heading,
   }) {
-    return Uri.parse('$kApiBase/streetview/thumb').replace(queryParameters: {
-      'lat': stop.lat.toString(),
-      'lon': stop.lon.toString(),
-      'w': w.toString(),
-      'h': h.toString(),
-      'radius': '150',
-      'fov': '90',
-      'heading': heading.toString(),
-      'pitch': '0',
-    });
+    return Uri.parse('$kApiBase/streetview/thumb').replace(
+      queryParameters: {
+        'lat': stop.lat.toString(),
+        'lon': stop.lon.toString(),
+        'w': w.toString(),
+        'h': h.toString(),
+        'radius': '150',
+        'fov': '90',
+        'heading': heading.toString(),
+        'pitch': '0',
+      },
+    );
   }
 
   Widget _svThumb(ReachableStop stop, {required int heading}) {
@@ -474,7 +481,9 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
 
     notifier.setTo(
       '${stop.lat},${stop.lon}',
-      name: stop.nameForLanguageCode(Localizations.localeOf(context).languageCode),
+      name: stop.nameForLanguageCode(
+        Localizations.localeOf(context).languageCode,
+      ),
       nameJa: stop.name,
       nameEn: stop.nameEn,
     );

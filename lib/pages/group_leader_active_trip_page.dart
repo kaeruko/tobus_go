@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/city_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../logic/group_leader_active_navigation.dart';
@@ -45,9 +47,7 @@ class GroupLeaderActiveTripPage extends StatelessWidget {
           (ref) => MemberNavProgressNotifier(),
         ),
       ],
-      child: _GroupLeaderActiveTripBody(
-        onOpenManagement: onOpenManagement,
-      ),
+      child: _GroupLeaderActiveTripBody(onOpenManagement: onOpenManagement),
     );
   }
 }
@@ -55,9 +55,7 @@ class GroupLeaderActiveTripPage extends StatelessWidget {
 class _GroupLeaderActiveTripBody extends ConsumerStatefulWidget {
   final VoidCallback onOpenManagement;
 
-  const _GroupLeaderActiveTripBody({
-    required this.onOpenManagement,
-  });
+  const _GroupLeaderActiveTripBody({required this.onOpenManagement});
 
   @override
   ConsumerState<_GroupLeaderActiveTripBody> createState() =>
@@ -68,6 +66,16 @@ class _GroupLeaderActiveTripBodyState
     extends ConsumerState<_GroupLeaderActiveTripBody> {
   final TripService _tripService = TripService();
   bool _primaryActionRunning = false;
+
+  String _travelPhaseLabel(TravelPhase phase) {
+    final l10n = AppLocalizations.of(context);
+    return switch (phase) {
+      TravelPhase.planning => l10n.travelPhasePlanning,
+      TravelPhase.active => l10n.travelPhaseActive,
+      TravelPhase.completed => l10n.travelPhaseCompleted,
+      TravelPhase.cancelled => l10n.travelPhaseCancelled,
+    };
+  }
 
   @override
   void initState() {
@@ -83,27 +91,44 @@ class _GroupLeaderActiveTripBodyState
   Widget build(BuildContext context) {
     final tripAsync = ref.watch(tripStreamProvider);
     final uiAsync = ref.watch(memberUiStateProvider);
-    final appName = ref.watch(cityProfileProvider).appName;
+    final appName = localizedCityAppName(
+      AppLocalizations.of(context),
+      ref.watch(cityProfileProvider).city,
+    );
 
     return tripAsync.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (error, stack) => Scaffold(
         appBar: AppBar(title: Text(appName)),
-        body: Center(child: Text('おでかけを読み込めませんでした: $error')),
+        body: Center(
+          child: Text(
+            AppLocalizations.of(context).groupLoadFailed(error.toString()),
+          ),
+        ),
       ),
       data: (trip) {
         if (trip == null) {
-          return const Scaffold(body: Center(child: Text('おでかけが見つかりません')));
+          return Scaffold(
+            body: Center(
+              child: Text(AppLocalizations.of(context).groupNotFound),
+            ),
+          );
         }
         if (trip.tripType != TripType.group) {
-          throw StateError('Group leader画面にSolo tripが渡されました: tripId=${trip.id}');
+          throw StateError(
+            'Group leader画面にSolo tripが渡されました: tripId=${trip.id}',
+          );
         }
         if (trip.travelPhase != TravelPhase.active) {
           return Scaffold(
             appBar: AppBar(title: Text(appName)),
             body: Center(
-              child: Text('移動中ではありません: ${trip.travelPhase.name}'),
+              child: Text(
+                AppLocalizations.of(
+                  context,
+                ).groupNotActive(_travelPhaseLabel(trip.travelPhase)),
+              ),
             ),
           );
         }
@@ -113,7 +138,13 @@ class _GroupLeaderActiveTripBodyState
               const Scaffold(body: Center(child: CircularProgressIndicator())),
           error: (error, stack) => Scaffold(
             appBar: AppBar(title: Text(appName)),
-            body: Center(child: Text('ナビを表示できませんでした: $error')),
+            body: Center(
+              child: Text(
+                AppLocalizations.of(
+                  context,
+                ).navigationLoadFailed(error.toString()),
+              ),
+            ),
           ),
           data: (uiState) => _buildNavigation(trip, uiState),
         );
@@ -122,7 +153,10 @@ class _GroupLeaderActiveTripBodyState
   }
 
   Widget _buildNavigation(Trip trip, MemberUiState uiState) {
-    final appName = ref.watch(cityProfileProvider).appName;
+    final appName = localizedCityAppName(
+      AppLocalizations.of(context),
+      ref.watch(cityProfileProvider).city,
+    );
     final primaryAction = resolveGroupLeaderActivePrimaryAction(trip);
 
     return ActiveTripNavigationView(
@@ -134,17 +168,17 @@ class _GroupLeaderActiveTripBodyState
         title: ActiveTripAppBarTitle(
           appName: appName,
           tripTitle: trip.displayTitle,
-          contextLabel: 'リーダー移動中',
+          contextLabel: AppLocalizations.of(context).groupLeaderTraveling,
         ),
         leading: IconButton(
-          tooltip: 'おでかけのしおり',
+          tooltip: AppLocalizations.of(context).groupGuideTitle,
           icon: const Icon(Icons.menu_book),
           onPressed: () => _openGroupDetail(trip),
         ),
         actions: [
           const ActiveTripRealtimeActions(),
           IconButton(
-            tooltip: 'おでかけ管理',
+            tooltip: AppLocalizations.of(context).groupManagement,
             icon: const Icon(Icons.tune),
             onPressed: widget.onOpenManagement,
           ),
@@ -155,17 +189,15 @@ class _GroupLeaderActiveTripBodyState
         trip: trip,
         currentStepId: ref.read(memberNavProgressProvider).currentStepId,
       ),
-      beforeScheduleSections: const [
-        GroupLeaderRouteReplanContent(),
-      ],
+      beforeScheduleSections: const [GroupLeaderRouteReplanContent()],
       scheduleSection: TripScheduleWindowCard(
-        title: '今日の予定',
+        title: AppLocalizations.of(context).groupTodaySchedule,
         resolvedEntry: uiState.resolvedEntry,
         entries: uiState.windowEntries,
         completedCount: uiState.completedCount,
         activeLabel: uiState.activeLabel,
         counterLabelBuilder: (completedCount, totalCount) =>
-            '完了 $completedCount 件',
+            AppLocalizations.of(context).groupCompletedCount(completedCount),
         appearance: TripScheduleWindowAppearance.boxedRows,
         activeDetail: TripNavigationInlineStatus(
           navState: uiState.navState,
@@ -175,7 +207,7 @@ class _GroupLeaderActiveTripBodyState
             currentStepId: ref.read(memberNavProgressProvider).currentStepId,
           ),
         ),
-        emptyLabel: 'すべての予定を完了しました。',
+        emptyLabel: AppLocalizations.of(context).groupScheduleAllCompleted,
         onTapEntry: (entry) {
           if (entry.itemKind != ScheduleEntryKind.ride) return;
           openRideStops(context: context, trip: trip, entry: entry);
@@ -185,7 +217,7 @@ class _GroupLeaderActiveTripBodyState
         OutlinedButton.icon(
           onPressed: widget.onOpenManagement,
           icon: const Icon(Icons.tune),
-          label: const Text('おでかけ管理を開く'),
+          label: Text(AppLocalizations.of(context).groupOpenManagement),
         ),
       ],
       bottomNavigationBar: _GroupLeaderPrimaryActionBar(
@@ -197,9 +229,10 @@ class _GroupLeaderActiveTripBodyState
   }
 
   void _openGroupDetail(Trip trip) {
-    Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute(builder: (_) => GroupDetailPage(trip: trip)),
-    );
+    Navigator.of(
+      context,
+      rootNavigator: true,
+    ).push(MaterialPageRoute(builder: (_) => GroupDetailPage(trip: trip)));
   }
 
   Future<void> _runPrimaryAction(
@@ -220,19 +253,16 @@ class _GroupLeaderActiveTripBodyState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('目的地に到着'),
-        content: const Text(
-          '往路（行き）が完了しましたか？\n'
-          '「はい」を押すと、帰りのナビゲーションが準備されます。',
-        ),
+        title: Text(AppLocalizations.of(context).groupArrivedTitle),
+        content: Text(AppLocalizations.of(context).groupArrivedQuestion),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('いいえ'),
+            child: Text(AppLocalizations.of(context).groupNo),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('はい'),
+            child: Text(AppLocalizations.of(context).groupYes),
           ),
         ],
       ),
@@ -244,12 +274,18 @@ class _GroupLeaderActiveTripBodyState
       await _tripService.updateCompletedLegIndex(trip.id, 0);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('到着を記録しました。帰りもお気をつけて！')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).groupArrivalRecorded),
+        ),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('更新に失敗しました: $error')),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).groupUpdateFailed(error.toString()),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _primaryActionRunning = false);
@@ -260,16 +296,16 @@ class _GroupLeaderActiveTripBodyState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('おでかけ終了'),
-        content: const Text('本当に終了しますか？\nメンバーの画面も「終了」に切り替わります。'),
+        title: Text(AppLocalizations.of(context).groupEndTitle),
+        content: Text(AppLocalizations.of(context).groupEndQuestion),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('キャンセル'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('終了する'),
+            child: Text(AppLocalizations.of(context).groupEndAction),
           ),
         ],
       ),
@@ -281,13 +317,17 @@ class _GroupLeaderActiveTripBodyState
       await _tripService.completeTrip(trip.id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('おでかけを終了しました')),
+        SnackBar(content: Text(AppLocalizations.of(context).groupEnded)),
       );
       Navigator.of(context).pop();
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('終了処理に失敗しました: $error')),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).groupEndFailed(error.toString()),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _primaryActionRunning = false);
@@ -325,10 +365,10 @@ class _GroupLeaderPrimaryActionBar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
               running
-                  ? '更新中…'
+                  ? AppLocalizations.of(context).groupUpdating
                   : isOutbound
-                      ? '目的地に到着（帰り支度）'
-                      : 'おでかけを終了する',
+                  ? AppLocalizations.of(context).groupArriveAndReturn
+                  : AppLocalizations.of(context).groupEndTrip,
             ),
           ),
         ),

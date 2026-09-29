@@ -1321,5 +1321,229 @@
   "replanPreviewStateChanged": "Your trip status changed while comparing routes. Update to the latest route options and choose again.",
   "replanUserUnavailable": "Couldn’t identify the user making the route change.",
   "groupReplanUnavailableHere": "Group routes can’t be changed from this screen.",
-  "groupReplanLeaderOnly": "Only the group leader can change the group route."
+  "groupReplanLeaderOnly": "Only the group leader can change the group route.",
+  "groupGuideTitle": "Trip guide",
+  "groupJoinCode": "Join code",
+  "groupJoinCodeCopied": "Join code copied",
+  "groupBasicInfo": "Basic information",
+  "groupLeader": "Leader",
+  "groupDate": "Date",
+  "groupParticipants": "Participants",
+  "groupGuideSchedule": "Guide (schedule)",
+  "groupEdit": "Edit trip",
+  "groupLoadFailed": "Could not load the trip: {error}",
+  "@groupLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupNotFound": "Trip not found",
+  "groupNotActive": "The trip is not active: {phase}",
+  "@groupNotActive": {
+    "placeholders": {
+      "phase": {
+        "type": "String"
+      }
+    }
+  },
+  "groupLeaderTraveling": "Leader · on the move",
+  "groupManagement": "Manage trip",
+  "groupTodaySchedule": "Today's schedule",
+  "groupCompletedCount": "{count} completed",
+  "@groupCompletedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleAllCompleted": "All scheduled items are complete.",
+  "groupOpenManagement": "Open trip management",
+  "groupArrivedTitle": "Arrived at destination",
+  "groupArrivedQuestion": "Have you completed the outbound journey?\nSelect Yes to prepare navigation for the return journey.",
+  "groupNo": "No",
+  "groupYes": "Yes",
+  "groupArrivalRecorded": "Arrival recorded. Have a safe journey back!",
+  "groupUpdateFailed": "Could not update: {error}",
+  "@groupUpdateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupEndTitle": "End trip",
+  "groupEndQuestion": "End this trip?\nMembers will also see that the trip has ended.",
+  "groupEndAction": "End",
+  "groupEnded": "Trip ended",
+  "groupEndFailed": "Could not end the trip: {error}",
+  "@groupEndFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupUpdating": "Updating…",
+  "groupArriveAndReturn": "Arrived (prepare to return)",
+  "groupEndTrip": "End trip",
+  "groupReplanExplanation": "Search again for a route to the destination using the current time. Before boarding, the search starts from the saved route origin; while traveling, it starts from a confirmed station or stop.",
+  "groupMemberReplanNotice": "Only the leader can confirm route changes. Ask your leader if needed.",
+  "groupMemberScheduleNotice": "The leader manages schedule changes. Ask your leader if needed.",
+  "groupNotifyQuestion": "Send a notification to the leader?",
+  "groupNotified": "The leader has been notified!",
+  "groupNotify": "Notify",
+  "groupMemberMode": "Trip mode",
+  "groupExitMode": "Exit trip mode",
+  "groupExitQuestion": "Return to normal mode?",
+  "groupHelpNotice": "If you need help, tap Help / Contact. The message will be read aloud.",
+  "groupHelp": "Help",
+  "groupHelpContact": "Help / Contact",
+  "groupReturnNormal": "Return to normal mode",
+  "groupScheduleEdit": "Edit item",
+  "groupScheduleAdd": "Add item",
+  "groupTimeLabel": "Time: {time}",
+  "@groupTimeLabel": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "groupOutbound": "Outbound",
+  "groupInbound": "Return",
+  "groupScheduleTitleField": "Title",
+  "groupScheduleDetailsField": "Details (optional)",
+  "groupScheduleLegField": "Journey",
+  "groupAdd": "Add",
+  "groupSchedule": "Schedule",
+  "groupScheduleDeleteQuestion": "Delete this item?",
+  "groupScheduleDeleteDescription": "Remove “{title}” from the schedule.",
+  "@groupScheduleDeleteDescription": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "groupTripList": "Trips",
+  "groupTripListEmpty": "No trip records",
+  "groupSoloSummary": "{date} - Solo trip",
+  "@groupSoloSummary": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "groupTripSummary": "{date} - Group trip · {count} participants",
+  "@groupTripSummary": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupNoScheduleInfo": "No schedule information",
+  "groupStarted": "Trip started",
+  "groupStartFailed": "Could not start the trip: {error}",
+  "@groupStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupReplanQuestion": "Review the route?",
+  "groupLateStartDescription": "The trip started {minutes} minutes late.\n\nTrain and bus times will not be shifted by that delay. If needed, search again using the current time and the departure point on the route.",
+  "@groupLateStartDescription": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupContinue": "Continue as planned",
+  "groupCancelTooltip": "Cancel trip",
+  "groupTripTo": "Trip to {destination}",
+  "@groupTripTo": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "groupCodeHint": "View and copy at any time",
+  "groupCopy": "Copy",
+  "groupChangeReturnTime": "Change return time",
+  "groupReturnDelayedHint": "Use this if you are behind schedule",
+  "groupReturnUpdated": "Return schedule updated",
+  "groupGuideHint": "View group details and the join code",
+  "groupScheduleHint": "View and edit the schedule in one place",
+  "groupMap": "Map",
+  "groupTransfersToDestination": "Transfers to destination",
+  "groupMembers": "Members",
+  "groupRollCall": "For roll call",
+  "groupNoParticipants": "No participants yet",
+  "groupJoined": "Joined",
+  "groupStartAtMeeting": "You can start at the meeting time",
+  "groupMeetingNotSet": "No meeting is scheduled",
+  "groupStartTrip": "Start trip",
+  "groupOutboundActive": "Outbound · traveling",
+  "groupInboundActive": "Return · traveling",
+  "groupPhaseLabel": "Status: {phase}",
+  "@groupPhaseLabel": {
+    "placeholders": {
+      "phase": {
+        "type": "String"
+      }
+    }
+  },
+  "groupCancelQuestion": "Cancel this trip?",
+  "groupCancelDescription": "This cannot be undone.\nCancelling ends the trip and shows all participants that the group has disbanded.",
+  "groupCancelled": "Trip cancelled",
+  "groupReportMemoSaved": "Notes saved",
+  "groupReportSaveFailed": "Could not save: {error}",
+  "@groupReportSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupReportTitle": "Trip report",
+  "groupReportSchedule": "Date and time",
+  "groupReportAttendance": "Participants and attendance",
+  "groupReportSos": "SOS activity",
+  "groupReportNotes": "Response notes",
+  "groupReportDate": "Date: {date}",
+  "@groupReportDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "groupReportStatus": "Status: ",
+  "groupReportActive": "In progress",
+  "groupReportStart": "Start",
+  "groupReportEnd": "End (planned)",
+  "groupReportSosCount": "SOS count: {count}",
+  "@groupReportSosCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupReportDemoSos": "SOS notification log (sample data)",
+  "groupReportDemoFall": "Minor injury after a fall",
+  "groupReportDemoLost": "Separated from the group",
+  "groupReportDemoReunited": "Rejoined the group",
+  "groupReportNotesHint": "Enter any special notes or actions taken"
 }

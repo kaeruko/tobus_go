@@ -1321,5 +1321,229 @@
   "replanPreviewStateChanged": "比较路线期间行程状态发生了变化。请更新到最新路线后重新选择。",
   "replanUserUnavailable": "无法获取执行路线变更的用户 ID",
   "groupReplanUnavailableHere": "无法从此页面更改群组路线",
-  "groupReplanLeaderOnly": "只有群组领队可以更改群组路线"
+  "groupReplanLeaderOnly": "只有群组领队可以更改群组路线",
+  "groupGuideTitle": "出行指南",
+  "groupJoinCode": "加入码",
+  "groupJoinCodeCopied": "已复制加入码",
+  "groupBasicInfo": "基本信息",
+  "groupLeader": "领队",
+  "groupDate": "日期",
+  "groupParticipants": "参加者",
+  "groupGuideSchedule": "指南（行程）",
+  "groupEdit": "编辑出行",
+  "groupLoadFailed": "无法加载出行：{error}",
+  "@groupLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupNotFound": "未找到出行",
+  "groupNotActive": "当前未在出行中：{phase}",
+  "@groupNotActive": {
+    "placeholders": {
+      "phase": {
+        "type": "String"
+      }
+    }
+  },
+  "groupLeaderTraveling": "领队 · 出行中",
+  "groupManagement": "管理出行",
+  "groupTodaySchedule": "今日行程",
+  "groupCompletedCount": "已完成 {count} 项",
+  "@groupCompletedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleAllCompleted": "已完成所有行程。",
+  "groupOpenManagement": "打开出行管理",
+  "groupArrivedTitle": "已到达目的地",
+  "groupArrivedQuestion": "去程已完成吗？\n选择“是”将准备返程导航。",
+  "groupNo": "否",
+  "groupYes": "是",
+  "groupArrivalRecorded": "已记录到达。祝您返程平安！",
+  "groupUpdateFailed": "更新失败：{error}",
+  "@groupUpdateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupEndTitle": "结束出行",
+  "groupEndQuestion": "确定结束此次出行吗？\n成员的画面也将显示“已结束”。",
+  "groupEndAction": "结束",
+  "groupEnded": "出行已结束",
+  "groupEndFailed": "无法结束出行：{error}",
+  "@groupEndFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupUpdating": "正在更新…",
+  "groupArriveAndReturn": "已到达目的地（准备返程）",
+  "groupEndTrip": "结束出行",
+  "groupReplanExplanation": "按当前时间重新搜索前往目的地的路线。上车前以已保存路线的起点为基准，途中则以已确认的车站或公交站为基准。",
+  "groupMemberReplanNotice": "只有领队可以确认路线变更。如有需要，请联系领队。",
+  "groupMemberScheduleNotice": "行程由领队修改。如有需要，请联系领队。",
+  "groupNotifyQuestion": "要向领队发送通知吗？",
+  "groupNotified": "已通知领队！",
+  "groupNotify": "发送通知",
+  "groupMemberMode": "出行模式",
+  "groupExitMode": "退出出行模式",
+  "groupExitQuestion": "要返回普通模式吗？",
+  "groupHelpNotice": "遇到困难时，请点击“帮助／联系”。消息将通过语音朗读。",
+  "groupHelp": "帮助",
+  "groupHelpContact": "帮助／联系",
+  "groupReturnNormal": "返回普通模式",
+  "groupScheduleEdit": "编辑行程",
+  "groupScheduleAdd": "添加行程",
+  "groupTimeLabel": "时间：{time}",
+  "@groupTimeLabel": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "groupOutbound": "去程",
+  "groupInbound": "返程",
+  "groupScheduleTitleField": "标题",
+  "groupScheduleDetailsField": "详情（可选）",
+  "groupScheduleLegField": "行程方向",
+  "groupAdd": "添加",
+  "groupSchedule": "行程表",
+  "groupScheduleDeleteQuestion": "要删除此行程吗？",
+  "groupScheduleDeleteDescription": "将从行程表中删除“{title}”。",
+  "@groupScheduleDeleteDescription": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "groupTripList": "出行列表",
+  "groupTripListEmpty": "暂无出行记录",
+  "groupSoloSummary": "{date} - 个人出行",
+  "@groupSoloSummary": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "groupTripSummary": "{date} - 团体出行 · {count} 人参加",
+  "@groupTripSummary": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupNoScheduleInfo": "暂无行程信息",
+  "groupStarted": "出行已开始",
+  "groupStartFailed": "无法开始出行：{error}",
+  "@groupStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupReplanQuestion": "要重新规划路线吗？",
+  "groupLateStartDescription": "出行比计划晚了 {minutes} 分钟。\n\n电车和公交的时刻不会随此延误顺延。如有需要，可按当前时间和路线起点重新搜索路线。",
+  "@groupLateStartDescription": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupContinue": "按原计划继续",
+  "groupCancelTooltip": "取消出行",
+  "groupTripTo": "前往{destination}的出行",
+  "@groupTripTo": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "groupCodeHint": "可随时查看和复制",
+  "groupCopy": "复制",
+  "groupChangeReturnTime": "修改返程时间",
+  "groupReturnDelayedHint": "行程延误时请使用此功能",
+  "groupReturnUpdated": "已更新返程行程",
+  "groupGuideHint": "查看团体详情和加入码",
+  "groupScheduleHint": "在同一画面查看和编辑行程",
+  "groupMap": "地图",
+  "groupTransfersToDestination": "前往目的地的换乘",
+  "groupMembers": "成员",
+  "groupRollCall": "点名用",
+  "groupNoParticipants": "暂无参加者",
+  "groupJoined": "已加入",
+  "groupStartAtMeeting": "到集合时间后即可开始",
+  "groupMeetingNotSet": "尚未设置集合安排",
+  "groupStartTrip": "开始出行",
+  "groupOutboundActive": "去程 · 出行中",
+  "groupInboundActive": "返程 · 出行中",
+  "groupPhaseLabel": "状态：{phase}",
+  "@groupPhaseLabel": {
+    "placeholders": {
+      "phase": {
+        "type": "String"
+      }
+    }
+  },
+  "groupCancelQuestion": "要取消此次出行吗？",
+  "groupCancelDescription": "此操作无法撤销。\n取消后将结束出行，所有参加者的画面都将显示“已解散”。",
+  "groupCancelled": "出行已取消",
+  "groupReportMemoSaved": "备注已保存",
+  "groupReportSaveFailed": "保存失败：{error}",
+  "@groupReportSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupReportTitle": "出行报告",
+  "groupReportSchedule": "日期和时间",
+  "groupReportAttendance": "参加者和出席情况",
+  "groupReportSos": "SOS 情况",
+  "groupReportNotes": "处理备注",
+  "groupReportDate": "日期：{date}",
+  "@groupReportDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "groupReportStatus": "状态：",
+  "groupReportActive": "进行中",
+  "groupReportStart": "开始",
+  "groupReportEnd": "结束（计划）",
+  "groupReportSosCount": "SOS 次数：{count}",
+  "@groupReportSosCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupReportDemoSos": "SOS 通知记录（示例数据）",
+  "groupReportDemoFall": "跌倒后轻微受伤",
+  "groupReportDemoLost": "与队伍走散",
+  "groupReportDemoReunited": "已归队",
+  "groupReportNotesHint": "请输入注意事项或处理内容"
 }

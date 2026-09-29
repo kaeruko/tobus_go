@@ -17,7 +17,9 @@ class _MapPickerPageState extends State<MapPickerPage> {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
-        middle: Text(widget.title ?? AppLocalizations.of(context).mapPickerTitle),
+        middle: Text(
+          widget.title ?? AppLocalizations.of(context).mapPickerTitle,
+        ),
       ),
       child: SafeArea(
         child: Stack(
@@ -42,7 +44,11 @@ class _MapPickerPageState extends State<MapPickerPage> {
                 onPressed: _picked == null
                     ? null
                     : () => Navigator.pop(context, _picked),
-                child: Text(_picked == null ? AppLocalizations.of(context).mapLongPress : AppLocalizations.of(context).mapConfirm),
+                child: Text(
+                  _picked == null
+                      ? AppLocalizations.of(context).mapLongPress
+                      : AppLocalizations.of(context).mapConfirm,
+                ),
               ),
             ),
           ],
