@@ -729,7 +729,7 @@
   "navMeetingStatus": "集合",
   "navArrivedDefaultSub": "已到达",
   "navArrivedStatus": "已到达",
-  "navGoalArrivedMain": "已到达{destination}",
+  "navGoalArrivedMain": "{destination}",
   "@navGoalArrivedMain": {
     "placeholders": {
       "destination": {

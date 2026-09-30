@@ -226,6 +226,7 @@ void main() {
         resolvedState: resolved,
       );
 
+      expect(navigation.mainText, '上野駅');
       expect(navigation.mainTextToken?.key, NavigationTextKey.goalArrivedMain);
       expect(
         navigation.mainTextToken?.args,

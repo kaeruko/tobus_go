@@ -337,7 +337,7 @@ class TripCoordinator {
                 : null;
 
     return NavigationState(
-      mainText: '$destination 到着',
+      mainText: destination,
       subText: entry.description.isNotEmpty ? entry.description : 'お疲れ様でした',
       color: const Color(0xFFFFCC80),
       statusLabel: '到着',

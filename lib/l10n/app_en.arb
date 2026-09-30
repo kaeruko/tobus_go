@@ -729,7 +729,7 @@
   "navMeetingStatus": "Meeting",
   "navArrivedDefaultSub": "You’ve arrived",
   "navArrivedStatus": "Arrived",
-  "navGoalArrivedMain": "Arrived at {destination}",
+  "navGoalArrivedMain": "{destination}",
   "@navGoalArrivedMain": {
     "placeholders": {
       "destination": {

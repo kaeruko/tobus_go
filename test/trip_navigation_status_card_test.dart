@@ -617,9 +617,10 @@ void main() {
       ),
     );
 
-    expect(find.text('Arrived at Ueno Station (上野駅)'), findsOneWidget);
+    expect(find.text('Ueno Station (上野駅)'), findsOneWidget);
     expect(find.text('Thanks for traveling with us'), findsOneWidget);
     expect(find.text('Arrived'), findsOneWidget);
+    expect(find.text('Arrived at Ueno Station (上野駅)'), findsNothing);
     expect(find.text('上野駅 到着'), findsNothing);
     expect(find.text('お疲れ様でした!'), findsNothing);
   });
