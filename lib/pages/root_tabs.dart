@@ -90,6 +90,25 @@ class _RootTabsState extends ConsumerState<RootTabs> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(searchTabRootRequestProvider, (previous, next) {
+      if (previous == next) return;
+
+      if (_controller.index != 0) {
+        _controller.index = 0;
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final navigator = _navigatorKeys[0].currentState;
+        if (navigator == null) {
+          throw StateError(
+            '検索タブのNavigatorを取得できないため、検索画面へ戻せません',
+          );
+        }
+        navigator.popUntil((route) => route.isFirst);
+      });
+    });
+
     final currentIndex = ref.watch(tabIndexProvider);
     final entries = _buildEntries(context);
 

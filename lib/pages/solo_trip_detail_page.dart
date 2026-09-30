@@ -72,7 +72,7 @@ class SoloTripDetailPage extends ConsumerWidget {
     );
 
     Navigator.of(context).popUntil((route) => route.isFirst);
-    ref.read(tabIndexProvider.notifier).state = 0;
+    requestSearchTabRoot(ref);
   }
 
   @override

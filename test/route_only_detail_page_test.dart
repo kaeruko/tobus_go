@@ -193,6 +193,7 @@ void main() {
     expect(search.startTime, isNotNull);
     expect(search.hasSearched, isFalse);
     expect(container.read(tabIndexProvider), 0);
+    expect(container.read(searchTabRootRequestProvider), 1);
   });
 
 

@@ -492,8 +492,8 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
       'From=$fromVal, To=${stop.name}',
     );
 
-    print('[ExperiencePage] Switching tab to 0');
-    ref.read(tabIndexProvider.notifier).state = 0;
+    print('[ExperiencePage] Switching to the Search root');
+    requestSearchTabRoot(ref);
 
     if (fromVal.isNotEmpty) {
       print('[ExperiencePage] Triggering search');

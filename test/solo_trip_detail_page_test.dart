@@ -250,6 +250,7 @@ void main() {
     expect(search.startTime, isNotNull);
     expect(search.hasSearched, isFalse);
     expect(container.read(tabIndexProvider), 0);
+    expect(container.read(searchTabRootRequestProvider), 1);
 
     expect(find.text('移動の詳細'), findsNothing);
     expect(find.text('経路と予定'), findsNothing);
