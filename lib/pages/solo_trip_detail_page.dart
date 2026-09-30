@@ -27,8 +27,8 @@ class SoloTripDetailPage extends ConsumerWidget {
     if (origin == null || destination == null) {
       throw StateError(
         '履歴経路に再検索用の始点・終点座標がありません: '
-        'candidateId=\${candidate.id}, '
-        'originCoords=\$origin, destinationCoords=\$destination',
+        'candidateId=${candidate.id}, '
+        'originCoords=$origin, destinationCoords=$destination',
       );
     }
 
@@ -36,12 +36,12 @@ class SoloTripDetailPage extends ConsumerWidget {
     final destinationJa = candidate.destinationName?.trim();
     if (originJa == null || originJa.isEmpty) {
       throw StateError(
-        '履歴経路に出発地名がありません: candidateId=\${candidate.id}',
+        '履歴経路に出発地名がありません: candidateId=${candidate.id}',
       );
     }
     if (destinationJa == null || destinationJa.isEmpty) {
       throw StateError(
-        '履歴経路に到着地名がありません: candidateId=\${candidate.id}',
+        '履歴経路に到着地名がありません: candidateId=${candidate.id}',
       );
     }
 
@@ -58,8 +58,8 @@ class SoloTripDetailPage extends ConsumerWidget {
     final preference = candidate.preference?.trim();
 
     ref.read(routeSearchProvider.notifier).prepareSavedRoute(
-      from: '\${origin.latitude},\${origin.longitude}',
-      to: '\${destination.latitude},\${destination.longitude}',
+      from: '${origin.latitude},${origin.longitude}',
+      to: '${destination.latitude},${destination.longitude}',
       fromName: originDisplay,
       toName: destinationDisplay,
       fromNameJa: originJa,
