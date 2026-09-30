@@ -148,10 +148,42 @@ void main() {
     memberIds: const ['user'],
   );
 
-  testWidgets('English solo trip detail localizes the full route history', (
+  testWidgets('history replan button stays visible on a phone-sized screen', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: SoloTripDetailPage(trip: trip),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final planButton = find.byKey(
+      const ValueKey('history-plan-route-button'),
+    );
+    expect(planButton, findsOneWidget);
+    final rect = tester.getRect(planButton);
+    expect(rect.top, greaterThanOrEqualTo(0));
+    expect(rect.bottom, lessThanOrEqualTo(740));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('English solo trip detail localizes the full route history', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1800);
     tester.view.devicePixelRatio = 1;
     addTearDown(() {
       tester.view.resetPhysicalSize();
@@ -198,7 +230,7 @@ void main() {
     );
     expect(planButton, findsOneWidget);
     expect(find.text('Plan a trip with this route'), findsOneWidget);
-    expect(tester.getCenter(planButton).dy, lessThan(740));
+    expect(tester.getCenter(planButton).dy, lessThan(1800));
 
     final context = tester.element(find.byType(SoloTripDetailPage));
     final container = ProviderScope.containerOf(context);
