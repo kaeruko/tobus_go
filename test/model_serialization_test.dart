@@ -89,6 +89,32 @@ void main() {
     expect(restored.destinationNameEn, 'Ueno Station');
   });
 
+  test('Candidate keeps favorite memo only in local-storage serialization', () {
+    final candidate = Candidate(
+      id: 'favorite-memo',
+      lines: const [],
+      rides: 0,
+      boards: 0,
+      transfers: 0,
+      total: 1,
+      totalTime: 1,
+      steps: const [],
+      points: const [],
+    ).withSavedRouteMemo('雨の日はこの経路');
+
+    final regularJson = candidate.toJson();
+    expect(regularJson.containsKey('saved_route_memo'), isFalse);
+
+    final storageJson = candidate.toJson(includeSavedRouteMemo: true);
+    expect(storageJson['saved_route_memo'], '雨の日はこの経路');
+
+    final restored = Candidate.fromJson(storageJson);
+    expect(restored.savedRouteMemo, '雨の日はこの経路');
+
+    final cleared = restored.withSavedRouteMemo(null);
+    expect(cleared.savedRouteMemo, isNull);
+  });
+
   test('StepSeg rejects a route response without step_id', () {
     expect(
       () => StepSeg.fromJson({'kind': 'walk', 'title': '徒歩'}),

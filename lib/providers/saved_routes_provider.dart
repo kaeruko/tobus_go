@@ -3,6 +3,8 @@ import '../models/route_models.dart';
 import '../services/storage_service.dart';
 
 class SavedRoutesNotifier extends StateNotifier<List<Candidate>> {
+  static const int maxMemoLength = 500;
+
   SavedRoutesNotifier() : super([]) {
     _load();
   }
@@ -37,6 +39,28 @@ class SavedRoutesNotifier extends StateNotifier<List<Candidate>> {
   Future<void> removeWhere(bool Function(Candidate) test) async {
     state = state.where((item) => !test(item)).toList();
     await _storage.saveRoutes(state);
+  }
+
+  Future<void> updateMemo(int index, String memo) async {
+    if (index < 0 || index >= state.length) {
+      throw RangeError.index(index, state, 'index');
+    }
+
+    final normalized = memo.trim();
+    if (normalized.length > maxMemoLength) {
+      throw ArgumentError.value(
+        memo,
+        'memo',
+        'お気に入り経路のメモは$maxMemoLength文字以内で入力してください',
+      );
+    }
+
+    final newState = List<Candidate>.from(state);
+    newState[index] = newState[index].withSavedRouteMemo(
+      normalized.isEmpty ? null : normalized,
+    );
+    await _storage.saveRoutes(newState);
+    state = newState;
   }
 }
 

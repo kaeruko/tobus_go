@@ -60,6 +60,7 @@ class Candidate {
   final LatLng? originCoords;
   final LatLng? destinationCoords;
   final String? arrivalTime;
+  final String? savedRouteMemo;
 
   Candidate({
     required this.id,
@@ -84,6 +85,7 @@ class Candidate {
     this.originCoords,
     this.destinationCoords,
     this.arrivalTime,
+    this.savedRouteMemo,
   }) : walkingDistanceMeters =
            walkingDistanceMeters ?? _walkingDistanceMetersFrom(steps),
        walkingSegmentCount =
@@ -179,6 +181,7 @@ class Candidate {
             )
           : null,
       arrivalTime: j['arrival_time']?.toString(),
+      savedRouteMemo: j['saved_route_memo']?.toString(),
     );
   }
 
@@ -424,7 +427,38 @@ class Candidate {
     return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
   }
 
-  Map<String, dynamic> toJson({bool includePoints = true}) {
+  Candidate withSavedRouteMemo(String? memo) {
+    return Candidate(
+      id: id,
+      lines: lines,
+      linesEn: linesEn,
+      rides: rides,
+      walkingDistanceMeters: walkingDistanceMeters,
+      walkingSegmentCount: walkingSegmentCount,
+      boards: boards,
+      transfers: transfers,
+      total: total,
+      totalTime: totalTime,
+      steps: steps,
+      points: points,
+      originName: originName,
+      destinationName: destinationName,
+      originNameEn: originNameEn,
+      destinationNameEn: destinationNameEn,
+      preference: preference,
+      departureDate: departureDate,
+      isFutureSuggestion: isFutureSuggestion,
+      originCoords: originCoords,
+      destinationCoords: destinationCoords,
+      arrivalTime: arrivalTime,
+      savedRouteMemo: memo,
+    );
+  }
+
+  Map<String, dynamic> toJson({
+    bool includePoints = true,
+    bool includeSavedRouteMemo = false,
+  }) {
     return {
       'id': id,
       'lines': lines,
@@ -454,6 +488,7 @@ class Candidate {
           ? [destinationCoords!.latitude, destinationCoords!.longitude]
           : null,
       'arrival_time': arrivalTime,
+      if (includeSavedRouteMemo) 'saved_route_memo': savedRouteMemo,
     };
   }
 }

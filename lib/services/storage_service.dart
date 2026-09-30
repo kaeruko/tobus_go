@@ -7,7 +7,9 @@ class StorageService {
 
   Future<void> saveRoutes(List<Candidate> routes) async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonList = routes.map((e) => e.toJson()).toList();
+    final jsonList = routes
+        .map((e) => e.toJson(includeSavedRouteMemo: true))
+        .toList();
     final jsonString = jsonEncode(jsonList);
     await prefs.setString(_keyRoutes, jsonString);
   }
