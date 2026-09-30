@@ -106,6 +106,69 @@ void main() {
     expect(find.text('のこり 2 回停車'), findsNothing);
   });
   testWidgets(
+    'departure countdown separates time countdown and next boarding',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final navigation = NavigationState(
+        mainText: '6:28 出発　あと13分',
+        subText: '6:31 上23 上野松坂屋前行 乗車',
+        color: Colors.blue,
+        statusLabel: '待機',
+        mainTextToken: const NavigationTextToken(
+          NavigationTextKey.departureCountdownMain,
+          {'leaveTime': '6:28', 'minutes': 13},
+        ),
+        subTextToken:
+            const NavigationTextToken(NavigationTextKey.boardingSub, {
+              'rideTime': '6:31',
+              'routeTitle': '上23 上野松坂屋前行',
+              'routeTitleEn': '上23 · Ueno-Matsuzakaya',
+            }),
+        statusLabelToken: const NavigationTextToken(
+          NavigationTextKey.waitingStatus,
+        ),
+        isMoving: false,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: TripNavigationStatusCard(
+              navState: navigation,
+              tripTitle: '現在地 → 東墨田１丁目',
+              onTapStops: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('departure-countdown-heading')),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.schedule), findsOneWidget);
+      expect(find.text('6:28'), findsOneWidget);
+      expect(find.text('あと13分'), findsOneWidget);
+      expect(find.text('6:31'), findsOneWidget);
+      expect(find.text('上23 上野松坂屋前行'), findsOneWidget);
+      expect(find.text('乗車'), findsOneWidget);
+      expect(find.text('6:28 出発　あと13分'), findsNothing);
+      expect(find.text('6:31 上23 上野松坂屋前行 乗車'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'bus realtime indicator sits beside route title without notice row',
     (tester) async {
       final step = StepSeg(

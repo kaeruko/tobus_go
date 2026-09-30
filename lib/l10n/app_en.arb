@@ -850,6 +850,14 @@
       }
     }
   },
+  "navDepartureRemaining": "{minutes} min to go",
+  "@navDepartureRemaining": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "navBoardingSub": "{rideTime} {routeTitle} · Board",
   "@navBoardingSub": {
     "placeholders": {

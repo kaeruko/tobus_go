@@ -850,6 +850,14 @@
       }
     }
   },
+  "navDepartureRemaining": "还有{minutes}分钟",
+  "@navDepartureRemaining": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "navBoardingSub": "{rideTime}乘坐{routeTitle}",
   "@navBoardingSub": {
     "placeholders": {

@@ -850,6 +850,14 @@
       }
     }
   },
+  "navDepartureRemaining": "あと{minutes}分",
+  "@navDepartureRemaining": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "navBoardingSub": "{rideTime} {routeTitle} 乗車",
   "@navBoardingSub": {
     "placeholders": {

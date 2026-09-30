@@ -95,6 +95,12 @@ class TripNavigationStatusCard extends StatelessWidget {
               )
             else if (_usesStructuredWalkToRideHeading())
               _buildStructuredWalkToRideHeading(context, l10n, locale)
+            else if (_usesStructuredDepartureCountdownHeading())
+              _buildStructuredDepartureCountdownHeading(
+                context,
+                l10n,
+                locale,
+              )
             else ...[
               Text(
                 mainText,
@@ -179,6 +185,174 @@ class TripNavigationStatusCard extends StatelessWidget {
   bool _usesStructuredWalkToRideHeading() {
     return navState.mainTextToken?.key ==
         NavigationTextKey.walkToRideCountdownMain;
+  }
+
+  bool _usesStructuredDepartureCountdownHeading() {
+    return navState.mainTextToken?.key ==
+            NavigationTextKey.departureCountdownMain &&
+        navState.subTextToken?.key == NavigationTextKey.boardingSub;
+  }
+
+  Widget _buildStructuredDepartureCountdownHeading(
+    BuildContext context,
+    AppLocalizations l10n,
+    Locale locale,
+  ) {
+    final mainToken = navState.mainTextToken;
+    if (mainToken == null ||
+        mainToken.key != NavigationTextKey.departureCountdownMain) {
+      throw StateError('出発待機の構造化表示にdeparture countdown tokenがありません');
+    }
+
+    String requiredString(
+      NavigationTextToken token,
+      String name, {
+      required String role,
+    }) {
+      final value = token.args[name];
+      if (value is! String || value.trim().isEmpty) {
+        throw StateError('出発待機の構造化表示に$role.$nameがありません');
+      }
+      return value.trim();
+    }
+
+    final leaveTime = requiredString(
+      mainToken,
+      'leaveTime',
+      role: 'main',
+    );
+    final minutesValue = mainToken.args['minutes'];
+    if (minutesValue is! int) {
+      throw StateError('出発待機の構造化表示にmain.minutesがありません');
+    }
+
+    final boardingToken = navState.subTextToken;
+    if (boardingToken == null ||
+        boardingToken.key != NavigationTextKey.boardingSub) {
+      throw StateError('出発待機の構造化表示にboarding tokenがありません');
+    }
+    final rideTime = requiredString(
+      boardingToken,
+      'rideTime',
+      role: 'boarding',
+    );
+    final routeTitleJa = requiredString(
+      boardingToken,
+      'routeTitle',
+      role: 'boarding',
+    );
+    final routeTitleEnValue = boardingToken.args['routeTitleEn'];
+    if (isEnglishTransitLocale(locale) &&
+        (routeTitleEnValue is! String || routeTitleEnValue.trim().isEmpty)) {
+      throw StateError('出発待機の構造化表示にboarding.routeTitleEnがありません');
+    }
+    final routeTitleEn = routeTitleEnValue is String
+        ? routeTitleEnValue.trim()
+        : null;
+    final primaryRouteTitle =
+        isEnglishTransitLocale(locale) && routeTitleEn != null
+        ? routeTitleEn
+        : routeTitleJa;
+    final secondaryRouteTitle =
+        isEnglishTransitLocale(locale) &&
+            routeTitleEn != null &&
+            routeTitleEn != routeTitleJa
+        ? routeTitleJa
+        : null;
+
+    final colors = Theme.of(context).colorScheme;
+    return Column(
+      key: const ValueKey('departure-countdown-heading'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.schedule, size: 30, color: colors.primary),
+            const SizedBox(width: 10),
+            Text(
+              leaveTime,
+              style: const TextStyle(
+                fontSize: 46,
+                height: 1,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.only(left: 40),
+          child: Text(
+            l10n.navDepartureRemaining(minutesValue),
+            style: const TextStyle(
+              fontSize: 28,
+              height: 1.05,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.directions_transit, size: 21, color: colors.primary),
+              const SizedBox(width: 9),
+              Text(
+                rideTime,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      primaryRouteTitle,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        height: 1.2,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (secondaryRouteTitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        secondaryRouteTitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n.boarding,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: colors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildStructuredWalkToRideHeading(
