@@ -394,10 +394,76 @@ class TripService {
     return snapshot.docs.map((d) => Trip.fromFirestore(d)).toList();
   }
 
+  Future<void> hideCompletedTripFromHistory(String tripId) async {
+    final normalizedTripId = tripId.trim();
+    if (normalizedTripId.isEmpty) {
+      throw ArgumentError.value(tripId, 'tripId', '履歴から削除するTrip IDが空です');
+    }
+
+    final uid = _userService.currentUserId;
+    if (uid == null) {
+      throw StateError('履歴を削除するユーザーIDを取得できません');
+    }
+
+    final tripRef = _db.collection('trips').doc(normalizedTripId);
+    final tripDoc = await tripRef.get();
+    if (!tripDoc.exists) {
+      throw StateError('履歴から削除するおでかけが存在しません: $normalizedTripId');
+    }
+
+    final data = tripDoc.data();
+    if (data == null) {
+      throw StateError('履歴から削除するおでかけのデータがありません: $normalizedTripId');
+    }
+
+    final phase = data['travelPhase'] as String? ?? data['status'] as String?;
+    if (phase != TravelPhase.completed.name) {
+      throw StateError(
+        '完了していないおでかけは履歴から削除できません: '
+        'tripId=$normalizedTripId, phase=$phase',
+      );
+    }
+
+    final memberIdsRaw = data['memberIds'];
+    if (memberIdsRaw is! List) {
+      throw StateError(
+        '履歴から削除するおでかけのmemberIdsが配列ではありません: '
+        'tripId=$normalizedTripId',
+      );
+    }
+    if (!memberIdsRaw.contains(uid)) {
+      throw StateError(
+        '自分が参加していないおでかけは履歴から削除できません: '
+        'tripId=$normalizedTripId',
+      );
+    }
+
+    await _db.collection('users').doc(uid).set({
+      'hiddenHistoryTripIds': FieldValue.arrayUnion([normalizedTripId]),
+    }, SetOptions(merge: true));
+  }
+
   // 追加: ユーザーが関わる全てのTripを取得（日付降順）
   Future<List<Trip>> getAllTrips() async {
     final uid = _userService.currentUserId;
     if (uid == null) return [];
+
+    final userDoc = await _db.collection('users').doc(uid).get();
+    final hiddenRaw = userDoc.data()?['hiddenHistoryTripIds'];
+    final hiddenTripIds = <String>{};
+    if (hiddenRaw != null) {
+      if (hiddenRaw is! List) {
+        throw StateError('users/$uid.hiddenHistoryTripIds が配列ではありません');
+      }
+      for (final value in hiddenRaw) {
+        if (value is! String || value.trim().isEmpty) {
+          throw StateError(
+            'users/$uid.hiddenHistoryTripIds に不正な値があります: $value',
+          );
+        }
+        hiddenTripIds.add(value.trim());
+      }
+    }
 
     final snapshot = await _db
         .collection('trips')
@@ -408,6 +474,7 @@ class TripService {
     // 一覧全体をエラーにせず履歴から除外する。
     final trips = snapshot.docs
         .where((d) => d.data()['schemaVersion'] == Trip.currentSchemaVersion)
+        .where((d) => !hiddenTripIds.contains(d.id))
         .map((d) => Trip.fromFirestore(d))
         .toList();
     // メモリ内でソート（Firestoreの複合インデックス作成回避のため）

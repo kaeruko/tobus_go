@@ -574,6 +574,16 @@
   },
   "viewFullRoute": "查看完整路线",
   "historyTitle": "历史记录",
+  "historyDeleteTitle": "要删除这条历史记录吗？",
+  "historyDeleteMessage": "这只会从你的历史记录列表中移除，不会删除共享的行程本身。",
+  "historyDeleteFailed": "无法删除历史记录：{error}",
+  "@historyDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "historyEmpty": "暂无行程记录",
   "historyLoadFailed": "无法加载历史记录：{error}",
   "@historyLoadFailed": {

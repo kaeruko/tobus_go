@@ -574,6 +574,16 @@
   },
   "viewFullRoute": "View full route",
   "historyTitle": "History",
+  "historyDeleteTitle": "Remove this trip from history?",
+  "historyDeleteMessage": "This removes it from your history list. The shared trip itself will not be deleted.",
+  "historyDeleteFailed": "Couldn’t remove this history item: {error}",
+  "@historyDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "historyEmpty": "No trips yet",
   "historyLoadFailed": "Couldn’t load history: {error}",
   "@historyLoadFailed": {

@@ -574,6 +574,16 @@
   },
   "viewFullRoute": "経路全体を見る",
   "historyTitle": "履歴",
+  "historyDeleteTitle": "この履歴を削除しますか？",
+  "historyDeleteMessage": "あなたの履歴一覧から削除します。共有されたおでかけ自体は削除されません。",
+  "historyDeleteFailed": "履歴を削除できませんでした: {error}",
+  "@historyDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "historyEmpty": "履歴はありません",
   "historyLoadFailed": "履歴を読み込めませんでした: {error}",
   "@historyLoadFailed": {
