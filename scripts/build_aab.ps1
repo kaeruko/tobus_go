@@ -96,7 +96,7 @@ if (-not (Test-Path -LiteralPath $keyProperties -PathType Leaf)) {
 }
 
 $pubspecContent = [System.IO.File]::ReadAllText($pubspec)
-$versionPattern = '(?m)^version:[ 	]*([0-9]+.[0-9]+.[0-9]+)+([1-9][0-9]*)[ 	]*(?)$'
+$versionPattern = '(?m)^version:[ \t]*([0-9]+[.][0-9]+[.][0-9]+)[+]([1-9][0-9]*)[ \t]*(\r?)$'
 $versionMatches = [regex]::Matches($pubspecContent, $versionPattern)
 if ($versionMatches.Count -ne 1) {
     throw "Expected exactly one pubspec version line in MAJOR.MINOR.PATCH+BUILD format, found $($versionMatches.Count)."
