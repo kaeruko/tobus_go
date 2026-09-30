@@ -81,6 +81,10 @@ Nagoya / Sendai route-only appはFirebaseを初期化しない。Tokyo設定へf
 
 Nagoya / Yokohamaで`ApiBase`を省略した場合は停止する。別都市APIへのfallbackはしない。
 
+`build_aab.ps1` は `pubspec.yaml` の `version: MAJOR.MINOR.PATCH+BUILD` を厳密に読み取り、
+現在のBUILDに1を加えた番号でAABを作成する。AAB生成が成功した場合にだけ
+`pubspec.yaml` のBUILD番号を新しい値へ更新する。ビルド失敗時はversionを書き換えない。
+
 ## Store metadata
 
 都市ごとの文言は `store/<city>/` で管理する。

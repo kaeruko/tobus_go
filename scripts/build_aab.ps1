@@ -10,6 +10,8 @@
   -ApiBase の明示指定を必須とします。
   Android Maps API key は環境変数 GOOGLE_MAPS_ANDROID_API_KEY からのみ受け取り、
   release AABでは未設定を許可しません。
+  pubspec.yaml の build number を読み、次の番号 (+1) でAABを作成します。
+  AAB生成成功後にのみ pubspec.yaml の build number をその番号へ更新します。
 
 .EXAMPLE
   $env:GOOGLE_MAPS_ANDROID_API_KEY='AIza...'
@@ -93,6 +95,25 @@ if (-not (Test-Path -LiteralPath $keyProperties -PathType Leaf)) {
     throw "Android release signing file was not found: $keyProperties"
 }
 
+$pubspecContent = [System.IO.File]::ReadAllText($pubspec)
+$versionPattern = '(?m)^version:[ 	]*([0-9]+.[0-9]+.[0-9]+)+([1-9][0-9]*)[ 	]*(?)$'
+$versionMatches = [regex]::Matches($pubspecContent, $versionPattern)
+if ($versionMatches.Count -ne 1) {
+    throw "Expected exactly one pubspec version line in MAJOR.MINOR.PATCH+BUILD format, found $($versionMatches.Count)."
+}
+
+$versionMatch = $versionMatches[0]
+$appVersion = $versionMatch.Groups[1].Value
+$currentBuildNumberText = $versionMatch.Groups[2].Value
+$currentBuildNumber = [Int64]0
+if (-not [Int64]::TryParse($currentBuildNumberText, [ref]$currentBuildNumber)) {
+    throw "pubspec build number is not a valid Int64: $currentBuildNumberText"
+}
+if ($currentBuildNumber -eq [Int64]::MaxValue) {
+    throw 'pubspec build number cannot be incremented because it is already Int64.MaxValue.'
+}
+$nextBuildNumber = $currentBuildNumber + 1
+
 Write-Host "Repository : $repoRoot"
 Write-Host "City       : $City"
 if ($useDriveApiConfig) {
@@ -102,6 +123,7 @@ else {
     Write-Host "API source : explicit build override ($ApiBase)"
 }
 Write-Host "Maps key   : configured"
+Write-Host "Version    : $appVersion+$currentBuildNumber -> $appVersion+$nextBuildNumber"
 Write-Host "Output     : $aabPath"
 
 Push-Location $repoRoot
@@ -119,14 +141,18 @@ try {
         flutter build appbundle `
             --release `
             --flavor $City `
-            --dart-define="APP_CITY=$City"
+            --dart-define="APP_CITY=$City" `
+            --build-name $appVersion `
+            --build-number $nextBuildNumber
     }
     else {
         flutter build appbundle `
             --release `
             --flavor $City `
             --dart-define="APP_CITY=$City" `
-            --dart-define="API_BASE=$ApiBase"
+            --dart-define="API_BASE=$ApiBase" `
+            --build-name $appVersion `
+            --build-number $nextBuildNumber
     }
     Assert-LastExitCode 'flutter build appbundle'
 
@@ -137,11 +163,43 @@ try {
     $aab = Get-Item -LiteralPath $aabPath
     $sizeMb = [Math]::Round($aab.Length / 1MB, 2)
 
+    $pubspecAfterBuild = [System.IO.File]::ReadAllText($pubspec)
+    $afterMatches = [regex]::Matches($pubspecAfterBuild, $versionPattern)
+    if ($afterMatches.Count -ne 1) {
+        throw "pubspec version line changed during the build; expected exactly one valid version line, found $($afterMatches.Count)."
+    }
+
+    $afterMatch = $afterMatches[0]
+    $afterAppVersion = $afterMatch.Groups[1].Value
+    $afterBuildNumber = $afterMatch.Groups[2].Value
+    if ($afterAppVersion -ne $appVersion -or $afterBuildNumber -ne $currentBuildNumberText) {
+        throw "pubspec version changed during the build. Expected $appVersion+$currentBuildNumberText, found $afterAppVersion+$afterBuildNumber. Refusing to overwrite it."
+    }
+
+    $lineEndingPrefix = $afterMatch.Groups[3].Value
+    $nextVersionLine = "version: $appVersion+$nextBuildNumber$lineEndingPrefix"
+    $updatedPubspec = $pubspecAfterBuild.Substring(0, $afterMatch.Index) +
+        $nextVersionLine +
+        $pubspecAfterBuild.Substring($afterMatch.Index + $afterMatch.Length)
+
+    $tempPubspec = Join-Path $repoRoot ("pubspec.yaml.tmp.{0}" -f [Guid]::NewGuid().ToString('N'))
+    try {
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText($tempPubspec, $updatedPubspec, $utf8NoBom)
+        Move-Item -LiteralPath $tempPubspec -Destination $pubspec -Force
+    }
+    finally {
+        if (Test-Path -LiteralPath $tempPubspec) {
+            Remove-Item -LiteralPath $tempPubspec -Force
+        }
+    }
+
     Write-Host ''
     Write-Host 'AAB build completed.'
-    Write-Host "City : $City"
-    Write-Host "Path : $($aab.FullName)"
-    Write-Host "Size : $sizeMb MB"
+    Write-Host "City    : $City"
+    Write-Host "Version : $appVersion+$nextBuildNumber"
+    Write-Host "Path    : $($aab.FullName)"
+    Write-Host "Size    : $sizeMb MB"
 }
 finally {
     Pop-Location
