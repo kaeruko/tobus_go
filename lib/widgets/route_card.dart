@@ -13,6 +13,7 @@ class RouteCard extends ConsumerWidget {
   final bool showRank;
   final RouteMeta? meta;
   final FareQuote? fare;
+  final Widget? titleTrailing;
 
   const RouteCard({
     super.key,
@@ -21,6 +22,7 @@ class RouteCard extends ConsumerWidget {
     this.showRank = true,
     this.meta,
     this.fare,
+    this.titleTrailing,
   });
 
   String _origin(AppLocalizations l10n, Locale locale) {
@@ -147,6 +149,10 @@ class RouteCard extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (titleTrailing != null) ...[
+                const SizedBox(width: 6),
+                titleTrailing!,
+              ],
             ],
           ),
           const SizedBox(height: 8),

@@ -65,6 +65,7 @@ void main() {
     WidgetTester tester,
     Locale locale, {
     bool showRank = true,
+    Widget? titleTrailing,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -77,6 +78,7 @@ void main() {
               candidate: candidate,
               rank: 1,
               showRank: showRank,
+              titleTrailing: titleTrailing,
             ),
           ),
         ),
@@ -94,6 +96,28 @@ void main() {
 
     expect(find.text('C1'), findsNothing);
     expect(find.text('Ueno-Matsuzakaya'), findsOneWidget);
+  });
+
+  testWidgets('route card can show an interactive title trailing control', (
+    tester,
+  ) async {
+    var tapped = false;
+    await pumpCard(
+      tester,
+      const Locale('ja'),
+      showRank: false,
+      titleTrailing: CupertinoButton(
+        key: const ValueKey('memo-title-action'),
+        padding: EdgeInsets.zero,
+        onPressed: () => tapped = true,
+        child: const Text('📝'),
+      ),
+    );
+
+    expect(find.text('上23'), findsOneWidget);
+    expect(find.text('📝'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('memo-title-action')));
+    expect(tapped, isTrue);
   });
 
   testWidgets('English route card localizes wait summary', (tester) async {

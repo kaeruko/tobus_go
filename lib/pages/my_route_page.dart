@@ -128,81 +128,54 @@ class MyRoutePage extends ConsumerWidget {
                             candidate: candidate,
                             rank: index + 1,
                             showRank: false,
+                            titleTrailing: Semantics(
+                              button: true,
+                              label: l10n.savedRouteMemoTitle,
+                              child: CupertinoButton(
+                                key: ValueKey(
+                                  'saved-route-memo-button:$index',
+                                ),
+                                padding: EdgeInsets.zero,
+                                onPressed: () => _editMemo(
+                                  context,
+                                  ref,
+                                  index: index,
+                                  currentMemo: candidate.savedRouteMemo,
+                                ),
+                                child: const ExcludeSemantics(
+                                  child: Text(
+                                    '📝',
+                                    style: TextStyle(fontSize: 20),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        if (candidate.savedRouteMemo?.trim().isNotEmpty == true)
+                        if (candidate.savedRouteMemo?.trim().isNotEmpty == true) ...[
+                          const SizedBox(height: 6),
                           Container(
-                            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
                             decoration: BoxDecoration(
                               color: CupertinoColors.systemGrey6.resolveFrom(
                                 context,
                               ),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Padding(
-                                  padding: EdgeInsets.only(top: 2),
-                                  child: Icon(
-                                    CupertinoIcons.pencil,
-                                    size: 17,
-                                    color: CupertinoColors.systemGrey,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    candidate.savedRouteMemo!.trim(),
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      height: 1.35,
-                                    ),
-                                  ),
-                                ),
-                                CupertinoButton(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  onPressed: () => _editMemo(
-                                    context,
-                                    ref,
-                                    index: index,
-                                    currentMemo: candidate.savedRouteMemo,
-                                  ),
-                                  child: Text(l10n.savedRouteEditMemo),
-                                ),
-                              ],
-                            ),
-                          )
-                        else
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: CupertinoButton(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 6,
-                              ),
-                              onPressed: () => _editMemo(
-                                context,
-                                ref,
-                                index: index,
-                                currentMemo: null,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(CupertinoIcons.pencil, size: 16),
-                                  const SizedBox(width: 6),
-                                  Text(l10n.savedRouteAddMemo),
-                                ],
+                            child: Text(
+                              candidate.savedRouteMemo!.trim(),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                height: 1.35,
                               ),
                             ),
                           ),
+                        ],
                       ],
                     ),
                   );
