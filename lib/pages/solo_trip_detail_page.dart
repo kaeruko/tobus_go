@@ -1,20 +1,81 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_clock.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
+import '../providers/navigation_provider.dart';
+import '../providers/route_search_provider.dart';
 import '../widgets/route_map_preview.dart';
 import 'ride_stops_navigation.dart';
 
-class SoloTripDetailPage extends StatelessWidget {
+class SoloTripDetailPage extends ConsumerWidget {
   final Trip trip;
 
   const SoloTripDetailPage({super.key, required this.trip});
 
+  void _planAgain(
+    BuildContext context,
+    WidgetRef ref,
+    Candidate candidate,
+  ) {
+    final origin = candidate.originCoords;
+    final destination = candidate.destinationCoords;
+    if (origin == null || destination == null) {
+      throw StateError(
+        '履歴経路に再検索用の始点・終点座標がありません: '
+        'candidateId=\${candidate.id}, '
+        'originCoords=\$origin, destinationCoords=\$destination',
+      );
+    }
+
+    final originJa = candidate.originName?.trim();
+    final destinationJa = candidate.destinationName?.trim();
+    if (originJa == null || originJa.isEmpty) {
+      throw StateError(
+        '履歴経路に出発地名がありません: candidateId=\${candidate.id}',
+      );
+    }
+    if (destinationJa == null || destinationJa.isEmpty) {
+      throw StateError(
+        '履歴経路に到着地名がありません: candidateId=\${candidate.id}',
+      );
+    }
+
+    final originEn = candidate.originNameEn?.trim();
+    final destinationEn = candidate.destinationNameEn?.trim();
+    final english = isEnglishTransitLocale(Localizations.localeOf(context));
+    final originDisplay = english && originEn != null && originEn.isNotEmpty
+        ? originEn
+        : originJa;
+    final destinationDisplay =
+        english && destinationEn != null && destinationEn.isNotEmpty
+            ? destinationEn
+            : destinationJa;
+    final preference = candidate.preference?.trim();
+
+    ref.read(routeSearchProvider.notifier).prepareSavedRoute(
+      from: '\${origin.latitude},\${origin.longitude}',
+      to: '\${destination.latitude},\${destination.longitude}',
+      fromName: originDisplay,
+      toName: destinationDisplay,
+      fromNameJa: originJa,
+      toNameJa: destinationJa,
+      fromNameEn: originEn ?? '',
+      toNameEn: destinationEn ?? '',
+      startTime: appClock.now(),
+      preference: preference == null || preference.isEmpty ? null : preference,
+    );
+
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    ref.read(tabIndexProvider.notifier).state = 0;
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context);
     final tripTitle = localizedSoloTripTitle(locale, trip);
@@ -24,7 +85,8 @@ class SoloTripDetailPage extends StatelessWidget {
         'tripId=${trip.id}, type=${trip.tripType.name}, legs=${trip.legs.length}',
       );
     }
-    final routePoints = trip.legs.single.candidate.points;
+    final candidate = trip.legs.single.candidate;
+    final routePoints = candidate.points;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.soloTripDetailTitle)),
@@ -97,6 +159,15 @@ class SoloTripDetailPage extends StatelessWidget {
                       )
                     : null,
               ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              key: const ValueKey('history-plan-route-button'),
+              onPressed: () => _planAgain(context, ref, candidate),
+              child: Text(l10n.planSavedRoute),
             ),
           ),
         ],

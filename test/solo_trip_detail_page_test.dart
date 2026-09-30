@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart'
@@ -10,6 +11,8 @@ import 'package:toeigo/models/leg_models.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/models/trip_models.dart';
 import 'package:toeigo/pages/solo_trip_detail_page.dart';
+import 'package:toeigo/providers/navigation_provider.dart';
+import 'package:toeigo/providers/route_search_provider.dart';
 
 class TestMaps extends maps.GoogleMapsFlutterPlatform {
   @override
@@ -46,6 +49,9 @@ void main() {
     originNameEn: 'Oshiage',
     destinationName: '上野駅',
     destinationNameEn: 'Ueno Station',
+    originCoords: const LatLng(35.7100, 139.8130),
+    destinationCoords: const LatLng(35.7138, 139.7773),
+    preference: 'fewTransfers',
     steps: [
       StepSeg(
         stepId: 'walk-1',
@@ -153,11 +159,13 @@ void main() {
     });
 
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: SoloTripDetailPage(trip: trip),
+      ProviderScope(
+        child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: SoloTripDetailPage(trip: trip),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -184,6 +192,36 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Thanks for traveling with us'), findsOneWidget);
+
+    final planButton = find.byKey(
+      const ValueKey('history-plan-route-button'),
+    );
+    await tester.scrollUntilVisible(
+      planButton,
+      300,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Plan a trip with this route'), findsOneWidget);
+
+    final context = tester.element(find.byType(SoloTripDetailPage));
+    final container = ProviderScope.containerOf(context);
+    await tester.tap(planButton);
+    await tester.pump();
+
+    final search = container.read(routeSearchProvider);
+    expect(search.from, '35.71,139.813');
+    expect(search.to, '35.7138,139.7773');
+    expect(search.fromName, 'Oshiage');
+    expect(search.toName, 'Ueno Station');
+    expect(search.fromNameJa, '押上');
+    expect(search.toNameJa, '上野駅');
+    expect(search.fromNameEn, 'Oshiage');
+    expect(search.toNameEn, 'Ueno Station');
+    expect(search.pref, 'fewTransfers');
+    expect(search.startTime, isNotNull);
+    expect(search.hasSearched, isFalse);
+    expect(container.read(tabIndexProvider), 0);
 
     expect(find.text('移動の詳細'), findsNothing);
     expect(find.text('経路と予定'), findsNothing);
