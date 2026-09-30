@@ -51,13 +51,13 @@
 
 根拠: [検索エンドポイント](../api/app/route_endpoint.py) の `route_start`、[検索サービス](../lib/services/route_search_service.dart) の `ApiRouteSearchService.search`。
 
-### 4. 優先度中: Realtime の重複・長時間リクエスト
+### 4. 対応済み: Realtime の重複・長時間リクエスト
 
-通常の乗車中ポーリングは30秒間隔です。`MemberModeController._checkProgress` には同一処理の実行中ガードがなく、`ApiClient.get` にもクライアント側の明示的な timeout がありません。ネットワークが長く応答しない場合、前回が終わる前に次回が開始し得ます。これは既存の問題です。
+通常の乗車中ポーリングは30秒間隔です。`MemberModeController._checkProgress` は、前回の進行確認が実行中なら次の自動更新や手動更新を重ねずにスキップするようにしました。これにより、遅い通信で同じ乗車状態の取得が並行実行されることを防ぎます。
 
-改善候補は、処理中の通常ポーリングをまとめること、GET の適切な timeout と中断方法を設けることです。更新中の明示リフレッシュや画面終了時の扱いも合わせて検証してください。`ActiveRouteContent` 側には実行中ガードがあります。
+また、`ApiClient.get` は呼び出しごとに timeout を指定できるようにし、バス・地下鉄の Realtime 取得には20秒の timeout を設定しました。Places、warmup、その他の GET の timeout はこの変更では一律に変更していません。
 
-根拠: [メンバーの定期更新](../lib/providers/member_mode_provider.dart) の `_startPolling` / `_checkProgress`、[HTTP GET](../lib/core/api_client.dart) の `get`、[経路画面の実行中ガード](../lib/widgets/active_route_content.dart) の `_refreshRealtime`。
+根拠: [メンバーの定期更新](../lib/providers/member_mode_provider.dart) の `_checkProgress`、[HTTP GET](../lib/core/api_client.dart) の `get` / `fetchBusLocation` / `fetchTrainLocation`。
 
 ### 5. 優先度中: グループ管理画面の再購読
 

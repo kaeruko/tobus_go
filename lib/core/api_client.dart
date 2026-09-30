@@ -23,6 +23,8 @@ class ApiException implements Exception {
 }
 
 class ApiClient {
+  static const Duration _realtimeRequestTimeout = Duration(seconds: 20);
+
   static http.Client _httpClient = http.Client();
   static Future<void>? _warmUpFuture;
 
@@ -98,12 +100,14 @@ class ApiClient {
     String path, {
     Map<String, String>? params,
     Set<int> expectedErrorStatuses = const {},
+    Duration? timeout,
   }) async {
     final uri = Uri.parse('$kApiBase$path').replace(queryParameters: params);
     _log('GET $uri');
 
     try {
-      final r = await _httpClient.get(uri, headers: _baseHeaders());
+      final request = _httpClient.get(uri, headers: _baseHeaders());
+      final r = timeout == null ? await request : await request.timeout(timeout);
       _log('GET $uri -> ${r.statusCode}');
 
       if (r.statusCode != 200) {
@@ -189,6 +193,7 @@ class ApiClient {
       '/bus/location',
       params: params,
       expectedErrorStatuses: const {404},
+      timeout: _realtimeRequestTimeout,
     );
   }
 
@@ -220,6 +225,7 @@ class ApiClient {
       '/train/location',
       params: params,
       expectedErrorStatuses: const {404},
+      timeout: _realtimeRequestTimeout,
     );
   }
 }

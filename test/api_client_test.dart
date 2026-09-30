@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -21,6 +23,21 @@ void main() {
 
     tearDown(() {
       ApiClient.httpClient = originalClient;
+    });
+
+    test('GET timeout fails instead of hanging indefinitely', () async {
+      ApiClient.httpClient = MockClient((request) async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        return http.Response('{}', 200);
+      });
+
+      await expectLater(
+        ApiClient.get(
+          '/slow',
+          timeout: const Duration(milliseconds: 5),
+        ),
+        throwsA(isA<TimeoutException>()),
+      );
     });
 
     test('throws when backend returns an error', () async {

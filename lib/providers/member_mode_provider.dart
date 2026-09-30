@@ -81,6 +81,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
   int? _debugPreviousFromIndex;
   int? _debugPreviousVehicleTimestamp;
   String? _debugPrintedTimelineKey;
+  bool _checkProgressInFlight = false;
 
   MemberModeController(
     this._ref,
@@ -121,6 +122,23 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
   Future<void> pollNow() async => _checkProgress(forceRefresh: true);
 
   Future<void> _checkProgress({bool forceRefresh = false}) async {
+    if (_checkProgressInFlight) {
+      debugPrint(
+        '[MemberModeController] _checkProgress SKIP '
+        'forceRefresh=$forceRefresh reason=in_flight',
+      );
+      return;
+    }
+
+    _checkProgressInFlight = true;
+    try {
+      await _runProgressCheck(forceRefresh: forceRefresh);
+    } finally {
+      _checkProgressInFlight = false;
+    }
+  }
+
+  Future<void> _runProgressCheck({bool forceRefresh = false}) async {
     debugPrint(
       '[MemberModeController] _checkProgress START '
       'forceRefresh=$forceRefresh',
