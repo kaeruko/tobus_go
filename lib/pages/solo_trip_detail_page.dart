@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
 import '../models/group_models.dart';
+import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../providers/navigation_provider.dart';
 import '../providers/route_search_provider.dart';
