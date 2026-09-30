@@ -125,10 +125,21 @@ def save_group(
     route_id: str,
     comment: str,
     comment_en: str,
-    uploaded_file,
-    caption: str,
-    caption_en: str,
-) -> str | None:
+    uploaded_files: list,
+    captions: list[str],
+    captions_en: list[str],
+) -> list[str]:
+    if len(uploaded_files) != len(captions):
+        raise ExploreContentError(
+            "uploaded_files and captions must have the same length: "
+            f"{len(uploaded_files)} != {len(captions)}"
+        )
+    if len(uploaded_files) != len(captions_en):
+        raise ExploreContentError(
+            "uploaded_files and captions_en must have the same length: "
+            f"{len(uploaded_files)} != {len(captions_en)}"
+        )
+
     groups = load_groups()
     group_index = find_group_index(
         groups,
@@ -136,10 +147,9 @@ def save_group(
         route_id=route_id,
     )
 
-    new_filename: str | None = None
-    new_image_path: Path | None = None
-
-    if uploaded_file is not None:
+    prepared_images: list[dict] = []
+    generated_filenames: set[str] = set()
+    for index, uploaded_file in enumerate(uploaded_files):
         suffix = Path(uploaded_file.name).suffix.lower()
         if suffix not in ALLOWED_IMAGE_SUFFIXES:
             allowed = ", ".join(sorted(ALLOWED_IMAGE_SUFFIXES))
@@ -147,34 +157,56 @@ def save_group(
                 f"unsupported uploaded image extension {suffix!r}; "
                 f"expected one of: {allowed}"
             )
+
         content = uploaded_file.getvalue()
         if not content:
-            raise ExploreContentError("uploaded image is empty")
+            raise ExploreContentError(
+                f"uploaded image is empty: index={index}, name={uploaded_file.name!r}"
+            )
         content = normalize_uploaded_image(content, suffix=suffix)
 
-        new_filename = validate_image_name(
+        filename = validate_image_name(
             f"explore_{uuid.uuid4().hex}{suffix}"
         )
-        IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-        new_image_path = IMAGES_DIR / new_filename
-        if new_image_path.exists():
+        if filename in generated_filenames:
             raise ExploreContentError(
-                f"generated image path already exists: {new_image_path}"
+                f"generated duplicate image name in one save: {filename}"
             )
-        new_image_path.write_bytes(content)
+        image_path = IMAGES_DIR / filename
+        if image_path.exists():
+            raise ExploreContentError(
+                f"generated image path already exists: {image_path}"
+            )
+        generated_filenames.add(filename)
+        prepared_images.append(
+            {
+                "file": filename,
+                "caption": captions[index],
+                "caption_en": captions_en[index],
+                "content": content,
+            }
+        )
 
+    new_image_paths: list[Path] = []
     try:
+        if prepared_images:
+            IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+            for image in prepared_images:
+                image_path = IMAGES_DIR / image["file"]
+                image_path.write_bytes(image["content"])
+                new_image_paths.append(image_path)
+
+        new_image_rows = [
+            {
+                "file": image["file"],
+                "caption": image["caption"],
+                "caption_en": image["caption_en"],
+            }
+            for image in prepared_images
+        ]
+
         if group_index is None:
-            images = []
-            if new_filename is not None:
-                images.append(
-                    {
-                        "file": new_filename,
-                        "caption": caption,
-                        "caption_en": caption_en,
-                    }
-                )
-            if not comment and not images:
+            if not comment and not new_image_rows:
                 raise ExploreContentError(
                     "comment or image is required for a new entry"
                 )
@@ -184,7 +216,7 @@ def save_group(
                     "route_id": route_id,
                     "comment": comment,
                     "comment_en": comment_en,
-                    "images": images,
+                    "images": new_image_rows,
                 }
             )
         else:
@@ -197,14 +229,7 @@ def save_group(
                     dict(image) for image in groups[group_index]["images"]
                 ],
             }
-            if new_filename is not None:
-                group["images"].append(
-                    {
-                        "file": new_filename,
-                        "caption": caption,
-                        "caption_en": caption_en,
-                    }
-                )
+            group["images"].extend(new_image_rows)
             if not group["comment"] and not group["images"]:
                 raise ExploreContentError(
                     "comment or image is required for an entry"
@@ -225,11 +250,22 @@ def save_group(
                 temp_csv.unlink()
 
     except Exception:
-        if new_image_path is not None and new_image_path.exists():
-            new_image_path.unlink()
+        rollback_errors: list[str] = []
+        for image_path in reversed(new_image_paths):
+            if not image_path.exists():
+                continue
+            try:
+                image_path.unlink()
+            except OSError as error:
+                rollback_errors.append(f"{image_path}: {error}")
+        if rollback_errors:
+            raise ExploreContentError(
+                "save failed and image rollback also failed: "
+                + " | ".join(rollback_errors)
+            )
         raise
 
-    return new_filename
+    return [image["file"] for image in prepared_images]
 
 
 
@@ -445,45 +481,70 @@ def main() -> None:
                             st.success("写真を削除しました。")
                             st.rerun()
 
-            uploaded = st.file_uploader(
-                "写真を追加",
+            uploaded_files = st.file_uploader(
+                "写真を追加（複数選択可）",
                 type=["jpg", "jpeg", "png", "webp"],
-                accept_multiple_files=False,
+                accept_multiple_files=True,
                 key=f"upload::{widget_scope}",
             )
-            caption = st.text_input(
-                "追加する写真のキャプション（日本語）",
-                disabled=uploaded is None,
-                key=f"caption::{widget_scope}",
-            )
-            caption_en = st.text_input(
-                "追加する写真のキャプション（英語・任意）",
-                disabled=uploaded is None,
-                key=f"caption_en::{widget_scope}",
-            )
+            captions: list[str] = []
+            captions_en: list[str] = []
+            if uploaded_files:
+                st.caption(
+                    f"{len(uploaded_files)}枚をまとめて追加します。"
+                    "キャプションは写真ごとに設定できます。"
+                )
+                for index, uploaded_file in enumerate(uploaded_files):
+                    st.markdown(
+                        f"**{index + 1}. {uploaded_file.name}**"
+                    )
+                    caption_col, caption_en_col = st.columns(2)
+                    captions.append(
+                        caption_col.text_input(
+                            "キャプション（日本語）",
+                            key=(
+                                f"caption::{widget_scope}::{index}::"
+                                f"{uploaded_file.name}"
+                            ),
+                        )
+                    )
+                    captions_en.append(
+                        caption_en_col.text_input(
+                            "キャプション（英語・任意）",
+                            key=(
+                                f"caption_en::{widget_scope}::{index}::"
+                                f"{uploaded_file.name}"
+                            ),
+                        )
+                    )
 
             if st.button("CSVに保存", key=f"save::{widget_scope}"):
                 try:
-                    filename = save_group(
+                    filenames = save_group(
                         stop_name=selected_stop_name,
                         route_id=selected_route_id,
                         comment=comment,
                         comment_en=comment_en,
-                        uploaded_file=uploaded,
-                        caption=caption,
-                        caption_en=caption_en,
+                        uploaded_files=list(uploaded_files),
+                        captions=captions,
+                        captions_en=captions_en,
                     )
                 except ExploreContentError as error:
                     st.error(str(error))
                 except Exception as error:
                     st.exception(error)
                 else:
-                    if filename is None:
+                    if not filenames:
                         st.success("コメントを保存しました。")
+                    elif len(filenames) == 1:
+                        st.success(
+                            f"コメントと写真を保存しました: {filenames[0]}"
+                        )
                     else:
                         st.success(
-                            f"コメントと写真を保存しました: {filename}"
+                            f"コメントと写真{len(filenames)}枚を保存しました。"
                         )
+                        st.code("\n".join(filenames))
 
     st.divider()
     st.subheader("登録済み")
