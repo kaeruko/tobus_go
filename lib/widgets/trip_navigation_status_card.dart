@@ -62,6 +62,12 @@ class TripNavigationStatusCard extends StatelessWidget {
         noticeText.isNotEmpty &&
         _usesStructuredRideHeading() &&
         navState.step?.kind == 'bus';
+    final showCompactRealtimeUnavailable =
+        noticeText != null &&
+        noticeText.isNotEmpty &&
+        navState.noticeTextToken?.key ==
+            NavigationTextKey.realtimeUnavailableNotice &&
+        !showRideRealtimeIndicator;
     return Card(
       margin: EdgeInsets.zero,
       elevation: 4,
@@ -79,6 +85,28 @@ class TripNavigationStatusCard extends StatelessWidget {
                   avatar: const Icon(Icons.location_on, size: 18),
                   label: Text(statusLabel),
                 ),
+                if (showCompactRealtimeUnavailable)
+                  Semantics(
+                    key: const ValueKey(
+                      'waiting-realtime-status-indicator',
+                    ),
+                    label: l10n.navRealtimeRefreshingSemantics,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.sync,
+                          size: 17,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          noticeText,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
             if (headerTrailing != null) ...[
@@ -120,7 +148,8 @@ class TripNavigationStatusCard extends StatelessWidget {
             ],
             if (noticeText != null &&
                 noticeText.isNotEmpty &&
-                !showRideRealtimeIndicator) ...[
+                !showRideRealtimeIndicator &&
+                !showCompactRealtimeUnavailable) ...[
               const SizedBox(height: 14),
               Container(
                 width: double.infinity,

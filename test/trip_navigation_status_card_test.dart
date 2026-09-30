@@ -174,6 +174,71 @@ void main() {
   );
 
   testWidgets(
+    'waiting realtime indicator sits beside status without notice row',
+    (tester) async {
+      final step = StepSeg(
+        stepId: 'bus-approaching',
+        kind: 'bus',
+        title: '上23',
+        fromName: '平井七丁目',
+        toName: '東墨田三丁目',
+      );
+      final navigation = NavigationState(
+        mainText: '上23 2停留所前',
+        subText: 'いま:平井七丁目第三アパート前',
+        color: Colors.blue,
+        statusLabel: '乗車待ち',
+        mainTextToken: const NavigationTextToken(
+          NavigationTextKey.approachingBusMain,
+          {'rideTitle': '上23', 'count': 2},
+        ),
+        subTextToken: const NavigationTextToken(
+          NavigationTextKey.nowAtSub,
+          {'placeName': '平井七丁目第三アパート前'},
+        ),
+        statusLabelToken: const NavigationTextToken(
+          NavigationTextKey.waitingToBoardStatus,
+        ),
+        noticeText: '📍',
+        noticeTextToken: const NavigationTextToken(
+          NavigationTextKey.realtimeUnavailableNotice,
+        ),
+        step: step,
+        isMoving: false,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: TripNavigationStatusCard(
+              navState: navigation,
+              tripTitle: '平井七丁目 → 東墨田三丁目',
+              onTapStops: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('乗車待ち'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('waiting-realtime-status-indicator')),
+        findsOneWidget,
+      );
+      final semantics = tester.widget<Semantics>(
+        find.byKey(const ValueKey('waiting-realtime-status-indicator')),
+      );
+      expect(semantics.properties.label, 'リアルタイム位置情報を更新中');
+      expect(find.byIcon(Icons.sync), findsOneWidget);
+      expect(find.text('📍'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'bus realtime indicator sits beside route title without notice row',
     (tester) async {
       final step = StepSeg(
