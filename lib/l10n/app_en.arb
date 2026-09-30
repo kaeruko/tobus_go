@@ -854,6 +854,7 @@
       }
     }
   },
+  "navDepartureLabel": "Depart",
   "navDepartureRemaining": "{minutes} min to go",
   "@navDepartureRemaining": {
     "placeholders": {

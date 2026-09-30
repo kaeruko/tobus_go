@@ -158,6 +158,11 @@ void main() {
       );
       expect(find.byIcon(Icons.schedule), findsOneWidget);
       expect(find.text('6:28'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('departure-countdown-label')),
+        findsOneWidget,
+      );
+      expect(find.text('出発'), findsOneWidget);
       expect(find.text('あと13分'), findsOneWidget);
       expect(find.text('6:31'), findsOneWidget);
       expect(find.text('上23 上野松坂屋前行'), findsOneWidget);

@@ -854,6 +854,7 @@
       }
     }
   },
+  "navDepartureLabel": "出発",
   "navDepartureRemaining": "あと{minutes}分",
   "@navDepartureRemaining": {
     "placeholders": {

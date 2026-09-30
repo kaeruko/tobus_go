@@ -277,6 +277,16 @@ class TripNavigationStatusCard extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
+            const SizedBox(width: 10),
+            Text(
+              l10n.navDepartureLabel,
+              key: const ValueKey('departure-countdown-label'),
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: colors.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 8),
