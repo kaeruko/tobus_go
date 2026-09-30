@@ -62,11 +62,15 @@ class TripNavigationStatusCard extends StatelessWidget {
         noticeText.isNotEmpty &&
         _usesStructuredRideHeading() &&
         navState.step?.kind == 'bus';
-    final showCompactRealtimeUnavailable =
+    const compactRealtimeNoticeKeys = <NavigationTextKey>{
+      NavigationTextKey.realtimeUnavailableNotice,
+      NavigationTextKey.staleBusNotice,
+      NavigationTextKey.staleRailNotice,
+    };
+    final showCompactRealtimeStatus =
         noticeText != null &&
         noticeText.isNotEmpty &&
-        navState.noticeTextToken?.key ==
-            NavigationTextKey.realtimeUnavailableNotice &&
+        compactRealtimeNoticeKeys.contains(navState.noticeTextToken?.key) &&
         !showRideRealtimeIndicator;
     return Card(
       margin: EdgeInsets.zero,
@@ -85,7 +89,7 @@ class TripNavigationStatusCard extends StatelessWidget {
                   avatar: const Icon(Icons.location_on, size: 18),
                   label: Text(statusLabel),
                 ),
-                if (showCompactRealtimeUnavailable)
+                if (showCompactRealtimeStatus)
                   Semantics(
                     key: const ValueKey(
                       'waiting-realtime-status-indicator',
@@ -149,7 +153,7 @@ class TripNavigationStatusCard extends StatelessWidget {
             if (noticeText != null &&
                 noticeText.isNotEmpty &&
                 !showRideRealtimeIndicator &&
-                !showCompactRealtimeUnavailable) ...[
+                !showCompactRealtimeStatus) ...[
               const SizedBox(height: 14),
               Container(
                 width: double.infinity,

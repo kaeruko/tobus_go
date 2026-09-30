@@ -201,7 +201,11 @@ void main() {
         ),
         noticeText: '📍',
         noticeTextToken: const NavigationTextToken(
-          NavigationTextKey.realtimeUnavailableNotice,
+          NavigationTextKey.staleBusNotice,
+          {
+            'movementText': '移動中',
+            'ageMinutes': 2,
+          },
         ),
         step: step,
         isMoving: false,
