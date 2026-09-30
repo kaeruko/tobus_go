@@ -91,6 +91,15 @@ class SoloTripDetailPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.soloTripDetailTitle)),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: FilledButton(
+          key: const ValueKey('history-plan-route-button'),
+          onPressed: () => _planAgain(context, ref, candidate),
+          child: Text(l10n.planSavedRoute),
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -160,15 +169,6 @@ class SoloTripDetailPage extends ConsumerWidget {
                       )
                     : null,
               ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              key: const ValueKey('history-plan-route-button'),
-              onPressed: () => _planAgain(context, ref, candidate),
-              child: Text(l10n.planSavedRoute),
             ),
           ),
         ],

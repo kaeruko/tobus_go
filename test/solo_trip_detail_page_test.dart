@@ -151,7 +151,7 @@ void main() {
   testWidgets('English solo trip detail localizes the full route history', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.physicalSize = const Size(360, 740);
     tester.view.devicePixelRatio = 1;
     addTearDown(() {
       tester.view.resetPhysicalSize();
@@ -196,13 +196,9 @@ void main() {
     final planButton = find.byKey(
       const ValueKey('history-plan-route-button'),
     );
-    await tester.scrollUntilVisible(
-      planButton,
-      300,
-      scrollable: find.byType(Scrollable),
-    );
-    await tester.pumpAndSettle();
+    expect(planButton, findsOneWidget);
     expect(find.text('Plan a trip with this route'), findsOneWidget);
+    expect(tester.getCenter(planButton).dy, lessThan(740));
 
     final context = tester.element(find.byType(SoloTripDetailPage));
     final container = ProviderScope.containerOf(context);
