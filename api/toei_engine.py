@@ -249,7 +249,7 @@ WALK_SPEED_M_PER_MIN = 80.0
 
 TRANSFER_PENALTY = 5.0
 
-MAX_WALK_SEG_M = 1000.0
+MAX_WALK_SEG_M = 600.0
 
 # 追加: 経路として許容する最大所要時間・総徒歩距離
 MAX_TRAVEL_MIN = 240.0      # 例: 4 時間を上限
