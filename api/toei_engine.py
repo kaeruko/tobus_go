@@ -1487,6 +1487,27 @@ def _transit_path_signature(G, path):
     return tuple(legs)
 
 
+def _virtual_destination_connections_by_node(
+    target_node,
+    virtual_dest_connections,
+):
+    if not (
+        target_node
+        and target_node[0] == "phys"
+        and str(target_node[1]).startswith("dest:")
+    ):
+        return {}
+
+    by_node = {}
+    for node, weight, meters in virtual_dest_connections or []:
+        if node in by_node:
+            raise RouteContractError(
+                f"duplicate virtual destination connection for node={node!r}"
+            )
+        by_node[node] = (weight, meters)
+    return by_node
+
+
 def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
     d = datetime.date.today()
     if target_date_str:
@@ -1792,6 +1813,10 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
     g_score[(start_node, 0)] = 0.0
 
     target_goal_nodes = {target_node}
+    virtual_destination_by_node = _virtual_destination_connections_by_node(
+        target_node,
+        virtual_dest_connections,
+    )
 
     best_cost = {}
     seen_logical_routes = set()
@@ -1840,27 +1865,49 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
                 return
             continue
 
-        if virtual_dest_connections and target_node and target_node[0] == "phys" and str(target_node[1]).startswith("dest:"):
-            for nid, vw, vmeters in virtual_dest_connections:
-                if nid == u:
-                    next_time_v = curr_time + (vmeters / WALK_SPEED_M_PER_MIN)
-                    if next_time_v - start_min <= max_travel_min:
-                        new_total_v = total_walk_m + vmeters
-                        new_seg_v = seg_walk_m + vmeters
-                        if new_total_v <= MAX_TOTAL_WALK_M and new_seg_v <= MAX_WALK_SEG_M:
-                            new_cost_v = cost + vw
-                            bucket_v = int(new_seg_v // 25)
-                            key_v = (target_node, bucket_v)
-                            if new_cost_v < g_score.get(key_v, float('inf')):
-                                g_score[key_v] = new_cost_v
-                                new_chain_idx = _chain_new(chain_store, target_node, chain_idx)
-                                heapq.heappush(pq, (new_cost_v + heuristic(target_node), new_cost_v, target_node, new_total_v, new_seg_v, next_time_v, new_chain_idx))
-                    break
+        direct_destination = virtual_destination_by_node.get(u)
+        can_walk_direct_to_destination = False
+        if direct_destination is not None:
+            vw, vmeters = direct_destination
+            next_time_v = curr_time + (vmeters / WALK_SPEED_M_PER_MIN)
+            new_total_v = total_walk_m + vmeters
+            new_seg_v = seg_walk_m + vmeters
+            if (
+                next_time_v - start_min <= max_travel_min
+                and new_total_v <= MAX_TOTAL_WALK_M
+                and new_seg_v <= MAX_WALK_SEG_M
+            ):
+                can_walk_direct_to_destination = True
+                new_cost_v = cost + vw
+                bucket_v = int(new_seg_v // 25)
+                key_v = (target_node, bucket_v)
+                if new_cost_v < g_score.get(key_v, float("inf")):
+                    g_score[key_v] = new_cost_v
+                    new_chain_idx = _chain_new(
+                        chain_store, target_node, chain_idx
+                    )
+                    heapq.heappush(
+                        pq,
+                        (
+                            new_cost_v + heuristic(target_node),
+                            new_cost_v,
+                            target_node,
+                            new_total_v,
+                            new_seg_v,
+                            next_time_v,
+                            new_chain_idx,
+                        ),
+                    )
 
         for v in G[u]:
+            edge = G[u][v]
+            if (
+                can_walk_direct_to_destination
+                and edge.get("etype") == "walk"
+            ):
+                continue
             if bus_only and _edge_uses_rail(G, u, v):
                 continue
-            edge = G[u][v]
             w = edge.get("w", 0.0)
             meters = edge.get("meters", 0.0)
             next_time = advance_time(
@@ -1931,6 +1978,10 @@ def find_few_transfers_paths_generator(
     g_score[(start_node, 0, 0)] = 0.0
 
     target_goal_nodes = {target_node}
+    virtual_destination_by_node = _virtual_destination_connections_by_node(
+        target_node,
+        virtual_dest_connections,
+    )
     best_cost = {}
     yielded_count = 0
     visited_count = 0
@@ -2042,27 +2093,21 @@ def find_few_transfers_paths_generator(
             _log_few_transfers_stats("yield")
             continue
 
-        if (
-            virtual_dest_connections
-            and target_node
-            and target_node[0] == "phys"
-            and str(target_node[1]).startswith("dest:")
-        ):
-            for nid, vw, vmeters in virtual_dest_connections:
-                if nid != u:
-                    continue
-                next_time_v = curr_time + (
-                    vmeters / WALK_SPEED_M_PER_MIN
-                )
-                if next_time_v - start_min > max_travel_min:
-                    break
-                new_total_v = total_walk_m + vmeters
-                new_seg_v = seg_walk_m + vmeters
-                if (
-                    new_total_v > MAX_TOTAL_WALK_M
-                    or new_seg_v > MAX_WALK_SEG_M
-                ):
-                    break
+        direct_destination = virtual_destination_by_node.get(u)
+        can_walk_direct_to_destination = False
+        if direct_destination is not None:
+            vw, vmeters = direct_destination
+            next_time_v = curr_time + (
+                vmeters / WALK_SPEED_M_PER_MIN
+            )
+            new_total_v = total_walk_m + vmeters
+            new_seg_v = seg_walk_m + vmeters
+            if (
+                next_time_v - start_min <= max_travel_min
+                and new_total_v <= MAX_TOTAL_WALK_M
+                and new_seg_v <= MAX_WALK_SEG_M
+            ):
+                can_walk_direct_to_destination = True
                 new_cost_v = cost + vw
                 bucket_v = int(new_seg_v // 25)
                 key_v = (target_node, bucket_v, boardings)
@@ -2083,12 +2128,16 @@ def find_few_transfers_paths_generator(
                             new_chain_idx,
                         ),
                     )
-                break
 
         for v in G[u]:
+            edge = G[u][v]
+            if (
+                can_walk_direct_to_destination
+                and edge.get("etype") == "walk"
+            ):
+                continue
             if bus_only and _edge_uses_rail(G, u, v):
                 continue
-            edge = G[u][v]
             w = edge.get("w", 0.0)
             meters = edge.get("meters", 0.0)
             next_time = advance_time(
@@ -2162,6 +2211,11 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
     
     min_time[(start_node, 0)] = start_min
     
+    virtual_destination_by_node = _virtual_destination_connections_by_node(
+        target_node,
+        virtual_dest_connections,
+    )
+
     target_pole_ids = set()
     def add_poles(pid):
         target_pole_ids.add(pid)
@@ -2266,26 +2320,44 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
             )
             return None, None
 
-        if virtual_dest_connections and u[0] == "phys" and target_node and str(target_node[1]).startswith("dest:"):
-            for nid, vw, vmeters in virtual_dest_connections:
-                if nid == u:
-                    v_time = curr_time + (vmeters / WALK_SPEED_M_PER_MIN)
-                    new_seg = seg_walk + vmeters
-                    new_tot = total_walk + vmeters
-                    if v_time - start_min <= max_travel_min and new_seg <= MAX_WALK_SEG_M and new_tot <= MAX_TOTAL_WALK_M:
-                        n_bucket = int(new_seg // 25)
-                        n_key = (target_node, n_bucket)
-                        if v_time < min_time.get(n_key, float('inf')):
-                            min_time[n_key] = v_time
-                            new_chain_idx = _chain_new(chain_store, target_node, chain_idx)
-                            heapq.heappush(pq, (v_time, target_node, new_chain_idx, new_tot, new_seg))
-                    break
+        direct_destination = virtual_destination_by_node.get(u)
+        can_walk_direct_to_destination = False
+        if direct_destination is not None:
+            _, vmeters = direct_destination
+            v_time = curr_time + (vmeters / WALK_SPEED_M_PER_MIN)
+            new_seg = seg_walk + vmeters
+            new_tot = total_walk + vmeters
+            if (
+                v_time - start_min <= max_travel_min
+                and new_seg <= MAX_WALK_SEG_M
+                and new_tot <= MAX_TOTAL_WALK_M
+            ):
+                can_walk_direct_to_destination = True
+                n_bucket = int(new_seg // 25)
+                n_key = (target_node, n_bucket)
+                if v_time < min_time.get(n_key, float("inf")):
+                    min_time[n_key] = v_time
+                    new_chain_idx = _chain_new(
+                        chain_store, target_node, chain_idx
+                    )
+                    heapq.heappush(
+                        pq,
+                        (
+                            v_time,
+                            target_node,
+                            new_chain_idx,
+                            new_tot,
+                            new_seg,
+                        ),
+                    )
 
         for v in G[u]:
-            if bus_only and _edge_uses_rail(G, u, v):
-                continue
             edge = G[u][v]
             etype = edge.get("etype")
+            if can_walk_direct_to_destination and etype == "walk":
+                continue
+            if bus_only and _edge_uses_rail(G, u, v):
+                continue
             meters = edge.get("meters", 0)
             next_time = advance_time(
                 G,

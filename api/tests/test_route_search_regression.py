@@ -9,6 +9,7 @@ from toei_engine import (
     RouteSearchLimitError,
     find_fastest_path,
     find_few_transfers_paths_generator,
+    find_paths_generator,
     search_best_routes,
     search_best_routes_once,
 )
@@ -480,6 +481,68 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
         )
         self.assertEqual(real_arrival.call_count, 2)
         self.assertEqual(details.call_count, 2)
+
+    def test_direct_destination_walk_prunes_walk_detours_in_all_search_modes(self):
+        station = ("phys", "shimbashi-direct")
+        detour = ("phys", "nearby-bus-stop-direct")
+        target = ("phys", "dest:35.668000,139.760000")
+
+        graph = nx.DiGraph()
+        graph.add_node(
+            station,
+            name="新橋",
+            lat=35.666,
+            lon=139.758,
+        )
+        graph.add_node(
+            detour,
+            name="新橋駅前",
+            lat=35.667,
+            lon=139.759,
+        )
+        graph.add_edge(
+            station,
+            detour,
+            etype="walk",
+            meters=20.0,
+            w=0.375,
+        )
+
+        virtual_connections = [
+            (station, 2.8125, 150.0),
+            (detour, 2.625, 140.0),
+        ]
+
+        for generator in (
+            find_paths_generator,
+            find_few_transfers_paths_generator,
+        ):
+            with self.subTest(generator=generator.__name__):
+                candidates = list(
+                    generator(
+                        graph,
+                        self.tm,
+                        station,
+                        target,
+                        start_time_str="13:24",
+                        max_search=5,
+                        virtual_dest_connections=virtual_connections,
+                    )
+                )
+                self.assertEqual(len(candidates), 1)
+                self.assertEqual(candidates[0]["path"], [station, target])
+                self.assertEqual(candidates[0]["walk_m"], 150.0)
+
+        arrival, path = find_fastest_path(
+            graph,
+            self.tm,
+            station,
+            target,
+            start_time_str="13:24",
+            virtual_dest_connections=virtual_connections,
+        )
+        self.assertEqual(arrival, 13 * 60 + 24 + (150.0 / 80.0))
+        self.assertEqual(path, [station, target])
 
     def test_cost_mode_keeps_legacy_comfort_generator(self):
         with (

@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import networkx as nx
 
-from toei_engine import TimetableManager
+from toei_engine import MAX_WALK_SEG_M, TimetableManager
 from tokyo_route_engine import (
     TokyoRouteDependencies,
     TokyoRouteEngine,
@@ -76,6 +76,11 @@ class TokyoRealtimeSearchPolicyTest(unittest.TestCase):
             )
             nearest = iter(((origin, 0.0), (destination, 0.0)))
             calls = []
+            virtual_connection_calls = []
+
+            def get_virtual_connections(*args, **kwargs):
+                virtual_connection_calls.append(kwargs)
+                return ("phys", "virtual-destination"), []
 
             def search_once(*args, **kwargs):
                 calls.append(kwargs)
@@ -86,10 +91,7 @@ class TokyoRealtimeSearchPolicyTest(unittest.TestCase):
                 dependencies=TokyoRouteDependencies(
                     nearest_phys=lambda *args, **kwargs: next(nearest),
                     haversine=lambda *args: 0.0,
-                    get_virtual_connections=lambda *args, **kwargs: (
-                        ("phys", "virtual-destination"),
-                        [],
-                    ),
+                    get_virtual_connections=get_virtual_connections,
                     search_best_routes_once=search_once,
                     time_str_to_min=lambda value: 0,
                     min_to_time_str=lambda value: "00:00",
@@ -112,6 +114,11 @@ class TokyoRealtimeSearchPolicyTest(unittest.TestCase):
                 date_str=date_str,
             )
             self.assertEqual(len(calls), 1)
+            self.assertEqual(len(virtual_connection_calls), 1)
+            self.assertEqual(
+                virtual_connection_calls[0]["walk_radius"],
+                MAX_WALK_SEG_M,
+            )
             return calls[0]["use_realtime"]
 
         self.assertTrue(run("2026-09-25", "15:30"))

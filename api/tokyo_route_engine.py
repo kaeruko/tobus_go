@@ -242,12 +242,13 @@ class TokyoRouteEngine:
             )
 
         destination_label = "目的地"
+        destination_walk_radius = MAX_WALK_SEG_M
         virtual_destination, virtual_connections = deps.get_virtual_connections(
             g,
             blat,
             blon,
             name=destination_label,
-            walk_radius=walk_radius,
+            walk_radius=destination_walk_radius,
             spatial_index=spatial_index,
         )
         destination_reachable = bool(virtual_connections)
@@ -257,7 +258,8 @@ class TokyoRouteEngine:
             "[ROUTE_DEBUG] Tokyo destination setup: "
             f"pref={pref} origin_node={origin_node} "
             f"selected_destination_node={destination_node} "
-            f"walk_radius={walk_radius} "
+            f"graph_walk_radius={walk_radius} "
+            f"destination_walk_radius={destination_walk_radius} "
             f"virtual_destination={virtual_destination} "
             f"virtual_connections={len(virtual_connections)} "
             f"destination_reachable={destination_reachable}",
