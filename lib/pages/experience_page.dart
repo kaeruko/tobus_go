@@ -11,8 +11,13 @@ import '../providers/route_search_provider.dart';
 
 class ExperiencePage extends ConsumerStatefulWidget {
   final ReachableStop stop;
+  final ExploreEditorialSpot? editorial;
 
-  const ExperiencePage({super.key, required this.stop});
+  const ExperiencePage({
+    super.key,
+    required this.stop,
+    this.editorial,
+  });
 
   @override
   ConsumerState<ExperiencePage> createState() => _ExperiencePageState();
@@ -20,13 +25,16 @@ class ExperiencePage extends ConsumerStatefulWidget {
 
 class _ExperiencePageState extends ConsumerState<ExperiencePage> {
   ExperienceResponse? _data;
-  bool _loading = true;
+  bool _loading = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    if (widget.editorial == null) {
+      _loading = true;
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -53,7 +61,6 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final editorialState = ref.watch(exploreEditorialContentProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -65,11 +72,16 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
           ),
         ),
       ),
-      body: _buildBody(editorialState),
+      body: _buildBody(),
     );
   }
 
-  Widget _buildBody(AsyncValue<ExploreEditorialContent> editorialState) {
+  Widget _buildBody() {
+    final editorial = widget.editorial;
+    if (editorial != null) {
+      return _buildEditorialOnlyBody(editorial);
+    }
+
     final l10n = AppLocalizations.of(context);
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
@@ -81,12 +93,7 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
       return _errorView(l10n.experienceLoadFailed);
     }
 
-    return editorialState.when(
-      data: (editorial) => _buildLoadedBody(editorial.byStopId[widget.stop.id]),
-      error: (err, stack) =>
-          _errorView(l10n.exploreContentLoadFailed(err.toString())),
-      loading: () => const Center(child: CircularProgressIndicator()),
-    );
+    return _buildGeneratedBody();
   }
 
   Widget _errorView(String message) {
@@ -98,31 +105,31 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
     );
   }
 
-  Widget _buildLoadedBody(ExploreEditorialSpot? editorial) {
-    final languageCode = Localizations.localeOf(context).languageCode;
-    final hasEditorialCommentAndImages =
-        editorial != null &&
-        editorial.commentForLanguageCode(languageCode).isNotEmpty &&
-        editorial.images.isNotEmpty;
+  Widget _buildEditorialOnlyBody(ExploreEditorialSpot editorial) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [_editorialSection(editorial)],
+    );
+  }
+
+  Widget _buildGeneratedBody() {
+    final data = _data;
+    if (data == null) {
+      throw StateError('自動生成の詳細表示にExperienceResponseがありません');
+    }
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        if (editorial != null) ...[
-          _editorialSection(editorial),
-          const SizedBox(height: 20),
-        ],
-        if (!hasEditorialCommentAndImages) ...[
-          _streetViewGallery(widget.stop),
-          const SizedBox(height: 20),
-        ],
-        if (_data!.groups.isEmpty)
+        _streetViewGallery(widget.stop),
+        const SizedBox(height: 20),
+        if (data.groups.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Text(AppLocalizations.of(context).experienceEmpty),
           )
         else
-          ..._data!.groups.map(_experienceCard),
+          ...data.groups.map(_experienceCard),
       ],
     );
   }

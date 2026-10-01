@@ -280,7 +280,10 @@ class ExplorePage extends ConsumerWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => ExperiencePage(stop: stop),
+                  builder: (_) => ExperiencePage(
+                    stop: stop,
+                    editorial: spot,
+                  ),
                 ),
               );
             },
