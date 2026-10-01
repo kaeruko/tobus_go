@@ -153,6 +153,7 @@ class ActiveTripRouteOverview extends StatelessWidget {
   final String destinationPlace;
   final List<LatLng> routePoints;
   final VoidCallback onTapStops;
+  final Widget? statusHeaderTrailing;
 
   const ActiveTripRouteOverview({
     super.key,
@@ -164,6 +165,7 @@ class ActiveTripRouteOverview extends StatelessWidget {
     required this.destinationPlace,
     required this.routePoints,
     required this.onTapStops,
+    this.statusHeaderTrailing,
   });
 
   @override
@@ -182,6 +184,7 @@ class ActiveTripRouteOverview extends StatelessWidget {
           navState: navState,
           tripTitle: tripTitle,
           onTapStops: onTapStops,
+          headerTrailing: statusHeaderTrailing,
         ),
         if (routePoints.isNotEmpty) ...[
           const SizedBox(height: 10),
