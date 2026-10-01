@@ -403,8 +403,15 @@ class TripCoordinator {
     }
     if (resolvedState.resolvedEntry == null) {
       if (resolvedState.windowEntries.isNotEmpty) {
+        final firstEntry = resolvedState.windowEntries.first;
+        if (firstEntry.itemKind == ScheduleEntryKind.meeting) {
+          return NavigationState.waitingForMeeting(
+            entry: firstEntry,
+            now: now,
+          );
+        }
         return NavigationState.waitingForDeparture(
-          plannedAt: resolvedState.windowEntries.first.plannedAt,
+          plannedAt: firstEntry.plannedAt,
         );
       }
       return NavigationState.idle();

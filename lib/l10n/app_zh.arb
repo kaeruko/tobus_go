@@ -713,6 +713,26 @@
     }
   },
   "navPreStartStatus": "尚未开始",
+  "navPreMeetingMain": "{time} 集合",
+  "@navPreMeetingMain": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "navMeetingStartsInSub": "{label} · 还有{minutes}分钟",
+  "@navMeetingStartsInSub": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navPreMeetingStatus": "集合前",
   "navStartsInSub": "距离开始还有{hours}小时{minutes}分钟",
   "@navStartsInSub": {
     "placeholders": {

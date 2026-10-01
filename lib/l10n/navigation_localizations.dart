@@ -117,6 +117,15 @@ String localizedNavigationText(
       return l10n.navPlannedDepartureSub(stringArg('time'));
     case NavigationTextKey.preStartStatus:
       return l10n.navPreStartStatus;
+    case NavigationTextKey.preMeetingMain:
+      return l10n.navPreMeetingMain(stringArg('time'));
+    case NavigationTextKey.meetingStartsInSub:
+      return l10n.navMeetingStartsInSub(
+        stringArg('label'),
+        intArg('minutes'),
+      );
+    case NavigationTextKey.preMeetingStatus:
+      return l10n.navPreMeetingStatus;
     case NavigationTextKey.startsInSub:
       return l10n.navStartsInSub(intArg('hours'), intArg('minutes'));
     case NavigationTextKey.movingStatus:

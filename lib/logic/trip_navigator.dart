@@ -38,6 +38,9 @@ enum NavigationTextKey {
   preDepartureMain,
   plannedDepartureSub,
   preStartStatus,
+  preMeetingMain,
+  meetingStartsInSub,
+  preMeetingStatus,
   startsInSub,
   movingStatus,
   meetingDefaultSub,
@@ -304,6 +307,53 @@ class NavigationState {
       statusLabelToken: const NavigationTextToken(
         NavigationTextKey.preStartStatus,
       ),
+      isMoving: false,
+    );
+  }
+
+  static NavigationState waitingForMeeting({
+    required ScheduleEntry entry,
+    required DateTime now,
+  }) {
+    if (entry.itemKind != ScheduleEntryKind.meeting) {
+      throw ArgumentError(
+        'waitingForMeeting requires meeting entry: '
+        'entryId=${entry.id}, kind=${entry.itemKind.name}',
+      );
+    }
+    final label = entry.label.trim();
+    if (label.isEmpty) {
+      throw StateError('集合予定のlabelが空です: entryId=${entry.id}');
+    }
+
+    final seconds = entry.plannedAt.difference(now).inSeconds;
+    if (seconds <= 0) {
+      throw StateError(
+        '開始済みの集合予定を集合前として表示しようとしました: '
+        'entryId=${entry.id}, plannedAt=${entry.plannedAt}, now=$now',
+      );
+    }
+    final minutes = (seconds + 59) ~/ 60;
+    final time =
+        '${entry.plannedAt.hour}:${entry.plannedAt.minute.toString().padLeft(2, '0')}';
+
+    return NavigationState(
+      mainText: '$time 集合',
+      subText: '$label · あと$minutes分',
+      color: Colors.white,
+      statusLabel: '集合前',
+      mainTextToken: NavigationTextToken(
+        NavigationTextKey.preMeetingMain,
+        {'time': time},
+      ),
+      subTextToken: NavigationTextToken(
+        NavigationTextKey.meetingStartsInSub,
+        {'label': label, 'minutes': minutes},
+      ),
+      statusLabelToken: const NavigationTextToken(
+        NavigationTextKey.preMeetingStatus,
+      ),
+      currentStepId: entry.routeStepId,
       isMoving: false,
     );
   }

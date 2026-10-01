@@ -713,6 +713,26 @@
     }
   },
   "navPreStartStatus": "Not started",
+  "navPreMeetingMain": "{time} Meeting",
+  "@navPreMeetingMain": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "navMeetingStartsInSub": "{label} · in {minutes} min",
+  "@navMeetingStartsInSub": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navPreMeetingStatus": "Before meeting",
   "navStartsInSub": "Starts in {hours}h {minutes}m",
   "@navStartsInSub": {
     "placeholders": {

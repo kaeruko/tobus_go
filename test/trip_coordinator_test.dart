@@ -37,6 +37,47 @@ void main() {
       expect(navigation.statusLabel, '開始前');
     });
 
+    test('shows meeting time and countdown before a meeting entry starts', () {
+      final trip = navigationV2Trip();
+      final meeting = ScheduleEntry(
+        id: 'meeting',
+        plannedAt: DateTime(2025, 1, 1, 8, 29),
+        label: '➡️ 平井駅集合',
+        itemKind: ScheduleEntryKind.meeting,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: null,
+      );
+      final now = DateTime(2025, 1, 1, 8, 24, 20);
+      final resolved = TripCoordinator.resolveScheduleState(
+        scheduleEntries: [meeting],
+        now: now,
+      );
+
+      final navigation = TripCoordinator.buildMemberNavigationState(
+        trip: trip,
+        routeState: RouteState(stepsById: trip.stepsById),
+        now: now,
+        resolvedState: resolved,
+      );
+
+      expect(resolved.resolvedEntry, isNull);
+      expect(navigation.mainText, '8:29 集合');
+      expect(navigation.subText, '➡️ 平井駅集合 · あと5分');
+      expect(navigation.statusLabel, '集合前');
+      expect(
+        navigation.mainTextToken?.key,
+        NavigationTextKey.preMeetingMain,
+      );
+      expect(
+        navigation.subTextToken?.key,
+        NavigationTextKey.meetingStartsInSub,
+      );
+      expect(
+        navigation.statusLabelToken?.key,
+        NavigationTextKey.preMeetingStatus,
+      );
+    });
+
     test('wait before walk shows departure countdown and boarding time', () {
       final schedule = [
         ScheduleEntry(
