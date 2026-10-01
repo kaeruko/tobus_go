@@ -296,6 +296,191 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
         self.assertEqual(candidate["walking_distance_meters"], 80)
         self.assertEqual(candidate["walking_segment_count"], 1)
 
+    def test_duplicate_transit_itineraries_keep_shortest_walk_without_refill(self):
+        origin = ("phys", "origin-dedupe")
+        station = ("phys", "shimbashi")
+        detour = ("phys", "nearby-bus-stop")
+        target = ("phys", "target-dedupe")
+        asakusa_from = ("line", "origin-dedupe", "asakusa")
+        asakusa_to = ("line", "shimbashi", "asakusa")
+        oedo_from = ("line", "origin-dedupe", "oedo")
+        oedo_to = ("line", "shimbashi", "oedo")
+
+        graph = nx.DiGraph()
+        nodes = [
+            (origin, {"name": "本所吾妻橋", "lat": 35.71, "lon": 139.80}),
+            (station, {"name": "新橋", "lat": 35.666, "lon": 139.758}),
+            (detour, {"name": "新橋駅前", "lat": 35.667, "lon": 139.759}),
+            (target, {"name": "新橋駅", "lat": 35.668, "lon": 139.760}),
+            (
+                asakusa_from,
+                {
+                    "name": "浅草線@本所吾妻橋",
+                    "lat": 35.71,
+                    "lon": 139.80,
+                    "mode": "rail",
+                    "line": "odpt.Railway:Toei.Asakusa",
+                },
+            ),
+            (
+                asakusa_to,
+                {
+                    "name": "浅草線@新橋",
+                    "lat": 35.666,
+                    "lon": 139.758,
+                    "mode": "rail",
+                    "line": "odpt.Railway:Toei.Asakusa",
+                },
+            ),
+            (
+                oedo_from,
+                {
+                    "name": "大江戸線@本所吾妻橋",
+                    "lat": 35.71,
+                    "lon": 139.80,
+                    "mode": "rail",
+                    "line": "odpt.Railway:Toei.Oedo",
+                },
+            ),
+            (
+                oedo_to,
+                {
+                    "name": "大江戸線@新橋",
+                    "lat": 35.666,
+                    "lon": 139.758,
+                    "mode": "rail",
+                    "line": "odpt.Railway:Toei.Oedo",
+                },
+            ),
+        ]
+        for node, attrs in nodes:
+            graph.add_node(node, **attrs)
+
+        graph.add_edge(origin, asakusa_from, etype="board", w=1.0)
+        graph.add_edge(
+            asakusa_from,
+            asakusa_to,
+            etype="ride",
+            mode="rail",
+            w=1.0,
+        )
+        graph.add_edge(asakusa_to, station, etype="alight", w=0.0)
+        graph.add_edge(station, target, etype="walk", meters=152, w=2.0)
+        graph.add_edge(station, detour, etype="walk", meters=20, w=1.0)
+        graph.add_edge(detour, target, etype="walk", meters=170, w=3.0)
+
+        graph.add_edge(origin, oedo_from, etype="board", w=1.0)
+        graph.add_edge(
+            oedo_from,
+            oedo_to,
+            etype="ride",
+            mode="rail",
+            w=1.0,
+        )
+        graph.add_edge(oedo_to, station, etype="alight", w=0.0)
+
+        direct_asakusa = [
+            origin,
+            asakusa_from,
+            asakusa_to,
+            station,
+            target,
+        ]
+        detour_asakusa = [
+            origin,
+            asakusa_from,
+            asakusa_to,
+            station,
+            detour,
+            target,
+        ]
+        direct_oedo = [
+            origin,
+            oedo_from,
+            oedo_to,
+            station,
+            target,
+        ]
+
+        def raw_paths():
+            yield {"cost": 5.0, "path": direct_asakusa, "walk_m": 152}
+            yield {"cost": 6.0, "path": detour_asakusa, "walk_m": 190}
+            yield {"cost": 7.0, "path": direct_oedo, "walk_m": 140}
+            raise AssertionError(
+                "duplicate removal must not search farther just to refill"
+            )
+
+        asakusa_steps = [
+            {
+                "kind": "rail",
+                "title": "浅草線",
+                "title_en": "Asakusa Line",
+                "meters": 0,
+            },
+            {
+                "kind": "walk",
+                "title": "徒歩",
+                "meters": 152,
+                "minutes": 2,
+            },
+        ]
+        oedo_steps = [
+            {
+                "kind": "rail",
+                "title": "大江戸線",
+                "title_en": "Oedo Line",
+                "meters": 0,
+            },
+            {
+                "kind": "walk",
+                "title": "徒歩",
+                "meters": 140,
+                "minutes": 2,
+            },
+        ]
+
+        with (
+            patch(
+                "toei_engine.find_few_transfers_paths_generator",
+                return_value=raw_paths(),
+            ),
+            patch(
+                "toei_engine.calculate_real_arrival_time",
+                side_effect=[623, 624],
+            ) as real_arrival,
+            patch(
+                "toei_engine.segments_detailed",
+                side_effect=[asakusa_steps, oedo_steps],
+            ) as details,
+        ):
+            candidates = search_best_routes(
+                graph,
+                self.tm,
+                origin,
+                mode="fewTransfers",
+                start_time="13:24",
+                limit=3,
+                target_date=datetime.datetime(2026, 10, 1, 13, 24),
+                target_node=target,
+                day_type="weekday",
+            )
+
+        self.assertEqual(len(candidates), 2)
+        self.assertEqual(
+            [candidate["lines"] for candidate in candidates],
+            [["浅草線"], ["大江戸線"]],
+        )
+        self.assertEqual(
+            [candidate["cost_score"] for candidate in candidates],
+            [5.0, 7.0],
+        )
+        self.assertEqual(
+            [candidate["walking_distance_meters"] for candidate in candidates],
+            [152, 140],
+        )
+        self.assertEqual(real_arrival.call_count, 2)
+        self.assertEqual(details.call_count, 2)
+
     def test_cost_mode_keeps_legacy_comfort_generator(self):
         with (
             patch(

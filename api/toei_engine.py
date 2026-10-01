@@ -1418,6 +1418,75 @@ def path_to_coords(G, path):
             points.append([d["lat"], d["lon"]])
     return points
 
+def _transit_path_signature(G, path):
+    """Return the user-meaningful transit itinerary, ignoring walk detours."""
+    legs = []
+    active = None
+
+    for u, v in zip(path, path[1:]):
+        edge = G.get_edge_data(u, v)
+        if edge is None:
+            continue
+
+        etype = edge.get("etype")
+        if etype == "board":
+            if active is not None:
+                raise RouteContractError(
+                    f"nested board edge in route path: active={active!r}, u={u!r}, v={v!r}"
+                )
+            if u[0] != "phys" or v[0] != "line":
+                raise RouteContractError(
+                    f"invalid board edge shape: u={u!r}, v={v!r}"
+                )
+
+            line_data = G.nodes[v]
+            line_identity = (
+                line_data.get("line")
+                or line_data.get("route_id")
+                or line_data.get("disp")
+                or str(v)
+            )
+            active = (
+                line_data.get("mode"),
+                str(line_identity),
+                str(u[1]),
+            )
+            continue
+
+        if etype == "alight":
+            if active is None:
+                raise RouteContractError(
+                    f"alight without active ride in route path: u={u!r}, v={v!r}"
+                )
+            if u[0] != "line" or v[0] != "phys":
+                raise RouteContractError(
+                    f"invalid alight edge shape: u={u!r}, v={v!r}"
+                )
+
+            line_data = G.nodes[u]
+            line_identity = (
+                line_data.get("line")
+                or line_data.get("route_id")
+                or line_data.get("disp")
+                or str(u)
+            )
+            if str(line_identity) != active[1]:
+                raise RouteContractError(
+                    "ride line changed without a transfer: "
+                    f"boarded={active[1]!r}, alighted={line_identity!r}"
+                )
+
+            legs.append((active[0], active[1], active[2], str(v[1])))
+            active = None
+
+    if active is not None:
+        raise RouteContractError(
+            f"route path ended before alighting: active={active!r}"
+        )
+
+    return tuple(legs)
+
+
 def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
     d = datetime.date.today()
     if target_date_str:
@@ -1588,16 +1657,52 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
             path_gen = find_few_transfers_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime, bus_only=bus_only)
         else:
             path_gen = find_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime, bus_only=bus_only)
-        valid_count = 0
+        # Examine only the same raw candidate budget requested by the caller.
+        # Do not search farther merely to replace duplicate walk detours.
+        raw_candidates = []
         for cand in path_gen:
-            path = cand["path"]
-            # 各候補について到着時刻を計算
-            real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, use_realtime=use_realtime)
-            if real_arr is not None:
+            raw_candidates.append(cand)
+            if len(raw_candidates) >= limit:
+                break
+
+        grouped_candidates = {}
+        signature_order = []
+        for cand in raw_candidates:
+            signature = _transit_path_signature(G, cand["path"])
+            if signature not in grouped_candidates:
+                grouped_candidates[signature] = []
+                signature_order.append(signature)
+            grouped_candidates[signature].append(cand)
+
+        duplicate_count = len(raw_candidates) - len(signature_order)
+        if duplicate_count:
+            print(
+                "[ROUTE_DEBUG] dropped duplicate transit itineraries before detail "
+                f"generation: raw={len(raw_candidates)} "
+                f"unique={len(signature_order)} duplicates={duplicate_count}",
+                flush=True,
+            )
+
+        valid_count = 0
+        for signature in signature_order:
+            group = sorted(
+                grouped_candidates[signature],
+                key=lambda candidate: candidate["cost"],
+            )
+
+            accepted = False
+            for cand in group:
+                path = cand["path"]
+                # Same transit itinerary: try the shortest/lowest-cost walk first.
+                real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, use_realtime=use_realtime)
+                if real_arr is None:
+                    continue
+
                 # 詳細情報の構築
                 segs = segments_detailed(G, path, tm, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, use_realtime=use_realtime)
                 if not segs:
                     continue
+
                 lines = list(dict.fromkeys([
                     s["title"] for s in segs if s["kind"] in ("bus", "rail")
                 ]))
@@ -1610,7 +1715,7 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
                 final_arrival = math.ceil(real_arr)
                 duration = int(final_arrival - start_min)
                 num_rides = sum(1 for s in segs if s["kind"] in ("bus", "rail"))
-                
+
                 candidates.append({
                     "id": f"Comfort-{valid_count+1}",
                     "lines": lines,
@@ -1638,7 +1743,18 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
                     "boards": num_rides,
                 })
                 valid_count += 1
-                if valid_count >= limit: break
+                accepted = True
+                break
+
+            if valid_count >= limit:
+                break
+
+            if not accepted:
+                print(
+                    "[ROUTE_DEBUG] no valid candidate for transit signature "
+                    f"{signature!r}",
+                    flush=True,
+                )
     return candidates
 
 def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_search=30000, max_visited=15000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, time_limit_sec=15.0, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
