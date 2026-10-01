@@ -797,7 +797,7 @@
       }
     }
   },
-  "navNowAtSub": "当前位置：{placeName}",
+  "navNowAtSub": "乘车地点：{placeName}",
   "@navNowAtSub": {
     "placeholders": {
       "placeName": {

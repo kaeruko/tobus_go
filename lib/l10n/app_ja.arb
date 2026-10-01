@@ -797,7 +797,7 @@
       }
     }
   },
-  "navNowAtSub": "いま:{placeName}",
+  "navNowAtSub": "乗る場所:{placeName}",
   "@navNowAtSub": {
     "placeholders": {
       "placeName": {

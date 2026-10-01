@@ -44,7 +44,7 @@ void main() {
       );
 
       expect(navigation.mainText, '上23 1停留所前');
-      expect(navigation.subText, 'いま:十間橋');
+      expect(navigation.subText, '乗る場所:十間橋');
       expect(navigation.statusLabel, '乗車待ち');
     });
 

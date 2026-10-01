@@ -643,7 +643,7 @@ class NavigationState {
           NavigationState(
             mainText:
                 '${_shortRideTitle(step)} $stopsUntilBoarding${_approachUnit(step)}前',
-            subText: 'いま:$boardingPlaceName',
+            subText: '乗る場所:$boardingPlaceName',
             color: const Color(0xFFE1F5FE),
             statusLabel: '乗車待ち',
             mainTextToken: NavigationTextToken(

@@ -185,7 +185,7 @@ void main() {
       );
       final navigation = NavigationState(
         mainText: '上23 2停留所前',
-        subText: 'いま:平井七丁目第三アパート前',
+        subText: '乗る場所:平井七丁目第三アパート前',
         color: Colors.blue,
         statusLabel: '乗車待ち',
         mainTextToken: const NavigationTextToken(
