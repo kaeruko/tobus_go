@@ -499,19 +499,59 @@ List<ScheduleEntry> createScheduleFromLegs(
     // 10 minutes before that movement starts.
     final meetingAt = inboundAnchor.subtract(const Duration(minutes: 10));
 
-    schedule.addAll(
-      createScheduleFromRoute(
-        inbound.candidate,
-        startDateTime: inboundAnchor,
-        labelPrefix: '⬅️',
-        legIndex: legSortIndices[inbound]!,
-        includeMeeting: true,
-        meetingLabel: '帰りの集合',
-        meetingDescription: '帰りの経路を開始する前に人数を確認しましょう',
-        meetingAt: meetingAt,
-        shiftToStart: true, // Anchor to inboundAnchor
-      ),
+    final inboundSchedule = createScheduleFromRoute(
+      inbound.candidate,
+      startDateTime: inboundAnchor,
+      labelPrefix: '⬅️',
+      legIndex: legSortIndices[inbound]!,
+      includeMeeting: true,
+      meetingLabel: '帰りの集合',
+      meetingDescription: '帰りの経路を開始する前に人数を確認しましょう',
+      meetingAt: meetingAt,
+      shiftToStart: true, // Anchor to inboundAnchor
     );
+
+    if (outbound != null) {
+      final outboundLegIndex = legSortIndices[outbound]!;
+      final outboundGoals = schedule
+          .where(
+            (entry) =>
+                entry.legIndex == outboundLegIndex &&
+                entry.itemKind == ScheduleEntryKind.goal,
+          )
+          .toList(growable: false);
+      if (outboundGoals.length != 1) {
+        throw StateError(
+          '往路の到着予定を一意に特定できません: '
+          'legIndex=$outboundLegIndex, goals=${outboundGoals.length}',
+        );
+      }
+
+      final inboundMeetings = inboundSchedule
+          .where((entry) => entry.itemKind == ScheduleEntryKind.meeting)
+          .toList(growable: false);
+      if (inboundMeetings.length != 1) {
+        throw StateError(
+          '復路の集合予定を一意に特定できません: '
+          'legIndex=${legSortIndices[inbound]!}, '
+          'meetings=${inboundMeetings.length}',
+        );
+      }
+
+      final outboundArrivalAt = outboundGoals.single.plannedAt;
+      final inboundMeetingAt = inboundMeetings.single.plannedAt;
+      if (inboundMeetingAt.isBefore(outboundArrivalAt)) {
+        throw StateError(
+          '帰りの時刻が早すぎます。'
+          '帰りの集合は往路到着以降にしてください: '
+          'outboundArrival=$outboundArrivalAt, '
+          'inboundMeeting=$inboundMeetingAt, '
+          'inboundDeparture=$inboundAnchor',
+        );
+      }
+    }
+
+    schedule.addAll(inboundSchedule);
   }
 
   for (final leg in legs) {
