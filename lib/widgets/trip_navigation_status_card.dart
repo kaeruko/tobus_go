@@ -344,63 +344,78 @@ class TripNavigationStatusCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 18),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-          decoration: BoxDecoration(
+        Semantics(
+          button: true,
+          label: l10n.segmentGuideTitle,
+          child: Material(
             color: colors.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.directions_transit, size: 21, color: colors.primary),
-              const SizedBox(width: 9),
-              Text(
-                rideTime,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
+            child: InkWell(
+              key: const ValueKey('departure-boarding-route-action'),
+              borderRadius: BorderRadius.circular(12),
+              onTap: onTapStops,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 11,
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Icon(
+                      Icons.directions_transit,
+                      size: 21,
+                      color: colors.primary,
+                    ),
+                    const SizedBox(width: 9),
                     Text(
-                      primaryRouteTitle,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
+                      rideTime,
                       style: const TextStyle(
                         fontSize: 17,
-                        height: 1.2,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    if (secondaryRouteTitle != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        secondaryRouteTitle,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.boarding,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: colors.primary,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            primaryRouteTitle,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              height: 1.2,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (secondaryRouteTitle != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              secondaryRouteTitle,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 4),
+                          Text(
+                            l10n.boarding,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: colors.primary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ],
