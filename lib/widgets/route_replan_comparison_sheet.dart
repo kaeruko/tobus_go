@@ -80,19 +80,15 @@ class _RouteReplanComparisonSheetState
 
     return SafeArea(
       top: false,
-      child: DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.86,
-        minChildSize: 0.55,
-        maxChildSize: 0.96,
-        builder: (context, scrollController) {
-          return Material(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            clipBehavior: Clip.antiAlias,
-            child: ListView(
-              controller: scrollController,
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      child: FractionallySizedBox(
+        heightFactor: 0.92,
+        alignment: Alignment.bottomCenter,
+        child: Material(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          clipBehavior: Clip.antiAlias,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
               children: [
                 Center(
                   child: Container(
@@ -280,8 +276,8 @@ class _RouteReplanComparisonSheetState
                 ),
               ],
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
