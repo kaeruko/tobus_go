@@ -242,6 +242,83 @@ void main() {
     },
   );
 
+  testWidgets('get-off-next separates time, route, and destination', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final step = StepSeg(
+      stepId: 'bus-get-off-next',
+      kind: 'bus',
+      title: '上23 上野松坂屋前行',
+      titleEn: 'Route Ue23 · Ueno-Matsuzakaya',
+      fromName: '平井七丁目',
+      fromNameEn: 'Hirai-Nanachome',
+      toName: '東墨田一丁目',
+      toNameEn: 'Higashi-Sumida 1-chome',
+      arrivalTime: '10:36',
+    );
+    final navigation = NavigationState(
+      mainText: '次で降ります',
+      subText: '10:36 上23 上野松坂屋前行 東墨田一丁目到着予定',
+      color: Colors.orange,
+      statusLabel: '🚌乗車中',
+      mainTextToken: const NavigationTextToken(
+        NavigationTextKey.getOffNextMain,
+      ),
+      subTextToken:
+          const NavigationTextToken(NavigationTextKey.rideArrivalSummary, {
+            'arrivalTime': '10:36',
+            'rideTitle': '上23 上野松坂屋前行',
+            'rideTitleEn': 'Route Ue23 · Ueno-Matsuzakaya',
+            'destination': '東墨田一丁目',
+            'destinationEn': 'Higashi-Sumida 1-chome',
+          }),
+      statusLabelToken: const NavigationTextToken(
+        NavigationTextKey.busRideStatus,
+      ),
+      remainingStops: 1,
+      nextStopName: '東墨田一丁目',
+      nextStopNameEn: 'Higashi-Sumida 1-chome',
+      step: step,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TripNavigationStatusCard(
+            navState: navigation,
+            tripTitle: '現在地 → 東墨田一丁目',
+            onTapStops: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('get-off-next-heading')),
+      findsOneWidget,
+    );
+    expect(find.text('次で降ります'), findsOneWidget);
+    expect(find.text('10:36'), findsOneWidget);
+    expect(find.text('上23 上野松坂屋前行'), findsOneWidget);
+    expect(find.text('東墨田一丁目 到着予定'), findsOneWidget);
+    expect(
+      find.text('10:36 上23 上野松坂屋前行 東墨田一丁目到着予定'),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'bus realtime indicator sits beside route title without notice row',
     (tester) async {

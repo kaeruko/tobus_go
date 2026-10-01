@@ -133,6 +133,8 @@ class TripNavigationStatusCard extends StatelessWidget {
                 l10n,
                 locale,
               )
+            else if (_usesStructuredGetOffNextHeading())
+              _buildStructuredGetOffNextHeading(context, l10n, locale)
             else ...[
               Text(
                 mainText,
@@ -218,6 +220,13 @@ class TripNavigationStatusCard extends StatelessWidget {
   bool _usesStructuredWalkToRideHeading() {
     return navState.mainTextToken?.key ==
         NavigationTextKey.walkToRideCountdownMain;
+  }
+
+  bool _usesStructuredGetOffNextHeading() {
+    return navState.mainTextToken?.key == NavigationTextKey.getOffNextMain &&
+        navState.subTextToken?.key == NavigationTextKey.rideArrivalSummary &&
+        navState.step?.isRide == true &&
+        navState.remainingStops == 1;
   }
 
   bool _usesStructuredDepartureCountdownHeading() {
@@ -578,6 +587,117 @@ class TripNavigationStatusCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStructuredGetOffNextHeading(
+    BuildContext context,
+    AppLocalizations l10n,
+    Locale locale,
+  ) {
+    final step = navState.step;
+    final token = navState.subTextToken;
+    if (step == null || !step.isRide || token == null) {
+      throw StateError('次で降りますの構造化表示に乗車stepまたはtokenがありません');
+    }
+    if (token.key != NavigationTextKey.rideArrivalSummary) {
+      throw StateError(
+        '次で降りますの構造化表示にrideArrivalSummary tokenがありません: '
+        'token=${token.key.name}',
+      );
+    }
+
+    String requiredString(String name) {
+      final value = token.args[name];
+      if (value is! String || value.trim().isEmpty) {
+        throw StateError(
+          '次で降りますの構造化表示に$nameがありません: stepId=${step.stepId}',
+        );
+      }
+      return value.trim();
+    }
+
+    final arrivalTime = requiredString('arrivalTime');
+    final routeTitleJa = requiredString('rideTitle');
+    final destinationJa = requiredString('destination');
+
+    final routeTitleEnValue = token.args['rideTitleEn'];
+    final destinationEnValue = token.args['destinationEn'];
+    if (isEnglishTransitLocale(locale)) {
+      if (routeTitleEnValue is! String || routeTitleEnValue.trim().isEmpty) {
+        throw StateError(
+          '次で降りますの構造化表示にrideTitleEnがありません: '
+          'stepId=${step.stepId}',
+        );
+      }
+      if (destinationEnValue is! String ||
+          destinationEnValue.trim().isEmpty) {
+        throw StateError(
+          '次で降りますの構造化表示にdestinationEnがありません: '
+          'stepId=${step.stepId}',
+        );
+      }
+    }
+
+    final routeTitle = isEnglishTransitLocale(locale)
+        ? localizedTransitName(
+            locale,
+            japanese: routeTitleJa,
+            english: (routeTitleEnValue as String).trim(),
+            field: 'rideTitleEn',
+            identity: 'stepId=${step.stepId}',
+          )
+        : routeTitleJa;
+    final destination = isEnglishTransitLocale(locale)
+        ? localizedTransitName(
+            locale,
+            japanese: destinationJa,
+            english: (destinationEnValue as String).trim(),
+            field: 'destinationEn',
+            identity: 'stepId=${step.stepId}',
+          )
+        : destinationJa;
+
+    const detailStyle = TextStyle(
+      fontSize: 21,
+      height: 1.2,
+      fontWeight: FontWeight.bold,
+    );
+
+    return Column(
+      key: const ValueKey('get-off-next-heading'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.navGetOffNextMain,
+          style: const TextStyle(
+            fontSize: 42,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          arrivalTime,
+          key: const ValueKey('get-off-next-arrival-time'),
+          style: detailStyle,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          routeTitle,
+          key: const ValueKey('get-off-next-route-title'),
+          maxLines: 2,
+          overflow: TextOverflow.visible,
+          style: detailStyle,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          l10n.navArrivalPlannedDestination(destination),
+          key: const ValueKey('get-off-next-destination'),
+          maxLines: 2,
+          overflow: TextOverflow.visible,
+          style: detailStyle,
         ),
       ],
     );

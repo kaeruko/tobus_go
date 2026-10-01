@@ -931,6 +931,14 @@
       }
     }
   },
+  "navArrivalPlannedDestination": "预计到达{destination}",
+  "@navArrivalPlannedDestination": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
   "navCompactRideArrival": "预计{arrivalTime}到达{destination}",
   "@navCompactRideArrival": {
     "placeholders": {

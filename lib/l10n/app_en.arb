@@ -931,6 +931,14 @@
       }
     }
   },
+  "navArrivalPlannedDestination": "Arrive at {destination}",
+  "@navArrivalPlannedDestination": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
   "navCompactRideArrival": "{arrivalTime} · Arrive at {destination}",
   "@navCompactRideArrival": {
     "placeholders": {

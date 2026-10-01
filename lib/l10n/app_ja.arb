@@ -931,6 +931,14 @@
       }
     }
   },
+  "navArrivalPlannedDestination": "{destination} 到着予定",
+  "@navArrivalPlannedDestination": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
   "navCompactRideArrival": "{arrivalTime} · {destination}到着予定",
   "@navCompactRideArrival": {
     "placeholders": {
