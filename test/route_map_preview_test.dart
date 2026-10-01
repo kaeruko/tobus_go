@@ -155,8 +155,11 @@ void main() {
 
   testWidgets('current location layer is opt-in', (tester) async {
     await tester.pumpWidget(
-      const CupertinoApp(
-        home: CupertinoPageScaffold(
+      CupertinoApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const CupertinoPageScaffold(
           child: RouteMapPreview(
             points: [LatLng(35, 139), LatLng(36, 140)],
             showUserLocation: true,
