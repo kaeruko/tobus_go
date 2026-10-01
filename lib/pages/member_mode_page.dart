@@ -1,13 +1,11 @@
-import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/city_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/app_clock.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
@@ -84,7 +82,13 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
             delayResolution.nextRideRealtimeError.toString(),
           );
 
-    return uiStateAsync.when(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: uiStateAsync.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (err, stack) => Scaffold(
@@ -124,7 +128,6 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
               origin: false,
             ),
             routePoints: activeCandidate.points,
-            statusHeaderTrailing: const _LiveClock(),
             onTapStops: () => openCurrentRideStops(
               context: context,
               trip: trip,
@@ -196,6 +199,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           ),
         );
       },
+    ),
     );
   }
 
@@ -282,6 +286,9 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
     Trip trip,
   ) {
     return AppBar(
+      systemOverlayStyle: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
       backgroundColor: Colors.transparent,
       elevation: 0,
       centerTitle: false,
@@ -477,60 +484,6 @@ class _MemberActionBar extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _LiveClock extends StatefulWidget {
-  const _LiveClock();
-  @override
-  State<_LiveClock> createState() => _LiveClockState();
-}
-
-class _LiveClockState extends State<_LiveClock> {
-  late final Timer _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final now = appClock.now();
-    final timeStr =
-        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(CupertinoIcons.clock, size: 16, color: Colors.black54),
-          const SizedBox(width: 4),
-          Text(
-            timeStr,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-              fontFeatures: [FontFeature.tabularFigures()],
-              color: Colors.black87,
-            ),
-          ),
-        ],
       ),
     );
   }
