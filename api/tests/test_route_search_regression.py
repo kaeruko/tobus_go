@@ -403,8 +403,8 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
         ]
 
         def raw_paths():
-            yield {"cost": 5.0, "path": direct_asakusa, "walk_m": 152}
-            yield {"cost": 6.0, "path": detour_asakusa, "walk_m": 190}
+            yield {"cost": 5.0, "path": detour_asakusa, "walk_m": 190}
+            yield {"cost": 6.0, "path": direct_asakusa, "walk_m": 152}
             yield {"cost": 7.0, "path": direct_oedo, "walk_m": 140}
             raise AssertionError(
                 "duplicate removal must not search farther just to refill"
@@ -472,7 +472,7 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
         )
         self.assertEqual(
             [candidate["cost_score"] for candidate in candidates],
-            [5.0, 7.0],
+            [6.0, 7.0],
         )
         self.assertEqual(
             [candidate["walking_distance_meters"] for candidate in candidates],
