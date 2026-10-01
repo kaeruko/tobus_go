@@ -23,9 +23,7 @@ import '../widgets/active_trip_navigation_view.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/active_trip_realtime_actions.dart';
 import '../widgets/delay_recovery_card.dart';
-import '../widgets/route_map_preview.dart';
 import '../widgets/route_replan_preview_button.dart';
-import '../widgets/trip_navigation_status_card.dart';
 import '../widgets/trip_schedule_window_card.dart';
 import 'ride_stops_navigation.dart';
 import 'solo_trip_route_page.dart';
@@ -240,15 +238,14 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     final originEndpoint = _originEndpoint(trip);
     final destinationEndpoint = _destinationEndpoint(trip);
     final beforeScheduleSections = <Widget>[
-      ActiveTripEndpointCard(
+      ActiveTripRouteOverview(
+        navState: uiState.navState,
+        tripTitle: tripTitle,
         originLabel: l10n.originFallback,
         originPlace: _localizedEndpoint(locale, originEndpoint),
         destinationLabel: l10n.destinationFallback,
         destinationPlace: _localizedEndpoint(locale, destinationEndpoint),
-      ),
-      TripNavigationStatusCard(
-        navState: uiState.navState,
-        tripTitle: tripTitle,
+        routePoints: routePoints,
         onTapStops: () => openNavigationRideStops(
           context: context,
           trip: trip,
@@ -256,18 +253,6 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
           currentStepId: ref.read(memberNavProgressProvider).currentStepId,
         ),
       ),
-      if (routePoints.isNotEmpty)
-        RouteMapPreview(
-          key: ValueKey(Object.hashAll(routePoints)),
-          points: routePoints,
-          showOpenButton: false,
-          height: 150,
-          margin: EdgeInsets.zero,
-          interactive: true,
-          openExternalOnTap: false,
-          rotateGesturesEnabled: false,
-          tiltGesturesEnabled: false,
-        ),
     ];
     if (showDelayWarning) {
       beforeScheduleSections.add(

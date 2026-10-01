@@ -4,9 +4,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/city_localizations.dart';
+import '../l10n/transit_name_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_clock.dart';
+import '../models/leg_models.dart';
+import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
 import '../providers/app_session_provider.dart';
@@ -107,7 +110,30 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           );
         }
 
-        final beforeScheduleSections = <Widget>[];
+        final activeLeg = _resolveActiveGroupLeg(trip);
+        final activeCandidate = activeLeg.candidate;
+        final beforeScheduleSections = <Widget>[
+          ActiveTripRouteOverview(
+            navState: uiState.navState,
+            tripTitle: uiState.displayTitle,
+            originLabel: AppLocalizations.of(context).originFallback,
+            originPlace: _localizedCandidateEndpoint(
+              activeCandidate,
+              origin: true,
+            ),
+            destinationLabel: AppLocalizations.of(context).destinationFallback,
+            destinationPlace: _localizedCandidateEndpoint(
+              activeCandidate,
+              origin: false,
+            ),
+            routePoints: activeCandidate.points,
+            onTapStops: () => openCurrentRideStops(
+              context: context,
+              trip: trip,
+              currentStepId: ref.read(memberNavProgressProvider).currentStepId,
+            ),
+          ),
+        ];
         if (delayImpact?.requiresReplan == true) {
           beforeScheduleSections.add(
             DelayRecoveryCard(
@@ -153,16 +179,6 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                   context,
                 ).groupCompletedCount(completedCount),
             appearance: TripScheduleWindowAppearance.boxedRows,
-            activeDetail: TripNavigationInlineStatus(
-              navState: uiState.navState,
-              onTapStops: () => openCurrentRideStops(
-                context: context,
-                trip: trip,
-                currentStepId: ref
-                    .read(memberNavProgressProvider)
-                    .currentStepId,
-              ),
-            ),
             emptyLabel: AppLocalizations.of(context).groupScheduleAllCompleted,
           ),
           afterScheduleSections: [
@@ -183,6 +199,48 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           ),
         );
       },
+    );
+  }
+
+  Leg _resolveActiveGroupLeg(Trip trip) {
+    if (trip.tripType != TripType.group) {
+      throw StateError(
+        '参加者画面にGroup以外のtripが渡されました: '
+        'tripId=${trip.id}, type=${trip.tripType.name}',
+      );
+    }
+
+    final activeLegIndex = trip.activeLegIndex;
+    if (activeLegIndex < 0 || activeLegIndex >= trip.legs.length) {
+      throw StateError(
+        'Groupのactive legを特定できません: '
+        'tripId=${trip.id}, activeLegIndex=$activeLegIndex, '
+        'legs=${trip.legs.length}, completedLegIndex=${trip.completedLegIndex}',
+      );
+    }
+    return trip.legs[activeLegIndex];
+  }
+
+  String _localizedCandidateEndpoint(
+    Candidate candidate, {
+    required bool origin,
+  }) {
+    final japanese = origin
+        ? candidate.originName?.trim()
+        : candidate.destinationName?.trim();
+    if (japanese == null || japanese.isEmpty) {
+      throw StateError(
+        'Groupのactive legに地点名がありません: '
+        'candidateId=${candidate.id}, endpoint=${origin ? "origin" : "destination"}',
+      );
+    }
+
+    return localizedOptionalPlaceName(
+      Localizations.localeOf(context),
+      japanese: japanese,
+      english: origin ? candidate.originNameEn : candidate.destinationNameEn,
+      field: origin ? 'origin_name_en' : 'destination_name_en',
+      identity: 'candidateId=${candidate.id}',
     );
   }
 

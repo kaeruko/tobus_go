@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../logic/trip_navigator.dart';
+import 'route_map_preview.dart';
+import 'trip_navigation_status_card.dart';
 
 class ActiveTripAppBarTitle extends StatelessWidget {
   final String appName;
@@ -137,6 +140,64 @@ class ActiveTripEndpointCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class ActiveTripRouteOverview extends StatelessWidget {
+  final NavigationState navState;
+  final String tripTitle;
+  final String originLabel;
+  final String originPlace;
+  final String destinationLabel;
+  final String destinationPlace;
+  final List<LatLng> routePoints;
+  final VoidCallback onTapStops;
+
+  const ActiveTripRouteOverview({
+    super.key,
+    required this.navState,
+    required this.tripTitle,
+    required this.originLabel,
+    required this.originPlace,
+    required this.destinationLabel,
+    required this.destinationPlace,
+    required this.routePoints,
+    required this.onTapStops,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ActiveTripEndpointCard(
+          originLabel: originLabel,
+          originPlace: originPlace,
+          destinationLabel: destinationLabel,
+          destinationPlace: destinationPlace,
+        ),
+        const SizedBox(height: 10),
+        TripNavigationStatusCard(
+          navState: navState,
+          tripTitle: tripTitle,
+          onTapStops: onTapStops,
+        ),
+        if (routePoints.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          RouteMapPreview(
+            key: ValueKey(Object.hashAll(routePoints)),
+            points: routePoints,
+            showOpenButton: false,
+            height: 150,
+            margin: EdgeInsets.zero,
+            interactive: true,
+            openExternalOnTap: false,
+            rotateGesturesEnabled: false,
+            tiltGesturesEnabled: false,
+          ),
+        ],
+      ],
     );
   }
 }
