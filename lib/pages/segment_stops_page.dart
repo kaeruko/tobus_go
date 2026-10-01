@@ -96,6 +96,7 @@ class _SegmentStopsPageState extends State<SegmentStopsPage> {
                 child: RouteMapPreview(
                   points: _mapPoints,
                   showOpenButton: false,
+                  showUserLocation: true,
                 ),
               ),
               Padding(

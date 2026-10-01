@@ -153,6 +153,24 @@ void main() {
     expect(urlLauncher.urls, isEmpty);
   });
 
+  testWidgets('current location layer is opt-in', (tester) async {
+    await tester.pumpWidget(
+      const CupertinoApp(
+        home: CupertinoPageScaffold(
+          child: RouteMapPreview(
+            points: [LatLng(35, 139), LatLng(36, 140)],
+            showUserLocation: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(map.myLocationEnabled, isTrue);
+    expect(map.myLocationButtonEnabled, isTrue);
+  });
+
   testWidgets('no geometry means no external map action', (tester) async {
     await showMap(tester, points: const []);
     expect(find.byType(GoogleMap), findsNothing);

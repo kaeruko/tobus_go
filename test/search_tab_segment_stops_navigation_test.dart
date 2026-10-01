@@ -225,6 +225,9 @@ void main() {
     expect(find.text('里22 日暮里駅前行'), findsOneWidget);
     expect(find.byKey(const ValueKey('segment-route-map')), findsOneWidget);
     expect(find.byType(GoogleMap), findsOneWidget);
+    final routeMap = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(routeMap.myLocationEnabled, isTrue);
+    expect(routeMap.myLocationButtonEnabled, isTrue);
     expect(find.text('11:03発'), findsWidgets);
     expect(find.text('11:27着'), findsWidgets);
     expect(find.text('乗車24分 / 2停留所'), findsOneWidget);

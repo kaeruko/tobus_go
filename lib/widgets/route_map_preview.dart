@@ -19,6 +19,7 @@ class RouteMapPreview extends StatefulWidget {
   final bool openExternalOnTap;
   final bool rotateGesturesEnabled;
   final bool tiltGesturesEnabled;
+  final bool showUserLocation;
 
   const RouteMapPreview({
     super.key,
@@ -31,6 +32,7 @@ class RouteMapPreview extends StatefulWidget {
     this.openExternalOnTap = true,
     this.rotateGesturesEnabled = true,
     this.tiltGesturesEnabled = true,
+    this.showUserLocation = false,
   }) : assert(height > 0);
 
   @override
@@ -178,6 +180,8 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                   ? _openGoogleMaps
                   : null,
               mapToolbarEnabled: false,
+              myLocationEnabled: widget.showUserLocation,
+              myLocationButtonEnabled: widget.showUserLocation,
               scrollGesturesEnabled: widget.interactive,
               zoomGesturesEnabled: widget.interactive,
               rotateGesturesEnabled:
