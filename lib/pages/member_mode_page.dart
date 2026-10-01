@@ -27,7 +27,6 @@ import '../widgets/trip_schedule_window_card.dart';
 import 'group_detail_page.dart';
 import 'ride_stops_navigation.dart';
 import 'settings_page.dart';
-import 'route_detail_page.dart';
 
 class MemberModePreviewPage extends StatelessWidget {
   final String tripId;
