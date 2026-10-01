@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:toeigo/models/group_models.dart';
 import 'package:toeigo/models/leg_models.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/models/trip_models.dart';
