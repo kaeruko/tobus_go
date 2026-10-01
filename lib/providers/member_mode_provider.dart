@@ -8,6 +8,7 @@ import '../models/leg_models.dart';
 import '../models/bus_progress.dart';
 import '../models/rail_progress.dart';
 import '../models/route_models.dart';
+import '../models/trip_models.dart';
 import '../logic/replan_anchor.dart';
 import '../logic/replan_transit_memory.dart';
 import '../logic/replan_transit_observation.dart';
