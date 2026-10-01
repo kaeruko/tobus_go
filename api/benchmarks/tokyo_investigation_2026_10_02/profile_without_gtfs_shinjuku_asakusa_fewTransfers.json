@@ -1,0 +1,1571 @@
+{
+  "run": {
+    "id": "shinjuku_asakusa",
+    "mode": "fewTransfers",
+    "ms": 2736.321100004716,
+    "route_count": 1,
+    "error": null,
+    "log": "[MEM] find_few_transfers_paths_generator start rss=-1.0MB\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=5000 yielded=0 queue=4376 g_score=7534 best_cost=3920 elapsed_sec=0.250 popped_by_boardings={0:421, 1:4579} expanded_by_boardings={0:262, 1:3658} dominated_by_boardings={0:159, 1:920} travel_limit_by_boardings={} yielded_by_boardings={}\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=10000 yielded=0 queue=4785 g_score=11576 best_cost=7579 elapsed_sec=0.454 popped_by_boardings={0:421, 1:9579} expanded_by_boardings={0:262, 1:7317} dominated_by_boardings={0:159, 1:2261} travel_limit_by_boardings={} yielded_by_boardings={}\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=15000 yielded=0 queue=3984 g_score=14722 best_cost=11114 elapsed_sec=0.641 popped_by_boardings={0:421, 1:14579} expanded_by_boardings={0:262, 1:10852} dominated_by_boardings={0:159, 1:3726} travel_limit_by_boardings={} yielded_by_boardings={}\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=20000 yielded=0 queue=4251 g_score=18771 best_cost=14867 elapsed_sec=0.860 popped_by_boardings={0:421, 1:18329, 2:1250} expanded_by_boardings={0:262, 1:13559, 2:1046} dominated_by_boardings={0:159, 1:4770, 2:203} travel_limit_by_boardings={} yielded_by_boardings={}\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=25000 yielded=0 queue=8480 g_score=26210 best_cost=18941 elapsed_sec=1.079 popped_by_boardings={0:421, 1:18329, 2:6250} expanded_by_boardings={0:262, 1:13559, 2:5120} dominated_by_boardings={0:159, 1:4770, 2:1129} travel_limit_by_boardings={} yielded_by_boardings={}\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=30000 yielded=0 queue=11419 g_score=32631 best_cost=23026 elapsed_sec=1.313 popped_by_boardings={0:421, 1:18329, 2:11250} expanded_by_boardings={0:262, 1:13559, 2:9205} dominated_by_boardings={0:159, 1:4770, 2:2044} travel_limit_by_boardings={} yielded_by_boardings={}\n[ROUTE_DEBUG] fewTransfers stats: tag=yield visited=32122 yielded=1 queue=12453 g_score=35086 best_cost=24748 elapsed_sec=1.438 popped_by_boardings={0:421, 1:18329, 2:13372} expanded_by_boardings={0:262, 1:13559, 2:10927} dominated_by_boardings={0:159, 1:4770, 2:2445} travel_limit_by_boardings={} yielded_by_boardings={2:1}\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=35000 yielded=1 queue=13313 g_score=38049 best_cost=27026 elapsed_sec=1.563 popped_by_boardings={0:421, 1:18329, 2:16250} expanded_by_boardings={0:262, 1:13559, 2:13205} dominated_by_boardings={0:159, 1:4770, 2:3044} travel_limit_by_boardings={} yielded_by_boardings={2:1}\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=40000 yielded=1 queue=14655 g_score=43290 best_cost=30953 elapsed_sec=1.782 popped_by_boardings={0:421, 1:18329, 2:21250} expanded_by_boardings={0:262, 1:13559, 2:17132} dominated_by_boardings={0:159, 1:4770, 2:4117} travel_limit_by_boardings={} yielded_by_boardings={2:1}\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=45000 yielded=1 queue=15838 g_score=48350 best_cost=34867 elapsed_sec=1.985 popped_by_boardings={0:421, 1:18329, 2:26250} expanded_by_boardings={0:262, 1:13559, 2:21046} dominated_by_boardings={0:159, 1:4770, 2:5203} travel_limit_by_boardings={} yielded_by_boardings={2:1}\n[ROUTE_DEBUG] fewTransfers stats: tag=yield visited=45631 yielded=2 queue=16085 g_score=49119 best_cost=35353 elapsed_sec=2.016 popped_by_boardings={0:421, 1:18329, 2:26881} expanded_by_boardings={0:262, 1:13559, 2:21532} dominated_by_boardings={0:159, 1:4770, 2:5349} travel_limit_by_boardings={} yielded_by_boardings={2:2}\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=50000 yielded=2 queue=16585 g_score=52960 best_cost=38797 elapsed_sec=2.204 popped_by_boardings={0:421, 1:18329, 2:31250} expanded_by_boardings={0:262, 1:13559, 2:24976} dominated_by_boardings={0:159, 1:4770, 2:6273} travel_limit_by_boardings={} yielded_by_boardings={2:2}\n[ROUTE_DEBUG] fewTransfers stats: tag=yield visited=51624 yielded=3 queue=16946 g_score=54568 best_cost=40084 elapsed_sec=2.282 popped_by_boardings={0:421, 1:18329, 2:32874} expanded_by_boardings={0:262, 1:13559, 2:26263} dominated_by_boardings={0:159, 1:4770, 2:6611} travel_limit_by_boardings={} yielded_by_boardings={2:3}\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=55000 yielded=3 queue=17035 g_score=57196 best_cost=42756 elapsed_sec=2.438 popped_by_boardings={0:421, 1:18329, 2:36250} expanded_by_boardings={0:262, 1:13559, 2:28935} dominated_by_boardings={0:159, 1:4770, 2:7314} travel_limit_by_boardings={} yielded_by_boardings={2:3}\n[ROUTE_DEBUG] fewTransfers stats: tag=yield visited=55937 yielded=4 queue=16876 g_score=57777 best_cost=43469 elapsed_sec=2.485 popped_by_boardings={0:421, 1:18329, 2:37187} expanded_by_boardings={0:262, 1:13559, 2:29648} dominated_by_boardings={0:159, 1:4770, 2:7539} travel_limit_by_boardings={} yielded_by_boardings={2:4}\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=60000 yielded=4 queue=17145 g_score=61100 best_cost=46629 elapsed_sec=2.672 popped_by_boardings={0:421, 1:18329, 2:41250} expanded_by_boardings={0:262, 1:13559, 2:32808} dominated_by_boardings={0:159, 1:4770, 2:8441} travel_limit_by_boardings={} yielded_by_boardings={2:4}\n[ROUTE_DEBUG] no valid candidate for transit signature (('rail', 'odpt.Railway:Toei.Oedo', 'odpt.Station:Toei.Oedo.ShinjukuNishiguchi', 'odpt.Station:Toei.Oedo.Kuramae'), ('bus', 'buspat:odpt.BusroutePattern:Toei.Higashi42-1.52201.2', 'odpt.BusstopPole:Toei.KuramaeStation.147.3', 'odpt.BusstopPole:Toei.TobuAsakusaStation.984.3'))\n[ROUTE_DEBUG] no valid candidate for transit signature (('rail', 'odpt.Railway:Toei.Oedo', 'odpt.Station:Toei.Oedo.ShinjukuNishiguchi', 'odpt.Station:Toei.Oedo.Kuramae'), ('bus', 'buspat:odpt.BusroutePattern:Toei.Higashi42-1.52201.2', 'odpt.BusstopPole:Toei.KuramaeStation.147.3', 'odpt.BusstopPole:Toei.Komagatabashi.537.1'))\n[segments_detailed] start path_len=20 start_time=10:00 day_type=weekday\n[segments_detailed] edge[0] walk u=('phys', 'odpt.BusstopPole:Toei.ShinjukuStationNishiguchi.702.7') v=('phys', 'odpt.Station:Toei.Oedo.Shinjuku')\n[segments_detailed] edge[1] walk u=('phys', 'odpt.Station:Toei.Oedo.Shinjuku') v=('phys', 'odpt.Station:Toei.Shinjuku.Shinjuku')\n[segments_detailed] edge[2] board mode=rail node=('line', 'odpt.Station:Toei.Shinjuku.Shinjuku', 'odpt.Railway:Toei.Shinjuku')\n[segments_detailed] flush kind=walk title=徒歩 from=新宿駅西口 to=新宿 dep=None arr=None minutes=5 stops=0 route_id=None trip_id=None\n[segments_detailed] edge[3] ride mode=rail node=('line', 'odpt.Station:Toei.Shinjuku.ShinjukuSanchome', 'odpt.Railway:Toei.Shinjuku')\n[segments_detailed] edge[4] ride mode=rail node=('line', 'odpt.Station:Toei.Shinjuku.Akebonobashi', 'odpt.Railway:Toei.Shinjuku')\n[segments_detailed] edge[5] ride mode=rail node=('line', 'odpt.Station:Toei.Shinjuku.Ichigaya', 'odpt.Railway:Toei.Shinjuku')\n[segments_detailed] edge[6] ride mode=rail node=('line', 'odpt.Station:Toei.Shinjuku.Kudanshita', 'odpt.Railway:Toei.Shinjuku')\n[segments_detailed] edge[7] ride mode=rail node=('line', 'odpt.Station:Toei.Shinjuku.Jimbocho', 'odpt.Railway:Toei.Shinjuku')\n[segments_detailed] edge[8] ride mode=rail node=('line', 'odpt.Station:Toei.Shinjuku.Ogawamachi', 'odpt.Railway:Toei.Shinjuku')\n[segments_detailed] edge[9] ride mode=rail node=('line', 'odpt.Station:Toei.Shinjuku.Iwamotocho', 'odpt.Railway:Toei.Shinjuku')\n[segments_detailed] edge[10] ride mode=rail node=('line', 'odpt.Station:Toei.Shinjuku.BakuroYokoyama', 'odpt.Railway:Toei.Shinjuku')\n[segments_detailed] edge[11] alight mode=rail node=('line', 'odpt.Station:Toei.Shinjuku.BakuroYokoyama', 'odpt.Railway:Toei.Shinjuku')\n[segments_detailed] flush kind=rail title=新宿線 from=新宿 to=馬喰横山 dep=10:06 arr=10:25 minutes=19 stops=9 route_id=None trip_id=None\n[segments_detailed] edge[12] walk u=('phys', 'odpt.Station:Toei.Shinjuku.BakuroYokoyama') v=('phys', 'odpt.Station:Toei.Asakusa.HigashiNihombashi')\n[segments_detailed] edge[13] board mode=rail node=('line', 'odpt.Station:Toei.Asakusa.HigashiNihombashi', 'odpt.Railway:Toei.Asakusa')\n[segments_detailed] flush kind=walk title=徒歩 from=馬喰横山 to=東日本橋 dep=None arr=None minutes=3 stops=0 route_id=None trip_id=None\n[segments_detailed] edge[14] ride mode=rail node=('line', 'odpt.Station:Toei.Asakusa.Asakusabashi', 'odpt.Railway:Toei.Asakusa')\n[segments_detailed] edge[15] ride mode=rail node=('line', 'odpt.Station:Toei.Asakusa.Kuramae', 'odpt.Railway:Toei.Asakusa')\n[segments_detailed] edge[16] ride mode=rail node=('line', 'odpt.Station:Toei.Asakusa.Asakusa', 'odpt.Railway:Toei.Asakusa')\n[segments_detailed] edge[17] alight mode=rail node=('line', 'odpt.Station:Toei.Asakusa.Asakusa', 'odpt.Railway:Toei.Asakusa')\n[segments_detailed] flush kind=rail title=浅草線 from=東日本橋 to=浅草 dep=10:30 arr=10:38 minutes=8 stops=4 route_id=None trip_id=None\n[segments_detailed] edge[18] walk u=('phys', 'odpt.Station:Toei.Asakusa.Asakusa') v=('phys', 'dest:35.711650,139.796620')\n[segments_detailed] flush kind=walk title=徒歩 from=浅草 to=目的地 dep=None arr=None minutes=4 stops=0 route_id=None trip_id=None\n[segments_detailed] done segments=5 summary=[{'kind': 'walk', 'from': '新宿駅西口', 'to': '新宿'}, {'kind': 'rail', 'from': '新宿', 'to': '馬喰横山'}, {'kind': 'walk', 'from': '馬喰横山', 'to': '東日本橋'}, {'kind': 'rail', 'from': '東日本橋', 'to': '浅草'}, {'kind': 'walk', 'from': '浅草', 'to': '目的地'}]\n[ROUTE_DEBUG] no valid candidate for transit signature (('rail', 'odpt.Railway:Toei.Oedo', 'odpt.Station:Toei.Oedo.ShinjukuNishiguchi', 'odpt.Station:Toei.Oedo.UenoOkachimachi'), ('bus', 'buspat:odpt.BusroutePattern:Toei.Kusa39.56001.2', 'odpt.BusstopPole:Toei.UenoMatsuzakaya.2000.7', 'odpt.BusstopPole:Toei.AsakusaItchome.38.2'))\n[ROUTE_DEBUG] no valid candidate for transit signature (('rail', 'odpt.Railway:Toei.Oedo', 'odpt.Station:Toei.Oedo.ShinjukuNishiguchi', 'odpt.Station:Toei.Oedo.UenoOkachimachi'), ('bus', 'buspat:odpt.BusroutePattern:Toei.Kusa39.56001.2', 'odpt.BusstopPole:Toei.UenoMatsuzakaya.2000.7', 'odpt.BusstopPole:Toei.AsakusaKotobukicho.35.6'))\n",
+    "routes": [
+      {
+        "id": "Comfort-1",
+        "lines": [
+          "新宿線",
+          "浅草線"
+        ],
+        "lines_en": [
+          "Shinjuku Line",
+          "Asakusa Line"
+        ],
+        "total_time": 43,
+        "arrival_time": "10:43",
+        "steps": [
+          {
+            "kind": "walk",
+            "title": "徒歩",
+            "edges": 2,
+            "from_": "新宿駅西口",
+            "from_en": "Shinjuku Sta. Nishiguchi (West Exit)",
+            "to": "新宿",
+            "to_en": "Shinjuku",
+            "meters": 348.71267382953283,
+            "minutes": 5
+          },
+          {
+            "kind": "rail",
+            "title": "新宿線",
+            "title_en": "Shinjuku Line",
+            "edges": 8,
+            "from_": "新宿",
+            "from_en": "Shinjuku",
+            "to": "馬喰横山",
+            "to_en": "Bakuro-yokoyama",
+            "stops": [
+              {
+                "name": "新宿",
+                "name_en": "Shinjuku",
+                "is_origin": true,
+                "lat": 35.688433,
+                "lon": 139.698418,
+                "id": "odpt.Station:Toei.Shinjuku.Shinjuku"
+              },
+              {
+                "name": "新宿三丁目",
+                "name_en": "Shinjuku-sanchome",
+                "lat": 35.691016,
+                "lon": 139.706794,
+                "id": "odpt.Station:Toei.Shinjuku.ShinjukuSanchome"
+              },
+              {
+                "name": "曙橋",
+                "name_en": "Akebonobashi",
+                "lat": 35.692402,
+                "lon": 139.722317,
+                "id": "odpt.Station:Toei.Shinjuku.Akebonobashi"
+              },
+              {
+                "name": "市ヶ谷",
+                "name_en": "Ichigaya",
+                "lat": 35.69153,
+                "lon": 139.737588,
+                "id": "odpt.Station:Toei.Shinjuku.Ichigaya"
+              },
+              {
+                "name": "九段下",
+                "name_en": "Kudanshita",
+                "lat": 35.695546,
+                "lon": 139.751738,
+                "id": "odpt.Station:Toei.Shinjuku.Kudanshita"
+              },
+              {
+                "name": "神保町",
+                "name_en": "Jimbocho",
+                "lat": 35.695972,
+                "lon": 139.757981,
+                "id": "odpt.Station:Toei.Shinjuku.Jimbocho"
+              },
+              {
+                "name": "小川町",
+                "name_en": "Ogawamachi",
+                "lat": 35.695005,
+                "lon": 139.766449,
+                "id": "odpt.Station:Toei.Shinjuku.Ogawamachi"
+              },
+              {
+                "name": "岩本町",
+                "name_en": "Iwamotocho",
+                "lat": 35.695607,
+                "lon": 139.775115,
+                "id": "odpt.Station:Toei.Shinjuku.Iwamotocho"
+              },
+              {
+                "name": "馬喰横山",
+                "name_en": "Bakuro-yokoyama",
+                "lat": 35.69193,
+                "lon": 139.783006,
+                "id": "odpt.Station:Toei.Shinjuku.BakuroYokoyama",
+                "is_destination": true
+              }
+            ],
+            "departure_time": "10:06",
+            "route_id": null,
+            "trip_id": null,
+            "arrival_time": "10:25",
+            "minutes": 19
+          },
+          {
+            "kind": "walk",
+            "title": "徒歩",
+            "edges": 1,
+            "from_": "馬喰横山",
+            "from_en": "Bakuro-yokoyama",
+            "to": "東日本橋",
+            "to_en": "Higashi-nihombashi",
+            "meters": 171.1311249344759,
+            "minutes": 3
+          },
+          {
+            "kind": "rail",
+            "title": "浅草線",
+            "title_en": "Asakusa Line",
+            "edges": 3,
+            "from_": "東日本橋",
+            "from_en": "Higashi-nihombashi",
+            "to": "浅草",
+            "to_en": "Asakusa",
+            "stops": [
+              {
+                "name": "東日本橋",
+                "name_en": "Higashi-nihombashi",
+                "is_origin": true,
+                "lat": 35.692123,
+                "lon": 139.784886,
+                "id": "odpt.Station:Toei.Asakusa.HigashiNihombashi"
+              },
+              {
+                "name": "浅草橋",
+                "name_en": "Asakusabashi",
+                "lat": 35.697494,
+                "lon": 139.786335,
+                "id": "odpt.Station:Toei.Asakusa.Asakusabashi"
+              },
+              {
+                "name": "蔵前",
+                "name_en": "Kuramae",
+                "lat": 35.703128,
+                "lon": 139.790858,
+                "id": "odpt.Station:Toei.Asakusa.Kuramae"
+              },
+              {
+                "name": "浅草",
+                "name_en": "Asakusa",
+                "lat": 35.70892,
+                "lon": 139.796542,
+                "id": "odpt.Station:Toei.Asakusa.Asakusa",
+                "is_destination": true
+              }
+            ],
+            "departure_time": "10:30",
+            "route_id": null,
+            "trip_id": null,
+            "arrival_time": "10:38",
+            "minutes": 8
+          },
+          {
+            "kind": "walk",
+            "title": "徒歩",
+            "edges": 1,
+            "from_": "浅草",
+            "from_en": "Asakusa",
+            "to": "目的地",
+            "to_en": null,
+            "meters": 303.6438291235728,
+            "minutes": 4
+          }
+        ],
+        "score_label": "楽さ 34.7 (所要43分)",
+        "cost_score": 34.72088790414011,
+        "path": [
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.ShinjukuStationNishiguchi.702.7"
+          ],
+          [
+            "phys",
+            "odpt.Station:Toei.Oedo.Shinjuku"
+          ],
+          [
+            "phys",
+            "odpt.Station:Toei.Shinjuku.Shinjuku"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Shinjuku.Shinjuku",
+            "odpt.Railway:Toei.Shinjuku"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Shinjuku.ShinjukuSanchome",
+            "odpt.Railway:Toei.Shinjuku"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Shinjuku.Akebonobashi",
+            "odpt.Railway:Toei.Shinjuku"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Shinjuku.Ichigaya",
+            "odpt.Railway:Toei.Shinjuku"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Shinjuku.Kudanshita",
+            "odpt.Railway:Toei.Shinjuku"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Shinjuku.Jimbocho",
+            "odpt.Railway:Toei.Shinjuku"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Shinjuku.Ogawamachi",
+            "odpt.Railway:Toei.Shinjuku"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Shinjuku.Iwamotocho",
+            "odpt.Railway:Toei.Shinjuku"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Shinjuku.BakuroYokoyama",
+            "odpt.Railway:Toei.Shinjuku"
+          ],
+          [
+            "phys",
+            "odpt.Station:Toei.Shinjuku.BakuroYokoyama"
+          ],
+          [
+            "phys",
+            "odpt.Station:Toei.Asakusa.HigashiNihombashi"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Kuramae",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusa",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "phys",
+            "odpt.Station:Toei.Asakusa.Asakusa"
+          ],
+          [
+            "phys",
+            "dest:35.711650,139.796620"
+          ]
+        ],
+        "points": [
+          [
+            35.691108,
+            139.698927
+          ],
+          [
+            35.688462,
+            139.699019
+          ],
+          [
+            35.688433,
+            139.698418
+          ],
+          [
+            35.688433,
+            139.698418
+          ],
+          [
+            35.691016,
+            139.706794
+          ],
+          [
+            35.692402,
+            139.722317
+          ],
+          [
+            35.69153,
+            139.737588
+          ],
+          [
+            35.695546,
+            139.751738
+          ],
+          [
+            35.695972,
+            139.757981
+          ],
+          [
+            35.695005,
+            139.766449
+          ],
+          [
+            35.695607,
+            139.775115
+          ],
+          [
+            35.69193,
+            139.783006
+          ],
+          [
+            35.69193,
+            139.783006
+          ],
+          [
+            35.692123,
+            139.784886
+          ],
+          [
+            35.692123,
+            139.784886
+          ],
+          [
+            35.697494,
+            139.786335
+          ],
+          [
+            35.703128,
+            139.790858
+          ],
+          [
+            35.70892,
+            139.796542
+          ],
+          [
+            35.70892,
+            139.796542
+          ],
+          [
+            35.71165,
+            139.79662
+          ]
+        ],
+        "total": 34,
+        "transfers": 1,
+        "rides": 2,
+        "walking_distance_meters": 823,
+        "walking_segment_count": 3,
+        "boards": 2,
+        "departure_date": "2026-10-02T10:00:00",
+        "is_future_suggestion": false
+      }
+    ]
+  },
+  "same_routes": true,
+  "stats": [
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1511,
+      "function": "search_best_routes_once",
+      "calls": 1,
+      "own_ms": 11.0191,
+      "cumulative_ms": 2736.2507
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1546,
+      "function": "search_best_routes",
+      "calls": 1,
+      "own_ms": 0.0748,
+      "cumulative_ms": 2725.0969
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1946,
+      "function": "find_few_transfers_paths_generator",
+      "calls": 6,
+      "own_ms": 669.0562,
+      "cumulative_ms": 2722.0224000000003
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1347,
+      "function": "advance_time",
+      "calls": 422341,
+      "own_ms": 385.18960000000004,
+      "cumulative_ms": 1421.6151000000002
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 897,
+      "function": "get_next_bus_departure",
+      "calls": 145162,
+      "own_ms": 250.13940000000002,
+      "cumulative_ms": 636.4409
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'get' of 'dict' objects>",
+      "calls": 3918932,
+      "own_ms": 447.2005,
+      "cumulative_ms": 447.2005
+    },
+    {
+      "file": "<frozen os>",
+      "line": 808,
+      "function": "getenv",
+      "calls": 145162,
+      "own_ms": 28.7343,
+      "cumulative_ms": 229.7947
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\graph.py",
+      "line": 509,
+      "function": "__getitem__",
+      "calls": 470005,
+      "own_ms": 74.4901,
+      "cumulative_ms": 222.5637
+    },
+    {
+      "file": "<frozen _collections_abc>",
+      "line": 804,
+      "function": "get",
+      "calls": 145162,
+      "own_ms": 47.0597,
+      "cumulative_ms": 201.0604
+    },
+    {
+      "file": "<frozen os>",
+      "line": 709,
+      "function": "__getitem__",
+      "calls": 145162,
+      "own_ms": 70.87840000000001,
+      "cumulative_ms": 154.00070000000002
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\coreviews.py",
+      "line": 81,
+      "function": "__getitem__",
+      "calls": 470005,
+      "own_ms": 118.76880000000001,
+      "cumulative_ms": 148.0736
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 866,
+      "function": "_bus_candidates_for_day",
+      "calls": 145162,
+      "own_ms": 64.15180000000001,
+      "cumulative_ms": 120.13520000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\reportviews.py",
+      "line": 1089,
+      "function": "__getitem__",
+      "calls": 422341,
+      "own_ms": 70.13220000000001,
+      "cumulative_ms": 97.54440000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\reportviews.py",
+      "line": 190,
+      "function": "__getitem__",
+      "calls": 438308,
+      "own_ms": 71.01890000000002,
+      "cumulative_ms": 95.9304
+    },
+    {
+      "file": "<frozen os>",
+      "line": 783,
+      "function": "encodekey",
+      "calls": 145162,
+      "own_ms": 40.3141,
+      "cumulative_ms": 83.12230000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.isinstance>",
+      "calls": 1005893,
+      "own_ms": 60.4437,
+      "cumulative_ms": 60.4437
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _heapq.heappop>",
+      "calls": 61191,
+      "own_ms": 48.249700000000004,
+      "cumulative_ms": 48.249700000000004
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\coreviews.py",
+      "line": 53,
+      "function": "__getitem__",
+      "calls": 422514,
+      "own_ms": 46.8081,
+      "cumulative_ms": 46.8081
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\graph.py",
+      "line": 1303,
+      "function": "has_edge",
+      "calls": 422452,
+      "own_ms": 42.7901,
+      "cumulative_ms": 42.7901
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 473,
+      "function": "_chain_new",
+      "calls": 78094,
+      "own_ms": 22.2846,
+      "cumulative_ms": 34.7576
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\coreviews.py",
+      "line": 44,
+      "function": "__init__",
+      "calls": 470005,
+      "own_ms": 29.304800000000004,
+      "cumulative_ms": 29.304800000000004
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.len>",
+      "calls": 399452,
+      "own_ms": 29.1017,
+      "cumulative_ms": 29.1017
+    },
+    {
+      "file": "<frozen os>",
+      "line": 777,
+      "function": "check_str",
+      "calls": 145162,
+      "own_ms": 20.281200000000002,
+      "cumulative_ms": 28.392
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1038,
+      "function": "get_next_train_arrival",
+      "calls": 405,
+      "own_ms": 10.7738,
+      "cumulative_ms": 14.9045
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'upper' of 'str' objects>",
+      "calls": 145162,
+      "own_ms": 14.4162,
+      "cumulative_ms": 14.4162
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _heapq.heappush>",
+      "calls": 78093,
+      "own_ms": 12.646600000000001,
+      "cumulative_ms": 12.646600000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.getattr>",
+      "calls": 145162,
+      "own_ms": 12.1288,
+      "cumulative_ms": 12.1288
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\coreviews.py",
+      "line": 50,
+      "function": "__iter__",
+      "calls": 47491,
+      "own_ms": 7.5331,
+      "cumulative_ms": 11.7505
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 918,
+      "function": "is_valid_trip",
+      "calls": 136142,
+      "own_ms": 10.9318,
+      "cumulative_ms": 10.9318
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'append' of 'list' objects>",
+      "calls": 78317,
+      "own_ms": 6.944500000000001,
+      "cumulative_ms": 6.944500000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method time.monotonic>",
+      "calls": 61208,
+      "own_ms": 6.7289,
+      "cumulative_ms": 6.7289
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.iter>",
+      "calls": 47491,
+      "own_ms": 4.2174000000000005,
+      "cumulative_ms": 4.2174000000000005
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 2404,
+      "function": "calculate_real_arrival_time",
+      "calls": 5,
+      "own_ms": 0.0995,
+      "cumulative_ms": 2.1585
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 281,
+      "function": "_mem_log",
+      "calls": 1,
+      "own_ms": 0.0059,
+      "cumulative_ms": 0.7667
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 262,
+      "function": "_rss_mb",
+      "calls": 1,
+      "own_ms": 0.0101,
+      "cumulative_ms": 0.7577
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 1349,
+      "function": "_find_and_load",
+      "calls": 1,
+      "own_ms": 0.014000000000000002,
+      "cumulative_ms": 0.7170000000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 2489,
+      "function": "segments_detailed",
+      "calls": 1,
+      "own_ms": 0.12660000000000002,
+      "cumulative_ms": 0.6994000000000001
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 1304,
+      "function": "_find_and_load_unlocked",
+      "calls": 1,
+      "own_ms": 0.010300000000000002,
+      "cumulative_ms": 0.639
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 1240,
+      "function": "_find_spec",
+      "calls": 1,
+      "own_ms": 0.0101,
+      "cumulative_ms": 0.6282000000000001
+    },
+    {
+      "file": "<frozen importlib._bootstrap_external>",
+      "line": 1524,
+      "function": "find_spec",
+      "calls": 1,
+      "own_ms": 0.0029000000000000002,
+      "cumulative_ms": 0.6071000000000001
+    },
+    {
+      "file": "<frozen importlib._bootstrap_external>",
+      "line": 1495,
+      "function": "_get_spec",
+      "calls": 1,
+      "own_ms": 0.014700000000000001,
+      "cumulative_ms": 0.6042000000000001
+    },
+    {
+      "file": "<frozen importlib._bootstrap_external>",
+      "line": 1597,
+      "function": "find_spec",
+      "calls": 7,
+      "own_ms": 0.051800000000000006,
+      "cumulative_ms": 0.5844
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 2004,
+      "function": "_log_few_transfers_stats",
+      "calls": 16,
+      "own_ms": 0.14,
+      "cumulative_ms": 0.44260000000000005
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 696,
+      "function": "_guess_railway_id",
+      "calls": 405,
+      "own_ms": 0.2328,
+      "cumulative_ms": 0.4298
+    },
+    {
+      "file": "<frozen importlib._bootstrap_external>",
+      "line": 140,
+      "function": "_path_stat",
+      "calls": 7,
+      "own_ms": 0.0045000000000000005,
+      "cumulative_ms": 0.3377
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method nt.stat>",
+      "calls": 7,
+      "own_ms": 0.3332,
+      "cumulative_ms": 0.3332
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1997,
+      "function": "_boarding_counts",
+      "calls": 80,
+      "own_ms": 0.0694,
+      "cumulative_ms": 0.22
+    },
+    {
+      "file": "<frozen importlib._bootstrap_external>",
+      "line": 96,
+      "function": "_path_join",
+      "calls": 35,
+      "own_ms": 0.1172,
+      "cumulative_ms": 0.18370000000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'split' of 'str' objects>",
+      "calls": 424,
+      "own_ms": 0.1791,
+      "cumulative_ms": 0.1791
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'join' of 'str' objects>",
+      "calls": 93,
+      "own_ms": 0.0641,
+      "cumulative_ms": 0.11850000000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 376,
+      "function": "_bus_path_gtfs_stop_ids",
+      "calls": 4,
+      "own_ms": 0.020300000000000002,
+      "cumulative_ms": 0.11190000000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 309,
+      "function": "_gtfs_stop_id",
+      "calls": 43,
+      "own_ms": 0.048600000000000004,
+      "cumulative_ms": 0.1077
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 335,
+      "function": "_resolve_gtfs_bus_leg",
+      "calls": 4,
+      "own_ms": 0.0041,
+      "cumulative_ms": 0.10760000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.print>",
+      "calls": 47,
+      "own_ms": 0.10590000000000001,
+      "cumulative_ms": 0.10590000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method strptime>",
+      "calls": 1,
+      "own_ms": 0.0055000000000000005,
+      "cumulative_ms": 0.097
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1421,
+      "function": "_transit_path_signature",
+      "calls": 5,
+      "own_ms": 0.044000000000000004,
+      "cumulative_ms": 0.0942
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\_strptime.py",
+      "line": 650,
+      "function": "_strptime_datetime",
+      "calls": 1,
+      "own_ms": 0.0132,
+      "cumulative_ms": 0.0915
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 321,
+      "function": "_gtfs_bus_route_id",
+      "calls": 4,
+      "own_ms": 0.0118,
+      "cumulative_ms": 0.0826
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\_strptime.py",
+      "line": 392,
+      "function": "_strptime",
+      "calls": 1,
+      "own_ms": 0.027200000000000002,
+      "cumulative_ms": 0.07830000000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 477,
+      "function": "reconstruct_path_idx",
+      "calls": 5,
+      "own_ms": 0.05240000000000001,
+      "cumulative_ms": 0.06420000000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 302,
+      "function": "_line_norm",
+      "calls": 4,
+      "own_ms": 0.046,
+      "cumulative_ms": 0.061500000000000006
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 2000,
+      "function": "<genexpr>",
+      "calls": 203,
+      "own_ms": 0.054400000000000004,
+      "cumulative_ms": 0.054400000000000004
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 416,
+      "function": "__enter__",
+      "calls": 1,
+      "own_ms": 0.0033,
+      "cumulative_ms": 0.0541
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\graph.py",
+      "line": 1444,
+      "function": "get_edge_data",
+      "calls": 233,
+      "own_ms": 0.0513,
+      "cumulative_ms": 0.0513
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\re\\__init__.py",
+      "line": 174,
+      "function": "search",
+      "calls": 28,
+      "own_ms": 0.016000000000000004,
+      "cumulative_ms": 0.0476
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.sorted>",
+      "calls": 63,
+      "own_ms": 0.0438,
+      "cumulative_ms": 0.045200000000000004
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 2522,
+      "function": "flush",
+      "calls": 8,
+      "own_ms": 0.0228,
+      "cumulative_ms": 0.0442
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\_strptime.py",
+      "line": 27,
+      "function": "_getlang",
+      "calls": 1,
+      "own_ms": 0.0122,
+      "cumulative_ms": 0.0416
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 304,
+      "function": "acquire",
+      "calls": 1,
+      "own_ms": 0.0108,
+      "cumulative_ms": 0.03590000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _io.open>",
+      "calls": 1,
+      "own_ms": 0.030600000000000006,
+      "cumulative_ms": 0.030600000000000006
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\locale.py",
+      "line": 582,
+      "function": "getlocale",
+      "calls": 1,
+      "own_ms": 0.004900000000000001,
+      "cumulative_ms": 0.029400000000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'strftime' of 'datetime.date' objects>",
+      "calls": 1,
+      "own_ms": 0.024,
+      "cumulative_ms": 0.024
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1407,
+      "function": "path_to_coords",
+      "calls": 1,
+      "own_ms": 0.013500000000000002,
+      "cumulative_ms": 0.0229
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 162,
+      "function": "__enter__",
+      "calls": 1,
+      "own_ms": 0.0046,
+      "cumulative_ms": 0.0187
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 365,
+      "function": "_find_bus_alight_pole",
+      "calls": 4,
+      "own_ms": 0.0111,
+      "cumulative_ms": 0.0177
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'search' of 're.Pattern' objects>",
+      "calls": 28,
+      "own_ms": 0.0174,
+      "cumulative_ms": 0.0174
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'startswith' of 'str' objects>",
+      "calls": 84,
+      "own_ms": 0.0174,
+      "cumulative_ms": 0.0174
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 460,
+      "function": "time_str_to_min",
+      "calls": 12,
+      "own_ms": 0.013500000000000002,
+      "cumulative_ms": 0.0171
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'disable' of '_lsprof.Profiler' objects>",
+      "calls": 1,
+      "own_ms": 0.0171,
+      "cumulative_ms": 0.0171
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'endswith' of 'str' objects>",
+      "calls": 105,
+      "own_ms": 0.017,
+      "cumulative_ms": 0.017
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\locale.py",
+      "line": 464,
+      "function": "_parse_localename",
+      "calls": 1,
+      "own_ms": 0.0035000000000000005,
+      "cumulative_ms": 0.0159
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'rstrip' of 'str' objects>",
+      "calls": 105,
+      "own_ms": 0.0158,
+      "cumulative_ms": 0.0158
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 426,
+      "function": "_get_module_lock",
+      "calls": 1,
+      "own_ms": 0.0088,
+      "cumulative_ms": 0.014900000000000002
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\re\\__init__.py",
+      "line": 280,
+      "function": "_compile",
+      "calls": 28,
+      "own_ms": 0.0092,
+      "cumulative_ms": 0.0142
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1490,
+      "function": "_virtual_destination_connections_by_node",
+      "calls": 1,
+      "own_ms": 0.013600000000000001,
+      "cumulative_ms": 0.014000000000000002
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 124,
+      "function": "setdefault",
+      "calls": 1,
+      "own_ms": 0.0046,
+      "cumulative_ms": 0.013500000000000002
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\locale.py",
+      "line": 381,
+      "function": "normalize",
+      "calls": 1,
+      "own_ms": 0.0092,
+      "cumulative_ms": 0.012400000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'group' of 're.Match' objects>",
+      "calls": 56,
+      "own_ms": 0.008900000000000002,
+      "cumulative_ms": 0.008900000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _locale.setlocale>",
+      "calls": 1,
+      "own_ms": 0.0086,
+      "cumulative_ms": 0.0086
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 420,
+      "function": "__exit__",
+      "calls": 1,
+      "own_ms": 0.0017000000000000001,
+      "cumulative_ms": 0.007500000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method maketrans>",
+      "calls": 4,
+      "own_ms": 0.0068000000000000005,
+      "cumulative_ms": 0.0068000000000000005
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 465,
+      "function": "min_to_time_str",
+      "calls": 5,
+      "own_ms": 0.0066,
+      "cumulative_ms": 0.0066
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 74,
+      "function": "__new__",
+      "calls": 1,
+      "own_ms": 0.006200000000000001,
+      "cumulative_ms": 0.0066
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'translate' of 'str' objects>",
+      "calls": 4,
+      "own_ms": 0.0064,
+      "cumulative_ms": 0.0064
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 491,
+      "function": "_verbose_message",
+      "calls": 35,
+      "own_ms": 0.006300000000000001,
+      "cumulative_ms": 0.006300000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method today>",
+      "calls": 1,
+      "own_ms": 0.006,
+      "cumulative_ms": 0.006
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.sum>",
+      "calls": 3,
+      "own_ms": 0.0044,
+      "cumulative_ms": 0.0059
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 372,
+      "function": "release",
+      "calls": 1,
+      "own_ms": 0.004200000000000001,
+      "cumulative_ms": 0.0058000000000000005
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 232,
+      "function": "__init__",
+      "calls": 1,
+      "own_ms": 0.004200000000000001,
+      "cumulative_ms": 0.0054
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 982,
+      "function": "find_spec",
+      "calls": 1,
+      "own_ms": 0.0015,
+      "cumulative_ms": 0.004900000000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\graph.py",
+      "line": 473,
+      "function": "__contains__",
+      "calls": 11,
+      "own_ms": 0.004200000000000001,
+      "cumulative_ms": 0.004200000000000001
+    },
+    {
+      "file": "<frozen importlib._bootstrap_external>",
+      "line": 1473,
+      "function": "_path_importer_cache",
+      "calls": 8,
+      "own_ms": 0.0038,
+      "cumulative_ms": 0.0038
+    },
+    {
+      "file": "<frozen importlib._bootstrap_external>",
+      "line": 67,
+      "function": "_relax_case",
+      "calls": 7,
+      "own_ms": 0.0036000000000000003,
+      "cumulative_ms": 0.0036000000000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _imp.is_builtin>",
+      "calls": 1,
+      "own_ms": 0.0034000000000000002,
+      "cumulative_ms": 0.0034000000000000002
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\reportviews.py",
+      "line": 199,
+      "function": "__contains__",
+      "calls": 25,
+      "own_ms": 0.0033,
+      "cumulative_ms": 0.0033
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 1128,
+      "function": "find_spec",
+      "calls": 1,
+      "own_ms": 0.0009000000000000001,
+      "cumulative_ms": 0.0033
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 82,
+      "function": "remove",
+      "calls": 1,
+      "own_ms": 0.0020000000000000005,
+      "cumulative_ms": 0.0029000000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'match' of 're.Pattern' objects>",
+      "calls": 1,
+      "own_ms": 0.0027,
+      "cumulative_ms": 0.0027
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 480,
+      "function": "_call_with_frames_removed",
+      "calls": 1,
+      "own_ms": 0.0013,
+      "cumulative_ms": 0.0024000000000000002
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 173,
+      "function": "__exit__",
+      "calls": 1,
+      "own_ms": 0.0015,
+      "cumulative_ms": 0.0024000000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'groupdict' of 're.Match' objects>",
+      "calls": 1,
+      "own_ms": 0.0024000000000000002,
+      "cumulative_ms": 0.0024000000000000002
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 79,
+      "function": "__init__",
+      "calls": 1,
+      "own_ms": 0.0023,
+      "cumulative_ms": 0.0023
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'replace' of 'datetime.datetime' objects>",
+      "calls": 1,
+      "own_ms": 0.0023,
+      "cumulative_ms": 0.0023
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'replace' of 'str' objects>",
+      "calls": 4,
+      "own_ms": 0.0023,
+      "cumulative_ms": 0.0023
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.max>",
+      "calls": 6,
+      "own_ms": 0.0023,
+      "cumulative_ms": 0.0023
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'reverse' of 'list' objects>",
+      "calls": 5,
+      "own_ms": 0.0019,
+      "cumulative_ms": 0.0019
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\gtfs_loader.py",
+      "line": 458,
+      "function": "find_route_id_by_name",
+      "calls": 4,
+      "own_ms": 0.0010000000000000002,
+      "cumulative_ms": 0.0018000000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method now>",
+      "calls": 1,
+      "own_ms": 0.0018000000000000002,
+      "cumulative_ms": 0.0018000000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'rpartition' of 'str' objects>",
+      "calls": 8,
+      "own_ms": 0.0018000000000000002,
+      "cumulative_ms": 0.0018000000000000002
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 445,
+      "function": "cb",
+      "calls": 1,
+      "own_ms": 0.0009000000000000001,
+      "cumulative_ms": 0.0016
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method fromkeys>",
+      "calls": 2,
+      "own_ms": 0.0016,
+      "cumulative_ms": 0.0016
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 1226,
+      "function": "__exit__",
+      "calls": 3,
+      "own_ms": 0.0008,
+      "cumulative_ms": 0.0015
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1711,
+      "function": "<lambda>",
+      "calls": 5,
+      "own_ms": 0.0014000000000000002,
+      "cumulative_ms": 0.0014000000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method math.ceil>",
+      "calls": 4,
+      "own_ms": 0.0014000000000000002,
+      "cumulative_ms": 0.0014000000000000002
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 1222,
+      "function": "__enter__",
+      "calls": 3,
+      "own_ms": 0.0010000000000000002,
+      "cumulative_ms": 0.0013
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _thread.allocate_lock>",
+      "calls": 1,
+      "own_ms": 0.0012000000000000001,
+      "cumulative_ms": 0.0012000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _imp.release_lock>",
+      "calls": 5,
+      "own_ms": 0.0012000000000000001,
+      "cumulative_ms": 0.0012000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _imp.find_frozen>",
+      "calls": 1,
+      "own_ms": 0.0011,
+      "cumulative_ms": 0.0011
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _weakref._remove_dead_weakref>",
+      "calls": 1,
+      "own_ms": 0.0009000000000000001,
+      "cumulative_ms": 0.0009000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _thread.get_ident>",
+      "calls": 2,
+      "own_ms": 0.0009000000000000001,
+      "cumulative_ms": 0.0009000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'remove' of 'list' objects>",
+      "calls": 1,
+      "own_ms": 0.0009000000000000001,
+      "cumulative_ms": 0.0009000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.round>",
+      "calls": 1,
+      "own_ms": 0.0009000000000000001,
+      "cumulative_ms": 0.0009000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _imp.acquire_lock>",
+      "calls": 5,
+      "own_ms": 0.0009000000000000001,
+      "cumulative_ms": 0.0009000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method combine>",
+      "calls": 1,
+      "own_ms": 0.0008,
+      "cumulative_ms": 0.0008
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'lower' of 'str' objects>",
+      "calls": 1,
+      "own_ms": 0.0007000000000000001,
+      "cumulative_ms": 0.0007000000000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1758,
+      "function": "<genexpr>",
+      "calls": 4,
+      "own_ms": 0.0006000000000000001,
+      "cumulative_ms": 0.0006000000000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1741,
+      "function": "<genexpr>",
+      "calls": 3,
+      "own_ms": 0.0006000000000000001,
+      "cumulative_ms": 0.0006000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'toordinal' of 'datetime.date' objects>",
+      "calls": 2,
+      "own_ms": 0.0006000000000000001,
+      "cumulative_ms": 0.0006000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method '__exit__' of '_thread.RLock' objects>",
+      "calls": 2,
+      "own_ms": 0.0006000000000000001,
+      "cumulative_ms": 0.0006000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'end' of 're.Match' objects>",
+      "calls": 1,
+      "own_ms": 0.0005000000000000001,
+      "cumulative_ms": 0.0005000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method '__exit__' of '_thread.lock' objects>",
+      "calls": 1,
+      "own_ms": 0.0005000000000000001,
+      "cumulative_ms": 0.0005000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'keys' of 'dict' objects>",
+      "calls": 1,
+      "own_ms": 0.0005000000000000001,
+      "cumulative_ms": 0.0005000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method __new__ of type object at 0x00007FFD57BD98F0>",
+      "calls": 1,
+      "own_ms": 0.0004,
+      "cumulative_ms": 0.0004
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'pop' of 'list' objects>",
+      "calls": 1,
+      "own_ms": 0.0004,
+      "cumulative_ms": 0.0004
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1764,
+      "function": "<genexpr>",
+      "calls": 4,
+      "own_ms": 0.00030000000000000003,
+      "cumulative_ms": 0.00030000000000000003
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 599,
+      "function": "__init__",
+      "calls": 1,
+      "own_ms": 0.00030000000000000003,
+      "cumulative_ms": 0.00030000000000000003
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 412,
+      "function": "__init__",
+      "calls": 1,
+      "own_ms": 0.00030000000000000003,
+      "cumulative_ms": 0.00030000000000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'weekday' of 'datetime.date' objects>",
+      "calls": 1,
+      "own_ms": 0.00030000000000000003,
+      "cumulative_ms": 0.00030000000000000003
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 158,
+      "function": "__init__",
+      "calls": 1,
+      "own_ms": 0.0002,
+      "cumulative_ms": 0.0002
+    }
+  ]
+}

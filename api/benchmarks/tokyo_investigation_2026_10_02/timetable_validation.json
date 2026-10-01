@@ -1,0 +1,26 @@
+{
+  "equivalence_checks": 5184,
+  "mismatches": 0,
+  "validated": [
+    "stable station-and-next-station grouping",
+    "static bisect including departure ties",
+    "numeric delays",
+    "status fallback",
+    "suspension",
+    "weekday and weekend",
+    "fractional minutes",
+    "midnight and after-midnight",
+    "empty snapshot",
+    "missing station"
+  ],
+  "unsafe_realtime_base_bisect": {
+    "minute": 615,
+    "original": 625.0,
+    "base_bisect": null
+  },
+  "unsafe_realtime_actual_sort": {
+    "minute": 590,
+    "original": 625.0,
+    "actual_sort": 615.0
+  }
+}

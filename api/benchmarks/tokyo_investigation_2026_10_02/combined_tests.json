@@ -1,0 +1,9 @@
+{
+  "variant": "combined in-memory",
+  "tests_run": 19,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "success": true,
+  "report": "...................\n----------------------------------------------------------------------\nRan 19 tests in 0.046s\n\nOK\n"
+}

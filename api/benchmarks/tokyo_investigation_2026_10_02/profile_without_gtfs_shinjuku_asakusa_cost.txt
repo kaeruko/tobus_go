@@ -1,0 +1,43 @@
+         1338661 function calls in 0.326 seconds
+
+   Ordered by: cumulative time
+   List reduced from 157 to 35 due to restriction <35>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.001    0.001    0.326    0.326 C:\Users\mail\work\tobus_go\api\toei_engine.py:1511(search_best_routes_once)
+        1    0.000    0.000    0.325    0.325 C:\Users\mail\work\tobus_go\api\toei_engine.py:1546(search_best_routes)
+        6    0.070    0.012    0.322    0.054 C:\Users\mail\work\tobus_go\api\toei_engine.py:1784(find_paths_generator)
+    48685    0.041    0.000    0.139    0.000 C:\Users\mail\work\tobus_go\api\toei_engine.py:1347(advance_time)
+    12795    0.020    0.000    0.054    0.000 C:\Users\mail\work\tobus_go\api\toei_engine.py:897(get_next_bus_departure)
+   436592    0.043    0.000    0.043    0.000 {method 'get' of 'dict' objects}
+    12467    0.009    0.000    0.043    0.000 C:\Users\mail\work\tobus_go\api\toei_engine.py:1798(heuristic)
+    12454    0.017    0.000    0.028    0.000 C:\Users\mail\work\tobus_go\api\toei_engine.py:395(haversine)
+    54297    0.009    0.000    0.026    0.000 C:\Users\mail\work\tobus_go\api\.venv-route\Lib\site-packages\networkx\classes\graph.py:509(__getitem__)
+    12795    0.003    0.000    0.021    0.000 <frozen os>:808(getenv)
+    12795    0.004    0.000    0.018    0.000 <frozen _collections_abc>:804(get)
+    54297    0.014    0.000    0.017    0.000 C:\Users\mail\work\tobus_go\api\.venv-route\Lib\site-packages\networkx\classes\coreviews.py:81(__getitem__)
+    12795    0.006    0.000    0.014    0.000 <frozen os>:709(__getitem__)
+    48685    0.008    0.000    0.011    0.000 C:\Users\mail\work\tobus_go\api\.venv-route\Lib\site-packages\networkx\classes\reportviews.py:1089(__getitem__)
+    51671    0.008    0.000    0.011    0.000 C:\Users\mail\work\tobus_go\api\.venv-route\Lib\site-packages\networkx\classes\reportviews.py:190(__getitem__)
+    12795    0.006    0.000    0.010    0.000 C:\Users\mail\work\tobus_go\api\toei_engine.py:866(_bus_candidates_for_day)
+    12795    0.004    0.000    0.008    0.000 <frozen os>:783(encodekey)
+       14    0.000    0.000    0.007    0.001 C:\Users\mail\work\tobus_go\api\toei_engine.py:281(_mem_log)
+       14    0.000    0.000    0.007    0.001 C:\Users\mail\work\tobus_go\api\toei_engine.py:262(_rss_mb)
+   113334    0.007    0.000    0.007    0.000 {built-in method builtins.isinstance}
+      202    0.005    0.000    0.007    0.000 C:\Users\mail\work\tobus_go\api\toei_engine.py:1038(get_next_train_arrival)
+       14    0.000    0.000    0.007    0.000 <frozen importlib._bootstrap>:1349(_find_and_load)
+    12467    0.004    0.000    0.006    0.000 C:\Users\mail\work\tobus_go\api\toei_engine.py:473(_chain_new)
+       14    0.000    0.000    0.006    0.000 <frozen importlib._bootstrap>:1304(_find_and_load_unlocked)
+       14    0.000    0.000    0.006    0.000 <frozen importlib._bootstrap>:1240(_find_spec)
+       14    0.000    0.000    0.006    0.000 <frozen importlib._bootstrap_external>:1524(find_spec)
+       14    0.000    0.000    0.006    0.000 <frozen importlib._bootstrap_external>:1495(_get_spec)
+       98    0.000    0.000    0.006    0.000 <frozen importlib._bootstrap_external>:1597(find_spec)
+    48788    0.005    0.000    0.005    0.000 C:\Users\mail\work\tobus_go\api\.venv-route\Lib\site-packages\networkx\classes\graph.py:1303(has_edge)
+    48869    0.004    0.000    0.004    0.000 C:\Users\mail\work\tobus_go\api\.venv-route\Lib\site-packages\networkx\classes\coreviews.py:53(__getitem__)
+    49816    0.004    0.000    0.004    0.000 {built-in method math.radians}
+    54297    0.004    0.000    0.004    0.000 C:\Users\mail\work\tobus_go\api\.venv-route\Lib\site-packages\networkx\classes\coreviews.py:44(__init__)
+       98    0.000    0.000    0.003    0.000 <frozen importlib._bootstrap_external>:140(_path_stat)
+       98    0.003    0.000    0.003    0.000 {built-in method nt.stat}
+     6744    0.003    0.000    0.003    0.000 {built-in method _heapq.heappop}
+
+

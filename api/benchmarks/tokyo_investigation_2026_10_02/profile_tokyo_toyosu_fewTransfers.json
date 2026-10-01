@@ -1,0 +1,2973 @@
+{
+  "run": {
+    "id": "tokyo_toyosu",
+    "mode": "fewTransfers",
+    "ms": 999.737299993285,
+    "route_count": 5,
+    "error": null,
+    "log": "[MEM] find_few_transfers_paths_generator start rss=-1.0MB\n[ROUTE_DEBUG] fewTransfers stats: tag=yield visited=3308 yielded=1 queue=3540 g_score=5708 best_cost=2756 elapsed_sec=0.157 popped_by_boardings={0:267, 1:3041} expanded_by_boardings={0:195, 1:2561} dominated_by_boardings={0:72, 1:480} travel_limit_by_boardings={} yielded_by_boardings={1:1}\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=5000 yielded=1 queue=4451 g_score=7754 best_cost=4036 elapsed_sec=0.235 popped_by_boardings={0:267, 1:4733} expanded_by_boardings={0:195, 1:3841} dominated_by_boardings={0:72, 1:891} travel_limit_by_boardings={} yielded_by_boardings={1:1}\n[ROUTE_DEBUG] fewTransfers stats: tag=yield visited=6272 yielded=2 queue=4845 g_score=8988 best_cost=4995 elapsed_sec=0.297 popped_by_boardings={0:267, 1:6005} expanded_by_boardings={0:195, 1:4800} dominated_by_boardings={0:72, 1:1205} travel_limit_by_boardings={} yielded_by_boardings={1:2}\n[ROUTE_DEBUG] fewTransfers stats: tag=yield visited=6814 yielded=3 queue=4850 g_score=9401 best_cost=5398 elapsed_sec=0.328 popped_by_boardings={0:267, 1:6547} expanded_by_boardings={0:195, 1:5203} dominated_by_boardings={0:72, 1:1344} travel_limit_by_boardings={} yielded_by_boardings={1:3}\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=10000 yielded=3 queue=4419 g_score=11439 best_cost=7703 elapsed_sec=0.500 popped_by_boardings={0:267, 1:9733} expanded_by_boardings={0:195, 1:7508} dominated_by_boardings={0:72, 1:2224} travel_limit_by_boardings={} yielded_by_boardings={1:3}\n[ROUTE_DEBUG] fewTransfers stats: tag=yield visited=10012 yielded=4 queue=4432 g_score=11461 best_cost=7715 elapsed_sec=0.500 popped_by_boardings={0:267, 1:9745} expanded_by_boardings={0:195, 1:7520} dominated_by_boardings={0:72, 1:2225} travel_limit_by_boardings={} yielded_by_boardings={1:4}\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=15000 yielded=4 queue=2735 g_score=13917 best_cost=11236 elapsed_sec=0.735 popped_by_boardings={0:267, 1:14733} expanded_by_boardings={0:195, 1:11041} dominated_by_boardings={0:72, 1:3691} travel_limit_by_boardings={} yielded_by_boardings={1:4}\n[ROUTE_DEBUG] fewTransfers stats: tag=tick visited=20000 yielded=4 queue=6900 g_score=21316 best_cost=15439 elapsed_sec=0.953 popped_by_boardings={0:267, 1:15082, 2:4651} expanded_by_boardings={0:195, 1:11309, 2:3935} dominated_by_boardings={0:72, 1:3773, 2:715} travel_limit_by_boardings={} yielded_by_boardings={1:4}\n[segments_detailed] start path_len=18 start_time=10:00 day_type=weekday\n[segments_detailed] edge[0] walk u=('phys', 'odpt.BusstopPole:Toei.TokyoStationMarunouchiMinamiguchi.966.4') v=('phys', 'odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1')\n[segments_detailed] edge[1] board mode=bus node=('line', 'odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] flush kind=walk title=徒歩 from=東京駅丸の内南口 to=東京駅八重洲口 dep=None arr=None minutes=4 stops=0 route_id=None trip_id=None\n[segments_detailed] board bus route_id=050 trip_id=73002-1-81-170-1004 origin=0967-01 destination=1025-11 dep=604 arr=629\n[segments_detailed] edge[2] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.ToriSanchome.997.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[3] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.HatchoboriNichome.1232.4', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[4] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.Kamejimabashi.376.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[5] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.Shinkawa.2122.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[6] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.SumitomoTwinBiru.2162.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[7] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.RiverCityNijuichi.2305.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[8] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.TsukudaNichome.2306.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[9] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.TsukishimaStation.720.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[10] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.ShinTsukishimaKoen.2312.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[11] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.Harumibashi.2288.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[12] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.IHI.1026.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[13] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.ToyosuNichome.1024.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[14] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.ToyosuStation.1025.11', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[15] alight mode=bus node=('line', 'odpt.BusstopPole:Toei.ToyosuStation.1025.11', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] flush kind=bus title=東１６ 東京ビッグサイト行 from=東京駅八重洲口 to=豊洲駅前 dep=10:04 arr=10:29 minutes=25 stops=14 route_id=050 trip_id=73002-1-81-170-1004\n[segments_detailed] edge[16] walk u=('phys', 'odpt.BusstopPole:Toei.ToyosuStation.1025.11') v=('phys', 'dest:35.654400,139.796500')\n[segments_detailed] flush kind=walk title=徒歩 from=豊洲駅前 to=目的地 dep=None arr=None minutes=1 stops=0 route_id=None trip_id=None\n[segments_detailed] done segments=3 summary=[{'kind': 'walk', 'from': '東京駅丸の内南口', 'to': '東京駅八重洲口'}, {'kind': 'bus', 'from': '東京駅八重洲口', 'to': '豊洲駅前'}, {'kind': 'walk', 'from': '豊洲駅前', 'to': '目的地'}]\n[segments_detailed] start path_len=17 start_time=10:00 day_type=weekday\n[segments_detailed] edge[0] walk u=('phys', 'odpt.BusstopPole:Toei.TokyoStationMarunouchiMinamiguchi.966.4') v=('phys', 'odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1')\n[segments_detailed] edge[1] board mode=bus node=('line', 'odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] flush kind=walk title=徒歩 from=東京駅丸の内南口 to=東京駅八重洲口 dep=None arr=None minutes=4 stops=0 route_id=None trip_id=None\n[segments_detailed] board bus route_id=050 trip_id=73002-1-81-170-1004 origin=0967-01 destination=1024-02 dep=604 arr=624\n[segments_detailed] edge[2] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.ToriSanchome.997.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[3] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.HatchoboriNichome.1232.4', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[4] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.Kamejimabashi.376.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[5] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.Shinkawa.2122.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[6] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.SumitomoTwinBiru.2162.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[7] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.RiverCityNijuichi.2305.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[8] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.TsukudaNichome.2306.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[9] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.TsukishimaStation.720.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[10] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.ShinTsukishimaKoen.2312.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[11] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.Harumibashi.2288.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[12] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.IHI.1026.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[13] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.ToyosuNichome.1024.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[14] alight mode=bus node=('line', 'odpt.BusstopPole:Toei.ToyosuNichome.1024.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] flush kind=bus title=東１６ 東京ビッグサイト行 from=東京駅八重洲口 to=豊洲二丁目 dep=10:04 arr=10:24 minutes=20 stops=13 route_id=050 trip_id=73002-1-81-170-1004\n[segments_detailed] edge[15] walk u=('phys', 'odpt.BusstopPole:Toei.ToyosuNichome.1024.2') v=('phys', 'dest:35.654400,139.796500')\n[segments_detailed] flush kind=walk title=徒歩 from=豊洲二丁目 to=目的地 dep=None arr=None minutes=5 stops=0 route_id=None trip_id=None\n[segments_detailed] done segments=3 summary=[{'kind': 'walk', 'from': '東京駅丸の内南口', 'to': '東京駅八重洲口'}, {'kind': 'bus', 'from': '東京駅八重洲口', 'to': '豊洲二丁目'}, {'kind': 'walk', 'from': '豊洲二丁目', 'to': '目的地'}]\n[segments_detailed] start path_len=19 start_time=10:00 day_type=weekday\n[segments_detailed] edge[0] walk u=('phys', 'odpt.BusstopPole:Toei.TokyoStationMarunouchiMinamiguchi.966.4') v=('phys', 'odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1')\n[segments_detailed] edge[1] board mode=bus node=('line', 'odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] flush kind=walk title=徒歩 from=東京駅丸の内南口 to=東京駅八重洲口 dep=None arr=None minutes=4 stops=0 route_id=None trip_id=None\n[segments_detailed] board bus route_id=050 trip_id=73002-1-81-170-1004 origin=0967-01 destination=0619-02 dep=604 arr=629\n[segments_detailed] edge[2] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.ToriSanchome.997.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[3] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.HatchoboriNichome.1232.4', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[4] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.Kamejimabashi.376.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[5] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.Shinkawa.2122.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[6] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.SumitomoTwinBiru.2162.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[7] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.RiverCityNijuichi.2305.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[8] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.TsukudaNichome.2306.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[9] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.TsukishimaStation.720.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[10] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.ShinTsukishimaKoen.2312.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[11] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.Harumibashi.2288.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[12] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.IHI.1026.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[13] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.ToyosuNichome.1024.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[14] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.ToyosuStation.1025.11', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[15] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.FukagawaGochu.619.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[16] alight mode=bus node=('line', 'odpt.BusstopPole:Toei.FukagawaGochu.619.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] flush kind=bus title=東１６ 東京ビッグサイト行 from=東京駅八重洲口 to=深川五中前 dep=10:04 arr=10:29 minutes=25 stops=15 route_id=050 trip_id=73002-1-81-170-1004\n[segments_detailed] edge[17] walk u=('phys', 'odpt.BusstopPole:Toei.FukagawaGochu.619.2') v=('phys', 'dest:35.654400,139.796500')\n[segments_detailed] flush kind=walk title=徒歩 from=深川五中前 to=目的地 dep=None arr=None minutes=4 stops=0 route_id=None trip_id=None\n[segments_detailed] done segments=3 summary=[{'kind': 'walk', 'from': '東京駅丸の内南口', 'to': '東京駅八重洲口'}, {'kind': 'bus', 'from': '東京駅八重洲口', 'to': '深川五中前'}, {'kind': 'walk', 'from': '深川五中前', 'to': '目的地'}]\n[segments_detailed] start path_len=16 start_time=10:00 day_type=weekday\n[segments_detailed] edge[0] walk u=('phys', 'odpt.BusstopPole:Toei.TokyoStationMarunouchiMinamiguchi.966.4') v=('phys', 'odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1')\n[segments_detailed] edge[1] board mode=bus node=('line', 'odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] flush kind=walk title=徒歩 from=東京駅丸の内南口 to=東京駅八重洲口 dep=None arr=None minutes=4 stops=0 route_id=None trip_id=None\n[segments_detailed] board bus route_id=050 trip_id=73002-1-81-170-1004 origin=0967-01 destination=1026-02 dep=604 arr=623\n[segments_detailed] edge[2] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.ToriSanchome.997.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[3] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.HatchoboriNichome.1232.4', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[4] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.Kamejimabashi.376.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[5] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.Shinkawa.2122.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[6] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.SumitomoTwinBiru.2162.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[7] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.RiverCityNijuichi.2305.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[8] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.TsukudaNichome.2306.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[9] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.TsukishimaStation.720.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[10] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.ShinTsukishimaKoen.2312.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[11] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.Harumibashi.2288.1', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[12] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.IHI.1026.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] edge[13] alight mode=bus node=('line', 'odpt.BusstopPole:Toei.IHI.1026.2', 'buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1')\n[segments_detailed] flush kind=bus title=東１６ 東京ビッグサイト行 from=東京駅八重洲口 to=ＩＨＩ前 dep=10:04 arr=10:23 minutes=19 stops=12 route_id=050 trip_id=73002-1-81-170-1004\n[segments_detailed] edge[14] walk u=('phys', 'odpt.BusstopPole:Toei.IHI.1026.2') v=('phys', 'dest:35.654400,139.796500')\n[segments_detailed] flush kind=walk title=徒歩 from=ＩＨＩ前 to=目的地 dep=None arr=None minutes=8 stops=0 route_id=None trip_id=None\n[segments_detailed] done segments=3 summary=[{'kind': 'walk', 'from': '東京駅丸の内南口', 'to': '東京駅八重洲口'}, {'kind': 'bus', 'from': '東京駅八重洲口', 'to': 'ＩＨＩ前'}, {'kind': 'walk', 'from': 'ＩＨＩ前', 'to': '目的地'}]\n[segments_detailed] start path_len=23 start_time=10:00 day_type=weekday\n[segments_detailed] edge[0] walk u=('phys', 'odpt.BusstopPole:Toei.TokyoStationMarunouchiMinamiguchi.966.4') v=('phys', 'odpt.BusstopPole:Toei.TokyoStationMarunouchiMinamiguchi.966.3')\n[segments_detailed] edge[1] board mode=bus node=('line', 'odpt.BusstopPole:Toei.TokyoStationMarunouchiMinamiguchi.966.3', 'buspat:odpt.BusroutePattern:Toei.T05-1.72414.2')\n[segments_detailed] board bus route_id=184 trip_id=72414-2-81-170-1002 origin=0966-03 destination=0946-02 dep=602 arr=617\n[segments_detailed] edge[2] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.TokyoKokusaiForum.1008.3', 'buspat:odpt.BusroutePattern:Toei.T05-1.72414.2')\n[segments_detailed] edge[3] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.YurakuchoStation.1570.1', 'buspat:odpt.BusroutePattern:Toei.T05-1.72414.2')\n[segments_detailed] edge[4] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.Sukiyabashi.778.3', 'buspat:odpt.BusroutePattern:Toei.T05-1.72414.2')\n[segments_detailed] edge[5] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.GinzaYonchome.448.8', 'buspat:odpt.BusroutePattern:Toei.T05-1.72414.2')\n[segments_detailed] edge[6] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.Tsukiji.939.1', 'buspat:odpt.BusroutePattern:Toei.T05-1.72414.2')\n[segments_detailed] edge[7] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.TsukijiSanchome.945.1', 'buspat:odpt.BusroutePattern:Toei.T05-1.72414.2')\n[segments_detailed] edge[8] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.TsukijiRokuchome.946.2', 'buspat:odpt.BusroutePattern:Toei.T05-1.72414.2')\n[segments_detailed] edge[9] alight mode=bus node=('line', 'odpt.BusstopPole:Toei.TsukijiRokuchome.946.2', 'buspat:odpt.BusroutePattern:Toei.T05-1.72414.2')\n[segments_detailed] flush kind=bus title=都０５－１ 晴海埠頭行 from=東京駅丸の内南口 to=築地六丁目 dep=10:02 arr=10:17 minutes=15 stops=8 route_id=184 trip_id=72414-2-81-170-1002\n[segments_detailed] edge[10] board mode=bus node=('line', 'odpt.BusstopPole:Toei.TsukijiRokuchome.946.2', 'buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2')\n[segments_detailed] board bus route_id=041 trip_id=72509-2-81-170-1009 origin=0946-02 destination=1025-11 dep=617 arr=637\n[segments_detailed] edge[11] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.KachidokibashiMinamizume.325.2', 'buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2')\n[segments_detailed] edge[12] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.KachidokiStation.326.1', 'buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2')\n[segments_detailed] edge[13] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.TsukishimaSanchome.937.2', 'buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2')\n[segments_detailed] edge[14] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.TsukishimaYonchome.938.1', 'buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2')\n[segments_detailed] edge[15] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.HarumiItchome.1252.1', 'buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2')\n[segments_detailed] edge[16] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.Harumibashi.2288.1', 'buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2')\n[segments_detailed] edge[17] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.IHI.1026.2', 'buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2')\n[segments_detailed] edge[18] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.ToyosuNichome.1024.2', 'buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2')\n[segments_detailed] edge[19] ride mode=bus node=('line', 'odpt.BusstopPole:Toei.ToyosuStation.1025.11', 'buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2')\n[segments_detailed] edge[20] alight mode=bus node=('line', 'odpt.BusstopPole:Toei.ToyosuStation.1025.11', 'buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2')\n[segments_detailed] flush kind=bus title=業１０出入 深川車庫前行 from=築地六丁目 to=豊洲駅前 dep=10:17 arr=10:37 minutes=20 stops=10 route_id=041 trip_id=72509-2-81-170-1009\n[segments_detailed] edge[21] walk u=('phys', 'odpt.BusstopPole:Toei.ToyosuStation.1025.11') v=('phys', 'dest:35.654400,139.796500')\n[segments_detailed] flush kind=walk title=徒歩 from=豊洲駅前 to=目的地 dep=None arr=None minutes=1 stops=0 route_id=None trip_id=None\n[segments_detailed] done segments=4 summary=[{'kind': 'wait', 'from': '東京駅丸の内南口', 'to': '東京駅丸の内南口'}, {'kind': 'bus', 'from': '東京駅丸の内南口', 'to': '築地六丁目'}, {'kind': 'bus', 'from': '築地六丁目', 'to': '豊洲駅前'}, {'kind': 'walk', 'from': '豊洲駅前', 'to': '目的地'}]\n",
+    "routes": [
+      {
+        "id": "Comfort-1",
+        "lines": [
+          "東１６ 東京ビッグサイト行"
+        ],
+        "lines_en": [
+          "東１６ · Tokyo Big Sight"
+        ],
+        "total_time": 30,
+        "arrival_time": "10:30",
+        "steps": [
+          {
+            "kind": "walk",
+            "title": "徒歩",
+            "edges": 1,
+            "from_": "東京駅丸の内南口",
+            "from_en": "Tokyo Sta. Marunouchi-Minamiguchi (Marunouchi South Exit)",
+            "to": "東京駅八重洲口",
+            "to_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+            "meters": 249.33865671861858,
+            "minutes": 4
+          },
+          {
+            "kind": "bus",
+            "title": "東１６ 東京ビッグサイト行",
+            "title_en": "東１６ · Tokyo Big Sight",
+            "edges": 13,
+            "from_": "東京駅八重洲口",
+            "from_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+            "to": "豊洲駅前",
+            "to_en": "Toyosu Sta.",
+            "stops": [
+              {
+                "name": "東京駅八重洲口",
+                "name_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+                "is_origin": true,
+                "lat": 35.679839,
+                "lon": 139.768326,
+                "id": "0967-01"
+              },
+              {
+                "name": "通り三丁目",
+                "name_en": "Tōri-Sanchōme (Tōri 3)",
+                "lat": 35.679149,
+                "lon": 139.772418,
+                "id": "0997-02"
+              },
+              {
+                "name": "八丁堀二丁目",
+                "name_en": "Hatchōbori-Nichōme (Hatchōbori 2)",
+                "lat": 35.677646,
+                "lon": 139.775934,
+                "id": "1232-04"
+              },
+              {
+                "name": "亀島橋",
+                "name_en": "Kamejimabashi",
+                "lat": 35.677169,
+                "lon": 139.777156,
+                "id": "0376-02"
+              },
+              {
+                "name": "新川",
+                "name_en": "Shinkawa",
+                "lat": 35.675847,
+                "lon": 139.780264,
+                "id": "2122-01"
+              },
+              {
+                "name": "住友ツインビル前",
+                "name_en": "Sumitomo Twin Biru",
+                "lat": 35.673396,
+                "lon": 139.78321,
+                "id": "2162-01"
+              },
+              {
+                "name": "リバーシティ２１",
+                "name_en": "River City Nijūichi",
+                "lat": 35.668495,
+                "lon": 139.785346,
+                "id": "2305-02"
+              },
+              {
+                "name": "佃二丁目",
+                "name_en": "Tsukuda-Nichōme (Tsukuda 2)",
+                "lat": 35.667456,
+                "lon": 139.786046,
+                "id": "2306-02"
+              },
+              {
+                "name": "月島駅前",
+                "name_en": "Tsukishima Sta.",
+                "lat": 35.665177,
+                "lon": 139.786043,
+                "id": "0720-02"
+              },
+              {
+                "name": "新月島公園前",
+                "name_en": "Shin-Tsukishima-Kōen (Shin-Tsukishima Park)",
+                "lat": 35.659457,
+                "lon": 139.78827,
+                "id": "2312-01"
+              },
+              {
+                "name": "春海橋",
+                "name_en": "Harumibashi",
+                "lat": 35.659121,
+                "lon": 139.790654,
+                "id": "2288-01"
+              },
+              {
+                "name": "ＩＨＩ前",
+                "name_en": "IHI",
+                "lat": 35.658676,
+                "lon": 139.79277,
+                "id": "1026-02"
+              },
+              {
+                "name": "豊洲二丁目",
+                "name_en": "Toyosu-Nichōme (Toyosu 2)",
+                "lat": 35.65688,
+                "lon": 139.794522,
+                "id": "1024-02"
+              },
+              {
+                "name": "豊洲駅前",
+                "name_en": "Toyosu Sta.",
+                "lat": 35.654154,
+                "lon": 139.797249,
+                "id": "1025-11",
+                "is_destination": true
+              }
+            ],
+            "departure_time": "10:04",
+            "route_id": "050",
+            "trip_id": "73002-1-81-170-1004",
+            "arrival_time": "10:29",
+            "minutes": 25
+          },
+          {
+            "kind": "walk",
+            "title": "徒歩",
+            "edges": 1,
+            "from_": "豊洲駅前",
+            "from_en": "Toyosu Sta.",
+            "to": "目的地",
+            "to_en": null,
+            "meters": 72.99241336497629,
+            "minutes": 1
+          }
+        ],
+        "score_label": "楽さ 21.6 (所要30分)",
+        "cost_score": 21.575099813474107,
+        "path": [
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.TokyoStationMarunouchiMinamiguchi.966.4"
+          ],
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToriSanchome.997.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.HatchoboriNichome.1232.4",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Kamejimabashi.376.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Shinkawa.2122.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.SumitomoTwinBiru.2162.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RiverCityNijuichi.2305.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TsukudaNichome.2306.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TsukishimaStation.720.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShinTsukishimaKoen.2312.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Harumibashi.2288.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.IHI.1026.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToyosuNichome.1024.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToyosuStation.1025.11",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.ToyosuStation.1025.11"
+          ],
+          [
+            "phys",
+            "dest:35.654400,139.796500"
+          ]
+        ],
+        "points": [
+          [
+            35.680125,
+            139.765588
+          ],
+          [
+            35.679839,
+            139.768326
+          ],
+          [
+            35.679839,
+            139.768326
+          ],
+          [
+            35.679149,
+            139.772418
+          ],
+          [
+            35.677646,
+            139.775934
+          ],
+          [
+            35.677169,
+            139.777156
+          ],
+          [
+            35.675847,
+            139.780264
+          ],
+          [
+            35.673396,
+            139.78321
+          ],
+          [
+            35.668495,
+            139.785346
+          ],
+          [
+            35.667456,
+            139.786046
+          ],
+          [
+            35.665177,
+            139.786043
+          ],
+          [
+            35.659457,
+            139.78827
+          ],
+          [
+            35.659121,
+            139.790654
+          ],
+          [
+            35.658676,
+            139.79277
+          ],
+          [
+            35.65688,
+            139.794522
+          ],
+          [
+            35.654154,
+            139.797249
+          ],
+          [
+            35.654154,
+            139.797249
+          ],
+          [
+            35.6544,
+            139.7965
+          ]
+        ],
+        "total": 21,
+        "transfers": 0,
+        "rides": 1,
+        "walking_distance_meters": 322,
+        "walking_segment_count": 2,
+        "boards": 1,
+        "departure_date": "2026-10-02T10:00:00",
+        "is_future_suggestion": false
+      },
+      {
+        "id": "Comfort-2",
+        "lines": [
+          "東１６ 東京ビッグサイト行"
+        ],
+        "lines_en": [
+          "東１６ · Tokyo Big Sight"
+        ],
+        "total_time": 29,
+        "arrival_time": "10:29",
+        "steps": [
+          {
+            "kind": "walk",
+            "title": "徒歩",
+            "edges": 1,
+            "from_": "東京駅丸の内南口",
+            "from_en": "Tokyo Sta. Marunouchi-Minamiguchi (Marunouchi South Exit)",
+            "to": "東京駅八重洲口",
+            "to_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+            "meters": 249.33865671861858,
+            "minutes": 4
+          },
+          {
+            "kind": "bus",
+            "title": "東１６ 東京ビッグサイト行",
+            "title_en": "東１６ · Tokyo Big Sight",
+            "edges": 12,
+            "from_": "東京駅八重洲口",
+            "from_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+            "to": "豊洲二丁目",
+            "to_en": "Toyosu-Nichōme (Toyosu 2)",
+            "stops": [
+              {
+                "name": "東京駅八重洲口",
+                "name_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+                "is_origin": true,
+                "lat": 35.679839,
+                "lon": 139.768326,
+                "id": "0967-01"
+              },
+              {
+                "name": "通り三丁目",
+                "name_en": "Tōri-Sanchōme (Tōri 3)",
+                "lat": 35.679149,
+                "lon": 139.772418,
+                "id": "0997-02"
+              },
+              {
+                "name": "八丁堀二丁目",
+                "name_en": "Hatchōbori-Nichōme (Hatchōbori 2)",
+                "lat": 35.677646,
+                "lon": 139.775934,
+                "id": "1232-04"
+              },
+              {
+                "name": "亀島橋",
+                "name_en": "Kamejimabashi",
+                "lat": 35.677169,
+                "lon": 139.777156,
+                "id": "0376-02"
+              },
+              {
+                "name": "新川",
+                "name_en": "Shinkawa",
+                "lat": 35.675847,
+                "lon": 139.780264,
+                "id": "2122-01"
+              },
+              {
+                "name": "住友ツインビル前",
+                "name_en": "Sumitomo Twin Biru",
+                "lat": 35.673396,
+                "lon": 139.78321,
+                "id": "2162-01"
+              },
+              {
+                "name": "リバーシティ２１",
+                "name_en": "River City Nijūichi",
+                "lat": 35.668495,
+                "lon": 139.785346,
+                "id": "2305-02"
+              },
+              {
+                "name": "佃二丁目",
+                "name_en": "Tsukuda-Nichōme (Tsukuda 2)",
+                "lat": 35.667456,
+                "lon": 139.786046,
+                "id": "2306-02"
+              },
+              {
+                "name": "月島駅前",
+                "name_en": "Tsukishima Sta.",
+                "lat": 35.665177,
+                "lon": 139.786043,
+                "id": "0720-02"
+              },
+              {
+                "name": "新月島公園前",
+                "name_en": "Shin-Tsukishima-Kōen (Shin-Tsukishima Park)",
+                "lat": 35.659457,
+                "lon": 139.78827,
+                "id": "2312-01"
+              },
+              {
+                "name": "春海橋",
+                "name_en": "Harumibashi",
+                "lat": 35.659121,
+                "lon": 139.790654,
+                "id": "2288-01"
+              },
+              {
+                "name": "ＩＨＩ前",
+                "name_en": "IHI",
+                "lat": 35.658676,
+                "lon": 139.79277,
+                "id": "1026-02"
+              },
+              {
+                "name": "豊洲二丁目",
+                "name_en": "Toyosu-Nichōme (Toyosu 2)",
+                "lat": 35.65688,
+                "lon": 139.794522,
+                "id": "1024-02",
+                "is_destination": true
+              }
+            ],
+            "departure_time": "10:04",
+            "route_id": "050",
+            "trip_id": "73002-1-81-170-1004",
+            "arrival_time": "10:24",
+            "minutes": 20
+          },
+          {
+            "kind": "walk",
+            "title": "徒歩",
+            "edges": 1,
+            "from_": "豊洲二丁目",
+            "from_en": "Toyosu-Nichōme (Toyosu 2)",
+            "to": "目的地",
+            "to_en": null,
+            "meters": 328.60826555558793,
+            "minutes": 5
+          }
+        ],
+        "score_label": "楽さ 25.4 (所要29分)",
+        "cost_score": 25.43650479264138,
+        "path": [
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.TokyoStationMarunouchiMinamiguchi.966.4"
+          ],
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToriSanchome.997.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.HatchoboriNichome.1232.4",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Kamejimabashi.376.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Shinkawa.2122.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.SumitomoTwinBiru.2162.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RiverCityNijuichi.2305.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TsukudaNichome.2306.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TsukishimaStation.720.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShinTsukishimaKoen.2312.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Harumibashi.2288.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.IHI.1026.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToyosuNichome.1024.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.ToyosuNichome.1024.2"
+          ],
+          [
+            "phys",
+            "dest:35.654400,139.796500"
+          ]
+        ],
+        "points": [
+          [
+            35.680125,
+            139.765588
+          ],
+          [
+            35.679839,
+            139.768326
+          ],
+          [
+            35.679839,
+            139.768326
+          ],
+          [
+            35.679149,
+            139.772418
+          ],
+          [
+            35.677646,
+            139.775934
+          ],
+          [
+            35.677169,
+            139.777156
+          ],
+          [
+            35.675847,
+            139.780264
+          ],
+          [
+            35.673396,
+            139.78321
+          ],
+          [
+            35.668495,
+            139.785346
+          ],
+          [
+            35.667456,
+            139.786046
+          ],
+          [
+            35.665177,
+            139.786043
+          ],
+          [
+            35.659457,
+            139.78827
+          ],
+          [
+            35.659121,
+            139.790654
+          ],
+          [
+            35.658676,
+            139.79277
+          ],
+          [
+            35.65688,
+            139.794522
+          ],
+          [
+            35.65688,
+            139.794522
+          ],
+          [
+            35.6544,
+            139.7965
+          ]
+        ],
+        "total": 25,
+        "transfers": 0,
+        "rides": 1,
+        "walking_distance_meters": 578,
+        "walking_segment_count": 2,
+        "boards": 1,
+        "departure_date": "2026-10-02T10:00:00",
+        "is_future_suggestion": false
+      },
+      {
+        "id": "Comfort-3",
+        "lines": [
+          "東１６ 東京ビッグサイト行"
+        ],
+        "lines_en": [
+          "東１６ · Tokyo Big Sight"
+        ],
+        "total_time": 33,
+        "arrival_time": "10:33",
+        "steps": [
+          {
+            "kind": "walk",
+            "title": "徒歩",
+            "edges": 1,
+            "from_": "東京駅丸の内南口",
+            "from_en": "Tokyo Sta. Marunouchi-Minamiguchi (Marunouchi South Exit)",
+            "to": "東京駅八重洲口",
+            "to_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+            "meters": 249.33865671861858,
+            "minutes": 4
+          },
+          {
+            "kind": "bus",
+            "title": "東１６ 東京ビッグサイト行",
+            "title_en": "東１６ · Tokyo Big Sight",
+            "edges": 14,
+            "from_": "東京駅八重洲口",
+            "from_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+            "to": "深川五中前",
+            "to_en": "Fukagawa-Gochū",
+            "stops": [
+              {
+                "name": "東京駅八重洲口",
+                "name_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+                "is_origin": true,
+                "lat": 35.679839,
+                "lon": 139.768326,
+                "id": "0967-01"
+              },
+              {
+                "name": "通り三丁目",
+                "name_en": "Tōri-Sanchōme (Tōri 3)",
+                "lat": 35.679149,
+                "lon": 139.772418,
+                "id": "0997-02"
+              },
+              {
+                "name": "八丁堀二丁目",
+                "name_en": "Hatchōbori-Nichōme (Hatchōbori 2)",
+                "lat": 35.677646,
+                "lon": 139.775934,
+                "id": "1232-04"
+              },
+              {
+                "name": "亀島橋",
+                "name_en": "Kamejimabashi",
+                "lat": 35.677169,
+                "lon": 139.777156,
+                "id": "0376-02"
+              },
+              {
+                "name": "新川",
+                "name_en": "Shinkawa",
+                "lat": 35.675847,
+                "lon": 139.780264,
+                "id": "2122-01"
+              },
+              {
+                "name": "住友ツインビル前",
+                "name_en": "Sumitomo Twin Biru",
+                "lat": 35.673396,
+                "lon": 139.78321,
+                "id": "2162-01"
+              },
+              {
+                "name": "リバーシティ２１",
+                "name_en": "River City Nijūichi",
+                "lat": 35.668495,
+                "lon": 139.785346,
+                "id": "2305-02"
+              },
+              {
+                "name": "佃二丁目",
+                "name_en": "Tsukuda-Nichōme (Tsukuda 2)",
+                "lat": 35.667456,
+                "lon": 139.786046,
+                "id": "2306-02"
+              },
+              {
+                "name": "月島駅前",
+                "name_en": "Tsukishima Sta.",
+                "lat": 35.665177,
+                "lon": 139.786043,
+                "id": "0720-02"
+              },
+              {
+                "name": "新月島公園前",
+                "name_en": "Shin-Tsukishima-Kōen (Shin-Tsukishima Park)",
+                "lat": 35.659457,
+                "lon": 139.78827,
+                "id": "2312-01"
+              },
+              {
+                "name": "春海橋",
+                "name_en": "Harumibashi",
+                "lat": 35.659121,
+                "lon": 139.790654,
+                "id": "2288-01"
+              },
+              {
+                "name": "ＩＨＩ前",
+                "name_en": "IHI",
+                "lat": 35.658676,
+                "lon": 139.79277,
+                "id": "1026-02"
+              },
+              {
+                "name": "豊洲二丁目",
+                "name_en": "Toyosu-Nichōme (Toyosu 2)",
+                "lat": 35.65688,
+                "lon": 139.794522,
+                "id": "1024-02"
+              },
+              {
+                "name": "豊洲駅前",
+                "name_en": "Toyosu Sta.",
+                "lat": 35.654154,
+                "lon": 139.797249,
+                "id": "1025-11"
+              },
+              {
+                "name": "深川五中前",
+                "name_en": "Fukagawa-Gochū",
+                "lat": 35.652672,
+                "lon": 139.798675,
+                "id": "0619-02",
+                "is_destination": true
+              }
+            ],
+            "departure_time": "10:04",
+            "route_id": "050",
+            "trip_id": "73002-1-81-170-1004",
+            "arrival_time": "10:29",
+            "minutes": 25
+          },
+          {
+            "kind": "walk",
+            "title": "徒歩",
+            "edges": 1,
+            "from_": "深川五中前",
+            "from_en": "Fukagawa-Gochū",
+            "to": "目的地",
+            "to_en": null,
+            "meters": 274.84205179112644,
+            "minutes": 4
+          }
+        ],
+        "score_label": "楽さ 26.0 (所要33分)",
+        "cost_score": 26.028388284557728,
+        "path": [
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.TokyoStationMarunouchiMinamiguchi.966.4"
+          ],
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToriSanchome.997.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.HatchoboriNichome.1232.4",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Kamejimabashi.376.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Shinkawa.2122.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.SumitomoTwinBiru.2162.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RiverCityNijuichi.2305.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TsukudaNichome.2306.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TsukishimaStation.720.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShinTsukishimaKoen.2312.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Harumibashi.2288.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.IHI.1026.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToyosuNichome.1024.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToyosuStation.1025.11",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.FukagawaGochu.619.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.FukagawaGochu.619.2"
+          ],
+          [
+            "phys",
+            "dest:35.654400,139.796500"
+          ]
+        ],
+        "points": [
+          [
+            35.680125,
+            139.765588
+          ],
+          [
+            35.679839,
+            139.768326
+          ],
+          [
+            35.679839,
+            139.768326
+          ],
+          [
+            35.679149,
+            139.772418
+          ],
+          [
+            35.677646,
+            139.775934
+          ],
+          [
+            35.677169,
+            139.777156
+          ],
+          [
+            35.675847,
+            139.780264
+          ],
+          [
+            35.673396,
+            139.78321
+          ],
+          [
+            35.668495,
+            139.785346
+          ],
+          [
+            35.667456,
+            139.786046
+          ],
+          [
+            35.665177,
+            139.786043
+          ],
+          [
+            35.659457,
+            139.78827
+          ],
+          [
+            35.659121,
+            139.790654
+          ],
+          [
+            35.658676,
+            139.79277
+          ],
+          [
+            35.65688,
+            139.794522
+          ],
+          [
+            35.654154,
+            139.797249
+          ],
+          [
+            35.652672,
+            139.798675
+          ],
+          [
+            35.652672,
+            139.798675
+          ],
+          [
+            35.6544,
+            139.7965
+          ]
+        ],
+        "total": 26,
+        "transfers": 0,
+        "rides": 1,
+        "walking_distance_meters": 524,
+        "walking_segment_count": 2,
+        "boards": 1,
+        "departure_date": "2026-10-02T10:00:00",
+        "is_future_suggestion": false
+      },
+      {
+        "id": "Comfort-4",
+        "lines": [
+          "東１６ 東京ビッグサイト行"
+        ],
+        "lines_en": [
+          "東１６ · Tokyo Big Sight"
+        ],
+        "total_time": 31,
+        "arrival_time": "10:31",
+        "steps": [
+          {
+            "kind": "walk",
+            "title": "徒歩",
+            "edges": 1,
+            "from_": "東京駅丸の内南口",
+            "from_en": "Tokyo Sta. Marunouchi-Minamiguchi (Marunouchi South Exit)",
+            "to": "東京駅八重洲口",
+            "to_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+            "meters": 249.33865671861858,
+            "minutes": 4
+          },
+          {
+            "kind": "bus",
+            "title": "東１６ 東京ビッグサイト行",
+            "title_en": "東１６ · Tokyo Big Sight",
+            "edges": 11,
+            "from_": "東京駅八重洲口",
+            "from_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+            "to": "ＩＨＩ前",
+            "to_en": "IHI",
+            "stops": [
+              {
+                "name": "東京駅八重洲口",
+                "name_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+                "is_origin": true,
+                "lat": 35.679839,
+                "lon": 139.768326,
+                "id": "0967-01"
+              },
+              {
+                "name": "通り三丁目",
+                "name_en": "Tōri-Sanchōme (Tōri 3)",
+                "lat": 35.679149,
+                "lon": 139.772418,
+                "id": "0997-02"
+              },
+              {
+                "name": "八丁堀二丁目",
+                "name_en": "Hatchōbori-Nichōme (Hatchōbori 2)",
+                "lat": 35.677646,
+                "lon": 139.775934,
+                "id": "1232-04"
+              },
+              {
+                "name": "亀島橋",
+                "name_en": "Kamejimabashi",
+                "lat": 35.677169,
+                "lon": 139.777156,
+                "id": "0376-02"
+              },
+              {
+                "name": "新川",
+                "name_en": "Shinkawa",
+                "lat": 35.675847,
+                "lon": 139.780264,
+                "id": "2122-01"
+              },
+              {
+                "name": "住友ツインビル前",
+                "name_en": "Sumitomo Twin Biru",
+                "lat": 35.673396,
+                "lon": 139.78321,
+                "id": "2162-01"
+              },
+              {
+                "name": "リバーシティ２１",
+                "name_en": "River City Nijūichi",
+                "lat": 35.668495,
+                "lon": 139.785346,
+                "id": "2305-02"
+              },
+              {
+                "name": "佃二丁目",
+                "name_en": "Tsukuda-Nichōme (Tsukuda 2)",
+                "lat": 35.667456,
+                "lon": 139.786046,
+                "id": "2306-02"
+              },
+              {
+                "name": "月島駅前",
+                "name_en": "Tsukishima Sta.",
+                "lat": 35.665177,
+                "lon": 139.786043,
+                "id": "0720-02"
+              },
+              {
+                "name": "新月島公園前",
+                "name_en": "Shin-Tsukishima-Kōen (Shin-Tsukishima Park)",
+                "lat": 35.659457,
+                "lon": 139.78827,
+                "id": "2312-01"
+              },
+              {
+                "name": "春海橋",
+                "name_en": "Harumibashi",
+                "lat": 35.659121,
+                "lon": 139.790654,
+                "id": "2288-01"
+              },
+              {
+                "name": "ＩＨＩ前",
+                "name_en": "IHI",
+                "lat": 35.658676,
+                "lon": 139.79277,
+                "id": "1026-02",
+                "is_destination": true
+              }
+            ],
+            "departure_time": "10:04",
+            "route_id": "050",
+            "trip_id": "73002-1-81-170-1004",
+            "arrival_time": "10:23",
+            "minutes": 19
+          },
+          {
+            "kind": "walk",
+            "title": "徒歩",
+            "edges": 1,
+            "from_": "ＩＨＩ前",
+            "from_en": "IHI",
+            "to": "目的地",
+            "to_en": null,
+            "meters": 582.7871370046266,
+            "minutes": 8
+          }
+        ],
+        "score_label": "楽さ 29.4 (所要31分)",
+        "cost_score": 29.402358632310854,
+        "path": [
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.TokyoStationMarunouchiMinamiguchi.966.4"
+          ],
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TokyoStationYaesuguchi.967.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToriSanchome.997.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.HatchoboriNichome.1232.4",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Kamejimabashi.376.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Shinkawa.2122.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.SumitomoTwinBiru.2162.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RiverCityNijuichi.2305.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TsukudaNichome.2306.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TsukishimaStation.720.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShinTsukishimaKoen.2312.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Harumibashi.2288.1",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.IHI.1026.2",
+            "buspat:odpt.BusroutePattern:Toei.Higashi16.73002.1"
+          ],
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.IHI.1026.2"
+          ],
+          [
+            "phys",
+            "dest:35.654400,139.796500"
+          ]
+        ],
+        "points": [
+          [
+            35.680125,
+            139.765588
+          ],
+          [
+            35.679839,
+            139.768326
+          ],
+          [
+            35.679839,
+            139.768326
+          ],
+          [
+            35.679149,
+            139.772418
+          ],
+          [
+            35.677646,
+            139.775934
+          ],
+          [
+            35.677169,
+            139.777156
+          ],
+          [
+            35.675847,
+            139.780264
+          ],
+          [
+            35.673396,
+            139.78321
+          ],
+          [
+            35.668495,
+            139.785346
+          ],
+          [
+            35.667456,
+            139.786046
+          ],
+          [
+            35.665177,
+            139.786043
+          ],
+          [
+            35.659457,
+            139.78827
+          ],
+          [
+            35.659121,
+            139.790654
+          ],
+          [
+            35.658676,
+            139.79277
+          ],
+          [
+            35.658676,
+            139.79277
+          ],
+          [
+            35.6544,
+            139.7965
+          ]
+        ],
+        "total": 29,
+        "transfers": 0,
+        "rides": 1,
+        "walking_distance_meters": 832,
+        "walking_segment_count": 2,
+        "boards": 1,
+        "departure_date": "2026-10-02T10:00:00",
+        "is_future_suggestion": false
+      },
+      {
+        "id": "Comfort-5",
+        "lines": [
+          "都０５－１ 晴海埠頭行",
+          "業１０出入 深川車庫前行"
+        ],
+        "lines_en": [
+          "都０５－１ · Harumi-Futō",
+          "業１０出入 · Fukagawa-Shako"
+        ],
+        "total_time": 38,
+        "arrival_time": "10:38",
+        "steps": [
+          {
+            "kind": "wait",
+            "title": "待ち時間",
+            "minutes": 1,
+            "edges": 0,
+            "from_": "東京駅丸の内南口",
+            "from_en": "Tokyo Sta. Marunouchi-Minamiguchi (Marunouchi South Exit)",
+            "to": "東京駅丸の内南口",
+            "to_en": "Tokyo Sta. Marunouchi-Minamiguchi (Marunouchi South Exit)",
+            "meters": 0,
+            "departure_time": "10:00",
+            "arrival_time": "10:02",
+            "startLabel": "待ち時間",
+            "place": "東京駅丸の内南口",
+            "place_en": "Tokyo Sta. Marunouchi-Minamiguchi (Marunouchi South Exit)"
+          },
+          {
+            "kind": "bus",
+            "title": "都０５－１ 晴海埠頭行",
+            "title_en": "都０５－１ · Harumi-Futō",
+            "edges": 7,
+            "from_": "東京駅丸の内南口",
+            "from_en": "Tokyo Sta. Marunouchi-Minamiguchi (Marunouchi South Exit)",
+            "to": "築地六丁目",
+            "to_en": "Tsukiji-Rokuchōme (Tsukiji 6)",
+            "stops": [
+              {
+                "name": "東京駅丸の内南口",
+                "name_en": "Tokyo Sta. Marunouchi-Minamiguchi (Marunouchi South Exit)",
+                "is_origin": true,
+                "lat": 35.679934,
+                "lon": 139.765721,
+                "id": "0966-03"
+              },
+              {
+                "name": "東京国際フォーラム前",
+                "name_en": "Tokyo Kokusai Forum (Tokyo International Forum)",
+                "lat": 35.677469,
+                "lon": 139.763346,
+                "id": "1008-03"
+              },
+              {
+                "name": "有楽町駅前",
+                "name_en": "Yūrakuchō Sta.",
+                "lat": 35.675401,
+                "lon": 139.762715,
+                "id": "1570-01"
+              },
+              {
+                "name": "数寄屋橋",
+                "name_en": "Sukiyabashi",
+                "lat": 35.673234,
+                "lon": 139.762412,
+                "id": "0778-03"
+              },
+              {
+                "name": "銀座四丁目",
+                "name_en": "Ginza-Yonchōme (Ginza 4)",
+                "lat": 35.670623,
+                "lon": 139.766037,
+                "id": "0448-08"
+              },
+              {
+                "name": "築地",
+                "name_en": "Tsukiji",
+                "lat": 35.667865,
+                "lon": 139.769295,
+                "id": "0939-01"
+              },
+              {
+                "name": "築地三丁目",
+                "name_en": "Tsukiji-Sanchōme (Tsukiji 3)",
+                "lat": 35.666983,
+                "lon": 139.77036,
+                "id": "0945-01"
+              },
+              {
+                "name": "築地六丁目",
+                "name_en": "Tsukiji-Rokuchōme (Tsukiji 6)",
+                "lat": 35.664239,
+                "lon": 139.773148,
+                "id": "0946-02",
+                "is_destination": true
+              }
+            ],
+            "departure_time": "10:02",
+            "route_id": "184",
+            "trip_id": "72414-2-81-170-1002",
+            "arrival_time": "10:17",
+            "minutes": 15
+          },
+          {
+            "kind": "bus",
+            "title": "業１０出入 深川車庫前行",
+            "title_en": "業１０出入 · Fukagawa-Shako",
+            "edges": 9,
+            "from_": "築地六丁目",
+            "from_en": "Tsukiji-Rokuchōme (Tsukiji 6)",
+            "to": "豊洲駅前",
+            "to_en": "Toyosu Sta.",
+            "stops": [
+              {
+                "name": "築地六丁目",
+                "name_en": "Tsukiji-Rokuchōme (Tsukiji 6)",
+                "is_origin": true,
+                "lat": 35.664239,
+                "lon": 139.773148,
+                "id": "0946-02"
+              },
+              {
+                "name": "勝どき橋南詰",
+                "name_en": "Kachidokibashi-Minamizume",
+                "lat": 35.660615,
+                "lon": 139.776576,
+                "id": "0325-02"
+              },
+              {
+                "name": "勝どき駅前",
+                "name_en": "Kachidoki Sta.",
+                "lat": 35.659714,
+                "lon": 139.778029,
+                "id": "0326-01"
+              },
+              {
+                "name": "月島三丁目",
+                "name_en": "Tsukishima-Sanchōme (Tsukishima 3)",
+                "lat": 35.662395,
+                "lon": 139.781815,
+                "id": "0937-02"
+              },
+              {
+                "name": "月島四丁目",
+                "name_en": "Tsukishima-Yonchōme (Tsukishima 4)",
+                "lat": 35.661627,
+                "lon": 139.783595,
+                "id": "0938-01"
+              },
+              {
+                "name": "晴海一丁目",
+                "name_en": "Harumi-Itchōme (Harumi 1)",
+                "lat": 35.659746,
+                "lon": 139.785578,
+                "id": "1252-01"
+              },
+              {
+                "name": "春海橋",
+                "name_en": "Harumibashi",
+                "lat": 35.659121,
+                "lon": 139.790654,
+                "id": "2288-01"
+              },
+              {
+                "name": "ＩＨＩ前",
+                "name_en": "IHI",
+                "lat": 35.658676,
+                "lon": 139.79277,
+                "id": "1026-02"
+              },
+              {
+                "name": "豊洲二丁目",
+                "name_en": "Toyosu-Nichōme (Toyosu 2)",
+                "lat": 35.65688,
+                "lon": 139.794522,
+                "id": "1024-02"
+              },
+              {
+                "name": "豊洲駅前",
+                "name_en": "Toyosu Sta.",
+                "lat": 35.654154,
+                "lon": 139.797249,
+                "id": "1025-11",
+                "is_destination": true
+              }
+            ],
+            "departure_time": "10:17",
+            "route_id": "041",
+            "trip_id": "72509-2-81-170-1009",
+            "arrival_time": "10:37",
+            "minutes": 20
+          },
+          {
+            "kind": "walk",
+            "title": "徒歩",
+            "edges": 1,
+            "from_": "豊洲駅前",
+            "from_en": "Toyosu Sta.",
+            "to": "目的地",
+            "to_en": null,
+            "meters": 72.99241336497629,
+            "minutes": 1
+          }
+        ],
+        "score_label": "楽さ 25.8 (所要38分)",
+        "cost_score": 25.800000000000008,
+        "path": [
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.TokyoStationMarunouchiMinamiguchi.966.4"
+          ],
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.TokyoStationMarunouchiMinamiguchi.966.3"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TokyoStationMarunouchiMinamiguchi.966.3",
+            "buspat:odpt.BusroutePattern:Toei.T05-1.72414.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TokyoKokusaiForum.1008.3",
+            "buspat:odpt.BusroutePattern:Toei.T05-1.72414.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.YurakuchoStation.1570.1",
+            "buspat:odpt.BusroutePattern:Toei.T05-1.72414.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Sukiyabashi.778.3",
+            "buspat:odpt.BusroutePattern:Toei.T05-1.72414.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.GinzaYonchome.448.8",
+            "buspat:odpt.BusroutePattern:Toei.T05-1.72414.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Tsukiji.939.1",
+            "buspat:odpt.BusroutePattern:Toei.T05-1.72414.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TsukijiSanchome.945.1",
+            "buspat:odpt.BusroutePattern:Toei.T05-1.72414.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TsukijiRokuchome.946.2",
+            "buspat:odpt.BusroutePattern:Toei.T05-1.72414.2"
+          ],
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.TsukijiRokuchome.946.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TsukijiRokuchome.946.2",
+            "buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.KachidokibashiMinamizume.325.2",
+            "buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.KachidokiStation.326.1",
+            "buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TsukishimaSanchome.937.2",
+            "buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TsukishimaYonchome.938.1",
+            "buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.HarumiItchome.1252.1",
+            "buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Harumibashi.2288.1",
+            "buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.IHI.1026.2",
+            "buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToyosuNichome.1024.2",
+            "buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToyosuStation.1025.11",
+            "buspat:odpt.BusroutePattern:Toei.Nari10Shutsunyuu.72509.2"
+          ],
+          [
+            "phys",
+            "odpt.BusstopPole:Toei.ToyosuStation.1025.11"
+          ],
+          [
+            "phys",
+            "dest:35.654400,139.796500"
+          ]
+        ],
+        "points": [
+          [
+            35.680125,
+            139.765588
+          ],
+          [
+            35.679934,
+            139.765721
+          ],
+          [
+            35.679934,
+            139.765721
+          ],
+          [
+            35.677469,
+            139.763346
+          ],
+          [
+            35.675401,
+            139.762715
+          ],
+          [
+            35.673234,
+            139.762412
+          ],
+          [
+            35.670623,
+            139.766037
+          ],
+          [
+            35.667865,
+            139.769295
+          ],
+          [
+            35.666983,
+            139.77036
+          ],
+          [
+            35.664239,
+            139.773148
+          ],
+          [
+            35.664239,
+            139.773148
+          ],
+          [
+            35.664239,
+            139.773148
+          ],
+          [
+            35.660615,
+            139.776576
+          ],
+          [
+            35.659714,
+            139.778029
+          ],
+          [
+            35.662395,
+            139.781815
+          ],
+          [
+            35.661627,
+            139.783595
+          ],
+          [
+            35.659746,
+            139.785578
+          ],
+          [
+            35.659121,
+            139.790654
+          ],
+          [
+            35.658676,
+            139.79277
+          ],
+          [
+            35.65688,
+            139.794522
+          ],
+          [
+            35.654154,
+            139.797249
+          ],
+          [
+            35.654154,
+            139.797249
+          ],
+          [
+            35.6544,
+            139.7965
+          ]
+        ],
+        "total": 25,
+        "transfers": 1,
+        "rides": 2,
+        "walking_distance_meters": 73,
+        "walking_segment_count": 1,
+        "boards": 2,
+        "departure_date": "2026-10-02T10:00:00",
+        "is_future_suggestion": false
+      }
+    ]
+  },
+  "same_routes": true,
+  "stats": [
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1511,
+      "function": "search_best_routes_once",
+      "calls": 1,
+      "own_ms": 4.0067,
+      "cumulative_ms": 999.6871000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1546,
+      "function": "search_best_routes",
+      "calls": 1,
+      "own_ms": 0.0627,
+      "cumulative_ms": 995.5947000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1946,
+      "function": "find_few_transfers_paths_generator",
+      "calls": 6,
+      "own_ms": 233.29960000000003,
+      "cumulative_ms": 992.9486
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1347,
+      "function": "advance_time",
+      "calls": 151979,
+      "own_ms": 139.87580000000003,
+      "cumulative_ms": 547.7703
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 897,
+      "function": "get_next_bus_departure",
+      "calls": 53485,
+      "own_ms": 86.60470000000001,
+      "cumulative_ms": 265.4109
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'get' of 'dict' objects>",
+      "calls": 1469936,
+      "own_ms": 157.45420000000001,
+      "cumulative_ms": 157.45420000000001
+    },
+    {
+      "file": "<frozen os>",
+      "line": 808,
+      "function": "getenv",
+      "calls": 53485,
+      "own_ms": 10.487100000000002,
+      "cumulative_ms": 85.10180000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 866,
+      "function": "_bus_candidates_for_day",
+      "calls": 53485,
+      "own_ms": 38.4727,
+      "cumulative_ms": 81.1207
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\graph.py",
+      "line": 509,
+      "function": "__getitem__",
+      "calls": 168207,
+      "own_ms": 26.270400000000002,
+      "cumulative_ms": 79.1068
+    },
+    {
+      "file": "<frozen _collections_abc>",
+      "line": 804,
+      "function": "get",
+      "calls": 53485,
+      "own_ms": 17.3475,
+      "cumulative_ms": 74.6147
+    },
+    {
+      "file": "<frozen os>",
+      "line": 709,
+      "function": "__getitem__",
+      "calls": 53485,
+      "own_ms": 26.6048,
+      "cumulative_ms": 57.2672
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\coreviews.py",
+      "line": 81,
+      "function": "__getitem__",
+      "calls": 168207,
+      "own_ms": 41.78530000000001,
+      "cumulative_ms": 52.836400000000005
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\reportviews.py",
+      "line": 190,
+      "function": "__getitem__",
+      "calls": 162038,
+      "own_ms": 25.7776,
+      "cumulative_ms": 35.0289
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\reportviews.py",
+      "line": 1089,
+      "function": "__getitem__",
+      "calls": 151979,
+      "own_ms": 24.8074,
+      "cumulative_ms": 34.7036
+    },
+    {
+      "file": "<frozen os>",
+      "line": 783,
+      "function": "encodekey",
+      "calls": 53485,
+      "own_ms": 14.915000000000001,
+      "cumulative_ms": 30.6624
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.isinstance>",
+      "calls": 368137,
+      "own_ms": 22.283800000000003,
+      "cumulative_ms": 22.283800000000003
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\graph.py",
+      "line": 1303,
+      "function": "has_edge",
+      "calls": 152277,
+      "own_ms": 15.166400000000001,
+      "cumulative_ms": 15.166400000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'isoformat' of 'datetime.date' objects>",
+      "calls": 50449,
+      "own_ms": 14.894800000000002,
+      "cumulative_ms": 14.894800000000002
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\coreviews.py",
+      "line": 53,
+      "function": "__getitem__",
+      "calls": 152111,
+      "own_ms": 14.5805,
+      "cumulative_ms": 14.5805
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 473,
+      "function": "_chain_new",
+      "calls": 28303,
+      "own_ms": 8.533000000000001,
+      "cumulative_ms": 13.0991
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _heapq.heappop>",
+      "calls": 20826,
+      "own_ms": 12.4422,
+      "cumulative_ms": 12.4422
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\coreviews.py",
+      "line": 44,
+      "function": "__init__",
+      "calls": 168207,
+      "own_ms": 11.051100000000002,
+      "cumulative_ms": 11.051100000000002
+    },
+    {
+      "file": "<frozen os>",
+      "line": 777,
+      "function": "check_str",
+      "calls": 53485,
+      "own_ms": 7.277100000000001,
+      "cumulative_ms": 10.3641
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.len>",
+      "calls": 140429,
+      "own_ms": 10.316699999999999,
+      "cumulative_ms": 10.316699999999999
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1038,
+      "function": "get_next_train_arrival",
+      "calls": 187,
+      "own_ms": 4.8811,
+      "cumulative_ms": 6.7574000000000005
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'upper' of 'str' objects>",
+      "calls": 53485,
+      "own_ms": 5.3833,
+      "cumulative_ms": 5.3833
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _heapq.heappush>",
+      "calls": 28302,
+      "own_ms": 4.6972000000000005,
+      "cumulative_ms": 4.6972000000000005
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.getattr>",
+      "calls": 53497,
+      "own_ms": 4.5125,
+      "cumulative_ms": 4.5125
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\coreviews.py",
+      "line": 50,
+      "function": "__iter__",
+      "calls": 16096,
+      "own_ms": 2.6012,
+      "cumulative_ms": 4.0285
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 918,
+      "function": "is_valid_trip",
+      "calls": 48742,
+      "own_ms": 3.575,
+      "cumulative_ms": 3.575
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'append' of 'list' objects>",
+      "calls": 28778,
+      "own_ms": 2.5947,
+      "cumulative_ms": 2.5947
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method time.monotonic>",
+      "calls": 20835,
+      "own_ms": 2.2067,
+      "cumulative_ms": 2.2067
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 2489,
+      "function": "segments_detailed",
+      "calls": 5,
+      "own_ms": 0.3825,
+      "cumulative_ms": 1.4689
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.iter>",
+      "calls": 16096,
+      "own_ms": 1.4273,
+      "cumulative_ms": 1.4273
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 2404,
+      "function": "calculate_real_arrival_time",
+      "calls": 5,
+      "own_ms": 0.1067,
+      "cumulative_ms": 0.9226000000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 281,
+      "function": "_mem_log",
+      "calls": 1,
+      "own_ms": 0.0045000000000000005,
+      "cumulative_ms": 0.8637
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 262,
+      "function": "_rss_mb",
+      "calls": 1,
+      "own_ms": 0.008900000000000002,
+      "cumulative_ms": 0.8573000000000001
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 1349,
+      "function": "_find_and_load",
+      "calls": 1,
+      "own_ms": 0.010300000000000002,
+      "cumulative_ms": 0.8171
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 1304,
+      "function": "_find_and_load_unlocked",
+      "calls": 1,
+      "own_ms": 0.0061,
+      "cumulative_ms": 0.7516
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 1240,
+      "function": "_find_spec",
+      "calls": 1,
+      "own_ms": 0.008900000000000002,
+      "cumulative_ms": 0.745
+    },
+    {
+      "file": "<frozen importlib._bootstrap_external>",
+      "line": 1524,
+      "function": "find_spec",
+      "calls": 1,
+      "own_ms": 0.0018000000000000002,
+      "cumulative_ms": 0.7250000000000001
+    },
+    {
+      "file": "<frozen importlib._bootstrap_external>",
+      "line": 1495,
+      "function": "_get_spec",
+      "calls": 1,
+      "own_ms": 0.011600000000000001,
+      "cumulative_ms": 0.7232000000000001
+    },
+    {
+      "file": "<frozen importlib._bootstrap_external>",
+      "line": 1597,
+      "function": "find_spec",
+      "calls": 7,
+      "own_ms": 0.0533,
+      "cumulative_ms": 0.7059000000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 309,
+      "function": "_gtfs_stop_id",
+      "calls": 312,
+      "own_ms": 0.3063,
+      "cumulative_ms": 0.663
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 376,
+      "function": "_bus_path_gtfs_stop_ids",
+      "calls": 12,
+      "own_ms": 0.1132,
+      "cumulative_ms": 0.49
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 335,
+      "function": "_resolve_gtfs_bus_leg",
+      "calls": 12,
+      "own_ms": 0.017800000000000003,
+      "cumulative_ms": 0.42760000000000004
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\gtfs_loader.py",
+      "line": 388,
+      "function": "get_trip_stop_time_after",
+      "calls": 264,
+      "own_ms": 0.1894,
+      "cumulative_ms": 0.3615
+    },
+    {
+      "file": "<frozen importlib._bootstrap_external>",
+      "line": 140,
+      "function": "_path_stat",
+      "calls": 7,
+      "own_ms": 0.005,
+      "cumulative_ms": 0.32920000000000005
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method nt.stat>",
+      "calls": 7,
+      "own_ms": 0.32420000000000004,
+      "cumulative_ms": 0.32420000000000004
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\gtfs_loader.py",
+      "line": 400,
+      "function": "find_next_trip_leg",
+      "calls": 12,
+      "own_ms": 0.0733,
+      "cumulative_ms": 0.2919
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\re\\__init__.py",
+      "line": 174,
+      "function": "search",
+      "calls": 312,
+      "own_ms": 0.08950000000000001,
+      "cumulative_ms": 0.27140000000000003
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 696,
+      "function": "_guess_railway_id",
+      "calls": 187,
+      "own_ms": 0.1134,
+      "cumulative_ms": 0.2005
+    },
+    {
+      "file": "<frozen importlib._bootstrap_external>",
+      "line": 96,
+      "function": "_path_join",
+      "calls": 35,
+      "own_ms": 0.1217,
+      "cumulative_ms": 0.19840000000000002
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 2004,
+      "function": "_log_few_transfers_stats",
+      "calls": 8,
+      "own_ms": 0.05960000000000001,
+      "cumulative_ms": 0.19500000000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.sorted>",
+      "calls": 301,
+      "own_ms": 0.1454,
+      "cumulative_ms": 0.1464
+    },
+    {
+      "file": "<frozen importlib._bootstrap_external>",
+      "line": 1648,
+      "function": "_fill_cache",
+      "calls": 1,
+      "own_ms": 0.022000000000000002,
+      "cumulative_ms": 0.1135
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1997,
+      "function": "_boarding_counts",
+      "calls": 40,
+      "own_ms": 0.0323,
+      "cumulative_ms": 0.0965
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\re\\__init__.py",
+      "line": 280,
+      "function": "_compile",
+      "calls": 312,
+      "own_ms": 0.0659,
+      "cumulative_ms": 0.0956
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 2522,
+      "function": "flush",
+      "calls": 28,
+      "own_ms": 0.05210000000000001,
+      "cumulative_ms": 0.09330000000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 365,
+      "function": "_find_bus_alight_pole",
+      "calls": 12,
+      "own_ms": 0.0516,
+      "cumulative_ms": 0.0906
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.print>",
+      "calls": 128,
+      "own_ms": 0.08940000000000001,
+      "cumulative_ms": 0.08940000000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1407,
+      "function": "path_to_coords",
+      "calls": 5,
+      "own_ms": 0.05210000000000001,
+      "cumulative_ms": 0.0884
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'split' of 'str' objects>",
+      "calls": 238,
+      "own_ms": 0.087,
+      "cumulative_ms": 0.087
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'search' of 're.Pattern' objects>",
+      "calls": 312,
+      "own_ms": 0.08630000000000002,
+      "cumulative_ms": 0.08630000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method nt.listdir>",
+      "calls": 1,
+      "own_ms": 0.07900000000000001,
+      "cumulative_ms": 0.07900000000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1421,
+      "function": "_transit_path_signature",
+      "calls": 5,
+      "own_ms": 0.0357,
+      "cumulative_ms": 0.0694
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 321,
+      "function": "_gtfs_bus_route_id",
+      "calls": 12,
+      "own_ms": 0.019600000000000003,
+      "cumulative_ms": 0.0674
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\graph.py",
+      "line": 1444,
+      "function": "get_edge_data",
+      "calls": 552,
+      "own_ms": 0.0674,
+      "cumulative_ms": 0.0674
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'group' of 're.Match' objects>",
+      "calls": 624,
+      "own_ms": 0.06720000000000001,
+      "cumulative_ms": 0.06720000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'join' of 'str' objects>",
+      "calls": 67,
+      "own_ms": 0.0318,
+      "cumulative_ms": 0.0547
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 416,
+      "function": "__enter__",
+      "calls": 1,
+      "own_ms": 0.0022,
+      "cumulative_ms": 0.04650000000000001
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 477,
+      "function": "reconstruct_path_idx",
+      "calls": 5,
+      "own_ms": 0.0347,
+      "cumulative_ms": 0.044800000000000006
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method strptime>",
+      "calls": 1,
+      "own_ms": 0.0017000000000000001,
+      "cumulative_ms": 0.044000000000000004
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\_strptime.py",
+      "line": 650,
+      "function": "_strptime_datetime",
+      "calls": 1,
+      "own_ms": 0.0097,
+      "cumulative_ms": 0.042300000000000004
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\_strptime.py",
+      "line": 392,
+      "function": "_strptime",
+      "calls": 1,
+      "own_ms": 0.017,
+      "cumulative_ms": 0.0326
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _io.open>",
+      "calls": 1,
+      "own_ms": 0.0313,
+      "cumulative_ms": 0.0313
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'strftime' of 'datetime.date' objects>",
+      "calls": 5,
+      "own_ms": 0.0309,
+      "cumulative_ms": 0.0309
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 304,
+      "function": "acquire",
+      "calls": 1,
+      "own_ms": 0.009300000000000001,
+      "cumulative_ms": 0.0303
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 302,
+      "function": "_line_norm",
+      "calls": 12,
+      "own_ms": 0.012,
+      "cumulative_ms": 0.0292
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'rstrip' of 'str' objects>",
+      "calls": 105,
+      "own_ms": 0.0247,
+      "cumulative_ms": 0.0247
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'items' of 'dict' objects>",
+      "calls": 264,
+      "own_ms": 0.023500000000000004,
+      "cumulative_ms": 0.023500000000000004
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 460,
+      "function": "time_str_to_min",
+      "calls": 28,
+      "own_ms": 0.0184,
+      "cumulative_ms": 0.0233
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 2000,
+      "function": "<genexpr>",
+      "calls": 91,
+      "own_ms": 0.0229,
+      "cumulative_ms": 0.0229
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'startswith' of 'str' objects>",
+      "calls": 114,
+      "own_ms": 0.022000000000000002,
+      "cumulative_ms": 0.022000000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'endswith' of 'str' objects>",
+      "calls": 105,
+      "own_ms": 0.0174,
+      "cumulative_ms": 0.0174
+    },
+    {
+      "file": "<string>",
+      "line": 2,
+      "function": "__init__",
+      "calls": 12,
+      "own_ms": 0.0167,
+      "cumulative_ms": 0.0167
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'disable' of '_lsprof.Profiler' objects>",
+      "calls": 1,
+      "own_ms": 0.016000000000000004,
+      "cumulative_ms": 0.016000000000000004
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 162,
+      "function": "__enter__",
+      "calls": 1,
+      "own_ms": 0.0043,
+      "cumulative_ms": 0.0155
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.sum>",
+      "calls": 15,
+      "own_ms": 0.0097,
+      "cumulative_ms": 0.014900000000000002
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 426,
+      "function": "_get_module_lock",
+      "calls": 1,
+      "own_ms": 0.008000000000000002,
+      "cumulative_ms": 0.014000000000000002
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 465,
+      "function": "min_to_time_str",
+      "calls": 19,
+      "own_ms": 0.0123,
+      "cumulative_ms": 0.0123
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\_strptime.py",
+      "line": 27,
+      "function": "_getlang",
+      "calls": 1,
+      "own_ms": 0.0008,
+      "cumulative_ms": 0.0119
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\locale.py",
+      "line": 582,
+      "function": "getlocale",
+      "calls": 1,
+      "own_ms": 0.0023,
+      "cumulative_ms": 0.0111
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\graph.py",
+      "line": 473,
+      "function": "__contains__",
+      "calls": 66,
+      "own_ms": 0.0111,
+      "cumulative_ms": 0.0111
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 124,
+      "function": "setdefault",
+      "calls": 1,
+      "own_ms": 0.0038,
+      "cumulative_ms": 0.0109
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _bisect.bisect_left>",
+      "calls": 12,
+      "own_ms": 0.0105,
+      "cumulative_ms": 0.0105
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\.venv-route\\Lib\\site-packages\\networkx\\classes\\reportviews.py",
+      "line": 199,
+      "function": "__contains__",
+      "calls": 103,
+      "own_ms": 0.009300000000000001,
+      "cumulative_ms": 0.009300000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method maketrans>",
+      "calls": 12,
+      "own_ms": 0.0081,
+      "cumulative_ms": 0.0081
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1490,
+      "function": "_virtual_destination_connections_by_node",
+      "calls": 1,
+      "own_ms": 0.0073,
+      "cumulative_ms": 0.0076
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\locale.py",
+      "line": 464,
+      "function": "_parse_localename",
+      "calls": 1,
+      "own_ms": 0.0026,
+      "cumulative_ms": 0.0071
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 420,
+      "function": "__exit__",
+      "calls": 1,
+      "own_ms": 0.0010000000000000002,
+      "cumulative_ms": 0.006300000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'translate' of 'str' objects>",
+      "calls": 12,
+      "own_ms": 0.006200000000000001,
+      "cumulative_ms": 0.006200000000000001
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 491,
+      "function": "_verbose_message",
+      "calls": 35,
+      "own_ms": 0.0059,
+      "cumulative_ms": 0.0059
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\gtfs_loader.py",
+      "line": 458,
+      "function": "find_route_id_by_name",
+      "calls": 12,
+      "own_ms": 0.0028000000000000004,
+      "cumulative_ms": 0.0058000000000000005
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 232,
+      "function": "__init__",
+      "calls": 1,
+      "own_ms": 0.004200000000000001,
+      "cumulative_ms": 0.0055000000000000005
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 372,
+      "function": "release",
+      "calls": 1,
+      "own_ms": 0.004200000000000001,
+      "cumulative_ms": 0.0053
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 982,
+      "function": "find_spec",
+      "calls": 1,
+      "own_ms": 0.0019,
+      "cumulative_ms": 0.0052
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 74,
+      "function": "__new__",
+      "calls": 1,
+      "own_ms": 0.0048000000000000004,
+      "cumulative_ms": 0.0052
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'lower' of 'str' objects>",
+      "calls": 33,
+      "own_ms": 0.005,
+      "cumulative_ms": 0.005
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.max>",
+      "calls": 20,
+      "own_ms": 0.0048000000000000004,
+      "cumulative_ms": 0.0048000000000000004
+    },
+    {
+      "file": "C:\\Users\\mail\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\locale.py",
+      "line": 381,
+      "function": "normalize",
+      "calls": 1,
+      "own_ms": 0.0038,
+      "cumulative_ms": 0.0045000000000000005
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method today>",
+      "calls": 1,
+      "own_ms": 0.0045000000000000005,
+      "cumulative_ms": 0.0045000000000000005
+    },
+    {
+      "file": "<frozen importlib._bootstrap_external>",
+      "line": 1473,
+      "function": "_path_importer_cache",
+      "calls": 8,
+      "own_ms": 0.0041,
+      "cumulative_ms": 0.0041
+    },
+    {
+      "file": "<frozen importlib._bootstrap_external>",
+      "line": 67,
+      "function": "_relax_case",
+      "calls": 7,
+      "own_ms": 0.0041,
+      "cumulative_ms": 0.0041
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'partition' of 'str' objects>",
+      "calls": 16,
+      "own_ms": 0.0038,
+      "cumulative_ms": 0.0038
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 1128,
+      "function": "find_spec",
+      "calls": 1,
+      "own_ms": 0.0009000000000000001,
+      "cumulative_ms": 0.0033
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _imp.is_builtin>",
+      "calls": 1,
+      "own_ms": 0.0033,
+      "cumulative_ms": 0.0033
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'add' of 'set' objects>",
+      "calls": 16,
+      "own_ms": 0.0032,
+      "cumulative_ms": 0.0032
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'replace' of 'str' objects>",
+      "calls": 12,
+      "own_ms": 0.0029000000000000002,
+      "cumulative_ms": 0.0029000000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method math.ceil>",
+      "calls": 14,
+      "own_ms": 0.0026,
+      "cumulative_ms": 0.0026
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method fromkeys>",
+      "calls": 10,
+      "own_ms": 0.0025,
+      "cumulative_ms": 0.0025
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 480,
+      "function": "_call_with_frames_removed",
+      "calls": 1,
+      "own_ms": 0.0011,
+      "cumulative_ms": 0.0024000000000000002
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 82,
+      "function": "remove",
+      "calls": 1,
+      "own_ms": 0.0017000000000000001,
+      "cumulative_ms": 0.0023
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'replace' of 'datetime.datetime' objects>",
+      "calls": 1,
+      "own_ms": 0.0023,
+      "cumulative_ms": 0.0023
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 173,
+      "function": "__exit__",
+      "calls": 1,
+      "own_ms": 0.0015,
+      "cumulative_ms": 0.0021000000000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'rpartition' of 'str' objects>",
+      "calls": 8,
+      "own_ms": 0.0020000000000000005,
+      "cumulative_ms": 0.0020000000000000005
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1758,
+      "function": "<genexpr>",
+      "calls": 14,
+      "own_ms": 0.0019,
+      "cumulative_ms": 0.0019
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 79,
+      "function": "__init__",
+      "calls": 1,
+      "own_ms": 0.0019,
+      "cumulative_ms": 0.0019
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1741,
+      "function": "<genexpr>",
+      "calls": 11,
+      "own_ms": 0.0018000000000000002,
+      "cumulative_ms": 0.0018000000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _locale.setlocale>",
+      "calls": 1,
+      "own_ms": 0.0017000000000000001,
+      "cumulative_ms": 0.0017000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.round>",
+      "calls": 5,
+      "own_ms": 0.0017000000000000001,
+      "cumulative_ms": 0.0017000000000000001
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 445,
+      "function": "cb",
+      "calls": 1,
+      "own_ms": 0.0010000000000000002,
+      "cumulative_ms": 0.0016
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1764,
+      "function": "<genexpr>",
+      "calls": 14,
+      "own_ms": 0.0015,
+      "cumulative_ms": 0.0015
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'reverse' of 'list' objects>",
+      "calls": 5,
+      "own_ms": 0.0015,
+      "cumulative_ms": 0.0015
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 1222,
+      "function": "__enter__",
+      "calls": 3,
+      "own_ms": 0.0009000000000000001,
+      "cumulative_ms": 0.0013
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 1226,
+      "function": "__exit__",
+      "calls": 3,
+      "own_ms": 0.0009000000000000001,
+      "cumulative_ms": 0.0013
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _thread.allocate_lock>",
+      "calls": 1,
+      "own_ms": 0.0013,
+      "cumulative_ms": 0.0013
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _imp.find_frozen>",
+      "calls": 1,
+      "own_ms": 0.0013,
+      "cumulative_ms": 0.0013
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method now>",
+      "calls": 1,
+      "own_ms": 0.0011,
+      "cumulative_ms": 0.0011
+    },
+    {
+      "file": "C:\\Users\\mail\\work\\tobus_go\\api\\toei_engine.py",
+      "line": 1711,
+      "function": "<lambda>",
+      "calls": 5,
+      "own_ms": 0.0010000000000000002,
+      "cumulative_ms": 0.0010000000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'match' of 're.Pattern' objects>",
+      "calls": 1,
+      "own_ms": 0.0009000000000000001,
+      "cumulative_ms": 0.0009000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _imp.acquire_lock>",
+      "calls": 5,
+      "own_ms": 0.0009000000000000001,
+      "cumulative_ms": 0.0009000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method combine>",
+      "calls": 1,
+      "own_ms": 0.0007000000000000001,
+      "cumulative_ms": 0.0007000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _imp.release_lock>",
+      "calls": 5,
+      "own_ms": 0.0007000000000000001,
+      "cumulative_ms": 0.0007000000000000001
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 599,
+      "function": "__init__",
+      "calls": 1,
+      "own_ms": 0.0006000000000000001,
+      "cumulative_ms": 0.0006000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'groupdict' of 're.Match' objects>",
+      "calls": 1,
+      "own_ms": 0.0006000000000000001,
+      "cumulative_ms": 0.0006000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _weakref._remove_dead_weakref>",
+      "calls": 1,
+      "own_ms": 0.0006000000000000001,
+      "cumulative_ms": 0.0006000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method '__exit__' of '_thread.RLock' objects>",
+      "calls": 2,
+      "own_ms": 0.0006000000000000001,
+      "cumulative_ms": 0.0006000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _thread.get_ident>",
+      "calls": 2,
+      "own_ms": 0.0006000000000000001,
+      "cumulative_ms": 0.0006000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'remove' of 'list' objects>",
+      "calls": 1,
+      "own_ms": 0.0006000000000000001,
+      "cumulative_ms": 0.0006000000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method __new__ of type object at 0x00007FFDDF4E98F0>",
+      "calls": 1,
+      "own_ms": 0.0004,
+      "cumulative_ms": 0.0004
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 412,
+      "function": "__init__",
+      "calls": 1,
+      "own_ms": 0.00030000000000000003,
+      "cumulative_ms": 0.00030000000000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'end' of 're.Match' objects>",
+      "calls": 1,
+      "own_ms": 0.00030000000000000003,
+      "cumulative_ms": 0.00030000000000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method '__exit__' of '_thread.lock' objects>",
+      "calls": 1,
+      "own_ms": 0.00030000000000000003,
+      "cumulative_ms": 0.00030000000000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'pop' of 'list' objects>",
+      "calls": 1,
+      "own_ms": 0.00030000000000000003,
+      "cumulative_ms": 0.00030000000000000003
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 158,
+      "function": "__init__",
+      "calls": 1,
+      "own_ms": 0.0002,
+      "cumulative_ms": 0.0002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'toordinal' of 'datetime.date' objects>",
+      "calls": 2,
+      "own_ms": 0.0002,
+      "cumulative_ms": 0.0002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'keys' of 'dict' objects>",
+      "calls": 1,
+      "own_ms": 0.0002,
+      "cumulative_ms": 0.0002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'weekday' of 'datetime.date' objects>",
+      "calls": 1,
+      "own_ms": 0.0001,
+      "cumulative_ms": 0.0001
+    }
+  ]
+}

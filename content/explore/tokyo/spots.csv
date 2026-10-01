@@ -1,3 +1,23 @@
 stop_name,route_id,comment,comment_en,image,caption,caption_en
 上野駅前,odpt.Busroute:Toei.Ue23,雨の上野。,,explore_43efc400be9648528f708a44fbd2b21f.jpg,上野駅周辺,Ueno Stret
 上野駅前,odpt.Busroute:Toei.Ue23,,,explore_ec455fba29d34ad7b8ba8759effa170f.jpg,上野駅周辺,Ueno Street
+平井小学校前,odpt.Busroute:Toei.Ue23,平井小学校前の十字路,,explore_c94f4cec40f547939ebe0393801a9c4a.jpg,,
+押上,odpt.Busroute:Toei.Ue23,雨のスカイツリー,,explore_5dfadeaad6d74a16920c7651f2e856e7.jpg,ソラマチ,Soramachi
+押上,odpt.Busroute:Toei.Ue23,,,explore_04f487142d014abe99aed980782e8545.jpg,ソラマチから望む隅田川,sumida river
+神田駅前,odpt.Busroute:Toei.Aki26,神田駅周辺,,explore_5b911a2afa8947ceae85eb4cfbbe7365.jpg,神田駅周辺,
+神田駅前,odpt.Busroute:Toei.Aki26,,,explore_719f37178d564d69b0868c8f4de57425.jpg,神田駅周辺,
+本所吾妻橋,odpt.Busroute:Toei.Ue23,,,explore_953545dcd38545fb98085aaa2754a513.jpg,スカイツリーの見えるおしゃれなコーヒー屋さん。お客さんもおしゃれなひと多め。,
+東京都現代美術館前,odpt.Busroute:Toei.Nari10,,,explore_48d9a79a5f114be696852a10803d91ea.jpg,東京都現代美術館の中。日差しの中静かな空気が流れている。,
+東京都現代美術館前,odpt.Busroute:Toei.Nari10,,,explore_e824bd3f05534df2a97d3953e083088d.jpg,,
+東京都現代美術館前,odpt.Busroute:Toei.Nari10,,,explore_a11f3b0585384243aaf2ba3da3d49cb9.jpg,,
+豊洲駅前,odpt.Busroute:Toei.Nari10,青い空と青い海の豊洲,,explore_e2bf76752d684dbaa70d3270d3de1410.jpg,,
+豊洲駅前,odpt.Busroute:Toei.Nari10,,,explore_07818050a6ba47158db4acd0960025d5.jpg,,
+春海橋,odpt.Busroute:Toei.Nari10,運河の向こうに高層マンションが並ぶ。水辺と古い街並み、新しい東京が同居する車窓。,,explore_2e3f139a8f7a412ba2bfa14fefa621aa.jpg,,
+春海橋,odpt.Busroute:Toei.Nari10,,,explore_2cd3ba5ecc86492cb9b6410b35bd4288.jpg,,
+春海橋,odpt.Busroute:Toei.Nari10,,,explore_62d492badda5464bac849c1efe2e6d6f.jpg,,
+勝どき駅前,odpt.Busroute:Toei.Nari10,運河沿いに屋形船が並ぶ。ビルの谷間に、昔から続く水辺の風景が残っている。,,explore_841b356e993e4d6faf870b31f8137650.jpg,,
+勝どき駅前,odpt.Busroute:Toei.Nari10,,,explore_5286925470464fcaa5702116c29564ed.jpg,,
+勝どき駅前,odpt.Busroute:Toei.Nari10,,,explore_e031ce9999f94158b2e2cacbc4972300.jpg,,
+月島第一小学校前,odpt.Busroute:Toei.Nari10,昔ながらの商店街が残る月島西仲通り。タワーマンションの街とは少し違う、月島のもうひとつの顔。,,explore_4aa7cc4c5bee4a368dd7848715951b41.jpg,,
+月島第一小学校前,odpt.Busroute:Toei.Nari10,,,explore_de3cdab353084c889bc92d9720411875.jpg,,
+月島第一小学校前,odpt.Busroute:Toei.Nari10,,,explore_24c91ac64003488aafcaebf4c0d1339d.jpg,,

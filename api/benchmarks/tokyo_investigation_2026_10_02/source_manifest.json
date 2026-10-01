@@ -1,0 +1,96 @@
+{
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "files": [
+    {
+      "path": "api/toei_engine.py",
+      "bytes": 126111,
+      "sha256": "80b9d3c2c8ac1b1d84db87dd7642dbe54bfb0f475499d2930b3eef0f0bd098a4"
+    },
+    {
+      "path": "api/tokyo_route_engine.py",
+      "bytes": 15077,
+      "sha256": "2964e4bcaa0a3c2f70b1b8fe24bfe86b357ae7eae99975eeb6d88c90aa774aa6"
+    },
+    {
+      "path": "api/gtfs_loader.py",
+      "bytes": 20413,
+      "sha256": "ea3d8f4c222e5f2f5051b34bfbbb84c3e17d2605483a35b032cab7c58fd7c674"
+    },
+    {
+      "path": "api/data/app_data.pkl",
+      "bytes": 148550621,
+      "sha256": "d601fdec02e0a083c13f3601fd5f799a6edbcd63a6d4219950020319e2cb61f9"
+    },
+    {
+      "path": "api/data/ToeiBus-GTFS/agency.txt",
+      "bytes": 185,
+      "sha256": "571384561bcdf5847136a2a6b5799179715f946d30f0c0ae332051369601924b"
+    },
+    {
+      "path": "api/data/ToeiBus-GTFS/agency_jp.txt",
+      "bytes": 218,
+      "sha256": "eda78cab982d1f302570b9cbd93eeed63361fa6ac47b9519df8d7e188ab43d73"
+    },
+    {
+      "path": "api/data/ToeiBus-GTFS/attributions.txt",
+      "bytes": 290,
+      "sha256": "46777e6bef487e61be957ab9f568b1259ed283819b6fa886753a899c7e9ab2bc"
+    },
+    {
+      "path": "api/data/ToeiBus-GTFS/calendar.txt",
+      "bytes": 2428,
+      "sha256": "69c5e91b8e6a1e6d44e6f34c61da356701d2710e2f6dc905d454e0a985b59522"
+    },
+    {
+      "path": "api/data/ToeiBus-GTFS/calendar_dates.txt",
+      "bytes": 5719,
+      "sha256": "a174bdcd6ca11c44211aa741bdd53683ff04bd85513f65318ab1f6a9709081fe"
+    },
+    {
+      "path": "api/data/ToeiBus-GTFS/fare_attributes.txt",
+      "bytes": 1527,
+      "sha256": "10c61ff564897f15ebcf8ea044c836dd098ea5c22b47c8677b1d1e65b9881fb9"
+    },
+    {
+      "path": "api/data/ToeiBus-GTFS/fare_rules.txt",
+      "bytes": 745481,
+      "sha256": "074880ff6256528973a8fbc850cfd5efe34d5c9d44a53d8cd94b0f9c456d859b"
+    },
+    {
+      "path": "api/data/ToeiBus-GTFS/feed_info.txt",
+      "bytes": 182,
+      "sha256": "ece83c5c2aa28b784b3f087843aafabc231a4b4535356e8b45012093c004c9b5"
+    },
+    {
+      "path": "api/data/ToeiBus-GTFS/office_jp.txt",
+      "bytes": 451,
+      "sha256": "89aa4fdfd2d50270e22b1dd2239f71e3f027f915592e33743eb7942075ba8ef7"
+    },
+    {
+      "path": "api/data/ToeiBus-GTFS/routes.txt",
+      "bytes": 17900,
+      "sha256": "6d25a7aa44030a3f4a355d02c7f23d9ab095371277c5f25be7849933f9d0c357"
+    },
+    {
+      "path": "api/data/ToeiBus-GTFS/stop_times.txt",
+      "bytes": 81970429,
+      "sha256": "19a2903066c8dc7e9fda6de359ccfa317b96f2601fe64babd6d4f74cf3b33ea3"
+    },
+    {
+      "path": "api/data/ToeiBus-GTFS/stops.txt",
+      "bytes": 776857,
+      "sha256": "64f8ea58e408721404e407999adac08ca0a1c84b79953e4145534382bb551ffb"
+    },
+    {
+      "path": "api/data/ToeiBus-GTFS/translations.txt",
+      "bytes": 689526,
+      "sha256": "d3cc1f8b8ef3852b81f9eda1f932fe98c7247d6ca944968c490b1a63aab3745f"
+    },
+    {
+      "path": "api/data/ToeiBus-GTFS/trips.txt",
+      "bytes": 4234866,
+      "sha256": "6381fb240e665cda9f696fb376cf3eb3aca46263f45bf7cc80aedcca817e97f5"
+    }
+  ]
+}

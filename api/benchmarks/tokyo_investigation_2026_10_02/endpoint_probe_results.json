@@ -1,0 +1,29 @@
+{
+  "scope": "Tokyo API; no external network; production code unmodified",
+  "train_identity": {
+    "fixture": "one trip, three stations; exact ODPT/static match",
+    "cold_external_fetch_count": 2,
+    "warm_additional_external_fetch_count": 0,
+    "both_fetches_use_same_url": true,
+    "cold_fetches": [
+      {
+        "url": "https://api-public.odpt.org/api/v4/files/Toei/data/Toei-Train-GTFS.zip",
+        "timeout_seconds": 30.0
+      },
+      {
+        "url": "https://api-public.odpt.org/api/v4/files/Toei/data/Toei-Train-GTFS.zip",
+        "timeout_seconds": 30.0
+      }
+    ],
+    "responses_identical": true,
+    "resolved_trip_id": "121603T0",
+    "resolved_departure_time": "16:25",
+    "rejections": []
+  },
+  "shared_route_lock": {
+    "concurrent_endpoint_calls": 3,
+    "engine_call_count": 3,
+    "maximum_simultaneous_engine_calls": 1,
+    "note": "Per-instance serialization only; no production latency measurement."
+  }
+}

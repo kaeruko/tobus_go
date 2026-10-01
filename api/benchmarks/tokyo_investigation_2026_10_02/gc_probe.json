@@ -1,0 +1,38 @@
+{
+  "python": "3.12.10",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "graph_nodes": 18984,
+  "graph_edges": 63970,
+  "load_ms": 511.8013000028441,
+  "gc_full_collection_without_search": [
+    {
+      "ms": 82.61669999046717,
+      "collected": 0
+    },
+    {
+      "ms": 58.376599990879185,
+      "collected": 0
+    },
+    {
+      "ms": 61.01499999931548,
+      "collected": 0
+    },
+    {
+      "ms": 54.56550000235438,
+      "collected": 0
+    },
+    {
+      "ms": 54.32629999995697,
+      "collected": 0
+    },
+    {
+      "ms": 52.51369999314193,
+      "collected": 0
+    },
+    {
+      "ms": 58.5302999970736,
+      "collected": 0
+    }
+  ],
+  "gc_median_ms": 58.376599990879185
+}

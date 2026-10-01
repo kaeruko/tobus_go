@@ -1,0 +1,446 @@
+{
+  "note": "Full TokyoRouteEngine.search plus serialize_route_result; coordinate preparation, validation and explicit GC included. Every payload field except intentionally randomized UUID step_id compared. Logs captured, local static data, three rotating paired iterations after reference warmup. GC skip is diagnostic only: repeated-request memory/peak Lambda memory not tested.",
+  "results": [
+    {
+      "id": "shinjuku_asakusa",
+      "mode": "time",
+      "route_count": 1,
+      "reference_error": null,
+      "times_ms": {
+        "baseline": [
+          293.8596000021789,
+          301.22239999764133,
+          292.26859999471344
+        ],
+        "combined": [
+          243.43240000598598,
+          242.20160000550095,
+          248.34930000361055
+        ],
+        "combined_no_forced_gc": [
+          154.3097000103444,
+          155.88500000012573,
+          156.27540000423323
+        ]
+      },
+      "median_ms": {
+        "baseline": 293.8596000021789,
+        "combined": 243.43240000598598,
+        "combined_no_forced_gc": 155.88500000012573
+      },
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 89.91169999353588,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        },
+        {
+          "iteration": 0,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 88.296599991736,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        },
+        {
+          "iteration": 0,
+          "variant": "combined_no_forced_gc",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 0.000400003045797348,
+              "collected": 0,
+              "skipped": true
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 88.81890001066495,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "variant": "combined_no_forced_gc",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 0.000300002284348011,
+              "collected": 0,
+              "skipped": true
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 99.53659999882802,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "variant": "combined_no_forced_gc",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 0.000200001522898674,
+              "collected": 0,
+              "skipped": true
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 88.65570000489242,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 89.11079999234062,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shinjuku_asakusa",
+      "mode": "cost",
+      "route_count": 5,
+      "reference_error": null,
+      "times_ms": {
+        "baseline": [
+          198.54739999573212,
+          214.35679998830892,
+          222.24640000786167
+        ],
+        "combined": [
+          153.67559999867808,
+          148.0401000007987,
+          224.64749999926426
+        ],
+        "combined_no_forced_gc": [
+          58.681099995737895,
+          57.06010000722017,
+          71.32699999783654
+        ]
+      },
+      "median_ms": {
+        "baseline": 214.35679998830892,
+        "combined": 153.67559999867808,
+        "combined_no_forced_gc": 58.681099995737895
+      },
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 92.0650000043679,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        },
+        {
+          "iteration": 0,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 92.78780000749975,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        },
+        {
+          "iteration": 0,
+          "variant": "combined_no_forced_gc",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 0.000200001522898674,
+              "collected": 0,
+              "skipped": true
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 92.6233000063803,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "variant": "combined_no_forced_gc",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 0.000200001522898674,
+              "collected": 0,
+              "skipped": true
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 111.53470000135712,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "variant": "combined_no_forced_gc",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 0.00039998849388211966,
+              "collected": 0,
+              "skipped": true
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 107.51870000967756,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 154.61860000505112,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shinjuku_asakusa",
+      "mode": "fewTransfers",
+      "route_count": 5,
+      "reference_error": null,
+      "times_ms": {
+        "baseline": [
+          1000.0115000002552,
+          1041.5535000065574,
+          1109.8395000008168
+        ],
+        "combined": [
+          524.7444999986328,
+          534.3591999990167,
+          559.6371999999974
+        ],
+        "combined_no_forced_gc": [
+          435.35999998857733,
+          420.35000000032596,
+          429.1592999943532
+        ]
+      },
+      "median_ms": {
+        "baseline": 1041.5535000065574,
+        "combined": 534.3591999990167,
+        "combined_no_forced_gc": 429.1592999943532
+      },
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 99.25539999676403,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        },
+        {
+          "iteration": 0,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 104.85499999776948,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        },
+        {
+          "iteration": 0,
+          "variant": "combined_no_forced_gc",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 0.00039998849388211966,
+              "collected": 0,
+              "skipped": true
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 101.47159999178257,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "variant": "combined_no_forced_gc",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 0.000500003807246685,
+              "collected": 0,
+              "skipped": true
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 96.288500004448,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "variant": "combined_no_forced_gc",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 0.000400003045797348,
+              "collected": 0,
+              "skipped": true
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 88.14709998841863,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null,
+          "gc": [
+            {
+              "ms": 104.0149000036763,
+              "collected": 0,
+              "skipped": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

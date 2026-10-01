@@ -1,0 +1,1266 @@
+{
+  "variants": {
+    "baseline": [],
+    "edge": [
+      "edge"
+    ],
+    "precheck": [
+      "precheck"
+    ],
+    "heuristic_env": [
+      "env",
+      "heuristic"
+    ],
+    "combined": [
+      "edge",
+      "env",
+      "heuristic",
+      "precheck"
+    ]
+  },
+  "note": "Each mode/case warmed once and all variant orders rotated across three measured iterations. Full Python route dictionaries including path compared in memory. Baseline/variants share the loaded static timetable and graph. DEBUG_BUS snapshot fixed for each variant install.",
+  "results": [
+    {
+      "id": "tokyo_toyosu",
+      "mode": "time",
+      "route_count": 1,
+      "times_ms": {
+        "baseline": [
+          216.1647000029916,
+          219.6272000001045,
+          277.0918000023812
+        ],
+        "edge": [
+          239.35160000110045,
+          191.76610000431538,
+          240.5131999985315
+        ],
+        "precheck": [
+          212.42900000652298,
+          214.61530000669882,
+          218.3365000091726
+        ],
+        "heuristic_env": [
+          200.1258000091184,
+          205.6564999948023,
+          198.8011999928858
+        ],
+        "combined": [
+          171.34640000585932,
+          168.9011999987997,
+          191.7888000025414
+        ]
+      },
+      "median_ms": {
+        "baseline": 219.6272000001045,
+        "edge": 239.35160000110045,
+        "precheck": 214.61530000669882,
+        "heuristic_env": 200.1258000091184,
+        "combined": 171.34640000585932
+      },
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        }
+      ],
+      "speedup": {
+        "baseline": 1.0,
+        "edge": 0.9175923620276394,
+        "precheck": 1.0233529482439008,
+        "heuristic_env": 1.0974457066010357,
+        "combined": 1.281773063178416
+      }
+    },
+    {
+      "id": "tokyo_toyosu",
+      "mode": "cost",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          73.88710000668652,
+          75.23980000405572,
+          104.96500000590459
+        ],
+        "edge": [
+          75.54979999258649,
+          71.02740000118501,
+          112.92719999619294
+        ],
+        "precheck": [
+          41.12130000430625,
+          43.1716999883065,
+          42.975999996997416
+        ],
+        "heuristic_env": [
+          65.47460000729188,
+          67.30600001174025,
+          66.91009999485686
+        ],
+        "combined": [
+          36.64750000461936,
+          36.33849999459926,
+          33.590400009416044
+        ]
+      },
+      "median_ms": {
+        "baseline": 75.23980000405572,
+        "edge": 75.54979999258649,
+        "precheck": 42.975999996997416,
+        "heuristic_env": 66.91009999485686,
+        "combined": 36.33849999459926
+      },
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        }
+      ],
+      "speedup": {
+        "baseline": 1.0,
+        "edge": 0.9958967464035486,
+        "precheck": 1.7507399480945753,
+        "heuristic_env": 1.124490921547556,
+        "combined": 2.0705257513446647
+      }
+    },
+    {
+      "id": "tokyo_toyosu",
+      "mode": "fewTransfers",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          348.3849000040209,
+          292.94100000697654,
+          292.8109999920707
+        ],
+        "edge": [
+          261.21909999346826,
+          399.34800000628456,
+          251.57510000281036
+        ],
+        "precheck": [
+          180.50360000052024,
+          159.53600000648294,
+          153.5001000011107
+        ],
+        "heuristic_env": [
+          293.29870000947267,
+          310.18530001165345,
+          251.74180000612978
+        ],
+        "combined": [
+          138.66739999502897,
+          173.29240000981372,
+          126.7128000035882
+        ]
+      },
+      "median_ms": {
+        "baseline": 292.94100000697654,
+        "edge": 261.21909999346826,
+        "precheck": 159.53600000648294,
+        "heuristic_env": 293.29870000947267,
+        "combined": 138.66739999502897
+      },
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        }
+      ],
+      "speedup": {
+        "baseline": 1.0,
+        "edge": 1.1214379040977536,
+        "precheck": 1.8362062480886605,
+        "heuristic_env": 0.9987804241802484,
+        "combined": 2.112544116479274
+      }
+    },
+    {
+      "id": "shinjuku_asakusa",
+      "mode": "time",
+      "route_count": 1,
+      "times_ms": {
+        "baseline": [
+          203.2984999968903,
+          206.42449999286328,
+          200.5790999974124
+        ],
+        "edge": [
+          180.47460001253057,
+          259.4113999948604,
+          177.35660000471398
+        ],
+        "precheck": [
+          198.0539000069257,
+          206.64049999322742,
+          200.19129999855068
+        ],
+        "heuristic_env": [
+          184.88190000061877,
+          184.56760000844952,
+          189.18130001111422
+        ],
+        "combined": [
+          191.60120000015013,
+          158.1585000094492,
+          165.42420000769198
+        ]
+      },
+      "median_ms": {
+        "baseline": 203.2984999968903,
+        "edge": 180.47460001253057,
+        "precheck": 200.19129999855068,
+        "heuristic_env": 184.88190000061877,
+        "combined": 165.42420000769198
+      },
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        }
+      ],
+      "speedup": {
+        "baseline": 1.0,
+        "edge": 1.1264659956734913,
+        "precheck": 1.015521154008002,
+        "heuristic_env": 1.0996127798135453,
+        "combined": 1.228952595735311
+      }
+    },
+    {
+      "id": "shinjuku_asakusa",
+      "mode": "cost",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          98.5336999874562,
+          141.10340000479482,
+          124.49519999790937
+        ],
+        "edge": [
+          87.09349999844562,
+          92.01170000596903,
+          93.46119999827351
+        ],
+        "precheck": [
+          72.73800000257324,
+          80.00560000073165,
+          69.89579999935813
+        ],
+        "heuristic_env": [
+          117.10319999838248,
+          116.01250000239816,
+          109.63969999284018
+        ],
+        "combined": [
+          72.70610000705346,
+          64.57899999804795,
+          69.07300000602845
+        ]
+      },
+      "median_ms": {
+        "baseline": 124.49519999790937,
+        "edge": 92.01170000596903,
+        "precheck": 72.73800000257324,
+        "heuristic_env": 116.01250000239816,
+        "combined": 69.07300000602845
+      },
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        }
+      ],
+      "speedup": {
+        "baseline": 1.0,
+        "edge": 1.3530366245796246,
+        "precheck": 1.7115565453202606,
+        "heuristic_env": 1.0731188449118487,
+        "combined": 1.8023714039790346
+      }
+    },
+    {
+      "id": "shinjuku_asakusa",
+      "mode": "fewTransfers",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          1071.4368999906583,
+          897.6687999966089,
+          879.126300002099
+        ],
+        "edge": [
+          973.8218999991659,
+          732.3559999931604,
+          767.6723000040511
+        ],
+        "precheck": [
+          444.7031000017887,
+          441.3231999933487,
+          471.23940000892617
+        ],
+        "heuristic_env": [
+          753.6991000088165,
+          942.0775000035064,
+          776.4913000137312
+        ],
+        "combined": [
+          370.860700000776,
+          410.19840000080876,
+          401.09480000683106
+        ]
+      },
+      "median_ms": {
+        "baseline": 897.6687999966089,
+        "edge": 767.6723000040511,
+        "precheck": 444.7031000017887,
+        "heuristic_env": 776.4913000137312,
+        "combined": 401.09480000683106
+      },
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        }
+      ],
+      "speedup": {
+        "baseline": 1.0,
+        "edge": 1.1693385315477343,
+        "precheck": 2.01858003686729,
+        "heuristic_env": 1.1560577690706062,
+        "combined": 2.2380464667737416
+      }
+    },
+    {
+      "id": "tokyo_toyosu_bus_only",
+      "mode": "time",
+      "route_count": 1,
+      "times_ms": {
+        "baseline": [
+          91.21939999749884,
+          94.5718000002671,
+          126.03800000215415
+        ],
+        "edge": [
+          83.09189999999944,
+          90.16900000278838,
+          100.8470000087982
+        ],
+        "precheck": [
+          89.88189999945462,
+          92.13620000809897,
+          116.44369999703486
+        ],
+        "heuristic_env": [
+          85.23650000279304,
+          83.36309999867808,
+          83.30889999342617
+        ],
+        "combined": [
+          74.66019999992568,
+          72.69900001119822,
+          93.5308000043733
+        ]
+      },
+      "median_ms": {
+        "baseline": 94.5718000002671,
+        "edge": 90.16900000278838,
+        "precheck": 92.13620000809897,
+        "heuristic_env": 83.36309999867808,
+        "combined": 74.66019999992568
+      },
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        }
+      ],
+      "speedup": {
+        "baseline": 1.0,
+        "edge": 1.0488283112526764,
+        "precheck": 1.0264347779912135,
+        "heuristic_env": 1.1344563722050496,
+        "combined": 1.2666963120961536
+      }
+    },
+    {
+      "id": "tokyo_toyosu_bus_only",
+      "mode": "cost",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          82.0776000036858,
+          81.12979998986702,
+          105.82539999450091
+        ],
+        "edge": [
+          82.56019999680575,
+          78.37060000747442,
+          80.6464000052074
+        ],
+        "precheck": [
+          51.13540000456851,
+          51.59329999878537,
+          52.24629999429453
+        ],
+        "heuristic_env": [
+          71.19889999739826,
+          71.85799999570008,
+          71.45139999920502
+        ],
+        "combined": [
+          44.60799999651499,
+          42.552400002023205,
+          43.73989999294281
+        ]
+      },
+      "median_ms": {
+        "baseline": 82.0776000036858,
+        "edge": 80.6464000052074,
+        "precheck": 51.59329999878537,
+        "heuristic_env": 71.45139999920502,
+        "combined": 43.73989999294281
+      },
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        }
+      ],
+      "speedup": {
+        "baseline": 1.0,
+        "edge": 1.0177466073920967,
+        "precheck": 1.5908577277595755,
+        "heuristic_env": 1.1487192693858903,
+        "combined": 1.8764926306856797
+      }
+    },
+    {
+      "id": "tokyo_toyosu_bus_only",
+      "mode": "fewTransfers",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          289.0946999978041,
+          287.85229999630246,
+          296.78360000252724
+        ],
+        "edge": [
+          262.4993999925209,
+          303.48449999291915,
+          267.2056000010343
+        ],
+        "precheck": [
+          210.39480000035837,
+          186.86229999002535,
+          188.36369999917224
+        ],
+        "heuristic_env": [
+          329.39479999186005,
+          277.7041000081226,
+          270.78249999613035
+        ],
+        "combined": [
+          174.90949999773875,
+          151.05129999574274,
+          156.87120000075083
+        ]
+      },
+      "median_ms": {
+        "baseline": 289.0946999978041,
+        "edge": 267.2056000010343,
+        "precheck": 188.36369999917224,
+        "heuristic_env": 277.7041000081226,
+        "combined": 156.87120000075083
+      },
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 0,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "precheck",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "heuristic_env",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "combined",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_routes": true,
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "variant": "edge",
+          "same_routes": true,
+          "error": null
+        }
+      ],
+      "speedup": {
+        "baseline": 1.0,
+        "edge": 1.0819185675625251,
+        "precheck": 1.5347686417238275,
+        "heuristic_env": 1.0410170393211635,
+        "combined": 1.8428793812785293
+      }
+    }
+  ]
+}
