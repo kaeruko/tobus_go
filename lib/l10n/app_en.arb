@@ -1385,6 +1385,7 @@
   "groupReplanUnavailableHere": "Group routes can’t be changed from this screen.",
   "groupReplanLeaderOnly": "Only the group leader can change the group route.",
   "groupGuideTitle": "Trip guide",
+  "groupGuideButton": "Guide",
   "groupJoinCode": "Join code",
   "groupJoinCodeCopied": "Join code copied",
   "groupBasicInfo": "Basic information",

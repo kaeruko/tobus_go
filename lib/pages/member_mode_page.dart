@@ -446,7 +446,7 @@ class _MemberActionBar extends StatelessWidget {
                     label: Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Text(
-                        AppLocalizations.of(context).groupGuideTitle,
+                        AppLocalizations.of(context).groupGuideButton,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
