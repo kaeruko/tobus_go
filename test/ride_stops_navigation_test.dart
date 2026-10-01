@@ -44,6 +44,83 @@ void main() {
     );
   });
 
+  test('待機中は次の乗車予定を経路案内対象にする', () {
+    final ride = StepSeg(
+      stepId: 'ride-1',
+      kind: 'bus',
+      title: '上23 上野松坂屋前行',
+      stops: [
+        StopPoint(name: 'A', point: const LatLng(35.0, 139.0)),
+        StopPoint(name: 'B', point: const LatLng(35.1, 139.1)),
+      ],
+    );
+    final candidate = Candidate(
+      id: 'candidate-1',
+      lines: const [],
+      rides: 1,
+      boards: 1,
+      transfers: 0,
+      total: 0,
+      totalTime: 0,
+      steps: [ride],
+      points: const [],
+    );
+    final wait = ScheduleEntry(
+      id: 'wait-1',
+      plannedAt: DateTime(2026, 8, 16, 10, 30),
+      label: '待ち時間',
+      itemKind: ScheduleEntryKind.event,
+      legIndex: 0,
+      generatedBy: ScheduleEntrySource.route,
+      routeStepId: 'ride-1',
+      routeRole: 'wait_start',
+    );
+    final rideEntry = ScheduleEntry(
+      id: 'ride-entry-1',
+      plannedAt: DateTime(2026, 8, 16, 10, 40),
+      label: '上23に乗る',
+      itemKind: ScheduleEntryKind.ride,
+      legIndex: 0,
+      generatedBy: ScheduleEntrySource.route,
+      routeStepId: 'ride-1',
+      routeRole: 'ride',
+    );
+    final trip = Trip(
+      tripType: TripType.solo,
+      id: 'trip-1',
+      joinCode: '',
+      leaderId: 'user-1',
+      title: 'test',
+      travelPhase: TravelPhase.active,
+      date: DateTime(2026, 8, 16),
+      plannedDepartureAt: null,
+      actualDepartureAt: null,
+      legs: [
+        Leg(
+          direction: LegDirection.outbound,
+          status: LegStatus.confirmed,
+          candidate: candidate,
+        ),
+      ],
+      schedule: [wait, rideEntry],
+      participants: const [],
+      memberIds: const [],
+    );
+
+    final rides = trip.schedule
+        .where(
+          (entry) =>
+              entry.legIndex == wait.legIndex &&
+              entry.itemKind == ScheduleEntryKind.ride &&
+              !entry.plannedAt.isBefore(wait.plannedAt),
+        )
+        .toList()
+      ..sort((a, b) => a.plannedAt.compareTo(b.plannedAt));
+
+    expect(rides.single.id, 'ride-entry-1');
+    expect(trip.stepsById[rides.single.routeStepId], same(ride));
+  });
+
   test('存在しないcurrentStepIdはfail-fastする', () {
     final trip = _tripWithSteps(const []);
 
