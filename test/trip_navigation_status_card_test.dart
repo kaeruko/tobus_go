@@ -115,6 +115,7 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
+      var openedRouteGuide = false;
       final navigation = NavigationState(
         mainText: '6:28 出発　あと13分',
         subText: '6:31 上23 上野松坂屋前行 乗車',
@@ -145,7 +146,7 @@ void main() {
             body: TripNavigationStatusCard(
               navState: navigation,
               tripTitle: '現在地 → 東墨田１丁目',
-              onTapStops: () {},
+              onTapStops: () => openedRouteGuide = true,
             ),
           ),
         ),
@@ -167,6 +168,12 @@ void main() {
       expect(find.text('6:31'), findsOneWidget);
       expect(find.text('上23 上野松坂屋前行'), findsOneWidget);
       expect(find.text('乗車'), findsOneWidget);
+      final routeAction = find.byKey(
+        const ValueKey('departure-boarding-route-action'),
+      );
+      expect(routeAction, findsOneWidget);
+      await tester.tap(routeAction);
+      expect(openedRouteGuide, isTrue);
       expect(find.text('6:28 出発　あと13分'), findsNothing);
       expect(find.text('6:31 上23 上野松坂屋前行 乗車'), findsNothing);
       expect(tester.takeException(), isNull);
