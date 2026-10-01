@@ -27,8 +27,28 @@ import 'ride_stops_navigation.dart';
 import 'settings_page.dart';
 import 'route_detail_page.dart';
 
+class MemberModePreviewPage extends StatelessWidget {
+  final String tripId;
+
+  const MemberModePreviewPage({super.key, required this.tripId});
+
+  @override
+  Widget build(BuildContext context) {
+    return ProviderScope(
+      overrides: [
+        tripStreamProvider.overrideWith(
+          (ref) => TripService().streamTrip(tripId).map<Trip?>((trip) => trip),
+        ),
+      ],
+      child: const MemberModePage(previewAsLeader: true),
+    );
+  }
+}
+
 class MemberModePage extends ConsumerStatefulWidget {
-  const MemberModePage({super.key});
+  final bool previewAsLeader;
+
+  const MemberModePage({super.key, this.previewAsLeader = false});
 
   @override
   ConsumerState<MemberModePage> createState() => _MemberModePageState();
@@ -153,6 +173,9 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
             onHelp: () => _sendSOS(trip.id),
             onOpenDetail: () => _openGroupDetail(trip),
             onExit: _leaveGroup,
+            exitLabel: widget.previewAsLeader
+                ? AppLocalizations.of(context).groupBackToLeader
+                : null,
           ),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -164,6 +187,10 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   }
 
   Future<void> _leaveGroup() async {
+    if (widget.previewAsLeader) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
     await ref.read(appSessionProvider.notifier).leaveMemberMode();
   }
 
@@ -226,7 +253,9 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
       title: ActiveTripAppBarTitle(
         appName: appName,
         tripTitle: title,
-        contextLabel: AppLocalizations.of(context).groupMemberMode,
+        contextLabel: widget.previewAsLeader
+            ? AppLocalizations.of(context).groupMemberPreview
+            : AppLocalizations.of(context).groupMemberMode,
       ),
       leading: IconButton(
         icon: const Icon(CupertinoIcons.doc_text, color: Colors.black87),
@@ -240,33 +269,42 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
             context,
           ).push(MaterialPageRoute(builder: (_) => const SettingsPage())),
         ),
-        TextButton(
-          onPressed: () => showCupertinoDialog(
-            context: context,
-            builder: (ctx) => CupertinoAlertDialog(
-              title: Text(AppLocalizations.of(context).groupExitMode),
-              content: Text(AppLocalizations.of(context).groupExitQuestion),
-              actions: [
-                CupertinoDialogAction(
-                  child: Text(AppLocalizations.of(context).groupNo),
-                  onPressed: () => Navigator.pop(ctx),
-                ),
-                CupertinoDialogAction(
-                  isDestructiveAction: true,
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _leaveGroup();
-                  },
-                  child: Text(AppLocalizations.of(context).groupYes),
-                ),
-              ],
+        if (widget.previewAsLeader)
+          TextButton(
+            onPressed: _leaveGroup,
+            child: Text(
+              AppLocalizations.of(context).groupBackToLeader,
+              style: const TextStyle(color: Colors.black87),
+            ),
+          )
+        else
+          TextButton(
+            onPressed: () => showCupertinoDialog(
+              context: context,
+              builder: (ctx) => CupertinoAlertDialog(
+                title: Text(AppLocalizations.of(context).groupExitMode),
+                content: Text(AppLocalizations.of(context).groupExitQuestion),
+                actions: [
+                  CupertinoDialogAction(
+                    child: Text(AppLocalizations.of(context).groupNo),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                  CupertinoDialogAction(
+                    isDestructiveAction: true,
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _leaveGroup();
+                    },
+                    child: Text(AppLocalizations.of(context).groupYes),
+                  ),
+                ],
+              ),
+            ),
+            child: Text(
+              AppLocalizations.of(context).navTripEndedMain,
+              style: TextStyle(color: CupertinoColors.destructiveRed),
             ),
           ),
-          child: Text(
-            AppLocalizations.of(context).navTripEndedMain,
-            style: TextStyle(color: CupertinoColors.destructiveRed),
-          ),
-        ),
       ],
     );
   }
@@ -315,11 +353,13 @@ class _MemberActionBar extends StatelessWidget {
   final VoidCallback onHelp;
   final VoidCallback onOpenDetail;
   final VoidCallback onExit;
+  final String? exitLabel;
 
   const _MemberActionBar({
     required this.onHelp,
     required this.onOpenDetail,
     required this.onExit,
+    this.exitLabel,
   });
 
   @override
@@ -389,7 +429,8 @@ class _MemberActionBar extends StatelessWidget {
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 10),
                   child: Text(
-                    AppLocalizations.of(context).groupReturnNormal,
+                    exitLabel ??
+                        AppLocalizations.of(context).groupReturnNormal,
                     style: TextStyle(
                       color: Colors.black87,
                       fontWeight: FontWeight.bold,

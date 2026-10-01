@@ -15,6 +15,7 @@ import '../models/group_models.dart';
 import '../models/leg_models.dart';
 import '../services/trip_service.dart';
 import 'group_detail_page.dart';
+import 'member_mode_page.dart';
 import 'group_leader_route_replan_page.dart';
 import 'schedule_page.dart';
 import 'route_detail_page.dart';
@@ -388,6 +389,8 @@ class _LeaderModePageState extends State<LeaderModePage> {
           // 帰りの時間が遅れた場合の調整用UI
           _buildScheduleAdjustment(context, trip),
           const SizedBox(height: 12),
+          _buildMemberPreviewShortcut(context, trip),
+          const SizedBox(height: 12),
           _buildGuideLink(context, trip),
           const SizedBox(height: 16),
           _buildMapCard(context, trip),
@@ -521,6 +524,34 @@ class _LeaderModePageState extends State<LeaderModePage> {
         );
       }
     }
+  }
+
+  Widget _buildMemberPreviewShortcut(BuildContext context, Trip trip) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: Colors.blue.shade50,
+      child: ListTile(
+        leading: const Icon(Icons.visibility, color: Colors.blue),
+        title: Text(
+          AppLocalizations.of(context).groupMemberView,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(AppLocalizations.of(context).groupMemberViewHint),
+        trailing: const Icon(
+          Icons.arrow_forward_ios,
+          size: 16,
+          color: Colors.blue,
+        ),
+        onTap: () {
+          Navigator.of(context, rootNavigator: true).push(
+            MaterialPageRoute(
+              builder: (_) => MemberModePreviewPage(tripId: trip.id),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildGuideLink(BuildContext context, Trip trip) {
