@@ -8,7 +8,6 @@ import '../l10n/transit_name_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_clock.dart';
-import '../models/leg_models.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
@@ -108,7 +107,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           );
         }
 
-        final activeLeg = _resolveActiveGroupLeg(trip);
+        final activeLeg = resolveGroupActiveLeg(trip);
         final activeCandidate = activeLeg.candidate;
         final beforeScheduleSections = <Widget>[
           ActiveTripRouteOverview(
@@ -198,25 +197,6 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         );
       },
     );
-  }
-
-  Leg _resolveActiveGroupLeg(Trip trip) {
-    if (trip.tripType != TripType.group) {
-      throw StateError(
-        '参加者画面にGroup以外のtripが渡されました: '
-        'tripId=${trip.id}, type=${trip.tripType.name}',
-      );
-    }
-
-    final activeLegIndex = trip.activeLegIndex;
-    if (activeLegIndex < 0 || activeLegIndex >= trip.legs.length) {
-      throw StateError(
-        'Groupのactive legを特定できません: '
-        'tripId=${trip.id}, activeLegIndex=$activeLegIndex, '
-        'legs=${trip.legs.length}, completedLegIndex=${trip.completedLegIndex}',
-      );
-    }
-    return trip.legs[activeLegIndex];
   }
 
   String _localizedCandidateEndpoint(
