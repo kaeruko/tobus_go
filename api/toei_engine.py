@@ -1687,7 +1687,10 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
         for signature in signature_order:
             group = sorted(
                 grouped_candidates[signature],
-                key=lambda candidate: candidate["cost"],
+                key=lambda candidate: (
+                    candidate["walk_m"],
+                    candidate["cost"],
+                ),
             )
 
             accepted = False
