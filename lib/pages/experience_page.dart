@@ -99,6 +99,12 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
   }
 
   Widget _buildLoadedBody(ExploreEditorialSpot? editorial) {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final hasEditorialCommentAndImages =
+        editorial != null &&
+        editorial.commentForLanguageCode(languageCode).isNotEmpty &&
+        editorial.images.isNotEmpty;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -106,8 +112,10 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
           _editorialSection(editorial),
           const SizedBox(height: 20),
         ],
-        _streetViewGallery(widget.stop),
-        const SizedBox(height: 20),
+        if (!hasEditorialCommentAndImages) ...[
+          _streetViewGallery(widget.stop),
+          const SizedBox(height: 20),
+        ],
         if (_data!.groups.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
