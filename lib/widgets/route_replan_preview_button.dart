@@ -140,6 +140,7 @@ class _RouteReplanPreviewButtonState
       final applied = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
+        enableDrag: false,
         backgroundColor: Colors.transparent,
         builder: (_) => UncontrolledProviderScope(
           container: providerContainer,
