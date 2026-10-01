@@ -278,7 +278,6 @@ class _RouteReplanComparisonSheetState
             ),
           ),
         ),
-      ),
     );
   }
 
