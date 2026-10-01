@@ -1,0 +1,1028 @@
+{
+  "baseline_ref": "fe8d62b63583fc68b266fcc88ec3e9af743b9538",
+  "baseline_sha256": "2da5626a74457df0b5f114fa6421829e50214e0e7c31e26ed55a610ecebbd8ab",
+  "current_sha256": "41455e3a12ae664f70d50359e2a8b9172a5a76ef7e65f8d2c4ce0c2488fece0b",
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "load_ms": 468.37860000960063,
+  "gtfs_load_ms": 3564.2470000020694,
+  "gtfs_trips": 61324,
+  "pickle_bytes": 148550621,
+  "pickle_sha256": "d601fdec02e0a083c13f3601fd5f799a6edbcd63a6d4219950020319e2cb61f9",
+  "nodes": 18984,
+  "edges": 63970,
+  "note": "Offline shared graph and static GTFS. No HTTP or network access. Both source versions loaded into separate modules; TimetableManager class switched before each call. Each measured condition warmed in both versions, then three alternating paired runs. Core timings exclude coordinate preparation and explicit GC. Adapter timings include coordinate preparation, validation, serialization and unchanged explicit GC. Full payload compared; only adapter step_id UUIDs removed. Additional weekend/realtime cases compare one paired iteration each.",
+  "core": [
+    {
+      "id": "tokyo_toyosu",
+      "mode": "time",
+      "route_count": 1,
+      "times_ms": {
+        "baseline": [
+          221.5931999962777,
+          210.04119999997783,
+          205.50710000679828
+        ],
+        "current": [
+          150.3795999888098,
+          154.17519999027718,
+          157.36739999556448
+        ]
+      },
+      "median_ms": {
+        "baseline": 210.04119999997783,
+        "current": 154.17519999027718
+      },
+      "reduction_percent": 26.597638944029335,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        }
+      ]
+    },
+    {
+      "id": "tokyo_toyosu",
+      "mode": "cost",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          87.56129999528639,
+          73.21570000203792,
+          75.15070000954438
+        ],
+        "current": [
+          30.13729999656789,
+          29.479799995897338,
+          30.61820000584703
+        ]
+      },
+      "median_ms": {
+        "baseline": 75.15070000954438,
+        "current": 30.13729999656789
+      },
+      "reduction_percent": 59.89751260767983,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        }
+      ]
+    },
+    {
+      "id": "tokyo_toyosu",
+      "mode": "fewTransfers",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          319.57180000608787,
+          379.48920000053477,
+          293.33860000770073
+        ],
+        "current": [
+          133.84520000545308,
+          160.54280000389554,
+          120.88469999434892
+        ]
+      },
+      "median_ms": {
+        "baseline": 319.57180000608787,
+        "current": 133.84520000545308
+      },
+      "reduction_percent": 58.11733075230564,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        }
+      ]
+    },
+    {
+      "id": "shinjuku_asakusa",
+      "mode": "time",
+      "route_count": 1,
+      "times_ms": {
+        "baseline": [
+          199.62469999154564,
+          237.15359999914654,
+          240.81160000059754
+        ],
+        "current": [
+          147.4102999927709,
+          158.4249000006821,
+          201.67379999475088
+        ]
+      },
+      "median_ms": {
+        "baseline": 237.15359999914654,
+        "current": 158.4249000006821
+      },
+      "reduction_percent": 33.19734551731357,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        }
+      ]
+    },
+    {
+      "id": "shinjuku_asakusa",
+      "mode": "cost",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          126.50939999730326,
+          171.20799999975134,
+          129.02149998990353
+        ],
+        "current": [
+          222.56219999690074,
+          63.870500001939945,
+          66.47920000250451
+        ]
+      },
+      "median_ms": {
+        "baseline": 129.02149998990353,
+        "current": 66.47920000250451
+      },
+      "reduction_percent": 48.47432404079414,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        }
+      ]
+    },
+    {
+      "id": "shinjuku_asakusa",
+      "mode": "fewTransfers",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          898.0076000007102,
+          1139.1304999997374,
+          1108.6055999912787
+        ],
+        "current": [
+          382.06540000101086,
+          456.9649000040954,
+          343.83760001219343
+        ]
+      },
+      "median_ms": {
+        "baseline": 1108.6055999912787,
+        "current": 382.06540000101086
+      },
+      "reduction_percent": 65.53639996009252,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        }
+      ]
+    },
+    {
+      "id": "tokyo_toyosu_bus_only",
+      "mode": "time",
+      "route_count": 1,
+      "times_ms": {
+        "baseline": [
+          88.73590000439435,
+          87.27440000802744,
+          89.76180000172462
+        ],
+        "current": [
+          65.58080000104383,
+          65.43930000043474,
+          77.36680000380147
+        ]
+      },
+      "median_ms": {
+        "baseline": 88.73590000439435,
+        "current": 65.58080000104383
+      },
+      "reduction_percent": 26.094399225346056,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        }
+      ]
+    },
+    {
+      "id": "tokyo_toyosu_bus_only",
+      "mode": "cost",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          76.72230000025593,
+          80.9921000036411,
+          125.34080000477843
+        ],
+        "current": [
+          39.54500000691041,
+          39.01729999051895,
+          48.669399999198504
+        ]
+      },
+      "median_ms": {
+        "baseline": 80.9921000036411,
+        "current": 39.54500000691041
+      },
+      "reduction_percent": 51.17425032178124,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        }
+      ]
+    },
+    {
+      "id": "tokyo_toyosu_bus_only",
+      "mode": "fewTransfers",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          279.40069999021944,
+          342.95239999482874,
+          316.70219999796245
+        ],
+        "current": [
+          141.53510000323877,
+          150.1427000039257,
+          144.15929999086075
+        ]
+      },
+      "median_ms": {
+        "baseline": 316.70219999796245,
+        "current": 144.15929999086075
+      },
+      "reduction_percent": 54.481118226590084,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 2,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        }
+      ]
+    }
+  ],
+  "adapter": [
+    {
+      "id": "shinjuku_asakusa",
+      "mode": "time",
+      "route_count": 1,
+      "times_ms": {
+        "baseline": [
+          322.94880000699777,
+          335.58719999564346,
+          293.31760000786744
+        ],
+        "current": [
+          252.44450000172947,
+          271.6718000010587,
+          238.90459998801816
+        ]
+      },
+      "median_ms": {
+        "baseline": 322.94880000699777,
+        "current": 252.44450000172947
+      },
+      "reduction_percent": 21.831417241290442,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 114.93969999719411,
+              "collected": 0
+            }
+          ]
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 109.3784999975469,
+              "collected": 0
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "variant": "current",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 117.96950000280049,
+              "collected": 0
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 87.21690000675153,
+              "collected": 0
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 97.3565000022063,
+              "collected": 0
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "variant": "current",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 87.41580000787508,
+              "collected": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shinjuku_asakusa",
+      "mode": "cost",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          197.089599998435,
+          216.0137000028044,
+          224.43450000719167
+        ],
+        "current": [
+          142.94729998800904,
+          140.7822000037413,
+          168.49240000010468
+        ]
+      },
+      "median_ms": {
+        "baseline": 216.0137000028044,
+        "current": 142.94729998800904
+      },
+      "reduction_percent": 33.82489166837417,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 93.05080000194721,
+              "collected": 0
+            }
+          ]
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 90.55610001087189,
+              "collected": 0
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "variant": "current",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 89.75980000104755,
+              "collected": 0
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 112.46980000578333,
+              "collected": 0
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 97.51880000112578,
+              "collected": 0
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "variant": "current",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 107.71750001003966,
+              "collected": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shinjuku_asakusa",
+      "mode": "fewTransfers",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          944.0496000024723,
+          1035.0694999942789,
+          977.9508999927202
+        ],
+        "current": [
+          460.37210000213236,
+          465.3464000002714,
+          450.4120000055991
+        ]
+      },
+      "median_ms": {
+        "baseline": 977.9508999927202,
+        "current": 460.37210000213236
+      },
+      "reduction_percent": 52.92482475290331,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 89.01340000738855,
+              "collected": 0
+            }
+          ]
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 89.0786000090884,
+              "collected": 0
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "variant": "current",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 89.53579999797512,
+              "collected": 0
+            }
+          ]
+        },
+        {
+          "iteration": 1,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 88.46090000588447,
+              "collected": 0
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 96.26109999953769,
+              "collected": 0
+            }
+          ]
+        },
+        {
+          "iteration": 2,
+          "variant": "current",
+          "same_payload": true,
+          "gc": [
+            {
+              "ms": 95.20530000736471,
+              "collected": 0
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "equivalence": [
+    {
+      "id": "shinjuku_asakusa_saturday",
+      "mode": "time",
+      "route_count": 0,
+      "times_ms": {
+        "baseline": [
+          265.38450000225566
+        ],
+        "current": [
+          217.35640001134016
+        ]
+      },
+      "median_ms": {
+        "baseline": 265.38450000225566,
+        "current": 217.35640001134016
+      },
+      "reduction_percent": 18.09755279246048,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        }
+      ]
+    },
+    {
+      "id": "shinjuku_asakusa_saturday",
+      "mode": "cost",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          130.4723999928683
+        ],
+        "current": [
+          66.39549999090377
+        ]
+      },
+      "median_ms": {
+        "baseline": 130.4723999928683,
+        "current": 66.39549999090377
+      },
+      "reduction_percent": 49.111459592578214,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        }
+      ]
+    },
+    {
+      "id": "shinjuku_asakusa_saturday",
+      "mode": "fewTransfers",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          909.7897000028752
+        ],
+        "current": [
+          366.1720000091009
+        ]
+      },
+      "median_ms": {
+        "baseline": 909.7897000028752,
+        "current": 366.1720000091009
+      },
+      "reduction_percent": 59.75201741589912,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        }
+      ]
+    },
+    {
+      "id": "shinjuku_asakusa_realtime_delayed",
+      "mode": "time",
+      "route_count": 1,
+      "times_ms": {
+        "baseline": [
+          250.8836000051815
+        ],
+        "current": [
+          159.49469999759458
+        ]
+      },
+      "median_ms": {
+        "baseline": 250.8836000051815,
+        "current": 159.49469999759458
+      },
+      "reduction_percent": 36.42681307415051,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        }
+      ]
+    },
+    {
+      "id": "shinjuku_asakusa_realtime_delayed",
+      "mode": "cost",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          121.33799999719486
+        ],
+        "current": [
+          53.83839999558404
+        ]
+      },
+      "median_ms": {
+        "baseline": 121.33799999719486,
+        "current": 53.83839999558404
+      },
+      "reduction_percent": 55.62939887188787,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        }
+      ]
+    },
+    {
+      "id": "shinjuku_asakusa_realtime_delayed",
+      "mode": "fewTransfers",
+      "route_count": 5,
+      "times_ms": {
+        "baseline": [
+          894.652800008771
+        ],
+        "current": [
+          351.211000001058
+        ]
+      },
+      "median_ms": {
+        "baseline": 894.652800008771,
+        "current": 351.211000001058
+      },
+      "reduction_percent": 60.74331852562081,
+      "checks": [
+        {
+          "iteration": 0,
+          "variant": "baseline",
+          "same_payload": true,
+          "gc": []
+        },
+        {
+          "iteration": 0,
+          "variant": "current",
+          "same_payload": true,
+          "gc": []
+        }
+      ]
+    }
+  ],
+  "realtime_injection": {
+    "bus_route_delays": 150,
+    "bus_delay_minutes": 7.0,
+    "train_delays": 2682,
+    "train_delay_seconds": 360
+  }
+}

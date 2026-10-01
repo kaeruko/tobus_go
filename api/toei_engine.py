@@ -235,6 +235,7 @@ import gc
 import time
 import networkx as nx
 from collections import defaultdict
+from functools import lru_cache
 from datetime import datetime as dt_class # datetime.datetimeと競合しないようにalias
 from google.transit import gtfs_realtime_pb2
 from gtfs_loader import gtfs_repo
@@ -895,13 +896,6 @@ class TimetableManager:
         return target_dict.get(pole_id, {}).get(route_id)
 
     def get_next_bus_departure(self, pole_id, route_id, current_time_min, pole_name=None, day_type="weekday", target_pole_id=None, debug=False, use_realtime=True):
-        if not debug:
-            dbg_env = os.getenv("DEBUG_BUS", "0")
-            if dbg_env == "1":
-                debug = True
-            elif dbg_env != "0" and pole_name and dbg_env in pole_name:
-                debug = True
-
         delay_min = (
             self.bus_realtime_delays.get(route_id, 0.0)
             if use_realtime
@@ -1344,13 +1338,13 @@ def _edge_uses_rail(G, u, v):
     return False
 
 
-def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=None, use_realtime=True, **kwargs):
-    if G.has_edge(u, v):
+def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=None, use_realtime=True, *, edge=None, **kwargs):
+    if edge is None:
+        if not G.has_edge(u, v):
+            return curr_time
         edge = G.edges[u, v]
-        etype = edge.get("etype")
-        meters = edge.get("meters", 0)
-    else:
-        return curr_time 
+    etype = edge.get("etype")
+    meters = edge.get("meters", 0)
 
     if etype == "walk":
         mm = meters if meters and meters > 0 else 1.0
@@ -1795,6 +1789,7 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
             t_lon = G.nodes[target_node]["lon"]
         except: pass
 
+    @lru_cache(maxsize=None)
     def heuristic(n):
         if n == target_node: return 0.0
         if t_lat is None: return 0.0
@@ -1899,17 +1894,32 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
                         ),
                     )
 
-        for v in G[u]:
-            edge = G[u][v]
+        for v, edge in G[u].items():
+            etype = edge.get("etype")
             if (
                 can_walk_direct_to_destination
-                and edge.get("etype") == "walk"
+                and etype == "walk"
             ):
                 continue
             if bus_only and _edge_uses_rail(G, u, v):
                 continue
             w = edge.get("w", 0.0)
             meters = edge.get("meters", 0.0)
+            new_total_walk_m = total_walk_m
+            new_seg_walk_m = 0.0
+            if etype == "walk":
+                step_m = meters if meters > 0 else 1.0
+                new_seg_walk_m = seg_walk_m + step_m
+                if new_seg_walk_m > MAX_WALK_SEG_M: continue
+                new_total_walk_m += step_m
+                if new_total_walk_m > MAX_TOTAL_WALK_M: continue
+
+            new_cost = cost + w
+            new_bucket = int(new_seg_walk_m // 25)
+            new_key = (v, new_bucket)
+            # Cost and walking constraints do not require a timetable lookup.
+            if not new_cost < g_score.get(new_key, float('inf')):
+                continue
             next_time = advance_time(
                 G,
                 tm,
@@ -1919,28 +1929,14 @@ def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00",
                 day_type,
                 delays_snapshot,
                 use_realtime=use_realtime,
+                edge=edge,
             )
             if next_time is None or next_time - start_min > max_travel_min: continue
 
-            new_total_walk_m = total_walk_m
-            new_seg_walk_m = seg_walk_m
-            if edge.get("etype") == "walk":
-                step_m = meters if meters > 0 else 1.0
-                new_seg_walk_m += step_m
-                if new_seg_walk_m > MAX_WALK_SEG_M: continue
-                new_total_walk_m += step_m
-                if new_total_walk_m > MAX_TOTAL_WALK_M: continue
-            else:
-                new_seg_walk_m = 0.0
-
-            new_cost = cost + w
-            new_bucket = int(new_seg_walk_m // 25)
-            new_key = (v, new_bucket)
-            if new_cost < g_score.get(new_key, float('inf')):
-                g_score[new_key] = new_cost
-                new_h = heuristic(v)
-                new_chain_idx = _chain_new(chain_store, v, chain_idx)
-                heapq.heappush(pq, (new_cost + new_h, new_cost, v, new_total_walk_m, new_seg_walk_m, next_time, new_chain_idx))
+            g_score[new_key] = new_cost
+            new_h = heuristic(v)
+            new_chain_idx = _chain_new(chain_store, v, chain_idx)
+            heapq.heappush(pq, (new_cost + new_h, new_cost, v, new_total_walk_m, new_seg_walk_m, next_time, new_chain_idx))
     _mem_log("find_paths_generator end")
 
 def find_few_transfers_paths_generator(
@@ -2129,17 +2125,37 @@ def find_few_transfers_paths_generator(
                         ),
                     )
 
-        for v in G[u]:
-            edge = G[u][v]
+        for v, edge in G[u].items():
+            etype = edge.get("etype")
             if (
                 can_walk_direct_to_destination
-                and edge.get("etype") == "walk"
+                and etype == "walk"
             ):
                 continue
             if bus_only and _edge_uses_rail(G, u, v):
                 continue
             w = edge.get("w", 0.0)
             meters = edge.get("meters", 0.0)
+            new_total_walk_m = total_walk_m
+            new_seg_walk_m = 0.0
+            if etype == "walk":
+                step_m = meters if meters > 0 else 1.0
+                new_seg_walk_m = seg_walk_m + step_m
+                if new_seg_walk_m > MAX_WALK_SEG_M:
+                    continue
+                new_total_walk_m += step_m
+                if new_total_walk_m > MAX_TOTAL_WALK_M:
+                    continue
+
+            new_boardings = boardings + (
+                1 if etype == "board" else 0
+            )
+            new_cost = cost + w
+            new_bucket = int(new_seg_walk_m // 25)
+            new_key = (v, new_bucket, new_boardings)
+            # Keep boarding count in the key before skipping dominated labels.
+            if not new_cost < g_score.get(new_key, float("inf")):
+                continue
             next_time = advance_time(
                 G,
                 tm,
@@ -2149,6 +2165,7 @@ def find_few_transfers_paths_generator(
                 day_type,
                 delays_snapshot,
                 use_realtime=use_realtime,
+                edge=edge,
             )
             if (
                 next_time is None
@@ -2156,42 +2173,22 @@ def find_few_transfers_paths_generator(
             ):
                 continue
 
-            new_total_walk_m = total_walk_m
-            new_seg_walk_m = seg_walk_m
-            if edge.get("etype") == "walk":
-                step_m = meters if meters > 0 else 1.0
-                new_seg_walk_m += step_m
-                if new_seg_walk_m > MAX_WALK_SEG_M:
-                    continue
-                new_total_walk_m += step_m
-                if new_total_walk_m > MAX_TOTAL_WALK_M:
-                    continue
-            else:
-                new_seg_walk_m = 0.0
-
-            new_boardings = boardings + (
-                1 if edge.get("etype") == "board" else 0
+            g_score[new_key] = new_cost
+            new_chain_idx = _chain_new(
+                chain_store, v, chain_idx
             )
-            new_cost = cost + w
-            new_bucket = int(new_seg_walk_m // 25)
-            new_key = (v, new_bucket, new_boardings)
-            if new_cost < g_score.get(new_key, float("inf")):
-                g_score[new_key] = new_cost
-                new_chain_idx = _chain_new(
-                    chain_store, v, chain_idx
-                )
-                heapq.heappush(
-                    pq,
-                    (
-                        new_boardings,
-                        new_cost,
-                        v,
-                        new_total_walk_m,
-                        new_seg_walk_m,
-                        next_time,
-                        new_chain_idx,
-                    ),
-                )
+            heapq.heappush(
+                pq,
+                (
+                    new_boardings,
+                    new_cost,
+                    v,
+                    new_total_walk_m,
+                    new_seg_walk_m,
+                    next_time,
+                    new_chain_idx,
+                ),
+            )
 
     _log_few_transfers_stats("queue_exhausted")
     _mem_log("find_few_transfers_paths_generator end")
@@ -2351,14 +2348,23 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
                         ),
                     )
 
-        for v in G[u]:
-            edge = G[u][v]
+        for v, edge in G[u].items():
             etype = edge.get("etype")
             if can_walk_direct_to_destination and etype == "walk":
                 continue
             if bus_only and _edge_uses_rail(G, u, v):
                 continue
             meters = edge.get("meters", 0)
+            if etype == "walk":
+                step_m = meters if meters > 0 else 1.0
+                new_seg = seg_walk + step_m
+                if new_seg > MAX_WALK_SEG_M: continue
+                new_tot = total_walk + step_m
+                if new_tot > MAX_TOTAL_WALK_M: continue
+            else:
+                new_seg = 0.0
+                new_tot = total_walk
+
             next_time = advance_time(
                 G,
                 tm,
@@ -2369,18 +2375,9 @@ def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", da
                 delays_snapshot,
                 use_realtime=use_realtime,
                 target_pole_id=None,
-            ) 
+                edge=edge,
+            )
             if next_time is None: continue
-
-            if edge.get("etype") == "walk":
-                step_m = meters if meters > 0 else 1.0
-                new_seg = seg_walk + step_m
-                if new_seg > MAX_WALK_SEG_M: continue
-                new_tot = total_walk + step_m
-                if new_tot > MAX_TOTAL_WALK_M: continue
-            else:
-                new_seg = 0.0
-                new_tot = total_walk
             
             n_bucket = int(new_seg // 25)
             n_key = (v, n_bucket)

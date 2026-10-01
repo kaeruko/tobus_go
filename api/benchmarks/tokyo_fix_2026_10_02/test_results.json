@@ -1,0 +1,18 @@
+{
+  "modules": [
+    "tests.test_route_search_regression",
+    "tests.test_tokyo_realtime_search_policy",
+    "tests.test_route_initial_walk",
+    "tests.test_route_engine_contract.RouteEngineContractTest.test_tokyo_adapter_implements_the_same_typed_contract",
+    "tests.test_gtfs_trip_times",
+    "tests.test_gtfs_service_calendar",
+    "tests.test_tokyo_search_performance"
+  ],
+  "tests_run": 37,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "success": true,
+  "engine_sha256": "41455e3a12ae664f70d50359e2a8b9172a5a76ef7e65f8d2c4ce0c2488fece0b",
+  "report": ".....................................\n----------------------------------------------------------------------\nRan 37 tests in 0.127s\n\nOK\n"
+}
