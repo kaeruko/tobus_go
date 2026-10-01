@@ -68,6 +68,48 @@ StepSeg? resolveCurrentRideStep({
   return step;
 }
 
+void openNavigationRideStops({
+  required BuildContext context,
+  required Trip trip,
+  required ScheduleEntry? resolvedEntry,
+  required String? currentStepId,
+}) {
+  if (resolvedEntry != null) {
+    if (resolvedEntry.itemKind == ScheduleEntryKind.ride) {
+      openRideStops(context: context, trip: trip, entry: resolvedEntry);
+      return;
+    }
+
+    if (resolvedEntry.routeRole == 'wait_start' ||
+        resolvedEntry.itemKind == ScheduleEntryKind.walk) {
+      final rides = trip.schedule
+          .where(
+            (entry) =>
+                entry.legIndex == resolvedEntry.legIndex &&
+                entry.itemKind == ScheduleEntryKind.ride &&
+                !entry.plannedAt.isBefore(resolvedEntry.plannedAt),
+          )
+          .toList()
+        ..sort((a, b) => a.plannedAt.compareTo(b.plannedAt));
+
+      if (rides.isEmpty) {
+        throw StateError(
+          '現在の案内に対応する次の乗車予定がありません: '
+          'entryId=${resolvedEntry.id}, role=${resolvedEntry.routeRole}',
+        );
+      }
+      openRideStops(context: context, trip: trip, entry: rides.first);
+      return;
+    }
+  }
+
+  openCurrentRideStops(
+    context: context,
+    trip: trip,
+    currentStepId: currentStepId,
+  );
+}
+
 void openCurrentRideStops({
   required BuildContext context,
   required Trip trip,
