@@ -249,9 +249,10 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
       TripNavigationStatusCard(
         navState: uiState.navState,
         tripTitle: tripTitle,
-        onTapStops: () => openCurrentRideStops(
+        onTapStops: () => openNavigationRideStops(
           context: context,
           trip: trip,
+          resolvedEntry: uiState.resolvedEntry,
           currentStepId: ref.read(memberNavProgressProvider).currentStepId,
         ),
       ),
@@ -310,9 +311,10 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
           if (!completed) const ActiveTripRealtimeActions(),
         ],
       ),
-      onTapStops: () => openCurrentRideStops(
+      onTapStops: () => openNavigationRideStops(
         context: context,
         trip: trip,
+        resolvedEntry: uiState.resolvedEntry,
         currentStepId: ref.read(memberNavProgressProvider).currentStepId,
       ),
       beforeScheduleSections: beforeScheduleSections,
