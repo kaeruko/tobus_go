@@ -38,9 +38,10 @@ enum NavigationTextKey {
   preDepartureMain,
   plannedDepartureSub,
   preStartStatus,
-  preMeetingMain,
-  meetingStartsInSub,
-  preMeetingStatus,
+  meetingCountdownMain,
+  meetingScheduledSub,
+  meetingActionMain,
+  meetingNextSub,
   startsInSub,
   movingStatus,
   meetingDefaultSub,
@@ -338,20 +339,73 @@ class NavigationState {
         '${entry.plannedAt.hour}:${entry.plannedAt.minute.toString().padLeft(2, '0')}';
 
     return NavigationState(
-      mainText: '$time 集合',
-      subText: '$label · あと$minutes分',
-      color: Colors.white,
-      statusLabel: '集合前',
+      mainText: 'あと$minutes分',
+      subText: '$time $label',
+      color: const Color(0xFFE1F5FE),
+      statusLabel: '待機',
       mainTextToken: NavigationTextToken(
-        NavigationTextKey.preMeetingMain,
-        {'time': time},
+        NavigationTextKey.meetingCountdownMain,
+        {'minutes': minutes},
       ),
       subTextToken: NavigationTextToken(
-        NavigationTextKey.meetingStartsInSub,
-        {'label': label, 'minutes': minutes},
+        NavigationTextKey.meetingScheduledSub,
+        {'time': time, 'label': label},
       ),
       statusLabelToken: const NavigationTextToken(
-        NavigationTextKey.preMeetingStatus,
+        NavigationTextKey.waitingStatus,
+      ),
+      currentStepId: entry.routeStepId,
+      isMoving: false,
+    );
+  }
+
+  static NavigationState meetingWithNext({
+    required ScheduleEntry entry,
+    required ScheduleEntry nextEntry,
+  }) {
+    if (entry.itemKind != ScheduleEntryKind.meeting) {
+      throw ArgumentError(
+        'meetingWithNext requires meeting entry: '
+        'entryId=${entry.id}, kind=${entry.itemKind.name}',
+      );
+    }
+    if (nextEntry.id == entry.id) {
+      throw StateError('集合予定の次の予定が同じentryです: entryId=${entry.id}');
+    }
+    if (nextEntry.legIndex != entry.legIndex) {
+      throw StateError(
+        '集合予定と次の予定のlegIndexが一致しません: '
+        'meeting=${entry.legIndex}, next=${nextEntry.legIndex}',
+      );
+    }
+    if (nextEntry.plannedAt.isBefore(entry.plannedAt)) {
+      throw StateError(
+        '集合予定より前の予定を次の予定として表示できません: '
+        'meeting=${entry.plannedAt}, next=${nextEntry.plannedAt}',
+      );
+    }
+
+    final nextLabel = nextEntry.label.trim();
+    if (nextLabel.isEmpty) {
+      throw StateError('集合後の次の予定のlabelが空です: entryId=${nextEntry.id}');
+    }
+    final nextTime =
+        '${nextEntry.plannedAt.hour}:${nextEntry.plannedAt.minute.toString().padLeft(2, '0')}';
+
+    return NavigationState(
+      mainText: '人数を確認しましょう',
+      subText: '次の予定\n$nextTime $nextLabel',
+      color: const Color(0xFFC8E6C9),
+      statusLabel: '集合',
+      mainTextToken: const NavigationTextToken(
+        NavigationTextKey.meetingActionMain,
+      ),
+      subTextToken: NavigationTextToken(
+        NavigationTextKey.meetingNextSub,
+        {'time': nextTime, 'label': nextLabel},
+      ),
+      statusLabelToken: const NavigationTextToken(
+        NavigationTextKey.meetingStatus,
       ),
       currentStepId: entry.routeStepId,
       isMoving: false,

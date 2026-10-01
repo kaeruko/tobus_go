@@ -713,26 +713,37 @@
     }
   },
   "navPreStartStatus": "Not started",
-  "navPreMeetingMain": "{time} Meeting",
-  "@navPreMeetingMain": {
+  "navMeetingCountdownMain": "{minutes} min to go",
+  "@navMeetingCountdownMain": {
     "placeholders": {
-      "time": {
-        "type": "String"
-      }
-    }
-  },
-  "navMeetingStartsInSub": "{label} · in {minutes} min",
-  "@navMeetingStartsInSub": {
-    "placeholders": {
-      "label": {
-        "type": "String"
-      },
       "minutes": {
         "type": "int"
       }
     }
   },
-  "navPreMeetingStatus": "Before meeting",
+  "navMeetingScheduledSub": "{time} {label}",
+  "@navMeetingScheduledSub": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "navMeetingActionMain": "Check that everyone is here",
+  "navMeetingNextSub": "Next\n{time} {label}",
+  "@navMeetingNextSub": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "navStartsInSub": "Starts in {hours}h {minutes}m",
   "@navStartsInSub": {
     "placeholders": {

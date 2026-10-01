@@ -61,20 +61,76 @@ void main() {
       );
 
       expect(resolved.resolvedEntry, isNull);
-      expect(navigation.mainText, '8:29 集合');
-      expect(navigation.subText, '➡️ 平井駅集合 · あと5分');
-      expect(navigation.statusLabel, '集合前');
+      expect(navigation.mainText, 'あと5分');
+      expect(navigation.subText, '8:29 ➡️ 平井駅集合');
+      expect(navigation.statusLabel, '待機');
       expect(
         navigation.mainTextToken?.key,
-        NavigationTextKey.preMeetingMain,
+        NavigationTextKey.meetingCountdownMain,
       );
       expect(
         navigation.subTextToken?.key,
-        NavigationTextKey.meetingStartsInSub,
+        NavigationTextKey.meetingScheduledSub,
       );
       expect(
         navigation.statusLabelToken?.key,
-        NavigationTextKey.preMeetingStatus,
+        NavigationTextKey.waitingStatus,
+      );
+    });
+
+    test('meeting shows the next schedule item', () {
+      final meeting = ScheduleEntry(
+        id: 'meeting',
+        plannedAt: DateTime(2025, 1, 1, 8, 29),
+        label: '⬅️ 帰りの集合',
+        description: '帰りの経路を開始する前に人数を確認しましょう',
+        itemKind: ScheduleEntryKind.meeting,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: null,
+        legIndex: 0,
+      );
+      final next = ScheduleEntry(
+        id: 'next-walk',
+        plannedAt: DateTime(2025, 1, 1, 8, 39),
+        label: '⬅️ 新橋駅まで歩く (4分)',
+        itemKind: ScheduleEntryKind.walk,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: 'walk-A',
+        routeRole: 'walk',
+        legIndex: 0,
+      );
+      final trip = navigationV2Trip();
+      final now = DateTime(2025, 1, 1, 8, 30);
+      final resolved = TripCoordinator.resolveScheduleState(
+        scheduleEntries: [meeting, next],
+        now: now,
+      );
+
+      final navigation = TripCoordinator.buildMemberNavigationState(
+        trip: trip,
+        routeState: RouteState(stepsById: trip.stepsById),
+        now: now,
+        resolvedState: resolved,
+      );
+
+      expect(resolved.resolvedEntry?.id, 'meeting');
+      expect(navigation.mainText, '人数を確認しましょう');
+      expect(
+        navigation.subText,
+        '次の予定\n8:39 ⬅️ 新橋駅まで歩く (4分)',
+      );
+      expect(navigation.statusLabel, '集合');
+      expect(
+        navigation.mainTextToken?.key,
+        NavigationTextKey.meetingActionMain,
+      );
+      expect(
+        navigation.subTextToken?.key,
+        NavigationTextKey.meetingNextSub,
+      );
+      expect(
+        navigation.statusLabelToken?.key,
+        NavigationTextKey.meetingStatus,
       );
     });
 

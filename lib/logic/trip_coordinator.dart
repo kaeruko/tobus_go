@@ -433,6 +433,29 @@ class TripCoordinator {
       return _goalNavigationState(trip: trip, entry: resolved);
     }
 
+    if (resolved.itemKind == ScheduleEntryKind.meeting) {
+      final sameLegWindow = resolvedState.windowEntries
+          .where((entry) => entry.legIndex == resolved.legIndex)
+          .toList(growable: false);
+      final meetingIndex = sameLegWindow.indexWhere(
+        (entry) => entry.id == resolved.id,
+      );
+      if (meetingIndex < 0) {
+        throw StateError(
+          '集合予定が予定ウィンドウ内にありません: entryId=${resolved.id}',
+        );
+      }
+      if (meetingIndex + 1 >= sameLegWindow.length) {
+        throw StateError(
+          '集合予定の次の予定がありません: entryId=${resolved.id}',
+        );
+      }
+      return NavigationState.meetingWithNext(
+        entry: resolved,
+        nextEntry: sameLegWindow[meetingIndex + 1],
+      );
+    }
+
     if (resolved.routeRole == 'wait_start') {
       final nextRides =
           trip.schedule

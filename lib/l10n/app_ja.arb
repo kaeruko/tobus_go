@@ -713,26 +713,37 @@
     }
   },
   "navPreStartStatus": "開始前",
-  "navPreMeetingMain": "{time} 集合",
-  "@navPreMeetingMain": {
+  "navMeetingCountdownMain": "あと{minutes}分",
+  "@navMeetingCountdownMain": {
     "placeholders": {
-      "time": {
-        "type": "String"
-      }
-    }
-  },
-  "navMeetingStartsInSub": "{label} · あと{minutes}分",
-  "@navMeetingStartsInSub": {
-    "placeholders": {
-      "label": {
-        "type": "String"
-      },
       "minutes": {
         "type": "int"
       }
     }
   },
-  "navPreMeetingStatus": "集合前",
+  "navMeetingScheduledSub": "{time} {label}",
+  "@navMeetingScheduledSub": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "navMeetingActionMain": "人数を確認しましょう",
+  "navMeetingNextSub": "次の予定\n{time} {label}",
+  "@navMeetingNextSub": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "navStartsInSub": "開始まで あと {hours}時間{minutes}分",
   "@navStartsInSub": {
     "placeholders": {
