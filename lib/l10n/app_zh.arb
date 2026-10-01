@@ -1385,6 +1385,7 @@
   "groupReplanUnavailableHere": "无法从此页面更改群组路线",
   "groupReplanLeaderOnly": "只有群组领队可以更改群组路线",
   "groupGuideTitle": "出行指南",
+  "groupGuideButton": "指南",
   "groupJoinCode": "加入码",
   "groupJoinCodeCopied": "已复制加入码",
   "groupBasicInfo": "基本信息",
