@@ -1,11 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../services/user_service.dart';
 import '../services/trip_service.dart';
-import '../models/trip_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_session_provider.dart';
 import '../providers/location_provider.dart';
@@ -19,7 +18,6 @@ import '../models/group_models.dart';
 import '../models/route_models.dart';
 import '../l10n/app_localizations.dart';
 import 'trip_list_page.dart';
-import 'solo_trip_detail_page.dart';
 import 'trip_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -30,8 +28,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  bool _isStaffMode = false;
-  String? _userId;
   String _userName = '';
   String _manualLocationInput = '';
 
@@ -40,25 +36,20 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     super.initState();
     _loadSettings();
 
-    // Initialize manual input with current override if exists
-    final override = ref.read(locationOverrideProvider);
-    if (override != null) {
-      _manualLocationInput = '${override.latitude},${override.longitude}';
+    if (kDebugMode) {
+      final override = ref.read(locationOverrideProvider);
+      if (override != null) {
+        _manualLocationInput = '${override.latitude},${override.longitude}';
+      }
     }
   }
 
   Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    // ユーザー情報の取得
     await UserService().initialize();
     final name = await UserService().getUserName();
-    final uid = UserService().currentUserId;
-
+    if (!mounted) return;
     setState(() {
-      _isStaffMode = prefs.getBool('isStaffMode') ?? false;
       _userName = name;
-      _userId = uid;
     });
   }
 
@@ -193,14 +184,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     } finally {
       controller.dispose();
     }
-  }
-
-  Future<void> _toggleStaffMode(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isStaffMode', value);
-    setState(() {
-      _isStaffMode = value;
-    });
   }
 
   void _updateManualLocation(String value, String desc) {
@@ -403,123 +386,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
-  Future<void> _openLatestTripAsMember() async {
-    try {
-      debugPrint("[Settings] _openLatestTripAsMember called");
-      String? tripId;
-      final sessionTripId = ref.read(appSessionProvider).currentTripId;
-      debugPrint("[Settings] sessionTripId: $sessionTripId");
-
-      if (sessionTripId != null) {
-        // Verify the stored trip is still valid before reusing it
-        final sessionTrip = await TripService().getTrip(sessionTripId);
-        final uid = UserService().currentUserId;
-        final isActive =
-            sessionTrip != null &&
-            (sessionTrip.travelPhase == TravelPhase.planning ||
-                sessionTrip.travelPhase == TravelPhase.active);
-        final isMember =
-            sessionTrip != null &&
-            uid != null &&
-            sessionTrip.memberIds.contains(uid);
-
-        if (isActive && isMember) {
-          tripId = sessionTripId;
-          debugPrint("[Settings] Using sessionTripId: $tripId");
-        } else {
-          debugPrint(
-            "[Settings] Stored sessionTripId is invalid (active=$isActive, member=$isMember), clearing it",
-          );
-          await ref.read(appSessionProvider.notifier).leaveMemberMode();
-        }
-      }
-
-      if (tripId == null) {
-        final activeTrip = await TripService().getActiveTrip();
-        debugPrint("[Settings] activeTrip from Service: ${activeTrip?.id}");
-        if (activeTrip != null) {
-          tripId = activeTrip.id;
-          debugPrint("[Settings] Using activeTripId: $tripId");
-        }
-      }
-
-      if (tripId == null) {
-        final uid = UserService().currentUserId;
-        debugPrint("[Settings] Current User ID: $uid");
-        if (uid != null) {
-          debugPrint("[Settings] Querying Firestore for member trips...");
-          final snapshot = await FirebaseFirestore.instance
-              .collection('trips')
-              .where('memberIds', arrayContains: uid)
-              .orderBy('date', descending: true)
-              .limit(1)
-              .get();
-
-          debugPrint("[Settings] Snapshot docs count: ${snapshot.docs.length}");
-          if (snapshot.docs.isNotEmpty) {
-            final doc = snapshot.docs.first;
-            final data = doc.data();
-            debugPrint(
-              "[Settings] Found Member Trip: ${doc.id} | Status: ${data['travelPhase'] ?? data['status']} | Date: ${data['date']}",
-            );
-            tripId = doc.id;
-          }
-        } else {
-          debugPrint("[Settings] UID is null, skipping Firestore query");
-        }
-      }
-
-      if (tripId != null) {
-        final trip = await TripService().getTrip(tripId);
-        if (trip?.isSolo == true) {
-          final soloTrip = trip!;
-          if (mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => TripPage(tripId: soloTrip.id)),
-            );
-          }
-          return;
-        }
-        debugPrint(
-          "[Settings] Attempting to enter Member Mode for tripId: $tripId",
-        );
-        await ref.read(appSessionProvider.notifier).enterMemberMode(tripId);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                AppLocalizations.of(context).settingsMemberModeEnabled,
-              ),
-            ),
-          );
-          // SettingsPageを閉じて、RootGateの切り替えを表示させる
-          Navigator.of(context).pop();
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                AppLocalizations.of(context).settingsNoJoinableTrip,
-              ),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppLocalizations.of(context).errorWithMessage(e.toString()),
-            ),
-          ),
-        );
-      }
-    }
-  }
-
   // 時刻表示用のヘルパー
   String _formatTime(DateTime dt) {
     return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
@@ -693,16 +559,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    // 修正: ref.listen は build メソッド内で呼び出す
-    ref.listen<LatLng?>(locationOverrideProvider, (prev, next) {
-      setState(() {
-        _manualLocationInput = next != null
-            ? '${next.latitude},${next.longitude}'
-            : '';
+    if (kDebugMode) {
+      ref.listen<LatLng?>(locationOverrideProvider, (prev, next) {
+        setState(() {
+          _manualLocationInput = next != null
+              ? '${next.latitude},${next.longitude}'
+              : '';
+        });
       });
-    });
+    }
 
-    final manualOverride = ref.watch(locationOverrideProvider);
+    final manualOverride = kDebugMode
+        ? ref.watch(locationOverrideProvider)
+        : null;
     final currentOffset = AppClock.instance.offset;
     final simulatedTime = AppClock.instance.now();
 
@@ -736,152 +605,133 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             trailing: const Icon(Icons.chevron_right),
             onTap: _showJoinTripDialog,
           ),
-          ListTile(
-            leading: const Icon(Icons.fingerprint),
-            title: Text(l10n.settingsUserId),
-            subtitle: Text(
-              _userId ?? l10n.settingsLoading,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
-            trailing: IconButton(
-              icon: const Icon(Icons.copy, size: 20),
-              onPressed: () {
-                if (_userId != null) {
-                  Clipboard.setData(ClipboardData(text: _userId!));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l10n.settingsIdCopied)),
-                  );
-                }
-              },
-            ),
-          ),
-          const Divider(),
-
-          // --- 既存の設定 ---
-          SwitchListTile(
-            title: Text(l10n.settingsEnableStaff),
-            subtitle: Text(l10n.settingsStaffDescription),
-            value: _isStaffMode,
-            onChanged: _toggleStaffMode,
-          ),
-
-          const Divider(),
-
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-            child: Text(
-              l10n.settingsManualLocation,
-              style: const TextStyle(
-                color: Colors.blueGrey,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          if (kDebugMode) ...[
+            const Divider(),
+            ExpansionTile(
+              leading: const Icon(Icons.developer_mode),
+              title: Text(l10n.settingsAdminMenu),
+              childrenPadding: const EdgeInsets.only(bottom: 8),
               children: [
-                PlaceField(
-                  label: l10n.settingsSearchLocation,
-                  value: _manualLocationInput,
-                  displayValue: _manualLocationInput,
-                  onChanged: _updateManualLocation,
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        manualOverride != null
-                            ? l10n.settingsCurrentCoordinates(
-                                manualOverride.latitude.toStringAsFixed(5),
-                                manualOverride.longitude.toStringAsFixed(5),
-                              )
-                            : l10n.settingsUsingGps,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      l10n.settingsManualLocation,
+                      style: const TextStyle(
+                        color: Colors.blueGrey,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
                     ),
-                    TextButton(
-                      onPressed: manualOverride != null
-                          ? _clearManualLocation
-                          : null,
-                      child: Text(l10n.settingsResetGps),
-                    ),
-                  ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      PlaceField(
+                        label: l10n.settingsSearchLocation,
+                        value: _manualLocationInput,
+                        displayValue: _manualLocationInput,
+                        onChanged: _updateManualLocation,
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              manualOverride != null
+                                  ? l10n.settingsCurrentCoordinates(
+                                      manualOverride.latitude.toStringAsFixed(5),
+                                      manualOverride.longitude.toStringAsFixed(5),
+                                    )
+                                  : l10n.settingsUsingGps,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: manualOverride != null
+                                ? _clearManualLocation
+                                : null,
+                            child: Text(l10n.settingsResetGps),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(
+                    Icons.access_time,
+                    color: Colors.orange,
+                  ),
+                  title: Text(l10n.settingsTimeOffset),
+                  subtitle: Text(
+                    currentOffset == Duration.zero
+                        ? l10n.settingsNoTimeOffset(
+                            _formatTime(simulatedTime),
+                          )
+                        : l10n.settingsTimeOffsetSummary(
+                            currentOffset.inHours.toString(),
+                            currentOffset.inMinutes
+                                .remainder(60)
+                                .toString(),
+                            _formatTime(simulatedTime),
+                          ),
+                  ),
+                  onTap: _updateTimeOffset,
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.bug_report,
+                    color: Colors.purple,
+                  ),
+                  title: Text(l10n.settingsCreateDebugTrip),
+                  subtitle: Text(l10n.settingsDebugTripDescription),
+                  onTap: _createDebugTrip,
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.delete_forever,
+                    color: Colors.red,
+                  ),
+                  title: Text(l10n.settingsDeleteAllTrips),
+                  subtitle: Text(l10n.settingsDeleteAllTripsDescription),
+                  onTap: _deleteAllTrips,
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.star,
+                    color: Colors.green,
+                  ),
+                  title: Text(l10n.settingsOpenAsLeader),
+                  subtitle: Text(l10n.settingsOpenAsLeaderDescription),
+                  onTap: _openLatestTripAsLeader,
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.description,
+                    color: Colors.blueGrey,
+                  ),
+                  title: Text(l10n.settingsTripReports),
+                  subtitle: Text(l10n.settingsTripReportsDescription),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TripListPage(),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
-          ),
-
-          if (_isStaffMode) ...[
-            const Divider(),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                l10n.settingsAdminMenu,
-                style: const TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-
-            ListTile(
-              leading: const Icon(Icons.access_time, color: Colors.orange),
-              title: Text(l10n.settingsTimeOffset),
-              subtitle: Text(
-                currentOffset == Duration.zero
-                    ? l10n.settingsNoTimeOffset(_formatTime(simulatedTime))
-                    : l10n.settingsTimeOffsetSummary(
-                        currentOffset.inHours.toString(),
-                        currentOffset.inMinutes.remainder(60).toString(),
-                        _formatTime(simulatedTime),
-                      ),
-              ),
-              onTap: _updateTimeOffset,
-            ),
-
-            ListTile(
-              leading: const Icon(Icons.bug_report, color: Colors.purple),
-              title: Text(l10n.settingsCreateDebugTrip),
-              subtitle: Text(l10n.settingsDebugTripDescription),
-              onTap: _createDebugTrip,
-            ),
-
-            ListTile(
-              leading: const Icon(Icons.delete_forever, color: Colors.red),
-              title: Text(l10n.settingsDeleteAllTrips),
-              subtitle: Text(l10n.settingsDeleteAllTripsDescription),
-              onTap: _deleteAllTrips,
-            ),
-
-            ListTile(
-              leading: const Icon(Icons.star, color: Colors.green),
-              title: Text(l10n.settingsOpenAsLeader),
-              subtitle: Text(l10n.settingsOpenAsLeaderDescription),
-              onTap: _openLatestTripAsLeader,
-            ),
-
-            ListTile(
-              leading: const Icon(Icons.description, color: Colors.blueGrey),
-              title: Text(l10n.settingsTripReports),
-              subtitle: Text(l10n.settingsTripReportsDescription),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const TripListPage()),
-                );
-              },
-            ),
           ],
-
-          ListTile(
-            leading: const Icon(Icons.person, color: Colors.blue),
-            title: Text(l10n.settingsOpenAsMember),
-            subtitle: Text(l10n.settingsOpenAsMemberDescription),
-            onTap: _openLatestTripAsMember,
-          ),
 
           // 下部に余白を追加
           const SizedBox(height: 40),
