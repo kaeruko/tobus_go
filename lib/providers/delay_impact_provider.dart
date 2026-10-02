@@ -208,9 +208,13 @@ class DelayImpactResolution {
   });
 }
 
-/// UI-ready transfer judgement. Until next-service realtime arrives, the
-/// schedule-only judgement remains visible. When exact next-service realtime is
-/// available, it replaces only the next departure side of the comparison.
+/// UI-ready transfer judgement.
+///
+/// A schedule-only missed-transfer result is withheld while the exact next
+/// service is being checked. If the VehiclePosition exists but is too stale to
+/// support a reliable judgement, the warning stays withheld instead of
+/// presenting the schedule-only result as if realtime had confirmed it.
+/// Other realtime errors keep the existing diagnostic schedule fallback.
 final resolvedDelayImpactProvider =
     Provider.autoDispose<DelayImpactResolution>((ref) {
       final base = ref.watch(delayImpactProvider);
@@ -220,14 +224,22 @@ final resolvedDelayImpactProvider =
 
       final nextAsync = ref.watch(nextRideRealtimeDepartureProvider);
       return nextAsync.when(
-        loading: () => DelayImpactResolution(
-          impact: base,
+        loading: () => const DelayImpactResolution(
+          impact: null,
           checkingNextRideRealtime: true,
         ),
-        error: (error, stack) => DelayImpactResolution(
-          impact: base,
-          nextRideRealtimeError: error,
-        ),
+        error: (error, stack) {
+          if (error is NextRideRealtimeStaleException) {
+            return DelayImpactResolution(
+              impact: null,
+              nextRideRealtimeError: error,
+            );
+          }
+          return DelayImpactResolution(
+            impact: base,
+            nextRideRealtimeError: error,
+          );
+        },
         data: (realtime) {
           if (realtime == null) {
             return DelayImpactResolution(impact: base);

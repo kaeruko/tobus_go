@@ -146,7 +146,12 @@ void main() {
           location: location,
           now: DateTime.utc(2026, 8, 15, 18, 2),
         ),
-        throwsStateError,
+        throwsA(
+          isA<NextRideRealtimeStaleException>()
+              .having((error) => error.transport, 'transport', 'bus')
+              .having((error) => error.stepId, 'stepId', 'next-bus')
+              .having((error) => error.ageSeconds, 'ageSeconds', 120),
+        ),
       );
     });
   });

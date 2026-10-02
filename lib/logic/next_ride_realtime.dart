@@ -8,6 +8,26 @@ enum NextRideRealtimeDepartureStatus {
   passedBoardingPlace,
 }
 
+/// The exact next-service VehiclePosition exists, but is too old to support a
+/// reliable transfer judgement. This is an expected upstream-data condition,
+/// not a malformed route/realtime payload.
+class NextRideRealtimeStaleException implements Exception {
+  final String transport;
+  final String stepId;
+  final double ageSeconds;
+
+  const NextRideRealtimeStaleException({
+    required this.transport,
+    required this.stepId,
+    required this.ageSeconds,
+  });
+
+  @override
+  String toString() =>
+      '$transportの次便Realtimeが古すぎます: '
+      'stepId=$stepId, age=$ageSeconds秒';
+}
+
 class NextRideRealtimeDeparture {
   final String stepId;
   final String boardingPlaceName;
@@ -484,9 +504,10 @@ class NextRideRealtimeAdapter {
         );
       }
       if (vehicleAgeSeconds > staleAfterSeconds) {
-        throw StateError(
-          '$transportの次便Realtimeが古すぎます: '
-          'stepId=$stepId, age=$vehicleAgeSeconds秒',
+        throw NextRideRealtimeStaleException(
+          transport: transport,
+          stepId: stepId,
+          ageSeconds: vehicleAgeSeconds,
         );
       }
     }
@@ -503,10 +524,12 @@ class NextRideRealtimeAdapter {
         'now=${now.toIso8601String()}',
       );
     }
-    if (age.inMilliseconds / 1000 > staleAfterSeconds) {
-      throw StateError(
-        '$transportの次便Realtime timestampが古すぎます: '
-        'stepId=$stepId, age=${age.inMilliseconds / 1000}秒',
+    final ageSeconds = age.inMilliseconds / 1000;
+    if (ageSeconds > staleAfterSeconds) {
+      throw NextRideRealtimeStaleException(
+        transport: transport,
+        stepId: stepId,
+        ageSeconds: ageSeconds,
       );
     }
     return sampleAt;
