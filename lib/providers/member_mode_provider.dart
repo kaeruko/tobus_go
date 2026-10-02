@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_clock.dart';
@@ -9,6 +10,7 @@ import '../models/bus_progress.dart';
 import '../models/rail_progress.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
+import '../logic/alighting_alert.dart';
 import '../logic/replan_anchor.dart';
 import '../logic/replan_transit_memory.dart';
 import '../logic/replan_transit_observation.dart';
@@ -119,6 +121,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
   final Ref _ref;
   final BusLocationSource _busLocationSource;
   final TrainLocationSource _trainLocationSource;
+  final AlightingAlertTracker _alightingAlertTracker = AlightingAlertTracker();
   Timer? _pollingTimer;
   DateTime? _debugPreviousPollAt;
   String? _debugPreviousStepId;
@@ -369,6 +372,18 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         busProgress: progress,
         replanTransitMemory: nextMemory,
       );
+
+      final alightingAlert = _alightingAlertTracker.evaluate(
+        step: activeStep,
+        location: location,
+      );
+      if (alightingAlert != null) {
+        await _performAlightingAlertHaptic(
+          alightingAlert,
+          step: activeStep,
+        );
+      }
+
       debugPrint(
         '[MemberModeController] バス追跡成功: '
         'step=${activeStep.stepId}, phase=${progress.phase.name}, '
@@ -403,6 +418,28 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       debugPrint('[MemberModeController] バスAPIエラー: $e');
       debugPrintStack(stackTrace: stackTrace);
       rethrow;
+    }
+  }
+
+  Future<void> _performAlightingAlertHaptic(
+    AlightingAlert alert, {
+    required StepSeg step,
+  }) async {
+    switch (alert) {
+      case AlightingAlert.twoStopsBefore:
+        debugPrint(
+          '[MemberModeController] 降車予告: あと2停留所 '
+          'step=${step.stepId} destination=${step.toName}',
+        );
+        await HapticFeedback.mediumImpact();
+        break;
+      case AlightingAlert.nextStop:
+        debugPrint(
+          '[MemberModeController] 降車予告: 次で降車 '
+          'step=${step.stepId} destination=${step.toName}',
+        );
+        await HapticFeedback.heavyImpact();
+        break;
     }
   }
 
