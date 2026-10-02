@@ -97,6 +97,104 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
+  Future<void> _showJoinTripDialog() async {
+    final l10n = AppLocalizations.of(context);
+    final controller = TextEditingController();
+    String? validationError;
+    var joining = false;
+
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              Future<void> submit() async {
+                if (joining) return;
+
+                final code = controller.text.trim();
+                if (!RegExp(r'^\\d{6}$').hasMatch(code)) {
+                  setDialogState(() {
+                    validationError = l10n.settingsJoinCodeInvalid;
+                  });
+                  return;
+                }
+
+                setDialogState(() {
+                  joining = true;
+                  validationError = null;
+                });
+
+                try {
+                  final tripId = await TripService().joinTrip(code);
+                  await ref
+                      .read(appSessionProvider.notifier)
+                      .enterMemberMode(tripId);
+
+                  if (!dialogContext.mounted) return;
+                  Navigator.pop(dialogContext);
+                  if (!mounted) return;
+                  Navigator.of(this.context).pop();
+                } catch (error) {
+                  if (!dialogContext.mounted) return;
+                  setDialogState(() {
+                    joining = false;
+                    validationError = error.toString();
+                  });
+                }
+              }
+
+              return AlertDialog(
+                title: Text(l10n.settingsJoinCodeTitle),
+                content: TextField(
+                  controller: controller,
+                  autofocus: true,
+                  enabled: !joining,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
+                  maxLength: 6,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(6),
+                  ],
+                  decoration: InputDecoration(
+                    labelText: l10n.settingsJoinCodeHint,
+                    border: const OutlineInputBorder(),
+                    errorText: validationError,
+                    counterText: '',
+                  ),
+                  onSubmitted: (_) => submit(),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: joining
+                        ? null
+                        : () => Navigator.pop(dialogContext),
+                    child: Text(l10n.cancel),
+                  ),
+                  FilledButton(
+                    onPressed: joining ? null : submit,
+                    child: joining
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(l10n.settingsJoin),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      controller.dispose();
+    }
+  }
+
   Future<void> _toggleStaffMode(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isStaffMode', value);
@@ -630,6 +728,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             subtitle: Text(_userName.isEmpty ? l10n.settingsGuest : _userName),
             trailing: const Icon(Icons.edit, size: 20),
             onTap: _updateUserName,
+          ),
+          ListTile(
+            leading: const Icon(Icons.group_add),
+            title: Text(l10n.settingsJoinTrip),
+            subtitle: Text(l10n.settingsJoinTripDescription),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _showJoinTripDialog,
           ),
           ListTile(
             leading: const Icon(Icons.fingerprint),
