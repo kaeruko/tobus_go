@@ -1471,6 +1471,38 @@
   "groupReturnNormal": "Return to normal mode",
   "groupScheduleEdit": "Edit item",
   "groupScheduleAdd": "Add item",
+  "groupScheduleOnsite": "Plans at the destination",
+  "groupScheduleOnsiteEmpty": "No destination plans yet",
+  "groupScheduleRouteManaged": "Transit items are generated automatically from the route",
+  "groupScheduleTitleRequired": "Enter a title",
+  "groupScheduleOnsiteWindow": "Add plans between {start} and {end}",
+  "@groupScheduleOnsiteWindow": {
+    "placeholders": {
+      "start": {"type": "String"},
+      "end": {"type": "String"}
+    }
+  },
+  "groupScheduleOnsiteWindowError": "Destination plans must be between {start} and {end}",
+  "@groupScheduleOnsiteWindowError": {
+    "placeholders": {
+      "start": {"type": "String"},
+      "end": {"type": "String"}
+    }
+  },
+  "groupScheduleRouteSummary": "{start} → {end} · {count} items",
+  "@groupScheduleRouteSummary": {
+    "placeholders": {
+      "start": {"type": "String"},
+      "end": {"type": "String"},
+      "count": {"type": "int"}
+    }
+  },
+  "groupScheduleAdditionalRoute": "Journey {number}",
+  "@groupScheduleAdditionalRoute": {
+    "placeholders": {
+      "number": {"type": "int"}
+    }
+  },
   "groupTimeLabel": "Time: {time}",
   "@groupTimeLabel": {
     "placeholders": {

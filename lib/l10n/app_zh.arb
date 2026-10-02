@@ -1471,6 +1471,38 @@
   "groupReturnNormal": "返回普通模式",
   "groupScheduleEdit": "编辑行程",
   "groupScheduleAdd": "添加行程",
+  "groupScheduleOnsite": "目的地安排",
+  "groupScheduleOnsiteEmpty": "还没有目的地安排",
+  "groupScheduleRouteManaged": "交通部分会根据路线自动生成",
+  "groupScheduleTitleRequired": "请输入标题",
+  "groupScheduleOnsiteWindow": "可在 {start}～{end} 之间添加安排",
+  "@groupScheduleOnsiteWindow": {
+    "placeholders": {
+      "start": {"type": "String"},
+      "end": {"type": "String"}
+    }
+  },
+  "groupScheduleOnsiteWindowError": "目的地安排必须在 {start}～{end} 之间",
+  "@groupScheduleOnsiteWindowError": {
+    "placeholders": {
+      "start": {"type": "String"},
+      "end": {"type": "String"}
+    }
+  },
+  "groupScheduleRouteSummary": "{start} → {end} · {count} 项",
+  "@groupScheduleRouteSummary": {
+    "placeholders": {
+      "start": {"type": "String"},
+      "end": {"type": "String"},
+      "count": {"type": "int"}
+    }
+  },
+  "groupScheduleAdditionalRoute": "移动 {number}",
+  "@groupScheduleAdditionalRoute": {
+    "placeholders": {
+      "number": {"type": "int"}
+    }
+  },
   "groupTimeLabel": "时间：{time}",
   "@groupTimeLabel": {
     "placeholders": {

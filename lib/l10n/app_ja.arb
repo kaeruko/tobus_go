@@ -1471,6 +1471,38 @@
   "groupReturnNormal": "通常モードに戻る",
   "groupScheduleEdit": "予定を編集",
   "groupScheduleAdd": "予定を追加",
+  "groupScheduleOnsite": "現地での予定",
+  "groupScheduleOnsiteEmpty": "現地での予定はまだありません",
+  "groupScheduleRouteManaged": "交通部分は経路から自動作成されます",
+  "groupScheduleTitleRequired": "タイトルを入力してください",
+  "groupScheduleOnsiteWindow": "{start}〜{end} の間で予定を追加できます",
+  "@groupScheduleOnsiteWindow": {
+    "placeholders": {
+      "start": {"type": "String"},
+      "end": {"type": "String"}
+    }
+  },
+  "groupScheduleOnsiteWindowError": "現地の予定は {start}〜{end} の間にしてください",
+  "@groupScheduleOnsiteWindowError": {
+    "placeholders": {
+      "start": {"type": "String"},
+      "end": {"type": "String"}
+    }
+  },
+  "groupScheduleRouteSummary": "{start} → {end} ・ {count}件",
+  "@groupScheduleRouteSummary": {
+    "placeholders": {
+      "start": {"type": "String"},
+      "end": {"type": "String"},
+      "count": {"type": "int"}
+    }
+  },
+  "groupScheduleAdditionalRoute": "移動 {number}",
+  "@groupScheduleAdditionalRoute": {
+    "placeholders": {
+      "number": {"type": "int"}
+    }
+  },
   "groupTimeLabel": "時刻: {time}",
   "@groupTimeLabel": {
     "placeholders": {
