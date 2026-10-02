@@ -439,31 +439,28 @@ class RouteStepTile extends StatelessWidget {
     String? timetableDestinationStopId;
     if (showTimetable && segment.kind == 'bus') {
       final routeId = segment.routeId?.trim();
-      if (routeId == null || routeId.isEmpty) {
-        throw StateError(
-          'バス時刻表のrouteIdがありません: stepId=${segment.stepId}',
-        );
+      if (routeId != null && routeId.isNotEmpty) {
+        if (segment.stops.isEmpty) {
+          throw StateError(
+            'バス時刻表の停留所一覧がありません: stepId=${segment.stepId}',
+          );
+        }
+        final originStopId = segment.stops.first.stopId?.trim();
+        final destinationStopId = segment.stops.last.stopId?.trim();
+        if (originStopId == null || originStopId.isEmpty) {
+          throw StateError(
+            'バス時刻表の乗車停留所IDがありません: stepId=${segment.stepId}',
+          );
+        }
+        if (destinationStopId == null || destinationStopId.isEmpty) {
+          throw StateError(
+            'バス時刻表の降車停留所IDがありません: stepId=${segment.stepId}',
+          );
+        }
+        timetableRouteId = routeId;
+        timetableOriginStopId = originStopId;
+        timetableDestinationStopId = destinationStopId;
       }
-      if (segment.stops.isEmpty) {
-        throw StateError(
-          'バス時刻表の停留所一覧がありません: stepId=${segment.stepId}',
-        );
-      }
-      final originStopId = segment.stops.first.stopId?.trim();
-      final destinationStopId = segment.stops.last.stopId?.trim();
-      if (originStopId == null || originStopId.isEmpty) {
-        throw StateError(
-          'バス時刻表の乗車停留所IDがありません: stepId=${segment.stepId}',
-        );
-      }
-      if (destinationStopId == null || destinationStopId.isEmpty) {
-        throw StateError(
-          'バス時刻表の降車停留所IDがありません: stepId=${segment.stepId}',
-        );
-      }
-      timetableRouteId = routeId;
-      timetableOriginStopId = originStopId;
-      timetableDestinationStopId = destinationStopId;
     }
 
     final content = Container(

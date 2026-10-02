@@ -340,13 +340,25 @@ void main() {
     test('meeting entries do not need a route step', () {
       final trip = navigationV2Trip();
       final entry = ScheduleEntry(
+        id: 'meeting-no-step',
         plannedAt: DateTime(2025, 1, 1, 9, 50),
         label: '集合',
         itemKind: ScheduleEntryKind.meeting,
         generatedBy: ScheduleEntrySource.route,
+        legIndex: 0,
+      );
+      final nextEntry = ScheduleEntry(
+        id: 'meeting-next-walk',
+        plannedAt: DateTime(2025, 1, 1, 10, 0),
+        label: '平井七丁目まで歩く',
+        itemKind: ScheduleEntryKind.walk,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: 'walk-A',
+        routeRole: 'walk',
+        legIndex: 0,
       );
       final resolved = TripCoordinator.resolveScheduleState(
-        scheduleEntries: [entry],
+        scheduleEntries: [entry, nextEntry],
         now: DateTime(2025, 1, 1, 9, 50),
       );
 
@@ -359,6 +371,7 @@ void main() {
 
       expect(navigation.statusLabel, '集合');
       expect(navigation.currentStepId, isNull);
+      expect(navigation.subText, contains('10:00'));
     });
 
     test('route movement entries fail fast without routeStepId', () {
