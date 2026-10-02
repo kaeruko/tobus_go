@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -187,54 +188,79 @@ class _RouteReplanPreviewButtonState
     Candidate selectedCandidate,
   ) async {
     final l10n = AppLocalizations.of(context);
-    final currentRequest = ref.read(currentRouteReplanRequestProvider);
-    if (currentRequest == null ||
-        !sameRouteReplanRequestState(currentRequest, preview.request)) {
-      ReplanDebugLog.emit('replan_apply_blocked_stale_preview', {
+    var stage = 'resolve_current_request';
+
+    try {
+      final currentRequest = ref.read(currentRouteReplanRequestProvider);
+      if (currentRequest == null ||
+          !sameRouteReplanRequestState(currentRequest, preview.request)) {
+        ReplanDebugLog.emit('replan_apply_blocked_stale_preview', {
+          'tripId': widget.trip.id,
+          'selectedCandidateId': selectedCandidate.id,
+          'currentRequestNull': currentRequest == null,
+          'blockedReason': ref.read(routeReplanBlockedReasonProvider),
+          'previewAnchorPlace': preview.request.anchor.placeName,
+          'previewAnchorAt': preview.request.anchor.availableAt.toIso8601String(),
+          'currentAnchorPlace': currentRequest?.anchor.placeName,
+          'currentAnchorAt': currentRequest?.anchor.availableAt.toIso8601String(),
+        });
+        throw StateError(l10n.replanPreviewStateChanged);
+      }
+
+      stage = 'resolve_current_trip';
+      final tripAsync = ref.read(tripStreamProvider);
+      final currentTrip = tripAsync.value;
+      if (currentTrip == null) {
+        throw StateError(l10n.replanTripUnavailable);
+      }
+      _validateApplyPermission(currentTrip, l10n);
+
+      stage = 'resolve_actor';
+      final actorUserId = UserService().currentUserId;
+      if (actorUserId == null || actorUserId.trim().isEmpty) {
+        throw StateError(l10n.replanUserUnavailable);
+      }
+
+      stage = 'build_patch';
+      final patch = RouteReplanPatcher.build(
+        trip: currentTrip,
+        request: currentRequest,
+        selectedCandidate: selectedCandidate,
+      );
+
+      stage = 'commit_firestore';
+      ReplanDebugLog.emit('replan_apply_start', {
+        'tripId': currentTrip.id,
+        'activeStepId': currentRequest.activeStepId,
+        'selectedCandidateId': selectedCandidate.id,
+        ...ReplanDebugLog.anchorFields(currentRequest.anchor),
+      });
+      await RouteReplanCommitService().apply(
+        tripId: currentTrip.id,
+        actorUserId: actorUserId,
+        patch: patch,
+      );
+
+      stage = 'done';
+      ReplanDebugLog.emit('replan_apply_success', {
+        'tripId': currentTrip.id,
+        'selectedCandidateId': selectedCandidate.id,
+      });
+    } catch (error, stackTrace) {
+      ReplanDebugLog.emit('replan_apply_error', {
         'tripId': widget.trip.id,
         'selectedCandidateId': selectedCandidate.id,
-        'currentRequestNull': currentRequest == null,
-        'blockedReason': ref.read(routeReplanBlockedReasonProvider),
-        'previewAnchorPlace': preview.request.anchor.placeName,
-        'previewAnchorAt': preview.request.anchor.availableAt.toIso8601String(),
-        'currentAnchorPlace': currentRequest?.anchor.placeName,
-        'currentAnchorAt': currentRequest?.anchor.availableAt.toIso8601String(),
+        'stage': stage,
+        'error': error.toString(),
       });
-      throw StateError(l10n.replanPreviewStateChanged);
+      if (kDebugMode) {
+        debugPrint(
+          '[ReplanTrace] replan_apply_error stage=$stage error=$error',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+      }
+      rethrow;
     }
-
-    final tripAsync = ref.read(tripStreamProvider);
-    final currentTrip = tripAsync.value;
-    if (currentTrip == null) {
-      throw StateError(l10n.replanTripUnavailable);
-    }
-    _validateApplyPermission(currentTrip, l10n);
-
-    final actorUserId = UserService().currentUserId;
-    if (actorUserId == null || actorUserId.trim().isEmpty) {
-      throw StateError(l10n.replanUserUnavailable);
-    }
-
-    final patch = RouteReplanPatcher.build(
-      trip: currentTrip,
-      request: currentRequest,
-      selectedCandidate: selectedCandidate,
-    );
-    ReplanDebugLog.emit('replan_apply_start', {
-      'tripId': currentTrip.id,
-      'activeStepId': currentRequest.activeStepId,
-      'selectedCandidateId': selectedCandidate.id,
-      ...ReplanDebugLog.anchorFields(currentRequest.anchor),
-    });
-    await RouteReplanCommitService().apply(
-      tripId: currentTrip.id,
-      actorUserId: actorUserId,
-      patch: patch,
-    );
-    ReplanDebugLog.emit('replan_apply_success', {
-      'tripId': currentTrip.id,
-      'selectedCandidateId': selectedCandidate.id,
-    });
   }
 
   void _validateApplyPermission(Trip trip, AppLocalizations l10n) {
