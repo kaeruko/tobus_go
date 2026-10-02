@@ -137,19 +137,15 @@ class _RouteReplanPreviewButtonState
       });
       if (!mounted) return;
 
-      final providerContainer = ProviderScope.containerOf(context);
       final applied = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
         enableDrag: false,
         backgroundColor: Colors.transparent,
-        builder: (_) => UncontrolledProviderScope(
-          container: providerContainer,
-          child: RouteReplanComparisonSheet(
-            preview: preview,
-            onApply: (latestPreview, candidate) =>
-                _applyCandidate(latestPreview, candidate),
-          ),
+        builder: (_) => RouteReplanComparisonSheet(
+          preview: preview,
+          onApply: (latestPreview, candidate) =>
+              _applyCandidate(latestPreview, candidate),
         ),
       );
       ReplanDebugLog.emit('replan_preview_closed', {
