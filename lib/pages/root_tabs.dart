@@ -10,6 +10,7 @@ import 'explore_page.dart';
 import 'history_page.dart';
 import 'my_route_page.dart';
 import 'route_search_page.dart';
+import 'settings_page.dart';
 
 class RootTabs extends ConsumerStatefulWidget {
   const RootTabs({super.key});
@@ -29,7 +30,7 @@ class _RootTabsState extends ConsumerState<RootTabs> {
   late CupertinoTabController _controller;
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys = List.generate(
-    4,
+    5,
     (_) => GlobalKey<NavigatorState>(),
   );
 
@@ -85,6 +86,13 @@ class _RootTabsState extends ConsumerState<RootTabs> {
           ),
           page: const HistoryPage(),
         ),
+      _RootTabEntry(
+        item: BottomNavigationBarItem(
+          icon: const Icon(CupertinoIcons.settings),
+          label: l10n.tabSettings,
+        ),
+        page: const SettingsPage(),
+      ),
     ];
   }
 
