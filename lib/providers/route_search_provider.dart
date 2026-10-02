@@ -181,6 +181,28 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     );
   }
 
+  void swapEndpoints() {
+    _generation++;
+    final current = state;
+    state = RouteSearchState(
+      from: current.to,
+      to: current.from,
+      fromName: current.toName,
+      toName: current.fromName,
+      fromNameJa: current.toNameJa,
+      toNameJa: current.fromNameJa,
+      fromNameEn: current.toNameEn,
+      toNameEn: current.fromNameEn,
+      pref: current.pref,
+      busOnly: current.busOnly,
+      startTime: current.startTime,
+      isLoading: false,
+      hasSearched: false,
+      candidates: const [],
+      fareByCandidateId: const {},
+    );
+  }
+
   void setPref(String pref) {
     state = state.copyWith(pref: pref);
   }

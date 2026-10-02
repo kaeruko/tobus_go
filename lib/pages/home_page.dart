@@ -73,21 +73,8 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
   }
 
   void _swapRouteEndpoints() {
-    final rs = ref.read(routeSearchProvider);
     final notifier = ref.read(routeSearchProvider.notifier);
-
-    notifier.setFrom(
-      rs.to,
-      name: rs.toName,
-      nameJa: rs.toNameJa.isEmpty ? null : rs.toNameJa,
-      nameEn: rs.toNameEn.isEmpty ? null : rs.toNameEn,
-    );
-    notifier.setTo(
-      rs.from,
-      name: rs.fromName,
-      nameJa: rs.fromNameJa.isEmpty ? null : rs.fromNameJa,
-      nameEn: rs.fromNameEn.isEmpty ? null : rs.fromNameEn,
-    );
+    notifier.swapEndpoints();
 
     final after = ref.read(routeSearchProvider);
     final ok =

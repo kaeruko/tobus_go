@@ -74,6 +74,38 @@ void main() {
     await searchFuture;
   });
 
+  test('出発地と到着地を名前も含めて一度に入れ替える', () {
+    final service = _RecordingRouteSearchService();
+    final notifier = RouteSearchNotifier(service);
+
+    notifier.setFrom(
+      '35.7101,139.8107',
+      name: '現在地',
+      nameJa: '現在地',
+      nameEn: 'Current location',
+    );
+    notifier.setTo(
+      '35.6580,139.7016',
+      name: '渋谷駅',
+      nameJa: '渋谷駅',
+      nameEn: 'Shibuya Station',
+    );
+
+    notifier.swapEndpoints();
+
+    expect(notifier.state.from, '35.6580,139.7016');
+    expect(notifier.state.fromName, '渋谷駅');
+    expect(notifier.state.fromNameJa, '渋谷駅');
+    expect(notifier.state.fromNameEn, 'Shibuya Station');
+    expect(notifier.state.to, '35.7101,139.8107');
+    expect(notifier.state.toName, '現在地');
+    expect(notifier.state.toNameJa, '現在地');
+    expect(notifier.state.toNameEn, 'Current location');
+    expect(notifier.state.hasSearched, isFalse);
+    expect(notifier.state.isLoading, isFalse);
+    expect(notifier.state.candidates, isEmpty);
+  });
+
   test('地点を編集すると以前の検索エラーを消して入力待ちへ戻る', () async {
     final service = _RecordingRouteSearchService();
     final notifier = RouteSearchNotifier(service);
