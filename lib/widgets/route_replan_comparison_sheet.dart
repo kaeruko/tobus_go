@@ -36,6 +36,7 @@ class _RouteReplanComparisonSheetState
   int _selectedIndex = 0;
   bool _applying = false;
   bool _refreshing = false;
+  bool _closingAfterApply = false;
   Object? _refreshError;
   RouteReplanRequest? _failedRequest;
 
@@ -57,7 +58,8 @@ class _RouteReplanComparisonSheetState
         _failedRequest != null &&
         sameRouteReplanRequestState(currentRequest, _failedRequest!);
 
-    if (!_applying &&
+    if (!_closingAfterApply &&
+        !_applying &&
         !_refreshing &&
         currentRequest != null &&
         !previewMatchesCurrent &&
@@ -135,7 +137,9 @@ class _RouteReplanComparisonSheetState
                   const SizedBox(height: 12),
                   _RefreshErrorNotice(
                     error: _refreshError!,
-                    onRetry: _applying ? null : () => _refreshFor(currentRequest),
+                    onRetry: _applying || _closingAfterApply
+                        ? null
+                        : () => _refreshFor(currentRequest),
                   ),
                 ],
                 const SizedBox(height: 18),
@@ -194,7 +198,9 @@ class _RouteReplanComparisonSheetState
                                   ),
                                 ),
                               ),
-                              onSelected: _applying || _refreshing
+                              onSelected: _closingAfterApply ||
+                                      _applying ||
+                                      _refreshing
                                   ? null
                                   : (selected) {
                                       if (!selected) return;
@@ -243,7 +249,7 @@ class _RouteReplanComparisonSheetState
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: _applying
+                        onPressed: _closingAfterApply || _applying
                             ? null
                             : () => Navigator.of(context).pop(false),
                         child: Text(l10n.replanKeepOriginal),
@@ -253,7 +259,8 @@ class _RouteReplanComparisonSheetState
                       const SizedBox(width: 12),
                       Expanded(
                         child: FilledButton(
-                          onPressed: _applying ||
+                          onPressed: _closingAfterApply ||
+                                  _applying ||
                                   _refreshing ||
                                   !previewMatchesCurrent
                               ? null
@@ -282,7 +289,7 @@ class _RouteReplanComparisonSheetState
   }
 
   Future<void> _refreshFor(RouteReplanRequest requested) async {
-    if (_refreshing || _applying) return;
+    if (_closingAfterApply || _refreshing || _applying) return;
 
     setState(() {
       _refreshing = true;
@@ -292,9 +299,9 @@ class _RouteReplanComparisonSheetState
 
     var target = requested;
     try {
-      while (mounted) {
+      while (mounted && !_closingAfterApply) {
         final result = await ref.read(routeReplannerProvider).replan(target);
-        if (!mounted) return;
+        if (!mounted || _closingAfterApply) return;
 
         final latestRequest = ref.read(currentRouteReplanRequestProvider);
         if (latestRequest == null) {
@@ -334,13 +341,13 @@ class _RouteReplanComparisonSheetState
         break;
       }
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || _closingAfterApply) return;
       setState(() {
         _refreshError = error;
         _failedRequest = target;
       });
     } finally {
-      if (mounted) {
+      if (mounted && !_closingAfterApply) {
         setState(() => _refreshing = false);
       }
     }
@@ -368,7 +375,9 @@ class _RouteReplanComparisonSheetState
 
   Future<void> _apply(Candidate selected) async {
     final onApply = widget.onApply;
-    if (onApply == null || _applying || _refreshing) return;
+    if (onApply == null || _closingAfterApply || _applying || _refreshing) {
+      return;
+    }
 
     final currentRequest = ref.read(currentRouteReplanRequestProvider);
     if (currentRequest == null ||
@@ -388,6 +397,11 @@ class _RouteReplanComparisonSheetState
     try {
       await onApply(_preview, selected);
       if (!mounted) return;
+
+      // Applying the route updates providers watched by this sheet. Mark the
+      // sheet as closing before popping so that those provider changes cannot
+      // trigger an automatic preview refresh while the route is unmounting.
+      _closingAfterApply = true;
       Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) return;
@@ -396,7 +410,10 @@ class _RouteReplanComparisonSheetState
         SnackBar(content: Text(l10n.replanApplyFailed(error.toString()))),
       );
     } finally {
-      if (mounted) {
+      // Do not call setState after a successful apply. Navigator.pop starts
+      // teardown asynchronously, and marking this sheet dirty during that
+      // window races Riverpod's refresh/dispose scheduling.
+      if (mounted && !_closingAfterApply) {
         setState(() => _applying = false);
       }
     }
