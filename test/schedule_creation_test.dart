@@ -134,6 +134,59 @@ void main() {
     );
   });
 
+  test('group return search defaults to one hour after outbound arrival', () {
+    final outbound = Candidate(
+      id: 'outbound-window',
+      lines: const [],
+      rides: 0,
+      boards: 0,
+      transfers: 0,
+      total: 47,
+      totalTime: 47,
+      points: const [],
+      departureDate: DateTime(2026, 10, 2, 10, 24),
+      steps: const [],
+    );
+
+    final window = buildGroupReturnSearchWindow(outbound);
+
+    expect(window.outboundArrivalAt, DateTime(2026, 10, 2, 11, 11));
+    expect(
+      window.minimumReturnDepartureAt,
+      DateTime(2026, 10, 2, 11, 21),
+    );
+    expect(
+      window.defaultReturnDepartureAt,
+      DateTime(2026, 10, 2, 12, 11),
+    );
+  });
+
+  test('planned movement start ignores the group meeting entry', () {
+    final schedule = [
+      ScheduleEntry(
+        id: 'meeting-start',
+        plannedAt: DateTime(2026, 10, 2, 10, 14),
+        label: '本所吾妻橋駅集合',
+        itemKind: ScheduleEntryKind.meeting,
+        legIndex: 0,
+        generatedBy: ScheduleEntrySource.route,
+      ),
+      ScheduleEntry(
+        id: 'walk-start',
+        plannedAt: DateTime(2026, 10, 2, 10, 24),
+        label: '本所吾妻橋まで歩く',
+        itemKind: ScheduleEntryKind.walk,
+        legIndex: 0,
+        generatedBy: ScheduleEntrySource.route,
+      ),
+    ];
+
+    expect(
+      plannedMovementStartForLeg(schedule, legIndex: 0),
+      DateTime(2026, 10, 2, 10, 24),
+    );
+  });
+
   test('allows return meeting exactly at outbound arrival', () {
     final outbound = Candidate(
       id: 'outbound',

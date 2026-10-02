@@ -103,9 +103,10 @@ class _LeaderModePageState extends State<LeaderModePage> {
 
     try {
       final now = appClock.now();
-      final planned =
-          trip.plannedDepartureAt ??
-          (trip.schedule.isNotEmpty ? trip.schedule.first.plannedAt : now);
+      final planned = plannedMovementStartForLeg(
+        trip.schedule,
+        legIndex: 0,
+      );
       final deltaMinutes = now.difference(planned).inMinutes;
 
       await service.startTrip(trip.id, now);

@@ -13,6 +13,7 @@ import '../providers/navigation_provider.dart';
 import '../providers/route_search_provider.dart';
 import '../providers/saved_routes_provider.dart';
 import '../models/leg_models.dart';
+import '../models/group_models.dart';
 import '../providers/trip_draft_provider.dart';
 import '../services/trip_service.dart';
 import '../models/trip_models.dart';
@@ -521,64 +522,13 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                 Center(
                   child: CupertinoButton(
                     onPressed: () {
+                      final returnWindow = buildGroupReturnSearchWindow(
+                        widget.candidate,
+                      );
                       setState(() {
                         _isReturnSearchVisible = true;
-
-                        // 帰りの出発時刻の計算:
-                        // 1. 行きの「到着時刻」を算出
-                        DateTime baseDate =
-                            widget.candidate.departureDate ?? appClock.now();
-                        // Time component is likely 00:00 in departureDate, so we need to add the time from the last transit step.
-
-                        DateTime? arrivalTime;
-                        int trailingWalkMinutes = 0;
-
-                        // 後ろからスキャンして、時刻な有効なステップ(バス/電車)を探す
-                        for (final step in widget.candidate.steps.reversed) {
-                          if (step.arrivalTime != null &&
-                              step.arrivalTime!.contains(':')) {
-                            final parts = step.arrivalTime!.split(':');
-                            final h = int.parse(parts[0]);
-                            final m = int.parse(parts[1]);
-                            arrivalTime = DateTime(
-                              baseDate.year,
-                              baseDate.month,
-                              baseDate.day,
-                              h,
-                              m,
-                            );
-                            break;
-                          } else {
-                            // 時刻がないステップ（最後の徒歩など）は時間を加算
-                            trailingWalkMinutes += (step.minutes ?? 0);
-                          }
-                        }
-
-                        if (arrivalTime != null) {
-                          // 到着時刻 ＋ 最後の徒歩
-                          final finalArrival = arrivalTime.add(
-                            Duration(minutes: trailingWalkMinutes),
-                          );
-                          // 帰りの出発時刻のデフォルトは、行きの到着時刻とする（滞在時間は加算しない）
-                          _returnSearchTime = finalArrival;
-                        } else {
-                          // 時刻が取れない場合は、現在時刻＋(所要時間)等のフォールバック
-                          final startTime =
-                              widget.candidate.departureDate ?? appClock.now();
-                          // Note: departureDate usually doesn't have time, so this might default to midnight if not careful,
-                          // but this is a fallback for walk-only paths likely.
-                          // Try to use appClock.now() if departureDate is midnight?
-                          // For now, simple fallback:
-                          if (startTime.hour == 0 && startTime.minute == 0) {
-                            _returnSearchTime = appClock.now().add(
-                              const Duration(hours: 1),
-                            );
-                          } else {
-                            _returnSearchTime = startTime.add(
-                              Duration(minutes: widget.candidate.totalTime),
-                            );
-                          }
-                        }
+                        _returnSearchTime =
+                            returnWindow.defaultReturnDepartureAt;
                       });
                     },
                     padding: const EdgeInsets.symmetric(
@@ -799,13 +749,13 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     FocusManager.instance.primaryFocus?.unfocus();
     await Future.delayed(const Duration(milliseconds: 200));
 
-    final baseTime = widget.candidate.departureDate ?? appClock.now();
-    final arrivalTime = baseTime.add(
-      Duration(minutes: widget.candidate.totalTime),
-    );
-
-    if (_returnSearchTime.isBefore(arrivalTime)) {
-      _returnSearchTime = arrivalTime;
+    final returnWindow = buildGroupReturnSearchWindow(widget.candidate);
+    final minimumReturnTime = returnWindow.minimumReturnDepartureAt;
+    if (_returnSearchTime.isBefore(minimumReturnTime)) {
+      throw StateError(
+        '帰り検索時刻が最短時刻より前です: '
+        'selected=$_returnSearchTime, minimum=$minimumReturnTime',
+      );
     }
 
     if (!mounted) return;
@@ -832,7 +782,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               child: CupertinoDatePicker(
                 mode: CupertinoDatePickerMode.dateAndTime,
                 initialDateTime: _returnSearchTime,
-                minimumDate: arrivalTime,
+                minimumDate: minimumReturnTime,
                 use24hFormat: true,
                 onDateTimeChanged: (val) {
                   _returnSearchTime = val;

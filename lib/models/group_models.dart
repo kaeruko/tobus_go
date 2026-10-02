@@ -21,6 +21,70 @@ enum ScheduleEntrySource {
   manual,
 }
 
+const Duration groupMeetingLeadTime = Duration(minutes: 10);
+const Duration defaultGroupStayDuration = Duration(hours: 1);
+
+class GroupReturnSearchWindow {
+  final DateTime outboundArrivalAt;
+  final DateTime minimumReturnDepartureAt;
+  final DateTime defaultReturnDepartureAt;
+
+  const GroupReturnSearchWindow({
+    required this.outboundArrivalAt,
+    required this.minimumReturnDepartureAt,
+    required this.defaultReturnDepartureAt,
+  });
+}
+
+GroupReturnSearchWindow buildGroupReturnSearchWindow(Candidate outbound) {
+  final departureAt = outbound.departureDate;
+  if (departureAt == null) {
+    throw StateError(
+      '帰り検索の基準となる往路出発時刻がありません: candidateId=${outbound.id}',
+    );
+  }
+  if (outbound.totalTime < 0) {
+    throw StateError(
+      '往路所要時間が負です: '
+      'candidateId=${outbound.id}, totalTime=${outbound.totalTime}',
+    );
+  }
+
+  final arrivalAt = departureAt.add(Duration(minutes: outbound.totalTime));
+  return GroupReturnSearchWindow(
+    outboundArrivalAt: arrivalAt,
+    minimumReturnDepartureAt: arrivalAt.add(groupMeetingLeadTime),
+    defaultReturnDepartureAt: arrivalAt.add(defaultGroupStayDuration),
+  );
+}
+
+DateTime plannedMovementStartForLeg(
+  List<ScheduleEntry> schedule, {
+  required int legIndex,
+}) {
+  if (legIndex < 0) {
+    throw ArgumentError.value(legIndex, 'legIndex', 'must be non-negative');
+  }
+
+  final movements = schedule
+      .where(
+        (entry) =>
+            entry.legIndex == legIndex &&
+            (entry.itemKind == ScheduleEntryKind.walk ||
+                entry.itemKind == ScheduleEntryKind.ride),
+      )
+      .toList(growable: false)
+    ..sort((a, b) => a.plannedAt.compareTo(b.plannedAt));
+
+  if (movements.isEmpty) {
+    throw StateError(
+      '移動開始予定を特定できません: legIndex=$legIndex, '
+      'scheduleEntries=${schedule.length}',
+    );
+  }
+  return movements.first.plannedAt;
+}
+
 class ScheduleEntry {
   final String id;
   final DateTime plannedAt;
@@ -469,7 +533,7 @@ List<ScheduleEntry> createScheduleFromLegs(
         includeMeeting: true,
         meetingLabel: '${StringUtils.extractSimpleName(outbound.candidate.originName ?? '')}集合',
         meetingDescription: 'みんな揃っているか確認しましょう',
-        meetingAt: startAt.subtract(const Duration(minutes: 10)), // Explicit meeting time
+        meetingAt: startAt.subtract(groupMeetingLeadTime), // Explicit meeting time
         shiftToStart: false, // Anchor to startAt
       ),
     );
@@ -497,7 +561,7 @@ List<ScheduleEntry> createScheduleFromLegs(
     // The return time selected by the user is the start of the first inbound
     // movement. Keep the meeting rule consistent with the outbound leg: meet
     // 10 minutes before that movement starts.
-    final meetingAt = inboundAnchor.subtract(const Duration(minutes: 10));
+    final meetingAt = inboundAnchor.subtract(groupMeetingLeadTime);
 
     final inboundSchedule = createScheduleFromRoute(
       inbound.candidate,

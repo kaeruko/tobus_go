@@ -434,6 +434,38 @@ class RouteStepTile extends StatelessWidget {
     };
     final subTitle = _localizedSubTitle(locale, l10n);
 
+    String? timetableRouteId;
+    String? timetableOriginStopId;
+    String? timetableDestinationStopId;
+    if (showTimetable && segment.kind == 'bus') {
+      final routeId = segment.routeId?.trim();
+      if (routeId == null || routeId.isEmpty) {
+        throw StateError(
+          'バス時刻表のrouteIdがありません: stepId=${segment.stepId}',
+        );
+      }
+      if (segment.stops.isEmpty) {
+        throw StateError(
+          'バス時刻表の停留所一覧がありません: stepId=${segment.stepId}',
+        );
+      }
+      final originStopId = segment.stops.first.stopId?.trim();
+      final destinationStopId = segment.stops.last.stopId?.trim();
+      if (originStopId == null || originStopId.isEmpty) {
+        throw StateError(
+          'バス時刻表の乗車停留所IDがありません: stepId=${segment.stepId}',
+        );
+      }
+      if (destinationStopId == null || destinationStopId.isEmpty) {
+        throw StateError(
+          'バス時刻表の降車停留所IDがありません: stepId=${segment.stepId}',
+        );
+      }
+      timetableRouteId = routeId;
+      timetableOriginStopId = originStopId;
+      timetableDestinationStopId = destinationStopId;
+    }
+
     final content = Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
@@ -498,10 +530,7 @@ class RouteStepTile extends StatelessWidget {
                 ),
             ],
           ),
-          if (showTimetable &&
-              segment.kind == 'bus' &&
-              segment.routeId != null &&
-              segment.routeId!.isNotEmpty) ...[
+          if (timetableRouteId != null) ...[
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Container(height: 1, color: CupertinoColors.systemGrey5),
@@ -509,9 +538,9 @@ class RouteStepTile extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: TimetableView(
-                routeId: segment.routeId!,
-                stopId: segment.departureStopId,
-                targetPoleId: segment.arrivalPoleId,
+                routeId: timetableRouteId,
+                stopId: timetableOriginStopId!,
+                targetPoleId: timetableDestinationStopId!,
               ),
             ),
           ],

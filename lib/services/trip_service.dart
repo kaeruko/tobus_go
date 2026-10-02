@@ -46,9 +46,10 @@ class TripService {
       title: title,
       travelPhase: TravelPhase.planning,
       date: appClock.now(),
-      plannedDepartureAt: schedule.isNotEmpty
-          ? schedule.first.plannedAt
-          : appClock.now(),
+      plannedDepartureAt: plannedMovementStartForLeg(
+        schedule,
+        legIndex: 0,
+      ),
       actualDepartureAt: null,
       legs: legs,
       schedule: schedule,

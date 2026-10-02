@@ -208,6 +208,47 @@ void main() {
     },
   );
 
+  testWidgets(
+    'route step timetable uses stop IDs from the canonical stops list',
+    (tester) async {
+      final originalClient = ApiClient.httpClient;
+      configureApiBase(Uri.parse('https://api.example.test'));
+      ApiClient.httpClient = MockClient((request) async {
+        expect(request.url.path, '/bus/next');
+        expect(request.url.queryParameters['pole_id'], 'stop-kameido');
+        expect(
+          request.url.queryParameters['target_pole_id'],
+          'stop-nippori',
+        );
+        return http.Response(
+          '{"destinations":[]}',
+          200,
+          headers: const {'content-type': 'application/json; charset=utf-8'},
+        );
+      });
+      addTearDown(() => ApiClient.httpClient = originalClient);
+
+      await tester.pumpWidget(
+        CupertinoApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: CupertinoPageScaffold(
+            child: SafeArea(
+              child: RouteStepTile(
+                segment: busSegment(),
+                showTimetable: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('segment stops shows a route guide from existing segment data', (
     tester,
   ) async {
