@@ -57,6 +57,49 @@ void main() {
     expect(find.text('📍'), findsOneWidget);
   });
 
+  testWidgets('header trailing is shown on the same top row as status', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    const navigation = NavigationState(
+      mainText: '人数を確認しましょう',
+      subText: '次の予定',
+      color: Colors.green,
+      statusLabel: '集合',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TripNavigationStatusCard(
+            navState: navigation,
+            tripTitle: '新橋へのおでかけ',
+            onTapStops: () {},
+            headerTrailing: const Text(
+              '👥 新橋へのおでかけ',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final statusCenter = tester.getCenter(find.text('集合'));
+    final trailingCenter = tester.getCenter(find.text('👥 新橋へのおでかけ'));
+    expect((statusCenter.dy - trailingCenter.dy).abs(), lessThan(12));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('bus and rail remaining counts use transport-specific wording', (
     tester,
   ) async {

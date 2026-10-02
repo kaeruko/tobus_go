@@ -128,6 +128,9 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
               origin: false,
             ),
             routePoints: activeCandidate.points,
+            statusHeaderTrailing: _MemberTripLabel(
+              title: uiState.displayTitle,
+            ),
             onTapStops: () => openCurrentRideStops(
               context: context,
               trip: trip,
@@ -161,7 +164,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         return ActiveTripNavigationView(
           navState: uiState.navState,
           tripTitle: uiState.displayTitle,
-          appBar: _buildAppBar(context, appName, uiState.displayTitle, trip),
+          appBar: _buildAppBar(context, appName, trip),
           onTapStops: () => openCurrentRideStops(
             context: context,
             trip: trip,
@@ -282,7 +285,6 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   AppBar _buildAppBar(
     BuildContext context,
     String appName,
-    String title,
     Trip trip,
   ) {
     return AppBar(
@@ -293,12 +295,15 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
       elevation: 0,
       centerTitle: false,
       titleSpacing: 0,
-      title: ActiveTripAppBarTitle(
-        appName: appName,
-        tripTitle: title,
-        contextLabel: widget.previewAsLeader
-            ? AppLocalizations.of(context).groupMemberPreview
-            : AppLocalizations.of(context).groupMemberMode,
+      title: Text(
+        appName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+        ),
       ),
       leading: IconButton(
         icon: const Icon(CupertinoIcons.doc_text, color: Colors.black87),
@@ -485,6 +490,46 @@ class _MemberActionBar extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+
+class _MemberTripLabel extends StatelessWidget {
+  final String title;
+
+  const _MemberTripLabel({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedTitle = title.trim();
+    if (normalizedTitle.isEmpty) {
+      throw StateError('参加者ナビのおでかけ名が空です');
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          '👥',
+          semanticsLabel: '参加者',
+          style: TextStyle(fontSize: 14),
+        ),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            normalizedTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -81,42 +81,67 @@ class TripNavigationStatusCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                Chip(
-                  avatar: const Icon(Icons.location_on, size: 18),
-                  label: Text(statusLabel),
-                ),
-                if (showCompactRealtimeStatus)
-                  Semantics(
-                    key: const ValueKey(
-                      'waiting-realtime-status-indicator',
-                    ),
-                    label: l10n.navRealtimeRefreshingSemantics,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.sync,
-                          size: 17,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          noticeText,
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ],
-                    ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final statusWidgets = <Widget>[
+                  Chip(
+                    avatar: const Icon(Icons.location_on, size: 18),
+                    label: Text(statusLabel),
                   ),
-              ],
+                  if (showCompactRealtimeStatus)
+                    Semantics(
+                      key: const ValueKey(
+                        'waiting-realtime-status-indicator',
+                      ),
+                      label: l10n.navRealtimeRefreshingSemantics,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.sync,
+                            size: 17,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            noticeText,
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    ),
+                ];
+
+                if (headerTrailing == null) {
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: statusWidgets,
+                  );
+                }
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: statusWidgets,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: constraints.maxWidth * 0.46,
+                      ),
+                      child: headerTrailing!,
+                    ),
+                  ],
+                );
+              },
             ),
-            if (headerTrailing != null) ...[
-              const SizedBox(height: 8),
-              Align(alignment: Alignment.centerRight, child: headerTrailing!),
-            ],
             const SizedBox(height: 18),
             if (_usesStructuredRideHeading())
               _buildStructuredRideHeading(
