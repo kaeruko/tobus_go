@@ -50,6 +50,7 @@ class TimetableService {
     String poleId, {
     String? targetPoleId,
     String? dayType,
+    DateTime? referenceTime,
     int limit = 3,
     bool includeAllDay = false,
   }) async {
@@ -78,12 +79,22 @@ class TimetableService {
     print('  - dayType: $dayType');
     print('  - includeAllDay: $includeAllDay');
 
+    final effectiveReferenceTime = referenceTime ?? appClock.now();
     final params = {
       'pole_id': poleId,
       'route_id': routeId,
+      'time':
+          '${effectiveReferenceTime.hour.toString().padLeft(2, '0')}:'
+          '${effectiveReferenceTime.minute.toString().padLeft(2, '0')}',
       'limit': '$limit',
       'debug': 'true',
     };
+    if (dayType == null) {
+      params['date'] =
+          '${effectiveReferenceTime.year.toString().padLeft(4, '0')}-'
+          '${effectiveReferenceTime.month.toString().padLeft(2, '0')}-'
+          '${effectiveReferenceTime.day.toString().padLeft(2, '0')}';
+    }
     if (targetPoleId != null && targetPoleId.isNotEmpty) {
       params['target_pole_id'] = targetPoleId;
     }

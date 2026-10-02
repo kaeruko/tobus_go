@@ -3,6 +3,7 @@ import httpx
 import uuid
 import asyncio
 import datetime
+from zoneinfo import ZoneInfo
 from app.services.bus_stop_experience import build_route_experiences
 from app.services.bus_location_matcher import (
     BusLocationMatchError,
@@ -508,7 +509,7 @@ def register_routes(app):
         )
 
         if not time:
-            now = datetime.datetime.now()
+            now = datetime.datetime.now(ZoneInfo("Asia/Tokyo"))
             time = f"{now.hour:02d}:{now.minute:02d}"
 
         curr_min = time_str_to_min(time)

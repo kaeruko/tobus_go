@@ -99,6 +99,7 @@ class _TimetableViewState extends State<TimetableView> {
       widget.stopId,
       targetPoleId: widget.targetPoleId,
       dayType: widget.showFullDay ? _dayType : null,
+      referenceTime: _now,
       limit: widget.limit,
       includeAllDay: widget.showFullDay,
     );
