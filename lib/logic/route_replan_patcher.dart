@@ -239,15 +239,8 @@ class RouteReplanPatcher {
       return anchorStopId == destinationStopId;
     }
 
-    if (destinationStop != null &&
-        _samePoint(destinationStop.point, anchor.point)) {
-      return true;
-    }
-
-    final destinationName = ride.toName?.trim();
-    return destinationName != null &&
-        destinationName.isNotEmpty &&
-        destinationName == anchor.placeName.trim();
+    return destinationStop != null &&
+        _samePoint(destinationStop.point, anchor.point);
   }
 
   static StepSeg _truncateRideAtAnchor(
@@ -456,12 +449,8 @@ class RouteReplanPatcher {
       final byId = stops.indexWhere((stop) => stop.stopId == stopId);
       if (byId >= 0) return byId;
     }
-    final byPoint = stops.indexWhere(
-      (stop) => _samePoint(stop.point, request.anchor.point),
-    );
-    if (byPoint >= 0) return byPoint;
     return stops.indexWhere(
-      (stop) => stop.name.trim() == request.anchor.placeName.trim(),
+      (stop) => _samePoint(stop.point, request.anchor.point),
     );
   }
 
