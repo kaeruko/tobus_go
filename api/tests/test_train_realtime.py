@@ -124,9 +124,9 @@ class TrainRealtimeResolverTest(unittest.TestCase):
         with zipfile.ZipFile(buffer, "w") as archive:
             archive.writestr(
                 "stops.txt",
-                "stop_id,stop_name,stop_lat,stop_lon\n"
-                "115,東日本橋,35.0,139.0\n"
-                "116,浅草橋,35.1,139.1\n",
+                "stop_id,stop_code,stop_name,stop_lat,stop_lon\n"
+                "115,A15,東日本橋,35.0,139.0\n"
+                "116,A16,浅草橋,35.1,139.1\n",
             )
             archive.writestr(
                 "trips.txt",
@@ -153,6 +153,8 @@ class TrainRealtimeResolverTest(unittest.TestCase):
         self.assertEqual(trip.headsign_en, "Aoto")
         self.assertEqual(trip.stops[0].stop_name_en, "Higashi-nihombashi")
         self.assertEqual(trip.stops[1].stop_name_en, "Asakusabashi")
+        self.assertEqual(trip.stops[0].stop_code, "A15")
+        self.assertEqual(trip.stops[1].stop_code, "A16")
 
 
 if __name__ == "__main__":
