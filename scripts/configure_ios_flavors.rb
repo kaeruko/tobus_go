@@ -326,7 +326,10 @@ text = append_configuration_entries(
 )
 
 expected_names.each do |name|
-  abort "Generated project is missing #{name}" unless text.include?("name = #{name};")
+  # xcodeproj/CocoaPods may quote configuration names containing a hyphen when
+  # serializing project.pbxproj. Both forms represent the same Xcode name.
+  pattern = /\bname = "?#{Regexp.escape(name)}"?;/
+  abort "Generated project is missing #{name}" unless text.match?(pattern)
 end
 
 CITIES.each do |city, config|
