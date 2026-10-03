@@ -214,6 +214,28 @@ class ApiRouteSearchService implements RouteSearchService {
           'rail route step is missing valid boarding_minutes: $stepId',
         );
       }
+      final stops = rawStep['stops'];
+      if (stops is! List || stops.length < 2) {
+        throw FormatException(
+          'rail route step is missing stop IDs: $stepId',
+        );
+      }
+      for (var index = 0; index < stops.length; index++) {
+        final stop = stops[index];
+        if (stop is! Map) {
+          throw FormatException(
+            'rail route step contains invalid stop: '
+            'stepId=$stepId, index=$index',
+          );
+        }
+        final stopId = (stop['id'] ?? stop['stop_id'])?.toString().trim();
+        if (stopId == null || stopId.isEmpty) {
+          throw FormatException(
+            'rail route step stop is missing canonical stop ID: '
+            'stepId=$stepId, index=$index',
+          );
+        }
+      }
     }
   }
 
