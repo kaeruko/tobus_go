@@ -495,10 +495,15 @@ def main() -> None:
                 if target_stop_name in stop_names
                 else 0
             )
+            stop_widget_key = "explore_cms_selected_stop"
+            if target_stop_name in stop_names:
+                st.session_state[stop_widget_key] = target_stop_name
+            elif st.session_state.get(stop_widget_key) not in stop_names:
+                st.session_state[stop_widget_key] = stop_names[stop_index]
             selected_stop_name = st.selectbox(
                 "停留所",
                 stop_names,
-                index=stop_index,
+                key=stop_widget_key,
             )
             selected_stop = next(
                 item
@@ -518,10 +523,15 @@ def main() -> None:
                 and target_route_id in route_ids
                 else 0
             )
+            route_widget_key = f"explore_cms_selected_route::{selected_stop_name}"
+            if selected_stop_name == target_stop_name and target_route_id in route_ids:
+                st.session_state[route_widget_key] = target_route_id
+            elif st.session_state.get(route_widget_key) not in route_ids:
+                st.session_state[route_widget_key] = route_ids[route_index]
             selected_route_id = st.selectbox(
                 "系統",
                 route_ids,
-                index=route_index,
+                key=route_widget_key,
                 format_func=lambda route_id: (
                     f"{route_by_id[route_id]['route_label']} "
                     f"（対象乗り場 {len(route_by_id[route_id]['pole_ids'])}件）"
@@ -606,7 +616,7 @@ def main() -> None:
                         except Exception as error:
                             st.exception(error)
                         else:
-                            st.success("写真を削除しました。")
+                            st.session_state["explore_cms_save_notice"] = "写真を削除しました。"
                             st.rerun()
 
             upload_revision_key = f"upload_revision::{widget_scope}"
