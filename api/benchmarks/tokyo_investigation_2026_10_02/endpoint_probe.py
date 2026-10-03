@@ -90,9 +90,14 @@ async def _identity_probe() -> dict:
         candidates=[{"id": "Fastest", "steps": [{
             "step_id": "rail-1", "kind": "rail",
             "departure_time": "16:22", "arrival_time": "16:30",
-            "stops": [dict(id=station_id, name=name) for station_id, name in zip(
-                station_ids, ["東日本橋", "浅草橋", "蔵前"],
-            )],
+            "stops": [
+                dict(id=stop_id, odpt_id=station_id, name=name)
+                for stop_id, station_id, name in zip(
+                    ["A15", "A16", "A17"],
+                    station_ids,
+                    ["東日本橋", "浅草橋", "蔵前"],
+                )
+            ],
         }]}],
     )
     fetch = AsyncMock(return_value=_train_fixture())
