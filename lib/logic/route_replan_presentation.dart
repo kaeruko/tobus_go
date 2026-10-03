@@ -37,6 +37,9 @@ class RouteReplanPresentation {
       'delaySeconds': impact?.delay.inSeconds,
       'nextRideStepId': impact?.nextRideStepId,
       'nextDepartureAt': impact?.nextDepartureAt.toIso8601String(),
+      'transferWalkMinutes': impact?.transferWalkMinutes,
+      'transferBoardingMinutes': impact?.transferBoardingMinutes,
+      'transferRequiredMinutes': impact?.transferRequiredMinutes,
       'earliestTransferReadyAt':
           impact?.earliestTransferReadyAt.toIso8601String(),
       'nextTransferFeasible': impact?.nextTransferFeasible,
