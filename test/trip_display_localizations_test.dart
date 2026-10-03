@@ -227,6 +227,27 @@ void main() {
     );
   });
 
+  test('Japanese route rows hide parenthesized route aliases', () {
+    final entry = ScheduleEntry(
+      id: 'to01-board',
+      plannedAt: DateTime(2026, 9, 27, 22, 20),
+      label: '🚌都01（T01） 新橋駅前に乗る',
+      itemKind: ScheduleEntryKind.ride,
+      generatedBy: ScheduleEntrySource.route,
+      routeStepId: 'rail-1',
+      routeRole: 'ride',
+    );
+
+    expect(
+      localizedSoloScheduleEntryLabel(
+        const Locale('ja'),
+        trip: trip,
+        entry: entry,
+      ),
+      '🚌都01 新橋駅前に乗る',
+    );
+  });
+
   test('Japanese active-route rows preserve stored labels', () {
     expect(
       localizedSoloScheduleEntryLabel(

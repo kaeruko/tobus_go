@@ -202,6 +202,73 @@ void main() {
       expect(navigation.statusLabel, '待機');
     });
 
+    test('wait directly before ride shows only place and next boarding', () {
+      final schedule = [
+        ScheduleEntry(
+          id: 'wait-direct',
+          plannedAt: DateTime(2025, 1, 1, 9, 52),
+          label: '待ち時間 平井七丁目 (12分)',
+          itemKind: ScheduleEntryKind.event,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepId: 'wait-B',
+          routeRole: 'wait_start',
+        ),
+        ScheduleEntry(
+          id: 'ride-direct',
+          plannedAt: DateTime(2025, 1, 1, 10, 4),
+          label: '🚌上23 平井七丁目に乗る',
+          itemKind: ScheduleEntryKind.ride,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepId: 'bus-C',
+          routeRole: 'ride',
+        ),
+      ];
+      final baseTrip = navigationV2Trip();
+      final trip = Trip(
+        schemaVersion: baseTrip.schemaVersion,
+        tripType: baseTrip.tripType,
+        id: baseTrip.id,
+        joinCode: baseTrip.joinCode,
+        leaderId: baseTrip.leaderId,
+        title: baseTrip.title,
+        travelPhase: baseTrip.travelPhase,
+        date: baseTrip.date,
+        plannedDepartureAt: baseTrip.plannedDepartureAt,
+        actualDepartureAt: baseTrip.actualDepartureAt,
+        legs: baseTrip.legs,
+        schedule: schedule,
+        participants: baseTrip.participants,
+        memberIds: baseTrip.memberIds,
+        completedLegIndex: baseTrip.completedLegIndex,
+        staffNotes: baseTrip.staffNotes,
+      );
+      final now = DateTime(2025, 1, 1, 9, 52);
+      final resolved = TripCoordinator.resolveScheduleState(
+        scheduleEntries: trip.schedule,
+        now: now,
+      );
+
+      final navigation = TripCoordinator.buildMemberNavigationState(
+        trip: trip,
+        routeState: RouteState(stepsById: trip.stepsById),
+        now: now,
+        resolvedState: resolved,
+      );
+
+      expect(navigation.mainText, '平井七丁目');
+      expect(
+        navigation.mainTextToken?.key,
+        NavigationTextKey.waitingPlaceMain,
+      );
+      expect(navigation.subText, '10:04 上23 乗車予定');
+      expect(
+        navigation.subTextToken?.key,
+        NavigationTextKey.boardingPlannedSub,
+      );
+      expect(navigation.statusLabel, '待機');
+      expect(navigation.mainText, isNot(contains('待ち時間')));
+    });
+
     test('walk before ride shows boarding countdown and boarding time', () {
       final schedule = [
         ScheduleEntry(

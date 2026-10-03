@@ -640,6 +640,67 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'Japanese wait card shows place and next ride without duplicate wait wording',
+    (tester) async {
+      final step = StepSeg(
+        stepId: 'wait-shimbashi',
+        kind: 'wait',
+        title: '待ち時間',
+        fromName: '新橋駅前',
+        toName: '新橋駅前',
+        place: '新橋駅前',
+        minutes: 12,
+      );
+      final navigation = NavigationState(
+        mainText: '新橋駅前',
+        subText: '12:37 都01（T01） 渋谷駅前行 乗車予定',
+        color: Colors.blue,
+        statusLabel: '待機',
+        mainTextToken: const NavigationTextToken(
+          NavigationTextKey.waitingPlaceMain,
+          {'placeName': '新橋駅前'},
+        ),
+        subTextToken: const NavigationTextToken(
+          NavigationTextKey.boardingPlannedSub,
+          {
+            'rideTime': '12:37',
+            'routeTitle': '都01（T01） 渋谷駅前行',
+          },
+        ),
+        statusLabelToken: const NavigationTextToken(
+          NavigationTextKey.waitingStatus,
+        ),
+        currentStepId: step.stepId,
+        isMoving: false,
+        step: step,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: TripNavigationStatusCard(
+              navState: navigation,
+              tripTitle: '新橋 → 渋谷',
+              onTapStops: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('待機'), findsOneWidget);
+      expect(find.text('新橋駅前'), findsOneWidget);
+      expect(find.text('12:37 都01 渋谷駅前行 乗車予定'), findsOneWidget);
+      expect(find.textContaining('待ち時間'), findsNothing);
+      expect(find.textContaining('（T01）'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('semantic navigation messages render in English', (tester) async {
     final navigation = NavigationState.waitingForDeparture(
       plannedAt: DateTime(2026, 9, 27, 8, 29),

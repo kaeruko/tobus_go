@@ -5,6 +5,25 @@ import 'package:toeigo/l10n/transit_name_localizations.dart';
 import 'package:toeigo/models/route_models.dart';
 
 void main() {
+  test('Japanese ride title hides parenthesized ODPT route alias', () {
+    final step = StepSeg(
+      stepId: 'bus-to01',
+      kind: 'bus',
+      title: '都01（T01） 渋谷駅前行',
+      fromName: '新橋駅前',
+      toName: '渋谷駅前',
+    );
+
+    expect(
+      localizedRideTitle(const Locale('ja'), step),
+      '都01 渋谷駅前行',
+    );
+    expect(
+      normalizeJapaneseTransitDisplayText('都０１（Ｔ０１） 渋谷駅前行'),
+      '都０１ 渋谷駅前行',
+    );
+  });
+
   for (final locale in [const Locale('en'), const Locale('zh', 'CN')]) {
     group('Official transit names for ${locale.toLanguageTag()}', () {
       test('English ride title requires explicit official English text', () {
