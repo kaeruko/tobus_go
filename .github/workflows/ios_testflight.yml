@@ -239,12 +239,24 @@ jobs:
         run: |
           set -euo pipefail
           gem install cocoapods -v "$COCOAPODS_VERSION" --no-document
-          ACTUAL_COCOAPODS_VERSION="$(pod --version)"
+
+          POD_LAUNCHER="$(command -v pod)"
+          ACTUAL_COCOAPODS_VERSION="$("$POD_LAUNCHER" "_${COCOAPODS_VERSION}_" --version)"
           [[ "$ACTUAL_COCOAPODS_VERSION" == "$COCOAPODS_VERSION" ]] || {
             echo "::error::Expected CocoaPods $COCOAPODS_VERSION, got $ACTUAL_COCOAPODS_VERSION"
             exit 1
           }
-          pod repo update
+
+          "$POD_LAUNCHER" "_${COCOAPODS_VERSION}_" repo update
+
+          WRAPPER_DIR="$RUNNER_TEMP/cocoapods-$COCOAPODS_VERSION-bin"
+          mkdir -p "$WRAPPER_DIR"
+          cat > "$WRAPPER_DIR/pod" <<EOF
+          #!/bin/bash
+          exec "$POD_LAUNCHER" "_${COCOAPODS_VERSION}_" "\$@"
+          EOF
+          chmod +x "$WRAPPER_DIR/pod"
+          echo "$WRAPPER_DIR" >> "$GITHUB_PATH"
 
       - name: Generate Tokyo release configuration
         shell: bash
