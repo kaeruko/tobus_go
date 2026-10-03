@@ -47,8 +47,8 @@ class RouteReplanRequest {
 /// every ticker update even though the API payload stayed identical.
 ///
 /// A change to another local minute is still significant and invalidates the
-/// preview, as do changes to anchor place/source, active step, destination, or
-/// preference.
+/// preview, as do changes to anchor ID/source/coordinates, active step,
+/// destination, or preference. Display names do not identify a transit place.
 bool sameRouteReplanRequestState(
   RouteReplanRequest a,
   RouteReplanRequest b,
@@ -61,7 +61,6 @@ bool sameRouteReplanRequestState(
       a.anchor.source == b.anchor.source &&
       a.anchor.routeStepId == b.anchor.routeStepId &&
       a.anchor.stopId == b.anchor.stopId &&
-      a.anchor.placeName == b.anchor.placeName &&
       a.anchor.point == b.anchor.point &&
       _sameRouteApiMinute(a.anchor.availableAt, b.anchor.availableAt);
 }
