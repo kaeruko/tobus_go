@@ -356,31 +356,21 @@ class DelayImpactAnalyzer {
     final destination = previousRide.stops.last;
     final destinationStopId = destination.stopId?.trim();
     final confirmedStopId = confirmedPlace.stopId?.trim();
-    if (destinationStopId != null &&
-        destinationStopId.isNotEmpty &&
-        confirmedStopId != null &&
-        confirmedStopId.isNotEmpty) {
-      if (destinationStopId != confirmedStopId) {
-        throw StateError(
-          '最後に確定した交通地点IDが直前の降車地点と一致しません: '
-          '$destinationStopId != $confirmedStopId',
-        );
-      }
-      return;
-    }
-
-    const epsilon = 0.0000001;
-    final samePoint =
-        (destination.point.latitude - confirmedPlace.point.latitude).abs() <=
-            epsilon &&
-        (destination.point.longitude - confirmedPlace.point.longitude).abs() <=
-            epsilon;
-    if (!samePoint) {
+    if (destinationStopId == null || destinationStopId.isEmpty) {
       throw StateError(
-        '最後に確定した交通地点座標が直前の降車地点と一致しません: '
-        'stepId=${previousRide.stepId}, '
-        'destination=${destination.point.latitude},${destination.point.longitude}, '
-        'confirmed=${confirmedPlace.point.latitude},${confirmedPlace.point.longitude}',
+        '直前の降車地点にstopIdがありません: stepId=${previousRide.stepId}',
+      );
+    }
+    if (confirmedStopId == null || confirmedStopId.isEmpty) {
+      throw StateError(
+        '最後に確定した交通地点にstopIdがありません: '
+        'stepId=${previousRide.stepId}',
+      );
+    }
+    if (destinationStopId != confirmedStopId) {
+      throw StateError(
+        '最後に確定した交通地点IDが直前の降車地点と一致しません: '
+        '$destinationStopId != $confirmedStopId',
       );
     }
   }
