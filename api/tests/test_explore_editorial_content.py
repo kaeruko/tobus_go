@@ -7,6 +7,7 @@ from app.services.explore_editorial_content import (
     ExploreContentError,
     build_stop_route_catalog,
     compile_csv,
+    rank_stop_candidates,
 )
 
 
@@ -33,21 +34,29 @@ class ExploreEditorialContentTest(unittest.TestCase):
                 "owl:sameAs": POLE_UP,
                 "dc:title": "押上駅前",
                 "odpt:note": "noteは識別に使わない",
+                "geo:lat": 35.71000,
+                "geo:long": 139.81000,
             },
             {
                 "owl:sameAs": POLE_DOWN,
                 "dc:title": "押上駅前",
                 "odpt:note": "上り下りで違うnote",
+                "geo:lat": 35.71020,
+                "geo:long": 139.81020,
             },
             {
                 "owl:sameAs": POLE_MON,
                 "dc:title": "押上駅前",
                 "odpt:note": "門33だけの乗り場",
+                "geo:lat": 35.72000,
+                "geo:long": 139.82000,
             },
             {
                 "owl:sameAs": POLE_OTHER,
                 "dc:title": "業平橋",
                 "odpt:note": "押上駅前",
+                "geo:lat": 35.73000,
+                "geo:long": 139.83000,
             },
         ]
         patterns = [
@@ -181,6 +190,41 @@ class ExploreEditorialContentTest(unittest.TestCase):
             for pole_id in route["pole_ids"]
         }
         self.assertNotIn(POLE_OTHER, all_oshiage_poles)
+
+    def test_rank_stop_candidates_uses_route_and_nearest_group(self):
+        temp_dir, csv_path, images, data = self._workspace()
+        self.addCleanup(temp_dir.cleanup)
+
+        candidates = rank_stop_candidates(
+            data,
+            route_label="上２３",
+            lat=35.71018,
+            lon=139.81018,
+        )
+
+        self.assertEqual(candidates[0]["stop_name"], "押上駅前")
+        self.assertEqual(candidates[0]["route_id"], UE23)
+        self.assertEqual(candidates[0]["route_label"], "上23")
+        self.assertEqual(candidates[0]["nearest_pole_id"], POLE_DOWN)
+        self.assertLess(
+            candidates[0]["distance_m"],
+            candidates[1]["distance_m"],
+        )
+
+    def test_rank_stop_candidates_rejects_unknown_route(self):
+        temp_dir, csv_path, images, data = self._workspace()
+        self.addCleanup(temp_dir.cleanup)
+
+        with self.assertRaisesRegex(
+            ExploreContentError,
+            "route label was not found",
+        ):
+            rank_stop_candidates(
+                data,
+                route_label="渋88",
+                lat=35.71018,
+                lon=139.81018,
+            )
 
     def test_rejects_unknown_stop_route_pair(self):
         temp_dir, csv_path, images, data = self._workspace()
