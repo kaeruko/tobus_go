@@ -264,6 +264,7 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
         )
 
         self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0]["boarding_minutes"], 2)
         self.assertEqual(
             [stop["id"] for stop in steps[0]["stops"]],
             ["origin-station", "same-a", "same-b"],
