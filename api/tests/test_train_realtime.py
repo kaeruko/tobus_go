@@ -37,54 +37,72 @@ class TrainRealtimeResolverTest(unittest.TestCase):
             longitude=139.78,
         )
 
-    def test_resolves_exact_reporting_trip_from_plan(self):
+    def test_resolves_exact_reporting_trip_from_stop_ids(self):
         resolved = resolve_train_vehicle(
             (self.vehicle,),
             self.gtfs,
-            trip_id=None,
-            from_name="東日本橋",
-            to_name="蔵前",
-            arrival_time="16:24",
+            trip_id="121603T0",
+            from_stop_id="115",
+            to_stop_id="117",
         )
 
         self.assertEqual(resolved.trip.trip_id, "121603T0")
         self.assertEqual(resolved.boarding_sequence, 9)
         self.assertEqual(resolved.destination_sequence, 11)
 
-    def test_does_not_guess_when_arrival_time_does_not_match(self):
+    def test_missing_trip_id_fails_instead_of_guessing_by_names_or_time(self):
         with self.assertRaises(TrainRealtimeError) as raised:
             resolve_train_vehicle(
                 (self.vehicle,),
                 self.gtfs,
                 trip_id=None,
-                from_name="東日本橋",
-                to_name="蔵前",
-                arrival_time="16:25",
+                from_stop_id="115",
+                to_stop_id="117",
             )
 
-        self.assertEqual(raised.exception.code, "train_trip_not_found")
+        self.assertEqual(raised.exception.code, "train_plan_trip_id_missing")
 
-    def test_exact_trip_id_still_requires_requested_segment(self):
+    def test_exact_trip_id_still_requires_requested_stop_id_segment(self):
         with self.assertRaises(TrainRealtimeError) as raised:
             resolve_train_vehicle(
                 (self.vehicle,),
                 self.gtfs,
                 trip_id="121603T0",
-                from_name="存在しない駅",
-                to_name="蔵前",
-                arrival_time="16:24",
+                from_stop_id="missing-stop",
+                to_stop_id="117",
             )
 
         self.assertEqual(raised.exception.code, "train_static_segment_missing")
+
+    def test_stop_names_do_not_participate_in_segment_identity(self):
+        renamed_trip = StaticTrainTrip(
+            trip_id=self.trip.trip_id,
+            route_id=self.trip.route_id,
+            headsign=self.trip.headsign,
+            stops=(
+                StaticTrainStop(9, "115", "名称変更1", "16:20:00", "16:20:30"),
+                StaticTrainStop(10, "116", "名称変更2", "16:22:00", "16:22:30"),
+                StaticTrainStop(11, "117", "名称変更3", "16:24:00", "16:24:30"),
+            ),
+        )
+        resolved = resolve_train_vehicle(
+            (self.vehicle,),
+            StaticTrainGtfs(trips={renamed_trip.trip_id: renamed_trip}),
+            trip_id="121603T0",
+            from_stop_id="115",
+            to_stop_id="117",
+        )
+
+        self.assertEqual(resolved.boarding_sequence, 9)
+        self.assertEqual(resolved.destination_sequence, 11)
 
     def test_response_contains_sequences_and_trip_stops(self):
         resolved = resolve_train_vehicle(
             (self.vehicle,),
             self.gtfs,
-            trip_id=None,
-            from_name="東日本橋",
-            to_name="蔵前",
-            arrival_time="16:24",
+            trip_id="121603T0",
+            from_stop_id="115",
+            to_stop_id="117",
         )
         response = build_location_response(
             resolved,
