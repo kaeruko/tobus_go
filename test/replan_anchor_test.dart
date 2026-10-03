@@ -23,8 +23,18 @@ void main() {
         ridingTransit: RidingTransitObservation(
           stepId: 'rail-1',
           motion: RidingTransitMotion.inTransit,
-          currentPlace: place('浅草橋', 35.697, 139.785),
-          nextPlace: place('蔵前', 35.703, 139.790),
+          currentPlace: place(
+            '浅草橋',
+            35.697,
+            139.785,
+            stopId: 'A16',
+          ),
+          nextPlace: place(
+            '蔵前',
+            35.703,
+            139.790,
+            stopId: 'A17',
+          ),
           predictedNextAvailableAt: predicted,
         ),
       ),
@@ -43,7 +53,12 @@ void main() {
         ridingTransit: RidingTransitObservation(
           stepId: 'rail-1',
           motion: RidingTransitMotion.stopped,
-          currentPlace: place('浅草橋', 35.697, 139.785),
+          currentPlace: place(
+            '浅草橋',
+            35.697,
+            139.785,
+            stopId: 'A16',
+          ),
         ),
       ),
       now: now,
@@ -114,7 +129,12 @@ void main() {
     final observation = RidingTransitObservation(
       stepId: 'rail-1',
       motion: RidingTransitMotion.stopped,
-      currentPlace: place('浅草橋', 35.697, 139.785),
+      currentPlace: place(
+            '浅草橋',
+            35.697,
+            139.785,
+            stopId: 'A16',
+          ),
     );
 
     expect(observation.canResolveAnchorAt(now.add(const Duration(hours: 1))), isTrue);
@@ -123,7 +143,12 @@ void main() {
   test('transfer walk uses the last confirmed station instead of GPS', () {
     final anchor = ReplanAnchorResolver.resolve(
       context: ReplanAnchorContext(
-        lastConfirmedTransitPlace: place('東日本橋', 35.692, 139.785),
+        lastConfirmedTransitPlace: place(
+          '東日本橋',
+          35.692,
+          139.785,
+          stopId: 'A15',
+        ),
       ),
       now: now,
     );
@@ -151,13 +176,30 @@ void main() {
     final observation = RidingTransitObservation(
       stepId: 'rail-1',
       motion: RidingTransitMotion.inTransit,
-      nextPlace: place('蔵前', 35.703, 139.790),
+      nextPlace: place(
+            '蔵前',
+            35.703,
+            139.790,
+            stopId: 'A17',
+          ),
     );
 
     expect(observation.canResolveAnchorAt(now), isFalse);
     expect(
       () => ReplanAnchorResolver.resolve(
         context: ReplanAnchorContext(ridingTransit: observation),
+        now: now,
+      ),
+      throwsStateError,
+    );
+  });
+
+  test('transit anchor without stopId fails instead of using name or point', () {
+    expect(
+      () => ReplanAnchorResolver.resolve(
+        context: ReplanAnchorContext(
+          lastConfirmedTransitPlace: place('東日本橋', 35.692, 139.785),
+        ),
         now: now,
       ),
       throwsStateError,
@@ -182,7 +224,12 @@ void main() {
           ridingTransit: RidingTransitObservation(
             stepId: 'rail-1',
             motion: RidingTransitMotion.inTransit,
-            nextPlace: place('蔵前', 35.703, 139.790),
+            nextPlace: place(
+            '蔵前',
+            35.703,
+            139.790,
+            stopId: 'A17',
+          ),
             predictedNextAvailableAt: stalePrediction,
           ),
         ),
