@@ -897,6 +897,14 @@
   },
   "navDepartureLabel": "Depart",
   "navDepartureRemaining": "{minutes} min to go",
+  "navWalkBoardingCountdown": "{minutes} min until boarding",
+  "@navWalkBoardingCountdown": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "@navDepartureRemaining": {
     "placeholders": {
       "minutes": {

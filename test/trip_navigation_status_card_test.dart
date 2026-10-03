@@ -584,7 +584,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text(l10n.categoryWalk.toUpperCase()), findsOneWidget);
-        expect(find.text(l10n.minutesValue(3)), findsOneWidget);
+        expect(
+          find.text(l10n.navWalkBoardingCountdown(3)),
+          findsOneWidget,
+        );
         expect(find.text('Hirai-Nanachome'), findsOneWidget);
         expect(find.text('平井七丁目'), findsOneWidget);
         expect(find.text('9:08'), findsOneWidget);

@@ -533,7 +533,7 @@ class TripNavigationStatusCard extends StatelessWidget {
             routeTitleEn != routeTitleJa
         ? routeTitleJa
         : null;
-    final countdown = l10n.minutesValue(minutesValue);
+    final countdown = l10n.navWalkBoardingCountdown(minutesValue);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

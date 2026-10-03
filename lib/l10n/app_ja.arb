@@ -897,6 +897,14 @@
   },
   "navDepartureLabel": "出発",
   "navDepartureRemaining": "あと{minutes}分",
+  "navWalkBoardingCountdown": "乗車まで{minutes}分",
+  "@navWalkBoardingCountdown": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "@navDepartureRemaining": {
     "placeholders": {
       "minutes": {

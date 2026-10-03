@@ -897,6 +897,14 @@
   },
   "navDepartureLabel": "出发",
   "navDepartureRemaining": "还有{minutes}分钟",
+  "navWalkBoardingCountdown": "距乘车还有{minutes}分钟",
+  "@navWalkBoardingCountdown": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "@navDepartureRemaining": {
     "placeholders": {
       "minutes": {
