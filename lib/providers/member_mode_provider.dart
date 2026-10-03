@@ -12,6 +12,7 @@ import '../models/rail_progress.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../logic/alighting_alert.dart';
+import '../logic/bus_arrival_fallback.dart';
 import '../logic/replan_anchor.dart';
 import '../logic/replan_transit_memory.dart';
 import '../logic/replan_transit_observation.dart';
@@ -273,7 +274,12 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         activeStep.kind == 'bus' &&
         activeStep.routeId != null &&
         activeStep.tripId != null) {
-      await _updateBusProgress(activeStep, forceRefresh: forceRefresh);
+      final plannedArrivalAt = _plannedRideArrivalAt(trip, activeStep.stepId);
+      await _updateBusProgress(
+        activeStep,
+        plannedArrivalAt: plannedArrivalAt,
+        forceRefresh: forceRefresh,
+      );
     } else if (activeStep != null && activeStep.kind == 'rail') {
       await _updateRailProgress(activeStep, forceRefresh: forceRefresh);
     } else {
@@ -327,6 +333,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
 
   Future<void> _updateBusProgress(
     StepSeg activeStep, {
+    required DateTime plannedArrivalAt,
     required bool forceRefresh,
   }) async {
     debugPrint(
@@ -344,7 +351,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         vehicleId: trackedVehicleId,
         forceRefresh: forceRefresh,
       );
-      final progress = BusProgress.forStep(
+      final realtimeProgress = BusProgress.forStep(
         step: activeStep,
         fromStopId: location.fromStopId,
         beforeFirstStop: location.beforeFirstStop,
@@ -355,16 +362,38 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         currentStatus: location.currentStatus,
         vehicleAgeSeconds: location.vehicleAgeSeconds,
       );
+      final now = appClock.now();
+      final assumeArrived = shouldAssumeBusArrivedFromStaleRealtime(
+        now: now,
+        plannedArrivalAt: plannedArrivalAt,
+        progress: realtimeProgress,
+        staleAfterSeconds: NavigationState.staleRidePositionAfterSeconds,
+      );
+      final progress = assumeArrived
+          ? assumeBusArrivedAtDestination(
+              step: activeStep,
+              realtimeProgress: realtimeProgress,
+            )
+          : realtimeProgress;
+      if (assumeArrived) {
+        debugPrint(
+          '[MemberModeController] バス降車を予定時刻で確定: '
+          'step=${activeStep.stepId} '
+          'plannedArrival=${plannedArrivalAt.toIso8601String()} '
+          'vehicleAge=${location.vehicleAgeSeconds}s '
+          'observedStop=${location.rawStopId}/${location.rawStopName}',
+        );
+      }
       final nextMemory = _replanMemoryForBus(
         step: activeStep,
         progress: progress,
         location: location,
-        now: appClock.now(),
+        now: now,
       );
       _logBusProgressTrace(
         step: activeStep,
         location: location,
-        progress: progress,
+        progress: realtimeProgress,
         forceRefresh: forceRefresh,
       );
       state = RealtimeTransitState(
@@ -374,10 +403,12 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         replanTransitMemory: nextMemory,
       );
 
-      final alightingAlert = _alightingAlertTracker.evaluate(
-        step: activeStep,
-        location: location,
-      );
+      final alightingAlert = assumeArrived
+          ? null
+          : _alightingAlertTracker.evaluate(
+              step: activeStep,
+              location: location,
+            );
       if (alightingAlert != null) {
         await _performAlightingAlertHaptic(
           alightingAlert,
@@ -549,6 +580,24 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         );
         return state.replanTransitMemory.observeRide(observation);
     }
+  }
+
+  DateTime _plannedRideArrivalAt(Trip trip, String stepId) {
+    final matches = _navigationScheduleForTrip(trip)
+        .where(
+          (entry) =>
+              entry.generatedBy == ScheduleEntrySource.route &&
+              entry.itemKind == ScheduleEntryKind.arrival &&
+              entry.routeStepId == stepId,
+        )
+        .toList(growable: false);
+    if (matches.length != 1) {
+      throw StateError(
+        '乗車stepの降車予定を一意に特定できません: '
+        'stepId=$stepId, matches=${matches.length}',
+      );
+    }
+    return matches.single.plannedAt;
   }
 
   ScheduleEntry _knownOnboardRideEntry(Trip trip, String stepId) {
