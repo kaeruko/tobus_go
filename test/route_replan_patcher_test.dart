@@ -474,4 +474,31 @@ void main() {
       throwsStateError,
     );
   });
+  test('same-name different point is not accepted as a replan anchor', () {
+    final request = RouteReplanRequest(
+      anchor: ReplanAnchor(
+        placeName: '浅草橋',
+        stopId: null,
+        point: const LatLng(35.699, 139.799),
+        availableAt: DateTime(2026, 8, 15, 10, 12),
+        source: ReplanAnchorSource.predictedNextTransitPlace,
+        routeStepId: 'old-rail',
+      ),
+      activeStepId: 'old-rail',
+      originalCandidateId: 'original',
+      destination: const LatLng(35.680, 139.770),
+      destinationName: '目的地',
+      preference: 'shortTime',
+    );
+
+    expect(
+      () => RouteReplanPatcher.build(
+        trip: trip(),
+        request: request,
+        selectedCandidate: selectedCandidate(),
+      ),
+      throwsStateError,
+    );
+  });
+
 }
