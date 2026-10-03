@@ -23,6 +23,7 @@ from app.services.explore_editorial_content import (  # noqa: E402
     build_stop_route_catalog,
     compile_csv,
     master_data_dir,
+    rank_stop_candidates,
     read_authoring_groups,
     source_paths,
     validate_image_name,
@@ -71,6 +72,115 @@ ACCEPTED_SOURCE_FORMATS_BY_SUFFIX = {
 }
 EXIF_ORIENTATION_TAG = 274
 VALID_EXIF_ORIENTATIONS = frozenset(range(1, 9))
+GPS_INFO_TAG = 34853
+GPS_LATITUDE_REF_TAG = 1
+GPS_LATITUDE_TAG = 2
+GPS_LONGITUDE_REF_TAG = 3
+GPS_LONGITUDE_TAG = 4
+
+
+def _gps_ref(value: object, *, field: str) -> str:
+    if isinstance(value, bytes):
+        try:
+            value = value.decode("ascii")
+        except UnicodeDecodeError as error:
+            raise ExploreContentError(
+                f"{field} is not ASCII"
+            ) from error
+    if not isinstance(value, str):
+        raise ExploreContentError(
+            f"{field} must be a string, got {type(value).__name__}"
+        )
+    return value.rstrip("\x00")
+
+
+def _gps_dms_to_decimal(
+    value: object,
+    *,
+    ref: str,
+    positive_ref: str,
+    negative_ref: str,
+    field: str,
+) -> float:
+    if not isinstance(value, (tuple, list)) or len(value) != 3:
+        raise ExploreContentError(
+            f"{field} must contain degrees/minutes/seconds"
+        )
+    try:
+        degrees, minutes, seconds = (float(component) for component in value)
+    except (TypeError, ValueError, ZeroDivisionError) as error:
+        raise ExploreContentError(
+            f"{field} contains an invalid rational value"
+        ) from error
+
+    if degrees < 0 or not 0 <= minutes < 60 or not 0 <= seconds < 60:
+        raise ExploreContentError(
+            f"{field} has an invalid DMS value: {value!r}"
+        )
+    decimal = degrees + minutes / 60.0 + seconds / 3600.0
+    if ref == negative_ref:
+        decimal = -decimal
+    elif ref != positive_ref:
+        raise ExploreContentError(
+            f"{field} has an invalid reference: {ref!r}"
+        )
+    return decimal
+
+
+def extract_uploaded_gps(content: bytes) -> tuple[float, float]:
+    if not content:
+        raise ExploreContentError("uploaded image is empty")
+
+    try:
+        with Image.open(BytesIO(content)) as image:
+            image.load()
+            exif = image.getexif()
+            gps = exif.get_ifd(GPS_INFO_TAG)
+    except UnidentifiedImageError as error:
+        raise ExploreContentError(
+            "uploaded file could not be decoded as an image"
+        ) from error
+    except OSError as error:
+        raise ExploreContentError(
+            f"failed to decode uploaded image: {error}"
+        ) from error
+
+    if not gps:
+        raise ExploreContentError(
+            "uploaded image has no EXIF GPS metadata"
+        )
+
+    lat_ref = _gps_ref(
+        gps.get(GPS_LATITUDE_REF_TAG),
+        field="GPSLatitudeRef",
+    )
+    lon_ref = _gps_ref(
+        gps.get(GPS_LONGITUDE_REF_TAG),
+        field="GPSLongitudeRef",
+    )
+    lat = _gps_dms_to_decimal(
+        gps.get(GPS_LATITUDE_TAG),
+        ref=lat_ref,
+        positive_ref="N",
+        negative_ref="S",
+        field="GPSLatitude",
+    )
+    lon = _gps_dms_to_decimal(
+        gps.get(GPS_LONGITUDE_TAG),
+        ref=lon_ref,
+        positive_ref="E",
+        negative_ref="W",
+        field="GPSLongitude",
+    )
+    if not -90.0 <= lat <= 90.0:
+        raise ExploreContentError(
+            f"GPS latitude is out of range: {lat}"
+        )
+    if not -180.0 <= lon <= 180.0:
+        raise ExploreContentError(
+            f"GPS longitude is out of range: {lon}"
+        )
+    return lat, lon
 
 
 def normalize_uploaded_image(content: bytes, *, suffix: str) -> bytes:
@@ -471,6 +581,107 @@ def main() -> None:
 
     st.divider()
     st.subheader("新規・編集")
+
+    st.markdown("#### 写真から停留所候補を推定")
+    st.caption(
+        "GPS付き写真と系統名から、同じ系統で最も近い停留所を候補として出します。"
+        "順位は直線距離ベースで、統計的な確率値ではありません。"
+    )
+    candidate_route_label = st.text_input(
+        "系統名",
+        placeholder="例: 渋88",
+        key="explore_cms_candidate_route",
+    ).strip()
+    candidate_photo = st.file_uploader(
+        "候補判定に使うGPS付き写真",
+        type=["jpg", "jpeg", "png", "webp"],
+        accept_multiple_files=False,
+        key="explore_cms_candidate_photo",
+    )
+
+    candidate_photo_content = (
+        candidate_photo.getvalue()
+        if candidate_photo is not None
+        else None
+    )
+    candidate_photo_hash = (
+        hashlib.sha256(candidate_photo_content).hexdigest()
+        if candidate_photo_content
+        else None
+    )
+
+    if st.button("停留所候補を出す", key="explore_cms_find_candidate"):
+        st.session_state.pop("explore_cms_candidate_result", None)
+        if not candidate_route_label:
+            st.error("系統名を入力してください。")
+        elif not candidate_photo_content:
+            st.error("GPS付き写真を選択してください。")
+        else:
+            try:
+                candidate_lat, candidate_lon = extract_uploaded_gps(
+                    candidate_photo_content
+                )
+                ranked_candidates = rank_stop_candidates(
+                    DATA_DIR,
+                    route_label=candidate_route_label,
+                    lat=candidate_lat,
+                    lon=candidate_lon,
+                )
+            except ExploreContentError as error:
+                st.error(str(error))
+            except Exception as error:
+                st.exception(error)
+            else:
+                st.session_state["explore_cms_candidate_result"] = {
+                    "route_input": candidate_route_label,
+                    "photo_hash": candidate_photo_hash,
+                    "lat": candidate_lat,
+                    "lon": candidate_lon,
+                    "candidates": ranked_candidates[:5],
+                }
+
+    candidate_result = st.session_state.get(
+        "explore_cms_candidate_result"
+    )
+    if (
+        candidate_result
+        and candidate_result["route_input"] == candidate_route_label
+        and candidate_result["photo_hash"] == candidate_photo_hash
+    ):
+        candidates = candidate_result["candidates"]
+        best = candidates[0]
+        st.success(
+            f"第1候補: {best['stop_name']} / {best['route_label']} "
+            f"（写真位置から {best['distance_m']:.0f} m）"
+        )
+        if len(candidates) >= 2:
+            gap = candidates[1]["distance_m"] - best["distance_m"]
+            st.caption(
+                f"第2候補との差は {gap:.0f} m です。"
+            )
+        st.dataframe(
+            [
+                {
+                    "順位": index,
+                    "停留所": candidate["stop_name"],
+                    "系統": candidate["route_label"],
+                    "距離(m)": round(candidate["distance_m"], 1),
+                }
+                for index, candidate in enumerate(candidates, start=1)
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
+        if st.button(
+            "第1候補を編集対象にする",
+            key="explore_cms_use_candidate",
+        ):
+            st.session_state["explore_cms_query"] = best["stop_name"]
+            st.session_state["explore_cms_target_stop"] = best["stop_name"]
+            st.session_state["explore_cms_target_route"] = best["route_id"]
+            st.rerun()
+
+    st.divider()
 
     query = st.text_input(
         "停留所名を検索",
