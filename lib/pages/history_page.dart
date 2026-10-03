@@ -18,6 +18,7 @@ class HistoryPage extends StatefulWidget {
 class _HistoryPageState extends State<HistoryPage> {
   final TripService _tripService = TripService();
   late Future<List<Trip>> _tripsFuture;
+  final Set<String> _openingTripIds = <String>{};
 
   @override
   void initState() {
@@ -29,6 +30,62 @@ class _HistoryPageState extends State<HistoryPage> {
     setState(() {
       _tripsFuture = _tripService.getAllTrips();
     });
+  }
+
+  Future<void> _openTrip(Trip snapshotTrip) async {
+    if (_openingTripIds.contains(snapshotTrip.id)) {
+      debugPrint(
+        '[HistoryNavigation] duplicate tap ignored tripId=${snapshotTrip.id}',
+      );
+      return;
+    }
+
+    _openingTripIds.add(snapshotTrip.id);
+    try {
+      debugPrint(
+        '[HistoryNavigation] resolving trip before open '
+        'tripId=${snapshotTrip.id} '
+        'snapshotPhase=${snapshotTrip.travelPhase.name}',
+      );
+      final latestTrip = await _tripService.getTrip(snapshotTrip.id);
+      if (latestTrip == null) {
+        throw StateError(
+          '履歴から開くおでかけが存在しません: ${snapshotTrip.id}',
+        );
+      }
+
+      debugPrint(
+        '[HistoryNavigation] resolved trip before open '
+        'tripId=${latestTrip.id} '
+        'latestPhase=${latestTrip.travelPhase.name}',
+      );
+      if (!mounted) return;
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => _historyDestination(latestTrip),
+        ),
+      );
+      if (!mounted) return;
+
+      // HistoryPage is kept alive by CupertinoTabView. Refresh after returning
+      // so a trip that completed while another tab/page was open cannot remain
+      // displayed as active.
+      _reload();
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[HistoryNavigation] open failed '
+        'tripId=${snapshotTrip.id}: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.historyLoadFailed(error.toString()))),
+      );
+    } finally {
+      _openingTripIds.remove(snapshotTrip.id);
+    }
   }
 
   Future<bool> _confirmAndDelete(Trip trip) async {
@@ -121,14 +178,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 final trip = trips[index];
                 final card = HistoryTripCard(
                   trip: trip,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => _historyDestination(trip),
-                      ),
-                    );
-                  },
+                  onTap: () => _openTrip(trip),
                 );
 
                 if (trip.travelPhase != TravelPhase.completed) {
