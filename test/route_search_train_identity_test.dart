@@ -33,6 +33,7 @@ void main() {
   Map<String, dynamic> railCandidate({
     String? tripId,
     String? routeId,
+    List<String> stopIds = const ['A15', 'A16', 'A17'],
   }) => {
     'id': 'Fastest',
     'lines': ['浅草線'],
@@ -62,21 +63,21 @@ void main() {
             'name': '東日本橋',
             'lat': 35.69,
             'lon': 139.78,
-            'id': 'A15',
+            'id': stopIds[0],
             'odpt_id': 'odpt.Station:Toei.Asakusa.HigashiNihombashi',
           },
           {
             'name': '浅草橋',
             'lat': 35.70,
             'lon': 139.79,
-            'id': 'A16',
+            'id': stopIds[1],
             'odpt_id': 'odpt.Station:Toei.Asakusa.Asakusabashi',
           },
           {
             'name': '蔵前',
             'lat': 35.71,
             'lon': 139.80,
-            'id': 'A17',
+            'id': stopIds[2],
             'odpt_id': 'odpt.Station:Toei.Asakusa.Kuramae',
           },
         ],
@@ -111,7 +112,11 @@ void main() {
         return http.Response(
           jsonEncode({
             'candidates': [
-              railCandidate(tripId: '121603T0', routeId: '1'),
+              railCandidate(
+                tripId: '121603T0',
+                routeId: '1',
+                stopIds: const ['115', '116', '117'],
+              ),
             ],
             'rejections': [],
           }),
@@ -134,7 +139,7 @@ void main() {
     expect(result.candidates.single.steps.single.boardingMinutes, 2);
     expect(
       result.candidates.single.steps.single.stops.map((stop) => stop.stopId),
-      ['A15', 'A16', 'A17'],
+      ['115', '116', '117'],
     );
     expect(result.fareByCandidateId, isEmpty);
   });
