@@ -321,10 +321,8 @@ class RouteReplanPreview {
     StepSeg ride,
     RouteReplanRequest request,
   ) {
-    if (ride.stops.isNotEmpty) {
-      return _stopMatchesAnchor(ride.stops.first, request);
-    }
-    return ride.fromName?.trim() == request.anchor.placeName.trim();
+    if (ride.stops.isEmpty) return false;
+    return _stopMatchesAnchor(ride.stops.first, request);
   }
 
   static bool _rideDestinationIsDownstream({
@@ -332,15 +330,9 @@ class RouteReplanPreview {
     required StepSeg reboard,
     required int anchorIndex,
   }) {
-    final destinationStop = reboard.stops.isEmpty ? null : reboard.stops.last;
-    final destinationName =
-        destinationStop?.name.trim() ?? reboard.toName?.trim() ?? '';
-    final destinationId = destinationStop?.stopId?.trim();
-
-    if ((destinationId == null || destinationId.isEmpty) &&
-        destinationName.isEmpty) {
-      return false;
-    }
+    if (reboard.stops.isEmpty) return false;
+    final destinationStop = reboard.stops.last;
+    final destinationId = destinationStop.stopId?.trim();
 
     for (var index = anchorIndex + 1;
         index < activeRide.stops.length;
@@ -354,8 +346,7 @@ class RouteReplanPreview {
         if (destinationId == stopId) return true;
         continue;
       }
-      if (destinationName.isNotEmpty &&
-          stop.name.trim() == destinationName) {
+      if (_samePoint(stop.point, destinationStop.point)) {
         return true;
       }
     }
@@ -374,9 +365,6 @@ class RouteReplanPreview {
         stopId.isNotEmpty) {
       return anchorStopId == stopId;
     }
-    if (stop.name.trim() == request.anchor.placeName.trim()) {
-      return true;
-    }
     return _samePoint(stop.point, request.anchor.point);
   }
 
@@ -390,13 +378,8 @@ class RouteReplanPreview {
       if (byId >= 0) return byId;
     }
 
-    final byPoint = stops.indexWhere(
-      (stop) => _samePoint(stop.point, request.anchor.point),
-    );
-    if (byPoint >= 0) return byPoint;
-
     return stops.indexWhere(
-      (stop) => stop.name.trim() == request.anchor.placeName.trim(),
+      (stop) => _samePoint(stop.point, request.anchor.point),
     );
   }
 
