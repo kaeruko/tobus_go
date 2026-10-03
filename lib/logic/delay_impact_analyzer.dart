@@ -320,32 +320,41 @@ class DelayImpactAnalyzer {
     required StepSeg previousRide,
     required ReplanTransitPlace confirmedPlace,
   }) {
-    final destinationName = previousRide.toName?.trim();
-    if (destinationName == null || destinationName.isEmpty) {
+    if (previousRide.stops.isEmpty) {
       throw StateError(
-        '直前乗車stepの降車地点名がありません: ${previousRide.stepId}',
-      );
-    }
-    if (destinationName != confirmedPlace.name.trim()) {
-      throw StateError(
-        '最後に確定した交通地点が直前の降車地点と一致しません: '
-        '$destinationName != ${confirmedPlace.name}',
+        '直前乗車stepの降車地点をID/座標で照合できません: ${previousRide.stepId}',
       );
     }
 
-    if (previousRide.stops.isNotEmpty) {
-      final destinationStopId = previousRide.stops.last.stopId?.trim();
-      final confirmedStopId = confirmedPlace.stopId?.trim();
-      if (destinationStopId != null &&
-          destinationStopId.isNotEmpty &&
-          confirmedStopId != null &&
-          confirmedStopId.isNotEmpty &&
-          destinationStopId != confirmedStopId) {
+    final destination = previousRide.stops.last;
+    final destinationStopId = destination.stopId?.trim();
+    final confirmedStopId = confirmedPlace.stopId?.trim();
+    if (destinationStopId != null &&
+        destinationStopId.isNotEmpty &&
+        confirmedStopId != null &&
+        confirmedStopId.isNotEmpty) {
+      if (destinationStopId != confirmedStopId) {
         throw StateError(
           '最後に確定した交通地点IDが直前の降車地点と一致しません: '
           '$destinationStopId != $confirmedStopId',
         );
       }
+      return;
+    }
+
+    const epsilon = 0.0000001;
+    final samePoint =
+        (destination.point.latitude - confirmedPlace.point.latitude).abs() <=
+            epsilon &&
+        (destination.point.longitude - confirmedPlace.point.longitude).abs() <=
+            epsilon;
+    if (!samePoint) {
+      throw StateError(
+        '最後に確定した交通地点座標が直前の降車地点と一致しません: '
+        'stepId=${previousRide.stepId}, '
+        'destination=${destination.point.latitude},${destination.point.longitude}, '
+        'confirmed=${confirmedPlace.point.latitude},${confirmedPlace.point.longitude}',
+      );
     }
   }
 
