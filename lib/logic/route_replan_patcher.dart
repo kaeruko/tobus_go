@@ -296,6 +296,7 @@ class RouteReplanPatcher {
       fareYen: null,
       departureTime: step.departureTime,
       arrivalTime: arrivalClock,
+      boardingMinutes: step.boardingMinutes,
       startLabel: step.startLabel,
       endLabel: step.endLabel,
       place: step.place,
