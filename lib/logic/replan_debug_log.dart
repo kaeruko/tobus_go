@@ -28,6 +28,8 @@ class ReplanDebugLog {
       'knownOnboardStepId': memory?.knownOnboardStepId,
       'lastConfirmedPlace': memory?.lastConfirmedTransitPlace?.name,
       'lastConfirmedStopId': memory?.lastConfirmedTransitPlace?.stopId,
+      'lastConfirmedAt':
+          memory?.lastConfirmedTransitAt?.toIso8601String(),
       'ridingStepId': riding?.stepId,
       'ridingMotion': riding?.motion.name,
       'ridingCurrentPlace': riding?.currentPlace?.name,

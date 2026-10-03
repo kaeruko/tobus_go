@@ -430,6 +430,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         'feedAge=${location.feedAgeSeconds}s, '
         'vehicleAge=${location.vehicleAgeSeconds}s, '
         'lastConfirmed=${nextMemory.lastConfirmedTransitPlace?.name}, '
+        'lastConfirmedAt=${nextMemory.lastConfirmedTransitAt?.toIso8601String()}, '
         'serverNow=${location.serverNow}, '
         'clientNow=${DateTime.now().toUtc().toIso8601String()}',
       );
@@ -516,6 +517,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         'next=${progress.nextStopName}, '
         'remaining=${progress.remainingStops}, '
         'lastConfirmed=${nextMemory.lastConfirmedTransitPlace?.name}, '
+        'lastConfirmedAt=${nextMemory.lastConfirmedTransitAt?.toIso8601String()}, '
         'vehicleAge=${location.vehicleAgeSeconds}s',
       );
     } on TrainLocationNotAvailableException catch (e) {
@@ -548,7 +550,10 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       case BusProgressPhase.approaching:
         return state.replanTransitMemory.clearActiveRide();
       case BusProgressPhase.arrived:
-        return state.replanTransitMemory.markArrived(_destinationPlace(step));
+        return state.replanTransitMemory.markArrived(
+          _destinationPlace(step),
+          confirmedAt: now,
+        );
       case BusProgressPhase.riding:
         final observation = ReplanTransitObservationAdapter.fromBus(
           step: step,
@@ -570,7 +575,10 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       case RailProgressPhase.approaching:
         return state.replanTransitMemory.clearActiveRide();
       case RailProgressPhase.arrived:
-        return state.replanTransitMemory.markArrived(_destinationPlace(step));
+        return state.replanTransitMemory.markArrived(
+          _destinationPlace(step),
+          confirmedAt: now,
+        );
       case RailProgressPhase.riding:
         final observation = ReplanTransitObservationAdapter.fromRail(
           step: step,

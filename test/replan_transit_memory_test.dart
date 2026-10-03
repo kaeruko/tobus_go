@@ -23,6 +23,7 @@ void main() {
 
     expect(memory.ridingTransit, same(observation));
     expect(memory.lastConfirmedTransitPlace, same(current));
+    expect(memory.lastConfirmedTransitAt, isNull);
     expect(memory.knownOnboardStepId, 'rail-1');
   });
 
@@ -101,11 +102,20 @@ void main() {
     );
     final riding = const ReplanTransitMemory().observeRide(observation);
 
-    final arrived = riding.markArrived(destination);
+    final confirmedAt = DateTime(2026, 8, 15, 18, 12, 34);
+    final arrived = riding.markArrived(
+      destination,
+      confirmedAt: confirmedAt,
+    );
 
     expect(arrived.ridingTransit, isNull);
     expect(arrived.lastConfirmedTransitPlace, same(destination));
+    expect(arrived.lastConfirmedTransitAt, confirmedAt);
     expect(arrived.knownOnboardStepId, isNull);
+
+    final walking = arrived.clearActiveRide();
+    expect(walking.lastConfirmedTransitPlace, same(destination));
+    expect(walking.lastConfirmedTransitAt, confirmedAt);
   });
 
   test('memory fails fast when a ride observation has no confirmed current place', () {

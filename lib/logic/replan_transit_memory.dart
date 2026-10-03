@@ -5,6 +5,9 @@ import 'replan_anchor.dart';
 /// [ridingTransit] is valid only while a bus/train observation is currently
 /// usable. [lastConfirmedTransitPlace] survives after alighting so a later walk
 /// can still replan from the last station/bus stop without using GPS.
+/// [lastConfirmedTransitAt] is set only when alighting itself is confirmed.
+/// Transfer walking time is measured once from that fixed timestamp instead of
+/// being restarted from the device clock on every provider refresh.
 ///
 /// [knownOnboardStepId] remembers that the user was confirmed onboard even if
 /// the realtime feed temporarily disappears. It is cleared only when the ride
@@ -14,11 +17,13 @@ import 'replan_anchor.dart';
 class ReplanTransitMemory {
   final RidingTransitObservation? ridingTransit;
   final ReplanTransitPlace? lastConfirmedTransitPlace;
+  final DateTime? lastConfirmedTransitAt;
   final String? knownOnboardStepId;
 
   const ReplanTransitMemory({
     this.ridingTransit,
     this.lastConfirmedTransitPlace,
+    this.lastConfirmedTransitAt,
     this.knownOnboardStepId,
   });
 
@@ -33,12 +38,21 @@ class ReplanTransitMemory {
     return ReplanTransitMemory(
       ridingTransit: observation,
       lastConfirmedTransitPlace: currentPlace,
+      // A current vehicle position is not an alighting confirmation. Do not
+      // manufacture a transfer-start timestamp from a polling tick.
+      lastConfirmedTransitAt: null,
       knownOnboardStepId: observation.stepId,
     );
   }
 
-  ReplanTransitMemory markArrived(ReplanTransitPlace destination) {
-    return ReplanTransitMemory(lastConfirmedTransitPlace: destination);
+  ReplanTransitMemory markArrived(
+    ReplanTransitPlace destination, {
+    required DateTime confirmedAt,
+  }) {
+    return ReplanTransitMemory(
+      lastConfirmedTransitPlace: destination,
+      lastConfirmedTransitAt: confirmedAt,
+    );
   }
 
   /// Clears active-ride state when boarding has not happened, arrival is known,
@@ -47,6 +61,7 @@ class ReplanTransitMemory {
     if (ridingTransit == null && knownOnboardStepId == null) return this;
     return ReplanTransitMemory(
       lastConfirmedTransitPlace: lastConfirmedTransitPlace,
+      lastConfirmedTransitAt: lastConfirmedTransitAt,
     );
   }
 
@@ -68,6 +83,7 @@ class ReplanTransitMemory {
 
     return ReplanTransitMemory(
       lastConfirmedTransitPlace: lastConfirmedTransitPlace,
+      lastConfirmedTransitAt: lastConfirmedTransitAt,
       knownOnboardStepId: wasKnownOnboardForStep ? normalizedStepId : null,
     );
   }

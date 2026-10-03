@@ -17,15 +17,14 @@ import 'trip_provider.dart';
 /// Current transfer impact derived only from route/realtime facts.
 ///
 /// While riding, realtime predicts the planned alighting time. After the ride
-/// is confirmed as arrived, analysis continues from the last confirmed transit
-/// place and the current clock while counting the full transfer walk. GPS is
+/// is confirmed as arrived, analysis continues from the recorded alighting
+/// confirmation time while counting the full transfer walk exactly once. GPS is
 /// never used to claim partial progress through that walk.
 final delayImpactProvider = Provider.autoDispose<DelayImpact?>((ref) {
   final tripAsync = ref.watch(tripStreamProvider);
   final uiAsync = ref.watch(memberUiStateProvider);
   final realtime = ref.watch(memberModeControllerProvider);
   final effectiveMemory = ref.watch(effectiveReplanTransitMemoryProvider);
-  final nowTick = ref.watch(minuteTickerProvider);
 
   if (effectiveMemory.restoring) return null;
   if (effectiveMemory.restoreError != null) {
@@ -49,9 +48,13 @@ final delayImpactProvider = Provider.autoDispose<DelayImpact?>((ref) {
   }
 
   final activeEntry = uiState.resolvedEntry;
-  final confirmedPlace =
-      effectiveMemory.memory?.lastConfirmedTransitPlace;
+  final memory = effectiveMemory.memory;
+  final confirmedPlace = memory?.lastConfirmedTransitPlace;
+  final confirmedAt = memory?.lastConfirmedTransitAt;
   if (activeEntry == null || confirmedPlace == null) return null;
+  // Legacy/restored or in-ride memory may have a confirmed place without an
+  // alighting timestamp. Do not guess a timestamp from the current clock.
+  if (confirmedAt == null) return null;
   if (activeEntry.generatedBy != ScheduleEntrySource.route) return null;
 
   final activeStepId = activeEntry.routeStepId;
@@ -87,7 +90,6 @@ final delayImpactProvider = Provider.autoDispose<DelayImpact?>((ref) {
 
   // A restored onboard marker with no fresh realtime is intentionally not
   // treated as an arrival. The exact ride must be observed again first.
-  final memory = effectiveMemory.memory;
   if (memory?.ridingTransit == null && memory?.knownOnboardStepId != null) {
     return null;
   }
@@ -100,12 +102,11 @@ final delayImpactProvider = Provider.autoDispose<DelayImpact?>((ref) {
     return null;
   }
 
-  final now = nowTick.value ?? appClock.now();
   return DelayImpactAnalyzer.analyzeFromConfirmedTransferPlace(
     trip: trip,
     activeEntry: activeEntry,
     confirmedPlace: confirmedPlace,
-    availableAt: now,
+    availableAt: confirmedAt,
   );
 }, dependencies: [
   tripStreamProvider,

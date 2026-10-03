@@ -30,7 +30,10 @@ void main() {
       predictedNextAvailableAt: DateTime(2026, 8, 15, 18, 6),
       predictedDestinationAvailableAt: DateTime(2026, 8, 15, 18, 12),
     );
-    final memory = const ReplanTransitMemory().observeRide(observation);
+    final confirmedAt = DateTime(2026, 8, 15, 18, 4, 12);
+    final memory = const ReplanTransitMemory()
+        .observeRide(observation)
+        .markArrived(current, confirmedAt: confirmedAt);
 
     await store.save(
       tripId: 'trip-1',
@@ -47,6 +50,7 @@ void main() {
     expect(restoredMemory.ridingTransit, isNull);
     expect(restoredMemory.knownOnboardStepId, 'rail-1');
     expect(restoredMemory.lastConfirmedTransitPlace?.name, '浅草橋');
+    expect(restoredMemory.lastConfirmedTransitAt, confirmedAt);
     expect(
       restoredMemory.lastConfirmedTransitPlace?.point,
       const LatLng(35.697, 139.785),
@@ -102,6 +106,29 @@ void main() {
       await store.load(tripId: 'trip-1', userId: 'user-1'),
       isNull,
     );
+  });
+
+
+  test('legacy persisted place without confirmedAt does not invent a time', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'replan_transit_memory_v1::user-1::trip-1':
+          '{"schemaVersion":1,"tripId":"trip-1","userId":"user-1",'
+          '"knownOnboardStepId":null,'
+          '"lastConfirmedTransitPlace":{"name":"浅草橋",'
+          '"stopId":"stop-asakusabashi","latitude":35.697,'
+          '"longitude":139.785}}',
+    });
+    final store = ReplanTransitMemoryStore();
+
+    final restored = await store.load(
+      tripId: 'trip-1',
+      userId: 'user-1',
+    );
+
+    expect(restored, isNotNull);
+    expect(restored!.lastConfirmedTransitPlace?.stopId, 'stop-asakusabashi');
+    expect(restored.lastConfirmedTransitAt, isNull);
+    expect(restored.toMemory().lastConfirmedTransitAt, isNull);
   });
 
   test('malformed persisted coordinates fail fast', () async {
