@@ -5,6 +5,7 @@ import zipfile
 from diagnose_train_static_match import (
     build_match_summary,
     describe_record,
+    diagnose_target_trip,
     parse_static_gtfs,
 )
 from diagnose_train_vehicle_feed import TrainVehicleRecord
@@ -17,6 +18,7 @@ def _static_gtfs_zip() -> bytes:
             "trips.txt",
             "route_id,service_id,trip_id,trip_headsign\n"
             "A,weekday,trip-a,西馬込\n"
+            "A,weekday,trip-a2,西馬込\n"
             "S,weekday,trip-s,新宿\n",
         )
         archive.writestr(
@@ -24,6 +26,8 @@ def _static_gtfs_zip() -> bytes:
             "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
             "trip-a,10:00:00,10:00:00,A01,1\n"
             "trip-a,10:02:00,10:02:00,A02,2\n"
+            "trip-a2,10:05:00,10:05:00,A01,1\n"
+            "trip-a2,10:07:00,10:07:00,A02,2\n"
             "trip-s,11:00:00,11:00:00,S01,1\n",
         )
         archive.writestr(
@@ -92,6 +96,43 @@ class MatchSummaryTest(unittest.TestCase):
         self.assertEqual(described["current_stop_sequence"], 99)
         self.assertIsNone(described["static_stop_id"])
         self.assertIsNone(described["static_stop_name"])
+
+    def test_target_diagnosis_distinguishes_static_trip_from_reporting_trip(self):
+        static_gtfs = parse_static_gtfs(_static_gtfs_zip())
+        records = [_record("trip-a2", 1), _record("trip-s", 1)]
+
+        diagnosis = diagnose_target_trip(
+            records,
+            static_gtfs,
+            trip_id="trip-a",
+            from_stop_id="A01",
+            to_stop_id="A02",
+        )
+
+        self.assertTrue(diagnosis["target_static_present"])
+        self.assertFalse(diagnosis["target_reporting"])
+        self.assertEqual(diagnosis["target_realtime_count"], 0)
+        self.assertEqual(diagnosis["from_stop_sequence"], 1)
+        self.assertEqual(diagnosis["to_stop_sequence"], 2)
+        self.assertEqual(
+            diagnosis["same_route_reporting_trip_ids"],
+            ["trip-a2"],
+        )
+
+    def test_target_diagnosis_fails_for_wrong_stop_id(self):
+        static_gtfs = parse_static_gtfs(_static_gtfs_zip())
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "does not contain exactly one from_stop_id",
+        ):
+            diagnose_target_trip(
+                [_record("trip-a", 1)],
+                static_gtfs,
+                trip_id="trip-a",
+                from_stop_id="missing",
+                to_stop_id="A02",
+            )
 
 
 if __name__ == "__main__":
