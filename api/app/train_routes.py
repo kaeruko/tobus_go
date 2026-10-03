@@ -26,9 +26,8 @@ def register_train_routes(app) -> None:
     @app.get("/train/location")
     async def train_location(
         trip_id: str | None = Query(None),
-        from_name: str | None = Query(None),
-        to_name: str | None = Query(None),
-        arrival_time: str | None = Query(None),
+        from_stop_id: str | None = Query(None),
+        to_stop_id: str | None = Query(None),
         force_refresh: bool = Query(False),
     ):
         try:
@@ -40,9 +39,8 @@ def register_train_routes(app) -> None:
                 vehicles,
                 static_gtfs,
                 trip_id=trip_id,
-                from_name=from_name,
-                to_name=to_name,
-                arrival_time=arrival_time,
+                from_stop_id=from_stop_id,
+                to_stop_id=to_stop_id,
             )
             return build_location_response(
                 resolved,
