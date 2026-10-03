@@ -6,6 +6,7 @@ import '../logic/route_replan_preview.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../services/route_replanner.dart';
+import '../services/route_search_service.dart';
 import 'route_replan_comparison_map.dart';
 
 typedef RouteReplanApplyCallback = Future<void> Function(
