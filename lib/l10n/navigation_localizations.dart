@@ -24,7 +24,9 @@ String localizedNavigationText(
 
   String officialTransitArg(String name) {
     final japanese = stringArg(name);
-    if (!isEnglishTransitLocale(locale)) return japanese;
+    if (!isEnglishTransitLocale(locale)) {
+      return normalizeJapaneseTransitDisplayText(japanese);
+    }
     final english = token.args['${name}En'];
     if (english is! String || english.trim().isEmpty) {
       throw StateError(
@@ -149,6 +151,8 @@ String localizedNavigationText(
       return l10n.navWaitingDefaultSub;
     case NavigationTextKey.waitingStatus:
       return l10n.navWaitingStatus;
+    case NavigationTextKey.waitingPlaceMain:
+      return bilingualPlaceArg('placeName');
     case NavigationTextKey.walkHeadingMain:
       return l10n.navWalkHeadingMain(bilingualPlaceArg('destination'));
     case NavigationTextKey.walkDistanceSub:

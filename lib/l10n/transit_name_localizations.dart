@@ -7,6 +7,20 @@ import '../models/route_models.dart';
 bool isEnglishTransitLocale(Locale locale) =>
     locale.languageCode == 'en' || locale.languageCode == 'zh';
 
+final RegExp _japaneseRouteAliasPattern = RegExp(
+  r'[（(][A-Za-zＡ-Ｚａ-ｚ][A-Za-zＡ-Ｚａ-ｚ0-9０-９-]*[）)]',
+);
+
+String normalizeJapaneseTransitDisplayText(String value) {
+  final normalized = value.trim();
+  if (normalized.isEmpty) return normalized;
+  return normalized
+      .replaceAll(_japaneseRouteAliasPattern, '')
+      .replaceAll('　', ' ')
+      .replaceAll(RegExp(r' +'), ' ')
+      .trim();
+}
+
 String _requiredEnglish(
   String? value, {
   required String field,
@@ -74,7 +88,9 @@ String localizedRideTitle(Locale locale, StepSeg step) {
       'stepId=${step.stepId}, kind=${step.kind}',
     );
   }
-  if (!isEnglishTransitLocale(locale)) return step.title;
+  if (!isEnglishTransitLocale(locale)) {
+    return normalizeJapaneseTransitDisplayText(step.title);
+  }
   return _requiredEnglish(
     step.titleEn,
     field: 'title_en',
@@ -181,7 +197,16 @@ String localizedOptionalTransitName(
 }
 
 List<String> localizedCandidateLines(Locale locale, Candidate candidate) {
-  if (!isEnglishTransitLocale(locale)) return candidate.lines;
+  if (!isEnglishTransitLocale(locale)) {
+    final lines = <String>[];
+    for (final line in candidate.lines) {
+      final normalized = normalizeJapaneseTransitDisplayText(line);
+      if (normalized.isNotEmpty && !lines.contains(normalized)) {
+        lines.add(normalized);
+      }
+    }
+    return lines;
+  }
 
   final lines = <String>[];
   for (final step in candidate.steps) {

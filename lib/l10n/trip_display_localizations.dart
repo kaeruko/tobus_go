@@ -44,7 +44,11 @@ String localizedSoloScheduleEntryLabel(
   required Trip trip,
   required ScheduleEntry entry,
 }) {
-  if (!isEnglishTransitLocale(locale)) return entry.label;
+  if (!isEnglishTransitLocale(locale)) {
+    return entry.generatedBy == ScheduleEntrySource.route
+        ? normalizeJapaneseTransitDisplayText(entry.label)
+        : entry.label;
+  }
   if (!trip.isSolo) {
     throw StateError(
       'localizedSoloScheduleEntryLabel requires a solo trip: tripId=${trip.id}',

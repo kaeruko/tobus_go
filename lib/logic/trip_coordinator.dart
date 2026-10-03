@@ -523,8 +523,21 @@ class TripCoordinator {
         );
       }
 
+      if (step == null || step.kind != 'wait') {
+        throw StateError(
+          '待機予定がwait stepを参照していません: '
+          'entryId=${resolved.id}, stepId=${resolved.routeStepId}, '
+          'kind=${step?.kind}',
+        );
+      }
+      final waitPlace = (step.place ?? step.fromName)?.trim();
+      if (waitPlace == null || waitPlace.isEmpty) {
+        throw StateError('待機予定に待機場所がありません: stepId=${step.stepId}');
+      }
+      final waitPlaceEn = (step.placeEn ?? step.fromNameEn)?.trim();
+
       return NavigationState(
-        mainText: resolved.label,
+        mainText: waitPlace,
         subText: _boardingSubText(
           trip: trip,
           rideEntry: rideEntry,
@@ -533,6 +546,14 @@ class TripCoordinator {
         ),
         color: const Color(0xFFE1F5FE),
         statusLabel: '待機',
+        mainTextToken: NavigationTextToken(
+          NavigationTextKey.waitingPlaceMain,
+          {
+            'placeName': waitPlace,
+            if (waitPlaceEn != null && waitPlaceEn.isNotEmpty)
+              'placeNameEn': waitPlaceEn,
+          },
+        ),
         subTextToken: _boardingSubTextToken(
           trip: trip,
           rideEntry: rideEntry,

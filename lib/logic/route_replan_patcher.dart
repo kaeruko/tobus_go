@@ -168,7 +168,28 @@ class RouteReplanPatcher {
             '${activeStep.stepId}',
           );
         }
-        return List.unmodifiable(candidate.steps.take(activeStepIndex));
+        final previousRideIndex = _findPreviousRideIndex(
+          candidate.steps,
+          activeStepIndex - 1,
+        );
+        if (previousRideIndex == null) {
+          throw StateError(
+            'lastConfirmedTransitPlace起点ですが直前の乗車stepがありません: '
+            'activeStepId=${activeStep.stepId}',
+          );
+        }
+        final previousRide = candidate.steps[previousRideIndex];
+        if (!_rideEndsAtAnchor(previousRide, request.anchor)) {
+          throw StateError(
+            '最後に確定した交通地点が直前の乗車stepの降車地点と一致しません: '
+            'stepId=${previousRide.stepId}, '
+            'stepDestination=${previousRide.toName}, '
+            'anchor=${request.anchor.placeName}',
+          );
+        }
+        return List.unmodifiable(
+          candidate.steps.take(previousRideIndex + 1),
+        );
       case ReplanAnchorSource.currentTransitPlace:
       case ReplanAnchorSource.predictedNextTransitPlace:
         if (!activeStep.isRide) {
@@ -189,6 +210,44 @@ class RouteReplanPatcher {
           truncated,
         ]);
     }
+  }
+
+  static int? _findPreviousRideIndex(
+    List<StepSeg> steps,
+    int startIndex,
+  ) {
+    for (var index = startIndex; index >= 0; index--) {
+      if (steps[index].isRide) return index;
+    }
+    return null;
+  }
+
+  static bool _rideEndsAtAnchor(StepSeg ride, ReplanAnchor anchor) {
+    if (!ride.isRide) {
+      throw StateError(
+        '降車地点の照合対象が乗車stepではありません: ${ride.stepId}',
+      );
+    }
+
+    final anchorStopId = anchor.stopId?.trim();
+    final destinationStop = ride.stops.isEmpty ? null : ride.stops.last;
+    final destinationStopId = destinationStop?.stopId?.trim();
+    if (anchorStopId != null &&
+        anchorStopId.isNotEmpty &&
+        destinationStopId != null &&
+        destinationStopId.isNotEmpty) {
+      return anchorStopId == destinationStopId;
+    }
+
+    if (destinationStop != null &&
+        _samePoint(destinationStop.point, anchor.point)) {
+      return true;
+    }
+
+    final destinationName = ride.toName?.trim();
+    return destinationName != null &&
+        destinationName.isNotEmpty &&
+        destinationName == anchor.placeName.trim();
   }
 
   static StepSeg _truncateRideAtAnchor(

@@ -51,6 +51,7 @@ enum NavigationTextKey {
   goalArrivedMain,
   waitingDefaultSub,
   waitingStatus,
+  waitingPlaceMain,
   walkHeadingMain,
   walkDistanceSub,
   positionCheckingMain,
