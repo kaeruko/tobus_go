@@ -188,32 +188,34 @@ void main() {
     expect(impact.requiresReplan, isTrue);
   });
 
-  test('confirmed place mismatch fails instead of guessing transfer progress', () {
+  test('same stop ID is accepted even when name and point differ', () {
     final activeWalk = trip().schedule.firstWhere(
       (entry) => entry.id == 'walk-transfer',
     );
-    final wrongPlace = ReplanTransitPlace(
-      name: '蔵前',
-      point: const LatLng(35.703, 139.790),
+    final renamedPlace = ReplanTransitPlace(
+      name: '名称変更後の東日本橋',
+      stopId: 'higashi-nihombashi',
+      point: const LatLng(35.700, 139.800),
     );
 
-    expect(
-      () => DelayImpactAnalyzer.analyzeFromConfirmedTransferPlace(
-        trip: trip(),
-        activeEntry: activeWalk,
-        confirmedPlace: wrongPlace,
-        availableAt: DateTime(2026, 8, 15, 18, 13),
-      ),
-      throwsStateError,
+    final impact = DelayImpactAnalyzer.analyzeFromConfirmedTransferPlace(
+      trip: trip(),
+      activeEntry: activeWalk,
+      confirmedPlace: renamedPlace,
+      availableAt: DateTime(2026, 8, 15, 18, 13),
     );
+
+    expect(impact, isNotNull);
   });
-  test('same-name different point is not accepted as confirmed transfer place', () {
+
+  test('same name and point with a different stop ID is rejected', () {
     final activeWalk = trip().schedule.firstWhere(
       (entry) => entry.id == 'walk-transfer',
     );
     final wrongPlace = ReplanTransitPlace(
       name: '東日本橋',
-      point: const LatLng(35.700, 139.800),
+      stopId: 'different-id',
+      point: const LatLng(35.692, 139.785),
     );
 
     expect(
