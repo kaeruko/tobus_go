@@ -1,5 +1,20 @@
 import 'core/city_profile.dart';
 
+const int kRealtimePollIntervalSeconds = int.fromEnvironment(
+  'REALTIME_POLL_INTERVAL_SECONDS',
+  defaultValue: 60,
+);
+
+Duration get kRealtimePollInterval {
+  if (kRealtimePollIntervalSeconds <= 0) {
+    throw StateError(
+      'REALTIME_POLL_INTERVAL_SECONDS must be greater than zero: '
+      '$kRealtimePollIntervalSeconds',
+    );
+  }
+  return Duration(seconds: kRealtimePollIntervalSeconds);
+}
+
 const String kTokyoApiGoogleDriveFileId = '11eVn1V2mO7x8wPF-Kg9ZExmA-fqTReQ4';
 const String kTokyoRuntimeConfigGoogleDriveFileId =
     '1pbE5qFpgDzVhYl8wA1qp4T_7jOsB2s68';

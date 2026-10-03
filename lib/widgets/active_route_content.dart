@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../constants.dart';
 import '../core/city_profile.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/city_localizations.dart';
@@ -75,7 +76,7 @@ class _ActiveRouteContentState extends State<ActiveRouteContent> {
     if (_supportsVehiclePosition && _trackedBusStep != null) {
       _refreshRealtime(forceRefresh: true);
       _timer = Timer.periodic(
-        const Duration(seconds: 30),
+        kRealtimePollInterval,
         (_) => _refreshRealtime(),
       );
     }

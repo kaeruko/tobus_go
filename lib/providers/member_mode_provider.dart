@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../constants.dart';
 import '../core/app_clock.dart';
 import '../models/group_models.dart';
 import '../models/leg_models.dart';
@@ -163,7 +164,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
     _checkProgress(forceRefresh: true);
 
     _pollingTimer = Timer.periodic(
-      const Duration(seconds: 30),
+      kRealtimePollInterval,
       (_) => _checkProgress(),
     );
   }

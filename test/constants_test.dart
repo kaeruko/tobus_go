@@ -3,6 +3,11 @@ import 'package:toeigo/constants.dart';
 import 'package:toeigo/core/city_profile.dart';
 
 void main() {
+  test('realtime polling defaults to 60 seconds', () {
+    expect(kRealtimePollIntervalSeconds, 60);
+    expect(kRealtimePollInterval, const Duration(seconds: 60));
+  });
+
   test('Tokyo uses the runtime config Drive file', () {
     expect(
       runtimeConfigGoogleDriveFileIdForCity(AppCity.tokyo),
