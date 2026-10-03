@@ -1109,11 +1109,15 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
                 raise ValueError(
                     f"ODPT Station has no official odpt:stationTitle.en: {sid}"
                 )
+            station_code = s.get("odpt:stationCode")
+            if station_code is not None:
+                station_code = str(station_code).strip() or None
             phys[sid] = {
                 "lat": float(lat),
                 "lon": float(lon),
                 "name": s.get("dc:title") or sid,
                 "name_en": name_en,
+                "station_code": station_code,
             }
     for pid, d in phys.items():
         G.add_node(("phys", pid), **d, kind="phys")
@@ -2484,6 +2488,31 @@ def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", day_type="w
         curr_time = next_time
     return curr_time
 
+def _route_stop_identity(G, phys_key, mode):
+    if phys_key not in G:
+        raise RouteContractError(
+            f"route stop node is missing from graph: {phys_key!r}"
+        )
+    source_id = str(phys_key[1])
+    if mode == "bus":
+        stop_id = _gtfs_stop_id(source_id)
+        if stop_id is None or not str(stop_id).strip():
+            raise RouteContractError(
+                f"bus stop has no canonical GTFS stop_id: {source_id}"
+            )
+        return str(stop_id).strip(), None
+    if mode == "rail":
+        station_code = G.nodes[phys_key].get("station_code")
+        if station_code is None or not str(station_code).strip():
+            raise RouteContractError(
+                f"rail station has no ODPT station code: {source_id}"
+            )
+        return str(station_code).strip(), source_id
+    raise RouteContractError(
+        f"unsupported transit mode for stop identity: mode={mode!r}, node={phys_key!r}"
+    )
+
+
 def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", delays_snapshot=None, virtual_dest_connections=None, use_realtime=True):
     """
     探索されたパス(ノード列)を解析し、UI表示用のセグメント(移動行程)のリストを生成する。
@@ -2619,13 +2648,23 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             origin_lat = G.nodes[last_phys].get("lat") if last_phys else None
             origin_lon = G.nodes[last_phys].get("lon") if last_phys else None
 
+            if last_phys is None:
+                raise RouteContractError(
+                    f"board edge has no physical origin: step_index={i}, node={node!r}"
+                )
+            origin_stop_id, origin_odpt_id = _route_stop_identity(
+                G,
+                last_phys,
+                mode,
+            )
             curr_stops = [{
                 "name": from_name,
                 "name_en": from_name_en,
                 "is_origin": True,
                 "lat": origin_lat,
                 "lon": origin_lon,
-                "id": last_phys[1] if last_phys else None,
+                "id": origin_stop_id,
+                **({"odpt_id": origin_odpt_id} if origin_odpt_id else {}),
             }]
             
             phys_id = u[1]
@@ -2690,13 +2729,6 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             else:
                 curr_time += RAIL_BOARDING_MINUTES
 
-            # 3. バス停リストのID書き換え
-            for stop in curr_stops:
-                old_id = stop.get("id")
-                converted_id = _gtfs_stop_id(old_id)
-                if converted_id:
-                    stop["id"] = converted_id
-
             cur = {
                 "kind": mode,
                 "title": line_disp,
@@ -2723,9 +2755,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 stop_name = "???"
                 phys_key = ("phys", v[1]) if v[0] == "line" else ("phys", u[1])
                 
-                # ID変換
-                node_id = phys_key[1]
-                new_id = _gtfs_stop_id(node_id) or node_id
+                new_id, odpt_id = _route_stop_identity(G, phys_key, mode)
 
                 stop_name_en = None
                 if phys_key in G:
@@ -2739,6 +2769,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                         "lat": G.nodes[phys_key].get("lat"),
                         "lon": G.nodes[phys_key].get("lon"),
                         "id": new_id,
+                        **({"odpt_id": odpt_id} if odpt_id else {}),
                     })
             
             # 時間を経過させる (電車は時刻表、その他は距離ベース)
@@ -2780,9 +2811,11 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             if cur and cur["kind"] in ("bus", "rail"):
                 to_phys = v if v[0] == "phys" else last_phys
                 if to_phys:
-                    # ID変換
-                    node_id = to_phys[1]
-                    new_dest_id = _gtfs_stop_id(node_id) or node_id
+                    new_dest_id, destination_odpt_id = _route_stop_identity(
+                        G,
+                        to_phys,
+                        mode,
+                    )
 
                     to_name = G.nodes[to_phys]["name"]
                     to_name_en = G.nodes[to_phys].get("name_en")
@@ -2799,10 +2832,17 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                             "lat": stop_lat,
                             "lon": stop_lon,
                             "id": new_dest_id,
+                            **(
+                                {"odpt_id": destination_odpt_id}
+                                if destination_odpt_id
+                                else {}
+                            ),
                         })
                     else:
                         cur["stops"][-1]["is_destination"] = True
                         cur["stops"][-1]["id"] = new_dest_id
+                        if destination_odpt_id:
+                            cur["stops"][-1]["odpt_id"] = destination_odpt_id
                         cur["stops"][-1]["lat"] = stop_lat
                         cur["stops"][-1]["lon"] = stop_lon
                         cur["stops"][-1]["name_en"] = to_name_en
