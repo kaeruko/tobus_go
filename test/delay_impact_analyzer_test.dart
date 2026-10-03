@@ -48,6 +48,7 @@ void main() {
     toName: '目的地最寄り',
     departureTime: '18:16',
     arrivalTime: '18:25',
+    boardingMinutes: 2,
     minutes: 9,
     stops: [
       StopPoint(
@@ -168,27 +169,30 @@ void main() {
     );
   }
 
-  test('predicted arrival plus explicit walk still catches next ride', () {
+  test('predicted arrival plus walk and boarding time can still catch next ride', () {
+    final impact = DelayImpactAnalyzer.analyze(
+      trip: buildTrip(),
+      observation: observation(DateTime(2026, 8, 15, 18, 10)),
+    );
+
+    expect(impact, isNotNull);
+    expect(impact!.nextTransferFeasible, isTrue);
+    expect(impact.transferWalkMinutes, 4);
+    expect(impact.transferBoardingMinutes, 2);
+    expect(impact.transferRequiredMinutes, 6);
+    expect(impact.earliestTransferReadyAt, DateTime(2026, 8, 15, 18, 16));
+    expect(impact.missedBy, Duration.zero);
+  });
+
+  test('warns when predicted arrival plus walk and boarding is after next departure', () {
     final impact = DelayImpactAnalyzer.analyze(
       trip: buildTrip(),
       observation: observation(DateTime(2026, 8, 15, 18, 11)),
     );
 
     expect(impact, isNotNull);
-    expect(impact!.nextTransferFeasible, isTrue);
-    expect(impact.transferWalkMinutes, 4);
-    expect(impact.earliestTransferReadyAt, DateTime(2026, 8, 15, 18, 15));
-    expect(impact.missedBy, Duration.zero);
-  });
-
-  test('warns when predicted arrival plus walk is after next departure', () {
-    final impact = DelayImpactAnalyzer.analyze(
-      trip: buildTrip(),
-      observation: observation(DateTime(2026, 8, 15, 18, 13)),
-    );
-
-    expect(impact, isNotNull);
     expect(impact!.requiresReplan, isTrue);
+    expect(impact.transferBoardingMinutes, 2);
     expect(impact.earliestTransferReadyAt, DateTime(2026, 8, 15, 18, 17));
     expect(impact.nextDepartureAt, DateTime(2026, 8, 15, 18, 16));
     expect(impact.missedBy, const Duration(minutes: 1));
