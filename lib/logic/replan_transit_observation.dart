@@ -330,14 +330,7 @@ class ReplanTransitObservationAdapter {
         'matches=${matches.length}',
       );
     }
-    final schedule = matches.single;
-    if (schedule.stopName.trim() != step.stops.last.name.trim()) {
-      throw StateError(
-        '経路とGTFS時刻表のバス降車停留所名が一致しません: '
-        '${step.stops.last.name} != ${schedule.stopName}',
-      );
-    }
-    return schedule;
+    return matches.single;
   }
 
   static _PredictedBusStop? _firstFutureBusStopPrediction({
@@ -595,12 +588,6 @@ class ReplanTransitObservationAdapter {
       );
     }
     final stop = matches.single;
-    if (stop.name.trim() != schedule.stopName.trim()) {
-      throw StateError(
-        '経路とGTFS時刻表のバス停名が一致しません: '
-        '${stop.name} != ${schedule.stopName}',
-      );
-    }
     return ReplanTransitPlace(
       name: stop.name,
       stopId: stop.stopId,
@@ -612,23 +599,26 @@ class ReplanTransitObservationAdapter {
     StepSeg step,
     TrainTripStop staticStop,
   ) {
-    // The route graph uses ODPT station IDs while the static train GTFS uses
-    // its own stop IDs. The exact Japanese station name is the common identity
-    // already used by train trip resolution, so rail points are matched by name.
-    final wantedName = staticStop.stopName.trim();
+    final stopId = staticStop.stopId.trim();
+    if (stopId.isEmpty) {
+      throw StateError(
+        '列車時刻表の駅IDがありません: '
+        'stepId=${step.stepId}, sequence=${staticStop.sequence}',
+      );
+    }
     final matches = step.stops
-        .where((stop) => stop.name.trim() == wantedName)
+        .where((stop) => stop.stopId?.trim() == stopId)
         .toList(growable: false);
     if (matches.length != 1) {
       throw StateError(
-        '経路上の駅を駅名で一意に特定できません: '
-        'stepId=${step.stepId}, station=$wantedName, matches=${matches.length}',
+        '経路上の駅をIDで一意に特定できません: '
+        'stepId=${step.stepId}, stopId=$stopId, matches=${matches.length}',
       );
     }
     final stop = matches.single;
     return ReplanTransitPlace(
       name: stop.name,
-      stopId: stop.stopId,
+      stopId: stopId,
       point: stop.point,
     );
   }
