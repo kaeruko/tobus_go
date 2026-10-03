@@ -2,6 +2,8 @@
 import networkx as nx
 import math
 
+RAIL_BOARDING_MINUTES = 2
+
 # Mocking necessary parts of toei_engine
 def min_to_time_str(m):
     h = int(m // 60)
@@ -108,12 +110,15 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                         })
                 if dep and dep >= curr_time: curr_time = dep
             else:
-                curr_time += 2.0 # Rail wait
+                curr_time += RAIL_BOARDING_MINUTES # Rail boarding buffer
 
             cur = {
                 "kind": mode, "title": line_disp, "edges": 0, 
                 "from_": from_name, "to": None, "stops": curr_stops,
-                "departure_time": min_to_time_str(curr_time)
+                "departure_time": min_to_time_str(curr_time),
+                "boarding_minutes": (
+                    RAIL_BOARDING_MINUTES if mode == "rail" else 0
+                ),
             }
 
         elif etype == "ride":
