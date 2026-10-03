@@ -90,6 +90,7 @@ class NextRideDelayAdjuster {
       nextRideTitle: source.nextRideTitle,
       nextDepartureAt: nextDepartureAt,
       transferWalkMinutes: source.transferWalkMinutes,
+      transferBoardingMinutes: source.transferBoardingMinutes,
       earliestTransferReadyAt: source.earliestTransferReadyAt,
       nextTransferFeasible: nextTransferFeasible,
       missedBy: missedBy,
