@@ -128,6 +128,8 @@ def save_group(
     uploaded_files: list,
     captions: list[str],
     captions_en: list[str],
+    existing_captions: dict[str, str],
+    existing_captions_en: dict[str, str],
 ) -> list[str]:
     if len(uploaded_files) != len(captions):
         raise ExploreContentError(
@@ -146,6 +148,48 @@ def save_group(
         stop_name=stop_name,
         route_id=route_id,
     )
+
+    updated_existing_images: list[dict] = []
+    if group_index is None:
+        if existing_captions or existing_captions_en:
+            raise ExploreContentError(
+                "existing image captions were provided for a new entry"
+            )
+    else:
+        existing_images = groups[group_index]["images"]
+        existing_filenames = [
+            validate_image_name(image["file"])
+            for image in existing_images
+        ]
+        if len(set(existing_filenames)) != len(existing_filenames):
+            raise ExploreContentError(
+                "existing entry contains duplicate image filenames"
+            )
+
+        expected_filenames = set(existing_filenames)
+        caption_filenames = set(existing_captions)
+        caption_en_filenames = set(existing_captions_en)
+        if caption_filenames != expected_filenames:
+            raise ExploreContentError(
+                "existing Japanese caption fields do not match stored images: "
+                f"expected={sorted(expected_filenames)!r}, "
+                f"received={sorted(caption_filenames)!r}"
+            )
+        if caption_en_filenames != expected_filenames:
+            raise ExploreContentError(
+                "existing English caption fields do not match stored images: "
+                f"expected={sorted(expected_filenames)!r}, "
+                f"received={sorted(caption_en_filenames)!r}"
+            )
+
+        updated_existing_images = [
+            {
+                "file": filename,
+                "caption": existing_captions[filename],
+                "caption_en": existing_captions_en[filename],
+            }
+            for filename in existing_filenames
+        ]
 
     prepared_images: list[dict] = []
     generated_filenames: set[str] = set()
@@ -225,9 +269,7 @@ def save_group(
                 "route_id": groups[group_index]["route_id"],
                 "comment": comment,
                 "comment_en": comment_en,
-                "images": [
-                    dict(image) for image in groups[group_index]["images"]
-                ],
+                "images": updated_existing_images,
             }
             group["images"].extend(new_image_rows)
             if not group["comment"] and not group["images"]:
@@ -378,9 +420,51 @@ def main() -> None:
         st.error(str(error))
         st.stop()
 
+    route_labels = {
+        route["route_id"]: route["route_label"]
+        for stop in catalog
+        for route in stop["routes"]
+    }
+
+    st.subheader("登録済み")
+    if groups:
+        table = [
+            {
+                "停留所": group["stop_name"],
+                "系統": route_labels.get(group["route_id"], group["route_id"]),
+                "コメント": group["comment"],
+                "英語コメント": group["comment_en"],
+                "写真数": len(group["images"]),
+            }
+            for group in groups
+        ]
+        st.dataframe(table, use_container_width=True, hide_index=True)
+
+        edit_index = st.selectbox(
+            "編集する登録済み項目",
+            options=list(range(len(groups))),
+            format_func=lambda index: (
+                f"{groups[index]['stop_name']} / "
+                f"{route_labels.get(groups[index]['route_id'], groups[index]['route_id'])}"
+            ),
+            key="existing_entry_to_edit",
+        )
+        if st.button("この内容を編集", key="open_existing_entry"):
+            edit_group = groups[edit_index]
+            st.session_state["explore_cms_query"] = edit_group["stop_name"]
+            st.session_state["explore_cms_target_stop"] = edit_group["stop_name"]
+            st.session_state["explore_cms_target_route"] = edit_group["route_id"]
+            st.rerun()
+    else:
+        st.caption("まだ登録はありません。")
+
+    st.divider()
+    st.subheader("新規・編集")
+
     query = st.text_input(
         "停留所名を検索",
         placeholder="例: 押上",
+        key="explore_cms_query",
     ).strip()
 
     if not query:
@@ -393,9 +477,17 @@ def main() -> None:
             st.warning("該当する停留所がありません。")
         else:
             stop_names = [item["stop_name"] for item in matched_stops]
+            target_stop_name = st.session_state.get("explore_cms_target_stop")
+            target_route_id = st.session_state.get("explore_cms_target_route")
+            stop_index = (
+                stop_names.index(target_stop_name)
+                if target_stop_name in stop_names
+                else 0
+            )
             selected_stop_name = st.selectbox(
                 "停留所",
                 stop_names,
+                index=stop_index,
             )
             selected_stop = next(
                 item
@@ -408,15 +500,25 @@ def main() -> None:
                 route["route_id"]: route
                 for route in routes
             }
+            route_ids = [route["route_id"] for route in routes]
+            route_index = (
+                route_ids.index(target_route_id)
+                if selected_stop_name == target_stop_name
+                and target_route_id in route_ids
+                else 0
+            )
             selected_route_id = st.selectbox(
                 "系統",
-                [route["route_id"] for route in routes],
+                route_ids,
+                index=route_index,
                 format_func=lambda route_id: (
                     f"{route_by_id[route_id]['route_label']} "
                     f"（対象乗り場 {len(route_by_id[route_id]['pole_ids'])}件）"
                 ),
             )
             selected_route = route_by_id[selected_route_id]
+            st.session_state.pop("explore_cms_target_stop", None)
+            st.session_state.pop("explore_cms_target_route", None)
 
             st.write(
                 f"**{selected_stop_name} / "
@@ -454,24 +556,39 @@ def main() -> None:
                 key=f"comment_en::{widget_scope}",
             )
 
+            existing_captions: dict[str, str] = {}
+            existing_captions_en: dict[str, str] = {}
             if existing and existing["images"]:
                 st.subheader("登録済みの写真")
+                st.caption("既存写真のキャプションもここで直接編集できます。")
                 for image in existing["images"]:
-                    image_path = IMAGES_DIR / image["file"]
+                    filename = image["file"]
+                    image_path = IMAGES_DIR / filename
                     st.image(
                         str(image_path),
-                        caption=image["caption"] or image["file"],
+                        caption=image["caption"] or filename,
                         width=320,
+                    )
+                    caption_col, caption_en_col = st.columns(2)
+                    existing_captions[filename] = caption_col.text_input(
+                        "キャプション（日本語）",
+                        value=image["caption"],
+                        key=f"existing_caption::{widget_scope}::{filename}",
+                    )
+                    existing_captions_en[filename] = caption_en_col.text_input(
+                        "キャプション（英語・任意）",
+                        value=image["caption_en"],
+                        key=f"existing_caption_en::{widget_scope}::{filename}",
                     )
                     if st.button(
                         "この写真を削除",
-                        key=f"delete::{widget_scope}::{image['file']}",
+                        key=f"delete::{widget_scope}::{filename}",
                     ):
                         try:
                             delete_group_image(
                                 stop_name=selected_stop_name,
                                 route_id=selected_route_id,
-                                filename=image["file"],
+                                filename=filename,
                             )
                         except ExploreContentError as error:
                             st.error(str(error))
@@ -528,6 +645,8 @@ def main() -> None:
                         uploaded_files=list(uploaded_files),
                         captions=captions,
                         captions_en=captions_en,
+                        existing_captions=existing_captions,
+                        existing_captions_en=existing_captions_en,
                     )
                 except ExploreContentError as error:
                     st.error(str(error))
@@ -535,7 +654,7 @@ def main() -> None:
                     st.exception(error)
                 else:
                     if not filenames:
-                        st.success("コメントを保存しました。")
+                        st.success("変更を保存しました。")
                     elif len(filenames) == 1:
                         st.success(
                             f"コメントと写真を保存しました: {filenames[0]}"
@@ -545,28 +664,6 @@ def main() -> None:
                             f"コメントと写真{len(filenames)}枚を保存しました。"
                         )
                         st.code("\n".join(filenames))
-
-    st.divider()
-    st.subheader("登録済み")
-    if groups:
-        route_labels = {
-            route["route_id"]: route["route_label"]
-            for stop in catalog
-            for route in stop["routes"]
-        }
-        table = [
-            {
-                "停留所": group["stop_name"],
-                "系統": route_labels.get(group["route_id"], group["route_id"]),
-                "コメント": group["comment"],
-                "英語コメント": group["comment_en"],
-                "写真数": len(group["images"]),
-            }
-            for group in groups
-        ]
-        st.dataframe(table, use_container_width=True, hide_index=True)
-    else:
-        st.caption("まだ登録はありません。")
 
     st.divider()
     st.subheader("公開")
