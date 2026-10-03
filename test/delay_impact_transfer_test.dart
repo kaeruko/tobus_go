@@ -204,4 +204,24 @@ void main() {
       throwsStateError,
     );
   });
+  test('same-name different point is not accepted as confirmed transfer place', () {
+    final activeWalk = trip().schedule.firstWhere(
+      (entry) => entry.id == 'walk-transfer',
+    );
+    final wrongPlace = ReplanTransitPlace(
+      name: '東日本橋',
+      point: const LatLng(35.700, 139.800),
+    );
+
+    expect(
+      () => DelayImpactAnalyzer.analyzeFromConfirmedTransferPlace(
+        trip: trip(),
+        activeEntry: activeWalk,
+        confirmedPlace: wrongPlace,
+        availableAt: DateTime(2026, 8, 15, 18, 13),
+      ),
+      throwsStateError,
+    );
+  });
+
 }
