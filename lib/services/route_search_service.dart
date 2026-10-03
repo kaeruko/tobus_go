@@ -205,6 +205,15 @@ class ApiRouteSearchService implements RouteSearchService {
           'rail route step is missing exact GTFS route_id: $stepId',
         );
       }
+      final boardingMinutes = rawStep['boarding_minutes'];
+      if (boardingMinutes is! num ||
+          !boardingMinutes.isFinite ||
+          boardingMinutes != boardingMinutes.roundToDouble() ||
+          boardingMinutes < 0) {
+        throw FormatException(
+          'rail route step is missing valid boarding_minutes: $stepId',
+        );
+      }
     }
   }
 
