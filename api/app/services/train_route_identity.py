@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from app.services.train_realtime import StaticTrainGtfs, StaticTrainTrip
+from app.services.train_realtime import (
+    StaticTrainGtfs,
+    StaticTrainStop,
+    StaticTrainTrip,
+)
 
 
 class TrainRouteIdentityError(RuntimeError):
@@ -165,9 +169,9 @@ def _enrich_rail_step(
         day_type=day_type,
     )
 
-    static_trip = _resolve_static_trip(
+    static_trip, static_segment = _resolve_static_trip(
         static_gtfs,
-        stop_ids=[stop["id"] for stop in stops],
+        station_codes=[stop["id"] for stop in stops],
         scheduled_departure_minute=resolved_odpt.scheduled_departure_minute,
         scheduled_arrival_minute=resolved_odpt.scheduled_arrival_minute,
         step_id=step_id,
@@ -186,6 +190,9 @@ def _enrich_rail_step(
 
     step["trip_id"] = static_trip.trip_id
     step["route_id"] = static_trip.route_id
+    for route_stop, static_stop in zip(stops, static_segment, strict=True):
+        route_stop["station_code"] = route_stop["id"]
+        route_stop["id"] = static_stop.stop_id
 
     # The route engine's rail departure_time is a boarding-ready time
     # (historically curr_time + 2 minutes), not the selected train's actual
@@ -443,35 +450,46 @@ def _resolve_odpt_run_for_train(
 def _resolve_static_trip(
     static_gtfs: StaticTrainGtfs,
     *,
-    stop_ids: list[str],
+    station_codes: list[str],
     scheduled_departure_minute: int,
     scheduled_arrival_minute: int,
     step_id: str,
-) -> StaticTrainTrip:
-    if len(stop_ids) < 2:
+) -> tuple[StaticTrainTrip, tuple[StaticTrainStop, ...]]:
+    if len(station_codes) < 2:
         raise TrainRouteIdentityError(
             "rail_static_stops_missing",
-            f"rail step {step_id} must contain at least two stop IDs",
+            f"rail step {step_id} must contain at least two station codes",
         )
 
-    matches: list[StaticTrainTrip] = []
+    matches: list[tuple[StaticTrainTrip, tuple[StaticTrainStop, ...]]] = []
     for trip in static_gtfs.trips.values():
-        trip_stop_ids = [stop.stop_id.strip() for stop in trip.stops]
+        trip_station_codes = [
+            (stop.stop_code or "").strip()
+            for stop in trip.stops
+        ]
         starts = [
             index
-            for index in range(0, len(trip_stop_ids) - len(stop_ids) + 1)
-            if trip_stop_ids[index : index + len(stop_ids)] == stop_ids
+            for index in range(
+                0,
+                len(trip_station_codes) - len(station_codes) + 1,
+            )
+            if trip_station_codes[index : index + len(station_codes)]
+            == station_codes
         ]
         if not starts:
             continue
         if len(starts) != 1:
             raise TrainRouteIdentityError(
                 "rail_static_segment_ambiguous",
-                f"static trip {trip.trip_id} contains the route stop sequence more than once",
+                f"static trip {trip.trip_id} contains the route station-code "
+                "sequence more than once",
             )
         start = starts[0]
-        origin = trip.stops[start]
-        destination = trip.stops[start + len(stop_ids) - 1]
+        segment = tuple(
+            trip.stops[start : start + len(station_codes)]
+        )
+        origin = segment[0]
+        destination = segment[-1]
         if origin.departure_time is None or destination.arrival_time is None:
             continue
         static_departure = _clock_to_minute(
@@ -486,20 +504,22 @@ def _resolve_static_trip(
             static_departure == scheduled_departure_minute
             and static_arrival == scheduled_arrival_minute
         ):
-            matches.append(trip)
+            matches.append((trip, segment))
 
     if not matches:
         raise TrainRouteIdentityError(
             "rail_static_trip_not_found",
             "no static GTFS trip exactly matches the ODPT train run: "
-            f"step={step_id}, stop_ids={stop_ids}, "
-            f"departure={scheduled_departure_minute}, arrival={scheduled_arrival_minute}",
+            f"step={step_id}, station_codes={station_codes}, "
+            f"departure={scheduled_departure_minute}, "
+            f"arrival={scheduled_arrival_minute}",
         )
     if len(matches) != 1:
         raise TrainRouteIdentityError(
             "rail_static_trip_ambiguous",
             "multiple static GTFS trips exactly match the ODPT train run: "
-            f"step={step_id}, trip_ids={[trip.trip_id for trip in matches]}",
+            f"step={step_id}, "
+            f"trip_ids={[trip.trip_id for trip, _ in matches]}",
         )
     return matches[0]
 
