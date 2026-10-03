@@ -86,6 +86,49 @@ void main() {
       );
     });
 
+    test('preserves realtime 404 diagnostics for device logs', () async {
+      ApiClient.httpClient = MockClient((request) async {
+        return http.Response(
+          '{"detail":{"code":"bus_trip_not_found","message":"not live yet",'
+          '"diagnostic":{"requested_vehicle_id":"BUS-1",'
+          '"requested_vehicle_matches":[{"vehicle_id":"BUS-1",'
+          '"route_id":"route-1","trip_id":"trip-2"}]}}}',
+          404,
+        );
+      });
+
+      await expectLater(
+        const RealtimeBusLocationSource().fetch(
+          routeId: 'route-id',
+          tripId: 'trip-id',
+          vehicleId: 'BUS-1',
+        ),
+        throwsA(
+          isA<BusLocationNotAvailableException>()
+              .having((error) => error.code, 'code', 'bus_trip_not_found')
+              .having(
+                (error) => error.diagnostic,
+                'diagnostic',
+                {
+                  'requested_vehicle_id': 'BUS-1',
+                  'requested_vehicle_matches': [
+                    {
+                      'vehicle_id': 'BUS-1',
+                      'route_id': 'route-1',
+                      'trip_id': 'trip-2',
+                    },
+                  ],
+                },
+              )
+              .having(
+                (error) => error.toString(),
+                'toString',
+                contains('trip-2'),
+              ),
+        ),
+      );
+    });
+
     test('adds force_refresh only for a manual refresh', () async {
       Uri? requestedUri;
       ApiClient.httpClient = MockClient((request) async {

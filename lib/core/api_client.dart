@@ -8,17 +8,21 @@ class ApiException implements Exception {
   final int statusCode;
   final String? code;
   final String message;
+  final Object? diagnostic;
 
   const ApiException({
     required this.statusCode,
     required this.message,
     this.code,
+    this.diagnostic,
   });
 
   @override
   String toString() {
     final codeText = code == null ? '' : ' ($code)';
-    return 'HTTP $statusCode$codeText: $message';
+    final diagnosticText =
+        diagnostic == null ? '' : ' diagnostic=$diagnostic';
+    return 'HTTP $statusCode$codeText: $message$diagnosticText';
   }
 }
 
@@ -75,6 +79,7 @@ class ApiClient {
   static ApiException _errorFromResponse(http.Response response) {
     String? code;
     String? message;
+    Object? diagnostic;
     try {
       final decoded = json.decode(utf8.decode(response.bodyBytes));
       if (decoded is Map<String, dynamic>) {
@@ -82,6 +87,7 @@ class ApiClient {
         if (detail is Map<String, dynamic>) {
           code = detail['code']?.toString();
           message = detail['message']?.toString();
+          diagnostic = detail['diagnostic'];
         } else if (detail != null) {
           message = detail.toString();
         }
@@ -93,6 +99,7 @@ class ApiClient {
       statusCode: response.statusCode,
       code: code,
       message: message ?? 'API request failed',
+      diagnostic: diagnostic,
     );
   }
 

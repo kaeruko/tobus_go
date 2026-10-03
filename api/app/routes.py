@@ -27,6 +27,60 @@ logger = logging.getLogger(__name__)
 def _busloc_log(ev: dict) -> None:
     print(json.dumps(ev, ensure_ascii=False), flush=True)
 
+
+def _busloc_candidate_diagnostic(bus: dict) -> dict:
+    return {
+        "vehicle_id": bus.get("vehicle_id"),
+        "route_id": bus.get("odpt:busroute"),
+        "trip_id": bus.get("trip_id"),
+        "raw_stop_id": bus.get("raw_stop_id"),
+        "raw_stop_name": bus.get("raw_stop_name"),
+        "from_stop_id": bus.get("odpt:fromBusstopPole"),
+        "from_stop_sequence": bus.get("from_stop_sequence"),
+        "observed_stop_sequence": bus.get("observed_stop_sequence"),
+        "current_status": bus.get("current_status"),
+        "feed_timestamp": bus.get("feed_timestamp"),
+        "vehicle_timestamp": bus.get("vehicle_timestamp"),
+    }
+
+
+def _busloc_match_diagnostic(
+    candidates: list[dict],
+    *,
+    route_id: str,
+    trip_id: str,
+    vehicle_id: str | None,
+) -> dict:
+    route_matches = [
+        bus for bus in candidates if bus.get("odpt:busroute") == route_id
+    ]
+    trip_matches = [
+        bus for bus in candidates if bus.get("trip_id") == trip_id
+    ]
+    vehicle_matches = (
+        [
+            bus for bus in candidates
+            if bus.get("vehicle_id") == vehicle_id
+        ]
+        if vehicle_id is not None
+        else []
+    )
+    return {
+        "candidates_total": len(candidates),
+        "route_match_count": len(route_matches),
+        "route_trip_match_count": len([
+            bus for bus in route_matches if bus.get("trip_id") == trip_id
+        ]),
+        "requested_vehicle_id": vehicle_id,
+        "requested_vehicle_matches": [
+            _busloc_candidate_diagnostic(bus) for bus in vehicle_matches
+        ],
+        "requested_trip_matches": [
+            _busloc_candidate_diagnostic(bus) for bus in trip_matches
+        ],
+    }
+
+
 from toei_engine import (
     nearest_phys,
     haversine,
@@ -368,10 +422,24 @@ def register_routes(app):
                 vehicle_id=vehicle_id,
             )
         except BusLocationMatchError as exc:
-            _busloc_log({**base, "ok": False, "reason": exc.code})
+            diagnostic = _busloc_match_diagnostic(
+                candidates_all,
+                route_id=route_id,
+                trip_id=trip_id,
+                vehicle_id=vehicle_id,
+            )
+            _busloc_log({
+                **base,
+                "ok": False,
+                "reason": exc.code,
+                "diagnostic": diagnostic,
+            })
+            detail = {"code": exc.code, "message": exc.message}
+            if debug:
+                detail["diagnostic"] = diagnostic
             raise HTTPException(
                 exc.status_code,
-                detail={"code": exc.code, "message": exc.message},
+                detail=detail,
             ) from exc
 
         response = {

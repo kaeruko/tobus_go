@@ -3,11 +3,24 @@ import '../core/city_profile.dart';
 
 class BusLocationNotAvailableException implements Exception {
   final String? code;
+  final String? message;
+  final Object? diagnostic;
 
-  const BusLocationNotAvailableException({this.code});
+  const BusLocationNotAvailableException({
+    this.code,
+    this.message,
+    this.diagnostic,
+  });
 
   @override
-  String toString() => code ?? 'bus_location_not_available';
+  String toString() {
+    final label = code ?? 'bus_location_not_available';
+    final messageText =
+        message == null || message!.isEmpty ? '' : ': $message';
+    final diagnosticText =
+        diagnostic == null ? '' : ' diagnostic=$diagnostic';
+    return '$label$messageText$diagnosticText';
+  }
 }
 
 class BusStopSchedule {
@@ -281,7 +294,11 @@ class RealtimeBusLocationSource implements BusLocationSource {
       return BusLocation.fromJson(json, routeId: routeId, tripId: tripId);
     } on ApiException catch (error) {
       if (error.statusCode == 404) {
-        throw BusLocationNotAvailableException(code: error.code);
+        throw BusLocationNotAvailableException(
+          code: error.code,
+          message: error.message,
+          diagnostic: error.diagnostic,
+        );
       }
       rethrow;
     }
