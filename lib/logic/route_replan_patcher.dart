@@ -229,18 +229,20 @@ class RouteReplanPatcher {
       );
     }
 
-    final anchorStopId = anchor.stopId?.trim();
-    final destinationStop = ride.stops.isEmpty ? null : ride.stops.last;
-    final destinationStopId = destinationStop?.stopId?.trim();
-    if (anchorStopId != null &&
-        anchorStopId.isNotEmpty &&
-        destinationStopId != null &&
-        destinationStopId.isNotEmpty) {
-      return anchorStopId == destinationStopId;
+    final anchorStopId = _requiredStopId(
+      anchor.stopId,
+      '再探索anchor',
+    );
+    if (ride.stops.isEmpty) {
+      throw StateError(
+        '降車地点をstopIdで照合できません: stepId=${ride.stepId}',
+      );
     }
-
-    return destinationStop != null &&
-        _samePoint(destinationStop.point, anchor.point);
+    final destinationStopId = _requiredStopId(
+      ride.stops.last.stopId,
+      '直前乗車stepの降車地点',
+    );
+    return anchorStopId == destinationStopId;
   }
 
   static StepSeg _truncateRideAtAnchor(
@@ -445,14 +447,35 @@ class RouteReplanPatcher {
     List<StopPoint> stops,
     RouteReplanRequest request,
   ) {
-    final stopId = request.anchor.stopId;
-    if (stopId != null && stopId.isNotEmpty) {
-      final byId = stops.indexWhere((stop) => stop.stopId == stopId);
-      if (byId >= 0) return byId;
-    }
-    return stops.indexWhere(
-      (stop) => _samePoint(stop.point, request.anchor.point),
+    final stopId = _requiredStopId(
+      request.anchor.stopId,
+      '再探索anchor',
     );
+    final matches = <int>[];
+    for (var index = 0; index < stops.length; index++) {
+      final candidateStopId = _requiredStopId(
+        stops[index].stopId,
+        '乗車stepの停車地点',
+      );
+      if (candidateStopId == stopId) {
+        matches.add(index);
+      }
+    }
+    if (matches.length > 1) {
+      throw StateError(
+        '再探索anchorのstopIdが乗車step内で重複しています: '
+        'stopId=$stopId, matches=${matches.length}',
+      );
+    }
+    return matches.isEmpty ? -1 : matches.single;
+  }
+
+  static String _requiredStopId(String? value, String label) {
+    final normalized = value?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      throw StateError('$labelにstopIdがありません');
+    }
+    return normalized;
   }
 
   static int _forwardClockMinutes(String from, String to) {
