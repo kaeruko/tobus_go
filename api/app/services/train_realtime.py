@@ -465,32 +465,6 @@ def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
     return StaticTrainGtfs(trips=trips)
 
 
-def _normalize_clock(value: str) -> str:
-    parts = value.strip().split(":")
-    if len(parts) < 2:
-        raise TrainRealtimeError(
-            "train_plan_clock_invalid",
-            f"Invalid train plan clock: {value!r}",
-            400,
-        )
-    try:
-        hour = int(parts[0])
-        minute = int(parts[1])
-    except ValueError as error:
-        raise TrainRealtimeError(
-            "train_plan_clock_invalid",
-            f"Invalid train plan clock: {value!r}",
-            400,
-        ) from error
-    if hour < 0 or minute < 0 or minute >= 60:
-        raise TrainRealtimeError(
-            "train_plan_clock_invalid",
-            f"Invalid train plan clock: {value!r}",
-            400,
-        )
-    return f"{hour % 24:02d}:{minute:02d}"
-
-
 def _find_trip_segment(
     trip: StaticTrainTrip,
     from_stop_id: str,
