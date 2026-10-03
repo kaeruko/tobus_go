@@ -54,6 +54,7 @@ void main() {
         'meters': 0,
         'departure_time': '16:25',
         'arrival_time': '16:30',
+        'boarding_minutes': 2,
         'route_id': routeId,
         'trip_id': tripId,
         'stops': [
@@ -127,7 +128,49 @@ void main() {
     expect(result.candidates, hasLength(1));
     expect(result.candidates.single.steps.single.tripId, '121603T0');
     expect(result.candidates.single.steps.single.routeId, '1');
+    expect(result.candidates.single.steps.single.boardingMinutes, 2);
     expect(result.fareByCandidateId, isEmpty);
+  });
+
+  test('resolved rail identity without boarding time fails fast', () async {
+    ApiClient.httpClient = MockClient((request) async {
+      if (request.url.path == '/route') {
+        return http.Response(
+          jsonEncode({
+            'candidates': [railCandidate()],
+            'meta': meta(),
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      if (request.url.path == '/train/resolve-route-identities') {
+        final resolved = railCandidate(tripId: '121603T0', routeId: '1');
+        final step =
+            (resolved['steps'] as List).single as Map<String, dynamic>;
+        step.remove('boarding_minutes');
+        return http.Response(
+          jsonEncode({
+            'candidates': [resolved],
+            'rejections': [],
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      return http.Response('not found', 404);
+    });
+
+    await expectLater(
+      const ApiRouteSearchService().search(request()),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          contains('boarding_minutes'),
+        ),
+      ),
+    );
   });
 
   test('all rejected rail identities fail instead of falling back', () async {
