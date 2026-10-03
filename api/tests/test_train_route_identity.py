@@ -35,9 +35,21 @@ class TrainRouteIdentityTest(unittest.TestCase):
                     "route_id": None,
                     "trip_id": None,
                     "stops": [
-                        {"id": "odpt.Station:Toei.Asakusa.HigashiNihombashi", "name": "東日本橋"},
-                        {"id": "odpt.Station:Toei.Asakusa.Asakusabashi", "name": "浅草橋"},
-                        {"id": "odpt.Station:Toei.Asakusa.Kuramae", "name": "蔵前"},
+                        {
+                            "id": "A15",
+                            "odpt_id": "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+                            "name": "東日本橋",
+                        },
+                        {
+                            "id": "A16",
+                            "odpt_id": "odpt.Station:Toei.Asakusa.Asakusabashi",
+                            "name": "浅草橋",
+                        },
+                        {
+                            "id": "A17",
+                            "odpt_id": "odpt.Station:Toei.Asakusa.Kuramae",
+                            "name": "蔵前",
+                        },
                     ],
                 }
             ],
@@ -149,6 +161,7 @@ class TrainRouteIdentityTest(unittest.TestCase):
         self.assertEqual(rail["departure_time"], "16:25")
         self.assertEqual(rail["arrival_time"], "16:30")
         self.assertEqual(rail["boarding_minutes"], 2)
+        self.assertEqual([stop["id"] for stop in rail["stops"]], ["A15", "A16", "A17"])
         self.assertEqual(rail["minutes"], 5)
 
     def test_matches_static_schedule_even_when_route_arrival_contains_delay(self):
