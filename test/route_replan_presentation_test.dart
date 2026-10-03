@@ -8,6 +8,8 @@ void main() {
   DelayImpact impact({
     required Duration delay,
     required bool feasible,
+    Duration? missedBy,
+    DelayImpactBasis basis = DelayImpactBasis.ridingPrediction,
   }) {
     final plannedArrival = base;
     final predictedArrival = plannedArrival.add(delay);
@@ -28,8 +30,10 @@ void main() {
         const Duration(minutes: 2),
       ),
       nextTransferFeasible: feasible,
-      missedBy: feasible ? Duration.zero : const Duration(minutes: 1),
-      basis: DelayImpactBasis.ridingPrediction,
+      missedBy: feasible
+          ? Duration.zero
+          : (missedBy ?? const Duration(minutes: 1)),
+      basis: basis,
     );
   }
 
@@ -67,9 +71,40 @@ void main() {
     expect(presentation.showWarning, isFalse);
   });
 
-  test('乗換え不成立なら警告内で経路見直しを表示する', () {
+  test('5分以内の乗換え不足はRealtime遅延幅として警告しない', () {
     final presentation = RouteReplanPresentation.fromDelayImpact(
-      impact(delay: const Duration(minutes: 5), feasible: false),
+      impact(
+        delay: const Duration(minutes: 5),
+        feasible: false,
+        missedBy: const Duration(minutes: 5),
+      ),
+    );
+
+    expect(presentation.showAction, isFalse);
+    expect(presentation.showWarning, isFalse);
+  });
+
+  test('5分を超える乗換え不足は警告する', () {
+    final presentation = RouteReplanPresentation.fromDelayImpact(
+      impact(
+        delay: const Duration(minutes: 6),
+        feasible: false,
+        missedBy: const Duration(minutes: 5, seconds: 1),
+      ),
+    );
+
+    expect(presentation.showAction, isTrue);
+    expect(presentation.showWarning, isTrue);
+  });
+
+  test('降車確認後の乗換え不足にはRealtime遅延幅を適用しない', () {
+    final presentation = RouteReplanPresentation.fromDelayImpact(
+      impact(
+        delay: const Duration(minutes: 1),
+        feasible: false,
+        missedBy: const Duration(minutes: 1),
+        basis: DelayImpactBasis.confirmedTransferPlace,
+      ),
     );
 
     expect(presentation.showAction, isTrue);

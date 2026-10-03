@@ -8,6 +8,11 @@ void main() {
     expect(kRealtimePollInterval, const Duration(seconds: 60));
   });
 
+  test('realtime transfer warning grace defaults to 300 seconds', () {
+    expect(kRealtimeTransferWarningGraceSeconds, 300);
+    expect(kRealtimeTransferWarningGrace, const Duration(seconds: 300));
+  });
+
   test('Tokyo uses the runtime config Drive file', () {
     expect(
       runtimeConfigGoogleDriveFileIdForCity(AppCity.tokyo),

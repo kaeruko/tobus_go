@@ -6,6 +6,7 @@ import '../l10n/city_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../logic/route_replan_presentation.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
@@ -75,6 +76,8 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
     );
     final delayResolution = ref.watch(resolvedDelayImpactProvider);
     final delayImpact = delayResolution.impact;
+    final delayPresentation =
+        RouteReplanPresentation.fromDelayImpact(delayImpact);
     final scheduleImpact = ref.watch(groupScheduleImpactProvider);
     final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
         ? null
@@ -138,7 +141,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
             ),
           ),
         ];
-        if (delayImpact?.requiresReplan == true) {
+        if (delayPresentation.showWarning) {
           beforeScheduleSections.add(
             DelayRecoveryCard(
               impact: delayImpact!,

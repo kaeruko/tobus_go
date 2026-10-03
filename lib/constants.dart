@@ -15,6 +15,21 @@ Duration get kRealtimePollInterval {
   return Duration(seconds: kRealtimePollIntervalSeconds);
 }
 
+const int kRealtimeTransferWarningGraceSeconds = int.fromEnvironment(
+  'REALTIME_TRANSFER_WARNING_GRACE_SECONDS',
+  defaultValue: 300,
+);
+
+Duration get kRealtimeTransferWarningGrace {
+  if (kRealtimeTransferWarningGraceSeconds < 0) {
+    throw StateError(
+      'REALTIME_TRANSFER_WARNING_GRACE_SECONDS must not be negative: '
+      '$kRealtimeTransferWarningGraceSeconds',
+    );
+  }
+  return Duration(seconds: kRealtimeTransferWarningGraceSeconds);
+}
+
 const String kTokyoApiGoogleDriveFileId = '11eVn1V2mO7x8wPF-Kg9ZExmA-fqTReQ4';
 const String kTokyoRuntimeConfigGoogleDriveFileId =
     '1pbE5qFpgDzVhYl8wA1qp4T_7jOsB2s68';

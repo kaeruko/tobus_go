@@ -1,3 +1,4 @@
+import '../constants.dart';
 import 'delay_impact_analyzer.dart';
 import 'replan_debug_log.dart';
 
@@ -16,7 +17,13 @@ class RouteReplanPresentation {
   });
 
   factory RouteReplanPresentation.fromDelayImpact(DelayImpact? impact) {
-    final showWarning = impact?.requiresReplan == true;
+    final suppressedByRealtimeGrace =
+        impact != null &&
+        impact.requiresReplan &&
+        impact.basis == DelayImpactBasis.ridingPrediction &&
+        impact.missedBy <= kRealtimeTransferWarningGrace;
+    final showWarning =
+        impact?.requiresReplan == true && !suppressedByRealtimeGrace;
     final showAction = showWarning;
 
     ReplanDebugLog.emit('replan_presentation', {
@@ -34,6 +41,8 @@ class RouteReplanPresentation {
           impact?.earliestTransferReadyAt.toIso8601String(),
       'nextTransferFeasible': impact?.nextTransferFeasible,
       'missedBySeconds': impact?.missedBy.inSeconds,
+      'warningGraceSeconds': kRealtimeTransferWarningGrace.inSeconds,
+      'suppressedByRealtimeGrace': suppressedByRealtimeGrace,
       'basis': impact?.basis.name,
     });
 
