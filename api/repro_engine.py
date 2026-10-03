@@ -34,7 +34,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
         nonlocal cur
         if cur:
             if cur["kind"] == "walk":
-                if cur.get("meters", 0) <= 0 or cur.get("from_") == cur.get("to"):
+                if cur.get("meters", 0) <= 0:
                     cur = None
                     return
                 cur["minutes"] = max(1, math.ceil(cur.get("meters", 0) / WALK_SPEED_M_PER_MIN))
@@ -80,7 +80,13 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             origin_lat = G.nodes[last_phys].get("lat") if last_phys else None
             origin_lon = G.nodes[last_phys].get("lon") if last_phys else None
             
-            curr_stops = [{"name": from_name, "is_origin": True, "lat": origin_lat, "lon": origin_lon}]
+            curr_stops = [{
+                "name": from_name,
+                "id": last_phys[1] if last_phys else None,
+                "is_origin": True,
+                "lat": origin_lat,
+                "lon": origin_lon,
+            }]
             
             phys_id = u[1]
             if mode == "bus":
@@ -116,9 +122,11 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 stop_name = "???"
                 phys_key = ("phys", v[1]) if v[0] == "line" else ("phys", u[1])
                 if phys_key in G: stop_name = G.nodes[phys_key]["name"]
-                if not cur["stops"] or cur["stops"][-1]["name"] != stop_name:
+                stop_id = phys_key[1]
+                if not cur["stops"] or cur["stops"][-1].get("id") != stop_id:
                     cur["stops"].append({
                         "name": stop_name,
+                        "id": stop_id,
                         "lat": G.nodes[phys_key].get("lat"),
                         "lon": G.nodes[phys_key].get("lon")
                     })
@@ -140,15 +148,18 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     stop_lat = G.nodes[to_phys].get("lat")
                     stop_lon = G.nodes[to_phys].get("lon")
                     
-                    if not cur["stops"] or cur["stops"][-1]["name"] != to_name:
+                    destination_id = to_phys[1]
+                    if not cur["stops"] or cur["stops"][-1].get("id") != destination_id:
                         cur["stops"].append({
                             "name": to_name,
+                            "id": destination_id,
                             "is_destination": True,
                             "lat": stop_lat,
                             "lon": stop_lon
                         })
                     else:
                         cur["stops"][-1]["is_destination"] = True
+                        cur["stops"][-1]["id"] = destination_id
                         cur["stops"][-1]["lat"] = stop_lat
                         cur["stops"][-1]["lon"] = stop_lon
                 cur["arrival_time"] = min_to_time_str(curr_time)
