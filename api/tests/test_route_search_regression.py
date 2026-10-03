@@ -216,6 +216,8 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
                 current_sta,
                 next_sta,
                 current_time_min,
+                day_type=None,
+                delays_snapshot=None,
                 **kwargs,
             ):
                 return current_time_min + 1
