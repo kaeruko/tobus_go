@@ -33,11 +33,9 @@ class DelayRecoveryCard extends StatelessWidget {
             '${impact.currentAlightingPlaceName}を最後に確認できた地点として見積もっています。'
         : '${_clock(impact.predictedArrivalAt)} '
             '${impact.currentAlightingPlaceName}到着見込みです。';
-    final walkText = impact.transferWalkMinutes <= 0
-        ? ''
-        : isConfirmedTransfer
-        ? '現在地を推測せず、予定の徒歩${impact.transferWalkMinutes}分をすべて見込むと、'
-        : '徒歩${impact.transferWalkMinutes}分を含めると、';
+    final transferRequirementText = _transferRequirementText(
+      isConfirmedTransfer: isConfirmedTransfer,
+    );
 
     return Card(
       margin: EdgeInsets.zero,
@@ -71,7 +69,7 @@ class DelayRecoveryCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(basisText),
             const SizedBox(height: 4),
-            Text(_transferRiskText(walkText, missedMinutes)),
+            Text(_transferRiskText(transferRequirementText, missedMinutes)),
             if (nextRideRealtime != null) ...[
               const SizedBox(height: 6),
               Text(
@@ -104,13 +102,28 @@ class DelayRecoveryCard extends StatelessWidget {
     );
   }
 
-  String _transferRiskText(String walkText, int missedMinutes) {
+  String _transferRequirementText({required bool isConfirmedTransfer}) {
+    final parts = <String>[];
+    if (impact.transferWalkMinutes > 0) {
+      parts.add('徒歩${impact.transferWalkMinutes}分');
+    }
+    if (impact.transferBoardingMinutes > 0) {
+      parts.add('乗車準備${impact.transferBoardingMinutes}分');
+    }
+    if (parts.isEmpty) return '';
+    final requirement = parts.join('と');
+    return isConfirmedTransfer
+        ? '現在地を推測せず、予定の$requirementをすべて見込むと、'
+        : '$requirementを含めると、';
+  }
+
+  String _transferRiskText(String requirementText, int missedMinutes) {
     final realtime = nextRideRealtime;
     if (realtime?.status ==
         NextRideRealtimeDepartureStatus.passedBoardingPlace) {
-      return '$walkText${impact.nextRideTitle}は乗車地点を通過済みです。';
+      return '$requirementText${impact.nextRideTitle}は乗車地点を通過済みです。';
     }
-    return '$walkText${_clock(impact.nextDepartureAt)}発 '
+    return '$requirementText${_clock(impact.nextDepartureAt)}発 '
         '${impact.nextRideTitle}には約$missedMinutes分間に合わない見込みです。';
   }
 
