@@ -58,13 +58,27 @@ class BusProgress {
           'stepId=${step.stepId}, stopId=$fromStopId',
         );
       }
+      if (boardingStopId == null || boardingStopId.isEmpty) {
+        throw StateError(
+          '始発前のバス位置で乗車停留所IDがありません: '
+          'stepId=${step.stepId}',
+        );
+      }
+      final boardingTripIndex = tripStopIds.indexOf(boardingStopId);
+      if (boardingTripIndex < 0) {
+        throw StateError(
+          '始発前のバス位置で乗車停留所をtrip停留所列に対応付けできません: '
+          'stepId=${step.stepId}, boardingStopId=$boardingStopId, '
+          'tripStops=${tripStopIds.length}',
+        );
+      }
       return BusProgress(
         stepId: step.stepId,
         fromStopId: null,
         fromStopIndex: null,
         nextStopId: boardingStopId,
         nextStopIndex: 0,
-        stopsUntilBoarding: null,
+        stopsUntilBoarding: boardingTripIndex + 1,
         phase: BusProgressPhase.approaching,
         observedStopId: observedStopId,
         observedStopName: observedStopName,
