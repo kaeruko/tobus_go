@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import mimetypes
 import os
 import re
@@ -226,6 +227,151 @@ def build_stop_route_catalog(data_dir: Path) -> list[dict[str, Any]]:
         catalog.append({"stop_name": stop_name, "routes": routes})
     return catalog
 
+
+
+EARTH_RADIUS_M = 6_371_008.8
+
+
+def _haversine_m(
+    lat1: float,
+    lon1: float,
+    lat2: float,
+    lon2: float,
+) -> float:
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lon2 - lon1)
+    a = (
+        math.sin(d_phi / 2.0) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2.0) ** 2
+    )
+    return 2.0 * EARTH_RADIUS_M * math.asin(math.sqrt(a))
+
+
+def rank_stop_candidates(
+    data_dir: Path,
+    *,
+    route_label: str,
+    lat: float,
+    lon: float,
+) -> list[dict[str, Any]]:
+    if not isinstance(route_label, str):
+        raise ExploreContentError("route_label must be a string")
+    normalized_route_label = unicodedata.normalize(
+        "NFKC",
+        route_label.strip(),
+    )
+    if not normalized_route_label:
+        raise ExploreContentError("route_label must not be empty")
+
+    if (
+        isinstance(lat, bool)
+        or not isinstance(lat, (int, float))
+        or not -90.0 <= float(lat) <= 90.0
+    ):
+        raise ExploreContentError(f"lat must be a valid latitude: {lat!r}")
+    if (
+        isinstance(lon, bool)
+        or not isinstance(lon, (int, float))
+        or not -180.0 <= float(lon) <= 180.0
+    ):
+        raise ExploreContentError(f"lon must be a valid longitude: {lon!r}")
+
+    catalog = build_stop_route_catalog(data_dir)
+    matching_stop_routes: list[tuple[str, dict[str, Any]]] = []
+    available_labels: set[str] = set()
+    for stop in catalog:
+        stop_name = stop["stop_name"]
+        for route in stop["routes"]:
+            label = route["route_label"]
+            available_labels.add(label)
+            if label == normalized_route_label:
+                matching_stop_routes.append((stop_name, route))
+
+    if not matching_stop_routes:
+        examples = ", ".join(sorted(available_labels)[:20])
+        raise ExploreContentError(
+            f"route label was not found: {route_label!r}; "
+            f"example available labels: {examples}"
+        )
+
+    candidate_pole_ids = {
+        pole_id
+        for _, route in matching_stop_routes
+        for pole_id in route["pole_ids"]
+    }
+    busstop_path, _ = master_data_paths(data_dir)
+    poles = _load_json_array(busstop_path, label="ODPT BusstopPole master")
+
+    pole_coordinates: dict[str, tuple[float, float]] = {}
+    for index, pole in enumerate(poles):
+        pole_id = _required_string(
+            pole.get("owl:sameAs"),
+            where=f"BusstopPole[{index}].owl:sameAs",
+        )
+        if pole_id not in candidate_pole_ids:
+            continue
+        if pole_id in pole_coordinates:
+            raise ExploreContentError(
+                f"duplicate BusstopPole id while ranking candidates: {pole_id!r}"
+            )
+
+        pole_lat = pole.get("geo:lat")
+        pole_lon = pole.get("geo:long")
+        if (
+            isinstance(pole_lat, bool)
+            or not isinstance(pole_lat, (int, float))
+            or isinstance(pole_lon, bool)
+            or not isinstance(pole_lon, (int, float))
+        ):
+            raise ExploreContentError(
+                f"BusstopPole {pole_id!r} has invalid coordinates: "
+                f"lat={pole_lat!r}, lon={pole_lon!r}"
+            )
+        pole_coordinates[pole_id] = (float(pole_lat), float(pole_lon))
+
+    missing = sorted(candidate_pole_ids - set(pole_coordinates))
+    if missing:
+        raise ExploreContentError(
+            "route references BusstopPole records without usable coordinates: "
+            + ", ".join(missing[:10])
+        )
+
+    ranked: list[dict[str, Any]] = []
+    for stop_name, route in matching_stop_routes:
+        distances = [
+            (
+                _haversine_m(
+                    float(lat),
+                    float(lon),
+                    pole_coordinates[pole_id][0],
+                    pole_coordinates[pole_id][1],
+                ),
+                pole_id,
+            )
+            for pole_id in route["pole_ids"]
+        ]
+        distance_m, nearest_pole_id = min(distances)
+        ranked.append(
+            {
+                "stop_name": stop_name,
+                "route_id": route["route_id"],
+                "route_label": route["route_label"],
+                "distance_m": distance_m,
+                "nearest_pole_id": nearest_pole_id,
+                "pole_ids": list(route["pole_ids"]),
+            }
+        )
+
+    ranked.sort(
+        key=lambda item: (
+            item["distance_m"],
+            item["stop_name"],
+            item["route_id"],
+        )
+    )
+    return ranked
 
 def _pole_ids_by_stop_route(
     data_dir: Path,
