@@ -190,9 +190,16 @@ def _enrich_rail_step(
 
     step["trip_id"] = static_trip.trip_id
     step["route_id"] = static_trip.route_id
-    for route_stop, static_stop in zip(stops, static_segment, strict=True):
-        route_stop["station_code"] = route_stop["id"]
-        route_stop["id"] = static_stop.stop_id
+    raw_stops = step["stops"]
+    for route_stop, raw_stop, static_stop in zip(
+        stops,
+        raw_stops,
+        static_segment,
+        strict=True,
+    ):
+        raw_stop["station_code"] = route_stop["id"]
+        raw_stop["id"] = static_stop.stop_id
+        raw_stop.pop("stop_id", None)
 
     # The route engine's rail departure_time is a boarding-ready time
     # (historically curr_time + 2 minutes), not the selected train's actual
