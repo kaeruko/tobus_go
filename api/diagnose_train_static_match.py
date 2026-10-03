@@ -214,6 +214,91 @@ def build_match_summary(
     }
 
 
+def diagnose_target_trip(
+    records: list[TrainVehicleRecord],
+    static_gtfs: StaticTrainGtfs,
+    *,
+    trip_id: str,
+    from_stop_id: str | None = None,
+    to_stop_id: str | None = None,
+) -> dict[str, object]:
+    trip = static_gtfs.trips.get(trip_id)
+    if trip is None:
+        raise KeyError(f"target trip_id is not present in static GTFS: {trip_id!r}")
+
+    if (from_stop_id is None) != (to_stop_id is None):
+        raise ValueError(
+            "from_stop_id and to_stop_id must be provided together"
+        )
+
+    ordered_stops = sorted(trip.stops_by_sequence.items())
+    from_sequences: list[int] = []
+    to_sequences: list[int] = []
+    if from_stop_id is not None and to_stop_id is not None:
+        from_sequences = [
+            sequence
+            for sequence, stop_id in ordered_stops
+            if stop_id == from_stop_id
+        ]
+        to_sequences = [
+            sequence
+            for sequence, stop_id in ordered_stops
+            if stop_id == to_stop_id
+        ]
+        if len(from_sequences) != 1:
+            raise RuntimeError(
+                f"target trip {trip_id!r} does not contain exactly one "
+                f"from_stop_id={from_stop_id!r}: sequences={from_sequences}"
+            )
+        if len(to_sequences) != 1:
+            raise RuntimeError(
+                f"target trip {trip_id!r} does not contain exactly one "
+                f"to_stop_id={to_stop_id!r}: sequences={to_sequences}"
+            )
+        if to_sequences[0] <= from_sequences[0]:
+            raise RuntimeError(
+                f"target trip {trip_id!r} has invalid requested segment "
+                f"{from_stop_id!r}->{to_stop_id!r}: "
+                f"{from_sequences[0]}->{to_sequences[0]}"
+            )
+
+    exact_records = [record for record in records if record.trip_id == trip_id]
+
+    same_route_records: list[TrainVehicleRecord] = []
+    for record in records:
+        realtime_trip_id = record.trip_id
+        if realtime_trip_id is None:
+            continue
+        realtime_trip = static_gtfs.trips.get(realtime_trip_id)
+        if realtime_trip is None:
+            continue
+        if realtime_trip.route_id == trip.route_id:
+            same_route_records.append(record)
+
+    return {
+        "target_trip_id": trip_id,
+        "target_static_route_id": trip.route_id,
+        "target_headsign": trip.headsign,
+        "target_static_present": True,
+        "target_realtime_count": len(exact_records),
+        "target_reporting": bool(exact_records),
+        "from_stop_id": from_stop_id,
+        "from_stop_sequence": (
+            from_sequences[0] if from_sequences else None
+        ),
+        "to_stop_id": to_stop_id,
+        "to_stop_sequence": to_sequences[0] if to_sequences else None,
+        "same_route_reporting_trip_ids": sorted(
+            {
+                record.trip_id
+                for record in same_route_records
+                if record.trip_id is not None
+            }
+        ),
+        "same_route_vehicle_entities": len(same_route_records),
+    }
+
+
 def describe_record(
     record: TrainVehicleRecord,
     static_gtfs: StaticTrainGtfs,
@@ -257,6 +342,18 @@ def main() -> None:
     parser.add_argument("--static-url", default=DEFAULT_STATIC_GTFS_URL)
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--timeout", type=float, default=30.0)
+    parser.add_argument(
+        "--trip-id",
+        help="Exact static/realtime GTFS trip_id to diagnose.",
+    )
+    parser.add_argument(
+        "--from-stop-id",
+        help="Optional exact GTFS boarding stop_id for --trip-id.",
+    )
+    parser.add_argument(
+        "--to-stop-id",
+        help="Optional exact GTFS destination stop_id for --trip-id.",
+    )
     args = parser.parse_args()
 
     if args.limit <= 0:
@@ -275,6 +372,38 @@ def main() -> None:
     summary = build_match_summary(records, static_gtfs)
     print("=== GTFS-RT / static train trip match ===")
     print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+    if args.trip_id:
+        target = diagnose_target_trip(
+            records,
+            static_gtfs,
+            trip_id=args.trip_id,
+            from_stop_id=args.from_stop_id,
+            to_stop_id=args.to_stop_id,
+        )
+        print("\n=== target trip diagnosis ===")
+        print(json.dumps(target, ensure_ascii=False, indent=2))
+
+        trip = static_gtfs.trips[args.trip_id]
+        same_route_records = [
+            record
+            for record in records
+            if record.trip_id is not None
+            and record.trip_id in static_gtfs.trips
+            and static_gtfs.trips[record.trip_id].route_id == trip.route_id
+        ]
+        print("\n=== same-route reporting vehicles ===")
+        if same_route_records:
+            for record in same_route_records[: args.limit]:
+                print(
+                    json.dumps(
+                        describe_record(record, static_gtfs),
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    )
+                )
+        else:
+            print("(none)")
 
     matched_records = [
         record
