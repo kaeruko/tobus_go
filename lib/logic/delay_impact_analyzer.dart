@@ -59,9 +59,9 @@ class DelayImpact {
 /// used. This intentionally does not pretend to know how far through a walk the
 /// traveler has progressed.
 ///
-/// No arbitrary transfer buffer is added. Planned wait steps are slack, not a
-/// minimum transfer requirement. Missing or ambiguous route/schedule facts fail
-/// instead of being guessed.
+/// The route-provided boarding requirement is added explicitly to transfer
+/// walks. Planned wait steps are slack, not a minimum transfer requirement.
+/// Missing or ambiguous route/schedule facts fail instead of being guessed.
 class DelayImpactAnalyzer {
   const DelayImpactAnalyzer._();
 
