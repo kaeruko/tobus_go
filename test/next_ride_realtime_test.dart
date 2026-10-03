@@ -165,12 +165,14 @@ void main() {
       toName: '森下',
       stops: [
         StopPoint(
-          name: '馬喰横山',
+          name: '経路側の馬喰横山',
           point: const LatLng(35.692, 139.782),
+          stopId: 'board',
         ),
         StopPoint(
-          name: '森下',
+          name: '経路側の森下',
           point: const LatLng(35.688, 139.798),
+          stopId: 'destination',
         ),
       ],
     );
