@@ -66,11 +66,14 @@ void main() {
   ReplanAnchor anchor({
     String? routeStepId = 'rail-1',
     DateTime? availableAt,
+    String placeName = '蔵前',
+    String stopId = 'station-kuramae',
+    LatLng point = const LatLng(35.703, 139.790),
   }) {
     return ReplanAnchor(
-      placeName: '蔵前',
-      stopId: 'station-kuramae',
-      point: const LatLng(35.703, 139.790),
+      placeName: placeName,
+      stopId: stopId,
+      point: point,
       availableAt: availableAt ?? DateTime(2026, 8, 15, 18, 6),
       source: ReplanAnchorSource.predictedNextTransitPlace,
       routeStepId: routeStepId,
@@ -169,6 +172,36 @@ void main() {
         preference: later.preference,
       ).toApiBody()['start_time'],
     );
+  });
+
+  test('same stop ID and point stay current when display name changes', () {
+    final first = RouteReplanRequestBuilder.build(
+      trip: trip(candidate()),
+      activeStepId: 'rail-1',
+      anchor: anchor(placeName: '蔵前'),
+    );
+    final renamed = RouteReplanRequestBuilder.build(
+      trip: trip(candidate()),
+      activeStepId: 'rail-1',
+      anchor: anchor(placeName: '名称変更後の蔵前'),
+    );
+
+    expect(sameRouteReplanRequestState(first, renamed), isTrue);
+  });
+
+  test('same name and point with a different stop ID is a different request', () {
+    final first = RouteReplanRequestBuilder.build(
+      trip: trip(candidate()),
+      activeStepId: 'rail-1',
+      anchor: anchor(),
+    );
+    final differentId = RouteReplanRequestBuilder.build(
+      trip: trip(candidate()),
+      activeStepId: 'rail-1',
+      anchor: anchor(stopId: 'other-stop-id'),
+    );
+
+    expect(sameRouteReplanRequestState(first, differentId), isFalse);
   });
 
   test('request becomes stale when availableAt crosses API minute', () {
