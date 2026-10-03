@@ -124,7 +124,9 @@ class ApiClient {
       final json = _jsonUtf8(r);
       return json;
     } on ApiException catch (e) {
-      if (!expectedErrorStatuses.contains(e.statusCode)) {
+      if (expectedErrorStatuses.contains(e.statusCode)) {
+        _log('GET $uri -> EXPECTED ERROR: $e');
+      } else {
         _log('GET $uri -> ERROR: $e');
       }
       rethrow;
