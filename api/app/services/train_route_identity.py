@@ -167,7 +167,7 @@ def _enrich_rail_step(
 
     static_trip = _resolve_static_trip(
         static_gtfs,
-        stop_names=[stop["name"] for stop in stops],
+        stop_ids=[stop["id"] for stop in stops],
         scheduled_departure_minute=resolved_odpt.scheduled_departure_minute,
         scheduled_arrival_minute=resolved_odpt.scheduled_arrival_minute,
         step_id=step_id,
@@ -231,9 +231,13 @@ def _required_route_stops(
                 "rail_route_stop_invalid",
                 f"rail step {step_id} stop[{index}] is not an object",
             )
-        station_id = _required_text(raw_stop.get("id") or raw_stop.get("stop_id"), "id")
+        station_id = _required_text(
+            raw_stop.get("id") or raw_stop.get("stop_id"),
+            "id",
+        )
+        odpt_id = _required_text(raw_stop.get("odpt_id"), "odpt_id")
         name = _required_text(raw_stop.get("name"), "name")
-        stops.append({"id": station_id, "name": name})
+        stops.append({"id": station_id, "odpt_id": odpt_id, "name": name})
     return stops
 
 
@@ -250,8 +254,8 @@ def _resolve_odpt_rail_run(
         if str(day_type) == "weekday"
         else timetable_manager.train_patterns_weekend
     )
-    origin_id = stops[0]["id"]
-    second_id = stops[1]["id"]
+    origin_id = stops[0]["odpt_id"]
+    second_id = stops[1]["odpt_id"]
     first_records = target.get(origin_id)
     if not first_records:
         raise TrainRouteIdentityError(
@@ -359,8 +363,8 @@ def _resolve_odpt_run_for_train(
     previous_actual_arrival: float | None = None
 
     for index in range(len(stops) - 1):
-        current_id = stops[index]["id"]
-        next_id = stops[index + 1]["id"]
+        current_id = stops[index]["odpt_id"]
+        next_id = stops[index + 1]["odpt_id"]
         records = [
             record
             for record in _dedupe_train_records(target.get(current_id) or [])
@@ -439,24 +443,24 @@ def _resolve_odpt_run_for_train(
 def _resolve_static_trip(
     static_gtfs: StaticTrainGtfs,
     *,
-    stop_names: list[str],
+    stop_ids: list[str],
     scheduled_departure_minute: int,
     scheduled_arrival_minute: int,
     step_id: str,
 ) -> StaticTrainTrip:
-    if len(stop_names) < 2:
+    if len(stop_ids) < 2:
         raise TrainRouteIdentityError(
             "rail_static_stops_missing",
-            f"rail step {step_id} must contain at least two stop names",
+            f"rail step {step_id} must contain at least two stop IDs",
         )
 
     matches: list[StaticTrainTrip] = []
     for trip in static_gtfs.trips.values():
-        trip_names = [stop.stop_name.strip() for stop in trip.stops]
+        trip_stop_ids = [stop.stop_id.strip() for stop in trip.stops]
         starts = [
             index
-            for index in range(0, len(trip_names) - len(stop_names) + 1)
-            if trip_names[index : index + len(stop_names)] == stop_names
+            for index in range(0, len(trip_stop_ids) - len(stop_ids) + 1)
+            if trip_stop_ids[index : index + len(stop_ids)] == stop_ids
         ]
         if not starts:
             continue
@@ -467,7 +471,7 @@ def _resolve_static_trip(
             )
         start = starts[0]
         origin = trip.stops[start]
-        destination = trip.stops[start + len(stop_names) - 1]
+        destination = trip.stops[start + len(stop_ids) - 1]
         if origin.departure_time is None or destination.arrival_time is None:
             continue
         static_departure = _clock_to_minute(
@@ -488,7 +492,7 @@ def _resolve_static_trip(
         raise TrainRouteIdentityError(
             "rail_static_trip_not_found",
             "no static GTFS trip exactly matches the ODPT train run: "
-            f"step={step_id}, stops={stop_names}, "
+            f"step={step_id}, stop_ids={stop_ids}, "
             f"departure={scheduled_departure_minute}, arrival={scheduled_arrival_minute}",
         )
     if len(matches) != 1:
