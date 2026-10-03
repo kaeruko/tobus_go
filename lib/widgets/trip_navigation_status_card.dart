@@ -551,10 +551,17 @@ class TripNavigationStatusCard extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
-            const Spacer(),
-            Text(
-              countdown,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                countdown,
+                textAlign: TextAlign.right,
+                softWrap: true,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
           ],
         ),
