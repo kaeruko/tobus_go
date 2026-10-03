@@ -20,6 +20,7 @@ class DelayImpact {
   final String nextRideTitle;
   final DateTime nextDepartureAt;
   final int transferWalkMinutes;
+  final int transferBoardingMinutes;
   final DateTime earliestTransferReadyAt;
   final bool nextTransferFeasible;
   final Duration missedBy;
@@ -37,11 +38,15 @@ class DelayImpact {
     required this.nextRideTitle,
     required this.nextDepartureAt,
     required this.transferWalkMinutes,
+    required this.transferBoardingMinutes,
     required this.earliestTransferReadyAt,
     required this.nextTransferFeasible,
     required this.missedBy,
     this.basis = DelayImpactBasis.ridingPrediction,
   });
+
+  int get transferRequiredMinutes =>
+      transferWalkMinutes + transferBoardingMinutes;
 
   bool get requiresReplan => !nextTransferFeasible;
 }
@@ -235,9 +240,12 @@ class DelayImpactAnalyzer {
       previousRideIndex: previousRideIndex,
       nextRideIndex: nextRideIndex,
     );
+    final transferBoardingMinutes = _requiredBoardingMinutes(nextRide);
+    final transferRequiredMinutes =
+        transferWalkMinutes + transferBoardingMinutes;
 
     final plannedTransferReadyAt = currentArrivalEntry.plannedAt.add(
-      Duration(minutes: transferWalkMinutes),
+      Duration(minutes: transferRequiredMinutes),
     );
     if (plannedTransferReadyAt.isAfter(nextRideEntry.plannedAt)) {
       throw StateError(
@@ -249,7 +257,7 @@ class DelayImpactAnalyzer {
     }
 
     final earliestTransferReadyAt = transferBaseAt.add(
-      Duration(minutes: transferWalkMinutes),
+      Duration(minutes: transferRequiredMinutes),
     );
     final feasible = !earliestTransferReadyAt.isAfter(nextRideEntry.plannedAt);
     final missedBy = feasible
@@ -281,11 +289,30 @@ class DelayImpactAnalyzer {
       nextRideTitle: nextTitle,
       nextDepartureAt: nextRideEntry.plannedAt,
       transferWalkMinutes: transferWalkMinutes,
+      transferBoardingMinutes: transferBoardingMinutes,
       earliestTransferReadyAt: earliestTransferReadyAt,
       nextTransferFeasible: feasible,
       missedBy: missedBy,
       basis: basis,
     );
+  }
+
+  static int _requiredBoardingMinutes(StepSeg nextRide) {
+    if (nextRide.kind != 'rail') return 0;
+    final minutes = nextRide.boardingMinutes;
+    if (minutes == null) {
+      throw StateError(
+        '次の鉄道乗車stepにboarding_minutesがありません: '
+        'stepId=${nextRide.stepId}',
+      );
+    }
+    if (minutes < 0) {
+      throw StateError(
+        '次の鉄道乗車stepのboarding_minutesが負です: '
+        'stepId=${nextRide.stepId}, minutes=$minutes',
+      );
+    }
+    return minutes;
   }
 
   static int _transferWalkMinutes(
