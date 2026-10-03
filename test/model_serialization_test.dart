@@ -26,6 +26,30 @@ void main() {
     expect(stopsJson[0]['lat'], 35.123);
   });
 
+  test('StepSeg preserves explicit boarding time', () {
+    final step = StepSeg.fromJson({
+      'step_id': 'rail-1',
+      'kind': 'rail',
+      'title': '浅草線',
+      'boarding_minutes': 2,
+    });
+
+    expect(step.boardingMinutes, 2);
+    expect(step.toJson()['boarding_minutes'], 2);
+  });
+
+  test('StepSeg rejects invalid explicit boarding time', () {
+    expect(
+      () => StepSeg.fromJson({
+        'step_id': 'rail-invalid',
+        'kind': 'rail',
+        'title': '浅草線',
+        'boarding_minutes': 1.5,
+      }),
+      throwsFormatException,
+    );
+  });
+
   test('Trip serialization flow', () {
     final Map<String, dynamic> candidateJson = {
       "id": "c1",
