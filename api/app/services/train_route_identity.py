@@ -138,6 +138,16 @@ def _enrich_rail_step(
 ) -> None:
     step_id = _required_text(step.get("step_id"), "step_id")
     stops = _required_route_stops(step, step_id)
+    boarding_minutes = step.get("boarding_minutes")
+    if (
+        isinstance(boarding_minutes, bool)
+        or not isinstance(boarding_minutes, int)
+        or boarding_minutes < 0
+    ):
+        raise TrainRouteIdentityError(
+            "rail_boarding_minutes_invalid",
+            f"rail step {step_id} must contain non-negative integer boarding_minutes",
+        )
     ready_minute = _clock_to_minute(
         _required_text(step.get("departure_time"), "departure_time"),
         label=f"rail step {step_id} departure_time",
