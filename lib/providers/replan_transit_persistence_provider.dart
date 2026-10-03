@@ -177,22 +177,26 @@ void _validateRestoredMemory(Trip trip, ReplanTransitMemory memory) {
   final place = memory.lastConfirmedTransitPlace;
   if (place == null) return;
 
+  final stopId = place.stopId?.trim();
+  if (stopId == null || stopId.isEmpty) {
+    throw StateError(
+      '保存済み最終確定地点にstopIdがありません: ${place.name}',
+    );
+  }
+
   var matches = 0;
   for (final step in trip.stepsById.values) {
     if (!step.isRide) continue;
     for (final stop in step.stops) {
-      final stopIdMatches = place.stopId == null || stop.stopId == place.stopId;
-      if (stopIdMatches &&
-          stop.name == place.name &&
-          stop.point.latitude == place.point.latitude &&
-          stop.point.longitude == place.point.longitude) {
+      if (stop.stopId?.trim() == stopId) {
         matches += 1;
       }
     }
   }
   if (matches == 0) {
     throw StateError(
-      '保存済み最終確定地点が現在のTripの駅・停留所にありません: ${place.name}',
+      '保存済み最終確定地点IDが現在のTripの駅・停留所にありません: '
+      'stopId=$stopId',
     );
   }
 }
