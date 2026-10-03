@@ -474,12 +474,42 @@ void main() {
       throwsStateError,
     );
   });
-  test('same-name different point is not accepted as a replan anchor', () {
+  test('same stop ID remains authoritative when name and point differ', () {
+    final request = RouteReplanRequest(
+      anchor: ReplanAnchor(
+        placeName: '名称変更後の浅草橋',
+        stopId: 's1',
+        point: const LatLng(35.699, 139.799),
+        availableAt: DateTime(2026, 8, 15, 10, 12),
+        source: ReplanAnchorSource.predictedNextTransitPlace,
+        routeStepId: 'old-rail',
+      ),
+      activeStepId: 'old-rail',
+      originalCandidateId: 'original',
+      destination: const LatLng(35.680, 139.770),
+      destinationName: '目的地',
+      preference: 'shortTime',
+    );
+
+    final patch = RouteReplanPatcher.build(
+      trip: trip(),
+      request: request,
+      selectedCandidate: selectedCandidate(),
+    );
+
+    final retainedRail = patch.legs.single.candidate.steps.firstWhere(
+      (step) => step.stepId == 'old-rail',
+    );
+    expect(retainedRail.stops.last.stopId, 's1');
+    expect(retainedRail.toName, '名称変更後の浅草橋');
+  });
+
+  test('same name and point with a different stop ID is rejected', () {
     final request = RouteReplanRequest(
       anchor: ReplanAnchor(
         placeName: '浅草橋',
-        stopId: null,
-        point: const LatLng(35.699, 139.799),
+        stopId: 'different-id',
+        point: const LatLng(35.697, 139.785),
         availableAt: DateTime(2026, 8, 15, 10, 12),
         source: ReplanAnchorSource.predictedNextTransitPlace,
         routeStepId: 'old-rail',
