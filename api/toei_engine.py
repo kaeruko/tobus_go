@@ -2523,8 +2523,9 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
         nonlocal cur
         if cur:
             if cur["kind"] == "walk":
-                # 距離0や移動なしの徒歩セグメントは除外
-                if cur.get("meters", 0) <= 0 or cur.get("from_") == cur.get("to"):
+                # 距離0の徒歩セグメントだけを除外する。
+                # 表示名が同じでも、バス停と駅など別ノード間の移動はあり得る。
+                if cur.get("meters", 0) <= 0:
                     cur = None
                     return
                 # 徒歩所要時間の計算 (距離 / 速度)
@@ -2727,7 +2728,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     stop_name = G.nodes[phys_key]["name"]
                     stop_name_en = G.nodes[phys_key].get("name_en")
 
-                if not cur["stops"] or cur["stops"][-1]["name"] != stop_name:
+                if not cur["stops"] or cur["stops"][-1].get("id") != new_id:
                     cur["stops"].append({
                         "name": stop_name,
                         "name_en": stop_name_en,
@@ -2786,7 +2787,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     stop_lat = G.nodes[to_phys].get("lat")
                     stop_lon = G.nodes[to_phys].get("lon")
 
-                    if not cur["stops"] or cur["stops"][-1]["name"] != to_name:
+                    if not cur["stops"] or cur["stops"][-1].get("id") != new_dest_id:
                         cur["stops"].append({
                             "name": to_name,
                             "name_en": to_name_en,
