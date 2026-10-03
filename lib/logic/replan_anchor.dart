@@ -106,14 +106,30 @@ class ReplanAnchor {
   final ReplanAnchorSource source;
   final String? routeStepId;
 
-  const ReplanAnchor({
-    required this.placeName,
-    required this.stopId,
+  ReplanAnchor({
+    required String placeName,
+    required String? stopId,
     required this.point,
     required this.availableAt,
     required this.source,
     this.routeStepId,
-  });
+  })  : placeName = placeName.trim(),
+        stopId = stopId?.trim() {
+    if (this.placeName.isEmpty) {
+      throw ArgumentError.value(placeName, 'placeName', 'must not be empty');
+    }
+    if (!point.latitude.isFinite || !point.longitude.isFinite) {
+      throw ArgumentError.value(point, 'point', 'must be finite');
+    }
+    if (source != ReplanAnchorSource.tripOrigin &&
+        (this.stopId == null || this.stopId!.isEmpty)) {
+      throw ArgumentError.value(
+        stopId,
+        'stopId',
+        'transit replan anchor requires a stop ID',
+      );
+    }
+  }
 }
 
 class ReplanAnchorContext {
