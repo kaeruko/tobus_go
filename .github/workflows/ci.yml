@@ -117,6 +117,16 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
+      - name: Refresh iOS pods for dependency upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd ios
+          pod update
+          echo '=== PODFILE_LOCK_BEGIN ==='
+          cat Podfile.lock
+          echo '=== PODFILE_LOCK_END ==='
+
       - name: Verify generated Xcode configurations
         run: ruby scripts/configure_ios_flavors.rb --check
 
