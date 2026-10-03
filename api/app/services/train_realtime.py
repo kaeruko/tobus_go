@@ -51,6 +51,7 @@ class StaticTrainStop:
     arrival_time: str | None
     departure_time: str | None
     stop_name_en: str | None = None
+    stop_code: str | None = None
 
 
 @dataclass(frozen=True)
@@ -302,10 +303,11 @@ def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
         _english_translation_maps(translation_rows)
     )
 
-    stop_names: dict[str, tuple[str, str | None]] = {}
+    stop_names: dict[str, tuple[str, str | None, str | None]] = {}
     for row in stop_rows:
         stop_id = row.get("stop_id")
         stop_name = row.get("stop_name")
+        stop_code = (row.get("stop_code") or "").strip() or None
         if not stop_id or not stop_name:
             raise TrainRealtimeError(
                 "train_static_gtfs_invalid",
@@ -335,13 +337,17 @@ def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
             else stop_name_en_by_value
         )
         existing = stop_names.get(stop_id)
-        if existing is not None and existing != (stop_name, stop_name_en):
+        if existing is not None and existing != (
+            stop_name,
+            stop_name_en,
+            stop_code,
+        ):
             raise TrainRealtimeError(
                 "train_static_gtfs_invalid",
-                f"Duplicate train stop_id has different names: {stop_id}",
+                f"Duplicate train stop_id has different metadata: {stop_id}",
                 503,
             )
-        stop_names[stop_id] = (stop_name, stop_name_en)
+        stop_names[stop_id] = (stop_name, stop_name_en, stop_code)
 
     trip_meta: dict[str, tuple[str, str | None, str | None]] = {}
     for row in trip_rows:
@@ -434,6 +440,7 @@ def parse_static_gtfs(content: bytes) -> StaticTrainGtfs:
                 arrival_time=row.get("arrival_time") or None,
                 departure_time=row.get("departure_time") or None,
                 stop_name_en=stop_names[stop_id][1],
+                stop_code=stop_names[stop_id][2],
             )
         )
 
