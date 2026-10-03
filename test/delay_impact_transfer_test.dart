@@ -48,6 +48,7 @@ void main() {
     toName: '目的地最寄り',
     departureTime: '18:16',
     arrivalTime: '18:25',
+    boardingMinutes: 2,
     minutes: 9,
     stops: [
       StopPoint(
@@ -161,9 +162,11 @@ void main() {
     expect(impact, isNotNull);
     expect(impact!.basis, DelayImpactBasis.confirmedTransferPlace);
     expect(impact.transferWalkMinutes, 4);
-    expect(impact.earliestTransferReadyAt, DateTime(2026, 8, 15, 18, 17));
+    expect(impact.transferBoardingMinutes, 2);
+    expect(impact.transferRequiredMinutes, 6);
+    expect(impact.earliestTransferReadyAt, DateTime(2026, 8, 15, 18, 19));
     expect(impact.nextDepartureAt, DateTime(2026, 8, 15, 18, 16));
-    expect(impact.missedBy, const Duration(minutes: 1));
+    expect(impact.missedBy, const Duration(minutes: 3));
     expect(impact.requiresReplan, isTrue);
   });
 
