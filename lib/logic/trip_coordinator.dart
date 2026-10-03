@@ -608,6 +608,42 @@ class TripCoordinator {
       }
     }
 
+    if (resolved.itemKind == ScheduleEntryKind.arrival) {
+      final nextRides =
+          trip.schedule
+              .where(
+                (entry) =>
+                    entry.legIndex == resolved.legIndex &&
+                    entry.itemKind == ScheduleEntryKind.ride &&
+                    entry.plannedAt.isAfter(resolved.plannedAt),
+              )
+              .toList()
+            ..sort((a, b) => a.plannedAt.compareTo(b.plannedAt));
+
+      if (nextRides.isNotEmpty) {
+        final nextRide = nextRides.first;
+        final rideTime = _formatClock(nextRide.plannedAt);
+        final arrivalState = NavigationState.fromEntry(
+          entry: resolved,
+          step: step,
+          busProgress: null,
+          railProgress: null,
+        );
+        return arrivalState.withSubText(
+          subText: _boardingSubText(
+            trip: trip,
+            rideEntry: nextRide,
+            rideTime: rideTime,
+          ),
+          subTextToken: _boardingSubTextToken(
+            trip: trip,
+            rideEntry: nextRide,
+            rideTime: rideTime,
+          ),
+        );
+      }
+    }
+
     final diff = resolved.plannedAt.difference(now);
     if (diff.inMinutes > 20) {
       return NavigationState.waitingLong(entry: resolved, diff: diff);

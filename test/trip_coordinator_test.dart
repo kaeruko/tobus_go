@@ -261,6 +261,76 @@ void main() {
       expect(navigation.statusLabel, '移動中');
     });
 
+    test('intermediate arrival shows the next ride instead of completion text', () {
+      final baseTrip = navigationV2Trip();
+      final arrival = ScheduleEntry(
+        id: 'arrival-transfer',
+        plannedAt: DateTime(2025, 1, 1, 10, 46),
+        label: '🚌上23 押上に着く',
+        itemKind: ScheduleEntryKind.arrival,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: 'bus-C',
+        routeRole: 'arrival',
+        legIndex: 0,
+      );
+      final nextRide = ScheduleEntry(
+        id: 'ride-after-transfer',
+        plannedAt: DateTime(2025, 1, 1, 10, 55),
+        label: '🚌上23 押上に乗る',
+        itemKind: ScheduleEntryKind.ride,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: 'bus-C',
+        routeRole: 'ride',
+        legIndex: 0,
+      );
+      final trip = Trip(
+        schemaVersion: baseTrip.schemaVersion,
+        tripType: baseTrip.tripType,
+        id: baseTrip.id,
+        joinCode: baseTrip.joinCode,
+        leaderId: baseTrip.leaderId,
+        title: baseTrip.title,
+        travelPhase: baseTrip.travelPhase,
+        date: baseTrip.date,
+        plannedDepartureAt: baseTrip.plannedDepartureAt,
+        actualDepartureAt: baseTrip.actualDepartureAt,
+        legs: baseTrip.legs,
+        schedule: [arrival, nextRide],
+        participants: baseTrip.participants,
+        memberIds: baseTrip.memberIds,
+        completedLegIndex: baseTrip.completedLegIndex,
+        staffNotes: baseTrip.staffNotes,
+      );
+      final now = DateTime(2025, 1, 1, 10, 50);
+      final resolved = TripCoordinator.resolveScheduleState(
+        scheduleEntries: trip.schedule,
+        now: now,
+      );
+
+      final navigation = TripCoordinator.buildMemberNavigationState(
+        trip: trip,
+        routeState: RouteState(stepsById: trip.stepsById),
+        now: now,
+        resolvedState: resolved,
+      );
+
+      expect(resolved.resolvedEntry?.id, 'arrival-transfer');
+      expect(navigation.subText, '10:55 上23 乗車');
+      expect(navigation.subText, isNot('到着しました'));
+      expect(
+        navigation.subTextToken?.key,
+        NavigationTextKey.boardingSub,
+      );
+      expect(
+        navigation.subTextToken?.args,
+        containsPair('rideTime', '10:55'),
+      );
+      expect(
+        navigation.subTextToken?.args,
+        containsPair('routeTitle', '上23'),
+      );
+    });
+
     test('goal navigation carries bilingual destination and localized completion text', () {
       final base = navigationV2Trip();
       final baseCandidate = base.legs.first.candidate;

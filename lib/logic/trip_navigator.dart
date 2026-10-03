@@ -154,6 +154,29 @@ class NavigationState {
     noticeText: noticeText,
   );
 
+  NavigationState withSubText({
+    required String subText,
+    NavigationTextToken? subTextToken,
+  }) => NavigationState(
+    mainText: mainText,
+    subText: subText,
+    color: color,
+    statusLabel: statusLabel,
+    mainTextToken: mainTextToken,
+    subTextToken: subTextToken,
+    statusLabelToken: statusLabelToken,
+    noticeTextToken: noticeTextToken,
+    nextStopName: nextStopName,
+    nextStopNameEn: nextStopNameEn,
+    remainingStops: remainingStops,
+    currentStepId: currentStepId,
+    busProgress: busProgress,
+    railProgress: railProgress,
+    isMoving: isMoving,
+    step: step,
+    noticeText: noticeText,
+  );
+
   static String _rideStatusLabel(StepSeg step) {
     switch (step.kind) {
       case 'bus':
