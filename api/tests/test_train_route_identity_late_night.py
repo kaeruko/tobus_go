@@ -36,6 +36,7 @@ class TrainRouteIdentityLateNightRegressionTest(unittest.TestCase):
                 "kind": "rail",
                 "departure_time": "16:20",
                 "arrival_time": "16:31",
+                "boarding_minutes": 2,
                 "stops": [
                     {"id": a, "name": "A"},
                     {"id": b, "name": "B"},
@@ -63,6 +64,7 @@ class TrainRouteIdentityLateNightRegressionTest(unittest.TestCase):
 
         self.assertEqual(len(result["candidates"]), 1)
         self.assertEqual(result["candidates"][0]["steps"][0]["trip_id"], "afternoon-trip")
+        self.assertEqual(result["candidates"][0]["steps"][0]["boarding_minutes"], 2)
 
 
 if __name__ == "__main__":
