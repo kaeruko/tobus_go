@@ -111,36 +111,11 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.47.0"
           channel: stable
           cache: true
 
-      - name: Force CocoaPods plugin integration
-        shell: bash
-        run: |
-          set -euo pipefail
-          flutter config --no-enable-swift-package-manager
-          CONFIG_OUTPUT="$(flutter config --list)"
-          printf '%s\n' "$CONFIG_OUTPUT"
-          grep -Eq 'enable-swift-package-manager[^a-zA-Z]*(false|disabled)' <<< "$CONFIG_OUTPUT" || {
-            echo "::error::Flutter Swift Package Manager is still enabled"
-            exit 1
-          }
-
       - name: Install Flutter dependencies
-        run: |
-          flutter pub get
-          ruby scripts/configure_ios_flavors.rb
-
-      - name: Refresh iOS pods for dependency upgrade
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd ios
-          pod update
-          echo '=== PODFILE_LOCK_BEGIN ==='
-          cat Podfile.lock
-          echo '=== PODFILE_LOCK_END ==='
+        run: flutter pub get
 
       - name: Verify generated Xcode configurations
         run: ruby scripts/configure_ios_flavors.rb --check

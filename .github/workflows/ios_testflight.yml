@@ -318,6 +318,9 @@ jobs:
           }
           cd ios
           pod install
+          cd ..
+          ruby scripts/configure_ios_flavors.rb
+          ruby scripts/configure_ios_flavors.rb --check
 
       - name: Configure Release-tokyo signing on Runner only
         shell: bash
