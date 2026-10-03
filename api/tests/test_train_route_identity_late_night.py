@@ -49,9 +49,30 @@ class TrainRouteIdentityLateNightRegressionTest(unittest.TestCase):
             route_id="1",
             headsign="C",
             stops=(
-                StaticTrainStop(1, "A", "A", "16:20:00", "16:20:00"),
-                StaticTrainStop(2, "B", "B", "16:25:00", "16:26:00"),
-                StaticTrainStop(3, "C", "C", "16:31:00", "16:31:00"),
+                StaticTrainStop(
+                    1,
+                    "101",
+                    "GTFS A",
+                    "16:20:00",
+                    "16:20:00",
+                    stop_code="A",
+                ),
+                StaticTrainStop(
+                    2,
+                    "102",
+                    "GTFS B",
+                    "16:25:00",
+                    "16:26:00",
+                    stop_code="B",
+                ),
+                StaticTrainStop(
+                    3,
+                    "103",
+                    "GTFS C",
+                    "16:31:00",
+                    "16:31:00",
+                    stop_code="C",
+                ),
             ),
         )
 
@@ -64,7 +85,9 @@ class TrainRouteIdentityLateNightRegressionTest(unittest.TestCase):
 
         self.assertEqual(len(result["candidates"]), 1)
         self.assertEqual(result["candidates"][0]["steps"][0]["trip_id"], "afternoon-trip")
-        self.assertEqual(result["candidates"][0]["steps"][0]["boarding_minutes"], 2)
+        rail = result["candidates"][0]["steps"][0]
+        self.assertEqual(rail["boarding_minutes"], 2)
+        self.assertEqual([stop["id"] for stop in rail["stops"]], ["101", "102", "103"])
 
 
 if __name__ == "__main__":
