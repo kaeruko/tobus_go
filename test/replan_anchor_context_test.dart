@@ -11,8 +11,17 @@ import 'package:toeigo/providers/replan_anchor_provider.dart';
 void main() {
   final now = DateTime(2026, 8, 15, 18, 4);
 
-  ReplanTransitPlace place(String name, double lat, double lon) {
-    return ReplanTransitPlace(name: name, point: LatLng(lat, lon));
+  ReplanTransitPlace place(
+    String name,
+    double lat,
+    double lon, {
+    String? stopId,
+  }) {
+    return ReplanTransitPlace(
+      name: name,
+      stopId: stopId,
+      point: LatLng(lat, lon),
+    );
   }
 
   StepSeg walk(String id, String from, String to) {
@@ -123,8 +132,18 @@ void main() {
     final observation = RidingTransitObservation(
       stepId: 'out-rail',
       motion: RidingTransitMotion.inTransit,
-      currentPlace: place('浅草橋', 35.697, 139.785),
-      nextPlace: place('蔵前', 35.703, 139.790),
+      currentPlace: place(
+        '浅草橋',
+        35.697,
+        139.785,
+        stopId: 'A16',
+      ),
+      nextPlace: place(
+        '蔵前',
+        35.703,
+        139.790,
+        stopId: 'A17',
+      ),
       predictedNextAvailableAt: predicted,
     );
     final context = ReplanAnchorContextBuilder.build(
@@ -147,8 +166,18 @@ void main() {
     final observation = RidingTransitObservation(
       stepId: 'out-rail',
       motion: RidingTransitMotion.inTransit,
-      currentPlace: place('浅草橋', 35.697, 139.785),
-      nextPlace: place('蔵前', 35.703, 139.790),
+      currentPlace: place(
+        '浅草橋',
+        35.697,
+        139.785,
+        stopId: 'A16',
+      ),
+      nextPlace: place(
+        '蔵前',
+        35.703,
+        139.790,
+        stopId: 'A17',
+      ),
     );
     final context = ReplanAnchorContextBuilder.build(
       trip: trip([
@@ -169,7 +198,12 @@ void main() {
     final observation = RidingTransitObservation(
       stepId: 'out-rail',
       motion: RidingTransitMotion.stopped,
-      currentPlace: place('浅草橋', 35.697, 139.785),
+      currentPlace: place(
+        '浅草橋',
+        35.697,
+        139.785,
+        stopId: 'A16',
+      ),
     );
     final context = ReplanAnchorContextBuilder.build(
       trip: trip([
@@ -187,7 +221,12 @@ void main() {
   });
 
   test('transfer/final walk resolves from the last confirmed transit place', () {
-    final confirmed = place('東日本橋', 35.692, 139.785);
+    final confirmed = place(
+      '東日本橋',
+      35.692,
+      139.785,
+      stopId: 'A15',
+    );
     final memory = ReplanTransitMemory(lastConfirmedTransitPlace: confirmed);
     final context = ReplanAnchorContextBuilder.build(
       trip: trip([
@@ -236,7 +275,12 @@ void main() {
     final observation = RidingTransitObservation(
       stepId: 'other-rail',
       motion: RidingTransitMotion.stopped,
-      currentPlace: place('浅草橋', 35.697, 139.785),
+      currentPlace: place(
+        '浅草橋',
+        35.697,
+        139.785,
+        stopId: 'A16',
+      ),
     );
 
     expect(
