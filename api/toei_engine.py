@@ -239,7 +239,7 @@ from functools import lru_cache
 from datetime import datetime as dt_class # datetime.datetimeと競合しないようにalias
 from google.transit import gtfs_realtime_pb2
 from gtfs_loader import gtfs_repo
-from route_engine import RouteSearchLimitError
+from route_engine import RouteContractError, RouteSearchLimitError
 
 # -------------------- チューニング定数 --------------------
 print("[INFO] toei_engine loaded: build=2025-12-29-realtime", flush=True)

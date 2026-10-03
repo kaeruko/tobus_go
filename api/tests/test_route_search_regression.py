@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import networkx as nx
 
+from route_engine import RouteContractError
 from toei_engine import (
     RouteSearchLimitError,
     find_fastest_path,
@@ -297,6 +298,45 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
             [stop["odpt_id"] for stop in steps[0]["stops"]],
             ["origin-station", "same-a", "same-b"],
         )
+
+    def test_missing_rail_station_code_raises_route_contract_error(self):
+        graph = nx.DiGraph()
+        origin = ("phys", "origin-station")
+        line = ("line", "origin-station", "test-line")
+        destination = ("phys", "destination-station")
+
+        graph.add_node(
+            origin,
+            name="起点",
+            lat=35.70,
+            lon=139.80,
+        )
+        graph.add_node(
+            line,
+            name="テスト線",
+            disp="テスト線",
+            mode="rail",
+        )
+        graph.add_node(
+            destination,
+            name="終点",
+            lat=35.71,
+            lon=139.81,
+            station_code="T02",
+        )
+        graph.add_edge(origin, line, etype="board", w=1.0)
+        graph.add_edge(line, destination, etype="alight", w=0.0)
+
+        with self.assertRaisesRegex(
+            RouteContractError,
+            "rail station has no ODPT station code: origin-station",
+        ):
+            segments_detailed(
+                graph,
+                [origin, line, destination],
+                self.tm,
+                start_time_str="15:35",
+            )
 
     def test_time_priority_contract_is_stable(self):
         with (
