@@ -195,25 +195,33 @@ class RealtimeTrainLocationSource implements TrainLocationSource {
     if (step.kind != 'rail') {
       throw ArgumentError('TrainLocationSource requires rail step: ${step.kind}');
     }
-    final fromName = step.fromName?.trim();
-    final toName = step.toName?.trim();
-    final arrivalTime = step.arrivalTime?.trim();
-    if (fromName == null || fromName.isEmpty) {
-      throw StateError('rail step is missing fromName: ${step.stepId}');
+    final tripId = step.tripId?.trim();
+    if (tripId == null || tripId.isEmpty) {
+      throw StateError('rail step is missing tripId: ${step.stepId}');
     }
-    if (toName == null || toName.isEmpty) {
-      throw StateError('rail step is missing toName: ${step.stepId}');
+    if (step.stops.length < 2) {
+      throw StateError(
+        'rail step is missing boarding/destination stops: ${step.stepId}',
+      );
     }
-    if (arrivalTime == null || arrivalTime.isEmpty) {
-      throw StateError('rail step is missing arrivalTime: ${step.stepId}');
+    final fromStopId = step.stops.first.stopId?.trim();
+    final toStopId = step.stops.last.stopId?.trim();
+    if (fromStopId == null || fromStopId.isEmpty) {
+      throw StateError(
+        'rail step boarding stop is missing stopId: ${step.stepId}',
+      );
+    }
+    if (toStopId == null || toStopId.isEmpty) {
+      throw StateError(
+        'rail step destination stop is missing stopId: ${step.stepId}',
+      );
     }
 
     try {
       final json = await ApiClient.fetchTrainLocation(
-        tripId: step.tripId,
-        fromName: fromName,
-        toName: toName,
-        arrivalTime: arrivalTime,
+        tripId: tripId,
+        fromStopId: fromStopId,
+        toStopId: toStopId,
         forceRefresh: forceRefresh,
       );
       return TrainLocation.fromJson(json);
