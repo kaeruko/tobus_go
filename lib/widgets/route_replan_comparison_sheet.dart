@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../logic/route_replan_preview.dart';
 import '../models/route_models.dart';
-import '../providers/route_replanner_provider.dart';
-import '../providers/trip_provider.dart';
+import '../models/trip_models.dart';
 import '../services/route_replanner.dart';
 import 'route_replan_comparison_map.dart';
 
@@ -15,23 +13,76 @@ typedef RouteReplanApplyCallback = Future<void> Function(
   Candidate candidate,
 );
 
-class RouteReplanComparisonSheet extends ConsumerStatefulWidget {
+typedef RouteReplanRefreshCallback = Future<RouteSearchResult> Function(
+  RouteReplanRequest request,
+);
+
+class RouteReplanComparisonController extends ChangeNotifier {
+  Trip _trip;
+  RouteReplanRequest? _currentRequest;
+  String? _blockedReason;
+
+  RouteReplanComparisonController({
+    required Trip trip,
+    RouteReplanRequest? currentRequest,
+    String? blockedReason,
+  })  : _trip = trip,
+        _currentRequest = currentRequest,
+        _blockedReason = blockedReason;
+
+  Trip get trip => _trip;
+  RouteReplanRequest? get currentRequest => _currentRequest;
+  String? get blockedReason => _blockedReason;
+
+  void sync({
+    required Trip trip,
+    required RouteReplanRequest? currentRequest,
+    required String? blockedReason,
+  }) {
+    final requestUnchanged =
+        _sameNullableRequest(_currentRequest, currentRequest);
+    final unchanged = identical(_trip, trip) &&
+        requestUnchanged &&
+        _blockedReason == blockedReason;
+    if (unchanged) return;
+
+    _trip = trip;
+    _currentRequest = currentRequest;
+    _blockedReason = blockedReason;
+    notifyListeners();
+  }
+
+  static bool _sameNullableRequest(
+    RouteReplanRequest? a,
+    RouteReplanRequest? b,
+  ) {
+    if (identical(a, b)) return true;
+    if (a == null || b == null) return false;
+    return sameRouteReplanRequestState(a, b);
+  }
+}
+
+class RouteReplanComparisonSheet extends StatefulWidget {
   final RouteReplanPreview preview;
+  final RouteReplanComparisonController controller;
+  final RouteReplanRefreshCallback onRefresh;
   final RouteReplanApplyCallback? onApply;
 
   const RouteReplanComparisonSheet({
     super.key,
     required this.preview,
+    required this.controller,
+    required this.onRefresh,
     this.onApply,
   });
 
   @override
-  ConsumerState<RouteReplanComparisonSheet> createState() =>
+  State<RouteReplanComparisonSheet> createState() =>
       _RouteReplanComparisonSheetState();
 }
 
 class _RouteReplanComparisonSheetState
-    extends ConsumerState<RouteReplanComparisonSheet> {
+    extends State<RouteReplanComparisonSheet> {
   late RouteReplanPreview _preview;
   int _selectedIndex = 0;
   bool _applying = false;
@@ -39,19 +90,48 @@ class _RouteReplanComparisonSheetState
   bool _closingAfterApply = false;
   Object? _refreshError;
   RouteReplanRequest? _failedRequest;
+  bool _controllerRebuildScheduled = false;
 
   @override
   void initState() {
     super.initState();
     _preview = widget.preview;
+    widget.controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant RouteReplanComparisonSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller, widget.controller)) {
+      oldWidget.controller.removeListener(_onControllerChanged);
+      widget.controller.addListener(_onControllerChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onControllerChanged);
+    super.dispose();
+  }
+
+  void _onControllerChanged() {
+    if (!mounted || _closingAfterApply || _controllerRebuildScheduled) {
+      return;
+    }
+    _controllerRebuildScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controllerRebuildScheduled = false;
+      if (!mounted || _closingAfterApply) return;
+      setState(() {});
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context);
-    final currentRequest = ref.watch(currentRouteReplanRequestProvider);
-    final blockedReason = ref.watch(routeReplanBlockedReasonProvider);
+    final currentRequest = widget.controller.currentRequest;
+    final blockedReason = widget.controller.blockedReason;
     final previewMatchesCurrent = currentRequest != null &&
         sameRouteReplanRequestState(currentRequest, _preview.request);
     final failedForCurrent = currentRequest != null &&
@@ -300,14 +380,14 @@ class _RouteReplanComparisonSheetState
     var target = requested;
     try {
       while (mounted && !_closingAfterApply) {
-        final result = await ref.read(routeReplannerProvider).replan(target);
+        final result = await widget.onRefresh(target);
         if (!mounted || _closingAfterApply) return;
 
-        final latestRequest = ref.read(currentRouteReplanRequestProvider);
+        final latestRequest = widget.controller.currentRequest;
         if (latestRequest == null) {
-          final blockedReason = ref.read(routeReplanBlockedReasonProvider);
           throw StateError(
-            blockedReason ?? '再検索中に現在の再探索起点を取得できなくなりました',
+            widget.controller.blockedReason ??
+                '再検索中に現在の再探索起点を取得できなくなりました',
           );
         }
 
@@ -316,13 +396,8 @@ class _RouteReplanComparisonSheetState
           continue;
         }
 
-        final latestTrip = ref.read(tripStreamProvider).value;
-        if (latestTrip == null) {
-          throw StateError('再検索中に現在のTripを取得できません');
-        }
-
         final nextPreview = RouteReplanPreview.build(
-          trip: latestTrip,
+          trip: widget.controller.trip,
           request: latestRequest,
           result: result,
         );
@@ -379,7 +454,7 @@ class _RouteReplanComparisonSheetState
       return;
     }
 
-    final currentRequest = ref.read(currentRouteReplanRequestProvider);
+    final currentRequest = widget.controller.currentRequest;
     if (currentRequest == null ||
         !sameRouteReplanRequestState(currentRequest, _preview.request)) {
       if (currentRequest != null) {

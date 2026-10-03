@@ -33,6 +33,49 @@ class RouteReplanPreviewButton extends ConsumerStatefulWidget {
 class _RouteReplanPreviewButtonState
     extends ConsumerState<RouteReplanPreviewButton> {
   bool _loading = false;
+  late final RouteReplanComparisonController _comparisonController;
+  bool _controllerSyncScheduled = false;
+  Trip? _pendingControllerTrip;
+  RouteReplanRequest? _pendingControllerRequest;
+  String? _pendingControllerBlockedReason;
+
+  @override
+  void initState() {
+    super.initState();
+    _comparisonController = RouteReplanComparisonController(trip: widget.trip);
+  }
+
+  @override
+  void dispose() {
+    _comparisonController.dispose();
+    super.dispose();
+  }
+
+  void _queueControllerSync({
+    required Trip trip,
+    required RouteReplanRequest? request,
+    required String? blockedReason,
+  }) {
+    _pendingControllerTrip = trip;
+    _pendingControllerRequest = request;
+    _pendingControllerBlockedReason = blockedReason;
+    if (_controllerSyncScheduled) return;
+
+    _controllerSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controllerSyncScheduled = false;
+      if (!mounted) return;
+      final pendingTrip = _pendingControllerTrip;
+      if (pendingTrip == null) {
+        throw StateError('再探索シート同期対象のTripがありません');
+      }
+      _comparisonController.sync(
+        trip: pendingTrip,
+        currentRequest: _pendingControllerRequest,
+        blockedReason: _pendingControllerBlockedReason,
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +83,11 @@ class _RouteReplanPreviewButtonState
     final locale = Localizations.localeOf(context);
     final request = ref.watch(currentRouteReplanRequestProvider);
     final blockedReason = ref.watch(routeReplanBlockedReasonProvider);
+    _queueControllerSync(
+      trip: widget.trip,
+      request: request,
+      blockedReason: blockedReason,
+    );
     if (request == null) {
       if (blockedReason == null) return const SizedBox.shrink();
       return Padding(
@@ -137,6 +185,12 @@ class _RouteReplanPreviewButtonState
       });
       if (!mounted) return;
 
+      _comparisonController.sync(
+        trip: latestTrip,
+        currentRequest: latestRequest,
+        blockedReason: ref.read(routeReplanBlockedReasonProvider),
+      );
+
       final applied = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
@@ -144,6 +198,9 @@ class _RouteReplanPreviewButtonState
         backgroundColor: Colors.transparent,
         builder: (_) => RouteReplanComparisonSheet(
           preview: preview,
+          controller: _comparisonController,
+          onRefresh: (requested) =>
+              ref.read(routeReplannerProvider).replan(requested),
           onApply: (latestPreview, candidate) =>
               _applyCandidate(latestPreview, candidate),
         ),
