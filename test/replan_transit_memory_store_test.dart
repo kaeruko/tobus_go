@@ -10,7 +10,51 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
-  test('confirmed place and onboard marker survive restart without stale realtime', () async {
+  test('confirmed onboard marker survives restart without stale realtime', () async {
+    final store = ReplanTransitMemoryStore();
+    final current = ReplanTransitPlace(
+      name: '浅草橋',
+      stopId: 'stop-asakusabashi',
+      point: const LatLng(35.697, 139.785),
+    );
+    final next = ReplanTransitPlace(
+      name: '蔵前',
+      stopId: 'stop-kuramae',
+      point: const LatLng(35.703, 139.790),
+    );
+    final observation = RidingTransitObservation(
+      stepId: 'rail-1',
+      motion: RidingTransitMotion.inTransit,
+      currentPlace: current,
+      nextPlace: next,
+      predictedNextAvailableAt: DateTime(2026, 8, 15, 18, 6),
+      predictedDestinationAvailableAt: DateTime(2026, 8, 15, 18, 12),
+    );
+    final memory = const ReplanTransitMemory().observeRide(observation);
+
+    await store.save(
+      tripId: 'trip-1',
+      userId: 'user-1',
+      memory: memory,
+    );
+    final restored = await store.load(
+      tripId: 'trip-1',
+      userId: 'user-1',
+    );
+
+    expect(restored, isNotNull);
+    final restoredMemory = restored!.toMemory();
+    expect(restoredMemory.ridingTransit, isNull);
+    expect(restoredMemory.knownOnboardStepId, 'rail-1');
+    expect(restoredMemory.lastConfirmedTransitPlace?.name, '浅草橋');
+    expect(restoredMemory.lastConfirmedTransitAt, isNull);
+    expect(
+      restoredMemory.lastConfirmedTransitPlace?.point,
+      const LatLng(35.697, 139.785),
+    );
+  });
+
+  test('confirmed arrival time survives restart and clears onboard marker', () async {
     final store = ReplanTransitMemoryStore();
     final current = ReplanTransitPlace(
       name: '浅草橋',
@@ -48,13 +92,9 @@ void main() {
     expect(restored, isNotNull);
     final restoredMemory = restored!.toMemory();
     expect(restoredMemory.ridingTransit, isNull);
-    expect(restoredMemory.knownOnboardStepId, 'rail-1');
+    expect(restoredMemory.knownOnboardStepId, isNull);
     expect(restoredMemory.lastConfirmedTransitPlace?.name, '浅草橋');
     expect(restoredMemory.lastConfirmedTransitAt, confirmedAt);
-    expect(
-      restoredMemory.lastConfirmedTransitPlace?.point,
-      const LatLng(35.697, 139.785),
-    );
   });
 
   test('memory is isolated by trip and user', () async {
