@@ -42,8 +42,12 @@ def _train_fixture() -> bytes:
     content = io.BytesIO()
     with zipfile.ZipFile(content, "w") as archive:
         archive.writestr("stops.txt", _csv(
-            ["stop_id", "stop_name"],
-            [["A15", "東日本橋"], ["A16", "浅草橋"], ["A17", "蔵前"]],
+            ["stop_id", "stop_code", "stop_name"],
+            [
+                ["115", "A15", "GTFS東日本橋"],
+                ["116", "A16", "GTFS浅草橋"],
+                ["117", "A17", "GTFS蔵前"],
+            ],
         ))
         archive.writestr("trips.txt", _csv(
             ["route_id", "service_id", "trip_id"],
@@ -52,9 +56,9 @@ def _train_fixture() -> bytes:
         archive.writestr("stop_times.txt", _csv(
             ["trip_id", "arrival_time", "departure_time", "stop_id", "stop_sequence"],
             [
-                ["121603T0", "16:25:00", "16:25:00", "A15", 9],
-                ["121603T0", "16:27:00", "16:28:00", "A16", 10],
-                ["121603T0", "16:30:00", "16:30:00", "A17", 11],
+                ["121603T0", "16:25:00", "16:25:00", "115", 9],
+                ["121603T0", "16:27:00", "16:28:00", "116", 10],
+                ["121603T0", "16:30:00", "16:30:00", "117", 11],
             ],
         ))
         archive.writestr("calendar.txt", _csv(
@@ -119,6 +123,7 @@ async def _identity_probe() -> dict:
         assert cold_response == warm_response
         assert resolved["trip_id"] == "121603T0"
         assert resolved["departure_time"] == "16:25"
+        assert [stop["id"] for stop in resolved["stops"]] == ["115", "116", "117"]
         assert cold_response["rejections"] == []
         return {
             "fixture": "one trip, three stations; exact ODPT/static match",
