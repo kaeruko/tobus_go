@@ -234,6 +234,18 @@ jobs:
           flutter test
           ruby scripts/configure_ios_flavors.rb --check
 
+      - name: Install CocoaPods 1.16.2 and refresh specs
+        shell: bash
+        run: |
+          set -euo pipefail
+          gem install cocoapods -v "$COCOAPODS_VERSION" --no-document
+          ACTUAL_COCOAPODS_VERSION="$(pod --version)"
+          [[ "$ACTUAL_COCOAPODS_VERSION" == "$COCOAPODS_VERSION" ]] || {
+            echo "::error::Expected CocoaPods $COCOAPODS_VERSION, got $ACTUAL_COCOAPODS_VERSION"
+            exit 1
+          }
+          pod repo update
+
       - name: Generate Tokyo release configuration
         shell: bash
         run: |
@@ -283,14 +295,17 @@ jobs:
               raise SystemExit('Release build must not embed API_BASE; the city endpoint is resolved from Google Drive at runtime')
           PY
 
-      - name: Install CocoaPods 1.16.2
+      - name: Install iOS pod dependencies
         shell: bash
         run: |
           set -euo pipefail
-          gem install cocoapods -v "$COCOAPODS_VERSION" --no-document
-          pod _${COCOAPODS_VERSION}_ --version
+          ACTUAL_COCOAPODS_VERSION="$(pod --version)"
+          [[ "$ACTUAL_COCOAPODS_VERSION" == "$COCOAPODS_VERSION" ]] || {
+            echo "::error::Expected CocoaPods $COCOAPODS_VERSION, got $ACTUAL_COCOAPODS_VERSION"
+            exit 1
+          }
           cd ios
-          pod _${COCOAPODS_VERSION}_ install
+          pod install
 
       - name: Configure Release-tokyo signing on Runner only
         shell: bash
