@@ -94,6 +94,7 @@ async def _identity_probe() -> dict:
         candidates=[{"id": "Fastest", "steps": [{
             "step_id": "rail-1", "kind": "rail",
             "departure_time": "16:22", "arrival_time": "16:30",
+            "boarding_minutes": 2,
             "stops": [
                 dict(id=stop_id, odpt_id=station_id, name=name)
                 for stop_id, station_id, name in zip(
