@@ -62,19 +62,22 @@ void main() {
             'name': '東日本橋',
             'lat': 35.69,
             'lon': 139.78,
-            'id': 'odpt.Station:Toei.Asakusa.HigashiNihombashi',
+            'id': 'A15',
+            'odpt_id': 'odpt.Station:Toei.Asakusa.HigashiNihombashi',
           },
           {
             'name': '浅草橋',
             'lat': 35.70,
             'lon': 139.79,
-            'id': 'odpt.Station:Toei.Asakusa.Asakusabashi',
+            'id': 'A16',
+            'odpt_id': 'odpt.Station:Toei.Asakusa.Asakusabashi',
           },
           {
             'name': '蔵前',
             'lat': 35.71,
             'lon': 139.80,
-            'id': 'odpt.Station:Toei.Asakusa.Kuramae',
+            'id': 'A17',
+            'odpt_id': 'odpt.Station:Toei.Asakusa.Kuramae',
           },
         ],
       },
@@ -129,6 +132,10 @@ void main() {
     expect(result.candidates.single.steps.single.tripId, '121603T0');
     expect(result.candidates.single.steps.single.routeId, '1');
     expect(result.candidates.single.steps.single.boardingMinutes, 2);
+    expect(
+      result.candidates.single.steps.single.stops.map((stop) => stop.stopId),
+      ['A15', 'A16', 'A17'],
+    );
     expect(result.fareByCandidateId, isEmpty);
   });
 
