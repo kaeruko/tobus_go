@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import hashlib
 import subprocess
 import sys
 import uuid
@@ -192,6 +193,10 @@ def save_group(
         ]
 
     prepared_images: list[dict] = []
+    image_hashes = {
+        hashlib.sha256((IMAGES_DIR / image["file"]).read_bytes()).digest()
+        for image in updated_existing_images
+    }
     generated_filenames: set[str] = set()
     for index, uploaded_file in enumerate(uploaded_files):
         suffix = Path(uploaded_file.name).suffix.lower()
@@ -208,6 +213,10 @@ def save_group(
                 f"uploaded image is empty: index={index}, name={uploaded_file.name!r}"
             )
         content = normalize_uploaded_image(content, suffix=suffix)
+        content_hash = hashlib.sha256(content).digest()
+        if content_hash in image_hashes:
+            continue
+        image_hashes.add(content_hash)
 
         filename = validate_image_name(
             f"explore_{uuid.uuid4().hex}{suffix}"
@@ -408,6 +417,8 @@ def publish() -> subprocess.CompletedProcess[str]:
 def main() -> None:
     st.set_page_config(page_title="みつける CMS", page_icon="🚌", layout="wide")
     st.title("みつける CMS")
+    if notice := st.session_state.pop("explore_cms_save_notice", None):
+        st.success(notice)
     st.caption(
         "停留所名 + 系統で対象を決めます。odpt:note は参照しません。"
         "同じ名前・同じ系統の上り/下りはまとめて扱います。"
@@ -598,11 +609,13 @@ def main() -> None:
                             st.success("写真を削除しました。")
                             st.rerun()
 
+            upload_revision_key = f"upload_revision::{widget_scope}"
+            upload_revision = st.session_state.get(upload_revision_key, 0)
             uploaded_files = st.file_uploader(
                 "写真を追加（複数選択可）",
                 type=["jpg", "jpeg", "png", "webp"],
                 accept_multiple_files=True,
-                key=f"upload::{widget_scope}",
+                key=f"upload::{widget_scope}::{upload_revision}",
             )
             captions: list[str] = []
             captions_en: list[str] = []
@@ -620,7 +633,7 @@ def main() -> None:
                         caption_col.text_input(
                             "キャプション（日本語）",
                             key=(
-                                f"caption::{widget_scope}::{index}::"
+                                f"caption::{widget_scope}::{upload_revision}::{index}::"
                                 f"{uploaded_file.name}"
                             ),
                         )
@@ -629,7 +642,7 @@ def main() -> None:
                         caption_en_col.text_input(
                             "キャプション（英語・任意）",
                             key=(
-                                f"caption_en::{widget_scope}::{index}::"
+                                f"caption_en::{widget_scope}::{upload_revision}::{index}::"
                                 f"{uploaded_file.name}"
                             ),
                         )
@@ -654,16 +667,14 @@ def main() -> None:
                     st.exception(error)
                 else:
                     if not filenames:
-                        st.success("変更を保存しました。")
+                        notice = "変更を保存しました。同じ写真は重複追加しません。"
                     elif len(filenames) == 1:
-                        st.success(
-                            f"コメントと写真を保存しました: {filenames[0]}"
-                        )
+                        notice = "変更と写真1枚を保存しました。"
                     else:
-                        st.success(
-                            f"コメントと写真{len(filenames)}枚を保存しました。"
-                        )
-                        st.code("\n".join(filenames))
+                        notice = f"変更と写真{len(filenames)}枚を保存しました。"
+                    st.session_state[upload_revision_key] = upload_revision + 1
+                    st.session_state["explore_cms_save_notice"] = notice
+                    st.rerun()
 
     st.divider()
     st.subheader("公開")
