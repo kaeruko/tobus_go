@@ -278,8 +278,56 @@ List<ScheduleEntry> createScheduleFromRoute(
       } else {
         // Departure time (index k) -> Arrival time (index k+1) - duration
         final step = route.steps[k ~/ 2];
-        final duration = step.minutes ?? 0;
-        normalizedTimes[k] = normalizedTimes[k + 1].subtract(Duration(minutes: duration));
+        normalizedTimes[k] = normalizedTimes[k + 1].subtract(
+          Duration(minutes: step.minutes),
+        );
+      }
+    }
+  }
+
+  // Walking steps from the route API intentionally may omit clock fields.
+  // Reconstruct only those missing walk boundaries from adjacent confirmed
+  // route times and the walk duration. Transit/wait clocks are never guessed.
+  for (var i = 0; i < route.steps.length; i++) {
+    final step = route.steps[i];
+    if (step.kind != 'walk') continue;
+    if (step.minutes < 0) {
+      throw StateError(
+        '徒歩時間が負です: stepId=${step.stepId}, minutes=${step.minutes}',
+      );
+    }
+
+    final departureIndex = i * 2;
+    final arrivalIndex = departureIndex + 1;
+    final hasDeparture =
+        step.departureTime != null && step.departureTime!.contains(':');
+    final hasArrival =
+        step.arrivalTime != null && step.arrivalTime!.contains(':');
+
+    if (!hasDeparture && i > 0) {
+      normalizedTimes[departureIndex] = normalizedTimes[departureIndex - 1];
+    }
+    if (!hasArrival) {
+      normalizedTimes[arrivalIndex] = normalizedTimes[departureIndex].add(
+        Duration(minutes: step.minutes),
+      );
+    }
+
+    if (i + 1 < route.steps.length) {
+      final nextStep = route.steps[i + 1];
+      final nextHasDeparture =
+          nextStep.departureTime != null &&
+          nextStep.departureTime!.contains(':');
+      if (nextHasDeparture &&
+          normalizedTimes[arrivalIndex].isAfter(
+            normalizedTimes[arrivalIndex + 1],
+          )) {
+        throw StateError(
+          '徒歩終了時刻が次の出発時刻を超えています: '
+          'stepId=${step.stepId}, '
+          'walkArrival=${normalizedTimes[arrivalIndex]}, '
+          'nextDeparture=${normalizedTimes[arrivalIndex + 1]}',
+        );
       }
     }
   }

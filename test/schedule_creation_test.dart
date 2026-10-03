@@ -4,6 +4,72 @@ import 'package:toeigo/models/leg_models.dart';
 import 'package:toeigo/models/route_models.dart';
 
 void main() {
+  test('final walk without clocks advances goal by its duration', () {
+    final route = Candidate(
+      id: 'final-walk-no-clocks',
+      lines: const ['都01'],
+      rides: 1,
+      boards: 1,
+      transfers: 0,
+      total: 39,
+      totalTime: 39,
+      points: const [],
+      originName: '新橋',
+      destinationName: '渋谷駅',
+      departureDate: DateTime(2026, 10, 3, 12, 35),
+      arrivalTime: '13:14',
+      steps: [
+        StepSeg(
+          stepId: 'walk-origin',
+          kind: 'walk',
+          title: '徒歩',
+          fromName: '新橋',
+          toName: '新橋駅前',
+          minutes: 2,
+        ),
+        StepSeg(
+          stepId: 'bus-to01',
+          kind: 'bus',
+          title: '都01',
+          fromName: '新橋駅前',
+          toName: '渋谷三丁目',
+          minutes: 29,
+          departureTime: '12:37',
+          arrivalTime: '13:06',
+        ),
+        StepSeg(
+          stepId: 'walk-destination',
+          kind: 'walk',
+          title: '徒歩',
+          fromName: '渋谷三丁目',
+          toName: '渋谷駅',
+          minutes: 8,
+        ),
+      ],
+    );
+
+    final schedule = createScheduleFromRoute(
+      route,
+      startDateTime: route.departureDate,
+    );
+
+    final busArrival = schedule.singleWhere(
+      (entry) =>
+          entry.routeStepId == 'bus-to01' &&
+          entry.itemKind == ScheduleEntryKind.arrival,
+    );
+    final finalWalk = schedule.singleWhere(
+      (entry) => entry.routeStepId == 'walk-destination',
+    );
+    final goal = schedule.singleWhere(
+      (entry) => entry.itemKind == ScheduleEntryKind.goal,
+    );
+
+    expect(busArrival.plannedAt, DateTime(2026, 10, 3, 13, 6));
+    expect(finalWalk.plannedAt, DateTime(2026, 10, 3, 13, 6));
+    expect(goal.plannedAt, DateTime(2026, 10, 3, 13, 14));
+  });
+
   test('return meeting is ten minutes before the selected departure', () {
     final selectedReturnTime = DateTime(2026, 8, 11, 13, 49);
     final inbound = Candidate(
