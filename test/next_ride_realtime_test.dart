@@ -239,6 +239,7 @@ void main() {
       nextRideTitle: '新宿線 本八幡行',
       nextDepartureAt: DateTime.utc(2026, 8, 15, 18, 16),
       transferWalkMinutes: 4,
+      transferBoardingMinutes: 0,
       earliestTransferReadyAt: DateTime.utc(2026, 8, 15, 18, 17),
       nextTransferFeasible: false,
       missedBy: const Duration(minutes: 1),
