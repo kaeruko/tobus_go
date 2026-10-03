@@ -33,49 +33,6 @@ class RouteReplanPreviewButton extends ConsumerStatefulWidget {
 class _RouteReplanPreviewButtonState
     extends ConsumerState<RouteReplanPreviewButton> {
   bool _loading = false;
-  late final RouteReplanComparisonController _comparisonController;
-  bool _controllerSyncScheduled = false;
-  Trip? _pendingControllerTrip;
-  RouteReplanRequest? _pendingControllerRequest;
-  String? _pendingControllerBlockedReason;
-
-  @override
-  void initState() {
-    super.initState();
-    _comparisonController = RouteReplanComparisonController(trip: widget.trip);
-  }
-
-  @override
-  void dispose() {
-    _comparisonController.dispose();
-    super.dispose();
-  }
-
-  void _queueControllerSync({
-    required Trip trip,
-    required RouteReplanRequest? request,
-    required String? blockedReason,
-  }) {
-    _pendingControllerTrip = trip;
-    _pendingControllerRequest = request;
-    _pendingControllerBlockedReason = blockedReason;
-    if (_controllerSyncScheduled) return;
-
-    _controllerSyncScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _controllerSyncScheduled = false;
-      if (!mounted) return;
-      final pendingTrip = _pendingControllerTrip;
-      if (pendingTrip == null) {
-        throw StateError('再探索シート同期対象のTripがありません');
-      }
-      _comparisonController.sync(
-        trip: pendingTrip,
-        currentRequest: _pendingControllerRequest,
-        blockedReason: _pendingControllerBlockedReason,
-      );
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,11 +40,6 @@ class _RouteReplanPreviewButtonState
     final locale = Localizations.localeOf(context);
     final request = ref.watch(currentRouteReplanRequestProvider);
     final blockedReason = ref.watch(routeReplanBlockedReasonProvider);
-    _queueControllerSync(
-      trip: widget.trip,
-      request: request,
-      blockedReason: blockedReason,
-    );
     if (request == null) {
       if (blockedReason == null) return const SizedBox.shrink();
       return Padding(
@@ -127,14 +79,17 @@ class _RouteReplanPreviewButtonState
   }
 
   Future<void> _openPreview() async {
+    final providerContainer = ProviderScope.containerOf(context, listen: false);
     final l10n = AppLocalizations.of(context);
-    final request = ref.read(currentRouteReplanRequestProvider);
+    final request = providerContainer.read(currentRouteReplanRequestProvider);
+    final blockedReasonAtStart =
+        providerContainer.read(routeReplanBlockedReasonProvider);
     if (request == null || _loading) {
       ReplanDebugLog.emit('replan_preview_tap_ignored', {
         'tripId': widget.trip.id,
         'requestNull': request == null,
         'loading': _loading,
-        'blockedReason': ref.read(routeReplanBlockedReasonProvider),
+        'blockedReason': blockedReasonAtStart,
       });
       return;
     }
@@ -149,15 +104,18 @@ class _RouteReplanPreviewButtonState
 
     setState(() => _loading = true);
     try {
-      final result = await ref.read(routeReplannerProvider).replan(request);
-      final latestRequest = ref.read(currentRouteReplanRequestProvider);
+      final result =
+          await providerContainer.read(routeReplannerProvider).replan(request);
+      final latestRequest =
+          providerContainer.read(currentRouteReplanRequestProvider);
       if (latestRequest == null ||
           !sameRouteReplanRequestState(latestRequest, request)) {
         ReplanDebugLog.emit('replan_preview_search_became_stale', {
           'tripId': widget.trip.id,
           'searchedActiveStepId': request.activeStepId,
           'latestRequestNull': latestRequest == null,
-          'blockedReason': ref.read(routeReplanBlockedReasonProvider),
+          'blockedReason':
+              providerContainer.read(routeReplanBlockedReasonProvider),
           'searchedAnchorPlace': request.anchor.placeName,
           'searchedAnchorAt': request.anchor.availableAt.toIso8601String(),
           'latestAnchorPlace': latestRequest?.anchor.placeName,
@@ -166,11 +124,17 @@ class _RouteReplanPreviewButtonState
         });
         throw StateError(l10n.replanSearchStateChanged);
       }
-      final latestTrip = ref.read(tripStreamProvider).value;
+      final latestTrip = providerContainer.read(tripStreamProvider).value;
       if (latestTrip == null) {
         throw StateError(l10n.replanTripUnavailable);
       }
-      _validateApplyPermission(latestTrip, l10n);
+
+      final allowGroupLeaderApply = widget.allowGroupLeaderApply;
+      _validateApplyPermission(
+        latestTrip,
+        allowGroupLeaderApply: allowGroupLeaderApply,
+        l10n: l10n,
+      );
 
       final preview = RouteReplanPreview.build(
         trip: latestTrip,
@@ -185,37 +149,93 @@ class _RouteReplanPreviewButtonState
       });
       if (!mounted) return;
 
-      _comparisonController.sync(
+      final comparisonController = RouteReplanComparisonController(
         trip: latestTrip,
         currentRequest: latestRequest,
-        blockedReason: ref.read(routeReplanBlockedReasonProvider),
+        blockedReason:
+            providerContainer.read(routeReplanBlockedReasonProvider),
       );
 
-      final applied = await showModalBottomSheet<bool>(
-        context: context,
-        isScrollControlled: true,
-        enableDrag: false,
-        backgroundColor: Colors.transparent,
-        builder: (_) => RouteReplanComparisonSheet(
-          preview: preview,
-          controller: _comparisonController,
-          onRefresh: (requested) =>
-              ref.read(routeReplannerProvider).replan(requested),
-          onApply: (latestPreview, candidate) =>
-              _applyCandidate(latestPreview, candidate),
-        ),
+      void syncComparisonController() {
+        final tripAsync = providerContainer.read(tripStreamProvider);
+        final syncedTrip = tripAsync.hasValue ? tripAsync.value : null;
+        if (syncedTrip == null) {
+          comparisonController.sync(
+            trip: comparisonController.trip,
+            currentRequest: null,
+            blockedReason: l10n.replanTripUnavailable,
+          );
+          return;
+        }
+        comparisonController.sync(
+          trip: syncedTrip,
+          currentRequest:
+              providerContainer.read(currentRouteReplanRequestProvider),
+          blockedReason:
+              providerContainer.read(routeReplanBlockedReasonProvider),
+        );
+      }
+
+      final tripSubscription = providerContainer.listen(
+        tripStreamProvider,
+        (_, __) => syncComparisonController(),
       );
+      final requestSubscription = providerContainer.listen(
+        currentRouteReplanRequestProvider,
+        (_, __) => syncComparisonController(),
+      );
+      final blockedSubscription = providerContainer.listen(
+        routeReplanBlockedReasonProvider,
+        (_, __) => syncComparisonController(),
+      );
+
+      final fallbackTripId = latestTrip.id;
+      bool? applied;
+      try {
+        applied = await showModalBottomSheet<bool>(
+          context: context,
+          isScrollControlled: true,
+          enableDrag: false,
+          backgroundColor: Colors.transparent,
+          builder: (_) => RouteReplanComparisonSheet(
+            preview: preview,
+            controller: comparisonController,
+            onRefresh: (requested) => providerContainer
+                .read(routeReplannerProvider)
+                .replan(requested),
+            onApply: (latestPreview, candidate) => _applyCandidate(
+              providerContainer: providerContainer,
+              preview: latestPreview,
+              selectedCandidate: candidate,
+              allowGroupLeaderApply: allowGroupLeaderApply,
+              l10n: l10n,
+              fallbackTripId: fallbackTripId,
+            ),
+          ),
+        );
+      } finally {
+        tripSubscription.close();
+        requestSubscription.close();
+        blockedSubscription.close();
+        comparisonController.dispose();
+      }
+
       ReplanDebugLog.emit('replan_preview_closed', {
         'tripId': latestTrip.id,
         'applied': applied == true,
-        'blockedReasonAfterClose': ref.read(routeReplanBlockedReasonProvider),
+        'blockedReasonAfterClose': mounted
+            ? providerContainer.read(routeReplanBlockedReasonProvider)
+            : null,
       });
       if (!mounted || applied != true) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             l10n.replanAppliedFrom(
-              ref.read(currentRouteReplanRequestProvider)?.anchor.placeName ??
+              providerContainer
+                      .read(currentRouteReplanRequestProvider)
+                      ?.anchor
+                      .placeName ??
                   preview.request.anchor.placeName,
             ),
           ),
@@ -225,7 +245,9 @@ class _RouteReplanPreviewButtonState
       ReplanDebugLog.emit('replan_preview_error', {
         'tripId': widget.trip.id,
         'error': error.toString(),
-        'blockedReason': ref.read(routeReplanBlockedReasonProvider),
+        'blockedReason': mounted
+            ? providerContainer.read(routeReplanBlockedReasonProvider)
+            : blockedReasonAtStart,
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -236,22 +258,27 @@ class _RouteReplanPreviewButtonState
     }
   }
 
-  Future<void> _applyCandidate(
-    RouteReplanPreview preview,
-    Candidate selectedCandidate,
-  ) async {
-    final l10n = AppLocalizations.of(context);
+  static Future<void> _applyCandidate({
+    required ProviderContainer providerContainer,
+    required RouteReplanPreview preview,
+    required Candidate selectedCandidate,
+    required bool allowGroupLeaderApply,
+    required AppLocalizations l10n,
+    required String fallbackTripId,
+  }) async {
     var stage = 'resolve_current_request';
 
     try {
-      final currentRequest = ref.read(currentRouteReplanRequestProvider);
+      final currentRequest =
+          providerContainer.read(currentRouteReplanRequestProvider);
       if (currentRequest == null ||
           !sameRouteReplanRequestState(currentRequest, preview.request)) {
         ReplanDebugLog.emit('replan_apply_blocked_stale_preview', {
-          'tripId': widget.trip.id,
+          'tripId': fallbackTripId,
           'selectedCandidateId': selectedCandidate.id,
           'currentRequestNull': currentRequest == null,
-          'blockedReason': ref.read(routeReplanBlockedReasonProvider),
+          'blockedReason':
+              providerContainer.read(routeReplanBlockedReasonProvider),
           'previewAnchorPlace': preview.request.anchor.placeName,
           'previewAnchorAt': preview.request.anchor.availableAt.toIso8601String(),
           'currentAnchorPlace': currentRequest?.anchor.placeName,
@@ -261,12 +288,16 @@ class _RouteReplanPreviewButtonState
       }
 
       stage = 'resolve_current_trip';
-      final tripAsync = ref.read(tripStreamProvider);
+      final tripAsync = providerContainer.read(tripStreamProvider);
       final currentTrip = tripAsync.value;
       if (currentTrip == null) {
         throw StateError(l10n.replanTripUnavailable);
       }
-      _validateApplyPermission(currentTrip, l10n);
+      _validateApplyPermission(
+        currentTrip,
+        allowGroupLeaderApply: allowGroupLeaderApply,
+        l10n: l10n,
+      );
 
       stage = 'resolve_actor';
       final actorUserId = UserService().currentUserId;
@@ -301,7 +332,7 @@ class _RouteReplanPreviewButtonState
       });
     } catch (error, stackTrace) {
       ReplanDebugLog.emit('replan_apply_error', {
-        'tripId': widget.trip.id,
+        'tripId': fallbackTripId,
         'selectedCandidateId': selectedCandidate.id,
         'stage': stage,
         'error': error.toString(),
@@ -316,9 +347,13 @@ class _RouteReplanPreviewButtonState
     }
   }
 
-  void _validateApplyPermission(Trip trip, AppLocalizations l10n) {
+  static void _validateApplyPermission(
+    Trip trip, {
+    required bool allowGroupLeaderApply,
+    required AppLocalizations l10n,
+  }) {
     if (trip.isSolo) return;
-    if (!widget.allowGroupLeaderApply) {
+    if (!allowGroupLeaderApply) {
       throw StateError(l10n.groupReplanUnavailableHere);
     }
 
