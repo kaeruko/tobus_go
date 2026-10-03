@@ -376,14 +376,7 @@ class NextRideRealtimeAdapter {
         'stepId=${step.stepId}, stopId=$stopId, matches=${matches.length}',
       );
     }
-    final schedule = matches.single;
-    if (schedule.stopName.trim() != routeStop.name.trim()) {
-      throw StateError(
-        '次便バスの経路/GTFS停留所名が一致しません: '
-        '${routeStop.name} != ${schedule.stopName}',
-      );
-    }
-    return schedule;
+    return matches.single;
   }
 
   static BusStopSchedule _busScheduleAt(BusLocation location, int sequence) {
@@ -445,20 +438,23 @@ class NextRideRealtimeAdapter {
     StepSeg step,
     TrainTripStop boarding,
   ) {
-    final routeName = step.fromName?.trim();
-    if (routeName == null || routeName.isEmpty) {
-      throw StateError('次便列車stepに乗車駅名がありません: ${step.stepId}');
+    if (step.stops.isEmpty) {
+      throw StateError('次便列車stepに乗車駅がありません: ${step.stepId}');
     }
-    if (routeName != boarding.stopName.trim()) {
+    final routeStopId = step.stops.first.stopId?.trim();
+    if (routeStopId == null || routeStopId.isEmpty) {
+      throw StateError('次便列車乗車駅にstopIdがありません: ${step.stepId}');
+    }
+    final realtimeStopId = boarding.stopId.trim();
+    if (realtimeStopId.isEmpty) {
       throw StateError(
-        '次便列車の経路/GTFS乗車駅名が一致しません: '
-        '$routeName != ${boarding.stopName}',
+        '次便列車Realtimeの乗車駅stopIdがありません: ${step.stepId}',
       );
     }
-    if (step.stops.isNotEmpty && step.stops.first.name.trim() != routeName) {
+    if (routeStopId != realtimeStopId) {
       throw StateError(
-        '次便列車stepのfromName/stops先頭が一致しません: '
-        '$routeName != ${step.stops.first.name}',
+        '次便列車の経路/GTFS乗車駅IDが一致しません: '
+        '$routeStopId != $realtimeStopId',
       );
     }
   }
