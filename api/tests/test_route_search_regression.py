@@ -230,9 +230,27 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
         line_same_a = ("line", "same-a", "test-line")
         line_same_b = ("line", "same-b", "test-line")
 
-        graph.add_node(origin, name="起点", lat=35.70, lon=139.80)
-        graph.add_node(same_a, name="同名駅", lat=35.701, lon=139.801)
-        graph.add_node(same_b, name="同名駅", lat=35.702, lon=139.802)
+        graph.add_node(
+            origin,
+            name="起点",
+            lat=35.70,
+            lon=139.80,
+            station_code="T01",
+        )
+        graph.add_node(
+            same_a,
+            name="同名駅",
+            lat=35.701,
+            lon=139.801,
+            station_code="T02",
+        )
+        graph.add_node(
+            same_b,
+            name="同名駅",
+            lat=35.702,
+            lon=139.802,
+            station_code="T03",
+        )
         for node in (line_origin, line_same_a, line_same_b):
             graph.add_node(
                 node,
@@ -269,11 +287,15 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
         self.assertEqual(steps[0]["boarding_minutes"], 2)
         self.assertEqual(
             [stop["id"] for stop in steps[0]["stops"]],
-            ["origin-station", "same-a", "same-b"],
+            ["T01", "T02", "T03"],
         )
         self.assertEqual(
             [stop["name"] for stop in steps[0]["stops"]],
             ["起点", "同名駅", "同名駅"],
+        )
+        self.assertEqual(
+            [stop["odpt_id"] for stop in steps[0]["stops"]],
+            ["origin-station", "same-a", "same-b"],
         )
 
     def test_time_priority_contract_is_stable(self):
