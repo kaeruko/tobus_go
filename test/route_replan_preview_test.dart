@@ -540,4 +540,30 @@ void main() {
       'Asakusa Line',
     );
   });
+  test('same-name different point does not resolve the active anchor', () {
+    final wrongRequest = RouteReplanRequest(
+      anchor: ReplanAnchor(
+        placeName: '蔵前',
+        stopId: null,
+        point: const LatLng(35.710, 139.810),
+        availableAt: DateTime(2026, 8, 15, 18, 6),
+        source: ReplanAnchorSource.predictedNextTransitPlace,
+        routeStepId: 'rail-current',
+      ),
+      activeStepId: 'rail-current',
+      originalCandidateId: 'original-candidate',
+      destination: destinationPoint,
+      destinationName: '目的地',
+    );
+
+    expect(
+      () => RouteReplanPreview.build(
+        trip: trip(originalCandidate()),
+        request: wrongRequest,
+        result: result(newCandidate()),
+      ),
+      throwsStateError,
+    );
+  });
+
 }
