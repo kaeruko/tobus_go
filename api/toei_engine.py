@@ -246,7 +246,8 @@ print("[INFO] toei_engine loaded: build=2025-12-29-realtime", flush=True)
 BUS_RIDE_COST = 0.8
 RAIL_RIDE_COST = 0.8
 WALK_COST = 1.5
-WALK_SPEED_M_PER_MIN = 80.0 
+WALK_SPEED_M_PER_MIN = 80.0
+RAIL_BOARDING_MINUTES = 2
 
 TRANSFER_PENALTY = 5.0
 
@@ -1370,7 +1371,7 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=Non
                 return None
             return dep
         elif mode == "rail":
-            return curr_time + 2.0
+            return curr_time + RAIL_BOARDING_MINUTES
         return curr_time
 
     if etype == "ride":
@@ -2687,7 +2688,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 # シミュレーション上の現在時刻を、バスの出発時刻に合わせて進める
                 curr_time = dep
             else:
-                curr_time += 2.0
+                curr_time += RAIL_BOARDING_MINUTES
 
             # 3. バス停リストのID書き換え
             for stop in curr_stops:
@@ -2707,6 +2708,9 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 "to_en": None,
                 "stops": curr_stops,
                 "departure_time": min_to_time_str(curr_time),
+                "boarding_minutes": (
+                    RAIL_BOARDING_MINUTES if mode == "rail" else 0
+                ),
                 "route_id": final_route_id,
                 "trip_id": final_trip_id,
             }
