@@ -256,7 +256,7 @@ class RouteReplanPreview {
 
     for (var index = 0; index < firstRideIndex; index++) {
       final step = candidate.steps[index];
-      if (step.kind != 'wait' || !_waitIsAtAnchor(step, request)) {
+      if (step.kind != 'wait') {
         return false;
       }
     }
@@ -299,24 +299,6 @@ class RouteReplanPreview {
     );
   }
 
-  static bool _waitIsAtAnchor(
-    StepSeg step,
-    RouteReplanRequest request,
-  ) {
-    final anchor = request.anchor.placeName.trim();
-    final names = <String?>[
-      step.fromName,
-      step.toName,
-      step.place,
-    ];
-    final present = names
-        .whereType<String>()
-        .map((name) => name.trim())
-        .where((name) => name.isNotEmpty)
-        .toList(growable: false);
-    return present.isNotEmpty && present.every((name) => name == anchor);
-  }
-
   static bool _rideStartsAtAnchor(
     StepSeg ride,
     RouteReplanRequest request,
@@ -332,23 +314,20 @@ class RouteReplanPreview {
   }) {
     if (reboard.stops.isEmpty) return false;
     final destinationStop = reboard.stops.last;
-    final destinationId = destinationStop.stopId?.trim();
+    final destinationId = _requiredStopId(
+      destinationStop.stopId,
+      '再乗車候補の降車地点',
+    );
 
     for (var index = anchorIndex + 1;
         index < activeRide.stops.length;
         index++) {
       final stop = activeRide.stops[index];
-      final stopId = stop.stopId?.trim();
-      if (destinationId != null &&
-          destinationId.isNotEmpty &&
-          stopId != null &&
-          stopId.isNotEmpty) {
-        if (destinationId == stopId) return true;
-        continue;
-      }
-      if (_samePoint(stop.point, destinationStop.point)) {
-        return true;
-      }
+      final stopId = _requiredStopId(
+        stop.stopId,
+        '現在乗車stepの停車地点',
+      );
+      if (destinationId == stopId) return true;
     }
     return false;
   }
@@ -357,30 +336,50 @@ class RouteReplanPreview {
     StopPoint stop,
     RouteReplanRequest request,
   ) {
-    final anchorStopId = request.anchor.stopId?.trim();
-    final stopId = stop.stopId?.trim();
-    if (anchorStopId != null &&
-        anchorStopId.isNotEmpty &&
-        stopId != null &&
-        stopId.isNotEmpty) {
-      return anchorStopId == stopId;
-    }
-    return _samePoint(stop.point, request.anchor.point);
+    final anchorStopId = _requiredStopId(
+      request.anchor.stopId,
+      '再探索anchor',
+    );
+    final stopId = _requiredStopId(
+      stop.stopId,
+      '再乗車候補の乗車地点',
+    );
+    return anchorStopId == stopId;
   }
 
   static int _findAnchorStopIndex(
     List<StopPoint> stops,
     RouteReplanRequest request,
   ) {
-    final anchorStopId = request.anchor.stopId;
-    if (anchorStopId != null && anchorStopId.isNotEmpty) {
-      final byId = stops.indexWhere((stop) => stop.stopId == anchorStopId);
-      if (byId >= 0) return byId;
-    }
-
-    return stops.indexWhere(
-      (stop) => _samePoint(stop.point, request.anchor.point),
+    final anchorStopId = _requiredStopId(
+      request.anchor.stopId,
+      '再探索anchor',
     );
+    final matches = <int>[];
+    for (var index = 0; index < stops.length; index++) {
+      final stopId = _requiredStopId(
+        stops[index].stopId,
+        '現在乗車stepの停車地点',
+      );
+      if (stopId == anchorStopId) {
+        matches.add(index);
+      }
+    }
+    if (matches.length > 1) {
+      throw StateError(
+        '再探索anchorのstopIdが現在乗車step内で重複しています: '
+        'stopId=$anchorStopId, matches=${matches.length}',
+      );
+    }
+    return matches.isEmpty ? -1 : matches.single;
+  }
+
+  static String _requiredStopId(String? value, String label) {
+    final normalized = value?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      throw StateError('$labelにstopIdがありません');
+    }
+    return normalized;
   }
 
   static void _appendUnique(List<LatLng> points, LatLng point) {
