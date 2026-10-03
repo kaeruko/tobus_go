@@ -12,6 +12,7 @@ from toei_engine import (
     find_paths_generator,
     search_best_routes,
     search_best_routes_once,
+    segments_detailed,
 )
 
 
@@ -167,6 +168,110 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
                 "trip_id": "trip-001",
             },
         ]
+
+
+
+    def test_same_name_walk_between_distinct_nodes_is_preserved(self):
+        graph = nx.DiGraph()
+        bus_stop = ("phys", "honjo-bus")
+        station = ("phys", "honjo-station")
+        graph.add_node(
+            bus_stop,
+            name="本所吾妻橋",
+            lat=35.708438,
+            lon=139.803502,
+        )
+        graph.add_node(
+            station,
+            name="本所吾妻橋",
+            lat=35.708565,
+            lon=139.804397,
+        )
+        graph.add_edge(
+            bus_stop,
+            station,
+            etype="walk",
+            meters=80.0,
+            w=1.5,
+        )
+
+        steps = segments_detailed(
+            graph,
+            [bus_stop, station],
+            self.tm,
+            start_time_str="15:35",
+        )
+
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0]["kind"], "walk")
+        self.assertEqual(steps[0]["from_"], "本所吾妻橋")
+        self.assertEqual(steps[0]["to"], "本所吾妻橋")
+        self.assertEqual(steps[0]["meters"], 80.0)
+        self.assertEqual(steps[0]["minutes"], 1)
+
+    def test_same_name_consecutive_rail_stops_keep_distinct_ids(self):
+        class _RailTimetableManager:
+            def get_next_train_arrival(
+                self,
+                current_sta,
+                next_sta,
+                current_time_min,
+                **kwargs,
+            ):
+                return current_time_min + 1
+
+        graph = nx.DiGraph()
+        origin = ("phys", "origin-station")
+        same_a = ("phys", "same-a")
+        same_b = ("phys", "same-b")
+        line_origin = ("line", "origin-station", "test-line")
+        line_same_a = ("line", "same-a", "test-line")
+        line_same_b = ("line", "same-b", "test-line")
+
+        graph.add_node(origin, name="起点", lat=35.70, lon=139.80)
+        graph.add_node(same_a, name="同名駅", lat=35.701, lon=139.801)
+        graph.add_node(same_b, name="同名駅", lat=35.702, lon=139.802)
+        for node in (line_origin, line_same_a, line_same_b):
+            graph.add_node(
+                node,
+                name="テスト線",
+                disp="テスト線",
+                mode="rail",
+            )
+
+        graph.add_edge(origin, line_origin, etype="board", w=1.0)
+        graph.add_edge(
+            line_origin,
+            line_same_a,
+            etype="ride",
+            mode="rail",
+            w=1.0,
+        )
+        graph.add_edge(
+            line_same_a,
+            line_same_b,
+            etype="ride",
+            mode="rail",
+            w=1.0,
+        )
+        graph.add_edge(line_same_b, same_b, etype="alight", w=0.0)
+
+        steps = segments_detailed(
+            graph,
+            [origin, line_origin, line_same_a, line_same_b, same_b],
+            _RailTimetableManager(),
+            start_time_str="15:35",
+        )
+
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(
+            [stop["id"] for stop in steps[0]["stops"]],
+            ["origin-station", "same-a", "same-b"],
+        )
+        self.assertEqual(
+            [stop["name"] for stop in steps[0]["stops"]],
+            ["起点", "同名駅", "同名駅"],
+        )
 
     def test_time_priority_contract_is_stable(self):
         with (
