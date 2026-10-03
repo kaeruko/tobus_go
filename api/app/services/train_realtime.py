@@ -486,11 +486,11 @@ def _normalize_clock(value: str) -> str:
 
 def _find_trip_segment(
     trip: StaticTrainTrip,
-    from_name: str,
-    to_name: str,
+    from_stop_id: str,
+    to_stop_id: str,
 ) -> tuple[StaticTrainStop, StaticTrainStop] | None:
-    origins = [stop for stop in trip.stops if stop.stop_name == from_name]
-    destinations = [stop for stop in trip.stops if stop.stop_name == to_name]
+    origins = [stop for stop in trip.stops if stop.stop_id == from_stop_id]
+    destinations = [stop for stop in trip.stops if stop.stop_id == to_stop_id]
     pairs = [
         (origin, destination)
         for origin in origins
@@ -502,7 +502,8 @@ def _find_trip_segment(
     if len(pairs) != 1:
         raise TrainRealtimeError(
             "train_static_segment_ambiguous",
-            f"Trip {trip.trip_id} contains ambiguous segment {from_name}->{to_name}",
+            f"Trip {trip.trip_id} contains ambiguous stop-ID segment "
+            f"{from_stop_id}->{to_stop_id}",
             502,
         )
     return pairs[0]
@@ -513,103 +514,59 @@ def resolve_train_vehicle(
     static_gtfs: StaticTrainGtfs,
     *,
     trip_id: str | None,
-    from_name: str | None,
-    to_name: str | None,
-    arrival_time: str | None,
+    from_stop_id: str | None,
+    to_stop_id: str | None,
 ) -> ResolvedTrainVehicle:
-    if trip_id:
-        matches = [vehicle for vehicle in vehicles if vehicle.trip_id == trip_id]
-        if not matches:
-            raise TrainRealtimeError(
-                "train_trip_not_reporting",
-                f"Realtime train trip is not reporting: {trip_id}",
-                404,
-            )
-        if len(matches) != 1:
-            raise TrainRealtimeError(
-                "train_trip_ambiguous",
-                f"Realtime train trip_id is not unique: {trip_id}",
-                409,
-            )
-        trip = static_gtfs.trips.get(trip_id)
-        if trip is None:
-            raise TrainRealtimeError(
-                "train_static_trip_missing",
-                f"Realtime train trip is missing from static GTFS: {trip_id}",
-                502,
-            )
-        if from_name is None or to_name is None:
-            raise TrainRealtimeError(
-                "train_plan_segment_missing",
-                "from_name and to_name are required when resolving a train trip",
-                400,
-            )
-        segment = _find_trip_segment(trip, from_name, to_name)
-        if segment is None:
-            raise TrainRealtimeError(
-                "train_static_segment_missing",
-                f"Trip {trip_id} does not contain {from_name}->{to_name}",
-                409,
-            )
-        return ResolvedTrainVehicle(
-            vehicle=matches[0],
-            trip=trip,
-            boarding_sequence=segment[0].sequence,
-            destination_sequence=segment[1].sequence,
-        )
-
-    if not from_name or not to_name or not arrival_time:
+    if not trip_id:
         raise TrainRealtimeError(
-            "train_plan_identity_missing",
-            "from_name, to_name, and arrival_time are required without trip_id",
+            "train_plan_trip_id_missing",
+            "trip_id is required to resolve realtime train location",
+            400,
+        )
+    if not from_stop_id or not to_stop_id:
+        raise TrainRealtimeError(
+            "train_plan_segment_id_missing",
+            "from_stop_id and to_stop_id are required to resolve a train trip",
             400,
         )
 
-    wanted_arrival = _normalize_clock(arrival_time)
-    candidates: list[ResolvedTrainVehicle] = []
-    for vehicle in vehicles:
-        trip = static_gtfs.trips.get(vehicle.trip_id)
-        if trip is None:
-            raise TrainRealtimeError(
-                "train_static_trip_missing",
-                f"Realtime train trip is missing from static GTFS: {vehicle.trip_id}",
-                502,
-            )
-        segment = _find_trip_segment(trip, from_name, to_name)
-        if segment is None:
-            continue
-        destination = segment[1]
-        if destination.arrival_time is None:
-            raise TrainRealtimeError(
-                "train_static_arrival_missing",
-                f"Trip {trip.trip_id} destination {to_name} has no arrival_time",
-                502,
-            )
-        if _normalize_clock(destination.arrival_time) != wanted_arrival:
-            continue
-        candidates.append(
-            ResolvedTrainVehicle(
-                vehicle=vehicle,
-                trip=trip,
-                boarding_sequence=segment[0].sequence,
-                destination_sequence=destination.sequence,
-            )
-        )
-
-    if not candidates:
+    matches = [vehicle for vehicle in vehicles if vehicle.trip_id == trip_id]
+    if not matches:
         raise TrainRealtimeError(
-            "train_trip_not_found",
-            f"No reporting train exactly matches {from_name}->{to_name} arrival {wanted_arrival}",
+            "train_trip_not_reporting",
+            f"Realtime train trip is not reporting: {trip_id}",
             404,
         )
-    if len(candidates) != 1:
-        ids = [candidate.trip.trip_id for candidate in candidates]
+    if len(matches) != 1:
         raise TrainRealtimeError(
             "train_trip_ambiguous",
-            f"Multiple reporting trains match the ride plan: {ids}",
+            f"Realtime train trip_id is not unique: {trip_id}",
             409,
         )
-    return candidates[0]
+
+    trip = static_gtfs.trips.get(trip_id)
+    if trip is None:
+        raise TrainRealtimeError(
+            "train_static_trip_missing",
+            f"Realtime train trip is missing from static GTFS: {trip_id}",
+            502,
+        )
+
+    segment = _find_trip_segment(trip, from_stop_id, to_stop_id)
+    if segment is None:
+        raise TrainRealtimeError(
+            "train_static_segment_missing",
+            f"Trip {trip_id} does not contain stop-ID segment "
+            f"{from_stop_id}->{to_stop_id}",
+            409,
+        )
+
+    return ResolvedTrainVehicle(
+        vehicle=matches[0],
+        trip=trip,
+        boarding_sequence=segment[0].sequence,
+        destination_sequence=segment[1].sequence,
+    )
 
 
 async def _fetch_bytes(url: str, timeout_seconds: float = 20.0) -> bytes:
