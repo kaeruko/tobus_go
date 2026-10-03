@@ -38,9 +38,9 @@ class TrainRouteIdentityLateNightRegressionTest(unittest.TestCase):
                 "arrival_time": "16:31",
                 "boarding_minutes": 2,
                 "stops": [
-                    {"id": a, "name": "A"},
-                    {"id": b, "name": "B"},
-                    {"id": c, "name": "C"},
+                    {"id": "A", "odpt_id": a, "name": "renamed A"},
+                    {"id": "B", "odpt_id": b, "name": "renamed B"},
+                    {"id": "C", "odpt_id": c, "name": "renamed C"},
                 ],
             }],
         }
