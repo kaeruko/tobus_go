@@ -353,6 +353,7 @@ class Candidate {
       fareYen: wait.fareYen,
       departureTime: _formatClock(waitStart),
       arrivalTime: _formatClock(walkStart),
+      boardingMinutes: wait.boardingMinutes,
       startLabel: wait.startLabel,
       endLabel: wait.endLabel,
       place: origin,
@@ -379,6 +380,7 @@ class Candidate {
       fareYen: walk.fareYen,
       departureTime: _formatClock(walkStart),
       arrivalTime: _formatClock(boarding),
+      boardingMinutes: walk.boardingMinutes,
       startLabel: walk.startLabel,
       endLabel: walk.endLabel,
       place: walk.place,
@@ -508,6 +510,7 @@ class StepSeg {
   final int? fareYen; // keep existing optional fields
   final String? departureTime;
   final String? arrivalTime;
+  final int? boardingMinutes;
   final String? startLabel;
   final String? endLabel;
   final String? place;
@@ -537,6 +540,7 @@ class StepSeg {
     this.fareYen,
     this.departureTime,
     this.arrivalTime,
+    this.boardingMinutes,
     this.startLabel,
     this.endLabel,
     this.place,
@@ -580,6 +584,7 @@ class StepSeg {
       fareYen: (json['fareYen'] as num?)?.toInt(),
       departureTime: json['departure_time'],
       arrivalTime: json['arrival_time'],
+      boardingMinutes: _readOptionalBoardingMinutes(json),
       startLabel: json['startLabel'],
       endLabel: json['endLabel'],
       place: json['place'],
@@ -597,6 +602,20 @@ class StepSeg {
       departureStopId: json['departureStopId']?.toString() ?? '',
       arrivalPoleId: json['arrivalPoleId']?.toString() ?? '',
     );
+  }
+
+  static int? _readOptionalBoardingMinutes(Map<String, dynamic> json) {
+    final value = json['boarding_minutes'];
+    if (value == null) return null;
+    if (value is! num ||
+        !value.isFinite ||
+        value != value.roundToDouble() ||
+        value < 0) {
+      throw FormatException(
+        'route step has invalid boarding_minutes: $value',
+      );
+    }
+    return value.toInt();
   }
 
   String get mainTitle => kind == 'walk' ? '徒歩' : title;
@@ -634,6 +653,7 @@ class StepSeg {
       'fareYen': fareYen,
       'departure_time': departureTime,
       'arrival_time': arrivalTime,
+      'boarding_minutes': boardingMinutes,
       'startLabel': startLabel,
       'endLabel': endLabel,
       'place': place,
