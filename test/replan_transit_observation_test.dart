@@ -232,17 +232,17 @@ void main() {
         StopPoint(
           name: '東日本橋',
           point: const LatLng(35.692, 139.785),
-          stopId: 'odpt.Station:Toei.Asakusa.HigashiNihombashi',
+          stopId: '115',
         ),
         StopPoint(
           name: '浅草橋',
           point: const LatLng(35.697, 139.785),
-          stopId: 'odpt.Station:Toei.Asakusa.Asakusabashi',
+          stopId: '116',
         ),
         StopPoint(
           name: '蔵前',
           point: const LatLng(35.703, 139.790),
-          stopId: 'odpt.Station:Toei.Asakusa.Kuramae',
+          stopId: '117',
         ),
       ],
     );
@@ -251,21 +251,21 @@ void main() {
       TrainTripStop(
         sequence: 9,
         stopId: '115',
-        stopName: '東日本橋',
+        stopName: 'GTFS東日本橋',
         arrivalTime: '18:02:00',
         departureTime: '18:02:30',
       ),
       TrainTripStop(
         sequence: 10,
         stopId: '116',
-        stopName: '浅草橋',
+        stopName: 'GTFS浅草橋',
         arrivalTime: '18:04:00',
         departureTime: '18:04:30',
       ),
       TrainTripStop(
         sequence: 11,
         stopId: '117',
-        stopName: '蔵前',
+        stopName: 'GTFS蔵前',
         arrivalTime: '18:06:00',
         departureTime: '18:06:30',
       ),
