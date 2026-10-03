@@ -540,12 +540,37 @@ void main() {
       'Asakusa Line',
     );
   });
-  test('same-name different point does not resolve the active anchor', () {
+  test('same stop ID resolves even when name and point differ', () {
+    final movedRequest = RouteReplanRequest(
+      anchor: ReplanAnchor(
+        placeName: '名称変更後の蔵前',
+        stopId: 'kuramae',
+        point: const LatLng(35.710, 139.810),
+        availableAt: DateTime(2026, 8, 15, 18, 6),
+        source: ReplanAnchorSource.predictedNextTransitPlace,
+        routeStepId: 'rail-current',
+      ),
+      activeStepId: 'rail-current',
+      originalCandidateId: 'original-candidate',
+      destination: destinationPoint,
+      destinationName: '目的地',
+    );
+
+    final preview = RouteReplanPreview.build(
+      trip: trip(originalCandidate()),
+      request: movedRequest,
+      result: result(newCandidate()),
+    );
+
+    expect(preview.originalFuturePoints.first, movedRequest.anchor.point);
+  });
+
+  test('same name and point with a different stop ID does not resolve anchor', () {
     final wrongRequest = RouteReplanRequest(
       anchor: ReplanAnchor(
         placeName: '蔵前',
-        stopId: null,
-        point: const LatLng(35.710, 139.810),
+        stopId: 'different-id',
+        point: anchorPoint,
         availableAt: DateTime(2026, 8, 15, 18, 6),
         source: ReplanAnchorSource.predictedNextTransitPlace,
         routeStepId: 'rail-current',
