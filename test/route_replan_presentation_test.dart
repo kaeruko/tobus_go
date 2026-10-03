@@ -26,6 +26,7 @@ void main() {
       nextRideTitle: '浅草線',
       nextDepartureAt: nextDeparture,
       transferWalkMinutes: 2,
+      transferBoardingMinutes: 0,
       earliestTransferReadyAt: predictedArrival.add(
         const Duration(minutes: 2),
       ),
