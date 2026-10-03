@@ -214,9 +214,17 @@ class ReplanAnchorResolver {
     required ReplanAnchorSource source,
     String? routeStepId,
   }) {
+    final stopId = place.stopId?.trim();
+    if (source != ReplanAnchorSource.tripOrigin &&
+        (stopId == null || stopId.isEmpty)) {
+      throw StateError(
+        '交通地点を再探索anchorに使うためのstopIdがありません: '
+        'source=${source.name}, place=${place.name}',
+      );
+    }
     return ReplanAnchor(
       placeName: place.name,
-      stopId: place.stopId,
+      stopId: stopId,
       point: place.point,
       availableAt: availableAt,
       source: source,
