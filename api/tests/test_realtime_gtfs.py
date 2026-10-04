@@ -61,6 +61,75 @@ class ParseRealtimeGtfsTest(unittest.TestCase):
         self.assertEqual(buses[0]["feed_timestamp"], 1_700_000_000)
         self.assertEqual(buses[0]["vehicle_timestamp"], 1_700_000_010)
 
+    def test_logs_reason_and_raw_vehicle_fields_when_static_trip_is_missing(self):
+        feed = gtfs_realtime_pb2.FeedMessage()
+        feed.header.gtfs_realtime_version = "2.0"
+        feed.header.timestamp = 1_790_000_000
+        entity = feed.entity.add()
+        entity.id = "entity-b785"
+        vehicle = entity.vehicle
+        vehicle.trip.route_id = "006"
+        vehicle.trip.trip_id = "missing-trip"
+        vehicle.vehicle.id = "B785"
+        vehicle.current_stop_sequence = 1
+        vehicle.current_status = gtfs_realtime_pb2.VehiclePosition.IN_TRANSIT_TO
+        vehicle.stop_id = "0737-04"
+        vehicle.timestamp = 1_790_000_010
+
+        with (
+            patch.object(gtfs_repo, "get_bus_details", return_value=None),
+            patch.object(gtfs_repo, "trips", {}),
+            patch.object(gtfs_repo, "stop_times", {}),
+            patch.object(gtfs_repo, "stops", {}),
+            patch("builtins.print") as mock_print,
+        ):
+            buses = parse_realtime_gtfs(feed.SerializeToString())
+
+        self.assertEqual(buses, [])
+        mock_print.assert_called_once_with(
+            "[GTFS-RT DROP] "
+            "reason=static_trip_not_found "
+            "entity_id='entity-b785' "
+            "vehicle_id='B785' "
+            "route_id='006' "
+            "trip_id='missing-trip' "
+            "raw_stop_id='0737-04' "
+            "observed_stop_sequence=1 "
+            "from_stop_sequence=1 "
+            "current_status=IN_TRANSIT_TO "
+            "feed_timestamp=1790000000 "
+            "vehicle_timestamp=1790000010",
+            flush=True,
+        )
+
+    def test_logs_missing_static_stop_sequence_separately(self):
+        feed = gtfs_realtime_pb2.FeedMessage()
+        feed.header.gtfs_realtime_version = "2.0"
+        entity = feed.entity.add()
+        entity.id = "entity-known-trip"
+        vehicle = entity.vehicle
+        vehicle.trip.route_id = "006"
+        vehicle.trip.trip_id = "known-trip"
+        vehicle.vehicle.id = "B785"
+        vehicle.current_stop_sequence = 7
+        vehicle.current_status = gtfs_realtime_pb2.VehiclePosition.STOPPED_AT
+
+        with (
+            patch.object(gtfs_repo, "get_bus_details", return_value=None),
+            patch.object(gtfs_repo, "trips", {"known-trip": {"route_id": "006"}}),
+            patch.object(gtfs_repo, "stop_times", {"known-trip": {1: ("stop-1", 0, 0)}}),
+            patch.object(gtfs_repo, "stops", {}),
+            patch("builtins.print") as mock_print,
+        ):
+            buses = parse_realtime_gtfs(feed.SerializeToString())
+
+        self.assertEqual(buses, [])
+        message = mock_print.call_args.args[0]
+        self.assertIn("reason=static_stop_sequence_not_found", message)
+        self.assertIn("trip_id='known-trip'", message)
+        self.assertIn("observed_stop_sequence=7", message)
+        self.assertIn("from_stop_sequence=7", message)
+
 
 class _FakeRealtimeResponse:
     status_code = 200
