@@ -274,9 +274,14 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         activeStep.kind == 'bus' &&
         activeStep.routeId != null &&
         activeStep.tripId != null) {
+      final plannedDepartureAt = _plannedRideDepartureAt(
+        trip,
+        activeStep.stepId,
+      );
       final plannedArrivalAt = _plannedRideArrivalAt(trip, activeStep.stepId);
       await _updateBusProgress(
         activeStep,
+        plannedDepartureAt: plannedDepartureAt,
         plannedArrivalAt: plannedArrivalAt,
         forceRefresh: forceRefresh,
       );
@@ -333,6 +338,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
 
   Future<void> _updateBusProgress(
     StepSeg activeStep, {
+    required DateTime plannedDepartureAt,
     required DateTime plannedArrivalAt,
     required bool forceRefresh,
   }) async {
@@ -348,6 +354,8 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       final location = await _busLocationSource.fetch(
         routeId: activeStep.routeId!,
         tripId: activeStep.tripId!,
+        boardingStopId: activeStep.departureStopId,
+        scheduledDepartureAt: plannedDepartureAt,
         vehicleId: trackedVehicleId,
         forceRefresh: forceRefresh,
       );
@@ -435,6 +443,19 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         'clientNow=${DateTime.now().toUtc().toIso8601String()}',
       );
     } on BusLocationNotAvailableException catch (e) {
+      if (e.code == 'bus_realtime_not_started') {
+        state = RealtimeTransitState(
+          trackedStepId: activeStep.stepId,
+          replanTransitMemory: state.replanTransitMemory.clearActiveRide(),
+        );
+        debugPrint(
+          '[MemberModeController] バスRealtime開始前: '
+          'step=${activeStep.stepId} plannedDeparture='
+          '${plannedDepartureAt.toIso8601String()}',
+        );
+        return;
+      }
+
       // An exact route/trip match may not appear in the realtime feed until
       // the assigned vehicle starts reporting. Preserve an already-confirmed
       // onboard fact for this exact step, but never retain a stale forecast.
@@ -588,6 +609,24 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         );
         return state.replanTransitMemory.observeRide(observation);
     }
+  }
+
+  DateTime _plannedRideDepartureAt(Trip trip, String stepId) {
+    final matches = _navigationScheduleForTrip(trip)
+        .where(
+          (entry) =>
+              entry.generatedBy == ScheduleEntrySource.route &&
+              entry.itemKind == ScheduleEntryKind.ride &&
+              entry.routeStepId == stepId,
+        )
+        .toList(growable: false);
+    if (matches.length != 1) {
+      throw StateError(
+        '乗車stepの発車予定を一意に特定できません: '
+        'stepId=$stepId, matches=${matches.length}',
+      );
+    }
+    return matches.single.plannedAt;
   }
 
   DateTime _plannedRideArrivalAt(Trip trip, String stepId) {
