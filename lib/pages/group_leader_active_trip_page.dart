@@ -157,7 +157,10 @@ class _GroupLeaderActiveTripBodyState
       AppLocalizations.of(context),
       ref.watch(cityProfileProvider).city,
     );
-    final primaryAction = resolveGroupLeaderActivePrimaryAction(trip);
+    final primaryAction = resolveGroupLeaderActivePrimaryAction(
+      trip,
+      resolvedEntry: uiState.resolvedEntry,
+    );
 
     return ActiveTripNavigationView(
       navState: uiState.navState,
@@ -220,11 +223,13 @@ class _GroupLeaderActiveTripBodyState
           label: Text(AppLocalizations.of(context).groupOpenManagement),
         ),
       ],
-      bottomNavigationBar: _GroupLeaderPrimaryActionBar(
-        action: primaryAction,
-        running: _primaryActionRunning,
-        onPressed: () => _runPrimaryAction(trip, primaryAction),
-      ),
+      bottomNavigationBar: primaryAction == null
+          ? null
+          : _GroupLeaderPrimaryActionBar(
+              action: primaryAction,
+              running: _primaryActionRunning,
+              onPressed: () => _runPrimaryAction(trip, primaryAction),
+            ),
     );
   }
 
