@@ -457,19 +457,6 @@ class _RouteScheduleBlock extends StatelessWidget {
           const Divider(height: 1),
           for (final entry in entries)
             _RouteScheduleRow(entry: entry),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                l10n.groupScheduleRouteManaged,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
