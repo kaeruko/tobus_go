@@ -57,6 +57,48 @@ class _ActiveRouteContentState extends State<ActiveRouteContent> {
   bool get _supportsVehiclePosition =>
       widget.cityProfile.capabilities.realtime.vehiclePosition;
 
+  DateTime? _scheduledBusDepartureAt(StepSeg step) {
+    final serviceDate = widget.candidate.departureDate;
+    final departureTime = step.departureTime;
+    if (serviceDate == null || departureTime == null) return null;
+
+    final parts = departureTime.split(':');
+    if (parts.length != 2) {
+      throw StateError(
+        'bus departure_time must use HH:MM: step=${step.stepId} '
+        'value=$departureTime',
+      );
+    }
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        minute < 0 ||
+        minute >= 60) {
+      throw StateError(
+        'bus departure_time is invalid: step=${step.stepId} '
+        'value=$departureTime',
+      );
+    }
+
+    if (serviceDate.isUtc) {
+      return DateTime.utc(
+        serviceDate.year,
+        serviceDate.month,
+        serviceDate.day,
+        hour,
+        minute,
+      );
+    }
+    return DateTime(
+      serviceDate.year,
+      serviceDate.month,
+      serviceDate.day,
+      hour,
+      minute,
+    );
+  }
   LatLng? get _vehiclePosition {
     final vehicle = _vehicle;
     if (vehicle == null) return null;
@@ -94,9 +136,21 @@ class _ActiveRouteContentState extends State<ActiveRouteContent> {
 
     setState(() => _loadingRealtime = true);
     try {
+      final scheduledDepartureAt = _scheduledBusDepartureAt(step);
+      String? boardingStopId;
+      if (scheduledDepartureAt != null) {
+        if (step.departureStopId.isEmpty) {
+          throw StateError(
+            'bus step is missing departureStopId: step=${step.stepId}',
+          );
+        }
+        boardingStopId = step.departureStopId;
+      }
       final location = await _source.fetch(
         routeId: step.routeId!,
         tripId: step.tripId!,
+        boardingStopId: boardingStopId,
+        scheduledDepartureAt: scheduledDepartureAt,
         forceRefresh: forceRefresh,
       );
       if (location.vehicleLat == null || location.vehicleLon == null) {
