@@ -109,7 +109,10 @@ class GroupLeaderRouteReplanContent extends ConsumerWidget {
     final tripAsync = ref.watch(tripStreamProvider);
     final delayResolution = ref.watch(resolvedDelayImpactProvider);
     final delayImpact = delayResolution.impact;
-    final presentation = RouteReplanPresentation.fromDelayImpact(delayImpact);
+    final presentation = RouteReplanPresentation.fromDelayImpact(
+      delayImpact,
+      nextRideRealtime: delayResolution.nextRideRealtime,
+    );
     final scheduleImpact = ref.watch(groupScheduleImpactProvider);
     final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
         ? null

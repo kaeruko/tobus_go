@@ -210,7 +210,10 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     final tripTitle = localizedSoloTripTitle(locale, trip);
     final delayResolution = ref.watch(resolvedDelayImpactProvider);
     final delayImpact = delayResolution.impact;
-    final presentation = RouteReplanPresentation.fromDelayImpact(delayImpact);
+    final presentation = RouteReplanPresentation.fromDelayImpact(
+      delayImpact,
+      nextRideRealtime: delayResolution.nextRideRealtime,
+    );
     final showDelayWarning =
         !completed && !terminalArrival && presentation.showWarning;
     final showStandaloneReplan =

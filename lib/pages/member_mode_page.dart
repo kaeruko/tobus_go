@@ -76,8 +76,10 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
     );
     final delayResolution = ref.watch(resolvedDelayImpactProvider);
     final delayImpact = delayResolution.impact;
-    final delayPresentation =
-        RouteReplanPresentation.fromDelayImpact(delayImpact);
+    final delayPresentation = RouteReplanPresentation.fromDelayImpact(
+      delayImpact,
+      nextRideRealtime: delayResolution.nextRideRealtime,
+    );
     final scheduleImpact = ref.watch(groupScheduleImpactProvider);
     final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
         ? null
