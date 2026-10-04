@@ -1,3 +1,4 @@
+import '../models/group_models.dart';
 import '../models/trip_models.dart';
 
 enum GroupLeaderActivePrimaryAction {
@@ -5,7 +6,10 @@ enum GroupLeaderActivePrimaryAction {
   completeTrip,
 }
 
-GroupLeaderActivePrimaryAction resolveGroupLeaderActivePrimaryAction(Trip trip) {
+GroupLeaderActivePrimaryAction? resolveGroupLeaderActivePrimaryAction(
+  Trip trip, {
+  ScheduleEntry? resolvedEntry,
+}) {
   if (trip.tripType != TripType.group) {
     throw StateError('Group leader移動中画面にSolo tripが渡されました: tripId=${trip.id}');
   }
@@ -22,7 +26,15 @@ GroupLeaderActivePrimaryAction resolveGroupLeaderActivePrimaryAction(Trip trip) 
     );
   }
 
-  return trip.completedLegIndex == -1
-      ? GroupLeaderActivePrimaryAction.arriveAtGoal
-      : GroupLeaderActivePrimaryAction.completeTrip;
+  if (trip.completedLegIndex >= 0) {
+    return GroupLeaderActivePrimaryAction.completeTrip;
+  }
+
+  if (resolvedEntry == null ||
+      resolvedEntry.legIndex != trip.activeLegIndex ||
+      resolvedEntry.itemKind != ScheduleEntryKind.goal) {
+    return null;
+  }
+
+  return GroupLeaderActivePrimaryAction.arriveAtGoal;
 }
