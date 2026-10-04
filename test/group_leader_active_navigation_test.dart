@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:toeigo/logic/group_leader_active_navigation.dart';
+import 'package:toeigo/models/group_models.dart';
 import 'package:toeigo/models/trip_models.dart';
 
 Trip _trip({
@@ -26,10 +27,48 @@ Trip _trip({
 }
 
 void main() {
-  test('往路中は目的地到着を主操作にする', () {
+  test('往路中でもナビが目的地到着前なら主操作を表示しない', () {
+    final ride = ScheduleEntry(
+      plannedAt: DateTime(2026, 8, 16, 9, 30),
+      label: '乗車中',
+      itemKind: ScheduleEntryKind.ride,
+      legIndex: 0,
+    );
+
     expect(
-      resolveGroupLeaderActivePrimaryAction(_trip()),
+      resolveGroupLeaderActivePrimaryAction(_trip(), resolvedEntry: ride),
+      isNull,
+    );
+  });
+
+  test('ナビが往路の目的地到着になったら到着操作を表示する', () {
+    final goal = ScheduleEntry(
+      plannedAt: DateTime(2026, 8, 16, 10),
+      label: '目的地 到着',
+      itemKind: ScheduleEntryKind.goal,
+      legIndex: 0,
+    );
+
+    expect(
+      resolveGroupLeaderActivePrimaryAction(_trip(), resolvedEntry: goal),
       GroupLeaderActivePrimaryAction.arriveAtGoal,
+    );
+  });
+
+  test('別legのgoalでは到着操作を表示しない', () {
+    final returnGoal = ScheduleEntry(
+      plannedAt: DateTime(2026, 8, 16, 11),
+      label: '帰着',
+      itemKind: ScheduleEntryKind.goal,
+      legIndex: 1,
+    );
+
+    expect(
+      resolveGroupLeaderActivePrimaryAction(
+        _trip(),
+        resolvedEntry: returnGoal,
+      ),
+      isNull,
     );
   });
 
