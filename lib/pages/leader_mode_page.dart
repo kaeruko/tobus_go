@@ -877,27 +877,8 @@ class _LeaderModePageState extends State<LeaderModePage> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            if (isOutboundMode)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => _handleArrivedAtGoal(context, trip, service),
-                  icon: const Icon(Icons.flag),
-                  label: Text(
-                    AppLocalizations.of(context).groupArriveAndReturn,
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green.shade600,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-              )
-            else
+            if (!isOutboundMode) ...[
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -914,6 +895,7 @@ class _LeaderModePageState extends State<LeaderModePage> {
                   ),
                 ),
               ),
+            ],
           ],
         ),
       );
@@ -940,54 +922,6 @@ class _LeaderModePageState extends State<LeaderModePage> {
         style: const TextStyle(color: Colors.grey),
       ),
     );
-  }
-
-  Future<void> _handleArrivedAtGoal(
-    BuildContext context,
-    Trip trip,
-    TripService service,
-  ) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(AppLocalizations.of(context).groupArrivedTitle),
-        content: Text(AppLocalizations.of(context).groupArrivedQuestion),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(AppLocalizations.of(context).groupNo),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(AppLocalizations.of(context).groupYes),
-          ),
-        ],
-      ),
-    );
-
-    if (result == true) {
-      try {
-        // 往路(0)完了としてインデックスを0に更新（activeLegIndexは1になる）
-        await service.updateCompletedLegIndex(trip.id, 0);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(AppLocalizations.of(context).groupArrivalRecorded),
-            ),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                AppLocalizations.of(context).groupUpdateFailed(e.toString()),
-              ),
-            ),
-          );
-        }
-      }
-    }
   }
 
   void _showCompleteDialog(BuildContext context, Trip trip) {
