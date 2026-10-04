@@ -359,6 +359,12 @@ class _GroupLeaderPrimaryActionBar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         child: FilledButton.icon(
           onPressed: running ? null : onPressed,
+          style: FilledButton.styleFrom(
+            backgroundColor: isOutbound
+                ? Colors.green.shade600
+                : Colors.grey.shade700,
+            foregroundColor: Colors.white,
+          ),
           icon: running
               ? const SizedBox(
                   width: 18,
