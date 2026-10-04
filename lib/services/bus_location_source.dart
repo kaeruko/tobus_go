@@ -260,6 +260,8 @@ abstract interface class BusLocationSource {
   Future<BusLocation> fetch({
     required String routeId,
     required String tripId,
+    String? boardingStopId,
+    DateTime? scheduledDepartureAt,
     String? vehicleId,
     bool forceRefresh = false,
   });
@@ -274,6 +276,8 @@ class RealtimeBusLocationSource implements BusLocationSource {
   Future<BusLocation> fetch({
     required String routeId,
     required String tripId,
+    String? boardingStopId,
+    DateTime? scheduledDepartureAt,
     String? vehicleId,
     bool forceRefresh = false,
   }) async {
@@ -288,12 +292,14 @@ class RealtimeBusLocationSource implements BusLocationSource {
       final json = await ApiClient.fetchBusLocation(
         routeId: routeId,
         tripId: tripId,
+        boardingStopId: boardingStopId,
+        scheduledDepartureAt: scheduledDepartureAt,
         vehicleId: vehicleId,
         forceRefresh: forceRefresh,
       );
       return BusLocation.fromJson(json, routeId: routeId, tripId: tripId);
     } on ApiException catch (error) {
-      if (error.statusCode == 404) {
+      if (error.statusCode == 404 || error.statusCode == 425) {
         throw BusLocationNotAvailableException(
           code: error.code,
           message: error.message,
@@ -332,6 +338,8 @@ class FakeBusLocationSource implements BusLocationSource {
   Future<BusLocation> fetch({
     required String routeId,
     required String tripId,
+    String? boardingStopId,
+    DateTime? scheduledDepartureAt,
     String? vehicleId,
     bool forceRefresh = false,
   }) async {
