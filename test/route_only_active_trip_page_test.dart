@@ -11,6 +11,8 @@ class _BeforeFirstStopSource implements BusLocationSource {
   Future<BusLocation> fetch({
     required String routeId,
     required String tripId,
+    String? boardingStopId,
+    DateTime? scheduledDepartureAt,
     String? vehicleId,
     bool forceRefresh = false,
   }) async {

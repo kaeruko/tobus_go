@@ -157,6 +157,8 @@ final nextRideRealtimeDepartureProvider =
             final location = await ref.read(busLocationSourceProvider).fetch(
               routeId: routeId,
               tripId: tripId,
+              boardingStopId: step.departureStopId,
+              scheduledDepartureAt: base.nextDepartureAt,
               forceRefresh: true,
             );
             return NextRideRealtimeAdapter.fromBus(

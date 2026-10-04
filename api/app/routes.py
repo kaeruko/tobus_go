@@ -81,6 +81,150 @@ def _busloc_match_diagnostic(
     }
 
 
+
+_BUS_REALTIME_LEAD_MINUTES = 5
+
+
+def _bus_realtime_schedule_window(
+    *,
+    route_id: str,
+    trip_id: str,
+    boarding_stop_id: str | None,
+    scheduled_departure_at: str | None,
+) -> dict | None:
+    if (boarding_stop_id is None) != (scheduled_departure_at is None):
+        raise HTTPException(
+            400,
+            detail={
+                "code": "bus_realtime_schedule_context_incomplete",
+                "message": (
+                    "boarding_stop_id and scheduled_departure_at must be "
+                    "specified together"
+                ),
+            },
+        )
+    if boarding_stop_id is None:
+        return None
+
+    trip = gtfs_repo.trips.get(trip_id)
+    if trip is None:
+        raise HTTPException(
+            400,
+            detail={
+                "code": "bus_realtime_static_trip_unknown",
+                "message": f"Static GTFS does not contain trip {trip_id}",
+            },
+        )
+    static_route_id = trip.get("route_id")
+    if static_route_id != route_id:
+        raise HTTPException(
+            400,
+            detail={
+                "code": "bus_realtime_static_route_mismatch",
+                "message": (
+                    f"Static GTFS trip {trip_id} belongs to route "
+                    f"{static_route_id}, not {route_id}"
+                ),
+            },
+        )
+
+    try:
+        scheduled = datetime.datetime.fromisoformat(scheduled_departure_at)
+    except ValueError as exc:
+        raise HTTPException(
+            400,
+            detail={
+                "code": "bus_realtime_departure_time_invalid",
+                "message": "scheduled_departure_at must be ISO-8601",
+            },
+        ) from exc
+    if scheduled.tzinfo is None or scheduled.utcoffset() is None:
+        raise HTTPException(
+            400,
+            detail={
+                "code": "bus_realtime_departure_timezone_missing",
+                "message": "scheduled_departure_at must include a timezone offset",
+            },
+        )
+    if scheduled.second != 0 or scheduled.microsecond != 0:
+        raise HTTPException(
+            400,
+            detail={
+                "code": "bus_realtime_departure_precision_invalid",
+                "message": "scheduled_departure_at must use minute precision",
+            },
+        )
+
+    tokyo_tz = ZoneInfo("Asia/Tokyo")
+    scheduled_tokyo = scheduled.astimezone(tokyo_tz)
+    scheduled_clock_minute = scheduled_tokyo.hour * 60 + scheduled_tokyo.minute
+
+    stops_by_sequence = gtfs_repo.stop_times.get(trip_id)
+    if not stops_by_sequence:
+        raise RuntimeError(f"GTFS trip has no stop_times: trip_id={trip_id!r}")
+
+    stop_matches = [
+        (sequence, stop_time)
+        for sequence, stop_time in stops_by_sequence.items()
+        if stop_time[0] == boarding_stop_id
+        and stop_time[2] % (24 * 60) == scheduled_clock_minute
+    ]
+    if not stop_matches:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "bus_realtime_boarding_schedule_mismatch",
+                "message": (
+                    "boarding_stop_id and scheduled_departure_at do not match "
+                    "the static GTFS trip"
+                ),
+                "trip_id": trip_id,
+                "boarding_stop_id": boarding_stop_id,
+                "scheduled_departure_at": scheduled_departure_at,
+            },
+        )
+    if len(stop_matches) != 1:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "bus_realtime_boarding_schedule_ambiguous",
+                "message": (
+                    "Static GTFS contains multiple matching boarding events "
+                    "for this trip"
+                ),
+                "trip_id": trip_id,
+                "boarding_stop_id": boarding_stop_id,
+                "scheduled_departure_at": scheduled_departure_at,
+            },
+        )
+
+    boarding_sequence, boarding_stop_time = stop_matches[0]
+    boarding_departure_minute = boarding_stop_time[2]
+    first_sequence = min(stops_by_sequence)
+    first_departure_minute = stops_by_sequence[first_sequence][2]
+    check_start_minute = max(
+        first_departure_minute,
+        boarding_departure_minute - _BUS_REALTIME_LEAD_MINUTES,
+    )
+    if check_start_minute > boarding_departure_minute:
+        raise RuntimeError(
+            "GTFS realtime check window is inverted: "
+            f"trip_id={trip_id!r} first_departure={first_departure_minute} "
+            f"boarding_departure={boarding_departure_minute}"
+        )
+
+    check_start_at = scheduled_tokyo - datetime.timedelta(
+        minutes=boarding_departure_minute - check_start_minute
+    )
+    return {
+        "boarding_stop_id": boarding_stop_id,
+        "boarding_stop_sequence": boarding_sequence,
+        "scheduled_departure_at": scheduled_tokyo.isoformat(),
+        "realtime_check_start_at": check_start_at.isoformat(),
+        "check_start_at": check_start_at,
+    }
+
+
 from toei_engine import (
     nearest_phys,
     haversine,
@@ -336,6 +480,14 @@ def register_routes(app):
     async def bus_location(
         route_id: str = Query(...),
         trip_id: str = Query(...),
+        boarding_stop_id: str = Query(
+            None,
+            description="Static GTFS stop ID where the rider boards",
+        ),
+        scheduled_departure_at: str = Query(
+            None,
+            description="Timezone-aware ISO-8601 planned departure at boarding_stop_id",
+        ),
         vehicle_id: str = Query(None, description="Optional physical bus ID to track specific vehicle"),
         force_refresh: bool = Query(
             False,
@@ -358,10 +510,42 @@ def register_routes(app):
             "now": now,
             "route_id": route_id,
             "trip_id": trip_id,
+            "boarding_stop_id": boarding_stop_id,
+            "scheduled_departure_at": scheduled_departure_at,
             "vehicle_id": vehicle_id,
             "force_refresh": force_refresh,
             "debug": debug,
         }
+
+        schedule_window = _bus_realtime_schedule_window(
+            route_id=route_id,
+            trip_id=trip_id,
+            boarding_stop_id=boarding_stop_id,
+            scheduled_departure_at=scheduled_departure_at,
+        )
+        if schedule_window is not None:
+            check_start_at = schedule_window["check_start_at"]
+            current_tokyo = datetime.now(ZoneInfo("Asia/Tokyo"))
+            if current_tokyo < check_start_at:
+                diagnostic = {
+                    key: value
+                    for key, value in schedule_window.items()
+                    if key != "check_start_at"
+                }
+                _busloc_log({
+                    **base,
+                    "ok": False,
+                    "reason": "REALTIME_NOT_STARTED",
+                    "diagnostic": diagnostic,
+                })
+                raise HTTPException(
+                    425,
+                    detail={
+                        "code": "bus_realtime_not_started",
+                        "message": "Realtime lookup has not started for this trip",
+                        "diagnostic": diagnostic,
+                    },
+                )
 
         tm = app.state.TM
         provider = getattr(app.state, "realtime_provider", None)
