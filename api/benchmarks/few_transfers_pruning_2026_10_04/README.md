@@ -142,3 +142,13 @@
 - [RSS測定報告](rss_report.md): 全時間・メモリ・入力変動・測定限界・過去測定との関係。
 - [rss_results.json](rss_results.json) / [rss_probe.py](rss_probe.py): 独立プロセスの測定値と再現手順。
 - [cost削減監査](cost_pruning_audit.md): 今回のキュー整理と、目的地下界・乗車回数key統合の安全条件。
+
+## fewTransfersだけのA*実験
+
+2026-10-05、現在の正しい共通label探索をin-memoryでコピーし、fewTransfersの順序だけに逆向き辞書式下界を接続した。製品・cost／time・探索上限・優劣判定は変更していない。
+
+指定の十間橋→渋谷区役所20:40発では、同じ5候補・順序・便IDを維持し、pop 99,822→2,297、前処理・便照合込み中央値4.795→0.773秒、active frontier label 147,490→3,379、Windows OS生涯ピーク1,270.5→1,212.9MiBとなった。下界作成は毎回約0.3〜0.4秒でキャッシュなし。
+
+7入力でA*が5候補を返し、現在の探索が完了した6入力は候補全体が一致。現在は上限に達する新宿→浅草も、A*では3,976popで5候補を便照合できた。実験16テスト＋A*下の既存31件、通常APIテスト350件PASS。本番未反映。
+
+詳細・限界・再現手順は [fewTransfers A*報告](few_astar_report.md)、生の結果は [few_astar_2026_10_05/results.json](few_astar_2026_10_05/results.json) を参照。旧 `bounds_results.json` の7054／19423回とは実装が異なるため、新しい値を使用する。

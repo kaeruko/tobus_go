@@ -162,6 +162,8 @@ Windowsの独立プロセス測定では、OSが記録したプロセス生涯�
 
 測定範囲・初回と再実行・前処理・サンプリング間隔・起動時ピーク・全入力の数値は [RSS測定報告](../benchmarks/few_transfers_pruning_2026_10_04/rss_report.md) に記録した。Windows値をLambda/Linuxのメモリ量や設定済み上限と同一視しない。本番反映は行っていない。
 
+その後、fewTransfersだけに逆向き辞書式下界を接続する [A*実験](../benchmarks/few_transfers_pruning_2026_10_04/few_astar_report.md) を行った。製品を変更せず現在の共通label探索をメモリ上でコピーし、優先度だけを変更した。指定経路は同じ5候補・便IDで99,822→2,297pop、前処理・便照合込み中央値4.795→0.773秒。7入力と便継続・徒歩資源・下界の許容性テストを確認した。製品探索の優先度や上記状態契約はこの実験で変更していない。
+
 ## 参照
 
 - [正式回帰テスト](../tests/test_tokyo_search_dominance_regression.py)
