@@ -3129,7 +3129,30 @@ def parse_realtime_gtfs(content: bytes):
             }
             result_list.append(bus_data)
         else:
-            pass
+            if not trip_id:
+                rejection_reason = "missing_trip_id"
+            elif trip_id not in gtfs_repo.trips:
+                rejection_reason = "static_trip_not_found"
+            elif from_seq not in gtfs_repo.stop_times.get(trip_id, {}):
+                rejection_reason = "static_stop_sequence_not_found"
+            else:
+                rejection_reason = "static_bus_details_not_found"
+
+            print(
+                "[GTFS-RT DROP] "
+                f"reason={rejection_reason} "
+                f"entity_id={entity.id!r} "
+                f"vehicle_id={v.vehicle.id!r} "
+                f"route_id={v.trip.route_id!r} "
+                f"trip_id={trip_id!r} "
+                f"raw_stop_id={raw_stop_id!r} "
+                f"observed_stop_sequence={observed_seq} "
+                f"from_stop_sequence={from_seq} "
+                f"current_status={status_name} "
+                f"feed_timestamp={feed_timestamp} "
+                f"vehicle_timestamp={vehicle_timestamp}",
+                flush=True,
+            )
             
     return result_list
 
