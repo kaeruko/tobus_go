@@ -129,6 +129,78 @@ void main() {
       );
     });
 
+    test('sends boarding stop and scheduled departure together', () async {
+      Uri? requestedUri;
+      ApiClient.httpClient = MockClient((request) async {
+        requestedUri = request.url;
+        return http.Response('{}', 200);
+      });
+
+      await ApiClient.fetchBusLocation(
+        routeId: 'route-id',
+        tripId: 'trip-id',
+        boardingStopId: 'stop-1',
+        scheduledDepartureAt: DateTime.parse('2026-10-04T10:13:00+09:00'),
+      );
+
+      expect(requestedUri?.queryParameters['boarding_stop_id'], 'stop-1');
+      expect(
+        requestedUri?.queryParameters['scheduled_departure_at'],
+        '2026-10-04T01:13:00.000Z',
+      );
+    });
+
+    test('rejects incomplete boarding schedule context before HTTP', () async {
+      var requestCount = 0;
+      ApiClient.httpClient = MockClient((request) async {
+        requestCount++;
+        return http.Response('{}', 200);
+      });
+
+      await expectLater(
+        ApiClient.fetchBusLocation(
+          routeId: 'route-id',
+          tripId: 'trip-id',
+          boardingStopId: 'stop-1',
+        ),
+        throwsArgumentError,
+      );
+      expect(requestCount, 0);
+    });
+
+    test('treats 425 realtime-not-started as an expected unavailable state', () async {
+      ApiClient.httpClient = MockClient((request) async {
+        return http.Response(
+          '{"detail":{"code":"bus_realtime_not_started",'
+          '"message":"Realtime lookup has not started for this trip",'
+          '"diagnostic":{"realtime_check_start_at":"2026-10-04T10:13:00+09:00"}}}',
+          425,
+        );
+      });
+
+      await expectLater(
+        const RealtimeBusLocationSource().fetch(
+          routeId: 'route-id',
+          tripId: 'trip-id',
+          boardingStopId: 'stop-1',
+          scheduledDepartureAt: DateTime(2026, 10, 4, 10, 13),
+        ),
+        throwsA(
+          isA<BusLocationNotAvailableException>()
+              .having(
+                (error) => error.code,
+                'code',
+                'bus_realtime_not_started',
+              )
+              .having(
+                (error) => error.diagnostic,
+                'diagnostic',
+                {'realtime_check_start_at': '2026-10-04T10:13:00+09:00'},
+              ),
+        ),
+      );
+    });
+
     test('adds force_refresh only for a manual refresh', () async {
       Uri? requestedUri;
       ApiClient.httpClient = MockClient((request) async {
