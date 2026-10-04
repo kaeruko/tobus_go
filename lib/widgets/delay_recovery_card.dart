@@ -6,36 +6,18 @@ import '../logic/next_ride_realtime.dart';
 class DelayRecoveryCard extends StatelessWidget {
   final DelayImpact impact;
   final Widget? action;
-  final String? helperText;
   final NextRideRealtimeDeparture? nextRideRealtime;
-  final DateTime? scheduledNextDepartureAt;
-  final String? realtimeDiagnostic;
 
   const DelayRecoveryCard({
     super.key,
     required this.impact,
     this.action,
-    this.helperText,
     this.nextRideRealtime,
-    this.scheduledNextDepartureAt,
-    this.realtimeDiagnostic,
   });
 
   @override
   Widget build(BuildContext context) {
     if (!impact.requiresReplan) return const SizedBox.shrink();
-
-    final missedMinutes = _ceilMinutes(impact.missedBy);
-    final isConfirmedTransfer =
-        impact.basis == DelayImpactBasis.confirmedTransferPlace;
-    final basisText = isConfirmedTransfer
-        ? '${_clock(impact.predictedArrivalAt)}現在、'
-            '${impact.currentAlightingPlaceName}を最後に確認できた地点として見積もっています。'
-        : '${_clock(impact.predictedArrivalAt)} '
-            '${impact.currentAlightingPlaceName}到着見込みです。';
-    final transferRequirementText = _transferRequirementText(
-      isConfirmedTransfer: isConfirmedTransfer,
-    );
 
     return Card(
       margin: EdgeInsets.zero,
@@ -66,34 +48,27 @@ class DelayRecoveryCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            Text(basisText),
+            const SizedBox(height: 12),
+            Text(
+              '${_clock(impact.predictedArrivalAt)} '
+              '${impact.currentAlightingPlaceName}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            if (impact.transferWalkMinutes > 0) ...[
+              const SizedBox(height: 4),
+              Text('徒歩${impact.transferWalkMinutes}分'),
+            ],
+            if (impact.transferBoardingMinutes > 0) ...[
+              const SizedBox(height: 4),
+              Text('乗車準備${impact.transferBoardingMinutes}分'),
+            ],
             const SizedBox(height: 4),
-            Text(_transferRiskText(transferRequirementText, missedMinutes)),
-            if (nextRideRealtime != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                _nextRideRealtimeText(),
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ],
-            if (realtimeDiagnostic != null &&
-                realtimeDiagnostic!.trim().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                realtimeDiagnostic!,
-                style: TextStyle(color: Colors.red.shade700, fontSize: 12),
-              ),
-            ],
-            if (helperText != null && helperText!.trim().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                helperText!,
-                style: const TextStyle(color: Colors.black54, fontSize: 13),
-              ),
-            ],
+            Text(
+              _nextRideText(),
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
             if (action != null) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               action!,
             ],
           ],
@@ -102,47 +77,22 @@ class DelayRecoveryCard extends StatelessWidget {
     );
   }
 
-  String _transferRequirementText({required bool isConfirmedTransfer}) {
-    final parts = <String>[];
-    if (impact.transferWalkMinutes > 0) {
-      parts.add('徒歩${impact.transferWalkMinutes}分');
-    }
-    if (impact.transferBoardingMinutes > 0) {
-      parts.add('乗車準備${impact.transferBoardingMinutes}分');
-    }
-    if (parts.isEmpty) return '';
-    final requirement = parts.join('と');
-    return isConfirmedTransfer
-        ? '現在地を推測せず、予定の$requirementをすべて見込むと、'
-        : '$requirementを含めると、';
-  }
-
-  String _transferRiskText(String requirementText, int missedMinutes) {
+  String _nextRideText() {
     final realtime = nextRideRealtime;
-    if (realtime?.status ==
-        NextRideRealtimeDepartureStatus.passedBoardingPlace) {
-      return '$requirementText${impact.nextRideTitle}は乗車地点を通過済みです。';
+    if (realtime == null) {
+      return '${_clock(impact.nextDepartureAt)} ${impact.nextRideTitle}';
     }
-    return '$requirementText${_clock(impact.nextDepartureAt)}発 '
-        '${impact.nextRideTitle}には約$missedMinutes分間に合わない見込みです。';
-  }
 
-  String _nextRideRealtimeText() {
-    final realtime = nextRideRealtime!;
     switch (realtime.status) {
       case NextRideRealtimeDepartureStatus.predicted:
-        final scheduled = scheduledNextDepartureAt;
-        if (scheduled == null) {
-          throw StateError('次便Realtime適用時に予定出発時刻がありません');
-        }
-        return '次便Realtime: ${_clock(impact.nextDepartureAt)}発見込み '
-            '（予定 ${_clock(scheduled)}）';
+        return '${_clock(impact.nextDepartureAt)} '
+            '次便は${realtime.boardingPlaceName}発見込み';
       case NextRideRealtimeDepartureStatus.atBoardingPlace:
-        return '次便Realtime: ${_clock(realtime.observedAt)}時点で'
-            '${realtime.boardingPlaceName}に到着済みです。';
+        return '${_clock(realtime.observedAt)} '
+            '次便は${realtime.boardingPlaceName}に到着';
       case NextRideRealtimeDepartureStatus.passedBoardingPlace:
-        return '次便Realtime: ${_clock(realtime.observedAt)}時点で'
-            '${realtime.boardingPlaceName}を通過済みです。';
+        return '${_clock(realtime.observedAt)} '
+            '次便は${realtime.boardingPlaceName}を通過';
     }
   }
 
@@ -150,11 +100,5 @@ class DelayRecoveryCard extends StatelessWidget {
     final local = value.toLocal();
     return '${local.hour.toString().padLeft(2, '0')}:'
         '${local.minute.toString().padLeft(2, '0')}';
-  }
-
-  static int _ceilMinutes(Duration duration) {
-    final seconds = duration.inSeconds;
-    if (seconds <= 0) return 0;
-    return (seconds + 59) ~/ 60;
   }
 }

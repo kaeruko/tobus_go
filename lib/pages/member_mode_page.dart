@@ -81,11 +81,6 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
       nextRideRealtime: delayResolution.nextRideRealtime,
     );
     final scheduleImpact = ref.watch(groupScheduleImpactProvider);
-    final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
-        ? null
-        : AppLocalizations.of(context).realtimeScheduleFallback(
-            delayResolution.nextRideRealtimeError.toString(),
-          );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark.copyWith(
@@ -148,10 +143,6 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
             DelayRecoveryCard(
               impact: delayImpact!,
               nextRideRealtime: delayResolution.nextRideRealtime,
-              scheduledNextDepartureAt:
-                  delayResolution.scheduledNextDepartureAt,
-              realtimeDiagnostic: realtimeDiagnostic,
-              helperText: AppLocalizations.of(context).groupMemberReplanNotice,
             ),
           );
         }

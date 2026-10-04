@@ -13,12 +13,58 @@ class SavedRoutesNotifier extends StateNotifier<List<Candidate>> {
 
   Future<void> _load() async {
     final routes = await _storage.loadRoutes();
-    state = routes;
+    if (routes.isEmpty) {
+      state = const [];
+      return;
+    }
+
+    final missingSavedAt = routes
+        .where((route) => route.savedRouteSavedAt == null)
+        .length;
+    if (missingSavedAt != 0 && missingSavedAt != routes.length) {
+      throw StateError(
+        'お気に入りの保存時刻が一部だけ欠けています: '
+        '$missingSavedAt/${routes.length}',
+      );
+    }
+
+    var normalized = routes;
+    final needsMigration = missingSavedAt == routes.length;
+    if (needsMigration) {
+      final legacyBase = DateTime.utc(2000, 1, 1);
+      normalized = [
+        for (var index = 0; index < routes.length; index++)
+          routes[index].withSavedRouteSavedAt(
+            legacyBase.add(Duration(microseconds: index)),
+          ),
+      ];
+    }
+
+    final sorted = _sortNewestFirst(normalized);
+    if (needsMigration) {
+      await _storage.saveRoutes(sorted);
+    }
+    state = sorted;
   }
 
   Future<void> add(Candidate route) async {
-    state = [...state, route];
-    await _storage.saveRoutes(state);
+    final savedRoute = route.withSavedRouteSavedAt(DateTime.now().toUtc());
+    final newState = _sortNewestFirst([...state, savedRoute]);
+    await _storage.saveRoutes(newState);
+    state = newState;
+  }
+
+  List<Candidate> _sortNewestFirst(Iterable<Candidate> routes) {
+    final sorted = routes.toList();
+    for (final route in sorted) {
+      if (route.savedRouteSavedAt == null) {
+        throw StateError('お気に入りの保存時刻がありません: routeId=${route.id}');
+      }
+    }
+    sorted.sort(
+      (a, b) => b.savedRouteSavedAt!.compareTo(a.savedRouteSavedAt!),
+    );
+    return sorted;
   }
 
   Future<void> remove(Candidate route) async {

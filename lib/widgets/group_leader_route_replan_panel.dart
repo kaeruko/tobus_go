@@ -114,11 +114,6 @@ class GroupLeaderRouteReplanContent extends ConsumerWidget {
       nextRideRealtime: delayResolution.nextRideRealtime,
     );
     final scheduleImpact = ref.watch(groupScheduleImpactProvider);
-    final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
-        ? null
-        : l10n.realtimeScheduleFallback(
-            delayResolution.nextRideRealtimeError.toString(),
-          );
 
     return tripAsync.when(
       loading: () => alwaysShowAction && !warningOnly
@@ -165,10 +160,6 @@ class GroupLeaderRouteReplanContent extends ConsumerWidget {
             DelayRecoveryCard(
               impact: delayImpact!,
               nextRideRealtime: delayResolution.nextRideRealtime,
-              scheduledNextDepartureAt:
-                  delayResolution.scheduledNextDepartureAt,
-              realtimeDiagnostic: realtimeDiagnostic,
-              helperText: l10n.groupReplanLeaderNotice,
               action: replanButton,
             ),
           );
