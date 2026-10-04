@@ -1,10 +1,12 @@
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.routes import register_routes
+from gtfs_loader import gtfs_repo
 
 
 class _FakeProvider:
@@ -29,6 +31,16 @@ class _FakeProvider:
                 "odpt:fromBusstopPole": None,
             },
         )
+
+
+class _CountingProvider:
+    def __init__(self):
+        self.calls = 0
+
+    async def vehicle_positions(self, *, force_refresh=False):
+        del force_refresh
+        self.calls += 1
+        return ()
 
 
 class _MovedVehicleProvider:
@@ -56,6 +68,130 @@ class _MovedVehicleProvider:
 
 
 class TokyoBusLocationRoutesTest(unittest.TestCase):
+    def test_realtime_is_not_requested_before_first_stop_departure(self):
+        app = FastAPI()
+        app.state.TM = SimpleNamespace(latest_bus_positions_fetched_at=0)
+        provider = _CountingProvider()
+        app.state.realtime_provider = provider
+        register_routes(app)
+
+        with (
+            patch.object(
+                gtfs_repo,
+                "trips",
+                {"trip-1": {"route_id": "route-1", "service_id": "service-1"}},
+            ),
+            patch.object(
+                gtfs_repo,
+                "stop_times",
+                {
+                    "trip-1": {
+                        1: ("stop-1", 613, 613),
+                        2: ("stop-2", 619, 619),
+                    }
+                },
+            ),
+        ):
+            response = TestClient(app).get(
+                "/bus/location",
+                params={
+                    "route_id": "route-1",
+                    "trip_id": "trip-1",
+                    "boarding_stop_id": "stop-1",
+                    "scheduled_departure_at": "2099-10-04T10:13:00+09:00",
+                },
+            )
+
+        self.assertEqual(response.status_code, 425)
+        self.assertEqual(
+            response.json()["detail"]["code"],
+            "bus_realtime_not_started",
+        )
+        diagnostic = response.json()["detail"]["diagnostic"]
+        self.assertEqual(
+            diagnostic["realtime_check_start_at"],
+            "2099-10-04T10:13:00+09:00",
+        )
+        self.assertEqual(provider.calls, 0)
+
+    def test_downstream_stop_starts_realtime_five_minutes_before_boarding(self):
+        app = FastAPI()
+        app.state.TM = SimpleNamespace(latest_bus_positions_fetched_at=0)
+        provider = _CountingProvider()
+        app.state.realtime_provider = provider
+        register_routes(app)
+
+        with (
+            patch.object(
+                gtfs_repo,
+                "trips",
+                {"trip-1": {"route_id": "route-1", "service_id": "service-1"}},
+            ),
+            patch.object(
+                gtfs_repo,
+                "stop_times",
+                {
+                    "trip-1": {
+                        1: ("stop-1", 613, 613),
+                        2: ("stop-2", 619, 619),
+                    }
+                },
+            ),
+        ):
+            response = TestClient(app).get(
+                "/bus/location",
+                params={
+                    "route_id": "route-1",
+                    "trip_id": "trip-1",
+                    "boarding_stop_id": "stop-2",
+                    "scheduled_departure_at": "2099-10-04T10:19:00+09:00",
+                },
+            )
+
+        self.assertEqual(response.status_code, 425)
+        diagnostic = response.json()["detail"]["diagnostic"]
+        self.assertEqual(
+            diagnostic["realtime_check_start_at"],
+            "2099-10-04T10:14:00+09:00",
+        )
+        self.assertEqual(provider.calls, 0)
+
+    def test_schedule_gate_rejects_mismatched_boarding_time(self):
+        app = FastAPI()
+        app.state.TM = SimpleNamespace(latest_bus_positions_fetched_at=0)
+        provider = _CountingProvider()
+        app.state.realtime_provider = provider
+        register_routes(app)
+
+        with (
+            patch.object(
+                gtfs_repo,
+                "trips",
+                {"trip-1": {"route_id": "route-1", "service_id": "service-1"}},
+            ),
+            patch.object(
+                gtfs_repo,
+                "stop_times",
+                {"trip-1": {1: ("stop-1", 613, 613)}},
+            ),
+        ):
+            response = TestClient(app).get(
+                "/bus/location",
+                params={
+                    "route_id": "route-1",
+                    "trip_id": "trip-1",
+                    "boarding_stop_id": "stop-1",
+                    "scheduled_departure_at": "2099-10-04T10:14:00+09:00",
+                },
+            )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(
+            response.json()["detail"]["code"],
+            "bus_realtime_boarding_schedule_mismatch",
+        )
+        self.assertEqual(provider.calls, 0)
+
     def test_before_first_stop_is_preserved_at_http_contract(self):
         app = FastAPI()
         app.state.TM = SimpleNamespace(latest_bus_positions_fetched_at=1_700_000_002)
