@@ -1,0 +1,337 @@
+{
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "request": {
+    "alat": 35.708166,
+    "alon": 139.817434,
+    "blat": 35.6636842,
+    "blon": 139.6977409,
+    "pref": "cost",
+    "bus_only": false,
+    "target_date_str": "2026-10-04",
+    "start_time": "20:40",
+    "limit": 5
+  },
+  "origin_reference": "GTFS stops.txt 0751-01 十間橋",
+  "destination_reference": "渋谷区役所公式map place coordinates !3d35.6636842!4d139.6977409",
+  "scope": "Offline/static, no HTTP, no realtime feeds, no train identity resolution. Full_ms includes coordinate setup, detail generation, adapter contract checks, explicit GC, and serialization; core_ms is the nested search_best_routes_once time.",
+  "clock_for_static_policy": "2026-10-04T18:40:00+09:00",
+  "startup": {
+    "imports_ms": 900.5858000018634,
+    "pickle_load_ms": 650.5066000390798,
+    "bus_gtfs_load_ms": 3263.7866000295617
+  },
+  "dataset": {
+    "nodes": 18984,
+    "edges": 63970,
+    "bus_trips": 61324
+  },
+  "sha256": {
+    "api\\toei_engine.py": "9a6ee646d65b462f97e0670868343ac06cc0ced74a50492566c8592eb2b3ef0f",
+    "api\\tokyo_route_engine.py": "2964e4bcaa0a3c2f70b1b8fe24bfe86b357ae7eae99975eeb6d88c90aa774aa6",
+    "api\\data\\app_data.pkl": "03d153f5077d7191ab162bdd262d6b58f878b54c08dc0aff55b7e4ecead9cdb8",
+    "api\\data\\ToeiBus-GTFS\\calendar.txt": "69c5e91b8e6a1e6d44e6f34c61da356701d2710e2f6dc905d454e0a985b59522"
+  },
+  "modes": [
+    {
+      "mode": "cost",
+      "runs": [
+        {
+          "iteration": 0,
+          "kind": "first_for_mode_in_shared_process",
+          "full_ms": 577.7616000268608,
+          "core_calls": [
+            {
+              "use_realtime": false,
+              "target_node": [
+                "phys",
+                "dest:35.663684,139.697741"
+              ],
+              "virtual_connections": 16,
+              "candidate_count": 2,
+              "ms": 427.84859996754676
+            }
+          ],
+          "core_ms": 427.84859996754676,
+          "candidate_count": 2,
+          "same_as_first_excluding_step_ids": true
+        },
+        {
+          "iteration": 1,
+          "kind": "warm",
+          "full_ms": 674.7343000024557,
+          "core_calls": [
+            {
+              "use_realtime": false,
+              "target_node": [
+                "phys",
+                "dest:35.663684,139.697741"
+              ],
+              "virtual_connections": 16,
+              "candidate_count": 2,
+              "ms": 521.4135000132956
+            }
+          ],
+          "core_ms": 521.4135000132956,
+          "candidate_count": 2,
+          "same_as_first_excluding_step_ids": true
+        },
+        {
+          "iteration": 2,
+          "kind": "warm",
+          "full_ms": 618.0089999688789,
+          "core_calls": [
+            {
+              "use_realtime": false,
+              "target_node": [
+                "phys",
+                "dest:35.663684,139.697741"
+              ],
+              "virtual_connections": 16,
+              "candidate_count": 2,
+              "ms": 513.896599994041
+            }
+          ],
+          "core_ms": 513.896599994041,
+          "candidate_count": 2,
+          "same_as_first_excluding_step_ids": true
+        },
+        {
+          "iteration": 3,
+          "kind": "warm",
+          "full_ms": 529.9330999841914,
+          "core_calls": [
+            {
+              "use_realtime": false,
+              "target_node": [
+                "phys",
+                "dest:35.663684,139.697741"
+              ],
+              "virtual_connections": 16,
+              "candidate_count": 2,
+              "ms": 427.3535999818705
+            }
+          ],
+          "core_ms": 427.3535999818705,
+          "candidate_count": 2,
+          "same_as_first_excluding_step_ids": true
+        },
+        {
+          "iteration": 4,
+          "kind": "warm",
+          "full_ms": 701.1232000077143,
+          "core_calls": [
+            {
+              "use_realtime": false,
+              "target_node": [
+                "phys",
+                "dest:35.663684,139.697741"
+              ],
+              "virtual_connections": 16,
+              "candidate_count": 2,
+              "ms": 585.7947999611497
+            }
+          ],
+          "core_ms": 585.7947999611497,
+          "candidate_count": 2,
+          "same_as_first_excluding_step_ids": true
+        },
+        {
+          "iteration": 5,
+          "kind": "warm",
+          "full_ms": 567.4152999999933,
+          "core_calls": [
+            {
+              "use_realtime": false,
+              "target_node": [
+                "phys",
+                "dest:35.663684,139.697741"
+              ],
+              "virtual_connections": 16,
+              "candidate_count": 2,
+              "ms": 458.16720003494993
+            }
+          ],
+          "core_ms": 458.16720003494993,
+          "candidate_count": 2,
+          "same_as_first_excluding_step_ids": true
+        }
+      ],
+      "warm_summary_ms": {
+        "full_ms": {
+          "median": 618.0089999688789,
+          "min": 529.9330999841914,
+          "max": 701.1232000077143
+        },
+        "core_ms": {
+          "median": 513.896599994041,
+          "min": 427.3535999818705,
+          "max": 585.7947999611497
+        }
+      }
+    },
+    {
+      "mode": "time",
+      "runs": [
+        {
+          "iteration": 0,
+          "kind": "first_for_mode_in_shared_process",
+          "full_ms": 788.4901000070386,
+          "core_calls": [
+            {
+              "use_realtime": false,
+              "target_node": [
+                "phys",
+                "dest:35.663684,139.697741"
+              ],
+              "virtual_connections": 16,
+              "candidate_count": 1,
+              "ms": 674.9065999756567
+            }
+          ],
+          "core_ms": 674.9065999756567,
+          "candidate_count": 1,
+          "same_as_first_excluding_step_ids": true
+        },
+        {
+          "iteration": 1,
+          "kind": "warm",
+          "full_ms": 897.3840000107884,
+          "core_calls": [
+            {
+              "use_realtime": false,
+              "target_node": [
+                "phys",
+                "dest:35.663684,139.697741"
+              ],
+              "virtual_connections": 16,
+              "candidate_count": 1,
+              "ms": 790.0044999551028
+            }
+          ],
+          "core_ms": 790.0044999551028,
+          "candidate_count": 1,
+          "same_as_first_excluding_step_ids": true
+        },
+        {
+          "iteration": 2,
+          "kind": "warm",
+          "full_ms": 758.2336000050418,
+          "core_calls": [
+            {
+              "use_realtime": false,
+              "target_node": [
+                "phys",
+                "dest:35.663684,139.697741"
+              ],
+              "virtual_connections": 16,
+              "candidate_count": 1,
+              "ms": 653.8509000092745
+            }
+          ],
+          "core_ms": 653.8509000092745,
+          "candidate_count": 1,
+          "same_as_first_excluding_step_ids": true
+        },
+        {
+          "iteration": 3,
+          "kind": "warm",
+          "full_ms": 794.1761000547558,
+          "core_calls": [
+            {
+              "use_realtime": false,
+              "target_node": [
+                "phys",
+                "dest:35.663684,139.697741"
+              ],
+              "virtual_connections": 16,
+              "candidate_count": 1,
+              "ms": 674.1949999704957
+            }
+          ],
+          "core_ms": 674.1949999704957,
+          "candidate_count": 1,
+          "same_as_first_excluding_step_ids": true
+        },
+        {
+          "iteration": 4,
+          "kind": "warm",
+          "full_ms": 841.7780999443494,
+          "core_calls": [
+            {
+              "use_realtime": false,
+              "target_node": [
+                "phys",
+                "dest:35.663684,139.697741"
+              ],
+              "virtual_connections": 16,
+              "candidate_count": 1,
+              "ms": 736.1975000239909
+            }
+          ],
+          "core_ms": 736.1975000239909,
+          "candidate_count": 1,
+          "same_as_first_excluding_step_ids": true
+        },
+        {
+          "iteration": 5,
+          "kind": "warm",
+          "full_ms": 767.9336000001058,
+          "core_calls": [
+            {
+              "use_realtime": false,
+              "target_node": [
+                "phys",
+                "dest:35.663684,139.697741"
+              ],
+              "virtual_connections": 16,
+              "candidate_count": 1,
+              "ms": 668.8335000071675
+            }
+          ],
+          "core_ms": 668.8335000071675,
+          "candidate_count": 1,
+          "same_as_first_excluding_step_ids": true
+        }
+      ],
+      "warm_summary_ms": {
+        "full_ms": {
+          "median": 794.1761000547558,
+          "min": 758.2336000050418,
+          "max": 897.3840000107884
+        },
+        "core_ms": {
+          "median": 674.1949999704957,
+          "min": 653.8509000092745,
+          "max": 790.0044999551028
+        }
+      }
+    },
+    {
+      "mode": "fewTransfers",
+      "runs": [
+        {
+          "iteration": 0,
+          "kind": "first_for_mode_in_shared_process",
+          "error": "RouteSearchLimitError: fewTransfers search safety limit exceeded: reason=max_visited visited=100001 yielded=0 queue=12606 g_score=85099 best_cost=75082 elapsed_sec=0.891 max_visited=100000 max_search=30000 time_limit_sec=15.0",
+          "full_ms": 909.6303000114858,
+          "core_calls": [
+            {
+              "use_realtime": false,
+              "target_node": [
+                "phys",
+                "dest:35.663684,139.697741"
+              ],
+              "virtual_connections": 16,
+              "error": "RouteSearchLimitError: fewTransfers search safety limit exceeded: reason=max_visited visited=100001 yielded=0 queue=12606 g_score=85099 best_cost=75082 elapsed_sec=0.891 max_visited=100000 max_search=30000 time_limit_sec=15.0",
+              "ms": 892.3527000006288
+            }
+          ],
+          "core_ms": 892.3527000006288
+        }
+      ]
+    }
+  ],
+  "run_order": "cost first+5 warm, time first+5 warm, fewTransfers once, all in one shared process. First means first for that mode; time/fewTransfers already share caches from preceding modes. No claim of OS cold cache or production cold start.",
+  "startup_scope": "Imports begin after standard-library setup. Python process launch, report hashing, train GTFS/identity setup, network, and app rendering are excluded."
+}

@@ -1,0 +1,290 @@
+{
+  "production_limits": {
+    "MAX_TOTAL_WALK_M": 3000.0,
+    "MAX_WALK_SEG_M": 600.0
+  },
+  "quoted_numbers": {
+    "prefix_total_walk_m": [
+      590,
+      300
+    ],
+    "final_walk_m": 400,
+    "complete_total_walk_m": [
+      990,
+      700
+    ],
+    "both_pass_total_limit": true,
+    "caveat": "These values alone do not demonstrate a total-walk-limit violation. A prior ride must reset consecutive walk; otherwise both totals exceed the 600 m consecutive limit."
+  },
+  "total_walk_counterexample": {
+    "prefix_states_at_merge": [
+      {
+        "cost": 77.74999999999999,
+        "arrival_time_min": 1313.5,
+        "total_walk_m": 2600.0,
+        "seg_walk_m": 0.0,
+        "walk_bucket": 0,
+        "boardings": 5
+      },
+      {
+        "cost": 78.52499999999999,
+        "arrival_time_min": 1313.5,
+        "total_walk_m": 2300.0,
+        "seg_walk_m": 0.0,
+        "walk_bucket": 0,
+        "boardings": 5
+      }
+    ],
+    "full_graph_candidate_count": 0,
+    "after_removing_cheap_branch_candidate_count": 1,
+    "surviving_candidate": {
+      "cost": 87.89999999999999,
+      "path": [
+        [
+          "phys",
+          "start"
+        ],
+        [
+          "phys",
+          "dearer-short-walk-0-mid"
+        ],
+        [
+          "phys",
+          "dearer-short-walk-0-end"
+        ],
+        [
+          "line",
+          "dearer-short-ride-0-0",
+          "dearer-short-0"
+        ],
+        [
+          "line",
+          "dearer-short-ride-0-1",
+          "dearer-short-0"
+        ],
+        [
+          "line",
+          "dearer-short-ride-0-2",
+          "dearer-short-0"
+        ],
+        [
+          "line",
+          "dearer-short-ride-0-3",
+          "dearer-short-0"
+        ],
+        [
+          "line",
+          "dearer-short-ride-0-4",
+          "dearer-short-0"
+        ],
+        [
+          "line",
+          "dearer-short-ride-0-5",
+          "dearer-short-0"
+        ],
+        [
+          "line",
+          "dearer-short-ride-0-6",
+          "dearer-short-0"
+        ],
+        [
+          "line",
+          "dearer-short-ride-0-7",
+          "dearer-short-0"
+        ],
+        [
+          "line",
+          "dearer-short-ride-0-8",
+          "dearer-short-0"
+        ],
+        [
+          "line",
+          "dearer-short-ride-0-9",
+          "dearer-short-0"
+        ],
+        [
+          "phys",
+          "dearer-short-alight-0"
+        ],
+        [
+          "phys",
+          "dearer-short-walk-1-mid"
+        ],
+        [
+          "phys",
+          "dearer-short-walk-1-end"
+        ],
+        [
+          "line",
+          "dearer-short-ride-1-0",
+          "dearer-short-1"
+        ],
+        [
+          "line",
+          "dearer-short-ride-1-1",
+          "dearer-short-1"
+        ],
+        [
+          "phys",
+          "dearer-short-alight-1"
+        ],
+        [
+          "phys",
+          "dearer-short-walk-2-mid"
+        ],
+        [
+          "phys",
+          "dearer-short-walk-2-end"
+        ],
+        [
+          "line",
+          "dearer-short-ride-2-0",
+          "dearer-short-2"
+        ],
+        [
+          "line",
+          "dearer-short-ride-2-1",
+          "dearer-short-2"
+        ],
+        [
+          "phys",
+          "dearer-short-alight-2"
+        ],
+        [
+          "phys",
+          "dearer-short-walk-3-mid"
+        ],
+        [
+          "phys",
+          "dearer-short-walk-3-end"
+        ],
+        [
+          "line",
+          "dearer-short-ride-3-0",
+          "dearer-short-3"
+        ],
+        [
+          "line",
+          "dearer-short-ride-3-1",
+          "dearer-short-3"
+        ],
+        [
+          "phys",
+          "dearer-short-alight-3"
+        ],
+        [
+          "phys",
+          "dearer-short-walk-4-mid"
+        ],
+        [
+          "phys",
+          "dearer-short-walk-4-end"
+        ],
+        [
+          "line",
+          "dearer-short-ride-4-0",
+          "dearer-short-4"
+        ],
+        [
+          "line",
+          "dearer-short-ride-4-1",
+          "dearer-short-4"
+        ],
+        [
+          "phys",
+          "merge"
+        ],
+        [
+          "phys",
+          "destination"
+        ]
+      ],
+      "walk_m": 2800.0
+    },
+    "full_graph_trace": [
+      "[MEM] find_few_transfers_paths_generator start rss=-1.0MB",
+      "[ROUTE_DEBUG] fewTransfers stats: tag=queue_exhausted visited=58 yielded=0 queue=0 g_score=58 best_cost=58 elapsed_sec=0.016 popped_by_boardings={0:5, 1:18, 2:10, 3:10, 4:10, 5:5} expanded_by_boardings={0:5, 1:18, 2:10, 3:10, 4:10, 5:5} dominated_by_boardings={} travel_limit_by_boardings={} yielded_by_boardings={}",
+      "[MEM] find_few_transfers_paths_generator end rss=-1.0MB"
+    ],
+    "reduced_graph_trace": [
+      "[MEM] find_few_transfers_paths_generator start rss=-1.0MB",
+      "[ROUTE_DEBUG] fewTransfers stats: tag=yield visited=35 yielded=1 queue=0 g_score=35 best_cost=35 elapsed_sec=0.000 popped_by_boardings={0:3, 1:13, 2:5, 3:5, 4:5, 5:4} expanded_by_boardings={0:3, 1:13, 2:5, 3:5, 4:5, 5:4} dominated_by_boardings={} travel_limit_by_boardings={} yielded_by_boardings={5:1}",
+      "[ROUTE_DEBUG] fewTransfers stats: tag=queue_exhausted visited=35 yielded=1 queue=0 g_score=35 best_cost=35 elapsed_sec=0.000 popped_by_boardings={0:3, 1:13, 2:5, 3:5, 4:5, 5:4} expanded_by_boardings={0:3, 1:13, 2:5, 3:5, 4:5, 5:4} dominated_by_boardings={} travel_limit_by_boardings={} yielded_by_boardings={5:1}",
+      "[MEM] find_few_transfers_paths_generator end rss=-1.0MB"
+    ],
+    "description": "Equal arrival time, boardings and consecutive walk at merge. Lower-cost 2600 m label cannot walk the final 500 m; 2300 m label can.",
+    "final_walk_m": 500,
+    "complete_total_walk_m": [
+      3100,
+      2800
+    ],
+    "violated_constraint": "total_walk_m > 3000 for cheap branch only"
+  },
+  "segment_bucket_counterexample": {
+    "prefix_states_at_merge": [
+      {
+        "cost": 11.23125,
+        "arrival_time_min": 1247.4875,
+        "total_walk_m": 599.0,
+        "seg_walk_m": 599.0,
+        "walk_bucket": 23,
+        "boardings": 0
+      },
+      {
+        "cost": 11.55,
+        "arrival_time_min": 1247.1999999999998,
+        "total_walk_m": 576.0,
+        "seg_walk_m": 576.0,
+        "walk_bucket": 23,
+        "boardings": 0
+      }
+    ],
+    "full_graph_candidate_count": 0,
+    "after_removing_cheap_branch_candidate_count": 1,
+    "surviving_candidate": {
+      "cost": 13.05,
+      "path": [
+        [
+          "phys",
+          "start"
+        ],
+        [
+          "phys",
+          "dearer-short-0"
+        ],
+        [
+          "phys",
+          "dearer-short-1"
+        ],
+        [
+          "phys",
+          "merge"
+        ],
+        [
+          "phys",
+          "destination"
+        ]
+      ],
+      "walk_m": 586.0
+    },
+    "full_graph_trace": [
+      "[MEM] find_few_transfers_paths_generator start rss=-1.0MB",
+      "[ROUTE_DEBUG] fewTransfers stats: tag=queue_exhausted visited=7 yielded=0 queue=0 g_score=6 best_cost=6 elapsed_sec=0.000 popped_by_boardings={0:7} expanded_by_boardings={0:6} dominated_by_boardings={0:1} travel_limit_by_boardings={} yielded_by_boardings={}",
+      "[MEM] find_few_transfers_paths_generator end rss=-1.0MB"
+    ],
+    "reduced_graph_trace": [
+      "[MEM] find_few_transfers_paths_generator start rss=-1.0MB",
+      "[ROUTE_DEBUG] fewTransfers stats: tag=yield visited=5 yielded=1 queue=0 g_score=5 best_cost=5 elapsed_sec=0.000 popped_by_boardings={0:5} expanded_by_boardings={0:5} dominated_by_boardings={} travel_limit_by_boardings={} yielded_by_boardings={0:1}",
+      "[ROUTE_DEBUG] fewTransfers stats: tag=queue_exhausted visited=5 yielded=1 queue=0 g_score=5 best_cost=5 elapsed_sec=0.000 popped_by_boardings={0:5} expanded_by_boardings={0:5} dominated_by_boardings={} travel_limit_by_boardings={} yielded_by_boardings={0:1}",
+      "[MEM] find_few_transfers_paths_generator end rss=-1.0MB"
+    ],
+    "description": "599 m and 576 m share bucket 23. The short branch costs slightly more because its first 40 m walk has the production minimum one-minute cost. Only it can walk the final 10 m.",
+    "final_walk_m": 10,
+    "complete_seg_walk_m": [
+      609,
+      586
+    ],
+    "violated_constraint": "seg_walk_m > 600 for cheap branch only"
+  },
+  "interpretation": "Current scalar-cost dominance can remove the only feasible path under each production walking constraint. No product source or limit was changed."
+}

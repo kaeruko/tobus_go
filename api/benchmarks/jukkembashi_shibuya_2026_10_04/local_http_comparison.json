@@ -1,0 +1,48 @@
+{
+  "cost": {
+    "same_candidates_excluding_step_ids": true,
+    "local_meta": {
+      "destination_reachable": true,
+      "destination_label": "目的地",
+      "fallback_node_name": "渋谷区役所前",
+      "fallback_node_name_en": "Shibuya-Kuyakusho (Shibuya City Office)",
+      "fallback_distance_m": 129.23037148014183,
+      "walk_limit_m": 600.0,
+      "realtime_applied": false,
+      "bus_only": false
+    },
+    "http_meta": {
+      "destination_reachable": true,
+      "destination_label": "目的地",
+      "fallback_node_name": "渋谷区役所前",
+      "fallback_node_name_en": "Shibuya-Kuyakusho (Shibuya City Office)",
+      "fallback_distance_m": 129.23037148014183,
+      "walk_limit_m": 600.0,
+      "realtime_applied": true,
+      "bus_only": false
+    }
+  },
+  "time": {
+    "same_candidates_excluding_step_ids": true,
+    "local_meta": {
+      "destination_reachable": true,
+      "destination_label": "目的地",
+      "fallback_node_name": "渋谷区役所前",
+      "fallback_node_name_en": "Shibuya-Kuyakusho (Shibuya City Office)",
+      "fallback_distance_m": 129.23037148014183,
+      "walk_limit_m": 600.0,
+      "realtime_applied": false,
+      "bus_only": false
+    },
+    "http_meta": {
+      "destination_reachable": true,
+      "destination_label": "目的地",
+      "fallback_node_name": "渋谷区役所前",
+      "fallback_node_name_en": "Shibuya-Kuyakusho (Shibuya City Office)",
+      "fallback_distance_m": 129.23037148014183,
+      "walk_limit_m": 600.0,
+      "realtime_applied": true,
+      "bus_only": false
+    }
+  }
+}

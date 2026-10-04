@@ -1,0 +1,7 @@
+{
+  "detail": {
+    "code": "route_search_limit",
+    "message": "fewTransfers search safety limit exceeded: reason=max_visited visited=100001 yielded=0 queue=12606 g_score=85099 best_cost=75082 elapsed_sec=2.910 max_visited=100000 max_search=30000 time_limit_sec=15.0",
+    "diagnostic": "fewTransfers search safety limit exceeded: reason=max_visited visited=100001 yielded=0 queue=12606 g_score=85099 best_cost=75082 elapsed_sec=2.910 max_visited=100000 max_search=30000 time_limit_sec=15.0"
+  }
+}

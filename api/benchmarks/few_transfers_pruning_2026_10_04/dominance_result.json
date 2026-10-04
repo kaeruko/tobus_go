@@ -1,0 +1,163 @@
+{
+  "description": "Cheaper 1-stop bus reaches merge at 20:58:30; dearer 2-stop bus reaches it at 20:47. Only the latter catches the last train at 20:50.",
+  "complete_graph_candidate_count": 0,
+  "after_removing_late_cheap_branch_candidate_count": 1,
+  "early_feasible_candidate": [
+    {
+      "cost": 12.4,
+      "path": [
+        [
+          "phys",
+          "start"
+        ],
+        [
+          "line",
+          "start",
+          "early-extra-stop"
+        ],
+        [
+          "line",
+          "middle",
+          "early-extra-stop"
+        ],
+        [
+          "line",
+          "merge",
+          "early-extra-stop"
+        ],
+        [
+          "phys",
+          "merge"
+        ],
+        [
+          "line",
+          "merge",
+          "rail"
+        ],
+        [
+          "line",
+          "destination",
+          "rail"
+        ],
+        [
+          "phys",
+          "destination"
+        ]
+      ],
+      "walk_m": 0.0
+    }
+  ],
+  "full_graph_has_all_feasible_edges": true,
+  "interpretation": "Scalar cost dominance discards the early feasible label even under this FIFO timetable.",
+  "static_fifo_check": {
+    "pair_count": 620,
+    "adjacent_reversal_count": 5,
+    "examples": [
+      {
+        "kind": "weekend",
+        "origin": "odpt.Station:Toei.Arakawa.Sugamoshinden",
+        "destination": "odpt.Station:Toei.Arakawa.OtsukaEkimae",
+        "earlier_service": {
+          "dep": 535,
+          "arr": 541,
+          "next_sta": "odpt.Station:Toei.Arakawa.OtsukaEkimae",
+          "train_num": "ODPT0752"
+        },
+        "later_service": {
+          "dep": 536,
+          "arr": 540,
+          "next_sta": "odpt.Station:Toei.Arakawa.OtsukaEkimae",
+          "train_num": "ODPT0771"
+        },
+        "early_input_min": 535,
+        "early_output_min": 541.0,
+        "later_input_min": 535.5,
+        "later_output_min": 540.0
+      },
+      {
+        "kind": "weekend",
+        "origin": "odpt.Station:Toei.Arakawa.Sugamoshinden",
+        "destination": "odpt.Station:Toei.Arakawa.OtsukaEkimae",
+        "earlier_service": {
+          "dep": 541,
+          "arr": 547,
+          "next_sta": "odpt.Station:Toei.Arakawa.OtsukaEkimae",
+          "train_num": "ODPT0793"
+        },
+        "later_service": {
+          "dep": 542,
+          "arr": 546,
+          "next_sta": "odpt.Station:Toei.Arakawa.OtsukaEkimae",
+          "train_num": "ODPT0800"
+        },
+        "early_input_min": 541,
+        "early_output_min": 547.0,
+        "later_input_min": 541.5,
+        "later_output_min": 546.0
+      },
+      {
+        "kind": "weekend",
+        "origin": "odpt.Station:Toei.Arakawa.Mukohara",
+        "destination": "odpt.Station:Toei.Arakawa.HigashiIkebukuroYonchome",
+        "earlier_service": {
+          "dep": 1141,
+          "arr": 1143,
+          "next_sta": "odpt.Station:Toei.Arakawa.HigashiIkebukuroYonchome",
+          "train_num": "ODPT3084"
+        },
+        "later_service": {
+          "dep": 1142,
+          "arr": 1142,
+          "next_sta": "odpt.Station:Toei.Arakawa.HigashiIkebukuroYonchome",
+          "train_num": "ODPT3097"
+        },
+        "early_input_min": 1141,
+        "early_output_min": 1143.0,
+        "later_input_min": 1141.5,
+        "later_output_min": 1142.0
+      },
+      {
+        "kind": "weekend",
+        "origin": "odpt.Station:Toei.Arakawa.Miyanomae",
+        "destination": "odpt.Station:Toei.Arakawa.Kumanomae",
+        "earlier_service": {
+          "dep": 536,
+          "arr": 541,
+          "next_sta": "odpt.Station:Toei.Arakawa.Kumanomae",
+          "train_num": "ODPT5246"
+        },
+        "later_service": {
+          "dep": 537,
+          "arr": 540,
+          "next_sta": "odpt.Station:Toei.Arakawa.Kumanomae",
+          "train_num": "ODPT0765"
+        },
+        "early_input_min": 536,
+        "early_output_min": 541.0,
+        "later_input_min": 536.5,
+        "later_output_min": 540.0
+      },
+      {
+        "kind": "weekend",
+        "origin": "odpt.Station:Toei.Arakawa.Miyanomae",
+        "destination": "odpt.Station:Toei.Arakawa.Kumanomae",
+        "earlier_service": {
+          "dep": 541,
+          "arr": 546,
+          "next_sta": "odpt.Station:Toei.Arakawa.Kumanomae",
+          "train_num": "ODPT0784"
+        },
+        "later_service": {
+          "dep": 542,
+          "arr": 545,
+          "next_sta": "odpt.Station:Toei.Arakawa.Kumanomae",
+          "train_num": "ODPT0792"
+        },
+        "early_input_min": 541,
+        "early_output_min": 546.0,
+        "later_input_min": 541.5,
+        "later_output_min": 545.0
+      }
+    ]
+  }
+}

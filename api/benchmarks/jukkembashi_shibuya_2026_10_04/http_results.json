@@ -1,0 +1,2153 @@
+{
+  "request": {
+    "alat": "35.708166",
+    "alon": "139.817434",
+    "blat": "35.6636842",
+    "blon": "139.6977409",
+    "start_time": "20:40",
+    "target_date_str": "2026-10-04",
+    "bus_only": false
+  },
+  "scope": "Tokyo only; real HTTP, read-only route requests",
+  "origin": "十間橋 GTFS 0751-01",
+  "destination": "渋谷区役所本庁舎",
+  "destination_source": "https://www.city.shibuya.tokyo.jp/shisetsu/kuyakusho/kuyakusho/service_center.html",
+  "notes": [
+    "First observed request is not proof of a Lambda cold start.",
+    "HTTP timings include this PC's network, server work, and JSON decoding; not mobile rendering.",
+    "Runtime-config fetch and warmup are measured separately from search.",
+    "App passes pref=cost when no preference is selected; limit defaults to 5.",
+    "Requests run sequentially; no endpoint load test."
+  ],
+  "runs": [
+    {
+      "mode": "cost",
+      "repeat": 1,
+      "route": {
+        "started_at_jst": "2026-10-04T20:40:54.427777+09:00",
+        "status_code": 200,
+        "elapsed_ms": 2098.7189000006765,
+        "response_bytes": 19066
+      },
+      "raw_candidate_count": 2,
+      "route_meta": {
+        "destination_reachable": true,
+        "destination_label": "目的地",
+        "fallback_node_name": "渋谷区役所前",
+        "fallback_node_name_en": "Shibuya-Kuyakusho (Shibuya City Office)",
+        "fallback_distance_m": 129.23037148014183,
+        "walk_limit_m": 600.0,
+        "realtime_applied": true,
+        "bus_only": false
+      },
+      "raw_candidates": [
+        {
+          "id": "Comfort-1",
+          "lines": [
+            "門３３ 豊海水産埠頭行",
+            "大江戸線",
+            "都０１（Ｔ０１） 渋谷駅前行",
+            "池８６出入 池袋駅東口行"
+          ],
+          "total_time": 106,
+          "arrival_time": "22:26",
+          "transfers": 3,
+          "walk_m": null,
+          "walking_distance_meters": 835,
+          "walking_segment_count": 5,
+          "rides": 4,
+          "score_label": "楽さ 58.4 (所要106分)",
+          "cost_score": 58.38515688451238,
+          "departure_date": "2026-10-04T20:40:00",
+          "is_future_suggestion": false,
+          "steps": [
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "minutes": 1,
+              "meters": 19
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "departure_time": "20:40",
+              "arrival_time": "21:08",
+              "minutes": 27,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "門３３ 豊海水産埠頭行",
+              "from_": "十間橋",
+              "to": "都営両国駅前",
+              "departure_time": "21:08",
+              "arrival_time": "21:20",
+              "minutes": 12,
+              "trip_id": "60301-1-65-100-2103",
+              "route_id": "093"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "都営両国駅前",
+              "to": "両国",
+              "minutes": 1,
+              "meters": 38
+            },
+            {
+              "kind": "rail",
+              "title": "大江戸線",
+              "from_": "両国",
+              "to": "六本木",
+              "departure_time": "21:22",
+              "arrival_time": "21:49",
+              "minutes": 27
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "六本木",
+              "to": "六本木駅前",
+              "minutes": 3,
+              "meters": 177
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "六本木駅前",
+              "to": "六本木駅前",
+              "departure_time": "21:52",
+              "arrival_time": "22:00",
+              "minutes": 7,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "都０１（Ｔ０１） 渋谷駅前行",
+              "from_": "六本木駅前",
+              "to": "渋谷駅前",
+              "departure_time": "22:00",
+              "arrival_time": "22:11",
+              "minutes": 11,
+              "trip_id": "08501-2-09-100-2144",
+              "route_id": "006"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "渋谷駅前",
+              "to": "渋谷駅東口",
+              "minutes": 3,
+              "meters": 200
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "渋谷駅東口",
+              "to": "渋谷駅東口",
+              "departure_time": "22:13",
+              "arrival_time": "22:19",
+              "minutes": 5,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "池８６出入 池袋駅東口行",
+              "from_": "渋谷駅東口",
+              "to": "宮下公園",
+              "departure_time": "22:19",
+              "arrival_time": "22:20",
+              "minutes": 1,
+              "trip_id": "20016-3-33-100-2140",
+              "route_id": "185"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "宮下公園",
+              "to": "目的地",
+              "minutes": 6,
+              "meters": 401
+            }
+          ]
+        },
+        {
+          "id": "Comfort-2",
+          "lines": [
+            "門３３ 豊海水産埠頭行",
+            "大江戸線",
+            "都０１（Ｔ０１） 渋谷駅前行",
+            "池８６出入 池袋駅東口行"
+          ],
+          "total_time": 108,
+          "arrival_time": "22:28",
+          "transfers": 3,
+          "walk_m": null,
+          "walking_distance_meters": 972,
+          "walking_segment_count": 5,
+          "rides": 4,
+          "score_label": "楽さ 61.8 (所要108分)",
+          "cost_score": 61.762405260619865,
+          "departure_date": "2026-10-04T20:40:00",
+          "is_future_suggestion": false,
+          "steps": [
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "minutes": 1,
+              "meters": 19
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "departure_time": "20:40",
+              "arrival_time": "21:08",
+              "minutes": 27,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "門３３ 豊海水産埠頭行",
+              "from_": "十間橋",
+              "to": "都営両国駅前",
+              "departure_time": "21:08",
+              "arrival_time": "21:20",
+              "minutes": 12,
+              "trip_id": "60301-1-65-100-2103",
+              "route_id": "093"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "都営両国駅前",
+              "to": "両国",
+              "minutes": 1,
+              "meters": 38
+            },
+            {
+              "kind": "rail",
+              "title": "大江戸線",
+              "from_": "両国",
+              "to": "六本木",
+              "departure_time": "21:22",
+              "arrival_time": "21:49",
+              "minutes": 27
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "六本木",
+              "to": "六本木駅前",
+              "minutes": 3,
+              "meters": 177
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "六本木駅前",
+              "to": "六本木駅前",
+              "departure_time": "21:52",
+              "arrival_time": "22:00",
+              "minutes": 7,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "都０１（Ｔ０１） 渋谷駅前行",
+              "from_": "六本木駅前",
+              "to": "渋谷駅前",
+              "departure_time": "22:00",
+              "arrival_time": "22:11",
+              "minutes": 11,
+              "trip_id": "08501-2-09-100-2144",
+              "route_id": "006"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "渋谷駅前",
+              "to": "渋谷駅東口",
+              "minutes": 3,
+              "meters": 200
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "渋谷駅東口",
+              "to": "渋谷駅東口",
+              "departure_time": "22:13",
+              "arrival_time": "22:19",
+              "minutes": 5,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "池８６出入 池袋駅東口行",
+              "from_": "渋谷駅東口",
+              "to": "神宮前六丁目",
+              "departure_time": "22:19",
+              "arrival_time": "22:21",
+              "minutes": 2,
+              "trip_id": "20016-3-33-100-2140",
+              "route_id": "185"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "神宮前六丁目",
+              "to": "目的地",
+              "minutes": 7,
+              "meters": 538
+            }
+          ]
+        }
+      ],
+      "train_identity": {
+        "started_at_jst": "2026-10-04T20:40:56.532300+09:00",
+        "status_code": 200,
+        "elapsed_ms": 5093.662399973255,
+        "response_bytes": 19315
+      },
+      "rejections": [],
+      "app_would_error": false,
+      "display_candidate_count": 2,
+      "display_candidates": [
+        {
+          "id": "Comfort-1",
+          "lines": [
+            "門３３ 豊海水産埠頭行",
+            "大江戸線",
+            "都０１（Ｔ０１） 渋谷駅前行",
+            "池８６出入 池袋駅東口行"
+          ],
+          "total_time": 106,
+          "arrival_time": "22:26",
+          "transfers": 3,
+          "walk_m": null,
+          "walking_distance_meters": 835,
+          "walking_segment_count": 5,
+          "rides": 4,
+          "score_label": "楽さ 58.4 (所要106分)",
+          "cost_score": 58.38515688451238,
+          "departure_date": "2026-10-04T20:40:00",
+          "is_future_suggestion": false,
+          "steps": [
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "minutes": 1,
+              "meters": 19
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "departure_time": "20:40",
+              "arrival_time": "21:08",
+              "minutes": 27,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "門３３ 豊海水産埠頭行",
+              "from_": "十間橋",
+              "to": "都営両国駅前",
+              "departure_time": "21:08",
+              "arrival_time": "21:20",
+              "minutes": 12,
+              "trip_id": "60301-1-65-100-2103",
+              "route_id": "093"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "都営両国駅前",
+              "to": "両国",
+              "minutes": 1,
+              "meters": 38
+            },
+            {
+              "kind": "rail",
+              "title": "大江戸線",
+              "from_": "両国",
+              "to": "六本木",
+              "departure_time": "21:25",
+              "arrival_time": "21:49",
+              "minutes": 24,
+              "trip_id": "422031B0",
+              "route_id": "4"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "六本木",
+              "to": "六本木駅前",
+              "minutes": 3,
+              "meters": 177
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "六本木駅前",
+              "to": "六本木駅前",
+              "departure_time": "21:52",
+              "arrival_time": "22:00",
+              "minutes": 7,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "都０１（Ｔ０１） 渋谷駅前行",
+              "from_": "六本木駅前",
+              "to": "渋谷駅前",
+              "departure_time": "22:00",
+              "arrival_time": "22:11",
+              "minutes": 11,
+              "trip_id": "08501-2-09-100-2144",
+              "route_id": "006"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "渋谷駅前",
+              "to": "渋谷駅東口",
+              "minutes": 3,
+              "meters": 200
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "渋谷駅東口",
+              "to": "渋谷駅東口",
+              "departure_time": "22:13",
+              "arrival_time": "22:19",
+              "minutes": 5,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "池８６出入 池袋駅東口行",
+              "from_": "渋谷駅東口",
+              "to": "宮下公園",
+              "departure_time": "22:19",
+              "arrival_time": "22:20",
+              "minutes": 1,
+              "trip_id": "20016-3-33-100-2140",
+              "route_id": "185"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "宮下公園",
+              "to": "目的地",
+              "minutes": 6,
+              "meters": 401
+            }
+          ]
+        },
+        {
+          "id": "Comfort-2",
+          "lines": [
+            "門３３ 豊海水産埠頭行",
+            "大江戸線",
+            "都０１（Ｔ０１） 渋谷駅前行",
+            "池８６出入 池袋駅東口行"
+          ],
+          "total_time": 108,
+          "arrival_time": "22:28",
+          "transfers": 3,
+          "walk_m": null,
+          "walking_distance_meters": 972,
+          "walking_segment_count": 5,
+          "rides": 4,
+          "score_label": "楽さ 61.8 (所要108分)",
+          "cost_score": 61.762405260619865,
+          "departure_date": "2026-10-04T20:40:00",
+          "is_future_suggestion": false,
+          "steps": [
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "minutes": 1,
+              "meters": 19
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "departure_time": "20:40",
+              "arrival_time": "21:08",
+              "minutes": 27,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "門３３ 豊海水産埠頭行",
+              "from_": "十間橋",
+              "to": "都営両国駅前",
+              "departure_time": "21:08",
+              "arrival_time": "21:20",
+              "minutes": 12,
+              "trip_id": "60301-1-65-100-2103",
+              "route_id": "093"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "都営両国駅前",
+              "to": "両国",
+              "minutes": 1,
+              "meters": 38
+            },
+            {
+              "kind": "rail",
+              "title": "大江戸線",
+              "from_": "両国",
+              "to": "六本木",
+              "departure_time": "21:25",
+              "arrival_time": "21:49",
+              "minutes": 24,
+              "trip_id": "422031B0",
+              "route_id": "4"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "六本木",
+              "to": "六本木駅前",
+              "minutes": 3,
+              "meters": 177
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "六本木駅前",
+              "to": "六本木駅前",
+              "departure_time": "21:52",
+              "arrival_time": "22:00",
+              "minutes": 7,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "都０１（Ｔ０１） 渋谷駅前行",
+              "from_": "六本木駅前",
+              "to": "渋谷駅前",
+              "departure_time": "22:00",
+              "arrival_time": "22:11",
+              "minutes": 11,
+              "trip_id": "08501-2-09-100-2144",
+              "route_id": "006"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "渋谷駅前",
+              "to": "渋谷駅東口",
+              "minutes": 3,
+              "meters": 200
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "渋谷駅東口",
+              "to": "渋谷駅東口",
+              "departure_time": "22:13",
+              "arrival_time": "22:19",
+              "minutes": 5,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "池８６出入 池袋駅東口行",
+              "from_": "渋谷駅東口",
+              "to": "神宮前六丁目",
+              "departure_time": "22:19",
+              "arrival_time": "22:21",
+              "minutes": 2,
+              "trip_id": "20016-3-33-100-2140",
+              "route_id": "185"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "神宮前六丁目",
+              "to": "目的地",
+              "minutes": 7,
+              "meters": 538
+            }
+          ]
+        }
+      ],
+      "sequence_wall_ms": 7199.858200037852,
+      "api_total_ms": 7192.381299973931
+    },
+    {
+      "mode": "cost",
+      "repeat": 2,
+      "route": {
+        "started_at_jst": "2026-10-04T20:41:01.629054+09:00",
+        "status_code": 200,
+        "elapsed_ms": 1938.1522999610752,
+        "response_bytes": 19066
+      },
+      "raw_candidate_count": 2,
+      "route_meta": {
+        "destination_reachable": true,
+        "destination_label": "目的地",
+        "fallback_node_name": "渋谷区役所前",
+        "fallback_node_name_en": "Shibuya-Kuyakusho (Shibuya City Office)",
+        "fallback_distance_m": 129.23037148014183,
+        "walk_limit_m": 600.0,
+        "realtime_applied": true,
+        "bus_only": false
+      },
+      "raw_candidates": [
+        {
+          "id": "Comfort-1",
+          "lines": [
+            "門３３ 豊海水産埠頭行",
+            "大江戸線",
+            "都０１（Ｔ０１） 渋谷駅前行",
+            "池８６出入 池袋駅東口行"
+          ],
+          "total_time": 106,
+          "arrival_time": "22:26",
+          "transfers": 3,
+          "walk_m": null,
+          "walking_distance_meters": 835,
+          "walking_segment_count": 5,
+          "rides": 4,
+          "score_label": "楽さ 58.4 (所要106分)",
+          "cost_score": 58.38515688451238,
+          "departure_date": "2026-10-04T20:40:00",
+          "is_future_suggestion": false,
+          "steps": [
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "minutes": 1,
+              "meters": 19
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "departure_time": "20:40",
+              "arrival_time": "21:08",
+              "minutes": 27,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "門３３ 豊海水産埠頭行",
+              "from_": "十間橋",
+              "to": "都営両国駅前",
+              "departure_time": "21:08",
+              "arrival_time": "21:20",
+              "minutes": 12,
+              "trip_id": "60301-1-65-100-2103",
+              "route_id": "093"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "都営両国駅前",
+              "to": "両国",
+              "minutes": 1,
+              "meters": 38
+            },
+            {
+              "kind": "rail",
+              "title": "大江戸線",
+              "from_": "両国",
+              "to": "六本木",
+              "departure_time": "21:22",
+              "arrival_time": "21:49",
+              "minutes": 27
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "六本木",
+              "to": "六本木駅前",
+              "minutes": 3,
+              "meters": 177
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "六本木駅前",
+              "to": "六本木駅前",
+              "departure_time": "21:52",
+              "arrival_time": "22:00",
+              "minutes": 7,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "都０１（Ｔ０１） 渋谷駅前行",
+              "from_": "六本木駅前",
+              "to": "渋谷駅前",
+              "departure_time": "22:00",
+              "arrival_time": "22:11",
+              "minutes": 11,
+              "trip_id": "08501-2-09-100-2144",
+              "route_id": "006"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "渋谷駅前",
+              "to": "渋谷駅東口",
+              "minutes": 3,
+              "meters": 200
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "渋谷駅東口",
+              "to": "渋谷駅東口",
+              "departure_time": "22:13",
+              "arrival_time": "22:19",
+              "minutes": 5,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "池８６出入 池袋駅東口行",
+              "from_": "渋谷駅東口",
+              "to": "宮下公園",
+              "departure_time": "22:19",
+              "arrival_time": "22:20",
+              "minutes": 1,
+              "trip_id": "20016-3-33-100-2140",
+              "route_id": "185"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "宮下公園",
+              "to": "目的地",
+              "minutes": 6,
+              "meters": 401
+            }
+          ]
+        },
+        {
+          "id": "Comfort-2",
+          "lines": [
+            "門３３ 豊海水産埠頭行",
+            "大江戸線",
+            "都０１（Ｔ０１） 渋谷駅前行",
+            "池８６出入 池袋駅東口行"
+          ],
+          "total_time": 108,
+          "arrival_time": "22:28",
+          "transfers": 3,
+          "walk_m": null,
+          "walking_distance_meters": 972,
+          "walking_segment_count": 5,
+          "rides": 4,
+          "score_label": "楽さ 61.8 (所要108分)",
+          "cost_score": 61.762405260619865,
+          "departure_date": "2026-10-04T20:40:00",
+          "is_future_suggestion": false,
+          "steps": [
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "minutes": 1,
+              "meters": 19
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "departure_time": "20:40",
+              "arrival_time": "21:08",
+              "minutes": 27,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "門３３ 豊海水産埠頭行",
+              "from_": "十間橋",
+              "to": "都営両国駅前",
+              "departure_time": "21:08",
+              "arrival_time": "21:20",
+              "minutes": 12,
+              "trip_id": "60301-1-65-100-2103",
+              "route_id": "093"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "都営両国駅前",
+              "to": "両国",
+              "minutes": 1,
+              "meters": 38
+            },
+            {
+              "kind": "rail",
+              "title": "大江戸線",
+              "from_": "両国",
+              "to": "六本木",
+              "departure_time": "21:22",
+              "arrival_time": "21:49",
+              "minutes": 27
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "六本木",
+              "to": "六本木駅前",
+              "minutes": 3,
+              "meters": 177
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "六本木駅前",
+              "to": "六本木駅前",
+              "departure_time": "21:52",
+              "arrival_time": "22:00",
+              "minutes": 7,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "都０１（Ｔ０１） 渋谷駅前行",
+              "from_": "六本木駅前",
+              "to": "渋谷駅前",
+              "departure_time": "22:00",
+              "arrival_time": "22:11",
+              "minutes": 11,
+              "trip_id": "08501-2-09-100-2144",
+              "route_id": "006"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "渋谷駅前",
+              "to": "渋谷駅東口",
+              "minutes": 3,
+              "meters": 200
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "渋谷駅東口",
+              "to": "渋谷駅東口",
+              "departure_time": "22:13",
+              "arrival_time": "22:19",
+              "minutes": 5,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "池８６出入 池袋駅東口行",
+              "from_": "渋谷駅東口",
+              "to": "神宮前六丁目",
+              "departure_time": "22:19",
+              "arrival_time": "22:21",
+              "minutes": 2,
+              "trip_id": "20016-3-33-100-2140",
+              "route_id": "185"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "神宮前六丁目",
+              "to": "目的地",
+              "minutes": 7,
+              "meters": 538
+            }
+          ]
+        }
+      ],
+      "train_identity": {
+        "started_at_jst": "2026-10-04T20:41:03.568137+09:00",
+        "status_code": 200,
+        "elapsed_ms": 238.729799981229,
+        "response_bytes": 19315
+      },
+      "rejections": [],
+      "app_would_error": false,
+      "display_candidate_count": 2,
+      "display_candidates": [
+        {
+          "id": "Comfort-1",
+          "lines": [
+            "門３３ 豊海水産埠頭行",
+            "大江戸線",
+            "都０１（Ｔ０１） 渋谷駅前行",
+            "池８６出入 池袋駅東口行"
+          ],
+          "total_time": 106,
+          "arrival_time": "22:26",
+          "transfers": 3,
+          "walk_m": null,
+          "walking_distance_meters": 835,
+          "walking_segment_count": 5,
+          "rides": 4,
+          "score_label": "楽さ 58.4 (所要106分)",
+          "cost_score": 58.38515688451238,
+          "departure_date": "2026-10-04T20:40:00",
+          "is_future_suggestion": false,
+          "steps": [
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "minutes": 1,
+              "meters": 19
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "departure_time": "20:40",
+              "arrival_time": "21:08",
+              "minutes": 27,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "門３３ 豊海水産埠頭行",
+              "from_": "十間橋",
+              "to": "都営両国駅前",
+              "departure_time": "21:08",
+              "arrival_time": "21:20",
+              "minutes": 12,
+              "trip_id": "60301-1-65-100-2103",
+              "route_id": "093"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "都営両国駅前",
+              "to": "両国",
+              "minutes": 1,
+              "meters": 38
+            },
+            {
+              "kind": "rail",
+              "title": "大江戸線",
+              "from_": "両国",
+              "to": "六本木",
+              "departure_time": "21:25",
+              "arrival_time": "21:49",
+              "minutes": 24,
+              "trip_id": "422031B0",
+              "route_id": "4"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "六本木",
+              "to": "六本木駅前",
+              "minutes": 3,
+              "meters": 177
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "六本木駅前",
+              "to": "六本木駅前",
+              "departure_time": "21:52",
+              "arrival_time": "22:00",
+              "minutes": 7,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "都０１（Ｔ０１） 渋谷駅前行",
+              "from_": "六本木駅前",
+              "to": "渋谷駅前",
+              "departure_time": "22:00",
+              "arrival_time": "22:11",
+              "minutes": 11,
+              "trip_id": "08501-2-09-100-2144",
+              "route_id": "006"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "渋谷駅前",
+              "to": "渋谷駅東口",
+              "minutes": 3,
+              "meters": 200
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "渋谷駅東口",
+              "to": "渋谷駅東口",
+              "departure_time": "22:13",
+              "arrival_time": "22:19",
+              "minutes": 5,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "池８６出入 池袋駅東口行",
+              "from_": "渋谷駅東口",
+              "to": "宮下公園",
+              "departure_time": "22:19",
+              "arrival_time": "22:20",
+              "minutes": 1,
+              "trip_id": "20016-3-33-100-2140",
+              "route_id": "185"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "宮下公園",
+              "to": "目的地",
+              "minutes": 6,
+              "meters": 401
+            }
+          ]
+        },
+        {
+          "id": "Comfort-2",
+          "lines": [
+            "門３３ 豊海水産埠頭行",
+            "大江戸線",
+            "都０１（Ｔ０１） 渋谷駅前行",
+            "池８６出入 池袋駅東口行"
+          ],
+          "total_time": 108,
+          "arrival_time": "22:28",
+          "transfers": 3,
+          "walk_m": null,
+          "walking_distance_meters": 972,
+          "walking_segment_count": 5,
+          "rides": 4,
+          "score_label": "楽さ 61.8 (所要108分)",
+          "cost_score": 61.762405260619865,
+          "departure_date": "2026-10-04T20:40:00",
+          "is_future_suggestion": false,
+          "steps": [
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "minutes": 1,
+              "meters": 19
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "departure_time": "20:40",
+              "arrival_time": "21:08",
+              "minutes": 27,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "門３３ 豊海水産埠頭行",
+              "from_": "十間橋",
+              "to": "都営両国駅前",
+              "departure_time": "21:08",
+              "arrival_time": "21:20",
+              "minutes": 12,
+              "trip_id": "60301-1-65-100-2103",
+              "route_id": "093"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "都営両国駅前",
+              "to": "両国",
+              "minutes": 1,
+              "meters": 38
+            },
+            {
+              "kind": "rail",
+              "title": "大江戸線",
+              "from_": "両国",
+              "to": "六本木",
+              "departure_time": "21:25",
+              "arrival_time": "21:49",
+              "minutes": 24,
+              "trip_id": "422031B0",
+              "route_id": "4"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "六本木",
+              "to": "六本木駅前",
+              "minutes": 3,
+              "meters": 177
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "六本木駅前",
+              "to": "六本木駅前",
+              "departure_time": "21:52",
+              "arrival_time": "22:00",
+              "minutes": 7,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "都０１（Ｔ０１） 渋谷駅前行",
+              "from_": "六本木駅前",
+              "to": "渋谷駅前",
+              "departure_time": "22:00",
+              "arrival_time": "22:11",
+              "minutes": 11,
+              "trip_id": "08501-2-09-100-2144",
+              "route_id": "006"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "渋谷駅前",
+              "to": "渋谷駅東口",
+              "minutes": 3,
+              "meters": 200
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "渋谷駅東口",
+              "to": "渋谷駅東口",
+              "departure_time": "22:13",
+              "arrival_time": "22:19",
+              "minutes": 5,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "池８６出入 池袋駅東口行",
+              "from_": "渋谷駅東口",
+              "to": "神宮前六丁目",
+              "departure_time": "22:19",
+              "arrival_time": "22:21",
+              "minutes": 2,
+              "trip_id": "20016-3-33-100-2140",
+              "route_id": "185"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "神宮前六丁目",
+              "to": "目的地",
+              "minutes": 7,
+              "meters": 538
+            }
+          ]
+        }
+      ],
+      "sequence_wall_ms": 2179.554599977564,
+      "api_total_ms": 2176.882099942304
+    },
+    {
+      "mode": "cost",
+      "repeat": 3,
+      "route": {
+        "started_at_jst": "2026-10-04T20:41:03.809510+09:00",
+        "status_code": 200,
+        "elapsed_ms": 1880.9054999728687,
+        "response_bytes": 19066
+      },
+      "raw_candidate_count": 2,
+      "route_meta": {
+        "destination_reachable": true,
+        "destination_label": "目的地",
+        "fallback_node_name": "渋谷区役所前",
+        "fallback_node_name_en": "Shibuya-Kuyakusho (Shibuya City Office)",
+        "fallback_distance_m": 129.23037148014183,
+        "walk_limit_m": 600.0,
+        "realtime_applied": true,
+        "bus_only": false
+      },
+      "raw_candidates": [
+        {
+          "id": "Comfort-1",
+          "lines": [
+            "門３３ 豊海水産埠頭行",
+            "大江戸線",
+            "都０１（Ｔ０１） 渋谷駅前行",
+            "池８６出入 池袋駅東口行"
+          ],
+          "total_time": 106,
+          "arrival_time": "22:26",
+          "transfers": 3,
+          "walk_m": null,
+          "walking_distance_meters": 835,
+          "walking_segment_count": 5,
+          "rides": 4,
+          "score_label": "楽さ 58.4 (所要106分)",
+          "cost_score": 58.38515688451238,
+          "departure_date": "2026-10-04T20:40:00",
+          "is_future_suggestion": false,
+          "steps": [
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "minutes": 1,
+              "meters": 19
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "departure_time": "20:40",
+              "arrival_time": "21:08",
+              "minutes": 27,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "門３３ 豊海水産埠頭行",
+              "from_": "十間橋",
+              "to": "都営両国駅前",
+              "departure_time": "21:08",
+              "arrival_time": "21:20",
+              "minutes": 12,
+              "trip_id": "60301-1-65-100-2103",
+              "route_id": "093"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "都営両国駅前",
+              "to": "両国",
+              "minutes": 1,
+              "meters": 38
+            },
+            {
+              "kind": "rail",
+              "title": "大江戸線",
+              "from_": "両国",
+              "to": "六本木",
+              "departure_time": "21:22",
+              "arrival_time": "21:49",
+              "minutes": 27
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "六本木",
+              "to": "六本木駅前",
+              "minutes": 3,
+              "meters": 177
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "六本木駅前",
+              "to": "六本木駅前",
+              "departure_time": "21:52",
+              "arrival_time": "22:00",
+              "minutes": 7,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "都０１（Ｔ０１） 渋谷駅前行",
+              "from_": "六本木駅前",
+              "to": "渋谷駅前",
+              "departure_time": "22:00",
+              "arrival_time": "22:11",
+              "minutes": 11,
+              "trip_id": "08501-2-09-100-2144",
+              "route_id": "006"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "渋谷駅前",
+              "to": "渋谷駅東口",
+              "minutes": 3,
+              "meters": 200
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "渋谷駅東口",
+              "to": "渋谷駅東口",
+              "departure_time": "22:13",
+              "arrival_time": "22:19",
+              "minutes": 5,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "池８６出入 池袋駅東口行",
+              "from_": "渋谷駅東口",
+              "to": "宮下公園",
+              "departure_time": "22:19",
+              "arrival_time": "22:20",
+              "minutes": 1,
+              "trip_id": "20016-3-33-100-2140",
+              "route_id": "185"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "宮下公園",
+              "to": "目的地",
+              "minutes": 6,
+              "meters": 401
+            }
+          ]
+        },
+        {
+          "id": "Comfort-2",
+          "lines": [
+            "門３３ 豊海水産埠頭行",
+            "大江戸線",
+            "都０１（Ｔ０１） 渋谷駅前行",
+            "池８６出入 池袋駅東口行"
+          ],
+          "total_time": 108,
+          "arrival_time": "22:28",
+          "transfers": 3,
+          "walk_m": null,
+          "walking_distance_meters": 972,
+          "walking_segment_count": 5,
+          "rides": 4,
+          "score_label": "楽さ 61.8 (所要108分)",
+          "cost_score": 61.762405260619865,
+          "departure_date": "2026-10-04T20:40:00",
+          "is_future_suggestion": false,
+          "steps": [
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "minutes": 1,
+              "meters": 19
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "departure_time": "20:40",
+              "arrival_time": "21:08",
+              "minutes": 27,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "門３３ 豊海水産埠頭行",
+              "from_": "十間橋",
+              "to": "都営両国駅前",
+              "departure_time": "21:08",
+              "arrival_time": "21:20",
+              "minutes": 12,
+              "trip_id": "60301-1-65-100-2103",
+              "route_id": "093"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "都営両国駅前",
+              "to": "両国",
+              "minutes": 1,
+              "meters": 38
+            },
+            {
+              "kind": "rail",
+              "title": "大江戸線",
+              "from_": "両国",
+              "to": "六本木",
+              "departure_time": "21:22",
+              "arrival_time": "21:49",
+              "minutes": 27
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "六本木",
+              "to": "六本木駅前",
+              "minutes": 3,
+              "meters": 177
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "六本木駅前",
+              "to": "六本木駅前",
+              "departure_time": "21:52",
+              "arrival_time": "22:00",
+              "minutes": 7,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "都０１（Ｔ０１） 渋谷駅前行",
+              "from_": "六本木駅前",
+              "to": "渋谷駅前",
+              "departure_time": "22:00",
+              "arrival_time": "22:11",
+              "minutes": 11,
+              "trip_id": "08501-2-09-100-2144",
+              "route_id": "006"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "渋谷駅前",
+              "to": "渋谷駅東口",
+              "minutes": 3,
+              "meters": 200
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "渋谷駅東口",
+              "to": "渋谷駅東口",
+              "departure_time": "22:13",
+              "arrival_time": "22:19",
+              "minutes": 5,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "池８６出入 池袋駅東口行",
+              "from_": "渋谷駅東口",
+              "to": "神宮前六丁目",
+              "departure_time": "22:19",
+              "arrival_time": "22:21",
+              "minutes": 2,
+              "trip_id": "20016-3-33-100-2140",
+              "route_id": "185"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "神宮前六丁目",
+              "to": "目的地",
+              "minutes": 7,
+              "meters": 538
+            }
+          ]
+        }
+      ],
+      "train_identity": {
+        "started_at_jst": "2026-10-04T20:41:05.692186+09:00",
+        "status_code": 200,
+        "elapsed_ms": 270.31669998541474,
+        "response_bytes": 19315
+      },
+      "rejections": [],
+      "app_would_error": false,
+      "display_candidate_count": 2,
+      "display_candidates": [
+        {
+          "id": "Comfort-1",
+          "lines": [
+            "門３３ 豊海水産埠頭行",
+            "大江戸線",
+            "都０１（Ｔ０１） 渋谷駅前行",
+            "池８６出入 池袋駅東口行"
+          ],
+          "total_time": 106,
+          "arrival_time": "22:26",
+          "transfers": 3,
+          "walk_m": null,
+          "walking_distance_meters": 835,
+          "walking_segment_count": 5,
+          "rides": 4,
+          "score_label": "楽さ 58.4 (所要106分)",
+          "cost_score": 58.38515688451238,
+          "departure_date": "2026-10-04T20:40:00",
+          "is_future_suggestion": false,
+          "steps": [
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "minutes": 1,
+              "meters": 19
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "departure_time": "20:40",
+              "arrival_time": "21:08",
+              "minutes": 27,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "門３３ 豊海水産埠頭行",
+              "from_": "十間橋",
+              "to": "都営両国駅前",
+              "departure_time": "21:08",
+              "arrival_time": "21:20",
+              "minutes": 12,
+              "trip_id": "60301-1-65-100-2103",
+              "route_id": "093"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "都営両国駅前",
+              "to": "両国",
+              "minutes": 1,
+              "meters": 38
+            },
+            {
+              "kind": "rail",
+              "title": "大江戸線",
+              "from_": "両国",
+              "to": "六本木",
+              "departure_time": "21:25",
+              "arrival_time": "21:49",
+              "minutes": 24,
+              "trip_id": "422031B0",
+              "route_id": "4"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "六本木",
+              "to": "六本木駅前",
+              "minutes": 3,
+              "meters": 177
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "六本木駅前",
+              "to": "六本木駅前",
+              "departure_time": "21:52",
+              "arrival_time": "22:00",
+              "minutes": 7,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "都０１（Ｔ０１） 渋谷駅前行",
+              "from_": "六本木駅前",
+              "to": "渋谷駅前",
+              "departure_time": "22:00",
+              "arrival_time": "22:11",
+              "minutes": 11,
+              "trip_id": "08501-2-09-100-2144",
+              "route_id": "006"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "渋谷駅前",
+              "to": "渋谷駅東口",
+              "minutes": 3,
+              "meters": 200
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "渋谷駅東口",
+              "to": "渋谷駅東口",
+              "departure_time": "22:13",
+              "arrival_time": "22:19",
+              "minutes": 5,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "池８６出入 池袋駅東口行",
+              "from_": "渋谷駅東口",
+              "to": "宮下公園",
+              "departure_time": "22:19",
+              "arrival_time": "22:20",
+              "minutes": 1,
+              "trip_id": "20016-3-33-100-2140",
+              "route_id": "185"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "宮下公園",
+              "to": "目的地",
+              "minutes": 6,
+              "meters": 401
+            }
+          ]
+        },
+        {
+          "id": "Comfort-2",
+          "lines": [
+            "門３３ 豊海水産埠頭行",
+            "大江戸線",
+            "都０１（Ｔ０１） 渋谷駅前行",
+            "池８６出入 池袋駅東口行"
+          ],
+          "total_time": 108,
+          "arrival_time": "22:28",
+          "transfers": 3,
+          "walk_m": null,
+          "walking_distance_meters": 972,
+          "walking_segment_count": 5,
+          "rides": 4,
+          "score_label": "楽さ 61.8 (所要108分)",
+          "cost_score": 61.762405260619865,
+          "departure_date": "2026-10-04T20:40:00",
+          "is_future_suggestion": false,
+          "steps": [
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "minutes": 1,
+              "meters": 19
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "十間橋",
+              "to": "十間橋",
+              "departure_time": "20:40",
+              "arrival_time": "21:08",
+              "minutes": 27,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "門３３ 豊海水産埠頭行",
+              "from_": "十間橋",
+              "to": "都営両国駅前",
+              "departure_time": "21:08",
+              "arrival_time": "21:20",
+              "minutes": 12,
+              "trip_id": "60301-1-65-100-2103",
+              "route_id": "093"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "都営両国駅前",
+              "to": "両国",
+              "minutes": 1,
+              "meters": 38
+            },
+            {
+              "kind": "rail",
+              "title": "大江戸線",
+              "from_": "両国",
+              "to": "六本木",
+              "departure_time": "21:25",
+              "arrival_time": "21:49",
+              "minutes": 24,
+              "trip_id": "422031B0",
+              "route_id": "4"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "六本木",
+              "to": "六本木駅前",
+              "minutes": 3,
+              "meters": 177
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "六本木駅前",
+              "to": "六本木駅前",
+              "departure_time": "21:52",
+              "arrival_time": "22:00",
+              "minutes": 7,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "都０１（Ｔ０１） 渋谷駅前行",
+              "from_": "六本木駅前",
+              "to": "渋谷駅前",
+              "departure_time": "22:00",
+              "arrival_time": "22:11",
+              "minutes": 11,
+              "trip_id": "08501-2-09-100-2144",
+              "route_id": "006"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "渋谷駅前",
+              "to": "渋谷駅東口",
+              "minutes": 3,
+              "meters": 200
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "渋谷駅東口",
+              "to": "渋谷駅東口",
+              "departure_time": "22:13",
+              "arrival_time": "22:19",
+              "minutes": 5,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "池８６出入 池袋駅東口行",
+              "from_": "渋谷駅東口",
+              "to": "神宮前六丁目",
+              "departure_time": "22:19",
+              "arrival_time": "22:21",
+              "minutes": 2,
+              "trip_id": "20016-3-33-100-2140",
+              "route_id": "185"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "神宮前六丁目",
+              "to": "目的地",
+              "minutes": 7,
+              "meters": 538
+            }
+          ]
+        }
+      ],
+      "sequence_wall_ms": 2154.120499966666,
+      "api_total_ms": 2151.2221999582835
+    },
+    {
+      "mode": "time",
+      "repeat": 1,
+      "route": {
+        "started_at_jst": "2026-10-04T20:41:05.965952+09:00",
+        "status_code": 200,
+        "elapsed_ms": 2912.465200002771,
+        "response_bytes": 9736
+      },
+      "raw_candidate_count": 1,
+      "route_meta": {
+        "destination_reachable": true,
+        "destination_label": "目的地",
+        "fallback_node_name": "渋谷区役所前",
+        "fallback_node_name_en": "Shibuya-Kuyakusho (Shibuya City Office)",
+        "fallback_distance_m": 129.23037148014183,
+        "walk_limit_m": 600.0,
+        "realtime_applied": true,
+        "bus_only": false
+      },
+      "raw_candidates": [
+        {
+          "id": "Fastest",
+          "lines": [
+            "門３３ 亀戸駅前行",
+            "都０７ 門前仲町行",
+            "新宿線",
+            "大江戸線",
+            "池８６出入 池袋駅東口行"
+          ],
+          "total_time": 94,
+          "arrival_time": "22:14",
+          "transfers": 4,
+          "walk_m": null,
+          "walking_distance_meters": 1264,
+          "walking_segment_count": 6,
+          "rides": 5,
+          "score_label": "94分",
+          "cost_score": 0.0,
+          "departure_date": "2026-10-04T20:40:00",
+          "is_future_suggestion": false,
+          "steps": [
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "十間橋",
+              "to": "柳島",
+              "minutes": 3,
+              "meters": 237
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "柳島",
+              "to": "柳島",
+              "departure_time": "20:42",
+              "arrival_time": "20:45",
+              "minutes": 2,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "門３３ 亀戸駅前行",
+              "from_": "柳島",
+              "to": "亀戸駅前",
+              "departure_time": "20:45",
+              "arrival_time": "20:51",
+              "minutes": 6,
+              "trip_id": "60301-2-65-100-2005",
+              "route_id": "093"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "亀戸駅前",
+              "to": "亀戸駅通り",
+              "minutes": 3,
+              "meters": 236
+            },
+            {
+              "kind": "bus",
+              "title": "都０７ 門前仲町行",
+              "from_": "亀戸駅通り",
+              "to": "西大島駅前",
+              "departure_time": "20:54",
+              "arrival_time": "20:58",
+              "minutes": 4,
+              "trip_id": "60101-1-65-100-2051",
+              "route_id": "036"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "西大島駅前",
+              "to": "西大島",
+              "minutes": 1,
+              "meters": 57
+            },
+            {
+              "kind": "rail",
+              "title": "新宿線",
+              "from_": "西大島",
+              "to": "新宿",
+              "departure_time": "21:00",
+              "arrival_time": "21:31",
+              "minutes": 31
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "新宿",
+              "to": "新宿",
+              "minutes": 1,
+              "meters": 54
+            },
+            {
+              "kind": "rail",
+              "title": "大江戸線",
+              "from_": "新宿",
+              "to": "代々木",
+              "departure_time": "21:34",
+              "arrival_time": "21:42",
+              "minutes": 8
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "代々木",
+              "to": "鳩森小学校西",
+              "minutes": 5,
+              "meters": 373
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "鳩森小学校西",
+              "to": "鳩森小学校西",
+              "departure_time": "21:47",
+              "arrival_time": "22:01",
+              "minutes": 13,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "池８６出入 池袋駅東口行",
+              "from_": "鳩森小学校西",
+              "to": "神南一丁目",
+              "departure_time": "22:01",
+              "arrival_time": "22:10",
+              "minutes": 9,
+              "trip_id": "20016-3-33-100-2140",
+              "route_id": "185"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "神南一丁目",
+              "to": "目的地",
+              "minutes": 4,
+              "meters": 307
+            }
+          ]
+        }
+      ],
+      "train_identity": {
+        "started_at_jst": "2026-10-04T20:41:08.879753+09:00",
+        "status_code": 200,
+        "elapsed_ms": 218.34730001864955,
+        "response_bytes": 9817
+      },
+      "rejections": [],
+      "app_would_error": false,
+      "display_candidate_count": 1,
+      "display_candidates": [
+        {
+          "id": "Fastest",
+          "lines": [
+            "門３３ 亀戸駅前行",
+            "都０７ 門前仲町行",
+            "新宿線",
+            "大江戸線",
+            "池８６出入 池袋駅東口行"
+          ],
+          "total_time": 94,
+          "arrival_time": "22:14",
+          "transfers": 4,
+          "walk_m": null,
+          "walking_distance_meters": 1264,
+          "walking_segment_count": 6,
+          "rides": 5,
+          "score_label": "94分",
+          "cost_score": 0.0,
+          "departure_date": "2026-10-04T20:40:00",
+          "is_future_suggestion": false,
+          "steps": [
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "十間橋",
+              "to": "柳島",
+              "minutes": 3,
+              "meters": 237
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "柳島",
+              "to": "柳島",
+              "departure_time": "20:42",
+              "arrival_time": "20:45",
+              "minutes": 2,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "門３３ 亀戸駅前行",
+              "from_": "柳島",
+              "to": "亀戸駅前",
+              "departure_time": "20:45",
+              "arrival_time": "20:51",
+              "minutes": 6,
+              "trip_id": "60301-2-65-100-2005",
+              "route_id": "093"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "亀戸駅前",
+              "to": "亀戸駅通り",
+              "minutes": 3,
+              "meters": 236
+            },
+            {
+              "kind": "bus",
+              "title": "都０７ 門前仲町行",
+              "from_": "亀戸駅通り",
+              "to": "西大島駅前",
+              "departure_time": "20:54",
+              "arrival_time": "20:58",
+              "minutes": 4,
+              "trip_id": "60101-1-65-100-2051",
+              "route_id": "036"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "西大島駅前",
+              "to": "西大島",
+              "minutes": 1,
+              "meters": 57
+            },
+            {
+              "kind": "rail",
+              "title": "新宿線",
+              "from_": "西大島",
+              "to": "新宿",
+              "departure_time": "21:07",
+              "arrival_time": "21:31",
+              "minutes": 24,
+              "trip_id": "332075K0",
+              "route_id": "3"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "新宿",
+              "to": "新宿",
+              "minutes": 1,
+              "meters": 54
+            },
+            {
+              "kind": "rail",
+              "title": "大江戸線",
+              "from_": "新宿",
+              "to": "代々木",
+              "departure_time": "21:41",
+              "arrival_time": "21:42",
+              "minutes": 1,
+              "trip_id": "432118A0",
+              "route_id": "4"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "代々木",
+              "to": "鳩森小学校西",
+              "minutes": 5,
+              "meters": 373
+            },
+            {
+              "kind": "wait",
+              "title": "待ち時間",
+              "from_": "鳩森小学校西",
+              "to": "鳩森小学校西",
+              "departure_time": "21:47",
+              "arrival_time": "22:01",
+              "minutes": 13,
+              "meters": 0
+            },
+            {
+              "kind": "bus",
+              "title": "池８６出入 池袋駅東口行",
+              "from_": "鳩森小学校西",
+              "to": "神南一丁目",
+              "departure_time": "22:01",
+              "arrival_time": "22:10",
+              "minutes": 9,
+              "trip_id": "20016-3-33-100-2140",
+              "route_id": "185"
+            },
+            {
+              "kind": "walk",
+              "title": "徒歩",
+              "from_": "神南一丁目",
+              "to": "目的地",
+              "minutes": 4,
+              "meters": 307
+            }
+          ]
+        }
+      ],
+      "sequence_wall_ms": 3132.8690000227652,
+      "api_total_ms": 3130.8125000214204
+    },
+    {
+      "mode": "fewTransfers",
+      "repeat": 1,
+      "route": {
+        "started_at_jst": "2026-10-04T20:41:09.100411+09:00",
+        "status_code": 503,
+        "elapsed_ms": 3120.0428000302054,
+        "response_bytes": 473
+      },
+      "route_error": {
+        "detail": {
+          "code": "route_search_limit",
+          "message": "fewTransfers search safety limit exceeded: reason=max_visited visited=100001 yielded=0 queue=12606 g_score=85099 best_cost=75082 elapsed_sec=2.910 max_visited=100000 max_search=30000 time_limit_sec=15.0",
+          "diagnostic": "fewTransfers search safety limit exceeded: reason=max_visited visited=100001 yielded=0 queue=12606 g_score=85099 best_cost=75082 elapsed_sec=2.910 max_visited=100000 max_search=30000 time_limit_sec=15.0"
+        }
+      },
+      "app_would_error": true,
+      "sequence_wall_ms": 3120.5929000279866,
+      "api_total_ms": 3120.0428000302054
+    },
+    {
+      "mode": "fewTransfers",
+      "repeat": 2,
+      "route": {
+        "started_at_jst": "2026-10-04T20:43:41.497059+09:00",
+        "status_code": 503,
+        "elapsed_ms": 9217.778399994131,
+        "response_bytes": 473
+      },
+      "route_error": {
+        "detail": {
+          "code": "route_search_limit",
+          "message": "fewTransfers search safety limit exceeded: reason=max_visited visited=100001 yielded=0 queue=12606 g_score=85099 best_cost=75082 elapsed_sec=2.712 max_visited=100000 max_search=30000 time_limit_sec=15.0",
+          "diagnostic": "fewTransfers search safety limit exceeded: reason=max_visited visited=100001 yielded=0 queue=12606 g_score=85099 best_cost=75082 elapsed_sec=2.712 max_visited=100000 max_search=30000 time_limit_sec=15.0"
+        }
+      },
+      "app_would_error": true,
+      "sequence_wall_ms": 9218.445100006647,
+      "api_total_ms": 9217.778399994131
+    }
+  ],
+  "runtime_config_timing": {
+    "started_at_jst": "2026-10-04T20:40:46.029466+09:00",
+    "status_code": 200,
+    "elapsed_ms": 1402.0168000133708,
+    "response_bytes": 344
+  },
+  "api_base": "https://bzmpzqtr7kvczwgmyxlbrfkx6q0cldpy.lambda-url.us-west-2.on.aws",
+  "warmup_timing": {
+    "started_at_jst": "2026-10-04T20:40:47.431433+09:00",
+    "status_code": 200,
+    "elapsed_ms": 6994.379899988417,
+    "response_bytes": 33
+  },
+  "warmup_response": {
+    "status": "ready",
+    "city": "tokyo"
+  },
+  "summary": {
+    "cost": {
+      "samples": 3,
+      "api_total_median_ms": 2176.882099942304,
+      "route_median_ms": 1938.1522999610752,
+      "identity_median_ms": 270.31669998541474
+    },
+    "time": {
+      "samples": 1,
+      "api_total_median_ms": 3130.8125000214204,
+      "route_median_ms": 2912.465200002771,
+      "identity_median_ms": 218.34730001864955
+    },
+    "fewTransfers": {
+      "samples": 2,
+      "api_total_median_ms": 6168.910600012168,
+      "route_median_ms": 6168.910600012168,
+      "identity_median_ms": 0.0
+    }
+  }
+}
