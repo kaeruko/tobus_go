@@ -61,6 +61,7 @@ class Candidate {
   final LatLng? destinationCoords;
   final String? arrivalTime;
   final String? savedRouteMemo;
+  final DateTime? savedRouteSavedAt;
 
   Candidate({
     required this.id,
@@ -86,6 +87,7 @@ class Candidate {
     this.destinationCoords,
     this.arrivalTime,
     this.savedRouteMemo,
+    this.savedRouteSavedAt,
   }) : walkingDistanceMeters =
            walkingDistanceMeters ?? _walkingDistanceMetersFrom(steps),
        walkingSegmentCount =
@@ -182,7 +184,23 @@ class Candidate {
           : null,
       arrivalTime: j['arrival_time']?.toString(),
       savedRouteMemo: j['saved_route_memo']?.toString(),
+      savedRouteSavedAt: _readOptionalSavedRouteSavedAt(j),
     );
+  }
+
+  static DateTime? _readOptionalSavedRouteSavedAt(
+    Map<String, dynamic> json,
+  ) {
+    final value = json['saved_route_saved_at'];
+    if (value == null) return null;
+    if (value is! String || value.trim().isEmpty) {
+      throw FormatException('saved route has invalid saved_route_saved_at: $value');
+    }
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null) {
+      throw FormatException('saved route has invalid saved_route_saved_at: $value');
+    }
+    return parsed.toUtc();
   }
 
   static int _readRequiredNonNegativeInt(
@@ -430,6 +448,23 @@ class Candidate {
   }
 
   Candidate withSavedRouteMemo(String? memo) {
+    return _copySavedRouteMetadata(
+      memo: memo,
+      savedAt: savedRouteSavedAt,
+    );
+  }
+
+  Candidate withSavedRouteSavedAt(DateTime savedAt) {
+    return _copySavedRouteMetadata(
+      memo: savedRouteMemo,
+      savedAt: savedAt.toUtc(),
+    );
+  }
+
+  Candidate _copySavedRouteMetadata({
+    required String? memo,
+    required DateTime? savedAt,
+  }) {
     return Candidate(
       id: id,
       lines: lines,
@@ -454,6 +489,7 @@ class Candidate {
       destinationCoords: destinationCoords,
       arrivalTime: arrivalTime,
       savedRouteMemo: memo,
+      savedRouteSavedAt: savedAt,
     );
   }
 
@@ -491,6 +527,8 @@ class Candidate {
           : null,
       'arrival_time': arrivalTime,
       if (includeSavedRouteMemo) 'saved_route_memo': savedRouteMemo,
+      if (includeSavedRouteMemo)
+        'saved_route_saved_at': savedRouteSavedAt?.toUtc().toIso8601String(),
     };
   }
 }
