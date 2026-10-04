@@ -22,6 +22,12 @@ class UnsupportedPreferenceError(RouteInputError):
 class RouteSearchLimitError(RouteEngineError, RuntimeError):
     """A search stopped because a safety limit was reached."""
 
+    def __init__(self, message: str, *, reason: str | None = None,
+                 diagnostics: Mapping[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.reason = reason
+        self.diagnostics = dict(diagnostics or {})
+
 
 class RouteEngineUnavailableError(RouteEngineError, RuntimeError):
     """The selected city's route engine is not ready."""

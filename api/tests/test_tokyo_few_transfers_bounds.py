@@ -1,41 +1,17 @@
-"""Offline A* checks; production search and timetable code remain untouched.
+"""Admissibility of query-local lexicographic few-transfers lower bounds.
 
-The reference enumerator knows exact walking distances and accumulates the
-lexicographic objective directly. It does not reuse the reverse-bound builder.
-Existing timetable/identity regressions also run under the in-memory clone.
+The reference enumerator checks exact walking resources without using the
+reverse-bound implementation. Its DAGs include every legal continuation.
 """
 
-from __future__ import annotations
-
-import contextlib
-from dataclasses import replace
-import hashlib
-import inspect
-import io
 import math
-from pathlib import Path
 import random
-import sys
 import unittest
-from unittest.mock import patch
-
-HERE = Path(__file__).resolve().parent
-API = HERE.parents[1]
-sys.path.insert(0, str(API))
-sys.path.insert(0, str(HERE))
 
 import networkx as nx
 
 import tokyo_search_labels as labels
-from tokyo_timetable_choices import RideState
-from route_engine import RouteSearchLimitError
-from few_astar_bounds import make_bounds
-from few_astar_experiment import make_search_variant
-from tests import test_tokyo_bus_board_phase_regression as bus_phase
-from tests import test_tokyo_bus_choices_contract as bus_choices
-from tests import test_tokyo_heap_compaction as heap_fixture
-from tests import test_tokyo_search_dominance_regression as dominance
-from tests import test_tokyo_waiting_contract as waiting
+from tokyo_few_transfers_bounds import CostRoundingGuard, make_bounds
 
 
 def _phys(name):
@@ -85,6 +61,24 @@ def _lex_less_equal(first, second):
 
 
 class RelaxedLowerBoundTest(unittest.TestCase):
+    def test_deadline_callback_can_stop_large_preparation_and_exception_propagates(self):
+        graph = nx.DiGraph()
+        for node in range(4096):
+            graph.add_edge(node, node + 1, etype="walk", meters=1.0, w=1.0)
+        checks = []
+
+        class DeadlineExpired(Exception):
+            pass
+
+        def check_deadline():
+            checks.append(True)
+            if len(checks) == 3:
+                raise DeadlineExpired("preparation deadline")
+
+        with self.assertRaisesRegex(DeadlineExpired, "preparation deadline"):
+            make_bounds(graph, 4096, check_deadline=check_deadline)
+        self.assertEqual(len(checks), 3)
+
     def _assert_admissible(self, graph, target, *, virtual=None,
                            blocked=lambda u, v: False):
         bound = make_bounds(graph, target, virtual or {}, edge_uses_rail=blocked)
@@ -166,6 +160,18 @@ class RelaxedLowerBoundTest(unittest.TestCase):
                          [(0, 2.5)])
         self.assertEqual(_continuations(graph, stop, target, 599, virtual=direct), [])
 
+    def test_virtual_shortcut_is_included_even_when_target_exists_in_graph(self):
+        start, stop, target = map(_phys, ("start", "stop", "target"))
+        graph = nx.DiGraph()
+        _edge(graph, start, stop, "approach", 0)
+        _edge(graph, stop, target, "walk", 100, 24)
+        virtual = {stop: (1.0, 24.0)}
+        bound = self._assert_admissible(graph, target, virtual=virtual)
+        self.assertIn(target, graph)
+        self.assertEqual(bound(stop, 0), (0, 1.0))
+        self.assertEqual(bound(start, 0), (0, 1.0))
+        self.assertEqual(bound(target, 0), (0, 0.0))
+
     def test_bus_only_bound_cannot_use_filtered_rail_edges(self):
         start, bus, rail, target = map(_phys, ("start", "bus", "rail", "target"))
         graph = nx.DiGraph()
@@ -240,178 +246,47 @@ class RelaxedLowerBoundTest(unittest.TestCase):
                 self.assertEqual(bound(start, resource), (0, 0.0))
 
 
-@unittest.skipIf(hasattr(labels, "CostRoundingGuard"),
-                 "Historical priority clone targets pre-A* code; use the formal Tokyo A* tests")
-class FewAStarContractTest(unittest.TestCase):
-    def test_bound_preparation_counts_against_original_fifteen_second_limit(self):
-        clock = {"now": 0.0}
 
-        class FakeBound:
-            report = {}
-
-            def __call__(self, node, segment):
-                return 0, 0.0
-
-        def expensive_builder(*args, **kwargs):
-            clock["now"] = 16.0
-            return FakeBound()
-
-        graph = heap_fixture._fan_in_graph(branches=5)
-        with patch("few_astar_bounds.make_bounds", side_effect=expensive_builder) as builder:
-            variant = make_search_variant()
-            with patch.object(labels, "search_labels", variant), \
-                    patch.object(labels.time, "monotonic", side_effect=lambda: clock["now"]), \
-                    patch.object(labels.heapq, "heappop") as forward_pop, \
-                    contextlib.redirect_stdout(io.StringIO()):
-                with self.assertRaisesRegex(RouteSearchLimitError, "reason=time_limit_sec"):
-                    list(heap_fixture._search(graph, mode="fewTransfers"))
-        builder.assert_called_once()
-        forward_pop.assert_not_called()
-
-    def test_existing_pareto_waiting_bus_phase_and_identity_regressions(self):
-        suite = unittest.TestSuite()
-        loader = unittest.TestLoader()
-        for module in (dominance, waiting, bus_phase, bus_choices):
-            suite.addTests(loader.loadTestsFromModule(module))
-        captured = io.StringIO()
-        variant = make_search_variant()
-        with patch.object(labels, "search_labels", variant), \
-                contextlib.redirect_stdout(captured):
-            result = unittest.TextTestRunner(stream=captured, verbosity=2).run(suite)
-        self.assertTrue(result.wasSuccessful(), captured.getvalue())
-        self.assertGreaterEqual(result.testsRun, 30)
-
-    def test_cost_and_time_are_unchanged_and_never_build_bounds(self):
-        reports = []
-        variant = make_search_variant(reports)
-        graph = heap_fixture._fan_in_graph(branches=30)
-        for mode in ("cost", "time"):
-            with self.subTest(mode=mode), contextlib.redirect_stdout(io.StringIO()):
-                baseline = list(heap_fixture._search(graph, mode=mode))
-                with patch.object(labels, "search_labels", variant):
-                    actual = list(heap_fixture._search(graph, mode=mode))
-            self.assertEqual(heap_fixture._snapshot(actual), heap_fixture._snapshot(baseline))
-        self.assertEqual(reports, [])
-        actual_signature = inspect.signature(variant)
-        original_signature = inspect.signature(labels.search_labels)
-        self.assertEqual(tuple(actual_signature.parameters), tuple(original_signature.parameters))
-        for name, parameter in actual_signature.parameters.items():
-            original = original_signature.parameters[name]
-            self.assertEqual(parameter.kind, original.kind)
-            if name == "heuristic":
-                # Compiling the unchanged default lambda creates a new function.
-                self.assertEqual(parameter.default(_phys("any")), original.default(_phys("any")))
-            else:
-                self.assertEqual(parameter.default, original.default)
-        self.assertIs(variant.__globals__["_Frontier"], labels._Frontier)
-        self.assertIs(variant.__globals__["_Label"], labels._Label)
-        self.assertIs(variant.__globals__["_path"], labels._path)
-
-    def test_few_transfers_loop_retains_exact_run_occurrences(self):
-        graph = waiting._graph(("X", "A"), ("A", "B"), ("B", "A"), ("A", "C"))
-        manager = waiting._manager(waiting._run(
-            "loop", (("X", 595), ("A", 600), ("B", 605), ("A", 610), ("C", 615)),
-        ))
-        variant = make_search_variant()
-        with patch.object(labels, "search_labels", variant), \
-                contextlib.redirect_stdout(io.StringIO()):
-            search = waiting.engine.find_few_transfers_paths_generator(
-                graph, manager, waiting._physical("X"), waiting._physical("C"),
-                start_time_str="09:53", use_realtime=False,
+class CostRoundingGuardTest(unittest.TestCase):
+    def test_guard_is_below_independently_accumulated_forward_costs(self):
+        generator = random.Random(20261005)
+        scales = (math.ulp(0.0), 1e-220, 1e-12, 1.0, 1e12, 1e16, 1e220)
+        for case in range(400):
+            count = generator.randrange(2, 61)
+            selected_scale = generator.choice(scales)
+            weights = [(selected_scale if case % 2 == 0 else generator.choice(scales))
+                       * generator.choice((0.0, 0.1, 0.2, 0.6, 0.7, 1.2, 3.4))
+                       for _ in range(count)]
+            split = generator.randrange(1, count)
+            prefix = 0.0
+            for weight in weights[:split]:
+                prefix += weight
+            reverse = 0.0
+            for weight in reversed(weights[split:]):
+                reverse += weight
+            actual_forward = prefix
+            for weight in weights[split:]:
+                actual_forward += weight
+            guard = CostRoundingGuard(
+                max_edge_cost=max(weights), max_forward_steps=count,
+                max_reverse_steps=count + 1,
             )
-            candidate = next(search)
-            search.close()
-        path = candidate["path"]
-        self.assertEqual(path, [waiting._physical("X"), waiting._line("X"),
-                               waiting._line("A"), waiting._line("B"),
-                               waiting._line("A"), waiting._line("C"),
-                               waiting._physical("C")])
-        self.assertEqual(path.arrival_minute, 616)
-        self.assertEqual(waiting._boardings(graph, path), 1)
-        self.assertEqual([path.edge_rides[i].sequence for i in range(5)],
-                         [0, 1, 2, 3, 4])
+            with self.subTest(case=case):
+                # Strict comparison detects the few-ULP queue-order regression.
+                self.assertLessEqual(guard(prefix, reverse), actual_forward)
+                self.assertGreaterEqual(guard(prefix, reverse), prefix)
 
-    def test_relaxation_can_ignore_run_termination_but_search_cannot(self):
-        graph = waiting._graph(("A", "B"), ("B", "C"))
-        manager = waiting._manager(
-            waiting._run("terminating", (("A", 600), ("B", 605))),
-            waiting._run("continuation", (("B", 609), ("C", 610))),
-        )
-        bound = make_bounds(graph, waiting._physical("C"))
-        self.assertEqual(bound(waiting._line("A"), 0),
-                         (0, 2 * waiting.engine.RAIL_RIDE_COST))
-        with patch.object(labels, "search_labels", make_search_variant()), \
-                contextlib.redirect_stdout(io.StringIO()):
-            search = waiting.engine.find_few_transfers_paths_generator(
-                graph, manager, waiting._physical("A"), waiting._physical("C"),
-                start_time_str="09:58", use_realtime=False,
-            )
-            candidate = next(search)
-            search.close()
-        path = candidate["path"]
-        self.assertEqual(waiting._boardings(graph, path), 2)
-        self.assertEqual(path.arrival_minute, 611)
-        self.assertEqual(path, [waiting._physical("A"), waiting._line("A"),
-                               waiting._line("B"), waiting._physical("B"),
-                               waiting._line("B"), waiting._line("C"),
-                               waiting._physical("C")])
-
-    def test_first_goal_has_exact_lexicographic_optimum_without_extra_boarding(self):
-        graph = nx.DiGraph()
-        start, interchange, target = map(_phys, ("start", "interchange", "target"))
-        graph.add_nodes_from((start, interchange, target))
-        for name, origin, destination, cost in (
-                ("one", start, target, 7.0),
-                ("first", start, interchange, 1.0),
-                ("second", interchange, target, 1.0)):
-            left, right = ("line", f"{name}-origin", name), ("line", f"{name}-end", name)
-            graph.add_node(left, mode="bus")
-            graph.add_node(right, mode="bus")
-            _edge(graph, origin, left, "board", cost)
-            _edge(graph, left, right, "ride", 0)
-            _edge(graph, right, destination, "alight", 0)
-
-        class Choices:
-            can_wait_offboard = True
-            use_realtime = False
-            manager = object()
-
-            def board_options(self, u, v, ready):
-                return ((ready, RideState("bus", "day", v[2], v[2], 0, 0, ready)),)
-
-            def ride_options(self, u, v, current, state):
-                return ((current + 1, replace(state, sequence=state.sequence + 1)),)
-
-        variant = make_search_variant()
-        with contextlib.redirect_stdout(io.StringIO()):
-            search = variant(
-                graph, Choices(), start, target, mode="fewTransfers", start_minute=0.0,
-                max_search=5, max_visited=100000, max_travel_min=240,
-                time_limit_sec=15.0, max_total_walk=3000, max_segment_walk=600,
-                walk_speed=80.0, rail_boarding_minutes=2.0,
-                advance_time=lambda u, v, current, edge: current,
-                virtual_connections={}, edge_uses_rail=lambda u, v: False,
-            )
-            first = next(search)
-            search.close()
-        expected = min(_continuations(graph, start, target))
-        self.assertEqual(expected, (1, 7.0))
-        self.assertEqual((waiting._boardings(graph, first["path"]), first["cost"]), expected)
-
-    def test_loading_and_running_experiment_does_not_write_product_sources(self):
-        paths = [API / filename for filename in (
-            "tokyo_search_labels.py", "tokyo_timetable_choices.py", "toei_engine.py")]
-        before = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
-        variant = make_search_variant()
-        graph = heap_fixture._fan_in_graph(branches=5)
-        with patch.object(labels, "search_labels", variant), \
-                contextlib.redirect_stdout(io.StringIO()):
-            results = list(heap_fixture._search(graph, mode="fewTransfers"))
-        self.assertEqual(len(results), 5)
-        self.assertEqual(
-            {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}, before,
-        )
+    def test_zero_cost_continuation_preserves_prefix_and_overflow_uses_prefix(self):
+        guard = CostRoundingGuard(3.4, 100000, 1000000)
+        for prefix in (0.0, 0.1, 11.099999999999998, 1e16, 1e220):
+            with self.subTest(prefix=prefix):
+                self.assertEqual(guard(prefix, 0.0), prefix)
+        overflow = CostRoundingGuard(1e308, 100000, 1000000)
+        self.assertEqual(overflow(1e308, 1e308), 1e308)
+        self.assertEqual(overflow(7.0, 1.0), 7.0)
+        disabled = CostRoundingGuard(math.inf, 10, 10)
+        self.assertEqual(disabled(7.0, 1.0), 7.0)
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main()

@@ -16,6 +16,7 @@ from route_engine import (
 )
 from toei_engine import (
     MAX_WALK_SEG_M,
+    TokyoSearchCandidates,
     _rss_mb,
     determine_day_type,
     get_virtual_connections,
@@ -393,6 +394,14 @@ class TokyoRouteEngine:
 
         gc.collect()
         print(f"[MEM] leave TokyoRouteEngine.search rss={deps.rss_mb():.1f}MB")
+        search_meta = {}
+        if isinstance(results, TokyoSearchCandidates) and results.search_limit_error is not None:
+            error = results.search_limit_error
+            search_meta = {
+                "truncated": True,
+                "termination_reason": error.reason,
+                "search_diagnostics": dict(error.diagnostics),
+            }
         return {
             "candidates": results,
             "meta": {
@@ -404,5 +413,6 @@ class TokyoRouteEngine:
                 "walk_limit_m": MAX_WALK_SEG_M,
                 "realtime_applied": use_realtime,
                 "bus_only": bus_only,
+                **search_meta,
             },
         }

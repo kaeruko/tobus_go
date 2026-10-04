@@ -8,7 +8,8 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, replace
 
-from route_engine import RouteSearchLimitError
+from route_engine import RouteContractError, RouteSearchLimitError
+from tokyo_few_transfers_bounds import CostRoundingGuard, make_bounds
 
 
 class SelectedPath(list):
@@ -146,8 +147,9 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
                   max_expanded=None):
     """Yield feasible paths, using one frontier at generation and pop time.
 
-    The queue uses the existing objective (no reverse A* lower bound).  A stale
-    label is discarded by its identity, rather than a second scalar-cost map.
+    fewTransfers orders its lexicographic objective with a relaxed reverse
+    bound. Other objectives retain their existing priorities. A stale label
+    is discarded by identity, rather than a second scalar-cost map.
     """
     started = time.monotonic()
     deadline = start_minute + max_travel_min
@@ -159,10 +161,14 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
     popped = expanded = yielded = 0
     compacted_count = 0
     next_compaction_pop = 1000
+    bounds = None
+    cost_bound = None
 
     def priority(label):
         if mode == "fewTransfers":
-            return (label.boardings, label.cost, label.time)
+            remaining_boardings, remaining_cost = bounds(label.node, label.segment_walk)
+            return (label.boardings + remaining_boardings, cost_bound(label.cost, remaining_cost),
+                    label.boardings, label.cost, label.time)
         if mode == "time":
             return (label.time, label.cost, label.boardings)
         return (label.cost + heuristic(label.node), label.cost, label.time)
@@ -185,17 +191,62 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
               f"yielded={yielded} queue={len(queue)} g_score={len(frontier.labels)} "
               f"best_cost={expanded} frontier_labels={frontier.count} "
               f"compacted_count={compacted_count} "
+              f"lower_bound_ms={bounds.report.get('build_ms', 0.0) if bounds is not None else 0.0:.3f} "
               f"elapsed_sec={time.monotonic() - started:.3f} {fields}", flush=True)
 
     def fail(reason):
         stats("abort:" + reason)
+        elapsed = time.monotonic() - started
         raise RouteSearchLimitError(
             f"{mode} search safety limit exceeded: reason={reason} "
             f"visited={popped} yielded={yielded} queue={len(queue)} "
             f"g_score={len(frontier.labels)} best_cost={expanded} "
-            f"elapsed_sec={time.monotonic() - started:.3f} "
+            f"elapsed_sec={elapsed:.3f} "
             f"max_visited={max_visited} max_search={max_search} "
-            f"time_limit_sec={time_limit_sec}")
+            f"time_limit_sec={time_limit_sec}",
+            reason=reason,
+            diagnostics={
+                "mode": mode, "visited": popped, "yielded": yielded,
+                "queue": len(queue), "g_score": len(frontier.labels),
+                "best_cost": expanded, "frontier_labels": frontier.count,
+                "elapsed_sec": elapsed, "max_visited": max_visited,
+                "max_search": max_search, "max_expanded": max_expanded,
+                "time_limit_sec": time_limit_sec,
+            })
+
+    def check_deadline():
+        if time.monotonic() - started > time_limit_sec:
+            fail("time_limit_sec")
+
+    if mode == "fewTransfers":
+        # Query-local: no destination cache can retain graph or service data.
+        # The relaxed pair changes ordering only; it never prunes a label or
+        # changes the exact walking/run resources in the shared frontier.
+        try:
+            bounds = make_bounds(
+                graph, target, virtual_connections, edge_uses_rail=edge_uses_rail,
+                max_segment_walk=max_segment_walk, check_deadline=check_deadline,
+            )
+        except ValueError as error:
+            raise RouteContractError(f"Tokyo fewTransfers lower bound is invalid: {error}") from error
+        check_deadline()
+        # Preserve forward float-cost comparisons near ties. The guard covers
+        # every addition in a returned path (bounded by actual heap pops),
+        # the relaxed simple path, and the final g+h rounding. Virtual edges
+        # count too; this only lowers a queue estimate, never a candidate cost.
+        maximum_edge_cost = max(
+            bounds.report.get("graph_max_edge_cost", 0.0),
+            max((float(cost) for cost, _ in virtual_connections.values()), default=0.0),
+        )
+        cost_bound = CostRoundingGuard(
+            max_edge_cost=maximum_edge_cost, max_forward_steps=max_visited,
+            max_reverse_steps=bounds.report.get("allocated_states", 0) + 1,
+        )
+        bounds.report["cost_rounding_guard"] = {
+            "max_edge_cost": maximum_edge_cost,
+            "max_forward_steps": max_visited,
+            "max_reverse_steps": bounds.report.get("allocated_states", 0) + 1,
+        }
 
     offer(_Label(start, 0.0, start_minute, 0.0, 0.0, 0))
     while queue:

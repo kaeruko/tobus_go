@@ -1,0 +1,2342 @@
+{
+  "candidates": [
+    {
+      "lines_en": [
+        "Oedo Line",
+        "東４２－１ · Minami-Senju-Shako"
+      ],
+      "score_label": "楽さ 28.5 (所要42分)",
+      "cost_score": 28.50128757434309,
+      "total": 28,
+      "rides": 2,
+      "departure_date": "2026-10-04T10:02:00",
+      "is_future_suggestion": false,
+      "official_english_names": true,
+      "origin_coords": [
+        35.690921,
+        139.700258
+      ],
+      "destination_coords": [
+        35.71165,
+        139.79662
+      ],
+      "id": "Comfort-1",
+      "lines": [
+        "大江戸線",
+        "東４２－１ 南千住車庫前行"
+      ],
+      "boards": 2,
+      "transfers": 1,
+      "total_time": 44,
+      "walking_distance_meters": 596,
+      "walking_segment_count": 3,
+      "steps": [
+        {
+          "edges": 2,
+          "from_en": "Current location",
+          "to_en": "Shinjuku-nishiguchi",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "現在地",
+          "to": "新宿西口",
+          "minutes": 6,
+          "meters": 373,
+          "step_id": "step-walk-83a4319852cd43eaa1dc8ae3846e3658"
+        },
+        {
+          "title_en": "Oedo Line",
+          "edges": 10,
+          "from_en": "Shinjuku-nishiguchi",
+          "to_en": "Kuramae",
+          "stops": [
+            {
+              "name": "新宿西口",
+              "name_en": "Shinjuku-nishiguchi",
+              "is_origin": true,
+              "lat": 35.693367,
+              "lon": 139.699121,
+              "id": "402",
+              "odpt_id": "odpt.Station:Toei.Oedo.ShinjukuNishiguchi",
+              "station_code": "E-01"
+            },
+            {
+              "name": "東新宿",
+              "name_en": "Higashi-shinjuku",
+              "lat": 35.697957,
+              "lon": 139.707434,
+              "id": "403",
+              "odpt_id": "odpt.Station:Toei.Oedo.HigashiShinjuku",
+              "station_code": "E-02"
+            },
+            {
+              "name": "若松河田",
+              "name_en": "Wakamatsu-kawada",
+              "lat": 35.699188,
+              "lon": 139.718043,
+              "id": "404",
+              "odpt_id": "odpt.Station:Toei.Oedo.WakamatsuKawada",
+              "station_code": "E-03"
+            },
+            {
+              "name": "牛込柳町",
+              "name_en": "Ushigome-yanagicho",
+              "lat": 35.699501,
+              "lon": 139.72504,
+              "id": "405",
+              "odpt_id": "odpt.Station:Toei.Oedo.UshigomeYanagicho",
+              "station_code": "E-04"
+            },
+            {
+              "name": "牛込神楽坂",
+              "name_en": "Ushigome-kagurazaka",
+              "lat": 35.700911,
+              "lon": 139.735894,
+              "id": "406",
+              "odpt_id": "odpt.Station:Toei.Oedo.UshigomeKagurazaka",
+              "station_code": "E-05"
+            },
+            {
+              "name": "飯田橋",
+              "name_en": "Iidabashi",
+              "lat": 35.702952,
+              "lon": 139.745257,
+              "id": "407",
+              "odpt_id": "odpt.Station:Toei.Oedo.Iidabashi",
+              "station_code": "E-06"
+            },
+            {
+              "name": "春日",
+              "name_en": "Kasuga",
+              "lat": 35.708493,
+              "lon": 139.752487,
+              "id": "408",
+              "odpt_id": "odpt.Station:Toei.Oedo.Kasuga",
+              "station_code": "E-07"
+            },
+            {
+              "name": "本郷三丁目",
+              "name_en": "Hongo-sanchome",
+              "lat": 35.70751,
+              "lon": 139.760524,
+              "id": "409",
+              "odpt_id": "odpt.Station:Toei.Oedo.HongoSanchome",
+              "station_code": "E-08"
+            },
+            {
+              "name": "上野御徒町",
+              "name_en": "Ueno-okachimachi",
+              "lat": 35.707949,
+              "lon": 139.773351,
+              "id": "410",
+              "odpt_id": "odpt.Station:Toei.Oedo.UenoOkachimachi",
+              "station_code": "E-09"
+            },
+            {
+              "name": "新御徒町",
+              "name_en": "Shin-okachimachi",
+              "lat": 35.707009,
+              "lon": 139.782166,
+              "id": "411",
+              "odpt_id": "odpt.Station:Toei.Oedo.ShinOkachimachi",
+              "station_code": "E-10"
+            },
+            {
+              "name": "蔵前",
+              "name_en": "Kuramae",
+              "lat": 35.705587,
+              "lon": 139.792244,
+              "id": "412",
+              "odpt_id": "odpt.Station:Toei.Oedo.Kuramae",
+              "is_destination": true,
+              "station_code": "E-11"
+            }
+          ],
+          "departure_time": "10:08",
+          "boarding_minutes": 2,
+          "route_id": null,
+          "trip_id": null,
+          "selected_run": {
+            "provider": "rail",
+            "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+            "run_id": "2026-10-04|odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday|part:0",
+            "service_key": "2026-10-04",
+            "train_number": "1018B",
+            "trip_id": null,
+            "route_id": null,
+            "service_id": null,
+            "actual_departure_minute": 608.0,
+            "origin_stop_id": "odpt.Station:Toei.Oedo.ShinjukuNishiguchi",
+            "destination_stop_id": "odpt.Station:Toei.Oedo.Kuramae",
+            "scheduled_departure_minute": 608,
+            "scheduled_arrival_minute": 628,
+            "segment_records": [
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.ShinjukuNishiguchi",
+                "next_sta": "odpt.Station:Toei.Oedo.HigashiShinjuku",
+                "dep": 608,
+                "arr": 610,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 1,
+                "actual_dep": 608.0,
+                "actual_arr": 610.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.HigashiShinjuku",
+                "next_sta": "odpt.Station:Toei.Oedo.WakamatsuKawada",
+                "dep": 610,
+                "arr": 612,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 2,
+                "actual_dep": 610.0,
+                "actual_arr": 612.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.WakamatsuKawada",
+                "next_sta": "odpt.Station:Toei.Oedo.UshigomeYanagicho",
+                "dep": 613,
+                "arr": 614,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 3,
+                "actual_dep": 613.0,
+                "actual_arr": 614.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.UshigomeYanagicho",
+                "next_sta": "odpt.Station:Toei.Oedo.UshigomeKagurazaka",
+                "dep": 614,
+                "arr": 616,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 4,
+                "actual_dep": 614.0,
+                "actual_arr": 616.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.UshigomeKagurazaka",
+                "next_sta": "odpt.Station:Toei.Oedo.Iidabashi",
+                "dep": 616,
+                "arr": 618,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 5,
+                "actual_dep": 616.0,
+                "actual_arr": 618.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.Iidabashi",
+                "next_sta": "odpt.Station:Toei.Oedo.Kasuga",
+                "dep": 619,
+                "arr": 621,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 6,
+                "actual_dep": 619.0,
+                "actual_arr": 621.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.Kasuga",
+                "next_sta": "odpt.Station:Toei.Oedo.HongoSanchome",
+                "dep": 621,
+                "arr": 622,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 7,
+                "actual_dep": 621.0,
+                "actual_arr": 622.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.HongoSanchome",
+                "next_sta": "odpt.Station:Toei.Oedo.UenoOkachimachi",
+                "dep": 623,
+                "arr": 625,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 8,
+                "actual_dep": 623.0,
+                "actual_arr": 625.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.UenoOkachimachi",
+                "next_sta": "odpt.Station:Toei.Oedo.ShinOkachimachi",
+                "dep": 625,
+                "arr": 626,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 9,
+                "actual_dep": 625.0,
+                "actual_arr": 626.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.ShinOkachimachi",
+                "next_sta": "odpt.Station:Toei.Oedo.Kuramae",
+                "dep": 627,
+                "arr": 628,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 10,
+                "actual_dep": 627.0,
+                "actual_arr": 628.0
+              }
+            ],
+            "actual_arrival_minute": 628.0,
+            "origin_sequence": 1,
+            "destination_sequence": 11
+          },
+          "arrival_time": "10:28",
+          "kind": "rail",
+          "title": "大江戸線",
+          "from_": "新宿西口",
+          "to": "蔵前",
+          "minutes": 20,
+          "step_id": "step-rail-b4460ca9dd5146218334d706251de427"
+        },
+        {
+          "edges": 1,
+          "from_en": "Kuramae",
+          "to_en": "Kuramae Sta.",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "蔵前",
+          "to": "蔵前駅前",
+          "minutes": 2,
+          "meters": 87,
+          "step_id": "step-walk-230f6aa7df064917a161f42da29e2763"
+        },
+        {
+          "edges": 0,
+          "from_en": "Kuramae Sta.",
+          "to_en": "Kuramae Sta.",
+          "departure_time": "10:30",
+          "arrival_time": "10:36",
+          "startLabel": "待ち時間",
+          "place": "蔵前駅前",
+          "place_en": "Kuramae Sta.",
+          "kind": "wait",
+          "title": "待ち時間",
+          "from_": "蔵前駅前",
+          "to": "蔵前駅前",
+          "minutes": 5,
+          "meters": 0,
+          "step_id": "step-wait-0e1d3ae0d19a40cfb9e9693d59691071"
+        },
+        {
+          "title_en": "東４２－１ · Minami-Senju-Shako",
+          "edges": 2,
+          "from_en": "Kuramae Sta.",
+          "to_en": "Tōbu-Asakusa Sta.",
+          "stops": [
+            {
+              "name": "蔵前駅前",
+              "name_en": "Kuramae Sta.",
+              "is_origin": true,
+              "lat": 35.704975,
+              "lon": 139.792842,
+              "id": "0147-03"
+            },
+            {
+              "name": "駒形橋",
+              "name_en": "Komagatabashi",
+              "lat": 35.707999,
+              "lon": 139.795487,
+              "id": "0537-01"
+            },
+            {
+              "name": "東武浅草駅前",
+              "name_en": "Tōbu-Asakusa Sta.",
+              "lat": 35.711363,
+              "lon": 139.798085,
+              "id": "0984-03",
+              "is_destination": true
+            }
+          ],
+          "departure_time": "10:36",
+          "boarding_minutes": 0,
+          "route_id": "102",
+          "trip_id": "52201-2-57-100-1015",
+          "arrival_time": "10:42",
+          "kind": "bus",
+          "title": "東４２－１ 南千住車庫前行",
+          "from_": "蔵前駅前",
+          "to": "東武浅草駅前",
+          "minutes": 6,
+          "step_id": "step-bus-cca02e8926174045aed570f703692729"
+        },
+        {
+          "edges": 1,
+          "from_en": "Tōbu-Asakusa Sta.",
+          "to_en": null,
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "東武浅草駅前",
+          "to": "目的地",
+          "minutes": 2,
+          "meters": 136,
+          "step_id": "step-walk-2b38762697c34fe39e56dfeaf528bb21"
+        }
+      ],
+      "points": [
+        [
+          35.690921,
+          139.700258
+        ],
+        [
+          35.691108,
+          139.698927
+        ],
+        [
+          35.693367,
+          139.699121
+        ],
+        [
+          35.693367,
+          139.699121
+        ],
+        [
+          35.697957,
+          139.707434
+        ],
+        [
+          35.699188,
+          139.718043
+        ],
+        [
+          35.699501,
+          139.72504
+        ],
+        [
+          35.700911,
+          139.735894
+        ],
+        [
+          35.702952,
+          139.745257
+        ],
+        [
+          35.708493,
+          139.752487
+        ],
+        [
+          35.70751,
+          139.760524
+        ],
+        [
+          35.707949,
+          139.773351
+        ],
+        [
+          35.707009,
+          139.782166
+        ],
+        [
+          35.705587,
+          139.792244
+        ],
+        [
+          35.705587,
+          139.792244
+        ],
+        [
+          35.704975,
+          139.792842
+        ],
+        [
+          35.704975,
+          139.792842
+        ],
+        [
+          35.707999,
+          139.795487
+        ],
+        [
+          35.711363,
+          139.798085
+        ],
+        [
+          35.711363,
+          139.798085
+        ],
+        [
+          35.71165,
+          139.79662
+        ]
+      ],
+      "arrival_time": "10:44"
+    },
+    {
+      "lines_en": [
+        "Oedo Line",
+        "東４２－１ · Minami-Senju-Shako"
+      ],
+      "score_label": "楽さ 33.0 (所要42分)",
+      "cost_score": 32.9999912209004,
+      "total": 32,
+      "rides": 2,
+      "departure_date": "2026-10-04T10:02:00",
+      "is_future_suggestion": false,
+      "official_english_names": true,
+      "origin_coords": [
+        35.690921,
+        139.700258
+      ],
+      "destination_coords": [
+        35.71165,
+        139.79662
+      ],
+      "id": "Comfort-2",
+      "lines": [
+        "大江戸線",
+        "東４２－１ 南千住車庫前行"
+      ],
+      "boards": 2,
+      "transfers": 1,
+      "total_time": 44,
+      "walking_distance_meters": 879,
+      "walking_segment_count": 3,
+      "steps": [
+        {
+          "edges": 2,
+          "from_en": "Current location",
+          "to_en": "Shinjuku-nishiguchi",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "現在地",
+          "to": "新宿西口",
+          "minutes": 6,
+          "meters": 373,
+          "step_id": "step-walk-e8b1e682360f4f4db5ad9aa6de3704bf"
+        },
+        {
+          "title_en": "Oedo Line",
+          "edges": 10,
+          "from_en": "Shinjuku-nishiguchi",
+          "to_en": "Kuramae",
+          "stops": [
+            {
+              "name": "新宿西口",
+              "name_en": "Shinjuku-nishiguchi",
+              "is_origin": true,
+              "lat": 35.693367,
+              "lon": 139.699121,
+              "id": "402",
+              "odpt_id": "odpt.Station:Toei.Oedo.ShinjukuNishiguchi",
+              "station_code": "E-01"
+            },
+            {
+              "name": "東新宿",
+              "name_en": "Higashi-shinjuku",
+              "lat": 35.697957,
+              "lon": 139.707434,
+              "id": "403",
+              "odpt_id": "odpt.Station:Toei.Oedo.HigashiShinjuku",
+              "station_code": "E-02"
+            },
+            {
+              "name": "若松河田",
+              "name_en": "Wakamatsu-kawada",
+              "lat": 35.699188,
+              "lon": 139.718043,
+              "id": "404",
+              "odpt_id": "odpt.Station:Toei.Oedo.WakamatsuKawada",
+              "station_code": "E-03"
+            },
+            {
+              "name": "牛込柳町",
+              "name_en": "Ushigome-yanagicho",
+              "lat": 35.699501,
+              "lon": 139.72504,
+              "id": "405",
+              "odpt_id": "odpt.Station:Toei.Oedo.UshigomeYanagicho",
+              "station_code": "E-04"
+            },
+            {
+              "name": "牛込神楽坂",
+              "name_en": "Ushigome-kagurazaka",
+              "lat": 35.700911,
+              "lon": 139.735894,
+              "id": "406",
+              "odpt_id": "odpt.Station:Toei.Oedo.UshigomeKagurazaka",
+              "station_code": "E-05"
+            },
+            {
+              "name": "飯田橋",
+              "name_en": "Iidabashi",
+              "lat": 35.702952,
+              "lon": 139.745257,
+              "id": "407",
+              "odpt_id": "odpt.Station:Toei.Oedo.Iidabashi",
+              "station_code": "E-06"
+            },
+            {
+              "name": "春日",
+              "name_en": "Kasuga",
+              "lat": 35.708493,
+              "lon": 139.752487,
+              "id": "408",
+              "odpt_id": "odpt.Station:Toei.Oedo.Kasuga",
+              "station_code": "E-07"
+            },
+            {
+              "name": "本郷三丁目",
+              "name_en": "Hongo-sanchome",
+              "lat": 35.70751,
+              "lon": 139.760524,
+              "id": "409",
+              "odpt_id": "odpt.Station:Toei.Oedo.HongoSanchome",
+              "station_code": "E-08"
+            },
+            {
+              "name": "上野御徒町",
+              "name_en": "Ueno-okachimachi",
+              "lat": 35.707949,
+              "lon": 139.773351,
+              "id": "410",
+              "odpt_id": "odpt.Station:Toei.Oedo.UenoOkachimachi",
+              "station_code": "E-09"
+            },
+            {
+              "name": "新御徒町",
+              "name_en": "Shin-okachimachi",
+              "lat": 35.707009,
+              "lon": 139.782166,
+              "id": "411",
+              "odpt_id": "odpt.Station:Toei.Oedo.ShinOkachimachi",
+              "station_code": "E-10"
+            },
+            {
+              "name": "蔵前",
+              "name_en": "Kuramae",
+              "lat": 35.705587,
+              "lon": 139.792244,
+              "id": "412",
+              "odpt_id": "odpt.Station:Toei.Oedo.Kuramae",
+              "is_destination": true,
+              "station_code": "E-11"
+            }
+          ],
+          "departure_time": "10:08",
+          "boarding_minutes": 2,
+          "route_id": null,
+          "trip_id": null,
+          "selected_run": {
+            "provider": "rail",
+            "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+            "run_id": "2026-10-04|odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday|part:0",
+            "service_key": "2026-10-04",
+            "train_number": "1018B",
+            "trip_id": null,
+            "route_id": null,
+            "service_id": null,
+            "actual_departure_minute": 608.0,
+            "origin_stop_id": "odpt.Station:Toei.Oedo.ShinjukuNishiguchi",
+            "destination_stop_id": "odpt.Station:Toei.Oedo.Kuramae",
+            "scheduled_departure_minute": 608,
+            "scheduled_arrival_minute": 628,
+            "segment_records": [
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.ShinjukuNishiguchi",
+                "next_sta": "odpt.Station:Toei.Oedo.HigashiShinjuku",
+                "dep": 608,
+                "arr": 610,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 1,
+                "actual_dep": 608.0,
+                "actual_arr": 610.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.HigashiShinjuku",
+                "next_sta": "odpt.Station:Toei.Oedo.WakamatsuKawada",
+                "dep": 610,
+                "arr": 612,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 2,
+                "actual_dep": 610.0,
+                "actual_arr": 612.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.WakamatsuKawada",
+                "next_sta": "odpt.Station:Toei.Oedo.UshigomeYanagicho",
+                "dep": 613,
+                "arr": 614,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 3,
+                "actual_dep": 613.0,
+                "actual_arr": 614.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.UshigomeYanagicho",
+                "next_sta": "odpt.Station:Toei.Oedo.UshigomeKagurazaka",
+                "dep": 614,
+                "arr": 616,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 4,
+                "actual_dep": 614.0,
+                "actual_arr": 616.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.UshigomeKagurazaka",
+                "next_sta": "odpt.Station:Toei.Oedo.Iidabashi",
+                "dep": 616,
+                "arr": 618,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 5,
+                "actual_dep": 616.0,
+                "actual_arr": 618.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.Iidabashi",
+                "next_sta": "odpt.Station:Toei.Oedo.Kasuga",
+                "dep": 619,
+                "arr": 621,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 6,
+                "actual_dep": 619.0,
+                "actual_arr": 621.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.Kasuga",
+                "next_sta": "odpt.Station:Toei.Oedo.HongoSanchome",
+                "dep": 621,
+                "arr": 622,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 7,
+                "actual_dep": 621.0,
+                "actual_arr": 622.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.HongoSanchome",
+                "next_sta": "odpt.Station:Toei.Oedo.UenoOkachimachi",
+                "dep": 623,
+                "arr": 625,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 8,
+                "actual_dep": 623.0,
+                "actual_arr": 625.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.UenoOkachimachi",
+                "next_sta": "odpt.Station:Toei.Oedo.ShinOkachimachi",
+                "dep": 625,
+                "arr": 626,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 9,
+                "actual_dep": 625.0,
+                "actual_arr": 626.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.ShinOkachimachi",
+                "next_sta": "odpt.Station:Toei.Oedo.Kuramae",
+                "dep": 627,
+                "arr": 628,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 10,
+                "actual_dep": 627.0,
+                "actual_arr": 628.0
+              }
+            ],
+            "actual_arrival_minute": 628.0,
+            "origin_sequence": 1,
+            "destination_sequence": 11
+          },
+          "arrival_time": "10:28",
+          "kind": "rail",
+          "title": "大江戸線",
+          "from_": "新宿西口",
+          "to": "蔵前",
+          "minutes": 20,
+          "step_id": "step-rail-ca2dce3824f84eea81e746251acca68c"
+        },
+        {
+          "edges": 1,
+          "from_en": "Kuramae",
+          "to_en": "Kuramae Sta.",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "蔵前",
+          "to": "蔵前駅前",
+          "minutes": 2,
+          "meters": 87,
+          "step_id": "step-walk-d4e0338e7fa94fdb943f2c4866b61c70"
+        },
+        {
+          "edges": 0,
+          "from_en": "Kuramae Sta.",
+          "to_en": "Kuramae Sta.",
+          "departure_time": "10:30",
+          "arrival_time": "10:36",
+          "startLabel": "待ち時間",
+          "place": "蔵前駅前",
+          "place_en": "Kuramae Sta.",
+          "kind": "wait",
+          "title": "待ち時間",
+          "from_": "蔵前駅前",
+          "to": "蔵前駅前",
+          "minutes": 5,
+          "meters": 0,
+          "step_id": "step-wait-40f87c8764cc4940954e7c9d02ec4c9c"
+        },
+        {
+          "title_en": "東４２－１ · Minami-Senju-Shako",
+          "edges": 1,
+          "from_en": "Kuramae Sta.",
+          "to_en": "Komagatabashi",
+          "stops": [
+            {
+              "name": "蔵前駅前",
+              "name_en": "Kuramae Sta.",
+              "is_origin": true,
+              "lat": 35.704975,
+              "lon": 139.792842,
+              "id": "0147-03"
+            },
+            {
+              "name": "駒形橋",
+              "name_en": "Komagatabashi",
+              "lat": 35.707999,
+              "lon": 139.795487,
+              "id": "0537-01",
+              "is_destination": true
+            }
+          ],
+          "departure_time": "10:36",
+          "boarding_minutes": 0,
+          "route_id": "102",
+          "trip_id": "52201-2-57-100-1015",
+          "arrival_time": "10:38",
+          "kind": "bus",
+          "title": "東４２－１ 南千住車庫前行",
+          "from_": "蔵前駅前",
+          "to": "駒形橋",
+          "minutes": 2,
+          "step_id": "step-bus-f12381db29c44d83b2fb19db377c1982"
+        },
+        {
+          "edges": 1,
+          "from_en": "Komagatabashi",
+          "to_en": null,
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "駒形橋",
+          "to": "目的地",
+          "minutes": 6,
+          "meters": 419,
+          "step_id": "step-walk-6e7337fae40244939e39cd72d3332e23"
+        }
+      ],
+      "points": [
+        [
+          35.690921,
+          139.700258
+        ],
+        [
+          35.691108,
+          139.698927
+        ],
+        [
+          35.693367,
+          139.699121
+        ],
+        [
+          35.693367,
+          139.699121
+        ],
+        [
+          35.697957,
+          139.707434
+        ],
+        [
+          35.699188,
+          139.718043
+        ],
+        [
+          35.699501,
+          139.72504
+        ],
+        [
+          35.700911,
+          139.735894
+        ],
+        [
+          35.702952,
+          139.745257
+        ],
+        [
+          35.708493,
+          139.752487
+        ],
+        [
+          35.70751,
+          139.760524
+        ],
+        [
+          35.707949,
+          139.773351
+        ],
+        [
+          35.707009,
+          139.782166
+        ],
+        [
+          35.705587,
+          139.792244
+        ],
+        [
+          35.705587,
+          139.792244
+        ],
+        [
+          35.704975,
+          139.792842
+        ],
+        [
+          35.704975,
+          139.792842
+        ],
+        [
+          35.707999,
+          139.795487
+        ],
+        [
+          35.707999,
+          139.795487
+        ],
+        [
+          35.71165,
+          139.79662
+        ]
+      ],
+      "arrival_time": "10:44"
+    },
+    {
+      "lines_en": [
+        "Shinjuku Line",
+        "Asakusa Line"
+      ],
+      "score_label": "楽さ 34.7 (所要41分)",
+      "cost_score": 34.72088790414011,
+      "total": 34,
+      "rides": 2,
+      "departure_date": "2026-10-04T10:02:00",
+      "is_future_suggestion": false,
+      "official_english_names": true,
+      "origin_coords": [
+        35.690921,
+        139.700258
+      ],
+      "destination_coords": [
+        35.71165,
+        139.79662
+      ],
+      "id": "Comfort-3",
+      "lines": [
+        "新宿線",
+        "浅草線"
+      ],
+      "boards": 2,
+      "transfers": 1,
+      "total_time": 43,
+      "walking_distance_meters": 945,
+      "walking_segment_count": 3,
+      "steps": [
+        {
+          "edges": 3,
+          "from_en": "Current location",
+          "to_en": "Shinjuku",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "現在地",
+          "to": "新宿",
+          "minutes": 7,
+          "meters": 470,
+          "step_id": "step-walk-6377ce24eeae444cbe67f9940b30012d"
+        },
+        {
+          "title_en": "Shinjuku Line",
+          "edges": 8,
+          "from_en": "Shinjuku",
+          "to_en": "Bakuro-yokoyama",
+          "stops": [
+            {
+              "name": "新宿",
+              "name_en": "Shinjuku",
+              "is_origin": true,
+              "lat": 35.688433,
+              "lon": 139.698418,
+              "id": "301",
+              "odpt_id": "odpt.Station:Toei.Shinjuku.Shinjuku",
+              "station_code": "S-01"
+            },
+            {
+              "name": "新宿三丁目",
+              "name_en": "Shinjuku-sanchome",
+              "lat": 35.691016,
+              "lon": 139.706794,
+              "id": "302",
+              "odpt_id": "odpt.Station:Toei.Shinjuku.ShinjukuSanchome",
+              "station_code": "S-02"
+            },
+            {
+              "name": "曙橋",
+              "name_en": "Akebonobashi",
+              "lat": 35.692402,
+              "lon": 139.722317,
+              "id": "303",
+              "odpt_id": "odpt.Station:Toei.Shinjuku.Akebonobashi",
+              "station_code": "S-03"
+            },
+            {
+              "name": "市ヶ谷",
+              "name_en": "Ichigaya",
+              "lat": 35.69153,
+              "lon": 139.737588,
+              "id": "304",
+              "odpt_id": "odpt.Station:Toei.Shinjuku.Ichigaya",
+              "station_code": "S-04"
+            },
+            {
+              "name": "九段下",
+              "name_en": "Kudanshita",
+              "lat": 35.695546,
+              "lon": 139.751738,
+              "id": "305",
+              "odpt_id": "odpt.Station:Toei.Shinjuku.Kudanshita",
+              "station_code": "S-05"
+            },
+            {
+              "name": "神保町",
+              "name_en": "Jimbocho",
+              "lat": 35.695972,
+              "lon": 139.757981,
+              "id": "306",
+              "odpt_id": "odpt.Station:Toei.Shinjuku.Jimbocho",
+              "station_code": "S-06"
+            },
+            {
+              "name": "小川町",
+              "name_en": "Ogawamachi",
+              "lat": 35.695005,
+              "lon": 139.766449,
+              "id": "307",
+              "odpt_id": "odpt.Station:Toei.Shinjuku.Ogawamachi",
+              "station_code": "S-07"
+            },
+            {
+              "name": "岩本町",
+              "name_en": "Iwamotocho",
+              "lat": 35.695607,
+              "lon": 139.775115,
+              "id": "308",
+              "odpt_id": "odpt.Station:Toei.Shinjuku.Iwamotocho",
+              "station_code": "S-08"
+            },
+            {
+              "name": "馬喰横山",
+              "name_en": "Bakuro-yokoyama",
+              "lat": 35.69193,
+              "lon": 139.783006,
+              "id": "309",
+              "odpt_id": "odpt.Station:Toei.Shinjuku.BakuroYokoyama",
+              "is_destination": true,
+              "station_code": "S-09"
+            }
+          ],
+          "departure_time": "10:11",
+          "boarding_minutes": 2,
+          "route_id": null,
+          "trip_id": null,
+          "selected_run": {
+            "provider": "rail",
+            "run_key": "odpt.TrainTimetable:Toei.Shinjuku.922T.SaturdayHoliday",
+            "run_id": "2026-10-04|odpt.TrainTimetable:Toei.Shinjuku.922T.SaturdayHoliday|part:0",
+            "service_key": "2026-10-04",
+            "train_number": "922T",
+            "trip_id": null,
+            "route_id": null,
+            "service_id": null,
+            "actual_departure_minute": 611.0,
+            "origin_stop_id": "odpt.Station:Toei.Shinjuku.Shinjuku",
+            "destination_stop_id": "odpt.Station:Toei.Shinjuku.BakuroYokoyama",
+            "scheduled_departure_minute": 611,
+            "scheduled_arrival_minute": 626,
+            "segment_records": [
+              {
+                "origin_id": "odpt.Station:Toei.Shinjuku.Shinjuku",
+                "next_sta": "odpt.Station:Toei.Shinjuku.ShinjukuSanchome",
+                "dep": 611,
+                "arr": 612,
+                "train_num": "922T",
+                "run_key": "odpt.TrainTimetable:Toei.Shinjuku.922T.SaturdayHoliday",
+                "stop_sequence": 0,
+                "actual_dep": 611.0,
+                "actual_arr": 612.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Shinjuku.ShinjukuSanchome",
+                "next_sta": "odpt.Station:Toei.Shinjuku.Akebonobashi",
+                "dep": 613,
+                "arr": 615,
+                "train_num": "922T",
+                "run_key": "odpt.TrainTimetable:Toei.Shinjuku.922T.SaturdayHoliday",
+                "stop_sequence": 1,
+                "actual_dep": 613.0,
+                "actual_arr": 615.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Shinjuku.Akebonobashi",
+                "next_sta": "odpt.Station:Toei.Shinjuku.Ichigaya",
+                "dep": 615,
+                "arr": 617,
+                "train_num": "922T",
+                "run_key": "odpt.TrainTimetable:Toei.Shinjuku.922T.SaturdayHoliday",
+                "stop_sequence": 2,
+                "actual_dep": 615.0,
+                "actual_arr": 617.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Shinjuku.Ichigaya",
+                "next_sta": "odpt.Station:Toei.Shinjuku.Kudanshita",
+                "dep": 618,
+                "arr": 619,
+                "train_num": "922T",
+                "run_key": "odpt.TrainTimetable:Toei.Shinjuku.922T.SaturdayHoliday",
+                "stop_sequence": 3,
+                "actual_dep": 618.0,
+                "actual_arr": 619.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Shinjuku.Kudanshita",
+                "next_sta": "odpt.Station:Toei.Shinjuku.Jimbocho",
+                "dep": 620,
+                "arr": 621,
+                "train_num": "922T",
+                "run_key": "odpt.TrainTimetable:Toei.Shinjuku.922T.SaturdayHoliday",
+                "stop_sequence": 4,
+                "actual_dep": 620.0,
+                "actual_arr": 621.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Shinjuku.Jimbocho",
+                "next_sta": "odpt.Station:Toei.Shinjuku.Ogawamachi",
+                "dep": 621,
+                "arr": 623,
+                "train_num": "922T",
+                "run_key": "odpt.TrainTimetable:Toei.Shinjuku.922T.SaturdayHoliday",
+                "stop_sequence": 5,
+                "actual_dep": 621.0,
+                "actual_arr": 623.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Shinjuku.Ogawamachi",
+                "next_sta": "odpt.Station:Toei.Shinjuku.Iwamotocho",
+                "dep": 623,
+                "arr": 624,
+                "train_num": "922T",
+                "run_key": "odpt.TrainTimetable:Toei.Shinjuku.922T.SaturdayHoliday",
+                "stop_sequence": 6,
+                "actual_dep": 623.0,
+                "actual_arr": 624.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Shinjuku.Iwamotocho",
+                "next_sta": "odpt.Station:Toei.Shinjuku.BakuroYokoyama",
+                "dep": 625,
+                "arr": 626,
+                "train_num": "922T",
+                "run_key": "odpt.TrainTimetable:Toei.Shinjuku.922T.SaturdayHoliday",
+                "stop_sequence": 7,
+                "actual_dep": 625.0,
+                "actual_arr": 626.0
+              }
+            ],
+            "actual_arrival_minute": 626.0,
+            "origin_sequence": 0,
+            "destination_sequence": 8
+          },
+          "arrival_time": "10:26",
+          "kind": "rail",
+          "title": "新宿線",
+          "from_": "新宿",
+          "to": "馬喰横山",
+          "minutes": 15,
+          "step_id": "step-rail-ef3b4aade2154617ad0184908676873b"
+        },
+        {
+          "edges": 1,
+          "from_en": "Bakuro-yokoyama",
+          "to_en": "Higashi-nihombashi",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "馬喰横山",
+          "to": "東日本橋",
+          "minutes": 3,
+          "meters": 171,
+          "step_id": "step-walk-94a50169ae824810af18ad036e647f3d"
+        },
+        {
+          "title_en": "Asakusa Line",
+          "edges": 3,
+          "from_en": "Higashi-nihombashi",
+          "to_en": "Asakusa",
+          "stops": [
+            {
+              "name": "東日本橋",
+              "name_en": "Higashi-nihombashi",
+              "is_origin": true,
+              "lat": 35.692123,
+              "lon": 139.784886,
+              "id": "115",
+              "odpt_id": "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+              "station_code": "A-15"
+            },
+            {
+              "name": "浅草橋",
+              "name_en": "Asakusabashi",
+              "lat": 35.697494,
+              "lon": 139.786335,
+              "id": "116",
+              "odpt_id": "odpt.Station:Toei.Asakusa.Asakusabashi",
+              "station_code": "A-16"
+            },
+            {
+              "name": "蔵前",
+              "name_en": "Kuramae",
+              "lat": 35.703128,
+              "lon": 139.790858,
+              "id": "117",
+              "odpt_id": "odpt.Station:Toei.Asakusa.Kuramae",
+              "station_code": "A-17"
+            },
+            {
+              "name": "浅草",
+              "name_en": "Asakusa",
+              "lat": 35.70892,
+              "lon": 139.796542,
+              "id": "118",
+              "odpt_id": "odpt.Station:Toei.Asakusa.Asakusa",
+              "is_destination": true,
+              "station_code": "A-18"
+            }
+          ],
+          "departure_time": "10:34",
+          "boarding_minutes": 2,
+          "route_id": null,
+          "trip_id": null,
+          "selected_run": {
+            "provider": "rail",
+            "run_key": "odpt.TrainTimetable:Toei.Asakusa.853H.SaturdayHoliday",
+            "run_id": "2026-10-04|odpt.TrainTimetable:Toei.Asakusa.853H.SaturdayHoliday|part:0",
+            "service_key": "2026-10-04",
+            "train_number": "853H",
+            "trip_id": null,
+            "route_id": null,
+            "service_id": null,
+            "actual_departure_minute": 634.0,
+            "origin_stop_id": "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+            "destination_stop_id": "odpt.Station:Toei.Asakusa.Asakusa",
+            "scheduled_departure_minute": 634,
+            "scheduled_arrival_minute": 638,
+            "segment_records": [
+              {
+                "origin_id": "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+                "next_sta": "odpt.Station:Toei.Asakusa.Asakusabashi",
+                "dep": 634,
+                "arr": 635,
+                "train_num": "853H",
+                "run_key": "odpt.TrainTimetable:Toei.Asakusa.853H.SaturdayHoliday",
+                "stop_sequence": 8,
+                "actual_dep": 634.0,
+                "actual_arr": 635.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Asakusa.Asakusabashi",
+                "next_sta": "odpt.Station:Toei.Asakusa.Kuramae",
+                "dep": 635,
+                "arr": 636,
+                "train_num": "853H",
+                "run_key": "odpt.TrainTimetable:Toei.Asakusa.853H.SaturdayHoliday",
+                "stop_sequence": 9,
+                "actual_dep": 635.0,
+                "actual_arr": 636.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Asakusa.Kuramae",
+                "next_sta": "odpt.Station:Toei.Asakusa.Asakusa",
+                "dep": 637,
+                "arr": 638,
+                "train_num": "853H",
+                "run_key": "odpt.TrainTimetable:Toei.Asakusa.853H.SaturdayHoliday",
+                "stop_sequence": 10,
+                "actual_dep": 637.0,
+                "actual_arr": 638.0
+              }
+            ],
+            "actual_arrival_minute": 638.0,
+            "origin_sequence": 8,
+            "destination_sequence": 11
+          },
+          "arrival_time": "10:38",
+          "kind": "rail",
+          "title": "浅草線",
+          "from_": "東日本橋",
+          "to": "浅草",
+          "minutes": 4,
+          "step_id": "step-rail-c0fbdbf76147475eae5ec0364acf743e"
+        },
+        {
+          "edges": 1,
+          "from_en": "Asakusa",
+          "to_en": null,
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "浅草",
+          "to": "目的地",
+          "minutes": 4,
+          "meters": 304,
+          "step_id": "step-walk-9c891c3530ba4bb49511f3a81d8c2c29"
+        }
+      ],
+      "points": [
+        [
+          35.690921,
+          139.700258
+        ],
+        [
+          35.691108,
+          139.698927
+        ],
+        [
+          35.688462,
+          139.699019
+        ],
+        [
+          35.688433,
+          139.698418
+        ],
+        [
+          35.688433,
+          139.698418
+        ],
+        [
+          35.691016,
+          139.706794
+        ],
+        [
+          35.692402,
+          139.722317
+        ],
+        [
+          35.69153,
+          139.737588
+        ],
+        [
+          35.695546,
+          139.751738
+        ],
+        [
+          35.695972,
+          139.757981
+        ],
+        [
+          35.695005,
+          139.766449
+        ],
+        [
+          35.695607,
+          139.775115
+        ],
+        [
+          35.69193,
+          139.783006
+        ],
+        [
+          35.69193,
+          139.783006
+        ],
+        [
+          35.692123,
+          139.784886
+        ],
+        [
+          35.692123,
+          139.784886
+        ],
+        [
+          35.697494,
+          139.786335
+        ],
+        [
+          35.703128,
+          139.790858
+        ],
+        [
+          35.70892,
+          139.796542
+        ],
+        [
+          35.70892,
+          139.796542
+        ],
+        [
+          35.71165,
+          139.79662
+        ]
+      ],
+      "arrival_time": "10:43"
+    },
+    {
+      "lines_en": [
+        "Oedo Line",
+        "上２３ · Hirai Sta."
+      ],
+      "score_label": "楽さ 36.0 (所要46分)",
+      "cost_score": 35.9801784401677,
+      "total": 35,
+      "rides": 2,
+      "departure_date": "2026-10-04T10:02:00",
+      "is_future_suggestion": false,
+      "official_english_names": true,
+      "origin_coords": [
+        35.690921,
+        139.700258
+      ],
+      "destination_coords": [
+        35.71165,
+        139.79662
+      ],
+      "id": "Comfort-4",
+      "lines": [
+        "大江戸線",
+        "上２３ 平井駅前行"
+      ],
+      "boards": 2,
+      "transfers": 1,
+      "total_time": 48,
+      "walking_distance_meters": 867,
+      "walking_segment_count": 3,
+      "steps": [
+        {
+          "edges": 2,
+          "from_en": "Current location",
+          "to_en": "Shinjuku-nishiguchi",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "現在地",
+          "to": "新宿西口",
+          "minutes": 6,
+          "meters": 373,
+          "step_id": "step-walk-97c2c83d9cae4633a986ed68128b440b"
+        },
+        {
+          "title_en": "Oedo Line",
+          "edges": 8,
+          "from_en": "Shinjuku-nishiguchi",
+          "to_en": "Ueno-okachimachi",
+          "stops": [
+            {
+              "name": "新宿西口",
+              "name_en": "Shinjuku-nishiguchi",
+              "is_origin": true,
+              "lat": 35.693367,
+              "lon": 139.699121,
+              "id": "402",
+              "odpt_id": "odpt.Station:Toei.Oedo.ShinjukuNishiguchi",
+              "station_code": "E-01"
+            },
+            {
+              "name": "東新宿",
+              "name_en": "Higashi-shinjuku",
+              "lat": 35.697957,
+              "lon": 139.707434,
+              "id": "403",
+              "odpt_id": "odpt.Station:Toei.Oedo.HigashiShinjuku",
+              "station_code": "E-02"
+            },
+            {
+              "name": "若松河田",
+              "name_en": "Wakamatsu-kawada",
+              "lat": 35.699188,
+              "lon": 139.718043,
+              "id": "404",
+              "odpt_id": "odpt.Station:Toei.Oedo.WakamatsuKawada",
+              "station_code": "E-03"
+            },
+            {
+              "name": "牛込柳町",
+              "name_en": "Ushigome-yanagicho",
+              "lat": 35.699501,
+              "lon": 139.72504,
+              "id": "405",
+              "odpt_id": "odpt.Station:Toei.Oedo.UshigomeYanagicho",
+              "station_code": "E-04"
+            },
+            {
+              "name": "牛込神楽坂",
+              "name_en": "Ushigome-kagurazaka",
+              "lat": 35.700911,
+              "lon": 139.735894,
+              "id": "406",
+              "odpt_id": "odpt.Station:Toei.Oedo.UshigomeKagurazaka",
+              "station_code": "E-05"
+            },
+            {
+              "name": "飯田橋",
+              "name_en": "Iidabashi",
+              "lat": 35.702952,
+              "lon": 139.745257,
+              "id": "407",
+              "odpt_id": "odpt.Station:Toei.Oedo.Iidabashi",
+              "station_code": "E-06"
+            },
+            {
+              "name": "春日",
+              "name_en": "Kasuga",
+              "lat": 35.708493,
+              "lon": 139.752487,
+              "id": "408",
+              "odpt_id": "odpt.Station:Toei.Oedo.Kasuga",
+              "station_code": "E-07"
+            },
+            {
+              "name": "本郷三丁目",
+              "name_en": "Hongo-sanchome",
+              "lat": 35.70751,
+              "lon": 139.760524,
+              "id": "409",
+              "odpt_id": "odpt.Station:Toei.Oedo.HongoSanchome",
+              "station_code": "E-08"
+            },
+            {
+              "name": "上野御徒町",
+              "name_en": "Ueno-okachimachi",
+              "lat": 35.707949,
+              "lon": 139.773351,
+              "id": "410",
+              "odpt_id": "odpt.Station:Toei.Oedo.UenoOkachimachi",
+              "is_destination": true,
+              "station_code": "E-09"
+            }
+          ],
+          "departure_time": "10:08",
+          "boarding_minutes": 2,
+          "route_id": null,
+          "trip_id": null,
+          "selected_run": {
+            "provider": "rail",
+            "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+            "run_id": "2026-10-04|odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday|part:0",
+            "service_key": "2026-10-04",
+            "train_number": "1018B",
+            "trip_id": null,
+            "route_id": null,
+            "service_id": null,
+            "actual_departure_minute": 608.0,
+            "origin_stop_id": "odpt.Station:Toei.Oedo.ShinjukuNishiguchi",
+            "destination_stop_id": "odpt.Station:Toei.Oedo.UenoOkachimachi",
+            "scheduled_departure_minute": 608,
+            "scheduled_arrival_minute": 625,
+            "segment_records": [
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.ShinjukuNishiguchi",
+                "next_sta": "odpt.Station:Toei.Oedo.HigashiShinjuku",
+                "dep": 608,
+                "arr": 610,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 1,
+                "actual_dep": 608.0,
+                "actual_arr": 610.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.HigashiShinjuku",
+                "next_sta": "odpt.Station:Toei.Oedo.WakamatsuKawada",
+                "dep": 610,
+                "arr": 612,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 2,
+                "actual_dep": 610.0,
+                "actual_arr": 612.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.WakamatsuKawada",
+                "next_sta": "odpt.Station:Toei.Oedo.UshigomeYanagicho",
+                "dep": 613,
+                "arr": 614,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 3,
+                "actual_dep": 613.0,
+                "actual_arr": 614.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.UshigomeYanagicho",
+                "next_sta": "odpt.Station:Toei.Oedo.UshigomeKagurazaka",
+                "dep": 614,
+                "arr": 616,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 4,
+                "actual_dep": 614.0,
+                "actual_arr": 616.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.UshigomeKagurazaka",
+                "next_sta": "odpt.Station:Toei.Oedo.Iidabashi",
+                "dep": 616,
+                "arr": 618,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 5,
+                "actual_dep": 616.0,
+                "actual_arr": 618.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.Iidabashi",
+                "next_sta": "odpt.Station:Toei.Oedo.Kasuga",
+                "dep": 619,
+                "arr": 621,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 6,
+                "actual_dep": 619.0,
+                "actual_arr": 621.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.Kasuga",
+                "next_sta": "odpt.Station:Toei.Oedo.HongoSanchome",
+                "dep": 621,
+                "arr": 622,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 7,
+                "actual_dep": 621.0,
+                "actual_arr": 622.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.HongoSanchome",
+                "next_sta": "odpt.Station:Toei.Oedo.UenoOkachimachi",
+                "dep": 623,
+                "arr": 625,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 8,
+                "actual_dep": 623.0,
+                "actual_arr": 625.0
+              }
+            ],
+            "actual_arrival_minute": 625.0,
+            "origin_sequence": 1,
+            "destination_sequence": 9
+          },
+          "arrival_time": "10:25",
+          "kind": "rail",
+          "title": "大江戸線",
+          "from_": "新宿西口",
+          "to": "上野御徒町",
+          "minutes": 17,
+          "step_id": "step-rail-6263c3eab7b74dd5b30ffc188109adc6"
+        },
+        {
+          "edges": 1,
+          "from_en": "Ueno-okachimachi",
+          "to_en": "Ueno-Matsuzakaya (Ueno-Matsuzakaya Department Store)",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "上野御徒町",
+          "to": "上野松坂屋前",
+          "minutes": 2,
+          "meters": 130,
+          "step_id": "step-walk-3a4edda53730493b8b529b9c26ae0aec"
+        },
+        {
+          "edges": 0,
+          "from_en": "Ueno-Matsuzakaya (Ueno-Matsuzakaya Department Store)",
+          "to_en": "Ueno-Matsuzakaya (Ueno-Matsuzakaya Department Store)",
+          "departure_time": "10:27",
+          "arrival_time": "10:31",
+          "startLabel": "待ち時間",
+          "place": "上野松坂屋前",
+          "place_en": "Ueno-Matsuzakaya (Ueno-Matsuzakaya Department Store)",
+          "kind": "wait",
+          "title": "待ち時間",
+          "from_": "上野松坂屋前",
+          "to": "上野松坂屋前",
+          "minutes": 3,
+          "meters": 0,
+          "step_id": "step-wait-0cf99112c2224c388c067bdbd4934e3d"
+        },
+        {
+          "title_en": "上２３ · Hirai Sta.",
+          "edges": 7,
+          "from_en": "Ueno-Matsuzakaya (Ueno-Matsuzakaya Department Store)",
+          "to_en": "Asakusa-Itchōme (Asakusa 1)",
+          "stops": [
+            {
+              "name": "上野松坂屋前",
+              "name_en": "Ueno-Matsuzakaya (Ueno-Matsuzakaya Department Store)",
+              "is_origin": true,
+              "lat": 35.706982,
+              "lon": 139.772549,
+              "id": "2000-07"
+            },
+            {
+              "name": "上野公園山下",
+              "name_en": "Ueno-Kōen-Yamashita (Ueno Park)",
+              "lat": 35.711238,
+              "lon": 139.77408,
+              "id": "0133-08"
+            },
+            {
+              "name": "上野駅前",
+              "name_en": "Ueno Sta.",
+              "lat": 35.711829,
+              "lon": 139.776905,
+              "id": "0131-02"
+            },
+            {
+              "name": "下谷神社前",
+              "name_en": "Shitaya-Jinja (Shitaya-Jinja Shrine)",
+              "lat": 35.711714,
+              "lon": 139.781069,
+              "id": "0601-02"
+            },
+            {
+              "name": "東上野六丁目",
+              "name_en": "Higashi-Ueno-Rokuchōme (Higashi-Ueno 6)",
+              "lat": 35.711094,
+              "lon": 139.784514,
+              "id": "1268-01"
+            },
+            {
+              "name": "菊屋橋",
+              "name_en": "Kikuyabashi",
+              "lat": 35.71056,
+              "lon": 139.787442,
+              "id": "0396-01"
+            },
+            {
+              "name": "浅草寿町",
+              "name_en": "Asakusa-Kotobukichō",
+              "lat": 35.710312,
+              "lon": 139.791459,
+              "id": "0035-06"
+            },
+            {
+              "name": "浅草一丁目",
+              "name_en": "Asakusa-Itchōme (Asakusa 1)",
+              "lat": 35.711437,
+              "lon": 139.792595,
+              "id": "0038-02",
+              "is_destination": true
+            }
+          ],
+          "departure_time": "10:31",
+          "boarding_minutes": 0,
+          "route_id": "070",
+          "trip_id": "56208-2-61-100-1031",
+          "arrival_time": "10:43",
+          "kind": "bus",
+          "title": "上２３ 平井駅前行",
+          "from_": "上野松坂屋前",
+          "to": "浅草一丁目",
+          "minutes": 12,
+          "step_id": "step-bus-552d0b9bc25b41a7a555d36927cb00b1"
+        },
+        {
+          "edges": 1,
+          "from_en": "Asakusa-Itchōme (Asakusa 1)",
+          "to_en": null,
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "浅草一丁目",
+          "to": "目的地",
+          "minutes": 5,
+          "meters": 364,
+          "step_id": "step-walk-ca27884c40214680ab605a7e7b376e18"
+        }
+      ],
+      "points": [
+        [
+          35.690921,
+          139.700258
+        ],
+        [
+          35.691108,
+          139.698927
+        ],
+        [
+          35.693367,
+          139.699121
+        ],
+        [
+          35.693367,
+          139.699121
+        ],
+        [
+          35.697957,
+          139.707434
+        ],
+        [
+          35.699188,
+          139.718043
+        ],
+        [
+          35.699501,
+          139.72504
+        ],
+        [
+          35.700911,
+          139.735894
+        ],
+        [
+          35.702952,
+          139.745257
+        ],
+        [
+          35.708493,
+          139.752487
+        ],
+        [
+          35.70751,
+          139.760524
+        ],
+        [
+          35.707949,
+          139.773351
+        ],
+        [
+          35.707949,
+          139.773351
+        ],
+        [
+          35.706982,
+          139.772549
+        ],
+        [
+          35.706982,
+          139.772549
+        ],
+        [
+          35.711238,
+          139.77408
+        ],
+        [
+          35.711829,
+          139.776905
+        ],
+        [
+          35.711714,
+          139.781069
+        ],
+        [
+          35.711094,
+          139.784514
+        ],
+        [
+          35.71056,
+          139.787442
+        ],
+        [
+          35.710312,
+          139.791459
+        ],
+        [
+          35.711437,
+          139.792595
+        ],
+        [
+          35.711437,
+          139.792595
+        ],
+        [
+          35.71165,
+          139.79662
+        ]
+      ],
+      "arrival_time": "10:48"
+    },
+    {
+      "lines_en": [
+        "Oedo Line",
+        "上２３ · Hirai Sta."
+      ],
+      "score_label": "楽さ 37.5 (所要47分)",
+      "cost_score": 37.52342249181106,
+      "total": 37,
+      "rides": 2,
+      "departure_date": "2026-10-04T10:02:00",
+      "is_future_suggestion": false,
+      "official_english_names": true,
+      "origin_coords": [
+        35.690921,
+        139.700258
+      ],
+      "destination_coords": [
+        35.71165,
+        139.79662
+      ],
+      "id": "Comfort-5",
+      "lines": [
+        "大江戸線",
+        "上２３ 平井駅前行"
+      ],
+      "boards": 2,
+      "transfers": 1,
+      "total_time": 49,
+      "walking_distance_meters": 992,
+      "walking_segment_count": 3,
+      "steps": [
+        {
+          "edges": 2,
+          "from_en": "Current location",
+          "to_en": "Shinjuku-nishiguchi",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "現在地",
+          "to": "新宿西口",
+          "minutes": 6,
+          "meters": 373,
+          "step_id": "step-walk-ee8e7612430d4b6ea3b57889150dfe3f"
+        },
+        {
+          "title_en": "Oedo Line",
+          "edges": 8,
+          "from_en": "Shinjuku-nishiguchi",
+          "to_en": "Ueno-okachimachi",
+          "stops": [
+            {
+              "name": "新宿西口",
+              "name_en": "Shinjuku-nishiguchi",
+              "is_origin": true,
+              "lat": 35.693367,
+              "lon": 139.699121,
+              "id": "402",
+              "odpt_id": "odpt.Station:Toei.Oedo.ShinjukuNishiguchi",
+              "station_code": "E-01"
+            },
+            {
+              "name": "東新宿",
+              "name_en": "Higashi-shinjuku",
+              "lat": 35.697957,
+              "lon": 139.707434,
+              "id": "403",
+              "odpt_id": "odpt.Station:Toei.Oedo.HigashiShinjuku",
+              "station_code": "E-02"
+            },
+            {
+              "name": "若松河田",
+              "name_en": "Wakamatsu-kawada",
+              "lat": 35.699188,
+              "lon": 139.718043,
+              "id": "404",
+              "odpt_id": "odpt.Station:Toei.Oedo.WakamatsuKawada",
+              "station_code": "E-03"
+            },
+            {
+              "name": "牛込柳町",
+              "name_en": "Ushigome-yanagicho",
+              "lat": 35.699501,
+              "lon": 139.72504,
+              "id": "405",
+              "odpt_id": "odpt.Station:Toei.Oedo.UshigomeYanagicho",
+              "station_code": "E-04"
+            },
+            {
+              "name": "牛込神楽坂",
+              "name_en": "Ushigome-kagurazaka",
+              "lat": 35.700911,
+              "lon": 139.735894,
+              "id": "406",
+              "odpt_id": "odpt.Station:Toei.Oedo.UshigomeKagurazaka",
+              "station_code": "E-05"
+            },
+            {
+              "name": "飯田橋",
+              "name_en": "Iidabashi",
+              "lat": 35.702952,
+              "lon": 139.745257,
+              "id": "407",
+              "odpt_id": "odpt.Station:Toei.Oedo.Iidabashi",
+              "station_code": "E-06"
+            },
+            {
+              "name": "春日",
+              "name_en": "Kasuga",
+              "lat": 35.708493,
+              "lon": 139.752487,
+              "id": "408",
+              "odpt_id": "odpt.Station:Toei.Oedo.Kasuga",
+              "station_code": "E-07"
+            },
+            {
+              "name": "本郷三丁目",
+              "name_en": "Hongo-sanchome",
+              "lat": 35.70751,
+              "lon": 139.760524,
+              "id": "409",
+              "odpt_id": "odpt.Station:Toei.Oedo.HongoSanchome",
+              "station_code": "E-08"
+            },
+            {
+              "name": "上野御徒町",
+              "name_en": "Ueno-okachimachi",
+              "lat": 35.707949,
+              "lon": 139.773351,
+              "id": "410",
+              "odpt_id": "odpt.Station:Toei.Oedo.UenoOkachimachi",
+              "is_destination": true,
+              "station_code": "E-09"
+            }
+          ],
+          "departure_time": "10:08",
+          "boarding_minutes": 2,
+          "route_id": null,
+          "trip_id": null,
+          "selected_run": {
+            "provider": "rail",
+            "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+            "run_id": "2026-10-04|odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday|part:0",
+            "service_key": "2026-10-04",
+            "train_number": "1018B",
+            "trip_id": null,
+            "route_id": null,
+            "service_id": null,
+            "actual_departure_minute": 608.0,
+            "origin_stop_id": "odpt.Station:Toei.Oedo.ShinjukuNishiguchi",
+            "destination_stop_id": "odpt.Station:Toei.Oedo.UenoOkachimachi",
+            "scheduled_departure_minute": 608,
+            "scheduled_arrival_minute": 625,
+            "segment_records": [
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.ShinjukuNishiguchi",
+                "next_sta": "odpt.Station:Toei.Oedo.HigashiShinjuku",
+                "dep": 608,
+                "arr": 610,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 1,
+                "actual_dep": 608.0,
+                "actual_arr": 610.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.HigashiShinjuku",
+                "next_sta": "odpt.Station:Toei.Oedo.WakamatsuKawada",
+                "dep": 610,
+                "arr": 612,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 2,
+                "actual_dep": 610.0,
+                "actual_arr": 612.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.WakamatsuKawada",
+                "next_sta": "odpt.Station:Toei.Oedo.UshigomeYanagicho",
+                "dep": 613,
+                "arr": 614,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 3,
+                "actual_dep": 613.0,
+                "actual_arr": 614.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.UshigomeYanagicho",
+                "next_sta": "odpt.Station:Toei.Oedo.UshigomeKagurazaka",
+                "dep": 614,
+                "arr": 616,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 4,
+                "actual_dep": 614.0,
+                "actual_arr": 616.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.UshigomeKagurazaka",
+                "next_sta": "odpt.Station:Toei.Oedo.Iidabashi",
+                "dep": 616,
+                "arr": 618,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 5,
+                "actual_dep": 616.0,
+                "actual_arr": 618.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.Iidabashi",
+                "next_sta": "odpt.Station:Toei.Oedo.Kasuga",
+                "dep": 619,
+                "arr": 621,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 6,
+                "actual_dep": 619.0,
+                "actual_arr": 621.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.Kasuga",
+                "next_sta": "odpt.Station:Toei.Oedo.HongoSanchome",
+                "dep": 621,
+                "arr": 622,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 7,
+                "actual_dep": 621.0,
+                "actual_arr": 622.0
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.HongoSanchome",
+                "next_sta": "odpt.Station:Toei.Oedo.UenoOkachimachi",
+                "dep": 623,
+                "arr": 625,
+                "train_num": "1018B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1018B.SaturdayHoliday",
+                "stop_sequence": 8,
+                "actual_dep": 623.0,
+                "actual_arr": 625.0
+              }
+            ],
+            "actual_arrival_minute": 625.0,
+            "origin_sequence": 1,
+            "destination_sequence": 9
+          },
+          "arrival_time": "10:25",
+          "kind": "rail",
+          "title": "大江戸線",
+          "from_": "新宿西口",
+          "to": "上野御徒町",
+          "minutes": 17,
+          "step_id": "step-rail-6ab6602802404bb09a77c8faf99225a0"
+        },
+        {
+          "edges": 1,
+          "from_en": "Ueno-okachimachi",
+          "to_en": "Ueno-Matsuzakaya (Ueno-Matsuzakaya Department Store)",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "上野御徒町",
+          "to": "上野松坂屋前",
+          "minutes": 2,
+          "meters": 130,
+          "step_id": "step-walk-bc62215b182b4085a9ec61b09a3bea86"
+        },
+        {
+          "edges": 0,
+          "from_en": "Ueno-Matsuzakaya (Ueno-Matsuzakaya Department Store)",
+          "to_en": "Ueno-Matsuzakaya (Ueno-Matsuzakaya Department Store)",
+          "departure_time": "10:27",
+          "arrival_time": "10:31",
+          "startLabel": "待ち時間",
+          "place": "上野松坂屋前",
+          "place_en": "Ueno-Matsuzakaya (Ueno-Matsuzakaya Department Store)",
+          "kind": "wait",
+          "title": "待ち時間",
+          "from_": "上野松坂屋前",
+          "to": "上野松坂屋前",
+          "minutes": 3,
+          "meters": 0,
+          "step_id": "step-wait-4ab6898c6a7c483084076b004873efbb"
+        },
+        {
+          "title_en": "上２３ · Hirai Sta.",
+          "edges": 6,
+          "from_en": "Ueno-Matsuzakaya (Ueno-Matsuzakaya Department Store)",
+          "to_en": "Asakusa-Kotobukichō",
+          "stops": [
+            {
+              "name": "上野松坂屋前",
+              "name_en": "Ueno-Matsuzakaya (Ueno-Matsuzakaya Department Store)",
+              "is_origin": true,
+              "lat": 35.706982,
+              "lon": 139.772549,
+              "id": "2000-07"
+            },
+            {
+              "name": "上野公園山下",
+              "name_en": "Ueno-Kōen-Yamashita (Ueno Park)",
+              "lat": 35.711238,
+              "lon": 139.77408,
+              "id": "0133-08"
+            },
+            {
+              "name": "上野駅前",
+              "name_en": "Ueno Sta.",
+              "lat": 35.711829,
+              "lon": 139.776905,
+              "id": "0131-02"
+            },
+            {
+              "name": "下谷神社前",
+              "name_en": "Shitaya-Jinja (Shitaya-Jinja Shrine)",
+              "lat": 35.711714,
+              "lon": 139.781069,
+              "id": "0601-02"
+            },
+            {
+              "name": "東上野六丁目",
+              "name_en": "Higashi-Ueno-Rokuchōme (Higashi-Ueno 6)",
+              "lat": 35.711094,
+              "lon": 139.784514,
+              "id": "1268-01"
+            },
+            {
+              "name": "菊屋橋",
+              "name_en": "Kikuyabashi",
+              "lat": 35.71056,
+              "lon": 139.787442,
+              "id": "0396-01"
+            },
+            {
+              "name": "浅草寿町",
+              "name_en": "Asakusa-Kotobukichō",
+              "lat": 35.710312,
+              "lon": 139.791459,
+              "id": "0035-06",
+              "is_destination": true
+            }
+          ],
+          "departure_time": "10:31",
+          "boarding_minutes": 0,
+          "route_id": "070",
+          "trip_id": "56208-2-61-100-1031",
+          "arrival_time": "10:42",
+          "kind": "bus",
+          "title": "上２３ 平井駅前行",
+          "from_": "上野松坂屋前",
+          "to": "浅草寿町",
+          "minutes": 11,
+          "step_id": "step-bus-4c97f49d9118461a8de9bad09a616bb7"
+        },
+        {
+          "edges": 1,
+          "from_en": "Asakusa-Kotobukichō",
+          "to_en": null,
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "浅草寿町",
+          "to": "目的地",
+          "minutes": 7,
+          "meters": 489,
+          "step_id": "step-walk-2fb6fa5c8a6d4c43b9f972b1da2074c7"
+        }
+      ],
+      "points": [
+        [
+          35.690921,
+          139.700258
+        ],
+        [
+          35.691108,
+          139.698927
+        ],
+        [
+          35.693367,
+          139.699121
+        ],
+        [
+          35.693367,
+          139.699121
+        ],
+        [
+          35.697957,
+          139.707434
+        ],
+        [
+          35.699188,
+          139.718043
+        ],
+        [
+          35.699501,
+          139.72504
+        ],
+        [
+          35.700911,
+          139.735894
+        ],
+        [
+          35.702952,
+          139.745257
+        ],
+        [
+          35.708493,
+          139.752487
+        ],
+        [
+          35.70751,
+          139.760524
+        ],
+        [
+          35.707949,
+          139.773351
+        ],
+        [
+          35.707949,
+          139.773351
+        ],
+        [
+          35.706982,
+          139.772549
+        ],
+        [
+          35.706982,
+          139.772549
+        ],
+        [
+          35.711238,
+          139.77408
+        ],
+        [
+          35.711829,
+          139.776905
+        ],
+        [
+          35.711714,
+          139.781069
+        ],
+        [
+          35.711094,
+          139.784514
+        ],
+        [
+          35.71056,
+          139.787442
+        ],
+        [
+          35.710312,
+          139.791459
+        ],
+        [
+          35.710312,
+          139.791459
+        ],
+        [
+          35.71165,
+          139.79662
+        ]
+      ],
+      "arrival_time": "10:49"
+    }
+  ],
+  "meta": {
+    "destination_reachable": true,
+    "destination_label": "目的地",
+    "fallback_node_name": "浅草",
+    "fallback_node_name_en": "Asakusa",
+    "fallback_distance_m": 303.6438291235728,
+    "walk_limit_m": 600.0,
+    "realtime_applied": false,
+    "bus_only": false
+  }
+}

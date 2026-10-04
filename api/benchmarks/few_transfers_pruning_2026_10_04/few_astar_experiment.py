@@ -42,6 +42,12 @@ def make_search_variant(reports=None):
     import tokyo_search_labels as labels
     from few_astar_bounds import make_bounds
 
+    if hasattr(labels, "CostRoundingGuard"):
+        raise RuntimeError(
+            "This historical priority clone targets pre-A* product code. "
+            "Use few_astar_product_probe.py to measure the production implementation."
+        )
+
     reports = [] if reports is None else reports
 
     def measured_bounds(*args, **kwargs):

@@ -1,0 +1,1380 @@
+{
+  "candidates": [
+    {
+      "lines_en": [
+        "東１６ · Tokyo Big Sight"
+      ],
+      "score_label": "楽さ 21.6 (所要35分)",
+      "cost_score": 21.575099813474107,
+      "total": 21,
+      "rides": 1,
+      "departure_date": "2026-10-04T10:03:00",
+      "is_future_suggestion": false,
+      "official_english_names": true,
+      "origin_coords": [
+        35.681236,
+        139.767125
+      ],
+      "destination_coords": [
+        35.6544,
+        139.7965
+      ],
+      "id": "Comfort-1",
+      "lines": [
+        "東１６ 東京ビッグサイト行"
+      ],
+      "boards": 1,
+      "transfers": 0,
+      "total_time": 38,
+      "walking_distance_meters": 507,
+      "walking_segment_count": 2,
+      "steps": [
+        {
+          "edges": 2,
+          "from_en": "Current location",
+          "to_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "現在地",
+          "to": "東京駅八重洲口",
+          "minutes": 7,
+          "meters": 434,
+          "step_id": "step-walk-2f522d1f4d0b4b5d9c0b0afd28a65530"
+        },
+        {
+          "edges": 0,
+          "from_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "to_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "departure_time": "10:06",
+          "arrival_time": "10:14",
+          "startLabel": "待ち時間",
+          "place": "東京駅八重洲口",
+          "place_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "kind": "wait",
+          "title": "待ち時間",
+          "from_": "東京駅八重洲口",
+          "to": "東京駅八重洲口",
+          "minutes": 7,
+          "meters": 0,
+          "step_id": "step-wait-fb39d6390137451194cf4cad9db65470"
+        },
+        {
+          "title_en": "東１６ · Tokyo Big Sight",
+          "edges": 13,
+          "from_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "to_en": "Toyosu Sta.",
+          "stops": [
+            {
+              "name": "東京駅八重洲口",
+              "name_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+              "is_origin": true,
+              "lat": 35.679839,
+              "lon": 139.768326,
+              "id": "0967-01"
+            },
+            {
+              "name": "通り三丁目",
+              "name_en": "Tōri-Sanchōme (Tōri 3)",
+              "lat": 35.679149,
+              "lon": 139.772418,
+              "id": "0997-02"
+            },
+            {
+              "name": "八丁堀二丁目",
+              "name_en": "Hatchōbori-Nichōme (Hatchōbori 2)",
+              "lat": 35.677646,
+              "lon": 139.775934,
+              "id": "1232-04"
+            },
+            {
+              "name": "亀島橋",
+              "name_en": "Kamejimabashi",
+              "lat": 35.677169,
+              "lon": 139.777156,
+              "id": "0376-02"
+            },
+            {
+              "name": "新川",
+              "name_en": "Shinkawa",
+              "lat": 35.675847,
+              "lon": 139.780264,
+              "id": "2122-01"
+            },
+            {
+              "name": "住友ツインビル前",
+              "name_en": "Sumitomo Twin Biru",
+              "lat": 35.673396,
+              "lon": 139.78321,
+              "id": "2162-01"
+            },
+            {
+              "name": "リバーシティ２１",
+              "name_en": "River City Nijūichi",
+              "lat": 35.668495,
+              "lon": 139.785346,
+              "id": "2305-02"
+            },
+            {
+              "name": "佃二丁目",
+              "name_en": "Tsukuda-Nichōme (Tsukuda 2)",
+              "lat": 35.667456,
+              "lon": 139.786046,
+              "id": "2306-02"
+            },
+            {
+              "name": "月島駅前",
+              "name_en": "Tsukishima Sta.",
+              "lat": 35.665177,
+              "lon": 139.786043,
+              "id": "0720-02"
+            },
+            {
+              "name": "新月島公園前",
+              "name_en": "Shin-Tsukishima-Kōen (Shin-Tsukishima Park)",
+              "lat": 35.659457,
+              "lon": 139.78827,
+              "id": "2312-01"
+            },
+            {
+              "name": "春海橋",
+              "name_en": "Harumibashi",
+              "lat": 35.659121,
+              "lon": 139.790654,
+              "id": "2288-01"
+            },
+            {
+              "name": "ＩＨＩ前",
+              "name_en": "IHI",
+              "lat": 35.658676,
+              "lon": 139.79277,
+              "id": "1026-02"
+            },
+            {
+              "name": "豊洲二丁目",
+              "name_en": "Toyosu-Nichōme (Toyosu 2)",
+              "lat": 35.65688,
+              "lon": 139.794522,
+              "id": "1024-02"
+            },
+            {
+              "name": "豊洲駅前",
+              "name_en": "Toyosu Sta.",
+              "lat": 35.654154,
+              "lon": 139.797249,
+              "id": "1025-11",
+              "is_destination": true
+            }
+          ],
+          "departure_time": "10:14",
+          "boarding_minutes": 0,
+          "route_id": "050",
+          "trip_id": "73002-1-81-100-1014",
+          "arrival_time": "10:37",
+          "kind": "bus",
+          "title": "東１６ 東京ビッグサイト行",
+          "from_": "東京駅八重洲口",
+          "to": "豊洲駅前",
+          "minutes": 23,
+          "step_id": "step-bus-577f1d2321784641aec7bf8f34217b4e"
+        },
+        {
+          "edges": 1,
+          "from_en": "Toyosu Sta.",
+          "to_en": null,
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "豊洲駅前",
+          "to": "目的地",
+          "minutes": 1,
+          "meters": 73,
+          "step_id": "step-walk-df303cb5eb204953afa1cadad4ee8d31"
+        }
+      ],
+      "points": [
+        [
+          35.681236,
+          139.767125
+        ],
+        [
+          35.680125,
+          139.765588
+        ],
+        [
+          35.679839,
+          139.768326
+        ],
+        [
+          35.679839,
+          139.768326
+        ],
+        [
+          35.679149,
+          139.772418
+        ],
+        [
+          35.677646,
+          139.775934
+        ],
+        [
+          35.677169,
+          139.777156
+        ],
+        [
+          35.675847,
+          139.780264
+        ],
+        [
+          35.673396,
+          139.78321
+        ],
+        [
+          35.668495,
+          139.785346
+        ],
+        [
+          35.667456,
+          139.786046
+        ],
+        [
+          35.665177,
+          139.786043
+        ],
+        [
+          35.659457,
+          139.78827
+        ],
+        [
+          35.659121,
+          139.790654
+        ],
+        [
+          35.658676,
+          139.79277
+        ],
+        [
+          35.65688,
+          139.794522
+        ],
+        [
+          35.654154,
+          139.797249
+        ],
+        [
+          35.654154,
+          139.797249
+        ],
+        [
+          35.6544,
+          139.7965
+        ]
+      ],
+      "arrival_time": "10:38"
+    },
+    {
+      "lines_en": [
+        "東１６ · Tokyo Big Sight"
+      ],
+      "score_label": "楽さ 25.4 (所要35分)",
+      "cost_score": 25.43650479264138,
+      "total": 25,
+      "rides": 1,
+      "departure_date": "2026-10-04T10:03:00",
+      "is_future_suggestion": false,
+      "official_english_names": true,
+      "origin_coords": [
+        35.681236,
+        139.767125
+      ],
+      "destination_coords": [
+        35.6544,
+        139.7965
+      ],
+      "id": "Comfort-2",
+      "lines": [
+        "東１６ 東京ビッグサイト行"
+      ],
+      "boards": 1,
+      "transfers": 0,
+      "total_time": 38,
+      "walking_distance_meters": 763,
+      "walking_segment_count": 2,
+      "steps": [
+        {
+          "edges": 2,
+          "from_en": "Current location",
+          "to_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "現在地",
+          "to": "東京駅八重洲口",
+          "minutes": 7,
+          "meters": 434,
+          "step_id": "step-walk-0c75015ce9a7486d8a9712c6e3da17c4"
+        },
+        {
+          "edges": 0,
+          "from_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "to_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "departure_time": "10:06",
+          "arrival_time": "10:14",
+          "startLabel": "待ち時間",
+          "place": "東京駅八重洲口",
+          "place_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "kind": "wait",
+          "title": "待ち時間",
+          "from_": "東京駅八重洲口",
+          "to": "東京駅八重洲口",
+          "minutes": 7,
+          "meters": 0,
+          "step_id": "step-wait-8cef3662f02642d19ac9562e48ecd6ab"
+        },
+        {
+          "title_en": "東１６ · Tokyo Big Sight",
+          "edges": 12,
+          "from_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "to_en": "Toyosu-Nichōme (Toyosu 2)",
+          "stops": [
+            {
+              "name": "東京駅八重洲口",
+              "name_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+              "is_origin": true,
+              "lat": 35.679839,
+              "lon": 139.768326,
+              "id": "0967-01"
+            },
+            {
+              "name": "通り三丁目",
+              "name_en": "Tōri-Sanchōme (Tōri 3)",
+              "lat": 35.679149,
+              "lon": 139.772418,
+              "id": "0997-02"
+            },
+            {
+              "name": "八丁堀二丁目",
+              "name_en": "Hatchōbori-Nichōme (Hatchōbori 2)",
+              "lat": 35.677646,
+              "lon": 139.775934,
+              "id": "1232-04"
+            },
+            {
+              "name": "亀島橋",
+              "name_en": "Kamejimabashi",
+              "lat": 35.677169,
+              "lon": 139.777156,
+              "id": "0376-02"
+            },
+            {
+              "name": "新川",
+              "name_en": "Shinkawa",
+              "lat": 35.675847,
+              "lon": 139.780264,
+              "id": "2122-01"
+            },
+            {
+              "name": "住友ツインビル前",
+              "name_en": "Sumitomo Twin Biru",
+              "lat": 35.673396,
+              "lon": 139.78321,
+              "id": "2162-01"
+            },
+            {
+              "name": "リバーシティ２１",
+              "name_en": "River City Nijūichi",
+              "lat": 35.668495,
+              "lon": 139.785346,
+              "id": "2305-02"
+            },
+            {
+              "name": "佃二丁目",
+              "name_en": "Tsukuda-Nichōme (Tsukuda 2)",
+              "lat": 35.667456,
+              "lon": 139.786046,
+              "id": "2306-02"
+            },
+            {
+              "name": "月島駅前",
+              "name_en": "Tsukishima Sta.",
+              "lat": 35.665177,
+              "lon": 139.786043,
+              "id": "0720-02"
+            },
+            {
+              "name": "新月島公園前",
+              "name_en": "Shin-Tsukishima-Kōen (Shin-Tsukishima Park)",
+              "lat": 35.659457,
+              "lon": 139.78827,
+              "id": "2312-01"
+            },
+            {
+              "name": "春海橋",
+              "name_en": "Harumibashi",
+              "lat": 35.659121,
+              "lon": 139.790654,
+              "id": "2288-01"
+            },
+            {
+              "name": "ＩＨＩ前",
+              "name_en": "IHI",
+              "lat": 35.658676,
+              "lon": 139.79277,
+              "id": "1026-02"
+            },
+            {
+              "name": "豊洲二丁目",
+              "name_en": "Toyosu-Nichōme (Toyosu 2)",
+              "lat": 35.65688,
+              "lon": 139.794522,
+              "id": "1024-02",
+              "is_destination": true
+            }
+          ],
+          "departure_time": "10:14",
+          "boarding_minutes": 0,
+          "route_id": "050",
+          "trip_id": "73002-1-81-100-1014",
+          "arrival_time": "10:33",
+          "kind": "bus",
+          "title": "東１６ 東京ビッグサイト行",
+          "from_": "東京駅八重洲口",
+          "to": "豊洲二丁目",
+          "minutes": 19,
+          "step_id": "step-bus-1606dfe404d4473d8a7bdd7683d743b2"
+        },
+        {
+          "edges": 1,
+          "from_en": "Toyosu-Nichōme (Toyosu 2)",
+          "to_en": null,
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "豊洲二丁目",
+          "to": "目的地",
+          "minutes": 5,
+          "meters": 329,
+          "step_id": "step-walk-1140a3d78f264b238a64a7234270dfdc"
+        }
+      ],
+      "points": [
+        [
+          35.681236,
+          139.767125
+        ],
+        [
+          35.680125,
+          139.765588
+        ],
+        [
+          35.679839,
+          139.768326
+        ],
+        [
+          35.679839,
+          139.768326
+        ],
+        [
+          35.679149,
+          139.772418
+        ],
+        [
+          35.677646,
+          139.775934
+        ],
+        [
+          35.677169,
+          139.777156
+        ],
+        [
+          35.675847,
+          139.780264
+        ],
+        [
+          35.673396,
+          139.78321
+        ],
+        [
+          35.668495,
+          139.785346
+        ],
+        [
+          35.667456,
+          139.786046
+        ],
+        [
+          35.665177,
+          139.786043
+        ],
+        [
+          35.659457,
+          139.78827
+        ],
+        [
+          35.659121,
+          139.790654
+        ],
+        [
+          35.658676,
+          139.79277
+        ],
+        [
+          35.65688,
+          139.794522
+        ],
+        [
+          35.65688,
+          139.794522
+        ],
+        [
+          35.6544,
+          139.7965
+        ]
+      ],
+      "arrival_time": "10:38"
+    },
+    {
+      "lines_en": [
+        "東１６ · Tokyo Big Sight"
+      ],
+      "score_label": "楽さ 26.0 (所要38分)",
+      "cost_score": 26.028388284557728,
+      "total": 26,
+      "rides": 1,
+      "departure_date": "2026-10-04T10:03:00",
+      "is_future_suggestion": false,
+      "official_english_names": true,
+      "origin_coords": [
+        35.681236,
+        139.767125
+      ],
+      "destination_coords": [
+        35.6544,
+        139.7965
+      ],
+      "id": "Comfort-3",
+      "lines": [
+        "東１６ 東京ビッグサイト行"
+      ],
+      "boards": 1,
+      "transfers": 0,
+      "total_time": 41,
+      "walking_distance_meters": 709,
+      "walking_segment_count": 2,
+      "steps": [
+        {
+          "edges": 2,
+          "from_en": "Current location",
+          "to_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "現在地",
+          "to": "東京駅八重洲口",
+          "minutes": 7,
+          "meters": 434,
+          "step_id": "step-walk-4ce9dd67a1c745599b222009ddc68d15"
+        },
+        {
+          "edges": 0,
+          "from_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "to_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "departure_time": "10:06",
+          "arrival_time": "10:14",
+          "startLabel": "待ち時間",
+          "place": "東京駅八重洲口",
+          "place_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "kind": "wait",
+          "title": "待ち時間",
+          "from_": "東京駅八重洲口",
+          "to": "東京駅八重洲口",
+          "minutes": 7,
+          "meters": 0,
+          "step_id": "step-wait-3bfecbeebd7e4da9aaef0f7af3616ccb"
+        },
+        {
+          "title_en": "東１６ · Tokyo Big Sight",
+          "edges": 14,
+          "from_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "to_en": "Fukagawa-Gochū",
+          "stops": [
+            {
+              "name": "東京駅八重洲口",
+              "name_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+              "is_origin": true,
+              "lat": 35.679839,
+              "lon": 139.768326,
+              "id": "0967-01"
+            },
+            {
+              "name": "通り三丁目",
+              "name_en": "Tōri-Sanchōme (Tōri 3)",
+              "lat": 35.679149,
+              "lon": 139.772418,
+              "id": "0997-02"
+            },
+            {
+              "name": "八丁堀二丁目",
+              "name_en": "Hatchōbori-Nichōme (Hatchōbori 2)",
+              "lat": 35.677646,
+              "lon": 139.775934,
+              "id": "1232-04"
+            },
+            {
+              "name": "亀島橋",
+              "name_en": "Kamejimabashi",
+              "lat": 35.677169,
+              "lon": 139.777156,
+              "id": "0376-02"
+            },
+            {
+              "name": "新川",
+              "name_en": "Shinkawa",
+              "lat": 35.675847,
+              "lon": 139.780264,
+              "id": "2122-01"
+            },
+            {
+              "name": "住友ツインビル前",
+              "name_en": "Sumitomo Twin Biru",
+              "lat": 35.673396,
+              "lon": 139.78321,
+              "id": "2162-01"
+            },
+            {
+              "name": "リバーシティ２１",
+              "name_en": "River City Nijūichi",
+              "lat": 35.668495,
+              "lon": 139.785346,
+              "id": "2305-02"
+            },
+            {
+              "name": "佃二丁目",
+              "name_en": "Tsukuda-Nichōme (Tsukuda 2)",
+              "lat": 35.667456,
+              "lon": 139.786046,
+              "id": "2306-02"
+            },
+            {
+              "name": "月島駅前",
+              "name_en": "Tsukishima Sta.",
+              "lat": 35.665177,
+              "lon": 139.786043,
+              "id": "0720-02"
+            },
+            {
+              "name": "新月島公園前",
+              "name_en": "Shin-Tsukishima-Kōen (Shin-Tsukishima Park)",
+              "lat": 35.659457,
+              "lon": 139.78827,
+              "id": "2312-01"
+            },
+            {
+              "name": "春海橋",
+              "name_en": "Harumibashi",
+              "lat": 35.659121,
+              "lon": 139.790654,
+              "id": "2288-01"
+            },
+            {
+              "name": "ＩＨＩ前",
+              "name_en": "IHI",
+              "lat": 35.658676,
+              "lon": 139.79277,
+              "id": "1026-02"
+            },
+            {
+              "name": "豊洲二丁目",
+              "name_en": "Toyosu-Nichōme (Toyosu 2)",
+              "lat": 35.65688,
+              "lon": 139.794522,
+              "id": "1024-02"
+            },
+            {
+              "name": "豊洲駅前",
+              "name_en": "Toyosu Sta.",
+              "lat": 35.654154,
+              "lon": 139.797249,
+              "id": "1025-11"
+            },
+            {
+              "name": "深川五中前",
+              "name_en": "Fukagawa-Gochū",
+              "lat": 35.652672,
+              "lon": 139.798675,
+              "id": "0619-02",
+              "is_destination": true
+            }
+          ],
+          "departure_time": "10:14",
+          "boarding_minutes": 0,
+          "route_id": "050",
+          "trip_id": "73002-1-81-100-1014",
+          "arrival_time": "10:37",
+          "kind": "bus",
+          "title": "東１６ 東京ビッグサイト行",
+          "from_": "東京駅八重洲口",
+          "to": "深川五中前",
+          "minutes": 23,
+          "step_id": "step-bus-7a1a68a2439841ada314c005980cc801"
+        },
+        {
+          "edges": 1,
+          "from_en": "Fukagawa-Gochū",
+          "to_en": null,
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "深川五中前",
+          "to": "目的地",
+          "minutes": 4,
+          "meters": 275,
+          "step_id": "step-walk-e5a0f775b2a24f8b8c1ab6b4c5b687df"
+        }
+      ],
+      "points": [
+        [
+          35.681236,
+          139.767125
+        ],
+        [
+          35.680125,
+          139.765588
+        ],
+        [
+          35.679839,
+          139.768326
+        ],
+        [
+          35.679839,
+          139.768326
+        ],
+        [
+          35.679149,
+          139.772418
+        ],
+        [
+          35.677646,
+          139.775934
+        ],
+        [
+          35.677169,
+          139.777156
+        ],
+        [
+          35.675847,
+          139.780264
+        ],
+        [
+          35.673396,
+          139.78321
+        ],
+        [
+          35.668495,
+          139.785346
+        ],
+        [
+          35.667456,
+          139.786046
+        ],
+        [
+          35.665177,
+          139.786043
+        ],
+        [
+          35.659457,
+          139.78827
+        ],
+        [
+          35.659121,
+          139.790654
+        ],
+        [
+          35.658676,
+          139.79277
+        ],
+        [
+          35.65688,
+          139.794522
+        ],
+        [
+          35.654154,
+          139.797249
+        ],
+        [
+          35.652672,
+          139.798675
+        ],
+        [
+          35.652672,
+          139.798675
+        ],
+        [
+          35.6544,
+          139.7965
+        ]
+      ],
+      "arrival_time": "10:41"
+    },
+    {
+      "lines_en": [
+        "東１６ · Tokyo Big Sight"
+      ],
+      "score_label": "楽さ 29.4 (所要37分)",
+      "cost_score": 29.402358632310854,
+      "total": 29,
+      "rides": 1,
+      "departure_date": "2026-10-04T10:03:00",
+      "is_future_suggestion": false,
+      "official_english_names": true,
+      "origin_coords": [
+        35.681236,
+        139.767125
+      ],
+      "destination_coords": [
+        35.6544,
+        139.7965
+      ],
+      "id": "Comfort-4",
+      "lines": [
+        "東１６ 東京ビッグサイト行"
+      ],
+      "boards": 1,
+      "transfers": 0,
+      "total_time": 40,
+      "walking_distance_meters": 1017,
+      "walking_segment_count": 2,
+      "steps": [
+        {
+          "edges": 2,
+          "from_en": "Current location",
+          "to_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "現在地",
+          "to": "東京駅八重洲口",
+          "minutes": 7,
+          "meters": 434,
+          "step_id": "step-walk-b8a8ada25d5f473486e99c39f4c39de8"
+        },
+        {
+          "edges": 0,
+          "from_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "to_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "departure_time": "10:06",
+          "arrival_time": "10:14",
+          "startLabel": "待ち時間",
+          "place": "東京駅八重洲口",
+          "place_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "kind": "wait",
+          "title": "待ち時間",
+          "from_": "東京駅八重洲口",
+          "to": "東京駅八重洲口",
+          "minutes": 7,
+          "meters": 0,
+          "step_id": "step-wait-3f45a1e202b446b8a1af5ab46e7c1a9b"
+        },
+        {
+          "title_en": "東１６ · Tokyo Big Sight",
+          "edges": 11,
+          "from_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+          "to_en": "IHI",
+          "stops": [
+            {
+              "name": "東京駅八重洲口",
+              "name_en": "Tokyo Sta. Yaesuguchi(Yaesu Exit)",
+              "is_origin": true,
+              "lat": 35.679839,
+              "lon": 139.768326,
+              "id": "0967-01"
+            },
+            {
+              "name": "通り三丁目",
+              "name_en": "Tōri-Sanchōme (Tōri 3)",
+              "lat": 35.679149,
+              "lon": 139.772418,
+              "id": "0997-02"
+            },
+            {
+              "name": "八丁堀二丁目",
+              "name_en": "Hatchōbori-Nichōme (Hatchōbori 2)",
+              "lat": 35.677646,
+              "lon": 139.775934,
+              "id": "1232-04"
+            },
+            {
+              "name": "亀島橋",
+              "name_en": "Kamejimabashi",
+              "lat": 35.677169,
+              "lon": 139.777156,
+              "id": "0376-02"
+            },
+            {
+              "name": "新川",
+              "name_en": "Shinkawa",
+              "lat": 35.675847,
+              "lon": 139.780264,
+              "id": "2122-01"
+            },
+            {
+              "name": "住友ツインビル前",
+              "name_en": "Sumitomo Twin Biru",
+              "lat": 35.673396,
+              "lon": 139.78321,
+              "id": "2162-01"
+            },
+            {
+              "name": "リバーシティ２１",
+              "name_en": "River City Nijūichi",
+              "lat": 35.668495,
+              "lon": 139.785346,
+              "id": "2305-02"
+            },
+            {
+              "name": "佃二丁目",
+              "name_en": "Tsukuda-Nichōme (Tsukuda 2)",
+              "lat": 35.667456,
+              "lon": 139.786046,
+              "id": "2306-02"
+            },
+            {
+              "name": "月島駅前",
+              "name_en": "Tsukishima Sta.",
+              "lat": 35.665177,
+              "lon": 139.786043,
+              "id": "0720-02"
+            },
+            {
+              "name": "新月島公園前",
+              "name_en": "Shin-Tsukishima-Kōen (Shin-Tsukishima Park)",
+              "lat": 35.659457,
+              "lon": 139.78827,
+              "id": "2312-01"
+            },
+            {
+              "name": "春海橋",
+              "name_en": "Harumibashi",
+              "lat": 35.659121,
+              "lon": 139.790654,
+              "id": "2288-01"
+            },
+            {
+              "name": "ＩＨＩ前",
+              "name_en": "IHI",
+              "lat": 35.658676,
+              "lon": 139.79277,
+              "id": "1026-02",
+              "is_destination": true
+            }
+          ],
+          "departure_time": "10:14",
+          "boarding_minutes": 0,
+          "route_id": "050",
+          "trip_id": "73002-1-81-100-1014",
+          "arrival_time": "10:32",
+          "kind": "bus",
+          "title": "東１６ 東京ビッグサイト行",
+          "from_": "東京駅八重洲口",
+          "to": "ＩＨＩ前",
+          "minutes": 18,
+          "step_id": "step-bus-6f2ff7ab11f641f38568d2212d4b0c0b"
+        },
+        {
+          "edges": 1,
+          "from_en": "IHI",
+          "to_en": null,
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "ＩＨＩ前",
+          "to": "目的地",
+          "minutes": 8,
+          "meters": 583,
+          "step_id": "step-walk-31b55057f7a64e1884d19c6e42626838"
+        }
+      ],
+      "points": [
+        [
+          35.681236,
+          139.767125
+        ],
+        [
+          35.680125,
+          139.765588
+        ],
+        [
+          35.679839,
+          139.768326
+        ],
+        [
+          35.679839,
+          139.768326
+        ],
+        [
+          35.679149,
+          139.772418
+        ],
+        [
+          35.677646,
+          139.775934
+        ],
+        [
+          35.677169,
+          139.777156
+        ],
+        [
+          35.675847,
+          139.780264
+        ],
+        [
+          35.673396,
+          139.78321
+        ],
+        [
+          35.668495,
+          139.785346
+        ],
+        [
+          35.667456,
+          139.786046
+        ],
+        [
+          35.665177,
+          139.786043
+        ],
+        [
+          35.659457,
+          139.78827
+        ],
+        [
+          35.659121,
+          139.790654
+        ],
+        [
+          35.658676,
+          139.79277
+        ],
+        [
+          35.658676,
+          139.79277
+        ],
+        [
+          35.6544,
+          139.7965
+        ]
+      ],
+      "arrival_time": "10:40"
+    },
+    {
+      "lines_en": [
+        "東２２ · Kinshichō Sta.",
+        "急行０６ · Nippon-Kagaku-Miraikan (NATIONAL MUSEUM OF EMERGING SCIENCE AND INNOVATION)"
+      ],
+      "score_label": "楽さ 25.5 (所要48分)",
+      "cost_score": 25.483103014483962,
+      "total": 25,
+      "rides": 2,
+      "departure_date": "2026-10-04T10:03:00",
+      "is_future_suggestion": false,
+      "official_english_names": true,
+      "origin_coords": [
+        35.681236,
+        139.767125
+      ],
+      "destination_coords": [
+        35.6544,
+        139.7965
+      ],
+      "id": "Comfort-5",
+      "lines": [
+        "東２２ 錦糸町駅前行",
+        "急行０６ 日本科学未来館行"
+      ],
+      "boards": 2,
+      "transfers": 1,
+      "total_time": 51,
+      "walking_distance_meters": 578,
+      "walking_segment_count": 3,
+      "steps": [
+        {
+          "edges": 2,
+          "from_en": "Current location",
+          "to_en": "Tokyo Sta. Marunouchi-Kitaguchi (Marunouchi North Exit)",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "現在地",
+          "to": "東京駅丸の内北口",
+          "minutes": 6,
+          "meters": 424,
+          "step_id": "step-walk-d95e6079d97e4c8ab4787fa64fc67bba"
+        },
+        {
+          "edges": 0,
+          "from_en": "Tokyo Sta. Marunouchi-Kitaguchi (Marunouchi North Exit)",
+          "to_en": "Tokyo Sta. Marunouchi-Kitaguchi (Marunouchi North Exit)",
+          "departure_time": "10:05",
+          "arrival_time": "10:09",
+          "startLabel": "待ち時間",
+          "place": "東京駅丸の内北口",
+          "place_en": "Tokyo Sta. Marunouchi-Kitaguchi (Marunouchi North Exit)",
+          "kind": "wait",
+          "title": "待ち時間",
+          "from_": "東京駅丸の内北口",
+          "to": "東京駅丸の内北口",
+          "minutes": 3,
+          "meters": 0,
+          "step_id": "step-wait-e2d0b7977ab04f5d9d8ecf17f9269e67"
+        },
+        {
+          "title_en": "東２２ · Kinshichō Sta.",
+          "edges": 9,
+          "from_en": "Tokyo Sta. Marunouchi-Kitaguchi (Marunouchi North Exit)",
+          "to_en": "Monzen-Nakachō",
+          "stops": [
+            {
+              "name": "東京駅丸の内北口",
+              "name_en": "Tokyo Sta. Marunouchi-Kitaguchi (Marunouchi North Exit)",
+              "is_origin": true,
+              "lat": 35.682228,
+              "lon": 139.765036,
+              "id": "0965-01"
+            },
+            {
+              "name": "呉服橋",
+              "name_en": "Gofukubashi",
+              "lat": 35.684126,
+              "lon": 139.769273,
+              "id": "0562-01"
+            },
+            {
+              "name": "日本橋",
+              "name_en": "Nihombashi",
+              "lat": 35.68233,
+              "lon": 139.774471,
+              "id": "1185-04"
+            },
+            {
+              "name": "兜町",
+              "name_en": "Kabutochō",
+              "lat": 35.68104,
+              "lon": 139.777683,
+              "id": "0335-02"
+            },
+            {
+              "name": "茅場町",
+              "name_en": "Kayabachō",
+              "lat": 35.679742,
+              "lon": 139.780797,
+              "id": "0378-06"
+            },
+            {
+              "name": "新川一丁目",
+              "name_en": "Shinkawa-Itchōme (Shinkawa 1)",
+              "lat": 35.678374,
+              "lon": 139.783148,
+              "id": "0688-01"
+            },
+            {
+              "name": "永代橋",
+              "name_en": "Eitaibashi",
+              "lat": 35.677162,
+              "lon": 139.785237,
+              "id": "0159-01"
+            },
+            {
+              "name": "佐賀一丁目",
+              "name_en": "Saga-Itchōme (Saga 1)",
+              "lat": 35.675592,
+              "lon": 139.789545,
+              "id": "0567-02"
+            },
+            {
+              "name": "永代二丁目",
+              "name_en": "Eitai-Nichōme (Eitai 2)",
+              "lat": 35.67361,
+              "lon": 139.792404,
+              "id": "0160-02"
+            },
+            {
+              "name": "門前仲町",
+              "name_en": "Monzen-Nakachō",
+              "lat": 35.672184,
+              "lon": 139.79562,
+              "id": "1544-03",
+              "is_destination": true
+            }
+          ],
+          "departure_time": "10:09",
+          "boarding_minutes": 0,
+          "route_id": "063",
+          "trip_id": "60204-2-65-100-1009",
+          "arrival_time": "10:27",
+          "kind": "bus",
+          "title": "東２２ 錦糸町駅前行",
+          "from_": "東京駅丸の内北口",
+          "to": "門前仲町",
+          "minutes": 18,
+          "step_id": "step-bus-aed3ef62bc08442fae59c19bd5183371"
+        },
+        {
+          "edges": 1,
+          "from_en": "Monzen-Nakachō",
+          "to_en": "Monzen-Nakachō",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "門前仲町",
+          "to": "門前仲町",
+          "minutes": 1,
+          "meters": 78,
+          "step_id": "step-walk-2b87d5bade444a40a9121978769ffc2b"
+        },
+        {
+          "edges": 0,
+          "from_en": "Monzen-Nakachō",
+          "to_en": "Monzen-Nakachō",
+          "departure_time": "10:27",
+          "arrival_time": "10:41",
+          "startLabel": "待ち時間",
+          "place": "門前仲町",
+          "place_en": "Monzen-Nakachō",
+          "kind": "wait",
+          "title": "待ち時間",
+          "from_": "門前仲町",
+          "to": "門前仲町",
+          "minutes": 13,
+          "meters": 0,
+          "step_id": "step-wait-c1c8cfdd92064c3ab9b6cd3ac3a65ada"
+        },
+        {
+          "title_en": "急行０６ · Nippon-Kagaku-Miraikan (NATIONAL MUSEUM OF EMERGING SCIENCE AND INNOVATION)",
+          "edges": 1,
+          "from_en": "Monzen-Nakachō",
+          "to_en": "Toyosu Sta.",
+          "stops": [
+            {
+              "name": "門前仲町",
+              "name_en": "Monzen-Nakachō",
+              "is_origin": true,
+              "lat": 35.672039,
+              "lon": 139.794775,
+              "id": "1544-01"
+            },
+            {
+              "name": "豊洲駅前",
+              "name_en": "Toyosu Sta.",
+              "lat": 35.653926,
+              "lon": 139.795894,
+              "id": "1025-12",
+              "is_destination": true
+            }
+          ],
+          "departure_time": "10:41",
+          "boarding_minutes": 0,
+          "route_id": "033",
+          "trip_id": "61202-1-85-100-1035",
+          "arrival_time": "10:50",
+          "kind": "bus",
+          "title": "急行０６ 日本科学未来館行",
+          "from_": "門前仲町",
+          "to": "豊洲駅前",
+          "minutes": 9,
+          "step_id": "step-bus-530d28ca9ad64a7aa3ef197731133efd"
+        },
+        {
+          "edges": 1,
+          "from_en": "Toyosu Sta.",
+          "to_en": null,
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "豊洲駅前",
+          "to": "目的地",
+          "minutes": 1,
+          "meters": 76,
+          "step_id": "step-walk-3562f03ad91b452c9a0cd95ee35ea556"
+        }
+      ],
+      "points": [
+        [
+          35.681236,
+          139.767125
+        ],
+        [
+          35.680125,
+          139.765588
+        ],
+        [
+          35.682228,
+          139.765036
+        ],
+        [
+          35.682228,
+          139.765036
+        ],
+        [
+          35.684126,
+          139.769273
+        ],
+        [
+          35.68233,
+          139.774471
+        ],
+        [
+          35.68104,
+          139.777683
+        ],
+        [
+          35.679742,
+          139.780797
+        ],
+        [
+          35.678374,
+          139.783148
+        ],
+        [
+          35.677162,
+          139.785237
+        ],
+        [
+          35.675592,
+          139.789545
+        ],
+        [
+          35.67361,
+          139.792404
+        ],
+        [
+          35.672184,
+          139.79562
+        ],
+        [
+          35.672184,
+          139.79562
+        ],
+        [
+          35.672039,
+          139.794775
+        ],
+        [
+          35.672039,
+          139.794775
+        ],
+        [
+          35.653926,
+          139.795894
+        ],
+        [
+          35.653926,
+          139.795894
+        ],
+        [
+          35.6544,
+          139.7965
+        ]
+      ],
+      "arrival_time": "10:51"
+    }
+  ],
+  "meta": {
+    "destination_reachable": true,
+    "destination_label": "目的地",
+    "fallback_node_name": "豊洲駅前",
+    "fallback_node_name_en": "Toyosu Sta.",
+    "fallback_distance_m": 53.725202768930274,
+    "walk_limit_m": 600.0,
+    "realtime_applied": false,
+    "bus_only": false
+  }
+}

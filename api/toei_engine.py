@@ -1520,6 +1520,24 @@ def _virtual_destination_connections_by_node(
     return by_node
 
 
+class TokyoSearchCandidates(list):
+    """Legacy candidate list carrying a query-local safety-limit notice.
+
+    This is returned only when detail validation leaves a usable partial
+    result. The notice has no traceback retaining the abandoned frontier.
+    """
+
+    def __init__(self, candidates=(), *, search_limit_error=None):
+        super().__init__(candidates)
+        self.search_limit_error = search_limit_error
+
+
+_TOKYO_PARTIAL_SEARCH_REASONS = frozenset({
+    "max_visited", "max_expanded", "time_limit_sec", "queue_size",
+    "g_score_size", "max_search",
+})
+
+
 def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
     d = datetime.date.today()
     if target_date_str:
@@ -1606,6 +1624,7 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
         day_type = determine_day_type(target_date)
     
     candidates = []
+    search_limit_error = None
     # 遅延情報のスナップショットを取得 (探索中盤で遅延情報が変わると整合性が取れなくなるため固定化)
     delays_snapshot = tm.get_delays_snapshot() if use_realtime else {}
 
@@ -1693,10 +1712,25 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
         # Examine only the same raw candidate budget requested by the caller.
         # Do not search farther merely to replace duplicate walk detours.
         raw_candidates = []
-        for cand in path_gen:
-            raw_candidates.append(cand)
-            if len(raw_candidates) >= limit:
-                break
+        try:
+            for cand in path_gen:
+                raw_candidates.append(cand)
+                if len(raw_candidates) >= limit:
+                    break
+        except RouteSearchLimitError as error:
+            if not raw_candidates or error.reason not in _TOKYO_PARTIAL_SEARCH_REASONS:
+                raise
+            # A limit is recoverable only if the existing validation below
+            # leaves a usable candidate. Do not catch contract/data failures.
+            # Tracebacks otherwise keep the generator's entire frontier alive
+            # throughout detail generation and the returned result's lifetime.
+            search_limit_error = error.with_traceback(None)
+            search_limit_error.__context__ = None
+            search_limit_error.__cause__ = None
+        finally:
+            close = getattr(path_gen, "close", None)
+            if close is not None:
+                close()
 
         grouped_candidates = {}
         signature_order = []
@@ -1791,6 +1825,16 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
                     f"{signature!r}",
                     flush=True,
                 )
+    if search_limit_error is not None:
+        if not candidates:
+            raise search_limit_error
+        print(
+            "[ROUTE_DEBUG] Tokyo search returning partial candidates: "
+            f"mode={mode} reason={search_limit_error.reason} "
+            f"raw={len(raw_candidates)} validated={len(candidates)} limit={limit}",
+            flush=True,
+        )
+        return TokyoSearchCandidates(candidates, search_limit_error=search_limit_error)
     return candidates
 
 def ensure_train_run_metadata(tm, source_path):
@@ -1883,7 +1927,7 @@ def find_few_transfers_paths_generator(
     delays_snapshot=None, time_limit_sec=15.0, virtual_dest_connections=None,
     target_coords=None, use_realtime=True, bus_only=False,
 ):
-    """Order by (boardings, comfort cost), retaining non-dominated labels."""
+    """A* for (boardings, comfort cost), retaining non-dominated labels."""
     yield from _tokyo_label_search(
         G, tm, start_node, target_node, start_time_str, day_type, "fewTransfers",
         max_search, max_visited, max_travel_min, delays_snapshot, time_limit_sec,

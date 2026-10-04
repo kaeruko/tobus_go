@@ -152,3 +152,17 @@
 7入力でA*が5候補を返し、現在の探索が完了した6入力は候補全体が一致。現在は上限に達する新宿→浅草も、A*では3,976popで5候補を便照合できた。実験16テスト＋A*下の既存31件、通常APIテスト350件PASS。本番未反映。
 
 詳細・限界・再現手順は [fewTransfers A*報告](few_astar_report.md)、生の結果は [few_astar_2026_10_05/results.json](few_astar_2026_10_05/results.json) を参照。旧 `bounds_results.json` の7054／19423回とは実装が異なるため、新しい値を使用する。
+
+## fewTransfers A*の製品実装
+
+2026-10-05、ユーザーの承認後にA*を製品探索へ接続した。queryごとに下界を作成し、前処理中も既存15秒期限を確認する。前向き・逆向きのfloat加算順で最安候補が変わる反例も固定し、candidate costやPareto判定は変えず、推定costだけへ固定の保守的誤差補正を入れた。
+
+製品コードの指定経路は同じ5候補・便ID、2,297pop／3,379active label、前処理・便照合込み中央値0.836秒、Windows OS生涯ピーク1,212.4MiB。少乗換7入力で実験結果の候補と順序が一致し、cost／timeも候補とpop数が一致、下界は作らなかった。正式APIテスト372件PASS、本番未デプロイ。
+
+詳細は [実装後報告](few_astar_product_report.md)、生の結果は [few_astar_product_2026_10_05/results.json](few_astar_product_2026_10_05/results.json)。旧実験ハーネスは製品A*導入前（`e69b34e`）を対象とするため、現在の再測定には `few_astar_product_probe.py` を使用する。
+
+## 候補取得後の安全上限と部分結果
+
+2026-10-05、cost検索で3生候補を得た後のmax_visitedが503となるログを確認した。東京の収集層に、既知の上限で中断しても検証済み候補が残る場合は返却し、metaでtruncated／termination_reasonを通知する処理を追加した。0件や契約違反は従来のエラーを維持する。
+
+ログと同じOD・07:18のローカル静的対照でも100,001pop・yielded=3となり、修正後は3候補を保持、鉄道GTFS便照合後も3件・拒否0だった。探索上限・fewTransfers A*・便選択・支配判定は維持。部分結果の回帰17件を含むAPI全389テストPASS。本番未反映。詳細は [部分結果の報告](partial_search_report.md)、生の結果は [静的対照JSON](partial_search_2026_10_05_static.json)。

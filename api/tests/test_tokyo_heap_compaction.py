@@ -25,6 +25,15 @@ HUB = ("phys", "hub")
 TARGET = ("phys", "target")
 
 
+class _ZeroBounds:
+    # Isolate queue compaction from A* ordering: this fixture intentionally
+    # keeps thousands of obsolete hub labels ahead of the transit departure.
+    report = {"build_ms": 0.0, "graph_max_edge_cost": 0.0, "allocated_states": 0}
+
+    def __call__(self, node, segment):
+        return 0, 0.0
+
+
 class _Choices:
     can_wait_offboard = True
     use_realtime = False
@@ -137,7 +146,7 @@ class TokyoHeapCompactionTest(unittest.TestCase):
     def test_compaction_finishes_same_five_candidates_within_original_pop_budget(self):
         graph = _fan_in_graph()
         for mode in ("cost", "fewTransfers", "time"):
-            with self.subTest(mode=mode):
+            with self.subTest(mode=mode), patch.object(labels, "make_bounds", return_value=_ZeroBounds()):
                 baseline_log = io.StringIO()
                 with patch.object(labels, "_compact_queue", lambda queue: 0, create=True), \
                         contextlib.redirect_stdout(baseline_log):
