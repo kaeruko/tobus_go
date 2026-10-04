@@ -54,7 +54,7 @@ class TokyoSearchPerformanceTest(unittest.TestCase):
         graph.add_edge(self.line, self.target, etype="alight", w=0.25)
         return graph
 
-    def test_dominated_or_equal_cost_boarding_skips_timetable_lookup(self):
+    def test_boarding_comparison_checks_both_clocks_before_pruning(self):
         for search in GENERATORS:
             for second_cost in (1.0, 2.0):
                 with self.subTest(search=search.__name__, second_cost=second_cost):
@@ -76,7 +76,9 @@ class TokyoSearchPerformanceTest(unittest.TestCase):
                             "walk_m": 10.0,
                         },
                     )
-                    self.assertEqual([call.args[0] for call in departure.call_args_list], ["first"])
+                    # Equal/greater cost alone cannot establish dominance:
+                    # the other boarding may catch a different departure.
+                    self.assertEqual([call.args[0] for call in departure.call_args_list], ["first", "second"])
 
     def test_failed_time_evaluation_does_not_block_later_boarding(self):
         for search in GENERATORS:

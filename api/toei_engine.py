@@ -818,39 +818,52 @@ class TimetableManager:
         _phase_log("load_train_timetables begin", f"path={json_path}")
         data = load_json(json_path)
         count = 0
-        for entry in data:
+        for entry_index, entry in enumerate(data):
             train_num = entry.get("odpt:trainNumber")
             calendar = entry.get("odpt:calendar", "")
+            run_key = entry.get("owl:sameAs") or entry.get("@id") or (
+                f"{calendar}|{entry.get('odpt:railway')}|{train_num}|{entry_index}"
+            )
             objs = entry.get("odpt:trainTimetableObject", [])
             target_dict = self.train_patterns_weekend
             if "Weekday" in calendar: target_dict = self.train_patterns_weekday
 
             prev = None
-            for obj in objs:
+            clock_floor = 0
+            for stop_sequence, obj in enumerate(objs):
                 sid = obj.get("odpt:departureStation") or obj.get("odpt:arrivalStation")
                 if not sid: continue
                 dep_str = obj.get("odpt:departureTime")
                 arr_str = obj.get("odpt:arrivalTime")
 
                 if prev:
-                    prev_sid, prev_dep_str = prev
+                    prev_sid, prev_dep_str, prev_sequence = prev
                     if prev_sid and sid:
                         if prev_dep_str and arr_str:
                             real_dep = time_str_to_min(prev_dep_str)
                             real_arr = time_str_to_min(arr_str)
+                            while real_dep < clock_floor:
+                                real_dep += 1440
+                            while real_arr < real_dep:
+                                real_arr += 1440
+                            clock_floor = real_arr
                             if real_dep < 99999 and real_arr < 99999 and real_arr >= real_dep:
                                 if prev_sid not in target_dict: target_dict[prev_sid] = []
                                 target_dict[prev_sid].append({
                                     "dep": real_dep, 
                                     "arr": real_arr, 
                                     "next_sta": sid,
-                                    "train_num": train_num
+                                    "train_num": train_num,
+                                    "run_key": str(run_key),
+                                    "stop_sequence": prev_sequence,
+                                    "calendar": calendar,
                                 })
                 next_dep_str = dep_str if dep_str else arr_str
-                prev = (sid, next_dep_str)
+                prev = (sid, next_dep_str, stop_sequence)
             count += 1
         for d in [self.train_patterns_weekday, self.train_patterns_weekend]:
             for sid in d: d[sid].sort(key=lambda x: x["dep"])
+        self.train_run_schema_version = 1
         _phase_log("load_train_timetables end", f"entries={count}")
 
     def build_name_index(self, G):
@@ -1780,631 +1793,133 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
                 )
     return candidates
 
-def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_search=30000, max_visited=15000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, time_limit_sec=15.0, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
-    import time
-    _mem_log("find_paths_generator start")
-    start_clock = time.monotonic()
-    start_min = time_str_to_min(start_time_str)
+def ensure_train_run_metadata(tm, source_path):
+    """Upgrade an old prebuilt timetable from local source, before serving.
 
-    t_lat, t_lon = None, None
-    if target_coords: t_lat, t_lon = target_coords
-    else:
-        try:
-            t_lat = G.nodes[target_node]["lat"]
-            t_lon = G.nodes[target_node]["lon"]
-        except: pass
+    Old pickles discarded the source run and Saturday/Holiday calendar.  Those
+    facts cannot be recovered by guessing from train numbers.  Static graph,
+    bus data and realtime containers are retained during this rail-only update.
+    """
+    if not isinstance(tm, TimetableManager):
+        return False
+    records = (record for target in (tm.train_patterns_weekday, tm.train_patterns_weekend)
+               for entries in target.values() for record in entries)
+    if all(record.get("run_key") and isinstance(record.get("stop_sequence"), int)
+           and record.get("calendar") for record in records):
+        tm.train_run_schema_version = 1
+        return False
+    if not source_path or not os.path.isfile(source_path):
+        raise RuntimeError(
+            "Tokyo prebuilt train run metadata is outdated; rebuild app_data.pkl "
+            "with the current loader and odpt_TrainTimetable.json before rollout"
+        )
+    import copy
+    upgraded = copy.copy(tm)
+    upgraded.train_patterns_weekday = {}
+    upgraded.train_patterns_weekend = {}
+    upgraded.load_train_timetables(source_path)
+    tm.train_patterns_weekday = upgraded.train_patterns_weekday
+    tm.train_patterns_weekend = upgraded.train_patterns_weekend
+    tm.train_run_schema_version = 1
+    return True
+
+
+def _tokyo_label_search(G, tm, start_node, target_node, start_time_str, day_type,
+                        mode, max_search, max_visited, max_travel_min,
+                        delays_snapshot, time_limit_sec, virtual_dest_connections,
+                        target_coords, use_realtime, bus_only, max_expanded=None):
+    from tokyo_search_labels import search_labels
+    from tokyo_timetable_choices import TimetableChoices
+
+    start_min = time_str_to_min(start_time_str)
+    choices = TimetableChoices(
+        G, tm, day_type=day_type, use_realtime=use_realtime,
+        delays_snapshot=delays_snapshot, deadline=start_min + max_travel_min,
+        bus_repository=gtfs_repo,
+    )
+    target_lat, target_lon = target_coords if target_coords else (None, None)
+    if target_lat is None and target_node in G:
+        target_lat = G.nodes[target_node].get("lat")
+        target_lon = G.nodes[target_node].get("lon")
 
     @lru_cache(maxsize=None)
-    def heuristic(n):
-        if n == target_node: return 0.0
-        if t_lat is None: return 0.0
-        if n not in G: return 0.0
-        d = G.nodes[n]
-        dist = haversine(d.get("lat",0), d.get("lon",0), t_lat, t_lon)
-        return dist / 400.0
+    def legacy_cost_heuristic(node):
+        if mode != "cost" or node == target_node or target_lat is None or node not in G:
+            return 0.0
+        data = G.nodes[node]
+        return haversine(data.get("lat", 0), data.get("lon", 0), target_lat, target_lon) / 400.0
 
-    start_h = heuristic(start_node)
-    
-    g_score = {}
-    chain_store = []
-    start_idx = _chain_new(chain_store, start_node, None)
-    pq = [(start_h, 0.0, start_node, 0.0, 0.0, start_min, start_idx)]
-    
-    g_score[(start_node, 0)] = 0.0
+    def evaluate_time(u, v, current, edge):
+        return advance_time(
+            G, choices.manager, u, v, current, day_type,
+            choices.manager.realtime_delays if hasattr(choices.manager, "realtime_delays") else delays_snapshot,
+            use_realtime=use_realtime, edge=edge,
+        )
 
-    target_goal_nodes = {target_node}
-    virtual_destination_by_node = _virtual_destination_connections_by_node(
-        target_node,
-        virtual_dest_connections,
+    yield from search_labels(
+        G, choices, start_node, target_node, mode=mode, start_minute=start_min,
+        max_search=max_search, max_visited=max_visited, max_travel_min=max_travel_min,
+        time_limit_sec=time_limit_sec, max_total_walk=MAX_TOTAL_WALK_M,
+        max_segment_walk=MAX_WALK_SEG_M, walk_speed=WALK_SPEED_M_PER_MIN,
+        rail_boarding_minutes=RAIL_BOARDING_MINUTES, advance_time=evaluate_time,
+        virtual_connections=_virtual_destination_connections_by_node(target_node, virtual_dest_connections),
+        edge_uses_rail=lambda u, v: bus_only and _edge_uses_rail(G, u, v),
+        heuristic=legacy_cost_heuristic, max_expanded=max_expanded,
     )
 
-    best_cost = {}
-    seen_logical_routes = set()
-    yielded_count = 0
-    visited_count = 0
-    
-    MAX_PQ = 250000
-    MAX_GSCORE = 500000
-    MAX_BEST = 500000
 
-    while pq:
-        if visited_count > 0 and visited_count % 100 == 0:
-            if time.monotonic() - start_clock > time_limit_sec:
-                print(f"[WARN] Search timeout {yielded_count} paths found. Visited {visited_count} nodes.", flush=True)
-                _mem_log("search_timeout")
-                return
-            if len(pq) > MAX_PQ or len(g_score) > MAX_GSCORE or len(best_cost) > MAX_BEST:
-                print(f"[WARN] Search structure too large. abort pq={len(pq)} g={len(g_score)} best={len(best_cost)}", flush=True)
-                _mem_log("search_abort_size")
-                return
-                
-            if visited_count % 500 == 0:
-                 _mem_log("search tick", f"visited={visited_count} pq={len(pq)} g={len(g_score)} best={len(best_cost)} seen={len(seen_logical_routes)}")
+def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_search=30000, max_visited=15000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, time_limit_sec=15.0, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
+    """Legacy comfort priority with safe time/walking/vehicle labels."""
+    yield from _tokyo_label_search(
+        G, tm, start_node, target_node, start_time_str, day_type, "cost",
+        max_search, max_visited, max_travel_min, delays_snapshot, time_limit_sec,
+        virtual_dest_connections, target_coords, use_realtime, bus_only,
+    )
 
-        _, cost, u, total_walk_m, seg_walk_m, curr_time, chain_idx = heapq.heappop(pq)
-        visited_count += 1
-        if visited_count > max_visited: 
-            _mem_log("search_max_visited")
-            return
-
-        if curr_time - start_min > max_travel_min: continue
-
-        walk_bucket = int(seg_walk_m // 25)
-        state_key = (u, walk_bucket)
-        
-        prev_best = best_cost.get(state_key)
-        if prev_best is not None and cost >= prev_best: continue
-        best_cost[state_key] = cost
-
-        if u in target_goal_nodes:
-            full_path = reconstruct_path_idx(chain_store, chain_idx)
-            yield {"cost": cost, "path": full_path, "walk_m": total_walk_m}
-            yielded_count += 1
-            if yielded_count >= max_search:
-                _mem_log("search_max_yield")
-                return
-            continue
-
-        direct_destination = virtual_destination_by_node.get(u)
-        can_walk_direct_to_destination = False
-        if direct_destination is not None:
-            vw, vmeters = direct_destination
-            next_time_v = curr_time + (vmeters / WALK_SPEED_M_PER_MIN)
-            new_total_v = total_walk_m + vmeters
-            new_seg_v = seg_walk_m + vmeters
-            if (
-                next_time_v - start_min <= max_travel_min
-                and new_total_v <= MAX_TOTAL_WALK_M
-                and new_seg_v <= MAX_WALK_SEG_M
-            ):
-                can_walk_direct_to_destination = True
-                new_cost_v = cost + vw
-                bucket_v = int(new_seg_v // 25)
-                key_v = (target_node, bucket_v)
-                if new_cost_v < g_score.get(key_v, float("inf")):
-                    g_score[key_v] = new_cost_v
-                    new_chain_idx = _chain_new(
-                        chain_store, target_node, chain_idx
-                    )
-                    heapq.heappush(
-                        pq,
-                        (
-                            new_cost_v + heuristic(target_node),
-                            new_cost_v,
-                            target_node,
-                            new_total_v,
-                            new_seg_v,
-                            next_time_v,
-                            new_chain_idx,
-                        ),
-                    )
-
-        for v, edge in G[u].items():
-            etype = edge.get("etype")
-            if (
-                can_walk_direct_to_destination
-                and etype == "walk"
-            ):
-                continue
-            if bus_only and _edge_uses_rail(G, u, v):
-                continue
-            w = edge.get("w", 0.0)
-            meters = edge.get("meters", 0.0)
-            new_total_walk_m = total_walk_m
-            new_seg_walk_m = 0.0
-            if etype == "walk":
-                step_m = meters if meters > 0 else 1.0
-                new_seg_walk_m = seg_walk_m + step_m
-                if new_seg_walk_m > MAX_WALK_SEG_M: continue
-                new_total_walk_m += step_m
-                if new_total_walk_m > MAX_TOTAL_WALK_M: continue
-
-            new_cost = cost + w
-            new_bucket = int(new_seg_walk_m // 25)
-            new_key = (v, new_bucket)
-            # Cost and walking constraints do not require a timetable lookup.
-            if not new_cost < g_score.get(new_key, float('inf')):
-                continue
-            next_time = advance_time(
-                G,
-                tm,
-                u,
-                v,
-                curr_time,
-                day_type,
-                delays_snapshot,
-                use_realtime=use_realtime,
-                edge=edge,
-            )
-            if next_time is None or next_time - start_min > max_travel_min: continue
-
-            g_score[new_key] = new_cost
-            new_h = heuristic(v)
-            new_chain_idx = _chain_new(chain_store, v, chain_idx)
-            heapq.heappush(pq, (new_cost + new_h, new_cost, v, new_total_walk_m, new_seg_walk_m, next_time, new_chain_idx))
-    _mem_log("find_paths_generator end")
 
 def find_few_transfers_paths_generator(
-    G,
-    tm,
-    start_node,
-    target_node,
-    start_time_str="10:00",
-    day_type="weekday",
-    max_search=30000,
-    max_visited=15000,
-    max_travel_min=MAX_TRAVEL_MIN,
-    delays_snapshot=None,
-    time_limit_sec=15.0,
-    virtual_dest_connections=None,
-    target_coords=None,
-    use_realtime=True,
-    bus_only=False,
+    G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday",
+    max_search=30000, max_visited=15000, max_travel_min=MAX_TRAVEL_MIN,
+    delays_snapshot=None, time_limit_sec=15.0, virtual_dest_connections=None,
+    target_coords=None, use_realtime=True, bus_only=False,
 ):
-    """Yield paths ordered by boardings first, then legacy comfort cost.
-
-    This search is deliberately separate from ``find_paths_generator`` so
-    the legacy ``cost`` mode keeps its existing scalar-cost behavior.
-    """
-    import time
-
-    _mem_log("find_few_transfers_paths_generator start")
-    start_clock = time.monotonic()
-    start_min = time_str_to_min(start_time_str)
-
-    g_score = {}
-    chain_store = []
-    start_idx = _chain_new(chain_store, start_node, None)
-    pq = [(0, 0.0, start_node, 0.0, 0.0, start_min, start_idx)]
-    g_score[(start_node, 0, 0)] = 0.0
-
-    target_goal_nodes = {target_node}
-    virtual_destination_by_node = _virtual_destination_connections_by_node(
-        target_node,
-        virtual_dest_connections,
+    """Order by (boardings, comfort cost), retaining non-dominated labels."""
+    yield from _tokyo_label_search(
+        G, tm, start_node, target_node, start_time_str, day_type, "fewTransfers",
+        max_search, max_visited, max_travel_min, delays_snapshot, time_limit_sec,
+        virtual_dest_connections, target_coords, use_realtime, bus_only,
     )
-    best_cost = {}
-    yielded_count = 0
-    visited_count = 0
 
-    # Diagnostics only: keep the search behavior unchanged while showing
-    # where the fewTransfers state explosion is happening.
-    popped_by_boardings = defaultdict(int)
-    expanded_by_boardings = defaultdict(int)
-    dominated_by_boardings = defaultdict(int)
-    travel_limit_by_boardings = defaultdict(int)
-    yielded_by_boardings = defaultdict(int)
-
-    def _boarding_counts(counts):
-        if not counts:
-            return "{}"
-        return "{" + ", ".join(
-            f"{key}:{counts[key]}" for key in sorted(counts)
-        ) + "}"
-
-    def _log_few_transfers_stats(tag):
-        elapsed = time.monotonic() - start_clock
-        print(
-            "[ROUTE_DEBUG] fewTransfers stats: "
-            f"tag={tag} visited={visited_count} yielded={yielded_count} "
-            f"queue={len(pq)} g_score={len(g_score)} "
-            f"best_cost={len(best_cost)} elapsed_sec={elapsed:.3f} "
-            f"popped_by_boardings={_boarding_counts(popped_by_boardings)} "
-            f"expanded_by_boardings={_boarding_counts(expanded_by_boardings)} "
-            f"dominated_by_boardings={_boarding_counts(dominated_by_boardings)} "
-            f"travel_limit_by_boardings={_boarding_counts(travel_limit_by_boardings)} "
-            f"yielded_by_boardings={_boarding_counts(yielded_by_boardings)}",
-            flush=True,
-        )
-
-    max_pq = 250000
-    max_gscore = 500000
-    max_best = 500000
-
-    def fail_limit(reason):
-        elapsed = time.monotonic() - start_clock
-        _log_few_transfers_stats(f"abort:{reason}")
-        raise RouteSearchLimitError(
-            "fewTransfers search safety limit exceeded: "
-            f"reason={reason} visited={visited_count} "
-            f"yielded={yielded_count} queue={len(pq)} "
-            f"g_score={len(g_score)} best_cost={len(best_cost)} "
-            f"elapsed_sec={elapsed:.3f} max_visited={max_visited} "
-            f"max_search={max_search} time_limit_sec={time_limit_sec}"
-        )
-
-    while pq:
-        if time.monotonic() - start_clock > time_limit_sec:
-            _mem_log("few_transfers_search_timeout")
-            fail_limit("time_limit_sec")
-        if len(pq) > max_pq:
-            _mem_log("few_transfers_search_queue_limit")
-            fail_limit("queue_size")
-        if len(g_score) > max_gscore:
-            _mem_log("few_transfers_search_gscore_limit")
-            fail_limit("g_score_size")
-        if len(best_cost) > max_best:
-            _mem_log("few_transfers_search_best_limit")
-            fail_limit("best_cost_size")
-
-        (
-            boardings,
-            cost,
-            u,
-            total_walk_m,
-            seg_walk_m,
-            curr_time,
-            chain_idx,
-        ) = heapq.heappop(pq)
-        visited_count += 1
-        popped_by_boardings[boardings] += 1
-
-        if visited_count % 5000 == 0:
-            _log_few_transfers_stats("tick")
-
-        if visited_count > max_visited:
-            _mem_log("few_transfers_search_max_visited")
-            fail_limit("max_visited")
-
-        if curr_time - start_min > max_travel_min:
-            travel_limit_by_boardings[boardings] += 1
-            continue
-
-        walk_bucket = int(seg_walk_m // 25)
-        state_key = (u, walk_bucket, boardings)
-        prev_best = best_cost.get(state_key)
-        if prev_best is not None and cost >= prev_best:
-            dominated_by_boardings[boardings] += 1
-            continue
-        best_cost[state_key] = cost
-        expanded_by_boardings[boardings] += 1
-
-        if u in target_goal_nodes:
-            if yielded_count >= max_search:
-                _mem_log("few_transfers_search_max_yield")
-                fail_limit("max_search")
-            full_path = reconstruct_path_idx(chain_store, chain_idx)
-            yield {
-                "cost": cost,
-                "path": full_path,
-                "walk_m": total_walk_m,
-            }
-            yielded_count += 1
-            yielded_by_boardings[boardings] += 1
-            _log_few_transfers_stats("yield")
-            continue
-
-        direct_destination = virtual_destination_by_node.get(u)
-        can_walk_direct_to_destination = False
-        if direct_destination is not None:
-            vw, vmeters = direct_destination
-            next_time_v = curr_time + (
-                vmeters / WALK_SPEED_M_PER_MIN
-            )
-            new_total_v = total_walk_m + vmeters
-            new_seg_v = seg_walk_m + vmeters
-            if (
-                next_time_v - start_min <= max_travel_min
-                and new_total_v <= MAX_TOTAL_WALK_M
-                and new_seg_v <= MAX_WALK_SEG_M
-            ):
-                can_walk_direct_to_destination = True
-                new_cost_v = cost + vw
-                bucket_v = int(new_seg_v // 25)
-                key_v = (target_node, bucket_v, boardings)
-                if new_cost_v < g_score.get(key_v, float("inf")):
-                    g_score[key_v] = new_cost_v
-                    new_chain_idx = _chain_new(
-                        chain_store, target_node, chain_idx
-                    )
-                    heapq.heappush(
-                        pq,
-                        (
-                            boardings,
-                            new_cost_v,
-                            target_node,
-                            new_total_v,
-                            new_seg_v,
-                            next_time_v,
-                            new_chain_idx,
-                        ),
-                    )
-
-        for v, edge in G[u].items():
-            etype = edge.get("etype")
-            if (
-                can_walk_direct_to_destination
-                and etype == "walk"
-            ):
-                continue
-            if bus_only and _edge_uses_rail(G, u, v):
-                continue
-            w = edge.get("w", 0.0)
-            meters = edge.get("meters", 0.0)
-            new_total_walk_m = total_walk_m
-            new_seg_walk_m = 0.0
-            if etype == "walk":
-                step_m = meters if meters > 0 else 1.0
-                new_seg_walk_m = seg_walk_m + step_m
-                if new_seg_walk_m > MAX_WALK_SEG_M:
-                    continue
-                new_total_walk_m += step_m
-                if new_total_walk_m > MAX_TOTAL_WALK_M:
-                    continue
-
-            new_boardings = boardings + (
-                1 if etype == "board" else 0
-            )
-            new_cost = cost + w
-            new_bucket = int(new_seg_walk_m // 25)
-            new_key = (v, new_bucket, new_boardings)
-            # Keep boarding count in the key before skipping dominated labels.
-            if not new_cost < g_score.get(new_key, float("inf")):
-                continue
-            next_time = advance_time(
-                G,
-                tm,
-                u,
-                v,
-                curr_time,
-                day_type,
-                delays_snapshot,
-                use_realtime=use_realtime,
-                edge=edge,
-            )
-            if (
-                next_time is None
-                or next_time - start_min > max_travel_min
-            ):
-                continue
-
-            g_score[new_key] = new_cost
-            new_chain_idx = _chain_new(
-                chain_store, v, chain_idx
-            )
-            heapq.heappush(
-                pq,
-                (
-                    new_boardings,
-                    new_cost,
-                    v,
-                    new_total_walk_m,
-                    new_seg_walk_m,
-                    next_time,
-                    new_chain_idx,
-                ),
-            )
-
-    _log_few_transfers_stats("queue_exhausted")
-    _mem_log("find_few_transfers_paths_generator end")
 
 def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
-    import time
-    start_clock = time.monotonic()
-    
-    start_min = time_str_to_min(start_time_str)
-    
-    chain_store = []
-    start_idx = _chain_new(chain_store, start_node, None)
-    
-    pq = [(start_min, start_node, start_idx, 0.0, 0.0)]
-    visited_time = {} 
-    min_time = {}
-    
-    min_time[(start_node, 0)] = start_min
-    
-    virtual_destination_by_node = _virtual_destination_connections_by_node(
-        target_node,
-        virtual_dest_connections,
+    generator = _tokyo_label_search(
+        G, tm, start_node, target_node, start_time_str, day_type, "time", 1,
+        200000, max_travel_min, delays_snapshot, 15.0,
+        virtual_dest_connections, target_coords, use_realtime, bus_only,
+        max_expanded=100000,
     )
-
-    target_pole_ids = set()
-    def add_poles(pid):
-        target_pole_ids.add(pid)
-
-    if virtual_dest_connections:
-        for nid,_,_ in virtual_dest_connections:
-            if nid[0] == "phys": add_poles(nid[1])
-    elif target_node and target_node[0] == "phys":
-        add_poles(target_node[1])
-
-    popped_count = 0
-    expanded_count = 0
-    duplicate_count = 0
-    travel_limit_count = 0
-    MAX_POPPED = 200000
-    MAX_EXPANDED = 100000
-    TIME_LIMIT_SEC = 15.0
-
-    while pq:
-        if popped_count > 0 and popped_count % 100 == 0:
-            elapsed = time.monotonic() - start_clock
-            if elapsed > TIME_LIMIT_SEC:
-                print(
-                    "[ROUTE_DEBUG] fastest abort: "
-                    f"reason=time_limit popped={popped_count} "
-                    f"expanded={expanded_count} duplicates={duplicate_count} "
-                    f"travel_limited={travel_limit_count} "
-                    f"pq={len(pq)} visited_states={len(visited_time)} "
-                    f"min_states={len(min_time)} elapsed_sec={elapsed:.3f}",
-                    flush=True,
-                )
-                return None, None
-            if len(pq) > 250000 or len(visited_time) > 500000 or len(min_time) > 500000:
-                print(
-                    "[ROUTE_DEBUG] fastest abort: "
-                    f"reason=structure_limit popped={popped_count} "
-                    f"expanded={expanded_count} duplicates={duplicate_count} "
-                    f"travel_limited={travel_limit_count} "
-                    f"pq={len(pq)} visited_states={len(visited_time)} "
-                    f"min_states={len(min_time)} elapsed_sec={elapsed:.3f}",
-                    flush=True,
-                )
-                return None, None
-            if popped_count % 5000 == 0:
-                print(
-                    "[ROUTE_DEBUG] fastest tick: "
-                    f"popped={popped_count} expanded={expanded_count} "
-                    f"duplicates={duplicate_count} "
-                    f"travel_limited={travel_limit_count} pq={len(pq)} "
-                    f"visited_states={len(visited_time)} "
-                    f"min_states={len(min_time)} elapsed_sec={elapsed:.3f}",
-                    flush=True,
-                )
-
-        curr_time, u, chain_idx, total_walk, seg_walk = heapq.heappop(pq)
-        popped_count += 1
-        if popped_count > MAX_POPPED:
-            elapsed = time.monotonic() - start_clock
-            print(
-                "[ROUTE_DEBUG] fastest abort: "
-                f"reason=max_popped popped={popped_count} "
-                f"expanded={expanded_count} duplicates={duplicate_count} "
-                f"travel_limited={travel_limit_count} "
-                f"pq={len(pq)} visited_states={len(visited_time)} "
-                f"min_states={len(min_time)} elapsed_sec={elapsed:.3f}",
-                flush=True,
-            )
+    try:
+        candidate = next(generator, None)
+        if candidate is None:
             return None, None
-        
-        if curr_time - start_min > max_travel_min:
-            travel_limit_count += 1
-            continue
-        
-        if u == target_node:
-            elapsed = time.monotonic() - start_clock
-            print(
-                "[ROUTE_DEBUG] fastest target reached: "
-                f"popped={popped_count} expanded={expanded_count} "
-                f"duplicates={duplicate_count} "
-                f"travel_limited={travel_limit_count} pq={len(pq)} "
-                f"arrival_min={curr_time} elapsed_sec={elapsed:.3f}",
-                flush=True,
-            )
-            return curr_time, reconstruct_path_idx(chain_store, chain_idx)
+        return candidate["path"].arrival_minute, candidate["path"]
+    finally:
+        generator.close()
 
-        state = (u, int(seg_walk // 25))
-        if state in visited_time and visited_time[state] <= curr_time:
-            duplicate_count += 1
-            continue
-        visited_time[state] = curr_time
-        expanded_count += 1
-        if expanded_count > MAX_EXPANDED:
-            elapsed = time.monotonic() - start_clock
-            print(
-                "[ROUTE_DEBUG] fastest abort: "
-                f"reason=max_expanded popped={popped_count} "
-                f"expanded={expanded_count} duplicates={duplicate_count} "
-                f"travel_limited={travel_limit_count} "
-                f"pq={len(pq)} visited_states={len(visited_time)} "
-                f"min_states={len(min_time)} elapsed_sec={elapsed:.3f}",
-                flush=True,
-            )
-            return None, None
-
-        direct_destination = virtual_destination_by_node.get(u)
-        can_walk_direct_to_destination = False
-        if direct_destination is not None:
-            _, vmeters = direct_destination
-            v_time = curr_time + (vmeters / WALK_SPEED_M_PER_MIN)
-            new_seg = seg_walk + vmeters
-            new_tot = total_walk + vmeters
-            if (
-                v_time - start_min <= max_travel_min
-                and new_seg <= MAX_WALK_SEG_M
-                and new_tot <= MAX_TOTAL_WALK_M
-            ):
-                can_walk_direct_to_destination = True
-                n_bucket = int(new_seg // 25)
-                n_key = (target_node, n_bucket)
-                if v_time < min_time.get(n_key, float("inf")):
-                    min_time[n_key] = v_time
-                    new_chain_idx = _chain_new(
-                        chain_store, target_node, chain_idx
-                    )
-                    heapq.heappush(
-                        pq,
-                        (
-                            v_time,
-                            target_node,
-                            new_chain_idx,
-                            new_tot,
-                            new_seg,
-                        ),
-                    )
-
-        for v, edge in G[u].items():
-            etype = edge.get("etype")
-            if can_walk_direct_to_destination and etype == "walk":
-                continue
-            if bus_only and _edge_uses_rail(G, u, v):
-                continue
-            meters = edge.get("meters", 0)
-            if etype == "walk":
-                step_m = meters if meters > 0 else 1.0
-                new_seg = seg_walk + step_m
-                if new_seg > MAX_WALK_SEG_M: continue
-                new_tot = total_walk + step_m
-                if new_tot > MAX_TOTAL_WALK_M: continue
-            else:
-                new_seg = 0.0
-                new_tot = total_walk
-
-            next_time = advance_time(
-                G,
-                tm,
-                u,
-                v,
-                curr_time,
-                day_type,
-                delays_snapshot,
-                use_realtime=use_realtime,
-                target_pole_id=None,
-                edge=edge,
-            )
-            if next_time is None: continue
-            
-            n_bucket = int(new_seg // 25)
-            n_key = (v, n_bucket)
-            if next_time < min_time.get(n_key, float('inf')):
-                 min_time[n_key] = next_time
-                 new_chain_idx = _chain_new(chain_store, v, chain_idx)
-                 heapq.heappush(pq, (next_time, v, new_chain_idx, new_tot, new_seg))
-
-    elapsed = time.monotonic() - start_clock
-    print(
-        "[ROUTE_DEBUG] fastest abort: "
-        f"reason=queue_exhausted popped={popped_count} "
-        f"expanded={expanded_count} duplicates={duplicate_count} "
-        f"travel_limited={travel_limit_count} "
-        f"visited_states={len(visited_time)} min_states={len(min_time)} "
-        f"elapsed_sec={elapsed:.3f}",
-        flush=True,
-    )
-    return None, None
 
 def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", day_type="weekday", max_search=30000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None, use_realtime=True):
     start_min = time_str_to_min(start_time_str)
+    from tokyo_search_labels import SelectedPath
+    if isinstance(path, SelectedPath):
+        # The search evaluated this exact run/stop sequence against one frozen
+        # timetable.  Re-selecting the next departure would change its meaning.
+        arrival = path.arrival_minute
+        if len(path.edge_times) != len(path) - 1 or arrival - start_min > max_travel_min:
+            return None
+        if any(right < left for left, right in zip(
+                [start_min, *path.edge_times], path.edge_times)):
+            return None
+        return arrival
     curr_time = start_min
     active_bus_leg = None
     active_bus_sequence = -1
@@ -2513,6 +2028,36 @@ def _route_stop_identity(G, phys_key, mode):
     )
 
 
+def _selected_rail_run(path, state):
+    metadata = path.choices.metadata(state)
+    metadata["origin_sequence"] = metadata.pop("board_sequence")
+    metadata["destination_sequence"] = metadata.pop("sequence")
+    metadata["segment_records"] = list(metadata.get("segment_records", ()))
+    metadata.pop("stops", None)
+    return metadata
+
+
+def _selected_bus_leg(G, path, board_index, state):
+    from gtfs_loader import GtfsTripLeg
+    for index in range(board_index + 1, len(path) - 1):
+        edge = G.get_edge_data(path[index], path[index + 1]) or {}
+        if edge.get("etype") not in ("alight", "xfer"):
+            continue
+        last = path.edge_rides.get(index - 1)
+        if last is None or last.run_id != state.run_id or last.sequence == state.board_sequence:
+            return None
+        metadata = path.choices.metadata(last)
+        return GtfsTripLeg(
+            trip_id=state.trip_id, route_id=state.route_id, service_id=state.service_id,
+            origin_stop_id=metadata["origin_stop_id"],
+            destination_stop_id=metadata["destination_stop_id"],
+            origin_sequence=state.board_sequence, destination_sequence=last.sequence,
+            departure_minute=metadata["actual_departure_minute"],
+            arrival_minute=metadata["actual_arrival_minute"],
+        )
+    return None
+
+
 def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", delays_snapshot=None, virtual_dest_connections=None, use_realtime=True):
     """
     探索されたパス(ノード列)を解析し、UI表示用のセグメント(移動行程)のリストを生成する。
@@ -2540,6 +2085,11 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
         f"[segments_detailed] start path_len={len(path)} start_time={start_time_str} day_type={day_type}",
         flush=True,
     )
+    from tokyo_search_labels import SelectedPath
+    selected_path = isinstance(path, SelectedPath)
+    if selected_path:
+        tm = path.timetable_manager
+        use_realtime = path.use_realtime
     cur = None
     last_phys = None
     curr_time = time_str_to_min(start_time_str)
@@ -2583,6 +2133,8 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
 
     # 「現在地」と「次の目的地」のペア
     for i, (u, v) in enumerate(zip(path, path[1:])):
+        selected_state = path.edge_rides.get(i) if selected_path else None
+        selected_time = path.edge_times[i] if selected_path else None
         edge = G.get_edge_data(u, v)
         if not edge and virtual_dest_connections:
             for nid, w, dist in virtual_dest_connections:
@@ -2628,7 +2180,9 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     cur["to"] = str(v[1])
                     cur["to_en"] = None
             # 徒歩速度で時間を加算(分)
-            curr_time += (edge.get("meters", 0) / WALK_SPEED_M_PER_MIN)
+            curr_time = selected_time if selected_path else (
+                curr_time + edge.get("meters", 0) / WALK_SPEED_M_PER_MIN
+            )
             continue
 
         node = v if v[0] == "line" else (u if u[0] == "line" else None)
@@ -2672,15 +2226,13 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             final_trip_id = None
             if mode == "bus":
                 target_pid = _find_bus_alight_pole(G, path, i)
-                active_bus_leg = _resolve_gtfs_bus_leg(
-                    G,
-                    v,
-                    phys_id,
-                    target_pid,
-                    curr_time,
-                    day_type,
-                    required_stop_ids=_bus_path_gtfs_stop_ids(G, path, i),
-                )
+                if selected_state is not None and selected_state.provider == "bus":
+                    active_bus_leg = _selected_bus_leg(G, path, i, selected_state)
+                else:
+                    active_bus_leg = _resolve_gtfs_bus_leg(
+                        G, v, phys_id, target_pid, curr_time, day_type,
+                        required_stop_ids=_bus_path_gtfs_stop_ids(G, path, i),
+                    )
                 if active_bus_leg is None:
                     print(
                         f"[WARN] No exact GTFS bus trip: origin={phys_id} "
@@ -2727,7 +2279,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 # シミュレーション上の現在時刻を、バスの出発時刻に合わせて進める
                 curr_time = dep
             else:
-                curr_time += RAIL_BOARDING_MINUTES
+                curr_time = selected_time if selected_path else curr_time + RAIL_BOARDING_MINUTES
 
             cur = {
                 "kind": mode,
@@ -2746,6 +2298,8 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 "route_id": final_route_id,
                 "trip_id": final_trip_id,
             }
+            if selected_state is not None and selected_state.provider == "rail":
+                cur["selected_run"] = _selected_rail_run(path, selected_state)
 
         elif etype == "ride":
             print(f"[segments_detailed] edge[{i}] ride mode={mode} node={node}", flush=True)
@@ -2774,16 +2328,14 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             
             # 時間を経過させる (電車は時刻表、その他は距離ベース)
             if mode == "rail":
-                arr = tm.get_next_train_arrival(
-                    u[1],
-                    v[1],
-                    curr_time,
-                    day_type,
-                    delays_snapshot,
+                arr = selected_time if selected_path else tm.get_next_train_arrival(
+                    u[1], v[1], curr_time, day_type, delays_snapshot,
                     use_realtime=use_realtime,
                 )
                 if arr: curr_time = arr
                 else: curr_time += edge.get("w", 2.0)
+                if cur and selected_state is not None and selected_state.provider == "rail":
+                    cur["selected_run"] = _selected_rail_run(path, selected_state)
             else:
                 if active_bus_leg is None:
                     return []
@@ -2802,7 +2354,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 active_bus_sequence, arrival_minute, _ = stop_time
                 if active_bus_sequence > active_bus_leg.destination_sequence:
                     return []
-                curr_time = arrival_minute
+                curr_time = selected_time if selected_path else arrival_minute
 
         elif etype in ("alight", "xfer"):
             print(f"[segments_detailed] edge[{i}] {etype} mode={mode} node={node}", flush=True)
@@ -2858,6 +2410,8 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 flush()
             if not alighted_from_bus:
                 curr_time += 1.0
+            if selected_path:
+                curr_time = selected_time
             if active_bus_leg is not None:
                 active_bus_leg = None
                 active_bus_sequence = -1

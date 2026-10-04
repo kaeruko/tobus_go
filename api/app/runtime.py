@@ -273,6 +273,8 @@ async def setup_on_startup(app, mode: str) -> None:
             # Ensure GTFS repo is loaded (critical for ID injection)
             # The pickle only includes TM/G/SI, not the singleton state of gtfs_repo
             paths = _paths()
+            from toei_engine import ensure_train_run_metadata
+            ensure_train_run_metadata(app.state.TM, paths["TRAIN_TBL"])
             gtfs_dir = os.path.join(paths["DATA_DIR"], "ToeiBus-GTFS")
             if os.path.exists(gtfs_dir):
                 print(f"[INFO] Explicitly loading GTFS data from {gtfs_dir}...")

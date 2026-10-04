@@ -7,7 +7,7 @@ import time
 
 from gtfs_loader import gtfs_repo
 from gtfs_state import download_compiled_lambda_assets, load_compiled_state
-from toei_engine import SpatialIndex
+from toei_engine import SpatialIndex, ensure_train_run_metadata
 from tokyo_route_engine import TokyoRouteEngine
 
 from .runtime import LAMBDA_TMP_DIR, fetch_realtime_data_loop
@@ -64,6 +64,10 @@ async def setup_on_startup(app, mode: str) -> None:
 
     app.state.G = data["G"]
     app.state.TM = data["TM"]
+    ensure_train_run_metadata(
+        app.state.TM,
+        os.getenv("TRAIN_TBL", os.path.join(data_dir, "odpt_TrainTimetable.json")),
+    )
     app.state.SI = data.get("SI")
     app.state.WALK_RAD = data.get("WALK_RAD", 300)
 

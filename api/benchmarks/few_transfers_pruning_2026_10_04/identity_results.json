@@ -1,0 +1,176 @@
+{
+  "scope": "Train identity only, using active service-day trips and frozen search-selected rail clocks. Search timings, HTTP request time and realtime feeds are excluded. The official train GTFS archive is downloaded only when explicitly requested and absent locally.",
+  "request_date": "2026-10-04",
+  "official_source": "https://api-public.odpt.org/api/v4/files/Toei/data/Toei-Train-GTFS.zip",
+  "archive_path": "C:\\Users\\mail\\work\\tobus_go\\api\\data\\Toei-Train-GTFS.zip",
+  "setup_ms": {
+    "download": 781.0969999991357,
+    "static_gtfs_parse": 388.12920002965257,
+    "calendar_parse_filter": 13.100999989546835,
+    "pickle_load": 520.5306999851018
+  },
+  "routes": [
+    {
+      "input": "C:\\Users\\mail\\work\\tobus_go\\api\\benchmarks\\few_transfers_pruning_2026_10_04\\implementation_cost_route.json",
+      "input_sha256": "23392b94e492b12633adf214c11e03fc480ac7270b5810d7de035a0e455992b1",
+      "output": "C:\\Users\\mail\\work\\tobus_go\\api\\benchmarks\\few_transfers_pruning_2026_10_04\\identity_cost_route.json",
+      "identity_ms": 19.85510002123192,
+      "input_candidates": 5,
+      "accepted_candidates": 5,
+      "rejections": [],
+      "rail_steps": [
+        {
+          "candidate_id": "Comfort-1",
+          "step_id": "step-rail-ddd4a9fdbb164791870955803021a171",
+          "title": "大江戸線",
+          "from_": "両国",
+          "to": "東新宿",
+          "trip_id": "432009A0",
+          "route_id": "4",
+          "departure_time": "21:27",
+          "arrival_time": "21:47"
+        },
+        {
+          "candidate_id": "Comfort-2",
+          "step_id": "step-rail-73d3c40d631c47f5bae7b1ccd0c916de",
+          "title": "大江戸線",
+          "from_": "両国",
+          "to": "東新宿",
+          "trip_id": "432009A0",
+          "route_id": "4",
+          "departure_time": "21:27",
+          "arrival_time": "21:47"
+        },
+        {
+          "candidate_id": "Comfort-3",
+          "step_id": "step-rail-060b7261331f45ef87ac01c269c68325",
+          "title": "大江戸線",
+          "from_": "両国",
+          "to": "東新宿",
+          "trip_id": "432009A0",
+          "route_id": "4",
+          "departure_time": "21:27",
+          "arrival_time": "21:47"
+        },
+        {
+          "candidate_id": "Comfort-4",
+          "step_id": "step-rail-0383cd614bb7488ea36e219480d8ae2a",
+          "title": "大江戸線",
+          "from_": "両国",
+          "to": "東新宿",
+          "trip_id": "432009A0",
+          "route_id": "4",
+          "departure_time": "21:27",
+          "arrival_time": "21:47"
+        },
+        {
+          "candidate_id": "Comfort-5",
+          "step_id": "step-rail-7e513b40998c43568ba0548fb14494d9",
+          "title": "大江戸線",
+          "from_": "両国",
+          "to": "東新宿",
+          "trip_id": "432009A0",
+          "route_id": "4",
+          "departure_time": "21:27",
+          "arrival_time": "21:47"
+        }
+      ]
+    },
+    {
+      "input": "C:\\Users\\mail\\work\\tobus_go\\api\\benchmarks\\few_transfers_pruning_2026_10_04\\implementation_fewTransfers_route.json",
+      "input_sha256": "573257f78c2cca2ee473b0b30e0f611e71280af7d1e85aaaa8d7f47effd364c5",
+      "output": "C:\\Users\\mail\\work\\tobus_go\\api\\benchmarks\\few_transfers_pruning_2026_10_04\\identity_fewTransfers_route.json",
+      "identity_ms": 22.135399980470538,
+      "input_candidates": 5,
+      "accepted_candidates": 5,
+      "rejections": [],
+      "rail_steps": [
+        {
+          "candidate_id": "Comfort-1",
+          "step_id": "step-rail-4f3290c78e3240caa148bd564246ba03",
+          "title": "大江戸線",
+          "from_": "両国",
+          "to": "東新宿",
+          "trip_id": "432009A0",
+          "route_id": "4",
+          "departure_time": "21:27",
+          "arrival_time": "21:47"
+        },
+        {
+          "candidate_id": "Comfort-2",
+          "step_id": "step-rail-cd57075a3880451fac63eb755801d91c",
+          "title": "大江戸線",
+          "from_": "両国",
+          "to": "東新宿",
+          "trip_id": "432009A0",
+          "route_id": "4",
+          "departure_time": "21:27",
+          "arrival_time": "21:47"
+        },
+        {
+          "candidate_id": "Comfort-3",
+          "step_id": "step-rail-43aa302286c741cfb6332de0800f4bc7",
+          "title": "大江戸線",
+          "from_": "両国",
+          "to": "東新宿",
+          "trip_id": "432009A0",
+          "route_id": "4",
+          "departure_time": "21:27",
+          "arrival_time": "21:47"
+        },
+        {
+          "candidate_id": "Comfort-4",
+          "step_id": "step-rail-615b883ef17a49d48cc7c402d8976998",
+          "title": "大江戸線",
+          "from_": "両国",
+          "to": "東新宿",
+          "trip_id": "432009A0",
+          "route_id": "4",
+          "departure_time": "21:27",
+          "arrival_time": "21:47"
+        },
+        {
+          "candidate_id": "Comfort-5",
+          "step_id": "step-rail-3d8f32f02a2f45e5b506f0163bb101d2",
+          "title": "大江戸線",
+          "from_": "両国",
+          "to": "東新宿",
+          "trip_id": "432009A0",
+          "route_id": "4",
+          "departure_time": "21:27",
+          "arrival_time": "21:47"
+        }
+      ]
+    },
+    {
+      "input": "C:\\Users\\mail\\work\\tobus_go\\api\\benchmarks\\few_transfers_pruning_2026_10_04\\implementation_time_route.json",
+      "input_sha256": "b00470c849f6da1041242d03adfb36bc1a6030838532db658e6ca179ca1353b8",
+      "output": "C:\\Users\\mail\\work\\tobus_go\\api\\benchmarks\\few_transfers_pruning_2026_10_04\\identity_time_route.json",
+      "identity_ms": 3.729599993675947,
+      "input_candidates": 1,
+      "accepted_candidates": 1,
+      "rejections": [],
+      "rail_steps": [
+        {
+          "candidate_id": "Fastest",
+          "step_id": "step-rail-510297aa143449bdb5009716d53c2dbb",
+          "title": "大江戸線",
+          "from_": "両国",
+          "to": "東新宿",
+          "trip_id": "432009A0",
+          "route_id": "4",
+          "departure_time": "21:27",
+          "arrival_time": "21:47"
+        }
+      ]
+    }
+  ],
+  "archive_sha256": "dd5757062317dcf18b8eeaf8bf83f6624ecd3c9fc4fe99918981e5ec2b42d8c4",
+  "archive_bytes": 779699,
+  "observed_at_jst": "2026-10-05T00:08:30.675830+09:00",
+  "static_trip_count": 5600,
+  "active_trip_count": 2438,
+  "prebuilt_sha256": "d78944b93d0b1a1287b7a1c1871b42552cde7fdcd62687aed52cce961956177b",
+  "identity_source_sha256": "75295684f08931ae38291d73f7a286c6d3d670e8920df55d20022c8724888229",
+  "status": "complete"
+}

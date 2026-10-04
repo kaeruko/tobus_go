@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Any
+
+from tokyo_timetable_choices import _calendar_matches
 
 from app.services.train_realtime import (
     StaticTrainGtfs,
@@ -161,13 +164,23 @@ def _enrich_rail_step(
         label=f"rail step {step_id} arrival_time",
     )
 
-    resolved_odpt = _resolve_odpt_rail_run(
-        stops,
-        ready_minute=ready_minute,
-        route_arrival_minute=route_arrival_minute,
-        timetable_manager=timetable_manager,
-        day_type=day_type,
-    )
+    if "selected_run" in step:
+        resolved_odpt = _resolve_selected_odpt_rail_run(
+            step["selected_run"],
+            stops,
+            ready_minute=ready_minute,
+            route_arrival_minute=route_arrival_minute,
+            timetable_manager=timetable_manager,
+            day_type=day_type,
+        )
+    else:
+        resolved_odpt = _resolve_odpt_rail_run(
+            stops,
+            ready_minute=ready_minute,
+            route_arrival_minute=route_arrival_minute,
+            timetable_manager=timetable_manager,
+            day_type=day_type,
+        )
 
     static_trip, static_segment = _resolve_static_trip(
         static_gtfs,
@@ -226,6 +239,167 @@ def _enrich_rail_step(
             f"arrival={resolved_odpt.actual_arrival_minute}",
         )
     step["minutes"] = duration_minutes
+    # The verified static trip and clocks carry the selected run to clients.
+    # The search's internal source records are no longer needed in the payload.
+    step.pop("selected_run", None)
+
+
+def _selected_run_failure(message: str) -> TrainRouteIdentityError:
+    return TrainRouteIdentityError("rail_selected_run_invalid", message)
+
+
+def _selected_number(value: Any, label: str, *, integer: bool = False) -> float:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value < 0
+        or (integer and int(value) != value)
+    ):
+        raise _selected_run_failure(f"selected run {label} is invalid: {value!r}")
+    return float(value)
+
+
+def _resolve_selected_odpt_rail_run(
+    selected: Any,
+    stops: list[dict[str, str]],
+    *,
+    ready_minute: int,
+    route_arrival_minute: int,
+    timetable_manager: Any,
+    day_type: Any,
+) -> _ResolvedOdptRailRun:
+    """Verify the exact search-selected run without consulting mutable delays.
+
+    Scheduled records must still belong to the requested service timetable.
+    Effective clocks come from the search snapshot, so enrichment cannot switch
+    trains or change their clocks when live realtime information has changed.
+    """
+    if not isinstance(selected, dict) or selected.get("provider") != "rail":
+        raise _selected_run_failure("selected rail run must have provider='rail'")
+    for key in ("service_key", "run_key", "train_number"):
+        if not isinstance(selected.get(key), str) or not selected[key].strip():
+            raise _selected_run_failure(f"selected run {key} must be non-empty text")
+    run_key = selected["run_key"]
+    train_number = selected["train_number"]
+    service_date = getattr(day_type, "service_date", None)
+    expected_service_key = service_date.isoformat() if service_date is not None else str(day_type)
+    if selected["service_key"] != expected_service_key:
+        raise _selected_run_failure("selected run belongs to a different service day")
+    origin_sequence = int(_selected_number(
+        selected.get("origin_sequence"), "origin_sequence", integer=True,
+    ))
+    destination_sequence = int(_selected_number(
+        selected.get("destination_sequence"), "destination_sequence", integer=True,
+    ))
+    records = selected.get("segment_records")
+    if not isinstance(records, list) or len(records) != len(stops) - 1:
+        raise _selected_run_failure("selected run must cover every route stop pair")
+    if destination_sequence != origin_sequence + len(records):
+        raise _selected_run_failure("selected run stop sequence does not match its segments")
+    source = getattr(
+        timetable_manager,
+        "train_patterns_weekday" if str(day_type) == "weekday" else "train_patterns_weekend",
+        None,
+    )
+    if not isinstance(source, dict):
+        raise _selected_run_failure("selected run service timetable is missing")
+
+    previous_scheduled_arrival = None
+    previous_actual_arrival = None
+    clocks = []
+    for index, record in enumerate(records):
+        if not isinstance(record, dict):
+            raise _selected_run_failure("selected run segment must be an object")
+        origin_id = stops[index]["odpt_id"]
+        next_id = stops[index + 1]["odpt_id"]
+        sequence = origin_sequence + index
+        record_sequence = int(_selected_number(
+            record.get("stop_sequence"), "segment.stop_sequence", integer=True,
+        ))
+        if (
+            record.get("origin_id") != origin_id
+            or record.get("next_sta") != next_id
+            or record.get("train_num") != train_number
+            or record.get("run_key") != run_key
+            or record_sequence != sequence
+        ):
+            raise _selected_run_failure("selected run station, train or sequence identity conflicts")
+        dep = int(_selected_number(record.get("dep"), "segment.dep", integer=True))
+        arr = int(_selected_number(record.get("arr"), "segment.arr", integer=True))
+        actual_dep = _selected_number(record.get("actual_dep"), "segment.actual_dep")
+        actual_arr = _selected_number(record.get("actual_arr"), "segment.actual_arr")
+        if (
+            arr < dep
+            or actual_arr < actual_dep
+            or not math.isclose(actual_dep - dep, actual_arr - arr, rel_tol=0.0, abs_tol=1e-9)
+            or (previous_scheduled_arrival is not None and dep < previous_scheduled_arrival)
+            or (previous_actual_arrival is not None and actual_dep < previous_actual_arrival)
+        ):
+            raise _selected_run_failure("selected run clocks are backwards or discontinuous")
+
+        # Old persisted graphs have no source run_key/stop_sequence. In that
+        # case exact scheduled record identity is the compatibility boundary.
+        # New records retain both fields, and a conflicting key cannot fall
+        # through to a different run with the same train number and clocks.
+        matches = {}
+        for raw in source.get(origin_id, ()):
+            if not isinstance(raw, dict):
+                raise _selected_run_failure("selected run source record must be an object")
+            if (
+                raw.get("next_sta") != next_id
+                or raw.get("train_num") != train_number
+                or raw.get("dep") != dep
+                or raw.get("arr") != arr
+                or ("run_key" in raw and raw["run_key"] != run_key)
+                or ("stop_sequence" in raw and raw["stop_sequence"] != sequence)
+                or ("service_key" in raw and raw["service_key"] != selected["service_key"])
+                or not _calendar_matches(raw.get("calendar"), day_type)
+            ):
+                continue
+            identity = (
+                raw.get("dep"), raw.get("arr"), raw.get("next_sta"),
+                raw.get("train_num"), raw.get("run_key"), raw.get("stop_sequence"),
+                raw.get("service_key"),
+            )
+            matches[identity] = raw
+        if len(matches) != 1:
+            raise _selected_run_failure(
+                "selected run does not uniquely match its service timetable: "
+                f"run={run_key}, {origin_id}->{next_id}, matches={len(matches)}"
+            )
+        clocks.append((dep, arr, actual_dep, actual_arr))
+        previous_scheduled_arrival = arr
+        previous_actual_arrival = actual_arr
+
+    scheduled_departure = int(_selected_number(
+        selected.get("scheduled_departure_minute"), "scheduled_departure_minute", integer=True,
+    ))
+    scheduled_arrival = int(_selected_number(
+        selected.get("scheduled_arrival_minute"), "scheduled_arrival_minute", integer=True,
+    ))
+    actual_departure = _selected_number(
+        selected.get("actual_departure_minute"), "actual_departure_minute",
+    )
+    actual_arrival = _selected_number(
+        selected.get("actual_arrival_minute"), "actual_arrival_minute",
+    )
+    if (
+        scheduled_departure != clocks[0][0]
+        or scheduled_arrival != clocks[-1][1]
+        or actual_departure != clocks[0][2]
+        or actual_arrival != clocks[-1][3]
+        or actual_departure < ready_minute
+        or int(actual_arrival) != route_arrival_minute
+    ):
+        raise _selected_run_failure("selected run aggregate clocks conflict with its route")
+    return _ResolvedOdptRailRun(
+        train_number=train_number,
+        scheduled_departure_minute=scheduled_departure,
+        scheduled_arrival_minute=scheduled_arrival,
+        actual_departure_minute=actual_departure,
+        actual_arrival_minute=actual_arrival,
+    )
 
 
 def _required_route_stops(
