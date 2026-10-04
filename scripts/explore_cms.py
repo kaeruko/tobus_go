@@ -752,17 +752,6 @@ def main() -> None:
             st.session_state.pop("explore_cms_target_stop", None)
             st.session_state.pop("explore_cms_target_route", None)
 
-            st.write(
-                f"**{selected_stop_name} / "
-                f"{selected_route['route_label']}**"
-            )
-            st.caption(
-                f"この組み合わせに一致するBusstopPole "
-                f"{len(selected_route['pole_ids'])}件を同じ掲載内容にします。"
-            )
-            with st.expander("内部のBusstopPole IDを確認"):
-                st.code("\n".join(selected_route["pole_ids"]))
-
             existing_index = find_group_index(
                 groups,
                 stop_name=selected_stop_name,
@@ -774,6 +763,25 @@ def main() -> None:
                 else None
             )
 
+            with st.container(border=True):
+                st.caption("現在の編集対象")
+                stop_col, route_col = st.columns([3, 2])
+                stop_col.markdown(f"### {selected_stop_name}")
+                route_col.markdown(
+                    f"### 🚌 {selected_route['route_label']}"
+                )
+                if existing is None:
+                    st.info("新規登録として編集中です。")
+                else:
+                    st.success("登録済みの内容を編集中です。")
+                st.caption(
+                    f"対象BusstopPole "
+                    f"{len(selected_route['pole_ids'])}件を同じ掲載内容にします。"
+                )
+                with st.expander("内部のBusstopPole IDを確認"):
+                    st.code("\n".join(selected_route["pole_ids"]))
+
+            st.markdown("#### 編集内容")
             widget_scope = f"{selected_stop_name}::{selected_route_id}"
             comment = st.text_area(
                 "コメント（日本語）",
@@ -869,7 +877,15 @@ def main() -> None:
                         )
                     )
 
-            if st.button("CSVに保存", key=f"save::{widget_scope}"):
+            st.caption(
+                f"保存先: {selected_stop_name} / "
+                f"{selected_route['route_label']}"
+            )
+            if st.button(
+                f"「{selected_stop_name} / {selected_route['route_label']}」をCSVに保存",
+                key=f"save::{widget_scope}",
+                type="primary",
+            ):
                 try:
                     filenames = save_group(
                         stop_name=selected_stop_name,
