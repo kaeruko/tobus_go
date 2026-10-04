@@ -181,9 +181,33 @@ class ApiClient {
   static Future<Map<String, dynamic>> fetchBusLocation({
     required String routeId,
     required String tripId,
+    String? boardingStopId,
+    DateTime? scheduledDepartureAt,
     String? vehicleId,
     bool forceRefresh = false,
   }) async {
+    if ((boardingStopId == null) != (scheduledDepartureAt == null)) {
+      throw ArgumentError(
+        'boardingStopId and scheduledDepartureAt must be specified together',
+      );
+    }
+    if (boardingStopId != null && boardingStopId.isEmpty) {
+      throw ArgumentError.value(
+        boardingStopId,
+        'boardingStopId',
+        'must not be empty',
+      );
+    }
+    if (scheduledDepartureAt != null &&
+        (scheduledDepartureAt.second != 0 ||
+            scheduledDepartureAt.millisecond != 0 ||
+            scheduledDepartureAt.microsecond != 0)) {
+      throw ArgumentError.value(
+        scheduledDepartureAt,
+        'scheduledDepartureAt',
+        'must use minute precision',
+      );
+    }
     final params = <String, String>{
       'route_id': routeId,
       'trip_id': tripId,
@@ -191,6 +215,11 @@ class ApiClient {
       // The backend currently exposes that payload behind its debug query.
       'debug': 'true',
     };
+    if (boardingStopId != null && scheduledDepartureAt != null) {
+      params['boarding_stop_id'] = boardingStopId;
+      params['scheduled_departure_at'] =
+          scheduledDepartureAt.toUtc().toIso8601String();
+    }
     if (vehicleId != null) {
       params['vehicle_id'] = vehicleId;
     }
@@ -201,7 +230,7 @@ class ApiClient {
     return await get(
       '/bus/location',
       params: params,
-      expectedErrorStatuses: const {404},
+      expectedErrorStatuses: const {404, 425},
       timeout: _realtimeRequestTimeout,
     );
   }
