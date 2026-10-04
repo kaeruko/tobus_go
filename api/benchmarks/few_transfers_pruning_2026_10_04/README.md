@@ -88,7 +88,9 @@
 
 これらの先行probeは従来の関数配置を前提とした実験コードであり、保存済みの結果は旧実装に対する値である。共通label探索への変更後は、そのまま新しいA*の性能値として使用しない。
 
-## dominance・便選択の実装修正と再測定
+## dominance・便選択の実装修正と再測定（バス乗車段階の修正前）
+
+以下は追加監査前の測定記録。最新のpop・label・RSSは末尾の追加測定と `rss_report.md` を参照する。
 
 2026-10-05、[待機・便継続・支配判定の契約](../../docs/tokyo_search_state_contract.md) を製品探索へ反映した。
 
@@ -122,3 +124,21 @@
 & 'api/.venv-route/Scripts/python.exe' -X utf8 api/benchmarks/few_transfers_pruning_2026_10_04/implementation_probe.py
 & 'api/.venv-route/Scripts/python.exe' -X utf8 api/benchmarks/few_transfers_pruning_2026_10_04/identity_probe.py
 ```
+
+## 上限余裕とメモリの追加測定
+
+2026-10-05、バスの新規乗車／継続乗車で降車時間が異なる反例を追加し、未来状態キーを修正した。修正後に上限エラーが発生したため、無効heap要素の定期整理と、到着時刻優先に限定した厳密な早着による支配を追加した。探索上限とA*試作は維持した。
+
+| モード | pop | 最終active frontier label | Windows OS生涯ピーク | 便照合済み候補 |
+| --- | ---: | ---: | ---: | ---: |
+| cost | 89,986 | 109,555 | 1,249.0MiB | 5 |
+| time | 88,663 | 111,378 | 1,248.7MiB | 1 |
+| fewTransfers | 99,822 | 147,490 | 1,270.0MiB | 5 |
+
+出発前後1分・目的地約20m東もcost／fewTransfersで候補5件を取得。fewTransfersの上限余裕は基準178pop、変動で最小153popであり、十分とは扱わない。探索前の常駐データだけで約1,203MiBあり、クエリ追加分はサンプル値で約32〜61MiB。Windows/Python 3.12とLambda/Linux/Python 3.11は分けて扱い、実機メモリは未測定。
+
+正式APIテスト350件PASS。バス乗車段階3件・キュー整理4件・到着時刻優先の支配3件を追加した。本番反映は行っていない。
+
+- [RSS測定報告](rss_report.md): 全時間・メモリ・入力変動・測定限界・過去測定との関係。
+- [rss_results.json](rss_results.json) / [rss_probe.py](rss_probe.py): 独立プロセスの測定値と再現手順。
+- [cost削減監査](cost_pruning_audit.md): 今回のキュー整理と、目的地下界・乗車回数key統合の安全条件。

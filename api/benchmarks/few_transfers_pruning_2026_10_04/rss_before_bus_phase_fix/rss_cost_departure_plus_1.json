@@ -1,0 +1,207 @@
+{
+  "mode": "cost",
+  "case": "departure_plus_1",
+  "request": {
+    "alat": 35.708166,
+    "alon": 139.817434,
+    "blat": 35.6636842,
+    "blon": 139.6977409,
+    "pref": "cost",
+    "bus_only": false,
+    "target_date_str": "2026-10-04",
+    "start_time": "20:41",
+    "limit": 5
+  },
+  "platform": "Windows-11-10.0.26300-SP0",
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "memory_metric": "Windows working set",
+  "scope": "Fresh process per mode/input. Refreshed prebuilt, production compiled GTFS loading, static train GTFS/calendar retained. Each query includes adapter, details, serialization and train identity. No HTTP or live RT.",
+  "sampling": "10ms target interval; Python scheduling can miss shorter peaks. Also record exact OS process-lifetime high-water, which can be dominated by startup.",
+  "phases": {
+    "before_app_imports": {
+      "rss_bytes": 20602880,
+      "process_peak_rss_bytes": 20602880,
+      "private_commit_bytes": 12660736,
+      "process_peak_private_commit_bytes": 12660736
+    },
+    "after_app_imports": {
+      "rss_bytes": 60837888,
+      "process_peak_rss_bytes": 60837888,
+      "private_commit_bytes": 49541120,
+      "process_peak_private_commit_bytes": 49541120
+    },
+    "after_prebuilt_load": {
+      "rss_bytes": 645451776,
+      "process_peak_rss_bytes": 679010304,
+      "private_commit_bytes": 634933248,
+      "process_peak_private_commit_bytes": 668553216
+    },
+    "after_compiled_bus_gtfs_load": {
+      "rss_bytes": 1167757312,
+      "process_peak_rss_bytes": 1220849664,
+      "private_commit_bytes": 1159487488,
+      "process_peak_private_commit_bytes": 1211850752
+    },
+    "after_train_gtfs_and_calendar_load": {
+      "rss_bytes": 1264656384,
+      "process_peak_rss_bytes": 1269776384,
+      "private_commit_bytes": 1257267200,
+      "process_peak_private_commit_bytes": 1263308800
+    },
+    "ready_after_gc": {
+      "rss_bytes": 1264656384,
+      "process_peak_rss_bytes": 1269776384,
+      "private_commit_bytes": 1257267200,
+      "process_peak_private_commit_bytes": 1263308800
+    }
+  },
+  "compiled_bus_gtfs": {
+    "scope": "Local CSV snapshot packed for benchmark; not downloaded from S3 or published.",
+    "csv_files": [
+      {
+        "name": "agency.txt",
+        "sha256": "571384561bcdf5847136a2a6b5799179715f946d30f0c0ae332051369601924b"
+      },
+      {
+        "name": "agency_jp.txt",
+        "sha256": "eda78cab982d1f302570b9cbd93eeed63361fa6ac47b9519df8d7e188ab43d73"
+      },
+      {
+        "name": "attributions.txt",
+        "sha256": "46777e6bef487e61be957ab9f568b1259ed283819b6fa886753a899c7e9ab2bc"
+      },
+      {
+        "name": "calendar.txt",
+        "sha256": "69c5e91b8e6a1e6d44e6f34c61da356701d2710e2f6dc905d454e0a985b59522"
+      },
+      {
+        "name": "calendar_dates.txt",
+        "sha256": "a174bdcd6ca11c44211aa741bdd53683ff04bd85513f65318ab1f6a9709081fe"
+      },
+      {
+        "name": "fare_attributes.txt",
+        "sha256": "10c61ff564897f15ebcf8ea044c836dd098ea5c22b47c8677b1d1e65b9881fb9"
+      },
+      {
+        "name": "fare_rules.txt",
+        "sha256": "074880ff6256528973a8fbc850cfd5efe34d5c9d44a53d8cd94b0f9c456d859b"
+      },
+      {
+        "name": "feed_info.txt",
+        "sha256": "ece83c5c2aa28b784b3f087843aafabc231a4b4535356e8b45012093c004c9b5"
+      },
+      {
+        "name": "office_jp.txt",
+        "sha256": "89aa4fdfd2d50270e22b1dd2239f71e3f027f915592e33743eb7942075ba8ef7"
+      },
+      {
+        "name": "routes.txt",
+        "sha256": "6d25a7aa44030a3f4a355d02c7f23d9ab095371277c5f25be7849933f9d0c357"
+      },
+      {
+        "name": "shapes.txt",
+        "sha256": "ab3acb4a75e5eed15f4bbdf07808ba94021e27574ea0ad8163d914b96d3f1b62"
+      },
+      {
+        "name": "stop_times.txt",
+        "sha256": "19a2903066c8dc7e9fda6de359ccfa317b96f2601fe64babd6d4f74cf3b33ea3"
+      },
+      {
+        "name": "stops.txt",
+        "sha256": "64f8ea58e408721404e407999adac08ca0a1c84b79953e4145534382bb551ffb"
+      },
+      {
+        "name": "translations.txt",
+        "sha256": "d3cc1f8b8ef3852b81f9eda1f932fe98c7247d6ca944968c490b1a63aab3745f"
+      },
+      {
+        "name": "trips.txt",
+        "sha256": "6381fb240e665cda9f696fb376cf3eb3aca46263f45bf7cc80aedcca817e97f5"
+      }
+    ],
+    "source_sha256": "8b724aeb30722e1b7e870f408f91c9206d39ec85061d7522ba02f5f78a7aef23",
+    "compiled_sha256": "4efa2a8b2ad2f5dff21a1cfc6c2ae90c2dd73d9291eb3ca9714e0abacf5ccc03",
+    "record_counts": {
+      "stops": 5368,
+      "routes": 150,
+      "trips": 61324,
+      "stop_times": 1161955,
+      "timetable_keys": 6458,
+      "service_calendar": 60,
+      "service_exception_dates": 36
+    }
+  },
+  "sha256": {
+    "app_data_search_labels.pkl": "d78944b93d0b1a1287b7a1c1871b42552cde7fdcd62687aed52cce961956177b",
+    "Toei-Train-GTFS.zip": "dd5757062317dcf18b8eeaf8bf83f6624ecd3c9fc4fe99918981e5ec2b42d8c4",
+    "toei_engine.py": "3174b84c3ae056d6cf54f68832c9aab35e9da375a17133900f9b11280c81a729",
+    "tokyo_search_labels.py": "8eed3d02f964985ed0fa88fa1dd2c51137137f84596d31ec137a51b8cb5b3652",
+    "tokyo_timetable_choices.py": "11497db4b8a1d38f89ffd16ef40a80d0e557d138bab9a438517857cd6ed48236",
+    "train_route_identity.py": "75295684f08931ae38291d73f7a286c6d3d670e8920df55d20022c8724888229"
+  },
+  "runs": [
+    {
+      "iteration": 0,
+      "before": {
+        "rss_bytes": 1268936704,
+        "process_peak_rss_bytes": 1269776384,
+        "private_commit_bytes": 1257861120,
+        "process_peak_private_commit_bytes": 1263308800
+      },
+      "identity_ms": 17.88440003292635,
+      "full_ms": 3110.8180000446737,
+      "core_ms": 2940.9219000372104,
+      "after": {
+        "rss_bytes": 1277931520,
+        "process_peak_rss_bytes": 1305415680,
+        "private_commit_bytes": 1268219904,
+        "process_peak_private_commit_bytes": 1293889536
+      },
+      "sampled_query_peak_rss_bytes": 1302618112,
+      "query_peak_delta_from_before_bytes": 33681408,
+      "samples": 67,
+      "maximum_sample_gap_ms": 260.1848999620415,
+      "sampler_error": null,
+      "stats": [
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=5000 yielded=0 queue=6956 g_score=8318 best_cost=4768 frontier_labels=9672 elapsed_sec=0.375 popped_by_boardings={0:11, 1:611, 2:2276, 3:2102} expanded_by_boardings={0:10, 1:546, 2:2148, 3:2064} dominated_by_boardings={0:24, 1:2126, 2:5153, 3:3960, 4:715} yielded_by_boardings={}",
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=10000 yielded=0 queue=10538 g_score=11758 best_cost=9179 frontier_labels=16891 elapsed_sec=0.469 popped_by_boardings={0:11, 1:721, 2:4433, 3:4413, 4:422} expanded_by_boardings={0:10, 1:642, 2:4175, 3:4040, 4:312} dominated_by_boardings={0:24, 1:2593, 2:9882, 3:9799, 4:2416, 5:94} yielded_by_boardings={}",
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=15000 yielded=0 queue=14279 g_score=15210 best_cost=13564 frontier_labels=23827 elapsed_sec=0.563 popped_by_boardings={0:11, 1:793, 2:6077, 3:6881, 4:1238} expanded_by_boardings={0:10, 1:702, 2:5681, 3:6247, 4:924} dominated_by_boardings={0:24, 1:2792, 2:13662, 3:14760, 4:3908, 5:444} yielded_by_boardings={}",
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=20000 yielded=0 queue=17697 g_score=17657 best_cost=17798 frontier_labels=28980 elapsed_sec=0.828 popped_by_boardings={0:11, 1:825, 2:7295, 3:9080, 4:2789} expanded_by_boardings={0:10, 1:727, 2:6800, 3:8234, 4:2027} dominated_by_boardings={0:24, 1:2877, 2:16534, 3:19792, 4:6051, 5:980} yielded_by_boardings={}",
+        "[ROUTE_DEBUG] cost stats: tag=yield visited=22315 yielded=1 queue=18193 g_score=18844 best_cost=19436 frontier_labels=31142 elapsed_sec=0.860 popped_by_boardings={0:11, 1:847, 2:7642, 3:9959, 4:3856} expanded_by_boardings={0:10, 1:743, 2:7097, 3:8997, 4:2589} dominated_by_boardings={0:24, 1:3007, 2:17678, 3:21986, 4:7290, 5:1336} yielded_by_boardings={3:1}",
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=30000 yielded=1 queue=22458 g_score=22020 best_cost=25900 frontier_labels=38582 elapsed_sec=1.016 popped_by_boardings={0:11, 1:883, 2:8652, 3:13411, 4:7043} expanded_by_boardings={0:10, 1:774, 2:7932, 3:12049, 4:5135} dominated_by_boardings={0:24, 1:3107, 2:19733, 3:29904, 4:14223, 5:3207} yielded_by_boardings={3:1}",
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=35000 yielded=1 queue=24166 g_score=23632 best_cost=29819 frontier_labels=43158 elapsed_sec=1.110 popped_by_boardings={0:11, 1:890, 2:9461, 3:15548, 4:8906, 5:184} expanded_by_boardings={0:10, 1:779, 2:8674, 3:13910, 4:6373, 5:73} dominated_by_boardings={0:24, 1:3125, 2:21689, 3:34915, 4:18541, 5:4206} yielded_by_boardings={3:1}",
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=40000 yielded=1 queue=24906 g_score=25191 best_cost=33595 frontier_labels=47995 elapsed_sec=1.188 popped_by_boardings={0:11, 1:907, 2:10340, 3:17674, 4:10245, 5:823} expanded_by_boardings={0:10, 1:788, 2:9485, 3:15691, 4:7279, 5:342} dominated_by_boardings={0:24, 1:3140, 2:23373, 3:39682, 4:21300, 5:4867, 6:101} yielded_by_boardings={3:1}",
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=45000 yielded=1 queue=26235 g_score=26914 best_cost=37507 frontier_labels=53093 elapsed_sec=1.485 popped_by_boardings={0:11, 1:922, 2:10942, 3:19995, 4:11706, 5:1424} expanded_by_boardings={0:10, 1:797, 2:10009, 3:17619, 4:8500, 5:572} dominated_by_boardings={0:24, 1:3160, 2:24497, 3:44690, 4:25394, 5:5954, 6:266} yielded_by_boardings={3:1}",
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=50000 yielded=1 queue=26395 g_score=28718 best_cost=40949 frontier_labels=57144 elapsed_sec=1.578 popped_by_boardings={0:11, 1:929, 2:11427, 3:21896, 4:13096, 5:2641} expanded_by_boardings={0:10, 1:801, 2:10467, 3:19108, 4:9525, 5:1038} dominated_by_boardings={0:24, 1:3167, 2:25465, 3:48728, 4:29232, 5:7641, 6:508} yielded_by_boardings={3:1}",
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=55000 yielded=1 queue=27749 g_score=30661 best_cost=44808 frontier_labels=62383 elapsed_sec=1.672 popped_by_boardings={0:11, 1:939, 2:11848, 3:24027, 4:14575, 5:3600} expanded_by_boardings={0:10, 1:809, 2:10854, 3:20913, 4:10710, 5:1512} dominated_by_boardings={0:24, 1:3179, 2:26270, 3:53189, 4:32686, 5:8965, 6:943} yielded_by_boardings={3:1}",
+        "[ROUTE_DEBUG] cost stats: tag=yield visited=55834 yielded=2 queue=27833 g_score=31052 best_cost=45390 frontier_labels=63216 elapsed_sec=1.688 popped_by_boardings={0:11, 1:948, 2:12044, 3:24249, 4:14754, 5:3828} expanded_by_boardings={0:10, 1:817, 2:11044, 3:21088, 4:10818, 5:1613} dominated_by_boardings={0:24, 1:3184, 2:26585, 3:53713, 4:33068, 5:9131, 6:998} yielded_by_boardings={3:2}",
+        "[ROUTE_DEBUG] cost stats: tag=yield visited=56832 yielded=3 queue=28339 g_score=31458 best_cost=46257 frontier_labels=63795 elapsed_sec=1.703 popped_by_boardings={0:11, 1:948, 2:12125, 3:24524, 4:15185, 5:4039} expanded_by_boardings={0:10, 1:817, 2:11122, 3:21298, 4:11211, 5:1799} dominated_by_boardings={0:24, 1:3184, 2:26781, 3:54242, 4:34092, 5:10001, 6:1176} yielded_by_boardings={3:3}",
+        "[ROUTE_DEBUG] cost stats: tag=yield visited=58372 yielded=4 queue=28657 g_score=32098 best_cost=47490 frontier_labels=65306 elapsed_sec=1.750 popped_by_boardings={0:11, 1:949, 2:12244, 3:25226, 4:15689, 5:4253} expanded_by_boardings={0:10, 1:818, 2:11234, 3:21896, 4:11640, 5:1892} dominated_by_boardings={0:24, 1:3193, 2:27031, 3:56230, 4:36009, 5:10590, 6:1230} yielded_by_boardings={3:4}",
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=60000 yielded=4 queue=29545 g_score=32431 best_cost=48842 frontier_labels=66572 elapsed_sec=1.781 popped_by_boardings={0:11, 1:949, 2:12290, 3:25607, 4:16480, 5:4663} expanded_by_boardings={0:10, 1:818, 2:11276, 3:22190, 4:12259, 5:2289} dominated_by_boardings={0:24, 1:3193, 2:27142, 3:56846, 4:37613, 5:11448, 6:1417} yielded_by_boardings={3:4}",
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=65000 yielded=4 queue=31213 g_score=34375 best_cost=53032 frontier_labels=71547 elapsed_sec=1.891 popped_by_boardings={0:11, 1:952, 2:12881, 3:27259, 4:18378, 5:5519} expanded_by_boardings={0:10, 1:821, 2:11806, 3:23569, 4:13771, 5:3055} dominated_by_boardings={0:24, 1:3205, 2:28303, 3:60798, 4:42278, 5:13642, 6:1779} yielded_by_boardings={3:4}",
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=70000 yielded=4 queue=33354 g_score=35583 best_cost=57132 frontier_labels=72894 elapsed_sec=2.078 popped_by_boardings={0:11, 1:953, 2:13076, 3:28700, 4:20457, 5:6803} expanded_by_boardings={0:10, 1:822, 2:11961, 3:24827, 4:15607, 5:3905} dominated_by_boardings={0:24, 1:3210, 2:28708, 3:63871, 4:46779, 5:15757, 6:2373} yielded_by_boardings={3:4}",
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=80000 yielded=4 queue=37001 g_score=38508 best_cost=65034 frontier_labels=80630 elapsed_sec=2.531 popped_by_boardings={0:11, 1:967, 2:13590, 3:31110, 4:24827, 5:9495} expanded_by_boardings={0:10, 1:835, 2:12420, 3:26893, 4:19024, 5:5852} dominated_by_boardings={0:24, 1:3227, 2:29813, 3:68814, 4:55378, 5:21820, 6:3824} yielded_by_boardings={3:4}",
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=85000 yielded=4 queue=38355 g_score=40070 best_cost=68919 frontier_labels=84630 elapsed_sec=2.641 popped_by_boardings={0:11, 1:971, 2:13846, 3:32489, 4:26537, 5:11091, 6:55} expanded_by_boardings={0:10, 1:838, 2:12619, 3:28030, 4:20406, 5:6987, 6:29} dominated_by_boardings={0:24, 1:3233, 2:30370, 3:71628, 4:59867, 5:25025, 6:5221} yielded_by_boardings={3:4}",
+        "[ROUTE_DEBUG] cost stats: tag=tick visited=90000 yielded=4 queue=39148 g_score=41618 best_cost=72643 frontier_labels=89186 elapsed_sec=2.750 popped_by_boardings={0:11, 1:977, 2:14122, 3:34178, 4:28564, 5:11870, 6:278} expanded_by_boardings={0:10, 1:844, 2:12862, 3:29445, 4:21848, 5:7489, 6:145} dominated_by_boardings={0:24, 1:3244, 2:31092, 3:75578, 4:65388, 5:27365, 6:5626, 7:7} yielded_by_boardings={3:4}",
+        "[ROUTE_DEBUG] cost stats: tag=yield visited=96987 yielded=5 queue=39764 g_score=43793 best_cost=77680 frontier_labels=95358 elapsed_sec=2.891 popped_by_boardings={0:11, 1:985, 2:14553, 3:35869, 4:31152, 5:13750, 6:667} expanded_by_boardings={0:10, 1:851, 2:13246, 3:30794, 4:23820, 5:8607, 6:352} dominated_by_boardings={0:24, 1:3262, 2:31941, 3:79187, 4:72408, 5:32037, 6:7190, 7:17} yielded_by_boardings={3:5}"
+      ],
+      "search_candidates": 5,
+      "same_as_previous_baseline_excluding_step_ids": null,
+      "verified_candidates": 5,
+      "rejections": [],
+      "arrivals": [
+        "22:14",
+        "22:16",
+        "22:26",
+        "22:19",
+        "22:28"
+      ],
+      "after_result_release_and_gc": {
+        "rss_bytes": 1268068352,
+        "process_peak_rss_bytes": 1305415680,
+        "private_commit_bytes": 1257656320,
+        "process_peak_private_commit_bytes": 1293889536
+      }
+    }
+  ]
+}

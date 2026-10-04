@@ -78,7 +78,13 @@ class _Frontier:
         if first.node == self.target:
             return (first.time <= second.time if self.mode == "time"
                     else first.cost <= second.cost)
-        return (first.cost <= second.cost and first.time <= second.time
+        # Comfort cost does not constrain earliest arrival.  A strictly earlier
+        # offboard label can wait and reproduce a later label's continuation.
+        # At equal times keep the cheaper prefix, preserving the queue's
+        # preference for continuing a run over needless alight/board cycles.
+        cost_ok = (first.cost <= second.cost
+                   or (self.mode == "time" and first.time < second.time))
+        return (cost_ok and first.time <= second.time
                 and first.total_walk <= second.total_walk
                 and first.segment_walk <= second.segment_walk)
 
@@ -116,6 +122,22 @@ def _path(label, choices, start_minute):
     )
 
 
+def _compact_queue(queue):
+    """Discard only entries which could not expand on their eventual pop.
+
+    Keep each original (priority, sequence, label) tuple so candidate ordering
+    stays unchanged. Frontier and parent references remain intact.
+    """
+    original_size = len(queue)
+    kept = [entry for entry in queue
+            if entry[2].active and not entry[2].expanded]
+    removed = original_size - len(kept)
+    if removed:
+        queue[:] = kept
+        heapq.heapify(queue)
+    return removed
+
+
 def search_labels(graph, choices, start, target, *, mode, start_minute,
                   max_search, max_visited, max_travel_min, time_limit_sec,
                   max_total_walk, max_segment_walk, walk_speed,
@@ -135,6 +157,8 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
     counts = {name: defaultdict(int) for name in
               ("popped", "expanded", "dominated", "yielded")}
     popped = expanded = yielded = 0
+    compacted_count = 0
+    next_compaction_pop = 1000
 
     def priority(label):
         if mode == "fewTransfers":
@@ -160,6 +184,7 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
         print(f"[ROUTE_DEBUG] {mode} stats: tag={tag} visited={popped} "
               f"yielded={yielded} queue={len(queue)} g_score={len(frontier.labels)} "
               f"best_cost={expanded} frontier_labels={frontier.count} "
+              f"compacted_count={compacted_count} "
               f"elapsed_sec={time.monotonic() - started:.3f} {fields}", flush=True)
 
     def fail(reason):
@@ -176,6 +201,16 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
     while queue:
         if time.monotonic() - started > time_limit_sec:
             fail("time_limit_sec")
+        if popped >= next_compaction_pop:
+            compacted_count += _compact_queue(queue)
+            next_compaction_pop = popped + 1000
+            # Charge compaction to the same deadline before another expansion.
+            # It reduces actual heap pops, never the expanded-label budget
+            # (including fastest search's unchanged 100,000-expansion limit).
+            if time.monotonic() - started > time_limit_sec:
+                fail("time_limit_sec")
+            if not queue:
+                break
         if len(queue) > 250000:
             fail("queue_size")
         if frontier.count > 500000:

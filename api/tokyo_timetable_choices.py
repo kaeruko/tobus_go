@@ -32,8 +32,12 @@ class RideState:
 
     @property
     def future_key(self):
+        # A fresh bus boarding takes one minute to alight; after moving on
+        # the same bus the GTFS arrival is already the alighting clock. These
+        # labels cannot reproduce each other's immediate transfer choices.
+        moved_bus = self.provider == "bus" and self.sequence != self.board_sequence
         return (self.provider, self.service_key, self.run_id,
-                self.line_id, self.sequence)
+                self.line_id, self.sequence, moved_bus)
 
 
 @dataclass(frozen=True, slots=True)
