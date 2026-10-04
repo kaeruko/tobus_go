@@ -221,11 +221,6 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         !terminalArrival &&
         !showDelayWarning &&
         presentation.showAction;
-    final realtimeDiagnostic = delayResolution.nextRideRealtimeError == null
-        ? null
-        : l10n.realtimeScheduleFallback(
-            delayResolution.nextRideRealtimeError.toString(),
-          );
     if (!trip.isSolo || trip.legs.length != 1) {
       throw StateError(
         'SoloTripView requires a single-leg solo trip: '
@@ -262,9 +257,6 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         DelayRecoveryCard(
           impact: delayImpact!,
           nextRideRealtime: delayResolution.nextRideRealtime,
-          scheduledNextDepartureAt: delayResolution.scheduledNextDepartureAt,
-          realtimeDiagnostic: realtimeDiagnostic,
-          helperText: l10n.replanHelper,
           action: RouteReplanPreviewButton(trip: trip),
         ),
       );
