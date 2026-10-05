@@ -815,6 +815,10 @@ class TimetableManager:
         _phase_log("load_bus_timetables end", f"entries={count}")
 
     def load_train_timetables(self, json_path):
+        # Loading appends to the existing dictionaries. Invalidate before the
+        # first mutation so no interval minimum outlives its static data.
+        from tokyo_time_bounds import invalidate_static_time_index
+        invalidate_static_time_index(manager=self)
         _phase_log("load_train_timetables begin", f"path={json_path}")
         data = load_json(json_path)
         count = 0
@@ -1936,6 +1940,7 @@ def find_few_transfers_paths_generator(
 
 
 def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
+    """Earliest-arrival A* with unchanged exact run and walking constraints."""
     generator = _tokyo_label_search(
         G, tm, start_node, target_node, start_time_str, day_type, "time", 1,
         200000, max_travel_min, delays_snapshot, 15.0,

@@ -1,0 +1,784 @@
+{
+  "candidates": [
+    {
+      "lines_en": [
+        "錦３７ · Kinshichō Sta.",
+        "Asakusa Line",
+        "Oedo Line",
+        "都０１（Ｔ０１） · Shibuya Sta."
+      ],
+      "score_label": "70分",
+      "cost_score": 0.0,
+      "total": 70,
+      "rides": 4,
+      "departure_date": "2026-10-05T10:14:00",
+      "is_future_suggestion": false,
+      "official_english_names": true,
+      "origin_coords": [
+        35.708166,
+        139.817434
+      ],
+      "destination_coords": [
+        35.658034,
+        139.701636
+      ],
+      "id": "Fastest",
+      "lines": [
+        "錦３７ 錦糸町駅前行",
+        "浅草線",
+        "大江戸線",
+        "都０１（Ｔ０１） 渋谷駅前行"
+      ],
+      "boards": 4,
+      "transfers": 3,
+      "total_time": 70,
+      "walking_distance_meters": 577,
+      "walking_segment_count": 5,
+      "steps": [
+        {
+          "edges": 1,
+          "from_en": "Jukkembashi",
+          "to_en": "Oshiage-Sanchōme (Oshiage 3)",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "十間橋",
+          "to": "押上三丁目",
+          "minutes": 2,
+          "meters": 150,
+          "step_id": "step-walk-a39e1e4461134a42a18e731f33fb40bc"
+        },
+        {
+          "edges": 0,
+          "from_en": "Oshiage-Sanchōme (Oshiage 3)",
+          "to_en": "Oshiage-Sanchōme (Oshiage 3)",
+          "departure_time": "10:15",
+          "arrival_time": "10:20",
+          "startLabel": "待ち時間",
+          "place": "押上三丁目",
+          "place_en": "Oshiage-Sanchōme (Oshiage 3)",
+          "kind": "wait",
+          "title": "待ち時間",
+          "from_": "押上三丁目",
+          "to": "押上三丁目",
+          "minutes": 4,
+          "meters": 0,
+          "step_id": "step-wait-987f6ae41373496e9693b3b75a1685ec"
+        },
+        {
+          "title_en": "錦３７ · Kinshichō Sta.",
+          "edges": 2,
+          "from_en": "Oshiage-Sanchōme (Oshiage 3)",
+          "to_en": "Oshiage Sta.",
+          "stops": [
+            {
+              "name": "押上三丁目",
+              "name_en": "Oshiage-Sanchōme (Oshiage 3)",
+              "is_origin": true,
+              "lat": 35.709424,
+              "lon": 139.818024,
+              "id": "0279-01"
+            },
+            {
+              "name": "押上一丁目",
+              "name_en": "Oshiage-Itchōme (Oshiage 1)",
+              "lat": 35.711654,
+              "lon": 139.81586,
+              "id": "0278-01"
+            },
+            {
+              "name": "押上駅前",
+              "name_en": "Oshiage Sta.",
+              "lat": 35.710675,
+              "lon": 139.813538,
+              "id": "0277-02",
+              "is_destination": true
+            }
+          ],
+          "departure_time": "10:20",
+          "boarding_minutes": 0,
+          "route_id": "094",
+          "trip_id": "56101-1-61-170-0955",
+          "arrival_time": "10:25",
+          "kind": "bus",
+          "title": "錦３７ 錦糸町駅前行",
+          "from_": "押上三丁目",
+          "to": "押上駅前",
+          "minutes": 5,
+          "step_id": "step-bus-6feee778831244b5a731f98f4bef41e2"
+        },
+        {
+          "edges": 1,
+          "from_en": "Oshiage Sta.",
+          "to_en": "Oshiage",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "押上駅前",
+          "to": "押上",
+          "minutes": 1,
+          "meters": 52,
+          "step_id": "step-walk-7cb0c02fe473462798f7d1f6c121fee2"
+        },
+        {
+          "title_en": "Asakusa Line",
+          "edges": 11,
+          "from_en": "Oshiage",
+          "to_en": "Daimon",
+          "stops": [
+            {
+              "name": "押上",
+              "name_en": "Oshiage",
+              "is_origin": true,
+              "lat": 35.710824,
+              "lon": 139.812993,
+              "id": "120",
+              "odpt_id": "odpt.Station:Toei.Asakusa.Oshiage",
+              "station_code": "A-20"
+            },
+            {
+              "name": "本所吾妻橋",
+              "name_en": "Honjo-azumabashi",
+              "lat": 35.708565,
+              "lon": 139.804397,
+              "id": "119",
+              "odpt_id": "odpt.Station:Toei.Asakusa.HonjoAzumabashi",
+              "station_code": "A-19"
+            },
+            {
+              "name": "浅草",
+              "name_en": "Asakusa",
+              "lat": 35.70892,
+              "lon": 139.796542,
+              "id": "118",
+              "odpt_id": "odpt.Station:Toei.Asakusa.Asakusa",
+              "station_code": "A-18"
+            },
+            {
+              "name": "蔵前",
+              "name_en": "Kuramae",
+              "lat": 35.703128,
+              "lon": 139.790858,
+              "id": "117",
+              "odpt_id": "odpt.Station:Toei.Asakusa.Kuramae",
+              "station_code": "A-17"
+            },
+            {
+              "name": "浅草橋",
+              "name_en": "Asakusabashi",
+              "lat": 35.697494,
+              "lon": 139.786335,
+              "id": "116",
+              "odpt_id": "odpt.Station:Toei.Asakusa.Asakusabashi",
+              "station_code": "A-16"
+            },
+            {
+              "name": "東日本橋",
+              "name_en": "Higashi-nihombashi",
+              "lat": 35.692123,
+              "lon": 139.784886,
+              "id": "115",
+              "odpt_id": "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+              "station_code": "A-15"
+            },
+            {
+              "name": "人形町",
+              "name_en": "Ningyocho",
+              "lat": 35.686345,
+              "lon": 139.782276,
+              "id": "114",
+              "odpt_id": "odpt.Station:Toei.Asakusa.Ningyocho",
+              "station_code": "A-14"
+            },
+            {
+              "name": "日本橋",
+              "name_en": "Nihombashi",
+              "lat": 35.681796,
+              "lon": 139.775814,
+              "id": "113",
+              "odpt_id": "odpt.Station:Toei.Asakusa.Nihombashi",
+              "station_code": "A-13"
+            },
+            {
+              "name": "宝町",
+              "name_en": "Takaracho",
+              "lat": 35.675606,
+              "lon": 139.771966,
+              "id": "112",
+              "odpt_id": "odpt.Station:Toei.Asakusa.Takaracho",
+              "station_code": "A-12"
+            },
+            {
+              "name": "東銀座",
+              "name_en": "Higashi-ginza",
+              "lat": 35.669915,
+              "lon": 139.76735,
+              "id": "111",
+              "odpt_id": "odpt.Station:Toei.Asakusa.HigashiGinza",
+              "station_code": "A-11"
+            },
+            {
+              "name": "新橋",
+              "name_en": "Shimbashi",
+              "lat": 35.665386,
+              "lon": 139.759338,
+              "id": "110",
+              "odpt_id": "odpt.Station:Toei.Asakusa.Shimbashi",
+              "station_code": "A-10"
+            },
+            {
+              "name": "大門",
+              "name_en": "Daimon",
+              "lat": 35.65687,
+              "lon": 139.754679,
+              "id": "109",
+              "odpt_id": "odpt.Station:Toei.Asakusa.Daimon",
+              "is_destination": true,
+              "station_code": "A-09"
+            }
+          ],
+          "departure_time": "10:28",
+          "boarding_minutes": 2,
+          "route_id": null,
+          "trip_id": null,
+          "selected_run": {
+            "provider": "rail",
+            "run_key": "odpt.TrainTimetable:Toei.Asakusa.1010T.Weekday",
+            "run_id": "2026-10-05|odpt.TrainTimetable:Toei.Asakusa.1010T.Weekday|part:0",
+            "service_key": "2026-10-05",
+            "train_number": "1010T",
+            "trip_id": null,
+            "route_id": null,
+            "service_id": null,
+            "actual_departure_minute": 628.3,
+            "origin_stop_id": "odpt.Station:Toei.Asakusa.Oshiage",
+            "destination_stop_id": "odpt.Station:Toei.Asakusa.Daimon",
+            "scheduled_departure_minute": 628,
+            "scheduled_arrival_minute": 648,
+            "segment_records": [
+              {
+                "origin_id": "odpt.Station:Toei.Asakusa.Oshiage",
+                "next_sta": "odpt.Station:Toei.Asakusa.HonjoAzumabashi",
+                "dep": 628,
+                "arr": 629,
+                "train_num": "1010T",
+                "run_key": "odpt.TrainTimetable:Toei.Asakusa.1010T.Weekday",
+                "stop_sequence": 0,
+                "actual_dep": 628.3,
+                "actual_arr": 629.3
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Asakusa.HonjoAzumabashi",
+                "next_sta": "odpt.Station:Toei.Asakusa.Asakusa",
+                "dep": 630,
+                "arr": 631,
+                "train_num": "1010T",
+                "run_key": "odpt.TrainTimetable:Toei.Asakusa.1010T.Weekday",
+                "stop_sequence": 1,
+                "actual_dep": 630.3,
+                "actual_arr": 631.3
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Asakusa.Asakusa",
+                "next_sta": "odpt.Station:Toei.Asakusa.Kuramae",
+                "dep": 632,
+                "arr": 633,
+                "train_num": "1010T",
+                "run_key": "odpt.TrainTimetable:Toei.Asakusa.1010T.Weekday",
+                "stop_sequence": 2,
+                "actual_dep": 632.3,
+                "actual_arr": 633.3
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Asakusa.Kuramae",
+                "next_sta": "odpt.Station:Toei.Asakusa.Asakusabashi",
+                "dep": 633,
+                "arr": 635,
+                "train_num": "1010T",
+                "run_key": "odpt.TrainTimetable:Toei.Asakusa.1010T.Weekday",
+                "stop_sequence": 3,
+                "actual_dep": 633.3,
+                "actual_arr": 635.3
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Asakusa.Asakusabashi",
+                "next_sta": "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+                "dep": 635,
+                "arr": 636,
+                "train_num": "1010T",
+                "run_key": "odpt.TrainTimetable:Toei.Asakusa.1010T.Weekday",
+                "stop_sequence": 4,
+                "actual_dep": 635.3,
+                "actual_arr": 636.3
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+                "next_sta": "odpt.Station:Toei.Asakusa.Ningyocho",
+                "dep": 637,
+                "arr": 638,
+                "train_num": "1010T",
+                "run_key": "odpt.TrainTimetable:Toei.Asakusa.1010T.Weekday",
+                "stop_sequence": 5,
+                "actual_dep": 637.3,
+                "actual_arr": 638.3
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Asakusa.Ningyocho",
+                "next_sta": "odpt.Station:Toei.Asakusa.Nihombashi",
+                "dep": 639,
+                "arr": 640,
+                "train_num": "1010T",
+                "run_key": "odpt.TrainTimetable:Toei.Asakusa.1010T.Weekday",
+                "stop_sequence": 6,
+                "actual_dep": 639.3,
+                "actual_arr": 640.3
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Asakusa.Nihombashi",
+                "next_sta": "odpt.Station:Toei.Asakusa.Takaracho",
+                "dep": 641,
+                "arr": 642,
+                "train_num": "1010T",
+                "run_key": "odpt.TrainTimetable:Toei.Asakusa.1010T.Weekday",
+                "stop_sequence": 7,
+                "actual_dep": 641.3,
+                "actual_arr": 642.3
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Asakusa.Takaracho",
+                "next_sta": "odpt.Station:Toei.Asakusa.HigashiGinza",
+                "dep": 642,
+                "arr": 643,
+                "train_num": "1010T",
+                "run_key": "odpt.TrainTimetable:Toei.Asakusa.1010T.Weekday",
+                "stop_sequence": 8,
+                "actual_dep": 642.3,
+                "actual_arr": 643.3
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Asakusa.HigashiGinza",
+                "next_sta": "odpt.Station:Toei.Asakusa.Shimbashi",
+                "dep": 644,
+                "arr": 646,
+                "train_num": "1010T",
+                "run_key": "odpt.TrainTimetable:Toei.Asakusa.1010T.Weekday",
+                "stop_sequence": 9,
+                "actual_dep": 644.3,
+                "actual_arr": 646.3
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Asakusa.Shimbashi",
+                "next_sta": "odpt.Station:Toei.Asakusa.Daimon",
+                "dep": 646,
+                "arr": 648,
+                "train_num": "1010T",
+                "run_key": "odpt.TrainTimetable:Toei.Asakusa.1010T.Weekday",
+                "stop_sequence": 10,
+                "actual_dep": 646.3,
+                "actual_arr": 648.3
+              }
+            ],
+            "actual_arrival_minute": 648.3,
+            "origin_sequence": 0,
+            "destination_sequence": 11
+          },
+          "arrival_time": "10:48",
+          "kind": "rail",
+          "title": "浅草線",
+          "from_": "押上",
+          "to": "大門",
+          "minutes": 20,
+          "step_id": "step-rail-a4d73b94954c4fe19bb20cc7d0d189e5"
+        },
+        {
+          "edges": 1,
+          "from_en": "Daimon",
+          "to_en": "Daimon",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "大門",
+          "to": "大門",
+          "minutes": 2,
+          "meters": 95,
+          "step_id": "step-walk-7208b273b0634e169ff0ca8765405ba9"
+        },
+        {
+          "title_en": "Oedo Line",
+          "edges": 3,
+          "from_en": "Daimon",
+          "to_en": "Roppongi",
+          "stops": [
+            {
+              "name": "大門",
+              "name_en": "Daimon",
+              "is_origin": true,
+              "lat": 35.656671,
+              "lon": 139.755696,
+              "id": "421",
+              "odpt_id": "odpt.Station:Toei.Oedo.Daimon",
+              "station_code": "E-20"
+            },
+            {
+              "name": "赤羽橋",
+              "name_en": "Akabanebashi",
+              "lat": 35.654985,
+              "lon": 139.743989,
+              "id": "422",
+              "odpt_id": "odpt.Station:Toei.Oedo.Akabanebashi",
+              "station_code": "E-21"
+            },
+            {
+              "name": "麻布十番",
+              "name_en": "Azabu-juban",
+              "lat": 35.656448,
+              "lon": 139.73633,
+              "id": "423",
+              "odpt_id": "odpt.Station:Toei.Oedo.AzabuJuban",
+              "station_code": "E-22"
+            },
+            {
+              "name": "六本木",
+              "name_en": "Roppongi",
+              "lat": 35.664106,
+              "lon": 139.731354,
+              "id": "424",
+              "odpt_id": "odpt.Station:Toei.Oedo.Roppongi",
+              "is_destination": true,
+              "station_code": "E-23"
+            }
+          ],
+          "departure_time": "10:55",
+          "boarding_minutes": 2,
+          "route_id": null,
+          "trip_id": null,
+          "selected_run": {
+            "provider": "rail",
+            "run_key": "odpt.TrainTimetable:Toei.Oedo.1019B.Weekday",
+            "run_id": "2026-10-05|odpt.TrainTimetable:Toei.Oedo.1019B.Weekday|part:0",
+            "service_key": "2026-10-05",
+            "train_number": "1019B",
+            "trip_id": null,
+            "route_id": null,
+            "service_id": null,
+            "actual_departure_minute": 655.3,
+            "origin_stop_id": "odpt.Station:Toei.Oedo.Daimon",
+            "destination_stop_id": "odpt.Station:Toei.Oedo.Roppongi",
+            "scheduled_departure_minute": 655,
+            "scheduled_arrival_minute": 661,
+            "segment_records": [
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.Daimon",
+                "next_sta": "odpt.Station:Toei.Oedo.Akabanebashi",
+                "dep": 655,
+                "arr": 657,
+                "train_num": "1019B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1019B.Weekday",
+                "stop_sequence": 20,
+                "actual_dep": 655.3,
+                "actual_arr": 657.3
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.Akabanebashi",
+                "next_sta": "odpt.Station:Toei.Oedo.AzabuJuban",
+                "dep": 658,
+                "arr": 659,
+                "train_num": "1019B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1019B.Weekday",
+                "stop_sequence": 21,
+                "actual_dep": 658.3,
+                "actual_arr": 659.3
+              },
+              {
+                "origin_id": "odpt.Station:Toei.Oedo.AzabuJuban",
+                "next_sta": "odpt.Station:Toei.Oedo.Roppongi",
+                "dep": 659,
+                "arr": 661,
+                "train_num": "1019B",
+                "run_key": "odpt.TrainTimetable:Toei.Oedo.1019B.Weekday",
+                "stop_sequence": 22,
+                "actual_dep": 659.3,
+                "actual_arr": 661.3
+              }
+            ],
+            "actual_arrival_minute": 661.3,
+            "origin_sequence": 20,
+            "destination_sequence": 23
+          },
+          "arrival_time": "11:01",
+          "kind": "rail",
+          "title": "大江戸線",
+          "from_": "大門",
+          "to": "六本木",
+          "minutes": 6,
+          "step_id": "step-rail-03f4da679ca046138dde8658706b81d0"
+        },
+        {
+          "edges": 1,
+          "from_en": "Roppongi",
+          "to_en": "Roppongi Sta.",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "六本木",
+          "to": "六本木駅前",
+          "minutes": 3,
+          "meters": 177,
+          "step_id": "step-walk-1e4461fed33741019c553d9427b54234"
+        },
+        {
+          "edges": 0,
+          "from_en": "Roppongi Sta.",
+          "to_en": "Roppongi Sta.",
+          "departure_time": "11:04",
+          "arrival_time": "11:07",
+          "startLabel": "待ち時間",
+          "place": "六本木駅前",
+          "place_en": "Roppongi Sta.",
+          "kind": "wait",
+          "title": "待ち時間",
+          "from_": "六本木駅前",
+          "to": "六本木駅前",
+          "minutes": 2,
+          "meters": 0,
+          "step_id": "step-wait-5d740a606d46497a9e003313691d49da"
+        },
+        {
+          "title_en": "都０１（Ｔ０１） · Shibuya Sta.",
+          "edges": 6,
+          "from_en": "Roppongi Sta.",
+          "to_en": "Shibuya Sta.",
+          "stops": [
+            {
+              "name": "六本木駅前",
+              "name_en": "Roppongi Sta.",
+              "is_origin": true,
+              "lat": 35.662521,
+              "lon": 139.731141,
+              "id": "1609-02"
+            },
+            {
+              "name": "EXシアター六本木前",
+              "name_en": "EX Theater Roppongi",
+              "lat": 35.660692,
+              "lon": 139.72703,
+              "id": "1613-04"
+            },
+            {
+              "name": "西麻布",
+              "name_en": "Nishi-Azabu",
+              "lat": 35.659856,
+              "lon": 139.724627,
+              "id": "1130-03"
+            },
+            {
+              "name": "南青山七丁目",
+              "name_en": "Minami-Aoyama-Nanachōme (Minami-Aoyama 7)",
+              "lat": 35.659137,
+              "lon": 139.718075,
+              "id": "1469-03"
+            },
+            {
+              "name": "青山学院中等部前",
+              "name_en": "Aoyamagakuin-Chūtōbu",
+              "lat": 35.658706,
+              "lon": 139.71349,
+              "id": "0007-02"
+            },
+            {
+              "name": "渋谷三丁目",
+              "name_en": "Shibuya-Sanchōme (Shibuya 3)",
+              "lat": 35.658091,
+              "lon": 139.707973,
+              "id": "0005-03"
+            },
+            {
+              "name": "渋谷駅前",
+              "name_en": "Shibuya Sta.",
+              "lat": 35.658527,
+              "lon": 139.702601,
+              "id": "0636-08",
+              "is_destination": true
+            }
+          ],
+          "departure_time": "11:07",
+          "boarding_minutes": 0,
+          "route_id": "006",
+          "trip_id": "08505-2-09-170-1101",
+          "arrival_time": "11:22",
+          "kind": "bus",
+          "title": "都０１（Ｔ０１） 渋谷駅前行",
+          "from_": "六本木駅前",
+          "to": "渋谷駅前",
+          "minutes": 15,
+          "step_id": "step-bus-1b5d9626350d414ca660892a6c2b86ca"
+        },
+        {
+          "edges": 1,
+          "from_en": "Shibuya Sta.",
+          "to_en": null,
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "渋谷駅前",
+          "to": "目的地",
+          "minutes": 2,
+          "meters": 103,
+          "step_id": "step-walk-98518a7509fa41d1842e9b2ec6cfb3b5"
+        }
+      ],
+      "points": [
+        [
+          35.708166,
+          139.817434
+        ],
+        [
+          35.709424,
+          139.818024
+        ],
+        [
+          35.709424,
+          139.818024
+        ],
+        [
+          35.711654,
+          139.81586
+        ],
+        [
+          35.710675,
+          139.813538
+        ],
+        [
+          35.710675,
+          139.813538
+        ],
+        [
+          35.710824,
+          139.812993
+        ],
+        [
+          35.710824,
+          139.812993
+        ],
+        [
+          35.708565,
+          139.804397
+        ],
+        [
+          35.70892,
+          139.796542
+        ],
+        [
+          35.703128,
+          139.790858
+        ],
+        [
+          35.697494,
+          139.786335
+        ],
+        [
+          35.692123,
+          139.784886
+        ],
+        [
+          35.686345,
+          139.782276
+        ],
+        [
+          35.681796,
+          139.775814
+        ],
+        [
+          35.675606,
+          139.771966
+        ],
+        [
+          35.669915,
+          139.76735
+        ],
+        [
+          35.665386,
+          139.759338
+        ],
+        [
+          35.65687,
+          139.754679
+        ],
+        [
+          35.65687,
+          139.754679
+        ],
+        [
+          35.656671,
+          139.755696
+        ],
+        [
+          35.656671,
+          139.755696
+        ],
+        [
+          35.654985,
+          139.743989
+        ],
+        [
+          35.656448,
+          139.73633
+        ],
+        [
+          35.664106,
+          139.731354
+        ],
+        [
+          35.664106,
+          139.731354
+        ],
+        [
+          35.662521,
+          139.731141
+        ],
+        [
+          35.662521,
+          139.731141
+        ],
+        [
+          35.660692,
+          139.72703
+        ],
+        [
+          35.659856,
+          139.724627
+        ],
+        [
+          35.659137,
+          139.718075
+        ],
+        [
+          35.658706,
+          139.71349
+        ],
+        [
+          35.658091,
+          139.707973
+        ],
+        [
+          35.658527,
+          139.702601
+        ],
+        [
+          35.658527,
+          139.702601
+        ],
+        [
+          35.658034,
+          139.701636
+        ]
+      ],
+      "arrival_time": "11:24"
+    }
+  ],
+  "meta": {
+    "destination_reachable": true,
+    "destination_label": "目的地",
+    "fallback_node_name": "渋谷駅前",
+    "fallback_node_name_en": "Shibuya Sta.",
+    "fallback_distance_m": 84.79808806869428,
+    "walk_limit_m": 600.0,
+    "realtime_applied": true,
+    "bus_only": false
+  }
+}

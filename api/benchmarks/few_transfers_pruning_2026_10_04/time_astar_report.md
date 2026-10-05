@@ -103,6 +103,8 @@ A*のpopは現行停止時の約10.6%、active labelは約22.1%。現行は解�
 
 リポジトリのルートから実行する。製品関数の対象部分が変わると、ハーネスは差し替えを黙って続けず停止する。再測定はローカルの保存結果を更新する。
 
+追記：この報告はtime A*製品導入前のsourceに対する記録。その後の製品実装で関数の対象部分が変更されたため、現在のコードでは下記の旧実験コマンドを使わず、[製品実装後報告](time_astar_product_report.md) の `time_astar_product_probe.py` で再測定する。
+
 ```powershell
 & 'api/.venv-route/Scripts/python.exe' -X utf8 api/benchmarks/few_transfers_pruning_2026_10_04/time_astar_experiment.py
 & 'api/.venv-route/Scripts/python.exe' -X utf8 -m unittest discover -s api/benchmarks/few_transfers_pruning_2026_10_04 -p test_time_astar_experiment.py -v

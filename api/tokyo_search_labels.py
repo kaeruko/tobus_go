@@ -10,6 +10,8 @@ from dataclasses import dataclass, replace
 
 from route_engine import RouteContractError, RouteSearchLimitError
 from tokyo_few_transfers_bounds import CostRoundingGuard, make_bounds
+from tokyo_time_bounds import make_time_bounds
+from tokyo_time_rounding import TimeRoundingGuard
 
 
 class SelectedPath(list):
@@ -148,8 +150,9 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
     """Yield feasible paths, using one frontier at generation and pop time.
 
     fewTransfers orders its lexicographic objective with a relaxed reverse
-    bound. Other objectives retain their existing priorities. A stale label
-    is discarded by identity, rather than a second scalar-cost map.
+    bound; time uses a reverse elapsed-time bound. These change priorities
+    only. A stale label is discarded by identity, rather than a second
+    scalar-cost map.
     """
     started = time.monotonic()
     deadline = start_minute + max_travel_min
@@ -163,6 +166,7 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
     next_compaction_pop = 1000
     bounds = None
     cost_bound = None
+    arrival_bound = None
 
     def priority(label):
         if mode == "fewTransfers":
@@ -170,7 +174,8 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
             return (label.boardings + remaining_boardings, cost_bound(label.cost, remaining_cost),
                     label.boardings, label.cost, label.time)
         if mode == "time":
-            return (label.time, label.cost, label.boardings)
+            return (arrival_bound(label.time, bounds(label.node)),
+                    label.cost, label.boardings, label.time)
         return (label.cost + heuristic(label.node), label.cost, label.time)
 
     def offer(label):
@@ -217,6 +222,28 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
     def check_deadline():
         if time.monotonic() - started > time_limit_sec:
             fail("time_limit_sec")
+
+    if mode == "time":
+        # Static interval minima are shared by data version; the reverse graph
+        # and destination bound live only for this query. Timetable waiting,
+        # run continuity and exact walking limits stay in the forward search.
+        try:
+            bounds = make_time_bounds(
+                graph, choices, target, virtual_connections,
+                edge_uses_rail=edge_uses_rail, walk_speed=walk_speed,
+                rail_boarding_minutes=rail_boarding_minutes,
+                check_deadline=check_deadline, start=start,
+            )
+        except ValueError as error:
+            raise RouteContractError(f"Tokyo time lower bound is invalid: {error}") from error
+        check_deadline()
+        arrival_bound = TimeRoundingGuard(
+            start_minute=start_minute, deadline=deadline,
+            max_forward_steps=max_visited,
+            max_reverse_steps=bounds.report.get("nodes", 0) + 1,
+            max_edge_minutes=bounds.report.get("max_edge_minutes", 0.0),
+        )
+        bounds.report["arrival_rounding_guard"] = arrival_bound.report
 
     if mode == "fewTransfers":
         # Query-local: no destination cache can retain graph or service data.

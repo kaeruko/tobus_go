@@ -282,6 +282,9 @@ async def setup_on_startup(app, mode: str) -> None:
             else:
                 print(f"[WARN] GTFS directory {gtfs_dir} not found. Reverse lookup may fail.")
 
+            from tokyo_time_bounds import prepare_static_time_index
+            prepare_static_time_index(app.state.TM, gtfs_repo)
+
             print(f"[INFO] Data loaded in {time.time() - start_time:.2f}s")
 
             # Lambdaはレスポンス後にイベントループを凍結するため、
@@ -376,6 +379,9 @@ async def setup_on_startup(app, mode: str) -> None:
             print(f"[WARN] Failed to load GTFS data: {e}")
     else:
         print(f"[WARN] GTFS directory not found: {gtfs_dir}")
+
+    from tokyo_time_bounds import prepare_static_time_index
+    prepare_static_time_index(tm, gtfs_repo)
 
     from tokyo_route_engine import TokyoRouteEngine
 

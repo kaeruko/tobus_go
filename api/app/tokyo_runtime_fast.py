@@ -9,6 +9,7 @@ from gtfs_loader import gtfs_repo
 from gtfs_state import download_compiled_lambda_assets, load_compiled_state
 from toei_engine import SpatialIndex, ensure_train_run_metadata
 from tokyo_route_engine import TokyoRouteEngine
+from tokyo_time_bounds import prepare_static_time_index
 
 from .runtime import LAMBDA_TMP_DIR, fetch_realtime_data_loop
 from .runtime import setup_on_startup as setup_legacy_on_startup
@@ -83,6 +84,10 @@ async def setup_on_startup(app, mode: str) -> None:
         assets.compiled_state_path,
         expected_source_sha256=assets.source_sha256,
     )
+
+    # Reuse interval minima in every query, including frozen Realtime copies.
+    # Destination-specific reverse bounds remain query-local.
+    prepare_static_time_index(app.state.TM, gtfs_repo)
 
     print(f"[INFO] Tokyo static data ready in {time.time() - start_time:.2f}s")
 

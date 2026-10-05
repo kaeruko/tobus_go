@@ -1,0 +1,252 @@
+{
+  "mode": "time",
+  "case": "shibuya_0741",
+  "request": {
+    "alat": 35.708166,
+    "alon": 139.817434,
+    "blat": 35.658034,
+    "blon": 139.701636,
+    "pref": "time",
+    "bus_only": false,
+    "target_date_str": "2026-10-05",
+    "start_time": "07:41",
+    "limit": 5
+  },
+  "platform": "Windows-11-10.0.26300-SP0",
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "memory_metric": "Windows working set",
+  "scope": "Fresh process per mode/input. Refreshed prebuilt, production compiled GTFS loading, static train GTFS/calendar retained. Each query includes adapter, details, serialization and train identity. No HTTP or live RT.",
+  "sampling": "10ms target interval; Python scheduling can miss shorter peaks. Also record exact OS process-lifetime high-water, which can be dominated by startup.",
+  "phases": {
+    "before_app_imports": {
+      "rss_bytes": 23539712,
+      "process_peak_rss_bytes": 23539712,
+      "private_commit_bytes": 14790656,
+      "process_peak_private_commit_bytes": 14790656
+    },
+    "after_app_imports": {
+      "rss_bytes": 60559360,
+      "process_peak_rss_bytes": 60559360,
+      "private_commit_bytes": 49135616,
+      "process_peak_private_commit_bytes": 49135616
+    },
+    "after_prebuilt_load": {
+      "rss_bytes": 644927488,
+      "process_peak_rss_bytes": 678486016,
+      "private_commit_bytes": 634163200,
+      "process_peak_private_commit_bytes": 667783168
+    },
+    "after_compiled_bus_gtfs_load": {
+      "rss_bytes": 1171320832,
+      "process_peak_rss_bytes": 1220595712,
+      "private_commit_bytes": 1164021760,
+      "process_peak_private_commit_bytes": 1211514880
+    },
+    "after_time_interval_index": {
+      "rss_bytes": 1171632128,
+      "process_peak_rss_bytes": 1220595712,
+      "private_commit_bytes": 1164328960,
+      "process_peak_private_commit_bytes": 1211514880
+    },
+    "after_train_gtfs_and_calendar_load": {
+      "rss_bytes": 1263181824,
+      "process_peak_rss_bytes": 1268318208,
+      "private_commit_bytes": 1255759872,
+      "process_peak_private_commit_bytes": 1261277184
+    },
+    "ready_after_gc": {
+      "rss_bytes": 1263181824,
+      "process_peak_rss_bytes": 1268318208,
+      "private_commit_bytes": 1255759872,
+      "process_peak_private_commit_bytes": 1261277184
+    }
+  },
+  "compiled_bus_gtfs": {
+    "scope": "Local CSV snapshot packed for benchmark; not downloaded from S3 or published.",
+    "csv_files": [
+      {
+        "name": "agency.txt",
+        "sha256": "571384561bcdf5847136a2a6b5799179715f946d30f0c0ae332051369601924b"
+      },
+      {
+        "name": "agency_jp.txt",
+        "sha256": "eda78cab982d1f302570b9cbd93eeed63361fa6ac47b9519df8d7e188ab43d73"
+      },
+      {
+        "name": "attributions.txt",
+        "sha256": "46777e6bef487e61be957ab9f568b1259ed283819b6fa886753a899c7e9ab2bc"
+      },
+      {
+        "name": "calendar.txt",
+        "sha256": "69c5e91b8e6a1e6d44e6f34c61da356701d2710e2f6dc905d454e0a985b59522"
+      },
+      {
+        "name": "calendar_dates.txt",
+        "sha256": "a174bdcd6ca11c44211aa741bdd53683ff04bd85513f65318ab1f6a9709081fe"
+      },
+      {
+        "name": "fare_attributes.txt",
+        "sha256": "10c61ff564897f15ebcf8ea044c836dd098ea5c22b47c8677b1d1e65b9881fb9"
+      },
+      {
+        "name": "fare_rules.txt",
+        "sha256": "074880ff6256528973a8fbc850cfd5efe34d5c9d44a53d8cd94b0f9c456d859b"
+      },
+      {
+        "name": "feed_info.txt",
+        "sha256": "ece83c5c2aa28b784b3f087843aafabc231a4b4535356e8b45012093c004c9b5"
+      },
+      {
+        "name": "office_jp.txt",
+        "sha256": "89aa4fdfd2d50270e22b1dd2239f71e3f027f915592e33743eb7942075ba8ef7"
+      },
+      {
+        "name": "routes.txt",
+        "sha256": "6d25a7aa44030a3f4a355d02c7f23d9ab095371277c5f25be7849933f9d0c357"
+      },
+      {
+        "name": "shapes.txt",
+        "sha256": "ab3acb4a75e5eed15f4bbdf07808ba94021e27574ea0ad8163d914b96d3f1b62"
+      },
+      {
+        "name": "stop_times.txt",
+        "sha256": "19a2903066c8dc7e9fda6de359ccfa317b96f2601fe64babd6d4f74cf3b33ea3"
+      },
+      {
+        "name": "stops.txt",
+        "sha256": "64f8ea58e408721404e407999adac08ca0a1c84b79953e4145534382bb551ffb"
+      },
+      {
+        "name": "translations.txt",
+        "sha256": "d3cc1f8b8ef3852b81f9eda1f932fe98c7247d6ca944968c490b1a63aab3745f"
+      },
+      {
+        "name": "trips.txt",
+        "sha256": "6381fb240e665cda9f696fb376cf3eb3aca46263f45bf7cc80aedcca817e97f5"
+      }
+    ],
+    "source_sha256": "8b724aeb30722e1b7e870f408f91c9206d39ec85061d7522ba02f5f78a7aef23",
+    "compiled_sha256": "4efa2a8b2ad2f5dff21a1cfc6c2ae90c2dd73d9291eb3ca9714e0abacf5ccc03",
+    "record_counts": {
+      "stops": 5368,
+      "routes": 150,
+      "trips": 61324,
+      "stop_times": 1161955,
+      "timetable_keys": 6458,
+      "service_calendar": 60,
+      "service_exception_dates": 36
+    }
+  },
+  "sha256": {
+    "app_data_search_labels.pkl": "d78944b93d0b1a1287b7a1c1871b42552cde7fdcd62687aed52cce961956177b",
+    "Toei-Train-GTFS.zip": "dd5757062317dcf18b8eeaf8bf83f6624ecd3c9fc4fe99918981e5ec2b42d8c4",
+    "toei_engine.py": "e9a717d505712b5186be30e75b0cb94c96f588d16b56893e0f1e500b9134da5b",
+    "tokyo_search_labels.py": "d323003926abed3adf088fa562be49b819639e674d310a97468f43dedb36386b",
+    "tokyo_timetable_choices.py": "dc1fbfc13e5c552b1efbd7c7361be60e165abfabb40a2a4250de0a0a65ae5a22",
+    "tokyo_time_bounds.py": "29b376833ee083578a3622b62639855c6f7e000b703e032a1f054e75c4629c1f",
+    "tokyo_time_rounding.py": "aa69767a5c625a5bde9e813b8d9d979f0d2d45712579f0e61636d5c846662209",
+    "tokyo_few_transfers_bounds.py": "a187c075d9a3f8d3f0a3e47bd569088f0448703366e9e8257bbbdb26b136afe3",
+    "train_route_identity.py": "75295684f08931ae38291d73f7a286c6d3d670e8920df55d20022c8724888229"
+  },
+  "runs": [
+    {
+      "iteration": 0,
+      "before": {
+        "rss_bytes": 1267404800,
+        "process_peak_rss_bytes": 1268318208,
+        "private_commit_bytes": 1256341504,
+        "process_peak_private_commit_bytes": 1261277184
+      },
+      "same_as_previous_baseline_excluding_step_ids": null,
+      "identity_ms": 9.151099999144208,
+      "full_ms": 3071.429600000556,
+      "core_ms": 2902.836000001116,
+      "bounds": [
+        {
+          "scope": "static: all-calendar adjacent timetable minima",
+          "nodes": 18984,
+          "allocated_states": 18984,
+          "max_reverse_steps": 18985,
+          "included_edges": 63970,
+          "excluded_edges": 0,
+          "known_ride_edges": 14532,
+          "zero_ride_edges": 0,
+          "positive_ride_edges": 12577,
+          "zero_duration_ride_edges": 1955,
+          "max_edge_minutes": 20.999999999999996,
+          "rail_records_scanned": 0,
+          "bus_trips_scanned": 0,
+          "bus_stops_scanned": 0,
+          "rail_interval_pairs": 310,
+          "bus_interval_pairs": 6368,
+          "invalid_intervals": 0,
+          "scan_checkpoints": 221173,
+          "settled_nodes": 15714,
+          "queue_pops": 20015,
+          "queue_peak": 874,
+          "relaxed_edges": 54215,
+          "seeded_nodes": 19,
+          "missing_virtual_nodes": 0,
+          "unreachable_nodes": 3270,
+          "walking_resources": "fully relaxed",
+          "unreachable_policy": "zero bound; priority only, no pruning",
+          "opaque_bus_lines": 0,
+          "interval_index_version": 1,
+          "rail_index_reused": true,
+          "bus_index_reused": true,
+          "rail_source_records": 116658,
+          "bus_source_trips": 61324,
+          "bus_source_stops": 1161955,
+          "index_scan_checkpoints": 0,
+          "index_build_ms": 0.20500000027823262,
+          "build_ms": 163.90619999947376,
+          "arrival_rounding_guard": {
+            "enabled": true,
+            "scope": "operational absolute arrival clocks",
+            "start_minute": 461.0,
+            "deadline": 701.0,
+            "max_forward_steps": 200000,
+            "max_reverse_steps": 18985,
+            "max_edge_minutes": 20.999999999999996,
+            "clock_ulp_minutes": 1.1368683772161605e-13,
+            "reverse_error_minutes": 8.40331662590006e-07,
+            "transition_error_minutes": 2.273736754432322e-08,
+            "priority_error_minutes": 5.820766091346742e-11,
+            "fixed_error_minutes": 8.631272377952429e-07
+          }
+        }
+      ],
+      "raw_arrival_minute": 530.2873359962757,
+      "after": {
+        "rss_bytes": 1279459328,
+        "process_peak_rss_bytes": 1330446336,
+        "private_commit_bytes": 1269485568,
+        "process_peak_private_commit_bytes": 1318678528
+      },
+      "sampled_query_peak_rss_bytes": 1330343936,
+      "query_peak_delta_from_before_bytes": 62939136,
+      "samples": 61,
+      "maximum_sample_gap_ms": 261.6163000020606,
+      "sampler_error": null,
+      "stats": [
+        "[ROUTE_DEBUG] time stats: tag=tick visited=5000 yielded=0 queue=49177 g_score=29093 best_cost=4660 frontier_labels=51882 compacted_count=8685 lower_bound_ms=163.906 elapsed_sec=1.734 popped_by_boardings={0:11, 1:374, 2:1615, 3:2216, 4:747, 5:37} expanded_by_boardings={0:10, 1:336, 2:1525, 3:2081, 4:680, 5:28} dominated_by_boardings={0:24, 1:1049, 2:5048, 3:10273, 4:11515, 5:4366} yielded_by_boardings={}",
+        "[ROUTE_DEBUG] time stats: tag=tick visited=10000 yielded=0 queue=82996 g_score=48957 best_cost=9508 frontier_labels=90400 compacted_count=21877 lower_bound_ms=163.906 elapsed_sec=2.797 popped_by_boardings={0:11, 1:465, 2:2491, 3:4339, 4:2216, 5:434, 6:44} expanded_by_boardings={0:10, 1:425, 2:2388, 3:4143, 4:2097, 5:401, 6:44} dominated_by_boardings={0:24, 1:1350, 2:7356, 3:16153, 4:22817, 5:11762, 6:2138} yielded_by_boardings={}",
+        "[ROUTE_DEBUG] time stats: tag=yield visited=10276 yielded=1 queue=82938 g_score=49805 best_cost=9770 frontier_labels=92224 compacted_count=23981 lower_bound_ms=163.906 elapsed_sec=2.859 popped_by_boardings={0:11, 1:469, 2:2533, 3:4435, 4:2306, 5:472, 6:50} expanded_by_boardings={0:10, 1:429, 2:2430, 3:4231, 4:2183, 5:437, 6:50} dominated_by_boardings={0:24, 1:1380, 2:7428, 3:16348, 4:23413, 5:12342, 6:2760, 7:102} yielded_by_boardings={4:1}"
+      ],
+      "search_candidates": 1,
+      "verified_candidates": 1,
+      "rejections": [],
+      "arrivals": [
+        "08:51"
+      ],
+      "after_result_release_and_gc": {
+        "rss_bytes": 1274421248,
+        "process_peak_rss_bytes": 1330446336,
+        "private_commit_bytes": 1264455680,
+        "process_peak_private_commit_bytes": 1318678528
+      }
+    }
+  ],
+  "static_interval_index_build_ms": 625.2268999996886,
+  "realtime_snapshot": "static; realtime disabled"
+}

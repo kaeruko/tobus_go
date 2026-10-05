@@ -4,7 +4,7 @@ import pickle
 import tempfile
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, patch
 
 from app.tokyo_runtime_fast import setup_on_startup
 from gtfs_state import LambdaCompiledAssets
@@ -40,6 +40,7 @@ class TokyoRuntimeFastTest(unittest.IsolatedAsyncioTestCase):
                     ),
                 ),
                 patch("app.tokyo_runtime_fast.load_compiled_state") as load_state,
+                patch("app.tokyo_runtime_fast.prepare_static_time_index") as prepare_index,
                 patch(
                     "app.tokyo_runtime_fast.fetch_realtime_data_loop",
                     periodic_refresh,
@@ -53,6 +54,7 @@ class TokyoRuntimeFastTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(app.state.TM, "timetable")
             self.assertEqual(app.state.SI, "spatial-index")
             load_state.assert_called_once()
+            prepare_index.assert_called_once_with("timetable", ANY)
             periodic_refresh.assert_awaited_once_with("timetable")
 
     async def test_lambda_startup_reuses_initialized_runtime(self):
