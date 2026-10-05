@@ -173,6 +173,63 @@ void main() {
     );
   });
 
+  test('Firestore leg persistence rejects unresolved rail identity', () {
+    Candidate railCandidate({String? tripId, String? routeId}) {
+      return Candidate(
+        id: 'rail-persistence',
+        lines: const ['浅草線'],
+        rides: 1,
+        boards: 1,
+        transfers: 0,
+        total: 10,
+        totalTime: 10,
+        steps: [
+          StepSeg(
+            stepId: 'rail-1',
+            kind: 'rail',
+            title: '浅草線',
+            tripId: tripId,
+            routeId: routeId,
+          ),
+        ],
+        points: const [],
+      );
+    }
+
+    Leg leg(Candidate candidate) => Leg(
+      direction: LegDirection.inbound,
+      status: LegStatus.confirmed,
+      candidate: candidate,
+    );
+
+    expect(
+      () => leg(railCandidate(routeId: '1')).toFirestore(),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('GTFS tripId'),
+        ),
+      ),
+    );
+    expect(
+      () => leg(railCandidate(tripId: '121603T0')).toFirestore(),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('GTFS routeId'),
+        ),
+      ),
+    );
+    expect(
+      () => leg(
+        railCandidate(tripId: '121603T0', routeId: '1'),
+      ).toFirestore(),
+      returnsNormally,
+    );
+  });
+
   test('Trip rejects schemas other than navigation v2', () {
     expect(
       () => Trip(
