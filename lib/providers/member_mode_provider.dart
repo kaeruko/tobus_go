@@ -110,7 +110,7 @@ List<ScheduleEntry> _navigationScheduleForTrip(Trip trip) {
         'tripId=${trip.id}, legs=${trip.legs.length}',
       );
     }
-    return canonicalize(trip.schedule).toList(growable: false);
+    return trip.schedule;
   }
 
   resolveGroupActiveLeg(trip);
