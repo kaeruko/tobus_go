@@ -28,6 +28,14 @@ bool shouldAssumeBusArrivedFromStaleRealtime({
       vehicleAgeSeconds >= staleAfterSeconds;
 }
 
+bool shouldAssumeBusArrivedAfterRealtimeLoss({
+  required DateTime now,
+  required DateTime plannedArrivalAt,
+  required bool knownOnboard,
+}) {
+  return knownOnboard && !now.isBefore(plannedArrivalAt);
+}
+
 BusProgress assumeBusArrivedAtDestination({
   required StepSeg step,
   required BusProgress realtimeProgress,
