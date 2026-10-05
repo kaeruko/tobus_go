@@ -45,82 +45,147 @@ void main() {
     );
   });
 
-  test('待機中は次の乗車予定を経路案内対象にする', () {
-    final ride = StepSeg(
-      stepId: 'ride-1',
-      kind: 'bus',
-      title: '上23 上野松坂屋前行',
-      stops: [
-        StopPoint(name: 'A', point: const LatLng(35.0, 139.0)),
-        StopPoint(name: 'B', point: const LatLng(35.1, 139.1)),
-      ],
-    );
-    final candidate = Candidate(
-      id: 'candidate-1',
-      lines: const [],
-      rides: 1,
-      boards: 1,
-      transfers: 0,
-      total: 0,
-      totalTime: 0,
-      steps: [ride],
-      points: const [],
-    );
-    final wait = ScheduleEntry(
-      id: 'wait-1',
-      plannedAt: DateTime(2026, 8, 16, 10, 30),
-      label: '待ち時間',
-      itemKind: ScheduleEntryKind.event,
-      legIndex: 0,
-      generatedBy: ScheduleEntrySource.route,
-      routeStepId: 'ride-1',
-      routeRole: 'wait_start',
-    );
-    final rideEntry = ScheduleEntry(
-      id: 'ride-entry-1',
-      plannedAt: DateTime(2026, 8, 16, 10, 40),
-      label: '上23に乗る',
-      itemKind: ScheduleEntryKind.ride,
-      legIndex: 0,
-      generatedBy: ScheduleEntrySource.route,
-      routeStepId: 'ride-1',
-      routeRole: 'ride',
-    );
-    final trip = Trip(
-      tripType: TripType.solo,
-      id: 'trip-1',
-      joinCode: '',
-      leaderId: 'user-1',
-      title: 'test',
-      travelPhase: TravelPhase.active,
-      date: DateTime(2026, 8, 16),
-      plannedDepartureAt: null,
-      actualDepartureAt: null,
-      legs: [
-        Leg(
-          direction: LegDirection.outbound,
-          status: LegStatus.confirmed,
+  for (final tripType in TripType.values) {
+    test(
+      '${tripType.name} 待機中の次便はplannedAtではなくCandidate順序で解決する',
+      () {
+        final waitStep = StepSeg(
+          stepId: 'wait-1',
+          kind: 'wait',
+          title: '待ち時間',
+        );
+        final firstRide = StepSeg(
+          stepId: 'ride-1',
+          kind: 'bus',
+          title: '上23 上野松坂屋前行',
+          stops: [
+            StopPoint(name: 'A', point: const LatLng(35.0, 139.0)),
+            StopPoint(name: 'B', point: const LatLng(35.1, 139.1)),
+          ],
+        );
+        final secondRide = StepSeg(
+          stepId: 'ride-2',
+          kind: 'rail',
+          title: '浅草線',
+          stops: [
+            StopPoint(name: 'C', point: const LatLng(35.2, 139.2)),
+            StopPoint(name: 'D', point: const LatLng(35.3, 139.3)),
+          ],
+        );
+        final candidate = Candidate(
+          id: 'candidate-${tripType.name}',
+          lines: const [],
+          rides: 2,
+          boards: 2,
+          transfers: 1,
+          total: 0,
+          totalTime: 0,
+          steps: [waitStep, firstRide, secondRide],
+          points: const [],
+        );
+        final wait = ScheduleEntry(
+          id: 'wait-1-entry',
+          plannedAt: DateTime(2026, 8, 16, 10, 30),
+          label: '待ち時間',
+          itemKind: ScheduleEntryKind.event,
+          legIndex: 0,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepId: 'wait-1',
+          routeRole: 'wait_start',
+        );
+        final firstRideEntry = ScheduleEntry(
+          id: 'ride-entry-1',
+          // Deliberately later than ride-2. Time ordering is corrupt, while
+          // Candidate step order still identifies the actual next ride.
+          plannedAt: DateTime(2026, 8, 16, 10, 50),
+          label: '上23に乗る',
+          itemKind: ScheduleEntryKind.ride,
+          legIndex: 0,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepId: 'ride-1',
+          routeRole: 'ride',
+        );
+        final secondRideEntry = ScheduleEntry(
+          id: 'ride-entry-2',
+          plannedAt: DateTime(2026, 8, 16, 10, 40),
+          label: '浅草線に乗る',
+          itemKind: ScheduleEntryKind.ride,
+          legIndex: 0,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepId: 'ride-2',
+          routeRole: 'ride',
+        );
+        final trip = _tripWithCandidate(
+          tripType: tripType,
           candidate: candidate,
-        ),
-      ],
-      schedule: [wait, rideEntry],
-      participants: const [],
-      memberIds: const [],
+          schedule: [wait, firstRideEntry, secondRideEntry],
+        );
+
+        final resolved = resolveNavigationRideStep(
+          trip: trip,
+          resolvedEntry: wait,
+          currentStepId: null,
+        );
+
+        expect(resolved, same(firstRide));
+      },
     );
 
-    final rides = trip.schedule
-        .where(
-          (entry) =>
-              entry.legIndex == wait.legIndex &&
-              entry.itemKind == ScheduleEntryKind.ride &&
-              !entry.plannedAt.isBefore(wait.plannedAt),
-        )
-        .toList()
-      ..sort((a, b) => a.plannedAt.compareTo(b.plannedAt));
+    test(
+      '${tripType.name} 徒歩中の次便もCandidate順序で解決する',
+      () {
+        final walk = StepSeg(
+          stepId: 'walk-1',
+          kind: 'walk',
+          title: '徒歩',
+        );
+        final ride = StepSeg(
+          stepId: 'ride-after-walk',
+          kind: 'bus',
+          title: '都01',
+          stops: [
+            StopPoint(name: 'A', point: const LatLng(35.0, 139.0)),
+            StopPoint(name: 'B', point: const LatLng(35.1, 139.1)),
+          ],
+        );
+        final candidate = Candidate(
+          id: 'walk-candidate-${tripType.name}',
+          lines: const [],
+          rides: 1,
+          boards: 1,
+          transfers: 0,
+          total: 0,
+          totalTime: 0,
+          steps: [walk, ride],
+          points: const [],
+        );
+        final walkEntry = ScheduleEntry(
+          id: 'walk-entry',
+          plannedAt: DateTime(2026, 8, 16, 10, 30),
+          label: '停留所まで歩く',
+          itemKind: ScheduleEntryKind.walk,
+          legIndex: 0,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepId: 'walk-1',
+          routeRole: 'walk',
+        );
+        final trip = _tripWithCandidate(
+          tripType: tripType,
+          candidate: candidate,
+          schedule: [walkEntry],
+        );
 
-    expect(rides.single.id, 'ride-entry-1');
-    expect(trip.stepsById[rides.single.routeStepId], same(ride));
-  });
+        expect(
+          resolveNavigationRideStep(
+            trip: trip,
+            resolvedEntry: walkEntry,
+            currentStepId: null,
+          ),
+          same(ride),
+        );
+      },
+    );
+  }
 
   test('存在しないcurrentStepIdはfail-fastする', () {
     final trip = _tripWithSteps(const []);
@@ -133,6 +198,34 @@ void main() {
       throwsStateError,
     );
   });
+}
+
+Trip _tripWithCandidate({
+  required TripType tripType,
+  required Candidate candidate,
+  List<ScheduleEntry> schedule = const [],
+}) {
+  return Trip(
+    tripType: tripType,
+    id: 'trip-${tripType.name}',
+    joinCode: tripType == TripType.group ? '123456' : '',
+    leaderId: 'user-1',
+    title: 'test',
+    travelPhase: TravelPhase.active,
+    date: DateTime(2026, 8, 16),
+    plannedDepartureAt: null,
+    actualDepartureAt: null,
+    legs: [
+      Leg(
+        direction: LegDirection.outbound,
+        status: LegStatus.confirmed,
+        candidate: candidate,
+      ),
+    ],
+    schedule: schedule,
+    participants: const [],
+    memberIds: const [],
+  );
 }
 
 Trip _tripWithSteps(List<StepSeg> steps) {
@@ -148,25 +241,8 @@ Trip _tripWithSteps(List<StepSeg> steps) {
     points: const [],
   );
 
-  return Trip(
+  return _tripWithCandidate(
     tripType: TripType.solo,
-    id: 'trip-1',
-    joinCode: '',
-    leaderId: 'user-1',
-    title: 'test',
-    travelPhase: TravelPhase.active,
-    date: DateTime(2026, 8, 16),
-    plannedDepartureAt: null,
-    actualDepartureAt: null,
-    legs: [
-      Leg(
-        direction: LegDirection.outbound,
-        status: LegStatus.confirmed,
-        candidate: candidate,
-      ),
-    ],
-    schedule: const [],
-    participants: const [],
-    memberIds: const [],
+    candidate: candidate,
   );
 }
