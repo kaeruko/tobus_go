@@ -666,7 +666,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
   }
 
   DateTime _plannedRideDepartureAt(Trip trip, String stepId) {
-    final matches = _navigationScheduleForTrip(trip)
+    final matches = trip.schedule
         .where(
           (entry) =>
               entry.generatedBy == ScheduleEntrySource.route &&
@@ -684,7 +684,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
   }
 
   DateTime _plannedRideArrivalAt(Trip trip, String stepId) {
-    final matches = _navigationScheduleForTrip(trip)
+    final matches = trip.schedule
         .where(
           (entry) =>
               entry.generatedBy == ScheduleEntrySource.route &&
