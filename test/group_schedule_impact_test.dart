@@ -29,24 +29,44 @@ void main() {
     ],
   );
 
-  StepSeg finalWalk() => StepSeg(
+  StepSeg finalWalk({
+    String arrivalTime = '18:40',
+    int minutes = 5,
+  }) => StepSeg(
     stepId: 'walk-final',
     kind: 'walk',
     title: '徒歩',
     fromName: '東日本橋',
     toName: '目的地',
     departureTime: '18:35',
-    arrivalTime: '18:40',
-    minutes: 5,
+    arrivalTime: arrivalTime,
+    minutes: minutes,
   );
 
   Trip buildTrip({
-    DateTime? goalAt,
+    DateTime? canonicalGoalAt,
+    DateTime? storedGoalAt,
     DateTime? manualAt,
+    Duration storedRideArrivalShift = Duration.zero,
     bool includeLaterRide = false,
   }) {
+    final serviceDay = DateTime(2026, 8, 15);
+    final canonicalGoal =
+        canonicalGoalAt ?? DateTime(2026, 8, 15, 18, 40);
+    final finalRideArrival = DateTime(2026, 8, 15, 18, 35);
+    final walkMinutes = canonicalGoal.difference(finalRideArrival).inMinutes;
+    if (walkMinutes < 0) {
+      throw StateError('test route goal must not precede final ride arrival');
+    }
+    String clock(DateTime value) =>
+        '${value.hour.toString().padLeft(2, '0')}:'
+        '${value.minute.toString().padLeft(2, '0')}';
+
     final firstRide = finalRide(stepId: 'rail-1');
-    final steps = <StepSeg>[firstRide, finalWalk()];
+    final steps = <StepSeg>[
+      firstRide,
+      finalWalk(arrivalTime: clock(canonicalGoal), minutes: walkMinutes),
+    ];
     if (includeLaterRide) {
       steps.add(
         StepSeg(
@@ -86,6 +106,7 @@ void main() {
       destinationName: includeLaterRide ? 'さらに先' : '目的地',
       originCoords: const LatLng(35.697, 139.785),
       destinationCoords: const LatLng(35.691, 139.781),
+      departureDate: DateTime(2026, 8, 15, 18, 20),
     );
 
     final schedule = <ScheduleEntry>[
@@ -101,7 +122,7 @@ void main() {
       ),
       ScheduleEntry(
         id: 'arrival-1',
-        plannedAt: DateTime(2026, 8, 15, 18, 35),
+        plannedAt: finalRideArrival.add(storedRideArrivalShift),
         label: '東日本橋に着く',
         itemKind: ScheduleEntryKind.arrival,
         legIndex: 0,
@@ -111,7 +132,7 @@ void main() {
       ),
       ScheduleEntry(
         id: 'walk-final',
-        plannedAt: DateTime(2026, 8, 15, 18, 35),
+        plannedAt: finalRideArrival.add(storedRideArrivalShift),
         label: '目的地まで歩く',
         itemKind: ScheduleEntryKind.walk,
         legIndex: 0,
@@ -121,7 +142,7 @@ void main() {
       ),
       ScheduleEntry(
         id: 'goal',
-        plannedAt: goalAt ?? DateTime(2026, 8, 15, 18, 40),
+        plannedAt: storedGoalAt ?? canonicalGoal,
         label: '目的地 到着',
         itemKind: ScheduleEntryKind.goal,
         legIndex: 0,
@@ -144,7 +165,7 @@ void main() {
       leaderId: 'leader',
       title: 'test',
       travelPhase: TravelPhase.active,
-      date: DateTime(2026, 8, 15),
+      date: serviceDay,
       plannedDepartureAt: null,
       actualDepartureAt: DateTime(2026, 8, 15, 18, 0),
       legs: [
@@ -197,7 +218,7 @@ void main() {
 
   test('replanned route goal later than manual event warns without shifting it', () {
     final trip = buildTrip(
-      goalAt: DateTime(2026, 8, 15, 18, 55),
+      canonicalGoalAt: DateTime(2026, 8, 15, 18, 55),
       manualAt: DateTime(2026, 8, 15, 18, 40),
     );
     final arrival = GroupScheduleImpactAnalyzer.estimateFromRouteSchedule(
@@ -217,7 +238,7 @@ void main() {
 
   test('missed manual event remains visible while the same leg is late', () {
     final trip = buildTrip(
-      goalAt: DateTime(2026, 8, 15, 18, 55),
+      canonicalGoalAt: DateTime(2026, 8, 15, 18, 55),
       manualAt: DateTime(2026, 8, 15, 18, 40),
     );
     final arrival = GroupScheduleImpactAnalyzer.estimateFromRouteSchedule(
@@ -231,6 +252,45 @@ void main() {
 
     expect(impact, isNotNull);
     expect(impact!.affectedEntry.label, '休憩開始');
+  });
+
+  test('route schedule estimate ignores a shifted saved goal clock', () {
+    final trip = buildTrip(
+      storedGoalAt: DateTime(2026, 8, 15, 18, 43),
+      manualAt: DateTime(2026, 8, 15, 18, 41),
+    );
+
+    final arrival = GroupScheduleImpactAnalyzer.estimateFromRouteSchedule(
+      trip: trip,
+      legIndex: 0,
+    );
+
+    expect(arrival.plannedArrivalAt, DateTime(2026, 8, 15, 18, 40));
+    expect(arrival.expectedArrivalAt, DateTime(2026, 8, 15, 18, 40));
+    expect(
+      GroupScheduleImpactAnalyzer.findFirstManualConflict(
+        trip: trip,
+        arrival: arrival,
+      ),
+      isNull,
+    );
+  });
+
+  test('final ride realtime ignores a shifted saved ride arrival clock', () {
+    final trip = buildTrip(
+      storedRideArrivalShift: const Duration(minutes: 3),
+    );
+
+    final arrival = GroupScheduleImpactAnalyzer.estimateFromFinalRideRealtime(
+      trip: trip,
+      observation: finalRideObservation(
+        DateTime(2026, 8, 15, 18, 50),
+      ),
+    );
+
+    expect(arrival, isNotNull);
+    expect(arrival!.plannedArrivalAt, DateTime(2026, 8, 15, 18, 40));
+    expect(arrival.expectedArrivalAt, DateTime(2026, 8, 15, 18, 55));
   });
 
   test('current ride delay is not projected through a later transit service', () {
