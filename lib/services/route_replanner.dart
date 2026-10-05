@@ -12,7 +12,7 @@ class RouteReplanRequest {
   final String originalCandidateId;
   final LatLng destination;
   final String destinationName;
-  final String? preference;
+  final String preference;
 
   RouteReplanRequest({
     required this.anchor,
@@ -20,10 +20,11 @@ class RouteReplanRequest {
     required String originalCandidateId,
     required this.destination,
     required String destinationName,
-    this.preference,
+    String? preference,
   }) : activeStepId = activeStepId.trim(),
        originalCandidateId = originalCandidateId.trim(),
-       destinationName = destinationName.trim() {
+       destinationName = destinationName.trim(),
+       preference = _normalizeReplanPreference(preference) {
     if (this.activeStepId.isEmpty) {
       throw ArgumentError.value(activeStepId, 'activeStepId', 'must not be empty');
     }
@@ -37,6 +38,14 @@ class RouteReplanRequest {
       throw ArgumentError.value(destination, 'destination', 'must be finite');
     }
   }
+}
+
+String _normalizeReplanPreference(String? preference) {
+  final normalized = preference?.trim();
+  if (normalized == null || normalized.isEmpty) {
+    return 'fewTransfers';
+  }
+  return normalized;
 }
 
 /// Returns true only when both requests would execute the same route search.
