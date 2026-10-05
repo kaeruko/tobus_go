@@ -61,10 +61,11 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   void initState() {
     super.initState();
 
-    ref.read(memberModeControllerProvider.notifier).initialize();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(memberNavProgressProvider.notifier).reset();
+      if (!mounted) return;
+
+      ref.read(memberNavProgressProvider.notifier).reset();
+      ref.read(memberModeControllerProvider.notifier).initialize();
     });
   }
 
