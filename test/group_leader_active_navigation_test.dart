@@ -112,9 +112,37 @@ void main() {
     );
   });
 
-  test('往路完了後はおでかけ終了を主操作にする', () {
+  test('復路中でもナビが帰着前ならおでかけ終了を表示しない', () {
+    final ride = ScheduleEntry(
+      plannedAt: DateTime(2026, 8, 16, 11),
+      label: '帰路 乗車中',
+      itemKind: ScheduleEntryKind.ride,
+      legIndex: 1,
+    );
+
     expect(
-      resolveGroupLeaderActivePrimaryAction(_trip(completedLegIndex: 0)),
+      resolveGroupLeaderActivePrimaryAction(
+        _trip(completedLegIndex: 0),
+        resolvedEntry: ride,
+      ),
+      isNull,
+    );
+  });
+
+  test('復路がゴールになったらおでかけ終了を主操作にする', () {
+    final goal = ScheduleEntry(
+      plannedAt: DateTime(2026, 8, 16, 12),
+      label: '帰着',
+      description: 'お疲れ様でした!',
+      itemKind: ScheduleEntryKind.goal,
+      legIndex: 1,
+    );
+
+    expect(
+      resolveGroupLeaderActivePrimaryAction(
+        _trip(completedLegIndex: 0),
+        resolvedEntry: goal,
+      ),
       GroupLeaderActivePrimaryAction.completeTrip,
     );
   });
