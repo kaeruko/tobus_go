@@ -40,15 +40,13 @@ GroupLeaderActivePrimaryAction? resolveGroupLeaderActivePrimaryAction(
     );
   }
 
-  if (trip.completedLegIndex >= 0) {
-    return GroupLeaderActivePrimaryAction.completeTrip;
-  }
-
   if (resolvedEntry == null ||
       resolvedEntry.legIndex != trip.activeLegIndex ||
       resolvedEntry.itemKind != ScheduleEntryKind.goal) {
     return null;
   }
 
-  return GroupLeaderActivePrimaryAction.arriveAtGoal;
+  return trip.completedLegIndex >= 0
+      ? GroupLeaderActivePrimaryAction.completeTrip
+      : GroupLeaderActivePrimaryAction.arriveAtGoal;
 }
