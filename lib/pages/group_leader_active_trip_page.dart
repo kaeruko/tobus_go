@@ -12,6 +12,7 @@ import '../providers/member_nav_progress_provider.dart';
 import '../providers/trip_provider.dart';
 import '../services/trip_service.dart';
 import '../widgets/active_trip_navigation_view.dart';
+import '../widgets/app_navigation_bar.dart';
 import '../widgets/active_trip_realtime_actions.dart';
 import '../widgets/group_leader_route_replan_panel.dart';
 import '../widgets/trip_navigation_status_card.dart';
@@ -153,9 +154,10 @@ class _GroupLeaderActiveTripBodyState
   }
 
   Widget _buildNavigation(Trip trip, MemberUiState uiState) {
+    final city = ref.watch(cityProfileProvider).city;
     final appName = localizedCityAppName(
       AppLocalizations.of(context),
-      ref.watch(cityProfileProvider).city,
+      city,
     );
     final primaryAction = resolveGroupLeaderActivePrimaryAction(
       trip,
@@ -172,6 +174,10 @@ class _GroupLeaderActiveTripBodyState
           appName: appName,
           tripTitle: trip.displayTitle,
           contextLabel: AppLocalizations.of(context).groupLeaderTraveling,
+          brand: cityBrandNavigationTitle(
+            city: city,
+            fallbackTitle: appName,
+          ),
         ),
         leading: IconButton(
           tooltip: AppLocalizations.of(context).groupGuideTitle,
