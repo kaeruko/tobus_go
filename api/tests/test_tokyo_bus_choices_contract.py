@@ -107,6 +107,8 @@ class TokyoBusChoicesContractTest(unittest.TestCase):
         buses = [step for step in detailed if step["kind"] == "bus"]
         self.assertEqual(len(buses), 1)
         self.assertEqual(buses[0]["trip_id"], "fast")
+        self.assertEqual(buses[0]["departureStopId"], "A")
+        self.assertEqual(buses[0]["arrivalPoleId"], "B")
         self.assertEqual((buses[0]["departure_time"], buses[0]["arrival_time"]),
                          ("10:01", "10:10"))
 
