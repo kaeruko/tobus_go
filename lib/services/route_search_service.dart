@@ -130,6 +130,7 @@ class ApiRouteSearchService implements RouteSearchService {
         throw const FormatException('route candidate must be an object');
       }
       final map = Map<String, dynamic>.from(rawCandidate);
+      _validateResolvedBusIdentity(map);
       _validateResolvedRailIdentity(map);
       if (map['destination_name'] == null ||
           map['destination_name'].toString().trim().isEmpty) {
@@ -180,6 +181,32 @@ class ApiRouteSearchService implements RouteSearchService {
       }
     }
     return false;
+  }
+
+  static void _validateResolvedBusIdentity(Map<String, dynamic> candidate) {
+    final steps = candidate['steps'];
+    if (steps is! List) {
+      throw const FormatException('route candidate is missing steps list');
+    }
+    for (final rawStep in steps) {
+      if (rawStep is! Map) {
+        throw const FormatException('route step must be an object');
+      }
+      if (rawStep['kind'] != 'bus') continue;
+      final stepId = rawStep['step_id']?.toString() ?? '';
+      final tripId = rawStep['trip_id']?.toString().trim() ?? '';
+      final routeId = rawStep['route_id']?.toString().trim() ?? '';
+      if (tripId.isEmpty) {
+        throw FormatException(
+          'bus route step is missing exact GTFS trip_id: $stepId',
+        );
+      }
+      if (routeId.isEmpty) {
+        throw FormatException(
+          'bus route step is missing exact GTFS route_id: $stepId',
+        );
+      }
+    }
   }
 
   static void _validateResolvedRailIdentity(Map<String, dynamic> candidate) {
