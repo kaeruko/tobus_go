@@ -258,7 +258,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
           originNameEn: state.fromNameEn,
           destinationNameEn: state.toNameEn,
           startTime: searchTime,
-          preference: state.pref,
+          preference: state.pref ?? 'fewTransfers',
           busOnly: state.busOnly,
         ),
       );
