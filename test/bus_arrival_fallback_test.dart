@@ -82,6 +82,39 @@ void main() {
     );
   });
 
+  test('known onboard bus is completed when realtime disappears after arrival time', () {
+    expect(
+      shouldAssumeBusArrivedAfterRealtimeLoss(
+        now: DateTime(2026, 10, 5, 17, 2),
+        plannedArrivalAt: DateTime(2026, 10, 5, 17, 0),
+        knownOnboard: true,
+      ),
+      isTrue,
+    );
+  });
+
+  test('realtime loss does not complete a bus before planned arrival', () {
+    expect(
+      shouldAssumeBusArrivedAfterRealtimeLoss(
+        now: DateTime(2026, 10, 5, 16, 59, 59),
+        plannedArrivalAt: DateTime(2026, 10, 5, 17, 0),
+        knownOnboard: true,
+      ),
+      isFalse,
+    );
+  });
+
+  test('realtime loss does not invent boarding', () {
+    expect(
+      shouldAssumeBusArrivedAfterRealtimeLoss(
+        now: DateTime(2026, 10, 5, 17, 2),
+        plannedArrivalAt: DateTime(2026, 10, 5, 17, 0),
+        knownOnboard: false,
+      ),
+      isFalse,
+    );
+  });
+
   test('assumed arrival moves progress to the destination stop', () {
     final step = StepSeg(
       stepId: 'bus-1',
