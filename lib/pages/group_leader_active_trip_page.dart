@@ -44,9 +44,6 @@ class GroupLeaderActiveTripPage extends StatelessWidget {
               .streamTrip(normalizedTripId)
               .map<Trip?>((trip) => trip),
         ),
-        memberNavProgressProvider.overrideWith(
-          (ref) => MemberNavProgressNotifier(),
-        ),
       ],
       child: _GroupLeaderActiveTripBody(onOpenManagement: onOpenManagement),
     );
@@ -76,16 +73,6 @@ class _GroupLeaderActiveTripBodyState
       TravelPhase.completed => l10n.travelPhaseCompleted,
       TravelPhase.cancelled => l10n.travelPhaseCancelled,
     };
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      ref.read(memberNavProgressProvider.notifier).reset();
-      ref.read(memberModeControllerProvider.notifier).initialize();
-    });
   }
 
   @override

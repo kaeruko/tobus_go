@@ -1,5 +1,17 @@
 # Solo / Group 移動中ナビゲーション共通化設計
 
+## Realtimeセッションのライフサイクル（2026-10-05）
+
+Solo、Group member／参加者プレビュー、Group leaderの移動画面、管理画面の経路見直しパネルは、同じProviderの購読でRealtime取得を開始する。画面から `reset()` や `initialize()` は呼ばない。
+
+- `memberNavProgressProvider` はTripスコープの `autoDispose`。Trip IDが変わると初期状態を作り、同じTripの更新や再描画では進捗を保持する。`tripStreamProvider` のoverrideに従うため、Solo／Member／Leaderで同じスコープ規則になる。
+- `memberModeControllerProvider` は進捗Notifierを購読し、そのセッションのポーリングを所有する。生成直後のmicrotaskで開始し、Provider／Widget構築中の進捗書き込みを避ける。Tripが読み込まれた時やControllerが再生成された時も自動で開始する。
+- Timerを登録してから初回取得する。Tripの読み取り中にセッションが再生成・破棄される場合も、Timerを確実に停止し、古いControllerの処理を中断する。実行中のAPI応答が後から返っても、破棄されたControllerや進捗へ書き込まない。
+
+以前は4入口がそれぞれ初回frame後のreset・initializeを所有していた。この分散を解消し、開始処理の欠落や画面による順序差を作れない構成にする。`MemberModeController` という名前でも、Solo／Group共通のControllerとして扱う。
+
+回帰テストはソース文字列の順序ではなく、画面相当のConsumerだけで初回取得・進捗反映・定期取得・終了が動くこと、Trip／Scopeごとに進捗が分離することを検証する。
+
 ## 目的
 
 Solo と Group で移動中ナビゲーションの実装が分岐し、片方だけ修正される事故を減らす。

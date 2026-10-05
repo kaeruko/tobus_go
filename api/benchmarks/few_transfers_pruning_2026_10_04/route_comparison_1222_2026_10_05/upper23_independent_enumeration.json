@@ -1,0 +1,2747 @@
+{
+  "scope": "Static three-ride enumeration through specified transfer points; no A*, dominance or search safety-limit changes",
+  "date": "2026-10-05",
+  "start": "12:22",
+  "day_type": "weekday",
+  "active_services": [
+    "01-170",
+    "06-170",
+    "09-170",
+    "13-170",
+    "21-170",
+    "25-170",
+    "29-170",
+    "33-170",
+    "37-170",
+    "41-170",
+    "45-170",
+    "49-170",
+    "53-170",
+    "57-170",
+    "61-170",
+    "65-170",
+    "69-170",
+    "77-170",
+    "81-171",
+    "85-170"
+  ],
+  "origin": [
+    "phys",
+    "odpt.BusstopPole:Toei.Jukkembashi.751.1"
+  ],
+  "origin_distance_m": 0.0,
+  "destination": [
+    35.658034,
+    139.701636
+  ],
+  "source_files": [
+    "api/data/app_data_search_labels.pkl",
+    "api/data/odpt_TrainTimetable.json",
+    "api/data/ToeiBus-GTFS/trips.txt",
+    "api/data/ToeiBus-GTFS/stop_times.txt",
+    "api/data/ToeiBus-GTFS/calendar.txt",
+    "api/data/ToeiBus-GTFS/stops.txt",
+    "api/data/Toei-Train-GTFS.zip"
+  ],
+  "first_bus_options": [
+    {
+      "route": "070",
+      "trip_id": "56208-1-61-170-1217",
+      "service_id": "61-170",
+      "trip_headsign": "上野松坂屋前",
+      "direction_id": "1",
+      "origin_stop_id": "0751-02",
+      "destination_stop_id": "1414-04",
+      "departure": 760.0,
+      "arrival": 766.0,
+      "board_sequence": 16,
+      "destination_sequence": 19,
+      "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1",
+      "physical_destination": [
+        "phys",
+        "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+      ],
+      "path_nodes": [
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Oshiage.276.5",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ]
+      ]
+    },
+    {
+      "route": "070",
+      "trip_id": "56208-1-61-170-1217",
+      "service_id": "61-170",
+      "trip_headsign": "上野松坂屋前",
+      "direction_id": "1",
+      "origin_stop_id": "0751-02",
+      "destination_stop_id": "1414-04",
+      "departure": 760.0,
+      "arrival": 766.0,
+      "board_sequence": 16,
+      "destination_sequence": 19,
+      "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1",
+      "physical_destination": [
+        "phys",
+        "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+      ],
+      "path_nodes": [
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Oshiage.276.5",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ]
+      ]
+    },
+    {
+      "route": "070",
+      "trip_id": "56208-1-61-170-1244",
+      "service_id": "61-170",
+      "trip_headsign": "上野松坂屋前",
+      "direction_id": "1",
+      "origin_stop_id": "0751-02",
+      "destination_stop_id": "1414-04",
+      "departure": 787.0,
+      "arrival": 793.0,
+      "board_sequence": 16,
+      "destination_sequence": 19,
+      "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1",
+      "physical_destination": [
+        "phys",
+        "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+      ],
+      "path_nodes": [
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Oshiage.276.5",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ]
+      ]
+    },
+    {
+      "route": "070",
+      "trip_id": "56208-1-61-170-1244",
+      "service_id": "61-170",
+      "trip_headsign": "上野松坂屋前",
+      "direction_id": "1",
+      "origin_stop_id": "0751-02",
+      "destination_stop_id": "1414-04",
+      "departure": 787.0,
+      "arrival": 793.0,
+      "board_sequence": 16,
+      "destination_sequence": 19,
+      "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1",
+      "physical_destination": [
+        "phys",
+        "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+      ],
+      "path_nodes": [
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Oshiage.276.5",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ]
+      ]
+    },
+    {
+      "route": "070",
+      "trip_id": "56208-1-61-170-1311",
+      "service_id": "61-170",
+      "trip_headsign": "上野松坂屋前",
+      "direction_id": "1",
+      "origin_stop_id": "0751-02",
+      "destination_stop_id": "1414-04",
+      "departure": 814.0,
+      "arrival": 820.0,
+      "board_sequence": 16,
+      "destination_sequence": 19,
+      "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1",
+      "physical_destination": [
+        "phys",
+        "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+      ],
+      "path_nodes": [
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Oshiage.276.5",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ]
+      ]
+    },
+    {
+      "route": "070",
+      "trip_id": "56208-1-61-170-1311",
+      "service_id": "61-170",
+      "trip_headsign": "上野松坂屋前",
+      "direction_id": "1",
+      "origin_stop_id": "0751-02",
+      "destination_stop_id": "1414-04",
+      "departure": 814.0,
+      "arrival": 820.0,
+      "board_sequence": 16,
+      "destination_sequence": 19,
+      "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1",
+      "physical_destination": [
+        "phys",
+        "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+      ],
+      "path_nodes": [
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Oshiage.276.5",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ]
+      ]
+    },
+    {
+      "route": "070",
+      "trip_id": "56208-1-61-170-1338",
+      "service_id": "61-170",
+      "trip_headsign": "上野松坂屋前",
+      "direction_id": "1",
+      "origin_stop_id": "0751-02",
+      "destination_stop_id": "1414-04",
+      "departure": 841.0,
+      "arrival": 847.0,
+      "board_sequence": 16,
+      "destination_sequence": 19,
+      "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1",
+      "physical_destination": [
+        "phys",
+        "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+      ],
+      "path_nodes": [
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Oshiage.276.5",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+        ]
+      ]
+    },
+    {
+      "route": "070",
+      "trip_id": "56208-1-61-170-1338",
+      "service_id": "61-170",
+      "trip_headsign": "上野松坂屋前",
+      "direction_id": "1",
+      "origin_stop_id": "0751-02",
+      "destination_stop_id": "1414-04",
+      "departure": 841.0,
+      "arrival": 847.0,
+      "board_sequence": 16,
+      "destination_sequence": 19,
+      "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1",
+      "physical_destination": [
+        "phys",
+        "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+      ],
+      "path_nodes": [
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.Oshiage.276.5",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ],
+        [
+          "line",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+          "buspat:odpt.BusroutePattern:Toei.Ue23.56208.1"
+        ]
+      ]
+    }
+  ],
+  "first_bus_neighbor_departures": [
+    {
+      "trip_id": "56208-1-61-170-1123",
+      "service_id": "61-170",
+      "departure": 706,
+      "arrival": 712
+    },
+    {
+      "trip_id": "56208-1-61-170-1150",
+      "service_id": "61-170",
+      "departure": 733,
+      "arrival": 739
+    },
+    {
+      "trip_id": "56208-1-61-170-1217",
+      "service_id": "61-170",
+      "departure": 760,
+      "arrival": 766
+    },
+    {
+      "trip_id": "56208-1-61-170-1244",
+      "service_id": "61-170",
+      "departure": 787,
+      "arrival": 793
+    }
+  ],
+  "train_gtfs_neighbor_departures": [
+    {
+      "trip_id": "111176K0",
+      "route_id": "1",
+      "headsign": "羽田空港",
+      "departure": 768.0,
+      "arrival": 784.0,
+      "stations": [
+        "本所吾妻橋",
+        "浅草",
+        "蔵前",
+        "浅草橋",
+        "東日本橋",
+        "人形町",
+        "日本橋",
+        "宝町",
+        "東銀座",
+        "新橋"
+      ],
+      "stop_ids": [
+        "119",
+        "118",
+        "117",
+        "116",
+        "115",
+        "114",
+        "113",
+        "112",
+        "111",
+        "110"
+      ],
+      "stop_codes": [
+        "A-19",
+        "A-18",
+        "A-17",
+        "A-16",
+        "A-15",
+        "A-14",
+        "A-13",
+        "A-12",
+        "A-11",
+        "A-10"
+      ],
+      "departure_wire": "12:48:00",
+      "arrival_wire": "13:04:00"
+    },
+    {
+      "trip_id": "111126N0",
+      "route_id": "1",
+      "headsign": "西馬込",
+      "departure": 773.0,
+      "arrival": 789.0,
+      "stations": [
+        "本所吾妻橋",
+        "浅草",
+        "蔵前",
+        "浅草橋",
+        "東日本橋",
+        "人形町",
+        "日本橋",
+        "宝町",
+        "東銀座",
+        "新橋"
+      ],
+      "stop_ids": [
+        "119",
+        "118",
+        "117",
+        "116",
+        "115",
+        "114",
+        "113",
+        "112",
+        "111",
+        "110"
+      ],
+      "stop_codes": [
+        "A-19",
+        "A-18",
+        "A-17",
+        "A-16",
+        "A-15",
+        "A-14",
+        "A-13",
+        "A-12",
+        "A-11",
+        "A-10"
+      ],
+      "departure_wire": "12:53:00",
+      "arrival_wire": "13:09:00"
+    }
+  ],
+  "enumerated_combinations": 642,
+  "best_combinations": [
+    {
+      "first": {
+        "route": "070",
+        "trip_id": "56208-1-61-170-1217",
+        "service_id": "61-170",
+        "trip_headsign": "上野松坂屋前",
+        "direction_id": "1",
+        "origin_stop_id": "0751-02",
+        "destination_stop_id": "1414-04",
+        "departure": 760.0,
+        "arrival": 766.0,
+        "board_sequence": 16,
+        "destination_sequence": 19,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Oshiage.276.5",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ]
+        ]
+      },
+      "rail": {
+        "departure": 773.0,
+        "arrival": 789.0,
+        "train_number": "1126N",
+        "source_run_key": "odpt.TrainTimetable:Toei.Asakusa.1126N.Weekday",
+        "run_id": "2026-10-05|odpt.TrainTimetable:Toei.Asakusa.1126N.Weekday|part:0",
+        "board_sequence": 1,
+        "destination_sequence": 10,
+        "path_nodes": [
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HonjoAzumabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusa",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Kuramae",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Ningyocho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Nihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Takaracho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiGinza",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Shimbashi",
+            "odpt.Railway:Toei.Asakusa"
+          ]
+        ],
+        "train_gtfs_identity_matches": [
+          {
+            "trip_id": "111126N0",
+            "route_id": "1",
+            "headsign": "西馬込",
+            "departure": 773.0,
+            "arrival": 789.0,
+            "stations": [
+              "本所吾妻橋",
+              "浅草",
+              "蔵前",
+              "浅草橋",
+              "東日本橋",
+              "人形町",
+              "日本橋",
+              "宝町",
+              "東銀座",
+              "新橋"
+            ],
+            "stop_ids": [
+              "119",
+              "118",
+              "117",
+              "116",
+              "115",
+              "114",
+              "113",
+              "112",
+              "111",
+              "110"
+            ],
+            "stop_codes": [
+              "A-19",
+              "A-18",
+              "A-17",
+              "A-16",
+              "A-15",
+              "A-14",
+              "A-13",
+              "A-12",
+              "A-11",
+              "A-10"
+            ],
+            "departure_wire": "12:53:00",
+            "arrival_wire": "13:09:00"
+          }
+        ]
+      },
+      "last": {
+        "route": "006",
+        "trip_id": "08501-2-09-170-1315",
+        "service_id": "09-170",
+        "trip_headsign": "渋谷駅前",
+        "direction_id": "0",
+        "origin_stop_id": "0737-04",
+        "destination_stop_id": "0636-08",
+        "departure": 795.0,
+        "arrival": 833.0,
+        "board_sequence": 1,
+        "destination_sequence": 16,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.T01.8501.2",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.ShibuyaStation.636.8"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStation.737.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStationKitaguchi.2034.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToagoseiHonsha.1159.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Toranomon.1036.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShosenMitsuiHonshaBiru.2033.6",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Tameike.909.1",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AkasakaArkHills.16.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiItchomeStation.1610.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiYonchome.1611.7",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiStation.1609.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.EXTheaterRoppongi.1613.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.NishiAzabu.1130.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.MinamiAoyamaNanachome.1469.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AoyamagakuinChutobu.7.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaSanchome.5.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaStation.636.8",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ]
+        ]
+      },
+      "origin_walk_m": 19.295650372608826,
+      "first_bus_to_rail_walk_m": 82.03413059422377,
+      "rail_ready_including_2min": 769.0254266324278,
+      "rail_alight_minutes": 1,
+      "rail_to_last_bus_walk_m": 93.15889396937415,
+      "last_bus_ready": 791.1644861746172,
+      "final_walk_m": 102.98687970205617,
+      "final_arrival": 834.2873359962757
+    },
+    {
+      "first": {
+        "route": "070",
+        "trip_id": "56208-1-61-170-1217",
+        "service_id": "61-170",
+        "trip_headsign": "上野松坂屋前",
+        "direction_id": "1",
+        "origin_stop_id": "0751-02",
+        "destination_stop_id": "1414-04",
+        "departure": 760.0,
+        "arrival": 766.0,
+        "board_sequence": 16,
+        "destination_sequence": 19,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Oshiage.276.5",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ]
+        ]
+      },
+      "rail": {
+        "departure": 773.0,
+        "arrival": 789.0,
+        "train_number": "1126N",
+        "source_run_key": "odpt.TrainTimetable:Toei.Asakusa.1126N.Weekday",
+        "run_id": "2026-10-05|odpt.TrainTimetable:Toei.Asakusa.1126N.Weekday|part:0",
+        "board_sequence": 1,
+        "destination_sequence": 10,
+        "path_nodes": [
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HonjoAzumabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusa",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Kuramae",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Ningyocho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Nihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Takaracho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiGinza",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Shimbashi",
+            "odpt.Railway:Toei.Asakusa"
+          ]
+        ],
+        "train_gtfs_identity_matches": [
+          {
+            "trip_id": "111126N0",
+            "route_id": "1",
+            "headsign": "西馬込",
+            "departure": 773.0,
+            "arrival": 789.0,
+            "stations": [
+              "本所吾妻橋",
+              "浅草",
+              "蔵前",
+              "浅草橋",
+              "東日本橋",
+              "人形町",
+              "日本橋",
+              "宝町",
+              "東銀座",
+              "新橋"
+            ],
+            "stop_ids": [
+              "119",
+              "118",
+              "117",
+              "116",
+              "115",
+              "114",
+              "113",
+              "112",
+              "111",
+              "110"
+            ],
+            "stop_codes": [
+              "A-19",
+              "A-18",
+              "A-17",
+              "A-16",
+              "A-15",
+              "A-14",
+              "A-13",
+              "A-12",
+              "A-11",
+              "A-10"
+            ],
+            "departure_wire": "12:53:00",
+            "arrival_wire": "13:09:00"
+          }
+        ]
+      },
+      "last": {
+        "route": "006",
+        "trip_id": "08501-2-09-170-1330",
+        "service_id": "09-170",
+        "trip_headsign": "渋谷駅前",
+        "direction_id": "0",
+        "origin_stop_id": "0737-04",
+        "destination_stop_id": "0636-08",
+        "departure": 810.0,
+        "arrival": 849.0,
+        "board_sequence": 1,
+        "destination_sequence": 16,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.T01.8501.2",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.ShibuyaStation.636.8"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStation.737.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStationKitaguchi.2034.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToagoseiHonsha.1159.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Toranomon.1036.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShosenMitsuiHonshaBiru.2033.6",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Tameike.909.1",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AkasakaArkHills.16.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiItchomeStation.1610.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiYonchome.1611.7",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiStation.1609.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.EXTheaterRoppongi.1613.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.NishiAzabu.1130.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.MinamiAoyamaNanachome.1469.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AoyamagakuinChutobu.7.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaSanchome.5.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaStation.636.8",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ]
+        ]
+      },
+      "origin_walk_m": 19.295650372608826,
+      "first_bus_to_rail_walk_m": 82.03413059422377,
+      "rail_ready_including_2min": 769.0254266324278,
+      "rail_alight_minutes": 1,
+      "rail_to_last_bus_walk_m": 93.15889396937415,
+      "last_bus_ready": 791.1644861746172,
+      "final_walk_m": 102.98687970205617,
+      "final_arrival": 850.2873359962757
+    },
+    {
+      "first": {
+        "route": "070",
+        "trip_id": "56208-1-61-170-1217",
+        "service_id": "61-170",
+        "trip_headsign": "上野松坂屋前",
+        "direction_id": "1",
+        "origin_stop_id": "0751-02",
+        "destination_stop_id": "1414-04",
+        "departure": 760.0,
+        "arrival": 766.0,
+        "board_sequence": 16,
+        "destination_sequence": 19,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Oshiage.276.5",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ]
+        ]
+      },
+      "rail": {
+        "departure": 783.0,
+        "arrival": 799.0,
+        "train_number": "1262H",
+        "source_run_key": "odpt.TrainTimetable:Toei.Asakusa.1262H.Weekday",
+        "run_id": "2026-10-05|odpt.TrainTimetable:Toei.Asakusa.1262H.Weekday|part:0",
+        "board_sequence": 1,
+        "destination_sequence": 10,
+        "path_nodes": [
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HonjoAzumabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusa",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Kuramae",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Ningyocho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Nihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Takaracho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiGinza",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Shimbashi",
+            "odpt.Railway:Toei.Asakusa"
+          ]
+        ],
+        "train_gtfs_identity_matches": []
+      },
+      "last": {
+        "route": "006",
+        "trip_id": "08501-2-09-170-1330",
+        "service_id": "09-170",
+        "trip_headsign": "渋谷駅前",
+        "direction_id": "0",
+        "origin_stop_id": "0737-04",
+        "destination_stop_id": "0636-08",
+        "departure": 810.0,
+        "arrival": 849.0,
+        "board_sequence": 1,
+        "destination_sequence": 16,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.T01.8501.2",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.ShibuyaStation.636.8"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStation.737.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStationKitaguchi.2034.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToagoseiHonsha.1159.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Toranomon.1036.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShosenMitsuiHonshaBiru.2033.6",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Tameike.909.1",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AkasakaArkHills.16.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiItchomeStation.1610.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiYonchome.1611.7",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiStation.1609.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.EXTheaterRoppongi.1613.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.NishiAzabu.1130.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.MinamiAoyamaNanachome.1469.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AoyamagakuinChutobu.7.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaSanchome.5.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaStation.636.8",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ]
+        ]
+      },
+      "origin_walk_m": 19.295650372608826,
+      "first_bus_to_rail_walk_m": 82.03413059422377,
+      "rail_ready_including_2min": 769.0254266324278,
+      "rail_alight_minutes": 1,
+      "rail_to_last_bus_walk_m": 93.15889396937415,
+      "last_bus_ready": 801.1644861746172,
+      "final_walk_m": 102.98687970205617,
+      "final_arrival": 850.2873359962757
+    },
+    {
+      "first": {
+        "route": "070",
+        "trip_id": "56208-1-61-170-1217",
+        "service_id": "61-170",
+        "trip_headsign": "上野松坂屋前",
+        "direction_id": "1",
+        "origin_stop_id": "0751-02",
+        "destination_stop_id": "1414-04",
+        "departure": 760.0,
+        "arrival": 766.0,
+        "board_sequence": 16,
+        "destination_sequence": 19,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Oshiage.276.5",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ]
+        ]
+      },
+      "rail": {
+        "departure": 788.0,
+        "arrival": 804.0,
+        "train_number": "1186K",
+        "source_run_key": "odpt.TrainTimetable:Toei.Asakusa.1186K.Weekday",
+        "run_id": "2026-10-05|odpt.TrainTimetable:Toei.Asakusa.1186K.Weekday|part:0",
+        "board_sequence": 1,
+        "destination_sequence": 10,
+        "path_nodes": [
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HonjoAzumabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusa",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Kuramae",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Ningyocho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Nihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Takaracho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiGinza",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Shimbashi",
+            "odpt.Railway:Toei.Asakusa"
+          ]
+        ],
+        "train_gtfs_identity_matches": []
+      },
+      "last": {
+        "route": "006",
+        "trip_id": "08501-2-09-170-1330",
+        "service_id": "09-170",
+        "trip_headsign": "渋谷駅前",
+        "direction_id": "0",
+        "origin_stop_id": "0737-04",
+        "destination_stop_id": "0636-08",
+        "departure": 810.0,
+        "arrival": 849.0,
+        "board_sequence": 1,
+        "destination_sequence": 16,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.T01.8501.2",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.ShibuyaStation.636.8"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStation.737.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStationKitaguchi.2034.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToagoseiHonsha.1159.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Toranomon.1036.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShosenMitsuiHonshaBiru.2033.6",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Tameike.909.1",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AkasakaArkHills.16.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiItchomeStation.1610.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiYonchome.1611.7",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiStation.1609.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.EXTheaterRoppongi.1613.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.NishiAzabu.1130.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.MinamiAoyamaNanachome.1469.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AoyamagakuinChutobu.7.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaSanchome.5.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaStation.636.8",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ]
+        ]
+      },
+      "origin_walk_m": 19.295650372608826,
+      "first_bus_to_rail_walk_m": 82.03413059422377,
+      "rail_ready_including_2min": 769.0254266324278,
+      "rail_alight_minutes": 1,
+      "rail_to_last_bus_walk_m": 93.15889396937415,
+      "last_bus_ready": 806.1644861746172,
+      "final_walk_m": 102.98687970205617,
+      "final_arrival": 850.2873359962757
+    },
+    {
+      "first": {
+        "route": "070",
+        "trip_id": "56208-1-61-170-1217",
+        "service_id": "61-170",
+        "trip_headsign": "上野松坂屋前",
+        "direction_id": "1",
+        "origin_stop_id": "0751-02",
+        "destination_stop_id": "1414-04",
+        "departure": 760.0,
+        "arrival": 766.0,
+        "board_sequence": 16,
+        "destination_sequence": 19,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Oshiage.276.5",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ]
+        ]
+      },
+      "rail": {
+        "departure": 773.0,
+        "arrival": 789.0,
+        "train_number": "1126N",
+        "source_run_key": "odpt.TrainTimetable:Toei.Asakusa.1126N.Weekday",
+        "run_id": "2026-10-05|odpt.TrainTimetable:Toei.Asakusa.1126N.Weekday|part:0",
+        "board_sequence": 1,
+        "destination_sequence": 10,
+        "path_nodes": [
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HonjoAzumabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusa",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Kuramae",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Ningyocho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Nihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Takaracho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiGinza",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Shimbashi",
+            "odpt.Railway:Toei.Asakusa"
+          ]
+        ],
+        "train_gtfs_identity_matches": [
+          {
+            "trip_id": "111126N0",
+            "route_id": "1",
+            "headsign": "西馬込",
+            "departure": 773.0,
+            "arrival": 789.0,
+            "stations": [
+              "本所吾妻橋",
+              "浅草",
+              "蔵前",
+              "浅草橋",
+              "東日本橋",
+              "人形町",
+              "日本橋",
+              "宝町",
+              "東銀座",
+              "新橋"
+            ],
+            "stop_ids": [
+              "119",
+              "118",
+              "117",
+              "116",
+              "115",
+              "114",
+              "113",
+              "112",
+              "111",
+              "110"
+            ],
+            "stop_codes": [
+              "A-19",
+              "A-18",
+              "A-17",
+              "A-16",
+              "A-15",
+              "A-14",
+              "A-13",
+              "A-12",
+              "A-11",
+              "A-10"
+            ],
+            "departure_wire": "12:53:00",
+            "arrival_wire": "13:09:00"
+          }
+        ]
+      },
+      "last": {
+        "route": "006",
+        "trip_id": "08501-2-09-170-1345",
+        "service_id": "09-170",
+        "trip_headsign": "渋谷駅前",
+        "direction_id": "0",
+        "origin_stop_id": "0737-04",
+        "destination_stop_id": "0636-08",
+        "departure": 825.0,
+        "arrival": 864.0,
+        "board_sequence": 1,
+        "destination_sequence": 16,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.T01.8501.2",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.ShibuyaStation.636.8"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStation.737.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStationKitaguchi.2034.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToagoseiHonsha.1159.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Toranomon.1036.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShosenMitsuiHonshaBiru.2033.6",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Tameike.909.1",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AkasakaArkHills.16.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiItchomeStation.1610.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiYonchome.1611.7",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiStation.1609.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.EXTheaterRoppongi.1613.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.NishiAzabu.1130.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.MinamiAoyamaNanachome.1469.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AoyamagakuinChutobu.7.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaSanchome.5.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaStation.636.8",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ]
+        ]
+      },
+      "origin_walk_m": 19.295650372608826,
+      "first_bus_to_rail_walk_m": 82.03413059422377,
+      "rail_ready_including_2min": 769.0254266324278,
+      "rail_alight_minutes": 1,
+      "rail_to_last_bus_walk_m": 93.15889396937415,
+      "last_bus_ready": 791.1644861746172,
+      "final_walk_m": 102.98687970205617,
+      "final_arrival": 865.2873359962757
+    },
+    {
+      "first": {
+        "route": "070",
+        "trip_id": "56208-1-61-170-1217",
+        "service_id": "61-170",
+        "trip_headsign": "上野松坂屋前",
+        "direction_id": "1",
+        "origin_stop_id": "0751-02",
+        "destination_stop_id": "1414-04",
+        "departure": 760.0,
+        "arrival": 766.0,
+        "board_sequence": 16,
+        "destination_sequence": 19,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Oshiage.276.5",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ]
+        ]
+      },
+      "rail": {
+        "departure": 783.0,
+        "arrival": 799.0,
+        "train_number": "1262H",
+        "source_run_key": "odpt.TrainTimetable:Toei.Asakusa.1262H.Weekday",
+        "run_id": "2026-10-05|odpt.TrainTimetable:Toei.Asakusa.1262H.Weekday|part:0",
+        "board_sequence": 1,
+        "destination_sequence": 10,
+        "path_nodes": [
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HonjoAzumabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusa",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Kuramae",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Ningyocho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Nihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Takaracho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiGinza",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Shimbashi",
+            "odpt.Railway:Toei.Asakusa"
+          ]
+        ],
+        "train_gtfs_identity_matches": []
+      },
+      "last": {
+        "route": "006",
+        "trip_id": "08501-2-09-170-1345",
+        "service_id": "09-170",
+        "trip_headsign": "渋谷駅前",
+        "direction_id": "0",
+        "origin_stop_id": "0737-04",
+        "destination_stop_id": "0636-08",
+        "departure": 825.0,
+        "arrival": 864.0,
+        "board_sequence": 1,
+        "destination_sequence": 16,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.T01.8501.2",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.ShibuyaStation.636.8"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStation.737.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStationKitaguchi.2034.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToagoseiHonsha.1159.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Toranomon.1036.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShosenMitsuiHonshaBiru.2033.6",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Tameike.909.1",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AkasakaArkHills.16.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiItchomeStation.1610.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiYonchome.1611.7",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiStation.1609.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.EXTheaterRoppongi.1613.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.NishiAzabu.1130.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.MinamiAoyamaNanachome.1469.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AoyamagakuinChutobu.7.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaSanchome.5.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaStation.636.8",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ]
+        ]
+      },
+      "origin_walk_m": 19.295650372608826,
+      "first_bus_to_rail_walk_m": 82.03413059422377,
+      "rail_ready_including_2min": 769.0254266324278,
+      "rail_alight_minutes": 1,
+      "rail_to_last_bus_walk_m": 93.15889396937415,
+      "last_bus_ready": 801.1644861746172,
+      "final_walk_m": 102.98687970205617,
+      "final_arrival": 865.2873359962757
+    },
+    {
+      "first": {
+        "route": "070",
+        "trip_id": "56208-1-61-170-1217",
+        "service_id": "61-170",
+        "trip_headsign": "上野松坂屋前",
+        "direction_id": "1",
+        "origin_stop_id": "0751-02",
+        "destination_stop_id": "1414-04",
+        "departure": 760.0,
+        "arrival": 766.0,
+        "board_sequence": 16,
+        "destination_sequence": 19,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Oshiage.276.5",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ]
+        ]
+      },
+      "rail": {
+        "departure": 788.0,
+        "arrival": 804.0,
+        "train_number": "1186K",
+        "source_run_key": "odpt.TrainTimetable:Toei.Asakusa.1186K.Weekday",
+        "run_id": "2026-10-05|odpt.TrainTimetable:Toei.Asakusa.1186K.Weekday|part:0",
+        "board_sequence": 1,
+        "destination_sequence": 10,
+        "path_nodes": [
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HonjoAzumabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusa",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Kuramae",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Ningyocho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Nihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Takaracho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiGinza",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Shimbashi",
+            "odpt.Railway:Toei.Asakusa"
+          ]
+        ],
+        "train_gtfs_identity_matches": []
+      },
+      "last": {
+        "route": "006",
+        "trip_id": "08501-2-09-170-1345",
+        "service_id": "09-170",
+        "trip_headsign": "渋谷駅前",
+        "direction_id": "0",
+        "origin_stop_id": "0737-04",
+        "destination_stop_id": "0636-08",
+        "departure": 825.0,
+        "arrival": 864.0,
+        "board_sequence": 1,
+        "destination_sequence": 16,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.T01.8501.2",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.ShibuyaStation.636.8"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStation.737.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStationKitaguchi.2034.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToagoseiHonsha.1159.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Toranomon.1036.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShosenMitsuiHonshaBiru.2033.6",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Tameike.909.1",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AkasakaArkHills.16.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiItchomeStation.1610.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiYonchome.1611.7",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiStation.1609.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.EXTheaterRoppongi.1613.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.NishiAzabu.1130.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.MinamiAoyamaNanachome.1469.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AoyamagakuinChutobu.7.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaSanchome.5.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaStation.636.8",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ]
+        ]
+      },
+      "origin_walk_m": 19.295650372608826,
+      "first_bus_to_rail_walk_m": 82.03413059422377,
+      "rail_ready_including_2min": 769.0254266324278,
+      "rail_alight_minutes": 1,
+      "rail_to_last_bus_walk_m": 93.15889396937415,
+      "last_bus_ready": 806.1644861746172,
+      "final_walk_m": 102.98687970205617,
+      "final_arrival": 865.2873359962757
+    },
+    {
+      "first": {
+        "route": "070",
+        "trip_id": "56208-1-61-170-1217",
+        "service_id": "61-170",
+        "trip_headsign": "上野松坂屋前",
+        "direction_id": "1",
+        "origin_stop_id": "0751-02",
+        "destination_stop_id": "1414-04",
+        "departure": 760.0,
+        "arrival": 766.0,
+        "board_sequence": 16,
+        "destination_sequence": 19,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Oshiage.276.5",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ]
+        ]
+      },
+      "rail": {
+        "departure": 793.0,
+        "arrival": 809.0,
+        "train_number": "1220N",
+        "source_run_key": "odpt.TrainTimetable:Toei.Asakusa.1220N.Weekday",
+        "run_id": "2026-10-05|odpt.TrainTimetable:Toei.Asakusa.1220N.Weekday|part:0",
+        "board_sequence": 1,
+        "destination_sequence": 10,
+        "path_nodes": [
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HonjoAzumabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusa",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Kuramae",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Ningyocho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Nihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Takaracho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiGinza",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Shimbashi",
+            "odpt.Railway:Toei.Asakusa"
+          ]
+        ],
+        "train_gtfs_identity_matches": []
+      },
+      "last": {
+        "route": "006",
+        "trip_id": "08501-2-09-170-1345",
+        "service_id": "09-170",
+        "trip_headsign": "渋谷駅前",
+        "direction_id": "0",
+        "origin_stop_id": "0737-04",
+        "destination_stop_id": "0636-08",
+        "departure": 825.0,
+        "arrival": 864.0,
+        "board_sequence": 1,
+        "destination_sequence": 16,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.T01.8501.2",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.ShibuyaStation.636.8"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStation.737.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStationKitaguchi.2034.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToagoseiHonsha.1159.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Toranomon.1036.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShosenMitsuiHonshaBiru.2033.6",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Tameike.909.1",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AkasakaArkHills.16.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiItchomeStation.1610.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiYonchome.1611.7",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiStation.1609.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.EXTheaterRoppongi.1613.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.NishiAzabu.1130.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.MinamiAoyamaNanachome.1469.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AoyamagakuinChutobu.7.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaSanchome.5.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaStation.636.8",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ]
+        ]
+      },
+      "origin_walk_m": 19.295650372608826,
+      "first_bus_to_rail_walk_m": 82.03413059422377,
+      "rail_ready_including_2min": 769.0254266324278,
+      "rail_alight_minutes": 1,
+      "rail_to_last_bus_walk_m": 93.15889396937415,
+      "last_bus_ready": 811.1644861746172,
+      "final_walk_m": 102.98687970205617,
+      "final_arrival": 865.2873359962757
+    },
+    {
+      "first": {
+        "route": "070",
+        "trip_id": "56208-1-61-170-1217",
+        "service_id": "61-170",
+        "trip_headsign": "上野松坂屋前",
+        "direction_id": "1",
+        "origin_stop_id": "0751-02",
+        "destination_stop_id": "1414-04",
+        "departure": 760.0,
+        "arrival": 766.0,
+        "board_sequence": 16,
+        "destination_sequence": 19,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Oshiage.276.5",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ]
+        ]
+      },
+      "rail": {
+        "departure": 798.0,
+        "arrival": 814.0,
+        "train_number": "1374H",
+        "source_run_key": "odpt.TrainTimetable:Toei.Asakusa.1374H.Weekday",
+        "run_id": "2026-10-05|odpt.TrainTimetable:Toei.Asakusa.1374H.Weekday|part:0",
+        "board_sequence": 1,
+        "destination_sequence": 10,
+        "path_nodes": [
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HonjoAzumabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusa",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Kuramae",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Ningyocho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Nihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Takaracho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiGinza",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Shimbashi",
+            "odpt.Railway:Toei.Asakusa"
+          ]
+        ],
+        "train_gtfs_identity_matches": []
+      },
+      "last": {
+        "route": "006",
+        "trip_id": "08501-2-09-170-1345",
+        "service_id": "09-170",
+        "trip_headsign": "渋谷駅前",
+        "direction_id": "0",
+        "origin_stop_id": "0737-04",
+        "destination_stop_id": "0636-08",
+        "departure": 825.0,
+        "arrival": 864.0,
+        "board_sequence": 1,
+        "destination_sequence": 16,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.T01.8501.2",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.ShibuyaStation.636.8"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStation.737.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStationKitaguchi.2034.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToagoseiHonsha.1159.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Toranomon.1036.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShosenMitsuiHonshaBiru.2033.6",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Tameike.909.1",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AkasakaArkHills.16.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiItchomeStation.1610.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiYonchome.1611.7",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiStation.1609.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.EXTheaterRoppongi.1613.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.NishiAzabu.1130.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.MinamiAoyamaNanachome.1469.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AoyamagakuinChutobu.7.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaSanchome.5.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaStation.636.8",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ]
+        ]
+      },
+      "origin_walk_m": 19.295650372608826,
+      "first_bus_to_rail_walk_m": 82.03413059422377,
+      "rail_ready_including_2min": 769.0254266324278,
+      "rail_alight_minutes": 1,
+      "rail_to_last_bus_walk_m": 93.15889396937415,
+      "last_bus_ready": 816.1644861746172,
+      "final_walk_m": 102.98687970205617,
+      "final_arrival": 865.2873359962757
+    },
+    {
+      "first": {
+        "route": "070",
+        "trip_id": "56208-1-61-170-1217",
+        "service_id": "61-170",
+        "trip_headsign": "上野松坂屋前",
+        "direction_id": "1",
+        "origin_stop_id": "0751-02",
+        "destination_stop_id": "1414-04",
+        "departure": 760.0,
+        "arrival": 766.0,
+        "board_sequence": 16,
+        "destination_sequence": 19,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Jukkembashi.751.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Oshiage.276.5",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.TOKYOSKYTREEStationIriguchi.1120.2",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.HonjoAzumabashi.1414.4",
+            "buspat:odpt.BusroutePattern:Toei.Ue23.56210.1"
+          ]
+        ]
+      },
+      "rail": {
+        "departure": 803.0,
+        "arrival": 819.0,
+        "train_number": "1364H",
+        "source_run_key": "odpt.TrainTimetable:Toei.Asakusa.1364H.Weekday",
+        "run_id": "2026-10-05|odpt.TrainTimetable:Toei.Asakusa.1364H.Weekday|part:0",
+        "board_sequence": 1,
+        "destination_sequence": 10,
+        "path_nodes": [
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HonjoAzumabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusa",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Kuramae",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Asakusabashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiNihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Ningyocho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Nihombashi",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Takaracho",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.HigashiGinza",
+            "odpt.Railway:Toei.Asakusa"
+          ],
+          [
+            "line",
+            "odpt.Station:Toei.Asakusa.Shimbashi",
+            "odpt.Railway:Toei.Asakusa"
+          ]
+        ],
+        "train_gtfs_identity_matches": []
+      },
+      "last": {
+        "route": "006",
+        "trip_id": "08501-2-09-170-1345",
+        "service_id": "09-170",
+        "trip_headsign": "渋谷駅前",
+        "direction_id": "0",
+        "origin_stop_id": "0737-04",
+        "destination_stop_id": "0636-08",
+        "departure": 825.0,
+        "arrival": 864.0,
+        "board_sequence": 1,
+        "destination_sequence": 16,
+        "line_pattern": "buspat:odpt.BusroutePattern:Toei.T01.8501.2",
+        "physical_destination": [
+          "phys",
+          "odpt.BusstopPole:Toei.ShibuyaStation.636.8"
+        ],
+        "path_nodes": [
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStation.737.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShimbashiStationKitaguchi.2034.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ToagoseiHonsha.1159.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Toranomon.1036.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShosenMitsuiHonshaBiru.2033.6",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.Tameike.909.1",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AkasakaArkHills.16.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiItchomeStation.1610.5",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiYonchome.1611.7",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.RoppongiStation.1609.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.EXTheaterRoppongi.1613.4",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.NishiAzabu.1130.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.MinamiAoyamaNanachome.1469.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.AoyamagakuinChutobu.7.2",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaSanchome.5.3",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ],
+          [
+            "line",
+            "odpt.BusstopPole:Toei.ShibuyaStation.636.8",
+            "buspat:odpt.BusroutePattern:Toei.T01.8501.2"
+          ]
+        ]
+      },
+      "origin_walk_m": 19.295650372608826,
+      "first_bus_to_rail_walk_m": 82.03413059422377,
+      "rail_ready_including_2min": 769.0254266324278,
+      "rail_alight_minutes": 1,
+      "rail_to_last_bus_walk_m": 93.15889396937415,
+      "last_bus_ready": 821.1644861746172,
+      "final_walk_m": 102.98687970205617,
+      "final_arrival": 865.2873359962757
+    }
+  ]
+}

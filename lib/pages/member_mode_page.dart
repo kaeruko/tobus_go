@@ -58,18 +58,6 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   final _tripService = TripService();
 
   @override
-  void initState() {
-    super.initState();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-
-      ref.read(memberNavProgressProvider.notifier).reset();
-      ref.read(memberModeControllerProvider.notifier).initialize();
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     final uiStateAsync = ref.watch(memberUiStateProvider);
     final city = ref.watch(cityProfileProvider).city;

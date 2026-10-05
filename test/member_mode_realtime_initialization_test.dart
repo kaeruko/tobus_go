@@ -1,40 +1,647 @@
-import 'dart:io';
+import 'dart:async';
 
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:toeigo/constants.dart';
+import 'package:toeigo/core/app_clock.dart';
+import 'package:toeigo/models/bus_progress.dart';
+import 'package:toeigo/models/group_models.dart';
+import 'package:toeigo/models/leg_models.dart';
+import 'package:toeigo/models/route_models.dart';
+import 'package:toeigo/models/trip_models.dart';
+import 'package:toeigo/providers/member_mode_provider.dart';
+import 'package:toeigo/providers/member_nav_progress_provider.dart';
+import 'package:toeigo/providers/minute_ticker_provider.dart';
+import 'package:toeigo/providers/trip_provider.dart';
+import 'package:toeigo/services/bus_location_source.dart';
+
+class _LocationRequest {
+  final String routeId;
+  final String tripId;
+  final String? boardingStopId;
+  final DateTime? scheduledDepartureAt;
+  final String? vehicleId;
+  final bool forceRefresh;
+
+  const _LocationRequest({
+    required this.routeId,
+    required this.tripId,
+    required this.boardingStopId,
+    required this.scheduledDepartureAt,
+    required this.vehicleId,
+    required this.forceRefresh,
+  });
+}
+
+class _PendingLocation {
+  final _LocationRequest request;
+  final Completer<BusLocation> completer;
+
+  const _PendingLocation(this.request, this.completer);
+}
+
+class _RecordingBusLocationSource implements BusLocationSource {
+  final requests = <_LocationRequest>[];
+  final pending = <_PendingLocation>[];
+  bool holdRequests = false;
+  void Function(_LocationRequest request)? onFetch;
+
+  @override
+  Future<BusLocation> fetch({
+    required String routeId,
+    required String tripId,
+    String? boardingStopId,
+    DateTime? scheduledDepartureAt,
+    String? vehicleId,
+    bool forceRefresh = false,
+  }) {
+    final request = _LocationRequest(
+      routeId: routeId,
+      tripId: tripId,
+      boardingStopId: boardingStopId,
+      scheduledDepartureAt: scheduledDepartureAt,
+      vehicleId: vehicleId,
+      forceRefresh: forceRefresh,
+    );
+    requests.add(request);
+    onFetch?.call(request);
+    if (holdRequests) {
+      final completer = Completer<BusLocation>();
+      pending.add(_PendingLocation(request, completer));
+      return completer.future;
+    }
+    return Future.value(_location(request));
+  }
+
+  BusLocation _location(_LocationRequest request) => BusLocation(
+    vehicleId: 'vehicle-${request.tripId}',
+    fromStopId: null,
+    routeId: request.routeId,
+    tripId: request.tripId,
+    beforeFirstStop: true,
+    tripStopIds: const ['stop-a', 'stop-b', 'stop-c'],
+    rawStopId: 'stop-a',
+    rawStopName: '出発停留所',
+    observedStopSequence: 1,
+    currentStatus: 'IN_TRANSIT_TO',
+    vehicleAgeSeconds: 0,
+  );
+
+  void completePending() {
+    final requestsToComplete = List<_PendingLocation>.of(pending);
+    pending.clear();
+    for (final request in requestsToComplete) {
+      request.completer.complete(_location(request.request));
+    }
+  }
+}
+
+class _NavigationConsumer extends ConsumerWidget {
+  final int rebuildMarker;
+
+  const _NavigationConsumer({this.rebuildMarker = 0});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ui = ref.watch(memberUiStateProvider);
+    return Text(
+      '$rebuildMarker:${ui.value?.navState.statusLabel ?? "loading"}',
+    );
+  }
+}
+
+Widget _host(
+  ProviderContainer container, {
+  bool showNavigation = true,
+  int rebuildMarker = 0,
+}) => UncontrolledProviderScope(
+  container: container,
+  child: Directionality(
+    textDirection: TextDirection.ltr,
+    child: showNavigation
+        ? _NavigationConsumer(rebuildMarker: rebuildMarker)
+        : const SizedBox.shrink(),
+  ),
+);
+
+Future<void> _flushNavigation(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump();
+}
+
+Trip _trip({
+  required DateTime now,
+  required String id,
+  TripType tripType = TripType.group,
+  String title = 'Realtime test',
+}) {
+  final departure = now.subtract(const Duration(minutes: 1));
+  final arrival = now.add(const Duration(minutes: 20));
+  final stepId = 'bus-$id';
+  String clockTime(DateTime time) =>
+      '${time.hour.toString().padLeft(2, '0')}:'
+      '${time.minute.toString().padLeft(2, '0')}';
+  final step = StepSeg(
+    stepId: stepId,
+    kind: 'bus',
+    title: 'テスト路線',
+    fromName: '出発停留所',
+    toName: '到着停留所',
+    minutes: 21,
+    routeId: 'route-$id',
+    tripId: 'service-$id',
+    departureStopId: 'stop-a',
+    arrivalPoleId: 'stop-c',
+    departureTime: clockTime(departure),
+    arrivalTime: clockTime(arrival),
+    stops: [
+      StopPoint(
+        name: '出発停留所',
+        point: const LatLng(35.1, 139.1),
+        stopId: 'stop-a',
+        isOrigin: true,
+      ),
+      StopPoint(
+        name: '中間停留所',
+        point: const LatLng(35.2, 139.2),
+        stopId: 'stop-b',
+      ),
+      StopPoint(
+        name: '到着停留所',
+        point: const LatLng(35.3, 139.3),
+        stopId: 'stop-c',
+        isDestination: true,
+      ),
+    ],
+  );
+  final candidate = Candidate(
+    id: 'candidate-$id',
+    lines: const ['テスト路線'],
+    rides: 1,
+    boards: 1,
+    transfers: 0,
+    total: 21,
+    totalTime: 21,
+    points: const [],
+    steps: [step],
+    originName: '出発停留所',
+    destinationName: '到着停留所',
+    departureDate: departure,
+  );
+  return Trip(
+    tripType: tripType,
+    id: id,
+    joinCode: tripType == TripType.group ? '123456' : '',
+    leaderId: 'user-1',
+    title: title,
+    travelPhase: TravelPhase.active,
+    date: now,
+    plannedDepartureAt: departure,
+    actualDepartureAt: departure,
+    legs: [
+      Leg(
+        direction: LegDirection.outbound,
+        status: LegStatus.confirmed,
+        candidate: candidate,
+      ),
+    ],
+    schedule: [
+      ScheduleEntry(
+        id: 'ride-$id',
+        plannedAt: departure,
+        label: 'テスト路線に乗る',
+        itemKind: ScheduleEntryKind.ride,
+        legIndex: 0,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: stepId,
+        routeRole: 'ride',
+      ),
+      ScheduleEntry(
+        id: 'arrival-$id',
+        plannedAt: arrival,
+        label: '到着停留所に着く',
+        itemKind: ScheduleEntryKind.arrival,
+        legIndex: 0,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: stepId,
+        routeRole: 'arrival',
+      ),
+      ScheduleEntry(
+        id: 'goal-$id',
+        plannedAt: arrival.add(const Duration(minutes: 1)),
+        label: '目的地 到着',
+        itemKind: ScheduleEntryKind.goal,
+        legIndex: 0,
+        generatedBy: ScheduleEntrySource.route,
+      ),
+    ],
+    participants: const [],
+    memberIds: const ['user-1'],
+  );
+}
+
+ProviderContainer _container({
+  required Stream<Trip?> trips,
+  required DateTime now,
+  required _RecordingBusLocationSource source,
+}) => ProviderContainer(
+  overrides: [
+    tripStreamProvider.overrideWith((ref) => trips),
+    minuteTickerProvider.overrideWith((ref) => Stream.value(now)),
+    busLocationSourceProvider.overrideWithValue(source),
+  ],
+);
 
 void main() {
-  test('member mode initializes realtime after the first frame', () {
-    final source = File('lib/pages/member_mode_page.dart').readAsStringSync();
+  setUp(appClock.resetOffset);
+  tearDown(appClock.resetOffset);
 
-    final classStart = source.indexOf('class _MemberModePageState');
-    expect(classStart, greaterThanOrEqualTo(0));
+  for (final tripType in TripType.values) {
+    testWidgets(
+      '${tripType.name} navigation starts realtime without a screen initializer',
+      (tester) async {
+        final now = appClock.now();
+        final trip = _trip(now: now, id: tripType.name, tripType: tripType);
+        final source = _RecordingBusLocationSource();
+        final container = _container(
+          trips: Stream.value(trip),
+          now: now,
+          source: source,
+        );
+        addTearDown(container.dispose);
+        final progressAtFetch = <MemberNavState>[];
+        source.onFetch = (_) {
+          progressAtFetch.add(container.read(memberNavProgressProvider));
+        };
 
-    final initStart = source.indexOf('  void initState() {', classStart);
-    expect(initStart, greaterThanOrEqualTo(0));
+        await tester.pumpWidget(_host(container));
+        await _flushNavigation(tester);
 
-    final buildStart = source.indexOf('  Widget build(BuildContext context) {', initStart);
-    expect(buildStart, greaterThan(initStart));
+        expect(source.requests, hasLength(1));
+        final request = source.requests.single;
+        expect(request.routeId, 'route-${tripType.name}');
+        expect(request.tripId, 'service-${tripType.name}');
+        expect(request.boardingStopId, 'stop-a');
+        expect(request.scheduledDepartureAt, trip.plannedDepartureAt);
+        expect(request.vehicleId, isNull);
+        expect(request.forceRefresh, isTrue);
+        expect(progressAtFetch.single.currentStepId, isNull);
+        expect(progressAtFetch.single.busProgress, isNull);
+        final progress = container.read(memberNavProgressProvider);
+        expect(progress.currentStepId, 'bus-${tripType.name}');
+        expect(progress.busProgress?.phase, BusProgressPhase.approaching);
+        expect(container.read(memberUiStateProvider).hasValue, isTrue);
+        expect(tester.takeException(), isNull);
 
-    final initStateSource = source.substring(initStart, buildStart);
-    final postFrameIndex = initStateSource.indexOf(
-      'WidgetsBinding.instance.addPostFrameCallback',
+        await tester.pumpWidget(_host(container, showNavigation: false));
+        await _flushNavigation(tester);
+      },
     );
-    final resetIndex = initStateSource.indexOf(
-      'ref.read(memberNavProgressProvider.notifier).reset();',
-    );
-    final initializeIndex = initStateSource.indexOf(
-      'ref.read(memberModeControllerProvider.notifier).initialize();',
-    );
+  }
 
-    expect(postFrameIndex, greaterThanOrEqualTo(0));
-    expect(resetIndex, greaterThan(postFrameIndex));
-    expect(initializeIndex, greaterThan(resetIndex));
-    expect(
-      initStateSource.indexOf(
-        'ref.read(memberModeControllerProvider.notifier).initialize();',
-        initializeIndex + 1,
-      ),
-      -1,
-    );
-  });
+  testWidgets(
+    'rebuilding a navigation consumer does not start another poller',
+    (tester) async {
+      final now = appClock.now();
+      final source = _RecordingBusLocationSource();
+      final container = _container(
+        trips: Stream.value(_trip(now: now, id: 'rebuild')),
+        now: now,
+        source: source,
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(_host(container));
+      await _flushNavigation(tester);
+      final controller = container.read(memberModeControllerProvider.notifier);
+      expect(source.requests, hasLength(1));
+
+      await tester.pumpWidget(_host(container, rebuildMarker: 1));
+      await _flushNavigation(tester);
+      await tester.pumpWidget(_host(container, rebuildMarker: 2));
+      await _flushNavigation(tester);
+
+      expect(source.requests, hasLength(1));
+      expect(
+        container.read(memberModeControllerProvider.notifier),
+        same(controller),
+      );
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(_host(container, showNavigation: false));
+      await _flushNavigation(tester);
+    },
+  );
+
+  testWidgets(
+    'periodic polling uses the configured interval and tracked vehicle',
+    (tester) async {
+      final now = appClock.now();
+      final source = _RecordingBusLocationSource();
+      final container = _container(
+        trips: Stream.value(_trip(now: now, id: 'periodic')),
+        now: now,
+        source: source,
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(_host(container));
+      await _flushNavigation(tester);
+      expect(source.requests, hasLength(1));
+
+      await tester.pump(
+        kRealtimePollInterval - const Duration(milliseconds: 1),
+      );
+      expect(source.requests, hasLength(1));
+      await tester.pump(const Duration(milliseconds: 1));
+      await _flushNavigation(tester);
+
+      expect(source.requests, hasLength(2));
+      expect(source.requests.last.forceRefresh, isFalse);
+      expect(source.requests.last.vehicleId, 'vehicle-service-periodic');
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(_host(container, showNavigation: false));
+      await _flushNavigation(tester);
+    },
+  );
+
+  testWidgets(
+    'removing the final consumer disposes realtime and stops polling',
+    (tester) async {
+      final now = appClock.now();
+      final source = _RecordingBusLocationSource();
+      final container = _container(
+        trips: Stream.value(_trip(now: now, id: 'dispose')),
+        now: now,
+        source: source,
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(_host(container));
+      await _flushNavigation(tester);
+      expect(source.requests, hasLength(1));
+      expect(container.exists(memberModeControllerProvider), isTrue);
+
+      await tester.pumpWidget(_host(container, showNavigation: false));
+      await _flushNavigation(tester);
+      expect(container.exists(memberModeControllerProvider), isFalse);
+      expect(container.exists(memberNavProgressProvider), isFalse);
+      await tester.pump(kRealtimePollInterval * 2);
+
+      expect(source.requests, hasLength(1));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'a delayed trip stream starts its first poll as soon as the trip is ready',
+    (tester) async {
+      final now = appClock.now();
+      final trips = StreamController<Trip?>();
+      final source = _RecordingBusLocationSource();
+      final container = _container(
+        trips: trips.stream,
+        now: now,
+        source: source,
+      );
+      addTearDown(() async {
+        container.dispose();
+        await trips.close();
+      });
+
+      await tester.pumpWidget(_host(container));
+      await _flushNavigation(tester);
+      expect(source.requests, isEmpty);
+
+      trips.add(_trip(now: now, id: 'delayed'));
+      await _flushNavigation(tester);
+
+      expect(source.requests, hasLength(1));
+      expect(source.requests.single.tripId, 'service-delayed');
+      expect(source.requests.single.forceRefresh, isTrue);
+      expect(
+        container.read(memberNavProgressProvider).currentStepId,
+        'bus-delayed',
+      );
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(_host(container, showNavigation: false));
+      await _flushNavigation(tester);
+    },
+  );
+
+  testWidgets(
+    'trip edits retain progress while a new trip ID gets fresh progress',
+    (tester) async {
+      final now = appClock.now();
+      final trips = StreamController<Trip?>();
+      final source = _RecordingBusLocationSource();
+      final container = _container(
+        trips: trips.stream,
+        now: now,
+        source: source,
+      );
+      addTearDown(() async {
+        container.dispose();
+        await trips.close();
+      });
+
+      await tester.pumpWidget(_host(container));
+      trips.add(_trip(now: now, id: 'first'));
+      await _flushNavigation(tester);
+      final firstNotifier = container.read(memberNavProgressProvider.notifier);
+      final firstController = container.read(
+        memberModeControllerProvider.notifier,
+      );
+      expect(
+        container.read(memberNavProgressProvider).currentStepId,
+        'bus-first',
+      );
+      expect(source.requests, hasLength(1));
+
+      trips.add(_trip(now: now, id: 'first', title: 'Edited title'));
+      await _flushNavigation(tester);
+      expect(
+        container.read(memberNavProgressProvider.notifier),
+        same(firstNotifier),
+      );
+      expect(
+        container.read(memberModeControllerProvider.notifier),
+        same(firstController),
+      );
+      expect(
+        container.read(memberNavProgressProvider).currentStepId,
+        'bus-first',
+      );
+      expect(source.requests, hasLength(1));
+
+      source.holdRequests = true;
+      trips.add(_trip(now: now, id: 'second'));
+      await _flushNavigation(tester);
+
+      expect(source.requests, hasLength(2));
+      expect(source.requests.last.tripId, 'service-second');
+      expect(source.requests.last.forceRefresh, isTrue);
+      expect(source.requests.last.vehicleId, isNull);
+      expect(
+        container.read(memberNavProgressProvider.notifier),
+        isNot(same(firstNotifier)),
+      );
+      expect(
+        container.read(memberModeControllerProvider.notifier),
+        isNot(same(firstController)),
+      );
+      final freshProgress = container.read(memberNavProgressProvider);
+      expect(freshProgress.currentStepId, isNull);
+      expect(freshProgress.busProgress, isNull);
+      expect(freshProgress.rideRealtimeUnavailable, isFalse);
+
+      source.completePending();
+      await _flushNavigation(tester);
+      expect(
+        container.read(memberNavProgressProvider).currentStepId,
+        'bus-second',
+      );
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(_host(container, showNavigation: false));
+      await _flushNavigation(tester);
+    },
+  );
+
+  testWidgets(
+    'parent and child navigation scopes poll and retain progress independently',
+    (tester) async {
+      final now = appClock.now();
+      final parentSource = _RecordingBusLocationSource();
+      final childSource = _RecordingBusLocationSource();
+      final parent = _container(
+        trips: Stream.value(_trip(now: now, id: 'parent')),
+        now: now,
+        source: parentSource,
+      );
+      final child = ProviderContainer(
+        parent: parent,
+        overrides: [
+          tripStreamProvider.overrideWith(
+            (ref) => Stream.value(
+              _trip(now: now, id: 'child', tripType: TripType.solo),
+            ),
+          ),
+          busLocationSourceProvider.overrideWithValue(childSource),
+        ],
+      );
+      addTearDown(() {
+        child.dispose();
+        parent.dispose();
+      });
+
+      Widget navigationScopes({
+        bool showParentNavigation = true,
+        bool showChildNavigation = true,
+      }) => UncontrolledProviderScope(
+        container: parent,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Column(
+            children: [
+              showParentNavigation
+                  ? const _NavigationConsumer()
+                  : const SizedBox.shrink(),
+              UncontrolledProviderScope(
+                container: child,
+                child: showChildNavigation
+                    ? const _NavigationConsumer()
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(navigationScopes());
+      await _flushNavigation(tester);
+
+      expect(parentSource.requests, hasLength(1));
+      expect(childSource.requests, hasLength(1));
+      expect(parentSource.requests.single.tripId, 'service-parent');
+      expect(childSource.requests.single.tripId, 'service-child');
+      expect(
+        parent.read(memberNavProgressProvider).currentStepId,
+        'bus-parent',
+      );
+      expect(child.read(memberNavProgressProvider).currentStepId, 'bus-child');
+      expect(
+        child.read(memberNavProgressProvider.notifier),
+        isNot(same(parent.read(memberNavProgressProvider.notifier))),
+      );
+      // Child-container exists() can fall back to the active root provider.
+      // Retain each instance to verify which session actually gets disposed.
+      final parentController = parent.read(
+        memberModeControllerProvider.notifier,
+      );
+      final childController = child.read(memberModeControllerProvider.notifier);
+      expect(childController, isNot(same(parentController)));
+
+      await tester.pumpWidget(navigationScopes(showChildNavigation: false));
+      await _flushNavigation(tester);
+      expect(childController.mounted, isFalse);
+      expect(parentController.mounted, isTrue);
+      await tester.pump(kRealtimePollInterval);
+      await _flushNavigation(tester);
+
+      expect(parentSource.requests, hasLength(2));
+      expect(childSource.requests, hasLength(1));
+      expect(
+        parent.read(memberNavProgressProvider).currentStepId,
+        'bus-parent',
+      );
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(
+        navigationScopes(
+          showParentNavigation: false,
+          showChildNavigation: false,
+        ),
+      );
+      await _flushNavigation(tester);
+      expect(parentController.mounted, isFalse);
+    },
+  );
+
+  testWidgets(
+    'an in-flight result is ignored after the final consumer is removed',
+    (tester) async {
+      final now = appClock.now();
+      final source = _RecordingBusLocationSource()..holdRequests = true;
+      final container = _container(
+        trips: Stream.value(_trip(now: now, id: 'in-flight')),
+        now: now,
+        source: source,
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(_host(container));
+      await _flushNavigation(tester);
+      expect(source.requests, hasLength(1));
+      expect(source.pending, hasLength(1));
+
+      await tester.pumpWidget(_host(container, showNavigation: false));
+      await _flushNavigation(tester);
+      expect(container.exists(memberModeControllerProvider), isFalse);
+      expect(container.exists(memberNavProgressProvider), isFalse);
+
+      source.completePending();
+      await _flushNavigation(tester);
+      await tester.pump(kRealtimePollInterval * 2);
+
+      expect(source.requests, hasLength(1));
+      expect(container.exists(memberModeControllerProvider), isFalse);
+      expect(container.exists(memberNavProgressProvider), isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

@@ -140,7 +140,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
     this._trainLocationSource,
   ) : super(const RealtimeTransitState());
 
-  void initialize() {
+  void _initialize() {
     _startPolling();
   }
 
@@ -160,19 +160,20 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
 
   void _startPolling() {
     _pollingTimer?.cancel();
-
-    // 画面を開いた直後は必ず最新データを取得
-    _checkProgress(forceRefresh: true);
-
     _pollingTimer = Timer.periodic(
       kRealtimePollInterval,
       (_) => _checkProgress(),
     );
+
+    // Register the timer first: resolving a newly loaded Trip can dispose this
+    // controller synchronously during the first poll, which must cancel it.
+    _checkProgress(forceRefresh: true);
   }
 
   Future<void> pollNow() async => _checkProgress(forceRefresh: true);
 
   Future<void> _checkProgress({bool forceRefresh = false}) async {
+    if (!mounted) return;
     if (_checkProgressInFlight) {
       debugPrint(
         '[MemberModeController] _checkProgress SKIP '
@@ -195,7 +196,8 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       'forceRefresh=$forceRefresh',
     );
 
-    final trip = _ref.read(tripStreamProvider).value;
+    final trip = _ref.read(tripStreamProvider).valueOrNull;
+    if (!mounted) return;
     if (trip == null) {
       debugPrint('[MemberModeController] trip=null');
       return;
@@ -219,6 +221,8 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
     // time. Resolving by the clock alone would otherwise jump to a later walk
     // or goal while the vehicle/train is still before the alighting stop.
     final navProgress = _ref.read(memberNavProgressProvider);
+    // Reading progress may refresh its Trip identity and replace this session.
+    if (!mounted) return;
     final knownBusProgress = state.busProgress ?? navProgress.busProgress;
     final knownRailProgress = state.railProgress ?? navProgress.railProgress;
     final scheduleResolved = TripCoordinator.resolveScheduleState(
@@ -303,23 +307,25 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       }
     }
 
+    if (!mounted) return;
+
     // 進捗を更新 (時間基準 + API補正)
     if (resolvedEntry != null) {
+      final progressNotifier = _ref.read(memberNavProgressProvider.notifier);
+      if (!mounted) return;
       final sameTrackedStep = state.trackedStepId == resolvedEntry.routeStepId;
       final rideRealtimeUnavailable =
           sameTrackedStep &&
           state.replanTransitMemory.knownOnboardStepId ==
               resolvedEntry.routeStepId &&
           state.replanTransitMemory.ridingTransit == null;
-      _ref
-          .read(memberNavProgressProvider.notifier)
-          .updateFromSchedule(
-            trip,
-            resolvedEntry,
-            busProgress: sameTrackedStep ? state.busProgress : null,
-            railProgress: sameTrackedStep ? state.railProgress : null,
-            rideRealtimeUnavailable: rideRealtimeUnavailable,
-          );
+      progressNotifier.updateFromSchedule(
+        trip,
+        resolvedEntry,
+        busProgress: sameTrackedStep ? state.busProgress : null,
+        railProgress: sameTrackedStep ? state.railProgress : null,
+        rideRealtimeUnavailable: rideRealtimeUnavailable,
+      );
       final committed = _ref.read(memberNavProgressProvider);
       debugPrint(
         '[MemberModeController] navProgress committed '
@@ -359,6 +365,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         vehicleId: trackedVehicleId,
         forceRefresh: forceRefresh,
       );
+      if (!mounted) return;
       final realtimeProgress = BusProgress.forStep(
         step: activeStep,
         fromStopId: location.fromStopId,
@@ -418,10 +425,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
               location: location,
             );
       if (alightingAlert != null) {
-        await _performAlightingAlertHaptic(
-          alightingAlert,
-          step: activeStep,
-        );
+        await _performAlightingAlertHaptic(alightingAlert, step: activeStep);
       }
 
       debugPrint(
@@ -443,6 +447,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         'clientNow=${DateTime.now().toUtc().toIso8601String()}',
       );
     } on BusLocationNotAvailableException catch (e) {
+      if (!mounted) return;
       if (e.code == 'bus_realtime_not_started') {
         state = RealtimeTransitState(
           trackedStepId: activeStep.stepId,
@@ -469,6 +474,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       );
       debugPrint('[MemberModeController] バス位置なし: $e');
     } catch (e, stackTrace) {
+      if (!mounted) return;
       debugPrint('[MemberModeController] バスAPIエラー: $e');
       debugPrintStack(stackTrace: stackTrace);
       rethrow;
@@ -512,6 +518,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         step: activeStep,
         forceRefresh: forceRefresh,
       );
+      if (!mounted) return;
       final progress = RailProgress.forLocation(
         stepId: activeStep.stepId,
         location: location,
@@ -542,6 +549,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         'vehicleAge=${location.vehicleAgeSeconds}s',
       );
     } on TrainLocationNotAvailableException catch (e) {
+      if (!mounted) return;
       // A reporting train can disappear temporarily around service boundaries.
       // Keep confirmed onboard/last-station facts, but do not synthesize a
       // station position or retain a stale predicted next station.
@@ -555,6 +563,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       );
       debugPrint('[MemberModeController] 鉄道位置なし: $e');
     } catch (e, stackTrace) {
+      if (!mounted) return;
       debugPrint('[MemberModeController] 鉄道APIエラー: $e');
       debugPrintStack(stackTrace: stackTrace);
       rethrow;
@@ -809,15 +818,26 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
 }
 
 final memberModeControllerProvider =
-    StateNotifierProvider.autoDispose<MemberModeController, RealtimeTransitState>((
-      ref,
-    ) {
-      return MemberModeController(
+    StateNotifierProvider.autoDispose<
+      MemberModeController,
+      RealtimeTransitState
+    >((ref) {
+      // Own both progress and polling in the same Trip-scoped session.
+      // Watching the notifier restarts only when the session is recreated,
+      // not when a position changes.
+      ref.watch(memberNavProgressProvider.notifier);
+      final controller = MemberModeController(
         ref,
         ref.watch(busLocationSourceProvider),
         ref.watch(trainLocationSourceProvider),
       );
-    }, dependencies: [tripStreamProvider, memberScheduleStateProvider]);
+      // Provider/widget creation must finish before a poll can update progress.
+      // A disposed instance must never start its timer after deferred startup.
+      scheduleMicrotask(() {
+        if (controller.mounted) controller._initialize();
+      });
+      return controller;
+    }, dependencies: [tripStreamProvider, memberNavProgressProvider]);
 
 /// UI描画に必要な全データ
 class MemberUiState {
@@ -839,58 +859,63 @@ class MemberUiState {
 }
 
 /// UI State Provider
-final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>((
-  ref,
-) {
-  final tripAsync = ref.watch(tripStreamProvider);
-  final navProgress = ref.watch(memberNavProgressProvider);
-  ref.watch(memberModeControllerProvider);
-  final nowTick = ref.watch(minuteTickerProvider);
+final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>(
+  (ref) {
+    final tripAsync = ref.watch(tripStreamProvider);
+    final navProgress = ref.watch(memberNavProgressProvider);
+    ref.watch(memberModeControllerProvider);
+    final nowTick = ref.watch(minuteTickerProvider);
 
-  return tripAsync.whenData((trip) {
-    if (trip == null) throw Exception("No Trip");
+    return tripAsync.whenData((trip) {
+      if (trip == null) throw Exception("No Trip");
 
-    final now = nowTick.value ?? appClock.now();
+      final now = nowTick.value ?? appClock.now();
 
-    // ルート情報の構築（表示用）
-    final routeState = RouteState(
-      stepsById: trip.stepsById,
-      currentStepId: navProgress.currentStepId,
-      busProgress: navProgress.busProgress,
-      railProgress: navProgress.railProgress,
-    );
+      // ルート情報の構築（表示用）
+      final routeState = RouteState(
+        stepsById: trip.stepsById,
+        currentStepId: navProgress.currentStepId,
+        busProgress: navProgress.busProgress,
+        railProgress: navProgress.railProgress,
+      );
 
-    final resolvedState = TripCoordinator.resolveScheduleState(
-      scheduleEntries: _navigationScheduleForTrip(trip),
-      routeState: routeState,
-      now: now,
-    );
+      final resolvedState = TripCoordinator.resolveScheduleState(
+        scheduleEntries: _navigationScheduleForTrip(trip),
+        routeState: routeState,
+        now: now,
+      );
 
-    // ナビゲーション表示状態の構築
-    final navDisplayState = TripCoordinator.buildMemberNavigationState(
-      trip: trip,
-      routeState: routeState,
-      now: now,
-      resolvedState: resolvedState,
-    );
-    final displayState = navProgress.rideRealtimeUnavailable
-        ? navDisplayState.withNotice(
-            statusLabel: navDisplayState.statusLabel,
-            noticeText: '📍',
-            statusLabelToken: navDisplayState.statusLabelToken,
-            noticeTextToken: const NavigationTextToken(
-              NavigationTextKey.realtimeUnavailableNotice,
-            ),
-          )
-        : navDisplayState;
+      // ナビゲーション表示状態の構築
+      final navDisplayState = TripCoordinator.buildMemberNavigationState(
+        trip: trip,
+        routeState: routeState,
+        now: now,
+        resolvedState: resolvedState,
+      );
+      final displayState = navProgress.rideRealtimeUnavailable
+          ? navDisplayState.withNotice(
+              statusLabel: navDisplayState.statusLabel,
+              noticeText: '📍',
+              statusLabelToken: navDisplayState.statusLabelToken,
+              noticeTextToken: const NavigationTextToken(
+                NavigationTextKey.realtimeUnavailableNotice,
+              ),
+            )
+          : navDisplayState;
 
-    return MemberUiState(
-      navState: displayState,
-      windowEntries: resolvedState.windowEntries,
-      resolvedEntry: resolvedState.resolvedEntry,
-      completedCount: resolvedState.completedCount,
-      activeLabel: resolvedState.activeLabel,
-      displayTitle: trip.displayTitle,
-    );
-  });
-}, dependencies: [tripStreamProvider, memberModeControllerProvider]);
+      return MemberUiState(
+        navState: displayState,
+        windowEntries: resolvedState.windowEntries,
+        resolvedEntry: resolvedState.resolvedEntry,
+        completedCount: resolvedState.completedCount,
+        activeLabel: resolvedState.activeLabel,
+        displayTitle: trip.displayTitle,
+      );
+    });
+  },
+  dependencies: [
+    tripStreamProvider,
+    memberNavProgressProvider,
+    memberModeControllerProvider,
+  ],
+);

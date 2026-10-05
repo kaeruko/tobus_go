@@ -6,8 +6,6 @@ import '../logic/route_replan_presentation.dart';
 import '../models/trip_models.dart';
 import '../providers/delay_impact_provider.dart';
 import '../providers/group_schedule_impact_provider.dart';
-import '../providers/member_mode_provider.dart';
-import '../providers/member_nav_progress_provider.dart';
 import '../providers/trip_provider.dart';
 import '../services/trip_service.dart';
 import 'delay_recovery_card.dart';
@@ -41,9 +39,6 @@ class GroupLeaderRouteReplanPanel extends StatelessWidget {
               .streamTrip(normalizedTripId)
               .map<Trip?>((trip) => trip),
         ),
-        memberNavProgressProvider.overrideWith(
-          (ref) => MemberNavProgressNotifier(),
-        ),
       ],
       child: _GroupLeaderRouteReplanPanelBody(
         warningOnly: warningOnly,
@@ -53,7 +48,7 @@ class GroupLeaderRouteReplanPanel extends StatelessWidget {
   }
 }
 
-class _GroupLeaderRouteReplanPanelBody extends ConsumerStatefulWidget {
+class _GroupLeaderRouteReplanPanelBody extends ConsumerWidget {
   final bool warningOnly;
   final bool alwaysShowAction;
 
@@ -63,34 +58,17 @@ class _GroupLeaderRouteReplanPanelBody extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_GroupLeaderRouteReplanPanelBody> createState() =>
-      _GroupLeaderRouteReplanPanelBodyState();
-}
-
-class _GroupLeaderRouteReplanPanelBodyState
-    extends ConsumerState<_GroupLeaderRouteReplanPanelBody> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      ref.read(memberNavProgressProvider.notifier).reset();
-      ref.read(memberModeControllerProvider.notifier).initialize();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return GroupLeaderRouteReplanContent(
-      warningOnly: widget.warningOnly,
-      alwaysShowAction: widget.alwaysShowAction,
+      warningOnly: warningOnly,
+      alwaysShowAction: alwaysShowAction,
     );
   }
 }
 
 /// Group leader向けの経路見直し・手動予定調整部分。
 ///
-/// ProviderScopeやRealtime pollingの初期化は所有しないため、
+/// ProviderScopeは所有せず、Realtime pollingは共通Providerが管理するため、
 /// `ActiveTripNavigationView` と同じProviderScopeの中へそのまま配置できる。
 /// 単体利用が必要な既存画面は [GroupLeaderRouteReplanPanel] がScopeを用意する。
 class GroupLeaderRouteReplanContent extends ConsumerWidget {

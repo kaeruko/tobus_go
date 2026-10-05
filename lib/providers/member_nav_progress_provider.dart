@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/bus_progress.dart';
 import '../models/group_models.dart';
 import '../models/rail_progress.dart';
-import '../models/trip_models.dart';
+import 'trip_provider.dart';
 
 class MemberNavState {
   final String? currentStepId;
@@ -86,9 +86,7 @@ class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
     }
     if (rideRealtimeUnavailable &&
         (busProgress != null || railProgress != null)) {
-      throw StateError(
-        'Realtime一時欠落中なのに新しい乗車進捗が同時に渡されました: stepId=$stepId',
-      );
+      throw StateError('Realtime一時欠落中なのに新しい乗車進捗が同時に渡されました: stepId=$stepId');
     }
 
     BusProgress? nextBusProgress = step.kind == 'bus' ? busProgress : null;
@@ -149,6 +147,12 @@ class MemberNavProgressNotifier extends StateNotifier<MemberNavState> {
 }
 
 final memberNavProgressProvider =
-    StateNotifierProvider<MemberNavProgressNotifier, MemberNavState>((ref) {
+    StateNotifierProvider.autoDispose<
+      MemberNavProgressNotifier,
+      MemberNavState
+    >((ref) {
+      // A Trip update keeps progress; changing Trips starts a new session.
+      // Declared dependencies also isolate scopes that select a Solo/Group Trip.
+      ref.watch(tripStreamProvider.select((trip) => trip.valueOrNull?.id));
       return MemberNavProgressNotifier();
-    });
+    }, dependencies: [tripStreamProvider]);

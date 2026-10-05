@@ -80,13 +80,6 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
   void initState() {
     super.initState();
     debugPrint('[SoloTripLifecycle] init tripId=${widget.tripId}');
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-
-      ref.read(memberNavProgressProvider.notifier).reset();
-      ref.read(memberModeControllerProvider.notifier).initialize();
-    });
   }
 
   @override

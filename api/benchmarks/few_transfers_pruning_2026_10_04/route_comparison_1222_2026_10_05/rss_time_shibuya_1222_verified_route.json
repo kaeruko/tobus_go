@@ -1,0 +1,561 @@
+{
+  "candidates": [
+    {
+      "lines_en": [
+        "門３３ · Toyomi-Suisan-Futō",
+        "Oedo Line",
+        "都０１（Ｔ０１） · Shibuya Sta."
+      ],
+      "score_label": "68分",
+      "cost_score": 0.0,
+      "total": 68,
+      "rides": 3,
+      "departure_date": "2026-10-05T12:22:00",
+      "is_future_suggestion": false,
+      "official_english_names": true,
+      "origin_coords": [
+        35.708166,
+        139.817434
+      ],
+      "destination_coords": [
+        35.658034,
+        139.701636
+      ],
+      "id": "Fastest",
+      "lines": [
+        "門３３ 豊海水産埠頭行",
+        "大江戸線",
+        "都０１（Ｔ０１） 渋谷駅前行"
+      ],
+      "boards": 3,
+      "transfers": 2,
+      "total_time": 68,
+      "walking_distance_meters": 337,
+      "walking_segment_count": 4,
+      "steps": [
+        {
+          "edges": 1,
+          "from_en": "Jukkembashi",
+          "to_en": "Jukkembashi",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "十間橋",
+          "to": "十間橋",
+          "minutes": 1,
+          "meters": 19,
+          "step_id": "step-walk-80d86a6e903644c2973fb35cfc58cf8f"
+        },
+        {
+          "edges": 0,
+          "from_en": "Jukkembashi",
+          "to_en": "Jukkembashi",
+          "departure_time": "12:22",
+          "arrival_time": "12:24",
+          "startLabel": "待ち時間",
+          "place": "十間橋",
+          "place_en": "Jukkembashi",
+          "kind": "wait",
+          "title": "待ち時間",
+          "from_": "十間橋",
+          "to": "十間橋",
+          "minutes": 1,
+          "meters": 0,
+          "step_id": "step-wait-f67cdbe5522340859b23d61b3d9ed327"
+        },
+        {
+          "title_en": "門３３ · Toyomi-Suisan-Futō",
+          "edges": 8,
+          "from_en": "Jukkembashi",
+          "to_en": "Toei-Ryōgoku Sta.",
+          "stops": [
+            {
+              "name": "十間橋",
+              "name_en": "Jukkembashi",
+              "is_origin": true,
+              "lat": 35.708082,
+              "lon": 139.817247,
+              "id": "0751-02"
+            },
+            {
+              "name": "押上",
+              "name_en": "Oshiage",
+              "lat": 35.708873,
+              "lon": 139.812051,
+              "id": "0276-05"
+            },
+            {
+              "name": "とうきょうスカイツリー駅入口",
+              "name_en": "TOKYO SKYTREE Sta. Iriguchi",
+              "lat": 35.708725,
+              "lon": 139.8091,
+              "id": "1120-02"
+            },
+            {
+              "name": "本所吾妻橋",
+              "name_en": "Honjo-Azumabashi",
+              "lat": 35.708414,
+              "lon": 139.802965,
+              "id": "1414-03"
+            },
+            {
+              "name": "吾妻橋一丁目",
+              "name_en": "Azumabashi-Itchōme (Azumabashi 1)",
+              "lat": 35.707943,
+              "lon": 139.800245,
+              "id": "0054-01"
+            },
+            {
+              "name": "東駒形一丁目",
+              "name_en": "Higashi-Komagata-Itchōme (Higashi-Komagata 1)",
+              "lat": 35.70673,
+              "lon": 139.798284,
+              "id": "1278-01"
+            },
+            {
+              "name": "本所一丁目",
+              "name_en": "Honjo-Itchōme (Honjo 1)",
+              "lat": 35.702846,
+              "lon": 139.797046,
+              "id": "1416-01"
+            },
+            {
+              "name": "石原一丁目",
+              "name_en": "Ishiwara-Itchōme (Ishiwara 1)",
+              "lat": 35.69965,
+              "lon": 139.797303,
+              "id": "0094-03"
+            },
+            {
+              "name": "都営両国駅前",
+              "name_en": "Toei-Ryōgoku Sta.",
+              "lat": 35.696474,
+              "lon": 139.79757,
+              "id": "0785-02",
+              "is_destination": true
+            }
+          ],
+          "departure_time": "12:24",
+          "boarding_minutes": 0,
+          "route_id": "093",
+          "trip_id": "60301-1-65-170-1218",
+          "arrival_time": "12:39",
+          "kind": "bus",
+          "title": "門３３ 豊海水産埠頭行",
+          "from_": "十間橋",
+          "to": "都営両国駅前",
+          "minutes": 15,
+          "step_id": "step-bus-d4286a7f2b4e499c8dc7b9eb5319cfb3"
+        },
+        {
+          "edges": 1,
+          "from_en": "Toei-Ryōgoku Sta.",
+          "to_en": "Ryogoku",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "都営両国駅前",
+          "to": "両国",
+          "minutes": 1,
+          "meters": 38,
+          "step_id": "step-walk-2a462fea2ab647009c4b917170422626"
+        },
+        {
+          "title_en": "Oedo Line",
+          "edges": 11,
+          "from_en": "Ryogoku",
+          "to_en": "Roppongi",
+          "stops": [
+            {
+              "name": "両国",
+              "name_en": "Ryogoku",
+              "is_origin": true,
+              "lat": 35.696807,
+              "lon": 139.797469,
+              "id": "413",
+              "odpt_id": "odpt.Station:Toei.Oedo.Ryogoku",
+              "station_code": "E-12"
+            },
+            {
+              "name": "森下",
+              "name_en": "Morishita",
+              "lat": 35.687926,
+              "lon": 139.798251,
+              "id": "414",
+              "odpt_id": "odpt.Station:Toei.Oedo.Morishita",
+              "station_code": "E-13"
+            },
+            {
+              "name": "清澄白河",
+              "name_en": "Kiyosumi-shirakawa",
+              "lat": 35.682355,
+              "lon": 139.798758,
+              "id": "415",
+              "odpt_id": "odpt.Station:Toei.Oedo.KiyosumiShirakawa",
+              "station_code": "E-14"
+            },
+            {
+              "name": "門前仲町",
+              "name_en": "Monzen-nakacho",
+              "lat": 35.672772,
+              "lon": 139.795124,
+              "id": "416",
+              "odpt_id": "odpt.Station:Toei.Oedo.MonzenNakacho",
+              "station_code": "E-15"
+            },
+            {
+              "name": "月島",
+              "name_en": "Tsukishima",
+              "lat": 35.663757,
+              "lon": 139.783912,
+              "id": "417",
+              "odpt_id": "odpt.Station:Toei.Oedo.Tsukishima",
+              "station_code": "E-16"
+            },
+            {
+              "name": "勝どき",
+              "name_en": "Kachidoki",
+              "lat": 35.658934,
+              "lon": 139.777138,
+              "id": "418",
+              "odpt_id": "odpt.Station:Toei.Oedo.Kachidoki",
+              "station_code": "E-17"
+            },
+            {
+              "name": "築地市場",
+              "name_en": "Tsukijishijo",
+              "lat": 35.664919,
+              "lon": 139.766929,
+              "id": "419",
+              "odpt_id": "odpt.Station:Toei.Oedo.Tsukijishijo",
+              "station_code": "E-18"
+            },
+            {
+              "name": "汐留",
+              "name_en": "Shiodome",
+              "lat": 35.663193,
+              "lon": 139.760225,
+              "id": "420",
+              "odpt_id": "odpt.Station:Toei.Oedo.Shiodome",
+              "station_code": "E-19"
+            },
+            {
+              "name": "大門",
+              "name_en": "Daimon",
+              "lat": 35.656671,
+              "lon": 139.755696,
+              "id": "421",
+              "odpt_id": "odpt.Station:Toei.Oedo.Daimon",
+              "station_code": "E-20"
+            },
+            {
+              "name": "赤羽橋",
+              "name_en": "Akabanebashi",
+              "lat": 35.654985,
+              "lon": 139.743989,
+              "id": "422",
+              "odpt_id": "odpt.Station:Toei.Oedo.Akabanebashi",
+              "station_code": "E-21"
+            },
+            {
+              "name": "麻布十番",
+              "name_en": "Azabu-juban",
+              "lat": 35.656448,
+              "lon": 139.73633,
+              "id": "423",
+              "odpt_id": "odpt.Station:Toei.Oedo.AzabuJuban",
+              "station_code": "E-22"
+            },
+            {
+              "name": "六本木",
+              "name_en": "Roppongi",
+              "lat": 35.664106,
+              "lon": 139.731354,
+              "id": "424",
+              "odpt_id": "odpt.Station:Toei.Oedo.Roppongi",
+              "is_destination": true,
+              "station_code": "E-23"
+            }
+          ],
+          "departure_time": "12:43",
+          "boarding_minutes": 2,
+          "route_id": "4",
+          "trip_id": "401208B0",
+          "arrival_time": "13:07",
+          "kind": "rail",
+          "title": "大江戸線",
+          "from_": "両国",
+          "to": "六本木",
+          "minutes": 24,
+          "step_id": "step-rail-2e06c5bcf6e34c8d9b594f6ff878d31a"
+        },
+        {
+          "edges": 1,
+          "from_en": "Roppongi",
+          "to_en": "Roppongi Sta.",
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "六本木",
+          "to": "六本木駅前",
+          "minutes": 3,
+          "meters": 177,
+          "step_id": "step-walk-81fbc351e0bf4c69a5b8570c6eab2bdd"
+        },
+        {
+          "edges": 0,
+          "from_en": "Roppongi Sta.",
+          "to_en": "Roppongi Sta.",
+          "departure_time": "13:10",
+          "arrival_time": "13:13",
+          "startLabel": "待ち時間",
+          "place": "六本木駅前",
+          "place_en": "Roppongi Sta.",
+          "kind": "wait",
+          "title": "待ち時間",
+          "from_": "六本木駅前",
+          "to": "六本木駅前",
+          "minutes": 2,
+          "meters": 0,
+          "step_id": "step-wait-e780d22f679946b68919945c22aeba48"
+        },
+        {
+          "title_en": "都０１（Ｔ０１） · Shibuya Sta.",
+          "edges": 6,
+          "from_en": "Roppongi Sta.",
+          "to_en": "Shibuya Sta.",
+          "stops": [
+            {
+              "name": "六本木駅前",
+              "name_en": "Roppongi Sta.",
+              "is_origin": true,
+              "lat": 35.662521,
+              "lon": 139.731141,
+              "id": "1609-02"
+            },
+            {
+              "name": "EXシアター六本木前",
+              "name_en": "EX Theater Roppongi",
+              "lat": 35.660692,
+              "lon": 139.72703,
+              "id": "1613-04"
+            },
+            {
+              "name": "西麻布",
+              "name_en": "Nishi-Azabu",
+              "lat": 35.659856,
+              "lon": 139.724627,
+              "id": "1130-03"
+            },
+            {
+              "name": "南青山七丁目",
+              "name_en": "Minami-Aoyama-Nanachōme (Minami-Aoyama 7)",
+              "lat": 35.659137,
+              "lon": 139.718075,
+              "id": "1469-03"
+            },
+            {
+              "name": "青山学院中等部前",
+              "name_en": "Aoyamagakuin-Chūtōbu",
+              "lat": 35.658706,
+              "lon": 139.71349,
+              "id": "0007-02"
+            },
+            {
+              "name": "渋谷三丁目",
+              "name_en": "Shibuya-Sanchōme (Shibuya 3)",
+              "lat": 35.658091,
+              "lon": 139.707973,
+              "id": "0005-03"
+            },
+            {
+              "name": "渋谷駅前",
+              "name_en": "Shibuya Sta.",
+              "lat": 35.658527,
+              "lon": 139.702601,
+              "id": "0636-08",
+              "is_destination": true
+            }
+          ],
+          "departure_time": "13:13",
+          "boarding_minutes": 0,
+          "route_id": "006",
+          "trip_id": "08505-2-09-170-1306",
+          "arrival_time": "13:28",
+          "kind": "bus",
+          "title": "都０１（Ｔ０１） 渋谷駅前行",
+          "from_": "六本木駅前",
+          "to": "渋谷駅前",
+          "minutes": 15,
+          "step_id": "step-bus-201628527cbc44adb17e960968c81a96"
+        },
+        {
+          "edges": 1,
+          "from_en": "Shibuya Sta.",
+          "to_en": null,
+          "kind": "walk",
+          "title": "徒歩",
+          "from_": "渋谷駅前",
+          "to": "目的地",
+          "minutes": 2,
+          "meters": 103,
+          "step_id": "step-walk-5e0c0f14d21b4b78b0c8885fd29f52a3"
+        }
+      ],
+      "points": [
+        [
+          35.708166,
+          139.817434
+        ],
+        [
+          35.708082,
+          139.817247
+        ],
+        [
+          35.708082,
+          139.817247
+        ],
+        [
+          35.708873,
+          139.812051
+        ],
+        [
+          35.708725,
+          139.8091
+        ],
+        [
+          35.708414,
+          139.802965
+        ],
+        [
+          35.707943,
+          139.800245
+        ],
+        [
+          35.70673,
+          139.798284
+        ],
+        [
+          35.702846,
+          139.797046
+        ],
+        [
+          35.69965,
+          139.797303
+        ],
+        [
+          35.696474,
+          139.79757
+        ],
+        [
+          35.696474,
+          139.79757
+        ],
+        [
+          35.696807,
+          139.797469
+        ],
+        [
+          35.696807,
+          139.797469
+        ],
+        [
+          35.687926,
+          139.798251
+        ],
+        [
+          35.682355,
+          139.798758
+        ],
+        [
+          35.672772,
+          139.795124
+        ],
+        [
+          35.663757,
+          139.783912
+        ],
+        [
+          35.658934,
+          139.777138
+        ],
+        [
+          35.664919,
+          139.766929
+        ],
+        [
+          35.663193,
+          139.760225
+        ],
+        [
+          35.656671,
+          139.755696
+        ],
+        [
+          35.654985,
+          139.743989
+        ],
+        [
+          35.656448,
+          139.73633
+        ],
+        [
+          35.664106,
+          139.731354
+        ],
+        [
+          35.664106,
+          139.731354
+        ],
+        [
+          35.662521,
+          139.731141
+        ],
+        [
+          35.662521,
+          139.731141
+        ],
+        [
+          35.660692,
+          139.72703
+        ],
+        [
+          35.659856,
+          139.724627
+        ],
+        [
+          35.659137,
+          139.718075
+        ],
+        [
+          35.658706,
+          139.71349
+        ],
+        [
+          35.658091,
+          139.707973
+        ],
+        [
+          35.658527,
+          139.702601
+        ],
+        [
+          35.658527,
+          139.702601
+        ],
+        [
+          35.658034,
+          139.701636
+        ]
+      ],
+      "arrival_time": "13:30"
+    }
+  ],
+  "meta": {
+    "destination_reachable": true,
+    "destination_label": "目的地",
+    "fallback_node_name": "渋谷駅前",
+    "fallback_node_name_en": "Shibuya Sta.",
+    "fallback_distance_m": 84.79808806869428,
+    "walk_limit_m": 600.0,
+    "realtime_applied": false,
+    "bus_only": false
+  }
+}
