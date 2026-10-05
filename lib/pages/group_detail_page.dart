@@ -10,6 +10,7 @@ import '../widgets/group_leader_route_replan_panel.dart';
 import 'leader_mode_page.dart';
 import 'member_mode_page.dart';
 import 'ride_stops_navigation.dart';
+import 'schedule_page.dart';
 
 class GroupDetailPage extends StatelessWidget {
   final Trip trip;
@@ -49,7 +50,13 @@ class GroupDetailPage extends StatelessWidget {
     if (isLeader) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => LeaderModePage(tripId: trip.id)),
+        MaterialPageRoute(
+          builder: (_) => SchedulePage(
+            tripId: trip.id,
+            isLeader: true,
+            initialSchedule: trip.schedule,
+          ),
+        ),
       );
     } else {
       Navigator.push(
