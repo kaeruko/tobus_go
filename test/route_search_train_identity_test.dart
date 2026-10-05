@@ -86,6 +86,39 @@ void main() {
     'points': [],
   };
 
+  Map<String, dynamic> busCandidate({
+    String? tripId,
+    String? routeId,
+  }) => {
+    'id': 'BusFastest',
+    'lines': ['都01'],
+    'rides': 1,
+    'walking_distance_meters': 0,
+    'walking_segment_count': 0,
+    'boards': 1,
+    'transfers': 0,
+    'total': 1,
+    'total_time': 10,
+    'departure_date': '2026-08-15T16:00:00',
+    'steps': [
+      {
+        'step_id': 'bus-1',
+        'kind': 'bus',
+        'title': '都01',
+        'from_': '東日本橋',
+        'to': '蔵前',
+        'minutes': 10,
+        'meters': 0,
+        'departure_time': '16:00',
+        'arrival_time': '16:10',
+        'route_id': routeId,
+        'trip_id': tripId,
+        'stops': const [],
+      },
+    ],
+    'points': const [],
+  };
+
   Map<String, dynamic> meta() => {
     'destination_reachable': true,
     'destination_label': '目的地',
@@ -184,6 +217,72 @@ void main() {
       ),
     );
   });
+
+  test('bus candidate with exact identity is accepted without resolver', () async {
+    final calls = <String>[];
+    ApiClient.httpClient = MockClient((request) async {
+      calls.add(request.url.path);
+      if (request.url.path == '/route') {
+        return http.Response(
+          jsonEncode({
+            'candidates': [
+              busCandidate(
+                tripId: '08501-1-09-170-1600',
+                routeId: '006',
+              ),
+            ],
+            'meta': meta(),
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      return http.Response('not found', 404);
+    });
+
+    final result = await const ApiRouteSearchService().search(request());
+
+    expect(calls, ['/route']);
+    expect(result.candidates, hasLength(1));
+    expect(result.candidates.single.steps.single.tripId, '08501-1-09-170-1600');
+    expect(result.candidates.single.steps.single.routeId, '006');
+  });
+
+  for (final missingField in ['trip_id', 'route_id']) {
+    test('bus candidate missing $missingField fails fast', () async {
+      ApiClient.httpClient = MockClient((request) async {
+        if (request.url.path == '/route') {
+          return http.Response(
+            jsonEncode({
+              'candidates': [
+                busCandidate(
+                  tripId: missingField == 'trip_id'
+                      ? null
+                      : '08501-1-09-170-1600',
+                  routeId: missingField == 'route_id' ? null : '006',
+                ),
+              ],
+              'meta': meta(),
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
+        return http.Response('not found', 404);
+      });
+
+      await expectLater(
+        const ApiRouteSearchService().search(request()),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains(missingField),
+          ),
+        ),
+      );
+    });
+  }
 
   test('all rejected rail identities fail instead of falling back', () async {
     final calls = <String>[];
