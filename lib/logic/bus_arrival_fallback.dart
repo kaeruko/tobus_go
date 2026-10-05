@@ -9,6 +9,23 @@ bool shouldCompleteBusFromSchedule({
   return !now.isBefore(plannedArrivalAt);
 }
 
+/// A missing realtime trip is retried only while the schedule says the rider
+/// should currently be on the bus. The schedule remains the progress truth.
+bool shouldRetryMissingBusRealtime({
+  required DateTime now,
+  required DateTime plannedDepartureAt,
+  required DateTime plannedArrivalAt,
+}) {
+  if (!plannedDepartureAt.isBefore(plannedArrivalAt)) {
+    throw ArgumentError.value(
+      plannedArrivalAt,
+      'plannedArrivalAt',
+      'must be after plannedDepartureAt',
+    );
+  }
+  return !now.isBefore(plannedDepartureAt) && now.isBefore(plannedArrivalAt);
+}
+
 bool shouldAssumeBusArrivedAfterRealtimeLoss({
   required DateTime now,
   required DateTime plannedArrivalAt,
