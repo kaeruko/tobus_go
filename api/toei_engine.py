@@ -2347,6 +2347,9 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 "route_id": final_route_id,
                 "trip_id": final_trip_id,
             }
+            if mode == "bus":
+                cur["departureStopId"] = active_bus_leg.origin_stop_id
+                cur["arrivalPoleId"] = active_bus_leg.destination_stop_id
             if selected_state is not None and selected_state.provider == "rail":
                 cur["selected_run"] = _selected_rail_run(path, selected_state)
 
