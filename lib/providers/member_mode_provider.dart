@@ -901,7 +901,15 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         'stepId=$stepId, matches=${matches.length}',
       );
     }
-    return matches.single.plannedAt;
+    final stored = matches.single.plannedAt;
+    final fixed = trip.routeStepDepartureAt(stepId);
+    if (stored != fixed) {
+      debugPrint(
+        '[ScheduleIntegrity] ride departure differs from fixed route clock: '
+        'stepId=$stepId stored=$stored fixed=$fixed',
+      );
+    }
+    return fixed;
   }
 
   DateTime _plannedRideArrivalAt(Trip trip, String stepId) {
@@ -919,7 +927,15 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         'stepId=$stepId, matches=${matches.length}',
       );
     }
-    return matches.single.plannedAt;
+    final stored = matches.single.plannedAt;
+    final fixed = trip.routeStepArrivalAt(stepId);
+    if (stored != fixed) {
+      debugPrint(
+        '[ScheduleIntegrity] ride arrival differs from fixed route clock: '
+        'stepId=$stepId stored=$stored fixed=$fixed',
+      );
+    }
+    return fixed;
   }
 
   ScheduleEntry _knownOnboardRideEntry(Trip trip, String stepId) {

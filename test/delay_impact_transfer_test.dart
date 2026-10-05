@@ -92,6 +92,7 @@ void main() {
           destinationName: '目的地',
           originCoords: const LatLng(35.697, 139.785),
           destinationCoords: const LatLng(35.691, 139.781),
+          departureDate: DateTime(2026, 8, 15, 18, 0),
         ),
       ),
     ],

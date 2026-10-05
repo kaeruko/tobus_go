@@ -86,6 +86,7 @@ void main() {
       destinationName: '目的地',
       originCoords: const LatLng(35.697, 139.785),
       destinationCoords: const LatLng(35.691, 139.781),
+      departureDate: DateTime(2026, 8, 15, 18, 0),
     );
 
     final schedule = <ScheduleEntry>[
@@ -217,16 +218,18 @@ void main() {
     );
   });
 
-  test('invalid baseline transfer fails instead of blaming realtime delay', () {
-    expect(
-      () => DelayImpactAnalyzer.analyze(
-        trip: buildTrip(
-          walkMinutes: 4,
-          nextDeparture: DateTime(2026, 8, 15, 18, 13),
-        ),
-        observation: observation(DateTime(2026, 8, 15, 18, 11)),
+  test('shifted saved schedule cannot move a fixed next ride', () {
+    final impact = DelayImpactAnalyzer.analyze(
+      trip: buildTrip(
+        walkMinutes: 4,
+        nextDeparture: DateTime(2026, 8, 15, 18, 19),
       ),
-      throwsStateError,
+      observation: observation(DateTime(2026, 8, 15, 18, 11)),
     );
+
+    expect(impact, isNotNull);
+    expect(impact!.nextDepartureAt, DateTime(2026, 8, 15, 18, 16));
+    expect(impact.requiresReplan, isTrue);
+    expect(impact.missedBy, const Duration(minutes: 1));
   });
 }

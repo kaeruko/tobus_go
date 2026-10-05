@@ -336,11 +336,23 @@ List<ScheduleEntry> createScheduleFromRoute(
   final bool isTimeValid = normalizedTimes.isNotEmpty;
   DateTime cursorTime = departureBase;
 
-  // ★Shift: 開始時刻に合わせてスライド (時刻が有効な場合のみ)
+  // shiftToStart is only valid for routes without fixed transit clocks.
+  // Moving a bus/train clock would detach the saved tripId from its timetable.
   if (isTimeValid && shiftToStart && normalizedTimes.isNotEmpty) {
     final firstPlanned = normalizedTimes.first;
     final diff = departureBase.difference(firstPlanned);
     if (diff != Duration.zero) {
+      final fixedTransitStepIds = route.steps
+          .where((step) => step.isRide)
+          .map((step) => step.stepId)
+          .toList(growable: false);
+      if (fixedTransitStepIds.isNotEmpty) {
+        throw StateError(
+          '固定交通時刻をshiftToStartで移動できません: '
+          'candidateId=${route.id}, diff=$diff, '
+          'rideSteps=${fixedTransitStepIds.join(',')}',
+        );
+      }
       normalizedTimes = normalizedTimes.map((t) => t.add(diff)).toList();
     }
   }
@@ -620,7 +632,7 @@ List<ScheduleEntry> createScheduleFromLegs(
       meetingLabel: '帰りの集合',
       meetingDescription: '帰りの経路を開始する前に人数を確認しましょう',
       meetingAt: meetingAt,
-      shiftToStart: true, // Anchor to inboundAnchor
+      shiftToStart: false, // Fixed transit clocks remain authoritative.
     );
 
     if (outbound != null) {

@@ -334,4 +334,129 @@ void main() {
     expect(outboundGoal.plannedAt, DateTime(2026, 10, 1, 20, 9));
     expect(inboundMeeting.plannedAt, outboundGoal.plannedAt);
   });
+
+
+  test('group return keeps fixed transit clocks from the selected route', () {
+    final inbound = Candidate.fromJson({
+      'id': 'incident-return',
+      'lines': ['都01'],
+      'rides': 1,
+      'walking_distance_meters': 116,
+      'walking_segment_count': 1,
+      'boards': 1,
+      'transfers': 0,
+      'total': 47,
+      'total_time': 47,
+      'origin_name': '渋谷駅',
+      'destination_name': '十間橋',
+      'departure_date': '2026-10-05T20:06:00',
+      'points': <dynamic>[],
+      'steps': [
+        {
+          'step_id': 'walk-origin',
+          'kind': 'walk',
+          'title': '徒歩',
+          'from_': '渋谷駅',
+          'to': '渋谷駅前',
+          'minutes': 3,
+          'meters': 116,
+        },
+        {
+          'step_id': 'wait-origin',
+          'kind': 'wait',
+          'title': '待ち時間',
+          'from_': '渋谷駅前',
+          'to': '渋谷駅前',
+          'minutes': 11,
+          'departure_time': '20:06',
+          'arrival_time': '20:18',
+        },
+        {
+          'step_id': 'bus-incident',
+          'kind': 'bus',
+          'title': '都01',
+          'from_': '渋谷駅前',
+          'to': '新橋駅前',
+          'minutes': 32,
+          'departure_time': '20:18',
+          'arrival_time': '20:50',
+          'route_id': '006',
+          'trip_id': '08501-1-09-170-2018',
+          'departureStopId': '0636-06',
+          'arrivalPoleId': '0737-04',
+        },
+      ],
+    });
+
+    final schedule = createScheduleFromLegs([
+      Leg(
+        direction: LegDirection.inbound,
+        status: LegStatus.confirmed,
+        candidate: inbound,
+      ),
+    ]);
+
+    final wait = schedule.singleWhere(
+      (entry) => entry.routeStepId == 'wait-origin',
+    );
+    final walk = schedule.singleWhere(
+      (entry) => entry.routeStepId == 'walk-origin',
+    );
+    final ride = schedule.singleWhere(
+      (entry) =>
+          entry.routeStepId == 'bus-incident' &&
+          entry.itemKind == ScheduleEntryKind.ride,
+    );
+    final arrival = schedule.singleWhere(
+      (entry) =>
+          entry.routeStepId == 'bus-incident' &&
+          entry.itemKind == ScheduleEntryKind.arrival,
+    );
+
+    expect(wait.plannedAt, DateTime(2026, 10, 5, 20, 3));
+    expect(walk.plannedAt, DateTime(2026, 10, 5, 20, 15));
+    expect(ride.plannedAt, DateTime(2026, 10, 5, 20, 18));
+    expect(arrival.plannedAt, DateTime(2026, 10, 5, 20, 50));
+  });
+
+  test('shiftToStart fails fast instead of moving fixed transit clocks', () {
+    final route = Candidate(
+      id: 'fixed-transit',
+      lines: const ['都01'],
+      rides: 1,
+      boards: 1,
+      transfers: 0,
+      total: 32,
+      totalTime: 32,
+      points: const [],
+      departureDate: DateTime(2026, 10, 5, 20, 21),
+      steps: [
+        StepSeg(
+          stepId: 'bus-fixed',
+          kind: 'bus',
+          title: '都01',
+          fromName: '渋谷駅前',
+          toName: '新橋駅前',
+          minutes: 32,
+          departureTime: '20:18',
+          arrivalTime: '20:50',
+        ),
+      ],
+    );
+
+    expect(
+      () => createScheduleFromRoute(
+        route,
+        startDateTime: route.departureDate,
+        shiftToStart: true,
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('固定交通時刻をshiftToStartで移動できません'),
+        ),
+      ),
+    );
+  });
 }

@@ -31,6 +31,7 @@ class Trip {
   final int completedLegIndex;
   final String? staffNotes; // 追加
   late final Map<String, StepSeg> stepsById;
+  late final Map<String, Candidate> candidatesByStepId;
 
   TripStatus get status => TripStatus.values[travelPhase.index];
 
@@ -61,13 +62,18 @@ class Trip {
       );
     }
     final indexedSteps = <String, StepSeg>{};
-    for (final step in legs.expand((leg) => leg.candidate.steps)) {
-      if (indexedSteps.containsKey(step.stepId)) {
-        throw StateError('route step IDが重複しています: ${step.stepId}');
+    final indexedCandidates = <String, Candidate>{};
+    for (final leg in legs) {
+      for (final step in leg.candidate.steps) {
+        if (indexedSteps.containsKey(step.stepId)) {
+          throw StateError('route step IDが重複しています: ${step.stepId}');
+        }
+        indexedSteps[step.stepId] = step;
+        indexedCandidates[step.stepId] = leg.candidate;
       }
-      indexedSteps[step.stepId] = step;
     }
     stepsById = Map.unmodifiable(indexedSteps);
+    candidatesByStepId = Map.unmodifiable(indexedCandidates);
   }
 
   factory Trip.fromFirestore(DocumentSnapshot doc) {
@@ -145,6 +151,107 @@ class Trip {
       'completedLegIndex': completedLegIndex,
       'staffNotes': staffNotes, // 追加
     };
+  }
+
+  DateTime routeStepDepartureAt(String stepId) {
+    return _routeStepBoundaryAt(stepId, arrival: false);
+  }
+
+  DateTime routeStepArrivalAt(String stepId) {
+    return _routeStepBoundaryAt(stepId, arrival: true);
+  }
+
+  DateTime _routeStepBoundaryAt(String stepId, {required bool arrival}) {
+    final step = stepsById[stepId];
+    final candidate = candidatesByStepId[stepId];
+    if (step == null || candidate == null) {
+      throw StateError('固定交通時刻のroute stepがTripにありません: $stepId');
+    }
+    final baseDate = candidate.departureDate;
+    if (baseDate == null) {
+      throw StateError(
+        '固定交通時刻の日付基準がありません: '
+        'candidateId=${candidate.id}, stepId=$stepId',
+      );
+    }
+    final stepIndex = candidate.steps.indexWhere(
+      (candidateStep) => candidateStep.stepId == stepId,
+    );
+    if (stepIndex < 0) {
+      throw StateError(
+        '固定交通時刻のstepをCandidate内で特定できません: '
+        'candidateId=${candidate.id}, stepId=$stepId',
+      );
+    }
+
+    final clocks = candidate.steps
+        .expand((candidateStep) => [
+              candidateStep.departureTime,
+              candidateStep.arrivalTime,
+            ])
+        .cast<String?>()
+        .toList(growable: false);
+    final normalized = <DateTime>[];
+    var cursor = DateTime(baseDate.year, baseDate.month, baseDate.day);
+    var hasValidClock = false;
+    for (final clock in clocks) {
+      if (clock == null) {
+        normalized.add(cursor);
+        continue;
+      }
+      final parts = clock.split(':');
+      if (parts.length < 2 || parts.length > 3) {
+        throw StateError(
+          'route stepの時刻形式が不正です: '
+          'candidateId=${candidate.id}, clock=$clock',
+        );
+      }
+      final hour = int.tryParse(parts[0]);
+      final minute = int.tryParse(parts[1]);
+      final second = parts.length == 3 ? int.tryParse(parts[2]) : 0;
+      if (hour == null ||
+          minute == null ||
+          second == null ||
+          hour < 0 ||
+          minute < 0 ||
+          minute > 59 ||
+          second < 0 ||
+          second > 59) {
+        throw StateError(
+          'route stepの時刻形式が不正です: '
+          'candidateId=${candidate.id}, clock=$clock',
+        );
+      }
+      var fixed = DateTime(
+        cursor.year,
+        cursor.month,
+        cursor.day,
+        hour,
+        minute,
+        second,
+      );
+      if (!hasValidClock) {
+        final earliestSameDay = baseDate.subtract(const Duration(hours: 12));
+        if (fixed.isBefore(earliestSameDay)) {
+          fixed = fixed.add(const Duration(days: 1));
+        }
+        hasValidClock = true;
+      } else if (normalized.isNotEmpty && fixed.isBefore(normalized.last)) {
+        fixed = fixed.add(const Duration(days: 1));
+      }
+      cursor = fixed;
+      normalized.add(fixed);
+    }
+
+    final boundaryIndex = stepIndex * 2 + (arrival ? 1 : 0);
+    if (clocks[boundaryIndex] == null) {
+      throw StateError(
+        '固定交通時刻がありません: '
+        'candidateId=${candidate.id}, stepId=$stepId, '
+        'boundary=${arrival ? 'arrival' : 'departure'}',
+      );
+    }
+    return normalized[boundaryIndex];
   }
 
   static String generateDisplayTitle(List<Leg> legs, String fallbackTitle) {

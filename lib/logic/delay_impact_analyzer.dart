@@ -222,18 +222,20 @@ class DelayImpactAnalyzer {
       );
     }
 
-    final currentArrivalEntry = _uniqueScheduleEntry(
+    _uniqueScheduleEntry(
       trip.schedule,
       legIndex: legIndex,
       routeStepId: currentStep.stepId,
       routeRole: 'arrival',
     );
-    final nextRideEntry = _uniqueScheduleEntry(
+    _uniqueScheduleEntry(
       trip.schedule,
       legIndex: legIndex,
       routeStepId: nextRide.stepId,
       routeRole: 'ride',
     );
+    final currentArrivalAt = trip.routeStepArrivalAt(currentStep.stepId);
+    final nextDepartureAt = trip.routeStepDepartureAt(nextRide.stepId);
 
     final transferWalkMinutes = _transferWalkMinutes(
       candidate.steps,
@@ -244,25 +246,25 @@ class DelayImpactAnalyzer {
     final transferRequiredMinutes =
         transferWalkMinutes + transferBoardingMinutes;
 
-    final plannedTransferReadyAt = currentArrivalEntry.plannedAt.add(
+    final plannedTransferReadyAt = currentArrivalAt.add(
       Duration(minutes: transferRequiredMinutes),
     );
-    if (plannedTransferReadyAt.isAfter(nextRideEntry.plannedAt)) {
+    if (plannedTransferReadyAt.isAfter(nextDepartureAt)) {
       throw StateError(
         '元経路の時点で乗換えが成立していません: '
         'stepId=${currentStep.stepId}, '
         'plannedReady=${plannedTransferReadyAt.toIso8601String()}, '
-        'nextDeparture=${nextRideEntry.plannedAt.toIso8601String()}',
+        'nextDeparture=${nextDepartureAt.toIso8601String()}',
       );
     }
 
     final earliestTransferReadyAt = transferBaseAt.add(
       Duration(minutes: transferRequiredMinutes),
     );
-    final feasible = !earliestTransferReadyAt.isAfter(nextRideEntry.plannedAt);
+    final feasible = !earliestTransferReadyAt.isAfter(nextDepartureAt);
     final missedBy = feasible
         ? Duration.zero
-        : earliestTransferReadyAt.difference(nextRideEntry.plannedAt);
+        : earliestTransferReadyAt.difference(nextDepartureAt);
 
     final currentTitle = currentStep.title.trim();
     final currentAlighting = currentStep.toName?.trim();
@@ -282,12 +284,12 @@ class DelayImpactAnalyzer {
       currentStepId: currentStep.stepId,
       currentRideTitle: currentTitle,
       currentAlightingPlaceName: currentAlighting,
-      plannedArrivalAt: currentArrivalEntry.plannedAt,
+      plannedArrivalAt: currentArrivalAt,
       predictedArrivalAt: transferBaseAt,
-      delay: transferBaseAt.difference(currentArrivalEntry.plannedAt),
+      delay: transferBaseAt.difference(currentArrivalAt),
       nextRideStepId: nextRide.stepId,
       nextRideTitle: nextTitle,
-      nextDepartureAt: nextRideEntry.plannedAt,
+      nextDepartureAt: nextDepartureAt,
       transferWalkMinutes: transferWalkMinutes,
       transferBoardingMinutes: transferBoardingMinutes,
       earliestTransferReadyAt: earliestTransferReadyAt,

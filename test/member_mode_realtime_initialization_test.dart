@@ -199,11 +199,13 @@ Trip _trip({
   String title = 'Realtime test',
   DateTime? departureAt,
   DateTime? arrivalAt,
+  Duration storedScheduleShift = Duration.zero,
 }) {
   final departure = departureAt ?? now.subtract(const Duration(minutes: 1));
   final arrival = arrivalAt ?? now.add(const Duration(minutes: 20));
   final rideMinutes = arrival.difference(departure).inMinutes;
   final stepId = 'bus-$id';
+  DateTime stored(DateTime value) => value.add(storedScheduleShift);
   String clockTime(DateTime time) =>
       '${time.hour.toString().padLeft(2, '0')}:'
       '${time.minute.toString().padLeft(2, '0')}';
@@ -274,7 +276,7 @@ Trip _trip({
     schedule: [
       ScheduleEntry(
         id: 'ride-$id',
-        plannedAt: departure,
+        plannedAt: stored(departure),
         label: 'テスト路線に乗る',
         itemKind: ScheduleEntryKind.ride,
         legIndex: 0,
@@ -284,7 +286,7 @@ Trip _trip({
       ),
       ScheduleEntry(
         id: 'arrival-$id',
-        plannedAt: arrival,
+        plannedAt: stored(arrival),
         label: '到着停留所に着く',
         itemKind: ScheduleEntryKind.arrival,
         legIndex: 0,
@@ -294,7 +296,7 @@ Trip _trip({
       ),
       ScheduleEntry(
         id: 'goal-$id',
-        plannedAt: arrival.add(const Duration(minutes: 1)),
+        plannedAt: stored(arrival.add(const Duration(minutes: 1))),
         label: '目的地 到着',
         itemKind: ScheduleEntryKind.goal,
         legIndex: 0,
@@ -446,7 +448,10 @@ void main() {
         expect(request.routeId, 'route-${tripType.name}');
         expect(request.tripId, 'service-${tripType.name}');
         expect(request.boardingStopId, 'stop-a');
-        expect(request.scheduledDepartureAt, trip.plannedDepartureAt);
+        expect(
+          request.scheduledDepartureAt,
+          trip.routeStepDepartureAt('bus-${tripType.name}'),
+        );
         expect(request.vehicleId, isNull);
         expect(request.forceRefresh, isTrue);
         expect(progressAtFetch.single.currentStepId, isNull);
@@ -1176,6 +1181,47 @@ void main() {
       expect(container.exists(memberModeControllerProvider), isFalse);
       expect(container.exists(memberNavProgressProvider), isFalse);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+
+  testWidgets(
+    'shifted stored schedule still queries the fixed bus departure',
+    (tester) async {
+      final now = DateTime(2026, 10, 5, 20, 17);
+      final departureAt = DateTime(2026, 10, 5, 20, 18);
+      final arrivalAt = DateTime(2026, 10, 5, 20, 50);
+      final trip = _trip(
+        now: now,
+        id: 'shifted-schedule',
+        departureAt: departureAt,
+        arrivalAt: arrivalAt,
+        storedScheduleShift: const Duration(minutes: 3),
+      );
+      final source = _RecordingBusLocationSource();
+      final container = _container(
+        trips: Stream.value(trip),
+        now: now,
+        source: source,
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        trip.schedule
+            .singleWhere((entry) => entry.itemKind == ScheduleEntryKind.ride)
+            .plannedAt,
+        DateTime(2026, 10, 5, 20, 21),
+      );
+
+      await tester.pumpWidget(_host(container));
+      await _flushNavigation(tester);
+
+      expect(source.requests, hasLength(1));
+      expect(source.requests.single.scheduledDepartureAt, departureAt);
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(_host(container, showNavigation: false));
+      await _flushNavigation(tester);
     },
   );
 }
