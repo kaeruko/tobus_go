@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/trip_models.dart';
-import '../models/group_models.dart';
 import '../services/trip_service.dart';
 import '../utils/string_utils.dart';
 
@@ -112,9 +111,11 @@ class _TripReportPageState extends State<TripReportPage> {
               AppLocalizations.of(context).groupReportAttendance,
             ),
             _buildParticipantsList(trip),
-            const SizedBox(height: 24),
-            _buildSectionTitle(AppLocalizations.of(context).groupReportSos),
-            _buildSosInfo(hasSos, trip),
+            if (hasSos) ...[
+              const SizedBox(height: 24),
+              _buildSectionTitle(AppLocalizations.of(context).groupReportSos),
+              _buildSosInfo(trip),
+            ],
             const SizedBox(height: 24),
             _buildSectionTitle(AppLocalizations.of(context).groupReportNotes),
             const SizedBox(height: 8),
@@ -245,25 +246,14 @@ class _TripReportPageState extends State<TripReportPage> {
   }
 
   Widget _buildParticipantsList(Trip trip) {
-    // ダミーデータを追加して表示（ユーザー要望）
-    final displayParticipants = [...trip.participants];
-    if (displayParticipants.length < 5) {
-      displayParticipants.addAll([
-        Participant(uid: 'dummy1', name: '佐藤 花子', isLeader: false, sosCount: 0),
-        Participant(uid: 'dummy2', name: '鈴木 一郎', isLeader: false, sosCount: 1),
-        Participant(uid: 'dummy3', name: '高橋 次郎', isLeader: false, sosCount: 0),
-        Participant(uid: 'dummy4', name: '田中 美咲', isLeader: false, sosCount: 2),
-      ]);
-    }
-
     return Card(
       child: ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: displayParticipants.length,
+        itemCount: trip.participants.length,
         separatorBuilder: (_, __) => const Divider(height: 1),
         itemBuilder: (context, index) {
-          final p = displayParticipants[index];
+          final p = trip.participants[index];
           return ListTile(
             leading: Icon(
               p.isLeader ? Icons.star : Icons.person,
@@ -289,82 +279,34 @@ class _TripReportPageState extends State<TripReportPage> {
     );
   }
 
-  Widget _buildSosInfo(bool hasSos, Trip trip) {
-    // ダミーSOSデータを強制表示（ユーザー要望）
-    final dummySosLog = [
-      {
-        'name': '鈴木 一郎',
-        'time': '10:15',
-        'msg': AppLocalizations.of(context).groupReportDemoFall,
-      },
-      {
-        'name': '田中 美咲',
-        'time': '11:30',
-        'msg': AppLocalizations.of(context).groupReportDemoLost,
-      },
-      {
-        'name': '田中 美咲',
-        'time': '11:45',
-        'msg': AppLocalizations.of(context).groupReportDemoReunited,
-      },
-    ];
+  Widget _buildSosInfo(Trip trip) {
+    final sosParticipants = trip.participants
+        .where((participant) => (participant.sosCount ?? 0) > 0)
+        .toList(growable: false);
 
     return Card(
       color: Colors.red.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.warning, color: Colors.red),
-                SizedBox(width: 8),
-                Text(
-                  AppLocalizations.of(context).groupReportDemoSos,
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...dummySosLog.map(
-              (log) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      log['time']!,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black54,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            log['name']!,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            log['msg']!,
-                            style: const TextStyle(color: Colors.black87),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: sosParticipants.length,
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          final participant = sosParticipants[index];
+          return ListTile(
+            leading: const Icon(Icons.warning, color: Colors.red),
+            title: Text(participant.name),
+            trailing: Text(
+              AppLocalizations.of(
+                context,
+              ).groupReportSosCount(participant.sosCount ?? 0),
+              style: const TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
