@@ -53,7 +53,7 @@ void main() {
   );
 
   test(
-    'arrival stays on the same bus step while the bus is before destination',
+    'planned arrival advances even while realtime still shows the bus before destination',
     () {
       final trip = navigationV2Trip();
       final step = trip.stepsById['bus-C']!;
@@ -83,14 +83,18 @@ void main() {
         now: DateTime(2025, 1, 1, 10, 47),
       );
 
-      expect(resolved.resolvedEntry?.id, ride.id);
+      expect(resolved.activeEntry?.id, arrival.id);
+      expect(resolved.resolvedEntry?.id, arrival.id);
       expect(resolved.resolvedEntry?.routeStepId, 'bus-C');
-      expect(resolved.resolutionReason, contains('step_id'));
+      expect(
+        resolved.resolutionReason,
+        isNot(contains('premature_arrival_revert_step_id')),
+      );
     },
   );
 
   test(
-    'late bus stays active even when the clock has advanced through walk and goal',
+    'planned schedule stays authoritative after bus arrival time despite late realtime',
     () {
       final trip = navigationV2Trip();
       final step = trip.stepsById['bus-C']!;
@@ -134,12 +138,13 @@ void main() {
       );
 
       expect(resolved.activeEntry?.id, goal.id);
-      expect(resolved.resolvedEntry?.id, ride.id);
-      expect(resolved.completedCount, 0);
-      expect(resolved.windowEntries, contains(ride));
+      expect(resolved.resolvedEntry?.id, goal.id);
+      expect(resolved.completedCount, 3);
+      expect(resolved.windowEntries, contains(goal));
+      expect(resolved.windowEntries, isNot(contains(ride)));
       expect(
         resolved.resolutionReason,
-        contains('realtime_incomplete_ride_revert_step_id'),
+        isNot(contains('realtime_incomplete_ride_revert_step_id')),
       );
     },
   );
