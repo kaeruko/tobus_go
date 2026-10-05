@@ -1189,7 +1189,7 @@ void main() {
     'shifted stored schedule still queries the fixed bus departure',
     (tester) async {
       final now = appClock.now();
-      final departureAt = now.add(const Duration(minutes: 1));
+      final departureAt = now.subtract(const Duration(minutes: 1));
       final arrivalAt = departureAt.add(const Duration(minutes: 32));
       final trip = _trip(
         now: now,
@@ -1217,7 +1217,10 @@ void main() {
       await _flushNavigation(tester);
 
       expect(source.requests, hasLength(1));
-      expect(source.requests.single.scheduledDepartureAt, departureAt);
+      expect(
+        source.requests.single.scheduledDepartureAt,
+        trip.routeStepDepartureAt('bus-shifted-schedule'),
+      );
       expect(tester.takeException(), isNull);
 
       await tester.pumpWidget(_host(container, showNavigation: false));
