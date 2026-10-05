@@ -141,6 +141,27 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
     this._trainLocationSource,
   ) : super(const RealtimeTransitState());
 
+  /// Restores history without replacing observations already obtained here.
+  void restoreHistoricalTransitMemory(ReplanTransitMemory restored) {
+    final current = state.replanTransitMemory;
+    if (current.ridingTransit != null ||
+        current.lastConfirmedTransitPlace != null ||
+        current.knownOnboardStepId != null ||
+        current.completedRideStepId != null) {
+      return;
+    }
+    if (restored.lastConfirmedTransitPlace == null &&
+        restored.knownOnboardStepId == null &&
+        restored.completedRideStepId == null) {
+      return;
+    }
+    state = RealtimeTransitState(
+      trackedStepId:
+          restored.knownOnboardStepId ?? restored.completedRideStepId,
+      replanTransitMemory: restored,
+    );
+  }
+
   void _initialize() {
     _startPolling();
   }
@@ -218,13 +239,39 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       );
     }
 
-    // Keep an incomplete realtime ride authoritative after its planned arrival
-    // time. Resolving by the clock alone would otherwise jump to a later walk
-    // or goal while the vehicle/train is still before the alighting stop.
     final navProgress = _ref.read(memberNavProgressProvider);
     // Reading progress may refresh its Trip identity and replace this session.
     if (!mounted) return;
-    final knownBusProgress = state.busProgress ?? navProgress.busProgress;
+    var knownBusProgress = state.busProgress ?? navProgress.busProgress;
+    final memory = state.replanTransitMemory;
+    final rememberedBusStepId =
+        knownBusProgress?.stepId ??
+        memory.completedRideStepId ??
+        memory.knownOnboardStepId;
+    final rememberedBusStep = trip.stepsById[rememberedBusStepId];
+    if (rememberedBusStep?.kind == 'bus') {
+      final arrivalAt = _plannedRideArrivalAt(trip, rememberedBusStep!.stepId);
+      final alreadyCompleted =
+          memory.completedRideStepId == rememberedBusStepId ||
+          knownBusProgress?.phase == BusProgressPhase.arrived;
+      final scheduleCompleted = shouldCompleteBusFromSchedule(
+        now: appClock.now(),
+        plannedArrivalAt: arrivalAt,
+      );
+      if ((alreadyCompleted && !scheduleCompleted) ||
+          (scheduleCompleted &&
+              (knownBusProgress != null ||
+                  memory.knownOnboardStepId != null))) {
+        _completeBusRide(
+          rememberedBusStep,
+          lastProgress: knownBusProgress,
+          completedAt: alreadyCompleted
+              ? _completedBusTime(arrivalAt)
+              : arrivalAt,
+        );
+        knownBusProgress = state.busProgress;
+      }
+    }
     final knownRailProgress = state.railProgress ?? navProgress.railProgress;
     final scheduleResolved = TripCoordinator.resolveScheduleState(
       scheduleEntries: _navigationScheduleForTrip(trip),
@@ -298,6 +345,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         'legDirections': trip.legs.map((leg) => leg.direction.name).toList(),
         'trackedStepId': state.trackedStepId,
         'knownOnboardStepId': state.replanTransitMemory.knownOnboardStepId,
+        'completedRideStepId': state.replanTransitMemory.completedRideStepId,
         'resolvedStepId': stepId,
         'stepSchedules': stepSchedules,
       };
@@ -383,6 +431,28 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       'route=${activeStep.routeId}, trip=${activeStep.tripId}',
     );
 
+    final now = appClock.now();
+    final alreadyCompleted =
+        state.replanTransitMemory.completedRideStepId == activeStep.stepId ||
+        state.busProgress?.stepId == activeStep.stepId &&
+            state.busProgress?.phase == BusProgressPhase.arrived;
+    if (alreadyCompleted ||
+        shouldCompleteBusFromSchedule(
+          now: now,
+          plannedArrivalAt: plannedArrivalAt,
+        )) {
+      _completeBusRide(
+        activeStep,
+        lastProgress: state.busProgress?.stepId == activeStep.stepId
+            ? state.busProgress
+            : null,
+        completedAt: alreadyCompleted
+            ? _completedBusTime(plannedArrivalAt)
+            : plannedArrivalAt,
+      );
+      return;
+    }
+
     try {
       final trackedVehicleId = state.trackedStepId == activeStep.stepId
           ? state.trackedVehicleId
@@ -396,6 +466,15 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         forceRefresh: forceRefresh,
       );
       if (!mounted) return;
+      // A disk load may restore completion while this request is in flight.
+      // Its later vehicle sample must never reactivate that finished service.
+      if (state.replanTransitMemory.completedRideStepId == activeStep.stepId) {
+        _completeBusRide(
+          activeStep,
+          completedAt: _completedBusTime(plannedArrivalAt),
+        );
+        return;
+      }
       final realtimeProgress = BusProgress.forStep(
         step: activeStep,
         fromStopId: location.fromStopId,
@@ -408,16 +487,14 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         vehicleAgeSeconds: location.vehicleAgeSeconds,
       );
       final now = appClock.now();
-      final assumeArrived = shouldAssumeBusArrivedFromStaleRealtime(
+      final assumeArrived = shouldCompleteBusFromSchedule(
         now: now,
         plannedArrivalAt: plannedArrivalAt,
-        progress: realtimeProgress,
-        staleAfterSeconds: NavigationState.staleRidePositionAfterSeconds,
       );
       final progress = assumeArrived
-          ? assumeBusArrivedAtDestination(
+          ? completeBusAtDestination(
               step: activeStep,
-              realtimeProgress: realtimeProgress,
+              lastProgress: realtimeProgress,
             )
           : realtimeProgress;
       if (assumeArrived) {
@@ -433,7 +510,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         step: activeStep,
         progress: progress,
         location: location,
-        now: now,
+        now: assumeArrived ? plannedArrivalAt : now,
       );
       _logBusProgressTrace(
         step: activeStep,
@@ -478,6 +555,13 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       );
     } on BusLocationNotAvailableException catch (e) {
       if (!mounted) return;
+      if (state.replanTransitMemory.completedRideStepId == activeStep.stepId) {
+        _completeBusRide(
+          activeStep,
+          completedAt: _completedBusTime(plannedArrivalAt),
+        );
+        return;
+      }
       if (e.code == 'bus_realtime_not_started') {
         state = RealtimeTransitState(
           trackedStepId: activeStep.stepId,
@@ -494,44 +578,34 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       final now = appClock.now();
       final navProgress = _ref.read(memberNavProgressProvider);
       if (!mounted) return;
-      final lastRidingProgress = state.busProgress?.stepId == activeStep.stepId
+      final lastProgress = state.busProgress?.stepId == activeStep.stepId
           ? state.busProgress
           : navProgress.busProgress?.stepId == activeStep.stepId
           ? navProgress.busProgress
           : null;
-      final knownOnboard =
-          state.replanTransitMemory.knownOnboardStepId == activeStep.stepId;
+      final hasSeenVehicle =
+          state.replanTransitMemory.knownOnboardStepId == activeStep.stepId ||
+          lastProgress != null ||
+          state.trackedStepId == activeStep.stepId &&
+              state.trackedVehicleId != null;
 
       if (e.code == 'bus_trip_not_found' &&
-          (lastRidingProgress == null ||
-              lastRidingProgress.phase == BusProgressPhase.riding) &&
           shouldAssumeBusArrivedAfterRealtimeLoss(
             now: now,
             plannedArrivalAt: plannedArrivalAt,
-            knownOnboard: knownOnboard,
+            hasSeenVehicle: hasSeenVehicle,
           )) {
-        final arrivedProgress = assumeBusArrivedAtDestination(
-          step: activeStep,
-          realtimeProgress: lastRidingProgress,
-          knownOnboard: knownOnboard,
-        );
-        state = RealtimeTransitState(
-          trackedStepId: activeStep.stepId,
-          trackedVehicleId: state.trackedStepId == activeStep.stepId
-              ? state.trackedVehicleId
-              : null,
-          busProgress: arrivedProgress,
-          replanTransitMemory: state.replanTransitMemory.markArrived(
-            _destinationPlace(activeStep),
-            confirmedAt: now,
-          ),
+        _completeBusRide(
+          activeStep,
+          lastProgress: lastProgress,
+          completedAt: now.isBefore(plannedArrivalAt) ? now : plannedArrivalAt,
         );
         debugPrint(
-          '[MemberModeController] バスRealtime終了後、予定時刻で降車を確定: '
+          '[MemberModeController] バスRealtime終了: '
           'step=${activeStep.stepId} '
           'plannedArrival=${plannedArrivalAt.toIso8601String()} '
-          'lastObserved=${lastRidingProgress?.observedStopId}/'
-          '${lastRidingProgress?.observedStopName} '
+          'lastObserved=${lastProgress?.observedStopId}/'
+          '${lastProgress?.observedStopName} '
           'error=$e',
         );
         return;
@@ -555,6 +629,39 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       debugPrintStack(stackTrace: stackTrace);
       rethrow;
     }
+  }
+
+  void _completeBusRide(
+    StepSeg step, {
+    BusProgress? lastProgress,
+    required DateTime completedAt,
+  }) {
+    if (state.busProgress?.stepId == step.stepId &&
+        state.busProgress?.phase == BusProgressPhase.arrived &&
+        state.replanTransitMemory.completedRideStepId == step.stepId) {
+      return;
+    }
+    state = RealtimeTransitState(
+      trackedStepId: step.stepId,
+      trackedVehicleId: state.trackedStepId == step.stepId
+          ? state.trackedVehicleId
+          : null,
+      busProgress: completeBusAtDestination(
+        step: step,
+        lastProgress: lastProgress,
+      ),
+      replanTransitMemory: state.replanTransitMemory.markArrived(
+        _destinationPlace(step),
+        confirmedAt: completedAt,
+        stepId: step.stepId,
+      ),
+    );
+  }
+
+  DateTime _completedBusTime(DateTime plannedArrivalAt) {
+    final now = appClock.now();
+    return state.replanTransitMemory.lastConfirmedTransitAt ??
+        (now.isBefore(plannedArrivalAt) ? now : plannedArrivalAt);
   }
 
   Future<void> _performAlightingAlertHaptic(
@@ -659,6 +766,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         return state.replanTransitMemory.markArrived(
           _destinationPlace(step),
           confirmedAt: now,
+          stepId: step.stepId,
         );
       case BusProgressPhase.riding:
         final observation = ReplanTransitObservationAdapter.fromBus(
@@ -939,7 +1047,7 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>(
   (ref) {
     final tripAsync = ref.watch(tripStreamProvider);
     final navProgress = ref.watch(memberNavProgressProvider);
-    ref.watch(memberModeControllerProvider);
+    final realtime = ref.watch(memberModeControllerProvider);
     final nowTick = ref.watch(minuteTickerProvider);
 
     return tripAsync.whenData((trip) {
@@ -947,11 +1055,23 @@ final memberUiStateProvider = Provider.autoDispose<AsyncValue<MemberUiState>>(
 
       final now = nowTick.value ?? appClock.now();
 
+      // Disk restoration can finish between polls. A persisted completion must
+      // already be visible without waiting for the next realtime request.
+      final completedStepId = realtime.replanTransitMemory.completedRideStepId;
+      final completedStep = trip.stepsById[completedStepId];
+      final restoredBusCompletion =
+          completedStep?.kind == 'bus' &&
+              realtime.trackedStepId == completedStepId &&
+              navProgress.railProgress == null
+          ? completeBusAtDestination(step: completedStep!)
+          : null;
+
       // ルート情報の構築（表示用）
       final routeState = RouteState(
         stepsById: trip.stepsById,
-        currentStepId: navProgress.currentStepId,
-        busProgress: navProgress.busProgress,
+        currentStepId:
+            restoredBusCompletion?.stepId ?? navProgress.currentStepId,
+        busProgress: restoredBusCompletion ?? navProgress.busProgress,
         railProgress: navProgress.railProgress,
       );
 

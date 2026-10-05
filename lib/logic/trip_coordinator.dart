@@ -29,10 +29,7 @@ class _RealtimeRideProgress {
   final String stepId;
   final bool arrived;
 
-  const _RealtimeRideProgress({
-    required this.stepId,
-    required this.arrived,
-  });
+  const _RealtimeRideProgress({required this.stepId, required this.arrived});
 }
 
 class TripCoordinator {
@@ -96,9 +93,7 @@ class TripCoordinator {
   }) {
     final stepId = rideEntry.routeStepId;
     if (stepId == null || stepId.isEmpty) {
-      throw StateError(
-        '乗車予定にrouteStepIdがありません: entryId=${rideEntry.id}',
-      );
+      throw StateError('乗車予定にrouteStepIdがありません: entryId=${rideEntry.id}');
     }
 
     final rideStep = trip.stepsById[stepId];
@@ -144,9 +139,7 @@ class TripCoordinator {
     final routeTitle = _boardingRouteTitle(trip: trip, rideEntry: rideEntry);
     final stepId = rideEntry.routeStepId;
     if (stepId == null || stepId.isEmpty) {
-      throw StateError(
-        '乗車予定にrouteStepIdがありません: entryId=${rideEntry.id}',
-      );
+      throw StateError('乗車予定にrouteStepIdがありません: entryId=${rideEntry.id}');
     }
     final routeTitleEn = trip.stepsById[stepId]?.titleEn?.trim();
     return NavigationTextToken(
@@ -214,12 +207,26 @@ class TripCoordinator {
     addReason('active_entry');
 
     final progress = _realtimeRideProgress(routeState);
-    if (progress != null && !progress.arrived) {
-      final trackedRideIndex = scheduleSorted.indexWhere(
-        (entry) =>
-            entry.itemKind == ScheduleEntryKind.ride &&
-            entry.routeStepId == progress.stepId,
-      );
+    final trackedRideIndex = progress == null
+        ? -1
+        : scheduleSorted.indexWhere(
+            (entry) =>
+                entry.itemKind == ScheduleEntryKind.ride &&
+                entry.routeStepId == progress.stepId,
+          );
+    // Bus positions can reflect an earlier part of the ride even when their
+    // timestamps are fresh. The planned arrival ends this bus interval.
+    final plannedBusArrivalReached =
+        routeState?.busProgress != null &&
+        trackedRideIndex >= 0 &&
+        scheduleSorted.any(
+          (entry) =>
+              entry.itemKind == ScheduleEntryKind.arrival &&
+              entry.legIndex == scheduleSorted[trackedRideIndex].legIndex &&
+              entry.routeStepId == progress!.stepId &&
+              !now.isBefore(entry.plannedAt),
+        );
+    if (progress != null && !progress.arrived && !plannedBusArrivalReached) {
       if (trackedRideIndex >= 0 && activeIndex > trackedRideIndex) {
         resolved = scheduleSorted[trackedRideIndex];
         addReason('realtime_incomplete_ride_revert_step_id');
@@ -259,7 +266,8 @@ class TripCoordinator {
       if (rideEntry != null &&
           rideStep != null &&
           rideStep.stops.isNotEmpty &&
-          !progress.arrived) {
+          !progress.arrived &&
+          !plannedBusArrivalReached) {
         resolved = rideEntry;
         addReason('premature_arrival_revert_step_id');
       }
@@ -321,37 +329,31 @@ class TripCoordinator {
     final destination = candidate.destinationName?.trim().isNotEmpty == true
         ? candidate.destinationName!.trim()
         : candidate.steps.isNotEmpty
-            ? candidate.steps.last.toName?.trim()
-            : null;
+        ? candidate.steps.last.toName?.trim()
+        : null;
     if (destination == null || destination.isEmpty) {
       throw StateError(
         'ゴール予定に目的地名がありません: '
         'entryId=${entry.id}, candidateId=${candidate.id}',
       );
     }
-    final destinationEn =
-        candidate.destinationNameEn?.trim().isNotEmpty == true
-            ? candidate.destinationNameEn!.trim()
-            : candidate.steps.isNotEmpty
-                ? candidate.steps.last.toNameEn?.trim()
-                : null;
+    final destinationEn = candidate.destinationNameEn?.trim().isNotEmpty == true
+        ? candidate.destinationNameEn!.trim()
+        : candidate.steps.isNotEmpty
+        ? candidate.steps.last.toNameEn?.trim()
+        : null;
 
     return NavigationState(
       mainText: destination,
       subText: entry.description.isNotEmpty ? entry.description : 'お疲れ様でした',
       color: const Color(0xFFFFCC80),
       statusLabel: '到着',
-      mainTextToken: NavigationTextToken(
-        NavigationTextKey.goalArrivedMain,
-        {
-          'destination': destination,
-          if (destinationEn != null && destinationEn.isNotEmpty)
-            'destinationEn': destinationEn,
-        },
-      ),
-      subTextToken: const NavigationTextToken(
-        NavigationTextKey.tripEndedSub,
-      ),
+      mainTextToken: NavigationTextToken(NavigationTextKey.goalArrivedMain, {
+        'destination': destination,
+        if (destinationEn != null && destinationEn.isNotEmpty)
+          'destinationEn': destinationEn,
+      }),
+      subTextToken: const NavigationTextToken(NavigationTextKey.tripEndedSub),
       statusLabelToken: const NavigationTextToken(
         NavigationTextKey.arrivedStatus,
       ),
@@ -386,12 +388,8 @@ class TripCoordinator {
         subText: 'グループは解散されました',
         color: Colors.red,
         statusLabel: '中止',
-        mainTextToken: NavigationTextToken(
-          NavigationTextKey.tripCancelledMain,
-        ),
-        subTextToken: NavigationTextToken(
-          NavigationTextKey.tripCancelledSub,
-        ),
+        mainTextToken: NavigationTextToken(NavigationTextKey.tripCancelledMain),
+        subTextToken: NavigationTextToken(NavigationTextKey.tripCancelledSub),
         statusLabelToken: NavigationTextToken(
           NavigationTextKey.tripCancelledStatus,
         ),
@@ -405,10 +403,7 @@ class TripCoordinator {
       if (resolvedState.windowEntries.isNotEmpty) {
         final firstEntry = resolvedState.windowEntries.first;
         if (firstEntry.itemKind == ScheduleEntryKind.meeting) {
-          return NavigationState.waitingForMeeting(
-            entry: firstEntry,
-            now: now,
-          );
+          return NavigationState.waitingForMeeting(entry: firstEntry, now: now);
         }
         return NavigationState.waitingForDeparture(
           plannedAt: firstEntry.plannedAt,
@@ -441,14 +436,10 @@ class TripCoordinator {
         (entry) => entry.id == resolved.id,
       );
       if (meetingIndex < 0) {
-        throw StateError(
-          '集合予定が予定ウィンドウ内にありません: entryId=${resolved.id}',
-        );
+        throw StateError('集合予定が予定ウィンドウ内にありません: entryId=${resolved.id}');
       }
       if (meetingIndex + 1 >= sameLegWindow.length) {
-        throw StateError(
-          '集合予定の次の予定がありません: entryId=${resolved.id}',
-        );
+        throw StateError('集合予定の次の予定がありません: entryId=${resolved.id}');
       }
       return NavigationState.meetingWithNext(
         entry: resolved,
@@ -504,10 +495,7 @@ class TripCoordinator {
           statusLabel: '待機',
           mainTextToken: NavigationTextToken(
             NavigationTextKey.departureCountdownMain,
-            {
-              'leaveTime': leaveTime,
-              'minutes': remainingMinutes,
-            },
+            {'leaveTime': leaveTime, 'minutes': remainingMinutes},
           ),
           subTextToken: _boardingSubTextToken(
             trip: trip,
@@ -546,14 +534,11 @@ class TripCoordinator {
         ),
         color: const Color(0xFFE1F5FE),
         statusLabel: '待機',
-        mainTextToken: NavigationTextToken(
-          NavigationTextKey.waitingPlaceMain,
-          {
-            'placeName': waitPlace,
-            if (waitPlaceEn != null && waitPlaceEn.isNotEmpty)
-              'placeNameEn': waitPlaceEn,
-          },
-        ),
+        mainTextToken: NavigationTextToken(NavigationTextKey.waitingPlaceMain, {
+          'placeName': waitPlace,
+          if (waitPlaceEn != null && waitPlaceEn.isNotEmpty)
+            'placeNameEn': waitPlaceEn,
+        }),
         subTextToken: _boardingSubTextToken(
           trip: trip,
           rideEntry: rideEntry,
@@ -584,9 +569,7 @@ class TripCoordinator {
       if (nextRides.isNotEmpty) {
         final destination = step.to;
         if (destination == null || destination.isEmpty) {
-          throw StateError(
-            '乗車前の徒歩stepに目的地がありません: stepId=${step.stepId}',
-          );
+          throw StateError('乗車前の徒歩stepに目的地がありません: stepId=${step.stepId}');
         }
 
         final rideEntry = nextRides.first;
@@ -603,16 +586,14 @@ class TripCoordinator {
           ),
           color: const Color(0xFF81D4FA),
           statusLabel: '移動中',
-          mainTextToken: NavigationTextToken(
-            NavigationTextKey.walkToRideCountdownMain,
-            {
-              'rideTime': rideTime,
-              'destination': destination,
-              if (step.toNameEn?.trim().isNotEmpty == true)
-                'destinationEn': step.toNameEn!.trim(),
-              'minutes': remainingMinutes,
-            },
-          ),
+          mainTextToken:
+              NavigationTextToken(NavigationTextKey.walkToRideCountdownMain, {
+                'rideTime': rideTime,
+                'destination': destination,
+                if (step.toNameEn?.trim().isNotEmpty == true)
+                  'destinationEn': step.toNameEn!.trim(),
+                'minutes': remainingMinutes,
+              }),
           subTextToken: _boardingSubTextToken(
             trip: trip,
             rideEntry: rideEntry,

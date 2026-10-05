@@ -10,92 +10,84 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
-  test('confirmed onboard marker survives restart without stale realtime', () async {
-    final store = ReplanTransitMemoryStore();
-    final current = ReplanTransitPlace(
-      name: '浅草橋',
-      stopId: 'stop-asakusabashi',
-      point: const LatLng(35.697, 139.785),
-    );
-    final next = ReplanTransitPlace(
-      name: '蔵前',
-      stopId: 'stop-kuramae',
-      point: const LatLng(35.703, 139.790),
-    );
-    final observation = RidingTransitObservation(
-      stepId: 'rail-1',
-      motion: RidingTransitMotion.inTransit,
-      currentPlace: current,
-      nextPlace: next,
-      predictedNextAvailableAt: DateTime(2026, 8, 15, 18, 6),
-      predictedDestinationAvailableAt: DateTime(2026, 8, 15, 18, 12),
-    );
-    final memory = const ReplanTransitMemory().observeRide(observation);
+  test(
+    'confirmed onboard marker survives restart without stale realtime',
+    () async {
+      final store = ReplanTransitMemoryStore();
+      final current = ReplanTransitPlace(
+        name: '浅草橋',
+        stopId: 'stop-asakusabashi',
+        point: const LatLng(35.697, 139.785),
+      );
+      final next = ReplanTransitPlace(
+        name: '蔵前',
+        stopId: 'stop-kuramae',
+        point: const LatLng(35.703, 139.790),
+      );
+      final observation = RidingTransitObservation(
+        stepId: 'rail-1',
+        motion: RidingTransitMotion.inTransit,
+        currentPlace: current,
+        nextPlace: next,
+        predictedNextAvailableAt: DateTime(2026, 8, 15, 18, 6),
+        predictedDestinationAvailableAt: DateTime(2026, 8, 15, 18, 12),
+      );
+      final memory = const ReplanTransitMemory().observeRide(observation);
 
-    await store.save(
-      tripId: 'trip-1',
-      userId: 'user-1',
-      memory: memory,
-    );
-    final restored = await store.load(
-      tripId: 'trip-1',
-      userId: 'user-1',
-    );
+      await store.save(tripId: 'trip-1', userId: 'user-1', memory: memory);
+      final restored = await store.load(tripId: 'trip-1', userId: 'user-1');
 
-    expect(restored, isNotNull);
-    final restoredMemory = restored!.toMemory();
-    expect(restoredMemory.ridingTransit, isNull);
-    expect(restoredMemory.knownOnboardStepId, 'rail-1');
-    expect(restoredMemory.lastConfirmedTransitPlace?.name, '浅草橋');
-    expect(restoredMemory.lastConfirmedTransitAt, isNull);
-    expect(
-      restoredMemory.lastConfirmedTransitPlace?.point,
-      const LatLng(35.697, 139.785),
-    );
-  });
+      expect(restored, isNotNull);
+      final restoredMemory = restored!.toMemory();
+      expect(restoredMemory.ridingTransit, isNull);
+      expect(restoredMemory.knownOnboardStepId, 'rail-1');
+      expect(restoredMemory.lastConfirmedTransitPlace?.name, '浅草橋');
+      expect(restoredMemory.lastConfirmedTransitAt, isNull);
+      expect(
+        restoredMemory.lastConfirmedTransitPlace?.point,
+        const LatLng(35.697, 139.785),
+      );
+    },
+  );
 
-  test('confirmed arrival time survives restart and clears onboard marker', () async {
-    final store = ReplanTransitMemoryStore();
-    final current = ReplanTransitPlace(
-      name: '浅草橋',
-      stopId: 'stop-asakusabashi',
-      point: const LatLng(35.697, 139.785),
-    );
-    final next = ReplanTransitPlace(
-      name: '蔵前',
-      stopId: 'stop-kuramae',
-      point: const LatLng(35.703, 139.790),
-    );
-    final observation = RidingTransitObservation(
-      stepId: 'rail-1',
-      motion: RidingTransitMotion.inTransit,
-      currentPlace: current,
-      nextPlace: next,
-      predictedNextAvailableAt: DateTime(2026, 8, 15, 18, 6),
-      predictedDestinationAvailableAt: DateTime(2026, 8, 15, 18, 12),
-    );
-    final confirmedAt = DateTime(2026, 8, 15, 18, 4, 12);
-    final memory = const ReplanTransitMemory()
-        .observeRide(observation)
-        .markArrived(current, confirmedAt: confirmedAt);
+  test(
+    'confirmed arrival time survives restart and clears onboard marker',
+    () async {
+      final store = ReplanTransitMemoryStore();
+      final current = ReplanTransitPlace(
+        name: '浅草橋',
+        stopId: 'stop-asakusabashi',
+        point: const LatLng(35.697, 139.785),
+      );
+      final next = ReplanTransitPlace(
+        name: '蔵前',
+        stopId: 'stop-kuramae',
+        point: const LatLng(35.703, 139.790),
+      );
+      final observation = RidingTransitObservation(
+        stepId: 'rail-1',
+        motion: RidingTransitMotion.inTransit,
+        currentPlace: current,
+        nextPlace: next,
+        predictedNextAvailableAt: DateTime(2026, 8, 15, 18, 6),
+        predictedDestinationAvailableAt: DateTime(2026, 8, 15, 18, 12),
+      );
+      final confirmedAt = DateTime(2026, 8, 15, 18, 4, 12);
+      final memory = const ReplanTransitMemory()
+          .observeRide(observation)
+          .markArrived(current, confirmedAt: confirmedAt);
 
-    await store.save(
-      tripId: 'trip-1',
-      userId: 'user-1',
-      memory: memory,
-    );
-    final restored = await store.load(
-      tripId: 'trip-1',
-      userId: 'user-1',
-    );
+      await store.save(tripId: 'trip-1', userId: 'user-1', memory: memory);
+      final restored = await store.load(tripId: 'trip-1', userId: 'user-1');
 
-    expect(restored, isNotNull);
-    final restoredMemory = restored!.toMemory();
-    expect(restoredMemory.ridingTransit, isNull);
-    expect(restoredMemory.knownOnboardStepId, isNull);
-    expect(restoredMemory.lastConfirmedTransitPlace?.name, '浅草橋');
-    expect(restoredMemory.lastConfirmedTransitAt, confirmedAt);
-  });
+      expect(restored, isNotNull);
+      final restoredMemory = restored!.toMemory();
+      expect(restoredMemory.ridingTransit, isNull);
+      expect(restoredMemory.knownOnboardStepId, isNull);
+      expect(restoredMemory.lastConfirmedTransitPlace?.name, '浅草橋');
+      expect(restoredMemory.lastConfirmedTransitAt, confirmedAt);
+    },
+  );
 
   test('memory is isolated by trip and user', () async {
     final store = ReplanTransitMemoryStore();
@@ -106,20 +98,10 @@ void main() {
       ),
     );
 
-    await store.save(
-      tripId: 'trip-1',
-      userId: 'user-1',
-      memory: memory,
-    );
+    await store.save(tripId: 'trip-1', userId: 'user-1', memory: memory);
 
-    expect(
-      await store.load(tripId: 'trip-2', userId: 'user-1'),
-      isNull,
-    );
-    expect(
-      await store.load(tripId: 'trip-1', userId: 'user-2'),
-      isNull,
-    );
+    expect(await store.load(tripId: 'trip-2', userId: 'user-1'), isNull);
+    expect(await store.load(tripId: 'trip-1', userId: 'user-2'), isNull);
   });
 
   test('empty memory removes persisted history', () async {
@@ -131,44 +113,92 @@ void main() {
       ),
     );
 
-    await store.save(
-      tripId: 'trip-1',
-      userId: 'user-1',
-      memory: memory,
-    );
+    await store.save(tripId: 'trip-1', userId: 'user-1', memory: memory);
     await store.save(
       tripId: 'trip-1',
       userId: 'user-1',
       memory: const ReplanTransitMemory(),
     );
 
-    expect(
-      await store.load(tripId: 'trip-1', userId: 'user-1'),
-      isNull,
-    );
+    expect(await store.load(tripId: 'trip-1', userId: 'user-1'), isNull);
   });
 
+  test(
+    'legacy persisted place without confirmedAt does not invent a time',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'replan_transit_memory_v1::user-1::trip-1':
+            '{"schemaVersion":1,"tripId":"trip-1","userId":"user-1",'
+            '"knownOnboardStepId":null,'
+            '"lastConfirmedTransitPlace":{"name":"浅草橋",'
+            '"stopId":"stop-asakusabashi","latitude":35.697,'
+            '"longitude":139.785}}',
+      });
+      final store = ReplanTransitMemoryStore();
 
-  test('legacy persisted place without confirmedAt does not invent a time', () async {
+      final restored = await store.load(tripId: 'trip-1', userId: 'user-1');
+
+      expect(restored, isNotNull);
+      expect(restored!.lastConfirmedTransitPlace?.stopId, 'stop-asakusabashi');
+      expect(restored.lastConfirmedTransitAt, isNull);
+      expect(restored.toMemory().lastConfirmedTransitAt, isNull);
+      expect(restored.completedRideStepId, isNull);
+      expect(restored.toMemory().completedRideStepId, isNull);
+    },
+  );
+
+  test(
+    'completed ride identity and arrival fact survive an early finish',
+    () async {
+      final store = ReplanTransitMemoryStore();
+      final destination = ReplanTransitPlace(
+        name: '渋谷駅前',
+        stopId: 'stop-shibuya',
+        point: const LatLng(35.658, 139.702),
+      );
+      final finishedAt = DateTime(2026, 10, 5, 16, 55);
+      final completed = const ReplanTransitMemory().markArrived(
+        destination,
+        confirmedAt: finishedAt,
+        stepId: 'bus-outbound',
+      );
+      await store.save(tripId: 'trip-1', userId: 'user-1', memory: completed);
+
+      final restartedStore = ReplanTransitMemoryStore();
+      final restored = await restartedStore.load(
+        tripId: 'trip-1',
+        userId: 'user-1',
+      );
+      expect(restored!.completedRideStepId, 'bus-outbound');
+      expect(restored.toMemory().completedRideStepId, 'bus-outbound');
+      expect(restored.toMemory().lastConfirmedTransitAt, finishedAt);
+      expect(restored.toMemory().knownOnboardStepId, isNull);
+      expect(restored.toMemory().ridingTransit, isNull);
+    },
+  );
+
+  test('a completion-only fact is saved even without place history', () async {
+    final store = ReplanTransitMemoryStore();
+    await store.save(
+      tripId: 'trip-1',
+      userId: 'user-1',
+      memory: const ReplanTransitMemory(completedRideStepId: 'bus-outbound'),
+    );
+    final restored = await store.load(tripId: 'trip-1', userId: 'user-1');
+    expect(restored!.completedRideStepId, 'bus-outbound');
+    expect(restored.lastConfirmedTransitPlace, isNull);
+  });
+
+  test('malformed optional completed ride identity fails fast', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'replan_transit_memory_v1::user-1::trip-1':
           '{"schemaVersion":1,"tripId":"trip-1","userId":"user-1",'
-          '"knownOnboardStepId":null,'
-          '"lastConfirmedTransitPlace":{"name":"浅草橋",'
-          '"stopId":"stop-asakusabashi","latitude":35.697,'
-          '"longitude":139.785}}',
+          '"completedRideStepId":" "}',
     });
-    final store = ReplanTransitMemoryStore();
-
-    final restored = await store.load(
-      tripId: 'trip-1',
-      userId: 'user-1',
+    expect(
+      () => ReplanTransitMemoryStore().load(tripId: 'trip-1', userId: 'user-1'),
+      throwsStateError,
     );
-
-    expect(restored, isNotNull);
-    expect(restored!.lastConfirmedTransitPlace?.stopId, 'stop-asakusabashi');
-    expect(restored.lastConfirmedTransitAt, isNull);
-    expect(restored.toMemory().lastConfirmedTransitAt, isNull);
   });
 
   test('malformed persisted coordinates fail fast', () async {

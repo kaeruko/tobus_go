@@ -79,6 +79,7 @@ void main() {
   void expectHistoricalOnly(ReplanTransitMemory result) {
     expect(result.knownOnboardStepId, isNull);
     expect(result.ridingTransit, isNull);
+    expect(result.completedRideStepId, isNull);
     expect(result.lastConfirmedTransitPlace, same(place));
     expect(result.lastConfirmedTransitAt, confirmedAt);
   }
@@ -179,6 +180,74 @@ void main() {
       ),
     );
   });
+
+  test('same active leg retains completion across an early-finish restart', () {
+    final completed = ReplanTransitMemory(
+      completedRideStepId: 'bus-outbound',
+      lastConfirmedTransitPlace: place,
+      lastConfirmedTransitAt: confirmedAt,
+    );
+    expect(
+      scopeReplanTransitMemoryToTrip(trip: _trip(), memory: completed),
+      same(completed),
+    );
+  });
+
+  test('leg advance removes old completion while keeping place history', () {
+    expectHistoricalOnly(
+      scopeReplanTransitMemoryToTrip(
+        trip: _trip(completedLegIndex: 0),
+        memory: ReplanTransitMemory(
+          completedRideStepId: 'bus-outbound',
+          lastConfirmedTransitPlace: place,
+          lastConfirmedTransitAt: confirmedAt,
+        ),
+      ),
+    );
+  });
+
+  for (final phase in [
+    TravelPhase.planning,
+    TravelPhase.completed,
+    TravelPhase.cancelled,
+  ]) {
+    test('$phase removes completion identity while keeping history', () {
+      expectHistoricalOnly(
+        scopeReplanTransitMemoryToTrip(
+          trip: _trip(phase: phase),
+          memory: ReplanTransitMemory(
+            completedRideStepId: 'bus-outbound',
+            lastConfirmedTransitPlace: place,
+            lastConfirmedTransitAt: confirmedAt,
+          ),
+        ),
+      );
+    });
+  }
+
+  test('removing old ride state keeps completion belonging to the new leg', () {
+    final scoped = scopeReplanTransitMemoryToTrip(
+      trip: _trip(completedLegIndex: 0),
+      memory: const ReplanTransitMemory(
+        knownOnboardStepId: 'bus-outbound',
+        completedRideStepId: 'bus-inbound',
+      ),
+    );
+    expect(scoped.knownOnboardStepId, isNull);
+    expect(scoped.completedRideStepId, 'bus-inbound');
+  });
+
+  for (final stepId in ['missing-step', 'walk-outbound']) {
+    test('invalid completed identity $stepId still fails fast', () {
+      expect(
+        () => scopeReplanTransitMemoryToTrip(
+          trip: _trip(phase: TravelPhase.completed),
+          memory: ReplanTransitMemory(completedRideStepId: stepId),
+        ),
+        throwsStateError,
+      );
+    });
+  }
 
   for (final phase in [TravelPhase.active, TravelPhase.completed]) {
     test('$phase missing onboard step still fails fast', () {

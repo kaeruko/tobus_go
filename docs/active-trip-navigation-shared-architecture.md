@@ -1,5 +1,7 @@
 # Solo / Group 移動中ナビゲーション共通化設計
 
+バスの進捗は[予定表と現在時刻を主にする方針](active-trip-bus-progress-policy.md)に従う。ODPTの未到着表示で予定到着後に巻き戻さず、追跡中の便の消失と完了状態の保存・復元も共通層で扱う。
+
 ## Realtimeセッションのライフサイクル（2026-10-05）
 
 Solo、Group member／参加者プレビュー、Group leaderの移動画面、管理画面の経路見直しパネルは、同じProviderの購読でRealtime取得を開始する。画面から `reset()` や `initialize()` は呼ばない。

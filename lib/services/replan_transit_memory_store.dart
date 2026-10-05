@@ -12,6 +12,7 @@ class PersistedReplanTransitMemory {
   final ReplanTransitPlace? lastConfirmedTransitPlace;
   final DateTime? lastConfirmedTransitAt;
   final String? knownOnboardStepId;
+  final String? completedRideStepId;
 
   const PersistedReplanTransitMemory({
     required this.tripId,
@@ -19,6 +20,7 @@ class PersistedReplanTransitMemory {
     this.lastConfirmedTransitPlace,
     this.lastConfirmedTransitAt,
     this.knownOnboardStepId,
+    this.completedRideStepId,
   });
 
   ReplanTransitMemory toMemory() {
@@ -26,6 +28,7 @@ class PersistedReplanTransitMemory {
       lastConfirmedTransitPlace: lastConfirmedTransitPlace,
       lastConfirmedTransitAt: lastConfirmedTransitAt,
       knownOnboardStepId: knownOnboardStepId,
+      completedRideStepId: completedRideStepId,
     );
   }
 }
@@ -68,6 +71,10 @@ class ReplanTransitMemoryStore {
       decoded['knownOnboardStepId'],
       'knownOnboardStepId',
     );
+    final completedRideStepId = _optionalNonEmptyString(
+      decoded['completedRideStepId'],
+      'completedRideStepId',
+    );
     final placeRaw = decoded['lastConfirmedTransitPlace'];
     final place = _decodePlace(placeRaw);
     final confirmedAt = _decodeConfirmedAt(placeRaw);
@@ -78,6 +85,7 @@ class ReplanTransitMemoryStore {
       lastConfirmedTransitPlace: place,
       lastConfirmedTransitAt: confirmedAt,
       knownOnboardStepId: knownOnboardStepId,
+      completedRideStepId: completedRideStepId,
     );
   }
 
@@ -94,10 +102,11 @@ class ReplanTransitMemoryStore {
     final place = memory.lastConfirmedTransitPlace;
     final confirmedAt = memory.lastConfirmedTransitAt;
     final onboard = memory.knownOnboardStepId;
+    final completed = memory.completedRideStepId;
     if (place == null && confirmedAt != null) {
       throw StateError('最終確定地点がないのに確認時刻だけが保存されています');
     }
-    if (place == null && onboard == null) {
+    if (place == null && onboard == null && completed == null) {
       await prefs.remove(key);
       return;
     }
@@ -107,6 +116,7 @@ class ReplanTransitMemoryStore {
       'tripId': normalizedTripId,
       'userId': normalizedUserId,
       'knownOnboardStepId': onboard,
+      'completedRideStepId': completed,
       'lastConfirmedTransitPlace': place == null
           ? null
           : <String, dynamic>{
@@ -120,15 +130,11 @@ class ReplanTransitMemoryStore {
     await prefs.setString(key, jsonEncode(payload));
   }
 
-  Future<void> clear({
-    required String tripId,
-    required String userId,
-  }) async {
+  Future<void> clear({required String tripId, required String userId}) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_key(
-      _requiredId(tripId, 'tripId'),
-      _requiredId(userId, 'userId'),
-    ));
+    await prefs.remove(
+      _key(_requiredId(tripId, 'tripId'), _requiredId(userId, 'userId')),
+    );
   }
 
   static DateTime? _decodeConfirmedAt(dynamic raw) {
@@ -165,7 +171,12 @@ class ReplanTransitMemoryStore {
     }
     final lat = latitude.toDouble();
     final lon = longitude.toDouble();
-    if (!lat.isFinite || !lon.isFinite || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    if (!lat.isFinite ||
+        !lon.isFinite ||
+        lat < -90 ||
+        lat > 90 ||
+        lon < -180 ||
+        lon > 180) {
       throw StateError('保存済み最終確定地点の座標が不正です: $lat,$lon');
     }
     return ReplanTransitPlace(

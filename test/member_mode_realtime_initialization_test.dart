@@ -498,7 +498,7 @@ void main() {
   );
 
   testWidgets(
-    'boarded bus completes at planned arrival when exact realtime trip disappears',
+    'planned arrival advances a boarded bus without polling its old realtime trip',
     (tester) async {
       final baseNow = appClock.now();
       final ticks = StreamController<DateTime>()..add(baseNow);
@@ -554,19 +554,22 @@ void main() {
       await container.read(memberModeControllerProvider.notifier).pollNow();
       await _flushNavigation(tester);
 
-      expect(source.requests, hasLength(2));
+      expect(source.requests, hasLength(1));
       final realtimeState = container.read(memberModeControllerProvider);
       expect(trip.completedLegIndex, -1);
       expect(trip.activeLegIndex, 0);
-      expect(realtimeState.busProgress?.phase, BusProgressPhase.arrived);
-      expect(realtimeState.busProgress?.fromStopId, 'stop-c');
+      expect(realtimeState.busProgress, isNull);
       expect(realtimeState.replanTransitMemory.knownOnboardStepId, isNull);
+      expect(
+        realtimeState.replanTransitMemory.completedRideStepId,
+        'bus-feed-end',
+      );
       expect(
         realtimeState.replanTransitMemory.lastConfirmedTransitPlace?.name,
         '到着停留所',
       );
       final nav = container.read(memberNavProgressProvider);
-      expect(nav.busProgress?.phase, BusProgressPhase.arrived);
+      expect(nav.busProgress, isNull);
       expect(nav.rideRealtimeUnavailable, isFalse);
       final ui = container.read(memberUiStateProvider).requireValue;
       expect(ui.resolvedEntry?.itemKind, ScheduleEntryKind.goal);
@@ -634,7 +637,22 @@ void main() {
             .read(memberModeControllerProvider)
             .replanTransitMemory
             .knownOnboardStepId,
+        isNull,
+      );
+      expect(
+        container
+            .read(memberModeControllerProvider)
+            .replanTransitMemory
+            .completedRideStepId,
         'bus-cross-leg',
+      );
+      expect(
+        container.read(memberNavProgressProvider).busProgress?.phase,
+        BusProgressPhase.arrived,
+      );
+      expect(
+        container.read(memberNavProgressProvider).rideRealtimeUnavailable,
+        isFalse,
       );
       expect(
         container
@@ -762,7 +780,7 @@ void main() {
   });
 
   testWidgets(
-    'a restored onboard marker completes the active leg after planned arrival and a realtime 404',
+    'a restored onboard marker completes after planned arrival without a realtime request',
     (tester) async {
       final now = appClock.now();
       final trip = _trip(
@@ -806,20 +824,19 @@ void main() {
       await controller.pollNow();
       await _flushNavigation(tester);
 
-      expect(source.requests, hasLength(1));
-      expect(source.requests.single.tripId, 'service-restored-feed-end');
+      expect(source.requests, isEmpty);
       final realtime = container.read(memberModeControllerProvider);
-      expect(realtime.busProgress?.phase, BusProgressPhase.arrived);
-      expect(realtime.busProgress?.fromStopId, 'stop-c');
+      expect(realtime.busProgress, isNull);
       expect(realtime.replanTransitMemory.knownOnboardStepId, isNull);
+      expect(
+        realtime.replanTransitMemory.completedRideStepId,
+        'bus-restored-feed-end',
+      );
       expect(
         realtime.replanTransitMemory.lastConfirmedTransitPlace?.name,
         '到着停留所',
       );
-      expect(
-        container.read(memberNavProgressProvider).busProgress?.phase,
-        BusProgressPhase.arrived,
-      );
+      expect(container.read(memberNavProgressProvider).busProgress, isNull);
       expect(
         container.read(memberNavProgressProvider).rideRealtimeUnavailable,
         isFalse,

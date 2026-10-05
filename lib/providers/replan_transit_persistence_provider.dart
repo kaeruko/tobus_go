@@ -174,7 +174,8 @@ final effectiveReplanTransitMemoryProvider =
 
 bool _hasPersistableFacts(ReplanTransitMemory memory) {
   return memory.lastConfirmedTransitPlace != null ||
-      memory.knownOnboardStepId != null;
+      memory.knownOnboardStepId != null ||
+      memory.completedRideStepId != null;
 }
 
 void _validateRestoredMemory(Trip trip, ReplanTransitMemory memory) {

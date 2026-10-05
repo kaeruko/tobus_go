@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:toeigo/logic/replan_transit_memory.dart';
+import 'package:toeigo/logic/replan_transit_memory_restore.dart';
 import 'package:toeigo/models/leg_models.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/models/trip_models.dart';
@@ -56,12 +57,15 @@ Trip _trip({
   );
 }
 
-PersistedReplanTransitMemory _saved({String tripId = 'trip-1'}) =>
-    PersistedReplanTransitMemory(
-      tripId: tripId,
-      userId: 'user-1',
-      knownOnboardStepId: 'bus-outbound',
-    );
+PersistedReplanTransitMemory _saved({
+  String tripId = 'trip-1',
+  String? completedRideStepId,
+}) => PersistedReplanTransitMemory(
+  tripId: tripId,
+  userId: 'user-1',
+  knownOnboardStepId: completedRideStepId == null ? 'bus-outbound' : null,
+  completedRideStepId: completedRideStepId,
+);
 
 class _PendingLoad {
   final String tripId;
@@ -72,6 +76,7 @@ class _PendingLoad {
 
 class _MemoryStore extends ReplanTransitMemoryStore {
   final loads = <_PendingLoad>[];
+  final saves = <ReplanTransitMemory>[];
 
   @override
   Future<PersistedReplanTransitMemory?> load({
@@ -88,7 +93,9 @@ class _MemoryStore extends ReplanTransitMemoryStore {
     required String tripId,
     required String userId,
     required ReplanTransitMemory memory,
-  }) async {}
+  }) async {
+    saves.add(memory);
+  }
 }
 
 class _Harness {
@@ -276,4 +283,87 @@ void main() {
     expect(effective.memory?.knownOnboardStepId, isNull);
     expect(effective.memory?.ridingTransit, isNull);
   });
+
+  test(
+    'early completion restores and persists on restart in the same leg',
+    () async {
+      final harness = _Harness(effective: true);
+      addTearDown(harness.dispose);
+      harness.trips.add(_trip());
+      await harness.flush();
+      harness.store.loads.single.completer.complete(
+        _saved(completedRideStepId: 'bus-outbound'),
+      );
+      await harness.flush();
+
+      final realtime = harness.container.read(memberModeControllerProvider);
+      expect(realtime.trackedStepId, 'bus-outbound');
+      expect(realtime.replanTransitMemory.completedRideStepId, 'bus-outbound');
+      expect(realtime.replanTransitMemory.knownOnboardStepId, isNull);
+      expect(realtime.busProgress, isNull);
+      expect(
+        harness.container
+            .read(effectiveReplanTransitMemoryProvider)
+            .memory
+            ?.completedRideStepId,
+        'bus-outbound',
+      );
+      expect(
+        harness.store.saves.any(
+          (memory) => memory.completedRideStepId == 'bus-outbound',
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'fresh completion cannot be replaced by older persisted onboard state',
+    () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      harness.trips.add(_trip());
+      await harness.flush();
+      harness.container
+          .read(memberModeControllerProvider.notifier)
+          .restoreReplanTransitMemory(
+            const ReplanTransitMemory(completedRideStepId: 'bus-outbound'),
+          );
+      harness.store.loads.single.completer.complete(_saved());
+      await harness.flush();
+
+      final memory = harness.container
+          .read(memberModeControllerProvider)
+          .replanTransitMemory;
+      expect(memory.completedRideStepId, 'bus-outbound');
+      expect(memory.knownOnboardStepId, isNull);
+    },
+  );
+
+  test(
+    'effective disk fallback excludes completion from the previous leg',
+    () async {
+      final harness = _Harness(effective: true);
+      addTearDown(harness.dispose);
+      harness.trips.add(_trip(completedLegIndex: 0));
+      await harness.flush();
+      harness.store.loads.single.completer.complete(
+        _saved(completedRideStepId: 'bus-outbound'),
+      );
+      await harness.flush();
+
+      final effective = harness.container.read(
+        effectiveReplanTransitMemoryProvider,
+      );
+      expect(effective.restoreError, isNull);
+      expect(effective.memory?.completedRideStepId, isNull);
+      expect(
+        harness.container
+            .read(memberModeControllerProvider)
+            .replanTransitMemory
+            .completedRideStepId,
+        isNull,
+      );
+    },
+  );
 }

@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:toeigo/logic/trip_coordinator.dart';
 import 'package:toeigo/logic/trip_navigator.dart';
+import 'package:toeigo/models/bus_progress.dart';
 import 'package:toeigo/models/group_models.dart';
 import 'package:toeigo/models/leg_models.dart';
+import 'package:toeigo/models/rail_progress.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/models/trip_models.dart';
 
@@ -72,10 +74,7 @@ void main() {
         navigation.subTextToken?.key,
         NavigationTextKey.meetingScheduledSub,
       );
-      expect(
-        navigation.statusLabelToken?.key,
-        NavigationTextKey.waitingStatus,
-      );
+      expect(navigation.statusLabelToken?.key, NavigationTextKey.waitingStatus);
     });
 
     test('meeting shows the next schedule item', () {
@@ -115,23 +114,14 @@ void main() {
 
       expect(resolved.resolvedEntry?.id, 'meeting');
       expect(navigation.mainText, '人数を確認しましょう');
-      expect(
-        navigation.subText,
-        '次の予定\n8:39 ⬅️ 新橋駅まで歩く (4分)',
-      );
+      expect(navigation.subText, '次の予定\n8:39 ⬅️ 新橋駅まで歩く (4分)');
       expect(navigation.statusLabel, '集合');
       expect(
         navigation.mainTextToken?.key,
         NavigationTextKey.meetingActionMain,
       );
-      expect(
-        navigation.subTextToken?.key,
-        NavigationTextKey.meetingNextSub,
-      );
-      expect(
-        navigation.statusLabelToken?.key,
-        NavigationTextKey.meetingStatus,
-      );
+      expect(navigation.subTextToken?.key, NavigationTextKey.meetingNextSub);
+      expect(navigation.statusLabelToken?.key, NavigationTextKey.meetingStatus);
     });
 
     test('wait before walk shows departure countdown and boarding time', () {
@@ -256,10 +246,7 @@ void main() {
       );
 
       expect(navigation.mainText, '平井七丁目');
-      expect(
-        navigation.mainTextToken?.key,
-        NavigationTextKey.waitingPlaceMain,
-      );
+      expect(navigation.mainTextToken?.key, NavigationTextKey.waitingPlaceMain);
       expect(navigation.subText, '10:04 上23 乗車予定');
       expect(
         navigation.subTextToken?.key,
@@ -328,151 +315,160 @@ void main() {
       expect(navigation.statusLabel, '移動中');
     });
 
-    test('intermediate arrival shows the next ride instead of completion text', () {
-      final baseTrip = navigationV2Trip();
-      final arrival = ScheduleEntry(
-        id: 'arrival-transfer',
-        plannedAt: DateTime(2025, 1, 1, 10, 46),
-        label: '🚌上23 押上に着く',
-        itemKind: ScheduleEntryKind.arrival,
-        generatedBy: ScheduleEntrySource.route,
-        routeStepId: 'bus-C',
-        routeRole: 'arrival',
-        legIndex: 0,
-      );
-      final nextRide = ScheduleEntry(
-        id: 'ride-after-transfer',
-        plannedAt: DateTime(2025, 1, 1, 10, 55),
-        label: '🚌上23 押上に乗る',
-        itemKind: ScheduleEntryKind.ride,
-        generatedBy: ScheduleEntrySource.route,
-        routeStepId: 'bus-C',
-        routeRole: 'ride',
-        legIndex: 0,
-      );
-      final trip = Trip(
-        schemaVersion: baseTrip.schemaVersion,
-        tripType: baseTrip.tripType,
-        id: baseTrip.id,
-        joinCode: baseTrip.joinCode,
-        leaderId: baseTrip.leaderId,
-        title: baseTrip.title,
-        travelPhase: baseTrip.travelPhase,
-        date: baseTrip.date,
-        plannedDepartureAt: baseTrip.plannedDepartureAt,
-        actualDepartureAt: baseTrip.actualDepartureAt,
-        legs: baseTrip.legs,
-        schedule: [arrival, nextRide],
-        participants: baseTrip.participants,
-        memberIds: baseTrip.memberIds,
-        completedLegIndex: baseTrip.completedLegIndex,
-        staffNotes: baseTrip.staffNotes,
-      );
-      final now = DateTime(2025, 1, 1, 10, 50);
-      final resolved = TripCoordinator.resolveScheduleState(
-        scheduleEntries: trip.schedule,
-        now: now,
-      );
+    test(
+      'intermediate arrival shows the next ride instead of completion text',
+      () {
+        final baseTrip = navigationV2Trip();
+        final arrival = ScheduleEntry(
+          id: 'arrival-transfer',
+          plannedAt: DateTime(2025, 1, 1, 10, 46),
+          label: '🚌上23 押上に着く',
+          itemKind: ScheduleEntryKind.arrival,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepId: 'bus-C',
+          routeRole: 'arrival',
+          legIndex: 0,
+        );
+        final nextRide = ScheduleEntry(
+          id: 'ride-after-transfer',
+          plannedAt: DateTime(2025, 1, 1, 10, 55),
+          label: '🚌上23 押上に乗る',
+          itemKind: ScheduleEntryKind.ride,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepId: 'bus-C',
+          routeRole: 'ride',
+          legIndex: 0,
+        );
+        final trip = Trip(
+          schemaVersion: baseTrip.schemaVersion,
+          tripType: baseTrip.tripType,
+          id: baseTrip.id,
+          joinCode: baseTrip.joinCode,
+          leaderId: baseTrip.leaderId,
+          title: baseTrip.title,
+          travelPhase: baseTrip.travelPhase,
+          date: baseTrip.date,
+          plannedDepartureAt: baseTrip.plannedDepartureAt,
+          actualDepartureAt: baseTrip.actualDepartureAt,
+          legs: baseTrip.legs,
+          schedule: [arrival, nextRide],
+          participants: baseTrip.participants,
+          memberIds: baseTrip.memberIds,
+          completedLegIndex: baseTrip.completedLegIndex,
+          staffNotes: baseTrip.staffNotes,
+        );
+        final now = DateTime(2025, 1, 1, 10, 50);
+        final resolved = TripCoordinator.resolveScheduleState(
+          scheduleEntries: trip.schedule,
+          now: now,
+        );
 
-      final navigation = TripCoordinator.buildMemberNavigationState(
-        trip: trip,
-        routeState: RouteState(stepsById: trip.stepsById),
-        now: now,
-        resolvedState: resolved,
-      );
+        final navigation = TripCoordinator.buildMemberNavigationState(
+          trip: trip,
+          routeState: RouteState(stepsById: trip.stepsById),
+          now: now,
+          resolvedState: resolved,
+        );
 
-      expect(resolved.resolvedEntry?.id, 'arrival-transfer');
-      expect(navigation.subText, '10:55 上23 乗車');
-      expect(navigation.subText, isNot('到着しました'));
-      expect(
-        navigation.subTextToken?.key,
-        NavigationTextKey.boardingSub,
-      );
-      expect(
-        navigation.subTextToken?.args,
-        containsPair('rideTime', '10:55'),
-      );
-      expect(
-        navigation.subTextToken?.args,
-        containsPair('routeTitle', '上23'),
-      );
-    });
+        expect(resolved.resolvedEntry?.id, 'arrival-transfer');
+        expect(navigation.subText, '10:55 上23 乗車');
+        expect(navigation.subText, isNot('到着しました'));
+        expect(navigation.subTextToken?.key, NavigationTextKey.boardingSub);
+        expect(
+          navigation.subTextToken?.args,
+          containsPair('rideTime', '10:55'),
+        );
+        expect(
+          navigation.subTextToken?.args,
+          containsPair('routeTitle', '上23'),
+        );
+      },
+    );
 
-    test('goal navigation carries bilingual destination and localized completion text', () {
-      final base = navigationV2Trip();
-      final baseCandidate = base.legs.first.candidate;
-      final candidate = Candidate(
-        id: baseCandidate.id,
-        lines: baseCandidate.lines,
-        linesEn: baseCandidate.linesEn,
-        rides: baseCandidate.rides,
-        boards: baseCandidate.boards,
-        transfers: baseCandidate.transfers,
-        total: baseCandidate.total,
-        totalTime: baseCandidate.totalTime,
-        steps: baseCandidate.steps,
-        points: baseCandidate.points,
-        originName: '押上',
-        originNameEn: 'Oshiage',
-        destinationName: '上野駅',
-        destinationNameEn: 'Ueno Station',
-      );
-      final goal = ScheduleEntry(
-        id: 'goal-en',
-        plannedAt: DateTime(2025, 1, 1, 10, 51),
-        label: '上野駅 到着',
-        description: 'お疲れ様でした!',
-        itemKind: ScheduleEntryKind.goal,
-        legIndex: 0,
-        generatedBy: ScheduleEntrySource.route,
-      );
-      final trip = Trip(
-        schemaVersion: base.schemaVersion,
-        tripType: base.tripType,
-        id: base.id,
-        joinCode: base.joinCode,
-        leaderId: base.leaderId,
-        title: base.title,
-        travelPhase: base.travelPhase,
-        date: base.date,
-        plannedDepartureAt: base.plannedDepartureAt,
-        actualDepartureAt: base.actualDepartureAt,
-        legs: [
-          Leg(
-            direction: LegDirection.outbound,
-            status: LegStatus.confirmed,
-            candidate: candidate,
-          ),
-        ],
-        schedule: [goal],
-        participants: base.participants,
-        memberIds: base.memberIds,
-      );
-      final resolved = TripCoordinator.resolveScheduleState(
-        scheduleEntries: trip.schedule,
-        now: goal.plannedAt,
-      );
+    test(
+      'goal navigation carries bilingual destination and localized completion text',
+      () {
+        final base = navigationV2Trip();
+        final baseCandidate = base.legs.first.candidate;
+        final candidate = Candidate(
+          id: baseCandidate.id,
+          lines: baseCandidate.lines,
+          linesEn: baseCandidate.linesEn,
+          rides: baseCandidate.rides,
+          boards: baseCandidate.boards,
+          transfers: baseCandidate.transfers,
+          total: baseCandidate.total,
+          totalTime: baseCandidate.totalTime,
+          steps: baseCandidate.steps,
+          points: baseCandidate.points,
+          originName: '押上',
+          originNameEn: 'Oshiage',
+          destinationName: '上野駅',
+          destinationNameEn: 'Ueno Station',
+        );
+        final goal = ScheduleEntry(
+          id: 'goal-en',
+          plannedAt: DateTime(2025, 1, 1, 10, 51),
+          label: '上野駅 到着',
+          description: 'お疲れ様でした!',
+          itemKind: ScheduleEntryKind.goal,
+          legIndex: 0,
+          generatedBy: ScheduleEntrySource.route,
+        );
+        final trip = Trip(
+          schemaVersion: base.schemaVersion,
+          tripType: base.tripType,
+          id: base.id,
+          joinCode: base.joinCode,
+          leaderId: base.leaderId,
+          title: base.title,
+          travelPhase: base.travelPhase,
+          date: base.date,
+          plannedDepartureAt: base.plannedDepartureAt,
+          actualDepartureAt: base.actualDepartureAt,
+          legs: [
+            Leg(
+              direction: LegDirection.outbound,
+              status: LegStatus.confirmed,
+              candidate: candidate,
+            ),
+          ],
+          schedule: [goal],
+          participants: base.participants,
+          memberIds: base.memberIds,
+        );
+        final resolved = TripCoordinator.resolveScheduleState(
+          scheduleEntries: trip.schedule,
+          now: goal.plannedAt,
+        );
 
-      final navigation = TripCoordinator.buildMemberNavigationState(
-        trip: trip,
-        routeState: RouteState(stepsById: trip.stepsById),
-        now: goal.plannedAt,
-        resolvedState: resolved,
-      );
+        final navigation = TripCoordinator.buildMemberNavigationState(
+          trip: trip,
+          routeState: RouteState(stepsById: trip.stepsById),
+          now: goal.plannedAt,
+          resolvedState: resolved,
+        );
 
-      expect(navigation.mainText, '上野駅');
-      expect(navigation.mainTextToken?.key, NavigationTextKey.goalArrivedMain);
-      expect(
-        navigation.mainTextToken?.args,
-        containsPair('destination', '上野駅'),
-      );
-      expect(
-        navigation.mainTextToken?.args,
-        containsPair('destinationEn', 'Ueno Station'),
-      );
-      expect(navigation.subTextToken?.key, NavigationTextKey.tripEndedSub);
-      expect(navigation.statusLabelToken?.key, NavigationTextKey.arrivedStatus);
-    });
+        expect(navigation.mainText, '上野駅');
+        expect(
+          navigation.mainTextToken?.key,
+          NavigationTextKey.goalArrivedMain,
+        );
+        expect(
+          navigation.mainTextToken?.args,
+          containsPair('destination', '上野駅'),
+        );
+        expect(
+          navigation.mainTextToken?.args,
+          containsPair('destinationEn', 'Ueno Station'),
+        );
+        expect(navigation.subTextToken?.key, NavigationTextKey.tripEndedSub);
+        expect(
+          navigation.statusLabelToken?.key,
+          NavigationTextKey.arrivedStatus,
+        );
+      },
+    );
 
     test('meeting entries do not need a route step', () {
       final trip = navigationV2Trip();
@@ -526,6 +522,250 @@ void main() {
         ),
         throwsStateError,
       );
+    });
+
+    group('bus schedule takes precedence over delayed realtime', () {
+      final trip = navigationV2Trip();
+      final ride = ScheduleEntry(
+        id: 'bus-ride',
+        plannedAt: DateTime(2025, 1, 1, 10, 4),
+        label: '上23に乗る',
+        itemKind: ScheduleEntryKind.ride,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: 'bus-C',
+        legIndex: 0,
+      );
+      final arrival = ScheduleEntry(
+        id: 'bus-arrival',
+        plannedAt: DateTime(2025, 1, 1, 10, 46),
+        label: '押上に到着',
+        itemKind: ScheduleEntryKind.arrival,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: 'bus-C',
+        legIndex: 0,
+      );
+      final walk = ScheduleEntry(
+        id: 'walk-after-bus',
+        plannedAt: DateTime(2025, 1, 1, 10, 47),
+        label: '目的地まで歩く',
+        itemKind: ScheduleEntryKind.walk,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: 'walk-D',
+        legIndex: 0,
+      );
+      final goal = ScheduleEntry(
+        id: 'goal-after-bus',
+        plannedAt: DateTime(2025, 1, 1, 10, 51),
+        label: '目的地に到着',
+        itemKind: ScheduleEntryKind.goal,
+        legIndex: 0,
+      );
+
+      BusProgress busProgress({
+        double? age,
+        BusProgressPhase phase = BusProgressPhase.riding,
+      }) => BusProgress(
+        stepId: 'bus-C',
+        fromStopId: 'stop-1',
+        fromStopIndex: 1,
+        nextStopId: 'stop-2',
+        nextStopIndex: 2,
+        phase: phase,
+        vehicleAgeSeconds: age,
+      );
+
+      for (final age in <double?>[5, 240, null]) {
+        test('planned arrival wins with vehicle age $age', () {
+          final resolved = TripCoordinator.resolveScheduleState(
+            scheduleEntries: [ride, arrival],
+            now: arrival.plannedAt,
+            routeState: RouteState(
+              stepsById: trip.stepsById,
+              busProgress: busProgress(age: age),
+            ),
+          );
+
+          expect(resolved.activeEntry?.id, arrival.id);
+          expect(resolved.resolvedEntry?.id, arrival.id);
+          expect(resolved.resolutionReason, 'active_entry');
+        });
+
+        test('following walk wins with vehicle age $age', () {
+          final resolved = TripCoordinator.resolveScheduleState(
+            scheduleEntries: [ride, arrival, walk],
+            now: walk.plannedAt,
+            routeState: RouteState(
+              stepsById: trip.stepsById,
+              busProgress: busProgress(age: age),
+            ),
+          );
+
+          expect(resolved.activeEntry?.id, walk.id);
+          expect(resolved.resolvedEntry?.id, walk.id);
+          expect(resolved.resolutionReason, 'active_entry');
+        });
+
+        test('goal wins with vehicle age $age', () {
+          final resolved = TripCoordinator.resolveScheduleState(
+            scheduleEntries: [ride, arrival, walk, goal],
+            now: goal.plannedAt.add(const Duration(minutes: 2)),
+            routeState: RouteState(
+              stepsById: trip.stepsById,
+              busProgress: busProgress(age: age),
+            ),
+          );
+
+          expect(resolved.activeEntry?.id, goal.id);
+          expect(resolved.resolvedEntry?.id, goal.id);
+          expect(resolved.resolutionReason, 'active_entry');
+        });
+      }
+
+      test('incomplete bus is still held before its planned arrival', () {
+        final earlyWalk = ScheduleEntry(
+          id: 'early-walk',
+          plannedAt: arrival.plannedAt.subtract(const Duration(minutes: 1)),
+          label: '徒歩',
+          itemKind: ScheduleEntryKind.walk,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepId: 'walk-D',
+          legIndex: 0,
+        );
+        final resolved = TripCoordinator.resolveScheduleState(
+          scheduleEntries: [ride, earlyWalk, arrival],
+          now: earlyWalk.plannedAt,
+          routeState: RouteState(
+            stepsById: trip.stepsById,
+            busProgress: busProgress(age: 5),
+          ),
+        );
+
+        expect(resolved.activeEntry?.id, earlyWalk.id);
+        expect(resolved.resolvedEntry?.id, ride.id);
+        expect(
+          resolved.resolutionReason,
+          contains('realtime_incomplete_ride_revert_step_id'),
+        );
+      });
+
+      test('actual arrival can advance before its planned time', () {
+        final resolved = TripCoordinator.resolveScheduleState(
+          scheduleEntries: [ride, arrival],
+          now: arrival.plannedAt.subtract(const Duration(minutes: 2)),
+          routeState: RouteState(
+            stepsById: trip.stepsById,
+            busProgress: busProgress(phase: BusProgressPhase.arrived),
+          ),
+        );
+
+        expect(resolved.activeEntry?.id, ride.id);
+        expect(resolved.resolvedEntry?.id, arrival.id);
+        expect(
+          resolved.resolutionReason,
+          contains('realtime_arrival_advance_step_id'),
+        );
+      });
+
+      test(
+        'cold start after arrival follows the schedule without bus history',
+        () {
+          final resolved = TripCoordinator.resolveScheduleState(
+            scheduleEntries: [ride, arrival, walk, goal],
+            now: goal.plannedAt,
+            routeState: RouteState(stepsById: trip.stepsById),
+          );
+
+          expect(resolved.resolvedEntry?.id, goal.id);
+          expect(resolved.resolutionReason, 'active_entry');
+        },
+      );
+
+      for (final mismatchedLeg in [false, true]) {
+        test(
+          'arrival must match the bus ${mismatchedLeg ? 'leg' : 'step'}',
+          () {
+            final unrelatedArrival = ScheduleEntry(
+              id: 'unrelated-arrival',
+              plannedAt: arrival.plannedAt,
+              label: '別の到着',
+              itemKind: ScheduleEntryKind.arrival,
+              generatedBy: ScheduleEntrySource.route,
+              routeStepId: mismatchedLeg ? 'bus-C' : 'different-bus',
+              legIndex: mismatchedLeg ? 1 : 0,
+            );
+            final resolved = TripCoordinator.resolveScheduleState(
+              scheduleEntries: [ride, unrelatedArrival, goal],
+              now: goal.plannedAt,
+              routeState: RouteState(
+                stepsById: trip.stepsById,
+                busProgress: busProgress(age: 5),
+              ),
+            );
+
+            expect(resolved.resolvedEntry?.id, ride.id);
+            expect(
+              resolved.resolutionReason,
+              contains('realtime_incomplete_ride_revert_step_id'),
+            );
+          },
+        );
+      }
+
+      test('incomplete rail still holds the ride after planned arrival', () {
+        final railRide = ScheduleEntry(
+          id: 'rail-ride',
+          plannedAt: ride.plannedAt,
+          label: '電車に乗る',
+          itemKind: ScheduleEntryKind.ride,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepId: 'rail-E',
+          legIndex: 0,
+        );
+        final railArrival = ScheduleEntry(
+          id: 'rail-arrival',
+          plannedAt: arrival.plannedAt,
+          label: '押上に到着',
+          itemKind: ScheduleEntryKind.arrival,
+          generatedBy: ScheduleEntrySource.route,
+          routeStepId: 'rail-E',
+          legIndex: 0,
+        );
+        final railStep = StepSeg(
+          stepId: 'rail-E',
+          kind: 'rail',
+          title: '電車',
+          fromName: '平井',
+          toName: '押上',
+          stops: trip.stepsById['bus-C']!.stops,
+        );
+        const rail = RailProgress(
+          stepId: 'rail-E',
+          tripId: 'rail-trip',
+          tripHeadsign: '押上',
+          phase: RailProgressPhase.riding,
+          boardingSequence: 1,
+          destinationSequence: 4,
+          lastReachedSequence: 2,
+          remainingStops: 2,
+          currentStatus: 'IN_TRANSIT_TO',
+          vehicleAgeSeconds: 5,
+        );
+        final resolved = TripCoordinator.resolveScheduleState(
+          scheduleEntries: [railRide, railArrival, walk, goal],
+          now: goal.plannedAt,
+          routeState: RouteState(
+            stepsById: {...trip.stepsById, railStep.stepId: railStep},
+            railProgress: rail,
+          ),
+        );
+
+        expect(resolved.activeEntry?.id, goal.id);
+        expect(resolved.resolvedEntry?.id, railRide.id);
+        expect(
+          resolved.resolutionReason,
+          contains('realtime_incomplete_ride_revert_step_id'),
+        );
+      });
     });
   });
 }

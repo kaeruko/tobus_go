@@ -5,182 +5,136 @@ import 'package:toeigo/models/bus_progress.dart';
 import 'package:toeigo/models/route_models.dart';
 
 void main() {
-  const staleAfterSeconds = 90.0;
-  final plannedArrivalAt = DateTime(2026, 10, 3, 13, 6);
-
-  BusProgress riding({double? vehicleAgeSeconds}) {
-    return BusProgress(
-      stepId: 'bus-1',
-      fromStopId: 's1',
-      fromStopIndex: 1,
-      nextStopId: 's2',
-      nextStopIndex: 2,
-      phase: BusProgressPhase.riding,
-      observedStopId: 's2',
-      observedStopName: '渋谷三丁目',
-      currentStatus: 'IN_TRANSIT_TO',
-      vehicleAgeSeconds: vehicleAgeSeconds,
-    );
-  }
-
-  test('planned arrival plus stale realtime is treated as arrived', () {
+  final arrival = DateTime(2026, 10, 5, 17);
+  final step = StepSeg(
+    stepId: 'bus-1',
+    kind: 'bus',
+    title: '都01',
+    fromName: '新橋駅前',
+    toName: '渋谷駅前',
+    stops: [
+      StopPoint(name: '新橋駅前', point: const LatLng(35, 139), stopId: 's0'),
+      StopPoint(name: '渋谷駅前', point: const LatLng(35.02, 139.02), stopId: 's2'),
+    ],
+  );
+  test('the schedule ends a bus ride exactly at planned arrival', () {
     expect(
-      shouldAssumeBusArrivedFromStaleRealtime(
-        now: DateTime(2026, 10, 3, 13, 6, 1),
-        plannedArrivalAt: plannedArrivalAt,
-        progress: riding(vehicleAgeSeconds: 147.6),
-        staleAfterSeconds: staleAfterSeconds,
+      shouldCompleteBusFromSchedule(now: arrival, plannedArrivalAt: arrival),
+      isTrue,
+    );
+    expect(
+      shouldCompleteBusFromSchedule(
+        now: arrival.subtract(const Duration(seconds: 1)),
+        plannedArrivalAt: arrival,
+      ),
+      isFalse,
+    );
+    expect(
+      shouldCompleteBusFromSchedule(
+        now: arrival.add(const Duration(minutes: 5)),
+        plannedArrivalAt: arrival,
       ),
       isTrue,
     );
   });
-
-  test('fresh realtime stays authoritative after planned arrival', () {
-    expect(
-      shouldAssumeBusArrivedFromStaleRealtime(
-        now: DateTime(2026, 10, 3, 13, 7),
-        plannedArrivalAt: plannedArrivalAt,
-        progress: riding(vehicleAgeSeconds: 45),
-        staleAfterSeconds: staleAfterSeconds,
-      ),
-      isFalse,
-    );
-  });
-
-  test('stale realtime does not complete the ride before planned arrival', () {
-    expect(
-      shouldAssumeBusArrivedFromStaleRealtime(
-        now: DateTime(2026, 10, 3, 13, 5, 59),
-        plannedArrivalAt: plannedArrivalAt,
-        progress: riding(vehicleAgeSeconds: 180),
-        staleAfterSeconds: staleAfterSeconds,
-      ),
-      isFalse,
-    );
-  });
-
-  test('approaching bus is never treated as alighted by this fallback', () {
-    const approaching = BusProgress(
-      stepId: 'bus-1',
-      fromStopId: null,
-      fromStopIndex: null,
-      nextStopId: 's0',
-      nextStopIndex: 0,
-      stopsUntilBoarding: 1,
-      phase: BusProgressPhase.approaching,
-      vehicleAgeSeconds: 180,
-    );
-
-    expect(
-      shouldAssumeBusArrivedFromStaleRealtime(
-        now: DateTime(2026, 10, 3, 13, 7),
-        plannedArrivalAt: plannedArrivalAt,
-        progress: approaching,
-        staleAfterSeconds: staleAfterSeconds,
-      ),
-      isFalse,
-    );
-  });
-
   test(
-    'known onboard bus is completed when realtime disappears after arrival time',
+    'a tracked service disappearing ends it even before planned arrival',
     () {
       expect(
         shouldAssumeBusArrivedAfterRealtimeLoss(
-          now: DateTime(2026, 10, 5, 17, 2),
-          plannedArrivalAt: DateTime(2026, 10, 5, 17, 0),
-          knownOnboard: true,
+          now: arrival.subtract(const Duration(minutes: 2)),
+          plannedArrivalAt: arrival,
+          hasSeenVehicle: true,
         ),
         isTrue,
       );
     },
   );
-
-  test('realtime loss does not complete a bus before planned arrival', () {
+  test(
+    'an initial missing trip follows schedule without needing app history',
+    () {
+      expect(
+        shouldAssumeBusArrivedAfterRealtimeLoss(
+          now: arrival.subtract(const Duration(minutes: 2)),
+          plannedArrivalAt: arrival,
+          hasSeenVehicle: false,
+        ),
+        isFalse,
+      );
+      expect(
+        shouldAssumeBusArrivedAfterRealtimeLoss(
+          now: arrival,
+          plannedArrivalAt: arrival,
+          hasSeenVehicle: false,
+        ),
+        isTrue,
+      );
+    },
+  );
+  test(
+    'schedule completion invents neither boarding nor a raw vehicle position',
+    () {
+      final arrived = completeBusAtDestination(step: step);
+      expect(arrived.phase, BusProgressPhase.arrived);
+      expect(arrived.fromStopId, 's2');
+      expect(arrived.fromStopIndex, 1);
+      expect(arrived.nextStopId, isNull);
+      expect(arrived.observedStopId, isNull);
+      expect(arrived.currentStatus, isNull);
+      expect(arrived.vehicleAgeSeconds, isNull);
+    },
+  );
+  for (final phase in BusProgressPhase.values) {
+    test(
+      'completion cannot be blocked by an older ${phase.name} observation',
+      () {
+        final previous = BusProgress(
+          stepId: 'bus-1',
+          phase: phase,
+          fromStopId: 's0',
+          fromStopIndex: 0,
+          nextStopId: 's2',
+          nextStopIndex: 1,
+          observedStopName: '新橋駅前',
+          vehicleAgeSeconds: 5,
+        );
+        final arrived = completeBusAtDestination(
+          step: step,
+          lastProgress: previous,
+        );
+        expect(arrived.phase, BusProgressPhase.arrived);
+        expect(arrived.fromStopId, 's2');
+        expect(arrived.observedStopName, '新橋駅前');
+        expect(arrived.vehicleAgeSeconds, 5);
+      },
+    );
+  }
+  test('completion rejects observations from another route step', () {
+    const different = BusProgress(
+      stepId: 'other',
+      phase: BusProgressPhase.riding,
+      fromStopId: 's0',
+      fromStopIndex: 0,
+      nextStopId: 's2',
+      nextStopIndex: 1,
+    );
     expect(
-      shouldAssumeBusArrivedAfterRealtimeLoss(
-        now: DateTime(2026, 10, 5, 16, 59, 59),
-        plannedArrivalAt: DateTime(2026, 10, 5, 17, 0),
-        knownOnboard: true,
-      ),
-      isFalse,
+      () => completeBusAtDestination(step: step, lastProgress: different),
+      throwsStateError,
     );
   });
-
-  test('realtime loss does not invent boarding', () {
+  test('completion requires a bus and its destination stop', () {
     expect(
-      shouldAssumeBusArrivedAfterRealtimeLoss(
-        now: DateTime(2026, 10, 5, 17, 2),
-        plannedArrivalAt: DateTime(2026, 10, 5, 17, 0),
-        knownOnboard: false,
+      () => completeBusAtDestination(
+        step: StepSeg(stepId: 'walk', kind: 'walk', title: '歩く'),
       ),
-      isFalse,
+      throwsStateError,
     );
-  });
-
-  test('assumed arrival moves progress to the destination stop', () {
-    final step = StepSeg(
-      stepId: 'bus-1',
-      kind: 'bus',
-      title: '都01',
-      fromName: '新橋駅前',
-      toName: '渋谷三丁目',
-      stops: [
-        StopPoint(name: '新橋駅前', point: const LatLng(35, 139), stopId: 's0'),
-        StopPoint(
-          name: '青山学院中等部前',
-          point: const LatLng(35.01, 139.01),
-          stopId: 's1',
-        ),
-        StopPoint(
-          name: '渋谷三丁目',
-          point: const LatLng(35.02, 139.02),
-          stopId: 's2',
-        ),
-      ],
+    expect(
+      () => completeBusAtDestination(
+        step: StepSeg(stepId: 'bus', kind: 'bus', title: '都01'),
+      ),
+      throwsStateError,
     );
-
-    final arrived = assumeBusArrivedAtDestination(
-      step: step,
-      realtimeProgress: riding(vehicleAgeSeconds: 147.6),
-    );
-
-    expect(arrived.phase, BusProgressPhase.arrived);
-    expect(arrived.fromStopId, 's2');
-    expect(arrived.fromStopIndex, 2);
-    expect(arrived.nextStopId, isNull);
-    expect(arrived.nextStopIndex, isNull);
-    expect(arrived.observedStopName, '渋谷三丁目');
-    expect(arrived.vehicleAgeSeconds, 147.6);
-  });
-
-  test('restored boarding can complete without restoring an old position', () {
-    final step = StepSeg(
-      stepId: 'bus-1',
-      kind: 'bus',
-      title: '都01',
-      fromName: '新橋駅前',
-      toName: '渋谷駅前',
-      stops: [
-        StopPoint(name: '新橋駅前', point: const LatLng(35, 139), stopId: 's0'),
-        StopPoint(
-          name: '渋谷駅前',
-          point: const LatLng(35.02, 139.02),
-          stopId: 's2',
-        ),
-      ],
-    );
-
-    expect(() => assumeBusArrivedAtDestination(step: step), throwsStateError);
-    final arrived = assumeBusArrivedAtDestination(
-      step: step,
-      knownOnboard: true,
-    );
-    expect(arrived.phase, BusProgressPhase.arrived);
-    expect(arrived.fromStopId, 's2');
-    expect(arrived.fromStopIndex, 1);
-    expect(arrived.observedStopId, isNull);
-    expect(arrived.currentStatus, isNull);
-    expect(arrived.vehicleAgeSeconds, isNull);
   });
 }

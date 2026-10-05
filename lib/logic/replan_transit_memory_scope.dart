@@ -11,8 +11,7 @@ ReplanTransitMemory scopeReplanTransitMemoryToTrip({
     if (memory.knownOnboardStepId != null) memory.knownOnboardStepId!,
     if (memory.ridingTransit != null) memory.ridingTransit!.stepId,
   };
-  var belongsToActiveLeg = true;
-  for (final stepId in activeStepIds) {
+  int ownerLegIndex(String stepId) {
     final step = trip.stepsById[stepId];
     if (step == null) {
       throw StateError('保存済み乗車stepが現在のTripにありません: $stepId');
@@ -24,15 +23,32 @@ ReplanTransitMemory scopeReplanTransitMemoryToTrip({
       );
     }
 
-    final ownerLegIndex = trip.legs.indexWhere(
+    return trip.legs.indexWhere(
       (leg) =>
           leg.candidate.steps.any((candidate) => candidate.stepId == stepId),
     );
-    if (ownerLegIndex != trip.activeLegIndex) belongsToActiveLeg = false;
   }
 
-  if (trip.travelPhase != TravelPhase.active || !belongsToActiveLeg) {
-    return memory.clearActiveRide();
+  var activeRideBelongsToLeg = true;
+  for (final stepId in activeStepIds) {
+    if (ownerLegIndex(stepId) != trip.activeLegIndex) {
+      activeRideBelongsToLeg = false;
+    }
   }
-  return memory;
+  final completedStepId = memory.completedRideStepId;
+  final completedRideBelongsToLeg =
+      completedStepId == null ||
+      ownerLegIndex(completedStepId) == trip.activeLegIndex;
+  final tripActive = trip.travelPhase == TravelPhase.active;
+  final keepActiveRide = tripActive && activeRideBelongsToLeg;
+  final keepCompletedRide = tripActive && completedRideBelongsToLeg;
+  if (keepActiveRide && keepCompletedRide) return memory;
+
+  return ReplanTransitMemory(
+    ridingTransit: keepActiveRide ? memory.ridingTransit : null,
+    knownOnboardStepId: keepActiveRide ? memory.knownOnboardStepId : null,
+    completedRideStepId: keepCompletedRide ? completedStepId : null,
+    lastConfirmedTransitPlace: memory.lastConfirmedTransitPlace,
+    lastConfirmedTransitAt: memory.lastConfirmedTransitAt,
+  );
 }

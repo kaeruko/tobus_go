@@ -19,7 +19,9 @@ class RouteState {
     this.railProgress,
   }) {
     if (busProgress != null && railProgress != null) {
-      throw ArgumentError('RouteState cannot contain bus and rail progress together');
+      throw ArgumentError(
+        'RouteState cannot contain bus and rail progress together',
+      );
     }
   }
 
@@ -185,9 +187,7 @@ class NavigationState {
       case 'rail':
         return '🚇乗車中';
       default:
-        throw StateError(
-          '乗車中ステータスの未対応step kindです: ${step.kind}',
-        );
+        throw StateError('乗車中ステータスの未対応step kindです: ${step.kind}');
     }
   }
 
@@ -198,9 +198,7 @@ class NavigationState {
       case 'rail':
         return const NavigationTextToken(NavigationTextKey.railRideStatus);
       default:
-        throw StateError(
-          '乗車中ステータスの未対応step kindです: ${step.kind}',
-        );
+        throw StateError('乗車中ステータスの未対応step kindです: ${step.kind}');
     }
   }
 
@@ -222,18 +220,15 @@ class NavigationState {
     }
     final destinationEn = step.toNameEn?.trim();
     final normalizedRideTitleEn = rideTitleEn?.trim();
-    return NavigationTextToken(
-      NavigationTextKey.rideArrivalSummary,
-      {
-        'arrivalTime': arrivalTime,
-        'rideTitle': normalizedRideTitle,
-        if (normalizedRideTitleEn != null && normalizedRideTitleEn.isNotEmpty)
-          'rideTitleEn': normalizedRideTitleEn,
-        'destination': destination,
-        if (destinationEn != null && destinationEn.isNotEmpty)
-          'destinationEn': destinationEn,
-      },
-    );
+    return NavigationTextToken(NavigationTextKey.rideArrivalSummary, {
+      'arrivalTime': arrivalTime,
+      'rideTitle': normalizedRideTitle,
+      if (normalizedRideTitleEn != null && normalizedRideTitleEn.isNotEmpty)
+        'rideTitleEn': normalizedRideTitleEn,
+      'destination': destination,
+      if (destinationEn != null && destinationEn.isNotEmpty)
+        'destinationEn': destinationEn,
+    });
   }
 
   static String _shortRideTitle(StepSeg step) {
@@ -312,9 +307,7 @@ class NavigationState {
     isMoving: false,
   );
 
-  static NavigationState waitingForDeparture({
-    required DateTime plannedAt,
-  }) {
+  static NavigationState waitingForDeparture({required DateTime plannedAt}) {
     final time =
         '${plannedAt.hour}:${plannedAt.minute.toString().padLeft(2, '0')}';
     return NavigationState(
@@ -325,10 +318,9 @@ class NavigationState {
       mainTextToken: const NavigationTextToken(
         NavigationTextKey.preDepartureMain,
       ),
-      subTextToken: NavigationTextToken(
-        NavigationTextKey.plannedDepartureSub,
-        {'time': time},
-      ),
+      subTextToken: NavigationTextToken(NavigationTextKey.plannedDepartureSub, {
+        'time': time,
+      }),
       statusLabelToken: const NavigationTextToken(
         NavigationTextKey.preStartStatus,
       ),
@@ -371,10 +363,10 @@ class NavigationState {
         NavigationTextKey.meetingCountdownMain,
         {'minutes': minutes},
       ),
-      subTextToken: NavigationTextToken(
-        NavigationTextKey.meetingScheduledSub,
-        {'time': time, 'label': label},
-      ),
+      subTextToken: NavigationTextToken(NavigationTextKey.meetingScheduledSub, {
+        'time': time,
+        'label': label,
+      }),
       statusLabelToken: const NavigationTextToken(
         NavigationTextKey.waitingStatus,
       ),
@@ -424,10 +416,10 @@ class NavigationState {
       mainTextToken: const NavigationTextToken(
         NavigationTextKey.meetingActionMain,
       ),
-      subTextToken: NavigationTextToken(
-        NavigationTextKey.meetingNextSub,
-        {'time': nextTime, 'label': nextLabel},
-      ),
+      subTextToken: NavigationTextToken(NavigationTextKey.meetingNextSub, {
+        'time': nextTime,
+        'label': nextLabel,
+      }),
       statusLabelToken: const NavigationTextToken(
         NavigationTextKey.meetingStatus,
       ),
@@ -446,13 +438,10 @@ class NavigationState {
       subText: '開始まで $remainder',
       color: Colors.white,
       statusLabel: '開始前',
-      subTextToken: NavigationTextToken(
-        NavigationTextKey.startsInSub,
-        {
-          'hours': diff.inHours,
-          'minutes': diff.inMinutes % 60,
-        },
-      ),
+      subTextToken: NavigationTextToken(NavigationTextKey.startsInSub, {
+        'hours': diff.inHours,
+        'minutes': diff.inMinutes % 60,
+      }),
       statusLabelToken: const NavigationTextToken(
         NavigationTextKey.preStartStatus,
       ),
@@ -498,9 +487,7 @@ class NavigationState {
         color: const Color(0xFFC8E6C9),
         statusLabel: '集合',
         subTextToken: entry.description.isEmpty
-            ? const NavigationTextToken(
-                NavigationTextKey.meetingDefaultSub,
-              )
+            ? const NavigationTextToken(NavigationTextKey.meetingDefaultSub)
             : null,
         statusLabelToken: const NavigationTextToken(
           NavigationTextKey.meetingStatus,
@@ -518,21 +505,17 @@ class NavigationState {
         final routeTitle = _shortRideTitle(step);
         final destination = step.toName?.trim();
         if (destination == null || destination.isEmpty) {
-          throw StateError(
-            '到着予定に降車地点がありません: stepId=${step.stepId}',
-          );
+          throw StateError('到着予定に降車地点がありません: stepId=${step.stepId}');
         }
-        mainTextToken = NavigationTextToken(
-          NavigationTextKey.rideCurrentPlaceMain,
-          {
-            'rideTitle': routeTitle,
-            if (step.titleEn?.trim().isNotEmpty == true)
-              'rideTitleEn': step.titleEn!.trim(),
-            'placeName': destination,
-            if (step.toNameEn?.trim().isNotEmpty == true)
-              'placeNameEn': step.toNameEn!.trim(),
-          },
-        );
+        mainTextToken =
+            NavigationTextToken(NavigationTextKey.rideCurrentPlaceMain, {
+              'rideTitle': routeTitle,
+              if (step.titleEn?.trim().isNotEmpty == true)
+                'rideTitleEn': step.titleEn!.trim(),
+              'placeName': destination,
+              if (step.toNameEn?.trim().isNotEmpty == true)
+                'placeNameEn': step.toNameEn!.trim(),
+            });
       }
 
       return NavigationState(
@@ -542,9 +525,7 @@ class NavigationState {
         statusLabel: '到着',
         mainTextToken: mainTextToken,
         subTextToken: entry.description.isEmpty
-            ? const NavigationTextToken(
-                NavigationTextKey.arrivedDefaultSub,
-              )
+            ? const NavigationTextToken(NavigationTextKey.arrivedDefaultSub)
             : null,
         statusLabelToken: const NavigationTextToken(
           NavigationTextKey.arrivedStatus,
@@ -561,9 +542,7 @@ class NavigationState {
       color: const Color(0xFFE1F5FE),
       statusLabel: '待機',
       subTextToken: entry.description.isEmpty
-          ? const NavigationTextToken(
-              NavigationTextKey.waitingDefaultSub,
-            )
+          ? const NavigationTextToken(NavigationTextKey.waitingDefaultSub)
           : null,
       statusLabelToken: const NavigationTextToken(
         NavigationTextKey.waitingStatus,
@@ -594,19 +573,16 @@ class NavigationState {
         subText: '${step.meters}m 徒歩',
         color: const Color(0xFF81D4FA),
         statusLabel: statusLabel ?? '移動中',
-        mainTextToken: NavigationTextToken(
-          NavigationTextKey.walkHeadingMain,
-          {
-            'destination': destination,
-            if (step.toNameEn?.trim().isNotEmpty == true)
-              'destinationEn': step.toNameEn!.trim(),
-          },
-        ),
-        subTextToken: NavigationTextToken(
-          NavigationTextKey.walkDistanceSub,
-          {'meters': step.meters},
-        ),
-        statusLabelToken: statusLabelToken ??
+        mainTextToken: NavigationTextToken(NavigationTextKey.walkHeadingMain, {
+          'destination': destination,
+          if (step.toNameEn?.trim().isNotEmpty == true)
+            'destinationEn': step.toNameEn!.trim(),
+        }),
+        subTextToken: NavigationTextToken(NavigationTextKey.walkDistanceSub, {
+          'meters': step.meters,
+        }),
+        statusLabelToken:
+            statusLabelToken ??
             const NavigationTextToken(NavigationTextKey.movingStatus),
         nextStopName: destination,
         nextStopNameEn: step.toNameEn,
@@ -626,14 +602,12 @@ class NavigationState {
           subText: _rideArrivalSummary(step, routeTitle),
           color: const Color(0xFF81D4FA),
           statusLabel: statusLabel ?? _rideStatusLabel(step),
-          mainTextToken: NavigationTextToken(
-            NavigationTextKey.positionCheckingMain,
-            {
-              'rideTitle': routeTitle,
-              if (step.titleEn?.trim().isNotEmpty == true)
-                'rideTitleEn': step.titleEn!.trim(),
-            },
-          ),
+          mainTextToken:
+              NavigationTextToken(NavigationTextKey.positionCheckingMain, {
+                'rideTitle': routeTitle,
+                if (step.titleEn?.trim().isNotEmpty == true)
+                  'rideTitleEn': step.titleEn!.trim(),
+              }),
           subTextToken: _rideArrivalToken(
             step,
             routeTitle,
@@ -668,37 +642,28 @@ class NavigationState {
       throw StateError('bus stepにRailProgressが渡されました: ${step.stepId}');
     }
 
-    if (busProgress == null || step.stops.isEmpty) {
-      final boardingStopName = step.stops.isEmpty
-          ? null
-          : step.stops.first.name;
+    if (busProgress == null) {
+      final routeTitle = _shortRideTitle(step);
       return NavigationState(
-        mainText: '待機中',
-        subText: boardingStopName == null || boardingStopName.isEmpty
-            ? '📍'
-            : '$boardingStopName 📍',
-        color: const Color(0xFFE1F5FE),
-        statusLabel: '乗車待ち',
-        mainTextToken: const NavigationTextToken(
-          NavigationTextKey.busWaitingMain,
+        mainText: '$routeTitle 📍',
+        subText: _rideArrivalSummary(step, routeTitle),
+        color: const Color(0xFF81D4FA),
+        statusLabel: statusLabel ?? _rideStatusLabel(step),
+        mainTextToken:
+            NavigationTextToken(NavigationTextKey.positionCheckingMain, {
+              'rideTitle': routeTitle,
+              if (step.titleEn?.trim().isNotEmpty == true)
+                'rideTitleEn': step.titleEn!.trim(),
+            }),
+        subTextToken: _rideArrivalToken(
+          step,
+          routeTitle,
+          rideTitleEn: step.titleEn,
         ),
-        subTextToken: boardingStopName == null || boardingStopName.isEmpty
-            ? const NavigationTextToken(
-                NavigationTextKey.positionCheckingSub,
-              )
-            : NavigationTextToken(
-                NavigationTextKey.busPositionCheckingAtStopSub,
-                {
-                  'stopName': boardingStopName,
-                  if (step.stops.first.nameEn?.trim().isNotEmpty == true)
-                    'stopNameEn': step.stops.first.nameEn!.trim(),
-                },
-              ),
-        statusLabelToken: const NavigationTextToken(
-          NavigationTextKey.waitingToBoardStatus,
-        ),
+        statusLabelToken: statusLabelToken ?? _rideStatusToken(step),
         currentStepId: step.stepId,
-        isMoving: false,
+        nextStopName: step.toName,
+        nextStopNameEn: step.toNameEn,
         step: step,
       );
     }
@@ -785,15 +750,11 @@ class NavigationState {
                 'count': stopsUntilBoarding,
               },
             ),
-            subTextToken: NavigationTextToken(
-              NavigationTextKey.nowAtSub,
-              {
-                'placeName': boardingPlaceName,
-                if (boardingPlaceNameEn != null &&
-                    boardingPlaceNameEn.isNotEmpty)
-                  'placeNameEn': boardingPlaceNameEn,
-              },
-            ),
+            subTextToken: NavigationTextToken(NavigationTextKey.nowAtSub, {
+              'placeName': boardingPlaceName,
+              if (boardingPlaceNameEn != null && boardingPlaceNameEn.isNotEmpty)
+                'placeNameEn': boardingPlaceNameEn,
+            }),
             statusLabelToken: const NavigationTextToken(
               NavigationTextKey.waitingToBoardStatus,
             ),
@@ -826,14 +787,11 @@ class NavigationState {
             mainTextToken: const NavigationTextToken(
               NavigationTextKey.arrivedMain,
             ),
-            subTextToken: NavigationTextToken(
-              NavigationTextKey.transitPlace,
-              {
-                'placeName': arrivedPlace,
-                if (arrivedPlaceEn != null && arrivedPlaceEn.isNotEmpty)
-                  'placeNameEn': arrivedPlaceEn,
-              },
-            ),
+            subTextToken: NavigationTextToken(NavigationTextKey.transitPlace, {
+              'placeName': arrivedPlace,
+              if (arrivedPlaceEn != null && arrivedPlaceEn.isNotEmpty)
+                'placeNameEn': arrivedPlaceEn,
+            }),
             statusLabelToken: const NavigationTextToken(
               NavigationTextKey.arrivedStatus,
             ),
@@ -872,20 +830,15 @@ class NavigationState {
                 : const Color(0xFF81D4FA),
             statusLabel: statusLabel ?? _rideStatusLabel(step),
             mainTextToken: remaining == 1
-                ? const NavigationTextToken(
-                    NavigationTextKey.getOffNextMain,
-                  )
-                : NavigationTextToken(
-                    NavigationTextKey.rideCurrentPlaceMain,
-                    {
-                      'rideTitle': progress.rideTitle,
-                      if (rideTitleEn != null && rideTitleEn.isNotEmpty)
-                        'rideTitleEn': rideTitleEn,
-                      'placeName': currentPlace,
-                      if (currentPlaceEn != null && currentPlaceEn.isNotEmpty)
-                        'placeNameEn': currentPlaceEn,
-                    },
-                  ),
+                ? const NavigationTextToken(NavigationTextKey.getOffNextMain)
+                : NavigationTextToken(NavigationTextKey.rideCurrentPlaceMain, {
+                    'rideTitle': progress.rideTitle,
+                    if (rideTitleEn != null && rideTitleEn.isNotEmpty)
+                      'rideTitleEn': rideTitleEn,
+                    'placeName': currentPlace,
+                    if (currentPlaceEn != null && currentPlaceEn.isNotEmpty)
+                      'placeNameEn': currentPlaceEn,
+                  }),
             subTextToken: _rideArrivalToken(
               step,
               progress.rideTitle,
@@ -926,21 +879,17 @@ class NavigationState {
     final stopName = progress.observedStopName;
     final stopNameEn = progress.observedStopNameEn;
     final stopId = progress.observedStopId;
-    return NavigationTextToken(
-      NavigationTextKey.staleBusNotice,
-      {
-        'ageMinutes': ageMinutes,
-        'placeKind': stopName != null && stopName.isNotEmpty
-            ? 'name'
-            : (stopId != null && stopId.isNotEmpty ? 'id' : 'unknown'),
-        'place': stopName != null && stopName.isNotEmpty
-            ? stopName
-            : (stopId ?? ''),
-        if (stopNameEn != null && stopNameEn.isNotEmpty)
-          'placeEn': stopNameEn,
-        'moving': progress.currentStatus == 'IN_TRANSIT_TO',
-      },
-    );
+    return NavigationTextToken(NavigationTextKey.staleBusNotice, {
+      'ageMinutes': ageMinutes,
+      'placeKind': stopName != null && stopName.isNotEmpty
+          ? 'name'
+          : (stopId != null && stopId.isNotEmpty ? 'id' : 'unknown'),
+      'place': stopName != null && stopName.isNotEmpty
+          ? stopName
+          : (stopId ?? ''),
+      if (stopNameEn != null && stopNameEn.isNotEmpty) 'placeEn': stopNameEn,
+      'moving': progress.currentStatus == 'IN_TRANSIT_TO',
+    });
   }
 
   static String _staleRailPositionText(RailProgress progress) {
@@ -962,13 +911,10 @@ class NavigationState {
     final placeEn = progress.currentStatus == 'IN_TRANSIT_TO'
         ? progress.nextStopNameEn
         : progress.currentStopNameEn;
-    return NavigationTextToken(
-      NavigationTextKey.staleRailNotice,
-      {
-        'ageMinutes': ageMinutes,
-        'placeName': place ?? '',
-        if (placeEn != null && placeEn.isNotEmpty) 'placeNameEn': placeEn,
-      },
-    );
+    return NavigationTextToken(NavigationTextKey.staleRailNotice, {
+      'ageMinutes': ageMinutes,
+      'placeName': place ?? '',
+      if (placeEn != null && placeEn.isNotEmpty) 'placeNameEn': placeEn,
+    });
   }
 }

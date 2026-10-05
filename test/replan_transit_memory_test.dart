@@ -68,8 +68,7 @@ void main() {
     );
     final riding = const ReplanTransitMemory().observeRide(observation);
 
-    final otherRideUnavailable =
-        riding.markRideRealtimeUnavailable('rail-2');
+    final otherRideUnavailable = riding.markRideRealtimeUnavailable('rail-2');
 
     expect(otherRideUnavailable.ridingTransit, isNull);
     expect(otherRideUnavailable.knownOnboardStepId, isNull);
@@ -103,10 +102,7 @@ void main() {
     final riding = const ReplanTransitMemory().observeRide(observation);
 
     final confirmedAt = DateTime(2026, 8, 15, 18, 12, 34);
-    final arrived = riding.markArrived(
-      destination,
-      confirmedAt: confirmedAt,
-    );
+    final arrived = riding.markArrived(destination, confirmedAt: confirmedAt);
 
     expect(arrived.ridingTransit, isNull);
     expect(arrived.lastConfirmedTransitPlace, same(destination));
@@ -118,20 +114,23 @@ void main() {
     expect(walking.lastConfirmedTransitAt, confirmedAt);
   });
 
-  test('memory fails fast when a ride observation has no confirmed current place', () {
-    final next = place('蔵前', 35.703, 139.790);
-    final observation = RidingTransitObservation(
-      stepId: 'rail-1',
-      motion: RidingTransitMotion.inTransit,
-      nextPlace: next,
-      predictedNextAvailableAt: DateTime(2026, 8, 15, 18, 6),
-    );
+  test(
+    'memory fails fast when a ride observation has no confirmed current place',
+    () {
+      final next = place('蔵前', 35.703, 139.790);
+      final observation = RidingTransitObservation(
+        stepId: 'rail-1',
+        motion: RidingTransitMotion.inTransit,
+        nextPlace: next,
+        predictedNextAvailableAt: DateTime(2026, 8, 15, 18, 6),
+      );
 
-    expect(
-      () => const ReplanTransitMemory().observeRide(observation),
-      throwsStateError,
-    );
-  });
+      expect(
+        () => const ReplanTransitMemory().observeRide(observation),
+        throwsStateError,
+      );
+    },
+  );
 
   test('empty step id is rejected for realtime-unavailable tracking', () {
     expect(
@@ -140,6 +139,67 @@ void main() {
     );
     expect(
       () => const ReplanTransitMemory().isKnownOnboardWithoutRealtime(''),
+      throwsArgumentError,
+    );
+  });
+
+  test('early ride completion survives walking without onboard progress', () {
+    final destination = place('東日本橋', 35.692, 139.785);
+    final arrivedAt = DateTime(2026, 10, 5, 16, 55);
+    final completed = const ReplanTransitMemory().markArrived(
+      destination,
+      confirmedAt: arrivedAt,
+      stepId: 'bus-1',
+    );
+
+    expect(completed.completedRideStepId, 'bus-1');
+    expect(completed.knownOnboardStepId, isNull);
+    expect(completed.ridingTransit, isNull);
+    final walking = completed.clearActiveRide();
+    expect(walking.completedRideStepId, 'bus-1');
+    expect(walking.lastConfirmedTransitPlace, same(destination));
+    expect(walking.lastConfirmedTransitAt, arrivedAt);
+  });
+
+  test('a new ride observation clears the previous completed ride', () {
+    final destination = place('東日本橋', 35.692, 139.785);
+    final completed = const ReplanTransitMemory().markArrived(
+      destination,
+      confirmedAt: DateTime(2026, 10, 5, 16, 55),
+      stepId: 'bus-1',
+    );
+    final riding = completed.observeRide(
+      RidingTransitObservation(
+        stepId: 'bus-2',
+        motion: RidingTransitMotion.stopped,
+        currentPlace: destination,
+      ),
+    );
+
+    expect(riding.completedRideStepId, isNull);
+    expect(riding.knownOnboardStepId, 'bus-2');
+  });
+
+  test('same ride feed loss keeps completion but a new ride clears it', () {
+    const completed = ReplanTransitMemory(completedRideStepId: 'bus-1');
+    expect(
+      completed.markRideRealtimeUnavailable('bus-1').completedRideStepId,
+      'bus-1',
+    );
+    expect(
+      completed.markRideRealtimeUnavailable('bus-2').completedRideStepId,
+      isNull,
+    );
+  });
+
+  test('an empty completed ride identity is rejected', () {
+    final destination = place('東日本橋', 35.692, 139.785);
+    expect(
+      () => const ReplanTransitMemory().markArrived(
+        destination,
+        confirmedAt: DateTime(2026, 10, 5, 16, 55),
+        stepId: ' ',
+      ),
       throwsArgumentError,
     );
   });

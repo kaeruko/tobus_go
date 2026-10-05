@@ -20,11 +20,15 @@ class ReplanTransitMemory {
   final DateTime? lastConfirmedTransitAt;
   final String? knownOnboardStepId;
 
+  /// Keeps a finished ride from becoming active again after an early finish.
+  final String? completedRideStepId;
+
   const ReplanTransitMemory({
     this.ridingTransit,
     this.lastConfirmedTransitPlace,
     this.lastConfirmedTransitAt,
     this.knownOnboardStepId,
+    this.completedRideStepId,
   });
 
   ReplanTransitMemory observeRide(RidingTransitObservation observation) {
@@ -48,10 +52,16 @@ class ReplanTransitMemory {
   ReplanTransitMemory markArrived(
     ReplanTransitPlace destination, {
     required DateTime confirmedAt,
+    String? stepId,
   }) {
+    final normalizedStepId = stepId?.trim();
+    if (normalizedStepId != null && normalizedStepId.isEmpty) {
+      throw ArgumentError.value(stepId, 'stepId', 'must not be empty');
+    }
     return ReplanTransitMemory(
       lastConfirmedTransitPlace: destination,
       lastConfirmedTransitAt: confirmedAt,
+      completedRideStepId: normalizedStepId,
     );
   }
 
@@ -62,6 +72,7 @@ class ReplanTransitMemory {
     return ReplanTransitMemory(
       lastConfirmedTransitPlace: lastConfirmedTransitPlace,
       lastConfirmedTransitAt: lastConfirmedTransitAt,
+      completedRideStepId: completedRideStepId,
     );
   }
 
@@ -85,6 +96,9 @@ class ReplanTransitMemory {
       lastConfirmedTransitPlace: lastConfirmedTransitPlace,
       lastConfirmedTransitAt: lastConfirmedTransitAt,
       knownOnboardStepId: wasKnownOnboardForStep ? normalizedStepId : null,
+      completedRideStepId: completedRideStepId == normalizedStepId
+          ? completedRideStepId
+          : null,
     );
   }
 

@@ -1,45 +1,32 @@
 import '../models/bus_progress.dart';
 import '../models/route_models.dart';
 
-bool shouldAssumeBusArrivedFromStaleRealtime({
+/// Bus navigation follows its schedule even when ODPT reports an older stop.
+bool shouldCompleteBusFromSchedule({
   required DateTime now,
   required DateTime plannedArrivalAt,
-  required BusProgress progress,
-  required double staleAfterSeconds,
 }) {
-  if (!staleAfterSeconds.isFinite || staleAfterSeconds <= 0) {
-    throw ArgumentError.value(
-      staleAfterSeconds,
-      'staleAfterSeconds',
-      'must be finite and greater than zero',
-    );
-  }
-  if (progress.phase != BusProgressPhase.riding) return false;
-
-  final vehicleAgeSeconds = progress.vehicleAgeSeconds;
-  if (vehicleAgeSeconds == null) return false;
-  if (!vehicleAgeSeconds.isFinite || vehicleAgeSeconds < 0) {
-    throw StateError(
-      'vehicleAgeSeconds must be finite and non-negative: $vehicleAgeSeconds',
-    );
-  }
-
-  return !now.isBefore(plannedArrivalAt) &&
-      vehicleAgeSeconds >= staleAfterSeconds;
+  return !now.isBefore(plannedArrivalAt);
 }
 
 bool shouldAssumeBusArrivedAfterRealtimeLoss({
   required DateTime now,
   required DateTime plannedArrivalAt,
-  required bool knownOnboard,
+  required bool hasSeenVehicle,
 }) {
-  return knownOnboard && !now.isBefore(plannedArrivalAt);
+  // An initial feed miss has no disappearance evidence. In that case the
+  // schedule decides; an already tracked service disappearing ends the ride.
+  return hasSeenVehicle ||
+      shouldCompleteBusFromSchedule(
+        now: now,
+        plannedArrivalAt: plannedArrivalAt,
+      );
 }
 
-BusProgress assumeBusArrivedAtDestination({
+/// Builds completion without manufacturing a realtime observation.
+BusProgress completeBusAtDestination({
   required StepSeg step,
-  BusProgress? realtimeProgress,
-  bool knownOnboard = false,
+  BusProgress? lastProgress,
 }) {
   if (step.kind != 'bus') {
     throw StateError(
@@ -50,20 +37,10 @@ BusProgress assumeBusArrivedAtDestination({
   if (step.stops.isEmpty) {
     throw StateError('停留所のないバスStepを降車扱いにできません: ${step.stepId}');
   }
-  if (realtimeProgress == null && !knownOnboard) {
-    throw StateError('乗車確認のないバスStepを降車扱いにできません: ${step.stepId}');
-  }
-  if (realtimeProgress != null && realtimeProgress.stepId != step.stepId) {
+  if (lastProgress != null && lastProgress.stepId != step.stepId) {
     throw StateError(
       'BusProgressのstepIdが一致しません: '
-      '${realtimeProgress.stepId} != ${step.stepId}',
-    );
-  }
-  if (realtimeProgress != null &&
-      realtimeProgress.phase != BusProgressPhase.riding) {
-    throw StateError(
-      '乗車中ではないBusProgressを予定時刻で降車扱いにできません: '
-      'stepId=${step.stepId}, phase=${realtimeProgress.phase.name}',
+      '${lastProgress.stepId} != ${step.stepId}',
     );
   }
 
@@ -75,10 +52,10 @@ BusProgress assumeBusArrivedAtDestination({
     nextStopId: null,
     nextStopIndex: null,
     phase: BusProgressPhase.arrived,
-    observedStopId: realtimeProgress?.observedStopId,
-    observedStopName: realtimeProgress?.observedStopName,
-    observedStopNameEn: realtimeProgress?.observedStopNameEn,
-    currentStatus: realtimeProgress?.currentStatus,
-    vehicleAgeSeconds: realtimeProgress?.vehicleAgeSeconds,
+    observedStopId: lastProgress?.observedStopId,
+    observedStopName: lastProgress?.observedStopName,
+    observedStopNameEn: lastProgress?.observedStopNameEn,
+    currentStatus: lastProgress?.currentStatus,
+    vehicleAgeSeconds: lastProgress?.vehicleAgeSeconds,
   );
 }
