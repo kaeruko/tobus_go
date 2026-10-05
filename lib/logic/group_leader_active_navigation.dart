@@ -6,6 +6,20 @@ enum GroupLeaderActivePrimaryAction {
   completeTrip,
 }
 
+bool shouldUseGroupLeaderActiveNavigation(
+  Trip trip, {
+  required bool forceManagement,
+}) {
+  if (trip.tripType != TripType.group) {
+    throw StateError(
+      'Group leader画面の導線判定にGroup以外のtripが渡されました: '
+      'tripId=${trip.id}, type=${trip.tripType.name}',
+    );
+  }
+
+  return trip.travelPhase == TravelPhase.active && !forceManagement;
+}
+
 GroupLeaderActivePrimaryAction? resolveGroupLeaderActivePrimaryAction(
   Trip trip, {
   ScheduleEntry? resolvedEntry,
