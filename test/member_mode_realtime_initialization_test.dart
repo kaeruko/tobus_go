@@ -440,15 +440,45 @@ void main() {
         if (fetchCount == 1) {
           return BusLocation(
             vehicleId: 'vehicle-${request.tripId}',
-            fromStopId: 'stop-a',
+            fromStopId: 'stop-b',
             routeId: request.routeId,
             tripId: request.tripId,
             tripStopIds: const ['stop-a', 'stop-b', 'stop-c'],
             rawStopId: 'stop-b',
             rawStopName: '中間停留所',
+            fromStopSequence: 2,
             observedStopSequence: 2,
-            currentStatus: 'IN_TRANSIT_TO',
+            currentStatus: 'STOPPED_AT',
             vehicleAgeSeconds: 0,
+            tripStopSchedule: const [
+              BusStopSchedule(
+                sequence: 1,
+                stopId: 'stop-a',
+                stopName: '出発停留所',
+                arrivalMinute: 600,
+                departureMinute: 600,
+                arrivalTime: '10:00',
+                departureTime: '10:00',
+              ),
+              BusStopSchedule(
+                sequence: 2,
+                stopId: 'stop-b',
+                stopName: '中間停留所',
+                arrivalMinute: 601,
+                departureMinute: 601,
+                arrivalTime: '10:01',
+                departureTime: '10:01',
+              ),
+              BusStopSchedule(
+                sequence: 3,
+                stopId: 'stop-c',
+                stopName: '到着停留所',
+                arrivalMinute: 602,
+                departureMinute: 602,
+                arrivalTime: '10:02',
+                departureTime: '10:02',
+              ),
+            ],
           );
         }
         throw const BusLocationNotAvailableException(
@@ -535,15 +565,45 @@ void main() {
         if (fetchCount == 1) {
           return BusLocation(
             vehicleId: 'vehicle-${request.tripId}',
-            fromStopId: 'stop-a',
+            fromStopId: 'stop-b',
             routeId: request.routeId,
             tripId: request.tripId,
             tripStopIds: const ['stop-a', 'stop-b', 'stop-c'],
             rawStopId: 'stop-b',
             rawStopName: '中間停留所',
+            fromStopSequence: 2,
             observedStopSequence: 2,
-            currentStatus: 'IN_TRANSIT_TO',
+            currentStatus: 'STOPPED_AT',
             vehicleAgeSeconds: 0,
+            tripStopSchedule: const [
+              BusStopSchedule(
+                sequence: 1,
+                stopId: 'stop-a',
+                stopName: '出発停留所',
+                arrivalMinute: 600,
+                departureMinute: 600,
+                arrivalTime: '10:00',
+                departureTime: '10:00',
+              ),
+              BusStopSchedule(
+                sequence: 2,
+                stopId: 'stop-b',
+                stopName: '中間停留所',
+                arrivalMinute: 601,
+                departureMinute: 601,
+                arrivalTime: '10:01',
+                departureTime: '10:01',
+              ),
+              BusStopSchedule(
+                sequence: 3,
+                stopId: 'stop-c',
+                stopName: '到着停留所',
+                arrivalMinute: 602,
+                departureMinute: 602,
+                arrivalTime: '10:02',
+                departureTime: '10:02',
+              ),
+            ],
           );
         }
         throw const BusLocationNotAvailableException(
