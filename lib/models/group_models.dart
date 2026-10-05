@@ -24,6 +24,56 @@ enum ScheduleEntrySource {
 const Duration groupMeetingLeadTime = Duration(minutes: 10);
 const Duration defaultGroupStayDuration = Duration(hours: 1);
 
+Leg validateReturnTimeUpdateCanReuseExistingRoute(List<Leg> legs) {
+  final inbound = legs
+      .where((leg) => leg.direction == LegDirection.inbound)
+      .toList(growable: false);
+  if (inbound.length != 1) {
+    throw StateError(
+      '帰りの時刻変更に使う復路を一意に特定できません: '
+      'inboundLegs=${inbound.length}',
+    );
+  }
+
+  final rideStepIds = inbound.single.candidate.steps
+      .where((step) => step.isRide)
+      .map((step) => step.stepId)
+      .toList(growable: false);
+  if (rideStepIds.isNotEmpty) {
+    throw StateError(
+      'バス・鉄道を含む帰りの時刻変更には経路の再検索が必要です。'
+      '既存の便を別時刻へ移動できません: '
+      'candidateId=${inbound.single.candidate.id}, '
+      'rideSteps=${rideStepIds.join(',')}',
+    );
+  }
+  return inbound.single;
+}
+
+List<ScheduleEntry> mergeRegeneratedRouteSchedulePreservingManualEntries(
+  List<ScheduleEntry> current,
+  List<ScheduleEntry> regeneratedRoute,
+) {
+  final unexpectedManual = regeneratedRoute
+      .where((entry) => entry.generatedBy != ScheduleEntrySource.route)
+      .toList(growable: false);
+  if (unexpectedManual.isNotEmpty) {
+    throw StateError(
+      '再生成したroute予定にmanual予定が混入しています: '
+      'ids=${unexpectedManual.map((entry) => entry.id).join(',')}',
+    );
+  }
+
+  final merged = <ScheduleEntry>[
+    ...regeneratedRoute,
+    ...current.where(
+      (entry) => entry.generatedBy == ScheduleEntrySource.manual,
+    ),
+  ];
+  sortScheduleEntries(merged);
+  return merged;
+}
+
 class GroupReturnSearchWindow {
   final DateTime outboundArrivalAt;
   final DateTime minimumReturnDepartureAt;
@@ -623,6 +673,9 @@ List<ScheduleEntry> createScheduleFromLegs(
     // 10 minutes before that movement starts.
     final meetingAt = inboundAnchor.subtract(groupMeetingLeadTime);
 
+    final inboundHasFixedTransit = inbound.candidate.steps.any(
+      (step) => step.isRide,
+    );
     final inboundSchedule = createScheduleFromRoute(
       inbound.candidate,
       startDateTime: inboundAnchor,
@@ -632,7 +685,8 @@ List<ScheduleEntry> createScheduleFromLegs(
       meetingLabel: '帰りの集合',
       meetingDescription: '帰りの経路を開始する前に人数を確認しましょう',
       meetingAt: meetingAt,
-      shiftToStart: false, // Fixed transit clocks remain authoritative.
+      shiftToStart:
+          userSelectedReturnTime != null && !inboundHasFixedTransit,
     );
 
     if (outbound != null) {
