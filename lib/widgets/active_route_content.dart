@@ -13,6 +13,32 @@ import '../services/bus_location_source.dart';
 import 'route_detail_widgets.dart';
 import 'route_map_preview.dart';
 
+StepSeg? resolveTrackableBusStep(Candidate candidate) {
+  StepSeg? firstBus;
+  for (final step in candidate.steps) {
+    if (step.kind != 'bus') continue;
+
+    final routeId = step.routeId?.trim();
+    if (routeId == null || routeId.isEmpty) {
+      throw StateError(
+        '追跡対象bus stepにrouteIdがありません: '
+        'candidateId=${candidate.id}, stepId=${step.stepId}',
+      );
+    }
+
+    final tripId = step.tripId?.trim();
+    if (tripId == null || tripId.isEmpty) {
+      throw StateError(
+        '追跡対象bus stepにtripIdがありません: '
+        'candidateId=${candidate.id}, stepId=${step.stepId}',
+      );
+    }
+
+    firstBus ??= step;
+  }
+  return firstBus;
+}
+
 class ActiveRouteContent extends StatefulWidget {
   final Candidate candidate;
   final CityProfile cityProfile;
@@ -41,18 +67,7 @@ class _ActiveRouteContentState extends State<ActiveRouteContent> {
       widget.busLocationSource ??
       RealtimeBusLocationSource(cityProfile: widget.cityProfile);
 
-  StepSeg? get _trackedBusStep {
-    for (final step in widget.candidate.steps) {
-      if (step.kind == 'bus' &&
-          step.routeId != null &&
-          step.routeId!.isNotEmpty &&
-          step.tripId != null &&
-          step.tripId!.isNotEmpty) {
-        return step;
-      }
-    }
-    return null;
-  }
+  StepSeg? get _trackedBusStep => resolveTrackableBusStep(widget.candidate);
 
   bool get _supportsVehiclePosition =>
       widget.cityProfile.capabilities.realtime.vehiclePosition;
