@@ -18,7 +18,7 @@ import '../providers/trip_draft_provider.dart';
 import '../services/trip_service.dart';
 import '../models/trip_models.dart';
 import 'leader_mode_page.dart';
-import '../core/api_client.dart';
+import '../services/route_search_service.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/route_map_preview.dart';
@@ -933,37 +933,18 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       );
 
       final targetTime = overrideTime ?? _searchTime;
-      final params = {
-        'alat': '${start.latitude}',
-        'alon': '${start.longitude}',
-        'blat': '${end.latitude}',
-        'blon': '${end.longitude}',
-        'pref': original.preference ?? 'fewTransfers',
-        'start_time':
-            '${targetTime.hour.toString().padLeft(2, '0')}:${targetTime.minute.toString().padLeft(2, '0')}',
-        'target_date_str':
-            '${targetTime.year}-${targetTime.month.toString().padLeft(2, '0')}-${targetTime.day.toString().padLeft(2, '0')}',
-      };
-
-      // Changed: Await the response synchronously (no job_id polling)
-      final result = await ApiClient.post('/route', body: params);
-
-      // Parse result immediately
-      final candidatesList = result['candidates'] as List? ?? [];
-      final metaMap = result['meta'] as Map<String, dynamic>? ?? {};
-
-      final list = candidatesList.map((e) {
-        final map = Map<String, dynamic>.from(e as Map<String, dynamic>);
-        map['origin_name'] = originLabel;
-        map['destination_name'] = destinationLabel;
-        final candidate = Candidate.fromJson(map);
-        return candidate;
-      }).toList();
-
-      RouteMeta? meta;
-      if (metaMap.isNotEmpty) {
-        meta = RouteMeta.fromJson(metaMap);
-      }
+      final result = await ref.read(routeSearchServiceProvider).search(
+        RouteSearchRequest(
+          origin: start,
+          destination: end,
+          originName: originLabel,
+          destinationName: destinationLabel,
+          startTime: targetTime,
+          preference: original.preference ?? 'fewTransfers',
+        ),
+      );
+      final list = result.candidates;
+      final meta = result.meta;
 
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop(); // Close loading
