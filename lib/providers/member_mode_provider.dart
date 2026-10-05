@@ -500,11 +500,10 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       final trackedVehicleId = state.trackedStepId == activeStep.stepId
           ? state.trackedVehicleId
           : null;
-      final location = await _busLocationSource.fetch(
-        routeId: activeStep.routeId!,
-        tripId: activeStep.tripId!,
-        boardingStopId: activeStep.departureStopId,
-        scheduledDepartureAt: plannedDepartureAt,
+      final location = await _fetchBusLocationWithSingleNotFoundRetry(
+        activeStep,
+        plannedDepartureAt: plannedDepartureAt,
+        plannedArrivalAt: plannedArrivalAt,
         vehicleId: trackedVehicleId,
         forceRefresh: forceRefresh,
       );
@@ -605,6 +604,37 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         return null;
       }
 
+      final now = appClock.now();
+      final navProgress = _ref.read(memberNavProgressProvider);
+      if (!mounted) return null;
+      final lastProgress = state.busProgress?.stepId == activeStep.stepId
+          ? state.busProgress
+          : navProgress.busProgress?.stepId == activeStep.stepId
+          ? navProgress.busProgress
+          : null;
+
+      // The timetable is authoritative for completion. A request that started
+      // before arrival can finish after it, so check the clock again here.
+      if (shouldCompleteBusFromSchedule(
+        now: now,
+        plannedArrivalAt: plannedArrivalAt,
+      )) {
+        _completeBusRide(
+          activeStep,
+          lastProgress: lastProgress,
+          completedAt: plannedArrivalAt,
+        );
+        debugPrint(
+          '[MemberModeController] バス降車を予定時刻で確定(API取得失敗後): '
+          'step=${activeStep.stepId} '
+          'plannedArrival=${plannedArrivalAt.toIso8601String()} '
+          'lastObserved=${lastProgress?.observedStopId}/'
+          '${lastProgress?.observedStopName} '
+          'error=$e',
+        );
+        return null;
+      }
+
       if (e.code == 'bus_realtime_not_started') {
         state = RealtimeTransitState(
           trackedStepId: activeStep.stepId,
@@ -614,42 +644,6 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
           '[MemberModeController] バスRealtime開始前: '
           'step=${activeStep.stepId} plannedDeparture='
           '${plannedDepartureAt.toIso8601String()}',
-        );
-        return null;
-      }
-
-      final now = appClock.now();
-      final navProgress = _ref.read(memberNavProgressProvider);
-      if (!mounted) return null;
-      final lastProgress = state.busProgress?.stepId == activeStep.stepId
-          ? state.busProgress
-          : navProgress.busProgress?.stepId == activeStep.stepId
-          ? navProgress.busProgress
-          : null;
-      final hasSeenVehicle =
-          state.replanTransitMemory.knownOnboardStepId == activeStep.stepId ||
-          lastProgress != null ||
-          state.trackedStepId == activeStep.stepId &&
-              state.trackedVehicleId != null;
-
-      if (e.code == 'bus_trip_not_found' &&
-          shouldAssumeBusArrivedAfterRealtimeLoss(
-            now: now,
-            plannedArrivalAt: plannedArrivalAt,
-            hasSeenVehicle: hasSeenVehicle,
-          )) {
-        _completeBusRide(
-          activeStep,
-          lastProgress: lastProgress,
-          completedAt: now.isBefore(plannedArrivalAt) ? now : plannedArrivalAt,
-        );
-        debugPrint(
-          '[MemberModeController] バスRealtime終了: '
-          'step=${activeStep.stepId} '
-          'plannedArrival=${plannedArrivalAt.toIso8601String()} '
-          'lastObserved=${lastProgress?.observedStopId}/'
-          '${lastProgress?.observedStopName} '
-          'error=$e',
         );
         return null;
       }
@@ -672,6 +666,50 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       debugPrint('[MemberModeController] バスAPIエラー: $e');
       debugPrintStack(stackTrace: stackTrace);
       rethrow;
+    }
+  }
+
+  Future<BusLocation> _fetchBusLocationWithSingleNotFoundRetry(
+    StepSeg activeStep, {
+    required DateTime plannedDepartureAt,
+    required DateTime plannedArrivalAt,
+    required String? vehicleId,
+    required bool forceRefresh,
+  }) async {
+    Future<BusLocation> fetchOnce({required bool force}) {
+      return _busLocationSource.fetch(
+        routeId: activeStep.routeId!,
+        tripId: activeStep.tripId!,
+        boardingStopId: activeStep.departureStopId,
+        scheduledDepartureAt: plannedDepartureAt,
+        vehicleId: vehicleId,
+        forceRefresh: force,
+      );
+    }
+
+    try {
+      return await fetchOnce(force: forceRefresh);
+    } on BusLocationNotAvailableException catch (e) {
+      final now = appClock.now();
+      final retry =
+          e.code == 'bus_trip_not_found' &&
+          shouldRetryMissingBusRealtime(
+            now: now,
+            plannedDepartureAt: plannedDepartureAt,
+            plannedArrivalAt: plannedArrivalAt,
+          );
+      if (!retry) rethrow;
+
+      debugPrint(
+        '[MemberModeController] バス便404を1回だけ再取得: '
+        'step=${activeStep.stepId} '
+        'plannedDeparture=${plannedDepartureAt.toIso8601String()} '
+        'plannedArrival=${plannedArrivalAt.toIso8601String()}',
+      );
+      // Keep route/trip/stop/vehicle identity unchanged. Force only the backend
+      // snapshot refresh so the retry actually re-reads ODPT instead of the
+      // same cached feed.
+      return await fetchOnce(force: true);
     }
   }
 
