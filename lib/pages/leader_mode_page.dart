@@ -10,11 +10,13 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../core/app_clock.dart';
 import '../widgets/route_map_preview.dart';
 import '../models/route_models.dart';
+import '../logic/group_leader_active_navigation.dart';
 import '../models/trip_models.dart';
 import '../models/group_models.dart';
 import '../models/leg_models.dart';
 import '../services/trip_service.dart';
 import 'group_detail_page.dart';
+import 'group_leader_active_trip_page.dart';
 import 'member_mode_page.dart';
 import 'group_leader_route_replan_page.dart';
 import 'schedule_page.dart';
@@ -23,7 +25,13 @@ import '../utils/string_utils.dart';
 
 class LeaderModePage extends StatefulWidget {
   final String tripId;
-  const LeaderModePage({super.key, required this.tripId});
+  final bool forceManagement;
+
+  const LeaderModePage({
+    super.key,
+    required this.tripId,
+    this.forceManagement = false,
+  });
 
   @override
   State<LeaderModePage> createState() => _LeaderModePageState();
@@ -194,6 +202,25 @@ class _LeaderModePageState extends State<LeaderModePage> {
         }
 
         final trip = snapshot.data!;
+
+        if (shouldUseGroupLeaderActiveNavigation(
+          trip,
+          forceManagement: widget.forceManagement,
+        )) {
+          return GroupLeaderActiveTripPage(
+            tripId: trip.id,
+            onOpenManagement: () {
+              Navigator.of(context, rootNavigator: true).push(
+                MaterialPageRoute(
+                  builder: (_) => LeaderModePage(
+                    tripId: trip.id,
+                    forceManagement: true,
+                  ),
+                ),
+              );
+            },
+          );
+        }
 
         final meetingEntry = _findFirstByKind(
           trip.schedule,
