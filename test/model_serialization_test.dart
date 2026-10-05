@@ -230,6 +230,66 @@ void main() {
     );
   });
 
+  test('Firestore leg persistence rejects unresolved bus identity', () {
+    Candidate busCandidate({String? tripId, String? routeId}) {
+      return Candidate(
+        id: 'bus-persistence',
+        lines: const ['都01'],
+        rides: 1,
+        boards: 1,
+        transfers: 0,
+        total: 10,
+        totalTime: 10,
+        steps: [
+          StepSeg(
+            stepId: 'bus-1',
+            kind: 'bus',
+            title: '都01',
+            tripId: tripId,
+            routeId: routeId,
+          ),
+        ],
+        points: const [],
+      );
+    }
+
+    Leg leg(Candidate candidate) => Leg(
+      direction: LegDirection.inbound,
+      status: LegStatus.confirmed,
+      candidate: candidate,
+    );
+
+    expect(
+      () => leg(busCandidate(routeId: '006')).toFirestore(),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('GTFS tripId'),
+        ),
+      ),
+    );
+    expect(
+      () => leg(busCandidate(tripId: '08501-1-09-170-2018')).toFirestore(),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('GTFS routeId'),
+        ),
+      ),
+    );
+    expect(
+      () => leg(
+        busCandidate(
+          tripId: '08501-1-09-170-2018',
+          routeId: '006',
+        ),
+      ).toFirestore(),
+      returnsNormally,
+    );
+  });
+
   test('Trip rejects schemas other than navigation v2', () {
     expect(
       () => Trip(
