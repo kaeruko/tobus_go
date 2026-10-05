@@ -110,7 +110,7 @@ List<ScheduleEntry> _navigationScheduleForTrip(Trip trip) {
         'tripId=${trip.id}, legs=${trip.legs.length}',
       );
     }
-    return trip.schedule;
+    return canonicalize(trip.schedule).toList(growable: false);
   }
 
   resolveGroupActiveLeg(trip);
@@ -436,10 +436,22 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
 
     AlightingAlert? pendingAlightingAlert;
 
-    if (activeStep != null &&
-        activeStep.kind == 'bus' &&
-        activeStep.routeId != null &&
-        activeStep.tripId != null) {
+    if (activeStep != null && activeStep.kind == 'bus') {
+      final routeId = activeStep.routeId?.trim();
+      final serviceTripId = activeStep.tripId?.trim();
+      if (routeId == null || routeId.isEmpty) {
+        throw StateError(
+          'bus stepにrouteIdがありません: '
+          'tripId=${trip.id}, stepId=${activeStep.stepId}',
+        );
+      }
+      if (serviceTripId == null || serviceTripId.isEmpty) {
+        throw StateError(
+          'bus stepにtripIdがありません: '
+          'tripId=${trip.id}, stepId=${activeStep.stepId}',
+        );
+      }
+
       final plannedDepartureAt = _plannedRideDepartureAt(
         trip,
         activeStep.stepId,
