@@ -555,6 +555,29 @@ void validatePersistableRailIdentity(Candidate candidate) {
   }
 }
 
+void validatePersistableBusIdentity(Candidate candidate) {
+  for (final step in candidate.steps) {
+    if (step.kind != 'bus') continue;
+
+    final tripId = step.tripId?.trim();
+    if (tripId == null || tripId.isEmpty) {
+      throw StateError(
+        '保存するバスstepにGTFS tripIdがありません: '
+        'candidateId=${candidate.id}, stepId=${step.stepId}',
+      );
+    }
+
+    final routeId = step.routeId?.trim();
+    if (routeId == null || routeId.isEmpty) {
+      throw StateError(
+        '保存するバスstepにGTFS routeIdがありません: '
+        'candidateId=${candidate.id}, stepId=${step.stepId}',
+      );
+    }
+  }
+}
+
+
 class StepSeg {
   final String stepId;
   final String kind; // 'walk', 'bus', 'rail', 'wait'
