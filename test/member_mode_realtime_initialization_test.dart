@@ -1188,9 +1188,9 @@ void main() {
   testWidgets(
     'shifted stored schedule still queries the fixed bus departure',
     (tester) async {
-      final now = DateTime(2026, 10, 5, 20, 17);
-      final departureAt = DateTime(2026, 10, 5, 20, 18);
-      final arrivalAt = DateTime(2026, 10, 5, 20, 50);
+      final now = appClock.now();
+      final departureAt = now.add(const Duration(minutes: 1));
+      final arrivalAt = departureAt.add(const Duration(minutes: 32));
       final trip = _trip(
         now: now,
         id: 'shifted-schedule',
@@ -1210,7 +1210,7 @@ void main() {
         trip.schedule
             .singleWhere((entry) => entry.itemKind == ScheduleEntryKind.ride)
             .plannedAt,
-        DateTime(2026, 10, 5, 20, 21),
+        departureAt.add(const Duration(minutes: 3)),
       );
 
       await tester.pumpWidget(_host(container));
