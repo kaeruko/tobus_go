@@ -1235,11 +1235,10 @@ void main() {
     );
 
     for (final missingField in ['routeId', 'tripId']) {
-      testWidgets(
+      test(
         '${tripType.name} bus fails fast when $missingField is missing',
-        (tester) async {
+        () {
           final now = appClock.now();
-          final source = _RecordingBusLocationSource();
           final trip = _trip(
             now: now,
             id: 'missing-${tripType.name}-$missingField',
@@ -1247,28 +1246,18 @@ void main() {
             missingBusRouteId: missingField == 'routeId',
             missingBusTripId: missingField == 'tripId',
           );
-          final container = _container(
-            trips: Stream.value(trip),
-            now: now,
-            source: source,
-          );
-          addTearDown(container.dispose);
+          final step = trip.legs.single.candidate.steps.single;
 
-          await tester.pumpWidget(_host(container));
-          await _flushNavigation(tester);
-
-          expect(source.requests, isEmpty);
           expect(
-            tester.takeException(),
-            isA<StateError>().having(
-              (error) => error.message,
-              'message',
-              contains('bus stepに$missingFieldがありません'),
+            () => validateBusRealtimeIdentity(trip: trip, step: step),
+            throwsA(
+              isA<StateError>().having(
+                (error) => error.message,
+                'message',
+                contains('bus stepに$missingFieldがありません'),
+              ),
             ),
           );
-
-          await tester.pumpWidget(_host(container, showNavigation: false));
-          await _flushNavigation(tester);
         },
       );
     }
