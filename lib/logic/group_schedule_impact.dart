@@ -47,11 +47,17 @@ class GroupScheduleImpactAnalyzer {
   }) {
     _requireGroupTrip(trip);
     _requireLegIndex(trip, legIndex);
-    final goal = _uniqueRouteGoal(trip, legIndex);
+    _uniqueRouteGoal(trip, legIndex);
+    final canonicalRoute = _canonicalRouteSchedule(trip, legIndex);
+    final canonicalGoal = _uniqueRouteGoalFromEntries(
+      canonicalRoute,
+      legIndex: legIndex,
+      context: 'Candidateから再生成したroute schedule',
+    );
     return GroupArrivalEstimate(
       legIndex: legIndex,
-      plannedArrivalAt: goal.plannedAt,
-      expectedArrivalAt: goal.plannedAt,
+      plannedArrivalAt: canonicalGoal.plannedAt,
+      expectedArrivalAt: canonicalGoal.plannedAt,
       basis: GroupArrivalEstimateBasis.routeSchedule,
     );
   }
@@ -88,26 +94,45 @@ class GroupScheduleImpactAnalyzer {
       return null;
     }
 
-    final rideArrival = _uniqueRouteEntry(
+    _uniqueRouteEntry(
       trip,
       legIndex: position.legIndex,
       routeStepId: step.stepId,
       routeRole: 'arrival',
     );
-    final goal = _uniqueRouteGoal(trip, position.legIndex);
-    final plannedRemaining = goal.plannedAt.difference(rideArrival.plannedAt);
+    _uniqueRouteGoal(trip, position.legIndex);
+
+    final canonicalRoute = _canonicalRouteSchedule(
+      trip,
+      position.legIndex,
+    );
+    final canonicalRideArrival = _uniqueRouteEntryFromEntries(
+      canonicalRoute,
+      legIndex: position.legIndex,
+      routeStepId: step.stepId,
+      routeRole: 'arrival',
+      context: 'Candidateから再生成したroute schedule',
+    );
+    final canonicalGoal = _uniqueRouteGoalFromEntries(
+      canonicalRoute,
+      legIndex: position.legIndex,
+      context: 'Candidateから再生成したroute schedule',
+    );
+    final plannedRemaining = canonicalGoal.plannedAt.difference(
+      canonicalRideArrival.plannedAt,
+    );
     if (plannedRemaining.isNegative) {
       throw StateError(
-        '最終乗車の到着予定より経路ゴールが前です: '
+        '最終乗車の固定到着時刻より経路ゴールが前です: '
         'stepId=${step.stepId}, '
-        'rideArrival=${rideArrival.plannedAt.toIso8601String()}, '
-        'goal=${goal.plannedAt.toIso8601String()}',
+        'rideArrival=${canonicalRideArrival.plannedAt.toIso8601String()}, '
+        'goal=${canonicalGoal.plannedAt.toIso8601String()}',
       );
     }
 
     return GroupArrivalEstimate(
       legIndex: position.legIndex,
-      plannedArrivalAt: goal.plannedAt,
+      plannedArrivalAt: canonicalGoal.plannedAt,
       expectedArrivalAt: predictedRideArrival.add(plannedRemaining),
       basis: GroupArrivalEstimateBasis.finalRideRealtime,
     );
@@ -145,6 +170,75 @@ class GroupScheduleImpactAnalyzer {
       affectedEntry: affected,
       overrun: arrival.expectedArrivalAt.difference(affected.plannedAt),
     );
+  }
+
+  static List<ScheduleEntry> _canonicalRouteSchedule(
+    Trip trip,
+    int legIndex,
+  ) {
+    _requireLegIndex(trip, legIndex);
+    final candidate = trip.legs[legIndex].candidate;
+    final departureAt = candidate.departureDate;
+    if (departureAt == null) {
+      throw StateError(
+        'グループ到着見込みの固定route時刻に必要なdepartureDateがありません: '
+        'legIndex=$legIndex, candidateId=${candidate.id}',
+      );
+    }
+    return createScheduleFromRoute(
+      candidate,
+      startDateTime: departureAt,
+      legIndex: legIndex,
+      shiftToStart: false,
+    );
+  }
+
+  static ScheduleEntry _uniqueRouteGoalFromEntries(
+    List<ScheduleEntry> entries, {
+    required int legIndex,
+    required String context,
+  }) {
+    final matches = entries
+        .where(
+          (entry) =>
+              entry.legIndex == legIndex &&
+              entry.generatedBy == ScheduleEntrySource.route &&
+              entry.itemKind == ScheduleEntryKind.goal,
+        )
+        .toList(growable: false);
+    if (matches.length != 1) {
+      throw StateError(
+        '$context のroute goalを一意に特定できません: '
+        'legIndex=$legIndex, matches=${matches.length}',
+      );
+    }
+    return matches.single;
+  }
+
+  static ScheduleEntry _uniqueRouteEntryFromEntries(
+    List<ScheduleEntry> entries, {
+    required int legIndex,
+    required String routeStepId,
+    required String routeRole,
+    required String context,
+  }) {
+    final matches = entries
+        .where(
+          (entry) =>
+              entry.legIndex == legIndex &&
+              entry.generatedBy == ScheduleEntrySource.route &&
+              entry.routeStepId == routeStepId &&
+              entry.routeRole == routeRole,
+        )
+        .toList(growable: false);
+    if (matches.length != 1) {
+      throw StateError(
+        '$context のroute entryを一意に特定できません: '
+        'legIndex=$legIndex, stepId=$routeStepId, role=$routeRole, '
+        'matches=${matches.length}',
+      );
+    }
+    return matches.single;
   }
 
   static void _requireGroupTrip(Trip trip) {
