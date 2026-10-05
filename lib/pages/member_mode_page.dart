@@ -166,7 +166,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         return ActiveTripNavigationView(
           navState: uiState.navState,
           tripTitle: uiState.displayTitle,
-          appBar: _buildAppBar(context, appName, appBrand, trip),
+          appBar: _buildAppBar(context, appBrand, trip),
           onTapStops: () => openCurrentRideStops(
             context: context,
             trip: trip,
@@ -286,7 +286,6 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
 
   AppBar _buildAppBar(
     BuildContext context,
-    String appName,
     Widget appBrand,
     Trip trip,
   ) {
