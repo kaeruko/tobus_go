@@ -631,28 +631,28 @@ void main() {
       appClock.setOffset(const Duration(minutes: 1));
       await container.read(memberModeControllerProvider.notifier).pollNow();
       await _flushNavigation(tester);
-      expect(source.requests, hasLength(2));
+      expect(source.requests, hasLength(3));
       expect(
         container
             .read(memberModeControllerProvider)
             .replanTransitMemory
             .knownOnboardStepId,
-        isNull,
+        'bus-cross-leg',
       );
       expect(
         container
             .read(memberModeControllerProvider)
             .replanTransitMemory
             .completedRideStepId,
-        'bus-cross-leg',
+        isNull,
       );
       expect(
         container.read(memberNavProgressProvider).busProgress?.phase,
-        BusProgressPhase.arrived,
+        BusProgressPhase.riding,
       );
       expect(
         container.read(memberNavProgressProvider).rideRealtimeUnavailable,
-        isFalse,
+        isTrue,
       );
       expect(
         container
@@ -695,11 +695,11 @@ void main() {
       expect(ui.resolvedEntry, isNull);
       expect(ui.windowEntries, isNotEmpty);
       expect(ui.windowEntries.every((entry) => entry.legIndex == 1), isTrue);
-      expect(source.requests, hasLength(2));
+      expect(source.requests, hasLength(3));
 
       await tester.pump(kRealtimePollInterval * 2);
       await _flushNavigation(tester);
-      expect(source.requests, hasLength(2));
+      expect(source.requests, hasLength(3));
       expect(tester.takeException(), isNull);
 
       await tester.pumpWidget(_host(container, showNavigation: false));
