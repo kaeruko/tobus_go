@@ -82,16 +82,19 @@ void main() {
     );
   });
 
-  test('known onboard bus is completed when realtime disappears after arrival time', () {
-    expect(
-      shouldAssumeBusArrivedAfterRealtimeLoss(
-        now: DateTime(2026, 10, 5, 17, 2),
-        plannedArrivalAt: DateTime(2026, 10, 5, 17, 0),
-        knownOnboard: true,
-      ),
-      isTrue,
-    );
-  });
+  test(
+    'known onboard bus is completed when realtime disappears after arrival time',
+    () {
+      expect(
+        shouldAssumeBusArrivedAfterRealtimeLoss(
+          now: DateTime(2026, 10, 5, 17, 2),
+          plannedArrivalAt: DateTime(2026, 10, 5, 17, 0),
+          knownOnboard: true,
+        ),
+        isTrue,
+      );
+    },
+  );
 
   test('realtime loss does not complete a bus before planned arrival', () {
     expect(
@@ -123,11 +126,7 @@ void main() {
       fromName: '新橋駅前',
       toName: '渋谷三丁目',
       stops: [
-        StopPoint(
-          name: '新橋駅前',
-          point: const LatLng(35, 139),
-          stopId: 's0',
-        ),
+        StopPoint(name: '新橋駅前', point: const LatLng(35, 139), stopId: 's0'),
         StopPoint(
           name: '青山学院中等部前',
           point: const LatLng(35.01, 139.01),
@@ -153,5 +152,35 @@ void main() {
     expect(arrived.nextStopIndex, isNull);
     expect(arrived.observedStopName, '渋谷三丁目');
     expect(arrived.vehicleAgeSeconds, 147.6);
+  });
+
+  test('restored boarding can complete without restoring an old position', () {
+    final step = StepSeg(
+      stepId: 'bus-1',
+      kind: 'bus',
+      title: '都01',
+      fromName: '新橋駅前',
+      toName: '渋谷駅前',
+      stops: [
+        StopPoint(name: '新橋駅前', point: const LatLng(35, 139), stopId: 's0'),
+        StopPoint(
+          name: '渋谷駅前',
+          point: const LatLng(35.02, 139.02),
+          stopId: 's2',
+        ),
+      ],
+    );
+
+    expect(() => assumeBusArrivedAtDestination(step: step), throwsStateError);
+    final arrived = assumeBusArrivedAtDestination(
+      step: step,
+      knownOnboard: true,
+    );
+    expect(arrived.phase, BusProgressPhase.arrived);
+    expect(arrived.fromStopId, 's2');
+    expect(arrived.fromStopIndex, 1);
+    expect(arrived.observedStopId, isNull);
+    expect(arrived.currentStatus, isNull);
+    expect(arrived.vehicleAgeSeconds, isNull);
   });
 }

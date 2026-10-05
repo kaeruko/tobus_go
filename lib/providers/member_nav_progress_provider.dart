@@ -151,8 +151,15 @@ final memberNavProgressProvider =
       MemberNavProgressNotifier,
       MemberNavState
     >((ref) {
-      // A Trip update keeps progress; changing Trips starts a new session.
-      // Declared dependencies also isolate scopes that select a Solo/Group Trip.
-      ref.watch(tripStreamProvider.select((trip) => trip.valueOrNull?.id));
+      // Schedule updates keep progress. A different Trip or confirmed Group
+      // leg starts a new session instead of carrying a completed ride forward.
+      ref.watch(
+        tripStreamProvider.select((value) {
+          final trip = value.valueOrNull;
+          return trip == null
+              ? null
+              : (trip.id, trip.isSolo ? 0 : trip.activeLegIndex);
+        }),
+      );
       return MemberNavProgressNotifier();
     }, dependencies: [tripStreamProvider]);

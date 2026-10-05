@@ -38,7 +38,8 @@ bool shouldAssumeBusArrivedAfterRealtimeLoss({
 
 BusProgress assumeBusArrivedAtDestination({
   required StepSeg step,
-  required BusProgress realtimeProgress,
+  BusProgress? realtimeProgress,
+  bool knownOnboard = false,
 }) {
   if (step.kind != 'bus') {
     throw StateError(
@@ -49,13 +50,17 @@ BusProgress assumeBusArrivedAtDestination({
   if (step.stops.isEmpty) {
     throw StateError('停留所のないバスStepを降車扱いにできません: ${step.stepId}');
   }
-  if (realtimeProgress.stepId != step.stepId) {
+  if (realtimeProgress == null && !knownOnboard) {
+    throw StateError('乗車確認のないバスStepを降車扱いにできません: ${step.stepId}');
+  }
+  if (realtimeProgress != null && realtimeProgress.stepId != step.stepId) {
     throw StateError(
       'BusProgressのstepIdが一致しません: '
       '${realtimeProgress.stepId} != ${step.stepId}',
     );
   }
-  if (realtimeProgress.phase != BusProgressPhase.riding) {
+  if (realtimeProgress != null &&
+      realtimeProgress.phase != BusProgressPhase.riding) {
     throw StateError(
       '乗車中ではないBusProgressを予定時刻で降車扱いにできません: '
       'stepId=${step.stepId}, phase=${realtimeProgress.phase.name}',
@@ -70,10 +75,10 @@ BusProgress assumeBusArrivedAtDestination({
     nextStopId: null,
     nextStopIndex: null,
     phase: BusProgressPhase.arrived,
-    observedStopId: realtimeProgress.observedStopId,
-    observedStopName: realtimeProgress.observedStopName,
-    observedStopNameEn: realtimeProgress.observedStopNameEn,
-    currentStatus: realtimeProgress.currentStatus,
-    vehicleAgeSeconds: realtimeProgress.vehicleAgeSeconds,
+    observedStopId: realtimeProgress?.observedStopId,
+    observedStopName: realtimeProgress?.observedStopName,
+    observedStopNameEn: realtimeProgress?.observedStopNameEn,
+    currentStatus: realtimeProgress?.currentStatus,
+    vehicleAgeSeconds: realtimeProgress?.vehicleAgeSeconds,
   );
 }

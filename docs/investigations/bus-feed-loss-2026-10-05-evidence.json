@@ -1,0 +1,234 @@
+{
+  "tripId": "uBqH8lGSiA8bdeci6w60",
+  "routeId": "006",
+  "serviceTripId": "08501-2-09-170-1616",
+  "vehicleId": "D311",
+  "stepId": "step-bus-4d373de3d0b54d7bb35164eb64863572",
+  "snapshots": [
+    {
+      "readAtJST": "17:02:00",
+      "updateTimeUTC": "2026-10-05T06:03:39.211579Z",
+      "travelPhase": "active",
+      "completedLegIndex": -1,
+      "activeLegIndex": 0,
+      "legDirections": [
+        "outbound",
+        "inbound"
+      ],
+      "targetSchedules": [
+        {
+          "legIndex": 0,
+          "kind": "ride",
+          "source": "route",
+          "plannedAt": "2026-10-05T07:16:00Z"
+        },
+        {
+          "legIndex": 0,
+          "kind": "arrival",
+          "source": "route",
+          "plannedAt": "2026-10-05T08:00:00Z"
+        }
+      ],
+      "activeRideMatches": 1,
+      "allRideMatches": 1,
+      "targetStepLegIndices": [
+        0
+      ]
+    },
+    {
+      "readAtJST": "17:05:00",
+      "updateTimeUTC": "2026-10-05T06:03:39.211579Z",
+      "travelPhase": "active",
+      "completedLegIndex": -1,
+      "activeLegIndex": 0,
+      "legDirections": [
+        "outbound",
+        "inbound"
+      ],
+      "targetSchedules": [
+        {
+          "legIndex": 0,
+          "kind": "ride",
+          "source": "route",
+          "plannedAt": "2026-10-05T07:16:00Z"
+        },
+        {
+          "legIndex": 0,
+          "kind": "arrival",
+          "source": "route",
+          "plannedAt": "2026-10-05T08:00:00Z"
+        }
+      ],
+      "activeRideMatches": 1,
+      "allRideMatches": 1,
+      "targetStepLegIndices": [
+        0
+      ]
+    },
+    {
+      "readAtJST": "17:13:29.620",
+      "updateTimeUTC": "2026-10-05T06:03:39.211579Z",
+      "travelPhase": "active",
+      "completedLegIndex": -1,
+      "activeLegIndex": 0,
+      "legDirections": [
+        "outbound",
+        "inbound"
+      ],
+      "targetSchedules": [
+        {
+          "legIndex": 0,
+          "kind": "ride",
+          "source": "route",
+          "plannedAt": "2026-10-05T07:16:00Z"
+        },
+        {
+          "legIndex": 0,
+          "kind": "arrival",
+          "source": "route",
+          "plannedAt": "2026-10-05T08:00:00Z"
+        }
+      ],
+      "activeRideMatches": 1,
+      "allRideMatches": 1,
+      "targetStepLegIndices": [
+        0
+      ]
+    },
+    {
+      "readAtJST": "17:13:37.800",
+      "updateTimeUTC": "2026-10-05T06:03:39.211579Z",
+      "travelPhase": "active",
+      "completedLegIndex": -1,
+      "activeLegIndex": 0,
+      "legDirections": [
+        "outbound",
+        "inbound"
+      ],
+      "targetSchedules": [
+        {
+          "legIndex": 0,
+          "kind": "ride",
+          "source": "route",
+          "plannedAt": "2026-10-05T07:16:00Z"
+        },
+        {
+          "legIndex": 0,
+          "kind": "arrival",
+          "source": "route",
+          "plannedAt": "2026-10-05T08:00:00Z"
+        }
+      ],
+      "activeRideMatches": 1,
+      "allRideMatches": 1,
+      "targetStepLegIndices": [
+        0
+      ]
+    },
+    {
+      "readAtJST": "17:13:37.900",
+      "updateTimeUTC": "2026-10-05T08:13:37.854094Z",
+      "travelPhase": "active",
+      "completedLegIndex": 0,
+      "activeLegIndex": 1,
+      "legDirections": [
+        "outbound",
+        "inbound"
+      ],
+      "targetSchedules": [
+        {
+          "legIndex": 0,
+          "kind": "ride",
+          "source": "route",
+          "plannedAt": "2026-10-05T07:16:00Z"
+        },
+        {
+          "legIndex": 0,
+          "kind": "arrival",
+          "source": "route",
+          "plannedAt": "2026-10-05T08:00:00Z"
+        }
+      ],
+      "activeRideMatches": 0,
+      "allRideMatches": 1,
+      "targetStepLegIndices": [
+        0
+      ]
+    },
+    {
+      "readAtJST": "17:14:29",
+      "updateTimeUTC": "2026-10-05T08:13:37.854094Z",
+      "travelPhase": "active",
+      "completedLegIndex": 0,
+      "activeLegIndex": 1,
+      "legDirections": [
+        "outbound",
+        "inbound"
+      ],
+      "targetSchedules": [
+        {
+          "legIndex": 0,
+          "kind": "ride",
+          "source": "route",
+          "plannedAt": "2026-10-05T07:16:00Z"
+        },
+        {
+          "legIndex": 0,
+          "kind": "arrival",
+          "source": "route",
+          "plannedAt": "2026-10-05T08:00:00Z"
+        }
+      ],
+      "activeRideMatches": 0,
+      "allRideMatches": 1,
+      "targetStepLegIndices": [
+        0
+      ]
+    }
+  ],
+  "fieldsChangedAt171337854": [
+    "completedLegIndex"
+  ],
+  "logExcerpts": [
+    {
+      "line": 8844,
+      "text": "10-05 16:59:52.542 18368 18368 I flutter : [MemberModeController] バス追跡成功: step=step-bus-4d373de3d0b54d7bb35164eb64863572, phase=riding, fromIndex=13, fromStopId=0007-02, rawStopId=0005-03, rawStopName=渋谷三丁目, observedSeq=15, status=IN_TRANSIT_TO, vehicle=D311, snapshotAge=39.9s, feedAge=66.5s, vehicleAge=412.5s, lastConfirmed=青山学院中等部前, lastConfirmedAt=null, serverNow=2026-10-05T07:59:53.517984+00:00, clientNow=2026-10-05T07:59:52.542039Z"
+    },
+    {
+      "line": 8845,
+      "text": "10-05 16:59:52.542 18368 18368 I flutter : [MemberModeController] navProgress committed entry=4e046446-6773-4391-8619-6e49dca598a6 entryKind=ride entryStep=step-bus-4d373de3d0b54d7bb35164eb64863572 currentStep=step-bus-4d373de3d0b54d7bb35164eb64863572 busPhase=riding busFrom=0007-02 busNext=0005-03 railPhase=null realtimeUnavailable=false"
+    },
+    {
+      "line": 8866,
+      "text": "10-05 17:00:37.934 18368 18368 I flutter : [API] GET http://10.0.2.2:8001/bus/location?route_id=006&trip_id=08501-2-09-170-1616&debug=true&boarding_stop_id=0737-04&scheduled_departure_at=2026-10-05T07%3A16%3A00.000Z&vehicle_id=D311 -> EXPECTED ERROR: HTTP 404 (bus_trip_not_found): No bus found for trip 08501-2-09-170-1616 on route 006 diagnostic={candidates_total: 571, route_match_count: 11, route_trip_match_count: 0, requested_vehicle_id: D311, requested_vehicle_matches: [], requested_trip_matches: []}"
+    },
+    {
+      "line": 8868,
+      "text": "10-05 17:00:37.943 18368 18368 I flutter : [MemberModeController] navProgress committed entry=4e046446-6773-4391-8619-6e49dca598a6 entryKind=ride entryStep=step-bus-4d373de3d0b54d7bb35164eb64863572 currentStep=step-bus-4d373de3d0b54d7bb35164eb64863572 busPhase=riding busFrom=0007-02 busNext=0005-03 railPhase=null realtimeUnavailable=true"
+    },
+    {
+      "line": 8946,
+      "text": "10-05 17:02:38.187 18368 18368 I flutter : [API] GET http://10.0.2.2:8001/bus/location?route_id=006&trip_id=08501-2-09-170-1616&debug=true&boarding_stop_id=0737-04&scheduled_departure_at=2026-10-05T07%3A16%3A00.000Z&vehicle_id=D311 -> EXPECTED ERROR: HTTP 404 (bus_trip_not_found): No bus found for trip 08501-2-09-170-1616 on route 006 diagnostic={candidates_total: 574, route_match_count: 12, route_trip_match_count: 0, requested_vehicle_id: D311, requested_vehicle_matches: [], requested_trip_matches: []}"
+    },
+    {
+      "line": 8948,
+      "text": "10-05 17:02:38.195 18368 18368 I flutter : [MemberModeController] navProgress committed entry=4e046446-6773-4391-8619-6e49dca598a6 entryKind=ride entryStep=step-bus-4d373de3d0b54d7bb35164eb64863572 currentStep=step-bus-4d373de3d0b54d7bb35164eb64863572 busPhase=riding busFrom=0007-02 busNext=0005-03 railPhase=null realtimeUnavailable=true"
+    },
+    {
+      "line": 8950,
+      "text": "10-05 17:02:38.244 18368 18368 I flutter : [TripCoordinator] resolved=🚌➡️ 都０１（Ｔ０１） 渋谷駅前行 新橋駅前に乗る stepId=step-bus-4d373de3d0b54d7bb35164eb64863572 reason=active_entry | realtime_incomplete_ride_revert_step_id"
+    },
+    {
+      "line": 9066,
+      "text": "10-05 17:05:37.865 18368 18368 I flutter : [API] GET http://10.0.2.2:8001/bus/location?route_id=006&trip_id=08501-2-09-170-1616&debug=true&boarding_stop_id=0737-04&scheduled_departure_at=2026-10-05T07%3A16%3A00.000Z&vehicle_id=D311 -> EXPECTED ERROR: HTTP 404 (bus_trip_not_found): No bus found for trip 08501-2-09-170-1616 on route 006 diagnostic={candidates_total: 569, route_match_count: 11, route_trip_match_count: 0, requested_vehicle_id: D311, requested_vehicle_matches: [], requested_trip_matches: []}"
+    },
+    {
+      "line": 9068,
+      "text": "10-05 17:05:37.869 18368 18368 I flutter : [MemberModeController] navProgress committed entry=4e046446-6773-4391-8619-6e49dca598a6 entryKind=ride entryStep=step-bus-4d373de3d0b54d7bb35164eb64863572 currentStep=step-bus-4d373de3d0b54d7bb35164eb64863572 busPhase=riding busFrom=0007-02 busNext=0005-03 railPhase=null realtimeUnavailable=true"
+    },
+    {
+      "line": 9070,
+      "text": "10-05 17:05:37.888 18368 18368 I flutter : [TripCoordinator] resolved=🚌➡️ 都０１（Ｔ０１） 渋谷駅前行 新橋駅前に乗る stepId=step-bus-4d373de3d0b54d7bb35164eb64863572 reason=active_entry | realtime_incomplete_ride_revert_step_id"
+    }
+  ]
+}

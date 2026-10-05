@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -237,9 +238,8 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
     );
     var resolvedEntry = scheduleResolved.resolvedEntry;
 
-    // Once onboard has been confirmed, a temporary realtime 404 must not let
-    // the wall clock advance navigation to a later walk/goal. Keep polling the
-    // exact ride until realtime proves arrival (or reports the ride again).
+    // A restored onboard marker has no realtime progress. Poll that exact ride
+    // again, then use realtime or the planned-arrival fallback to resolve it.
     final knownOnboardStepId = state.replanTransitMemory.knownOnboardStepId;
     if (knownOnboardStepId != null &&
         state.replanTransitMemory.ridingTransit == null &&
@@ -273,6 +273,36 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       'tripId=${activeStep?.tripId}, '
       'stops=${activeStep?.stops.length}',
     );
+
+    if (kDebugMode) {
+      final stepId = activeStep?.stepId;
+      final stepSchedules = stepId == null
+          ? []
+          : trip.schedule
+                .where((entry) => entry.routeStepId == stepId)
+                .map(
+                  (entry) => {
+                    'legIndex': entry.legIndex,
+                    'kind': entry.itemKind.name,
+                    'source': entry.generatedBy.name,
+                    'plannedAt': entry.plannedAt.toIso8601String(),
+                  },
+                )
+                .toList();
+      final diagnostic = {
+        'tripId': trip.id,
+        'tripType': trip.tripType.name,
+        'travelPhase': trip.travelPhase.name,
+        'completedLegIndex': trip.completedLegIndex,
+        'activeLegIndex': trip.activeLegIndex,
+        'legDirections': trip.legs.map((leg) => leg.direction.name).toList(),
+        'trackedStepId': state.trackedStepId,
+        'knownOnboardStepId': state.replanTransitMemory.knownOnboardStepId,
+        'resolvedStepId': stepId,
+        'stepSchedules': stepSchedules,
+      };
+      debugPrint('[TripLegDebug] ${jsonEncode(diagnostic)}');
+    }
 
     if (activeStep != null &&
         activeStep.kind == 'bus' &&
@@ -464,17 +494,17 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       final now = appClock.now();
       final navProgress = _ref.read(memberNavProgressProvider);
       if (!mounted) return;
-      final lastRidingProgress =
-          state.busProgress?.stepId == activeStep.stepId
-              ? state.busProgress
-              : navProgress.busProgress?.stepId == activeStep.stepId
-                  ? navProgress.busProgress
-                  : null;
+      final lastRidingProgress = state.busProgress?.stepId == activeStep.stepId
+          ? state.busProgress
+          : navProgress.busProgress?.stepId == activeStep.stepId
+          ? navProgress.busProgress
+          : null;
       final knownOnboard =
           state.replanTransitMemory.knownOnboardStepId == activeStep.stepId;
 
       if (e.code == 'bus_trip_not_found' &&
-          lastRidingProgress?.phase == BusProgressPhase.riding &&
+          (lastRidingProgress == null ||
+              lastRidingProgress.phase == BusProgressPhase.riding) &&
           shouldAssumeBusArrivedAfterRealtimeLoss(
             now: now,
             plannedArrivalAt: plannedArrivalAt,
@@ -482,7 +512,8 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
           )) {
         final arrivedProgress = assumeBusArrivedAtDestination(
           step: activeStep,
-          realtimeProgress: lastRidingProgress!,
+          realtimeProgress: lastRidingProgress,
+          knownOnboard: knownOnboard,
         );
         state = RealtimeTransitState(
           trackedStepId: activeStep.stepId,
@@ -499,8 +530,8 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
           '[MemberModeController] バスRealtime終了後、予定時刻で降車を確定: '
           'step=${activeStep.stepId} '
           'plannedArrival=${plannedArrivalAt.toIso8601String()} '
-          'lastObserved=${lastRidingProgress.observedStopId}/'
-          '${lastRidingProgress.observedStopName} '
+          'lastObserved=${lastRidingProgress?.observedStopId}/'
+          '${lastRidingProgress?.observedStopName} '
           'error=$e',
         );
         return;
