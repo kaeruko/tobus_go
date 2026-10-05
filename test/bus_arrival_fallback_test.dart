@@ -37,40 +37,51 @@ void main() {
       isTrue,
     );
   });
-  test(
-    'a tracked service disappearing ends it even before planned arrival',
-    () {
-      expect(
-        shouldAssumeBusArrivedAfterRealtimeLoss(
-          now: arrival.subtract(const Duration(minutes: 2)),
-          plannedArrivalAt: arrival,
-          hasSeenVehicle: true,
-        ),
-        isTrue,
-      );
-    },
-  );
-  test(
-    'an initial missing trip follows schedule without needing app history',
-    () {
-      expect(
-        shouldAssumeBusArrivedAfterRealtimeLoss(
-          now: arrival.subtract(const Duration(minutes: 2)),
-          plannedArrivalAt: arrival,
-          hasSeenVehicle: false,
-        ),
-        isFalse,
-      );
-      expect(
-        shouldAssumeBusArrivedAfterRealtimeLoss(
-          now: arrival,
-          plannedArrivalAt: arrival,
-          hasSeenVehicle: false,
-        ),
-        isTrue,
-      );
-    },
-  );
+  test('missing realtime is retried only during the scheduled ride', () {
+    final departure = arrival.subtract(const Duration(minutes: 44));
+    expect(
+      shouldRetryMissingBusRealtime(
+        now: departure,
+        plannedDepartureAt: departure,
+        plannedArrivalAt: arrival,
+      ),
+      isTrue,
+    );
+    expect(
+      shouldRetryMissingBusRealtime(
+        now: arrival.subtract(const Duration(seconds: 1)),
+        plannedDepartureAt: departure,
+        plannedArrivalAt: arrival,
+      ),
+      isTrue,
+    );
+    expect(
+      shouldRetryMissingBusRealtime(
+        now: departure.subtract(const Duration(seconds: 1)),
+        plannedDepartureAt: departure,
+        plannedArrivalAt: arrival,
+      ),
+      isFalse,
+    );
+    expect(
+      shouldRetryMissingBusRealtime(
+        now: arrival,
+        plannedDepartureAt: departure,
+        plannedArrivalAt: arrival,
+      ),
+      isFalse,
+    );
+  });
+  test('retry policy rejects an invalid schedule interval', () {
+    expect(
+      () => shouldRetryMissingBusRealtime(
+        now: arrival,
+        plannedDepartureAt: arrival,
+        plannedArrivalAt: arrival,
+      ),
+      throwsArgumentError,
+    );
+  });
   test(
     'schedule completion invents neither boarding nor a raw vehicle position',
     () {
