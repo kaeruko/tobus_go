@@ -514,10 +514,22 @@ class TripService {
     final doc = await _db.collection('trips').doc(tripId).get();
     if (!doc.exists) throw Exception("Trip not found");
     final trip = Trip.fromFirestore(doc);
+    if (trip.tripType != TripType.group) {
+      throw StateError(
+        '帰りの時刻変更はgroup Tripだけです: '
+        'tripId=${trip.id}, type=${trip.tripType.name}',
+      );
+    }
 
-    final newSchedule = createScheduleFromLegs(
+    validateReturnTimeUpdateCanReuseExistingRoute(trip.legs);
+
+    final regeneratedRouteSchedule = createScheduleFromLegs(
       trip.legs,
       userSelectedReturnTime: newReturnTime,
+    );
+    final newSchedule = mergeRegeneratedRouteSchedulePreservingManualEntries(
+      trip.schedule,
+      regeneratedRouteSchedule,
     );
 
     await updateSchedule(tripId, newSchedule);
