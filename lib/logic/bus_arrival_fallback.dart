@@ -26,20 +26,6 @@ bool shouldRetryMissingBusRealtime({
   return !now.isBefore(plannedDepartureAt) && now.isBefore(plannedArrivalAt);
 }
 
-bool shouldAssumeBusArrivedAfterRealtimeLoss({
-  required DateTime now,
-  required DateTime plannedArrivalAt,
-  required bool hasSeenVehicle,
-}) {
-  // An initial feed miss has no disappearance evidence. In that case the
-  // schedule decides; an already tracked service disappearing ends the ride.
-  return hasSeenVehicle ||
-      shouldCompleteBusFromSchedule(
-        now: now,
-        plannedArrivalAt: plannedArrivalAt,
-      );
-}
-
 /// Builds completion without manufacturing a realtime observation.
 BusProgress completeBusAtDestination({
   required StepSeg step,
