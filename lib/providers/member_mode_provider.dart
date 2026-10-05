@@ -110,6 +110,16 @@ class RealtimeTransitState {
       replanTransitMemory.lastConfirmedTransitPlace;
 }
 
+class _PendingAlightingHaptic {
+  final AlightingAlert alert;
+  final StepSeg step;
+
+  const _PendingAlightingHaptic({
+    required this.alert,
+    required this.step,
+  });
+}
+
 final busLocationSourceProvider = Provider<BusLocationSource>((ref) {
   return const RealtimeBusLocationSource();
 });
@@ -182,25 +192,35 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       return;
     }
 
+    _PendingAlightingHaptic? pendingHaptic;
     _checkProgressInFlight = true;
     try {
-      await _runProgressCheck(forceRefresh: forceRefresh);
+      pendingHaptic = await _runProgressCheck(forceRefresh: forceRefresh);
     } finally {
       _checkProgressInFlight = false;
     }
+
+    if (pendingHaptic != null && mounted) {
+      await _performAlightingAlertHaptic(
+        pendingHaptic.alert,
+        step: pendingHaptic.step,
+      );
+    }
   }
 
-  Future<void> _runProgressCheck({bool forceRefresh = false}) async {
+  Future<_PendingAlightingHaptic?> _runProgressCheck({
+    bool forceRefresh = false,
+  }) async {
     debugPrint(
       '[MemberModeController] _checkProgress START '
       'forceRefresh=$forceRefresh',
     );
 
     final trip = _ref.read(tripStreamProvider).valueOrNull;
-    if (!mounted) return;
+    if (!mounted) return null;
     if (trip == null) {
       debugPrint('[MemberModeController] trip=null');
-      return;
+      return null;
     }
 
     if (kDebugMode) {
@@ -222,7 +242,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
     // or goal while the vehicle/train is still before the alighting stop.
     final navProgress = _ref.read(memberNavProgressProvider);
     // Reading progress may refresh its Trip identity and replace this session.
-    if (!mounted) return;
+    if (!mounted) return null;
     final knownBusProgress = state.busProgress ?? navProgress.busProgress;
     final knownRailProgress = state.railProgress ?? navProgress.railProgress;
     final scheduleResolved = TripCoordinator.resolveScheduleState(
@@ -308,12 +328,12 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       }
     }
 
-    if (!mounted) return;
+    if (!mounted) return null;
 
     // 進捗を更新 (時間基準 + API補正)
     if (resolvedEntry != null) {
       final progressNotifier = _ref.read(memberNavProgressProvider.notifier);
-      if (!mounted) return;
+      if (!mounted) return null;
       final sameTrackedStep = state.trackedStepId == resolvedEntry.routeStepId;
       final rideRealtimeUnavailable =
           sameTrackedStep &&
@@ -342,21 +362,22 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       );
     }
 
-    // Commit navigation state before platform-side notification effects.
-    // This keeps UI/navigation state authoritative even while haptics are
-    // awaiting the platform channel.
-    if (pendingAlightingAlert != null) {
-      if (activeStep == null || activeStep.kind != 'bus') {
-        throw StateError(
-          '降車通知がbus step以外で生成されました: '
-          'stepId=${activeStep?.stepId}, kind=${activeStep?.kind}',
-        );
-      }
-      await _performAlightingAlertHaptic(
-        pendingAlightingAlert,
-        step: activeStep,
+    // Return the notification effect only after navigation state is committed.
+    // _checkProgress releases its in-flight guard before awaiting the platform
+    // channel so a subsequent explicit poll is never blocked by haptics.
+    if (pendingAlightingAlert == null) {
+      return null;
+    }
+    if (activeStep == null || activeStep.kind != 'bus') {
+      throw StateError(
+        '降車通知がbus step以外で生成されました: '
+        'stepId=${activeStep?.stepId}, kind=${activeStep?.kind}',
       );
     }
+    return _PendingAlightingHaptic(
+      alert: pendingAlightingAlert,
+      step: activeStep,
+    );
   }
 
   Future<AlightingAlert?> _updateBusProgress(
