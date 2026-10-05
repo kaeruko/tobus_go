@@ -8,6 +8,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:toeigo/core/app_clock.dart';
 import 'package:toeigo/logic/replan_transit_memory.dart';
 import 'package:toeigo/logic/replan_transit_memory_restore.dart';
+import 'package:toeigo/logic/trip_navigator.dart';
 import 'package:toeigo/models/bus_progress.dart';
 import 'package:toeigo/models/group_models.dart';
 import 'package:toeigo/models/leg_models.dart';
@@ -376,9 +377,10 @@ void main() {
     'an initial realtime 404 follows the scheduled ride without inventing completion',
     (tester) async {
       final now = appClock.now();
+      final arrivalAt = now.add(const Duration(minutes: 5));
       final source = _BusSource(_notFound);
       final harness = _Harness(
-        trip: _trip(now, arrivalAt: now.add(const Duration(minutes: 5))),
+        trip: _trip(now, arrivalAt: arrivalAt),
         now: now,
         source: source,
       );
@@ -386,6 +388,15 @@ void main() {
       expect(source.requests, hasLength(1));
       expect(harness.ui.resolvedEntry?.itemKind, ScheduleEntryKind.ride);
       expect(harness.ui.resolvedEntry?.routeStepId, _busStepId);
+      expect(
+        harness.ui.navState.statusLabelToken?.key,
+        NavigationTextKey.busRideStatus,
+      );
+      expect(harness.ui.navState.remainingStops, isNull);
+      expect(
+        harness.ui.navState.subText,
+        '${_clock(arrivalAt)} テスト路線 降車停留所到着予定',
+      );
       final realtime = harness.container.read(memberModeControllerProvider);
       expect(realtime.busProgress, isNull);
       expect(realtime.replanTransitMemory.knownOnboardStepId, isNull);
@@ -595,6 +606,62 @@ void main() {
       pending.complete(
         _movingLocation(source.requests.single, now: now, arrivalAt: arrivalAt),
       );
+      await _flush(tester);
+      _expectCompleted(harness);
+      expect(
+        harness.container.read(memberNavProgressProvider).busProgress?.phase,
+        BusProgressPhase.arrived,
+      );
+      expect(source.requests, hasLength(1));
+      await harness.controller.pollNow();
+      await _flush(tester);
+      _expectCompleted(harness);
+      expect(source.requests, hasLength(1));
+      expect(tester.takeException(), isNull);
+      await harness.unmount(tester);
+    },
+  );
+
+  testWidgets(
+    'restored completion of the same ride overrides a fresh position obtained before disk loading',
+    (tester) async {
+      final now = appClock.now();
+      final arrivalAt = now.add(const Duration(minutes: 5));
+      final source = _BusSource(
+        (request) async =>
+            _movingLocation(request, now: now, arrivalAt: arrivalAt),
+      );
+      final harness = _Harness(
+        trip: _trip(now, arrivalAt: arrivalAt),
+        now: now,
+        source: source,
+      );
+      await harness.mount(tester);
+      expect(source.requests, hasLength(1));
+      expect(harness.ui.resolvedEntry?.itemKind, ScheduleEntryKind.ride);
+      expect(
+        harness.container.read(memberNavProgressProvider).busProgress?.phase,
+        BusProgressPhase.riding,
+      );
+      expect(
+        harness.container
+            .read(memberModeControllerProvider)
+            .replanTransitMemory
+            .knownOnboardStepId,
+        _busStepId,
+      );
+
+      harness.controller.restoreReplanTransitMemory(
+        const ReplanTransitMemory(completedRideStepId: _busStepId),
+      );
+      await _flush(tester);
+      // Disk loading finishes before another poll. The old vehicle sample must
+      // already stop controlling the UI at this point.
+      _expectCompleted(harness);
+      expect(harness.ui.resolvedEntry?.itemKind, ScheduleEntryKind.arrival);
+      expect(source.requests, hasLength(1));
+
+      await harness.controller.pollNow();
       await _flush(tester);
       _expectCompleted(harness);
       expect(
