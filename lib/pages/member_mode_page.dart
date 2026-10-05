@@ -18,6 +18,7 @@ import '../providers/trip_provider.dart';
 import '../providers/member_mode_provider.dart';
 import '../providers/member_nav_progress_provider.dart';
 import '../widgets/active_trip_navigation_view.dart';
+import '../widgets/app_navigation_bar.dart';
 import '../widgets/active_trip_realtime_actions.dart';
 import '../widgets/delay_recovery_card.dart';
 import '../widgets/group_schedule_impact_card.dart';
@@ -70,9 +71,14 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   @override
   Widget build(BuildContext context) {
     final uiStateAsync = ref.watch(memberUiStateProvider);
+    final city = ref.watch(cityProfileProvider).city;
     final appName = localizedCityAppName(
       AppLocalizations.of(context),
-      ref.watch(cityProfileProvider).city,
+      city,
+    );
+    final appBrand = cityBrandNavigationTitle(
+      city: city,
+      fallbackTitle: appName,
     );
     final delayResolution = ref.watch(resolvedDelayImpactProvider);
     final delayImpact = delayResolution.impact;
@@ -92,7 +98,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (err, stack) => Scaffold(
-        appBar: CupertinoNavigationBar(middle: Text(appName)),
+        appBar: CupertinoNavigationBar(middle: appBrand),
         body: Center(
           child: Text(
             AppLocalizations.of(context).errorWithMessage(err.toString()),
@@ -160,7 +166,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
         return ActiveTripNavigationView(
           navState: uiState.navState,
           tripTitle: uiState.displayTitle,
-          appBar: _buildAppBar(context, appName, trip),
+          appBar: _buildAppBar(context, appName, appBrand, trip),
           onTapStops: () => openCurrentRideStops(
             context: context,
             trip: trip,
@@ -281,6 +287,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
   AppBar _buildAppBar(
     BuildContext context,
     String appName,
+    Widget appBrand,
     Trip trip,
   ) {
     return AppBar(
@@ -291,16 +298,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
       elevation: 0,
       centerTitle: false,
       titleSpacing: 0,
-      title: Text(
-        appName,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: Colors.black,
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      title: appBrand,
       leading: IconButton(
         icon: const Icon(CupertinoIcons.doc_text, color: Colors.black87),
         onPressed: () => _openGroupDetail(trip),
