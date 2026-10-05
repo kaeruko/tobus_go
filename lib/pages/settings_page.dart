@@ -12,7 +12,7 @@ import '../widgets/place_field.dart';
 import 'leader_mode_page.dart';
 import '../core/app_clock.dart'; // 追加
 import '../providers/minute_ticker_provider.dart';
-import '../core/api_client.dart';
+import '../services/route_search_service.dart';
 import '../models/leg_models.dart';
 import '../models/group_models.dart';
 import '../models/route_models.dart';
@@ -403,50 +403,39 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       final outboundTime = now.add(const Duration(minutes: 15));
       final returnTime = now.add(const Duration(hours: 2));
 
+      const routeSearch = ApiRouteSearchService();
+
       // 1. Search outbound (Higashi-Sumida -> Nakaibori)
-      final outboundBody = {
-        'alat': '35.718754',
-        'alon': '139.834261',
-        'blat': '35.713601',
-        'blon': '139.827539',
-        'pref': 'time', // fast
-        'start_time':
-            "${outboundTime.hour.toString().padLeft(2, '0')}:${outboundTime.minute.toString().padLeft(2, '0')}",
-        'target_date_str':
-            "${outboundTime.year}-${outboundTime.month.toString().padLeft(2, '0')}-${outboundTime.day.toString().padLeft(2, '0')}",
-      };
-
-      final rOut = await ApiClient.post('/route', body: outboundBody);
-      final cOutList = rOut['candidates'] as List? ?? [];
-      if (cOutList.isEmpty) throw Exception(l10n.settingsDebugOutboundNotFound);
-
-      final cOutMap = Map<String, dynamic>.from(cOutList.first as Map);
-      // Hack names if missing
-      cOutMap['origin_name'] = '東墨田三丁目';
-      cOutMap['destination_name'] = '中居堀';
-      final candidateOut = Candidate.fromJson(cOutMap);
+      final outboundResult = await routeSearch.search(
+        RouteSearchRequest(
+          origin: const LatLng(35.718754, 139.834261),
+          destination: const LatLng(35.713601, 139.827539),
+          originName: '東墨田三丁目',
+          destinationName: '中居堀',
+          startTime: outboundTime,
+          preference: 'time',
+        ),
+      );
+      if (outboundResult.candidates.isEmpty) {
+        throw Exception(l10n.settingsDebugOutboundNotFound);
+      }
+      final candidateOut = outboundResult.candidates.first;
 
       // 2. Search inbound (Nakaibori -> Higashi-Sumida)
-      final inboundBody = {
-        'alat': '35.713601',
-        'alon': '139.827539',
-        'blat': '35.718754',
-        'blon': '139.834261',
-        'pref': 'time',
-        'start_time':
-            "${returnTime.hour.toString().padLeft(2, '0')}:${returnTime.minute.toString().padLeft(2, '0')}",
-        'target_date_str':
-            "${returnTime.year}-${returnTime.month.toString().padLeft(2, '0')}-${returnTime.day.toString().padLeft(2, '0')}",
-      };
-
-      final rIn = await ApiClient.post('/route', body: inboundBody);
-      final cInList = rIn['candidates'] as List? ?? [];
-      if (cInList.isEmpty) throw Exception(l10n.settingsDebugInboundNotFound);
-
-      final cInMap = Map<String, dynamic>.from(cInList.first as Map);
-      cInMap['origin_name'] = '中居堀';
-      cInMap['destination_name'] = '東墨田三丁目';
-      final candidateIn = Candidate.fromJson(cInMap);
+      final inboundResult = await routeSearch.search(
+        RouteSearchRequest(
+          origin: const LatLng(35.713601, 139.827539),
+          destination: const LatLng(35.718754, 139.834261),
+          originName: '中居堀',
+          destinationName: '東墨田三丁目',
+          startTime: returnTime,
+          preference: 'time',
+        ),
+      );
+      if (inboundResult.candidates.isEmpty) {
+        throw Exception(l10n.settingsDebugInboundNotFound);
+      }
+      final candidateIn = inboundResult.candidates.first;
 
       // 3. Create Legs and Schedule
       final legs = [
