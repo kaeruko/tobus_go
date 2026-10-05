@@ -27,6 +27,46 @@ Trip _trip({
 }
 
 void main() {
+  test('active groupは共通のleader移動中ナビを使う', () {
+    expect(
+      shouldUseGroupLeaderActiveNavigation(
+        _trip(),
+        forceManagement: false,
+      ),
+      isTrue,
+    );
+  });
+
+  test('active groupでも管理画面を明示した場合は管理画面に残る', () {
+    expect(
+      shouldUseGroupLeaderActiveNavigation(
+        _trip(),
+        forceManagement: true,
+      ),
+      isFalse,
+    );
+  });
+
+  test('planning groupは管理画面を使う', () {
+    expect(
+      shouldUseGroupLeaderActiveNavigation(
+        _trip(phase: TravelPhase.planning),
+        forceManagement: false,
+      ),
+      isFalse,
+    );
+  });
+
+  test('導線判定にSolo tripを渡すとfail-fastする', () {
+    expect(
+      () => shouldUseGroupLeaderActiveNavigation(
+        _trip(tripType: TripType.solo),
+        forceManagement: false,
+      ),
+      throwsStateError,
+    );
+  });
+
   test('往路中でもナビが目的地到着前なら主操作を表示しない', () {
     final ride = ScheduleEntry(
       plannedAt: DateTime(2026, 8, 16, 9, 30),
