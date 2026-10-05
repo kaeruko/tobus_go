@@ -47,6 +47,7 @@ class _RecordingBusLocationSource implements BusLocationSource {
   final pending = <_PendingLocation>[];
   bool holdRequests = false;
   void Function(_LocationRequest request)? onFetch;
+  Future<BusLocation> Function(_LocationRequest request)? responder;
 
   @override
   Future<BusLocation> fetch({
@@ -67,6 +68,10 @@ class _RecordingBusLocationSource implements BusLocationSource {
     );
     requests.add(request);
     onFetch?.call(request);
+    final customResponder = responder;
+    if (customResponder != null) {
+      return customResponder(request);
+    }
     if (holdRequests) {
       final completer = Completer<BusLocation>();
       pending.add(_PendingLocation(request, completer));
@@ -136,9 +141,13 @@ Trip _trip({
   required String id,
   TripType tripType = TripType.group,
   String title = 'Realtime test',
+  DateTime? departureAt,
+  DateTime? arrivalAt,
 }) {
-  final departure = now.subtract(const Duration(minutes: 1));
-  final arrival = now.add(const Duration(minutes: 20));
+  final departure =
+      departureAt ?? now.subtract(const Duration(minutes: 1));
+  final arrival = arrivalAt ?? now.add(const Duration(minutes: 20));
+  final rideMinutes = arrival.difference(departure).inMinutes;
   final stepId = 'bus-$id';
   String clockTime(DateTime time) =>
       '${time.hour.toString().padLeft(2, '0')}:'
@@ -149,7 +158,7 @@ Trip _trip({
     title: 'テスト路線',
     fromName: '出発停留所',
     toName: '到着停留所',
-    minutes: 21,
+    minutes: rideMinutes,
     routeId: 'route-$id',
     tripId: 'service-$id',
     departureStopId: 'stop-a',
@@ -182,8 +191,8 @@ Trip _trip({
     rides: 1,
     boards: 1,
     transfers: 0,
-    total: 21,
-    totalTime: 21,
+    total: rideMinutes,
+    totalTime: rideMinutes,
     points: const [],
     steps: [step],
     originName: '出発停留所',
@@ -328,6 +337,86 @@ void main() {
         container.read(memberModeControllerProvider.notifier),
         same(controller),
       );
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(_host(container, showNavigation: false));
+      await _flushNavigation(tester);
+    },
+  );
+
+  testWidgets(
+    'boarded bus completes at planned arrival when exact realtime trip disappears',
+    (tester) async {
+      final baseNow = appClock.now();
+      final source = _RecordingBusLocationSource();
+      var fetchCount = 0;
+      source.responder = (request) async {
+        fetchCount += 1;
+        if (fetchCount == 1) {
+          return BusLocation(
+            vehicleId: 'vehicle-${request.tripId}',
+            fromStopId: 'stop-a',
+            routeId: request.routeId,
+            tripId: request.tripId,
+            tripStopIds: const ['stop-a', 'stop-b', 'stop-c'],
+            rawStopId: 'stop-b',
+            rawStopName: '中間停留所',
+            observedStopSequence: 2,
+            currentStatus: 'IN_TRANSIT_TO',
+            vehicleAgeSeconds: 0,
+          );
+        }
+        throw const BusLocationNotAvailableException(
+          code: 'bus_trip_not_found',
+        );
+      };
+      final trip = _trip(
+        now: baseNow,
+        id: 'feed-end',
+        arrivalAt: baseNow.add(const Duration(minutes: 1)),
+      );
+      final container = _container(
+        trips: Stream.value(trip),
+        now: baseNow,
+        source: source,
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(_host(container));
+      await _flushNavigation(tester);
+
+      expect(source.requests, hasLength(1));
+      expect(
+        container.read(memberNavProgressProvider).busProgress?.phase,
+        BusProgressPhase.riding,
+      );
+      expect(
+        container
+            .read(memberModeControllerProvider)
+            .replanTransitMemory
+            .knownOnboardStepId,
+        'bus-feed-end',
+      );
+
+      appClock.setOffset(const Duration(minutes: 2));
+      await container.read(memberModeControllerProvider.notifier).pollNow();
+      await _flushNavigation(tester);
+
+      expect(source.requests, hasLength(2));
+      final realtimeState = container.read(memberModeControllerProvider);
+      expect(realtimeState.busProgress?.phase, BusProgressPhase.arrived);
+      expect(realtimeState.busProgress?.fromStopId, 'stop-c');
+      expect(
+        realtimeState.replanTransitMemory.knownOnboardStepId,
+        isNull,
+      );
+      expect(
+        realtimeState.replanTransitMemory.lastConfirmedTransitPlace?.name,
+        '到着停留所',
+      );
+      final nav = container.read(memberNavProgressProvider);
+      expect(nav.busProgress?.phase, BusProgressPhase.arrived);
+      expect(nav.rideRealtimeUnavailable, isFalse);
       expect(tester.takeException(), isNull);
 
       await tester.pumpWidget(_host(container, showNavigation: false));
