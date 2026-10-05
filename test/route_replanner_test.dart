@@ -88,6 +88,18 @@ void main() {
     );
   }
 
+  test('direct replan request also defaults null preference to fewTransfers', () {
+    final request = RouteReplanRequest(
+      anchor: anchor(),
+      activeStepId: 'rail-1',
+      originalCandidateId: 'candidate-1',
+      destination: const LatLng(35.70, 139.80),
+      destinationName: '目的地',
+    );
+
+    expect(request.preference, 'fewTransfers');
+  });
+
   test('builds a replan request for the candidate containing the active step', () {
     final request = RouteReplanRequestBuilder.build(
       trip: trip(candidate()),
@@ -100,6 +112,34 @@ void main() {
     expect(request.destination, const LatLng(35.70, 139.80));
     expect(request.preference, 'shortTime');
     expect(request.anchor.placeName, '蔵前');
+  });
+
+  test('legacy replan preference defaults to fewTransfers', () {
+    for (final preference in <String?>[null, '   ']) {
+      final request = RouteReplanRequestBuilder.build(
+        trip: trip(candidate(preference: preference)),
+        activeStepId: 'rail-1',
+        anchor: anchor(),
+      );
+
+      expect(request.preference, 'fewTransfers');
+    }
+  });
+
+  test('replanner sends fewTransfers for a legacy candidate without preference', () async {
+    final fake = _FakeRouteSearchService();
+    final replanner = RouteReplanner(fake);
+    final request = RouteReplanRequestBuilder.build(
+      trip: trip(candidate(preference: null)),
+      activeStepId: 'rail-1',
+      anchor: anchor(),
+    );
+
+    await replanner.replan(request);
+
+    final search = fake.lastRequest!;
+    expect(search.preference, 'fewTransfers');
+    expect(search.toApiBody()['pref'], 'fewTransfers');
   });
 
   test('replanner searches from anchor point at anchor availableAt', () async {
