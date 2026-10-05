@@ -184,6 +184,34 @@ final trainLocationSourceProvider = Provider<TrainLocationSource>((ref) {
   return const RealtimeTrainLocationSource();
 });
 
+void validateBusRealtimeIdentity({
+  required Trip trip,
+  required StepSeg step,
+}) {
+  if (step.kind != 'bus') {
+    throw StateError(
+      'bus identity検証対象がbus stepではありません: '
+      'tripId=${trip.id}, stepId=${step.stepId}, kind=${step.kind}',
+    );
+  }
+
+  final routeId = step.routeId?.trim();
+  if (routeId == null || routeId.isEmpty) {
+    throw StateError(
+      'bus stepにrouteIdがありません: '
+      'tripId=${trip.id}, stepId=${step.stepId}',
+    );
+  }
+
+  final serviceTripId = step.tripId?.trim();
+  if (serviceTripId == null || serviceTripId.isEmpty) {
+    throw StateError(
+      'bus stepにtripIdがありません: '
+      'tripId=${trip.id}, stepId=${step.stepId}',
+    );
+  }
+}
+
 /// ビジネスロジック: APIポーリングと時間経過による進行管理
 class MemberModeController extends StateNotifier<RealtimeTransitState> {
   final Ref _ref;
@@ -437,20 +465,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
     AlightingAlert? pendingAlightingAlert;
 
     if (activeStep != null && activeStep.kind == 'bus') {
-      final routeId = activeStep.routeId?.trim();
-      final serviceTripId = activeStep.tripId?.trim();
-      if (routeId == null || routeId.isEmpty) {
-        throw StateError(
-          'bus stepにrouteIdがありません: '
-          'tripId=${trip.id}, stepId=${activeStep.stepId}',
-        );
-      }
-      if (serviceTripId == null || serviceTripId.isEmpty) {
-        throw StateError(
-          'bus stepにtripIdがありません: '
-          'tripId=${trip.id}, stepId=${activeStep.stepId}',
-        );
-      }
+      validateBusRealtimeIdentity(trip: trip, step: activeStep);
 
       final plannedDepartureAt = _plannedRideDepartureAt(
         trip,
