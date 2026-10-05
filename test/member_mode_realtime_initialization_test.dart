@@ -251,6 +251,91 @@ Trip _trip({
   );
 }
 
+Trip _withSecondLeg(Trip first, {required int completedLegIndex}) {
+  if (first.tripType != TripType.group || first.legs.length != 1) {
+    throw StateError('test helper requires a one-leg group trip');
+  }
+
+  final latestFirstLegTime = first.schedule
+      .map((entry) => entry.plannedAt)
+      .reduce((left, right) => left.isAfter(right) ? left : right);
+  final secondStart = latestFirstLegTime.add(const Duration(minutes: 10));
+  final secondStep = StepSeg(
+    stepId: 'walk-${first.id}-second',
+    kind: 'walk',
+    title: '徒歩',
+    fromName: '到着停留所',
+    toName: '次の目的地',
+    minutes: 1,
+    meters: 80,
+    departureTime:
+        '${secondStart.hour.toString().padLeft(2, '0')}:'
+        '${secondStart.minute.toString().padLeft(2, '0')}',
+    arrivalTime:
+        '${secondStart.add(const Duration(minutes: 1)).hour.toString().padLeft(2, '0')}:'
+        '${secondStart.add(const Duration(minutes: 1)).minute.toString().padLeft(2, '0')}',
+  );
+  final secondCandidate = Candidate(
+    id: 'candidate-${first.id}-second',
+    lines: const [],
+    rides: 0,
+    boards: 0,
+    transfers: 0,
+    total: 1,
+    totalTime: 1,
+    steps: [secondStep],
+    points: const [],
+    originName: '到着停留所',
+    destinationName: '次の目的地',
+    departureDate: secondStart,
+  );
+
+  return Trip(
+    schemaVersion: first.schemaVersion,
+    tripType: first.tripType,
+    id: first.id,
+    joinCode: first.joinCode,
+    leaderId: first.leaderId,
+    title: first.title,
+    travelPhase: first.travelPhase,
+    date: first.date,
+    plannedDepartureAt: first.plannedDepartureAt,
+    actualDepartureAt: first.actualDepartureAt,
+    legs: [
+      first.legs.single,
+      Leg(
+        direction: LegDirection.inbound,
+        status: LegStatus.confirmed,
+        candidate: secondCandidate,
+      ),
+    ],
+    schedule: [
+      ...first.schedule,
+      ScheduleEntry(
+        id: 'walk-${first.id}-second-entry',
+        plannedAt: secondStart,
+        label: '次の目的地まで歩く',
+        itemKind: ScheduleEntryKind.walk,
+        legIndex: 1,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: secondStep.stepId,
+        routeRole: 'walk',
+      ),
+      ScheduleEntry(
+        id: 'goal-${first.id}-second',
+        plannedAt: secondStart.add(const Duration(minutes: 1)),
+        label: '次の目的地 到着',
+        itemKind: ScheduleEntryKind.goal,
+        legIndex: 1,
+        generatedBy: ScheduleEntrySource.route,
+      ),
+    ],
+    participants: first.participants,
+    memberIds: first.memberIds,
+    completedLegIndex: completedLegIndex,
+  );
+}
+
 ProviderContainer _container({
   required Stream<Trip?> trips,
   required DateTime now,
@@ -417,6 +502,107 @@ void main() {
       final nav = container.read(memberNavProgressProvider);
       expect(nav.busProgress?.phase, BusProgressPhase.arrived);
       expect(nav.rideRealtimeUnavailable, isFalse);
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(_host(container, showNavigation: false));
+      await _flushNavigation(tester);
+    },
+  );
+
+  testWidgets(
+    'known onboard bus can finish after group active leg advances',
+    (tester) async {
+      final baseNow = appClock.now();
+      final firstLeg = _trip(
+        now: baseNow,
+        id: 'cross-leg',
+        tripType: TripType.group,
+        arrivalAt: baseNow.add(const Duration(minutes: 2)),
+      );
+      final firstLegActive = _withSecondLeg(
+        firstLeg,
+        completedLegIndex: -1,
+      );
+      final secondLegActive = _withSecondLeg(
+        firstLeg,
+        completedLegIndex: 0,
+      );
+      final trips = StreamController<Trip?>();
+      final source = _RecordingBusLocationSource();
+      var fetchCount = 0;
+      source.responder = (request) async {
+        fetchCount += 1;
+        if (fetchCount == 1) {
+          return BusLocation(
+            vehicleId: 'vehicle-${request.tripId}',
+            fromStopId: 'stop-a',
+            routeId: request.routeId,
+            tripId: request.tripId,
+            tripStopIds: const ['stop-a', 'stop-b', 'stop-c'],
+            rawStopId: 'stop-b',
+            rawStopName: '中間停留所',
+            observedStopSequence: 2,
+            currentStatus: 'IN_TRANSIT_TO',
+            vehicleAgeSeconds: 0,
+          );
+        }
+        throw const BusLocationNotAvailableException(
+          code: 'bus_trip_not_found',
+        );
+      };
+      final container = _container(
+        trips: trips.stream,
+        now: baseNow,
+        source: source,
+      );
+      addTearDown(() async {
+        container.dispose();
+        await trips.close();
+      });
+
+      await tester.pumpWidget(_host(container));
+      trips.add(firstLegActive);
+      await _flushNavigation(tester);
+      expect(source.requests, hasLength(1));
+      expect(
+        container.read(memberNavProgressProvider).busProgress?.phase,
+        BusProgressPhase.riding,
+      );
+
+      appClock.setOffset(const Duration(minutes: 1));
+      await container.read(memberModeControllerProvider.notifier).pollNow();
+      await _flushNavigation(tester);
+      expect(source.requests, hasLength(2));
+      expect(
+        container
+            .read(memberModeControllerProvider)
+            .replanTransitMemory
+            .knownOnboardStepId,
+        'bus-cross-leg',
+      );
+      expect(
+        container
+            .read(memberModeControllerProvider)
+            .replanTransitMemory
+            .ridingTransit,
+        isNull,
+      );
+
+      trips.add(secondLegActive);
+      await _flushNavigation(tester);
+      appClock.setOffset(const Duration(minutes: 3));
+      await container.read(memberModeControllerProvider.notifier).pollNow();
+      await _flushNavigation(tester);
+
+      expect(source.requests, hasLength(3));
+      expect(
+        container.read(memberModeControllerProvider).busProgress?.phase,
+        BusProgressPhase.arrived,
+      );
+      expect(
+        container.read(memberModeControllerProvider).busProgress?.fromStopId,
+        'stop-c',
+      );
       expect(tester.takeException(), isNull);
 
       await tester.pumpWidget(_host(container, showNavigation: false));
