@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:toeigo/l10n/app_localizations.dart';
+import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/services/bus_location_source.dart';
 import 'package:toeigo/widgets/active_route_content.dart';
 
@@ -31,6 +32,102 @@ void main() {
     rawStopNameEn: rawStopNameEn,
     currentStatus: status,
   );
+
+  Candidate candidateWithSteps(List<StepSeg> steps) => Candidate(
+    id: 'active-route-test',
+    lines: const [],
+    rides: steps.where((step) => step.isRide).length,
+    boards: steps.where((step) => step.isRide).length,
+    transfers: 0,
+    total: 0,
+    totalTime: 0,
+    steps: steps,
+    points: const [],
+  );
+
+  test('no bus route has no trackable bus', () {
+    final candidate = candidateWithSteps([
+      StepSeg(stepId: 'walk-1', kind: 'walk', title: '徒歩'),
+    ]);
+
+    expect(resolveTrackableBusStep(candidate), isNull);
+  });
+
+  test('valid bus route resolves the first bus', () {
+    final first = StepSeg(
+      stepId: 'bus-1',
+      kind: 'bus',
+      title: '都01',
+      routeId: '006',
+      tripId: '08501-1-09-170-2018',
+    );
+    final second = StepSeg(
+      stepId: 'bus-2',
+      kind: 'bus',
+      title: '都02',
+      routeId: '002',
+      tripId: '08502-1-09-170-2020',
+    );
+    final candidate = candidateWithSteps([first, second]);
+
+    expect(resolveTrackableBusStep(candidate), same(first));
+  });
+
+  for (final missingField in ['routeId', 'tripId']) {
+    test('bus route fails fast when $missingField is missing', () {
+      final candidate = candidateWithSteps([
+        StepSeg(
+          stepId: 'bus-invalid',
+          kind: 'bus',
+          title: '都01',
+          routeId: missingField == 'routeId' ? null : '006',
+          tripId: missingField == 'tripId'
+              ? null
+              : '08501-1-09-170-2018',
+        ),
+      ]);
+
+      expect(
+        () => resolveTrackableBusStep(candidate),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('追跡対象bus stepに$missingFieldがありません'),
+          ),
+        ),
+      );
+    });
+  }
+
+  test('later invalid bus is not hidden behind an earlier valid bus', () {
+    final candidate = candidateWithSteps([
+      StepSeg(
+        stepId: 'bus-valid',
+        kind: 'bus',
+        title: '都01',
+        routeId: '006',
+        tripId: '08501-1-09-170-2018',
+      ),
+      StepSeg(
+        stepId: 'bus-invalid-later',
+        kind: 'bus',
+        title: '都02',
+        routeId: '002',
+      ),
+    ]);
+
+    expect(
+      () => resolveTrackableBusStep(candidate),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('stepId=bus-invalid-later'),
+        ),
+      ),
+    );
+  });
 
   test('IN_TRANSIT_TO says the bus is heading to the stop', () {
     expect(
