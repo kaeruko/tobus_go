@@ -27,8 +27,18 @@ class _Request {
   final String routeId;
   final String tripId;
   final String? vehicleId;
+  final String? boardingStopId;
+  final DateTime? scheduledDepartureAt;
+  final bool forceRefresh;
 
-  const _Request(this.routeId, this.tripId, this.vehicleId);
+  const _Request(
+    this.routeId,
+    this.tripId,
+    this.vehicleId, {
+    this.boardingStopId,
+    this.scheduledDepartureAt,
+    this.forceRefresh = false,
+  });
 }
 
 class _BusSource implements BusLocationSource {
@@ -46,7 +56,14 @@ class _BusSource implements BusLocationSource {
     String? vehicleId,
     bool forceRefresh = false,
   }) {
-    final request = _Request(routeId, tripId, vehicleId);
+    final request = _Request(
+      routeId,
+      tripId,
+      vehicleId,
+      boardingStopId: boardingStopId,
+      scheduledDepartureAt: scheduledDepartureAt,
+      forceRefresh: forceRefresh,
+    );
     requests.add(request);
     return responder(request);
   }
@@ -374,7 +391,7 @@ void main() {
   });
 
   testWidgets(
-    'an initial realtime 404 follows the scheduled ride without inventing completion',
+    'an initial realtime 404 retries once and follows the scheduled ride',
     (tester) async {
       final now = appClock.now();
       final arrivalAt = now.add(const Duration(minutes: 5));
@@ -385,7 +402,20 @@ void main() {
         source: source,
       );
       await harness.mount(tester);
-      expect(source.requests, hasLength(1));
+
+      expect(source.requests, hasLength(2));
+      expect(source.requests[0].routeId, source.requests[1].routeId);
+      expect(source.requests[0].tripId, source.requests[1].tripId);
+      expect(source.requests[0].vehicleId, source.requests[1].vehicleId);
+      expect(
+        source.requests[0].boardingStopId,
+        source.requests[1].boardingStopId,
+      );
+      expect(
+        source.requests[0].scheduledDepartureAt,
+        source.requests[1].scheduledDepartureAt,
+      );
+      expect(source.requests[1].forceRefresh, isTrue);
       expect(harness.ui.resolvedEntry?.itemKind, ScheduleEntryKind.ride);
       expect(harness.ui.resolvedEntry?.routeStepId, _busStepId);
       expect(
@@ -405,7 +435,7 @@ void main() {
       await _advance(tester, harness, now, const Duration(minutes: 6));
       await harness.controller.pollNow();
       await _flush(tester);
-      expect(source.requests, hasLength(1));
+      expect(source.requests, hasLength(2));
       expect(harness.ui.resolvedEntry?.itemKind, ScheduleEntryKind.walk);
       expect(harness.ui.resolvedEntry?.routeStepId, _walkStepId);
       expect(tester.takeException(), isNull);
@@ -472,15 +502,17 @@ void main() {
   }
 
   testWidgets(
-    'a tracked bus disappearing before arrival ends the ride and cannot be resurrected',
+    'a tracked bus 404 retries once and stays on the scheduled ride until arrival',
     (tester) async {
       final now = appClock.now();
       final arrivalAt = now.add(const Duration(minutes: 5));
       var calls = 0;
       final source = _BusSource((request) async {
         calls++;
-        if (calls == 2) return _notFound(request);
-        return _movingLocation(request, now: now, arrivalAt: arrivalAt);
+        if (calls == 1) {
+          return _movingLocation(request, now: now, arrivalAt: arrivalAt);
+        }
+        return _notFound(request);
       });
       final trip = _trip(now, arrivalAt: arrivalAt);
       final harness = _Harness(trip: trip, now: now, source: source);
@@ -494,45 +526,38 @@ void main() {
       await _advance(tester, harness, now, const Duration(minutes: 1));
       await harness.controller.pollNow();
       await _flush(tester);
-      expect(source.requests, hasLength(2));
-      expect(
-        harness.container.read(memberNavProgressProvider).busProgress?.phase,
-        BusProgressPhase.arrived,
-      );
-      _expectCompleted(harness);
-      await harness.controller.pollNow();
-      await harness.controller.pollNow();
-      await _flush(tester);
-      expect(source.requests, hasLength(2));
-      _expectCompleted(harness);
-      await harness.unmount(tester);
 
-      final restartedSource = _BusSource(
-        (request) async =>
-            _movingLocation(request, now: now, arrivalAt: arrivalAt),
-      );
-      final restarted = _Harness(
-        trip: trip,
-        now: now.add(const Duration(minutes: 1)),
-        source: restartedSource,
-      );
-      await restarted.mount(
-        tester,
-        restored: const ReplanTransitMemory(completedRideStepId: _busStepId),
-      );
-      _expectCompleted(restarted);
-      expect(restartedSource.requests, isEmpty);
-      await restarted.controller.pollNow();
+      expect(source.requests, hasLength(3));
+      final firstMissing = source.requests[1];
+      final retry = source.requests[2];
+      expect(retry.routeId, firstMissing.routeId);
+      expect(retry.tripId, firstMissing.tripId);
+      expect(retry.vehicleId, firstMissing.vehicleId);
+      expect(retry.boardingStopId, firstMissing.boardingStopId);
+      expect(retry.scheduledDepartureAt, firstMissing.scheduledDepartureAt);
+      expect(retry.forceRefresh, isTrue);
+
+      final realtime = harness.container.read(memberModeControllerProvider);
+      expect(realtime.busProgress, isNull);
+      expect(realtime.replanTransitMemory.knownOnboardStepId, _busStepId);
+      expect(realtime.replanTransitMemory.completedRideStepId, isNull);
+      final nav = harness.container.read(memberNavProgressProvider);
+      expect(nav.busProgress?.phase, BusProgressPhase.riding);
+      expect(nav.rideRealtimeUnavailable, isTrue);
+      expect(harness.ui.resolvedEntry?.itemKind, ScheduleEntryKind.ride);
+
+      await _advance(tester, harness, now, const Duration(minutes: 6));
+      await harness.controller.pollNow();
       await _flush(tester);
-      _expectCompleted(restarted);
-      expect(restartedSource.requests, isEmpty);
+      expect(source.requests, hasLength(3));
+      _expectCompleted(harness);
       expect(tester.takeException(), isNull);
-      await restarted.unmount(tester);
+      await harness.unmount(tester);
     },
   );
 
   testWidgets(
-    'a restored onboard marker treats an early 404 as the end of service',
+    'a restored onboard marker retries a 404 and remains riding before arrival',
     (tester) async {
       final now = appClock.now();
       final source = _BusSource(_notFound);
@@ -545,16 +570,24 @@ void main() {
         tester,
         restored: const ReplanTransitMemory(knownOnboardStepId: _busStepId),
       );
-      expect(source.requests, hasLength(1));
+
+      expect(source.requests, hasLength(2));
+      final realtime = harness.container.read(memberModeControllerProvider);
+      expect(realtime.busProgress, isNull);
+      expect(realtime.replanTransitMemory.knownOnboardStepId, _busStepId);
+      expect(realtime.replanTransitMemory.completedRideStepId, isNull);
+      expect(harness.ui.resolvedEntry?.itemKind, ScheduleEntryKind.ride);
       expect(
-        harness.container.read(memberNavProgressProvider).busProgress?.phase,
-        BusProgressPhase.arrived,
+        harness.container
+            .read(memberNavProgressProvider)
+            .rideRealtimeUnavailable,
+        isTrue,
       );
-      _expectCompleted(harness);
-      await harness.controller.pollNow();
+
+      await _advance(tester, harness, now, const Duration(minutes: 6));
       await harness.controller.pollNow();
       await _flush(tester);
-      expect(source.requests, hasLength(1));
+      expect(source.requests, hasLength(2));
       _expectCompleted(harness);
       expect(tester.takeException(), isNull);
       await harness.unmount(tester);
