@@ -533,6 +533,28 @@ class Candidate {
   }
 }
 
+void validatePersistableRailIdentity(Candidate candidate) {
+  for (final step in candidate.steps) {
+    if (step.kind != 'rail') continue;
+
+    final tripId = step.tripId?.trim();
+    if (tripId == null || tripId.isEmpty) {
+      throw StateError(
+        '保存する鉄道stepにGTFS tripIdがありません: '
+        'candidateId=${candidate.id}, stepId=${step.stepId}',
+      );
+    }
+
+    final routeId = step.routeId?.trim();
+    if (routeId == null || routeId.isEmpty) {
+      throw StateError(
+        '保存する鉄道stepにGTFS routeIdがありません: '
+        'candidateId=${candidate.id}, stepId=${step.stepId}',
+      );
+    }
+  }
+}
+
 class StepSeg {
   final String stepId;
   final String kind; // 'walk', 'bus', 'rail', 'wait'
