@@ -143,6 +143,7 @@ class Leg {
   }
 
   Map<String, dynamic> toFirestore() {
+    validatePersistableBusIdentity(candidate);
     validatePersistableRailIdentity(candidate);
 
     final coordinates = <double>[];
