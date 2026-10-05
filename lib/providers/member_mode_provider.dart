@@ -274,6 +274,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       'stops=${activeStep?.stops.length}',
     );
 
+    AlightingAlert? pendingAlightingAlert;
     if (activeStep != null &&
         activeStep.kind == 'bus' &&
         activeStep.routeId != null &&
@@ -283,7 +284,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         activeStep.stepId,
       );
       final plannedArrivalAt = _plannedRideArrivalAt(trip, activeStep.stepId);
-      await _updateBusProgress(
+      pendingAlightingAlert = await _updateBusProgress(
         activeStep,
         plannedDepartureAt: plannedDepartureAt,
         plannedArrivalAt: plannedArrivalAt,
@@ -340,9 +341,25 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         'realtimeUnavailable=${committed.rideRealtimeUnavailable}',
       );
     }
+
+    // Commit navigation state before platform-side notification effects.
+    // This keeps UI/navigation state authoritative even while haptics are
+    // awaiting the platform channel.
+    if (pendingAlightingAlert != null) {
+      if (activeStep == null || activeStep.kind != 'bus') {
+        throw StateError(
+          '降車通知がbus step以外で生成されました: '
+          'stepId=${activeStep?.stepId}, kind=${activeStep?.kind}',
+        );
+      }
+      await _performAlightingAlertHaptic(
+        pendingAlightingAlert,
+        step: activeStep,
+      );
+    }
   }
 
-  Future<void> _updateBusProgress(
+  Future<AlightingAlert?> _updateBusProgress(
     StepSeg activeStep, {
     required DateTime plannedDepartureAt,
     required DateTime plannedArrivalAt,
@@ -365,7 +382,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         vehicleId: trackedVehicleId,
         forceRefresh: forceRefresh,
       );
-      if (!mounted) return;
+      if (!mounted) return null;
       final realtimeProgress = BusProgress.forStep(
         step: activeStep,
         fromStopId: location.fromStopId,
@@ -424,9 +441,6 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
               step: activeStep,
               location: location,
             );
-      if (alightingAlert != null) {
-        await _performAlightingAlertHaptic(alightingAlert, step: activeStep);
-      }
 
       debugPrint(
         '[MemberModeController] バス追跡成功: '
@@ -446,8 +460,9 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         'serverNow=${location.serverNow}, '
         'clientNow=${DateTime.now().toUtc().toIso8601String()}',
       );
+      return alightingAlert;
     } on BusLocationNotAvailableException catch (e) {
-      if (!mounted) return;
+      if (!mounted) return null;
       if (e.code == 'bus_realtime_not_started') {
         state = RealtimeTransitState(
           trackedStepId: activeStep.stepId,
@@ -458,12 +473,12 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
           'step=${activeStep.stepId} plannedDeparture='
           '${plannedDepartureAt.toIso8601String()}',
         );
-        return;
+        return null;
       }
 
       final now = appClock.now();
       final navProgress = _ref.read(memberNavProgressProvider);
-      if (!mounted) return;
+      if (!mounted) return null;
       final lastRidingProgress =
           state.busProgress?.stepId == activeStep.stepId
               ? state.busProgress
@@ -503,7 +518,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
           '${lastRidingProgress.observedStopName} '
           'error=$e',
         );
-        return;
+        return null;
       }
 
       // An exact route/trip match may not appear in the realtime feed until
@@ -518,8 +533,9 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
             .markRideRealtimeUnavailable(activeStep.stepId),
       );
       debugPrint('[MemberModeController] バス位置なし: $e');
+      return null;
     } catch (e, stackTrace) {
-      if (!mounted) return;
+      if (!mounted) return null;
       debugPrint('[MemberModeController] バスAPIエラー: $e');
       debugPrintStack(stackTrace: stackTrace);
       rethrow;
