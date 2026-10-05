@@ -459,4 +459,139 @@ void main() {
       ),
     );
   });
+
+  test('walking-only return time update shifts the movement to the selected time', () {
+    final inbound = Candidate(
+      id: 'walking-return',
+      lines: const [],
+      rides: 0,
+      boards: 0,
+      transfers: 0,
+      total: 2,
+      totalTime: 2,
+      points: const [],
+      originName: '東墨田店',
+      destinationName: '自宅',
+      departureDate: DateTime(2026, 10, 5, 13, 49),
+      steps: [
+        StepSeg(
+          stepId: 'walk-home-retime',
+          kind: 'walk',
+          title: '徒歩',
+          fromName: '東墨田店',
+          toName: '自宅',
+          minutes: 2,
+          departureTime: '13:49',
+          arrivalTime: '13:51',
+        ),
+      ],
+    );
+
+    final selected = DateTime(2026, 10, 5, 14, 10);
+    final schedule = createScheduleFromLegs(
+      [
+        Leg(
+          direction: LegDirection.inbound,
+          status: LegStatus.confirmed,
+          candidate: inbound,
+        ),
+      ],
+      userSelectedReturnTime: selected,
+    );
+
+    final meeting = schedule.singleWhere(
+      (entry) => entry.itemKind == ScheduleEntryKind.meeting,
+    );
+    final walk = schedule.singleWhere(
+      (entry) => entry.itemKind == ScheduleEntryKind.walk,
+    );
+    final goal = schedule.singleWhere(
+      (entry) => entry.itemKind == ScheduleEntryKind.goal,
+    );
+
+    expect(meeting.plannedAt, DateTime(2026, 10, 5, 14, 0));
+    expect(walk.plannedAt, selected);
+    expect(goal.plannedAt, DateTime(2026, 10, 5, 14, 12));
+  });
+
+  test('return time update rejects reusing a fixed transit route', () {
+    final inbound = Candidate(
+      id: 'fixed-return',
+      lines: const ['都01'],
+      rides: 1,
+      boards: 1,
+      transfers: 0,
+      total: 32,
+      totalTime: 32,
+      points: const [],
+      steps: [
+        StepSeg(
+          stepId: 'bus-fixed-return',
+          kind: 'bus',
+          title: '都01',
+          fromName: '渋谷駅前',
+          toName: '新橋駅前',
+          minutes: 32,
+          departureTime: '20:18',
+          arrivalTime: '20:50',
+          routeId: '006',
+          tripId: '08501-1-09-170-2018',
+        ),
+      ],
+    );
+
+    expect(
+      () => validateReturnTimeUpdateCanReuseExistingRoute([
+        Leg(
+          direction: LegDirection.inbound,
+          status: LegStatus.confirmed,
+          candidate: inbound,
+        ),
+      ]),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('経路の再検索が必要です'),
+        ),
+      ),
+    );
+  });
+
+  test('return time update merge preserves manual schedule entries', () {
+    final manual = ScheduleEntry(
+      id: 'manual-onsite',
+      plannedAt: DateTime(2026, 10, 5, 18, 0),
+      label: '見学',
+      generatedBy: ScheduleEntrySource.manual,
+    );
+    final oldRoute = ScheduleEntry(
+      id: 'old-route',
+      plannedAt: DateTime(2026, 10, 5, 17, 0),
+      label: '古い経路',
+      generatedBy: ScheduleEntrySource.route,
+    );
+    final newRoute = ScheduleEntry(
+      id: 'new-route',
+      plannedAt: DateTime(2026, 10, 5, 19, 0),
+      label: '新しい経路',
+      generatedBy: ScheduleEntrySource.route,
+    );
+
+    final merged = mergeRegeneratedRouteSchedulePreservingManualEntries(
+      [oldRoute, manual],
+      [newRoute],
+    );
+
+    expect(merged.map((entry) => entry.id).toSet(), {
+      'manual-onsite',
+      'new-route',
+    });
+    expect(
+      merged.singleWhere((entry) => entry.id == 'manual-onsite'),
+      same(manual),
+    );
+    expect(merged.any((entry) => entry.id == 'old-route'), isFalse);
+  });
+
 }
