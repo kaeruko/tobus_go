@@ -111,6 +111,13 @@ class RealtimeTransitState {
       replanTransitMemory.lastConfirmedTransitPlace;
 }
 
+class _PendingAlightingHaptic {
+  final AlightingAlert alert;
+  final StepSeg step;
+
+  const _PendingAlightingHaptic({required this.alert, required this.step});
+}
+
 final busLocationSourceProvider = Provider<BusLocationSource>((ref) {
   return const RealtimeBusLocationSource();
 });
@@ -141,14 +148,20 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
     this._trainLocationSource,
   ) : super(const RealtimeTransitState());
 
-  /// Restores history without replacing observations already obtained here.
+  /// Restores history while keeping completion of the same ride authoritative.
   void restoreHistoricalTransitMemory(ReplanTransitMemory restored) {
     final current = state.replanTransitMemory;
+    // ODPT can answer before disk restoration with a sample from a service
+    // already finished here. Completion of that same ride outranks its sample.
+    final restoredFinishesTrackedRide =
+        restored.completedRideStepId != null &&
+        current.completedRideStepId == null &&
+        restored.completedRideStepId == state.trackedStepId;
     if (current.ridingTransit != null ||
         current.lastConfirmedTransitPlace != null ||
         current.knownOnboardStepId != null ||
         current.completedRideStepId != null) {
-      return;
+      if (!restoredFinishesTrackedRide) return;
     }
     if (restored.lastConfirmedTransitPlace == null &&
         restored.knownOnboardStepId == null &&
@@ -204,25 +217,35 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       return;
     }
 
+    _PendingAlightingHaptic? pendingHaptic;
     _checkProgressInFlight = true;
     try {
-      await _runProgressCheck(forceRefresh: forceRefresh);
+      pendingHaptic = await _runProgressCheck(forceRefresh: forceRefresh);
     } finally {
       _checkProgressInFlight = false;
     }
+
+    if (pendingHaptic != null && mounted) {
+      await _performAlightingAlertHaptic(
+        pendingHaptic.alert,
+        step: pendingHaptic.step,
+      );
+    }
   }
 
-  Future<void> _runProgressCheck({bool forceRefresh = false}) async {
+  Future<_PendingAlightingHaptic?> _runProgressCheck({
+    bool forceRefresh = false,
+  }) async {
     debugPrint(
       '[MemberModeController] _checkProgress START '
       'forceRefresh=$forceRefresh',
     );
 
     final trip = _ref.read(tripStreamProvider).valueOrNull;
-    if (!mounted) return;
+    if (!mounted) return null;
     if (trip == null) {
       debugPrint('[MemberModeController] trip=null');
-      return;
+      return null;
     }
 
     if (kDebugMode) {
@@ -241,7 +264,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
 
     final navProgress = _ref.read(memberNavProgressProvider);
     // Reading progress may refresh its Trip identity and replace this session.
-    if (!mounted) return;
+    if (!mounted) return null;
     var knownBusProgress = state.busProgress ?? navProgress.busProgress;
     final memory = state.replanTransitMemory;
     final rememberedBusStepId =
@@ -272,6 +295,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         knownBusProgress = state.busProgress;
       }
     }
+
     final knownRailProgress = state.railProgress ?? navProgress.railProgress;
     final scheduleResolved = TripCoordinator.resolveScheduleState(
       scheduleEntries: _navigationScheduleForTrip(trip),
@@ -352,6 +376,8 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       debugPrint('[TripLegDebug] ${jsonEncode(diagnostic)}');
     }
 
+    AlightingAlert? pendingAlightingAlert;
+
     if (activeStep != null &&
         activeStep.kind == 'bus' &&
         activeStep.routeId != null &&
@@ -361,7 +387,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         activeStep.stepId,
       );
       final plannedArrivalAt = _plannedRideArrivalAt(trip, activeStep.stepId);
-      await _updateBusProgress(
+      pendingAlightingAlert = await _updateBusProgress(
         activeStep,
         plannedDepartureAt: plannedDepartureAt,
         plannedArrivalAt: plannedArrivalAt,
@@ -385,12 +411,12 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       }
     }
 
-    if (!mounted) return;
+    if (!mounted) return null;
 
     // 進捗を更新 (時間基準 + API補正)
     if (resolvedEntry != null) {
       final progressNotifier = _ref.read(memberNavProgressProvider.notifier);
-      if (!mounted) return;
+      if (!mounted) return null;
       final sameTrackedStep = state.trackedStepId == resolvedEntry.routeStepId;
       final rideRealtimeUnavailable =
           sameTrackedStep &&
@@ -418,9 +444,26 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         'realtimeUnavailable=${committed.rideRealtimeUnavailable}',
       );
     }
+
+    // Return the notification effect only after navigation state is committed.
+    // _checkProgress releases its in-flight guard before awaiting the platform
+    // channel so a subsequent explicit poll is never blocked by haptics.
+    if (pendingAlightingAlert == null) {
+      return null;
+    }
+    if (activeStep == null || activeStep.kind != 'bus') {
+      throw StateError(
+        '降車通知がbus step以外で生成されました: '
+        'stepId=${activeStep?.stepId}, kind=${activeStep?.kind}',
+      );
+    }
+    return _PendingAlightingHaptic(
+      alert: pendingAlightingAlert,
+      step: activeStep,
+    );
   }
 
-  Future<void> _updateBusProgress(
+  Future<AlightingAlert?> _updateBusProgress(
     StepSeg activeStep, {
     required DateTime plannedDepartureAt,
     required DateTime plannedArrivalAt,
@@ -450,7 +493,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
             ? _completedBusTime(plannedArrivalAt)
             : plannedArrivalAt,
       );
-      return;
+      return null;
     }
 
     try {
@@ -465,7 +508,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         vehicleId: trackedVehicleId,
         forceRefresh: forceRefresh,
       );
-      if (!mounted) return;
+      if (!mounted) return null;
       // A disk load may restore completion while this request is in flight.
       // Its later vehicle sample must never reactivate that finished service.
       if (state.replanTransitMemory.completedRideStepId == activeStep.stepId) {
@@ -473,8 +516,9 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
           activeStep,
           completedAt: _completedBusTime(plannedArrivalAt),
         );
-        return;
+        return null;
       }
+
       final realtimeProgress = BusProgress.forStep(
         step: activeStep,
         fromStopId: location.fromStopId,
@@ -531,9 +575,6 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
               step: activeStep,
               location: location,
             );
-      if (alightingAlert != null) {
-        await _performAlightingAlertHaptic(alightingAlert, step: activeStep);
-      }
 
       debugPrint(
         '[MemberModeController] バス追跡成功: '
@@ -553,15 +594,17 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         'serverNow=${location.serverNow}, '
         'clientNow=${DateTime.now().toUtc().toIso8601String()}',
       );
+      return alightingAlert;
     } on BusLocationNotAvailableException catch (e) {
-      if (!mounted) return;
+      if (!mounted) return null;
       if (state.replanTransitMemory.completedRideStepId == activeStep.stepId) {
         _completeBusRide(
           activeStep,
           completedAt: _completedBusTime(plannedArrivalAt),
         );
-        return;
+        return null;
       }
+
       if (e.code == 'bus_realtime_not_started') {
         state = RealtimeTransitState(
           trackedStepId: activeStep.stepId,
@@ -572,12 +615,12 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
           'step=${activeStep.stepId} plannedDeparture='
           '${plannedDepartureAt.toIso8601String()}',
         );
-        return;
+        return null;
       }
 
       final now = appClock.now();
       final navProgress = _ref.read(memberNavProgressProvider);
-      if (!mounted) return;
+      if (!mounted) return null;
       final lastProgress = state.busProgress?.stepId == activeStep.stepId
           ? state.busProgress
           : navProgress.busProgress?.stepId == activeStep.stepId
@@ -608,7 +651,7 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
           '${lastProgress?.observedStopName} '
           'error=$e',
         );
-        return;
+        return null;
       }
 
       // An exact route/trip match may not appear in the realtime feed until
@@ -623,8 +666,9 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
             .markRideRealtimeUnavailable(activeStep.stepId),
       );
       debugPrint('[MemberModeController] バス位置なし: $e');
+      return null;
     } catch (e, stackTrace) {
-      if (!mounted) return;
+      if (!mounted) return null;
       debugPrint('[MemberModeController] バスAPIエラー: $e');
       debugPrintStack(stackTrace: stackTrace);
       rethrow;
