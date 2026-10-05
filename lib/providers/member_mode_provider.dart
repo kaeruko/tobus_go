@@ -461,6 +461,51 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         return;
       }
 
+      final now = appClock.now();
+      final navProgress = _ref.read(memberNavProgressProvider);
+      if (!mounted) return;
+      final lastRidingProgress =
+          state.busProgress?.stepId == activeStep.stepId
+              ? state.busProgress
+              : navProgress.busProgress?.stepId == activeStep.stepId
+                  ? navProgress.busProgress
+                  : null;
+      final knownOnboard =
+          state.replanTransitMemory.knownOnboardStepId == activeStep.stepId;
+
+      if (e.code == 'bus_trip_not_found' &&
+          lastRidingProgress?.phase == BusProgressPhase.riding &&
+          shouldAssumeBusArrivedAfterRealtimeLoss(
+            now: now,
+            plannedArrivalAt: plannedArrivalAt,
+            knownOnboard: knownOnboard,
+          )) {
+        final arrivedProgress = assumeBusArrivedAtDestination(
+          step: activeStep,
+          realtimeProgress: lastRidingProgress!,
+        );
+        state = RealtimeTransitState(
+          trackedStepId: activeStep.stepId,
+          trackedVehicleId: state.trackedStepId == activeStep.stepId
+              ? state.trackedVehicleId
+              : null,
+          busProgress: arrivedProgress,
+          replanTransitMemory: state.replanTransitMemory.markArrived(
+            _destinationPlace(activeStep),
+            confirmedAt: now,
+          ),
+        );
+        debugPrint(
+          '[MemberModeController] バスRealtime終了後、予定時刻で降車を確定: '
+          'step=${activeStep.stepId} '
+          'plannedArrival=${plannedArrivalAt.toIso8601String()} '
+          'lastObserved=${lastRidingProgress.observedStopId}/'
+          '${lastRidingProgress.observedStopName} '
+          'error=$e',
+        );
+        return;
+      }
+
       // An exact route/trip match may not appear in the realtime feed until
       // the assigned vehicle starts reporting. Preserve an already-confirmed
       // onboard fact for this exact step, but never retain a stale forecast.
