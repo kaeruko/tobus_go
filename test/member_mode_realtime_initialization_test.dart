@@ -200,6 +200,8 @@ Trip _trip({
   DateTime? departureAt,
   DateTime? arrivalAt,
   Duration storedScheduleShift = Duration.zero,
+  bool missingBusRouteId = false,
+  bool missingBusTripId = false,
 }) {
   final departure = departureAt ?? now.subtract(const Duration(minutes: 1));
   final arrival = arrivalAt ?? now.add(const Duration(minutes: 20));
@@ -216,8 +218,8 @@ Trip _trip({
     fromName: '出発停留所',
     toName: '到着停留所',
     minutes: rideMinutes,
-    routeId: 'route-$id',
-    tripId: 'service-$id',
+    routeId: missingBusRouteId ? null : 'route-$id',
+    tripId: missingBusTripId ? null : 'service-$id',
     departureStopId: 'stop-a',
     arrivalPoleId: 'stop-c',
     departureTime: clockTime(departure),
@@ -1185,46 +1187,90 @@ void main() {
   );
 
 
-  testWidgets(
-    'shifted stored schedule still queries the fixed bus departure',
-    (tester) async {
-      final now = appClock.now();
-      final departureAt = now.subtract(const Duration(minutes: 1));
-      final arrivalAt = departureAt.add(const Duration(minutes: 32));
-      final trip = _trip(
-        now: now,
-        id: 'shifted-schedule',
-        departureAt: departureAt,
-        arrivalAt: arrivalAt,
-        storedScheduleShift: const Duration(minutes: 3),
-      );
-      final source = _RecordingBusLocationSource();
-      final container = _container(
-        trips: Stream.value(trip),
-        now: now,
-        source: source,
-      );
-      addTearDown(container.dispose);
+  for (final tripType in TripType.values) {
+    testWidgets(
+      '${tripType.name} shifted stored schedule still queries the fixed bus departure',
+      (tester) async {
+        final now = appClock.now();
+        final departureAt = now.subtract(const Duration(minutes: 1));
+        final arrivalAt = departureAt.add(const Duration(minutes: 32));
+        final trip = _trip(
+          now: now,
+          id: 'shifted-schedule-${tripType.name}',
+          tripType: tripType,
+          departureAt: departureAt,
+          arrivalAt: arrivalAt,
+          storedScheduleShift: const Duration(minutes: 3),
+        );
+        final source = _RecordingBusLocationSource();
+        final container = _container(
+          trips: Stream.value(trip),
+          now: now,
+          source: source,
+        );
+        addTearDown(container.dispose);
 
-      expect(
-        trip.schedule
-            .singleWhere((entry) => entry.itemKind == ScheduleEntryKind.ride)
-            .plannedAt,
-        departureAt.add(const Duration(minutes: 3)),
+        expect(
+          trip.schedule
+              .singleWhere((entry) => entry.itemKind == ScheduleEntryKind.ride)
+              .plannedAt,
+          departureAt.add(const Duration(minutes: 3)),
+        );
+
+        await tester.pumpWidget(_host(container));
+        await _flushNavigation(tester);
+
+        expect(source.requests, hasLength(1));
+        expect(
+          source.requests.single.scheduledDepartureAt,
+          trip.routeStepDepartureAt(
+            'bus-shifted-schedule-${tripType.name}',
+          ),
+        );
+        expect(tester.takeException(), isNull);
+
+        await tester.pumpWidget(_host(container, showNavigation: false));
+        await _flushNavigation(tester);
+      },
+    );
+
+    for (final missingField in ['routeId', 'tripId']) {
+      testWidgets(
+        '${tripType.name} bus fails fast when $missingField is missing',
+        (tester) async {
+          final now = appClock.now();
+          final source = _RecordingBusLocationSource();
+          final trip = _trip(
+            now: now,
+            id: 'missing-${tripType.name}-$missingField',
+            tripType: tripType,
+            missingBusRouteId: missingField == 'routeId',
+            missingBusTripId: missingField == 'tripId',
+          );
+          final container = _container(
+            trips: Stream.value(trip),
+            now: now,
+            source: source,
+          );
+          addTearDown(container.dispose);
+
+          await tester.pumpWidget(_host(container));
+          await _flushNavigation(tester);
+
+          expect(source.requests, isEmpty);
+          expect(
+            tester.takeException(),
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              contains('bus stepに$missingFieldがありません'),
+            ),
+          );
+
+          await tester.pumpWidget(_host(container, showNavigation: false));
+          await _flushNavigation(tester);
+        },
       );
-
-      await tester.pumpWidget(_host(container));
-      await _flushNavigation(tester);
-
-      expect(source.requests, hasLength(1));
-      expect(
-        source.requests.single.scheduledDepartureAt,
-        trip.routeStepDepartureAt('bus-shifted-schedule'),
-      );
-      expect(tester.takeException(), isNull);
-
-      await tester.pumpWidget(_host(container, showNavigation: false));
-      await _flushNavigation(tester);
-    },
-  );
+    }
+  }
 }
