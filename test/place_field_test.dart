@@ -523,6 +523,76 @@ void main() {
     expect(find.textContaining('場所候補を取得できませんでした'), findsOneWidget);
     expect(find.textContaining('HTTP 503'), findsOneWidget);
   });
+  testWidgets('Korean locale uses English place search and keeps Japanese names', (
+    tester,
+  ) async {
+    var autocompleteLang = '';
+    final detailsLangs = <String>{};
+    var resolvedJa = '';
+    var resolvedEn = '';
+    var resolvedDisplay = '';
+
+    ApiClient.httpClient = MockClient((request) async {
+      if (request.url.path.endsWith('/warmup')) {
+        return _warmupResponse();
+      }
+      if (request.url.path.endsWith('/autocomplete')) {
+        autocompleteLang = request.url.queryParameters['lang'] ?? '';
+        return _jsonResponse(
+          '{"predictions":[{"place_id":"tokyo-station","description":"Tokyo Station, Tokyo"}]}',
+          200,
+        );
+      }
+      if (request.url.path.endsWith('/details')) {
+        final lang = request.url.queryParameters['lang'] ?? '';
+        detailsLangs.add(lang);
+        final name = lang == 'ja' ? '東京駅' : 'Tokyo Station';
+        return _jsonResponse(
+          '{"result":{"name":"$name","geometry":{"location":{"lat":35.681236,"lng":139.767125}}}}',
+          200,
+        );
+      }
+      return http.Response('unexpected request', 500);
+    });
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: CupertinoPageScaffold(
+          child: PlaceField(
+            label: '도착지',
+            value: '',
+            displayValue: '',
+            onChanged: (_, _) {},
+            onResolved: (value, display, nameJa, nameEn) {
+              resolvedDisplay = display;
+              resolvedJa = nameJa;
+              resolvedEn = nameEn;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(CupertinoTextField), 'Tokyo');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+
+    expect(autocompleteLang, 'en');
+    expect(find.text('Tokyo Station, Tokyo'), findsOneWidget);
+
+    await tester.tap(find.text('Tokyo Station, Tokyo'));
+    await tester.pumpAndSettle();
+
+    expect(detailsLangs, {'ja', 'en'});
+    expect(resolvedDisplay, 'Tokyo Station');
+    expect(resolvedJa, '東京駅');
+    expect(resolvedEn, 'Tokyo Station');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('English locale resolves both Japanese and English place names', (
     tester,
   ) async {
