@@ -870,6 +870,10 @@ class _LeaderModePageState extends State<LeaderModePage> {
 
     if (trip.travelPhase == TravelPhase.active) {
       final isOutboundMode = trip.completedLegIndex == -1;
+      final primaryAction = resolveGroupLeaderActivePrimaryActionAt(
+        trip,
+        now: now,
+      );
 
       return Container(
         width: double.infinity,
@@ -904,16 +908,33 @@ class _LeaderModePageState extends State<LeaderModePage> {
                 ),
               ],
             ),
-            if (!isOutboundMode) ...[
+            if (primaryAction != null) ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () => _showCompleteDialog(context, trip),
-                  icon: const Icon(Icons.check_circle),
-                  label: Text(AppLocalizations.of(context).groupEndTrip),
+                  onPressed: switch (primaryAction) {
+                    GroupLeaderActivePrimaryAction.arriveAtGoal =>
+                      () => _showArriveAtGoalDialog(context, trip, service),
+                    GroupLeaderActivePrimaryAction.completeTrip =>
+                      () => _showCompleteDialog(context, trip),
+                  },
+                  icon: Icon(
+                    primaryAction == GroupLeaderActivePrimaryAction.arriveAtGoal
+                        ? Icons.flag
+                        : Icons.check_circle,
+                  ),
+                  label: Text(
+                    primaryAction == GroupLeaderActivePrimaryAction.arriveAtGoal
+                        ? AppLocalizations.of(context).groupArriveAndReturn
+                        : AppLocalizations.of(context).groupEndTrip,
+                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey.shade700,
+                    backgroundColor:
+                        primaryAction ==
+                            GroupLeaderActivePrimaryAction.arriveAtGoal
+                        ? Colors.green.shade600
+                        : Colors.grey.shade700,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -949,6 +970,50 @@ class _LeaderModePageState extends State<LeaderModePage> {
         style: const TextStyle(color: Colors.grey),
       ),
     );
+  }
+
+  Future<void> _showArriveAtGoalDialog(
+    BuildContext context,
+    Trip trip,
+    TripService service,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(AppLocalizations.of(context).groupArrivedTitle),
+        content: Text(AppLocalizations.of(context).groupArrivedQuestion),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(AppLocalizations.of(context).groupNo),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(AppLocalizations.of(context).groupYes),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await service.updateCompletedLegIndex(trip.id, 0);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).groupArrivalRecorded),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).groupUpdateFailed(e.toString()),
+          ),
+        ),
+      );
+    }
   }
 
   void _showCompleteDialog(BuildContext context, Trip trip) {
