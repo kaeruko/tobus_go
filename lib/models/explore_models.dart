@@ -20,7 +20,11 @@ class ReachableStop {
   });
 
   String nameForLanguageCode(String languageCode) {
-    if (languageCode != 'en' && languageCode != 'zh') return name;
+    if (languageCode != 'en' &&
+        languageCode != 'zh' &&
+        languageCode != 'ko') {
+      return name;
+    }
     final value = nameEn;
     if (value == null || value.trim().isEmpty) {
       throw const FormatException(
@@ -230,7 +234,11 @@ class ExploreEditorialImage {
   });
 
   String captionForLanguageCode(String languageCode) {
-    return languageCode == 'en' || languageCode == 'zh' ? captionEn : caption;
+    return languageCode == 'en' ||
+            languageCode == 'zh' ||
+            languageCode == 'ko'
+        ? captionEn
+        : caption;
   }
 
   factory ExploreEditorialImage.fromJson(
@@ -274,7 +282,11 @@ class ExploreEditorialSpot {
   });
 
   String commentForLanguageCode(String languageCode) {
-    return languageCode == 'en' || languageCode == 'zh' ? commentEn : comment;
+    return languageCode == 'en' ||
+            languageCode == 'zh' ||
+            languageCode == 'ko'
+        ? commentEn
+        : comment;
   }
 
   factory ExploreEditorialSpot.fromJson(
