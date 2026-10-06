@@ -21,6 +21,7 @@ void main() {
       return http.Response(
         '{"destinations":[{"destination_pole_id":"stop-b",'
         '"destination_name":"新橋",'
+        '"destination_name_en":"Shimbashi",'
         '"times":["10:50","11:05"]}]}',
         200,
         headers: const {'content-type': 'application/json; charset=utf-8'},
@@ -38,6 +39,40 @@ void main() {
     expect(groups.single['times'], ['10:50', '11:05']);
   });
 
+  test('next bus response requires official English destination name', () async {
+    final originalClient = ApiClient.httpClient;
+    configureApiBase(Uri.parse('https://api.example.test'));
+
+    ApiClient.httpClient = MockClient((request) async {
+      return http.Response(
+        '{"destinations":[{"destination_pole_id":"1035-01",'
+        '"destination_name":"豊海水産埠頭",'
+        '"times":["08:50"]}]}',
+        200,
+        headers: const {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+    addTearDown(() => ApiClient.httpClient = originalClient);
+
+    await expectLater(
+      TimetableService().getNextBusesFromApi(
+        '093',
+        '0751-02',
+        referenceTime: DateTime(2026, 10, 7, 8, 40),
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message.toString(),
+          'diagnostic',
+          allOf(
+            contains('destination_name_en is required'),
+            contains('destinationPoleId=1035-01'),
+          ),
+        ),
+      ),
+    );
+  });
+
   test('full-day request uses day type and omits date selector', () async {
     final originalClient = ApiClient.httpClient;
     configureApiBase(Uri.parse('https://api.example.test'));
@@ -50,6 +85,7 @@ void main() {
       return http.Response(
         '{"destinations":[{"destination_pole_id":"stop-b",'
         '"destination_name":"新橋",'
+        '"destination_name_en":"Shimbashi",'
         '"times":["10:50"],'
         '"all_times":["06:59","07:14","10:50"]}]}',
         200,

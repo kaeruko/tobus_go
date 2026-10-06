@@ -127,8 +127,15 @@ class TimetableService {
         );
       }
       final name = rawName.toString();
-      final nameEn = dest['destination_name_en']?.toString();
       final destinationPoleId = dest['destination_pole_id']?.toString();
+      final rawNameEn = dest['destination_name_en'];
+      if (rawNameEn == null || rawNameEn.toString().trim().isEmpty) {
+        throw StateError(
+          'Invalid /bus/next response: destination_name_en is required: '
+          'destinationPoleId=${destinationPoleId ?? '<unknown>'}',
+        );
+      }
+      final nameEn = rawNameEn.toString().trim();
       final rawTimes = dest['times'];
       if (rawTimes is! List) {
         throw StateError(

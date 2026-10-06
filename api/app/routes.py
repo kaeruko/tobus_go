@@ -235,6 +235,7 @@ from toei_engine import (
     get_reachable_stops,
     _rss_mb,
     determine_day_type,
+    _gtfs_stop_id,
 )
 
 ROUTE_JOBS: dict[str, dict] = {}
@@ -322,6 +323,54 @@ async def _fetch_and_update_realtime(app_state):
         except Exception as e:
             print(f"[WARN] Failed to update train info: {e}")
 
+def _required_bus_stop_english_name_from_graph(
+    graph,
+    *,
+    gtfs_stop_id: str,
+    japanese_name: str,
+) -> str:
+    matches: list[tuple[str, str]] = []
+    for node, attributes in graph.nodes(data=True):
+        if not (
+            isinstance(node, tuple)
+            and len(node) >= 2
+            and node[0] == "phys"
+            and isinstance(node[1], str)
+        ):
+            continue
+        if _gtfs_stop_id(node[1]) != gtfs_stop_id:
+            continue
+
+        graph_japanese_name = attributes.get("name")
+        if graph_japanese_name != japanese_name:
+            raise RuntimeError(
+                "GTFS/ODPT bus stop identity disagrees on Japanese name: "
+                f"stop_id={gtfs_stop_id!r} gtfs_name={japanese_name!r} "
+                f"odpt_id={node[1]!r} odpt_name={graph_japanese_name!r}"
+            )
+        english_name = attributes.get("name_en")
+        if not isinstance(english_name, str) or not english_name.strip():
+            raise RuntimeError(
+                "ODPT bus stop is missing official English name: "
+                f"stop_id={gtfs_stop_id!r} odpt_id={node[1]!r}"
+            )
+        matches.append((node[1], english_name.strip()))
+
+    if not matches:
+        raise RuntimeError(
+            "GTFS bus stop has no English translation and no exact ODPT pole match: "
+            f"stop_id={gtfs_stop_id!r} name={japanese_name!r}"
+        )
+
+    english_names = {english_name for _, english_name in matches}
+    if len(english_names) != 1:
+        raise RuntimeError(
+            "Exact ODPT pole matches disagree on official English name: "
+            f"stop_id={gtfs_stop_id!r} matches={matches!r}"
+        )
+    return next(iter(english_names))
+
+
 def _gtfs_bus_timetable_destinations(
     *,
     route_id: str,
@@ -332,6 +381,7 @@ def _gtfs_bus_timetable_destinations(
     limit: int,
     include_all: bool,
     delay_min: float,
+    graph=None,
 ) -> list[dict]:
     schedule = gtfs_repo.timetable_index.get(f"{route_id}|{pole_id}") or []
     active_services = (
@@ -399,10 +449,32 @@ def _gtfs_bus_timetable_destinations(
     destinations = []
     for destination_stop_id in destination_ids:
         stop = gtfs_repo.stops[destination_stop_id]
+        destination_name = stop.get("name")
+        if not isinstance(destination_name, str) or not destination_name.strip():
+            raise RuntimeError(
+                "GTFS trip destination is missing a Japanese stop name: "
+                f"stop_id={destination_stop_id!r}"
+            )
+        destination_name_en = stop.get("name_en")
+        if not isinstance(destination_name_en, str) or not destination_name_en.strip():
+            if graph is None:
+                raise RuntimeError(
+                    "GTFS trip destination is missing an English stop name and "
+                    "no ODPT graph was supplied: "
+                    f"stop_id={destination_stop_id!r} name={destination_name!r}"
+                )
+            destination_name_en = _required_bus_stop_english_name_from_graph(
+                graph,
+                gtfs_stop_id=destination_stop_id,
+                japanese_name=destination_name,
+            )
+        else:
+            destination_name_en = destination_name_en.strip()
+
         destination = {
             "destination_pole_id": destination_stop_id,
-            "destination_name": stop.get("name"),
-            "destination_name_en": stop.get("name_en"),
+            "destination_name": destination_name,
+            "destination_name_en": destination_name_en,
             "times": upcoming_by_destination.get(destination_stop_id, []),
         }
         if include_all:
@@ -794,7 +866,20 @@ def register_routes(app):
                 )
             pole = gtfs_repo.stops[pole_id]
             pole_name = pole.get("name")
+            if not isinstance(pole_name, str) or not pole_name.strip():
+                raise RuntimeError(
+                    "GTFS boarding stop is missing a Japanese stop name: "
+                    f"stop_id={pole_id!r}"
+                )
             pole_name_en = pole.get("name_en")
+            if not isinstance(pole_name_en, str) or not pole_name_en.strip():
+                pole_name_en = _required_bus_stop_english_name_from_graph(
+                    g,
+                    gtfs_stop_id=pole_id,
+                    japanese_name=pole_name,
+                )
+            else:
+                pole_name_en = pole_name_en.strip()
             destinations = _gtfs_bus_timetable_destinations(
                 route_id=route_id,
                 pole_id=pole_id,
@@ -804,6 +889,7 @@ def register_routes(app):
                 limit=limit,
                 include_all=include_all,
                 delay_min=tm.bus_realtime_delays.get(route_id, 0.0),
+                graph=g,
             )
         else:
             pole_name = None
