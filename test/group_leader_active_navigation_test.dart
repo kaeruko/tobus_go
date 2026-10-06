@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:toeigo/logic/group_leader_active_navigation.dart';
 import 'package:toeigo/models/group_models.dart';
+import 'package:toeigo/models/leg_models.dart';
+import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/models/trip_models.dart';
 
 Trip _trip({
@@ -20,6 +22,69 @@ Trip _trip({
     actualDepartureAt: DateTime(2026, 8, 16, 9),
     legs: const [],
     schedule: const [],
+    participants: const [],
+    memberIds: const [],
+    completedLegIndex: completedLegIndex,
+  );
+}
+
+Trip _tripWithGoals({
+  int completedLegIndex = -1,
+}) {
+  Candidate candidate(String id) => Candidate(
+    id: id,
+    lines: const [],
+    rides: 0,
+    boards: 0,
+    transfers: 0,
+    total: 0,
+    totalTime: 0,
+    steps: const [],
+    points: const [],
+  );
+
+  return Trip(
+    tripType: TripType.group,
+    id: 'trip-goal',
+    joinCode: '123456',
+    leaderId: 'leader-1',
+    title: 'test trip',
+    travelPhase: TravelPhase.active,
+    date: DateTime(2026, 10, 6),
+    plannedDepartureAt: DateTime(2026, 10, 6, 7, 46),
+    actualDepartureAt: DateTime(2026, 10, 6, 7, 46),
+    legs: [
+      Leg(
+        direction: LegDirection.outbound,
+        status: LegStatus.confirmed,
+        candidate: candidate('outbound'),
+      ),
+      Leg(
+        direction: LegDirection.inbound,
+        status: LegStatus.confirmed,
+        candidate: candidate('inbound'),
+      ),
+    ],
+    schedule: [
+      ScheduleEntry(
+        id: 'outbound-goal',
+        plannedAt: DateTime(2026, 10, 6, 9, 8),
+        label: '渋谷駅 到着',
+        description: 'お疲れ様でした!',
+        itemKind: ScheduleEntryKind.goal,
+        legIndex: 0,
+        generatedBy: ScheduleEntrySource.route,
+      ),
+      ScheduleEntry(
+        id: 'inbound-goal',
+        plannedAt: DateTime(2026, 10, 6, 12, 0),
+        label: '十間橋 到着',
+        description: 'お疲れ様でした!',
+        itemKind: ScheduleEntryKind.goal,
+        legIndex: 1,
+        generatedBy: ScheduleEntrySource.route,
+      ),
+    ],
     participants: const [],
     memberIds: const [],
     completedLegIndex: completedLegIndex,
@@ -142,6 +207,46 @@ void main() {
       resolveGroupLeaderActivePrimaryAction(
         _trip(completedLegIndex: 0),
         resolvedEntry: goal,
+      ),
+      GroupLeaderActivePrimaryAction.completeTrip,
+    );
+  });
+
+  test('管理画面の往路操作はgoal前には表示しない', () {
+    expect(
+      resolveGroupLeaderActivePrimaryActionAt(
+        _tripWithGoals(),
+        now: DateTime(2026, 10, 6, 9, 7),
+      ),
+      isNull,
+    );
+  });
+
+  test('管理画面の往路操作はおつかれさま表示になったら表示する', () {
+    expect(
+      resolveGroupLeaderActivePrimaryActionAt(
+        _tripWithGoals(),
+        now: DateTime(2026, 10, 6, 9, 9),
+      ),
+      GroupLeaderActivePrimaryAction.arriveAtGoal,
+    );
+  });
+
+  test('管理画面の復路終了はgoal前には表示しない', () {
+    expect(
+      resolveGroupLeaderActivePrimaryActionAt(
+        _tripWithGoals(completedLegIndex: 0),
+        now: DateTime(2026, 10, 6, 11, 59),
+      ),
+      isNull,
+    );
+  });
+
+  test('管理画面の復路終了はおつかれさま表示になったら表示する', () {
+    expect(
+      resolveGroupLeaderActivePrimaryActionAt(
+        _tripWithGoals(completedLegIndex: 0),
+        now: DateTime(2026, 10, 6, 12, 1),
       ),
       GroupLeaderActivePrimaryAction.completeTrip,
     );
