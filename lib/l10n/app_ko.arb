@@ -1,0 +1,1694 @@
+{
+  "routeGeometryApproximate": "이 경로선은 개략도입니다. 일부 또는 전체 구간은 정류장과 출발·도착 지점을 연결해 표시합니다.",
+  "@@locale": "ko",
+  "appNameTokyo": "도에이 GO",
+  "appNameNagoya": "나고야 GO",
+  "appNameSendai": "센다이 GO",
+  "appNameYokohama": "요코하마 GO",
+  "bootstrapFailed": "앱을 시작할 수 없습니다",
+  "updateRequiredTitle": "업데이트가 필요합니다",
+  "updateNow": "지금 업데이트",
+  "updateStoreUnavailable": "App Store 또는 Google Play를 열어 최신 버전으로 업데이트해 주세요.",
+  "currentVersionLabel": "현재 버전: {version}",
+  "@currentVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "minimumVersionLabel": "필요 버전: {version} 이상",
+  "@minimumVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "retry": "다시 시도",
+  "tabSearch": "검색",
+  "tabDiscover": "둘러보기",
+  "tabFavorites": "즐겨찾기",
+  "myRouteTitle": "즐겨찾기",
+  "savedRouteAddMemo": "메모 추가",
+  "savedRouteEditMemo": "편집",
+  "savedRouteMemoTitle": "즐겨찾기 메모",
+  "savedRouteMemoPlaceholder": "이 경로에 대해 기억해 둘 내용을 입력하세요",
+  "savedRoutesEmpty": "저장된 경로가 없습니다",
+  "planSavedRoute": "이 경로로 일정 만들기",
+  "addToMyRoute": "즐겨찾기에 추가",
+  "removeFromMyRoute": "즐겨찾기에서 삭제",
+  "tabHistory": "기록",
+  "tabSettings": "설정",
+  "currentLocationFailed": "현재 위치를 가져올 수 없습니다",
+  "ok": "확인",
+  "mapPickerTitle": "지도에서 선택",
+  "mapSelectedPlace": "지도에서 선택한 장소",
+  "done": "완료",
+  "departureDateTime": "출발 일시",
+  "departureSearch": "출발지",
+  "arrivalSearch": "도착지",
+  "search": "검색",
+  "errorWithMessage": "오류: {message}",
+  "@errorWithMessage": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "routeNotFound": "경로를 찾을 수 없습니다",
+  "selectDepartureAndArrival": "출발지와 도착지를 선택하세요",
+  "transportSubwayAndBus": "도에이 지하철·버스",
+  "transportBusOnly": "도에이 버스만",
+  "preferFewTransfers": "환승 적은 순",
+  "preferShortTime": "소요 시간 짧은 순",
+  "nearestStop": "가장 가까운 정류장",
+  "walkAboutMinutes": "도보 약 {minutes}분",
+  "@walkAboutMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "walkAboutDistance": "도보 약 {distance}",
+  "@walkAboutDistance": {
+    "placeholders": {
+      "distance": {
+        "type": "String"
+      }
+    }
+  },
+  "walkWithinRange": "도보 이동 가능",
+  "walkLimitNotice": " (도보 한도 {meters}m 이내에서 검색)",
+  "@walkLimitNotice": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "fallbackTitle": "도에이 교통만으로 도착지까지 가는 경로를 찾을 수 없습니다",
+  "fallbackBody": "도에이 교통만으로는 {destination} 근처까지 갈 수 없습니다. 가장 가까운 정류장은 “{stop}”이며, 이후 {walkText}.",
+  "@fallbackBody": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      },
+      "stop": {
+        "type": "String"
+      },
+      "walkText": {
+        "type": "String"
+      }
+    }
+  },
+  "fallbackQuestion": "그래도 이 경로를 사용하시겠습니까?{limitText}",
+  "@fallbackQuestion": {
+    "placeholders": {
+      "limitText": {
+        "type": "String"
+      }
+    }
+  },
+  "activeSoloTrip": "진행 중인 일정",
+  "activeGroupTrip": "진행 중인 그룹 일정",
+  "statusPlanning": "계획 중",
+  "statusTraveling": "이동 중",
+  "participantsActive": "참가자: {count}명",
+  "@participantsActive": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pleaseWait": "잠시만 기다려 주세요",
+  "placeSearchPlaceholder": "장소명 또는 주소로 검색",
+  "placeSuggestionsFailed": "장소 검색 결과를 불러올 수 없습니다: {error}",
+  "@placeSuggestionsFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "placeMissingId": "선택한 장소에 place_id가 없습니다",
+  "placeCoordinatesFailed": "이 장소의 좌표를 가져올 수 없습니다: {error}",
+  "@placeCoordinatesFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "unnamedPlace": "장소",
+  "originFallback": "출발지",
+  "destinationFallback": "도착지",
+  "destinationWalkSuffix": " (도착지까지 도보 약 {minutes}분)",
+  "@destinationWalkSuffix": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "fareUnavailable": "운임 계산 불가",
+  "fareUnknown": "운임 미확인",
+  "fareReimbursement": "먼저 ¥{yen} 지불",
+  "@fareReimbursement": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "fareFreePass": "¥0 지불(승차증)",
+  "farePay": "¥{yen} 지불",
+  "@farePay": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "totalTimeChip": "{minutes}분",
+  "@totalTimeChip": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "transfersChip": "환승: {count}회",
+  "@transfersChip": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ridesChip": "승차 구간: {count}개",
+  "@ridesChip": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "walkChip": "도보: {meters}m",
+  "@walkChip": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "approxMinutes": " (약 {minutes}분)",
+  "@approxMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "stopsCount": " {count}개 정류장",
+  "@stopsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "walkSegment": "도보 {distance}{duration}",
+  "@walkSegment": {
+    "placeholders": {
+      "distance": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "routeFutureSuggestion": "선택한 시간에는 운행이 종료되었거나 운행하지 않습니다.\\n{date}의 경로를 표시합니다.",
+  "@routeFutureSuggestion": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "endpointDeparture": "출발",
+  "endpointDestination": "도착",
+  "fallbackPartialTitle": "가장 가까운 이용 가능 경로를 표시합니다",
+  "fallbackPartialBody": "이 경로로는 {destination}까지 바로 갈 수 없습니다. 가장 가까운 정류장은 “{stop}”이며, 이후 {walkText}.",
+  "@fallbackPartialBody": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      },
+      "stop": {
+        "type": "String"
+      },
+      "walkText": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryDuration": "소요 시간",
+  "summaryTransfers": "환승",
+  "summaryRideSegments": "승차 구간",
+  "summaryWalk": "도보",
+  "minutesValue": "{minutes}분",
+  "@minutesValue": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "normalFareLine": "일반 운임 ¥{yen}",
+  "@normalFareLine": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "payNowFareLine": "지금 지불 ¥{yen}",
+  "@payNowFareLine": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "effectiveFareLine": "환급 후 실질 운임 ¥{yen}",
+  "@effectiveFareLine": {
+    "placeholders": {
+      "yen": {
+        "type": "int"
+      }
+    }
+  },
+  "approximateMinutes": "약 {minutes}분",
+  "@approximateMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "stopCount": "{count}개 정류장",
+  "@stopCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "walkTitle": "도보",
+  "deleteBookmarkTitle": "즐겨찾기에서 삭제",
+  "deleteBookmarkMessage": "이 경로를 즐겨찾기에서 삭제하시겠습니까?",
+  "cancel": "취소",
+  "delete": "삭제",
+  "savedTitle": "저장됨",
+  "savedToMyRoute": "즐겨찾기에 추가했습니다.",
+  "notSelected": "선택 안 함",
+  "chooseDifferentRoute": "다른 경로 선택",
+  "startRoute": "이 경로로 출발",
+  "preparingTrip": "일정을 준비하는 중…",
+  "close": "닫기",
+  "tripStartFailed": "일정을 시작할 수 없습니다",
+  "activeTripExists": "이미 진행 중인 일정이 있습니다",
+  "activeTripMessage": "{title}\\n새 일정을 시작하기 전에 현재 일정을 완료하거나 취소하세요.",
+  "@activeTripMessage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "openActiveTrip": "현재 일정 열기",
+  "researching": "다시 검색 중...",
+  "routeAtTimeNotFound": "선택한 시간의 경로를 찾을 수 없습니다.",
+  "researchFailed": "다시 검색할 수 없습니다: {error}",
+  "@researchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "runSearch": "검색",
+  "confirm": "완료",
+  "activeGroupExists": "이미 진행 중인 그룹 일정이 있습니다",
+  "viewGroupDetails": "그룹 일정 보기",
+  "overlappingTrip": "이 시간과 겹치는 다른 일정이 있습니다\\n({title})",
+  "@overlappingTrip": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "cannotCreate": "만들 수 없습니다",
+  "createGroup": "그룹 일정 만들기",
+  "searchReturnTrip": "돌아오는 경로 검색",
+  "returnDepartureTime": "돌아오는 출발 시간",
+  "departureTime": "출발 시간",
+  "searchWithConditions": "이 조건으로 검색",
+  "outboundSummary": "소요 {minutes}분 · 환승 {transfers}회",
+  "@outboundSummary": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "transfers": {
+        "type": "int"
+      }
+    }
+  },
+  "chooseReturnRouteTitle": "돌아오는 경로 선택",
+  "chooseReturnRouteMessage": "그룹 일정을 만들기 전에 가는 길과 돌아오는 길을 모두 선택하세요.",
+  "createRoundTripTitle": "이 왕복 경로로 그룹 일정 만들기",
+  "roundTripSummary": "가는 길: {outbound}\\n돌아오는 길: {inbound}",
+  "@roundTripSummary": {
+    "placeholders": {
+      "outbound": {
+        "type": "String"
+      },
+      "inbound": {
+        "type": "String"
+      }
+    }
+  },
+  "create": "만들기",
+  "createFailed": "일정을 만들 수 없습니다: {error}",
+  "@createFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "errorTitle": "오류",
+  "settlementDiscount": "할인",
+  "settlementFreePass": "무료 승차증",
+  "settlementReimbursement": "나중에 환급",
+  "dayWeekday": "평일",
+  "daySaturday": "토요일",
+  "dayHoliday": "휴일",
+  "timetableAtStop": "{stop} 출발 시간표",
+  "@timetableAtStop": {
+    "placeholders": {
+      "stop": {
+        "type": "String"
+      }
+    }
+  },
+  "nextThreeBuses": "다음 버스 3대 ({dayType})",
+  "@nextThreeBuses": {
+    "placeholders": {
+      "dayType": {
+        "type": "String"
+      }
+    }
+  },
+  "fullTimetable": "전체 시간표",
+  "timetableHour": "{hour}:00",
+  "@timetableHour": {
+    "placeholders": {
+      "hour": {
+        "type": "int"
+      }
+    }
+  },
+  "timetableNoDepartures": "예정된 출발이 없습니다.",
+  "nextBus": "다음 버스 ({dayType})",
+  "@nextBus": {
+    "placeholders": {
+      "dayType": {
+        "type": "String"
+      }
+    }
+  },
+  "boarding": "승차",
+  "alighting": "하차",
+  "segmentGuideTitle": "경로 안내",
+  "segmentRideSummary": "승차 {minutes}분 / {count}개 정류장",
+  "@segmentRideSummary": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "segmentDepartureAt": "{time} 출발",
+  "@segmentDepartureAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "segmentArrivalAt": "{time} 도착",
+  "@segmentArrivalAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "googleMapsOpenFailed": "Google 지도를 열 수 없습니다",
+  "openInGoogleMaps": "Google 지도에서 열기",
+  "refreshVehiclePosition": "버스 위치 새로고침",
+  "endTrip": "일정 종료",
+  "noTrackableBus": "이 경로에는 위치를 추적할 수 있는 버스 운행이 없습니다",
+  "vehiclePositionUnsupported": "{appName}에서는 실시간 버스 위치를 지원하지 않습니다",
+  "@vehiclePositionUnsupported": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "realtimeNotLoaded": "실시간 위치가 아직 불러와지지 않았습니다",
+  "busCurrentPosition": "실시간 버스 위치",
+  "vehicleLabel": "차량 {vehicleId}",
+  "@vehicleLabel": {
+    "placeholders": {
+      "vehicleId": {
+        "type": "String"
+      }
+    }
+  },
+  "latLonLabel": "위도 {lat} / 경도 {lon}",
+  "@latLonLabel": {
+    "placeholders": {
+      "lat": {
+        "type": "String"
+      },
+      "lon": {
+        "type": "String"
+      }
+    }
+  },
+  "fetchedAt": "업데이트 {time}",
+  "@fetchedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "refreshEvery30Seconds": "30초마다 업데이트",
+  "realtimeNotAvailable": "이 버스의 실시간 위치는 아직 이용할 수 없습니다",
+  "realtimeFetchError": "실시간 위치를 가져올 수 없습니다: {error}",
+  "@realtimeFetchError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "headingToFirstStop": "첫 번째 정류장으로 이동 중",
+  "headingToNamedFirstStop": "{stopName}(첫 정류장)으로 이동 중",
+  "@headingToNamedFirstStop": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "stoppedAt": "{stopName}에 정차 중",
+  "@stoppedAt": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "headingToStop": "{stopName}으로 이동 중",
+  "@headingToStop": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "tripTitle": "일정",
+  "tripLoadFailed": "일정을 불러올 수 없습니다: {error}",
+  "@tripLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tripNotFound": "일정을 찾을 수 없습니다",
+  "navigationLoadFailed": "내비게이션을 표시할 수 없습니다: {error}",
+  "@navigationLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "currentRoute": "현재 경로",
+  "stepCounter": "{completed} / {total} 단계",
+  "@stepCounter": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "viewFullRoute": "전체 경로 보기",
+  "historyTitle": "기록",
+  "historyDeleteTitle": "이 일정을 기록에서 삭제하시겠습니까?",
+  "historyDeleteMessage": "기록 목록에서만 삭제됩니다. 공유된 일정 자체는 삭제되지 않습니다.",
+  "historyDeleteFailed": "이 기록을 삭제할 수 없습니다: {error}",
+  "@historyDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "historyEmpty": "아직 일정이 없습니다",
+  "historyLoadFailed": "기록을 불러올 수 없습니다: {error}",
+  "@historyLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "historyTransfers": "환승: {count}회",
+  "@historyTransfers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyWalkMinutes": "도보 {minutes}분",
+  "@historyWalkMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "historyParticipants": "참가자 {count}명",
+  "@historyParticipants": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "soloTripDetailTitle": "일정 상세",
+  "soloTripRouteAndSchedule": "경로 및 일정",
+  "travelPhasePlanning": "계획 중",
+  "travelPhaseActive": "진행 중",
+  "travelPhaseCompleted": "완료",
+  "travelPhaseCancelled": "취소됨",
+  "endingTrip": "일정을 종료하는 중…",
+  "cancelTrip": "일정 취소",
+  "arrivalSaveFailed": "도착 기록을 저장할 수 없습니다: {error}",
+  "@arrivalSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelTripQuestion": "이 일정을 취소하시겠습니까?",
+  "cancelTripHistoryNotice": "이 일정은 취소된 상태로 기록에 남습니다.",
+  "back": "뒤로",
+  "cancelAction": "일정 취소",
+  "cancelTripFailed": "일정을 취소할 수 없습니다: {error}",
+  "@cancelTripFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "arrived": "도착했습니다",
+  "nextStop": "다음: {stopName}",
+  "@nextStop": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "remainingBusStops": "남은 정류장 {count}개",
+  "@remainingBusStops": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "remainingRailStops": "남은 역 {count}개",
+  "@remainingRailStops": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "categoryMeeting": "집합",
+  "categoryDeparture": "출발",
+  "categoryRide": "승차",
+  "categoryWalk": "도보",
+  "categoryArrival": "도착",
+  "categoryGoal": "목적지",
+  "categoryEvent": "일정",
+  "realtimeScheduleFallback": "다음 승차편의 실시간 확인에 실패해 예정 시간을 사용합니다: {error}",
+  "@realtimeScheduleFallback": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanHelper": "아직 일정은 변경되지 않았습니다. 새 경로를 확인한 뒤 선택하세요.",
+  "navIdleStatus": "대기 중",
+  "navBusRideStatus": "🚌 승차 중",
+  "navRailRideStatus": "🚇 승차 중",
+  "navRideArrivalSummary": "{arrivalTime} {rideTitle} · {destination} 도착 예정",
+  "@navRideArrivalSummary": {
+    "placeholders": {
+      "arrivalTime": {
+        "type": "String"
+      },
+      "rideTitle": {
+        "type": "String"
+      },
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "navPreDepartureMain": "출발 전",
+  "navPlannedDepartureSub": "{time} 출발 예정",
+  "@navPlannedDepartureSub": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "navPreStartStatus": "시작 전",
+  "navMeetingCountdownMain": "{minutes}분 남음",
+  "@navMeetingCountdownMain": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navMeetingScheduledSub": "{time} {label}",
+  "@navMeetingScheduledSub": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "navMeetingActionMain": "모두 모였는지 확인하세요",
+  "navMeetingNextSub": "다음\\n{time} {label}",
+  "@navMeetingNextSub": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "navStartsInSub": "시작까지 {hours}시간 {minutes}분",
+  "@navStartsInSub": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navMovingStatus": "이동 중",
+  "navMeetingDefaultSub": "집합 장소로 이동하세요",
+  "navMeetingStatus": "집합",
+  "navArrivedDefaultSub": "도착했습니다",
+  "navArrivedStatus": "도착",
+  "navGoalArrivedMain": "{destination}",
+  "@navGoalArrivedMain": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "navWaitingDefaultSub": "예정 시간까지 기다리세요",
+  "navWaitingStatus": "대기 중",
+  "navWalkHeadingMain": "{destination}으로 이동",
+  "@navWalkHeadingMain": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "navWalkDistanceSub": "도보 {meters}m",
+  "@navWalkDistanceSub": {
+    "placeholders": {
+      "meters": {
+        "type": "double"
+      }
+    }
+  },
+  "navPositionCheckingMain": "{rideTitle} 📍",
+  "@navPositionCheckingMain": {
+    "placeholders": {
+      "rideTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "navBusWaitingMain": "대기 중",
+  "navPositionCheckingSub": "📍",
+  "navBusPositionCheckingAtStopSub": "{stopName} 📍",
+  "@navBusPositionCheckingAtStopSub": {
+    "placeholders": {
+      "stopName": {
+        "type": "String"
+      }
+    }
+  },
+  "navWaitingToBoardStatus": "승차 대기 중",
+  "navSearchingStatus": "검색 중…",
+  "navApproachingBusMain": "{rideTitle} · {count}개 정류장 전",
+  "@navApproachingBusMain": {
+    "placeholders": {
+      "rideTitle": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "navApproachingBusDistance": "{count}개 정류장 전",
+  "@navApproachingBusDistance": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "navApproachingRailMain": "{rideTitle} · {count}개 역 전",
+  "@navApproachingRailMain": {
+    "placeholders": {
+      "rideTitle": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "navApproachingRailDistance": "{count}개 역 전",
+  "@navApproachingRailDistance": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "navNowAtSub": "승차 위치: {placeName}",
+  "@navNowAtSub": {
+    "placeholders": {
+      "placeName": {
+        "type": "String"
+      }
+    }
+  },
+  "navArrivedMain": "도착",
+  "navGetOffNextMain": "다음 정류장에서 내리세요",
+  "navStaleBusNotice": "버스 위치 확인 중\\n{movementText} ({ageMinutes}분 전)",
+  "@navStaleBusNotice": {
+    "placeholders": {
+      "movementText": {
+        "type": "String"
+      },
+      "ageMinutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navStopId": "정류장 ID {stopId}",
+  "@navStopId": {
+    "placeholders": {
+      "stopId": {
+        "type": "String"
+      }
+    }
+  },
+  "navUnknownStop": "알 수 없는 정류장",
+  "navMovingToward": "{place} 방면으로 이동 중",
+  "@navMovingToward": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "navStaleRailNotice": "열차 위치 확인 중\\n{place} ({ageMinutes}분 전)",
+  "@navStaleRailNotice": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      },
+      "ageMinutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navUnknownStation": "알 수 없는 역",
+  "navTripEndedMain": "종료됨",
+  "navTripEndedSub": "이용해 주셔서 감사합니다",
+  "navTripEndedStatus": "일정 종료",
+  "navTripCancelledMain": "취소됨",
+  "navTripCancelledSub": "그룹 일정이 종료되었습니다",
+  "navTripCancelledStatus": "취소됨",
+  "navDepartureCountdownMain": "{leaveTime} 출발 · {minutes}분 남음",
+  "@navDepartureCountdownMain": {
+    "placeholders": {
+      "leaveTime": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navDepartureLabel": "출발",
+  "navDepartureRemaining": "{minutes}분 남음",
+  "navWalkBoardingCountdown": "승차까지 {minutes}분",
+  "@navWalkBoardingCountdown": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "@navDepartureRemaining": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navBoardingSub": "{rideTime} {routeTitle} · 승차",
+  "@navBoardingSub": {
+    "placeholders": {
+      "rideTime": {
+        "type": "String"
+      },
+      "routeTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "navBoardingPlannedSub": "{rideTime} {routeTitle} · 승차 예정",
+  "@navBoardingPlannedSub": {
+    "placeholders": {
+      "rideTime": {
+        "type": "String"
+      },
+      "routeTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "navWalkToRideCountdownMain": "{rideTime}편 탑승을 위해 {destination}으로 이동 · {minutes}분 남음",
+  "@navWalkToRideCountdownMain": {
+    "placeholders": {
+      "rideTime": {
+        "type": "String"
+      },
+      "destination": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "navRealtimeUnavailableNotice": "📍",
+  "navRealtimeRefreshingSemantics": "실시간 위치 새로고침 중",
+  "scheduleNow": "현재",
+  "scheduleNext": "다음",
+  "scheduleLater": "나중",
+  "waitTitle": "대기",
+  "waitAt": "{place}에서 대기",
+  "@waitAt": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "navRideDirection": "{destination} 방면",
+  "@navRideDirection": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "navArrivalPlannedDestination": "{destination} 도착 예정",
+  "@navArrivalPlannedDestination": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "navCompactRideArrival": "{arrivalTime} · {destination} 도착 예정",
+  "@navCompactRideArrival": {
+    "placeholders": {
+      "arrivalTime": {
+        "type": "String"
+      },
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "navRideCurrentPlaceMain": "{rideTitle} · {placeName}",
+  "@navRideCurrentPlaceMain": {
+    "placeholders": {
+      "rideTitle": {
+        "type": "String"
+      },
+      "placeName": {
+        "type": "String"
+      }
+    }
+  },
+  "replanTitle": "{place}에서 경로 다시 확인",
+  "@replanTitle": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "replanCompareFrom": "{time}부터 이용 가능한 경로 비교",
+  "@replanCompareFrom": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "replanRefreshing": "이동 상태가 변경되었습니다. 최신 예상 도착 시간으로 다시 검색합니다…",
+  "replanBlocked": "현재 위치가 확인될 때까지 이 지점에서는 경로 변경을 확정할 수 없습니다.",
+  "replanCurrentPlan": "현재 계획",
+  "replanArrivalPlanned": "{time}경 도착",
+  "@replanArrivalPlanned": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "replanNewRouteCandidates": "새 경로 후보",
+  "replanCandidate": "후보 {index} · {time} 도착",
+  "@replanCandidate": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "replanNewRoute": "새 경로",
+  "replanCompareOnly": "비교 화면입니다. 이 화면을 닫아도 현재 계획은 변경되지 않습니다.",
+  "replanKeepOriginal": "현재 경로 유지",
+  "replanApply": "이 경로 사용",
+  "replanUpdatedNotice": "이동 상태가 변경되어 경로 후보를 업데이트했습니다. 다시 확인해 주세요.",
+  "replanApplyFailed": "경로를 변경할 수 없습니다: {error}",
+  "@replanApplyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanRefreshFailed": "최신 이동 상태에 맞춰 경로를 업데이트할 수 없습니다: {error}",
+  "@replanRefreshFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanRefreshAgain": "다시 시도",
+  "replanTransfers": "환승: {count}회",
+  "@replanTransfers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "replanNoRoute": "현재 시간부터 이용 가능한 새 경로가 없습니다.",
+  "replanUnknownTime": "시간 확인 불가",
+  "replanWalkOnly": "도보만",
+  "fareSettingsTitle": "설정",
+  "fareSettingsHeading": "운임 및 승차증",
+  "fareSettingsDescription": "이용하는 운임 제도나 승차증을 직접 선택하세요. 앱은 주소, 장애 여부, 연령 등의 개인정보를 바탕으로 이용 자격을 자동 판단하지 않습니다.",
+  "fareSettingsError": "설정 오류: {error}",
+  "@fareSettingsError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fareOpenOtherSettings": "다른 설정 열기",
+  "fareOfficialInfo": "공식 정보 보기",
+  "settlementNormal": "일반 운임",
+  "settlementReimbursementLong": "먼저 지불 후 나중에 환급",
+  "farePolicyNormal": "일반 운임",
+  "farePolicyTokyoMentalDisabilityPass": "정신장애인용 도에이 교통 승차증",
+  "farePolicyNagoyaWelfarePass": "복지 특별 승차권(무료 승차 구간)",
+  "exploreTitle": "환승 없이 갈 수 있는 곳 찾기",
+  "exploreDescription": "현재 위치에서 환승 없이 갈 수 있는 도에이 지하철역과 버스 정류장을 찾습니다.",
+  "exploreNearbyButton": "주변 둘러보기",
+  "exploreStartPrompt": "버튼을 눌러 검색을 시작하세요.",
+  "exploreNoNearbyStops": "주변에서 버스 정류장을 찾을 수 없습니다.",
+  "exploreSearching": "검색 중...",
+  "exploreContentLoading": "둘러보기 정보를 불러오는 중...",
+  "exploreSearchFailed": "검색 실패: {error}",
+  "@exploreSearchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exploreContentLoadFailed": "둘러보기 정보를 불러올 수 없습니다: {error}",
+  "@exploreContentLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exploreNearestStop": "가장 가까운 곳: {name}",
+  "@exploreNearestStop": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "exploreDistanceFromCurrent": "현재 위치에서 약 {meters}m",
+  "@exploreDistanceFromCurrent": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "exploreReachableCount": "환승 없이 {count}개 역·정류장에 갈 수 있습니다",
+  "@exploreReachableCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exploreRouteLabel": "노선: {route}",
+  "@exploreRouteLabel": {
+    "placeholders": {
+      "route": {
+        "type": "String"
+      }
+    }
+  },
+  "languageSettingsTitle": "언어",
+  "languageSystem": "시스템 설정",
+  "languageSaveFailed": "언어 설정을 저장할 수 없습니다: {error}",
+  "@languageSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleWalkTo": "{destination}까지 도보{duration}",
+  "@scheduleWalkTo": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleBoardAt": "{place}에서 승차",
+  "@scheduleBoardAt": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleArriveAt": "{place}에 도착",
+  "@scheduleArriveAt": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "currentLocationLabel": "현재 위치",
+  "currentLocationSetLabel": "현재 위치(설정됨)",
+  "mapLongPress": "길게 눌러 위치 선택",
+  "mapConfirm": "이 위치 사용",
+  "experienceAround": "{name} 주변",
+  "@experienceAround": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "experienceLoadFailed": "주변 정보를 불러올 수 없습니다",
+  "experienceEmpty": "추천 장소를 찾을 수 없습니다",
+  "experienceCentralStop": "중심 정류장: {name}",
+  "@experienceCentralStop": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "experienceSpotCount": "{count}개 장소 포함",
+  "@experienceSpotCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "experienceGoHere": "여기로 가기",
+  "experienceMemo": "둘러보기 메모",
+  "experienceSurroundings": "주변",
+  "experienceTagWater": "강변",
+  "experienceTagPark": "공원",
+  "experienceTagShopping": "상점가",
+  "experienceTagHistory": "역사",
+  "experienceWaterPark": "강변을 여유롭게 산책하기 좋은 지역",
+  "experienceShopping": "옛 분위기의 상점가를 걸으며 즐겨보세요",
+  "experienceHistory": "사찰과 신사가 곳곳에 있는 조용한 옛 동네",
+  "experiencePark": "편하게 쉬기 좋은 가까운 지역",
+  "experienceResidential": "조용한 주택가의 분위기를 느껴보세요",
+  "settingsUserInfo": "사용자 정보",
+  "settingsUserName": "사용자 이름",
+  "settingsChangeUserName": "사용자 이름 변경",
+  "settingsNewName": "새 이름",
+  "settingsSave": "저장",
+  "settingsGuest": "게스트",
+  "settingsJoinTrip": "일정 참가",
+  "settingsJoinTripDescription": "참가 코드 입력",
+  "settingsJoinCodeTitle": "참가 코드 입력",
+  "settingsJoinCodeHint": "6자리 참가 코드",
+  "settingsJoinCodeInvalid": "6자리 숫자를 입력하세요",
+  "settingsJoin": "참가",
+  "settingsUserId": "사용자 ID",
+  "settingsLoading": "불러오는 중…",
+  "settingsIdCopied": "ID를 복사했습니다",
+  "settingsEnableStaff": "직원 및 관리자 기능 사용",
+  "settingsStaffDescription": "보고서와 고급 관리 기능 표시",
+  "settingsManualLocation": "현재 위치 수동 설정",
+  "settingsSearchLocation": "위치 검색",
+  "settingsCurrentCoordinates": "현재 설정: {latitude}, {longitude}",
+  "@settingsCurrentCoordinates": {
+    "placeholders": {
+      "latitude": {
+        "type": "String"
+      },
+      "longitude": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsUsingGps": "현재 설정: GPS 사용",
+  "settingsResetGps": "초기화하고 GPS 사용",
+  "settingsAdminMenu": "디버그 및 관리자 메뉴",
+  "settingsTimeOffset": "시간 오프셋 설정",
+  "settingsTimeOffsetDescription": "디버깅을 위해 현재 시간을 지정한 만큼 이동합니다.",
+  "settingsHours": "시간",
+  "settingsMinutes": "분",
+  "settingsReset": "초기화",
+  "settingsApply": "적용",
+  "settingsNoTimeOffset": "오프셋 없음(현재 시간: {time})",
+  "@settingsNoTimeOffset": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsTimeOffsetSummary": "오프셋: {hours}시간 {minutes}분\\n가상 시간: {time}",
+  "@settingsTimeOffsetSummary": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsCreateDebugTrip": "디버그: Higashi-Sumida 3 (東墨田三丁目)–Nakaibori (中居堀) 경로 만들기",
+  "settingsDebugTripDescription": "가는 길: 15분 후, 돌아오는 길: 2시간 후\\nHigashi-Sumida 3 (東墨田三丁目) ⇔ Nakaibori (中居堀)",
+  "settingsCreatingDebugTrip": "디버그 일정 만드는 중…",
+  "settingsDebugOutboundNotFound": "가는 경로를 찾을 수 없습니다",
+  "settingsDebugInboundNotFound": "돌아오는 경로를 찾을 수 없습니다",
+  "settingsDeleteAllTrips": "위험: 모든 일정 데이터 삭제",
+  "settingsDeleteAllTripsDescription": "Firestore의 trips 컬렉션을 비웁니다",
+  "settingsDeleteAllTitle": "모든 데이터 삭제",
+  "settingsDeleteAllConfirmation": "모든 일정 데이터를 삭제하시겠습니까?\\n되돌릴 수 없습니다.",
+  "settingsDeleting": "삭제 중…",
+  "settingsAllTripsDeleted": "모든 데이터를 삭제했습니다",
+  "settingsOpenAsLeader": "최신 일정을 리더로 열기",
+  "settingsOpenAsLeaderDescription": "가장 최근에 만든 일정의 관리 화면 표시",
+  "settingsTripReports": "일정 및 보고서",
+  "settingsTripReportsDescription": "지난 일정을 확인하고 보고서를 만듭니다",
+  "settingsOpenAsMember": "최신 일정을 참가자로 열기",
+  "settingsOpenAsMemberDescription": "가장 최근에 만든 일정의 참가자 화면 표시",
+  "settingsNoTrip": "일정을 찾을 수 없습니다. 먼저 일정을 만드세요.",
+  "settingsMemberModeEnabled": "참가자 모드로 전환했습니다",
+  "settingsNoJoinableTrip": "참가할 수 있는 일정이 없습니다",
+  "replanPrepareFailed": "경로 재검토를 준비할 수 없습니다: {error}",
+  "@replanPrepareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupTripStartChecking": "일정 시작 상태 확인 중…",
+  "groupReplanLeaderNotice": "그룹 경로 변경은 그룹 리더만 확정할 수 있습니다.",
+  "groupScheduleManualNotice": "일정을 변경하면 경로는 그대로 두고 이후 예정 시간만 함께 이동합니다.",
+  "groupReplanTitle": "그룹 경로 다시 확인",
+  "groupReplanDescription": "현재 위치와 이동 상태를 기준으로 새 경로를 비교합니다. 변경 확정은 그룹 리더만 할 수 있습니다.",
+  "groupScheduleUpdating": "일정 업데이트 중…",
+  "groupScheduleShift": "이후 일정을 {minutes}분 늦추기",
+  "@groupScheduleShift": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupSchedulePrepareFailed": "일정 변경을 준비할 수 없습니다: {error}",
+  "@groupSchedulePrepareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupScheduleShiftQuestion": "이후 일정을 {minutes}분 늦추시겠습니까?",
+  "@groupScheduleShiftQuestion": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleShiftScope": "현재 이후의 예정 시간을 함께 늦춥니다. 경로는 변경되지 않습니다.",
+  "groupScheduleShiftAction": "{minutes}분 늦추기",
+  "@groupScheduleShiftAction": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleEstimateChanged": "확인 중 예상 도착 시간이 변경되었습니다. 다시 확인해 주세요.",
+  "groupScheduleUserUnavailable": "일정을 변경하는 사용자를 확인할 수 없습니다.",
+  "groupScheduleShifted": "이후 일정을 {minutes}분 늦췄습니다.",
+  "@groupScheduleShifted": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleShiftFailed": "일정을 변경할 수 없습니다: {error}",
+  "@groupScheduleShiftFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "routeMapUnavailable": "경로 지도를 사용할 수 없습니다",
+  "routeMapStart": "출발",
+  "routeMapEnd": "도착지",
+  "replanMapAnchor": "경로 재검토 지점",
+  "replanReviewAction": "경로 다시 확인",
+  "replanSearching": "새 경로 검색 중…",
+  "replanSearchStateChanged": "검색 중 이동 상태가 변경되었습니다. “경로 다시 확인”을 다시 눌러 주세요.",
+  "replanTripUnavailable": "현재 일정을 가져올 수 없습니다.",
+  "replanAppliedFrom": "{place}부터 새 경로로 변경했습니다.",
+  "@replanAppliedFrom": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "replanSearchFailed": "새 경로를 검색할 수 없습니다: {error}",
+  "@replanSearchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "replanPreviewStateChanged": "경로 비교 중 이동 상태가 변경되었습니다. 최신 경로 후보로 업데이트한 뒤 다시 선택하세요.",
+  "replanUserUnavailable": "경로를 변경하는 사용자를 확인할 수 없습니다.",
+  "groupReplanUnavailableHere": "이 화면에서는 그룹 경로를 변경할 수 없습니다.",
+  "groupReplanLeaderOnly": "그룹 경로는 그룹 리더만 변경할 수 있습니다.",
+  "groupGuideTitle": "일정 안내",
+  "groupGuideButton": "안내",
+  "groupJoinCode": "참가 코드",
+  "groupJoinCodeCopied": "참가 코드를 복사했습니다",
+  "groupBasicInfo": "기본 정보",
+  "groupLeader": "리더",
+  "groupDate": "날짜",
+  "groupParticipants": "참가자",
+  "groupGuideSchedule": "안내(일정)",
+  "groupEdit": "일정 편집",
+  "groupLoadFailed": "일정을 불러올 수 없습니다: {error}",
+  "@groupLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupNotFound": "일정을 찾을 수 없습니다",
+  "groupNotActive": "진행 중인 일정이 아닙니다: {phase}",
+  "@groupNotActive": {
+    "placeholders": {
+      "phase": {
+        "type": "String"
+      }
+    }
+  },
+  "groupLeaderTraveling": "리더 · 이동 중",
+  "groupManagement": "일정 관리",
+  "groupTodaySchedule": "오늘 일정",
+  "groupCompletedCount": "{count}개 완료",
+  "@groupCompletedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleAllCompleted": "예정된 항목을 모두 완료했습니다.",
+  "groupOpenManagement": "일정 관리 열기",
+  "groupArrivedTitle": "목적지 도착",
+  "groupArrivedQuestion": "가는 일정을 완료했습니까?\\n예를 선택하면 돌아오는 길 안내를 준비합니다.",
+  "groupNo": "아니요",
+  "groupYes": "예",
+  "groupArrivalRecorded": "도착을 기록했습니다. 돌아오는 길도 안전하게 이동하세요!",
+  "groupUpdateFailed": "업데이트할 수 없습니다: {error}",
+  "@groupUpdateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupEndTitle": "일정 종료",
+  "groupEndQuestion": "이 일정을 종료하시겠습니까?\\n참가자에게도 일정이 종료되었다고 표시됩니다.",
+  "groupEndAction": "종료",
+  "groupEnded": "일정이 종료되었습니다",
+  "groupEndFailed": "일정을 종료할 수 없습니다: {error}",
+  "@groupEndFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupUpdating": "업데이트 중…",
+  "groupArriveAndReturn": "도착(돌아갈 준비)",
+  "groupEndTrip": "일정 종료",
+  "groupReplanExplanation": "현재 시간을 기준으로 목적지까지의 경로를 다시 검색합니다. 승차 전에는 저장된 출발지에서, 이동 중에는 확인된 역 또는 정류장에서 검색을 시작합니다.",
+  "groupMemberReplanNotice": "경로 변경은 리더만 확정할 수 있습니다. 필요한 경우 리더에게 요청하세요.",
+  "groupMemberScheduleNotice": "일정 변경은 리더가 관리합니다. 필요한 경우 리더에게 요청하세요.",
+  "groupNotifyQuestion": "리더에게 알림을 보내시겠습니까?",
+  "groupNotified": "리더에게 알렸습니다!",
+  "groupNotify": "알림 보내기",
+  "groupMemberMode": "일정 모드",
+  "groupMemberView": "참가자 화면 보기",
+  "groupMemberViewHint": "현재 참가자에게 표시되는 안내 확인",
+  "groupMemberPreview": "참가자 화면",
+  "groupBackToLeader": "리더 관리 화면으로 돌아가기",
+  "groupExitMode": "일정 모드 종료",
+  "groupExitQuestion": "일반 모드로 돌아가시겠습니까?",
+  "groupHelpNotice": "도움이 필요하면 도움말 / 연락을 누르세요. 메시지를 소리 내어 읽어 줍니다.",
+  "groupHelp": "도움말",
+  "groupHelpContact": "도움말 / 연락",
+  "groupReturnNormal": "일반 모드로 돌아가기",
+  "groupScheduleEdit": "항목 편집",
+  "groupScheduleAdd": "항목 추가",
+  "groupScheduleOnsite": "목적지 일정",
+  "groupScheduleOnsiteEmpty": "목적지 일정이 아직 없습니다",
+  "groupScheduleRouteManaged": "교통 항목은 경로에서 자동으로 생성됩니다",
+  "groupScheduleTitleRequired": "제목을 입력하세요",
+  "groupScheduleOnsiteWindow": "{start}부터 {end} 사이에 일정을 추가하세요",
+  "@groupScheduleOnsiteWindow": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "groupScheduleOnsiteWindowError": "목적지 일정은 {start}부터 {end} 사이여야 합니다",
+  "@groupScheduleOnsiteWindowError": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "groupScheduleRouteSummary": "{start} → {end} · {count}개 항목",
+  "@groupScheduleRouteSummary": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupScheduleAdditionalRoute": "이동 {number}",
+  "@groupScheduleAdditionalRoute": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "groupTimeLabel": "시간: {time}",
+  "@groupTimeLabel": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "groupOutbound": "가는 길",
+  "groupInbound": "돌아오는 길",
+  "groupScheduleTitleField": "제목",
+  "groupScheduleDetailsField": "상세(선택 사항)",
+  "groupScheduleLegField": "이동",
+  "groupAdd": "추가",
+  "groupSchedule": "일정",
+  "groupScheduleDeleteQuestion": "이 항목을 삭제하시겠습니까?",
+  "groupScheduleDeleteDescription": "일정에서 “{title}” 항목을 삭제합니다.",
+  "@groupScheduleDeleteDescription": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "groupTripList": "일정",
+  "groupTripListEmpty": "일정 기록이 없습니다",
+  "groupSoloSummary": "{date} - 개인 일정",
+  "@groupSoloSummary": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "groupTripSummary": "{date} - 그룹 일정 · 참가자 {count}명",
+  "@groupTripSummary": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupNoScheduleInfo": "일정 정보 없음",
+  "groupStarted": "일정을 시작했습니다",
+  "groupStartFailed": "일정을 시작할 수 없습니다: {error}",
+  "@groupStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupReplanQuestion": "경로를 다시 확인하시겠습니까?",
+  "groupLateStartDescription": "일정이 {minutes}분 늦게 시작되었습니다.\\n\\n열차와 버스 시간은 지연된 만큼 자동으로 이동하지 않습니다. 필요한 경우 현재 시간과 경로상의 출발 지점을 사용해 다시 검색하세요.",
+  "@groupLateStartDescription": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "groupContinue": "계획대로 계속",
+  "groupCancelTooltip": "일정 취소",
+  "groupTripTo": "{destination} 일정",
+  "@groupTripTo": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "groupCodeHint": "언제든 확인하고 복사할 수 있습니다",
+  "groupCopy": "복사",
+  "groupChangeReturnTime": "돌아오는 시간 변경",
+  "groupReturnDelayedHint": "일정보다 늦어졌을 때 사용하세요",
+  "groupReturnUpdated": "돌아오는 일정을 업데이트했습니다",
+  "groupGuideHint": "그룹 상세와 참가 코드 보기",
+  "groupScheduleHint": "일정을 한곳에서 확인하고 편집",
+  "groupMap": "지도",
+  "groupTransfersToDestination": "목적지까지 환승",
+  "groupMembers": "참가자",
+  "groupRollCall": "인원 확인용",
+  "groupNoParticipants": "아직 참가자가 없습니다",
+  "groupJoined": "참가함",
+  "groupStartAtMeeting": "집합 시간이 되면 시작할 수 있습니다",
+  "groupMeetingNotSet": "집합 일정이 없습니다",
+  "groupStartTrip": "일정 시작",
+  "groupOutboundActive": "가는 길 · 이동 중",
+  "groupInboundActive": "돌아오는 길 · 이동 중",
+  "groupPhaseLabel": "상태: {phase}",
+  "@groupPhaseLabel": {
+    "placeholders": {
+      "phase": {
+        "type": "String"
+      }
+    }
+  },
+  "groupCancelQuestion": "이 일정을 취소하시겠습니까?",
+  "groupCancelDescription": "되돌릴 수 없습니다.\\n취소하면 일정이 종료되고 모든 참가자에게 그룹이 해산되었다고 표시됩니다.",
+  "groupCancelled": "일정이 취소되었습니다",
+  "groupReportMemoSaved": "메모를 저장했습니다",
+  "groupReportSaveFailed": "저장할 수 없습니다: {error}",
+  "@groupReportSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "groupReportTitle": "일정 보고서",
+  "groupReportSchedule": "날짜 및 시간",
+  "groupReportAttendance": "참가자 및 출석",
+  "groupReportSos": "SOS 기록",
+  "groupReportNotes": "대응 메모",
+  "groupReportDate": "날짜: {date}",
+  "@groupReportDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "groupReportStatus": "상태: ",
+  "groupReportActive": "진행 중",
+  "groupReportStart": "시작",
+  "groupReportEnd": "종료(예정)",
+  "groupReportSosCount": "SOS 횟수: {count}",
+  "@groupReportSosCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupReportDemoSos": "SOS 알림 기록(샘플 데이터)",
+  "groupReportDemoFall": "넘어져 가벼운 부상",
+  "groupReportDemoLost": "그룹에서 이탈",
+  "groupReportDemoReunited": "그룹에 다시 합류",
+  "groupReportNotesHint": "특이 사항이나 대응 내용을 입력하세요"
+}
