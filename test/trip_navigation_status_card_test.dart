@@ -288,9 +288,102 @@ void main() {
       expect(semantics.properties.label, 'リアルタイム位置情報を更新中');
       expect(find.byIcon(Icons.sync), findsOneWidget);
       expect(find.text('📍'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('approaching-ride-heading')),
+        findsOneWidget,
+      );
+      expect(find.text('上23'), findsOneWidget);
+      expect(find.text('2停留所前'), findsOneWidget);
+      expect(find.text('上23 2停留所前'), findsNothing);
+      final routeTitle = tester.widget<Text>(find.text('上23'));
+      final distance = tester.widget<Text>(find.text('2停留所前'));
+      expect(routeTitle.style?.fontSize, 20);
+      expect(distance.style?.fontSize, 34);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('approaching bus keeps English route title compact', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final step = StepSeg(
+      stepId: 'bus-approaching-en',
+      kind: 'bus',
+      title: '錦３７ 錦糸町駅前行',
+      titleEn: '錦３７ · Kinshichō Sta.',
+      fromName: '十間橋通り',
+      fromNameEn: 'Jukkenbashi-Dori',
+      toName: '渋谷駅前',
+      toNameEn: 'Shibuya Sta.',
+    );
+    final navigation = NavigationState(
+      mainText: '錦３７ 2停留所前',
+      subText: '乗る場所:十間橋通り',
+      color: Colors.blue,
+      statusLabel: '乗車待ち',
+      mainTextToken: const NavigationTextToken(
+        NavigationTextKey.approachingBusMain,
+        {
+          'rideTitle': '錦３７',
+          'rideTitleEn': '錦３７ · Kinshichō Sta.',
+          'count': 2,
+        },
+      ),
+      subTextToken: const NavigationTextToken(
+        NavigationTextKey.nowAtSub,
+        {
+          'placeName': '十間橋通り',
+          'placeNameEn': 'Jukkenbashi-Dori',
+        },
+      ),
+      statusLabelToken: const NavigationTextToken(
+        NavigationTextKey.waitingToBoardStatus,
+      ),
+      step: step,
+      isMoving: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TripNavigationStatusCard(
+            navState: navigation,
+            tripTitle: 'Jukkenbashi-Dori → Shibuya',
+            onTapStops: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('錦３７ · Kinshichō Sta.'), findsOneWidget);
+    expect(find.text('2 stops away'), findsOneWidget);
+    expect(
+      find.text('錦３７ · Kinshichō Sta. · 2 stops away'),
+      findsNothing,
+    );
+    expect(
+      find.text('Board at: Jukkenbashi-Dori (十間橋通り)'),
+      findsOneWidget,
+    );
+    final routeTitle = tester.widget<Text>(
+      find.text('錦３７ · Kinshichō Sta.'),
+    );
+    final distance = tester.widget<Text>(find.text('2 stops away'));
+    expect(routeTitle.style?.fontSize, 20);
+    expect(distance.style?.fontSize, 34);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('get-off-next separates time, route, and destination', (
     tester,

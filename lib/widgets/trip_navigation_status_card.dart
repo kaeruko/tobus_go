@@ -150,6 +150,8 @@ class TripNavigationStatusCard extends StatelessWidget {
                 locale,
                 showRealtimeIndicator: showRideRealtimeIndicator,
               )
+            else if (_usesStructuredApproachingHeading())
+              _buildStructuredApproachingHeading(context, l10n, locale)
             else if (_usesStructuredWalkToRideHeading())
               _buildStructuredWalkToRideHeading(context, l10n, locale)
             else if (_usesStructuredDepartureCountdownHeading())
@@ -242,6 +244,13 @@ class TripNavigationStatusCard extends StatelessWidget {
         navState.mainTextToken?.key == NavigationTextKey.rideCurrentPlaceMain;
   }
 
+  bool _usesStructuredApproachingHeading() {
+    final key = navState.mainTextToken?.key;
+    return navState.step?.isRide == true &&
+        (key == NavigationTextKey.approachingBusMain ||
+            key == NavigationTextKey.approachingRailMain);
+  }
+
   bool _usesStructuredWalkToRideHeading() {
     return navState.mainTextToken?.key ==
         NavigationTextKey.walkToRideCountdownMain;
@@ -258,6 +267,135 @@ class TripNavigationStatusCard extends StatelessWidget {
     return navState.mainTextToken?.key ==
             NavigationTextKey.departureCountdownMain &&
         navState.subTextToken?.key == NavigationTextKey.boardingSub;
+  }
+
+  Widget _buildStructuredApproachingHeading(
+    BuildContext context,
+    AppLocalizations l10n,
+    Locale locale,
+  ) {
+    final step = navState.step;
+    final token = navState.mainTextToken;
+    if (step == null || !step.isRide || token == null) {
+      throw StateError('接近中の構造化表示に乗車stepまたはtokenがありません');
+    }
+
+    final countValue = token.args['count'];
+    if (countValue is! int || countValue <= 0) {
+      throw StateError(
+        '接近中の構造化表示に正のcountがありません: '
+        'stepId=${step.stepId}, count=$countValue',
+      );
+    }
+
+    final routeTitleJaValue = token.args['rideTitle'];
+    if (routeTitleJaValue is! String || routeTitleJaValue.trim().isEmpty) {
+      throw StateError(
+        '接近中の構造化表示にrideTitleがありません: stepId=${step.stepId}',
+      );
+    }
+    final routeTitleJa = routeTitleJaValue.trim();
+    final routeTitle = isEnglishTransitLocale(locale)
+        ? (() {
+            final english = token.args['rideTitleEn'];
+            if (english is! String || english.trim().isEmpty) {
+              throw StateError(
+                '接近中の構造化表示に公式英語rideTitleEnがありません: '
+                'stepId=${step.stepId}',
+              );
+            }
+            return english.trim();
+          })()
+        : normalizeJapaneseTransitDisplayText(routeTitleJa);
+
+    late final String distanceText;
+    late final IconData icon;
+    switch (step.kind) {
+      case 'bus':
+        if (token.key != NavigationTextKey.approachingBusMain) {
+          throw StateError(
+            'バス接近中表示にapproachingBusMain tokenがありません: '
+            'stepId=${step.stepId}, token=${token.key.name}',
+          );
+        }
+        distanceText = l10n.navApproachingBusDistance(countValue);
+        icon = Icons.directions_bus;
+      case 'rail':
+        if (token.key != NavigationTextKey.approachingRailMain) {
+          throw StateError(
+            '鉄道接近中表示にapproachingRailMain tokenがありません: '
+            'stepId=${step.stepId}, token=${token.key.name}',
+          );
+        }
+        distanceText = l10n.navApproachingRailDistance(countValue);
+        icon = Icons.train;
+      default:
+        throw StateError(
+          '接近中の構造化表示で未対応のstep kindです: ${step.kind}',
+        );
+    }
+
+    final boardingText = localizedNavigationText(
+      l10n,
+      locale,
+      navState.subTextToken,
+      fallback: navState.subText,
+    ).trim();
+    if (boardingText.isEmpty) {
+      throw StateError(
+        '接近中の構造化表示に乗車地点表示がありません: stepId=${step.stepId}',
+      );
+    }
+
+    return Column(
+      key: const ValueKey('approaching-ride-heading'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                routeTitle,
+                key: const ValueKey('approaching-route-title'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Text(
+          distanceText,
+          key: const ValueKey('approaching-distance'),
+          maxLines: 2,
+          overflow: TextOverflow.visible,
+          style: const TextStyle(
+            fontSize: 34,
+            height: 1.08,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          boardingText,
+          key: const ValueKey('approaching-boarding-place'),
+          maxLines: 2,
+          overflow: TextOverflow.visible,
+          style: const TextStyle(
+            fontSize: 21,
+            height: 1.2,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildStructuredDepartureCountdownHeading(

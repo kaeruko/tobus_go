@@ -817,12 +817,28 @@
       }
     }
   },
+  "navApproachingBusDistance": "{count}停留所前",
+  "@navApproachingBusDistance": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "navApproachingRailMain": "{rideTitle} {count}駅前",
   "@navApproachingRailMain": {
     "placeholders": {
       "rideTitle": {
         "type": "String"
       },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "navApproachingRailDistance": "{count}駅前",
+  "@navApproachingRailDistance": {
+    "placeholders": {
       "count": {
         "type": "int"
       }

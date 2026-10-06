@@ -817,12 +817,28 @@
       }
     }
   },
+  "navApproachingBusDistance": "{count} stops away",
+  "@navApproachingBusDistance": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "navApproachingRailMain": "{rideTitle} · {count} stations away",
   "@navApproachingRailMain": {
     "placeholders": {
       "rideTitle": {
         "type": "String"
       },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "navApproachingRailDistance": "{count} stations away",
+  "@navApproachingRailDistance": {
+    "placeholders": {
       "count": {
         "type": "int"
       }
