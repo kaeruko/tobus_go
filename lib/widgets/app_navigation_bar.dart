@@ -28,7 +28,10 @@ Widget cityBrandNavigationTitle({
       return Builder(
         builder: (context) {
           final languageCode = Localizations.localeOf(context).languageCode;
-          final asset = languageCode == 'en' || languageCode == 'zh'
+          final asset =
+              languageCode == 'en' ||
+                  languageCode == 'zh' ||
+                  languageCode == 'ko'
               ? _tokyoHeaderLogoAssetEn
               : _tokyoHeaderLogoAssetJa;
           return Semantics(
