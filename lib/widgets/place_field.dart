@@ -182,7 +182,9 @@ class _PlaceFieldState extends State<PlaceField> {
       case 'en':
         return languageCode;
       case 'zh':
-        // Reuse the same official English/Japanese place data in Chinese UI.
+      case 'ko':
+        // Reuse the same official English/Japanese place data in Chinese and
+        // Korean UI so selected places stay consistent with transit names.
         return 'en';
       default:
         throw StateError('Unsupported place-search language: $languageCode');
