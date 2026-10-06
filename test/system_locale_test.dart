@@ -8,6 +8,7 @@ void main() {
     final cases = <(Locale, Locale)>[
       (const Locale('ja', 'JP'), const Locale('ja')),
       (const Locale('en', 'US'), const Locale('en')),
+      (const Locale('ko', 'KR'), const Locale('ko')),
       (const Locale('zh', 'CN'), const Locale('zh')),
       (
         const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans'),
