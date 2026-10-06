@@ -21,6 +21,26 @@ void main() {
     },
   );
 
+  test(
+    'Traditional Chinese Taiwan resources expose localized search and settings',
+    () async {
+      final locale = Locale.fromSubtags(
+        languageCode: 'zh',
+        scriptCode: 'Hant',
+        countryCode: 'TW',
+      );
+      final l10n = await AppLocalizations.delegate.load(locale);
+
+      expect(localizedCityAppName(l10n, AppCity.tokyo), '都營GO');
+      expect(l10n.tabSearch, '搜尋');
+      expect(l10n.departureSearch, '出發地');
+      expect(l10n.arrivalSearch, '目的地');
+      expect(l10n.languageSettingsTitle, '語言');
+      expect(l10n.transportBusOnly, '僅限都營巴士');
+      expect(AppLocalizations.supportedLocales, contains(locale));
+    },
+  );
+
   test('English resources expose localized city and search labels', () async {
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
 

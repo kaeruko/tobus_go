@@ -13,6 +13,34 @@ void main() {
         const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans'),
         const Locale('zh'),
       ),
+      (
+        const Locale('zh', 'TW'),
+        const Locale.fromSubtags(
+          languageCode: 'zh',
+          scriptCode: 'Hant',
+          countryCode: 'TW',
+        ),
+      ),
+      (
+        const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+        const Locale.fromSubtags(
+          languageCode: 'zh',
+          scriptCode: 'Hant',
+          countryCode: 'TW',
+        ),
+      ),
+      (
+        const Locale.fromSubtags(
+          languageCode: 'zh',
+          scriptCode: 'Hant',
+          countryCode: 'TW',
+        ),
+        const Locale.fromSubtags(
+          languageCode: 'zh',
+          scriptCode: 'Hant',
+          countryCode: 'TW',
+        ),
+      ),
     ];
 
     for (final (deviceLocale, expectedLocale) in cases) {
