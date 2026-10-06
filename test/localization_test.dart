@@ -41,6 +41,18 @@ void main() {
     },
   );
 
+  test('Korean resources expose localized city and search labels', () async {
+    final l10n = await AppLocalizations.delegate.load(const Locale('ko'));
+
+    expect(localizedCityAppName(l10n, AppCity.tokyo), '도에이 GO');
+    expect(l10n.tabSearch, '검색');
+    expect(l10n.departureSearch, '출발지');
+    expect(l10n.arrivalSearch, '도착지');
+    expect(l10n.languageSettingsTitle, '언어');
+    expect(l10n.transportBusOnly, '도에이 버스만');
+    expect(AppLocalizations.supportedLocales, contains(const Locale('ko')));
+  });
+
   test('English resources expose localized city and search labels', () async {
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
 
