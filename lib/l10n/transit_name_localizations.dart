@@ -2,10 +2,12 @@ import 'package:flutter/widgets.dart';
 
 import '../models/route_models.dart';
 
-/// Both English and Chinese UI use the API's official English transit names.
+/// English, Chinese, and Korean UI use the API's official English transit names.
 /// Japanese names remain alongside stop/place names for matching local signs.
 bool isEnglishTransitLocale(Locale locale) =>
-    locale.languageCode == 'en' || locale.languageCode == 'zh';
+    locale.languageCode == 'en' ||
+    locale.languageCode == 'zh' ||
+    locale.languageCode == 'ko';
 
 final RegExp _japaneseRouteAliasPattern = RegExp(
   r'[（(][A-Za-zＡ-Ｚａ-ｚ][A-Za-zＡ-Ｚａ-ｚ0-9０-９-]*[）)]',
