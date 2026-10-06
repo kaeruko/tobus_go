@@ -1,5 +1,7 @@
 import '../models/group_models.dart';
 import '../models/trip_models.dart';
+import 'active_trip_navigation_schedule.dart';
+import 'trip_coordinator.dart';
 
 enum GroupLeaderActivePrimaryAction {
   arriveAtGoal,
@@ -49,4 +51,19 @@ GroupLeaderActivePrimaryAction? resolveGroupLeaderActivePrimaryAction(
   return trip.completedLegIndex >= 0
       ? GroupLeaderActivePrimaryAction.completeTrip
       : GroupLeaderActivePrimaryAction.arriveAtGoal;
+}
+
+
+GroupLeaderActivePrimaryAction? resolveGroupLeaderActivePrimaryActionAt(
+  Trip trip, {
+  required DateTime now,
+}) {
+  final resolved = TripCoordinator.resolveScheduleState(
+    scheduleEntries: navigationScheduleForTrip(trip),
+    now: now,
+  ).resolvedEntry;
+  return resolveGroupLeaderActivePrimaryAction(
+    trip,
+    resolvedEntry: resolved,
+  );
 }
