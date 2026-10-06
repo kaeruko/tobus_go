@@ -320,6 +320,7 @@ class TripNavigationStatusCard extends StatelessWidget {
         }
         distanceText = l10n.navApproachingBusDistance(countValue);
         icon = Icons.directions_bus;
+        break;
       case 'rail':
         if (token.key != NavigationTextKey.approachingRailMain) {
           throw StateError(
@@ -329,6 +330,7 @@ class TripNavigationStatusCard extends StatelessWidget {
         }
         distanceText = l10n.navApproachingRailDistance(countValue);
         icon = Icons.train;
+        break;
       default:
         throw StateError(
           '接近中の構造化表示で未対応のstep kindです: ${step.kind}',
