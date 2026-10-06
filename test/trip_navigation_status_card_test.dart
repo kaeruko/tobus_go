@@ -607,7 +607,7 @@ void main() {
     expect(find.text('Next: Yokohama Station (横浜駅前)'), findsOneWidget);
   });
 
-  for (final language in ['en', 'zh']) {
+  for (final language in ['en', 'zh', 'ko']) {
     testWidgets(
       '$language walk countdown is rendered as structured transport data',
       (tester) async {
