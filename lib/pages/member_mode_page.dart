@@ -6,6 +6,7 @@ import '../l10n/city_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../logic/active_trip_navigation_schedule.dart';
 import '../logic/route_replan_presentation.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
