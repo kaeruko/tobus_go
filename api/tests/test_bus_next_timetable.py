@@ -110,7 +110,7 @@ class BusNextTimetableTest(unittest.TestCase):
             "bus_timetable_day_type_invalid",
         )
 
-    def test_missing_gtfs_english_name_uses_exact_odpt_pole_identity(self):
+    def test_missing_gtfs_english_name_uses_exact_odpt_pole_id(self):
         fake_repo = _FakeGtfsRepository()
         fake_repo.timetable_index = {"093|0751-02": [(520, 1, "trip-toyomi")]}
         fake_repo.trips = {
@@ -162,7 +162,7 @@ class BusNextTimetableTest(unittest.TestCase):
             "Toyomi-Suisan-Futō",
         )
 
-    def test_missing_gtfs_english_name_rejects_mismatched_odpt_identity(self):
+    def test_odpt_pole_identity_does_not_use_japanese_name(self):
         fake_repo = _FakeGtfsRepository()
         fake_repo.timetable_index = {"093|0751-02": [(520, 1, "trip-toyomi")]}
         fake_repo.trips = {
@@ -181,8 +181,53 @@ class BusNextTimetableTest(unittest.TestCase):
         graph = nx.DiGraph()
         graph.add_node(
             ("phys", "odpt.BusstopPole:Toei.ToyomiSuisanFuto.1035.1"),
-            name="別の停留所",
+            name="この名前は識別に使わない",
             name_en="Toyomi-Suisan-Futō",
+        )
+        day_type = SimpleNamespace(
+            has_gtfs_calendar=True,
+            active_service_ids=frozenset({"WK"}),
+        )
+
+        with patch("app.routes.gtfs_repo", fake_repo):
+            destinations = _gtfs_bus_timetable_destinations(
+                route_id="093",
+                pole_id="0751-02",
+                target_pole_id=None,
+                day_type=day_type,
+                current_minute=8 * 60 + 40,
+                limit=3,
+                include_all=False,
+                delay_min=0,
+                graph=graph,
+            )
+
+        self.assertEqual(
+            destinations[0]["destination_name_en"],
+            "Toyomi-Suisan-Futō",
+        )
+
+    def test_odpt_pole_identity_rejects_same_name_with_different_id(self):
+        fake_repo = _FakeGtfsRepository()
+        fake_repo.timetable_index = {"093|0751-02": [(520, 1, "trip-toyomi")]}
+        fake_repo.trips = {
+            "trip-toyomi": {"route_id": "093", "service_id": "WK"},
+        }
+        fake_repo.stop_times = {
+            "trip-toyomi": {
+                1: ("0751-02", 520, 520),
+                2: ("1035-01", 550, 550),
+            },
+        }
+        fake_repo.stops = {
+            "0751-02": {"name": "十間橋", "name_en": "Jukkembashi"},
+            "1035-01": {"name": "豊海水産埠頭", "name_en": None},
+        }
+        graph = nx.DiGraph()
+        graph.add_node(
+            ("phys", "odpt.BusstopPole:Toei.OtherStop.1036.1"),
+            name="豊海水産埠頭",
+            name_en="Wrong stop with same Japanese name",
         )
         day_type = SimpleNamespace(
             has_gtfs_calendar=True,
@@ -192,7 +237,7 @@ class BusNextTimetableTest(unittest.TestCase):
         with patch("app.routes.gtfs_repo", fake_repo):
             with self.assertRaisesRegex(
                 RuntimeError,
-                "GTFS/ODPT bus stop identity disagrees on Japanese name",
+                "no exact ODPT pole ID match",
             ):
                 _gtfs_bus_timetable_destinations(
                     route_id="093",

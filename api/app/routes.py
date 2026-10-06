@@ -327,7 +327,6 @@ def _required_bus_stop_english_name_from_graph(
     graph,
     *,
     gtfs_stop_id: str,
-    japanese_name: str,
 ) -> str:
     matches: list[tuple[str, str]] = []
     for node, attributes in graph.nodes(data=True):
@@ -341,13 +340,6 @@ def _required_bus_stop_english_name_from_graph(
         if _gtfs_stop_id(node[1]) != gtfs_stop_id:
             continue
 
-        graph_japanese_name = attributes.get("name")
-        if graph_japanese_name != japanese_name:
-            raise RuntimeError(
-                "GTFS/ODPT bus stop identity disagrees on Japanese name: "
-                f"stop_id={gtfs_stop_id!r} gtfs_name={japanese_name!r} "
-                f"odpt_id={node[1]!r} odpt_name={graph_japanese_name!r}"
-            )
         english_name = attributes.get("name_en")
         if not isinstance(english_name, str) or not english_name.strip():
             raise RuntimeError(
@@ -358,14 +350,14 @@ def _required_bus_stop_english_name_from_graph(
 
     if not matches:
         raise RuntimeError(
-            "GTFS bus stop has no English translation and no exact ODPT pole match: "
-            f"stop_id={gtfs_stop_id!r} name={japanese_name!r}"
+            "GTFS bus stop has no English translation and no exact ODPT pole ID match: "
+            f"stop_id={gtfs_stop_id!r}"
         )
 
     english_names = {english_name for _, english_name in matches}
     if len(english_names) != 1:
         raise RuntimeError(
-            "Exact ODPT pole matches disagree on official English name: "
+            "Exact ODPT pole ID matches disagree on official English name: "
             f"stop_id={gtfs_stop_id!r} matches={matches!r}"
         )
     return next(iter(english_names))
@@ -466,7 +458,6 @@ def _gtfs_bus_timetable_destinations(
             destination_name_en = _required_bus_stop_english_name_from_graph(
                 graph,
                 gtfs_stop_id=destination_stop_id,
-                japanese_name=destination_name,
             )
         else:
             destination_name_en = destination_name_en.strip()
@@ -876,7 +867,6 @@ def register_routes(app):
                 pole_name_en = _required_bus_stop_english_name_from_graph(
                     g,
                     gtfs_stop_id=pole_id,
-                    japanese_name=pole_name,
                 )
             else:
                 pole_name_en = pole_name_en.strip()
