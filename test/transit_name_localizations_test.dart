@@ -24,7 +24,11 @@ void main() {
     );
   });
 
-  for (final locale in [const Locale('en'), const Locale('zh', 'CN')]) {
+  for (final locale in [
+    const Locale('en'),
+    const Locale('zh', 'CN'),
+    const Locale('ko', 'KR'),
+  ]) {
     group('Official transit names for ${locale.toLanguageTag()}', () {
       test('English ride title requires explicit official English text', () {
         final step = StepSeg(
