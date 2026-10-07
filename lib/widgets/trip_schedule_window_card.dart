@@ -112,17 +112,7 @@ class TripScheduleWindowCard extends StatelessWidget {
             else
               ...entries.map((entry) {
                 final isActive = resolvedEntry?.id == entry.id;
-                final tile = ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  onTap: _entryTap(entry),
-                  leading: Icon(_listTileIcon(entry)),
-                  title: Text(_entryLabel(entry)),
-                  subtitle: isActive ? Text(activeLabel) : null,
-                  trailing: Text(_format24Hour(entry.plannedAt)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                );
+                final row = _buildListRow(entry, isActive: isActive);
                 if (!isActive || activeDetail == null) {
                   return Material(
                     color: isActive
@@ -130,7 +120,7 @@ class TripScheduleWindowCard extends StatelessWidget {
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                     clipBehavior: Clip.antiAlias,
-                    child: tile,
+                    child: row,
                   );
                 }
                 return Material(
@@ -140,9 +130,9 @@ class TripScheduleWindowCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      tile,
+                      row,
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        padding: const EdgeInsets.fromLTRB(82, 0, 12, 12),
                         child: activeDetail!,
                       ),
                     ],
@@ -152,6 +142,79 @@ class TripScheduleWindowCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildListRow(
+    ScheduleEntry entry, {
+    required bool isActive,
+  }) {
+    final onTap = _entryTap(entry);
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 46,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                _format24Hour(entry.plannedAt),
+                key: ValueKey('schedule-time-${entry.id}'),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(
+              _listTileIcon(entry),
+              key: ValueKey('schedule-icon-${entry.id}'),
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _entryLabel(entry),
+                  key: ValueKey('schedule-label-${entry.id}'),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    height: 1.25,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (isActive) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    activeLabel,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.green.shade800,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (onTap == null) return content;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: content,
     );
   }
 

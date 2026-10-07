@@ -327,7 +327,7 @@ String localizedSoloScheduleEntryCompactLabel(
       return normalizedJapanese;
     }
     if (normalizedEnglish == normalizedJapanese) return normalizedEnglish;
-    return '$normalizedEnglish\n$normalizedJapanese';
+    return '$normalizedEnglish ($normalizedJapanese)';
   }
 
   String compactGoal() {

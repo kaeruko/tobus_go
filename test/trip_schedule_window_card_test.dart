@@ -43,6 +43,18 @@ void main() {
     expect(find.text('乗車中'), findsOneWidget);
     expect(find.text('09:42'), findsOneWidget);
 
+    final timeLeft = tester
+        .getTopLeft(find.byKey(const ValueKey('schedule-time-ride-1')))
+        .dx;
+    final iconLeft = tester
+        .getTopLeft(find.byKey(const ValueKey('schedule-icon-ride-1')))
+        .dx;
+    final labelLeft = tester
+        .getTopLeft(find.byKey(const ValueKey('schedule-label-ride-1')))
+        .dx;
+    expect(timeLeft, lessThan(iconLeft));
+    expect(iconLeft, lessThan(labelLeft));
+
     await tester.tap(find.text('浅草線に乗車'));
     await tester.pump();
     expect(tappedEntryId, 'ride-1');
@@ -122,6 +134,44 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('🚇浅草線 押上に乗る'), findsNothing);
+  });
+
+  testWidgets('listTiles keep bilingual place inline', (tester) async {
+    final entry = ScheduleEntry(
+      id: 'walk-bilingual',
+      plannedAt: DateTime(2026, 10, 7, 9, 40),
+      label: '両国まで歩く',
+      itemKind: ScheduleEntryKind.walk,
+      generatedBy: ScheduleEntrySource.route,
+      routeStepId: 'walk-1',
+      routeRole: 'walk',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TripScheduleWindowCard(
+            title: '현재 경로',
+            resolvedEntry: null,
+            entries: [entry],
+            completedCount: 0,
+            totalCount: 1,
+            activeLabel: '현재',
+            counterLabelBuilder: (completedCount, totalCount) =>
+                '$completedCount / $totalCount 단계',
+            entryLabelBuilder: (_) => 'Ryogoku (両国)\n1분',
+            appearance: TripScheduleWindowAppearance.listTiles,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('09:40'), findsOneWidget);
+    expect(find.text('Ryogoku (両国)\n1분'), findsOneWidget);
+    expect(find.text('Ryogoku\n両国\n1분'), findsNothing);
   });
 
   testWidgets('listTilesのwait_startは時計アイコンで表示する', (tester) async {

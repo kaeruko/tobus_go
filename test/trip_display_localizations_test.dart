@@ -178,7 +178,7 @@ void main() {
         trip: trip,
         entry: entries[0],
       ),
-      'Oshiage\n押上\n5 min',
+      'Oshiage (押上)\n5 min',
     );
     expect(
       localizedSoloScheduleEntryCompactLabel(
@@ -186,7 +186,7 @@ void main() {
         trip: trip,
         entry: entries[1],
       ),
-      'Asakusa Line\nOshiage\n押上',
+      'Asakusa Line\nOshiage (押上)',
     );
     expect(
       localizedSoloScheduleEntryCompactLabel(
@@ -194,7 +194,7 @@ void main() {
         trip: trip,
         entry: entries[2],
       ),
-      'Kuramae\n蔵前',
+      'Kuramae (蔵前)',
     );
     expect(
       localizedSoloScheduleEntryCompactLabel(
@@ -202,7 +202,7 @@ void main() {
         trip: trip,
         entry: entries[3],
       ),
-      'Oedo Line\nKuramae\n蔵前',
+      'Oedo Line\nKuramae (蔵前)',
     );
   });
 
@@ -289,7 +289,7 @@ void main() {
         trip: trip,
         entry: entries[0],
       ),
-      'Oshiage\n押上\n5分钟',
+      'Oshiage (押上)\n5分钟',
     );
     expect(
       localizedSoloScheduleEntryCompactLabel(
@@ -297,7 +297,7 @@ void main() {
         trip: trip,
         entry: entries[1],
       ),
-      'Asakusa Line\nOshiage\n押上',
+      'Asakusa Line\nOshiage (押上)',
     );
   });
 
