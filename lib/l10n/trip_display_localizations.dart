@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../models/group_models.dart';
+import '../models/leg_models.dart';
 import '../models/trip_models.dart';
 import 'app_localizations.dart';
 import 'transit_name_localizations.dart';
@@ -39,32 +40,149 @@ String localizedSoloTripTitle(Locale locale, Trip trip) {
   return '$origin → $destination';
 }
 
+String localizedGroupTripTitle(Locale locale, Trip trip) {
+  if (trip.isSolo) {
+    throw StateError(
+      'localizedGroupTripTitle requires a group trip: tripId=${trip.id}',
+    );
+  }
+  if (trip.legs.isEmpty) return trip.displayTitle;
+
+  final leg = trip.legs.firstWhere(
+    (leg) => leg.direction == LegDirection.outbound,
+    orElse: () => trip.legs.first,
+  );
+  final candidate = leg.candidate;
+  if (candidate.steps.isEmpty) return trip.displayTitle;
+
+  final last = candidate.steps.last;
+  final japanese = (candidate.destinationName ?? last.toName)?.trim();
+  if (japanese == null || japanese.isEmpty || japanese == '目的地') {
+    return trip.displayTitle;
+  }
+  final destination = _localizedEndpoint(
+    locale,
+    japanese: japanese,
+    english: candidate.destinationNameEn ?? last.toNameEn,
+    field: 'destination_name_en',
+    identity: 'candidateId=${candidate.id}',
+  );
+  return lookupAppLocalizations(locale).groupTripTo(destination);
+}
+
 String localizedSoloScheduleEntryLabel(
   Locale locale, {
   required Trip trip,
   required ScheduleEntry entry,
 }) {
-  if (!isEnglishTransitLocale(locale)) {
-    return entry.generatedBy == ScheduleEntrySource.route
-        ? normalizeJapaneseTransitDisplayText(entry.label)
-        : entry.label;
-  }
   if (!trip.isSolo) {
     throw StateError(
       'localizedSoloScheduleEntryLabel requires a solo trip: tripId=${trip.id}',
     );
   }
+  return _localizedRouteScheduleEntryLabel(
+    locale,
+    trip: trip,
+    entry: entry,
+    includeLegDirection: false,
+    allowMeeting: false,
+  );
+}
+
+String localizedGroupScheduleEntryLabel(
+  Locale locale, {
+  required Trip trip,
+  required ScheduleEntry entry,
+}) {
+  if (trip.isSolo) {
+    throw StateError(
+      'localizedGroupScheduleEntryLabel requires a group trip: tripId=${trip.id}',
+    );
+  }
+  return _localizedRouteScheduleEntryLabel(
+    locale,
+    trip: trip,
+    entry: entry,
+    includeLegDirection: true,
+    allowMeeting: true,
+  );
+}
+
+String localizedGroupScheduleEntryDescription(
+  Locale locale, {
+  required Trip trip,
+  required ScheduleEntry entry,
+}) {
+  if (trip.isSolo) {
+    throw StateError(
+      'localizedGroupScheduleEntryDescription requires a group trip: '
+      'tripId=${trip.id}',
+    );
+  }
+  if (entry.generatedBy != ScheduleEntrySource.route ||
+      !isEnglishTransitLocale(locale)) {
+    return entry.description;
+  }
+
+  final l10n = lookupAppLocalizations(locale);
+  return switch (entry.itemKind) {
+    ScheduleEntryKind.meeting => l10n.navMeetingActionMain,
+    ScheduleEntryKind.goal => l10n.navTripEndedSub,
+    _ => entry.description,
+  };
+}
+
+String _localizedRouteScheduleEntryLabel(
+  Locale locale, {
+  required Trip trip,
+  required ScheduleEntry entry,
+  required bool includeLegDirection,
+  required bool allowMeeting,
+}) {
   if (entry.generatedBy != ScheduleEntrySource.route) {
     return entry.label;
+  }
+  if (!isEnglishTransitLocale(locale)) {
+    return normalizeJapaneseTransitDisplayText(entry.label);
+  }
+
+  final l10n = lookupAppLocalizations(locale);
+  final prefix = includeLegDirection
+      ? _localizedGroupLegPrefix(trip, entry)
+      : '';
+
+  if (entry.itemKind == ScheduleEntryKind.meeting) {
+    if (!allowMeeting) {
+      throw StateError(
+        'Solo route schedule must not contain a group meeting entry: '
+        'entryId=${entry.id}',
+      );
+    }
+    final candidate = _candidateForScheduleLeg(trip, entry);
+    if (candidate.steps.isEmpty) {
+      throw StateError(
+        'Meeting schedule entry requires route steps: entryId=${entry.id}',
+      );
+    }
+    final first = candidate.steps.first;
+    final place = _localizedEndpoint(
+      locale,
+      japanese: candidate.originName ?? first.fromName,
+      english: candidate.originNameEn ?? first.fromNameEn,
+      field: 'origin_name_en',
+      identity: 'candidateId=${candidate.id}',
+    );
+    return '$prefix${l10n.categoryMeeting}: $place';
+  }
+
+  if (entry.itemKind == ScheduleEntryKind.goal) {
+    return '$prefix${_localizedGoalLabel(locale, trip: trip, entry: entry)}';
   }
 
   final stepId = entry.routeStepId;
   if (stepId == null || stepId.isEmpty) {
-    if (entry.itemKind == ScheduleEntryKind.goal) {
-      return _localizedGoalLabel(locale, trip: trip, entry: entry);
-    }
     throw StateError(
-      'English route schedule entry is missing routeStepId: '
+      'Route schedule entry is missing routeStepId: '
       'entryId=${entry.id}, kind=${entry.itemKind.name}',
     );
   }
@@ -72,12 +190,11 @@ String localizedSoloScheduleEntryLabel(
   final step = trip.stepsById[stepId];
   if (step == null) {
     throw StateError(
-      'English route schedule entry references an unknown step: '
+      'Route schedule entry references an unknown step: '
       'entryId=${entry.id}, routeStepId=$stepId',
     );
   }
 
-  final l10n = lookupAppLocalizations(locale);
   switch (entry.routeRole) {
     case 'walk':
       final destination = _localizedEndpoint(
@@ -90,7 +207,7 @@ String localizedSoloScheduleEntryLabel(
       final duration = step.minutes > 0
           ? ' (${l10n.minutesValue(step.minutes)})'
           : '';
-      return l10n.scheduleWalkTo(destination, duration);
+      return '$prefix${l10n.scheduleWalkTo(destination, duration)}';
     case 'ride':
       if (!step.isRide) {
         throw StateError(
@@ -98,7 +215,7 @@ String localizedSoloScheduleEntryLabel(
           'entryId=${entry.id}, kind=${step.kind}',
         );
       }
-      return '${localizedRideTitle(locale, step)} · '
+      return '$prefix${localizedRideTitle(locale, step)} · '
           '${l10n.scheduleBoardAt(localizedRideFromName(locale, step))}';
     case 'arrival':
       if (!step.isRide) {
@@ -107,7 +224,7 @@ String localizedSoloScheduleEntryLabel(
           'entryId=${entry.id}, kind=${step.kind}',
         );
       }
-      return '${localizedRideTitle(locale, step)} · '
+      return '$prefix${localizedRideTitle(locale, step)} · '
           '${l10n.scheduleArriveAt(localizedRideToName(locale, step))}';
     case 'wait_start':
       final japanese = step.place ?? step.fromName;
@@ -119,18 +236,47 @@ String localizedSoloScheduleEntryLabel(
         field: 'place_en',
         identity: 'stepId=${step.stepId}',
       );
-      return l10n.waitAt(place);
+      final duration = step.minutes > 0
+          ? ' (${l10n.minutesValue(step.minutes)})'
+          : '';
+      return '$prefix${l10n.waitAt(place)}$duration';
     case null:
       throw StateError(
-        'English route schedule entry is missing routeRole: '
+        'Route schedule entry is missing routeRole: '
         'entryId=${entry.id}, routeStepId=$stepId',
       );
     default:
       throw StateError(
-        'Unsupported English route schedule role: '
+        'Unsupported route schedule role: '
         'entryId=${entry.id}, routeRole=${entry.routeRole}',
       );
   }
+}
+
+Candidate _candidateForScheduleLeg(Trip trip, ScheduleEntry entry) {
+  final legIndex = entry.legIndex;
+  if (legIndex < 0 || legIndex >= trip.legs.length) {
+    throw StateError(
+      'Schedule entry has invalid legIndex: '
+      'entryId=${entry.id}, legIndex=$legIndex, legs=${trip.legs.length}',
+    );
+  }
+  return trip.legs[legIndex].candidate;
+}
+
+String _localizedGroupLegPrefix(Trip trip, ScheduleEntry entry) {
+  final legIndex = entry.legIndex;
+  if (legIndex < 0 || legIndex >= trip.legs.length) {
+    throw StateError(
+      'Schedule entry has invalid legIndex: '
+      'entryId=${entry.id}, legIndex=$legIndex, legs=${trip.legs.length}',
+    );
+  }
+  return switch (trip.legs[legIndex].direction) {
+    LegDirection.outbound => '➡️ ',
+    LegDirection.inbound => '⬅️ ',
+    LegDirection.other || LegDirection.unknown => '',
+  };
 }
 
 String localizedSoloScheduleEntryCompactLabel(

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/city_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
+import '../l10n/trip_display_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../logic/active_trip_navigation_schedule.dart';
@@ -107,12 +108,14 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
           );
         }
 
+        final locale = Localizations.localeOf(context);
+        final displayTitle = localizedGroupTripTitle(locale, trip);
         final activeLeg = resolveGroupActiveLeg(trip);
         final activeCandidate = activeLeg.candidate;
         final beforeScheduleSections = <Widget>[
           ActiveTripRouteOverview(
             navState: uiState.navState,
-            tripTitle: uiState.displayTitle,
+            tripTitle: displayTitle,
             originLabel: AppLocalizations.of(context).originFallback,
             originPlace: _localizedCandidateEndpoint(
               activeCandidate,
@@ -125,7 +128,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
             ),
             routePoints: activeCandidate.points,
             statusHeaderTrailing: _MemberTripLabel(
-              title: uiState.displayTitle,
+              title: displayTitle,
             ),
             onTapStops: () => openCurrentRideStops(
               context: context,
@@ -155,7 +158,7 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
 
         return ActiveTripNavigationView(
           navState: uiState.navState,
-          tripTitle: uiState.displayTitle,
+          tripTitle: displayTitle,
           appBar: _buildAppBar(context, appBrand, trip),
           onTapStops: () => openCurrentRideStops(
             context: context,
@@ -174,6 +177,17 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
                   context,
                 ).groupCompletedCount(completedCount),
             appearance: TripScheduleWindowAppearance.boxedRows,
+            entryLabelBuilder: (entry) => localizedGroupScheduleEntryLabel(
+              locale,
+              trip: trip,
+              entry: entry,
+            ),
+            entryDescriptionBuilder: (entry) =>
+                localizedGroupScheduleEntryDescription(
+                  locale,
+                  trip: trip,
+                  entry: entry,
+                ),
             emptyLabel: AppLocalizations.of(context).groupScheduleAllCompleted,
           ),
           afterScheduleSections: [

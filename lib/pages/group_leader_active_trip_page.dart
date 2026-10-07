@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/city_localizations.dart';
+import '../l10n/trip_display_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../logic/group_leader_active_navigation.dart';
@@ -146,6 +147,8 @@ class _GroupLeaderActiveTripBodyState
       AppLocalizations.of(context),
       city,
     );
+    final locale = Localizations.localeOf(context);
+    final displayTitle = localizedGroupTripTitle(locale, trip);
     final primaryAction = resolveGroupLeaderActivePrimaryAction(
       trip,
       resolvedEntry: uiState.resolvedEntry,
@@ -153,13 +156,13 @@ class _GroupLeaderActiveTripBodyState
 
     return ActiveTripNavigationView(
       navState: uiState.navState,
-      tripTitle: trip.displayTitle,
+      tripTitle: displayTitle,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: ActiveTripAppBarTitle(
           appName: appName,
-          tripTitle: trip.displayTitle,
+          tripTitle: displayTitle,
           contextLabel: AppLocalizations.of(context).groupLeaderTraveling,
           brand: cityBrandNavigationTitle(
             city: city,
@@ -195,6 +198,17 @@ class _GroupLeaderActiveTripBodyState
         counterLabelBuilder: (completedCount, totalCount) =>
             AppLocalizations.of(context).groupCompletedCount(completedCount),
         appearance: TripScheduleWindowAppearance.boxedRows,
+        entryLabelBuilder: (entry) => localizedGroupScheduleEntryLabel(
+          locale,
+          trip: trip,
+          entry: entry,
+        ),
+        entryDescriptionBuilder: (entry) =>
+            localizedGroupScheduleEntryDescription(
+              locale,
+              trip: trip,
+              entry: entry,
+            ),
         activeDetail: TripNavigationInlineStatus(
           navState: uiState.navState,
           onTapStops: () => openCurrentRideStops(

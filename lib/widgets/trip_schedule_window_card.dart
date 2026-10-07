@@ -14,6 +14,9 @@ typedef TripScheduleCounterLabelBuilder = String Function(
   int? totalCount,
 );
 typedef TripScheduleEntryLabelBuilder = String Function(ScheduleEntry entry);
+typedef TripScheduleEntryDescriptionBuilder = String Function(
+  ScheduleEntry entry,
+);
 
 class TripScheduleWindowCard extends StatelessWidget {
   final String title;
@@ -24,6 +27,7 @@ class TripScheduleWindowCard extends StatelessWidget {
   final String activeLabel;
   final TripScheduleCounterLabelBuilder counterLabelBuilder;
   final TripScheduleEntryLabelBuilder? entryLabelBuilder;
+  final TripScheduleEntryDescriptionBuilder? entryDescriptionBuilder;
   final ValueChanged<ScheduleEntry>? onTapEntry;
   final TripScheduleWindowAppearance appearance;
   final String? emptyLabel;
@@ -39,6 +43,7 @@ class TripScheduleWindowCard extends StatelessWidget {
     required this.counterLabelBuilder,
     required this.appearance,
     this.entryLabelBuilder,
+    this.entryDescriptionBuilder,
     this.totalCount,
     this.onTapEntry,
     this.emptyLabel,
@@ -183,6 +188,7 @@ class TripScheduleWindowCard extends StatelessWidget {
                   child: _BoxedScheduleRow(
                     entry: entry,
                     displayLabel: _entryLabel(entry),
+                    displayDescription: _entryDescription(entry),
                     isActive: isActive,
                     activeLabel: activeLabel,
                     onTap: _entryTap(entry),
@@ -220,6 +226,12 @@ class TripScheduleWindowCard extends StatelessWidget {
     return normalized;
   }
 
+  String _entryDescription(ScheduleEntry entry) {
+    final value =
+        entryDescriptionBuilder?.call(entry) ?? entry.description;
+    return value.trim();
+  }
+
   VoidCallback? _entryTap(ScheduleEntry entry) {
     final callback = onTapEntry;
     if (callback == null || entry.routeStepId == null) return null;
@@ -247,6 +259,7 @@ class TripScheduleWindowCard extends StatelessWidget {
 class _BoxedScheduleRow extends StatelessWidget {
   final ScheduleEntry entry;
   final String displayLabel;
+  final String displayDescription;
   final bool isActive;
   final String activeLabel;
   final VoidCallback? onTap;
@@ -255,6 +268,7 @@ class _BoxedScheduleRow extends StatelessWidget {
   const _BoxedScheduleRow({
     required this.entry,
     required this.displayLabel,
+    required this.displayDescription,
     required this.isActive,
     required this.activeLabel,
     required this.onTap,
@@ -336,10 +350,10 @@ class _BoxedScheduleRow extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (entry.description.isNotEmpty) ...[
+                if (displayDescription.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
-                    entry.description,
+                    displayDescription,
                     style: const TextStyle(color: Colors.black54),
                   ),
                 ],

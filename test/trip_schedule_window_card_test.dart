@@ -227,4 +227,45 @@ void main() {
 
     expect(find.text('すべての予定を完了しました。'), findsOneWidget);
   });
+
+  testWidgets('boxedRows can render a localized entry description', (tester) async {
+    final entry = ScheduleEntry(
+      id: 'meeting-tw',
+      plannedAt: DateTime(2026, 10, 7, 8, 49),
+      label: '十間橋集合',
+      description: 'みんな揃っているか確認しましょう',
+      itemKind: ScheduleEntryKind.meeting,
+      generatedBy: ScheduleEntrySource.route,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale.fromSubtags(
+          languageCode: 'zh',
+          scriptCode: 'Hant',
+          countryCode: 'TW',
+        ),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TripScheduleWindowCard(
+            title: '今日行程',
+            resolvedEntry: null,
+            entries: [entry],
+            completedCount: 0,
+            activeLabel: '現在',
+            counterLabelBuilder: (completedCount, totalCount) => '已完成 0 項',
+            entryLabelBuilder: (_) => '集合: Jukkembashi (十間橋)',
+            entryDescriptionBuilder: (_) => '請確認人員是否到齊',
+            appearance: TripScheduleWindowAppearance.boxedRows,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('集合: Jukkembashi (十間橋)'), findsOneWidget);
+    expect(find.text('請確認人員是否到齊'), findsOneWidget);
+    expect(find.text('みんな揃っているか確認しましょう'), findsNothing);
+  });
+
 }
