@@ -866,25 +866,21 @@ class TripNavigationStatusCard extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          arrivalTime,
-          key: const ValueKey('get-off-next-arrival-time'),
-          style: detailStyle,
-        ),
-        const SizedBox(height: 2),
-        Text(
           routeTitle,
           key: const ValueKey('get-off-next-route-title'),
           maxLines: 2,
           overflow: TextOverflow.visible,
           style: detailStyle,
         ),
-        const SizedBox(height: 2),
-        Text(
-          l10n.navArrivalPlannedDestination(destination),
-          key: const ValueKey('get-off-next-destination'),
-          maxLines: 2,
-          overflow: TextOverflow.visible,
-          style: detailStyle,
+        const SizedBox(height: 6),
+        _buildArrivalLine(
+          arrivalTime: arrivalTime,
+          destination: destination,
+          key: const ValueKey('get-off-next-arrival-line'),
+          timeKey: const ValueKey('get-off-next-arrival-time'),
+          destinationKey: const ValueKey('get-off-next-destination'),
+          iconSize: 20,
+          textStyle: detailStyle,
         ),
       ],
     );
@@ -905,7 +901,7 @@ class TripNavigationStatusCard extends StatelessWidget {
     final routeTitle = _localizedRouteTitle(locale, step);
     final place = _localizedCurrentPlace(locale, token);
     final direction = _localizedRideDirection(l10n, locale, step);
-    final arrivalSummary = _compactArrivalSummary(l10n, locale, step);
+    final arrival = _rideArrivalParts(locale, step);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -986,11 +982,14 @@ class TripNavigationStatusCard extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 10),
-        Text(
-          arrivalSummary,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+        _buildArrivalLine(
+          arrivalTime: arrival.time,
+          destination: arrival.destination,
+          key: const ValueKey('ride-arrival-line'),
+          timeKey: const ValueKey('ride-arrival-time'),
+          destinationKey: const ValueKey('ride-arrival-destination'),
+          iconSize: 18,
+          textStyle: const TextStyle(
             fontSize: 16,
             height: 1.25,
             fontWeight: FontWeight.w600,
@@ -1069,14 +1068,13 @@ class TripNavigationStatusCard extends StatelessWidget {
     return l10n.navRideDirection(japanese);
   }
 
-  String _compactArrivalSummary(
-    AppLocalizations l10n,
+  _RideArrivalParts _rideArrivalParts(
     Locale locale,
     StepSeg step,
   ) {
     final arrivalTime = step.arrivalTime?.trim();
     if (arrivalTime == null || arrivalTime.isEmpty) {
-      throw StateError('構造化乗車表示に到着予定時刻がありません: stepId=${step.stepId}');
+      throw StateError('構造化乗車表示に到着時刻がありません: stepId=${step.stepId}');
     }
     final destination = step.toName?.trim();
     if (destination == null || destination.isEmpty) {
@@ -1091,7 +1089,47 @@ class TripNavigationStatusCard extends StatelessWidget {
             identity: 'stepId=${step.stepId}',
           )
         : destination;
-    return l10n.navCompactRideArrival(arrivalTime, localizedDestination);
+    return _RideArrivalParts(
+      time: arrivalTime,
+      destination: localizedDestination,
+    );
+  }
+
+  Widget _buildArrivalLine({
+    required String arrivalTime,
+    required String destination,
+    required Key key,
+    required Key timeKey,
+    required Key destinationKey,
+    required double iconSize,
+    required TextStyle textStyle,
+  }) {
+    return Row(
+      key: key,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Icon(Icons.schedule, size: iconSize),
+        ),
+        const SizedBox(width: 7),
+        Text(
+          arrivalTime,
+          key: timeKey,
+          style: textStyle,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            destination,
+            key: destinationKey,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: textStyle,
+          ),
+        ),
+      ],
+    );
   }
 
   String? _localizedNextStopName(Locale locale) {
@@ -1150,6 +1188,16 @@ class _RidePlaceParts {
   final String? secondary;
 
   const _RidePlaceParts({required this.primary, this.secondary});
+}
+
+class _RideArrivalParts {
+  final String time;
+  final String destination;
+
+  const _RideArrivalParts({
+    required this.time,
+    required this.destination,
+  });
 }
 
 /// Compact navigation details rendered inside the active schedule row.

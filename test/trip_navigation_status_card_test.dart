@@ -452,13 +452,21 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('次で降ります'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('get-off-next-arrival-line')),
+      findsOneWidget,
+    );
     expect(find.text('10:36'), findsOneWidget);
     expect(find.text('上23 上野松坂屋前行'), findsOneWidget);
-    expect(find.text('東墨田一丁目 到着予定'), findsOneWidget);
+    expect(find.text('東墨田一丁目'), findsOneWidget);
     expect(
-      find.text('10:36 上23 上野松坂屋前行 東墨田一丁目到着予定'),
-      findsNothing,
+      find.descendant(
+        of: find.byKey(const ValueKey('get-off-next-arrival-line')),
+        matching: find.byIcon(Icons.schedule),
+      ),
+      findsOneWidget,
     );
+    expect(find.textContaining('到着予定'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -1005,9 +1013,20 @@ void main() {
         expect(find.text('Honjo-azumabashi'), findsOneWidget);
         expect(find.text('(本所吾妻橋)'), findsOneWidget);
         expect(
-          find.text(l10n.navCompactRideArrival('23:10', 'Kuramae (蔵前)')),
+          find.byKey(const ValueKey('ride-arrival-line')),
           findsOneWidget,
         );
+        expect(find.text('23:10'), findsOneWidget);
+        expect(find.text('Kuramae (蔵前)'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('ride-arrival-line')),
+            matching: find.byIcon(Icons.schedule),
+          ),
+          findsOneWidget,
+        );
+        expect(find.textContaining('Arrive at'), findsNothing);
+        expect(find.textContaining('到着予定'), findsNothing);
         expect(find.text(l10n.nextStop('Asakusa (浅草)')), findsOneWidget);
         expect(
           find.text('Asakusa Line · Nishi-magome · Honjo-azumabashi (本所吾妻橋)'),
