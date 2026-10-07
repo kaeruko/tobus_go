@@ -151,4 +151,56 @@ void main() {
     expect(find.text('浅草線 → 大江戸線'), findsOneWidget);
     expect(find.text('乗換 1回 · 徒歩 11分'), findsOneWidget);
   });
+
+  testWidgets('Traditional Chinese group history card localizes generated title', (
+    tester,
+  ) async {
+    final groupTrip = Trip(
+      tripType: TripType.group,
+      id: 'history-group-trip',
+      joinCode: '123456',
+      leaderId: 'leader',
+      title: '上野駅へのおでかけ',
+      travelPhase: TravelPhase.completed,
+      date: DateTime(2026, 9, 27),
+      plannedDepartureAt: DateTime(2026, 9, 27, 21, 30),
+      actualDepartureAt: DateTime(2026, 9, 27, 21, 30),
+      legs: [
+        Leg(
+          direction: LegDirection.outbound,
+          status: LegStatus.confirmed,
+          candidate: candidate,
+        ),
+      ],
+      schedule: const [],
+      participants: const [],
+      memberIds: const ['leader'],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale.fromSubtags(
+          languageCode: 'zh',
+          scriptCode: 'Hant',
+          countryCode: 'TW',
+        ),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: HistoryTripCard(
+            trip: groupTrip,
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('前往Ueno Station (上野駅)的行程'),
+      findsOneWidget,
+    );
+    expect(find.text('上野駅へのおでかけ'), findsNothing);
+  });
+
 }

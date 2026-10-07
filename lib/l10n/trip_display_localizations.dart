@@ -7,6 +7,12 @@ import '../models/trip_models.dart';
 import 'app_localizations.dart';
 import 'transit_name_localizations.dart';
 
+String localizedTripTitle(Locale locale, Trip trip) {
+  return trip.isSolo
+      ? localizedSoloTripTitle(locale, trip)
+      : localizedGroupTripTitle(locale, trip);
+}
+
 String localizedSoloTripTitle(Locale locale, Trip trip) {
   if (!trip.isSolo || !isEnglishTransitLocale(locale)) {
     return trip.displayTitle;

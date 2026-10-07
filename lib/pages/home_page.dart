@@ -789,9 +789,7 @@ class _ActiveTripCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context);
-    final displayTitle = trip.isSolo
-        ? localizedSoloTripTitle(locale, trip)
-        : trip.displayTitle;
+    final displayTitle = localizedTripTitle(locale, trip);
 
     return GestureDetector(
       onTap: onTap,

@@ -6,6 +6,7 @@ import '../core/app_clock.dart';
 import '../core/city_profile.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
+import '../l10n/trip_display_localizations.dart';
 import '../models/route_models.dart';
 import '../models/fare_models.dart';
 import '../providers/city_profile_provider.dart';
@@ -857,11 +858,12 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
 
   Future<void> _showActiveTripDialog(Trip trip) {
     final l10n = AppLocalizations.of(context);
+    final title = localizedTripTitle(Localizations.localeOf(context), trip);
     return showCupertinoDialog<void>(
       context: context,
       builder: (dialogContext) => CupertinoAlertDialog(
         title: Text(l10n.activeTripExists),
-        content: Text(l10n.activeTripMessage(trip.displayTitle)),
+        content: Text(l10n.activeTripMessage(title)),
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(dialogContext),

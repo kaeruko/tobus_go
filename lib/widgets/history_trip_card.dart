@@ -20,9 +20,7 @@ class HistoryTripCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context);
-    final title = trip.isSolo
-        ? localizedSoloTripTitle(locale, trip)
-        : trip.displayTitle;
+    final title = localizedTripTitle(locale, trip);
     final routeLines = _localizedRouteLines(locale, trip);
     final startAt = trip.plannedDepartureAt;
     final endAt = _routeEndAt(trip);
