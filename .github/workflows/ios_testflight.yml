@@ -259,14 +259,14 @@ jobs:
             )
           end
 
-          unless candidate_semver > latest_closed_semver
+          unless (candidate_semver <=> latest_closed_semver) == 1
             abort(
               "Candidate version #{candidate_version} must be newer than " \
               "latest approved/distributed version #{latest_closed_version}"
             )
           end
 
-          newer_records = normalized.select { |_, parsed, _| parsed > candidate_semver }
+          newer_records = normalized.select { |_, parsed, _| (parsed <=> candidate_semver) == 1 }
           unless newer_records.empty?
             details = newer_records
               .sort_by { |_, parsed, _| parsed }
