@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../models/group_models.dart';
 import '../models/leg_models.dart';
+import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import 'app_localizations.dart';
 import 'transit_name_localizations.dart';
