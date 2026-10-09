@@ -339,6 +339,75 @@ class BusNextTimetableTest(unittest.TestCase):
         )
         self.assertEqual(ueno[0]["all_times"], ["15:20"])
 
+    def test_stop_cluster_uses_pole_ids_not_stop_names(self):
+        fake_repo = _FakeGtfsRepository()
+        fake_repo.timetable_index = {
+            "070|1351-01": [(600, 1, "trip-east")],
+            "070|1351-02": [(605, 1, "trip-west")],
+        }
+        fake_repo.trips = {
+            "trip-east": {"route_id": "070", "service_id": "WK"},
+            "trip-west": {"route_id": "070", "service_id": "WK"},
+        }
+        fake_repo.stop_times = {
+            "trip-east": {
+                1: ("1351-01", 600, 600),
+                2: ("2000-07", 650, 650),
+            },
+            "trip-west": {
+                1: ("1351-02", 605, 605),
+                2: ("1348-01", 620, 620),
+            },
+        }
+        fake_repo.stops = {
+            "1351-01": {
+                "name": "照合に使ってはいけない名前A",
+                "name_en": "Do not match A",
+            },
+            "1351-02": {
+                "name": "照合に使ってはいけない名前B",
+                "name_en": "Do not match B",
+            },
+            "2000-07": {
+                "name": "上野松坂屋前",
+                "name_en": "Ueno-Matsuzakaya",
+            },
+            "1348-01": {
+                "name": "平井駅前",
+                "name_en": "Hirai Sta.",
+            },
+        }
+        day_type = SimpleNamespace(
+            has_gtfs_calendar=True,
+            active_service_ids=frozenset({"WK"}),
+        )
+
+        with patch("app.routes.gtfs_repo", fake_repo):
+            destinations = _gtfs_bus_timetable_destinations(
+                route_id="070",
+                pole_id="1351-01",
+                target_pole_id=None,
+                include_stop_cluster=True,
+                day_type=day_type,
+                current_minute=9 * 60,
+                limit=3,
+                include_all=True,
+                delay_min=0,
+            )
+
+        self.assertEqual(
+            [group["destination_name"] for group in destinations],
+            ["上野松坂屋前", "平井駅前"],
+        )
+        self.assertEqual(
+            destinations[0]["source_pole_ids"],
+            ["1351-01"],
+        )
+        self.assertEqual(
+            destinations[1]["source_pole_ids"],
+            ["1351-02"],
+        )
+
     def test_full_day_remains_visible_after_last_upcoming_bus(self):
         fake_repo = _FakeGtfsRepository()
         day_type = SimpleNamespace(
