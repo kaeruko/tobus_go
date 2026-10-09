@@ -337,22 +337,26 @@ void main() {
         request.url.queryParameters['route_id'],
         'odpt.Busroute:Toei.Sato22',
       );
-      expect(request.url.queryParameters['target_pole_id'], 'stop-nippori');
-      expect(
-        request.url.queryParameters['pattern_trip_id'],
-        'trip-sato22-nippori',
-      );
+      expect(request.url.queryParameters.containsKey('target_pole_id'), isFalse);
+      expect(request.url.queryParameters.containsKey('pattern_trip_id'), isFalse);
       expect(request.url.queryParameters['limit'], '3');
       expect(request.url.queryParameters['include_all'], 'true');
       final dayType = request.url.queryParameters['day_type'];
       expect(dayType, isIn(['weekday', 'saturday', 'holiday']));
       requestedDayTypes.add(dayType!);
       return http.Response(
-        '{"destinations":[{"destination_pole_id":"stop-nippori",'
+        '{"destinations":['
+        '{"destination_pole_id":"stop-nippori",'
         '"destination_name":"日暮里駅前",'
         '"destination_name_en":"Nippori Sta.",'
         '"times":["15:10","15:25","15:40"],'
-        '"all_times":["14:10","14:25","14:40","15:10","15:25","15:40","16:05","16:20"]}]}',
+        '"all_times":["14:10","14:25","14:40","15:10","15:25","15:40","16:05","16:20"]},'
+        '{"destination_pole_id":"stop-minowa",'
+        '"destination_name":"三ノ輪二丁目",'
+        '"destination_name_en":"Minowa 2-chome",'
+        '"times":["15:12","15:42"],'
+        '"all_times":["14:12","15:12","15:42","16:12"]}'
+        ']}',
         200,
         headers: const {'content-type': 'application/json; charset=utf-8'},
       );
@@ -378,11 +382,19 @@ void main() {
     expect(find.text('平日'), findsOneWidget);
     expect(find.text('土曜'), findsOneWidget);
     expect(find.text('日・祝'), findsOneWidget);
-    expect(find.text('日暮里駅前'), findsWidgets);
+    expect(find.text('日暮里駅前行'), findsOneWidget);
+    expect(find.text('三ノ輪二丁目行'), findsOneWidget);
+    expect(find.text('日暮里駅前'), findsNothing);
     expect(find.text('14'), findsOneWidget);
     expect(find.text('15'), findsOneWidget);
     expect(find.text('16'), findsOneWidget);
     expect(find.text('15:10'), findsNothing);
+
+    await tester.tap(find.text('三ノ輪二丁目行'));
+    await tester.pumpAndSettle();
+    expect(find.text('14'), findsOneWidget);
+    expect(find.text('15'), findsOneWidget);
+    expect(find.text('16'), findsOneWidget);
 
     final initialDayType = requestedDayTypes.single;
     final targetDayType = initialDayType == 'weekday'

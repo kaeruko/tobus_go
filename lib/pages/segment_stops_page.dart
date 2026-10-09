@@ -380,55 +380,38 @@ Future<void> _showStopTimetable(
   required StopPoint stop,
 }) {
   final routeId = segment.routeId?.trim();
-  final tripId = segment.tripId?.trim();
   final stopId = stop.stopId?.trim();
   if (segment.kind != 'bus' ||
       routeId == null ||
       routeId.isEmpty ||
-      tripId == null ||
-      tripId.isEmpty ||
       stopId == null ||
       stopId.isEmpty) {
     throw StateError(
       'Cannot show stop timetable without bus route/stop IDs: '
       'stepId=${segment.stepId}, routeId=${segment.routeId}, '
-      'tripId=${segment.tripId}, stopId=${stop.stopId}',
+      'stopId=${stop.stopId}',
     );
   }
-
-  final targetPoleId = segment.stops.isEmpty
-      ? null
-      : segment.stops.last.stopId?.trim();
 
   return showCupertinoModalPopup<void>(
     context: context,
     builder: (context) => _StopTimetableSheet(
-      segment: segment,
       stop: stop,
       routeId: routeId,
-      tripId: tripId,
       stopId: stopId,
-      targetPoleId:
-          targetPoleId == null || targetPoleId.isEmpty ? null : targetPoleId,
     ),
   );
 }
 
 class _StopTimetableSheet extends StatelessWidget {
-  final StepSeg segment;
   final StopPoint stop;
   final String routeId;
-  final String tripId;
   final String stopId;
-  final String? targetPoleId;
 
   const _StopTimetableSheet({
-    required this.segment,
     required this.stop,
     required this.routeId,
-    required this.tripId,
     required this.stopId,
-    required this.targetPoleId,
   });
 
   @override
@@ -461,14 +444,6 @@ class _StopTimetableSheet extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            localizedRideTitle(locale, segment),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: CupertinoColors.secondaryLabel,
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -490,8 +465,6 @@ class _StopTimetableSheet extends StatelessWidget {
                   child: TimetableView(
                     routeId: routeId,
                     stopId: stopId,
-                    targetPoleId: targetPoleId,
-                    patternTripId: tripId,
                     limit: 3,
                     showEmptyState: true,
                     showFullDay: true,

@@ -43,6 +43,7 @@ class _TimetableViewState extends State<TimetableView> {
   Timer? _timer;
   bool _isLoading = true;
   bool _didAutoScroll = false;
+  String? _selectedDestinationId;
 
   @override
   void initState() {
@@ -114,20 +115,27 @@ class _TimetableViewState extends State<TimetableView> {
     );
     if (!mounted) return;
 
-    setState(() => _busGroups = groups);
+    var selectedDestinationId = _selectedDestinationId;
+    if (widget.showFullDay) {
+      final availableDestinationIds = groups
+          .where((group) => (group['allTimes'] as List<String>).isNotEmpty)
+          .map(_destinationGroupId)
+          .toList();
+      if (availableDestinationIds.isEmpty) {
+        selectedDestinationId = null;
+      } else if (selectedDestinationId == null ||
+          !availableDestinationIds.contains(selectedDestinationId)) {
+        selectedDestinationId = availableDestinationIds.first;
+      }
+    }
+
+    setState(() {
+      _busGroups = groups;
+      _selectedDestinationId = selectedDestinationId;
+    });
 
     if (widget.showFullDay && !_didAutoScroll) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final targetContext = _currentHourKey.currentContext;
-        if (!mounted || targetContext == null) return;
-        _didAutoScroll = true;
-        Scrollable.ensureVisible(
-          targetContext,
-          alignment: 0.25,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
-        );
-      });
+      _scheduleAutoScroll();
     }
   }
 
@@ -208,68 +216,171 @@ class _TimetableViewState extends State<TimetableView> {
     final fullGroups = _busGroups
         .where((group) => (group['allTimes'] as List<String>).isNotEmpty)
         .toList();
-    final targetHour = _relevantHour(fullGroups);
+
+    if (fullGroups.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _dayTypeTabs(l10n),
+          const SizedBox(height: 4),
+          Expanded(
+            child: Center(
+              child: Text(
+                l10n.timetableNoDepartures,
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final selectedDestinationId = _selectedDestinationId;
+    if (selectedDestinationId == null) {
+      throw StateError(
+        'Full-day timetable has destinations but no selected destination',
+      );
+    }
+    final selectedGroups = fullGroups
+        .where(
+          (group) => _destinationGroupId(group) == selectedDestinationId,
+        )
+        .toList();
+    if (selectedGroups.length != 1) {
+      throw StateError(
+        'Full-day timetable destination selection is not unique: '
+        'destinationId=$selectedDestinationId matches=${selectedGroups.length}',
+      );
+    }
+
+    final selectedGroup = selectedGroups.single;
+    final grouped = _groupTimesByHour(
+      selectedGroup['allTimes'] as List<String>,
+    );
+    final targetHour = _relevantHour([selectedGroup]);
     var currentHourKeyAssigned = false;
     final fullDayChildren = <Widget>[];
 
-    for (final group in fullGroups) {
-      final destination = _localizedDestination(locale, group);
-      final grouped = _groupTimesByHour(group['allTimes'] as List<String>);
-      if (grouped.isEmpty) continue;
+    final hours = grouped.keys.toList()..sort();
+    for (final hour in hours) {
+      final isCurrentHour = targetHour != null && hour == targetHour;
+      final useCurrentKey = !currentHourKeyAssigned && isCurrentHour;
+      if (useCurrentKey) currentHourKeyAssigned = true;
 
       fullDayChildren.add(
-        Padding(
-          padding: const EdgeInsets.fromLTRB(2, 14, 2, 7),
-          child: Text(
-            destination,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+        _timetableHourRow(
+          hour: hour,
+          minutes: grouped[hour]!,
+          isCurrentHour: isCurrentHour,
+          rowKey: useCurrentKey ? _currentHourKey : null,
         ),
       );
-
-      final hours = grouped.keys.toList()..sort();
-      for (final hour in hours) {
-        final isCurrentHour = targetHour != null && hour == targetHour;
-        final useCurrentKey = !currentHourKeyAssigned && isCurrentHour;
-        if (useCurrentKey) currentHourKeyAssigned = true;
-
-        fullDayChildren.add(
-          _timetableHourRow(
-            hour: hour,
-            minutes: grouped[hour]!,
-            isCurrentHour: isCurrentHour,
-            rowKey: useCurrentKey ? _currentHourKey : null,
-          ),
-        );
-      }
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _dayTypeTabs(l10n),
+        const SizedBox(height: 8),
+        _destinationTabs(locale, fullGroups),
         const SizedBox(height: 4),
         Expanded(
-          child: fullDayChildren.isEmpty
-              ? Center(
-                  child: Text(
-                    l10n.timetableNoDepartures,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
-                  ),
-                )
-              : ListView(
-                  padding: EdgeInsets.zero,
-                  children: fullDayChildren,
-                ),
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: fullDayChildren,
+          ),
         ),
       ],
     );
+  }
+
+  Widget _destinationTabs(
+    Locale locale,
+    List<Map<String, dynamic>> groups,
+  ) {
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F0F4),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          for (final group in groups)
+            Expanded(
+              child: GestureDetector(
+                key: ValueKey(
+                  'timetable-destination-${_destinationGroupId(group)}',
+                ),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _selectDestination(
+                  _destinationGroupId(group),
+                ),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeOut,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  decoration: BoxDecoration(
+                    color:
+                        _selectedDestinationId == _destinationGroupId(group)
+                        ? const Color(0xFF0A84FF)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    _destinationTabLabel(locale, group),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color:
+                          _selectedDestinationId == _destinationGroupId(group)
+                          ? Colors.white
+                          : const Color(0xFF2C2C2E),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _selectDestination(String destinationId) {
+    if (_selectedDestinationId == destinationId) return;
+    final matches = _busGroups.where(
+      (group) => _destinationGroupId(group) == destinationId,
+    );
+    if (matches.length != 1) {
+      throw StateError(
+        'Cannot select timetable destination: '
+        'destinationId=$destinationId matches=${matches.length}',
+      );
+    }
+
+    setState(() {
+      _selectedDestinationId = destinationId;
+      _didAutoScroll = false;
+    });
+    _scheduleAutoScroll();
+  }
+
+  void _scheduleAutoScroll() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final targetContext = _currentHourKey.currentContext;
+      if (!mounted || targetContext == null) return;
+      _didAutoScroll = true;
+      Scrollable.ensureVisible(
+        targetContext,
+        alignment: 0.25,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   Widget _dayTypeTabs(AppLocalizations l10n) {
@@ -482,6 +593,27 @@ class _TimetableViewState extends State<TimetableView> {
       throw StateError('Invalid timetable time: $value');
     }
     return int.parse(match.group(1)!) * 60 + int.parse(match.group(2)!);
+  }
+
+  String _destinationGroupId(Map<String, dynamic> group) {
+    final destinationPoleId = group['destinationPoleId'];
+    if (destinationPoleId is! String || destinationPoleId.trim().isEmpty) {
+      throw StateError(
+        'Invalid timetable group: destinationPoleId is required for tabs',
+      );
+    }
+    return destinationPoleId.trim();
+  }
+
+  String _destinationTabLabel(
+    Locale locale,
+    Map<String, dynamic> group,
+  ) {
+    final destination = _localizedDestination(locale, group);
+    if (locale.languageCode == 'ja' && !destination.endsWith('行')) {
+      return '${destination}行';
+    }
+    return destination;
   }
 
   String _localizedDestination(
