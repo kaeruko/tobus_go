@@ -474,52 +474,7 @@ class _TimetableViewState extends State<TimetableView> {
   }
 
   int _timeToServiceMinute(String value) {
-    final match = RegExp(r'^(\d{1,2}):([0-5]\d)    Locale locale,
-    Map<String, dynamic> group,
-  ) {
-    final japanese = group['destinationName'] as String;
-    final english = group['destinationNameEn'] as String?;
-    final destinationPoleId = group['destinationPoleId'] as String?;
-    return localizedTransitName(
-      locale,
-      japanese: japanese,
-      english: english,
-      field: 'destination_name_en',
-      identity: 'destinationPoleId=${destinationPoleId ?? '<unknown>'}',
-    );
-  }
-
-  Map<int, List<String>> _groupTimesByHour(List<String> times) {
-    final grouped = <int, List<String>>{};
-    for (final value in times) {
-      final match = RegExp(r'^(\d{1,2}):([0-5]\d)$').firstMatch(value);
-      if (match == null) {
-        throw StateError('Invalid timetable time: $value');
-      }
-      final hour = int.parse(match.group(1)!);
-      final minute = match.group(2)!;
-      grouped.putIfAbsent(hour, () => <String>[]).add(minute);
-    }
-    return grouped;
-  }
-
-  int? _relevantHour(List<Map<String, dynamic>> groups) {
-    final hours = <int>{};
-    for (final group in groups) {
-      hours.addAll(
-        _groupTimesByHour(group['allTimes'] as List<String>).keys,
-      );
-    }
-    if (hours.isEmpty) return null;
-
-    final ordered = hours.toList()..sort();
-    for (final hour in ordered) {
-      if (hour >= _now.hour) return hour;
-    }
-    return ordered.last;
-  }
-}
-).firstMatch(value);
+    final match = RegExp(r'^(\d{1,2}):([0-5]\d)$').firstMatch(value);
     if (match == null) {
       throw StateError('Invalid timetable time: $value');
     }
