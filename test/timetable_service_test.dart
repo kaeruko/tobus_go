@@ -16,6 +16,7 @@ void main() {
       expect(request.url.queryParameters['pole_id'], 'stop-a');
       expect(request.url.queryParameters['route_id'], 'route-a');
       expect(request.url.queryParameters['target_pole_id'], 'stop-b');
+      expect(request.url.queryParameters['pattern_trip_id'], 'trip-a');
       expect(request.url.queryParameters['date'], '2026-10-02');
       expect(request.url.queryParameters['time'], '10:46');
       return http.Response(
@@ -33,6 +34,7 @@ void main() {
       'route-a',
       'stop-a',
       targetPoleId: 'stop-b',
+      patternTripId: 'trip-a',
       referenceTime: DateTime(2026, 10, 2, 10, 46),
     );
 
