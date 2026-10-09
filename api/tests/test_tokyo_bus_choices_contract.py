@@ -52,7 +52,12 @@ def _repository(*trips):
             "trip_headsign": stops[-1][0],
         }
         for sequence, (stop, arrival, departure) in enumerate(stops, 1):
-            repository.stops[stop] = {"name": stop, "name_en": stop}
+            repository.stops[stop] = {
+                "name": stop,
+                "name_en": stop,
+                "lat": 35.0,
+                "lon": 139.0,
+            }
             repository.stop_times[trip_id][sequence] = (stop, arrival, departure)
             repository.timetable_index[f"{ROUTE}|{stop}"].append(
                 (departure, sequence, trip_id)
