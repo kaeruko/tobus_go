@@ -405,6 +405,8 @@ def _gtfs_trip_stop_cluster_signature(trip_id: str) -> tuple[str, ...]:
 def _gtfs_bus_paired_pattern_signatures(
     route_id: str,
     preferred_pattern_trip_id: str,
+    *,
+    active_service_ids: frozenset[str] | set[str] | None,
 ) -> set[tuple[str, ...]]:
     preferred_trip = gtfs_repo.trips.get(preferred_pattern_trip_id)
     if preferred_trip is None:
@@ -441,6 +443,11 @@ def _gtfs_bus_paired_pattern_signatures(
     reverse_candidates: set[tuple[str, ...]] = set()
     for trip_id, trip in gtfs_repo.trips.items():
         if trip.get("route_id") != route_id:
+            continue
+        if (
+            active_service_ids is not None
+            and trip.get("service_id") not in active_service_ids
+        ):
             continue
         direction_id = trip.get("direction_id")
         if direction_id is None or str(direction_id).strip() == "":
@@ -500,15 +507,6 @@ def _gtfs_bus_timetable_destinations(
             "opposite direction can be paired without using stop names"
         )
 
-    allowed_cluster_signatures = (
-        _gtfs_bus_paired_pattern_signatures(
-            route_id,
-            preferred_pattern_trip_id,
-        )
-        if include_stop_cluster
-        else None
-    )
-
     source_pole_ids = (
         _gtfs_bus_stop_cluster_ids(pole_id)
         if include_stop_cluster
@@ -535,6 +533,15 @@ def _gtfs_bus_timetable_destinations(
     active_services = (
         day_type.active_service_ids
         if getattr(day_type, "has_gtfs_calendar", False)
+        else None
+    )
+    allowed_cluster_signatures = (
+        _gtfs_bus_paired_pattern_signatures(
+            route_id,
+            preferred_pattern_trip_id,
+            active_service_ids=active_services,
+        )
+        if include_stop_cluster
         else None
     )
     effective_search_minute = current_minute - delay_min
