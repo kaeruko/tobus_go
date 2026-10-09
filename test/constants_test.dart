@@ -3,9 +3,9 @@ import 'package:toeigo/constants.dart';
 import 'package:toeigo/core/city_profile.dart';
 
 void main() {
-  test('realtime polling defaults to 60 seconds', () {
-    expect(kRealtimePollIntervalSeconds, 60);
-    expect(kRealtimePollInterval, const Duration(seconds: 60));
+  test('realtime polling defaults to 180 seconds', () {
+    expect(kRealtimePollIntervalSeconds, 180);
+    expect(kRealtimePollInterval, const Duration(seconds: 180));
   });
 
   test('realtime transfer warning grace defaults to 300 seconds', () {
