@@ -227,6 +227,137 @@ class TokyoDestinationVariantsTest(unittest.TestCase):
                 self.assertEqual(real_arrival.call_count, 1)
                 self.assertEqual(details.call_count, 1)
 
+    def _neighboring_initial_bus_boarding_fixture(self):
+        graph = nx.DiGraph()
+        board_three = ("phys", "yahiro-three")
+        board_four = ("phys", "yahiro-four")
+        via_three = _leg(graph, board_three, "kin37", ("yahiro-four", "transfer"))["transfer"]
+        via_four = _leg(graph, board_four, "kin37", ("transfer",))["transfer"]
+        last_ride = _leg(graph, ("phys", "transfer"), "kusa39", ("arrival",))["arrival"]
+        graph.add_node(START)
+        graph.add_node(TARGET)
+        graph.add_edge(START, board_three, etype="walk", meters=40.0, w=1.0)
+        graph.add_edge(START, board_four, etype="walk", meters=70.0, w=2.0)
+        graph.add_edge(("phys", "arrival"), TARGET, etype="walk", meters=500.0, w=1.0)
+
+        def selected(first_leg, *, first_trip="kin37-trip", service="saturday"):
+            nodes = [START, *first_leg, *last_ride[1:], TARGET]
+            board_indexes = [
+                index for index, (u, v) in enumerate(zip(nodes, nodes[1:]))
+                if graph.get_edge_data(u, v)["etype"] == "board"
+            ]
+            self.assertEqual(len(board_indexes), 2)
+            rides = {
+                board_indexes[0]: RideState(
+                    "bus", service, f"feed|{service}|{first_trip}",
+                    "kin37", 1, 1, 497, trip_id=first_trip,
+                ),
+                board_indexes[1]: RideState(
+                    "bus", service, f"feed|{service}|kusa39-trip",
+                    "kusa39", 1, 1, 507, trip_id="kusa39-trip",
+                ),
+            }
+            return labels.SelectedPath(
+                nodes, [497.0] * (len(nodes) - 2) + [509.0],
+                rides, _Choices(), 480.0,
+            )
+
+        return graph, selected(via_four), selected(via_three)
+
+    def test_neighboring_boarding_poles_on_same_bus_run_keep_shorter_walk(self):
+        graph, long_walk, short_walk = self._neighboring_initial_bus_boarding_fixture()
+        self.assertNotEqual(
+            engine._transit_path_signature(graph, long_walk),
+            engine._transit_path_signature(graph, short_walk),
+        )
+
+        for mode, generator_name in (
+            ("cost", "find_paths_generator"),
+            ("fewTransfers", "find_few_transfers_paths_generator"),
+        ):
+            with self.subTest(mode=mode):
+                def raw_paths():
+                    yield {"cost": 4.0, "path": long_walk, "walk_m": 573.0}
+                    yield {"cost": 5.0, "path": short_walk, "walk_m": 546.0}
+                    raise AssertionError("Do not search past the raw candidate limit")
+
+                with patch.object(engine, generator_name, return_value=raw_paths()), \\
+                        patch.object(engine, "calculate_real_arrival_time",
+                                     side_effect=lambda g, tm, p, *args, **kw:
+                                     p.arrival_minute) as arrival, \\
+                        patch.object(engine, "segments_detailed",
+                                     side_effect=lambda g, p, *args, **kw: [
+                                         {"kind": "bus", "title": "錦37", "meters": 0},
+                                         {"kind": "bus", "title": "草39", "meters": 0},
+                                         {"kind": "walk", "title": "徒歩", "meters":
+                                          573 if p is long_walk else 546},
+                                     ]) as detail, \\
+                        patch.object(engine, "path_to_coords", return_value=[]), \\
+                        contextlib.redirect_stdout(io.StringIO()):
+                    candidates = engine.search_best_routes(
+                        graph, object(), START, mode=mode,
+                        start_time="08:00", limit=2,
+                        target_node=TARGET, day_type="saturday",
+                        use_realtime=False,
+                    )
+
+                self.assertEqual(len(candidates), 1)
+                self.assertIs(candidates[0]["path"], short_walk)
+                self.assertEqual(candidates[0]["walking_distance_meters"], 546)
+                self.assertEqual(candidates[0]["arrival_time"], "08:29")
+                self.assertEqual(arrival.call_count, 1)
+                self.assertEqual(detail.call_count, 1)
+
+    def test_different_first_bus_runs_or_service_days_stay_distinct(self):
+        graph, first, second = self._neighboring_initial_bus_boarding_fixture()
+        first_board_index = next(
+            i for i, (u, v) in enumerate(zip(second, second[1:]))
+            if graph.get_edge_data(u, v)["etype"] == "board"
+        )
+        initial_state = second.edge_rides[first_board_index]
+
+        for difference, modified in (
+            ("trip", replace(
+                initial_state, run_id="feed|saturday|other-trip",
+                trip_id="other-trip",
+            )),
+            ("service", replace(
+                initial_state, run_id="feed|sunday|kin37-trip",
+                service_key="sunday",
+            )),
+        ):
+            with self.subTest(difference=difference):
+                from_first = labels.SelectedPath(
+                    second, second.edge_times,
+                    {**second.edge_rides, first_board_index: modified},
+                    second.choices, second.start_minute,
+                )
+
+                def raw_paths():
+                    yield {"cost": 4.0, "path": first, "walk_m": 573.0}
+                    yield {"cost": 5.0, "path": from_first, "walk_m": 546.0}
+
+                with patch.object(engine, "find_few_transfers_paths_generator",
+                                  return_value=raw_paths()), \\
+                        patch.object(engine, "calculate_real_arrival_time",
+                                     return_value=509.0), \\
+                        patch.object(engine, "segments_detailed",
+                                     return_value=[
+                                         {"kind": "bus", "title": "錦37", "meters": 0},
+                                         {"kind": "bus", "title": "草39", "meters": 0},
+                                         {"kind": "walk", "title": "徒歩", "meters": 500},
+                                     ]), \\
+                        patch.object(engine, "path_to_coords", return_value=[]), \\
+                        contextlib.redirect_stdout(io.StringIO()):
+                    candidates = engine.search_best_routes(
+                        graph, object(), START, mode="fewTransfers",
+                        start_time="08:00", limit=2,
+                        target_node=TARGET, day_type="saturday",
+                        use_realtime=False,
+                    )
+                self.assertEqual(len(candidates), 2)
+
+
     def test_goal_signature_rejects_changed_explicit_line_even_in_transit_only_mode(self):
         graph = nx.DiGraph()
         path = _leg(graph, START, "main", ("end",))["end"]
