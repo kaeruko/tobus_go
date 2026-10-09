@@ -588,6 +588,7 @@ class StepSeg {
   final String? toName;
   final String? toNameEn;
   final List<StopPoint> stops;
+  final List<StopPoint> tripStops;
   final int minutes;
   final double meters;
   final int? fareYen; // keep existing optional fields
@@ -618,6 +619,7 @@ class StepSeg {
     this.toName,
     this.toNameEn,
     this.stops = const [],
+    this.tripStops = const [],
     this.minutes = 0,
     this.meters = 0.0,
     this.fareYen,
@@ -651,6 +653,10 @@ class StepSeg {
     var parsedStops = rawStops
         .map((e) => StopPoint.fromJson(Map<String, dynamic>.from(e)))
         .toList();
+    final rawTripStops = json['trip_stops'] as List? ?? const [];
+    final parsedTripStops = rawTripStops
+        .map((e) => StopPoint.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
 
     return StepSeg(
       stepId: stepId,
@@ -662,6 +668,7 @@ class StepSeg {
       toName: json['to'],
       toNameEn: json['to_en']?.toString(),
       stops: parsedStops,
+      tripStops: parsedTripStops,
       minutes: json['minutes'] ?? 0,
       meters: (json['meters'] as num?)?.toDouble() ?? 0.0,
       fareYen: (json['fareYen'] as num?)?.toInt(),
@@ -731,6 +738,7 @@ class StepSeg {
       'to': toName,
       'to_en': toNameEn,
       'stops': stops.map((e) => e.toJson()).toList(),
+      'trip_stops': tripStops.map((e) => e.toJson()).toList(),
       'minutes': minutes,
       'meters': meters,
       'fareYen': fareYen,
@@ -757,6 +765,7 @@ class StopPoint {
   final LatLng point;
   final bool isOrigin;
   final bool isDestination;
+  final bool isInRideRange;
   final String? stopId; // ★追加: 停留所ID (odpt:BusstopPole:...)
 
   StopPoint({
@@ -765,6 +774,7 @@ class StopPoint {
     required this.point,
     this.isOrigin = false,
     this.isDestination = false,
+    this.isInRideRange = true,
     this.stopId, // ★追加
   });
 
@@ -778,6 +788,7 @@ class StopPoint {
       ),
       isOrigin: json['is_origin'] ?? false,
       isDestination: json['is_destination'] ?? false,
+      isInRideRange: json['is_in_ride_range'] ?? true,
       stopId: json['stop_id'] ?? json['id'], // ★追加: バックエンドが返すJSONのキーに合わせて調整
     );
   }
@@ -792,6 +803,7 @@ class StopPoint {
       'name_en': nameEn,
       'is_origin': isOrigin,
       'is_destination': isDestination,
+      'is_in_ride_range': isInRideRange,
       'lat': point.latitude,
       'lon': point.longitude,
       'id': stopId,
