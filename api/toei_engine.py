@@ -334,6 +334,44 @@ def _gtfs_bus_route_id(G, line_node) -> str | None:
     return None
 
 
+def _gtfs_bus_trip_display_title(route_id: str, trip_id: str) -> str:
+    route = gtfs_repo.routes.get(route_id)
+    if route is None:
+        raise RouteContractError(
+            f"GTFS bus trip references unknown route: "
+            f"route_id={route_id!r} trip_id={trip_id!r}"
+        )
+    route_short_name = route.get("route_short_name")
+    if not isinstance(route_short_name, str) or not route_short_name.strip():
+        raise RouteContractError(
+            f"GTFS bus route has no route_short_name: route_id={route_id!r}"
+        )
+
+    trip = gtfs_repo.trips.get(trip_id)
+    if trip is None:
+        raise RouteContractError(
+            f"GTFS bus trip is missing: trip_id={trip_id!r}"
+        )
+    if trip.get("route_id") != route_id:
+        raise RouteContractError(
+            f"GTFS bus trip route mismatch: trip_id={trip_id!r} "
+            f"expected={route_id!r} actual={trip.get('route_id')!r}"
+        )
+    headsign = trip.get("trip_headsign")
+    if not isinstance(headsign, str) or not headsign.strip():
+        raise RouteContractError(
+            f"GTFS bus trip has no trip_headsign: trip_id={trip_id!r}"
+        )
+
+    normalized_headsign = headsign.strip()
+    destination = (
+        normalized_headsign
+        if normalized_headsign.endswith("行")
+        else f"{normalized_headsign}行"
+    )
+    return f"{route_short_name.strip()} {destination}"
+
+
 def _resolve_gtfs_bus_leg(
     G,
     line_node,
@@ -2293,6 +2331,10 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 dep = active_bus_leg.departure_minute
                 final_route_id = active_bus_leg.route_id
                 final_trip_id = active_bus_leg.trip_id
+                line_disp = _gtfs_bus_trip_display_title(
+                    final_route_id,
+                    final_trip_id,
+                )
                 active_bus_sequence = active_bus_leg.origin_sequence
                 print(
                     f"[segments_detailed] board bus route_id={final_route_id} "
