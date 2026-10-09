@@ -51,6 +51,7 @@ class TimetableService {
     String? targetPoleId,
     String? patternTripId,
     String? preferredPatternTripId,
+    bool includeStopCluster = false,
     String? dayType,
     DateTime? referenceTime,
     int limit = 3,
@@ -80,6 +81,7 @@ class TimetableService {
     print('  - targetPoleId: $targetPoleId');
     print('  - patternTripId: $patternTripId');
     print('  - preferredPatternTripId: $preferredPatternTripId');
+    print('  - includeStopCluster: $includeStopCluster');
     print('  - dayType: $dayType');
     print('  - includeAllDay: $includeAllDay');
 
@@ -107,6 +109,9 @@ class TimetableService {
     }
     if (preferredPatternTripId != null && preferredPatternTripId.isNotEmpty) {
       params['preferred_pattern_trip_id'] = preferredPatternTripId;
+    }
+    if (includeStopCluster) {
+      params['include_stop_cluster'] = 'true';
     }
     if (dayType != null) {
       params['day_type'] = dayType.toLowerCase();
