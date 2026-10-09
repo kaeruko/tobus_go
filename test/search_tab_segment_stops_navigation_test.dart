@@ -95,6 +95,7 @@ void main() {
     title: '里22 日暮里駅前行',
     titleEn: 'Route Sato22 · Nippori Sta.',
     routeId: 'odpt.Busroute:Toei.Sato22',
+    tripId: 'trip-sato22-nippori',
     arrivalPoleId: 'stop-nippori',
     fromName: '亀戸駅前',
     fromNameEn: 'Kameido Sta.',
@@ -222,6 +223,10 @@ void main() {
           request.url.queryParameters['target_pole_id'],
           'stop-nippori',
         );
+        expect(
+          request.url.queryParameters['pattern_trip_id'],
+          'trip-sato22-nippori',
+        );
         return http.Response(
           '{"destinations":[]}',
           200,
@@ -333,6 +338,10 @@ void main() {
         'odpt.Busroute:Toei.Sato22',
       );
       expect(request.url.queryParameters['target_pole_id'], 'stop-nippori');
+      expect(
+        request.url.queryParameters['pattern_trip_id'],
+        'trip-sato22-nippori',
+      );
       expect(request.url.queryParameters['limit'], '3');
       expect(request.url.queryParameters['include_all'], 'true');
       final dayType = request.url.queryParameters['day_type'];
