@@ -1183,9 +1183,19 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                     (context, index) {
                       final itemIndex = index ~/ 2;
                       if (index.isEven) {
+                        final segment = widget.candidate.steps[itemIndex];
+                        final showTimetable =
+                            profile.city == AppCity.tokyo &&
+                            segment.kind == 'bus';
                         return RouteStepTile(
-                          segment: widget.candidate.steps[itemIndex],
-                          showTimetable: profile.city == AppCity.tokyo,
+                          segment: segment,
+                          showTimetable: showTimetable,
+                          timetableReferenceTime: showTimetable
+                              ? routeStepTimetableReferenceTime(
+                                  widget.candidate,
+                                  segment,
+                                )
+                              : null,
                         );
                       }
                       return const SizedBox(height: 8);
