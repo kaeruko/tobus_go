@@ -309,6 +309,49 @@ class TimetableChoices:
             return f"{int(match[1]):04d}-{int(match[2]):02d}" if match else None
         return pole if pole in getattr(self.repository, "stops", {}) else None
 
+    def _bus_pattern_terminal_stop_id(self, line_node):
+        line_id = str(self._line_id(line_node))
+        if not line_id.startswith("buspat:"):
+            return None
+
+        current = line_node
+        visited = set()
+        while True:
+            if current in visited:
+                raise RuntimeError(
+                    f"bus route pattern contains a ride cycle: line_id={line_id!r}"
+                )
+            visited.add(current)
+
+            successors = []
+            for neighbor in self.graph.successors(current):
+                edge = self.graph.get_edge_data(current, neighbor) or {}
+                if edge.get("etype") != "ride" or edge.get("mode") != "bus":
+                    continue
+                if (
+                    isinstance(neighbor, tuple)
+                    and len(neighbor) >= 3
+                    and neighbor[0] == "line"
+                    and str(self._line_id(neighbor)) == line_id
+                ):
+                    successors.append(neighbor)
+
+            if len(successors) > 1:
+                raise RuntimeError(
+                    f"bus route pattern branches unexpectedly: "
+                    f"line_id={line_id!r} node={current!r} successors={successors!r}"
+                )
+            if not successors:
+                terminal_stop_id = self._stop_id(current[1])
+                if terminal_stop_id is None:
+                    raise RuntimeError(
+                        f"bus route-pattern terminal has no GTFS stop identity: "
+                        f"line_id={line_id!r} node={current!r}"
+                    )
+                return terminal_stop_id
+
+            current = successors[0]
+
     def _bus_route(self, node):
         line_id = self._line_id(node)
         if line_id in self._line_route_cache:
@@ -362,6 +405,7 @@ class TimetableChoices:
                 f"{route}|{stop_id}", ()))
             self._bus_departures[key] = (entries, tuple(entry[0] for entry in entries))
         entries, clocks = self._bus_departures[key]
+        required_terminal_stop_id = self._bus_pattern_terminal_stop_id(v)
         delay = self._bus_delay(v)
         start = bisect.bisect_left(clocks, ready - delay)
         out = []
@@ -374,6 +418,11 @@ class TimetableChoices:
                 continue
             run = self._bus_run(trip_id)
             if run is None:
+                continue
+            if (
+                required_terminal_stop_id is not None
+                and run.stops[-1].stop_id != required_terminal_stop_id
+            ):
                 continue
             position = self._positions[("bus", run.run_id)].get(sequence)
             if position is None or position + 1 == len(run.stops):
