@@ -11,6 +11,7 @@ class TimetableView extends StatefulWidget {
   final String routeId;
   final String stopId;
   final String? targetPoleId;
+  final String? patternTripId;
   final int limit;
   final bool showEmptyState;
   final bool showFullDay;
@@ -21,6 +22,7 @@ class TimetableView extends StatefulWidget {
     required this.routeId,
     required this.stopId,
     this.targetPoleId,
+    this.patternTripId,
     this.limit = 3,
     this.showEmptyState = false,
     this.showFullDay = false,
@@ -104,6 +106,7 @@ class _TimetableViewState extends State<TimetableView> {
       widget.routeId,
       widget.stopId,
       targetPoleId: widget.targetPoleId,
+      patternTripId: widget.patternTripId,
       dayType: widget.showFullDay ? _dayType : null,
       referenceTime: _now,
       limit: widget.limit,
