@@ -1554,6 +1554,38 @@ def _transit_path_signature(G, path):
     return transit_path_signature(G, path)
 
 
+def _initial_bus_run_variant_key(G, path, signature):
+    """Collapse different initial boarding stops only for the same concrete bus.
+
+    Preserve all subsequent boarding/alighting points and the first transfer.
+    The selected vehicle identity must come from the timetable search, never
+    from matching display titles or guessing a trip from departure times.
+    """
+    if not signature or signature[0][0] != "bus":
+        return None
+    edge_rides = getattr(path, "edge_rides", None)
+    if edge_rides is None:
+        return None
+    for index, (u, v) in enumerate(zip(path, path[1:])):
+        edge = G.get_edge_data(u, v)
+        if edge is None or edge.get("etype") != "board":
+            continue
+        if G.nodes[v].get("mode") != "bus":
+            return None
+        state = edge_rides.get(index)
+        if state is None or state.provider != "bus" or not state.trip_id:
+            return None  # Opaque graph/test runs do not establish trip identity.
+        first_leg = signature[0]
+        first_alight = first_leg[-1] if len(first_leg) == 5 else None
+        return (
+            state.service_key, state.run_id, state.trip_id,
+            first_leg[0], first_leg[1], first_alight, signature[1:],
+        )
+    raise RouteContractError(
+        f"transit signature has a bus leg but path has no board edge: {path!r}"
+    )
+
+
 def _virtual_destination_connections_by_node(
     target_node,
     virtual_dest_connections,
@@ -1787,14 +1819,41 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
             if close is not None:
                 close()
 
+        # Keep the existing itinerary dedupe (including later departures).
+        # Additionally merge different first boarding poles when both paths
+        # actually select the same bus run and all later transfers match.
+        signatures = [
+            _transit_path_signature(G, cand["path"]) for cand in raw_candidates
+        ]
+        initial_bus_runs = [
+            _initial_bus_run_variant_key(G, cand["path"], signature)
+            for cand, signature in zip(raw_candidates, signatures)
+        ]
+        parent = list(range(len(raw_candidates)))
+
+        def root(index):
+            while parent[index] != index:
+                index = parent[index]
+            return index
+
+        for index in range(len(raw_candidates)):
+            for other in range(index):
+                same_itinerary = signatures[index] == signatures[other]
+                same_initial_bus = (
+                    initial_bus_runs[index] is not None
+                    and initial_bus_runs[index] == initial_bus_runs[other]
+                )
+                if same_itinerary or same_initial_bus:
+                    parent[root(index)] = root(other)
+
         grouped_candidates = {}
         signature_order = []
-        for cand in raw_candidates:
-            signature = _transit_path_signature(G, cand["path"])
-            if signature not in grouped_candidates:
-                grouped_candidates[signature] = []
-                signature_order.append(signature)
-            grouped_candidates[signature].append(cand)
+        for index, candidate in enumerate(raw_candidates):
+            representative = root(index)
+            if representative not in grouped_candidates:
+                grouped_candidates[representative] = []
+                signature_order.append(representative)
+            grouped_candidates[representative].append(candidate)
 
         duplicate_count = len(raw_candidates) - len(signature_order)
         if duplicate_count:
@@ -1812,8 +1871,13 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
             # shortest-walk choice for detours from the same alighting stop.
             group_rows = grouped_candidates[signature]
             different_final_stops = len(group_rows) > 1 and len({
-                transit_path_signature(G, candidate["path"], collapse_final_alight=False)
-                for candidate in group_rows
+                full_signature[-1][-1] if full_signature else None
+                for full_signature in (
+                    transit_path_signature(
+                        G, candidate["path"], collapse_final_alight=False
+                    )
+                    for candidate in group_rows
+                )
             }) > 1
             if different_final_stops:
                 group = sorted(group_rows, key=lambda candidate: (
