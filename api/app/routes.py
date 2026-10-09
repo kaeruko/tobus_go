@@ -369,6 +369,7 @@ def _gtfs_bus_timetable_destinations(
     pole_id: str,
     target_pole_id: str | None,
     pattern_trip_id: str | None = None,
+    preferred_pattern_trip_id: str | None = None,
     day_type=None,
     current_minute: int,
     limit: int,
@@ -383,6 +384,32 @@ def _gtfs_bus_timetable_destinations(
         else None
     )
     effective_search_minute = current_minute - delay_min
+
+    preferred_destination_stop_id: str | None = None
+    if preferred_pattern_trip_id is not None:
+        preferred_trip = gtfs_repo.trips.get(preferred_pattern_trip_id)
+        if preferred_trip is None:
+            raise RuntimeError(
+                "GTFS timetable preferred pattern trip is missing: "
+                f"trip_id={preferred_pattern_trip_id!r}"
+            )
+        if preferred_trip.get("route_id") != route_id:
+            raise RuntimeError(
+                "GTFS timetable preferred pattern trip route mismatch: "
+                f"trip_id={preferred_pattern_trip_id!r} "
+                f"expected_route_id={route_id!r} "
+                f"actual_route_id={preferred_trip.get('route_id')!r}"
+            )
+        preferred_stop_times = gtfs_repo.stop_times.get(
+            preferred_pattern_trip_id
+        )
+        if not preferred_stop_times:
+            raise RuntimeError(
+                "GTFS timetable preferred pattern trip has no stop_times: "
+                f"trip_id={preferred_pattern_trip_id!r}"
+            )
+        _, preferred_final_stop_time = max(preferred_stop_times.items())
+        preferred_destination_stop_id = preferred_final_stop_time[0]
 
     required_stop_signature: tuple[str, ...] | None = None
     if pattern_trip_id is not None:
@@ -485,6 +512,12 @@ def _gtfs_bus_timetable_destinations(
     for destination_stop_id in all_by_destination:
         if destination_stop_id not in upcoming_by_destination:
             destination_ids.append(destination_stop_id)
+    if preferred_destination_stop_id is not None:
+        destination_ids.sort(
+            key=lambda destination_stop_id: (
+                destination_stop_id != preferred_destination_stop_id
+            )
+        )
 
     destinations = []
     for destination_stop_id in destination_ids:
@@ -855,6 +888,7 @@ def register_routes(app):
         day_type: str = Query(None),
         target_pole_id: str = Query(None),
         pattern_trip_id: str = Query(None),
+        preferred_pattern_trip_id: str = Query(None),
         limit: int = Query(5),
         include_all: bool = Query(False),
         debug: bool = Query(True),
@@ -924,6 +958,7 @@ def register_routes(app):
                 pole_id=pole_id,
                 target_pole_id=target_pole_id,
                 pattern_trip_id=pattern_trip_id,
+                preferred_pattern_trip_id=preferred_pattern_trip_id,
                 day_type=service_day_type,
                 current_minute=curr_min,
                 limit=limit,
@@ -932,16 +967,17 @@ def register_routes(app):
                 graph=g,
             )
         else:
-            if pattern_trip_id is not None:
+            if pattern_trip_id is not None or preferred_pattern_trip_id is not None:
                 raise HTTPException(
                     400,
                     detail={
                         "code": "bus_timetable_pattern_trip_requires_gtfs",
                         "message": (
-                            "pattern_trip_id is only supported with GTFS route "
-                            "and stop IDs"
+                            "pattern trip selectors are only supported with "
+                            "GTFS route and stop IDs"
                         ),
                         "pattern_trip_id": pattern_trip_id,
+                        "preferred_pattern_trip_id": preferred_pattern_trip_id,
                     },
                 )
             pole_name = None
