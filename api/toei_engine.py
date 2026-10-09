@@ -2170,6 +2170,67 @@ def _selected_bus_leg(G, path, board_index, state):
     return None
 
 
+def _gtfs_bus_full_trip_stops(
+    trip_id: str,
+    *,
+    origin_sequence: int,
+    destination_sequence: int,
+) -> list[dict]:
+    stops_by_sequence = gtfs_repo.stop_times.get(trip_id)
+    if not stops_by_sequence:
+        raise RouteContractError(
+            f"GTFS bus trip has no stop_times: trip_id={trip_id!r}"
+        )
+    if origin_sequence not in stops_by_sequence:
+        raise RouteContractError(
+            f"GTFS bus trip origin sequence is missing: "
+            f"trip_id={trip_id!r} origin_sequence={origin_sequence}"
+        )
+    if destination_sequence not in stops_by_sequence:
+        raise RouteContractError(
+            f"GTFS bus trip destination sequence is missing: "
+            f"trip_id={trip_id!r} destination_sequence={destination_sequence}"
+        )
+    if destination_sequence < origin_sequence:
+        raise RouteContractError(
+            f"GTFS bus trip destination precedes origin: "
+            f"trip_id={trip_id!r} origin_sequence={origin_sequence} "
+            f"destination_sequence={destination_sequence}"
+        )
+
+    result = []
+    for sequence, stop_time in sorted(stops_by_sequence.items()):
+        stop_id = stop_time[0]
+        stop = gtfs_repo.stops.get(stop_id)
+        if stop is None:
+            raise RouteContractError(
+                f"GTFS bus trip references unknown stop: "
+                f"trip_id={trip_id!r} stop_id={stop_id!r}"
+            )
+        name = stop.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise RouteContractError(
+                f"GTFS bus stop has no name: stop_id={stop_id!r}"
+            )
+        lat = stop.get("lat")
+        lon = stop.get("lon")
+        if lat is None or lon is None:
+            raise RouteContractError(
+                f"GTFS bus stop has no coordinate: stop_id={stop_id!r}"
+            )
+        result.append({
+            "name": name,
+            "name_en": stop.get("name_en"),
+            "lat": float(lat),
+            "lon": float(lon),
+            "id": stop_id,
+            "is_origin": sequence == origin_sequence,
+            "is_destination": sequence == destination_sequence,
+            "is_in_ride_range": origin_sequence <= sequence <= destination_sequence,
+        })
+    return result
+
+
 def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", delays_snapshot=None, virtual_dest_connections=None, use_realtime=True):
     """
     探索されたパス(ノード列)を解析し、UI表示用のセグメント(移動行程)のリストを生成する。
@@ -2428,6 +2489,11 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             if mode == "bus":
                 cur["departureStopId"] = active_bus_leg.origin_stop_id
                 cur["arrivalPoleId"] = active_bus_leg.destination_stop_id
+                cur["trip_stops"] = _gtfs_bus_full_trip_stops(
+                    active_bus_leg.trip_id,
+                    origin_sequence=active_bus_leg.origin_sequence,
+                    destination_sequence=active_bus_leg.destination_sequence,
+                )
             if selected_state is not None and selected_state.provider == "rail":
                 cur["selected_run"] = _selected_rail_run(path, selected_state)
 
