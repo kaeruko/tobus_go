@@ -11,9 +11,11 @@ import networkx as nx
 from gtfs_loader import GtfsRepository
 from toei_engine import (
     ServiceDayType,
+    _gtfs_bus_full_trip_stops,
     calculate_real_arrival_time,
     search_best_routes,
     segments_detailed,
+    serialized_transfer_wait_start_minute,
 )
 
 
@@ -90,6 +92,73 @@ class GtfsTripTimesTest(unittest.TestCase):
 
     def tearDown(self):
         self.temp_dir.cleanup()
+
+    def test_full_bus_trip_stops_mark_only_the_ridden_range_active(self):
+        repository = _new_repository()
+        repository.stop_times["trip-full"] = {
+            1: ("1000-01", 600, 600),
+            2: ("1001-01", 605, 605),
+            3: ("1002-01", 610, 610),
+            4: ("1003-01", 615, 615),
+            5: ("1004-01", 620, 620),
+        }
+        for index in range(5):
+            stop_id = f"{1000 + index:04d}-01"
+            repository.stops[stop_id] = {
+                "name": f"停留所{index}",
+                "name_en": f"Stop {index}",
+                "lat": 35.0 + index / 100,
+                "lon": 139.0 + index / 100,
+            }
+
+        with patch("toei_engine.gtfs_repo", repository):
+            stops = _gtfs_bus_full_trip_stops(
+                "trip-full",
+                origin_sequence=2,
+                destination_sequence=4,
+            )
+
+        self.assertEqual(
+            [stop["id"] for stop in stops],
+            ["1000-01", "1001-01", "1002-01", "1003-01", "1004-01"],
+        )
+        self.assertEqual(
+            [stop["is_in_ride_range"] for stop in stops],
+            [False, True, True, True, False],
+        )
+        self.assertEqual(
+            [stop["id"] for stop in stops if stop["is_origin"]],
+            ["1001-01"],
+        )
+        self.assertEqual(
+            [stop["id"] for stop in stops if stop["is_destination"]],
+            ["1003-01"],
+        )
+
+    def test_transfer_wait_rounds_fractional_walk_arrival_up(self):
+        self.assertEqual(
+            serialized_transfer_wait_start_minute(
+                18 * 60 + 0.25,
+                has_prior_ride=True,
+            ),
+            18 * 60 + 1,
+        )
+        self.assertEqual(
+            serialized_transfer_wait_start_minute(
+                18 * 60,
+                has_prior_ride=True,
+            ),
+            18 * 60,
+        )
+
+    def test_initial_wait_keeps_existing_fractional_start_contract(self):
+        self.assertEqual(
+            serialized_transfer_wait_start_minute(
+                17 * 60 + 21.25,
+                has_prior_ride=False,
+            ),
+            17 * 60 + 21.25,
+        )
 
     def test_finds_ue23_arrival_from_the_same_active_trip(self):
         leg = self.repository.find_next_trip_leg(

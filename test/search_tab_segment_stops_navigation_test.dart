@@ -124,6 +124,98 @@ void main() {
   );
 
   testWidgets(
+    'bus stop guide shows the full trip and dims stops outside the ridden range',
+    (tester) async {
+      final segment = StepSeg(
+        stepId: 'full-trip-bus',
+        kind: 'bus',
+        title: '草39 浅草寿町行',
+        routeId: '096',
+        tripId: 'trip-kusa39',
+        fromName: '四ツ木橋南詰',
+        toName: '東向島五丁目',
+        minutes: 1,
+        departureTime: '18:21',
+        arrivalTime: '18:22',
+        stops: [
+          StopPoint(
+            name: '四ツ木橋南詰',
+            point: const LatLng(35.7300, 139.8200),
+            isOrigin: true,
+            stopId: '1589-02',
+          ),
+          StopPoint(
+            name: '東向島六丁目',
+            point: const LatLng(35.7310, 139.8210),
+            stopId: '1269-01',
+          ),
+          StopPoint(
+            name: '東向島五丁目',
+            point: const LatLng(35.7320, 139.8220),
+            isDestination: true,
+            stopId: '1268-01',
+          ),
+        ],
+        tripStops: [
+          StopPoint(
+            name: '浅草寿町',
+            point: const LatLng(35.7100, 139.7900),
+            stopId: '0035-06',
+            isInRideRange: false,
+          ),
+          StopPoint(
+            name: '四ツ木橋南詰',
+            point: const LatLng(35.7300, 139.8200),
+            isOrigin: true,
+            stopId: '1589-02',
+          ),
+          StopPoint(
+            name: '東向島六丁目',
+            point: const LatLng(35.7310, 139.8210),
+            stopId: '1269-01',
+          ),
+          StopPoint(
+            name: '東向島五丁目',
+            point: const LatLng(35.7320, 139.8220),
+            isDestination: true,
+            stopId: '1268-01',
+          ),
+          StopPoint(
+            name: '金町駅前',
+            point: const LatLng(35.7600, 139.8700),
+            stopId: '9999-01',
+            isInRideRange: false,
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        CupertinoApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: SegmentStopsPage(segment: segment),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('浅草寿町'), findsOneWidget);
+      expect(find.text('四ツ木橋南詰'), findsOneWidget);
+      expect(find.text('東向島六丁目'), findsOneWidget);
+      expect(find.text('東向島五丁目'), findsOneWidget);
+      expect(find.text('金町駅前'), findsOneWidget);
+      expect(find.text('乗車1分 / 3停留所'), findsOneWidget);
+
+      final beforeRide = tester.widget<Text>(find.text('浅草寿町'));
+      final duringRide = tester.widget<Text>(find.text('東向島六丁目'));
+      final afterRide = tester.widget<Text>(find.text('金町駅前'));
+      expect(beforeRide.style?.color, CupertinoColors.secondaryLabel);
+      expect(duringRide.style?.color, CupertinoColors.label);
+      expect(afterRide.style?.color, CupertinoColors.secondaryLabel);
+    },
+  );
+
+  testWidgets(
     'search tab keeps route detail and stops on nested Navigator and back never pops root',
     (tester) async {
       final rootObserver = _RootPopObserver();

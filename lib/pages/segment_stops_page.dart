@@ -40,10 +40,18 @@ class _SegmentStopsPageState extends State<SegmentStopsPage> {
       .map((stop) => LatLng(stop.lat, stop.lon))
       .toList(growable: false);
 
+  List<StopPoint> get _displayStops {
+    if (widget.segment.kind == 'bus' && widget.segment.tripStops.isNotEmpty) {
+      return widget.segment.tripStops;
+    }
+    return widget.segment.stops;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context);
+    final displayStops = _displayStops;
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -112,14 +120,12 @@ class _SegmentStopsPageState extends State<SegmentStopsPage> {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                 child: Column(
                   children: [
-                    for (var index = 0;
-                        index < widget.segment.stops.length;
-                        index++)
+                    for (var index = 0; index < displayStops.length; index++)
                       _StopRow(
                         segment: widget.segment,
-                        stop: widget.segment.stops[index],
+                        stop: displayStops[index],
                         isFirst: index == 0,
-                        isLast: index == widget.segment.stops.length - 1,
+                        isLast: index == displayStops.length - 1,
                       ),
                   ],
                 ),
@@ -205,14 +211,21 @@ class _StopRow extends StatelessWidget {
         routeId.isNotEmpty &&
         stopId != null &&
         stopId.isNotEmpty;
-    final isEndpoint = isFirst || isLast;
-    final endpointTime = isFirst
+    final hasFullTripStops =
+        segment.kind == 'bus' && segment.tripStops.isNotEmpty;
+    final isBoardingStop =
+        stop.isOrigin || (!hasFullTripStops && isFirst);
+    final isAlightingStop =
+        stop.isDestination || (!hasFullTripStops && isLast);
+    final isEndpoint = isBoardingStop || isAlightingStop;
+    final isOutsideRide = hasFullTripStops && !stop.isInRideRange;
+    final endpointTime = isBoardingStop
         ? segment.departureTime?.trim()
-        : (isLast ? segment.arrivalTime?.trim() : null);
+        : (isAlightingStop ? segment.arrivalTime?.trim() : null);
     final endpointTimeLabel =
         endpointTime == null || endpointTime.isEmpty
             ? null
-            : (isFirst
+            : (isBoardingStop
                   ? l10n.segmentDepartureAt(endpointTime)
                   : l10n.segmentArrivalAt(endpointTime));
 
@@ -251,7 +264,9 @@ class _StopRow extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: CupertinoColors.activeGreen,
+                        color: isOutsideRide
+                            ? CupertinoColors.systemGrey3
+                            : CupertinoColors.activeGreen,
                         width: 2,
                       ),
                       color: isEndpoint
@@ -291,7 +306,7 @@ class _StopRow extends StatelessWidget {
                         ),
                         const SizedBox(width: 7),
                         Text(
-                          isFirst ? l10n.boarding : l10n.alighting,
+                          isBoardingStop ? l10n.boarding : l10n.alighting,
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -322,7 +337,9 @@ class _StopRow extends StatelessWidget {
                             fontSize: isEndpoint ? 17 : 15,
                             fontWeight:
                                 isEndpoint ? FontWeight.w700 : FontWeight.w400,
-                            color: CupertinoColors.label,
+                            color: isOutsideRide
+                                ? CupertinoColors.secondaryLabel
+                                : CupertinoColors.label,
                           ),
                         ),
                       ),
