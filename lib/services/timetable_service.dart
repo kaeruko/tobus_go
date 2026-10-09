@@ -50,6 +50,7 @@ class TimetableService {
     String poleId, {
     String? targetPoleId,
     String? patternTripId,
+    String? preferredPatternTripId,
     String? dayType,
     DateTime? referenceTime,
     int limit = 3,
@@ -78,6 +79,7 @@ class TimetableService {
     print('  - poleId: $poleId');
     print('  - targetPoleId: $targetPoleId');
     print('  - patternTripId: $patternTripId');
+    print('  - preferredPatternTripId: $preferredPatternTripId');
     print('  - dayType: $dayType');
     print('  - includeAllDay: $includeAllDay');
 
@@ -102,6 +104,9 @@ class TimetableService {
     }
     if (patternTripId != null && patternTripId.isNotEmpty) {
       params['pattern_trip_id'] = patternTripId;
+    }
+    if (preferredPatternTripId != null && preferredPatternTripId.isNotEmpty) {
+      params['preferred_pattern_trip_id'] = preferredPatternTripId;
     }
     if (dayType != null) {
       params['day_type'] = dayType.toLowerCase();
