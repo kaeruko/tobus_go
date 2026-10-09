@@ -364,14 +364,19 @@ def _required_bus_stop_english_name_from_graph(
     return next(iter(english_names))
 
 
-def _gtfs_bus_stop_cluster_ids(pole_id: str) -> list[str]:
-    match = re.fullmatch(r"(\d{4,5})-(\d{2})", pole_id)
+def _gtfs_bus_stop_cluster_key(stop_id: str) -> str:
+    match = re.fullmatch(r"(\d{4,5})-(\d{2})", stop_id)
     if match is None:
         raise RuntimeError(
             "GTFS bus stop_id cannot be clustered by pole ID: "
-            f"pole_id={pole_id!r}"
+            f"stop_id={stop_id!r}"
         )
-    cluster_prefix = f"{match.group(1)}-"
+    return match.group(1)
+
+
+def _gtfs_bus_stop_cluster_ids(pole_id: str) -> list[str]:
+    cluster_key = _gtfs_bus_stop_cluster_key(pole_id)
+    cluster_prefix = f"{cluster_key}-"
     cluster_ids = sorted(
         stop_id
         for stop_id in gtfs_repo.stops
@@ -383,6 +388,87 @@ def _gtfs_bus_stop_cluster_ids(pole_id: str) -> list[str]:
             f"pole_id={pole_id!r} cluster_ids={cluster_ids!r}"
         )
     return cluster_ids
+
+
+def _gtfs_trip_stop_cluster_signature(trip_id: str) -> tuple[str, ...]:
+    stops_by_sequence = gtfs_repo.stop_times.get(trip_id)
+    if not stops_by_sequence:
+        raise RuntimeError(
+            f"GTFS trip has no stop_times: trip_id={trip_id!r}"
+        )
+    return tuple(
+        _gtfs_bus_stop_cluster_key(stop_time[0])
+        for _, stop_time in sorted(stops_by_sequence.items())
+    )
+
+
+def _gtfs_bus_paired_pattern_signatures(
+    route_id: str,
+    preferred_pattern_trip_id: str,
+) -> set[tuple[str, ...]]:
+    preferred_trip = gtfs_repo.trips.get(preferred_pattern_trip_id)
+    if preferred_trip is None:
+        raise RuntimeError(
+            "GTFS timetable preferred pattern trip is missing: "
+            f"trip_id={preferred_pattern_trip_id!r}"
+        )
+    if preferred_trip.get("route_id") != route_id:
+        raise RuntimeError(
+            "GTFS timetable preferred pattern trip route mismatch: "
+            f"trip_id={preferred_pattern_trip_id!r} "
+            f"expected_route_id={route_id!r} "
+            f"actual_route_id={preferred_trip.get('route_id')!r}"
+        )
+
+    preferred_direction_id = preferred_trip.get("direction_id")
+    if preferred_direction_id is None or str(preferred_direction_id).strip() == "":
+        raise RuntimeError(
+            "GTFS timetable preferred pattern trip has no direction_id: "
+            f"trip_id={preferred_pattern_trip_id!r}"
+        )
+    preferred_direction_id = str(preferred_direction_id).strip()
+
+    preferred_signature = _gtfs_trip_stop_cluster_signature(
+        preferred_pattern_trip_id
+    )
+    if len(preferred_signature) < 2:
+        raise RuntimeError(
+            "GTFS timetable preferred pattern trip has fewer than two stops: "
+            f"trip_id={preferred_pattern_trip_id!r} "
+            f"signature={preferred_signature!r}"
+        )
+
+    reverse_candidates: set[tuple[str, ...]] = set()
+    for trip_id, trip in gtfs_repo.trips.items():
+        if trip.get("route_id") != route_id:
+            continue
+        direction_id = trip.get("direction_id")
+        if direction_id is None or str(direction_id).strip() == "":
+            continue
+        if str(direction_id).strip() == preferred_direction_id:
+            continue
+
+        signature = _gtfs_trip_stop_cluster_signature(trip_id)
+        if len(signature) < 2:
+            continue
+        if (
+            signature[0] == preferred_signature[-1]
+            and signature[-1] == preferred_signature[0]
+        ):
+            reverse_candidates.add(signature)
+
+    if len(reverse_candidates) > 1:
+        raise RuntimeError(
+            "GTFS timetable opposite pattern is ambiguous: "
+            f"trip_id={preferred_pattern_trip_id!r} "
+            f"preferred_signature={preferred_signature!r} "
+            f"reverse_candidates={sorted(reverse_candidates)!r}"
+        )
+
+    allowed = {preferred_signature}
+    if reverse_candidates:
+        allowed.add(next(iter(reverse_candidates)))
+    return allowed
 
 
 def _gtfs_bus_timetable_destinations(
@@ -408,6 +494,20 @@ def _gtfs_bus_timetable_destinations(
         raise RuntimeError(
             "include_stop_cluster cannot be combined with pattern_trip_id"
         )
+    if include_stop_cluster and preferred_pattern_trip_id is None:
+        raise RuntimeError(
+            "include_stop_cluster requires preferred_pattern_trip_id so the "
+            "opposite direction can be paired without using stop names"
+        )
+
+    allowed_cluster_signatures = (
+        _gtfs_bus_paired_pattern_signatures(
+            route_id,
+            preferred_pattern_trip_id,
+        )
+        if include_stop_cluster
+        else None
+    )
 
     source_pole_ids = (
         _gtfs_bus_stop_cluster_ids(pole_id)
@@ -506,6 +606,7 @@ def _gtfs_bus_timetable_destinations(
 
     upcoming_by_destination: dict[str, list[str]] = {}
     all_by_destination: dict[str, list[str]] = {}
+    source_poles_by_destination: dict[str, set[str]] = {}
 
     for departure_minute, origin_sequence, trip_id, source_pole_id in schedule:
         trip = gtfs_repo.trips.get(trip_id)
@@ -532,6 +633,12 @@ def _gtfs_bus_timetable_destinations(
             raise RuntimeError(
                 f"GTFS trip has no stop_times: trip_id={trip_id!r}"
             )
+        if allowed_cluster_signatures is not None:
+            candidate_cluster_signature = _gtfs_trip_stop_cluster_signature(
+                trip_id
+            )
+            if candidate_cluster_signature not in allowed_cluster_signatures:
+                continue
         if required_stop_signature is not None:
             candidate_stop_signature = tuple(
                 stop_time[0]
@@ -547,6 +654,11 @@ def _gtfs_bus_timetable_destinations(
                 "GTFS trip destination is missing from stops: "
                 f"trip_id={trip_id!r} stop_id={destination_stop_id!r}"
             )
+
+        source_poles_by_destination.setdefault(
+            destination_stop_id,
+            set(),
+        ).add(source_pole_id)
 
         departure_text = min_to_time_str(departure_minute)
         if include_all:
@@ -603,15 +715,7 @@ def _gtfs_bus_timetable_destinations(
             "destination_name_en": destination_name_en,
             "times": upcoming_by_destination.get(destination_stop_id, []),
             "source_pole_ids": sorted(
-                {
-                    source_pole_id
-                    for _, _, trip_id, source_pole_id in schedule
-                    if (
-                        gtfs_repo.stop_times.get(trip_id)
-                        and max(gtfs_repo.stop_times[trip_id].items())[1][0]
-                        == destination_stop_id
-                    )
-                }
+                source_poles_by_destination.get(destination_stop_id, set())
             ),
         }
         if include_all:
