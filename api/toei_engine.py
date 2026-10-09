@@ -372,6 +372,60 @@ def _gtfs_bus_trip_display_title(route_id: str, trip_id: str) -> str:
     return f"{route_short_name.strip()} {destination}"
 
 
+
+def _bus_pattern_terminal_gtfs_stop_id(G, line_node) -> str | None:
+    if not (
+        isinstance(line_node, tuple)
+        and len(line_node) >= 3
+        and line_node[0] == "line"
+    ):
+        raise RouteContractError(
+            f"invalid bus line node for route-pattern terminal: {line_node!r}"
+        )
+
+    line_id = str(line_node[2])
+    if not line_id.startswith("buspat:"):
+        return None
+
+    current = line_node
+    visited = set()
+    while True:
+        if current in visited:
+            raise RouteContractError(
+                f"bus route pattern contains a ride cycle: line_id={line_id!r}"
+            )
+        visited.add(current)
+
+        successors = []
+        for neighbor in G.successors(current):
+            edge = G.get_edge_data(current, neighbor) or {}
+            if edge.get("etype") != "ride" or edge.get("mode") != "bus":
+                continue
+            if not (
+                isinstance(neighbor, tuple)
+                and len(neighbor) >= 3
+                and neighbor[0] == "line"
+                and str(neighbor[2]) == line_id
+            ):
+                continue
+            successors.append(neighbor)
+
+        if len(successors) > 1:
+            raise RouteContractError(
+                f"bus route pattern branches unexpectedly: "
+                f"line_id={line_id!r} node={current!r} successors={successors!r}"
+            )
+        if not successors:
+            terminal_stop_id = _gtfs_stop_id(str(current[1]))
+            if terminal_stop_id is None or not str(terminal_stop_id).strip():
+                raise RouteContractError(
+                    f"bus route-pattern terminal has no GTFS stop identity: "
+                    f"line_id={line_id!r} node={current!r}"
+                )
+            return str(terminal_stop_id).strip()
+
+        current = successors[0]
+
 def _resolve_gtfs_bus_leg(
     G,
     line_node,
@@ -392,6 +446,10 @@ def _resolve_gtfs_bus_leg(
     if getattr(day_type, "has_gtfs_calendar", False):
         active_service_ids = day_type.active_service_ids
 
+    required_terminal_stop_id = _bus_pattern_terminal_gtfs_stop_id(
+        G,
+        line_node,
+    )
     return gtfs_repo.find_next_trip_leg(
         route_id,
         origin_stop_id,
@@ -399,6 +457,7 @@ def _resolve_gtfs_bus_leg(
         int(earliest_departure_minute),
         active_service_ids=active_service_ids,
         required_stop_ids=required_stop_ids,
+        required_terminal_stop_id=required_terminal_stop_id,
     )
 
 
