@@ -14,6 +14,7 @@ class TimetableView extends StatefulWidget {
   final int limit;
   final bool showEmptyState;
   final bool showFullDay;
+  final DateTime? referenceTime;
 
   const TimetableView({
     super.key,
@@ -23,6 +24,7 @@ class TimetableView extends StatefulWidget {
     this.limit = 3,
     this.showEmptyState = false,
     this.showFullDay = false,
+    this.referenceTime,
   });
 
   @override
@@ -35,7 +37,7 @@ class _TimetableViewState extends State<TimetableView> {
 
   List<Map<String, dynamic>> _busGroups = [];
   String _dayType = '';
-  DateTime _now = appClock.now();
+  late DateTime _now;
   Timer? _timer;
   bool _isLoading = true;
   bool _didAutoScroll = false;
@@ -43,12 +45,15 @@ class _TimetableViewState extends State<TimetableView> {
   @override
   void initState() {
     super.initState();
+    _now = widget.referenceTime ?? appClock.now();
     _initData();
-    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
-      final nextNow = appClock.now();
-      if (!mounted) return;
-      setState(() => _now = nextNow);
-    });
+    if (widget.referenceTime == null) {
+      _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+        final nextNow = appClock.now();
+        if (!mounted) return;
+        setState(() => _now = nextNow);
+      });
+    }
   }
 
   @override
