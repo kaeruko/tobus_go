@@ -339,27 +339,51 @@ class BusNextTimetableTest(unittest.TestCase):
         )
         self.assertEqual(ueno[0]["all_times"], ["15:20"])
 
-    def test_stop_cluster_uses_pole_ids_not_stop_names(self):
+    def test_stop_cluster_pairs_only_exact_endpoint_reverse_by_ids(self):
         fake_repo = _FakeGtfsRepository()
         fake_repo.timetable_index = {
-            "070|1351-01": [(600, 1, "trip-east")],
-            "070|1351-02": [(605, 1, "trip-west")],
+            "070|1351-01": [(600, 2, "trip-east")],
+            "070|1351-02": [(605, 2, "trip-west")],
+            "070|1351-03": [(610, 2, "trip-unrelated")],
         }
         fake_repo.trips = {
-            "trip-east": {"route_id": "070", "service_id": "WK"},
-            "trip-west": {"route_id": "070", "service_id": "WK"},
+            "trip-east": {
+                "route_id": "070",
+                "service_id": "WK",
+                "direction_id": "0",
+            },
+            "trip-west": {
+                "route_id": "070",
+                "service_id": "WK",
+                "direction_id": "1",
+            },
+            "trip-unrelated": {
+                "route_id": "070",
+                "service_id": "WK",
+                "direction_id": "1",
+            },
         }
         fake_repo.stop_times = {
             "trip-east": {
-                1: ("1351-01", 600, 600),
-                2: ("2000-07", 650, 650),
+                1: ("1000-01", 580, 580),
+                2: ("1351-01", 600, 600),
+                3: ("2000-07", 650, 650),
             },
             "trip-west": {
-                1: ("1351-02", 605, 605),
-                2: ("1348-01", 620, 620),
+                1: ("2000-08", 585, 585),
+                2: ("1351-02", 605, 605),
+                3: ("1000-02", 655, 655),
+            },
+            "trip-unrelated": {
+                1: ("3000-01", 590, 590),
+                2: ("1351-03", 610, 610),
+                3: ("1000-03", 660, 660),
             },
         }
         fake_repo.stops = {
+            "1000-01": {"name": "平井駅前A", "name_en": "Hirai Sta. A"},
+            "1000-02": {"name": "平井駅前", "name_en": "Hirai Sta."},
+            "1000-03": {"name": "平井駅前C", "name_en": "Hirai Sta. C"},
             "1351-01": {
                 "name": "照合に使ってはいけない名前A",
                 "name_en": "Do not match A",
@@ -368,13 +392,21 @@ class BusNextTimetableTest(unittest.TestCase):
                 "name": "照合に使ってはいけない名前B",
                 "name_en": "Do not match B",
             },
+            "1351-03": {
+                "name": "照合に使ってはいけない名前C",
+                "name_en": "Do not match C",
+            },
             "2000-07": {
                 "name": "上野松坂屋前",
                 "name_en": "Ueno-Matsuzakaya",
             },
-            "1348-01": {
-                "name": "平井駅前",
-                "name_en": "Hirai Sta.",
+            "2000-08": {
+                "name": "上野松坂屋前B",
+                "name_en": "Ueno-Matsuzakaya B",
+            },
+            "3000-01": {
+                "name": "別系統端点",
+                "name_en": "Unrelated terminal",
             },
         }
         day_type = SimpleNamespace(
@@ -387,6 +419,7 @@ class BusNextTimetableTest(unittest.TestCase):
                 route_id="070",
                 pole_id="1351-01",
                 target_pole_id=None,
+                preferred_pattern_trip_id="trip-east",
                 include_stop_cluster=True,
                 day_type=day_type,
                 current_minute=9 * 60,
