@@ -47,7 +47,9 @@ def _repository(*trips):
     repository.routes[ROUTE] = {"route_short_name": "Test"}
     for trip_id, service_id, stops in trips:
         repository.trips[trip_id] = {
-            "route_id": ROUTE, "service_id": service_id, "headsign": stops[-1][0],
+            "route_id": ROUTE,
+            "service_id": service_id,
+            "trip_headsign": stops[-1][0],
         }
         for sequence, (stop, arrival, departure) in enumerate(stops, 1):
             repository.stops[stop] = {"name": stop, "name_en": stop}
@@ -77,6 +79,43 @@ def _choices(graph, repository, *, manager=None, ready=598, deadline=838,
 
 
 class TokyoBusChoicesContractTest(unittest.TestCase):
+    def test_bus_title_uses_the_selected_gtfs_trip_headsign(self):
+        graph = _graph(("A", "B"))
+        repository = _repository(
+            ("short", "active", (("A", 600, 600), ("B", 610, 610))),
+            (
+                "through",
+                "active",
+                (("A", 601, 601), ("B", 606, 606), ("C", 620, 620)),
+            ),
+        )
+        path = [_phys("A"), _line("A"), _line("B"), _phys("B")]
+
+        with patch.object(engine, "gtfs_repo", repository), contextlib.redirect_stdout(io.StringIO()):
+            short_steps = engine.segments_detailed(
+                graph,
+                path,
+                engine.TimetableManager(),
+                "09:58",
+                _day("active"),
+                use_realtime=False,
+            )
+            through_steps = engine.segments_detailed(
+                graph,
+                path,
+                engine.TimetableManager(),
+                "10:01",
+                _day("active"),
+                use_realtime=False,
+            )
+
+        short_bus = [step for step in short_steps if step["kind"] == "bus"]
+        through_bus = [step for step in through_steps if step["kind"] == "bus"]
+        self.assertEqual(short_bus[0]["trip_id"], "short")
+        self.assertEqual(short_bus[0]["title"], "Test B行")
+        self.assertEqual(through_bus[0]["trip_id"], "through")
+        self.assertEqual(through_bus[0]["title"], "Test C行")
+
     def test_later_departure_and_earlier_arrival_is_kept_and_detailed_same_trip(self):
         graph = _graph(("A", "B"))
         repository = _repository(
