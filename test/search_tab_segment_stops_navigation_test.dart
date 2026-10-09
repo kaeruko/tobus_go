@@ -343,6 +343,7 @@ void main() {
         request.url.queryParameters['preferred_pattern_trip_id'],
         'trip-sato22-nippori',
       );
+      expect(request.url.queryParameters['include_stop_cluster'], 'true');
       expect(request.url.queryParameters['limit'], '3');
       expect(request.url.queryParameters['include_all'], 'true');
       final dayType = request.url.queryParameters['day_type'];
