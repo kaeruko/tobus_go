@@ -472,6 +472,7 @@ class _StopTimetableSheet extends StatelessWidget {
                     routeId: routeId,
                     stopId: stopId,
                     preferredPatternTripId: tripId,
+                    includeStopCluster: true,
                     limit: 3,
                     showEmptyState: true,
                     showFullDay: true,
