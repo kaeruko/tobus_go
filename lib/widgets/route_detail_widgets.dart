@@ -409,14 +409,340 @@ class FareSummary extends StatelessWidget {
   }
 }
 
-class RouteStepTile extends StatelessWidget {
-  final StepSeg segment;
+DateTime routeStepTimetableReferenceTime(
+  Candidate candidate,
+  StepSeg segment,
+) {
+  if (segment.kind != 'bus') {
+    throw StateError(
+      '時刻表の基準時刻はバス区間にのみ設定できます: '
+      'stepId=${segment.stepId}, kind=${segment.kind}',
+    );
+  }
+
+  final departureDate = candidate.departureDate;
+  if (departureDate == null) {
+    throw StateError(
+      'バス時刻表の検索日がありません: '
+      'candidate=${candidate.id}, stepId=${segment.stepId}',
+    );
+  }
+
+  final departureTime = segment.departureTime?.trim();
+  if (departureTime == null || departureTime.isEmpty) {
+    throw StateError(
+      'バス時刻表の予定出発時刻がありません: '
+      'candidate=${candidate.id}, stepId=${segment.stepId}',
+    );
+  }
+
+  final match = RegExp(r'^(\d{1,2}):([0-5]\d)  final StepSeg segment;
   final bool showTimetable;
 
   const RouteStepTile({
     super.key,
     required this.segment,
     this.showTimetable = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
+    final isWalk = segment.kind == 'walk';
+    final canShowStops = !isWalk && segment.stops.isNotEmpty;
+    final rightText = _rightText(isWalk, l10n);
+    final displayTitle = switch (segment.kind) {
+      'walk' => l10n.walkTitle,
+      'wait' => l10n.waitTitle,
+      'bus' || 'rail' => localizedRideTitle(locale, segment),
+      _ => throw StateError('Unsupported route step kind: ${segment.kind}'),
+    };
+    final subTitle = _localizedSubTitle(locale, l10n);
+
+    String? timetableRouteId;
+    String? timetableOriginStopId;
+    String? timetableDestinationStopId;
+    if (showTimetable && segment.kind == 'bus') {
+      if (timetableReferenceTime == null) {
+        throw StateError(
+          'バス時刻表の基準時刻がありません: stepId=${segment.stepId}',
+        );
+      }
+      final routeId = segment.routeId?.trim();
+      if (routeId != null && routeId.isNotEmpty) {
+        if (segment.stops.isEmpty) {
+          throw StateError(
+            'バス時刻表の停留所一覧がありません: stepId=${segment.stepId}',
+          );
+        }
+        final originStopId = segment.stops.first.stopId?.trim();
+        final destinationStopId = segment.stops.last.stopId?.trim();
+        if (originStopId == null || originStopId.isEmpty) {
+          throw StateError(
+            'バス時刻表の乗車停留所IDがありません: stepId=${segment.stepId}',
+          );
+        }
+        if (destinationStopId == null || destinationStopId.isEmpty) {
+          throw StateError(
+            'バス時刻表の降車停留所IDがありません: stepId=${segment.stepId}',
+          );
+        }
+        timetableRouteId = routeId;
+        timetableOriginStopId = originStopId;
+        timetableDestinationStopId = destinationStopId;
+      }
+    }
+
+    final content = Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: CupertinoColors.systemBackground.resolveFrom(context),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: CupertinoColors.systemGrey.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _RouteStepIcon(kind: segment.kind),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayTitle,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (segment.departureTime != null &&
+                        segment.arrivalTime != null)
+                      Text(
+                        '${segment.departureTime} → ${segment.arrivalTime}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: CupertinoColors.activeBlue,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    if (subTitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subTitle,
+                        style: const TextStyle(
+                          color: CupertinoColors.inactiveGray,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (rightText.isNotEmpty)
+                Text(
+                  rightText,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: CupertinoColors.systemGrey,
+                  ),
+                ),
+            ],
+          ),
+          if (timetableRouteId != null) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Container(height: 1, color: CupertinoColors.systemGrey5),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: TimetableView(
+                routeId: timetableRouteId,
+                stopId: timetableOriginStopId!,
+                targetPoleId: timetableDestinationStopId!,
+                referenceTime: timetableReferenceTime!,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    if (!canShowStops) return content;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(context).push(
+        CupertinoPageRoute(builder: (_) => SegmentStopsPage(segment: segment)),
+      ),
+      child: content,
+    );
+  }
+
+  String? _localizedSubTitle(Locale locale, AppLocalizations l10n) {
+    if (segment.isRide) {
+      return '${localizedRideFromName(locale, segment)} → '
+          '${localizedRideToName(locale, segment)}';
+    }
+
+    if (segment.kind == 'wait') {
+      final place = segment.place ?? segment.fromName;
+      if (place == null || place.trim().isEmpty) return null;
+      final localizedPlace = localizedOptionalTransitName(
+        locale,
+        japanese: place,
+        english: segment.placeEn ?? segment.fromNameEn,
+        field: 'place_en',
+        identity: 'stepId=${segment.stepId}',
+      );
+      return l10n.waitAt(localizedPlace);
+    }
+
+    if (segment.kind == 'walk') {
+      final from = _localizedWalkEndpoint(
+        locale,
+        japanese: segment.fromName,
+        english: segment.fromNameEn,
+        field: 'walk_from_en',
+      );
+      final to = _localizedWalkEndpoint(
+        locale,
+        japanese: segment.toName,
+        english: segment.toNameEn,
+        field: 'walk_to_en',
+      );
+      if (from != null && to != null) return '$from → $to';
+      if (segment.meters > 0) {
+        return l10n.walkSegment('${segment.meters.round()}m', '');
+      }
+      return l10n.walkTitle;
+    }
+
+    throw StateError('Unsupported route step kind: ${segment.kind}');
+  }
+
+  String? _localizedWalkEndpoint(
+    Locale locale, {
+    required String? japanese,
+    required String? english,
+    required String field,
+  }) {
+    final original = japanese?.trim();
+    if (original == null || original.isEmpty) return null;
+    return localizedOptionalPlaceName(
+      locale,
+      japanese: original,
+      english: english,
+      field: field,
+      identity: 'stepId=${segment.stepId}',
+    );
+  }
+
+  String _rightText(bool isWalk, AppLocalizations l10n) {
+    if (segment.minutes > 0) return l10n.approximateMinutes(segment.minutes);
+    if (!isWalk && segment.edges > 0) return l10n.stopCount(segment.edges);
+    if (isWalk && segment.meters > 0) {
+      return '${segment.meters.round()}m';
+    }
+    return '';
+  }
+}
+
+class _RouteStepIcon extends StatelessWidget {
+  final String kind;
+
+  const _RouteStepIcon({required this.kind});
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, color) = switch (kind) {
+      'walk' => (CupertinoIcons.paw_solid, CupertinoColors.activeOrange),
+      'wait' => (CupertinoIcons.clock, CupertinoColors.systemGrey),
+      'rail' => (CupertinoIcons.tram_fill, CupertinoColors.systemPurple),
+      'bus' => (CupertinoIcons.bus, CupertinoColors.activeBlue),
+      _ => throw StateError('Unsupported route step kind: $kind'),
+    };
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Icon(icon, color: color),
+    );
+  }
+}
+
+String routeOriginLabel(Candidate candidate, {String fallback = '出発地'}) {
+  if (!_isPlaceholder(candidate.originName)) return candidate.originName!;
+  if (candidate.steps.isNotEmpty &&
+      !_isPlaceholder(candidate.steps.first.from)) {
+    return candidate.steps.first.from!;
+  }
+  return fallback;
+}
+
+String routeDestinationLabel(
+  Candidate candidate, {
+  String fallback = '目的地',
+}) {
+  if (!_isPlaceholder(candidate.destinationName)) {
+    return candidate.destinationName!;
+  }
+  if (candidate.steps.isNotEmpty && !_isPlaceholder(candidate.steps.last.to)) {
+    return candidate.steps.last.to!;
+  }
+  return fallback;
+}
+
+bool _isPlaceholder(String? value) {
+  const placeholders = {'出発地', '目的地'};
+  if (value == null) return true;
+  final trimmed = value.trim();
+  return trimmed.isEmpty || placeholders.contains(trimmed);
+}
+).firstMatch(departureTime);
+  if (match == null) {
+    throw StateError(
+      'バス時刻表の予定出発時刻が不正です: '
+      'candidate=${candidate.id}, stepId=${segment.stepId}, '
+      'departureTime=$departureTime',
+    );
+  }
+
+  final serviceHour = int.parse(match.group(1)!);
+  final minute = int.parse(match.group(2)!);
+  final dayOffset = serviceHour ~/ 24;
+  final clockHour = serviceHour % 24;
+  return DateTime(
+    departureDate.year,
+    departureDate.month,
+    departureDate.day,
+    clockHour,
+    minute,
+  ).add(Duration(days: dayOffset));
+}
+
+class RouteStepTile extends StatelessWidget {
+  final StepSeg segment;
+  final bool showTimetable;
+  final DateTime? timetableReferenceTime;
+
+  const RouteStepTile({
+    super.key,
+    required this.segment,
+    this.showTimetable = false,
+    this.timetableReferenceTime,
   });
 
   @override
