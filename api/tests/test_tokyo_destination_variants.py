@@ -281,18 +281,18 @@ class TokyoDestinationVariantsTest(unittest.TestCase):
                     yield {"cost": 5.0, "path": short_walk, "walk_m": 546.0}
                     raise AssertionError("Do not search past the raw candidate limit")
 
-                with patch.object(engine, generator_name, return_value=raw_paths()), \\
+                with patch.object(engine, generator_name, return_value=raw_paths()), \
                         patch.object(engine, "calculate_real_arrival_time",
                                      side_effect=lambda g, tm, p, *args, **kw:
-                                     p.arrival_minute) as arrival, \\
+                                     p.arrival_minute) as arrival, \
                         patch.object(engine, "segments_detailed",
                                      side_effect=lambda g, p, *args, **kw: [
                                          {"kind": "bus", "title": "錦37", "meters": 0},
                                          {"kind": "bus", "title": "草39", "meters": 0},
                                          {"kind": "walk", "title": "徒歩", "meters":
                                           573 if p is long_walk else 546},
-                                     ]) as detail, \\
-                        patch.object(engine, "path_to_coords", return_value=[]), \\
+                                     ]) as detail, \
+                        patch.object(engine, "path_to_coords", return_value=[]), \
                         contextlib.redirect_stdout(io.StringIO()):
                     candidates = engine.search_best_routes(
                         graph, object(), START, mode=mode,
@@ -338,16 +338,16 @@ class TokyoDestinationVariantsTest(unittest.TestCase):
                     yield {"cost": 5.0, "path": from_first, "walk_m": 546.0}
 
                 with patch.object(engine, "find_few_transfers_paths_generator",
-                                  return_value=raw_paths()), \\
+                                  return_value=raw_paths()), \
                         patch.object(engine, "calculate_real_arrival_time",
-                                     return_value=509.0), \\
+                                     return_value=509.0), \
                         patch.object(engine, "segments_detailed",
                                      return_value=[
                                          {"kind": "bus", "title": "錦37", "meters": 0},
                                          {"kind": "bus", "title": "草39", "meters": 0},
                                          {"kind": "walk", "title": "徒歩", "meters": 500},
-                                     ]), \\
-                        patch.object(engine, "path_to_coords", return_value=[]), \\
+                                     ]), \
+                        patch.object(engine, "path_to_coords", return_value=[]), \
                         contextlib.redirect_stdout(io.StringIO()):
                     candidates = engine.search_best_routes(
                         graph, object(), START, mode="fewTransfers",
