@@ -488,6 +488,7 @@ class RouteStepTile extends StatelessWidget {
     String? timetableRouteId;
     String? timetableOriginStopId;
     String? timetableDestinationStopId;
+    String? timetablePatternTripId;
     if (showTimetable && segment.kind == 'bus') {
       if (timetableReferenceTime == null) {
         throw StateError(
@@ -513,9 +514,16 @@ class RouteStepTile extends StatelessWidget {
             'バス時刻表の降車停留所IDがありません: stepId=${segment.stepId}',
           );
         }
+        final tripId = segment.tripId?.trim();
+        if (tripId == null || tripId.isEmpty) {
+          throw StateError(
+            'バス時刻表の便IDがありません: stepId=${segment.stepId}',
+          );
+        }
         timetableRouteId = routeId;
         timetableOriginStopId = originStopId;
         timetableDestinationStopId = destinationStopId;
+        timetablePatternTripId = tripId;
       }
     }
 
@@ -594,6 +602,7 @@ class RouteStepTile extends StatelessWidget {
                 routeId: timetableRouteId,
                 stopId: timetableOriginStopId!,
                 targetPoleId: timetableDestinationStopId!,
+                patternTripId: timetablePatternTripId!,
                 referenceTime: timetableReferenceTime!,
               ),
             ),
