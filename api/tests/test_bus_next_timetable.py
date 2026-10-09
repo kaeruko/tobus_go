@@ -251,6 +251,94 @@ class BusNextTimetableTest(unittest.TestCase):
                     graph=graph,
                 )
 
+    def test_pattern_trip_keeps_different_stop_sequences_separate(self):
+        fake_repo = _FakeGtfsRepository()
+        fake_repo.timetable_index = {
+            "096|1269-01": [
+                (900, 1, "trip-asakusa"),
+                (920, 1, "trip-ueno"),
+            ]
+        }
+        fake_repo.trips = {
+            "trip-asakusa": {"route_id": "096", "service_id": "WK"},
+            "trip-ueno": {"route_id": "096", "service_id": "WK"},
+        }
+        fake_repo.stop_times = {
+            "trip-asakusa": {
+                1: ("1269-01", 900, 900),
+                2: ("1268-01", 902, 902),
+                3: ("0035-06", 930, 930),
+            },
+            "trip-ueno": {
+                1: ("1269-01", 920, 920),
+                2: ("1268-01", 922, 922),
+                3: ("0035-06", 950, 950),
+                4: ("0131-01", 958, 958),
+                5: ("2000-07", 965, 965),
+            },
+        }
+        fake_repo.stops = {
+            "1269-01": {
+                "name": "東向島六丁目",
+                "name_en": "Higashi-mukojima 6-chome",
+            },
+            "1268-01": {
+                "name": "東向島五丁目",
+                "name_en": "Higashi-mukojima 5-chome",
+            },
+            "0035-06": {
+                "name": "浅草寿町",
+                "name_en": "Asakusa-Kotobukicho",
+            },
+            "0131-01": {
+                "name": "上野駅前",
+                "name_en": "Ueno Sta.",
+            },
+            "2000-07": {
+                "name": "上野松坂屋前",
+                "name_en": "Ueno-Matsuzakaya",
+            },
+        }
+        day_type = SimpleNamespace(
+            has_gtfs_calendar=True,
+            active_service_ids=frozenset({"WK"}),
+        )
+
+        with patch("app.routes.gtfs_repo", fake_repo):
+            asakusa = _gtfs_bus_timetable_destinations(
+                route_id="096",
+                pole_id="1269-01",
+                target_pole_id="1268-01",
+                pattern_trip_id="trip-asakusa",
+                day_type=day_type,
+                current_minute=14 * 60,
+                limit=3,
+                include_all=True,
+                delay_min=0,
+            )
+            ueno = _gtfs_bus_timetable_destinations(
+                route_id="096",
+                pole_id="1269-01",
+                target_pole_id="1268-01",
+                pattern_trip_id="trip-ueno",
+                day_type=day_type,
+                current_minute=14 * 60,
+                limit=3,
+                include_all=True,
+                delay_min=0,
+            )
+
+        self.assertEqual(
+            [group["destination_name"] for group in asakusa],
+            ["浅草寿町"],
+        )
+        self.assertEqual(asakusa[0]["all_times"], ["15:00"])
+        self.assertEqual(
+            [group["destination_name"] for group in ueno],
+            ["上野松坂屋前"],
+        )
+        self.assertEqual(ueno[0]["all_times"], ["15:20"])
+
     def test_full_day_remains_visible_after_last_upcoming_bus(self):
         fake_repo = _FakeGtfsRepository()
         day_type = SimpleNamespace(
