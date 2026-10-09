@@ -380,16 +380,19 @@ Future<void> _showStopTimetable(
   required StopPoint stop,
 }) {
   final routeId = segment.routeId?.trim();
+  final tripId = segment.tripId?.trim();
   final stopId = stop.stopId?.trim();
   if (segment.kind != 'bus' ||
       routeId == null ||
       routeId.isEmpty ||
+      tripId == null ||
+      tripId.isEmpty ||
       stopId == null ||
       stopId.isEmpty) {
     throw StateError(
       'Cannot show stop timetable without bus route/stop IDs: '
       'stepId=${segment.stepId}, routeId=${segment.routeId}, '
-      'stopId=${stop.stopId}',
+      'tripId=${segment.tripId}, stopId=${stop.stopId}',
     );
   }
 
@@ -403,6 +406,7 @@ Future<void> _showStopTimetable(
       segment: segment,
       stop: stop,
       routeId: routeId,
+      tripId: tripId,
       stopId: stopId,
       targetPoleId:
           targetPoleId == null || targetPoleId.isEmpty ? null : targetPoleId,
@@ -414,6 +418,7 @@ class _StopTimetableSheet extends StatelessWidget {
   final StepSeg segment;
   final StopPoint stop;
   final String routeId;
+  final String tripId;
   final String stopId;
   final String? targetPoleId;
 
@@ -421,6 +426,7 @@ class _StopTimetableSheet extends StatelessWidget {
     required this.segment,
     required this.stop,
     required this.routeId,
+    required this.tripId,
     required this.stopId,
     required this.targetPoleId,
   });
@@ -485,6 +491,7 @@ class _StopTimetableSheet extends StatelessWidget {
                     routeId: routeId,
                     stopId: stopId,
                     targetPoleId: targetPoleId,
+                    patternTripId: tripId,
                     limit: 3,
                     showEmptyState: true,
                     showFullDay: true,
