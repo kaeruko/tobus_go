@@ -67,7 +67,9 @@ class TokyoSearchPerformanceTest(unittest.TestCase):
                     ) as departure:
                         results = _search(search, graph, manager, self.start, self.target)
 
-                    self.assertEqual(len(results), 1)
+                    # Different boarding stops are distinct itineraries even
+                    # when their final walking distances are equal.
+                    self.assertEqual(len(results), 2)
                     self.assertEqual(
                         results[0],
                         {
@@ -76,6 +78,11 @@ class TokyoSearchPerformanceTest(unittest.TestCase):
                             "walk_m": 10.0,
                         },
                     )
+                    self.assertEqual(results[1], {
+                        "cost": second_cost + 0.25,
+                        "path": [self.start, self.second, self.line, self.target],
+                        "walk_m": 10.0,
+                    })
                     # Equal/greater cost alone cannot establish dominance:
                     # the other boarding may catch a different departure.
                     self.assertEqual([call.args[0] for call in departure.call_args_list], ["first", "second"])

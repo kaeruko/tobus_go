@@ -12,6 +12,7 @@ from route_engine import RouteContractError, RouteSearchLimitError
 from tokyo_few_transfers_bounds import CostRoundingGuard, make_bounds
 from tokyo_time_bounds import make_time_bounds
 from tokyo_time_rounding import TimeRoundingGuard
+from tokyo_route_signatures import transit_path_signature
 
 
 class SelectedPath(list):
@@ -48,21 +49,28 @@ class _Label:
     parent: object = None
     active: bool = True
     expanded: bool = False
+    goal_signature: object = None
 
 
 class _Frontier:
-    def __init__(self, target, mode, can_wait):
+    def __init__(self, target, mode, can_wait, goal_signature=None):
         self.target = target
         self.mode = mode
         self.can_wait = can_wait
         self.labels = {}
         self.count = 0
+        self.goal_signature = goal_signature
 
     def _key(self, label):
         if label.node == self.target:
-            # Completed paths have no future resource requirements.  Preserve
-            # the historical final-walk candidate groups without using buckets
-            # to equate resources at an intermediate node.
+            # Only completed itineraries can ignore the final alighting stop:
+            # intermediate stops still offer useful transfers and continuations.
+            if self.mode != "time" and self.goal_signature is not None:
+                if label.goal_signature is None:
+                    label.goal_signature = self.goal_signature(label)
+                return ("goal", label.boardings if self.mode == "fewTransfers" else None,
+                        label.goal_signature)
+            # Earliest-arrival search retains its existing goal comparison.
             return ("goal", label.boardings if self.mode == "fewTransfers" else None,
                     int(label.segment_walk // 25))
         context = label.ride.future_key if label.ride is not None else None
@@ -80,7 +88,8 @@ class _Frontier:
     def _dominates(self, first, second):
         if first.node == self.target:
             return (first.time <= second.time if self.mode == "time"
-                    else first.cost <= second.cost)
+                    else (first.cost, first.time, first.total_walk)
+                    <= (second.cost, second.time, second.total_walk))
         # Comfort cost does not constrain earliest arrival.  A strictly earlier
         # offboard label can wait and reproduce a later label's continuation.
         # At equal times keep the cheaper prefix, preserving the queue's
@@ -156,7 +165,17 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
     """
     started = time.monotonic()
     deadline = start_minute + max_travel_min
-    frontier = _Frontier(target, mode, choices.can_wait_offboard)
+
+    def goal_signature(label):
+        nodes = []
+        while label is not None:
+            nodes.append(label.node)
+            label = label.parent
+        nodes.reverse()
+        return transit_path_signature(graph, nodes, transit_only=True)
+
+    frontier = _Frontier(target, mode, choices.can_wait_offboard, goal_signature)
+    yielded_goals = set()
     queue = []
     sequence = itertools.count()
     counts = {name: defaultdict(int) for name in
@@ -181,6 +200,10 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
     def offer(label):
         if (label.time > deadline or label.total_walk > max_total_walk
                 or label.segment_walk > max_segment_walk):
+            return
+        if (label.node == target and mode != "time"
+                and frontier._key(label) in yielded_goals):
+            counts["dominated"][label.boardings] += 1
             return
         if frontier.add(label):
             heapq.heappush(queue, (priority(label), next(sequence), label))
@@ -308,8 +331,14 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
         if popped % 5000 == 0:
             stats("tick")
         if label.node == target:
+            # The legacy cost heuristic can discover a better representative
+            # after this itinerary was yielded. It must not use another slot.
+            key = frontier._key(label)
+            if mode != "time" and key in yielded_goals:
+                continue
             if yielded >= max_search:
                 fail("max_search")
+            yielded_goals.add(key)
             yielded += 1
             counts["yielded"][label.boardings] += 1
             stats("yield")

@@ -966,25 +966,23 @@ class FewTransfersLexicographicSearchTest(unittest.TestCase):
             0.1,
         )
 
-        results = list(
-            itertools.islice(
-                find_few_transfers_paths_generator(
-                    self.graph,
-                    self.tm,
-                    self.start,
-                    self.target,
-                    max_search=10,
-                    max_visited=1000,
-                    time_limit_sec=2.0,
-                ),
-                2,
-            )
-        )
+        results = list(find_few_transfers_paths_generator(
+            self.graph,
+            self.tm,
+            self.start,
+            self.target,
+            max_search=10,
+            max_visited=1000,
+            time_limit_sec=2.0,
+        ))
 
-        self.assertEqual(
-            [self.boarding_count(r["path"]) for r in results],
-            [2, 3],
-        )
+        # Distinct suffix lines now survive even with equal final walking
+        # distances. Still require the cheaper three-boarding prefix to survive
+        # intermediate pruning beside the earlier two-boarding prefix.
+        counts = [self.boarding_count(r["path"]) for r in results]
+        self.assertEqual(counts[0], 2)
+        self.assertIn(3, counts)
+        self.assertEqual(counts, sorted(counts))
 
     def test_safety_limit_raises_with_diagnostics(self):
         middle = ("phys", "middle")

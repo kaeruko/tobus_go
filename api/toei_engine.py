@@ -240,6 +240,7 @@ from datetime import datetime as dt_class # datetime.datetimeと競合しない�
 from google.transit import gtfs_realtime_pb2
 from gtfs_loader import gtfs_repo
 from route_engine import RouteContractError, RouteSearchLimitError
+from tokyo_route_signatures import transit_path_signature
 
 # -------------------- チューニング定数 --------------------
 print("[INFO] toei_engine loaded: build=2025-12-29-realtime", flush=True)
@@ -1435,72 +1436,7 @@ def path_to_coords(G, path):
     return points
 
 def _transit_path_signature(G, path):
-    """Return the user-meaningful transit itinerary, ignoring walk detours."""
-    legs = []
-    active = None
-
-    for u, v in zip(path, path[1:]):
-        edge = G.get_edge_data(u, v)
-        if edge is None:
-            continue
-
-        etype = edge.get("etype")
-        if etype == "board":
-            if active is not None:
-                raise RouteContractError(
-                    f"nested board edge in route path: active={active!r}, u={u!r}, v={v!r}"
-                )
-            if u[0] != "phys" or v[0] != "line":
-                raise RouteContractError(
-                    f"invalid board edge shape: u={u!r}, v={v!r}"
-                )
-
-            line_data = G.nodes[v]
-            line_identity = (
-                line_data.get("line")
-                or line_data.get("route_id")
-                or line_data.get("disp")
-                or str(v)
-            )
-            active = (
-                line_data.get("mode"),
-                str(line_identity),
-                str(u[1]),
-            )
-            continue
-
-        if etype == "alight":
-            if active is None:
-                raise RouteContractError(
-                    f"alight without active ride in route path: u={u!r}, v={v!r}"
-                )
-            if u[0] != "line" or v[0] != "phys":
-                raise RouteContractError(
-                    f"invalid alight edge shape: u={u!r}, v={v!r}"
-                )
-
-            line_data = G.nodes[u]
-            line_identity = (
-                line_data.get("line")
-                or line_data.get("route_id")
-                or line_data.get("disp")
-                or str(u)
-            )
-            if str(line_identity) != active[1]:
-                raise RouteContractError(
-                    "ride line changed without a transfer: "
-                    f"boarded={active[1]!r}, alighted={line_identity!r}"
-                )
-
-            legs.append((active[0], active[1], active[2], str(v[1])))
-            active = None
-
-    if active is not None:
-        raise RouteContractError(
-            f"route path ended before alighting: active={active!r}"
-        )
-
-    return tuple(legs)
+    return transit_path_signature(G, path)
 
 
 def _virtual_destination_connections_by_node(
@@ -1756,18 +1692,30 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
 
         valid_count = 0
         for signature in signature_order:
-            group = sorted(
-                grouped_candidates[signature],
-                key=lambda candidate: (
+            # A different alighting stop can trade walking against ride cost.
+            # Match search priority for those variants, while retaining the
+            # shortest-walk choice for detours from the same alighting stop.
+            group_rows = grouped_candidates[signature]
+            different_final_stops = len(group_rows) > 1 and len({
+                transit_path_signature(G, candidate["path"], collapse_final_alight=False)
+                for candidate in group_rows
+            }) > 1
+            if different_final_stops:
+                group = sorted(group_rows, key=lambda candidate: (
+                    candidate["cost"],
+                    getattr(candidate["path"], "arrival_minute", float("inf")),
+                    candidate["walk_m"],
+                ))
+            else:
+                group = sorted(group_rows, key=lambda candidate: (
                     candidate["walk_m"],
                     candidate["cost"],
-                ),
-            )
+                ))
 
             accepted = False
             for cand in group:
                 path = cand["path"]
-                # Same transit itinerary: try the shortest/lowest-cost walk first.
+                # Try the preferred feasible representative of this itinerary.
                 real_arr = calculate_real_arrival_time(G, tm, path, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, use_realtime=use_realtime)
                 if real_arr is None:
                     continue
