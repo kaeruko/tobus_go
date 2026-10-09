@@ -2,6 +2,15 @@ name: iOS TestFlight
 
 on:
   workflow_dispatch:
+    inputs:
+      version_mode:
+        description: "next_version: bump patch; rebuild_current_version: upload another build for the pending App Store version"
+        required: true
+        type: choice
+        default: next_version
+        options:
+          - next_version
+          - rebuild_current_version
 
 permissions:
   contents: write
@@ -18,6 +27,7 @@ env:
   FLUTTER_VERSION: "3.47.0"
   COCOAPODS_VERSION: "1.16.2"
   BUILD_NUMBER_OFFSET: "100"
+  VERSION_MODE: ${{ inputs.version_mode }}
 
 jobs:
   build-and-upload:
@@ -75,7 +85,18 @@ jobs:
           SOURCE_BUILD_NAME="${BASH_REMATCH[1]}"
           PUBSPEC_BUILD_NUMBER="${BASH_REMATCH[3]}"
           IFS='.' read -r VERSION_MAJOR VERSION_MINOR VERSION_PATCH <<< "$SOURCE_BUILD_NAME"
-          BUILD_NAME="$VERSION_MAJOR.$VERSION_MINOR.$((10#$VERSION_PATCH + 1))"
+          case "$VERSION_MODE" in
+            next_version)
+              BUILD_NAME="$VERSION_MAJOR.$VERSION_MINOR.$((10#$VERSION_PATCH + 1))"
+              ;;
+            rebuild_current_version)
+              BUILD_NAME="$SOURCE_BUILD_NAME"
+              ;;
+            *)
+              echo "::error::Unsupported version mode: $VERSION_MODE"
+              exit 1
+              ;;
+          esac
 
           [[ "$GITHUB_RUN_NUMBER" =~ ^[1-9][0-9]*$ ]] || {
             echo "::error::Invalid GITHUB_RUN_NUMBER: $GITHUB_RUN_NUMBER"
@@ -158,6 +179,7 @@ jobs:
           bundle_id = ENV.fetch('BUNDLE_ID')
           source_version = ENV.fetch('SOURCE_BUILD_NAME')
           candidate_version = ENV.fetch('BUILD_NAME')
+          version_mode = ENV.fetch('VERSION_MODE')
 
           private_key_pem = Base64.decode64(private_key_base64)
           key = OpenSSL::PKey.read(private_key_pem)
@@ -250,13 +272,37 @@ jobs:
           source_semver = semver(source_version)
           candidate_semver = semver(candidate_version)
 
-          unless source_semver == latest_closed_semver
-            abort(
-              "pubspec version is out of sync with App Store Connect: " \
-              "pubspec=#{source_version}, latest approved/distributed=" \
-              "#{latest_closed_version} (#{latest_closed_state}). " \
-              "Update pubspec.yaml before building."
-            )
+          case version_mode
+          when 'next_version'
+            unless source_semver == latest_closed_semver
+              abort(
+                "Cannot increment App Store version: " \
+                "pubspec=#{source_version}, latest approved/distributed=" \
+                "#{latest_closed_version} (#{latest_closed_state}). " \
+                "To upload a new build for the pending #{source_version} version, " \
+                "run this workflow with version_mode=rebuild_current_version."
+              )
+            end
+          when 'rebuild_current_version'
+            unless candidate_semver == source_semver
+              abort(
+                "Rebuild mode must keep pubspec version #{source_version}, " \
+                "but candidate is #{candidate_version}"
+              )
+            end
+
+            matching_open_versions = normalized.select do |version, _, state|
+              version == source_version && open_states.include?(state)
+            end
+            unless matching_open_versions.length == 1
+              abort(
+                "Rebuild mode requires exactly one existing open App Store " \
+                "version #{source_version}; found #{matching_open_versions.length}. " \
+                "Do not silently create or increment an App Store version."
+              )
+            end
+          else
+            abort("Unsupported version mode: #{version_mode.inspect}")
           end
 
           unless (candidate_semver <=> latest_closed_semver) == 1
@@ -279,7 +325,7 @@ jobs:
           end
 
           puts(
-            "App Store version preflight passed: " \
+            "App Store version preflight passed (#{version_mode}): " \
             "#{latest_closed_version} (#{latest_closed_state}) -> #{candidate_version}"
           )
           RUBY
