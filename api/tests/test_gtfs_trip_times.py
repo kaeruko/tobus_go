@@ -14,6 +14,7 @@ from toei_engine import (
     calculate_real_arrival_time,
     search_best_routes,
     segments_detailed,
+    serialized_transfer_wait_start_minute,
 )
 
 
@@ -90,6 +91,31 @@ class GtfsTripTimesTest(unittest.TestCase):
 
     def tearDown(self):
         self.temp_dir.cleanup()
+
+    def test_transfer_wait_rounds_fractional_walk_arrival_up(self):
+        self.assertEqual(
+            serialized_transfer_wait_start_minute(
+                18 * 60 + 0.25,
+                has_prior_ride=True,
+            ),
+            18 * 60 + 1,
+        )
+        self.assertEqual(
+            serialized_transfer_wait_start_minute(
+                18 * 60,
+                has_prior_ride=True,
+            ),
+            18 * 60,
+        )
+
+    def test_initial_wait_keeps_existing_fractional_start_contract(self):
+        self.assertEqual(
+            serialized_transfer_wait_start_minute(
+                17 * 60 + 21.25,
+                has_prior_ride=False,
+            ),
+            17 * 60 + 21.25,
+        )
 
     def test_finds_ue23_arrival_from_the_same_active_trip(self):
         leg = self.repository.find_next_trip_leg(
