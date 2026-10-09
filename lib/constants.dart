@@ -2,7 +2,7 @@ import 'core/city_profile.dart';
 
 const int kRealtimePollIntervalSeconds = int.fromEnvironment(
   'REALTIME_POLL_INTERVAL_SECONDS',
-  defaultValue: 60,
+  defaultValue: 180,
 );
 
 Duration get kRealtimePollInterval {

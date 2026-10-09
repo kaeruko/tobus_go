@@ -98,6 +98,191 @@ jobs:
           echo "- Upload version: $BUILD_NAME" >> "$GITHUB_STEP_SUMMARY"
           echo "- Build: $BUILD_NUMBER" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Verify version against App Store Connect
+        shell: bash
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+
+          [[ -n "$ASC_KEY_ID" ]] || { echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_ID"; exit 1; }
+          [[ -n "$ASC_ISSUER_ID" ]] || { echo "::error::Missing secret APP_STORE_CONNECT_ISSUER_ID"; exit 1; }
+          [[ -n "$ASC_API_KEY_P8_BASE64" ]] || { echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_P8_BASE64"; exit 1; }
+
+          ruby <<'RUBY'
+          require 'base64'
+          require 'json'
+          require 'net/http'
+          require 'openssl'
+          require 'uri'
+
+          def b64url(value)
+            Base64.urlsafe_encode64(value, padding: false)
+          end
+
+          def semver(value)
+            match = /\A(\d+)\.(\d+)\.(\d+)\z/.match(value.to_s)
+            abort("Unsupported App Store version format: #{value.inspect}") unless match
+            match.captures.map(&:to_i)
+          end
+
+          def api_get(url, token)
+            uri = URI(url)
+            request = Net::HTTP::Get.new(uri)
+            request['Authorization'] = "Bearer #{token}"
+            response = Net::HTTP.start(
+              uri.hostname,
+              uri.port,
+              use_ssl: true,
+              open_timeout: 15,
+              read_timeout: 30,
+            ) { |http| http.request(request) }
+
+            unless response.is_a?(Net::HTTPSuccess)
+              abort(
+                "App Store Connect API request failed: " \
+                "#{response.code} #{response.message}\n#{response.body}"
+              )
+            end
+
+            JSON.parse(response.body)
+          rescue JSON::ParserError => e
+            abort("App Store Connect API returned invalid JSON: #{e.message}")
+          end
+
+          key_id = ENV.fetch('ASC_KEY_ID')
+          issuer_id = ENV.fetch('ASC_ISSUER_ID')
+          private_key_base64 = ENV.fetch('ASC_API_KEY_P8_BASE64')
+          bundle_id = ENV.fetch('BUNDLE_ID')
+          source_version = ENV.fetch('SOURCE_BUILD_NAME')
+          candidate_version = ENV.fetch('BUILD_NAME')
+
+          private_key_pem = Base64.decode64(private_key_base64)
+          key = OpenSSL::PKey.read(private_key_pem)
+          now = Time.now.to_i
+          header = { alg: 'ES256', kid: key_id, typ: 'JWT' }
+          payload = {
+            iss: issuer_id,
+            iat: now - 5,
+            exp: now + 600,
+            aud: 'appstoreconnect-v1',
+          }
+          signing_input = [
+            b64url(JSON.generate(header)),
+            b64url(JSON.generate(payload)),
+          ].join('.')
+
+          der_signature = key.sign(OpenSSL::Digest::SHA256.new, signing_input)
+          sequence = OpenSSL::ASN1.decode(der_signature)
+          unless sequence.is_a?(OpenSSL::ASN1::Sequence) && sequence.value.length == 2
+            abort('Could not decode App Store Connect JWT ECDSA signature')
+          end
+          raw_signature = sequence.value.map do |part|
+            hex = part.value.to_i.to_s(16).rjust(64, '0')
+            abort('App Store Connect JWT signature component exceeded 32 bytes') if hex.length > 64
+            [hex].pack('H*')
+          end.join
+          token = "#{signing_input}.#{b64url(raw_signature)}"
+
+          apps = api_get(
+            "https://api.appstoreconnect.apple.com/v1/apps" \
+            "?filter%5BbundleId%5D=#{URI.encode_www_form_component(bundle_id)}&limit=2",
+            token,
+          )
+          app_records = apps.fetch('data')
+          unless app_records.is_a?(Array) && app_records.length == 1
+            abort(
+              "Expected exactly one App Store Connect app for #{bundle_id}, " \
+              "found #{app_records.is_a?(Array) ? app_records.length : 'invalid data'}"
+            )
+          end
+          app_id = app_records.first.fetch('id')
+
+          versions = []
+          next_url =
+            "https://api.appstoreconnect.apple.com/v1/apps/#{app_id}/appStoreVersions" \
+            "?filter%5Bplatform%5D=IOS&limit=50"
+
+          while next_url
+            page = api_get(next_url, token)
+            page_data = page.fetch('data')
+            abort('App Store Connect appStoreVersions data is not an array') unless page_data.is_a?(Array)
+            versions.concat(page_data)
+            next_url = page.dig('links', 'next')
+          end
+
+          closed_states = %w[
+            ACCEPTED
+            PENDING_APPLE_RELEASE
+            PENDING_DEVELOPER_RELEASE
+            PROCESSING_FOR_DISTRIBUTION
+            READY_FOR_DISTRIBUTION
+            REPLACED_WITH_NEW_VERSION
+          ].freeze
+          open_states = %w[
+            DEVELOPER_REJECTED
+            IN_REVIEW
+            INVALID_BINARY
+            METADATA_REJECTED
+            PREPARE_FOR_SUBMISSION
+            READY_FOR_REVIEW
+            REJECTED
+            WAITING_FOR_EXPORT_COMPLIANCE
+            WAITING_FOR_REVIEW
+          ].freeze
+          known_states = (closed_states + open_states).freeze
+
+          normalized = versions.map do |record|
+            attributes = record.fetch('attributes')
+            version = attributes.fetch('versionString')
+            state = attributes.fetch('appVersionState')
+            abort("Unknown App Store Connect appVersionState: #{state}") unless known_states.include?(state)
+            [version, semver(version), state]
+          end
+
+          closed = normalized.select { |_, _, state| closed_states.include?(state) }
+          abort('No approved or distributed iOS App Store version was found') if closed.empty?
+
+          latest_closed = closed.max_by { |_, parsed, _| parsed }
+          latest_closed_version, latest_closed_semver, latest_closed_state = latest_closed
+          source_semver = semver(source_version)
+          candidate_semver = semver(candidate_version)
+
+          unless source_semver == latest_closed_semver
+            abort(
+              "pubspec version is out of sync with App Store Connect: " \
+              "pubspec=#{source_version}, latest approved/distributed=" \
+              "#{latest_closed_version} (#{latest_closed_state}). " \
+              "Update pubspec.yaml before building."
+            )
+          end
+
+          unless (candidate_semver <=> latest_closed_semver) == 1
+            abort(
+              "Candidate version #{candidate_version} must be newer than " \
+              "latest approved/distributed version #{latest_closed_version}"
+            )
+          end
+
+          newer_records = normalized.select { |_, parsed, _| (parsed <=> candidate_semver) == 1 }
+          unless newer_records.empty?
+            details = newer_records
+              .sort_by { |_, parsed, _| parsed }
+              .map { |version, _, state| "#{version}(#{state})" }
+              .join(', ')
+            abort(
+              "App Store Connect already contains version(s) newer than candidate " \
+              "#{candidate_version}: #{details}"
+            )
+          end
+
+          puts(
+            "App Store version preflight passed: " \
+            "#{latest_closed_version} (#{latest_closed_state}) -> #{candidate_version}"
+          )
+          RUBY
       - name: Force CocoaPods plugin integration
         shell: bash
         run: |

@@ -409,14 +409,65 @@ class FareSummary extends StatelessWidget {
   }
 }
 
+DateTime routeStepTimetableReferenceTime(
+  Candidate candidate,
+  StepSeg segment,
+) {
+  if (segment.kind != 'bus') {
+    throw StateError(
+      '時刻表の基準時刻はバス区間にのみ設定できます: '
+      'stepId=${segment.stepId}, kind=${segment.kind}',
+    );
+  }
+
+  final departureDate = candidate.departureDate;
+  if (departureDate == null) {
+    throw StateError(
+      'バス時刻表の検索日がありません: '
+      'candidate=${candidate.id}, stepId=${segment.stepId}',
+    );
+  }
+
+  final departureTime = segment.departureTime?.trim();
+  if (departureTime == null || departureTime.isEmpty) {
+    throw StateError(
+      'バス時刻表の予定出発時刻がありません: '
+      'candidate=${candidate.id}, stepId=${segment.stepId}',
+    );
+  }
+
+  final match = RegExp(r'^(\d{1,2}):([0-5]\d)$').firstMatch(departureTime);
+  if (match == null) {
+    throw StateError(
+      'バス時刻表の予定出発時刻が不正です: '
+      'candidate=${candidate.id}, stepId=${segment.stepId}, '
+      'departureTime=$departureTime',
+    );
+  }
+
+  final serviceHour = int.parse(match.group(1)!);
+  final minute = int.parse(match.group(2)!);
+  final dayOffset = serviceHour ~/ 24;
+  final clockHour = serviceHour % 24;
+  return DateTime(
+    departureDate.year,
+    departureDate.month,
+    departureDate.day,
+    clockHour,
+    minute,
+  ).add(Duration(days: dayOffset));
+}
+
 class RouteStepTile extends StatelessWidget {
   final StepSeg segment;
   final bool showTimetable;
+  final DateTime? timetableReferenceTime;
 
   const RouteStepTile({
     super.key,
     required this.segment,
     this.showTimetable = false,
+    this.timetableReferenceTime,
   });
 
   @override
@@ -438,6 +489,11 @@ class RouteStepTile extends StatelessWidget {
     String? timetableOriginStopId;
     String? timetableDestinationStopId;
     if (showTimetable && segment.kind == 'bus') {
+      if (timetableReferenceTime == null) {
+        throw StateError(
+          'バス時刻表の基準時刻がありません: stepId=${segment.stepId}',
+        );
+      }
       final routeId = segment.routeId?.trim();
       if (routeId != null && routeId.isNotEmpty) {
         if (segment.stops.isEmpty) {
@@ -538,6 +594,7 @@ class RouteStepTile extends StatelessWidget {
                 routeId: timetableRouteId,
                 stopId: timetableOriginStopId!,
                 targetPoleId: timetableDestinationStopId!,
+                referenceTime: timetableReferenceTime!,
               ),
             ),
           ],

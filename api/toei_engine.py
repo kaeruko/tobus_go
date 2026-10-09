@@ -335,6 +335,98 @@ def _gtfs_bus_route_id(G, line_node) -> str | None:
     return None
 
 
+def _gtfs_bus_trip_display_title(route_id: str, trip_id: str) -> str:
+    route = gtfs_repo.routes.get(route_id)
+    if route is None:
+        raise RouteContractError(
+            f"GTFS bus trip references unknown route: "
+            f"route_id={route_id!r} trip_id={trip_id!r}"
+        )
+    route_short_name = route.get("route_short_name")
+    if not isinstance(route_short_name, str) or not route_short_name.strip():
+        raise RouteContractError(
+            f"GTFS bus route has no route_short_name: route_id={route_id!r}"
+        )
+
+    trip = gtfs_repo.trips.get(trip_id)
+    if trip is None:
+        raise RouteContractError(
+            f"GTFS bus trip is missing: trip_id={trip_id!r}"
+        )
+    if trip.get("route_id") != route_id:
+        raise RouteContractError(
+            f"GTFS bus trip route mismatch: trip_id={trip_id!r} "
+            f"expected={route_id!r} actual={trip.get('route_id')!r}"
+        )
+    headsign = trip.get("trip_headsign")
+    if not isinstance(headsign, str) or not headsign.strip():
+        raise RouteContractError(
+            f"GTFS bus trip has no trip_headsign: trip_id={trip_id!r}"
+        )
+
+    normalized_headsign = headsign.strip()
+    destination = (
+        normalized_headsign
+        if normalized_headsign.endswith("行")
+        else f"{normalized_headsign}行"
+    )
+    return f"{route_short_name.strip()} {destination}"
+
+
+
+def _bus_pattern_terminal_gtfs_stop_id(G, line_node) -> str | None:
+    if not (
+        isinstance(line_node, tuple)
+        and len(line_node) >= 3
+        and line_node[0] == "line"
+    ):
+        raise RouteContractError(
+            f"invalid bus line node for route-pattern terminal: {line_node!r}"
+        )
+
+    line_id = str(line_node[2])
+    if not line_id.startswith("buspat:"):
+        return None
+
+    current = line_node
+    visited = set()
+    while True:
+        if current in visited:
+            raise RouteContractError(
+                f"bus route pattern contains a ride cycle: line_id={line_id!r}"
+            )
+        visited.add(current)
+
+        successors = []
+        for neighbor in G.successors(current):
+            edge = G.get_edge_data(current, neighbor) or {}
+            if edge.get("etype") != "ride" or edge.get("mode") != "bus":
+                continue
+            if not (
+                isinstance(neighbor, tuple)
+                and len(neighbor) >= 3
+                and neighbor[0] == "line"
+                and str(neighbor[2]) == line_id
+            ):
+                continue
+            successors.append(neighbor)
+
+        if len(successors) > 1:
+            raise RouteContractError(
+                f"bus route pattern branches unexpectedly: "
+                f"line_id={line_id!r} node={current!r} successors={successors!r}"
+            )
+        if not successors:
+            terminal_stop_id = _gtfs_stop_id(str(current[1]))
+            if terminal_stop_id is None or not str(terminal_stop_id).strip():
+                raise RouteContractError(
+                    f"bus route-pattern terminal has no GTFS stop identity: "
+                    f"line_id={line_id!r} node={current!r}"
+                )
+            return str(terminal_stop_id).strip()
+
+        current = successors[0]
+
 def _resolve_gtfs_bus_leg(
     G,
     line_node,
@@ -355,6 +447,10 @@ def _resolve_gtfs_bus_leg(
     if getattr(day_type, "has_gtfs_calendar", False):
         active_service_ids = day_type.active_service_ids
 
+    required_terminal_stop_id = _bus_pattern_terminal_gtfs_stop_id(
+        G,
+        line_node,
+    )
     return gtfs_repo.find_next_trip_leg(
         route_id,
         origin_stop_id,
@@ -362,6 +458,7 @@ def _resolve_gtfs_bus_leg(
         int(earliest_departure_minute),
         active_service_ids=active_service_ids,
         required_stop_ids=required_stop_ids,
+        required_terminal_stop_id=required_terminal_stop_id,
     )
 
 
@@ -2241,6 +2338,10 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 dep = active_bus_leg.departure_minute
                 final_route_id = active_bus_leg.route_id
                 final_trip_id = active_bus_leg.trip_id
+                line_disp = _gtfs_bus_trip_display_title(
+                    final_route_id,
+                    final_trip_id,
+                )
                 active_bus_sequence = active_bus_leg.origin_sequence
                 print(
                     f"[segments_detailed] board bus route_id={final_route_id} "

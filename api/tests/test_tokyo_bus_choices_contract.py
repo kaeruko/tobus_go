@@ -14,29 +14,29 @@ from tokyo_timetable_choices import TimetableChoices
 
 
 ROUTE = "R"
-LINE = "buspat:test"
+LINE = "synthetic:test"
 
 
 def _phys(stop):
     return ("phys", stop)
 
 
-def _line(stop):
-    return ("line", stop, LINE)
+def _line(stop, line=LINE):
+    return ("line", stop, line)
 
 
-def _graph(*pairs):
+def _graph(*pairs, line=LINE):
     graph = nx.DiGraph()
     for left, right in pairs:
         for stop in (left, right):
             graph.add_node(_phys(stop), name=stop, name_en=stop,
                            lat=35.0, lon=139.0)
-            graph.add_node(_line(stop), name=stop, mode="bus", route_id=ROUTE,
+            graph.add_node(_line(stop, line), name=stop, mode="bus", route_id=ROUTE,
                            disp="Test bus", disp_en="Test bus")
-            graph.add_edge(_phys(stop), _line(stop), etype="board",
+            graph.add_edge(_phys(stop), _line(stop, line), etype="board",
                            w=engine.TRANSFER_PENALTY)
-            graph.add_edge(_line(stop), _phys(stop), etype="alight", w=0.0)
-        graph.add_edge(_line(left), _line(right), etype="ride", mode="bus",
+            graph.add_edge(_line(stop, line), _phys(stop), etype="alight", w=0.0)
+        graph.add_edge(_line(left, line), _line(right, line), etype="ride", mode="bus",
                        w=engine.BUS_RIDE_COST)
     return graph
 
@@ -47,7 +47,9 @@ def _repository(*trips):
     repository.routes[ROUTE] = {"route_short_name": "Test"}
     for trip_id, service_id, stops in trips:
         repository.trips[trip_id] = {
-            "route_id": ROUTE, "service_id": service_id, "headsign": stops[-1][0],
+            "route_id": ROUTE,
+            "service_id": service_id,
+            "trip_headsign": stops[-1][0],
         }
         for sequence, (stop, arrival, departure) in enumerate(stops, 1):
             repository.stops[stop] = {"name": stop, "name_en": stop}
@@ -67,16 +69,88 @@ def _day(*services):
 
 
 def _choices(graph, repository, *, manager=None, ready=598, deadline=838,
-             services=("active",), use_realtime=False):
+             services=("active",), use_realtime=False, line=LINE):
     manager = manager or engine.TimetableManager()
     choices = TimetableChoices(
         graph, manager, _day(*services), use_realtime=use_realtime,
         deadline=deadline, bus_repository=repository,
     )
-    return choices, choices.board_options(_phys("A"), _line("A"), ready)
+    return choices, choices.board_options(_phys("A"), _line("A", line), ready)
 
 
 class TokyoBusChoicesContractTest(unittest.TestCase):
+    def test_selected_bus_pattern_keeps_its_terminal_and_headsign(self):
+        short_line = "buspat:test-short"
+        through_line = "buspat:test-through"
+        short_graph = _graph(("A", "B"), line=short_line)
+        through_graph = _graph(("A", "B"), ("B", "C"), line=through_line)
+        repository = _repository(
+            ("short", "active", (("A", 600, 600), ("B", 610, 610))),
+            (
+                "through",
+                "active",
+                (("A", 601, 601), ("B", 606, 606), ("C", 620, 620)),
+            ),
+        )
+        short_path = [
+            _phys("A"),
+            _line("A", short_line),
+            _line("B", short_line),
+            _phys("B"),
+        ]
+        through_path = [
+            _phys("A"),
+            _line("A", through_line),
+            _line("B", through_line),
+            _phys("B"),
+        ]
+
+        short_choices, short_options = _choices(
+            short_graph,
+            repository,
+            line=short_line,
+        )
+        through_choices, through_options = _choices(
+            through_graph,
+            repository,
+            line=through_line,
+        )
+        self.assertEqual(
+            [state.trip_id for _, state in short_options],
+            ["short"],
+        )
+        self.assertEqual(
+            [state.trip_id for _, state in through_options],
+            ["through"],
+        )
+        self.assertIsNotNone(short_choices)
+        self.assertIsNotNone(through_choices)
+
+        with patch.object(engine, "gtfs_repo", repository), contextlib.redirect_stdout(io.StringIO()):
+            short_steps = engine.segments_detailed(
+                short_graph,
+                short_path,
+                engine.TimetableManager(),
+                "09:58",
+                _day("active"),
+                use_realtime=False,
+            )
+            through_steps = engine.segments_detailed(
+                through_graph,
+                through_path,
+                engine.TimetableManager(),
+                "09:58",
+                _day("active"),
+                use_realtime=False,
+            )
+
+        short_bus = [step for step in short_steps if step["kind"] == "bus"]
+        through_bus = [step for step in through_steps if step["kind"] == "bus"]
+        self.assertEqual(short_bus[0]["trip_id"], "short")
+        self.assertEqual(short_bus[0]["title"], "Test B行")
+        self.assertEqual(through_bus[0]["trip_id"], "through")
+        self.assertEqual(through_bus[0]["title"], "Test C行")
+
     def test_later_departure_and_earlier_arrival_is_kept_and_detailed_same_trip(self):
         graph = _graph(("A", "B"))
         repository = _repository(

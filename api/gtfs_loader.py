@@ -405,6 +405,7 @@ class GtfsRepository:
         earliest_departure_minute: int,
         active_service_ids: frozenset[str] | set[str] | None = None,
         required_stop_ids: list[str] | tuple[str, ...] | None = None,
+        required_terminal_stop_id: str | None = None,
     ) -> GtfsTripLeg | None:
         schedule = self.timetable_index.get(f"{route_id}|{origin_stop_id}")
         if not schedule:
@@ -421,6 +422,16 @@ class GtfsRepository:
             service_id = trip.get("service_id", "")
             if active_service_ids is not None and service_id not in active_service_ids:
                 continue
+
+            if required_terminal_stop_id is not None:
+                stops_by_sequence = self.stop_times.get(trip_id)
+                if not stops_by_sequence:
+                    raise RuntimeError(
+                        f"GTFS trip has no stop_times: trip_id={trip_id!r}"
+                    )
+                _, terminal_stop_time = max(stops_by_sequence.items())
+                if terminal_stop_time[0] != required_terminal_stop_id:
+                    continue
 
             required_stops = list(required_stop_ids or ())
             if not required_stops or required_stops[0] != origin_stop_id:

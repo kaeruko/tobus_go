@@ -216,6 +216,8 @@ void main() {
       ApiClient.httpClient = MockClient((request) async {
         expect(request.url.path, '/bus/next');
         expect(request.url.queryParameters['pole_id'], 'stop-kameido');
+        expect(request.url.queryParameters['date'], '2026-10-09');
+        expect(request.url.queryParameters['time'], '18:21');
         expect(
           request.url.queryParameters['target_pole_id'],
           'stop-nippori',
@@ -238,6 +240,7 @@ void main() {
               child: RouteStepTile(
                 segment: busSegment(),
                 showTimetable: true,
+                timetableReferenceTime: DateTime(2026, 10, 9, 18, 21),
               ),
             ),
           ),

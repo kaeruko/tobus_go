@@ -14,6 +14,7 @@ class TimetableView extends StatefulWidget {
   final int limit;
   final bool showEmptyState;
   final bool showFullDay;
+  final DateTime? referenceTime;
 
   const TimetableView({
     super.key,
@@ -23,6 +24,7 @@ class TimetableView extends StatefulWidget {
     this.limit = 3,
     this.showEmptyState = false,
     this.showFullDay = false,
+    this.referenceTime,
   });
 
   @override
@@ -35,7 +37,7 @@ class _TimetableViewState extends State<TimetableView> {
 
   List<Map<String, dynamic>> _busGroups = [];
   String _dayType = '';
-  DateTime _now = appClock.now();
+  late DateTime _now;
   Timer? _timer;
   bool _isLoading = true;
   bool _didAutoScroll = false;
@@ -43,11 +45,15 @@ class _TimetableViewState extends State<TimetableView> {
   @override
   void initState() {
     super.initState();
+    _now = widget.referenceTime ?? appClock.now();
     _initData();
-    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
-      _now = appClock.now();
-      _updateBusInfo();
-    });
+    if (widget.referenceTime == null) {
+      _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+        final nextNow = appClock.now();
+        if (!mounted) return;
+        setState(() => _now = nextNow);
+      });
+    }
   }
 
   @override
@@ -101,7 +107,7 @@ class _TimetableViewState extends State<TimetableView> {
       dayType: widget.showFullDay ? _dayType : null,
       referenceTime: _now,
       limit: widget.limit,
-      includeAllDay: widget.showFullDay,
+      includeAllDay: true,
     );
     if (!mounted) return;
 
@@ -161,9 +167,18 @@ class _TimetableViewState extends State<TimetableView> {
     Locale locale,
     String dayTypeLabel,
   ) {
-    final upcomingGroups = _busGroups
-        .where((group) => (group['times'] as List<String>).isNotEmpty)
-        .toList();
+    final upcomingGroups = <Map<String, dynamic>>[];
+    for (final group in _busGroups) {
+      final allTimes = group['allTimes'];
+      if (allTimes is! List<String>) {
+        throw StateError(
+          'Invalid timetable group: allTimes must be List<String>',
+        );
+      }
+      final times = _upcomingTimes(allTimes);
+      if (times.isEmpty) continue;
+      upcomingGroups.add({...group, 'times': times});
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,6 +457,28 @@ class _TimetableViewState extends State<TimetableView> {
         ],
       ),
     );
+  }
+
+  List<String> _upcomingTimes(List<String> allTimes) {
+    final currentMinute = _serviceDayMinute(_now);
+    return allTimes
+        .where((value) => _timeToServiceMinute(value) >= currentMinute)
+        .take(widget.limit)
+        .toList();
+  }
+
+  int _serviceDayMinute(DateTime value) {
+    var hour = value.hour;
+    if (hour < 3) hour += 24;
+    return hour * 60 + value.minute;
+  }
+
+  int _timeToServiceMinute(String value) {
+    final match = RegExp(r'^(\d{1,2}):([0-5]\d)$').firstMatch(value);
+    if (match == null) {
+      throw StateError('Invalid timetable time: $value');
+    }
+    return int.parse(match.group(1)!) * 60 + int.parse(match.group(2)!);
   }
 
   String _localizedDestination(

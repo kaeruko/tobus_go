@@ -30,6 +30,7 @@ void main() {
     destinationName: '山下公園',
     destinationNameEn: 'Yamashita Park',
     arrivalTime: '10:20',
+    departureDate: DateTime(2026, 10, 9, 10, 0),
     points: const [],
     steps: [
       StepSeg(
@@ -54,9 +55,32 @@ void main() {
         toName: '山下公園前',
         toNameEn: 'Yamashita Park',
         minutes: 15,
+        departureTime: '10:02',
+        arrivalTime: '10:17',
       ),
     ],
   );
+
+  test('route-step timetable reference uses the planned bus departure', () {
+    final route = candidate();
+    final reference = routeStepTimetableReferenceTime(route, route.steps[1]);
+
+    expect(reference, DateTime(2026, 10, 9, 10, 2));
+  });
+
+  test('route-step timetable reference preserves GTFS after-midnight hours', () {
+    final route = candidate();
+    final overnightBus = StepSeg(
+      stepId: 'overnight-bus',
+      kind: 'bus',
+      title: '深夜バス',
+      departureTime: '25:10',
+    );
+
+    final reference = routeStepTimetableReferenceTime(route, overnightBus);
+
+    expect(reference, DateTime(2026, 10, 10, 1, 10));
+  });
 
   testWidgets(
     'shared summary shows walking distance rather than segment count',

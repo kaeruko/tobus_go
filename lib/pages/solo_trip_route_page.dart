@@ -69,12 +69,24 @@ class SoloTripRoutePage extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
-                      (context, index) => index.isOdd
-                          ? const SizedBox(height: 8)
-                          : RouteStepTile(
-                              segment: candidate.steps[index ~/ 2],
-                              showTimetable: city == AppCity.tokyo,
-                            ),
+                      (context, index) {
+                        if (index.isOdd) {
+                          return const SizedBox(height: 8);
+                        }
+                        final segment = candidate.steps[index ~/ 2];
+                        final showTimetable =
+                            city == AppCity.tokyo && segment.kind == 'bus';
+                        return RouteStepTile(
+                          segment: segment,
+                          showTimetable: showTimetable,
+                          timetableReferenceTime: showTimetable
+                              ? routeStepTimetableReferenceTime(
+                                  candidate,
+                                  segment,
+                                )
+                              : null,
+                        );
+                      },
                       childCount: candidate.steps.isEmpty
                           ? 0
                           : candidate.steps.length * 2 - 1,
