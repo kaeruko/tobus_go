@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../constants.dart';
 import '../core/app_clock.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
@@ -44,7 +45,7 @@ class _TimetableViewState extends State<TimetableView> {
   void initState() {
     super.initState();
     _initData();
-    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+    _timer = Timer.periodic(kRealtimePollInterval, (_) {
       _now = appClock.now();
       _updateBusInfo();
     });
