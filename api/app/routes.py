@@ -365,7 +365,7 @@ def _required_bus_stop_english_name_from_graph(
 
 
 def _gtfs_bus_stop_cluster_ids(pole_id: str) -> list[str]:
-    match = re.fullmatch(r"(\d{4})-(\d{2})", pole_id)
+    match = re.fullmatch(r"(\d{4,5})-(\d{2})", pole_id)
     if match is None:
         raise RuntimeError(
             "GTFS bus stop_id cannot be clustered by pole ID: "
