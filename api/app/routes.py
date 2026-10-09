@@ -368,7 +368,8 @@ def _gtfs_bus_timetable_destinations(
     route_id: str,
     pole_id: str,
     target_pole_id: str | None,
-    day_type,
+    pattern_trip_id: str | None = None,
+    day_type=None,
     current_minute: int,
     limit: int,
     include_all: bool,
@@ -382,6 +383,45 @@ def _gtfs_bus_timetable_destinations(
         else None
     )
     effective_search_minute = current_minute - delay_min
+
+    required_stop_signature: tuple[str, ...] | None = None
+    if pattern_trip_id is not None:
+        pattern_trip = gtfs_repo.trips.get(pattern_trip_id)
+        if pattern_trip is None:
+            raise RuntimeError(
+                "GTFS timetable pattern trip is missing: "
+                f"trip_id={pattern_trip_id!r}"
+            )
+        if pattern_trip.get("route_id") != route_id:
+            raise RuntimeError(
+                "GTFS timetable pattern trip route mismatch: "
+                f"trip_id={pattern_trip_id!r} expected_route_id={route_id!r} "
+                f"actual_route_id={pattern_trip.get('route_id')!r}"
+            )
+        pattern_stop_times = gtfs_repo.stop_times.get(pattern_trip_id)
+        if not pattern_stop_times:
+            raise RuntimeError(
+                "GTFS timetable pattern trip has no stop_times: "
+                f"trip_id={pattern_trip_id!r}"
+            )
+        origin_sequences = [
+            sequence
+            for sequence, stop_time in sorted(pattern_stop_times.items())
+            if stop_time[0] == pole_id
+        ]
+        if len(origin_sequences) != 1:
+            raise RuntimeError(
+                "GTFS timetable pattern trip must contain the boarding stop "
+                "exactly once: "
+                f"trip_id={pattern_trip_id!r} pole_id={pole_id!r} "
+                f"occurrences={origin_sequences!r}"
+            )
+        origin_sequence = origin_sequences[0]
+        required_stop_signature = tuple(
+            stop_time[0]
+            for sequence, stop_time in sorted(pattern_stop_times.items())
+            if sequence >= origin_sequence
+        )
 
     upcoming_by_destination: dict[str, list[str]] = {}
     all_by_destination: dict[str, list[str]] = {}
@@ -411,6 +451,14 @@ def _gtfs_bus_timetable_destinations(
             raise RuntimeError(
                 f"GTFS trip has no stop_times: trip_id={trip_id!r}"
             )
+        if required_stop_signature is not None:
+            candidate_stop_signature = tuple(
+                stop_time[0]
+                for sequence, stop_time in sorted(stops_by_sequence.items())
+                if sequence >= origin_sequence
+            )
+            if candidate_stop_signature != required_stop_signature:
+                continue
         _, final_stop_time = max(stops_by_sequence.items())
         destination_stop_id = final_stop_time[0]
         if destination_stop_id not in gtfs_repo.stops:
@@ -806,6 +854,7 @@ def register_routes(app):
         date: str = Query(None),
         day_type: str = Query(None),
         target_pole_id: str = Query(None),
+        pattern_trip_id: str = Query(None),
         limit: int = Query(5),
         include_all: bool = Query(False),
         debug: bool = Query(True),
@@ -874,6 +923,7 @@ def register_routes(app):
                 route_id=route_id,
                 pole_id=pole_id,
                 target_pole_id=target_pole_id,
+                pattern_trip_id=pattern_trip_id,
                 day_type=service_day_type,
                 current_minute=curr_min,
                 limit=limit,
@@ -882,6 +932,18 @@ def register_routes(app):
                 graph=g,
             )
         else:
+            if pattern_trip_id is not None:
+                raise HTTPException(
+                    400,
+                    detail={
+                        "code": "bus_timetable_pattern_trip_requires_gtfs",
+                        "message": (
+                            "pattern_trip_id is only supported with GTFS route "
+                            "and stop IDs"
+                        ),
+                        "pattern_trip_id": pattern_trip_id,
+                    },
+                )
             pole_name = None
             pole_name_en = None
             if ("phys", pole_id) in g:
