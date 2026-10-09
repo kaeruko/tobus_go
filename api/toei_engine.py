@@ -568,6 +568,24 @@ def min_to_time_str(m):
     return f"{h:02d}:{mn:02d}"
 
 
+def serialized_transfer_wait_start_minute(
+    current_minute: float,
+    *,
+    has_prior_ride: bool,
+) -> float:
+    if not math.isfinite(current_minute):
+        raise RouteContractError(
+            f"transfer wait start is not finite: {current_minute!r}"
+        )
+    if not has_prior_ride:
+        return current_minute
+
+    nearest_minute = round(current_minute)
+    if abs(current_minute - nearest_minute) <= 1e-9:
+        return float(nearest_minute)
+    return float(math.ceil(current_minute))
+
+
 
 # -------------------- Path Chain Logic (Integer Index Based) --------------------
 def _chain_new(chain_store, node, parent_idx):
@@ -2351,9 +2369,20 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     flush=True,
                 )
                 
-                # 出発時刻(dep)が現在時刻(curr_time)より未来の場合、待ち時間が発生する
-                if dep > curr_time:
-                    wait_min = int(dep - curr_time)
+                # 出発時刻(dep)が現在時刻(curr_time)より未来の場合、待ち時間が発生する。
+                # 乗換徒歩の内部時刻は小数分だが、徒歩表示は分単位で切り上げる。
+                # その後の待ち開始だけ切り捨てると「徒歩18:00-18:01 / 待ち18:00-18:21」
+                # のような重複が生じるため、既に乗車済みの経路では待ち開始を次の整数分へそろえる。
+                has_prior_ride = any(
+                    segment.get("kind") in ("bus", "rail")
+                    for segment in segs
+                )
+                wait_start_minute = serialized_transfer_wait_start_minute(
+                    curr_time,
+                    has_prior_ride=has_prior_ride,
+                )
+                if dep > wait_start_minute:
+                    wait_min = int(dep - wait_start_minute)
                     if wait_min > 0:
                         # 待ち時間を独立したセグメントとして追加し、UIで表示可能にする
                         flush()
@@ -2367,7 +2396,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                             "to": from_name,
                             "to_en": from_name_en,
                             "meters": 0,
-                            "departure_time": min_to_time_str(curr_time),
+                            "departure_time": min_to_time_str(wait_start_minute),
                             "arrival_time": min_to_time_str(dep),
                             "startLabel": "待ち時間",
                             "place": from_name,
