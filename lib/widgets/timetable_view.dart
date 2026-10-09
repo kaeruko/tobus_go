@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../constants.dart';
 import '../core/app_clock.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
@@ -45,9 +44,10 @@ class _TimetableViewState extends State<TimetableView> {
   void initState() {
     super.initState();
     _initData();
-    _timer = Timer.periodic(kRealtimePollInterval, (_) {
-      _now = appClock.now();
-      _updateBusInfo();
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+      final nextNow = appClock.now();
+      if (!mounted) return;
+      setState(() => _now = nextNow);
     });
   }
 
@@ -102,7 +102,7 @@ class _TimetableViewState extends State<TimetableView> {
       dayType: widget.showFullDay ? _dayType : null,
       referenceTime: _now,
       limit: widget.limit,
-      includeAllDay: widget.showFullDay,
+      includeAllDay: true,
     );
     if (!mounted) return;
 
@@ -162,9 +162,18 @@ class _TimetableViewState extends State<TimetableView> {
     Locale locale,
     String dayTypeLabel,
   ) {
-    final upcomingGroups = _busGroups
-        .where((group) => (group['times'] as List<String>).isNotEmpty)
-        .toList();
+    final upcomingGroups = <Map<String, dynamic>>[];
+    for (final group in _busGroups) {
+      final allTimes = group['allTimes'];
+      if (allTimes is! List<String>) {
+        throw StateError(
+          'Invalid timetable group: allTimes must be List<String>',
+        );
+      }
+      final times = _upcomingTimes(allTimes);
+      if (times.isEmpty) continue;
+      upcomingGroups.add({...group, 'times': times});
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -443,6 +452,73 @@ class _TimetableViewState extends State<TimetableView> {
         ],
       ),
     );
+  }
+
+  List<String> _upcomingTimes(List<String> allTimes) {
+    final currentMinute = _serviceDayMinute(_now);
+    return allTimes
+        .where((value) => _timeToServiceMinute(value) >= currentMinute)
+        .take(widget.limit)
+        .toList();
+  }
+
+  int _serviceDayMinute(DateTime value) {
+    var hour = value.hour;
+    if (hour < 3) hour += 24;
+    return hour * 60 + value.minute;
+  }
+
+  int _timeToServiceMinute(String value) {
+    final match = RegExp(r'^(\d{1,2}):([0-5]\d)    Locale locale,
+    Map<String, dynamic> group,
+  ) {
+    final japanese = group['destinationName'] as String;
+    final english = group['destinationNameEn'] as String?;
+    final destinationPoleId = group['destinationPoleId'] as String?;
+    return localizedTransitName(
+      locale,
+      japanese: japanese,
+      english: english,
+      field: 'destination_name_en',
+      identity: 'destinationPoleId=${destinationPoleId ?? '<unknown>'}',
+    );
+  }
+
+  Map<int, List<String>> _groupTimesByHour(List<String> times) {
+    final grouped = <int, List<String>>{};
+    for (final value in times) {
+      final match = RegExp(r'^(\d{1,2}):([0-5]\d)$').firstMatch(value);
+      if (match == null) {
+        throw StateError('Invalid timetable time: $value');
+      }
+      final hour = int.parse(match.group(1)!);
+      final minute = match.group(2)!;
+      grouped.putIfAbsent(hour, () => <String>[]).add(minute);
+    }
+    return grouped;
+  }
+
+  int? _relevantHour(List<Map<String, dynamic>> groups) {
+    final hours = <int>{};
+    for (final group in groups) {
+      hours.addAll(
+        _groupTimesByHour(group['allTimes'] as List<String>).keys,
+      );
+    }
+    if (hours.isEmpty) return null;
+
+    final ordered = hours.toList()..sort();
+    for (final hour in ordered) {
+      if (hour >= _now.hour) return hour;
+    }
+    return ordered.last;
+  }
+}
+).firstMatch(value);
+    if (match == null) {
+      throw StateError('Invalid timetable time: $value');
+    }
+    return int.parse(match.group(1)!) * 60 + int.parse(match.group(2)!);
   }
 
   String _localizedDestination(
