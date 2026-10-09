@@ -396,7 +396,6 @@ Future<void> _showStopTimetable(
   return showCupertinoModalPopup<void>(
     context: context,
     builder: (context) => _StopTimetableSheet(
-      segment: segment,
       stop: stop,
       routeId: routeId,
       stopId: stopId,
@@ -405,13 +404,11 @@ Future<void> _showStopTimetable(
 }
 
 class _StopTimetableSheet extends StatelessWidget {
-  final StepSeg segment;
   final StopPoint stop;
   final String routeId;
   final String stopId;
 
   const _StopTimetableSheet({
-    required this.segment,
     required this.stop,
     required this.routeId,
     required this.stopId,
