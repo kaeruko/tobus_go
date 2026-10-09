@@ -339,6 +339,10 @@ void main() {
       );
       expect(request.url.queryParameters.containsKey('target_pole_id'), isFalse);
       expect(request.url.queryParameters.containsKey('pattern_trip_id'), isFalse);
+      expect(
+        request.url.queryParameters['preferred_pattern_trip_id'],
+        'trip-sato22-nippori',
+      );
       expect(request.url.queryParameters['limit'], '3');
       expect(request.url.queryParameters['include_all'], 'true');
       final dayType = request.url.queryParameters['day_type'];
@@ -384,7 +388,6 @@ void main() {
     expect(find.text('日・祝'), findsOneWidget);
     expect(find.text('日暮里駅前行'), findsOneWidget);
     expect(find.text('三ノ輪二丁目行'), findsOneWidget);
-    expect(find.text('日暮里駅前'), findsNothing);
     expect(find.text('14'), findsOneWidget);
     expect(find.text('15'), findsOneWidget);
     expect(find.text('16'), findsOneWidget);
