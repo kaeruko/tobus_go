@@ -363,6 +363,27 @@ def _required_bus_stop_english_name_from_graph(
     return next(iter(english_names))
 
 
+def _gtfs_bus_stop_cluster_ids(pole_id: str) -> list[str]:
+    match = re.fullmatch(r"(\d{4})-(\d{2})", pole_id)
+    if match is None:
+        raise RuntimeError(
+            "GTFS bus stop_id cannot be clustered by pole ID: "
+            f"pole_id={pole_id!r}"
+        )
+    cluster_prefix = f"{match.group(1)}-"
+    cluster_ids = sorted(
+        stop_id
+        for stop_id in gtfs_repo.stops
+        if stop_id.startswith(cluster_prefix)
+    )
+    if pole_id not in cluster_ids:
+        raise RuntimeError(
+            "GTFS bus stop cluster does not contain the requested pole: "
+            f"pole_id={pole_id!r} cluster_ids={cluster_ids!r}"
+        )
+    return cluster_ids
+
+
 def _gtfs_bus_timetable_destinations(
     *,
     route_id: str,
@@ -370,6 +391,7 @@ def _gtfs_bus_timetable_destinations(
     target_pole_id: str | None,
     pattern_trip_id: str | None = None,
     preferred_pattern_trip_id: str | None = None,
+    include_stop_cluster: bool = False,
     day_type=None,
     current_minute: int,
     limit: int,
@@ -377,7 +399,38 @@ def _gtfs_bus_timetable_destinations(
     delay_min: float,
     graph=None,
 ) -> list[dict]:
-    schedule = gtfs_repo.timetable_index.get(f"{route_id}|{pole_id}") or []
+    if include_stop_cluster and target_pole_id is not None:
+        raise RuntimeError(
+            "include_stop_cluster cannot be combined with target_pole_id"
+        )
+    if include_stop_cluster and pattern_trip_id is not None:
+        raise RuntimeError(
+            "include_stop_cluster cannot be combined with pattern_trip_id"
+        )
+
+    source_pole_ids = (
+        _gtfs_bus_stop_cluster_ids(pole_id)
+        if include_stop_cluster
+        else [pole_id]
+    )
+    schedule = []
+    for source_pole_id in source_pole_ids:
+        for departure_minute, origin_sequence, trip_id in (
+            gtfs_repo.timetable_index.get(
+                f"{route_id}|{source_pole_id}"
+            )
+            or []
+        ):
+            schedule.append(
+                (
+                    departure_minute,
+                    origin_sequence,
+                    trip_id,
+                    source_pole_id,
+                )
+            )
+    schedule.sort(key=lambda item: (item[0], item[2], item[1], item[3]))
+
     active_services = (
         day_type.active_service_ids
         if getattr(day_type, "has_gtfs_calendar", False)
@@ -453,7 +506,7 @@ def _gtfs_bus_timetable_destinations(
     upcoming_by_destination: dict[str, list[str]] = {}
     all_by_destination: dict[str, list[str]] = {}
 
-    for departure_minute, origin_sequence, trip_id in schedule:
+    for departure_minute, origin_sequence, trip_id, source_pole_id in schedule:
         trip = gtfs_repo.trips.get(trip_id)
         if trip is None:
             raise RuntimeError(
@@ -548,6 +601,17 @@ def _gtfs_bus_timetable_destinations(
             "destination_name": destination_name,
             "destination_name_en": destination_name_en,
             "times": upcoming_by_destination.get(destination_stop_id, []),
+            "source_pole_ids": sorted(
+                {
+                    source_pole_id
+                    for _, _, trip_id, source_pole_id in schedule
+                    if (
+                        gtfs_repo.stop_times.get(trip_id)
+                        and max(gtfs_repo.stop_times[trip_id].items())[1][0]
+                        == destination_stop_id
+                    )
+                }
+            ),
         }
         if include_all:
             destination["all_times"] = all_by_destination.get(
@@ -889,6 +953,7 @@ def register_routes(app):
         target_pole_id: str = Query(None),
         pattern_trip_id: str = Query(None),
         preferred_pattern_trip_id: str = Query(None),
+        include_stop_cluster: bool = Query(False),
         limit: int = Query(5),
         include_all: bool = Query(False),
         debug: bool = Query(True),
@@ -959,6 +1024,7 @@ def register_routes(app):
                 target_pole_id=target_pole_id,
                 pattern_trip_id=pattern_trip_id,
                 preferred_pattern_trip_id=preferred_pattern_trip_id,
+                include_stop_cluster=include_stop_cluster,
                 day_type=service_day_type,
                 current_minute=curr_min,
                 limit=limit,
@@ -967,7 +1033,11 @@ def register_routes(app):
                 graph=g,
             )
         else:
-            if pattern_trip_id is not None or preferred_pattern_trip_id is not None:
+            if (
+                pattern_trip_id is not None
+                or preferred_pattern_trip_id is not None
+                or include_stop_cluster
+            ):
                 raise HTTPException(
                     400,
                     detail={
@@ -978,6 +1048,7 @@ def register_routes(app):
                         ),
                         "pattern_trip_id": pattern_trip_id,
                         "preferred_pattern_trip_id": preferred_pattern_trip_id,
+                        "include_stop_cluster": include_stop_cluster,
                     },
                 )
             pole_name = None
