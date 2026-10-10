@@ -144,6 +144,17 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
             lon=139.7586,
         )
         self.tm = _FakeTimetableManager()
+        # This collector fixture deliberately supplies synthetic path nodes
+        # without search edges. Map geometry has its own real-edge tests.
+        geometry_stub = patch(
+            "toei_engine.path_to_route_geometry",
+            return_value=[
+                {"kind": "walk", "points": [[35.6837, 139.7660], [35.6800, 139.7600]]},
+                {"kind": "bus", "points": [[35.6800, 139.7600], [35.6663, 139.7586]]},
+            ],
+        )
+        geometry_stub.start()
+        self.addCleanup(geometry_stub.stop)
 
         self.steps = [
             {
