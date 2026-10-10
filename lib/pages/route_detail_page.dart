@@ -1173,7 +1173,10 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
               SliverToBoxAdapter(
-                child: RouteMapPreview(points: widget.candidate.points),
+                child: RouteMapPreview(
+                  points: widget.candidate.points,
+                  routeGeometry: widget.candidate.routeGeometry,
+                ),
               ),
 
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
