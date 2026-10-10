@@ -7,10 +7,12 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_localizations.dart';
+import '../models/route_map_segment.dart';
 import '../utils/stop_map_utils.dart';
 
 class RouteMapPreview extends StatefulWidget {
   final List<LatLng> points;
+  final List<RouteMapSegment>? routeGeometry;
   final LatLng? vehiclePosition;
   final bool showOpenButton;
   final double height;
@@ -24,6 +26,7 @@ class RouteMapPreview extends StatefulWidget {
   const RouteMapPreview({
     super.key,
     required this.points,
+    this.routeGeometry,
     this.vehiclePosition,
     this.showOpenButton = true,
     this.height = 200,
@@ -126,6 +129,38 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
     return 9;
   }
 
+  Set<Polyline> _routePolylines(List<LatLng> points) {
+    final geometry = widget.routeGeometry;
+    if (geometry == null) {
+      // Other-city and pre-segmented API responses keep their existing map.
+      return points.length >= 2
+          ? {
+              Polyline(
+                polylineId: const PolylineId('route'),
+                points: points,
+                color: CupertinoColors.activeBlue,
+                width: 5,
+              ),
+            }
+          : const {};
+    }
+    if (geometry.isEmpty && points.length >= 2) {
+      throw StateError('Provided route_geometry cannot be empty for a route');
+    }
+    return {
+      for (var index = 0; index < geometry.length; index++)
+        Polyline(
+          polylineId: PolylineId('route_leg_$index'),
+          points: geometry[index].points,
+          color: CupertinoColors.activeBlue,
+          width: geometry[index].kind == 'walk' ? 4 : 5,
+          patterns: geometry[index].kind == 'walk'
+              ? <PatternItem>[PatternItem.dash(12), PatternItem.gap(8)]
+              : const <PatternItem>[],
+        ),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -189,16 +224,7 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
               tiltGesturesEnabled:
                   widget.interactive && widget.tiltGesturesEnabled,
               initialCameraPosition: CameraPosition(target: center, zoom: zoom),
-              polylines: points.length >= 2
-                  ? {
-                      Polyline(
-                        polylineId: const PolylineId('route'),
-                        points: points,
-                        color: CupertinoColors.activeBlue,
-                        width: 5,
-                      ),
-                    }
-                  : const {},
+              polylines: _routePolylines(points),
               markers: {
                 Marker(
                   markerId: const MarkerId('start'),
