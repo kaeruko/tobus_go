@@ -8,6 +8,7 @@ import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
 import '../models/route_models.dart';
+import '../logic/transfer_walk_details.dart';
 import '../models/fare_models.dart';
 import '../providers/city_profile_provider.dart';
 import '../providers/navigation_provider.dart';
@@ -24,6 +25,7 @@ import '../widgets/bus_loading_indicator.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/route_map_preview.dart';
 import '../widgets/route_detail_widgets.dart';
+import '../widgets/transfer_walk_sheet.dart';
 import 'trip_page.dart';
 import 'active_route_page.dart';
 
@@ -1184,11 +1186,18 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                       final itemIndex = index ~/ 2;
                       if (index.isEven) {
                         final segment = widget.candidate.steps[itemIndex];
+                        final transfer = TransferWalkDetails.forStep(
+                          widget.candidate.steps,
+                          itemIndex,
+                        );
                         final showTimetable =
                             profile.city == AppCity.tokyo &&
                             segment.kind == 'bus';
                         return RouteStepTile(
                           segment: segment,
+                          onTransferTap: transfer == null
+                              ? null
+                              : () => showTransferWalkSheet(context, transfer),
                           showTimetable: showTimetable,
                           timetableReferenceTime: showTimetable
                               ? routeStepTimetableReferenceTime(
