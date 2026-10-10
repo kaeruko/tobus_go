@@ -349,6 +349,32 @@ void main() {
     },
   );
 
+  testWidgets('ride map expands fullscreen and returns to the same guide', (tester) async {
+    await tester.pumpWidget(
+      CupertinoApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: SegmentStopsPage(segment: busSegment()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('segment-map-expand')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('expanded-segment-map')), findsOneWidget);
+    final fullscreenMap = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(fullscreenMap.polylines, isNotEmpty);
+    expect(fullscreenMap.myLocationEnabled, isTrue);
+    expect(fullscreenMap.zoomGesturesEnabled, isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('expanded-segment-map-back')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('segment-route-map')), findsOneWidget);
+    expect(find.byKey(const ValueKey('expanded-segment-map')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('segment stops shows a route guide from existing segment data', (
     tester,
   ) async {
