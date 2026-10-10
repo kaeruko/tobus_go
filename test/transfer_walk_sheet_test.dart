@@ -122,14 +122,15 @@ void main() {
     final transfer = TransferWalkDetails.forStep(steps, 1)!;
     await tester.pumpWidget(CupertinoApp(
       locale: const Locale('ja'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: CupertinoPageScaffold(
         child: Center(
-          child: CupertinoButton(
-            onPressed: () => showTransferWalkSheet(
-              tester.element(find.byType(CupertinoPageScaffold)),
-              transfer,
+          child: Builder(
+            builder: (context) => CupertinoButton(
+              onPressed: () => showTransferWalkSheet(context, transfer),
+              child: const Text('乗換を見る'),
             ),
-            child: const Text('乗換を見る'),
           ),
         ),
       ),
