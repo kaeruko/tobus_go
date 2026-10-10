@@ -62,7 +62,14 @@ class TransferWalkDetails {
     }
 
     if (walkIndex == 0) return null;
-    final arriving = steps[walkIndex - 1];
+    // Some routes have a waiting step directly after alighting, before the
+    // short transfer walk. It still belongs to the same ride-to-ride transfer.
+    var arrivingIndex = walkIndex - 1;
+    if (steps[arrivingIndex].kind == 'wait') {
+      arrivingIndex--;
+    }
+    if (arrivingIndex < 0) return null;
+    final arriving = steps[arrivingIndex];
     if (!arriving.isRide) return null;
 
     var nextIndex = walkIndex + 1;
