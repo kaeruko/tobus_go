@@ -357,6 +357,19 @@ class TokyoRouteEngine:
                     candidate["walking_distance_meters"] += int(origin_distance)
                     candidate["walking_segment_count"] += 1
 
+            # The coordinate-to-first-stop approach is also a walking leg,
+            # separate from the transit graph's path.
+            if initial_walk_minutes > 0 and "route_geometry" in candidate:
+                geometry = candidate["route_geometry"]
+                if not isinstance(geometry, list) or len(candidate["points"]) < 2:
+                    raise RouteContractError(
+                        "Tokyo route geometry has no origin walking endpoint"
+                    )
+                geometry.insert(0, {
+                    "kind": "walk",
+                    "points": [[alat, alon], candidate["points"][1]],
+                })
+
             _require_official_english_candidate(candidate)
             candidate["official_english_names"] = True
             candidate["origin_coords"] = [alat, alon]
