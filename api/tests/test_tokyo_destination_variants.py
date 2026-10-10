@@ -35,9 +35,9 @@ class _Choices:
 
 def _leg(graph, board, line, stops, *, board_cost=1.0, mode="bus"):
     """Add one ride with legal alighting at every successive stop."""
-    graph.add_node(board)
+    graph.add_node(board, lat=35.0, lon=139.0)
     origin = ("line", board[1], line)
-    graph.add_node(origin, mode=mode, line=line)
+    graph.add_node(origin, mode=mode, line=line, lat=35.0, lon=139.0)
     graph.add_edge(board, origin, etype="board", w=board_cost)
     prefix = [board, origin]
     paths = {}
@@ -45,8 +45,8 @@ def _leg(graph, board, line, stops, *, board_cost=1.0, mode="bus"):
     for stop in stops:
         physical = ("phys", stop)
         following = ("line", stop, line)
-        graph.add_node(physical)
-        graph.add_node(following, mode=mode, line=line)
+        graph.add_node(physical, lat=35.0, lon=139.0)
+        graph.add_node(following, mode=mode, line=line, lat=35.0, lon=139.0)
         graph.add_edge(previous, following, etype="ride", mode=mode, w=1.0)
         graph.add_edge(following, physical, etype="alight", w=0.0)
         prefix.append(following)
