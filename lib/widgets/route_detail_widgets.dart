@@ -462,12 +462,14 @@ class RouteStepTile extends StatelessWidget {
   final StepSeg segment;
   final bool showTimetable;
   final DateTime? timetableReferenceTime;
+  final VoidCallback? onTransferTap;
 
   const RouteStepTile({
     super.key,
     required this.segment,
     this.showTimetable = false,
     this.timetableReferenceTime,
+    this.onTransferTap,
   });
 
   @override
@@ -589,6 +591,14 @@ class RouteStepTile extends StatelessWidget {
                     color: CupertinoColors.systemGrey,
                   ),
                 ),
+              if (onTransferTap != null) ...[
+                const SizedBox(width: 8),
+                const Icon(
+                  CupertinoIcons.chevron_right,
+                  size: 14,
+                  color: CupertinoColors.systemGrey,
+                ),
+              ],
             ],
           ),
           if (timetableRouteId != null) ...[
@@ -611,12 +621,14 @@ class RouteStepTile extends StatelessWidget {
       ),
     );
 
-    if (!canShowStops) return content;
+    if (!canShowStops && onTransferTap == null) return content;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => Navigator.of(context).push(
-        CupertinoPageRoute(builder: (_) => SegmentStopsPage(segment: segment)),
-      ),
+      onTap: canShowStops
+          ? () => Navigator.of(context).push(
+              CupertinoPageRoute(builder: (_) => SegmentStopsPage(segment: segment)),
+            )
+          : onTransferTap,
       child: content,
     );
   }
