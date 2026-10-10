@@ -401,6 +401,7 @@ class TokyoRouteSearchRegressionTest(unittest.TestCase):
                 "cost_score",
                 "path",
                 "points",
+                "route_geometry",
                 "total",
                 "transfers",
                 "rides",
