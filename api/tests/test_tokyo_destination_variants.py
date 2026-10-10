@@ -213,6 +213,9 @@ class TokyoDestinationVariantsTest(unittest.TestCase):
                                      path.arrival_minute) as real_arrival, \
                         patch.object(engine, "segments_detailed", side_effect=details_for_path) as details, \
                         patch.object(engine, "path_to_coords", return_value=[]), \
+                        patch.object(engine, "path_to_route_geometry", return_value=[
+                            {"kind": "bus", "points": [[35.0, 139.0], [35.0, 139.0]]},
+                        ]), \
                         contextlib.redirect_stdout(io.StringIO()):
                     candidates = engine.search_best_routes(
                         graph, object(), START, mode=mode, start_time="10:00", limit=2,
