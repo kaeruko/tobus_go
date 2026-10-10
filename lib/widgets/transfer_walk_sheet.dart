@@ -182,10 +182,10 @@ class _TransferWalkSheet extends StatelessWidget {
                 Text(
                   _label(
                     context,
-                    '乗換時間 ${transfer.transferMinutes}分 ・ 徒歩 約${transfer.walkingStep.minutes}分'
-                        '${transfer.waitingStep == null ? '' : ' ・ 待ち 約${transfer.waitingStep!.minutes}分'}',
-                    'Transfer ${transfer.transferMinutes} min · Walk ~${transfer.walkingStep.minutes} min'
-                        '${transfer.waitingStep == null ? '' : ' · Wait ~${transfer.waitingStep!.minutes} min'}',
+                    '🚶 約${transfer.walkingStep.minutes}分'
+                        '${transfer.waitingStep == null ? '' : ' ・ 🕒 約${transfer.waitingStep!.minutes}分'}',
+                    '🚶 ~${transfer.walkingStep.minutes} min'
+                        '${transfer.waitingStep == null ? '' : ' · 🕒 ~${transfer.waitingStep!.minutes} min'}',
                   ),
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                 ),
