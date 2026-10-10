@@ -245,8 +245,10 @@ void main() {
     final bus = segments['route_leg_1']!;
     final rail = segments['route_leg_2']!;
     expect(walking.points, geometry[0].points);
-    expect(walking.patterns.map((pattern) => pattern.type).toList(),
-        [PatternItemType.dash, PatternItemType.gap]);
+    expect(
+      walking.patterns.map((pattern) => pattern.toJson()).toList(),
+      [PatternItem.dash(12).toJson(), PatternItem.gap(8).toJson()],
+    );
     expect(bus.patterns, isEmpty);
     expect(rail.patterns, isEmpty);
     expect(bus.points, geometry[1].points);
