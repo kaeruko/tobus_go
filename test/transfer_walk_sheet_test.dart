@@ -147,9 +147,10 @@ void main() {
     expect(find.textContaining('地図は停留所の位置です'), findsNothing);
     expect(find.text('12:04'), findsOneWidget);
     expect(find.text('12:11'), findsOneWidget);
-    expect(find.textContaining('乗換時間 7分'), findsOneWidget);
-    expect(find.textContaining('徒歩 約3分'), findsOneWidget);
-    expect(find.textContaining('待ち 約4分'), findsOneWidget);
+    expect(find.text('🚶 約3分 ・ 🕒 約4分'), findsOneWidget);
+    expect(find.textContaining('乗換時間'), findsNothing);
+    expect(find.textContaining('徒歩 約'), findsNothing);
+    expect(find.textContaining('待ち 約'), findsNothing);
 
     final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
     expect(map.polylines, isEmpty);
@@ -179,6 +180,30 @@ void main() {
     });
     expect(urlLauncher.modes.single,
         launcher.PreferredLaunchMode.externalApplication);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('transfer without waiting shows only walking emoji duration', (tester) async {
+    final steps = buildTransferSteps()..removeAt(2);
+    final transfer = TransferWalkDetails.forStep(steps, 1)!;
+    await tester.pumpWidget(CupertinoApp(
+      locale: const Locale('ja'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: CupertinoPageScaffold(
+        child: Builder(builder: (context) => CupertinoButton(
+          onPressed: () => showTransferWalkSheet(context, transfer),
+          child: const Text('乗換を見る'),
+        )),
+      ),
+    ));
+
+    await tester.tap(find.text('乗換を見る'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('🚶 約3分'), findsOneWidget);
+    expect(find.textContaining('🕒'), findsNothing);
+    expect(find.textContaining('乗換時間'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
