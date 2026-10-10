@@ -8,6 +8,7 @@ import 'package:url_launcher_platform_interface/link.dart' as launcher_link;
 import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart'
     as launcher;
 import 'package:toeigo/l10n/app_localizations.dart';
+import 'package:toeigo/models/route_map_segment.dart';
 import 'package:toeigo/widgets/route_map_preview.dart';
 
 class TestMaps extends maps.GoogleMapsFlutterPlatform {
@@ -206,4 +207,77 @@ void main() {
           [launcher.PreferredLaunchMode.externalApplication]);
     });
   }
+
+  testWidgets('Tokyo mode geometry paints walk dashed and rides solid', (tester) async {
+    final geometry = <RouteMapSegment>[
+      RouteMapSegment(
+        kind: 'walk',
+        points: const [LatLng(35.0, 139.0), LatLng(35.001, 139.0)],
+      ),
+      RouteMapSegment(
+        kind: 'bus',
+        points: const [LatLng(35.001, 139.0), LatLng(35.005, 139.0)],
+      ),
+      RouteMapSegment(
+        kind: 'rail',
+        points: const [LatLng(35.005, 139.0), LatLng(35.01, 139.0)],
+      ),
+    ];
+    await tester.pumpWidget(CupertinoApp(
+      locale: const Locale('ja'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: CupertinoPageScaffold(
+        child: RouteMapPreview(
+          points: const [LatLng(35.0, 139.0), LatLng(35.01, 139.0)],
+          routeGeometry: geometry,
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(map.polylines, hasLength(3));
+    final segments = {
+      for (final line in map.polylines) line.polylineId.value: line,
+    };
+    final walking = segments['route_leg_0']!;
+    final bus = segments['route_leg_1']!;
+    final rail = segments['route_leg_2']!;
+    expect(walking.points, geometry[0].points);
+    expect(walking.patterns.map((pattern) => pattern.type).toList(),
+        [PatternItemType.dash, PatternItemType.gap]);
+    expect(bus.patterns, isEmpty);
+    expect(rail.patterns, isEmpty);
+    expect(bus.points, geometry[1].points);
+    expect(rail.points, geometry[2].points);
+    expect(map.markers, hasLength(2));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('legacy map still draws one solid polyline', (tester) async {
+    await showMap(tester);
+    final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(map.polylines, hasLength(1));
+    expect(map.polylines.single.polylineId.value, 'route');
+    expect(map.polylines.single.patterns, isEmpty);
+  });
+
+  testWidgets('explicit empty route geometry cannot silently use old line',
+      (tester) async {
+    await tester.pumpWidget(CupertinoApp(
+      locale: const Locale('ja'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const CupertinoPageScaffold(
+        child: RouteMapPreview(
+          points: [LatLng(35, 139), LatLng(36, 140)],
+          routeGeometry: [],
+        ),
+      ),
+    ));
+    final error = tester.takeException();
+    expect(error, isA<StateError>());
+    expect(error.toString(), contains('route_geometry'));
+  });
 }
