@@ -27,3 +27,30 @@ Uri buildGoogleMapsCoordinateUri({
     'query': '$latitude,$longitude',
   });
 }
+
+Uri buildGoogleMapsWalkingDirectionsUri({
+  required double originLatitude,
+  required double originLongitude,
+  required double destinationLatitude,
+  required double destinationLongitude,
+}) {
+  for (final coordinate in [
+    (originLatitude, originLongitude),
+    (destinationLatitude, destinationLongitude),
+  ]) {
+    if (!hasUsableTransitCoordinate(coordinate.$1, coordinate.$2)) {
+      throw ArgumentError.value(
+        '${coordinate.$1},${coordinate.$2}',
+        'coordinate',
+        'Two valid transit stop coordinates are required for walking directions',
+      );
+    }
+  }
+
+  return Uri.https('www.google.com', '/maps/dir/', {
+    'api': '1',
+    'origin': '$originLatitude,$originLongitude',
+    'destination': '$destinationLatitude,$destinationLongitude',
+    'travelmode': 'walking',
+  });
+}
