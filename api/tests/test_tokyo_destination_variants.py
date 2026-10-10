@@ -237,7 +237,7 @@ class TokyoDestinationVariantsTest(unittest.TestCase):
         via_three = _leg(graph, board_three, "kin37", ("yahiro-four", "transfer"))["transfer"]
         via_four = _leg(graph, board_four, "kin37", ("transfer",))["transfer"]
         last_ride = _leg(graph, ("phys", "transfer"), "kusa39", ("arrival",))["arrival"]
-        graph.add_node(START)
+        graph.add_node(START, lat=35.0, lon=139.0)
         graph.add_node(TARGET)
         graph.add_edge(START, board_three, etype="walk", meters=40.0, w=1.0)
         graph.add_edge(START, board_four, etype="walk", meters=70.0, w=2.0)
