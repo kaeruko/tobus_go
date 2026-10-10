@@ -99,13 +99,34 @@ class _SegmentStopsPageState extends State<SegmentStopsPage> {
             ),
             if (_expanded) ...[
               const SizedBox(height: 12),
-              KeyedSubtree(
-                key: const ValueKey('segment-route-map'),
-                child: RouteMapPreview(
-                  points: _mapPoints,
-                  showOpenButton: false,
-                  showUserLocation: true,
-                ),
+              Stack(
+                children: [
+                  KeyedSubtree(
+                    key: const ValueKey('segment-route-map'),
+                    child: RouteMapPreview(
+                      points: _mapPoints,
+                      showOpenButton: false,
+                      showUserLocation: true,
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 24,
+                    child: CupertinoButton(
+                      key: const ValueKey('segment-map-expand'),
+                      color: CupertinoColors.systemBackground.resolveFrom(context),
+                      padding: const EdgeInsets.all(10),
+                      onPressed: () => Navigator.of(context).push(
+                        CupertinoPageRoute<void>(
+                          builder: (_) => _ExpandedSegmentMapPage(
+                            points: _mapPoints,
+                          ),
+                        ),
+                      ),
+                      child: const Icon(CupertinoIcons.arrow_up_left_arrow_down_right),
+                    ),
+                  ),
+                ],
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -621,6 +642,39 @@ class _StopMapSheet extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExpandedSegmentMapPage extends StatelessWidget {
+  final List<LatLng> points;
+
+  const _ExpandedSegmentMapPage({required this.points});
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        automaticallyImplyLeading: false,
+        leading: CupertinoNavigationBarBackButton(
+          key: const ValueKey('expanded-segment-map-back'),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        middle: Text(AppLocalizations.of(context).segmentGuideTitle),
+      ),
+      child: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) => RouteMapPreview(
+            key: const ValueKey('expanded-segment-map'),
+            points: points,
+            height: constraints.maxHeight,
+            margin: EdgeInsets.zero,
+            showOpenButton: false,
+            openExternalOnTap: false,
+            showUserLocation: true,
           ),
         ),
       ),
