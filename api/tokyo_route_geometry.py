@@ -72,7 +72,17 @@ def path_to_route_geometry(graph, path, *, virtual_dest_connections=None):
         if etype == "walk":
             kind = "walk"
         elif etype == "ride":
-            kind = edge.get("mode")
+            # The Tokyo graph stores the vehicle mode on its line node.
+            # Some ride edges repeat that metadata; both must agree if set.
+            edge_mode = edge.get("mode")
+            node_mode = graph.nodes[source].get("mode")
+            if (edge_mode is not None and node_mode is not None
+                    and edge_mode != node_mode):
+                raise RouteContractError(
+                    f"route geometry ride mode disagrees with node: "
+                    f"{source!r} edge={edge_mode!r} node={node_mode!r}"
+                )
+            kind = edge_mode if edge_mode is not None else node_mode
             if kind not in ("bus", "rail"):
                 raise RouteContractError(
                     f"route geometry ride has invalid mode: "
