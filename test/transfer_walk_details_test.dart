@@ -87,6 +87,28 @@ void main() {
     }
   });
 
+  test('transfer walk remains tappable if a wait precedes the walk', () {
+    final steps = transferSteps();
+    steps.insert(
+      2,
+      StepSeg(
+        stepId: 'alighting-wait',
+        kind: 'wait',
+        title: '待ち時間',
+        departureTime: '12:04',
+        arrivalTime: '12:04',
+      ),
+    );
+
+    final walking = TransferWalkDetails.forStep(steps, 3);
+    final waiting = TransferWalkDetails.forStep(steps, 4);
+    expect(walking, isNotNull);
+    expect(waiting, isNotNull);
+    expect(walking!.alightingStop.name, '浅草雷門');
+    expect(walking.boardingStop.name, '浅草雷門南');
+    expect(waiting!.transferMinutes, 7);
+  });
+
   test('origin/final walks and unrelated waits are not transfer details', () {
     final steps = transferSteps();
     expect(TransferWalkDetails.forStep(steps, 0), isNull);
