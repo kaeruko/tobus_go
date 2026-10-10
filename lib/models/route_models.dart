@@ -1,6 +1,7 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../utils/string_utils.dart';
+import 'route_map_segment.dart';
 
 class RouteMeta {
   final bool destinationReachable;
@@ -50,6 +51,7 @@ class Candidate {
   final int totalTime;
   final List<StepSeg> steps;
   final List<LatLng> points;
+  final List<RouteMapSegment>? routeGeometry;
   final String? originName;
   final String? destinationName;
   final String? originNameEn;
@@ -76,6 +78,7 @@ class Candidate {
     required this.totalTime,
     required this.steps,
     required this.points,
+    this.routeGeometry,
     this.originName,
     this.destinationName,
     this.originNameEn,
@@ -153,6 +156,9 @@ class Candidate {
             return const LatLng(0, 0);
           }).toList() ??
           const [],
+      routeGeometry: j.containsKey('route_geometry')
+          ? RouteMapSegment.listFromJson(j['route_geometry'])
+          : null,
       originName: originName,
       destinationName: destinationName,
       originNameEn: originNameEn,
@@ -512,6 +518,8 @@ class Candidate {
       'points': includePoints
           ? points.map((e) => [e.latitude, e.longitude]).toList()
           : [],
+      if (includePoints && routeGeometry != null)
+        'route_geometry': routeGeometry!.map((segment) => segment.toJson()).toList(),
       'origin_name': originName,
       'destination_name': destinationName,
       'origin_name_en': originNameEn,
