@@ -274,13 +274,10 @@ jobs:
 
           case version_mode
           when 'next_version'
-            unless source_semver == latest_closed_semver
+            unless (candidate_semver <=> source_semver) == 1
               abort(
-                "Cannot increment App Store version: " \
-                "pubspec=#{source_version}, latest approved/distributed=" \
-                "#{latest_closed_version} (#{latest_closed_state}). " \
-                "To upload a new build for the pending #{source_version} version, " \
-                "run this workflow with version_mode=rebuild_current_version."
+                "Next-version mode requires a candidate newer than pubspec: " \
+                "pubspec=#{source_version}, candidate=#{candidate_version}"
               )
             end
           when 'rebuild_current_version'
