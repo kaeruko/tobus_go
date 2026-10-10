@@ -140,8 +140,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('乗換案内'), findsOneWidget);
-    expect(find.text('A 降車予定'), findsOneWidget);
-    expect(find.text('B 乗車予定'), findsOneWidget);
+    expect(find.text('降車予定'), findsOneWidget);
+    expect(find.text('A 降車予定'), findsNothing);
+    expect(find.text('乗車予定'), findsOneWidget);
+    expect(find.text('B 乗車予定'), findsNothing);
+    expect(find.textContaining('地図は停留所の位置です'), findsNothing);
     expect(find.text('12:04'), findsOneWidget);
     expect(find.text('12:11'), findsOneWidget);
     expect(find.textContaining('乗換時間 7分'), findsOneWidget);
@@ -154,6 +157,13 @@ void main() {
     expect(pins, {
       'transfer_alight': const LatLng(35.710, 139.796),
       'transfer_board': const LatLng(35.711, 139.795),
+    });
+    final markerTitles = {
+      for (final marker in map.markers) marker.markerId.value: marker.infoWindow.title,
+    };
+    expect(markerTitles, {
+      'transfer_alight': '浅草雷門',
+      'transfer_board': '浅草雷門南',
     });
 
     await tester.tap(find.text('Googleマップで徒歩ルートを見る'));
