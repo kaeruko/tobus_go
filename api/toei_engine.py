@@ -241,6 +241,7 @@ from google.transit import gtfs_realtime_pb2
 from gtfs_loader import gtfs_repo
 from route_engine import RouteContractError, RouteSearchLimitError
 from tokyo_route_signatures import transit_path_signature
+from tokyo_route_geometry import path_to_route_geometry
 
 # -------------------- チューニング定数 --------------------
 print("[INFO] toei_engine loaded: build=2025-12-29-realtime", flush=True)
@@ -1780,6 +1781,9 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
                 "cost_score": 0.0,
                 "path": path,
                 "points": path_to_coords(G, path),
+                "route_geometry": path_to_route_geometry(
+                    G, path, virtual_dest_connections=virtual_dest_connections,
+                ),
                 "total": duration,
                 "transfers": max(0, num_rides - 1),
                 "rides": num_rides,
@@ -1928,6 +1932,9 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
                     "cost_score": cand['cost'],
                     "path": path,
                     "points": path_to_coords(G, path),
+                "route_geometry": path_to_route_geometry(
+                    G, path, virtual_dest_connections=virtual_dest_connections,
+                ),
                     "total": int(cand['cost']),
                     "transfers": max(0, num_rides - 1),
                     "rides": num_rides,
