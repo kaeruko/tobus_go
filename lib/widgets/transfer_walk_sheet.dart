@@ -159,8 +159,8 @@ class _TransferWalkSheet extends StatelessWidget {
                       stop: a,
                       clock: transfer.alightingTime,
                       ride: transfer.arrivingRide,
-                      labelJa: 'A 降車予定',
-                      labelEn: 'A Get off',
+                      labelJa: '降車予定',
+                      labelEn: 'Get off',
                       color: CupertinoColors.systemOrange,
                     ),
                     const Padding(
@@ -172,8 +172,8 @@ class _TransferWalkSheet extends StatelessWidget {
                       stop: b,
                       clock: transfer.boardingTime,
                       ride: transfer.departingRide,
-                      labelJa: 'B 乗車予定',
-                      labelEn: 'B Board',
+                      labelJa: '乗車予定',
+                      labelEn: 'Board',
                       color: CupertinoColors.activeGreen,
                     ),
                   ],
@@ -206,7 +206,7 @@ class _TransferWalkSheet extends StatelessWidget {
                             BitmapDescriptor.hueOrange,
                           ),
                           infoWindow: InfoWindow(
-                            title: 'A ${localizedStopName(Localizations.localeOf(context), a)}',
+                            title: localizedStopName(Localizations.localeOf(context), a),
                           ),
                         ),
                         Marker(
@@ -216,7 +216,7 @@ class _TransferWalkSheet extends StatelessWidget {
                             BitmapDescriptor.hueGreen,
                           ),
                           infoWindow: InfoWindow(
-                            title: 'B ${localizedStopName(Localizations.localeOf(context), b)}',
+                            title: localizedStopName(Localizations.localeOf(context), b),
                           ),
                         ),
                       },

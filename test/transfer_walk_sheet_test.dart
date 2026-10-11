@@ -140,8 +140,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('乗換案内'), findsOneWidget);
-    expect(find.text('A 降車予定'), findsOneWidget);
-    expect(find.text('B 乗車予定'), findsOneWidget);
+    expect(find.text('降車予定'), findsOneWidget);
+    expect(find.text('A 降車予定'), findsNothing);
+    expect(find.text('乗車予定'), findsOneWidget);
+    expect(find.text('B 乗車予定'), findsNothing);
     expect(find.text('12:04'), findsOneWidget);
     expect(find.text('12:11'), findsOneWidget);
     expect(find.textContaining('乗換時間 7分'), findsOneWidget);
@@ -154,6 +156,14 @@ void main() {
     expect(pins, {
       'transfer_alight': const LatLng(35.710, 139.796),
       'transfer_board': const LatLng(35.711, 139.795),
+    });
+    final mapInfoTitles = {
+      for (final marker in map.markers)
+        marker.markerId.value: marker.infoWindow.title,
+    };
+    expect(mapInfoTitles, {
+      'transfer_alight': '浅草雷門',
+      'transfer_board': '浅草雷門南',
     });
 
     await tester.tap(find.text('Googleマップで徒歩ルートを見る'));
@@ -169,6 +179,38 @@ void main() {
     });
     expect(urlLauncher.modes.single,
         launcher.PreferredLaunchMode.externalApplication);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('English transfer labels and map pins omit A/B prefixes',
+      (tester) async {
+    final transfer = TransferWalkDetails.forStep(buildTransferSteps(), 1)!;
+    await tester.pumpWidget(CupertinoApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: CupertinoPageScaffold(
+        child: Center(
+          child: Builder(
+            builder: (context) => CupertinoButton(
+              onPressed: () => showTransferWalkSheet(context, transfer),
+              child: const Text('Show transfer'),
+            ),
+          ),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('Show transfer'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Get off'), findsOneWidget);
+    expect(find.text('Board'), findsOneWidget);
+    expect(find.text('A Get off'), findsNothing);
+    expect(find.text('B Board'), findsNothing);
+    final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    final titles = {for (final marker in map.markers) marker.infoWindow.title};
+    expect(titles, {'Asakusa-Kaminarimon', 'Asakusa-Kaminarimon-Minami'});
     expect(tester.takeException(), isNull);
   });
 
