@@ -28,6 +28,29 @@ Uri buildGoogleMapsCoordinateUri({
   });
 }
 
+/// Shows the area around a transit stop so people can choose a nearby
+/// attraction and read that attraction's reviews in Google Maps.
+/// This is not a direct link to a specific business or its reviews.
+Uri buildGoogleMapsNearbyAreaUri({
+  required double latitude,
+  required double longitude,
+}) {
+  if (!hasUsableTransitCoordinate(latitude, longitude)) {
+    throw ArgumentError.value(
+      '$latitude,$longitude',
+      'coordinate',
+      'A valid transit stop coordinate is required for nearby Google Maps',
+    );
+  }
+
+  return Uri.https('www.google.com', '/maps/@', {
+    'api': '1',
+    'map_action': 'map',
+    'center': '$latitude,$longitude',
+    'zoom': '16',
+  });
+}
+
 Uri buildGoogleMapsWalkingDirectionsUri({
   required double originLatitude,
   required double originLongitude,

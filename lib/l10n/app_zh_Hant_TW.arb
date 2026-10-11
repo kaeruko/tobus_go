@@ -1229,6 +1229,8 @@
     }
   },
   "experienceGoHere": "前往這裡",
+  "experienceFindNearbyReviews": "在 Google 地圖中查看附近地點的評論",
+  "experienceNearbyReviewsHint": "在地圖上選擇地點即可查看該地點的評論。",
   "experienceMemo": "探索筆記",
   "experienceSurroundings": "周邊景觀",
   "experienceTagWater": "河畔",

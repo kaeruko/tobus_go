@@ -1229,6 +1229,8 @@
     }
   },
   "experienceGoHere": "Go here",
+  "experienceFindNearbyReviews": "Find nearby reviews on Google Maps",
+  "experienceNearbyReviewsHint": "Select a place on the map to read its reviews.",
   "experienceMemo": "Explore notes",
   "experienceSurroundings": "Around the area",
   "experienceTagWater": "Riverside",

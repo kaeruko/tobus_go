@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../constants.dart';
 import '../l10n/app_localizations.dart';
@@ -8,6 +9,7 @@ import '../providers/explore_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/navigation_provider.dart';
 import '../providers/route_search_provider.dart';
+import '../utils/stop_map_utils.dart';
 
 class ExperiencePage extends ConsumerStatefulWidget {
   final ReachableStop stop;
@@ -26,6 +28,7 @@ class ExperiencePage extends ConsumerStatefulWidget {
 class _ExperiencePageState extends ConsumerState<ExperiencePage> {
   ExperienceResponse? _data;
   bool _loading = false;
+  bool _openingNearbyReviews = false;
   String? _error;
 
   @override
@@ -105,10 +108,75 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
     );
   }
 
+  Future<void> _openNearbyReviews() async {
+    if (_openingNearbyReviews) return;
+    final uri = buildGoogleMapsNearbyAreaUri(
+      latitude: widget.stop.lat,
+      longitude: widget.stop.lon,
+    );
+    setState(() => _openingNearbyReviews = true);
+    try {
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened) {
+        throw StateError('Google Maps nearby area launch returned false: uri=$uri');
+      }
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'experience_page',
+          context: ErrorDescription('opening nearby Google Maps: uri=$uri'),
+        ),
+      );
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(l10n.googleMapsOpenFailed),
+          content: SelectableText('$error\\n$uri'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(l10n.close),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _openingNearbyReviews = false);
+    }
+  }
+
+  Widget _nearbyReviewsLink() {
+    final l10n = AppLocalizations.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        OutlinedButton.icon(
+          key: const Key('google-maps-nearby-reviews'),
+          onPressed: _openingNearbyReviews ? null : _openNearbyReviews,
+          icon: const Icon(Icons.open_in_new),
+          label: Text(l10n.experienceFindNearbyReviews),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l10n.experienceNearbyReviewsHint,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
   Widget _buildEditorialOnlyBody(ExploreEditorialSpot editorial) {
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: [_editorialSection(editorial)],
+      children: [
+        _editorialSection(editorial),
+        const SizedBox(height: 16),
+        _nearbyReviewsLink(),
+      ],
     );
   }
 
@@ -122,6 +190,8 @@ class _ExperiencePageState extends ConsumerState<ExperiencePage> {
       padding: const EdgeInsets.all(16),
       children: [
         _streetViewGallery(widget.stop),
+        const SizedBox(height: 16),
+        _nearbyReviewsLink(),
         const SizedBox(height: 20),
         if (data.groups.isEmpty)
           Padding(

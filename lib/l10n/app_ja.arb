@@ -1229,6 +1229,8 @@
     }
   },
   "experienceGoHere": "ここに行く",
+  "experienceFindNearbyReviews": "Google マップで周辺の口コミを探す",
+  "experienceNearbyReviewsHint": "地図上の施設を選ぶと、その施設の口コミを確認できます。",
   "experienceMemo": "みつけるメモ",
   "experienceSurroundings": "周辺のようす",
   "experienceTagWater": "川沿い",

@@ -22,6 +22,36 @@ void main() {
     });
   });
 
+  group('buildGoogleMapsNearbyAreaUri', () {
+    test('centers a free Google Maps area view on the exact stop', () {
+      final uri = buildGoogleMapsNearbyAreaUri(
+        latitude: 35.7138,
+        longitude: 139.7773,
+      );
+
+      expect(uri.scheme, 'https');
+      expect(uri.host, 'www.google.com');
+      expect(uri.path, '/maps/@');
+      expect(uri.queryParameters, {
+        'api': '1',
+        'map_action': 'map',
+        'center': '35.7138,139.7773',
+        'zoom': '16',
+      });
+    });
+
+    test('fails fast rather than opening the wrong area', () {
+      expect(
+        () => buildGoogleMapsNearbyAreaUri(latitude: 0.0, longitude: 0.0),
+        throwsArgumentError,
+      );
+      expect(
+        () => buildGoogleMapsNearbyAreaUri(latitude: double.nan, longitude: 139.0),
+        throwsArgumentError,
+      );
+    });
+  });
+
   group('buildGoogleMapsCoordinateUri', () {
     test('builds a coordinate search URL without changing coordinates', () {
       final uri = buildGoogleMapsCoordinateUri(
