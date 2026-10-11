@@ -182,10 +182,10 @@ class _TransferWalkSheet extends StatelessWidget {
                 Text(
                   _label(
                     context,
-                    '乗換時間 ${transfer.transferMinutes}分 ・ 徒歩 約${transfer.walkingStep.minutes}分'
-                        '${transfer.waitingStep == null ? '' : ' ・ 待ち 約${transfer.waitingStep!.minutes}分'}',
-                    'Transfer ${transfer.transferMinutes} min · Walk ~${transfer.walkingStep.minutes} min'
-                        '${transfer.waitingStep == null ? '' : ' · Wait ~${transfer.waitingStep!.minutes} min'}',
+                    '🚶 徒歩 約${transfer.walkingStep.minutes}分'
+                        '${transfer.waitingStep == null ? '' : ' ・ 🕒 待ち 約${transfer.waitingStep!.minutes}分'}',
+                    '🚶 Walk ~${transfer.walkingStep.minutes} min'
+                        '${transfer.waitingStep == null ? '' : ' · 🕒 Wait ~${transfer.waitingStep!.minutes} min'}',
                   ),
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                 ),
@@ -228,15 +228,6 @@ class _TransferWalkSheet extends StatelessWidget {
                       zoomControlsEnabled: false,
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _label(
-                    context,
-                    '地図は停留所の位置です。徒歩経路はGoogleマップで確認してください。時刻は検索時点の予定です。',
-                    'Pins show stop locations, not a walking route. Times are scheduled at search time.',
-                  ),
-                  style: const TextStyle(fontSize: 11, color: CupertinoColors.systemGrey),
                 ),
                 const SizedBox(height: 10),
                 CupertinoButton.filled(

@@ -146,9 +146,9 @@ void main() {
     expect(find.text('B 乗車予定'), findsNothing);
     expect(find.text('12:04'), findsOneWidget);
     expect(find.text('12:11'), findsOneWidget);
-    expect(find.textContaining('乗換時間 7分'), findsOneWidget);
-    expect(find.textContaining('徒歩 約3分'), findsOneWidget);
-    expect(find.textContaining('待ち 約4分'), findsOneWidget);
+    expect(find.text('🚶 徒歩 約3分 ・ 🕒 待ち 約4分'), findsOneWidget);
+    expect(find.textContaining('乗換時間'), findsNothing);
+    expect(find.textContaining('地図は停留所の位置です'), findsNothing);
 
     final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
     expect(map.polylines, isEmpty);
@@ -208,6 +208,9 @@ void main() {
     expect(find.text('Board'), findsOneWidget);
     expect(find.text('A Get off'), findsNothing);
     expect(find.text('B Board'), findsNothing);
+    expect(find.text('🚶 Walk ~3 min · 🕒 Wait ~4 min'), findsOneWidget);
+    expect(find.textContaining('Transfer 7 min'), findsNothing);
+    expect(find.textContaining('Pins show stop locations'), findsNothing);
     final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
     final titles = {for (final marker in map.markers) marker.infoWindow.title};
     expect(titles, {'Asakusa-Kaminarimon', 'Asakusa-Kaminarimon-Minami'});
