@@ -25,7 +25,7 @@ void main() {
         expect(request.url.queryParameters['include_all'], 'true');
 
         return http.Response(
-          '{"destinations":[{"destination_pole_id":"stop-b",'
+          '{"day_type":"weekday","destinations":[{"destination_pole_id":"stop-b",'
           '"destination_name":"新橋",'
           '"destination_name_en":"Shimbashi",'
           '"times":["23:58","24:10","24:30"],'

@@ -320,7 +320,7 @@ void main() {
           'trip-sato22-nippori',
         );
         return http.Response(
-          '{"destinations":[]}',
+          '{"day_type":"weekday","destinations":[]}',
           200,
           headers: const {'content-type': 'application/json; charset=utf-8'},
         );
