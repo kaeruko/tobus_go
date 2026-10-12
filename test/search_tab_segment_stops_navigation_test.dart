@@ -575,7 +575,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('stop-timetable-stop-kameido')));
     await tester.pumpAndSettle();
     final holidayTab = tester.widget<AnimatedContainer>(
-      find.byKey(const ValueKey('timetable-day-Holiday')),
+      find.descendant(
+        of: find.byKey(const ValueKey('timetable-day-Holiday')),
+        matching: find.byType(AnimatedContainer),
+      ),
     );
     final holidayDecoration = holidayTab.decoration! as BoxDecoration;
     expect(holidayDecoration.color, const Color(0xFF0A84FF));
@@ -585,7 +588,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('timetable-day-Weekday')));
     await tester.pumpAndSettle();
     final weekdayTab = tester.widget<AnimatedContainer>(
-      find.byKey(const ValueKey('timetable-day-Weekday')),
+      find.descendant(
+        of: find.byKey(const ValueKey('timetable-day-Weekday')),
+        matching: find.byType(AnimatedContainer),
+      ),
     );
     final weekdayDecoration = weekdayTab.decoration! as BoxDecoration;
     expect(weekdayDecoration.color, const Color(0xFF0A84FF));
