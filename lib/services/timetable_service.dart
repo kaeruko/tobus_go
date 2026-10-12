@@ -56,6 +56,7 @@ class TimetableService {
     DateTime? referenceTime,
     int limit = 3,
     bool includeAllDay = false,
+    void Function(String dayType)? onResolvedDayType,
   }) async {
     if (routeId.trim().isEmpty) {
       throw ArgumentError.value(routeId, 'routeId', 'must not be empty');
@@ -121,6 +122,31 @@ class TimetableService {
     }
 
     final json = await ApiClient.get('/bus/next', params: params);
+    // An explicit date is authoritative. Use the backend's calendar result
+    // instead of guessing Japanese holidays from DateTime.weekday.
+    if (onResolvedDayType != null) {
+      final responseDayType = json['day_type'];
+      if (responseDayType is! String ||
+          !const {'weekday', 'saturday', 'holiday'}.contains(responseDayType)) {
+        throw FormatException(
+          'Invalid /bus/next day_type: $responseDayType '
+          '(routeId=$routeId, poleId=$poleId, referenceTime=$effectiveReferenceTime)',
+        );
+      }
+      final resolvedDayType = switch (responseDayType) {
+        'weekday' => 'Weekday',
+        'saturday' => 'Saturday',
+        'holiday' => 'Holiday',
+        _ => throw StateError('Unreachable day_type: $responseDayType'),
+      };
+      if (dayType != null && resolvedDayType != dayType) {
+        throw StateError(
+          'Timetable day type mismatch: requested=$dayType, '
+          'resolved=$resolvedDayType, routeId=$routeId, poleId=$poleId',
+        );
+      }
+      onResolvedDayType(resolvedDayType);
+    }
     final destinations = json['destinations'];
     if (destinations is! List) {
       throw StateError(

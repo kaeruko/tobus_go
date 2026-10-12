@@ -320,7 +320,7 @@ void main() {
           'trip-sato22-nippori',
         );
         return http.Response(
-          '{"destinations":[]}',
+          '{"day_type":"weekday","destinations":[]}',
           200,
           headers: const {'content-type': 'application/json; charset=utf-8'},
         );
@@ -465,10 +465,14 @@ void main() {
       expect(request.url.queryParameters['limit'], '3');
       expect(request.url.queryParameters['include_all'], 'true');
       final dayType = request.url.queryParameters['day_type'];
-      expect(dayType, isIn(['weekday', 'saturday', 'holiday']));
-      requestedDayTypes.add(dayType!);
+      if (dayType == null) {
+        expect(request.url.queryParameters.containsKey('date'), isTrue);
+      } else {
+        expect(dayType, isIn(['weekday', 'saturday', 'holiday']));
+        requestedDayTypes.add(dayType);
+      }
       return http.Response(
-        '{"destinations":['
+        '{"day_type":"${dayType ?? 'weekday'}","destinations":['
         '{"destination_pole_id":"stop-nippori",'
         '"destination_name":"日暮里駅前",'
         '"destination_name_en":"Nippori Sta.",'
@@ -518,16 +522,81 @@ void main() {
     expect(find.text('15'), findsOneWidget);
     expect(find.text('16'), findsOneWidget);
 
-    final initialDayType = requestedDayTypes.single;
-    final targetDayType = initialDayType == 'weekday'
-        ? 'Saturday'
-        : 'Weekday';
+    expect(requestedDayTypes, isEmpty);
+    const targetDayType = 'Saturday';
     await tester.tap(
       find.byKey(ValueKey('timetable-day-$targetDayType')),
     );
     await tester.pumpAndSettle();
 
     expect(requestedDayTypes.last, targetDayType.toLowerCase());
+  });
+
+  testWidgets('Oct 12 holiday initially selects 日・祝 and allows weekday switch', (
+    tester,
+  ) async {
+    final originalClient = ApiClient.httpClient;
+    final requests = <Uri>[];
+    configureApiBase(Uri.parse('https://api.example.test'));
+    ApiClient.httpClient = MockClient((request) async {
+      requests.add(request.url);
+      final selected = request.url.queryParameters['day_type'];
+      if (selected == null) {
+        expect(request.url.queryParameters['date'], '2026-10-12');
+        expect(request.url.queryParameters['time'], '12:19');
+      } else {
+        expect(selected, 'weekday');
+        expect(request.url.queryParameters.containsKey('date'), isFalse);
+      }
+      final dayType = selected ?? 'holiday';
+      final time = selected == null ? '12:19' : '13:35';
+      return http.Response(
+        '{"day_type":"$dayType","destinations":['
+        '{"destination_pole_id":"stop-nippori",'
+        '"destination_name":"日暮里駅前",'
+        '"destination_name_en":"Nippori Sta.",'
+        '"times":["$time"],"all_times":["$time"]}]}',
+        200,
+        headers: const {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+    addTearDown(() => ApiClient.httpClient = originalClient);
+    await tester.pumpWidget(
+      CupertinoApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: SegmentStopsPage(
+          segment: busSegment(),
+          referenceTime: DateTime(2026, 10, 12, 12, 19),
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('stop-timetable-stop-kameido')));
+    await tester.pumpAndSettle();
+    final holidayTab = tester.widget<AnimatedContainer>(
+      find.descendant(
+        of: find.byKey(const ValueKey('timetable-day-Holiday')),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+    final holidayDecoration = holidayTab.decoration! as BoxDecoration;
+    expect(holidayDecoration.color, const Color(0xFF0A84FF));
+    expect(find.text('19'), findsOneWidget);
+    expect(requests, hasLength(1));
+
+    await tester.tap(find.byKey(const ValueKey('timetable-day-Weekday')));
+    await tester.pumpAndSettle();
+    final weekdayTab = tester.widget<AnimatedContainer>(
+      find.descendant(
+        of: find.byKey(const ValueKey('timetable-day-Weekday')),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+    final weekdayDecoration = weekdayTab.decoration! as BoxDecoration;
+    expect(weekdayDecoration.color, const Color(0xFF0A84FF));
+    expect(find.text('35'), findsOneWidget);
+    expect(requests, hasLength(2));
   });
 
   testWidgets('stop timetable keeps bilingual destination in English', (
@@ -538,12 +607,14 @@ void main() {
     ApiClient.httpClient = MockClient((request) async {
       expect(request.url.queryParameters['limit'], '3');
       expect(request.url.queryParameters['include_all'], 'true');
-      expect(
-        request.url.queryParameters['day_type'],
-        isIn(['weekday', 'saturday', 'holiday']),
-      );
+      final dayType = request.url.queryParameters['day_type'];
+      if (dayType == null) {
+        expect(request.url.queryParameters.containsKey('date'), isTrue);
+      } else {
+        expect(dayType, isIn(['weekday', 'saturday', 'holiday']));
+      }
       return http.Response(
-        '{"destinations":[{"destination_pole_id":"stop-nippori",'
+        '{"day_type":"${dayType ?? 'weekday'}","destinations":[{"destination_pole_id":"stop-nippori",'
         '"destination_name":"日暮里駅前",'
         '"destination_name_en":"Nippori Sta.",'
         '"times":["15:10","15:25","15:40"],'

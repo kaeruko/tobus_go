@@ -626,7 +626,12 @@ class RouteStepTile extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: canShowStops
           ? () => Navigator.of(context).push(
-              CupertinoPageRoute(builder: (_) => SegmentStopsPage(segment: segment)),
+              CupertinoPageRoute(
+                builder: (_) => SegmentStopsPage(
+                  segment: segment,
+                  referenceTime: timetableReferenceTime,
+                ),
+              ),
             )
           : onTransferTap,
       child: content,

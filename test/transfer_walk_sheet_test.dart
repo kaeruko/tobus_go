@@ -213,7 +213,10 @@ void main() {
     expect(find.textContaining('Pins show stop locations'), findsNothing);
     final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
     final titles = {for (final marker in map.markers) marker.infoWindow.title};
-    expect(titles, {'Asakusa-Kaminarimon', 'Asakusa-Kaminarimon-Minami'});
+    expect(titles, {
+      'Asakusa-Kaminarimon (浅草雷門)',
+      'Asakusa-Kaminarimon-Minami (浅草雷門南)',
+    });
     expect(tester.takeException(), isNull);
   });
 

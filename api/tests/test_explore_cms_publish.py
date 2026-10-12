@@ -7,8 +7,9 @@ import sys
 import tempfile
 import time
 import unittest
+from io import StringIO
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 spec = importlib.util.spec_from_file_location(
@@ -70,6 +71,104 @@ class CmsPublishProcessTest(unittest.TestCase):
         publisher = root / "fake_publisher.py"
         publisher.write_text(code, encoding="utf-8")
         return publisher
+
+    def test_invalid_timeout_is_rejected_before_starting_a_process(self):
+        for timeout in (None, "1", 0, -1, float("nan"), float("inf"), -float("inf")):
+            with self.subTest(timeout=timeout), patch.object(cms.subprocess, "Popen") as start:
+                with self.assertRaisesRegex(ValueError, "positive and finite"):
+                    cms.publish(timeout=timeout)
+                start.assert_not_called()
+
+    def test_invalid_progress_json_preserves_the_original_parse_cause(self):
+        with tempfile.TemporaryDirectory() as directory:
+            publisher = self._write_publisher(
+                Path(directory), "print('EXPLORE_PROGRESS {broken', flush=True)\n"
+            )
+            with patch.object(cms, "PUBLISH_SCRIPT", publisher):
+                with self.assertRaisesRegex(RuntimeError, "Invalid publisher progress JSON") as raised:
+                    cms.publish(timeout=5)
+            self.assertIsInstance(raised.exception.__cause__, json.JSONDecodeError)
+
+    def test_invalid_progress_schema_is_rejected(self):
+        for event in ([], {"current": 1}, {"stage": 1}):
+            with self.subTest(event=event), tempfile.TemporaryDirectory() as directory:
+                publisher = self._write_publisher(
+                    Path(directory), f"print({'EXPLORE_PROGRESS ' + json.dumps(event)!r}, flush=True)\n"
+                )
+                with patch.object(cms, "PUBLISH_SCRIPT", publisher):
+                    with self.assertRaisesRegex(RuntimeError, "Invalid publisher progress event"):
+                        cms.publish(timeout=5)
+
+    def test_strict_utf8_read_failure_preserves_the_decode_cause(self):
+        with tempfile.TemporaryDirectory() as directory:
+            publisher = self._write_publisher(
+                Path(directory), "import os\nos.write(1, bytes([255, 10]))\n"
+            )
+            with patch.object(cms, "PUBLISH_SCRIPT", publisher):
+                with self.assertRaisesRegex(RuntimeError, "Failed to read publisher output") as raised:
+                    cms.publish(timeout=5)
+            self.assertIsInstance(raised.exception.__cause__, UnicodeDecodeError)
+
+    def test_cleanup_failure_keeps_the_original_callback_error_as_its_cause(self):
+        process = Mock(stdout=StringIO(""))
+        original = RuntimeError("progress callback failed")
+        cleanup = RuntimeError("publisher cleanup failed")
+
+        def on_progress(event):
+            raise original
+
+        with patch.object(cms.subprocess, "Popen", return_value=process), \
+                patch.object(cms, "_terminate_publisher", side_effect=cleanup):
+            with self.assertRaisesRegex(RuntimeError, "publisher cleanup failed") as raised:
+                cms.publish(on_progress, timeout=5)
+        self.assertIs(raised.exception, cleanup)
+        self.assertIs(raised.exception.__cause__, original)
+        self.assertTrue(process.stdout.closed)
+
+    def test_heartbeat_retains_image_stage_and_progress_counts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            publisher = self._write_publisher(
+                Path(directory),
+                "import json, time\n"
+                "print('EXPLORE_PROGRESS ' + json.dumps({'stage': 'images', 'current': 1, "
+                "'total': 2, 'skipped': 3}), flush=True)\n"
+                "time.sleep(0.95)\n",
+            )
+            received = []
+            with patch.object(cms, "PUBLISH_SCRIPT", publisher):
+                result = cms.publish(lambda event: received.append(dict(event)), timeout=5)
+            self.assertEqual(result.returncode, 0)
+            heartbeats = [event for event in received if event.get("heartbeat")]
+            self.assertTrue(heartbeats)
+            for event in heartbeats:
+                self.assertEqual((event["stage"], event["current"], event["total"], event["skipped"]),
+                                 ("images", 1, 2, 3))
+                self.assertGreater(event["elapsed_seconds"], 0)
+
+    def test_closed_output_pipe_does_not_end_the_process_deadline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pid_file = root / "pid"
+            publisher = self._write_publisher(
+                root,
+                "import os, time\n"
+                "from pathlib import Path\n"
+                f"Path({str(pid_file)!r}).write_text(str(os.getpid()))\n"
+                "print('publisher closed its output', flush=True)\n"
+                "os.close(1)\nos.close(2)\ntime.sleep(60)\n",
+            )
+            start = time.monotonic()
+            try:
+                with patch.object(cms, "PUBLISH_SCRIPT", publisher):
+                    with self.assertRaises(subprocess.TimeoutExpired) as raised:
+                        cms.publish(timeout=0.8)
+                self.assertLess(time.monotonic() - start, 4)
+                self.assertTrue(pid_file.exists())
+                self.assertIn("publisher closed its output", raised.exception.output)
+                self.assertFalse(_process_running(int(pid_file.read_text())))
+            finally:
+                if pid_file.exists():
+                    _cleanup_process(int(pid_file.read_text()))
 
     def test_progress_is_delivered_before_the_publisher_finishes(self):
         with tempfile.TemporaryDirectory() as directory:

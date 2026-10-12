@@ -101,6 +101,49 @@ class PublishExploreContentTest(unittest.TestCase):
             self.assertFalse(publisher.image_is_unchanged(source, None))
             self.assertFalse(publisher.image_is_unchanged(source, remote_image(b"longer")))
 
+    def test_bare_md5_etag_keeps_matching_image_but_not_same_size_edit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "image.jpg"
+            source.write_bytes(b"new")
+            matching = hashlib.md5(b"new", usedforsecurity=False).hexdigest()
+            changed = hashlib.md5(b"old", usedforsecurity=False).hexdigest()
+            for etag, expected in (
+                (matching, True), (matching.upper(), True), (changed, False),
+                ('"' + matching, False), (matching + '"', False),
+            ):
+                with self.subTest(etag=etag):
+                    self.assertEqual(publisher.image_is_unchanged(
+                        source, {"Size": 3, "ETag": etag}), expected)
+
+    def test_listing_rejects_ambiguous_keys_and_malformed_metadata(self):
+        entry = {"Key": "p/images/one.jpg", **remote_image(b"one")}
+        malformed = [
+            [dict(entry, Key="p/images/")],
+            [dict(entry, Key="p/images/nested/one.jpg")],
+            [dict(entry, Key="p/images/nested\\one.jpg")],
+            [entry, dict(entry)],
+            [{key: value for key, value in entry.items() if key != "Size"}],
+            *[[dict(entry, Size=size)] for size in (-1, "3", 3.0, True)],
+            *[[dict(entry, ETag=etag)] for etag in (None, 123)],
+        ]
+        for contents in malformed:
+            with self.subTest(contents=contents), \
+                    patch.object(publisher, "run_aws", return_value=json.dumps({"Contents": contents})):
+                with self.assertRaisesRegex(RuntimeError, "invalid S3 image listing"):
+                    publisher.list_remote_images(bucket="b", prefix="p/", region="r")
+        # Missing/composite ETags are conservative upload decisions, not an
+        # invalid listing. Metadata still identifies one unambiguous object.
+        for etag in (None, '"multipart-2"'):
+            item = {"Key": "p/images/one.jpg", "Size": 3}
+            if etag is not None:
+                item["ETag"] = etag
+            with self.subTest(valid_listing=item), \
+                    patch.object(publisher, "run_aws", return_value=json.dumps({"Contents": [item]})) as aws:
+                self.assertEqual(publisher.list_remote_images(bucket="b", prefix="p/", region="r"),
+                                 {"one.jpg": item})
+                command = aws.call_args.args[0]
+                self.assertEqual(command[command.index("--prefix") + 1], "p/images/")
+
     def test_delta_uploads_changed_photo_once_then_manifest_with_headers(self):
         with tempfile.TemporaryDirectory() as directory:
             images = Path(directory)
@@ -112,8 +155,9 @@ class PublishExploreContentTest(unittest.TestCase):
                     patch.object(publisher, "compile_csv", return_value=payload), \
                     patch.object(publisher, "list_remote_images", return_value={
                         "same.jpg": remote_image(b"same"), "edited.jpg": remote_image(b"old"),
-                    }), patch.object(publisher, "upload_file") as upload, redirect_stdout(StringIO()) as output:
+                    }) as listing, patch.object(publisher, "upload_file") as upload, redirect_stdout(StringIO()) as output:
                 self.assertEqual(publisher.main(), 0)
+            listing.assert_called_once()
             calls = [call.kwargs for call in upload.call_args_list]
             self.assertEqual([call["source"].name for call in calls], ["edited.jpg", "spots.json"])
             self.assertEqual(calls[0]["content_type"], "image/jpeg")
@@ -125,6 +169,7 @@ class PublishExploreContentTest(unittest.TestCase):
                       if line.startswith(publisher.PROGRESS_PREFIX)]
             self.assertEqual(events[0]["stage"], "validate")
             self.assertEqual(events[-1], {"stage": "complete", "current": 1, "total": 1, "skipped": 1})
+            self.assertEqual(sum(event["stage"] == "complete" for event in events), 1)
             uploading = [event for event in events if event["stage"] == "images" and "filename" in event]
             self.assertEqual([event["current"] for event in uploading], [0, 1])
             self.assertTrue(all(event["total"] == 1 for event in uploading))

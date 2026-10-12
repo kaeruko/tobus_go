@@ -41,6 +41,83 @@ void main() {
     expect(groups.single['times'], ['10:50', '11:05']);
   });
 
+  test('October 12 public holiday uses the API calendar with the requested date', () async {
+    final originalClient = ApiClient.httpClient;
+    configureApiBase(Uri.parse('https://api.example.test'));
+    ApiClient.httpClient = MockClient((request) async {
+      expect(request.url.queryParameters['date'], '2026-10-12');
+      expect(request.url.queryParameters.containsKey('day_type'), isFalse);
+      expect(request.url.queryParameters['include_all'], 'true');
+      return http.Response(
+        '{"day_type":"holiday","destinations":[{"destination_pole_id":"stop-b",'
+        '"destination_name":"青戸車庫前",'
+        '"destination_name_en":"Aoto Depot",'
+        '"times":["12:19"],"all_times":["12:19","13:05"]}]}',
+        200,
+        headers: const {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+    addTearDown(() => ApiClient.httpClient = originalClient);
+    String? selectedDayType;
+    final groups = await TimetableService().getNextBusesFromApi(
+      'route-a',
+      'stop-a',
+      referenceTime: DateTime(2026, 10, 12, 12, 16),
+      includeAllDay: true,
+      onResolvedDayType: (dayType) => selectedDayType = dayType,
+    );
+    expect(selectedDayType, 'Holiday');
+    expect(groups.single['allTimes'], ['12:19', '13:05']);
+  });
+
+  test('missing or invalid calendar response fails rather than guessing weekday', () async {
+    final originalClient = ApiClient.httpClient;
+    configureApiBase(Uri.parse('https://api.example.test'));
+    var responseDayType = 'unknown';
+    ApiClient.httpClient = MockClient((request) async {
+      return http.Response(
+        '{"day_type":"$responseDayType","destinations":[]}',
+        200,
+        headers: const {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+    addTearDown(() => ApiClient.httpClient = originalClient);
+    for (final bad in ['unknown', '', 'Holiday']) {
+      responseDayType = bad;
+      await expectLater(
+        TimetableService().getNextBusesFromApi(
+          'route-a', 'stop-a',
+          referenceTime: DateTime(2026, 10, 12),
+          onResolvedDayType: (_) {},
+        ),
+        throwsFormatException,
+      );
+    }
+  });
+
+  test('selected tab and backend day type must agree', () async {
+    final originalClient = ApiClient.httpClient;
+    configureApiBase(Uri.parse('https://api.example.test'));
+    ApiClient.httpClient = MockClient((request) async {
+      expect(request.url.queryParameters['day_type'], 'weekday');
+      expect(request.url.queryParameters.containsKey('date'), isFalse);
+      return http.Response(
+        '{"day_type":"holiday","destinations":[]}',
+        200,
+        headers: const {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+    addTearDown(() => ApiClient.httpClient = originalClient);
+    await expectLater(
+      TimetableService().getNextBusesFromApi(
+        'route-a', 'stop-a',
+        dayType: 'Weekday',
+        onResolvedDayType: (_) {},
+      ),
+      throwsStateError,
+    );
+  });
+
   test('next bus response requires official English destination name', () async {
     final originalClient = ApiClient.httpClient;
     configureApiBase(Uri.parse('https://api.example.test'));

@@ -522,7 +522,7 @@ def delete_group_image(
 
 PUBLISH_TIMEOUT_SECONDS = 300
 PUBLISH_PROGRESS_PREFIX = "EXPLORE_PROGRESS "
-PUBLISH_HEARTBEAT_SECONDS = 0.5
+PUBLISH_HEARTBEAT_SECONDS = 0.4
 
 
 def _terminate_publisher(process: subprocess.Popen[str]) -> None:
@@ -530,6 +530,7 @@ def _terminate_publisher(process: subprocess.Popen[str]) -> None:
     if os.name == "nt":
         subprocess.run(
             ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             creationflags=subprocess.CREATE_NO_WINDOW,
@@ -552,7 +553,7 @@ def publish(
     timeout: float = PUBLISH_TIMEOUT_SECONDS,
 ) -> subprocess.CompletedProcess[str]:
     """Stream progress while retaining ordinary UTF-8 output for diagnosis."""
-    if not math.isfinite(timeout) or timeout <= 0:
+    if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
         raise ValueError("publish timeout must be positive and finite")
     command = [sys.executable, "-u", str(PUBLISH_SCRIPT), "--progress-json"]
     started = time.monotonic()
@@ -564,23 +565,28 @@ def publish(
         stderr=subprocess.STDOUT,
         text=True,
         encoding="utf-8",
+        errors="strict",
+        bufsize=1,
         env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
                        if os.name == "nt" else 0),
         start_new_session=os.name != "nt",
     )
-    lines: queue.Queue[str | Exception | None] = queue.Queue()
+    if process.stdout is None:
+        _terminate_publisher(process)
+        raise RuntimeError("Publisher stdout pipe was not created")
+    messages: queue.Queue[tuple[str, object]] = queue.Queue()
     output: list[str] = []
     last_event = {"stage": "starting", "message": "公開を開始しています"}
 
     def read_output() -> None:
         try:
             for line in process.stdout:
-                lines.put(line)
+                messages.put(("line", line))
         except Exception as error:
-            lines.put(error)
+            messages.put(("read_error", error))
         finally:
-            lines.put(None)
+            messages.put(("end", None))
 
     reader = threading.Thread(target=read_output, daemon=True)
     reader.start()
@@ -600,31 +606,55 @@ def publish(
             if now >= next_heartbeat:
                 notify({**last_event, "message": "公開処理を続けています", "heartbeat": True})
                 next_heartbeat = now + PUBLISH_HEARTBEAT_SECONDS
+            remaining = timeout - (now - started)
+            until_heartbeat = next_heartbeat - now if on_progress is not None else remaining
+            wait_seconds = max(0.001, min(0.1, remaining, until_heartbeat))
             try:
-                line = lines.get(timeout=min(0.1, timeout - (now - started)))
+                kind, value = messages.get(timeout=wait_seconds)
             except queue.Empty:
                 continue
-            if line is None:
+            if kind == "end":
                 ended = True
-            elif isinstance(line, Exception):
-                raise line
-            elif line.startswith(PUBLISH_PROGRESS_PREFIX):
-                event = json.loads(line[len(PUBLISH_PROGRESS_PREFIX):])
-                if not isinstance(event, dict):
-                    raise ValueError("publishing progress must be an object")
+                continue
+            if kind == "read_error":
+                raise RuntimeError("Failed to read publisher output") from value
+            if kind != "line" or not isinstance(value, str):
+                raise RuntimeError(f"Invalid publisher stream event: {kind!r}")
+            if value.startswith(PUBLISH_PROGRESS_PREFIX):
+                try:
+                    event = json.loads(value[len(PUBLISH_PROGRESS_PREFIX):])
+                except json.JSONDecodeError as error:
+                    raise RuntimeError(
+                        f"Invalid publisher progress JSON: {value!r}"
+                    ) from error
+                if not isinstance(event, dict) or not isinstance(event.get("stage"), str):
+                    raise RuntimeError(f"Invalid publisher progress event: {event!r}")
                 last_event = event
                 notify(event)
             else:
-                output.append(line)
-        return subprocess.CompletedProcess(command, process.returncode, "".join(output), "")
+                output.append(value)
+        remaining = timeout - (time.monotonic() - started)
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(command, timeout)
+        try:
+            code = process.wait(timeout=remaining)
+        except subprocess.TimeoutExpired as error:
+            raise subprocess.TimeoutExpired(command, timeout) from error
+        return subprocess.CompletedProcess(command, code, "".join(output), "")
     except BaseException as error:
-        _terminate_publisher(process)
+        if isinstance(error, subprocess.TimeoutExpired):
+            error.output = "".join(output)
+            error.stderr = ""
+        try:
+            _terminate_publisher(process)
+        except Exception as cleanup_error:
+            raise cleanup_error from error
         reader.join(timeout=0.5)
         # Include logs already read while process-tree shutdown was completing.
-        while not lines.empty():
-            line = lines.get_nowait()
-            if isinstance(line, str) and not line.startswith(PUBLISH_PROGRESS_PREFIX):
-                output.append(line)
+        while not messages.empty():
+            kind, value = messages.get_nowait()
+            if kind == "line" and isinstance(value, str) and not value.startswith(PUBLISH_PROGRESS_PREFIX):
+                output.append(value)
         if isinstance(error, subprocess.TimeoutExpired):
             error.output = "".join(output)
             error.stderr = ""
@@ -641,6 +671,7 @@ def render_publish() -> None:
         "starting": "公開を開始しています",
         "validate": "保存した内容を検証しています",
         "bucket": "公開先を確認しています",
+        "heartbeat": "公開処理を続けています",
         "images": "写真を公開しています",
         "manifest": "掲載内容を公開しています",
         "complete": "公開が完了しました",
