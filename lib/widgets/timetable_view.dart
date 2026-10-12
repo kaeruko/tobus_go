@@ -70,7 +70,8 @@ class _TimetableViewState extends State<TimetableView> {
   }
 
   Future<void> _initData() async {
-    _dayType = _service.getTodayType();
+    // The first request is date-scoped. The API reports the effective
+    // calendar including Japanese public holidays.
     try {
       await _updateBusInfo();
     } finally {
@@ -114,10 +115,14 @@ class _TimetableViewState extends State<TimetableView> {
       patternTripId: widget.patternTripId,
       preferredPatternTripId: widget.preferredPatternTripId,
       includeStopCluster: widget.includeStopCluster,
-      dayType: widget.showFullDay ? _dayType : null,
+      dayType: widget.showFullDay && _dayType.isNotEmpty ? _dayType : null,
       referenceTime: _now,
       limit: widget.limit,
       includeAllDay: true,
+      onResolvedDayType: (resolvedDayType) {
+        if (!mounted) return;
+        _dayType = resolvedDayType;
+      },
     );
     if (!mounted) return;
 

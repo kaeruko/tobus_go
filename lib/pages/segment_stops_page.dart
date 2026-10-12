@@ -11,10 +11,12 @@ import '../widgets/timetable_view.dart';
 
 class SegmentStopsPage extends StatefulWidget {
   final StepSeg segment;
+  final DateTime? referenceTime;
 
   const SegmentStopsPage({
     super.key,
     required this.segment,
+    this.referenceTime,
   });
 
   @override
@@ -376,6 +378,7 @@ class _StopRow extends StatelessWidget {
                             context,
                             segment: segment,
                             stop: stop,
+                            referenceTime: widget.referenceTime,
                           ),
                           child: const Icon(
                             CupertinoIcons.clock,
@@ -416,6 +419,7 @@ Future<void> _showStopTimetable(
   BuildContext context, {
   required StepSeg segment,
   required StopPoint stop,
+  DateTime? referenceTime,
 }) {
   final routeId = segment.routeId?.trim();
   final tripId = segment.tripId?.trim();
@@ -441,6 +445,7 @@ Future<void> _showStopTimetable(
       routeId: routeId,
       tripId: tripId,
       stopId: stopId,
+      referenceTime: referenceTime,
     ),
   );
 }
@@ -450,12 +455,14 @@ class _StopTimetableSheet extends StatelessWidget {
   final String routeId;
   final String tripId;
   final String stopId;
+  final DateTime? referenceTime;
 
   const _StopTimetableSheet({
     required this.stop,
     required this.routeId,
     required this.tripId,
     required this.stopId,
+    this.referenceTime,
   });
 
   @override
@@ -514,6 +521,7 @@ class _StopTimetableSheet extends StatelessWidget {
                     limit: 3,
                     showEmptyState: true,
                     showFullDay: true,
+                    referenceTime: referenceTime,
                   ),
                 ),
               ),
