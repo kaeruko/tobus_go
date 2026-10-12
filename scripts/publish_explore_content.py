@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
+import re
 import shutil
 import subprocess
 import sys
@@ -24,17 +27,124 @@ from app.services.explore_editorial_content import (  # noqa: E402
 )
 
 
+AWS_COMMAND_TIMEOUT_SECONDS = 90
+PROGRESS_PREFIX = "EXPLORE_PROGRESS "
+SIMPLE_ETAG_PATTERN = re.compile(r'^"[0-9a-fA-F]{32}"$')
+
+
+def emit_progress(enabled: bool, stage: str, **fields: object) -> None:
+    if enabled:
+        print(
+            PROGRESS_PREFIX + json.dumps(
+                {"stage": stage, **fields}, ensure_ascii=False,
+            ),
+            flush=True,
+        )
+
+
+def list_remote_images(*, bucket: str, prefix: str, region: str) -> dict[str, dict]:
+    image_prefix = f"{prefix.rstrip('/')}/images/"
+    raw = run_aws([
+        "s3api", "list-objects-v2",
+        "--bucket", bucket,
+        "--prefix", image_prefix,
+        "--region", region,
+        "--output", "json",
+    ])
+    try:
+        response = json.loads(raw)
+    except json.JSONDecodeError as error:
+        raise RuntimeError(
+            f"invalid S3 image listing: malformed JSON, prefix={image_prefix}: {error}"
+        ) from error
+    if not isinstance(response, dict):
+        raise RuntimeError(
+            f"invalid S3 image listing: expected object, got {type(response).__name__}"
+        )
+    contents = response.get("Contents", [])
+    if not isinstance(contents, list):
+        raise RuntimeError(
+            f"invalid S3 image listing: Contents must be an array, prefix={image_prefix}"
+        )
+    result: dict[str, dict] = {}
+    for index, item in enumerate(contents):
+        if not isinstance(item, dict):
+            raise RuntimeError(
+                f"invalid S3 image listing: Contents[{index}] must be an object"
+            )
+        key = item.get("Key")
+        if not isinstance(key, str):
+            raise RuntimeError(
+                f"invalid S3 image listing: missing Key at index={index}"
+            )
+        if not key.startswith(image_prefix):
+            continue
+        filename = key[len(image_prefix):]
+        if not filename or "/" in filename or "\\" in filename:
+            raise RuntimeError(
+                f"invalid S3 image listing: unexpected image object key={key!r}"
+            )
+        if filename in result:
+            raise RuntimeError(
+                f"invalid S3 image listing: duplicate image key={key!r}"
+            )
+        result[filename] = item
+    return result
+
+
+def image_is_unchanged(source: Path, remote: dict | None) -> bool:
+    if remote is None:
+        return False
+    if not isinstance(remote, dict):
+        raise RuntimeError(
+            f"invalid S3 image metadata for {source}: {type(remote).__name__}"
+        )
+    size = remote.get("Size")
+    etag = remote.get("ETag")
+    # A multipart ETag cannot be compared as an MD5; re-upload it instead.
+    if type(size) is not int or size < 0 or not isinstance(etag, str) or (
+        SIMPLE_ETAG_PATTERN.fullmatch(etag) is None
+    ):
+        return False
+    local = source.read_bytes()
+    if size != len(local):
+        return False
+    digest = hashlib.md5(local, usedforsecurity=False).hexdigest()
+    return etag[1:-1].lower() == digest
+
+
 def run_aws(args: list[str]) -> str:
-    if shutil.which("aws") is None:
+    aws_executable = shutil.which("aws")
+    if aws_executable is None:
         raise RuntimeError("AWS CLI was not found on PATH")
-    command = ["aws", *args]
-    result = subprocess.run(
-        command,
-        check=False,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
+    command = [
+        aws_executable, *args,
+        "--no-cli-pager", "--no-cli-auto-prompt",
+        "--cli-connect-timeout", "10",
+        "--cli-read-timeout", "30",
+    ]
+    env = {
+        **os.environ,
+        "AWS_PAGER": "",
+        "AWS_CLI_AUTO_PROMPT": "off",
+        "AWS_MAX_ATTEMPTS": "2",
+    }
+    try:
+        result = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            stdin=subprocess.DEVNULL,
+            text=True,
+            encoding="utf-8",
+            env=env,
+            timeout=AWS_COMMAND_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise RuntimeError(
+            f"AWS CLI timed out after {AWS_COMMAND_TIMEOUT_SECONDS} seconds: "
+            + " ".join(command)
+        ) from error
     if result.returncode != 0:
         stderr = result.stderr.strip()
         raise RuntimeError(
@@ -124,11 +234,17 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Validate and show the publish plan without changing S3.",
     )
+    parser.add_argument(
+        "--progress-json",
+        action="store_true",
+        help="Print flushed EXPLORE_PROGRESS JSON events for the local CMS.",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    emit_progress(args.progress_json, "validate")
     csv_path, images_dir = source_paths(args.city)
 
     # All local validation and ODPT resolution are completed before the first
@@ -161,6 +277,16 @@ def main() -> int:
     print(f"Bucket   : {bucket}")
     print(f"Prefix   : {prefix}")
 
+    remote_images = list_remote_images(
+        bucket=bucket, prefix=prefix, region=args.region,
+    )
+    changed_images = [
+        filename for filename in referenced_images
+        if not image_is_unchanged(images_dir / filename, remote_images.get(filename))
+    ]
+    skipped = len(referenced_images) - len(changed_images)
+    print(f"New/edited images: {len(changed_images)}; unchanged: {skipped}")
+
     if args.dry_run:
         print("Dry run complete. S3 was not changed.")
         return 0
@@ -174,7 +300,11 @@ def main() -> int:
 
         # Images are uploaded first. spots.json is the publish boundary and is
         # intentionally updated only after every referenced image succeeds.
-        for filename in referenced_images:
+        for index, filename in enumerate(changed_images):
+            emit_progress(
+                args.progress_json, "images", current=index,
+                total=len(changed_images), skipped=skipped, filename=filename,
+            )
             upload_file(
                 source=images_dir / filename,
                 bucket=bucket,
@@ -184,7 +314,15 @@ def main() -> int:
                 cache_control="public,max-age=86400",
             )
             print(f"Uploaded : {filename}")
+            emit_progress(
+                args.progress_json, "images", current=index + 1,
+                total=len(changed_images), skipped=skipped, filename=filename,
+            )
 
+        emit_progress(
+            args.progress_json, "manifest",
+            current=len(changed_images), total=len(changed_images), skipped=skipped,
+        )
         upload_file(
             source=json_path,
             bucket=bucket,
@@ -194,6 +332,10 @@ def main() -> int:
             cache_control="no-cache",
         )
         print("Published: spots.json")
+        emit_progress(
+            args.progress_json, "complete",
+            current=len(changed_images), total=len(changed_images), skipped=skipped,
+        )
 
     return 0
 
