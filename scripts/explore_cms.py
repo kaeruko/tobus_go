@@ -2,9 +2,17 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import math
+import os
+import queue
+import signal
 import subprocess
 import sys
+import threading
+import time
 import uuid
+from collections.abc import Callable
 from io import BytesIO
 from pathlib import Path
 
@@ -512,16 +520,170 @@ def delete_group_image(
         if temp_csv.exists():
             temp_csv.unlink()
 
-def publish() -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, str(PUBLISH_SCRIPT)],
+PUBLISH_TIMEOUT_SECONDS = 300
+PUBLISH_PROGRESS_PREFIX = "EXPLORE_PROGRESS "
+PUBLISH_HEARTBEAT_SECONDS = 0.5
+
+
+def _terminate_publisher(process: subprocess.Popen[str]) -> None:
+    """Stop only this publishing process and its child process tree."""
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+            check=False,
+            timeout=1,
+        )
+        if process.poll() is None:
+            process.kill()
+    else:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    process.wait(timeout=1)
+
+
+def publish(
+    on_progress: Callable[[dict], None] | None = None,
+    *,
+    timeout: float = PUBLISH_TIMEOUT_SECONDS,
+) -> subprocess.CompletedProcess[str]:
+    """Stream progress while retaining ordinary UTF-8 output for diagnosis."""
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("publish timeout must be positive and finite")
+    command = [sys.executable, "-u", str(PUBLISH_SCRIPT), "--progress-json"]
+    started = time.monotonic()
+    process = subprocess.Popen(
+        command,
         cwd=REPO_ROOT,
-        capture_output=True,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
         encoding="utf-8",
-        timeout=300,
-        check=False,
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+                       if os.name == "nt" else 0),
+        start_new_session=os.name != "nt",
     )
+    lines: queue.Queue[str | Exception | None] = queue.Queue()
+    output: list[str] = []
+    last_event = {"stage": "starting", "message": "公開を開始しています"}
+
+    def read_output() -> None:
+        try:
+            for line in process.stdout:
+                lines.put(line)
+        except Exception as error:
+            lines.put(error)
+        finally:
+            lines.put(None)
+
+    reader = threading.Thread(target=read_output, daemon=True)
+    reader.start()
+
+    def notify(event: dict) -> None:
+        if on_progress is not None:
+            on_progress({**event, "elapsed_seconds": time.monotonic() - started})
+
+    next_heartbeat = started + PUBLISH_HEARTBEAT_SECONDS
+    ended = False
+    try:
+        notify(last_event)
+        while not (ended and process.poll() is not None):
+            now = time.monotonic()
+            if now - started >= timeout:
+                raise subprocess.TimeoutExpired(command, timeout)
+            if now >= next_heartbeat:
+                notify({**last_event, "message": "公開処理を続けています", "heartbeat": True})
+                next_heartbeat = now + PUBLISH_HEARTBEAT_SECONDS
+            try:
+                line = lines.get(timeout=min(0.1, timeout - (now - started)))
+            except queue.Empty:
+                continue
+            if line is None:
+                ended = True
+            elif isinstance(line, Exception):
+                raise line
+            elif line.startswith(PUBLISH_PROGRESS_PREFIX):
+                event = json.loads(line[len(PUBLISH_PROGRESS_PREFIX):])
+                if not isinstance(event, dict):
+                    raise ValueError("publishing progress must be an object")
+                last_event = event
+                notify(event)
+            else:
+                output.append(line)
+        return subprocess.CompletedProcess(command, process.returncode, "".join(output), "")
+    except BaseException as error:
+        _terminate_publisher(process)
+        reader.join(timeout=0.5)
+        # Include logs already read while process-tree shutdown was completing.
+        while not lines.empty():
+            line = lines.get_nowait()
+            if isinstance(line, str) and not line.startswith(PUBLISH_PROGRESS_PREFIX):
+                output.append(line)
+        if isinstance(error, subprocess.TimeoutExpired):
+            error.output = "".join(output)
+            error.stderr = ""
+        raise
+    finally:
+        reader.join(timeout=0.5)
+        process.stdout.close()
+
+
+def render_publish() -> None:
+    status = st.empty()
+    progress = st.progress(0.0)
+    stage_labels = {
+        "starting": "公開を開始しています",
+        "validate": "保存した内容を検証しています",
+        "bucket": "公開先を確認しています",
+        "images": "写真を公開しています",
+        "manifest": "掲載内容を公開しています",
+        "complete": "公開が完了しました",
+    }
+
+    def on_progress(event: dict) -> None:
+        label = event.get("message") or stage_labels.get(event.get("stage"), "公開中です")
+        current, total = event.get("current"), event.get("total")
+        if isinstance(current, (int, float)) and isinstance(total, (int, float)) and total > 0:
+            label += f" {current}/{total}"
+            progress.progress(max(0.0, min(1.0, current / total)))
+        skipped = event.get("skipped")
+        if skipped:
+            label += f"（変更のない写真 {skipped}枚）"
+        status.info(f"{label}（経過 {event.get('elapsed_seconds', 0):.0f}秒）")
+
+    with st.spinner("公開中..."):
+        try:
+            result = publish(on_progress)
+        except subprocess.TimeoutExpired as error:
+            st.error(
+                "公開に時間がかかりすぎたため中止しました。"
+                "接続・認証を確認してから、もう一度公開してください。"
+            )
+            output = error.output or ""
+            if isinstance(output, bytes):
+                output = output.decode("utf-8", errors="replace")
+            if output.strip():
+                st.code(output)
+        except Exception as error:
+            st.error(f"公開に失敗しました。接続・認証と保存した内容を確認してください: {error}")
+        else:
+            if result.returncode == 0:
+                progress.progress(1.0)
+                st.success("公開しました。")
+            else:
+                st.error(f"公開に失敗しました。exit code={result.returncode}")
+            output = "\n".join(
+                part.strip() for part in (result.stdout or "", result.stderr or "")
+                if part.strip()
+            )
+            if output:
+                st.code(output)
 
 
 def main() -> None:
@@ -919,30 +1081,7 @@ def main() -> None:
         "保存だけではS3は変わりません。公開するときだけこのボタンを押します。"
     )
     if st.button("S3へ公開", type="primary"):
-        with st.spinner("公開中..."):
-            try:
-                result = publish()
-            except Exception as error:
-                st.exception(error)
-            else:
-                if result.returncode == 0:
-                    st.success("公開しました。")
-                    if result.stdout.strip():
-                        st.code(result.stdout)
-                else:
-                    st.error(
-                        f"公開に失敗しました。exit code={result.returncode}"
-                    )
-                    output = "\n".join(
-                        part
-                        for part in (
-                            result.stdout.strip(),
-                            result.stderr.strip(),
-                        )
-                        if part
-                    )
-                    if output:
-                        st.code(output)
+        render_publish()
 
 
 if __name__ == "__main__":

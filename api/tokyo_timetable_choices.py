@@ -16,6 +16,9 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 
+_BUS_POLE_STOP_PATTERN = re.compile(r"\.(\d{1,5})\.(\d{1,2})(?:\.|$)")
+
+
 @dataclass(frozen=True, slots=True)
 class RideState:
     provider: str
@@ -32,12 +35,12 @@ class RideState:
 
     @property
     def future_key(self):
-        # A fresh bus boarding takes one minute to alight; after moving on
-        # the same bus the GTFS arrival is already the alighting clock. These
-        # labels cannot reproduce each other's immediate transfer choices.
-        moved_bus = self.provider == "bus" and self.sequence != self.board_sequence
+        # Only a state that has travelled on its run may alight. A fresh
+        # boarding cannot reproduce a continuing state's transfer choices,
+        # even when both reach the same run and stop at the same clock.
+        moved = self.sequence != self.board_sequence
         return (self.provider, self.service_key, self.run_id,
-                self.line_id, self.sequence, moved_bus)
+                self.line_id, self.sequence, moved)
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,6 +161,9 @@ class TimetableChoices:
         self._bus_departures = {}
         self._bus_run_cache = {}
         self._line_route_cache = {}
+        self._bus_pattern_terminals = {}
+        self._bus_pole_stop_ids = {}
+        self._concrete_board_options = {}
         self._delays = dict(getattr(self.manager, "realtime_delays", {}))
         self._has_rail_data = hasattr(self.manager, "train_patterns_weekday")
         self._has_bus_data = hasattr(self.manager, "bus_departures_weekday")
@@ -305,24 +311,29 @@ class TimetableChoices:
         if not isinstance(pole, str):
             return None
         if "BusstopPole" in pole:
-            match = re.search(r"\.(\d{1,5})\.(\d{1,2})(?:\.|$)", pole)
-            return f"{int(match[1]):04d}-{int(match[2]):02d}" if match else None
+            if pole not in self._bus_pole_stop_ids:
+                match = _BUS_POLE_STOP_PATTERN.search(pole)
+                self._bus_pole_stop_ids[pole] = (
+                    f"{int(match[1]):04d}-{int(match[2]):02d}" if match else None
+                )
+            return self._bus_pole_stop_ids[pole]
         return pole if pole in getattr(self.repository, "stops", {}) else None
 
     def _bus_pattern_terminal_stop_id(self, line_node):
         line_id = str(self._line_id(line_node))
         if not line_id.startswith("buspat:"):
             return None
-
-        current = line_node
-        visited = set()
-        while True:
-            if current in visited:
+        cached = self._bus_pattern_terminals.get(line_id)
+        if cached is not None:
+            terminal_stop_id, pattern_nodes = cached
+            if line_node not in pattern_nodes:
                 raise RuntimeError(
-                    f"bus route pattern contains a ride cycle: line_id={line_id!r}"
+                    f"bus boarding node is absent from its ordered pattern: "
+                    f"line_id={line_id!r} node={line_node!r}"
                 )
-            visited.add(current)
+            return terminal_stop_id
 
+        def ride_successors(current):
             successors = []
             for neighbor in self.graph.successors(current):
                 edge = self.graph.get_edge_data(current, neighbor) or {}
@@ -341,6 +352,65 @@ class TimetableChoices:
                     f"bus route pattern branches unexpectedly: "
                     f"line_id={line_id!r} node={current!r} successors={successors!r}"
                 )
+            return successors
+
+        pattern_id = line_id.removeprefix("buspat:")
+        ordered_stops = getattr(self.manager, "pattern_stops_map", {}).get(pattern_id)
+        if ordered_stops is not None:
+            if not isinstance(ordered_stops, (list, tuple)) or len(ordered_stops) < 2:
+                raise RuntimeError(
+                    f"bus route pattern has invalid ordered stops: line_id={line_id!r}"
+                )
+            # A circular ODPT pattern repeats its terminal pole as the last
+            # occurrence. Graph construction merges those occurrences into
+            # one line node, so its outgoing edge cannot identify the terminal.
+            terminal_stop_id = self._stop_id(ordered_stops[-1])
+            if terminal_stop_id is None:
+                raise RuntimeError(
+                    f"bus route-pattern terminal has no GTFS stop identity: "
+                    f"line_id={line_id!r} pole={ordered_stops[-1]!r}"
+                )
+            expected = {("line", pole, self._line_id(line_node)): set()
+                        for pole in ordered_stops}
+            for left, right in zip(ordered_stops, ordered_stops[1:]):
+                expected[("line", left, self._line_id(line_node))].add(
+                    ("line", right, self._line_id(line_node)))
+            if line_node not in expected:
+                raise RuntimeError(
+                    f"bus boarding node is absent from its ordered pattern: "
+                    f"line_id={line_id!r} node={line_node!r}"
+                )
+            for node in expected:
+                if node not in self.graph:
+                    raise RuntimeError(
+                        f"bus ordered pattern stop is absent from the graph: "
+                        f"line_id={line_id!r} node={node!r}"
+                    )
+            for node, following in expected.items():
+                if set(ride_successors(node)) != following:
+                    raise RuntimeError(
+                        f"bus ride graph disagrees with its ordered pattern: "
+                        f"line_id={line_id!r} node={node!r}"
+                    )
+            # Graph and ordered static data are fixed for this query. Cache
+            # only a fully checked pattern, retaining its node membership for
+            # every later boarding call on the same exact pattern identity.
+            self._bus_pattern_terminals[line_id] = terminal_stop_id, frozenset(expected)
+            return terminal_stop_id
+
+        # Old acyclic graph fixtures do not retain ODPT ordered occurrences.
+        # Their unique graph terminal remains exact; a cycle has no unique
+        # terminal and must supply the authoritative ordered pattern instead.
+        current = line_node
+        visited = set()
+        while True:
+            if current in visited:
+                raise RuntimeError(
+                    f"bus route pattern contains a ride cycle without ordered stops: "
+                    f"line_id={line_id!r}"
+                )
+            visited.add(current)
+            successors = ride_successors(current)
             if not successors:
                 terminal_stop_id = self._stop_id(current[1])
                 if terminal_stop_id is None:
@@ -466,20 +536,30 @@ class TimetableChoices:
                           self._line_id(v), 0, 0, float(departure))
         return ((float(departure), state),)
 
+    def _cached_concrete_board_options(self, u, v, ready_minute, evaluate):
+        # Concrete runs, graph and timetable inputs are fixed for this query.
+        # Exact readiness retains float boundaries and the original tuple
+        # order; frozen states can be shared while ride transitions replace
+        # them. Cache empty results too, but only after successful evaluation.
+        key = (u, v, ready_minute)
+        if key not in self._concrete_board_options:
+            self._concrete_board_options[key] = evaluate(u, v, ready_minute)
+        return self._concrete_board_options[key]
+
     def board_options(self, u, v, ready_minute):
         if ready_minute > self.deadline:
             return ()
         mode = self.graph.nodes[v].get("mode")
         if mode == "rail":
             if self._has_rail_data:
-                return self._rail_options(u, v, ready_minute)
+                return self._cached_concrete_board_options(u, v, ready_minute, self._rail_options)
             return self._fallback_options(u, v, ready_minute, mode)
         if mode == "bus":
             if self.repository is not None and getattr(self.repository, "trips", {}):
                 # A canonical GTFS graph can use exact bus data even with a
                 # small injected manager that only models train clocks.
                 if self._bus_route(v) is not None and self._stop_id(u[1]) is not None:
-                    return self._bus_options(u, v, ready_minute)
+                    return self._cached_concrete_board_options(u, v, ready_minute, self._bus_options)
                 if self._has_bus_data and "BusstopPole" in str(u[1]):
                     # Production ODPT poles without an exact feed match do
                     # not acquire a fabricated run.  Synthetic non-ODPT graph

@@ -375,7 +375,9 @@ def _gtfs_bus_trip_display_title(route_id: str, trip_id: str) -> str:
 
 
 
-def _bus_pattern_terminal_gtfs_stop_id(G, line_node) -> str | None:
+def _bus_pattern_terminal_gtfs_stop_id(
+    G, line_node, *, timetable_choices=None,
+) -> str | None:
     if not (
         isinstance(line_node, tuple)
         and len(line_node) >= 3
@@ -388,6 +390,15 @@ def _bus_pattern_terminal_gtfs_stop_id(G, line_node) -> str | None:
     line_id = str(line_node[2])
     if not line_id.startswith("buspat:"):
         return None
+
+    if timetable_choices is not None:
+        # Bare node paths also have a manager with the authoritative ordered
+        # occurrences. Reuse the selected-run resolver instead of inferring a
+        # terminal by following a graph whose circular occurrences are merged.
+        try:
+            return timetable_choices._bus_pattern_terminal_stop_id(line_node)
+        except RuntimeError as exc:
+            raise RouteContractError(str(exc)) from exc
 
     current = line_node
     visited = set()
@@ -436,6 +447,8 @@ def _resolve_gtfs_bus_leg(
     earliest_departure_minute,
     day_type,
     required_stop_ids=None,
+    *,
+    timetable_choices=None,
 ):
     """Resolve one bus ride to a single GTFS trip and exact stop times."""
     route_id = _gtfs_bus_route_id(G, line_node)
@@ -451,6 +464,7 @@ def _resolve_gtfs_bus_leg(
     required_terminal_stop_id = _bus_pattern_terminal_gtfs_stop_id(
         G,
         line_node,
+        timetable_choices=timetable_choices,
     )
     return gtfs_repo.find_next_trip_leg(
         route_id,
@@ -2106,6 +2120,7 @@ def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", day_type="w
     curr_time = start_min
     active_bus_leg = None
     active_bus_sequence = -1
+    legacy_choices = None
     for i in range(len(path) - 1):
         u, v = path[i], path[i+1]
         edge = G.get_edge_data(u, v)
@@ -2118,6 +2133,12 @@ def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", day_type="w
         etype = edge.get("etype")
 
         if etype == "board" and G.nodes[v].get("mode") == "bus":
+            if legacy_choices is None and len(v) >= 3 and str(v[2]).startswith("buspat:"):
+                from tokyo_timetable_choices import TimetableChoices
+                legacy_choices = TimetableChoices(
+                    G, tm, day_type, use_realtime=use_realtime,
+                    delays_snapshot=delays_snapshot, bus_repository=gtfs_repo,
+                )
             target_pid = _find_bus_alight_pole(G, path, i)
             active_bus_leg = _resolve_gtfs_bus_leg(
                 G,
@@ -2127,6 +2148,7 @@ def calculate_real_arrival_time(G, tm, path, start_time_str="10:00", day_type="w
                 curr_time,
                 day_type,
                 required_stop_ids=_bus_path_gtfs_stop_ids(G, path, i),
+                timetable_choices=legacy_choices,
             )
             if active_bus_leg is None:
                 return None
@@ -2339,6 +2361,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
     curr_time = time_str_to_min(start_time_str)
     active_bus_leg = None
     active_bus_sequence = -1
+    legacy_choices = None
 
     def flush():
         """
@@ -2473,9 +2496,16 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 if selected_state is not None and selected_state.provider == "bus":
                     active_bus_leg = _selected_bus_leg(G, path, i, selected_state)
                 else:
+                    if legacy_choices is None and len(v) >= 3 and str(v[2]).startswith("buspat:"):
+                        from tokyo_timetable_choices import TimetableChoices
+                        legacy_choices = TimetableChoices(
+                            G, tm, day_type, use_realtime=use_realtime,
+                            delays_snapshot=delays_snapshot, bus_repository=gtfs_repo,
+                        )
                     active_bus_leg = _resolve_gtfs_bus_leg(
                         G, v, phys_id, target_pid, curr_time, day_type,
                         required_stop_ids=_bus_path_gtfs_stop_ids(G, path, i),
+                        timetable_choices=legacy_choices,
                     )
                 if active_bus_leg is None:
                     print(

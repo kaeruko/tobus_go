@@ -39,19 +39,25 @@ class TokyoSearchPerformanceTest(unittest.TestCase):
         self.first = ("phys", "first")
         self.second = ("phys", "second")
         self.line = ("line", "shared-bus")
+        self.arrival_line = ("line", "shared-bus-arrival")
 
     def _fork_graph(self, second_cost=2.0):
         graph = nx.DiGraph()
         for node in (self.start, self.target, self.first, self.second):
             graph.add_node(node, name=node[1])
         graph.add_node(self.line, mode="bus", route_id="bus")
+        graph.add_node(self.arrival_line, mode="bus", route_id="bus")
         graph.add_edge(self.start, self.first, etype="walk", meters=10, w=1.0)
         graph.add_edge(
             self.start, self.second, etype="walk", meters=10, w=second_cost
         )
         graph.add_edge(self.first, self.line, etype="board", w=0.0)
         graph.add_edge(self.second, self.line, etype="board", w=0.0)
-        graph.add_edge(self.line, self.target, etype="alight", w=0.25)
+        # Both boardings must travel before alighting. A zero ride cost keeps
+        # the original dominance comparisons independent of the bus leg.
+        graph.add_edge(self.line, self.arrival_line, etype="ride",
+                       mode="bus", meters=100.0, w=0.0)
+        graph.add_edge(self.arrival_line, self.target, etype="alight", w=0.25)
         return graph
 
     def test_boarding_comparison_checks_both_clocks_before_pruning(self):
@@ -74,13 +80,13 @@ class TokyoSearchPerformanceTest(unittest.TestCase):
                         results[0],
                         {
                             "cost": 1.25,
-                            "path": [self.start, self.first, self.line, self.target],
+                            "path": [self.start, self.first, self.line, self.arrival_line, self.target],
                             "walk_m": 10.0,
                         },
                     )
                     self.assertEqual(results[1], {
                         "cost": second_cost + 0.25,
-                        "path": [self.start, self.second, self.line, self.target],
+                        "path": [self.start, self.second, self.line, self.arrival_line, self.target],
                         "walk_m": 10.0,
                     })
                     # Equal/greater cost alone cannot establish dominance:
@@ -104,7 +110,7 @@ class TokyoSearchPerformanceTest(unittest.TestCase):
                         results,
                         [{
                             "cost": 2.25,
-                            "path": [self.start, self.second, self.line, self.target],
+                            "path": [self.start, self.second, self.line, self.arrival_line, self.target],
                             "walk_m": 10.0,
                         }],
                     )

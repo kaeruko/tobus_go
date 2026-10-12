@@ -85,3 +85,6 @@ data/
 
 # Local iOS Google Maps API key settings must never be committed.
 /ios/Flutter/GoogleMaps.xcconfig
+
+# Local automation reports and verification artifacts.
+/.automation/

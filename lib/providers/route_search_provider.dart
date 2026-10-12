@@ -65,6 +65,7 @@ class RouteSearchState {
     Map<String, FareQuote>? fareByCandidateId,
     RouteMeta? meta,
     String? errorMessage,
+    bool clearStartTime = false,
     bool clearMeta = false,
     bool clearErrorMessage = false,
   }) {
@@ -79,7 +80,7 @@ class RouteSearchState {
       toNameEn: toNameEn ?? this.toNameEn,
       pref: pref ?? this.pref,
       busOnly: busOnly ?? this.busOnly,
-      startTime: startTime ?? this.startTime,
+      startTime: clearStartTime ? null : (startTime ?? this.startTime),
       isLoading: isLoading ?? this.isLoading,
       hasSearched: hasSearched ?? this.hasSearched,
       jobId: jobId ?? this.jobId,
@@ -204,15 +205,34 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
   }
 
   void setPref(String pref) {
-    state = state.copyWith(pref: pref);
+    if (state.pref == pref) return;
+    _changeCriteria(state.copyWith(pref: pref));
   }
 
   void setBusOnly(bool busOnly) {
-    state = state.copyWith(busOnly: busOnly);
+    if (state.busOnly == busOnly) return;
+    _changeCriteria(state.copyWith(busOnly: busOnly));
   }
 
   void setStartTime(DateTime? startTime) {
-    state = state.copyWith(startTime: startTime);
+    if (state.startTime == startTime) return;
+    _changeCriteria(
+      state.copyWith(startTime: startTime, clearStartTime: startTime == null),
+    );
+  }
+
+  void _changeCriteria(RouteSearchState updated) {
+    // Invalidate a pending result as soon as the user edits a condition,
+    // including while the time picker is still open before another search.
+    _generation++;
+    state = updated.copyWith(
+      isLoading: false,
+      hasSearched: false,
+      candidates: const [],
+      fareByCandidateId: const {},
+      clearMeta: true,
+      clearErrorMessage: true,
+    );
   }
 
   Future<void> triggerSearch() async {

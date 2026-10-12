@@ -123,6 +123,17 @@ class CmsPublishProcessTest(unittest.TestCase):
             self.assertIn("認証エラー: 有効期限が切れています", result.stdout)
             self.assertEqual(result.stderr, "")
 
+    def test_child_output_is_utf8_even_with_non_utf8_parent_configuration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            publisher = self._write_publisher(
+                Path(directory), "print('公開完了 🚌', flush=True)\n"
+            )
+            with patch.dict(os.environ, {"PYTHONIOENCODING": "cp932"}), \
+                    patch.object(cms, "PUBLISH_SCRIPT", publisher):
+                result = cms.publish(timeout=5)
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("公開完了 🚌", result.stdout)
+
     def test_silent_publisher_provides_heartbeat_progress(self):
         with tempfile.TemporaryDirectory() as directory:
             publisher = self._write_publisher(

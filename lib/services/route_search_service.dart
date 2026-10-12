@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../constants.dart';
 import '../core/api_client.dart';
+import '../core/city_profile.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
 
@@ -83,9 +87,36 @@ abstract class RouteSearchService {
 class ApiRouteSearchService implements RouteSearchService {
   const ApiRouteSearchService();
 
+  static final _inFlight = <String, Future<RouteSearchResult>>{};
+
   @override
   Future<RouteSearchResult> search(RouteSearchRequest request) async {
     final apiBody = request.toApiBody();
+    // Share only unfinished identical searches, including identity resolution.
+    // Names affect the parsed result even though they are absent from /route.
+    final key = jsonEncode([
+      kApiBase,
+      configuredCityKey,
+      apiBody,
+      request.originName,
+      request.destinationName,
+      request.originNameEn,
+      request.destinationNameEn,
+    ]);
+    return _inFlight.putIfAbsent(
+      key,
+      () => _performSearch(request, apiBody).whenComplete(() {
+        // A later explicit search must obtain a fresh realtime snapshot, and
+        // a failed request must remain retryable.
+        _inFlight.remove(key);
+      }),
+    );
+  }
+
+  Future<RouteSearchResult> _performSearch(
+    RouteSearchRequest request,
+    Map<String, dynamic> apiBody,
+  ) async {
     final response = await ApiClient.post('/route', body: apiBody);
 
     var rawCandidates = response['candidates'];
@@ -243,9 +274,7 @@ class ApiRouteSearchService implements RouteSearchService {
       }
       final stops = rawStep['stops'];
       if (stops is! List || stops.length < 2) {
-        throw FormatException(
-          'rail route step is missing stop IDs: $stepId',
-        );
+        throw FormatException('rail route step is missing stop IDs: $stepId');
       }
       for (var index = 0; index < stops.length; index++) {
         final stop = stops[index];
@@ -286,7 +315,9 @@ class ApiRouteSearchService implements RouteSearchService {
         );
       }
       details.add(
-        candidateId.isEmpty ? '$code: $message' : '$candidateId $code: $message',
+        candidateId.isEmpty
+            ? '$code: $message'
+            : '$candidateId $code: $message',
       );
     }
     return '鉄道便をGTFS trip_idで確定できる経路候補がありません: '

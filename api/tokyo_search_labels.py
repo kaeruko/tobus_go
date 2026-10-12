@@ -349,21 +349,20 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
             continue
 
         direct = virtual_connections.get(label.node)
-        can_walk_direct = False
         if direct is not None:
             cost, meters = direct
             arrival = label.time + meters / walk_speed
             total = label.total_walk + meters
             segment = label.segment_walk + meters
             if arrival <= deadline and total <= max_total_walk and segment <= max_segment_walk:
-                can_walk_direct = True
                 offer(_Label(target, label.cost + cost, arrival, total, segment,
                              label.boardings, parent=label))
 
         for following, edge in graph[label.node].items():
             etype = edge.get("etype")
-            if can_walk_direct and etype == "walk":
-                continue
+            # A feasible final walk does not dominate walking to another
+            # boarding stop, possibly via several physical nodes. Keep these
+            # continuations; completed-goal grouping removes suffix variants.
             if edge_uses_rail(label.node, following):
                 continue
             total = label.total_walk
@@ -394,6 +393,11 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
                 else:
                     options = choices.ride_options(label.node, following, label.time, label.ride)
             elif etype in ("alight", "xfer") and label.ride is not None:
+                # A boarding with no travelled stop is not a transit leg.
+                # Reject it before it can reset walking resources or spend a
+                # goal slot that detailed selected-run validation will reject.
+                if label.ride.sequence == label.ride.board_sequence:
+                    continue
                 moved_bus = (label.ride.provider == "bus"
                              and label.ride.sequence != label.ride.board_sequence)
                 options = ((label.time + (0.0 if moved_bus else 1.0), None),)
