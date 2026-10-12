@@ -2,11 +2,18 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import os
+import queue
+import signal
 import subprocess
 import sys
+import threading
+import time
 import uuid
 from io import BytesIO
 from pathlib import Path
+from typing import Callable
 
 import streamlit as st
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -512,16 +519,185 @@ def delete_group_image(
         if temp_csv.exists():
             temp_csv.unlink()
 
-def publish() -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, str(PUBLISH_SCRIPT)],
+PUBLISH_PROGRESS_PREFIX = "EXPLORE_PROGRESS "
+PUBLISH_HEARTBEAT_SECONDS = 0.4
+
+
+def _terminate_publisher_tree(process: subprocess.Popen[str]) -> None:
+    if process.poll() is not None:
+        return
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=5,
+            check=True,
+        )
+    else:
+        os.killpg(process.pid, signal.SIGKILL)
+
+
+def publish(
+    on_progress: Callable[[dict], None] | None = None,
+    *,
+    timeout: float = 300,
+) -> subprocess.CompletedProcess[str]:
+    if not isinstance(timeout, (int, float)) or timeout <= 0:
+        raise ValueError(f"Publish timeout must be positive: {timeout!r}")
+
+    command = [sys.executable, "-u", str(PUBLISH_SCRIPT), "--progress-json"]
+    process = subprocess.Popen(
+        command,
         cwd=REPO_ROOT,
-        capture_output=True,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
         encoding="utf-8",
-        timeout=300,
-        check=False,
+        errors="strict",
+        bufsize=1,
+        start_new_session=(os.name != "nt"),
+        creationflags=(
+            subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+        ),
     )
+    if process.stdout is None:
+        raise RuntimeError("Publisher stdout pipe was not created")
+
+    messages: queue.Queue[tuple[str, object]] = queue.Queue()
+
+    def read_output() -> None:
+        try:
+            for line in process.stdout:
+                messages.put(("line", line))
+        except Exception as error:
+            messages.put(("read_error", error))
+        finally:
+            messages.put(("end", None))
+
+    reader = threading.Thread(target=read_output, daemon=True)
+    reader.start()
+    lines: list[str] = []
+    started = time.monotonic()
+    next_heartbeat = started + PUBLISH_HEARTBEAT_SECONDS
+    stream_finished = False
+
+    try:
+        while not stream_finished:
+            now = time.monotonic()
+            elapsed = now - started
+            if elapsed >= timeout:
+                raise subprocess.TimeoutExpired(
+                    command, timeout, output="".join(lines),
+                )
+            if on_progress is not None and now >= next_heartbeat:
+                on_progress({
+                    "stage": "heartbeat",
+                    "elapsed_seconds": elapsed,
+                })
+                next_heartbeat = now + PUBLISH_HEARTBEAT_SECONDS
+
+            remaining = timeout - elapsed
+            until_heartbeat = (
+                next_heartbeat - now if on_progress is not None
+                else remaining
+            )
+            wait_seconds = max(0.001, min(0.1, remaining, until_heartbeat))
+            try:
+                kind, value = messages.get(timeout=wait_seconds)
+            except queue.Empty:
+                continue
+            if kind == "end":
+                stream_finished = True
+                continue
+            if kind == "read_error":
+                raise RuntimeError("Failed to read publisher output") from value
+            if kind != "line" or not isinstance(value, str):
+                raise RuntimeError(f"Invalid publisher stream event: {kind!r}")
+            if value.startswith(PUBLISH_PROGRESS_PREFIX):
+                try:
+                    event = json.loads(value[len(PUBLISH_PROGRESS_PREFIX):])
+                except json.JSONDecodeError as error:
+                    raise RuntimeError(
+                        f"Invalid publisher progress JSON: {value!r}"
+                    ) from error
+                if not isinstance(event, dict) or not isinstance(event.get("stage"), str):
+                    raise RuntimeError(f"Invalid publisher progress event: {event!r}")
+                if on_progress is not None:
+                    on_progress({
+                        **event,
+                        "elapsed_seconds": time.monotonic() - started,
+                    })
+            else:
+                lines.append(value)
+
+        remaining = timeout - (time.monotonic() - started)
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(
+                command, timeout, output="".join(lines),
+            )
+        try:
+            code = process.wait(timeout=remaining)
+        except subprocess.TimeoutExpired as error:
+            raise subprocess.TimeoutExpired(
+                command, timeout, output="".join(lines),
+            ) from error
+        return subprocess.CompletedProcess(
+            command, code, "".join(lines), "",
+        )
+    finally:
+        if process.poll() is None:
+            _terminate_publisher_tree(process)
+            process.wait(timeout=5)
+        reader.join(timeout=5)
+        process.stdout.close()
+
+
+def render_publish() -> None:
+    progress_display = st.empty()
+
+    def on_progress(event: dict) -> None:
+        stage = event["stage"]
+        if stage == "images":
+            current = event.get("current", 0)
+            total = event.get("total", 0)
+            skipped = event.get("skipped", 0)
+            progress_display.info(
+                f"画像を公開中: {current}/{total}件（変更なし {skipped}件）"
+            )
+        elif stage == "heartbeat":
+            elapsed = event["elapsed_seconds"]
+            progress_display.info(f"公開処理中... {elapsed:.1f} 秒")
+        elif stage == "validate":
+            progress_display.info("公開用データを検証しています...")
+        elif stage == "manifest":
+            progress_display.info("spots.json を更新しています...")
+        elif stage == "complete":
+            progress_display.info("S3への公開処理が完了しました。")
+        else:
+            raise ValueError(f"Unknown publisher stage: {stage!r}")
+
+    try:
+        result = publish(on_progress)
+    except subprocess.TimeoutExpired as error:
+        st.error("公開に時間がかかりすぎたため処理を終了しました。")
+        if error.output:
+            st.code(error.output)
+        return
+
+    if result.returncode == 0:
+        st.success("公開しました。")
+    else:
+        st.error(f"公開に失敗しました。exit code={result.returncode}")
+    combined_output = "\n".join(
+        part
+        for part in (result.stdout.strip(), result.stderr.strip())
+        if part
+    )
+    if combined_output:
+        st.code(combined_output)
 
 
 def main() -> None:
@@ -919,30 +1095,7 @@ def main() -> None:
         "保存だけではS3は変わりません。公開するときだけこのボタンを押します。"
     )
     if st.button("S3へ公開", type="primary"):
-        with st.spinner("公開中..."):
-            try:
-                result = publish()
-            except Exception as error:
-                st.exception(error)
-            else:
-                if result.returncode == 0:
-                    st.success("公開しました。")
-                    if result.stdout.strip():
-                        st.code(result.stdout)
-                else:
-                    st.error(
-                        f"公開に失敗しました。exit code={result.returncode}"
-                    )
-                    output = "\n".join(
-                        part
-                        for part in (
-                            result.stdout.strip(),
-                            result.stderr.strip(),
-                        )
-                        if part
-                    )
-                    if output:
-                        st.code(output)
+        render_publish()
 
 
 if __name__ == "__main__":
