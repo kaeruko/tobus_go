@@ -146,6 +146,7 @@ class _SegmentStopsPageState extends State<SegmentStopsPage> {
                     for (var index = 0; index < displayStops.length; index++)
                       _StopRow(
                         segment: widget.segment,
+                        referenceTime: widget.referenceTime,
                         stop: displayStops[index],
                         isFirst: index == 0,
                         isLast: index == displayStops.length - 1,
@@ -209,12 +210,14 @@ class _SegmentSummary extends StatelessWidget {
 
 class _StopRow extends StatelessWidget {
   final StepSeg segment;
+  final DateTime? referenceTime;
   final StopPoint stop;
   final bool isFirst;
   final bool isLast;
 
   const _StopRow({
     required this.segment,
+    this.referenceTime,
     required this.stop,
     required this.isFirst,
     required this.isLast,
@@ -378,7 +381,7 @@ class _StopRow extends StatelessWidget {
                             context,
                             segment: segment,
                             stop: stop,
-                            referenceTime: widget.referenceTime,
+                            referenceTime: referenceTime,
                           ),
                           child: const Icon(
                             CupertinoIcons.clock,
