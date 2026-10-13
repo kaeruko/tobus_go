@@ -37,7 +37,7 @@ class ApiRouteRequest(BaseModel):
     start_time: str = "10:00"
     target_date_str: str | None = None
     limit: int = 5
-    fare_policy_id: StrictStr = "normal"
+    fare_policy_id: StrictStr | None = None
 
 
 def to_domain_request(request: ApiRouteRequest) -> RouteSearchRequest:
@@ -109,6 +109,15 @@ def register_route_endpoint(
             )
 
         try:
+            city = getattr(app.state, "city_key", None)
+            if city == "yokohama" and request.fare_policy_id not in {
+                "yokohama_welfare_special_pass", "yokohama_senior_special_pass",
+            }:
+                raise RouteInputError(
+                    "Yokohama route search requires a selected fare_policy_id "
+                    "(welfare or senior pass)"
+                )
+            policy_id = request.fare_policy_id if request.fare_policy_id is not None else "normal"
             domain_request = to_domain_request(request)
             loop = asyncio.get_running_loop()
             async with route_lock:
@@ -117,10 +126,10 @@ def register_route_endpoint(
                     search_with_fare_scope,
                     engine,
                     domain_request,
-                    request.fare_policy_id,
+                    policy_id,
                 )
             payload = serialize_route_result(result)
-            if request.fare_policy_id != "normal":
+            if policy_id != "normal":
                 city_key = getattr(app.state, "city_key", None)
                 if not isinstance(city_key, str) or not city_key:
                     raise RouteContractError("Backend city is required for scoped route fares")
@@ -128,7 +137,7 @@ def register_route_endpoint(
                     decorate_route_result_with_fare(
                         city_key=city_key,
                         result=payload,
-                        policy_id=request.fare_policy_id,
+                        policy_id=policy_id,
                     )
                 except ValueError as error:
                     raise RouteContractError(f"Scoped route fare context is invalid: {error}") from error

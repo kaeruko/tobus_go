@@ -121,41 +121,16 @@ class FareRoutesTest(unittest.TestCase):
         self.assertIsNone(quote["normalFareYen"])
         self.assertIsNone(quote["payNowYen"])
 
-    def test_yokohama_normal_policy_is_available_without_inventing_fare(self):
+    def test_yokohama_only_offers_two_free_passes(self):
         client = self._client("yokohama")
-
-        policies = client.get("/fare/policies")
-        self.assertEqual(policies.status_code, 200)
-        self.assertEqual(
-            [item["policyId"] for item in policies.json()["policies"]],
-            ["normal", "yokohama_welfare_special_pass"],
-        )
-
-        response = client.post(
-            "/fare/apply",
-            json={
-                "policy_id": "normal",
-                "candidates": [
-                    {
-                        "id": "y1",
-                        "steps": [
-                            {"kind": "walk"},
-                            {"kind": "bus", "route_id": "yokohama_bus:R1"},
-                        ],
-                    }
-                ],
-            },
-        )
+        response = client.get("/fare/policies")
         self.assertEqual(response.status_code, 200)
-        quote = response.json()["candidates"][0]["fare"]
-        self.assertEqual(quote["policyId"], "normal")
-        self.assertEqual(quote["status"], "unavailable")
-        self.assertIsNone(quote["normalFareYen"])
-        self.assertIsNone(quote["payNowYen"])
         self.assertEqual(
-            quote["unavailableReason"],
-            "normal_fare_not_calculable_from_current_route_data",
+            [p["policyId"] for p in response.json()["policies"]],
+            ["yokohama_welfare_special_pass", "yokohama_senior_special_pass"],
         )
+        response = client.post("/fare/apply", json={"policy_id": "normal", "candidates": []})
+        self.assertEqual(response.status_code, 422)
 
 
 if __name__ == "__main__":

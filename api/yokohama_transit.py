@@ -457,13 +457,13 @@ class YokohamaBusRouteBackend(GtfsRouteBackend):
         super().__init__(dataset, **kwargs)
 
     def for_fare_policy(self, policy_id: str):
-        if policy_id == "normal":
-            return self
-        if policy_id != "yokohama_welfare_special_pass":
+        if policy_id not in {
+            "yokohama_welfare_special_pass", "yokohama_senior_special_pass",
+        }:
             raise RouteInputError(f"unsupported Yokohama route fare policy: {policy_id!r}")
         if self.fare_coverage is None:
             raise RouteEngineUnavailableError(
-                "Yokohama welfare route search requires a reviewed "
+                "Yokohama free-pass route search requires a reviewed "
                 "YOKOHAMA_FARE_COVERAGE_PATH for the installed GTFS feed"
             )
         if self._welfare_backend is None:

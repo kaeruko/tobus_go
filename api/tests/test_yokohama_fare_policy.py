@@ -120,6 +120,24 @@ class YokohamaFarePolicyTest(unittest.TestCase):
             evaluate_candidate_fare(city_key="yokohama", candidate={"steps": [{"kind": "bus"}]},
                                     policy_id="yokohama_welfare_special_pass", normal_fare_yen=None)
 
+    def test_senior_municipal_bus_and_subway_free(self):
+        for operator, mode in (
+            ("yokohama_municipal_bus", "bus"),
+            ("yokohama_municipal_subway", "rail"),
+        ):
+            ride = _ride(operator=operator, mode=mode)
+            quote = get_fare_policy("yokohama", "yokohama_senior_special_pass").apply(
+                FarePolicyContext("yokohama", None, (mode,), (ride,))
+            )
+            self.assertEqual(quote.pay_now_yen, 0)
+
+    def test_senior_private_bus_not_assumed_free_without_route_review(self):
+        ride = _ride(operator="tokyu_bus", fare=240)
+        quote = get_fare_policy("yokohama", "yokohama_senior_special_pass").apply(
+            FarePolicyContext("yokohama", 240, ("bus",), (ride,))
+        )
+        self.assertEqual(quote.pay_now_yen, 240)
+
 
 if __name__ == "__main__":
     unittest.main()

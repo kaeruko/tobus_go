@@ -215,6 +215,11 @@ YOKOHAMA_WELFARE_PASS_SOURCE = (
     "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/"
     "fukushi/annai/gaishutsu/kotsu/fukushi-jyosyaken/ticket.html"
 )
+YOKOHAMA_SENIOR_PASS_SOURCE = (
+    "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/"
+    "koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/"
+    "ikigai-shakaisanka/keirou.html"
+)
 YOKOHAMA_CITY_CODE = "14100"
 YOKOHAMA_PRIVATE_BUS_OPERATORS = frozenset({
     "odakyu_bus", "kanachu", "enoden_bus", "fujiexpress",
@@ -250,6 +255,17 @@ def yokohama_welfare_pass_covers(ride: RideFareContext) -> bool:
     }
 
 
+def yokohama_senior_pass_covers(ride: RideFareContext) -> bool:
+    """Until route-level city-stop coverage is reviewed, only municipal rides are certified."""
+    if ride.operator_id in {
+        "yokohama_municipal_bus", "yokohama_municipal_subway",
+        "yokohama_seaside_line",
+    }:
+        return yokohama_welfare_pass_covers(ride)
+    # Senior private-bus rules require route-level data, not just endpoint codes.
+    return False
+
+
 @dataclass(frozen=True, slots=True)
 class YokohamaWelfarePassFarePolicy:
     city_key: str = "yokohama"
@@ -259,33 +275,49 @@ class YokohamaWelfarePassFarePolicy:
     settlement_type: SettlementType = SettlementType.FREE_PASS
 
     def apply(self, context: FarePolicyContext) -> FareQuote:
-        _require_city(self.city_key, context)
-        if len(context.rides) != len(context.ride_modes):
-            raise ValueError("Yokohama welfare pass requires verified ride contexts")
-        uncovered = [ride for ride in context.rides if not yokohama_welfare_pass_covers(ride)]
-        if not uncovered:
-            pay_now = 0
-        elif len(uncovered) == len(context.rides) and context.normal_fare_yen is not None:
-            pay_now = context.normal_fare_yen
-        elif all(ride.normal_fare_yen is not None for ride in uncovered):
-            pay_now = sum(ride.normal_fare_yen for ride in uncovered)
-        else:
-            return FareQuote(
-                normal_fare_yen=context.normal_fare_yen,
-                pay_now_yen=None,
-                effective_fare_yen=None,
-                policy_id=self.policy_id,
-                settlement_type=self.settlement_type,
-                status="unavailable",
-                unavailable_reason="normal_fare_required_for_noncovered_segment",
-            )
+        return _apply_yokohama_pass(self, context, yokohama_welfare_pass_covers)
+
+
+@dataclass(frozen=True, slots=True)
+class YokohamaSeniorPassFarePolicy:
+    city_key: str = "yokohama"
+    policy_id: str = "yokohama_senior_special_pass"
+    display_name: str = "横浜市 敬老特別乗車証（敬老パス）"
+    source_uri: str = YOKOHAMA_SENIOR_PASS_SOURCE
+    settlement_type: SettlementType = SettlementType.FREE_PASS
+
+    def apply(self, context: FarePolicyContext) -> FareQuote:
+        return _apply_yokohama_pass(self, context, yokohama_senior_pass_covers)
+
+
+def _apply_yokohama_pass(policy, context: FarePolicyContext, covers) -> FareQuote:
+    _require_city(policy.city_key, context)
+    if len(context.rides) != len(context.ride_modes):
+        raise ValueError("Yokohama pass requires verified ride contexts")
+    uncovered = [ride for ride in context.rides if not covers(ride)]
+    if not uncovered:
+        pay_now = 0
+    elif len(uncovered) == len(context.rides) and context.normal_fare_yen is not None:
+        pay_now = context.normal_fare_yen
+    elif all(ride.normal_fare_yen is not None for ride in uncovered):
+        pay_now = sum(ride.normal_fare_yen for ride in uncovered)
+    else:
         return FareQuote(
             normal_fare_yen=context.normal_fare_yen,
-            pay_now_yen=pay_now,
-            effective_fare_yen=pay_now,
-            policy_id=self.policy_id,
-            settlement_type=self.settlement_type,
+            pay_now_yen=None,
+            effective_fare_yen=None,
+            policy_id=policy.policy_id,
+            settlement_type=policy.settlement_type,
+            status="unavailable",
+            unavailable_reason="normal_fare_required_for_noncovered_segment",
         )
+    return FareQuote(
+        normal_fare_yen=context.normal_fare_yen,
+        pay_now_yen=pay_now,
+        effective_fare_yen=pay_now,
+        policy_id=policy.policy_id,
+        settlement_type=policy.settlement_type,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -395,8 +427,8 @@ _POLICY_REGISTRY: dict[str, dict[str, FarePolicy]] = {
         "normal": NormalFarePolicy(city_key="sendai"),
     },
     "yokohama": {
-        "normal": NormalFarePolicy(city_key="yokohama"),
         "yokohama_welfare_special_pass": YokohamaWelfarePassFarePolicy(),
+        "yokohama_senior_special_pass": YokohamaSeniorPassFarePolicy(),
     },
 }
 
@@ -453,7 +485,9 @@ def evaluate_candidate_fare(
         kind = step.get("kind")
         if kind in {"bus", "rail"}:
             ride_modes.append(kind)
-            if city_key == "yokohama" and policy_id == "yokohama_welfare_special_pass":
+            if city_key == "yokohama" and policy_id in {
+                "yokohama_welfare_special_pass", "yokohama_senior_special_pass",
+            }:
                 rides.append(RideFareContext.from_step(step))
     context = FarePolicyContext(
         city_key=city_key,
