@@ -37,6 +37,8 @@ def _cases(path: Path) -> list[dict]:
         raise ValueError("cases must cover both welfare and senior policies")
     required = {
         "name", "policy_id", "origin", "destination", "date", "start_time",
+        "expected_route_id", "expected_departure_time",
+        "expected_arrival_time",
     }
     seen = set()
     for row in cases:
@@ -125,9 +127,12 @@ def main() -> int:
                 fare = candidate.get("fare", {})
                 if (
                     fare.get("policyId") != case["policy_id"]
+                    or fare.get("settlementType") != "free_pass"
                     or fare.get("status") != "available"
                     or type(fare.get("payNowYen")) is not int
                     or fare["payNowYen"] != 0
+                    or type(fare.get("effectiveFareYen")) is not int
+                    or fare["effectiveFareYen"] != 0
                 ):
                     failures.append(f"{case['name']}: candidate has nonzero/unverified fare")
             expected = {
