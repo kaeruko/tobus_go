@@ -210,6 +210,24 @@ python scripts/audit_yokohama_bus_gtfs.py --gtfs-dir ".\api\data\yokohama\2026-0
 - 福祉パスの公式FAQ: https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html
 - 敬老パスの公式対象交通と深夜割増: https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html
 
+### 3系統だけの保守的な実GTFSテスト用coverage（開発専用）
+
+未確認の149系統をまとめて「無料」とすることはしない。確認済みの089（ぶらり野毛山動物園BUS）・200（ベイサイドブルー）・280（ぶらり三溪園BUS）のみ `local`、271（あかいくつ）を `sightseeing`、残りを `unreviewed` として検索から除外する、部分coverageを作成できる。路線名、GTFS版、manifestの検証が通らなければ中止する。
+
+まず内容だけ調べる（ファイル出力・書き換えなし）:
+
+```powershell
+python scripts/build_yokohama_initial_pass_coverage.py --gtfs-dir ".\api\data\yokohama\2026-09-04" --service-date 2026-09-04 --reviewed-on 2026-10-14
+```
+
+レビューが済んでから**明示的に**テスト用coverageファイルを作る場合は、上記に `--output <保存先>.json`を付ける。
+既存ファイルを上書きせず、出力先ディレクトリも作らない。生成しても確認済みの3系統以外は無料検索に使えない。
+
+**重要:** 実GTFSには `fare_attributes.txt` / `fare_rules.txt`と便単位の深夜割増区分がない。
+この3系統でも深夜増料金がないことを便単位で証明したわけではない。
+このcoverageによる検索結果は**社内/開発用の検証に限定**し、公開用の無料経路保証には使わない。
+敬老パスの深夜割増、特殊便の可否は追加の公式資料との突合・運行事業者への照会等が必要。
+
 ### 実GTFSによる無料経路の手動正解テスト（#241）
 
 GitHub/CIに含まれる小規模GTFSは**合成データ**であり、横浜の路線網・時刻表を実測検証したものではない。
