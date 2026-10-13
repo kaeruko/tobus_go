@@ -362,6 +362,114 @@ class YokohamaBackendTest(unittest.TestCase):
         self.assertEqual(location.status_code, 503)
         self.assertEqual(location.json()["detail"]["code"], "bus_realtime_unsupported")
 
+    def test_static_gtfs_both_passes_return_zero_fare_and_original_schedule(self) -> None:
+        """Synthetic GTFS integration: not evidence of real-feed coverage."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_feed(root)
+            env = _environment(root)
+            env["YOKOHAMA_REALTIME_MODE"] = "disabled"
+            with patch.dict(os.environ, env, clear=False):
+                os.environ.pop("ODPT_API_TOKEN", None)
+                with TestClient(create_app("local")) as client:
+                    for policy in (
+                        "yokohama_welfare_special_pass",
+                        "yokohama_senior_special_pass",
+                    ):
+                        with self.subTest(policy=policy):
+                            response = client.post(
+                                "/route",
+                                headers={"X-App-City": "yokohama"},
+                                json={
+                                    "alat": 35.4660,
+                                    "alon": 139.6225,
+                                    "blat": 35.4500,
+                                    "blon": 139.6300,
+                                    "pref": "shortTime",
+                                    "start_time": "09:55",
+                                    "target_date_str": SERVICE_DATE,
+                                    "fare_policy_id": policy,
+                                },
+                            )
+                            self.assertEqual(response.status_code, 200, response.text)
+                            candidates = response.json()["candidates"]
+                            self.assertEqual(len(candidates), 1)
+                            candidate = candidates[0]
+                            quote = candidate["fare"]
+                            self.assertEqual(quote["policyId"], policy)
+                            self.assertEqual(quote["settlementType"], "free_pass")
+                            self.assertEqual(quote["status"], "available")
+                            self.assertEqual(quote["payNowYen"], 0)
+                            self.assertEqual(quote["effectiveFareYen"], 0)
+                            ride = next(
+                                step for step in candidate["steps"]
+                                if step["kind"] == "bus"
+                            )
+                            self.assertEqual(ride["route_id"], "yokohama_bus:R1")
+                            self.assertEqual(ride["trip_id"], "yokohama_bus:T1")
+                            self.assertEqual(ride["departureStopId"], "yokohama_bus:A")
+                            self.assertEqual(ride["arrivalPoleId"], "yokohama_bus:B")
+                            self.assertEqual(ride["departure_time"], "10:00")
+                            self.assertEqual(ride["arrival_time"], "10:15")
+                            self.assertEqual(candidate["arrival_time"], "10:15")
+
+    def test_static_gtfs_without_reviewed_coverage_fails_instead_of_normal_route(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_feed(root)
+            env = _environment(root)
+            env.pop("YOKOHAMA_FARE_COVERAGE_PATH")
+            env["YOKOHAMA_REALTIME_MODE"] = "disabled"
+            with patch.dict(os.environ, env, clear=False):
+                os.environ.pop("YOKOHAMA_FARE_COVERAGE_PATH", None)
+                os.environ.pop("ODPT_API_TOKEN", None)
+                with TestClient(create_app("local")) as client:
+                    response = client.post(
+                        "/route",
+                        headers={"X-App-City": "yokohama"},
+                        json={
+                            "alat": 35.4660, "alon": 139.6225,
+                            "blat": 35.4500, "blon": 139.6300,
+                            "pref": "shortTime", "start_time": "09:55",
+                            "target_date_str": SERVICE_DATE,
+                            "fare_policy_id": "yokohama_welfare_special_pass",
+                        },
+                    )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["detail"]["code"], "route_engine_unavailable")
+        self.assertIn("YOKOHAMA_FARE_COVERAGE_PATH", response.json()["detail"]["message"])
+
+    def test_reviewed_excluded_route_is_not_returned_as_free(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_feed(root)
+            coverage_file = root / "coverage.json"
+            coverage = json.loads(coverage_file.read_text(encoding="utf-8"))
+            coverage["routes"]["yokohama_bus:R1"] = "sightseeing"
+            coverage_file.write_text(json.dumps(coverage), encoding="utf-8")
+            env = _environment(root)
+            env["YOKOHAMA_REALTIME_MODE"] = "disabled"
+            with patch.dict(os.environ, env, clear=False):
+                os.environ.pop("ODPT_API_TOKEN", None)
+                with TestClient(create_app("local")) as client:
+                    for policy in (
+                        "yokohama_welfare_special_pass",
+                        "yokohama_senior_special_pass",
+                    ):
+                        response = client.post(
+                            "/route",
+                            headers={"X-App-City": "yokohama"},
+                            json={
+                                "alat": 35.4660, "alon": 139.6225,
+                                "blat": 35.4500, "blon": 139.6300,
+                                "start_time": "09:55",
+                                "target_date_str": SERVICE_DATE,
+                                "fare_policy_id": policy,
+                            },
+                        )
+                        self.assertEqual(response.status_code, 200, response.text)
+                        self.assertEqual(response.json()["candidates"], [])
+
     def test_invalid_realtime_mode_fails_fast(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
