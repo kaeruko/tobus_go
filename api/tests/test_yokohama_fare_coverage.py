@@ -87,6 +87,32 @@ class YokohamaFareCoverageTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "every route"):
             self._load(raw)
 
+    def test_unreviewed_route_stays_in_feed_but_cannot_enter_free_search(self):
+        raw = copy.deepcopy(self.raw)
+        raw["routes"]["yokohama_bus:X"] = "unreviewed"
+        coverage = self._load(raw)
+        filtered = coverage.municipal_free_coverage()
+        self.assertIn("yokohama_bus:X", self.dataset.routes)
+        self.assertNotIn("yokohama_bus:X", filtered.dataset.routes)
+        context = coverage.context_for_step({
+            "kind": "bus", "route_id": "yokohama_bus:X",
+            "departureStopId": "yokohama_bus:A",
+            "arrivalPoleId": "yokohama_bus:B",
+        })
+        quote = evaluate_candidate_fare(
+            city_key="yokohama",
+            candidate={"steps": [{
+                "kind": "bus", "route_id": "yokohama_bus:X",
+                "departureStopId": "yokohama_bus:A",
+                "arrivalPoleId": "yokohama_bus:B",
+                "fare_context": context,
+            }]},
+            policy_id="yokohama_welfare_special_pass",
+            normal_fare_yen=None,
+        )
+        self.assertIsNone(quote.pay_now_yen)
+        self.assertEqual(quote.status, "unavailable")
+
     def test_route_category_is_not_defaulted_to_ordinary(self):
         raw = copy.deepcopy(self.raw)
         raw["routes"]["yokohama_bus:R"] = "unknown"
