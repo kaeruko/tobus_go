@@ -11,13 +11,28 @@ from yokohama_transit import (
 )
 
 
+def _realtime_mode() -> str:
+    value = os.getenv("YOKOHAMA_REALTIME_MODE", "disabled")
+    if value not in {"disabled", "enabled"}:
+        raise RuntimeError(
+            "YOKOHAMA_REALTIME_MODE must be 'disabled' or 'enabled': "
+            f"{value!r}"
+        )
+    return value
+
+
 async def setup_yokohama_on_startup(app, mode: str) -> None:
+    realtime_mode = _realtime_mode()
+    if getattr(app.state, "loading_status", None) == "ready" and (
+        getattr(app.state, "realtime_mode", None) != realtime_mode
+    ):
+        raise RuntimeError("Yokohama realtime mode changed after initialization")
     if (
         getattr(app.state, "loading_status", None) == "ready"
         and getattr(app.state, "transit_dataset", None) is not None
         and getattr(app.state, "route_backend", None) is not None
         and getattr(app.state, "route_engine", None) is not None
-        and getattr(app.state, "realtime_provider", None) is not None
+        and (realtime_mode == "disabled" or getattr(app.state, "realtime_provider", None) is not None)
     ):
         return
 
@@ -29,6 +44,7 @@ async def setup_yokohama_on_startup(app, mode: str) -> None:
     app.state.route_engine = None
     app.state.realtime_provider = None
     app.state.realtime_bus_supported = False
+    app.state.realtime_mode = realtime_mode
 
     gtfs_dir = os.getenv("YOKOHAMA_BUS_GTFS_DIR")
     if gtfs_dir is None or gtfs_dir == "":
@@ -51,11 +67,14 @@ async def setup_yokohama_on_startup(app, mode: str) -> None:
         dataset,
         fare_coverage=fare_coverage,
     )
-    realtime_provider = create_yokohama_bus_realtime_provider()
+    realtime_provider = (
+        create_yokohama_bus_realtime_provider()
+        if realtime_mode == "enabled" else None
+    )
 
     app.state.transit_dataset = dataset
     app.state.route_backend = backend
     app.state.route_engine = backend
     app.state.realtime_provider = realtime_provider
-    app.state.realtime_bus_supported = True
+    app.state.realtime_bus_supported = realtime_mode == "enabled"
     app.state.loading_status = "ready"

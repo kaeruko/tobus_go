@@ -12,8 +12,8 @@ def register_yokohama_routes(app) -> None:
         city_key="yokohama",
         city_display_name="Yokohama",
         warmup_data_label="Yokohama bus GTFS data",
-        realtime_health={
-            "vehicle_positions": True,
+        realtime_health=lambda: {
+            "vehicle_positions": getattr(app.state, "realtime_bus_supported", False),
             "trip_updates": False,
             "alerts": False,
         },

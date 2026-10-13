@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from fastapi import Body, HTTPException
@@ -12,7 +13,7 @@ def register_route_only_core_routes(
     *,
     city_key: str,
     city_display_name: str,
-    realtime_health: bool | dict[str, bool],
+    realtime_health: bool | dict[str, bool] | Callable[[], bool | dict[str, bool]],
     warmup_data_label: str | None = None,
 ) -> None:
     if not city_key or city_key.strip() != city_key:
@@ -35,7 +36,7 @@ def register_route_only_core_routes(
             "city": city_key,
             "feed_id": dataset.metadata.feed_id if dataset is not None else None,
             "feed_version": dataset.metadata.version if dataset is not None else None,
-            "realtime": realtime_health,
+            "realtime": realtime_health() if callable(realtime_health) else realtime_health,
         }
 
     @app.post("/route/experience")
