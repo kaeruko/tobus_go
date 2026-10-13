@@ -87,7 +87,7 @@ void main() {
       expect(profile.capabilities.features.savedRoutes, isFalse);
       expect(profile.capabilities.features.history, isFalse);
       expect(profile.capabilities.features.groupTrips, isFalse);
-      expect(profile.capabilities.realtime.vehiclePosition, isTrue);
+      expect(profile.capabilities.realtime.vehiclePosition, isFalse);
       expect(profile.capabilities.realtime.tripUpdates, isFalse);
       expect(profile.capabilities.realtime.alerts, isFalse);
       expect(

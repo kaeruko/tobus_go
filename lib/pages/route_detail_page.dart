@@ -1220,7 +1220,8 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               ),
               if (features.groupTrips)
                 SliverToBoxAdapter(child: _roundTripComposer())
-              else if (profile.capabilities.realtime.vehiclePosition)
+              else if (profile.city == AppCity.yokohama ||
+                  profile.capabilities.realtime.vehiclePosition)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
