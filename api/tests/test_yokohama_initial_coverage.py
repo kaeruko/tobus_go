@@ -1,0 +1,140 @@
+from __future__ import annotations
+
+import json
+import os
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from fastapi.testclient import TestClient
+
+from app.app_factory import create_app
+from test_yokohama_backend import SERVICE_DATE, _environment, _write_feed
+from yokohama_fare_coverage import YokohamaFareCoverage
+from yokohama_transit import load_yokohama_bus_dataset
+
+import sys
+SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
+
+from build_yokohama_initial_pass_coverage import proposed_coverage
+
+
+def _realistic_named_fixture(root: Path) -> None:
+    _write_feed(root)
+    (root / "routes.txt").write_text(
+        "route_id,route_short_name,route_long_name,route_type\n"
+        "008,008系統,,3\n"
+        "089,,89系統　ぶらり野毛山動物園BUS,3\n"
+        "200,,ベイサイドブルー,3\n"
+        "271,,観光スポット周遊バス「あかいくつ」,3\n"
+        "280,,ぶらり三溪園BUS,3\n",
+        encoding="utf-8",
+    )
+    (root / "trips.txt").write_text(
+        "route_id,service_id,trip_id,trip_headsign,direction_id,jp_trip_desc,jp_trip_desc_symbol\n"
+        "008,ALL,T8,桜木町駅前,0,,\n"
+        "089,ALL,T89,桜木町駅前,0,,\n"
+        "200,ALL,T200,桜木町駅前,0,,\n"
+        "271,ALL,T271,桜木町駅前,0,,\n"
+        "280,ALL,T280,桜木町駅前,0,,\n",
+        encoding="utf-8",
+    )
+    (root / "stop_times.txt").write_text(
+        "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
+        "T8,09:57:00,09:57:00,A,1\nT8,10:02:00,10:02:00,B,2\n"
+        "T89,10:00:00,10:00:00,A,1\nT89,10:15:00,10:15:00,B,2\n"
+        "T200,10:30:00,10:30:00,A,1\nT200,10:45:00,10:45:00,B,2\n"
+        "T271,09:58:00,09:58:00,A,1\nT271,10:03:00,10:03:00,B,2\n"
+        "T280,11:30:00,11:30:00,A,1\nT280,11:45:00,11:45:00,B,2\n",
+        encoding="utf-8",
+    )
+
+
+class YokohamaPartialCoverageTest(unittest.TestCase):
+    def test_proposal_produces_only_three_safe_ordinary_routes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            before = {p.name: p.read_bytes() for p in root.iterdir()}
+            proposed, report = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            after = {p.name: p.read_bytes() for p in root.iterdir()}
+            self.assertEqual(before, after)
+            self.assertEqual(report["route_count"], 5)
+            kinds = proposed["routes"]
+            self.assertEqual(kinds["yokohama_bus:089"], "local")
+            self.assertEqual(kinds["yokohama_bus:200"], "local")
+            self.assertEqual(kinds["yokohama_bus:280"], "local")
+            self.assertEqual(kinds["yokohama_bus:271"], "sightseeing")
+            self.assertEqual(kinds["yokohama_bus:008"], "unreviewed")
+
+            path = root / "reviewed_partial.json"
+            path.write_text(json.dumps(proposed), encoding="utf-8")
+            dataset = load_yokohama_bus_dataset(
+                root, expected_service_date=SERVICE_DATE,
+            )
+            covered = YokohamaFareCoverage.load(path, dataset=dataset)
+            filtered = covered.municipal_free_coverage()
+            self.assertEqual(set(filtered.dataset.routes), {
+                "yokohama_bus:089", "yokohama_bus:200", "yokohama_bus:280",
+            })
+
+    def test_both_passes_ignore_faster_unreviewed_and_akai_kutsu_services(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            proposed, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            (root / "coverage.json").write_text(
+                json.dumps(proposed), encoding="utf-8",
+            )
+            env = _environment(root)
+            env["YOKOHAMA_REALTIME_MODE"] = "disabled"
+            with patch.dict(os.environ, env, clear=False):
+                os.environ.pop("ODPT_API_TOKEN", None)
+                with TestClient(create_app("local")) as client:
+                    for policy in (
+                        "yokohama_welfare_special_pass",
+                        "yokohama_senior_special_pass",
+                    ):
+                        with self.subTest(policy=policy):
+                            response = client.post(
+                                "/route", headers={"X-App-City": "yokohama"},
+                                json={
+                                    "alat": 35.4660, "alon": 139.6225,
+                                    "blat": 35.4500, "blon": 139.6300,
+                                    "pref": "shortTime", "start_time": "09:55",
+                                    "target_date_str": SERVICE_DATE,
+                                    "fare_policy_id": policy,
+                                },
+                            )
+                            self.assertEqual(response.status_code, 200, response.text)
+                            candidates = response.json()["candidates"]
+                            self.assertEqual(len(candidates), 1)
+                            ride = next(s for s in candidates[0]["steps"] if s["kind"] == "bus")
+                            self.assertEqual(ride["route_id"], "yokohama_bus:089")
+                            self.assertEqual(ride["trip_id"], "yokohama_bus:T89")
+                            self.assertEqual(candidates[0]["fare"]["payNowYen"], 0)
+
+    def test_known_route_rename_is_not_silently_accepted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            path = root / "routes.txt"
+            path.write_text(
+                path.read_text(encoding="utf-8").replace("ベイサイドブルー", "新しい別路線"),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "changed name"):
+                proposed_coverage(
+                    root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+                )
+
+
+if __name__ == "__main__":
+    unittest.main()
