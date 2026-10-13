@@ -438,6 +438,13 @@ def load_yokohama_bus_dataset(
     return dataset
 
 
+def _yokohama_service_clock(minute: int) -> str:
+    """Preserve GTFS 24+ service-day hours in Yokohama schedule responses."""
+    if isinstance(minute, bool) or not isinstance(minute, int) or minute < 0:
+        raise ValueError(f"invalid GTFS service-day minute: {minute!r}")
+    return f"{minute // 60:02d}:{minute % 60:02d}"
+
+
 class YokohamaBusRouteBackend(GtfsRouteBackend):
     def __init__(
         self,
@@ -488,6 +495,32 @@ class YokohamaBusRouteBackend(GtfsRouteBackend):
         if self.fare_coverage is not None:
             step["fare_context"] = self.fare_coverage.context_for_step(step)
         return step
+
+    def _serialize(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        """Keep service-day time values intact for both API and Flutter.
+
+        The shared GTFS backend renders clock-only HH:MM; Yokohama's
+        timetable-only guidance needs the original 24+ hour offset.
+        This change is deliberately limited to Yokohama.
+        """
+        itinerary = args[0] if args else kwargs["itinerary"]
+        departure = kwargs["departure"]
+        payload = super()._serialize(*args, **kwargs)
+        steps_by_id = {step["step_id"]: step for step in payload["steps"]}
+        for index, leg in enumerate(itinerary.legs):
+            ride = steps_by_id[f"ride-{index}"]
+            ride["departure_time"] = _yokohama_service_clock(leg.departure_minute)
+            ride["arrival_time"] = _yokohama_service_clock(leg.arrival_minute)
+            wait = steps_by_id.get(f"wait-{index}")
+            if wait is not None:
+                wait["arrival_time"] = _yokohama_service_clock(leg.departure_minute)
+                wait["departure_time"] = _yokohama_service_clock(
+                    leg.departure_minute - wait["minutes"]
+                )
+        payload["arrival_time"] = _yokohama_service_clock(
+            departure.hour * 60 + departure.minute + payload["total_time"]
+        )
+        return payload
 
 
 class _NoCoveredYokohamaRoutes:
