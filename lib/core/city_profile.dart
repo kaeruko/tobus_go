@@ -220,6 +220,7 @@ const yokohamaCityProfile = CityProfile(
   city: AppCity.yokohama,
   key: 'yokohama',
   appName: '横浜でGO',
+  defaultFarePolicyId: '',
   capabilities: CityCapabilities(
     features: FeatureCapabilities(
       routeSearchOnly: true,
@@ -236,16 +237,18 @@ const yokohamaCityProfile = CityProfile(
   ),
   farePolicies: [
     FarePolicyOption(
-      id: 'normal',
-      displayName: '通常運賃',
-      settlementType: 'normal',
-    ),
-    FarePolicyOption(
       id: 'yokohama_welfare_special_pass',
       displayName: '福祉特別乗車券（福祉パス）',
       settlementType: 'free_pass',
       sourceUri:
           'https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/fukushi/annai/gaishutsu/kotsu/fukushi-jyosyaken/ticket.html',
+    ),
+    FarePolicyOption(
+      id: 'yokohama_senior_special_pass',
+      displayName: '敬老特別乗車証（敬老パス）',
+      settlementType: 'free_pass',
+      sourceUri:
+          'https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html',
     ),
   ],
   distribution: CityDistributionConfig(

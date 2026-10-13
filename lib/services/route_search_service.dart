@@ -19,6 +19,7 @@ class RouteSearchRequest {
   final DateTime startTime;
   final String? preference;
   final bool busOnly;
+  final String? farePolicyId;
 
   RouteSearchRequest({
     required this.origin,
@@ -30,6 +31,7 @@ class RouteSearchRequest {
     required this.startTime,
     this.preference,
     this.busOnly = false,
+    this.farePolicyId,
   }) : originName = originName.trim(),
        destinationName = destinationName.trim(),
        originNameEn = _trimNullable(originNameEn),
@@ -94,8 +96,9 @@ class ApiRouteSearchService implements RouteSearchService {
   @override
   Future<RouteSearchResult> search(RouteSearchRequest request) async {
     final policyId = configuredCityProfile.city == AppCity.yokohama
-        ? await FarePolicyPreferences.load(configuredCityProfile)
+        ? (request.farePolicyId ?? await FarePolicyPreferences.load(configuredCityProfile))
         : null;
+    if (policyId != null) configuredCityProfile.farePolicyById(policyId);
     final apiBody = request.toApiBody(farePolicyId: policyId);
     // Share only unfinished identical searches, including identity resolution.
     // Names affect the parsed result even though they are absent from /route.

@@ -3,6 +3,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
+import '../core/city_profile.dart';
+import 'city_profile_provider.dart';
 import '../services/route_search_service.dart';
 
 class RouteSearchState {
@@ -16,6 +18,7 @@ class RouteSearchState {
   final String toNameEn;
   final String? pref;
   final bool busOnly;
+  final String? farePolicyId;
   final DateTime? startTime;
   final bool isLoading;
   final bool hasSearched;
@@ -36,6 +39,7 @@ class RouteSearchState {
     this.toNameEn = '',
     this.pref,
     this.busOnly = false,
+    this.farePolicyId,
     this.startTime,
     this.isLoading = false,
     this.hasSearched = false,
@@ -57,6 +61,8 @@ class RouteSearchState {
     String? toNameEn,
     String? pref,
     bool? busOnly,
+    String? farePolicyId,
+    bool clearFarePolicyId = false,
     DateTime? startTime,
     bool? isLoading,
     bool? hasSearched,
@@ -80,6 +86,7 @@ class RouteSearchState {
       toNameEn: toNameEn ?? this.toNameEn,
       pref: pref ?? this.pref,
       busOnly: busOnly ?? this.busOnly,
+      farePolicyId: clearFarePolicyId ? null : (farePolicyId ?? this.farePolicyId),
       startTime: clearStartTime ? null : (startTime ?? this.startTime),
       isLoading: isLoading ?? this.isLoading,
       hasSearched: hasSearched ?? this.hasSearched,
@@ -101,7 +108,9 @@ final routeSearchServiceProvider = Provider<RouteSearchService>((ref) {
 class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
   final RouteSearchService _routeSearchService;
 
-  RouteSearchNotifier(this._routeSearchService) : super(const RouteSearchState());
+  final bool requiresFarePolicy;
+  RouteSearchNotifier(this._routeSearchService, {this.requiresFarePolicy = false})
+      : super(const RouteSearchState());
 
   int _generation = 0;
 
@@ -214,6 +223,14 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     _changeCriteria(state.copyWith(busOnly: busOnly));
   }
 
+  void setFarePolicyId(String? policyId) {
+    if (state.farePolicyId == policyId) return;
+    _changeCriteria(state.copyWith(
+      farePolicyId: policyId,
+      clearFarePolicyId: policyId == null,
+    ));
+  }
+
   void setStartTime(DateTime? startTime) {
     if (state.startTime == startTime) return;
     _changeCriteria(
@@ -237,6 +254,17 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
 
   Future<void> triggerSearch() async {
     _generation++;
+    if (requiresFarePolicy && state.farePolicyId == null) {
+      state = state.copyWith(
+        isLoading: false,
+        hasSearched: false,
+        candidates: const [],
+        fareByCandidateId: const {},
+        clearMeta: true,
+        clearErrorMessage: true,
+      );
+      return;
+    }
     final currentGen = _generation;
 
     if (state.from.trim().isEmpty || state.to.trim().isEmpty) {
@@ -280,6 +308,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
           startTime: searchTime,
           preference: state.pref ?? 'fewTransfers',
           busOnly: state.busOnly,
+          farePolicyId: state.farePolicyId,
         ),
       );
 
@@ -324,5 +353,8 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
 
 final routeSearchProvider =
     StateNotifierProvider<RouteSearchNotifier, RouteSearchState>((ref) {
-      return RouteSearchNotifier(ref.watch(routeSearchServiceProvider));
+      return RouteSearchNotifier(
+        ref.watch(routeSearchServiceProvider),
+        requiresFarePolicy: ref.watch(cityProfileProvider).city == AppCity.yokohama,
+      );
     });
