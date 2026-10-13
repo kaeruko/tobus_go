@@ -78,7 +78,7 @@ void main() {
       expect(profile.distribution.firebaseEnabled, isFalse);
     });
 
-    test('yokohama exposes bus vehicle realtime only', () {
+    test('yokohama exposes scheduled guidance with two pass choices', () {
       final profile = cityProfileForKey('yokohama');
 
       expect(profile.appName, '横浜でGO');
@@ -92,7 +92,7 @@ void main() {
       expect(profile.capabilities.realtime.alerts, isFalse);
       expect(
         profile.farePolicies.map((option) => option.id),
-        ['normal', 'yokohama_welfare_special_pass'],
+        ['yokohama_welfare_special_pass', 'yokohama_senior_special_pass'],
       );
       expect(profile.distribution.androidApplicationId, 'jp.cloxs.go.yokohama');
       expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.go.yokohama');
