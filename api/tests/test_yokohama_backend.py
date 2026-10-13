@@ -3,9 +3,13 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import runpy
+import sys
 import tempfile
 import time
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -469,6 +473,54 @@ class YokohamaBackendTest(unittest.TestCase):
                         )
                         self.assertEqual(response.status_code, 200, response.text)
                         self.assertEqual(response.json()["candidates"], [])
+
+    def test_real_feed_verifier_contract_runs_on_synthetic_fixture(self) -> None:
+        """Exercise the verifier; this fixture is NOT a real GTFS validation."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_feed(root)
+            case_file = root / "reviewed_cases.json"
+            base_case = {
+                "origin": [35.4660, 139.6225],
+                "destination": [35.4500, 139.6300],
+                "date": SERVICE_DATE,
+                "start_time": "09:55",
+                "expected_route_id": "yokohama_bus:R1",
+                "expected_departure_time": "10:00",
+                "expected_arrival_time": "10:15",
+            }
+            cases = [
+                {"name": "welfare", "policy_id": "yokohama_welfare_special_pass", **base_case},
+                {"name": "senior", "policy_id": "yokohama_senior_special_pass", **base_case},
+            ]
+            env = _environment(root)
+            env["YOKOHAMA_REALTIME_MODE"] = "disabled"
+            argv = [
+                "verify_yokohama_pass_routes.py",
+                "--gtfs-dir", str(root),
+                "--coverage", str(root / "coverage.json"),
+                "--service-date", SERVICE_DATE,
+                "--cases-json", str(case_file),
+            ]
+            script = Path(__file__).resolve().parents[2] / "scripts" / "verify_yokohama_pass_routes.py"
+            with (
+                patch.dict(os.environ, env, clear=False),
+                patch.object(sys, "argv", argv),
+                redirect_stdout(StringIO()) as output,
+                redirect_stderr(StringIO()) as errors,
+            ):
+                case_file.write_text(json.dumps({"cases": cases}), encoding="utf-8")
+                with self.assertRaises(SystemExit) as success:
+                    runpy.run_path(str(script), run_name="__main__")
+                self.assertEqual(success.exception.code, 0, errors.getvalue())
+                self.assertIn("Checked 2 reviewed cases; failures=0", output.getvalue())
+
+                cases[1]["expected_departure_time"] = "11:00"
+                case_file.write_text(json.dumps({"cases": cases}), encoding="utf-8")
+                with self.assertRaises(SystemExit) as failed:
+                    runpy.run_path(str(script), run_name="__main__")
+                self.assertEqual(failed.exception.code, 1)
+                self.assertIn("FAIL senior", errors.getvalue())
 
     def test_invalid_realtime_mode_fails_fast(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
