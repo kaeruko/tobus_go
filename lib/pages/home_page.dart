@@ -19,6 +19,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/route_search_provider.dart';
 import '../providers/active_trip_provider.dart';
 import '../providers/city_profile_provider.dart';
+import '../core/city_profile.dart';
+import '../services/fare_policy_preferences.dart';
 import '../models/trip_models.dart';
 import 'leader_mode_page.dart';
 import 'trip_page.dart';
@@ -44,11 +46,63 @@ class RouteSearchPage extends ConsumerStatefulWidget {
 }
 
 class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
+  int _fareLoadGeneration = 0;
+  bool _fareReady = false;
+  String? _fareError;
+
+  Future<void> _restoreYokohamaPass() async {
+    final generation = ++_fareLoadGeneration;
+    try {
+      final id = await FarePolicyPreferences.loadOptional(
+        ref.read(cityProfileProvider),
+      );
+      if (!mounted || generation != _fareLoadGeneration) return;
+      ref.read(routeSearchProvider.notifier).setFarePolicyId(id);
+      setState(() {
+        _fareReady = true;
+        _fareError = null;
+      });
+    } catch (e) {
+      if (!mounted || generation != _fareLoadGeneration) return;
+      ref.read(routeSearchProvider.notifier).setFarePolicyId(null);
+      setState(() {
+        _fareReady = false;
+        _fareError = e.toString();
+      });
+    }
+  }
+
+  Future<void> _selectYokohamaPass(String id) async {
+    final generation = ++_fareLoadGeneration;
+    final notifier = ref.read(routeSearchProvider.notifier);
+    notifier.setFarePolicyId(null); // Invalidate pending search and old results.
+    setState(() {
+      _fareReady = false;
+      _fareError = null;
+    });
+    try {
+      await FarePolicyPreferences.save(ref.read(cityProfileProvider), id);
+      if (!mounted || generation != _fareLoadGeneration) return;
+      notifier.setFarePolicyId(id);
+      setState(() => _fareReady = true);
+      notifier.triggerSearch();
+    } catch (e) {
+      if (!mounted || generation != _fareLoadGeneration) return;
+      setState(() {
+        _fareReady = false;
+        _fareError = e.toString();
+      });
+    }
+  }
+
   // Controllers removed! State is now purely in providers.
 
   @override
   void initState() {
     super.initState();
+    if (ref.read(cityProfileProvider).city == AppCity.yokohama) {
+      Future.microtask(_restoreYokohamaPass);
+    }
     // Refresh active trip on init
     if (ref.read(cityProfileProvider).capabilities.features.groupTrips) {
       Future.microtask(() => ref.read(activeTripProvider.notifier).refresh());
@@ -255,6 +309,9 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
     );
     final showTokyoTransportControl = ref.watch(
       cityProfileProvider.select((profile) => profile.key == 'tokyo'),
+    );
+    final showYokohamaPassControl = ref.watch(
+      cityProfileProvider.select((profile) => profile.city == AppCity.yokohama),
     );
     final activeTripAsync = features.groupTrips
         ? ref.watch(activeTripProvider)
@@ -485,6 +542,43 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                       const SizedBox(height: 8),
                     ],
 
+                    if (showYokohamaPassControl) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(l10n.farePolicyYokohamaChoosePass),
+                            const SizedBox(height: 8),
+                            LayoutBuilder(builder: (context, constraints) {
+                              if (constraints.maxWidth <= 0) {
+                                return const SizedBox(height: 28);
+                              }
+                              return CupertinoSlidingSegmentedControl<String>(
+                                groupValue: rs.farePolicyId,
+                                children: {
+                                  'yokohama_welfare_special_pass':
+                                    Text(l10n.farePolicyYokohamaWelfarePass),
+                                  'yokohama_senior_special_pass':
+                                    Text(l10n.farePolicyYokohamaSeniorPass),
+                                },
+                                onValueChanged: (value) {
+                                  if (value != null) _selectYokohamaPass(value);
+                                },
+                              );
+                            }),
+                            if (_fareError != null)
+                              Text(
+                                l10n.fareSettingsError(_fareError!),
+                                style: const TextStyle(
+                                  color: CupertinoColors.destructiveRed,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     // Preference
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -504,9 +598,12 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                       child: SizedBox(
                         width: double.infinity,
                         child: CupertinoButton.filled(
-                          onPressed: () {
-                            notifier.triggerSearch();
-                          },
+                          onPressed: showYokohamaPassControl &&
+                                  (!_fareReady || rs.farePolicyId == null)
+                              ? null
+                              : () {
+                                  notifier.triggerSearch();
+                                },
                           child: Text(l10n.search),
                         ),
                       ),
@@ -623,6 +720,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
 
   @override
   void dispose() {
+    _fareLoadGeneration++;
     widget.tabIndexListenable?.removeListener(_handleTabChange);
     super.dispose();
   }
