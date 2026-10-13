@@ -1708,4 +1708,7 @@
 ,
   "farePolicyYokohamaSeniorPass": "橫濱市敬老特別乘車證",
   "farePolicyYokohamaChoosePass": "請先選擇乘車證，再搜尋路線。"
+,
+  "farePolicyYokohamaWelfareShort": "福利乘車證",
+  "farePolicyYokohamaSeniorShort": "敬老乘車證"
 }

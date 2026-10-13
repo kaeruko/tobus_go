@@ -1692,4 +1692,7 @@
 ,
   "farePolicyYokohamaSeniorPass": "横滨市敬老特别乘车证",
   "farePolicyYokohamaChoosePass": "请先选择乘车证，再搜索路线。"
+,
+  "farePolicyYokohamaWelfareShort": "福利乘车证",
+  "farePolicyYokohamaSeniorShort": "敬老乘车证"
 }

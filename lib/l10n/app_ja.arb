@@ -1692,4 +1692,7 @@
 ,
   "farePolicyYokohamaSeniorPass": "敬老特別乗車証（敬老パス）",
   "farePolicyYokohamaChoosePass": "利用するパスを選んでください。"
+,
+  "farePolicyYokohamaWelfareShort": "福祉パス",
+  "farePolicyYokohamaSeniorShort": "敬老パス"
 }

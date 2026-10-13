@@ -1692,4 +1692,7 @@
 ,
   "farePolicyYokohamaSeniorPass": "Yokohama Senior Special Transit Pass",
   "farePolicyYokohamaChoosePass": "Select your transit pass before searching."
+,
+  "farePolicyYokohamaWelfareShort": "Welfare pass",
+  "farePolicyYokohamaSeniorShort": "Senior pass"
 }

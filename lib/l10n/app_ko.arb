@@ -1708,4 +1708,7 @@
 ,
   "farePolicyYokohamaSeniorPass": "요코하마시 경로 특별 승차증",
   "farePolicyYokohamaChoosePass": "검색 전에 이용할 승차권을 선택하세요."
+,
+  "farePolicyYokohamaWelfareShort": "복지 패스",
+  "farePolicyYokohamaSeniorShort": "경로 패스"
 }
