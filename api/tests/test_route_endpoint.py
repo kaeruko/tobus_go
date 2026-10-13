@@ -5,7 +5,7 @@ import unittest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.route_endpoint import register_route_endpoint
+from app.route_endpoint import register_route_endpoint, require_yokohama_free_route_quotes
 from route_engine import (
     RouteContractError,
     RoutePreference,
@@ -61,6 +61,34 @@ class SharedRouteEndpointTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"candidates": [], "meta": {}})
         self.assertEqual(engine.requests[0].preference, RoutePreference.FASTEST)
+
+    def test_yokohama_final_free_route_contract_rejects_paid_or_unverified(self) -> None:
+        policy = "yokohama_welfare_special_pass"
+        good = {
+            "policyId": policy, "settlementType": "free_pass",
+            "status": "available", "payNowYen": 0, "effectiveFareYen": 0,
+        }
+        require_yokohama_free_route_quotes(
+            {"candidates": [{"id": "verified", "fare": dict(good)}]}, policy,
+        )
+        for update in (
+            {"payNowYen": 220, "effectiveFareYen": 220},
+            {"payNowYen": None},
+            {"payNowYen": False},
+            {"status": "unavailable"},
+            {"policyId": "yokohama_senior_special_pass"},
+            {"settlementType": "normal"},
+        ):
+            with self.subTest(update=update):
+                quote = good | update
+                with self.assertRaisesRegex(RouteContractError, "unverified or paid"):
+                    require_yokohama_free_route_quotes(
+                        {"candidates": [{"id": "unsafe", "fare": quote}]}, policy,
+                    )
+        with self.assertRaisesRegex(RouteContractError, "missing verified"):
+            require_yokohama_free_route_quotes(
+                {"candidates": [{"id": "missing-fare"}]}, policy,
+            )
 
     def test_yokohama_rejects_missing_normal_and_unknown_pass_without_search(self) -> None:
         for policy_id in (None, "normal", "invalid-id"):
