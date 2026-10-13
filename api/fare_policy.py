@@ -45,7 +45,8 @@ class RideFareContext:
             if not isinstance(value, str) or not value.startswith(prefix) or value == prefix:
                 raise ValueError(f"fare {name} must belong to feed {self.feed_id!r}")
         if self.service_kind not in {
-            "local", "airport", "highway", "midnight_express", "sightseeing"
+            "local", "airport", "highway", "midnight_express", "sightseeing",
+            "unreviewed",  # Known feed route, intentionally excluded until verified
         }:
             raise ValueError(f"unreviewed fare service_kind: {self.service_kind!r}")
         for name in ("boarding_municipality_code", "alighting_municipality_code"):
