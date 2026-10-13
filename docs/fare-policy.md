@@ -194,6 +194,38 @@ Phase 5 の名古屋backendは、市バスの普通料金を成人 1 乗車 210 
 route・stop・tripの元ID、feed版、出典URLは保持する。coverageは搭載feedとoperatorが一致しなければ拒否する。
 レビュー済みcoverageと実交通データでの本番検証が完了するまで、無料対応済みとして公開しない。
 
+### 実GTFSによる無料経路の手動正解テスト（#241）
+
+GitHub/CIに含まれる小規模GTFSは**合成データ**であり、横浜の路線網・時刻表を実測検証したものではない。
+実データを使う際は、ローカルの `YOKOHAMA_BUS_GTFS_DIR` に相当する展開済みGTFSと、
+**そのfeed ID・版と全routeに一致する人手レビュー済み** `YOKOHAMA_FARE_COVERAGE_PATH` を用意する。
+実ファイルやODPTキーはGitへコミットしない。
+
+公式路線図と時刻表で個別に確認したOD例をJSONにまとめる。
+最上位は `{"cases": [...]}`、各caseに以下を持たせる。
+
+- 必須: `name`, `policy_id`（福祉／敬老）, `origin`・`destination`（緯度・経度の2要素配列）,
+  `date`（YYYY-MM-DD）, `start_time`（HH:MM）, `expected_route_id`（feed名付きroute ID）,
+  `expected_departure_time`・`expected_arrival_time`（予定発着時刻）。
+- 任意: `expected_trip_id`（便が公式時刻表・feedから特定できたとき）。
+- 福祉／敬老の両方を含める。日時・便・系統の根拠は公式資料で人間が確認し、
+  **検索エンジンの結果をコピーして「正解」にしない**。元資料と検証日を別途管理する。
+
+```powershell
+python scripts/verify_yokohama_pass_routes.py `
+  --gtfs-dir "<展開済み実GTFSのディレクトリ>" `
+  --coverage "<人手レビュー済みcoverage.json>" `
+  --service-date "2026-10-14" `
+  --cases-json "<公式路線図・時刻表から作成した正解OD.json>"
+```
+
+このコマンドはアプリを**Realtime無効／ローカルAPI**で起動して検索し、
+返った全候補の追加支払0円と、既知の系統・予定発着時刻・（指定時は）trip IDを照合する。
+一致しないケースは終了コード1で失敗し、対象ケース名を標準エラーへ出す。
+データを書き換えず、追加ファイルも生成しない。
+公式資料との差分は調査対象であり、30〜50件を通過しても全域の経路網羅性は保証しない。
+
+
 公式根拠:
 
 - https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/fukushi/annai/gaishutsu/kotsu/fukushi-jyosyaken/ticket.html
