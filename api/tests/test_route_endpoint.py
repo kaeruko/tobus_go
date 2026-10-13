@@ -85,6 +85,21 @@ class SharedRouteEndpointTest(unittest.TestCase):
         )
         self.assertEqual(engine.requests, [])
 
+    def test_unavailable_fare_scope_does_not_run_normal_search(self) -> None:
+        engine = _RecordingEngine()
+        response = _client(engine).post(
+            "/route", json=_payload(fare_policy_id="yokohama_welfare_special_pass"),
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"]["code"], "invalid_route_input")
+        self.assertEqual(engine.requests, [])
+
+    def test_fare_scope_id_is_not_coerced_from_a_number(self) -> None:
+        engine = _RecordingEngine()
+        response = _client(engine).post("/route", json=_payload(fare_policy_id=123))
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(engine.requests, [])
+
     def test_search_safety_limit_is_503_with_diagnostic(self) -> None:
         engine = _RecordingEngine(error=RouteSearchLimitError("visited=100"))
         response = _client(engine).post("/route", json=_payload())

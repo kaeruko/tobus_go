@@ -12,6 +12,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.app_factory import create_app
+from fare_policy import YOKOHAMA_WELFARE_PASS_SOURCE
 from yokohama_transit import (
     YOKOHAMA_BUS_APPROVED_FEED_VERSION,
     YOKOHAMA_BUS_APPROVED_REVISION,

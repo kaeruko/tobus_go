@@ -7,6 +7,7 @@ import 'package:toeigo/core/city_profile.dart';
 import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/pages/fare_policy_settings_page.dart';
 import 'package:toeigo/providers/city_profile_provider.dart';
+import 'package:toeigo/services/fare_policy_preferences.dart';
 
 void main() {
   setUp(() {
@@ -39,5 +40,28 @@ void main() {
     expect(find.text('View official information'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Open other settings'), 200);
     expect(find.text('Open other settings'), findsOneWidget);
+  });
+
+  testWidgets('Yokohama welfare pass can be selected in English', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [cityProfileProvider.overrideWithValue(yokohamaCityProfile)],
+        child: CupertinoApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const FarePolicySettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final pass = find.text('Yokohama Welfare Special Transit Pass');
+    expect(pass, findsOneWidget);
+    expect(find.textContaining('A disability certificate alone'), findsOneWidget);
+    await tester.scrollUntilVisible(pass, 100);
+    await tester.tap(pass);
+    await tester.pumpAndSettle();
+    expect(await FarePolicyPreferences.load(yokohamaCityProfile),
+        'yokohama_welfare_special_pass');
   });
 }

@@ -1676,5 +1676,7 @@
   "groupReportDemoFall": "Minor injury after a fall",
   "groupReportDemoLost": "Separated from the group",
   "groupReportDemoReunited": "Rejoined the group",
-  "groupReportNotesHint": "Enter any special notes or actions taken"
+  "groupReportNotesHint": "Enter any special notes or actions taken",
+  "farePolicyYokohamaWelfarePass": "Yokohama Welfare Special Transit Pass",
+  "farePolicyYokohamaWelfarePassCondition": "This option is for holders of a Yokohama Welfare Special Transit Pass. A disability certificate alone does not provide free travel. Regular fares apply to routes and sections outside the pass coverage."
 }

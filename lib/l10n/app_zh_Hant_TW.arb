@@ -1692,5 +1692,7 @@
   "groupReportDemoFall": "跌倒後輕微受傷",
   "groupReportDemoLost": "與隊伍走散",
   "groupReportDemoReunited": "已歸隊",
-  "groupReportNotesHint": "請輸入注意事項或處理內容"
+  "groupReportNotesHint": "請輸入注意事項或處理內容",
+  "farePolicyYokohamaWelfarePass": "橫濱市福利特別乘車券",
+  "farePolicyYokohamaWelfarePassCondition": "此選項適用於持有橫濱市福利特別乘車券的使用者。僅持有身心障礙證明不能免費乘車。不在乘車券適用範圍內的路線及區間按一般票價收費。"
 }

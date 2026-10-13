@@ -6,7 +6,10 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, StrictStr
+
+from fare_policy import decorate_route_result_with_fare
+from route_fare_scope import search_with_fare_scope
 
 from route_engine import (
     GeoPoint,
@@ -34,6 +37,7 @@ class ApiRouteRequest(BaseModel):
     start_time: str = "10:00"
     target_date_str: str | None = None
     limit: int = 5
+    fare_policy_id: StrictStr = "normal"
 
 
 def to_domain_request(request: ApiRouteRequest) -> RouteSearchRequest:
@@ -110,10 +114,25 @@ def register_route_endpoint(
             async with route_lock:
                 result = await loop.run_in_executor(
                     None,
-                    engine.search,
+                    search_with_fare_scope,
+                    engine,
                     domain_request,
+                    request.fare_policy_id,
                 )
-            return serialize_route_result(result)
+            payload = serialize_route_result(result)
+            if request.fare_policy_id != "normal":
+                city_key = getattr(app.state, "city_key", None)
+                if not isinstance(city_key, str) or not city_key:
+                    raise RouteContractError("Backend city is required for scoped route fares")
+                try:
+                    decorate_route_result_with_fare(
+                        city_key=city_key,
+                        result=payload,
+                        policy_id=request.fare_policy_id,
+                    )
+                except ValueError as error:
+                    raise RouteContractError(f"Scoped route fare context is invalid: {error}") from error
+            return payload
         except (
             RouteInputError,
             RouteSearchLimitError,

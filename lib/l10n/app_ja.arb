@@ -1676,5 +1676,7 @@
   "groupReportDemoFall": "転倒により軽傷",
   "groupReportDemoLost": "はぐれてしまった",
   "groupReportDemoReunited": "合流完了",
-  "groupReportNotesHint": "特記事項や対応内容を入力してください"
+  "groupReportNotesHint": "特記事項や対応内容を入力してください",
+  "farePolicyYokohamaWelfarePass": "福祉特別乗車券（福祉パス）",
+  "farePolicyYokohamaWelfarePassCondition": "横浜市の福祉特別乗車券をお持ちの方が対象です。障害者手帳だけでは無料になりません。対象外の路線・区間は通常運賃です。"
 }

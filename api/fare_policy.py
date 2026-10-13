@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import re
 from typing import Protocol
 
 
@@ -13,10 +14,86 @@ class SettlementType(str, Enum):
 
 
 @dataclass(frozen=True, slots=True)
+class RideFareContext:
+    """Verified route identity and boarding/alighting context for one ride."""
+
+    mode: str
+    feed_id: str
+    operator_id: str
+    route_id: str
+    boarding_stop_id: str
+    alighting_stop_id: str
+    service_kind: str
+    boarding_municipality_code: str | None = None
+    alighting_municipality_code: str | None = None
+    normal_fare_yen: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.mode not in {"bus", "rail"}:
+            raise ValueError(f"unsupported fare ride mode: {self.mode!r}")
+        if not isinstance(self.feed_id, str) or not self.feed_id or ":" in self.feed_id:
+            raise ValueError(f"invalid fare feed_id: {self.feed_id!r}")
+        if self.feed_id.strip() != self.feed_id:
+            raise ValueError(f"invalid fare feed_id: {self.feed_id!r}")
+        if not isinstance(self.operator_id, str) or not self.operator_id:
+            raise ValueError("fare operator_id is required")
+        if self.operator_id.strip() != self.operator_id:
+            raise ValueError("fare operator_id must not have surrounding whitespace")
+        prefix = f"{self.feed_id}:"
+        for name in ("route_id", "boarding_stop_id", "alighting_stop_id"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.startswith(prefix) or value == prefix:
+                raise ValueError(f"fare {name} must belong to feed {self.feed_id!r}")
+        if self.service_kind not in {
+            "local", "airport", "highway", "midnight_express", "sightseeing"
+        }:
+            raise ValueError(f"unreviewed fare service_kind: {self.service_kind!r}")
+        for name in ("boarding_municipality_code", "alighting_municipality_code"):
+            value = getattr(self, name)
+            if value is not None and (
+                not isinstance(value, str) or re.fullmatch(r"[0-9]{5}", value) is None
+            ):
+                raise ValueError(f"fare {name} must be a five-digit city code")
+        if self.normal_fare_yen is not None and (
+            isinstance(self.normal_fare_yen, bool)
+            or not isinstance(self.normal_fare_yen, int)
+            or self.normal_fare_yen < 0
+        ):
+            raise ValueError("ride normal_fare_yen must be an integer >= 0")
+
+    @classmethod
+    def from_step(cls, step: dict) -> "RideFareContext":
+        value = step.get("fare_context")
+        if not isinstance(value, dict):
+            raise ValueError("Yokohama welfare pass requires verified fare_context for each ride")
+        required = (
+            "feed_id", "operator_id", "route_id", "boarding_stop_id",
+            "alighting_stop_id", "service_kind",
+        )
+        for key in required:
+            if key not in value:
+                raise ValueError(f"Yokohama fare_context is missing {key}")
+        if value["route_id"] != step.get("route_id"):
+            raise ValueError("Yokohama fare_context route_id does not match ride")
+        if value["boarding_stop_id"] != step.get("departureStopId"):
+            raise ValueError("Yokohama fare_context boarding stop does not match ride")
+        if value["alighting_stop_id"] != step.get("arrivalPoleId"):
+            raise ValueError("Yokohama fare_context alighting stop does not match ride")
+        return cls(
+            mode=step["kind"],
+            **{key: value[key] for key in required},
+            boarding_municipality_code=value.get("boarding_municipality_code"),
+            alighting_municipality_code=value.get("alighting_municipality_code"),
+            normal_fare_yen=step.get("fare_yen"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class FarePolicyContext:
     city_key: str
     normal_fare_yen: int | None
     ride_modes: tuple[str, ...]
+    rides: tuple[RideFareContext, ...] = ()
 
     def __post_init__(self) -> None:
         if self.city_key not in {"tokyo", "nagoya", "sendai", "yokohama"}:
@@ -26,6 +103,8 @@ class FarePolicyContext:
         for mode in self.ride_modes:
             if mode not in {"bus", "rail"}:
                 raise ValueError(f"unsupported ride mode: {mode!r}")
+        if self.rides and tuple(ride.mode for ride in self.rides) != self.ride_modes:
+            raise ValueError("fare ride contexts do not match ride_modes")
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,6 +206,83 @@ class FreePassFarePolicy:
             normal_fare_yen=context.normal_fare_yen,
             pay_now_yen=0,
             effective_fare_yen=0,
+            policy_id=self.policy_id,
+            settlement_type=self.settlement_type,
+        )
+
+
+YOKOHAMA_WELFARE_PASS_SOURCE = (
+    "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/"
+    "fukushi/annai/gaishutsu/kotsu/fukushi-jyosyaken/ticket.html"
+)
+YOKOHAMA_CITY_CODE = "14100"
+YOKOHAMA_PRIVATE_BUS_OPERATORS = frozenset({
+    "odakyu_bus", "kanachu", "enoden_bus", "fujiexpress",
+    "kawasaki_tsurumi_rinko_bus", "keikyu_bus", "sotetsu_bus",
+    "daishinto", "tokyu_bus", "yokohama_kotsu_kaihatsu",
+})
+
+
+def yokohama_welfare_pass_covers(ride: RideFareContext) -> bool:
+    """Apply reviewed operator/route/boarding rules, never the mode alone."""
+    if ride.operator_id == "yokohama_municipal_subway":
+        if ride.mode != "rail":
+            raise ValueError("Yokohama municipal subway fare context must be rail")
+        return ride.service_kind == "local"
+    if ride.operator_id == "yokohama_seaside_line":
+        if ride.mode != "rail":
+            raise ValueError("Yokohama Seaside Line fare context must be rail")
+        return ride.service_kind == "local"
+    if ride.operator_id == "yokohama_municipal_bus":
+        if ride.mode != "bus":
+            raise ValueError("Yokohama municipal bus fare context must be bus")
+        return ride.service_kind == "local"
+    if ride.operator_id not in YOKOHAMA_PRIVATE_BUS_OPERATORS:
+        return False
+    if ride.mode != "bus":
+        raise ValueError("Yokohama private bus fare context must be bus")
+    if ride.service_kind != "local":
+        return False
+    if ride.boarding_municipality_code is None or ride.alighting_municipality_code is None:
+        raise ValueError("Yokohama private bus fare requires both stop municipality codes")
+    return YOKOHAMA_CITY_CODE in {
+        ride.boarding_municipality_code, ride.alighting_municipality_code,
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class YokohamaWelfarePassFarePolicy:
+    city_key: str = "yokohama"
+    policy_id: str = "yokohama_welfare_special_pass"
+    display_name: str = "横浜市 福祉特別乗車券（福祉パス）"
+    source_uri: str = YOKOHAMA_WELFARE_PASS_SOURCE
+    settlement_type: SettlementType = SettlementType.FREE_PASS
+
+    def apply(self, context: FarePolicyContext) -> FareQuote:
+        _require_city(self.city_key, context)
+        if len(context.rides) != len(context.ride_modes):
+            raise ValueError("Yokohama welfare pass requires verified ride contexts")
+        uncovered = [ride for ride in context.rides if not yokohama_welfare_pass_covers(ride)]
+        if not uncovered:
+            pay_now = 0
+        elif len(uncovered) == len(context.rides) and context.normal_fare_yen is not None:
+            pay_now = context.normal_fare_yen
+        elif all(ride.normal_fare_yen is not None for ride in uncovered):
+            pay_now = sum(ride.normal_fare_yen for ride in uncovered)
+        else:
+            return FareQuote(
+                normal_fare_yen=context.normal_fare_yen,
+                pay_now_yen=None,
+                effective_fare_yen=None,
+                policy_id=self.policy_id,
+                settlement_type=self.settlement_type,
+                status="unavailable",
+                unavailable_reason="normal_fare_required_for_noncovered_segment",
+            )
+        return FareQuote(
+            normal_fare_yen=context.normal_fare_yen,
+            pay_now_yen=pay_now,
+            effective_fare_yen=pay_now,
             policy_id=self.policy_id,
             settlement_type=self.settlement_type,
         )
@@ -240,6 +396,7 @@ _POLICY_REGISTRY: dict[str, dict[str, FarePolicy]] = {
     },
     "yokohama": {
         "normal": NormalFarePolicy(city_key="yokohama"),
+        "yokohama_welfare_special_pass": YokohamaWelfarePassFarePolicy(),
     },
 }
 
@@ -289,16 +446,20 @@ def evaluate_candidate_fare(
     if not isinstance(steps, list):
         raise ValueError("candidate is missing steps list")
     ride_modes: list[str] = []
+    rides: list[RideFareContext] = []
     for step in steps:
         if not isinstance(step, dict):
             raise ValueError("candidate step must be an object")
         kind = step.get("kind")
         if kind in {"bus", "rail"}:
             ride_modes.append(kind)
+            if city_key == "yokohama" and policy_id == "yokohama_welfare_special_pass":
+                rides.append(RideFareContext.from_step(step))
     context = FarePolicyContext(
         city_key=city_key,
         normal_fare_yen=normal_fare_yen,
         ride_modes=tuple(ride_modes),
+        rides=tuple(rides),
     )
     return get_fare_policy(city_key, policy_id).apply(context)
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 
+from yokohama_fare_coverage import YokohamaFareCoverage
 from yokohama_realtime import create_yokohama_bus_realtime_provider
 from yokohama_transit import (
     YokohamaBusRouteBackend,
@@ -38,8 +39,17 @@ async def setup_yokohama_on_startup(app, mode: str) -> None:
         gtfs_dir,
         expected_service_date=expected_service_date,
     )
+    coverage_path = os.getenv("YOKOHAMA_FARE_COVERAGE_PATH")
+    if coverage_path == "":
+        raise RuntimeError("YOKOHAMA_FARE_COVERAGE_PATH must not be empty when set")
+    fare_coverage = (
+        None
+        if coverage_path is None
+        else YokohamaFareCoverage.load(coverage_path, dataset=dataset)
+    )
     backend = YokohamaBusRouteBackend(
         dataset,
+        fare_coverage=fare_coverage,
     )
     realtime_provider = create_yokohama_bus_realtime_provider()
 

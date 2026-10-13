@@ -95,6 +95,8 @@ class _FarePolicySettingsPageState
         return l10n.farePolicyTokyoMentalDisabilityPass;
       case 'nagoya_welfare_special_pass':
         return l10n.farePolicyNagoyaWelfarePass;
+      case 'yokohama_welfare_special_pass':
+        return l10n.farePolicyYokohamaWelfarePass;
       default:
         throw StateError('Unsupported localized fare policy: ${option.id}');
     }
@@ -125,6 +127,13 @@ class _FarePolicySettingsPageState
               l10n.fareSettingsDescription,
               style: const TextStyle(color: CupertinoColors.systemGrey),
             ),
+            if (profile.city == AppCity.yokohama) ...[
+              const SizedBox(height: 8),
+              Text(
+                l10n.farePolicyYokohamaWelfarePassCondition,
+                style: const TextStyle(color: CupertinoColors.systemGrey),
+              ),
+            ],
             const SizedBox(height: 16),
             if (_loading)
               const Center(child: CupertinoActivityIndicator())

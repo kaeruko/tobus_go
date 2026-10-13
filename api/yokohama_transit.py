@@ -17,8 +17,10 @@ from typing import Any
 import httpx
 
 from gtfs_route_backend import GtfsRouteBackend
+from route_engine import RouteEngineUnavailableError, RouteInputError, RouteSearchResult
 from transit_adapters.gtfs import GtfsTransitAdapter
 from transit_dataset import FeedMetadata, TransitDataset, TransitMode
+from yokohama_fare_coverage import YokohamaFareCoverage
 
 YOKOHAMA_BUS_FEED_ID = "yokohama_bus"
 YOKOHAMA_BUS_STATIC_URL = (
@@ -437,9 +439,65 @@ def load_yokohama_bus_dataset(
 
 
 class YokohamaBusRouteBackend(GtfsRouteBackend):
-    def __init__(self, dataset: TransitDataset, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        dataset: TransitDataset,
+        *,
+        fare_coverage: YokohamaFareCoverage | None = None,
+        **kwargs: Any,
+    ) -> None:
         if dataset.metadata.feed_id != YOKOHAMA_BUS_FEED_ID:
             raise ValueError(
                 f"YokohamaBusRouteBackend requires {YOKOHAMA_BUS_FEED_ID} dataset"
             )
+        if fare_coverage is not None and fare_coverage.dataset is not dataset:
+            raise ValueError("Yokohama fare coverage belongs to a different dataset")
+        self.fare_coverage = fare_coverage
+        self._welfare_backend = None
         super().__init__(dataset, **kwargs)
+
+    def for_fare_policy(self, policy_id: str):
+        if policy_id == "normal":
+            return self
+        if policy_id != "yokohama_welfare_special_pass":
+            raise RouteInputError(f"unsupported Yokohama route fare policy: {policy_id!r}")
+        if self.fare_coverage is None:
+            raise RouteEngineUnavailableError(
+                "Yokohama welfare route search requires a reviewed "
+                "YOKOHAMA_FARE_COVERAGE_PATH for the installed GTFS feed"
+            )
+        if self._welfare_backend is None:
+            selected = self.fare_coverage.municipal_free_coverage()
+            if selected is None:
+                self._welfare_backend = _NoCoveredYokohamaRoutes()
+            elif selected is self.fare_coverage:
+                self._welfare_backend = self
+            else:
+                self._welfare_backend = YokohamaBusRouteBackend(
+                    selected.dataset,
+                    fare_coverage=selected,
+                    walk_radius_m=self.walk_radius_m,
+                    walk_speed_m_per_min=self.walk_speed_m_per_min,
+                    endpoint_candidate_limit=self.endpoint_candidate_limit,
+                    max_rides=self.max_rides,
+                )
+        return self._welfare_backend
+
+    def _ride_step(self, leg, index: int) -> dict[str, Any]:
+        step = super()._ride_step(leg, index)
+        if self.fare_coverage is not None:
+            step["fare_context"] = self.fare_coverage.context_for_step(step)
+        return step
+
+
+class _NoCoveredYokohamaRoutes:
+    def search(self, request) -> RouteSearchResult:
+        del request
+        return RouteSearchResult(
+            candidates=[],
+            meta={
+                "destination_reachable": True,
+                "search_scope": "yokohama_welfare_special_pass",
+                "coverage_reason": "no_covered_routes",
+            },
+        )

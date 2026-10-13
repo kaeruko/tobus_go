@@ -46,7 +46,10 @@ SharedPreferences の保存キーは都市別 `farePolicyId:<city>` とする。
 
 ## API
 
-`POST /route` は制度を知らない。
+`POST /route` の共通探索コアは制度を知らない。横浜ではAPI境界で
+`fare_policy_id` を受け取り、都市Adapterの明示的な探索対象を選ぶ。
+省略時の `normal` は既存の探索を維持する。他都市で未実装の探索対象を指定した場合は
+422にし、通常探索へ切り替えない。
 
 鉄道便identity解決など、経路そのものの確定後に `POST /fare/apply` を呼ぶ。
 
@@ -58,6 +61,8 @@ SharedPreferences の保存キーは都市別 `farePolicyId:<city>` とする。
 ```
 
 `/fare/apply` は候補をdeep copyして運賃だけを付加するため、FarePolicyがRouteEngineの探索結果や順位を変更しない。
+横浜の福祉パス検索では、これに先立ち、レビュー済みの市営バス路線から対象外路線を除いて
+探索する。通常検索の最速候補に0円を付けるだけでは、遅い無料経路を取り落とすためである。
 
 `GET /fare/policies` はbackendの `city_key` に対応するpolicyだけを返す。東京のpolicy IDを名古屋backendへ渡した場合などは 422 とし、別都市policyへfallbackしない。
 
@@ -105,3 +110,72 @@ Phase 5 の名古屋backendは、市バスの普通料金を成人 1 乗車 210 
 - `cost_score` のlegacy aliasをクライアント移行後に `comfort_score` へ整理する
 - 実在する割引・reimbursement policyを追加するときは、公式制度の対象区間・支払方法・丸め規則を個別テストする
 - RouteEngine内にpolicy条件分岐を追加しない
+
+## 横浜（#241、第一段階）
+
+`yokohama_welfare_special_pass` を明示選択した場合だけ対象区間を無料にする。
+障害者手帳の所持だけで福祉特別乗車券の所持を推定しない。
+設定画面の名称・利用条件は既存の日本語・英語・韓国語・簡体字・繁体字に対応する。
+
+### 現在の接続範囲
+
+- 市営バスの既存GTFS backendへ、レビュー済みの路線区分を結び付ける。
+- 福祉パス検索時に市営バスの対象外路線を探索前に除外し、応答に運賃を付加する。
+- アプリは保存済みの横浜のpolicy IDを検索リクエストに載せ、応答の運賃を表示する。
+- 通常検索は既存の市営バス探索を維持する。
+
+**地下鉄・民営バスのデータ接続と複数事業者の乗換はまだ未実装。**
+判定関数に地下鉄・シーサイドライン・対象民営バスのルールがあっても、それらを現在の
+探索で利用できる意味ではない。民営バスの無料限定検索には、乗降場所に応じて各乗車区間を
+制約する探索を後続で実装する。市営交通用の路線フィルターを民営バスへ使うとエラーにする。
+
+### ルールと不明データ
+
+- 市営地下鉄・シーサイドラインは対象全線。市営バスはレビュー済みの普通路線・対象外を区別する。
+- 対象民営バスの普通路線は、乗車または降車の少なくとも一方が横浜市内である場合に対象とする。
+- 空港・高速・深夜急行・観光路線等を、同じ事業者という理由で無料にしない。
+- 判定には名前の曖昧一致ではなく、feed ID・operator ID・route ID・乗降stop IDと市コードを使う。
+- 対象外区間の正確な運賃が不明なら `unavailable` にし、0円を作らない。
+- 乗車の `fare_context` が欠落・不一致ならエラー。modeだけを根拠に市営交通と推定しない。
+- 券の年額負担は各乗車の `payNowYen` に加算しない。
+
+### 市営バスのレビュー済みcoverageファイル
+
+`YOKOHAMA_FARE_COVERAGE_PATH` にUTF-8 JSONの絶対パスを設定する。
+この設定を省略した場合、既存の通常検索は使えるが福祉パス検索は503になる。
+空文字・ファイル欠落・不正JSON・feed版不一致では起動時に停止する。
+
+ファイルの必須フィールドは以下。**この例のroute IDとfeed版は説明用で、本番データではない。**
+
+```json
+{
+  "schema_version": 1,
+  "city": "yokohama",
+  "feed_id": "yokohama_bus",
+  "feed_version": "reviewed-feed-version",
+  "feed_source_uri": "https://api.odpt.org/api/v4/files/odpt/YokohamaMunicipal/Bus.zip?date=current",
+  "operator_id": "yokohama_municipal_bus",
+  "policy_source_uri": "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/fukushi/annai/gaishutsu/kotsu/fukushi-jyosyaken/ticket.html",
+  "reviewed_on": "2026-10-14",
+  "routes": {
+    "yokohama_bus:reviewed-local-route-id": "local",
+    "yokohama_bus:reviewed-excluded-route-id": "sightseeing"
+  },
+  "stop_municipalities": {}
+}
+```
+
+搭載するGTFSの全route IDをレビューして列挙する。新しいroute IDが追加された場合、
+普通路線へ自動分類せずレビュー不足として停止する。区分は `local` / `airport` / `highway` /
+`midnight_express` / `sightseeing` のいずれか。深夜普通バスと深夜急行を区別する。
+市営バスは全線対象のため市コードは省略可能。民営バス用coverageでは全stopの市コードを必須にする。
+市コードは5桁の市単位コード（横浜は `14100`）を使い、区コード・座標・停留所名から推定しない。
+
+route・stop・tripの元ID、feed版、出典URLは保持する。coverageは搭載feedとoperatorが一致しなければ拒否する。
+レビュー済みcoverageと実交通データでの本番検証が完了するまで、無料対応済みとして公開しない。
+
+公式根拠:
+
+- https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/fukushi/annai/gaishutsu/kotsu/fukushi-jyosyaken/ticket.html
+- https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html
+- https://cgi.city.yokohama.lg.jp/somu/reiki/reiki_honbun/g202RG00001784.html

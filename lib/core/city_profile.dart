@@ -240,6 +240,13 @@ const yokohamaCityProfile = CityProfile(
       displayName: '通常運賃',
       settlementType: 'normal',
     ),
+    FarePolicyOption(
+      id: 'yokohama_welfare_special_pass',
+      displayName: '福祉特別乗車券（福祉パス）',
+      settlementType: 'free_pass',
+      sourceUri:
+          'https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/fukushi/annai/gaishutsu/kotsu/fukushi-jyosyaken/ticket.html',
+    ),
   ],
   distribution: CityDistributionConfig(
     androidApplicationId: 'jp.cloxs.go.yokohama',

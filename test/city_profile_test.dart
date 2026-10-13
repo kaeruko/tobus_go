@@ -90,7 +90,10 @@ void main() {
       expect(profile.capabilities.realtime.vehiclePosition, isTrue);
       expect(profile.capabilities.realtime.tripUpdates, isFalse);
       expect(profile.capabilities.realtime.alerts, isFalse);
-      expect(profile.farePolicies.map((option) => option.id), ['normal']);
+      expect(
+        profile.farePolicies.map((option) => option.id),
+        ['normal', 'yokohama_welfare_special_pass'],
+      );
       expect(profile.distribution.androidApplicationId, 'jp.cloxs.go.yokohama');
       expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.go.yokohama');
       expect(profile.distribution.firebaseEnabled, isFalse);

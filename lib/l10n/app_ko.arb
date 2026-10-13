@@ -1692,5 +1692,7 @@
   "groupReportDemoFall": "넘어져 가벼운 부상",
   "groupReportDemoLost": "그룹에서 이탈",
   "groupReportDemoReunited": "그룹에 다시 합류",
-  "groupReportNotesHint": "특이 사항이나 대응 내용을 입력하세요"
+  "groupReportNotesHint": "특이 사항이나 대응 내용을 입력하세요",
+  "farePolicyYokohamaWelfarePass": "요코하마시 복지 특별 승차권",
+  "farePolicyYokohamaWelfarePassCondition": "요코하마시 복지 특별 승차권을 소지한 분을 위한 설정입니다. 장애인 수첩만으로는 무료로 이용할 수 없습니다. 적용 대상이 아닌 노선과 구간에는 일반 요금이 적용됩니다."
 }
