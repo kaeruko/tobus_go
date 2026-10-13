@@ -563,7 +563,8 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                                     Text(l10n.farePolicyYokohamaSeniorShort),
                                 },
                                 onValueChanged: (value) {
-                                  if (_fareReady && value != null) {
+                                  if ((_fareReady || _fareError != null) &&
+                                      value != null) {
                                     _selectYokohamaPass(value);
                                   }
                                 },
