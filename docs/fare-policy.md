@@ -194,6 +194,22 @@ Phase 5 の名古屋backendは、市バスの普通料金を成人 1 乗車 210 
 route・stop・tripの元ID、feed版、出典URLは保持する。coverageは搭載feedとoperatorが一致しなければ拒否する。
 レビュー済みcoverageと実交通データでの本番検証が完了するまで、無料対応済みとして公開しない。
 
+### 横浜市営バスGTFSの例外監査（読み取り専用）
+
+実GTFSから例外候補を拾う補助ツールを用意した。coverageファイルは作らない。
+
+```powershell
+python scripts/audit_yokohama_bus_gtfs.py --gtfs-dir ".\api\data\yokohama\2026-09-04"
+```
+
+- 路線・便の出典はGTFSと同梱manifest。名称や便数・23時以降の時刻を列挙するが、**運賃無料の根拠にしない**。
+- 横浜市の公式案内で「あかいくつ」は両パス対象外。ぶらり野毛山動物園BUS、ベイサイドブルー、ぶらり三溪園BUSは敬老パス対象と明記。feed側の名称が変わった場合は検証エラーで停止する。
+- 23時以降の時計時刻は、割増便を洗い出すための保守的な調査フラグ。普通運賃の便も含む可能性があるし、23時より前の特別運賃便を検出できるとは限らない。
+- `jp_trip_desc` 等が空欄、`fare_attributes.txt` / `fare_rules.txt` がないなど、判定に必要な情報の欠落を報告する。
+- 実交通feedから自動生成した結果を、そのまま「人手レビュー済みcoverage」として使わない。路線判定・時刻表・深夜割増の対象区間を別途確認し、根拠と確認日を保存する。
+- 福祉パスの公式FAQ: https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html
+- 敬老パスの公式対象交通と深夜割増: https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html
+
 ### 実GTFSによる無料経路の手動正解テスト（#241）
 
 GitHub/CIに含まれる小規模GTFSは**合成データ**であり、横浜の路線網・時刻表を実測検証したものではない。
