@@ -1679,4 +1679,14 @@
   "groupReportNotesHint": "特記事項や対応内容を入力してください",
   "farePolicyYokohamaWelfarePass": "福祉特別乗車券（福祉パス）",
   "farePolicyYokohamaWelfarePassCondition": "横浜市の福祉特別乗車券をお持ちの方が対象です。障害者手帳だけでは無料になりません。対象外の路線・区間は通常運賃です。"
+,
+  "scheduleCardTitle": "時刻表による案内",
+  "scheduleDeparturePlanned": "{time} 発予定",
+  "@scheduleDeparturePlanned": {"placeholders": {"time": {"type": "String"}}},
+  "scheduleMinutesUntil": "発車まであと {minutes} 分",
+  "@scheduleMinutesUntil": {"placeholders": {"minutes": {"type": "int"}}},
+  "scheduleDeparturePassed": "予定発車時刻を過ぎました。必要なら再検索してください。",
+  "scheduleDelayDisclaimer": "時刻表の予定です。遅延・運休は反映されません。",
+  "scheduleDepartureUnknown": "予定発車時刻を確認できません",
+  "scheduleWalkOnly": "徒歩のみの経路です"
 }
