@@ -161,6 +161,36 @@ void main() {
     );
   }
 
+  test('Yokohama cannot search until a pass is selected', () async {
+    final service = _ControlledSearchService();
+    final notifier = RouteSearchNotifier(service, requiresFarePolicy: true);
+    addTearDown(notifier.dispose);
+    notifier.setFrom('35.69,139.78', name: '出発');
+    notifier.setTo('35.71,139.80', name: '到着');
+
+    await notifier.triggerSearch();
+    expect(service.requests, isEmpty);
+    expect(notifier.state.hasSearched, isFalse);
+
+    notifier.setFarePolicyId('yokohama_welfare_special_pass');
+    final pending = notifier.triggerSearch();
+    expect(service.requests.single.farePolicyId,
+        'yokohama_welfare_special_pass');
+    notifier.setFarePolicyId(null);
+    service.pending.single.complete(_result('old-pass'));
+    await pending;
+    _expectWaitingForSearch(notifier.state);
+    expect(notifier.state.farePolicyId, isNull);
+
+    notifier.setFarePolicyId('yokohama_senior_special_pass');
+    final seniorPending = notifier.triggerSearch();
+    expect(service.requests.last.farePolicyId,
+        'yokohama_senior_special_pass');
+    service.pending.last.complete(_result('senior'));
+    await seniorPending;
+    expect(notifier.state.candidates.single.id, 'senior');
+  });
+
   test('same criteria keep pending and completed searches intact', () async {
     final service = _ControlledSearchService();
     final notifier = _prepare(service);
