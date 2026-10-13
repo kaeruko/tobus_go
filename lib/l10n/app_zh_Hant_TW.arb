@@ -1705,4 +1705,7 @@
   "scheduleDelayDisclaimer": "僅為時刻表資訊，未反映延誤與停駛。",
   "scheduleDepartureUnknown": "無法確認預定發車時間",
   "scheduleWalkOnly": "僅步行路線"
+,
+  "farePolicyYokohamaSeniorPass": "橫濱市敬老特別乘車證",
+  "farePolicyYokohamaChoosePass": "請先選擇乘車證，再搜尋路線。"
 }

@@ -1689,4 +1689,7 @@
   "scheduleDelayDisclaimer": "仅为时刻表信息，未反映延误和停运。",
   "scheduleDepartureUnknown": "无法确认计划发车时间",
   "scheduleWalkOnly": "仅步行路线"
+,
+  "farePolicyYokohamaSeniorPass": "横滨市敬老特别乘车证",
+  "farePolicyYokohamaChoosePass": "请先选择乘车证，再搜索路线。"
 }

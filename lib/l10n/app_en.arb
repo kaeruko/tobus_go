@@ -1689,4 +1689,7 @@
   "scheduleDelayDisclaimer": "Timetable only. Delays and cancellations are not reflected.",
   "scheduleDepartureUnknown": "Scheduled departure time is unavailable",
   "scheduleWalkOnly": "Walking-only route"
+,
+  "farePolicyYokohamaSeniorPass": "Yokohama Senior Special Transit Pass",
+  "farePolicyYokohamaChoosePass": "Select your transit pass before searching."
 }
