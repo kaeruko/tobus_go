@@ -558,9 +558,9 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                                 groupValue: rs.farePolicyId,
                                 children: {
                                   'yokohama_welfare_special_pass':
-                                    Text(l10n.farePolicyYokohamaWelfarePass),
+                                    Text(l10n.farePolicyYokohamaWelfareShort),
                                   'yokohama_senior_special_pass':
-                                    Text(l10n.farePolicyYokohamaSeniorPass),
+                                    Text(l10n.farePolicyYokohamaSeniorShort),
                                 },
                                 onValueChanged: (value) {
                                   if (value != null) _selectYokohamaPass(value);
