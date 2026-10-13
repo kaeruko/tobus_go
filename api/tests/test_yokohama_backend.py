@@ -87,6 +87,7 @@ def _environment(root: Path) -> dict[str, str]:
         "YOKOHAMA_BUS_GTFS_DIR": str(root),
         "YOKOHAMA_BUS_GTFS_EXPECTED_SERVICE_DATE": SERVICE_DATE,
         "ODPT_API_TOKEN": "test-token",
+        "YOKOHAMA_REALTIME_MODE": "enabled",
     }
 
 
@@ -306,6 +307,52 @@ class YokohamaBackendTest(unittest.TestCase):
                     "YOKOHAMA_BUS_GTFS_EXPECTED_SERVICE_DATE is required",
                 ):
                     with TestClient(app):
+                        pass
+
+    def test_static_mode_starts_and_routes_without_odpt_realtime_token(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_feed(root)
+            env = _environment(root)
+            env["YOKOHAMA_REALTIME_MODE"] = "disabled"
+            with patch.dict(os.environ, env, clear=False):
+                os.environ.pop("ODPT_API_TOKEN", None)
+                with TestClient(create_app("local")) as client:
+                    health = client.get("/healthz", headers={"X-App-City": "yokohama"})
+                    route = client.post(
+                        "/route",
+                        headers={"X-App-City": "yokohama"},
+                        json={
+                            "alat": 35.4660, "alon": 139.6225,
+                            "blat": 35.4500, "blon": 139.6300,
+                            "pref": "shortTime",
+                            "start_time": "09:55", "target_date_str": SERVICE_DATE,
+                        },
+                    )
+                    location = client.get(
+                        "/bus/location",
+                        params={"route_id": "yokohama_bus:R1", "trip_id": "yokohama_bus:T1"},
+                        headers={"X-App-City": "yokohama"},
+                    )
+                    self.assertIsNone(client.app.state.realtime_provider)
+        self.assertEqual(health.status_code, 200)
+        self.assertEqual(health.json()["realtime"], {
+            "vehicle_positions": False, "trip_updates": False, "alerts": False,
+        })
+        self.assertEqual(route.status_code, 200)
+        self.assertEqual(len(route.json()["candidates"]), 1)
+        self.assertEqual(location.status_code, 503)
+        self.assertEqual(location.json()["detail"]["code"], "bus_realtime_unsupported")
+
+    def test_invalid_realtime_mode_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_feed(root)
+            env = _environment(root)
+            env["YOKOHAMA_REALTIME_MODE"] = "auto"
+            with patch.dict(os.environ, env, clear=False):
+                with self.assertRaisesRegex(RuntimeError, "YOKOHAMA_REALTIME_MODE"):
+                    with TestClient(create_app("local")):
                         pass
 
     def test_missing_odpt_token_fails_startup(self) -> None:

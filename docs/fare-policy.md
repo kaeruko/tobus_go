@@ -111,6 +111,15 @@ Phase 5 の名古屋backendは、市バスの普通料金を成人 1 乗車 210 
 - 実在する割引・reimbursement policyを追加するときは、公式制度の対象区間・支払方法・丸め規則を個別テストする
 - RouteEngine内にpolicy条件分岐を追加しない
 
+## 横浜の時刻表専用起動（#241）
+
+横浜APIの `YOKOHAMA_REALTIME_MODE` は `disabled`（既定）か `enabled` のみ。
+`disabled` では静的GTFSの起動・経路検索をRealtime APIキーなしで利用でき、
+`/healthz` の `realtime.vehicle_positions` は `false` を返す。
+`/bus/location` は `bus_realtime_unsupported` を返し、位置情報を捏造しない。
+`enabled` は従来のODPT Realtime providerを使い、トークン欠落・初期化失敗を隠さない。
+起動後の設定モード変更はエラーとして扱う。東京・名古屋・仙台の起動設定は変更しない。
+
 ## 横浜（#241、第一段階）
 
 `yokohama_welfare_special_pass` を明示選択した場合だけ対象区間を無料にする。

@@ -118,6 +118,7 @@ class CityRuntimeWarmStartTest(unittest.IsolatedAsyncioTestCase):
                     "YOKOHAMA_BUS_GTFS_DIR": "/tmp/gtfs/yokohama",
                     "YOKOHAMA_BUS_GTFS_EXPECTED_SERVICE_DATE": "2026-08-29",
                     "ODPT_API_TOKEN": "test-token",
+                    "YOKOHAMA_REALTIME_MODE": "enabled",
                 },
                 clear=False,
             ),
@@ -141,13 +142,41 @@ class CityRuntimeWarmStartTest(unittest.IsolatedAsyncioTestCase):
             "/tmp/gtfs/yokohama",
             expected_service_date="2026-08-29",
         )
-        make_backend.assert_called_once_with(dataset)
+        make_backend.assert_called_once_with(dataset, fare_coverage=None)
         make_realtime.assert_called_once_with()
         self.assertIs(app.state.transit_dataset, dataset)
         self.assertIs(app.state.route_backend, backend)
         self.assertIs(app.state.route_engine, backend)
         self.assertIs(app.state.realtime_provider, realtime)
         self.assertTrue(app.state.realtime_bus_supported)
+        self.assertEqual(app.state.loading_status, "ready")
+
+    async def test_yokohama_static_mode_reuses_runtime_without_realtime(self) -> None:
+        app = _App()
+        dataset = object()
+        backend = object()
+
+        with (
+            patch.dict(os.environ, {
+                "YOKOHAMA_BUS_GTFS_DIR": "/tmp/gtfs/yokohama",
+                "YOKOHAMA_BUS_GTFS_EXPECTED_SERVICE_DATE": "2026-08-29",
+                "YOKOHAMA_REALTIME_MODE": "disabled",
+            }, clear=False),
+            patch("app.yokohama_runtime.load_yokohama_bus_dataset", return_value=dataset) as load_dataset,
+            patch("app.yokohama_runtime.YokohamaBusRouteBackend", return_value=backend) as make_backend,
+            patch("app.yokohama_runtime.create_yokohama_bus_realtime_provider") as make_realtime,
+        ):
+            os.environ.pop("ODPT_API_TOKEN", None)
+            await setup_yokohama_on_startup(app, "lambda")
+            await setup_yokohama_on_startup(app, "lambda")
+
+        load_dataset.assert_called_once()
+        make_backend.assert_called_once_with(dataset, fare_coverage=None)
+        make_realtime.assert_not_called()
+        self.assertIs(app.state.route_engine, backend)
+        self.assertIsNone(app.state.realtime_provider)
+        self.assertFalse(app.state.realtime_bus_supported)
+        self.assertEqual(app.state.realtime_mode, "disabled")
         self.assertEqual(app.state.loading_status, "ready")
 
 

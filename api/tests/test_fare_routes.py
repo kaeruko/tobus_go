@@ -128,7 +128,7 @@ class FareRoutesTest(unittest.TestCase):
         self.assertEqual(policies.status_code, 200)
         self.assertEqual(
             [item["policyId"] for item in policies.json()["policies"]],
-            ["normal"],
+            ["normal", "yokohama_welfare_special_pass"],
         )
 
         response = client.post(
