@@ -146,9 +146,9 @@ class YokohamaBusStaticGtfsTest(unittest.TestCase):
             root = Path(directory)
             _write_feed(root)
             (root / "stop_times.txt").write_text(
-                "trip_id,arrival_time,departure_time,stop_id,stop_sequence\\n"
-                "T1,24:10:00,24:10:00,A,1\\n"
-                "T1,24:20:00,24:20:00,B,2\\n",
+                "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
+                "T1,24:10:00,24:10:00,A,1\n"
+                "T1,24:20:00,24:20:00,B,2\n",
                 encoding="utf-8",
             )
             dataset = GtfsTransitAdapter.load(
