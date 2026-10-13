@@ -65,6 +65,41 @@ void main() {
       expect(id, 'normal');
     });
 
+    test('Yokohama first use and legacy normal require a new selection', () async {
+      expect(await FarePolicyPreferences.loadOptional(yokohamaCityProfile), isNull);
+      await expectLater(
+        FarePolicyPreferences.load(yokohamaCityProfile),
+        throwsStateError,
+      );
+      SharedPreferences.setMockInitialValues({
+        'farePolicyId:yokohama': 'normal',
+      });
+      expect(await FarePolicyPreferences.loadOptional(yokohamaCityProfile), isNull);
+      await expectLater(
+        FarePolicyPreferences.load(yokohamaCityProfile),
+        throwsStateError,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('farePolicyId:yokohama'), 'normal');
+    });
+
+    test('Yokohama senior selection persists and unknown ID fails', () async {
+      await FarePolicyPreferences.save(
+        yokohamaCityProfile, 'yokohama_senior_special_pass',
+      );
+      expect(
+        await FarePolicyPreferences.load(yokohamaCityProfile),
+        'yokohama_senior_special_pass',
+      );
+      SharedPreferences.setMockInitialValues({
+        'farePolicyId:yokohama': 'invalid-id',
+      });
+      await expectLater(
+        FarePolicyPreferences.loadOptional(yokohamaCityProfile),
+        throwsStateError,
+      );
+    });
+
     test('explicit selected policy is stored per city', () async {
       await FarePolicyPreferences.save(
         nagoyaCityProfile,
