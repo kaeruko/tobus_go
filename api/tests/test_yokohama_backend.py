@@ -79,6 +79,21 @@ def _write_feed(root: Path, *, manifest_service_date: str = SERVICE_DATE) -> Non
         ),
         encoding="utf-8",
     )
+    (root / "coverage.json").write_text(
+        json.dumps({
+            "schema_version": 1,
+            "city": "yokohama",
+            "feed_id": YOKOHAMA_BUS_FEED_ID,
+            "feed_version": YOKOHAMA_BUS_APPROVED_FEED_VERSION,
+            "feed_source_uri": YOKOHAMA_BUS_STATIC_URL,
+            "operator_id": "yokohama_municipal_bus",
+            "policy_source_uri": YOKOHAMA_WELFARE_PASS_SOURCE,
+            "reviewed_on": "2026-10-14",
+            "routes": {"yokohama_bus:R1": "local"},
+            "stop_municipalities": {},
+        }),
+        encoding="utf-8",
+    )
 
 
 def _environment(root: Path) -> dict[str, str]:
@@ -88,6 +103,7 @@ def _environment(root: Path) -> dict[str, str]:
         "YOKOHAMA_BUS_GTFS_EXPECTED_SERVICE_DATE": SERVICE_DATE,
         "ODPT_API_TOKEN": "test-token",
         "YOKOHAMA_REALTIME_MODE": "enabled",
+        "YOKOHAMA_FARE_COVERAGE_PATH": str(root / "coverage.json"),
     }
 
 
@@ -229,6 +245,7 @@ class YokohamaBackendTest(unittest.TestCase):
                             "pref": "shortTime",
                             "start_time": "09:55",
                             "target_date_str": SERVICE_DATE,
+                            "fare_policy_id": "yokohama_welfare_special_pass",
                         },
                     )
 
@@ -327,6 +344,7 @@ class YokohamaBackendTest(unittest.TestCase):
                             "blat": 35.4500, "blon": 139.6300,
                             "pref": "shortTime",
                             "start_time": "09:55", "target_date_str": SERVICE_DATE,
+                            "fare_policy_id": "yokohama_senior_special_pass",
                         },
                     )
                     location = client.get(
