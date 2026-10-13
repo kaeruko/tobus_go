@@ -141,6 +141,43 @@ class YokohamaBusStaticGtfsTest(unittest.TestCase):
             )
             self.assertEqual(result["candidates"][0]["arrival_time"], "10:15")
 
+    def test_yokohama_preserves_24_plus_service_day_departures(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_feed(root)
+            (root / "stop_times.txt").write_text(
+                "trip_id,arrival_time,departure_time,stop_id,stop_sequence\\n"
+                "T1,24:10:00,24:10:00,A,1\\n"
+                "T1,24:20:00,24:20:00,B,2\\n",
+                encoding="utf-8",
+            )
+            dataset = GtfsTransitAdapter.load(
+                root,
+                metadata=FeedMetadata(
+                    feed_id=YOKOHAMA_BUS_FEED_ID,
+                    source_type="gtfs-jp",
+                    source_uri=YOKOHAMA_BUS_STATIC_URL,
+                    version=YOKOHAMA_BUS_APPROVED_FEED_VERSION,
+                    fetched_at=datetime(2026, 8, 29, tzinfo=timezone.utc),
+                ),
+            )
+            backend = YokohamaBusRouteBackend(dataset, walk_radius_m=100)
+            response = backend.search(
+                alat=35.4660, alon=139.6225,
+                blat=35.4650, blon=139.6220,
+                pref="time", start_time="23:55", date_str=SERVICE_DATE,
+            )
+            self.assertEqual(len(response["candidates"]), 1)
+            candidate = response["candidates"][0]
+            ride = next(step for step in candidate["steps"] if step["kind"] == "bus")
+            wait = next(step for step in candidate["steps"] if step["kind"] == "wait")
+            self.assertEqual(wait["departure_time"], "23:55")
+            self.assertEqual(wait["arrival_time"], "24:10")
+            self.assertEqual(ride["departure_time"], "24:10")
+            self.assertEqual(ride["arrival_time"], "24:20")
+            self.assertEqual(candidate["arrival_time"], "24:20")
+            self.assertTrue(candidate["departure_date"].startswith(SERVICE_DATE))
+
     def test_fetch_records_explicit_approved_resource_and_sha256(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "bus" / "20260727"
