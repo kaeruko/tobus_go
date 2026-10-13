@@ -27,8 +27,13 @@ class _RecordingEngine:
         return self.result
 
 
-def _client(engine: _RecordingEngine, *, raise_server_exceptions: bool = True):
+def _client(
+    engine: _RecordingEngine, *, raise_server_exceptions: bool = True,
+    city_key: str | None = None,
+):
     app = FastAPI()
+    if city_key is not None:
+        app.state.city_key = city_key
     app.state.loading_status = "ready"
     app.state.route_engine = engine
     register_route_endpoint(app, warmup_message="warming up")
@@ -56,6 +61,18 @@ class SharedRouteEndpointTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"candidates": [], "meta": {}})
         self.assertEqual(engine.requests[0].preference, RoutePreference.FASTEST)
+
+    def test_yokohama_rejects_missing_normal_and_unknown_pass_without_search(self) -> None:
+        for policy_id in (None, "normal", "invalid-id"):
+            with self.subTest(policy_id=policy_id):
+                engine = _RecordingEngine()
+                body = _payload()
+                if policy_id is not None:
+                    body["fare_policy_id"] = policy_id
+                resp = _client(engine, city_key="yokohama").post("/route", json=body)
+                self.assertEqual(resp.status_code, 422)
+                self.assertEqual(resp.json()["detail"]["code"], "invalid_route_input")
+                self.assertEqual(engine.requests, [])
 
     def test_bus_only_flag_is_forwarded_to_engine(self) -> None:
         engine = _RecordingEngine()
