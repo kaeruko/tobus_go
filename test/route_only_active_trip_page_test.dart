@@ -37,7 +37,7 @@ class _BeforeFirstStopSource implements BusLocationSource {
 
 void main() {
   testWidgets(
-    'route-only trip uses shared source for before-first-stop state',
+    'realtime-capable route-only trip uses shared vehicle source',
     (tester) async {
       final candidate = Candidate(
         id: 'route-1',
@@ -68,7 +68,7 @@ void main() {
           supportedLocales: AppLocalizations.supportedLocales,
           home: ActiveRoutePage(
             candidate: candidate,
-            cityProfile: yokohamaCityProfile,
+            cityProfile: sendaiCityProfile,
             busLocationSource: _BeforeFirstStopSource(),
           ),
         ),
@@ -83,7 +83,7 @@ void main() {
     },
   );
   testWidgets(
-    'route-only trip renders English live bus labels',
+    'realtime-capable route-only trip renders English bus labels',
     (tester) async {
       final candidate = Candidate(
         id: 'route-en',
@@ -117,7 +117,7 @@ void main() {
           supportedLocales: AppLocalizations.supportedLocales,
           home: ActiveRoutePage(
             candidate: candidate,
-            cityProfile: yokohamaCityProfile,
+            cityProfile: sendaiCityProfile,
             busLocationSource: _BeforeFirstStopSource(),
           ),
         ),
