@@ -939,12 +939,16 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
             _realistic_named_fixture(root)
             with (root / "routes.txt").open("a", encoding="utf-8") as stream:
                 stream.write("109,109系統,,3\n")
+                stream.write("012,012系統,,3\n")
             with (root / "trips.txt").open("a", encoding="utf-8") as stream:
                 stream.write("109,ALL,T109,横浜駅前,0,特急,特\n")
+                stream.write("012,ALL,T12,駅前,0,,\n")
             with (root / "stop_times.txt").open("a", encoding="utf-8") as stream:
                 stream.write(
                     "T109,23:05:00,23:05:00,A,1\n"
                     "T109,23:12:00,23:12:00,B,2\n"
+                    "T12,23:42:00,23:42:00,A,1\n"
+                    "T12,23:55:00,23:55:00,B,2\n"
                 )
             proposed, _ = proposed_coverage(
                 root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
@@ -958,9 +962,27 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
             )
             triage = ordinary_review_triage(gtfs_dir=root, report=result)
             self.assertEqual(before, {p.name: p.read_bytes() for p in root.iterdir()})
-            self.assertEqual(triage["ordinary_unapproved_route_count"], 2)
-            self.assertEqual(triage["priority_route_ids"], ["109"])
+            self.assertEqual(triage["ordinary_unapproved_route_count"], 3)
+            self.assertEqual(triage["priority_route_ids"], ["012", "109"])
             self.assertEqual(triage["other_ordinary_route_ids"], ["008"])
+            tiers = triage["review_attention_tiers"]
+            self.assertEqual(tiers["service_or_text_lead_route_ids"], ["109"])
+            self.assertEqual(tiers["clock_only_informational_route_ids"], ["012"])
+            self.assertEqual(tiers["other_unreviewed_route_ids"], ["008"])
+            self.assertEqual([
+                tiers["service_or_text_lead_count"],
+                tiers["clock_only_informational_count"],
+                tiers["other_unreviewed_count"],
+            ], [1, 1, 1])
+            self.assertEqual(
+                triage["priority_reasons_by_route"]["012"],
+                ["after_23_clock_not_proof_of_surcharge"],
+            )
+            self.assertEqual(
+                triage["priority_trip_examples_by_route"]["012"][
+                    "gtfs_jp_annotated_trip_count"
+                ], 0,
+            )
             self.assertIn(
                 "109_express_historical_other_scheme_needs_independent_review",
                 triage["priority_reasons_by_route"]["109"],
@@ -984,7 +1006,7 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
             ], ["T109"])
             self.assertEqual(result["groups"][
                 "ordinary_name_candidate_not_approved"
-            ][1]["current_coverage_kind"], "unreviewed")
+            ][-1]["current_coverage_kind"], "unreviewed")
             with self.assertRaisesRegex(ValueError, "requires --with-reviewed-registry"):
                 review_catalog(
                     gtfs_dir=root, coverage_path=coverage_path,

@@ -262,9 +262,16 @@ def annotate_catalog_with_registry(report: dict, records: dict) -> None:
 
 # Text is only a lead for human fare review; no keyword decides eligibility.
 _ORDINARY_TRIP_ATTENTION_TERMS = (
-    "深夜", "深夜急行", "高速", "直行", "特急", "貸切", "空港", "羽田", "観光",
+    "深夜", "深夜急行", "高速", "直行", "直通", "特急", "貸切", "空港", "羽田", "観光",
 )
 _109_REFERENCE = "https://www.city.yokohama.lg.jp/kotsu/bus/unchin/bus_teiki.html"
+_109_2026_TIMETABLE_REFERENCE = (
+    "https://navi.hamabus.city.yokohama.lg.jp/koutuu/smart/diagram/"
+    "Search/bus?course=0001601091&startId=00090593&stopNo=14"
+)
+_MUNICIPAL_NIGHT_BUS_ABOLITION_REFERENCE = (
+    "https://cgi.city.yokohama.lg.jp/shimin/kouchou/search/data/36003485.html"
+)
 
 
 def ordinary_review_triage(*, gtfs_dir: Path, report: dict) -> dict:
@@ -344,21 +351,51 @@ def ordinary_review_triage(*, gtfs_dir: Path, report: dict) -> dict:
                 "after_23_clock_trip_flags": item["after_23_clock_trip_flags"],
                 "sample_raw_trip_ids": samples[number],
             }
+
     priority = sorted(reasons)
+    # Divide all attention flags into actually actionable service/text leads
+    # and clock-only context.  The 2024 municipal night-bus abolition makes
+    # "after 23:00" particularly weak fare evidence, not an exclusion.
+    service_leads = sorted(
+        number for number in priority
+        if number == "109" or keywords[number] or annotations[number]
+    )
+    clock_only = sorted(set(priority) - set(service_leads))
+    routine = sorted(candidates - set(priority))
+    if len(service_leads) + len(clock_only) + len(routine) != len(candidates):
+        raise AssertionError("ordinary review triage did not partition the catalog")
     return {
         "purpose": "READ ONLY manual investigation order, NOT fare approval",
         "ordinary_unapproved_route_count": len(candidates),
         "priority_route_count": len(priority),
         "priority_route_ids": priority,
+        "review_attention_tiers": {
+            "service_or_text_lead_route_ids": service_leads,
+            "clock_only_informational_route_ids": clock_only,
+            "other_unreviewed_route_ids": routine,
+            "service_or_text_lead_count": len(service_leads),
+            "clock_only_informational_count": len(clock_only),
+            "other_unreviewed_count": len(routine),
+        },
         "priority_reasons_by_route": reasons,
         "priority_trip_examples_by_route": priority_samples,
-        "other_ordinary_route_ids": sorted(candidates - set(priority)),
+        "other_ordinary_route_ids": routine,
         "official_109_context_url": _109_REFERENCE if "109" in candidates else None,
+        "official_109_2026_service_change_url": (
+            _109_2026_TIMETABLE_REFERENCE if "109" in candidates else None
+        ),
+        "official_municipal_night_bus_abolition_url": (
+            _MUNICIPAL_NIGHT_BUS_ABOLITION_REFERENCE
+        ),
         "warning": (
             "109 was excluded from a DIFFERENT commuter-pass discount scheme "
             "ending on 2026-09-27; this does NOT prove welfare/senior exclusion. "
-            "No GTFS annotation or late-clock flag proves a surcharge or exemption. "
-            "No flag means UNREVIEWED, not eligible for free-pass search."
+            "Yokohama municipal night bus services were abolished on 2024-04-01; "
+            "GTFS clocks >=23h are informational only, not paid deep-night "
+            "service evidence. 109 had some express trips converted to through "
+            "service in 2026; this is not evidence of welfare/senior pass terms. "
+            "No GTFS annotation proves a surcharge or exemption, and no flag "
+            "means UNREVIEWED, not eligible for free-pass search."
         ),
         "file_action": "READ ONLY: no fare/GTFS/coverage/registry files written",
     }

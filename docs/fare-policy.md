@@ -592,3 +592,36 @@ python scripts/review_yokohama_bus_route_catalog.py `
 報告の `ordinary_review_triage.priority_route_ids` から公式運賃を優先照合し、
 `other_ordinary_route_ids` は無条件承認せず別途制度確認する。
 ユーザー実GTFSでの新しいオプションの検証は未実施。
+
+### 実GTFSの130系統トリアージ結果と優先度分離（2026-10-14）
+
+実GTFS `v3.0_20260727` を `--ordinary-triage` で照合し、書込みなく成功。
+**130系統を以下の3つの審査グループに分割できた**。すべて無料適用は未承認。
+
+| 層 | 実際の系統数 | 意味 |
+|---|---:|---|
+| `service_or_text_lead_route_ids` | **1（109）** | 制度・運行形態の例外を個別確認する手掛かり |
+| `clock_only_informational_route_ids` | **42** | GTFS時刻が23:00以降というだけ。追加運賃の証拠でない |
+| `other_unreviewed_route_ids` | **87** | 便説明・時刻から特別な注意点を発見できず、無料認証ではない |
+
+42系統のGTFS23時以降表示は延べ246便、全系統の特別便注記数0・
+例外キーワード一致0であった。この条件をまとめて `review_attention_tiers`
+として表示する。従来の `priority_route_ids`（43件）は互換性のため保持するが、
+実務上はまず `service_or_text_lead_route_ids` を確認し、23時フラグのみの42
+系統は情報として分離する。41・105・51・13・301系統等も23時だけでは
+有料深夜バスとは言えない。
+
+根拠：
+- [横浜市の2024-11-14基準公開回答](https://cgi.city.yokohama.lg.jp/shimin/kouchou/search/data/36003485.html)
+  に「令和6年4月1日のダイヤ改正で深夜バスを廃止」と明記。
+  これは市営バスについての歴史的事実であり、将来の再開可能性や他事業者の
+  深夜割増を否定するものではない。
+- [横浜市交通局の2026-03-28ダイヤ改正案内](https://navi.hamabus.city.yokohama.lg.jp/koutuu/smart/diagram/Search/bus?course=0001601091&startId=00090593&stopNo=14)
+  に109系統直通の新設と特急便の一部変更が掲載されている。ただし
+  「直通」と敬老パス制度上の「直行バス」を機械的に同一視して無料適用を除外しない。
+- [横浜市の敬老パス最新案内](https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html)
+  は深夜割増発生時の差額支払いを規定しているが、現在の特定市営便に割増がある
+  証明ではない。
+
+`review_attention_tiers` は**調査順位のみ**で、合格・不合格や金額の自動判定
+には使用しない。従来通り `local=5`、除外271、その他143件は未承認。
