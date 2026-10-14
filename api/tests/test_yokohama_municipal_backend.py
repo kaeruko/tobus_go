@@ -13,7 +13,8 @@ from zoneinfo import ZoneInfo
 
 from fare_policy import decorate_route_result_with_fare
 from route_engine import (
-    GeoPoint, RouteInputError, RoutePreference, RouteSearchRequest,
+    GeoPoint, RouteInputError, RoutePreference, RouteSearchLimitError,
+    RouteSearchRequest,
     serialize_route_result,
 )
 from route_fare_scope import search_with_fare_scope
@@ -138,6 +139,69 @@ class MunicipalBackendContractTests(unittest.TestCase):
         for policy in ("normal", "tokyo_welfare_pass", ""):
             with self.subTest(policy=policy), self.assertRaises(RouteInputError):
                 search_with_fare_scope(engine, _request(), policy)
+
+    def test_opt_in_provisional_spatial_transfer_keeps_walk_unverified(self):
+        engine = YokohamaMunicipalRouteBackend(
+            self.bus, self.rail, estimated_transfer_mode=True,
+        )
+        for policy in (WELFARE, SENIOR):
+            with self.subTest(policy=policy):
+                result = search_with_fare_scope(engine, _request(), policy)
+                payload = serialize_route_result(result)
+                decorate_route_result_with_fare(
+                    city_key="yokohama", result=payload, policy_id=policy,
+                )
+                self.assertEqual(len(payload["candidates"]), 1)
+                candidate = payload["candidates"][0]
+                rides = [x for x in candidate["steps"] if x["kind"] in ("bus", "rail")]
+                self.assertEqual([x["trip_id"] for x in rides],
+                                 ["yokohama_bus:BUS1", "yokohama_subway:TRAIN1"])
+                self.assertEqual(candidate["fare"]["payNowYen"], 0)
+                walks = [x for x in candidate["steps"]
+                         if x["kind"] == "walk" and x.get("distance_basis") == "straight_line_estimate"]
+                self.assertEqual(len(walks), 1)
+                self.assertFalse(walks[0]["walking_connection_verified"])
+                self.assertNotIn("evidence_url", walks[0])
+                self.assertEqual(payload["meta"]["walking_transfer_basis"],
+                                 "provisional_gtfs_proximity")
+                self.assertFalse(payload["meta"]["unverified_walking_transfers_excluded"])
+
+    def test_unreviewed_rail_never_enters_even_estimated_mode(self):
+        from dataclasses import replace
+        self.rail = replace(
+            self.rail, route_service_kinds={"yokohama_subway:BLUE": "unreviewed"},
+        )
+        self.assertEqual(self._search_with_estimates(), [])
+
+    def _search_with_estimates(self):
+        engine = YokohamaMunicipalRouteBackend(
+            self.bus, self.rail, estimated_transfer_mode=True,
+        )
+        return search_with_fare_scope(engine, _request(), WELFARE).candidates
+
+    def test_estimate_limit_and_types_fail_closed(self):
+        with self.assertRaisesRegex(ValueError, "estimated_transfer_mode"):
+            YokohamaMunicipalRouteBackend(self.bus, self.rail, estimated_transfer_mode=1)
+        for radius in (0, True, 601):
+            with self.subTest(radius=radius), self.assertRaisesRegex(ValueError, "estimated_radius_m"):
+                YokohamaMunicipalRouteBackend(
+                    self.bus, self.rail, estimated_transfer_mode=True, estimated_radius_m=radius,
+                )
+        engine = YokohamaMunicipalRouteBackend(
+            self.bus, self.rail, estimated_transfer_mode=True,
+            estimated_candidate_limit=1,
+        )
+        from dataclasses import replace
+        stops = dict(self.bus.dataset.stops)
+        b = stops["yokohama_bus:O"]
+        stops[b.id] = replace(b, lat=35.4652, lon=139.6251)
+        another_bus = replace(self.bus, dataset=replace(self.bus.dataset, stops=stops))
+        engine = YokohamaMunicipalRouteBackend(
+            another_bus, self.rail, estimated_transfer_mode=True,
+            estimated_candidate_limit=1,
+        )
+        with self.assertRaisesRegex(RouteSearchLimitError, "too many provisional"):
+            search_with_fare_scope(engine, _request(), WELFARE)
 
     def test_source_links_are_version_pinned_and_read_only(self):
         with tempfile.TemporaryDirectory() as tmp:

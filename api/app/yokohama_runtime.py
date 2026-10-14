@@ -69,6 +69,15 @@ async def setup_yokohama_on_startup(app, mode: str) -> None:
     )
     subway_dir = os.getenv("YOKOHAMA_SUBWAY_GTFS_DIR")
     links_path = os.getenv("YOKOHAMA_REVIEWED_TRANSFERS_PATH")
+    walking_mode = os.getenv("YOKOHAMA_TRANSFER_WALK_MODE", "reviewed")
+    if walking_mode not in {"reviewed", "estimate_dev"}:
+        raise RuntimeError(
+            "YOKOHAMA_TRANSFER_WALK_MODE must be 'reviewed' or 'estimate_dev'"
+        )
+    if walking_mode == "estimate_dev" and subway_dir is None:
+        raise RuntimeError(
+            "estimate_dev walking transfer mode requires YOKOHAMA_SUBWAY_GTFS_DIR"
+        )
     if subway_dir == "" or links_path == "":
         raise RuntimeError("Yokohama subway/transfer paths must not be empty when set")
     if links_path is not None and subway_dir is None:
@@ -89,6 +98,7 @@ async def setup_yokohama_on_startup(app, mode: str) -> None:
         )
         backend = YokohamaMunicipalRouteBackend(
             fare_coverage, subway_coverage, transfer_links=links,
+            estimated_transfer_mode=walking_mode == "estimate_dev",
         )
     realtime_provider = (
         create_yokohama_bus_realtime_provider()
