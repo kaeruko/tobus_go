@@ -17,6 +17,9 @@ project 'Runner', {
   'Debug-sendai' => :debug,
   'Profile-sendai' => :release,
   'Release-sendai' => :release,
+  'Debug-yokohama' => :debug,
+  'Profile-yokohama' => :release,
+  'Release-yokohama' => :release,
 }
 
 def flutter_root

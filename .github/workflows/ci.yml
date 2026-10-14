@@ -184,6 +184,28 @@ jobs:
           grep -Fq '"CFBundleDisplayName" = "仙台でGO";' "$localized_ja"
           test ! -e "$app/GoogleService-Info.plist"
 
+      - name: Build Yokohama iOS flavor
+        run: flutter build ios --simulator --debug --flavor yokohama --dart-define=APP_CITY=yokohama
+
+      - name: Verify Yokohama iOS identity and Firebase isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          app='build/ios/iphonesimulator/Runner.app'
+          test -d "$app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = 'jp.cloxs.go.yokohama'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist")" = '横浜でGO'
+          localized_en="$app/en.lproj/InfoPlist.strings"
+          localized_ja="$app/ja.lproj/InfoPlist.strings"
+          localized_zh="$app/zh-Hans.lproj/InfoPlist.strings"
+          test -f "$localized_en"
+          test -f "$localized_ja"
+          test -f "$localized_zh"
+          grep -Fq '"CFBundleDisplayName" = "Yokohama GO";' "$localized_en"
+          grep -Fq '"CFBundleDisplayName" = "横浜でGO";' "$localized_ja"
+          grep -Fq '"CFBundleDisplayName" = "横滨GO";' "$localized_zh"
+          test ! -e "$app/GoogleService-Info.plist"
+
   python:
     name: Python API tests
     runs-on: ubuntu-latest
