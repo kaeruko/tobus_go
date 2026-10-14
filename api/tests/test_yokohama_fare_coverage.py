@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+from dataclasses import replace
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -9,7 +10,7 @@ from pathlib import Path
 
 from fare_policy import YOKOHAMA_WELFARE_PASS_SOURCE, evaluate_candidate_fare
 from transit_adapters.gtfs import GtfsTransitAdapter
-from transit_dataset import FeedMetadata
+from transit_dataset import FeedMetadata, TransitStopTime, TransitTrip
 from transit_engine import TransitRouteEngine
 from yokohama_fare_coverage import YokohamaFareCoverage
 
@@ -112,6 +113,91 @@ class YokohamaFareCoverageTest(unittest.TestCase):
         )
         self.assertIsNone(quote.pay_now_yen)
         self.assertEqual(quote.status, "unavailable")
+
+    def test_v2_only_explicitly_reviewed_trip_is_routed_even_on_local_route(self):
+        trip_id = "yokohama_bus:TFAST"
+        original_trip = self.dataset.trips["yokohama_bus:T"]
+        self.dataset = replace(
+            self.dataset,
+            trips={
+                **self.dataset.trips,
+                trip_id: TransitTrip(
+                    id=trip_id, source_id="TFAST",
+                    route_id=original_trip.route_id,
+                    service_id=original_trip.service_id,
+                    headsign="Goal",
+                ),
+            },
+            stop_times=tuple(self.dataset.stop_times) + (
+                TransitStopTime(trip_id, "yokohama_bus:A", 1, 599, 599),
+                TransitStopTime(trip_id, "yokohama_bus:B", 2, 606, 606),
+            ),
+        )
+        raw = copy.deepcopy(self.raw)
+        raw["schema_version"] = 2
+        raw["reviewed_free_trips"] = {
+            "yokohama_bus:T": "https://www.city.yokohama.lg.jp/kotsu/bus/",
+        }
+        coverage = self._load(raw)
+        self.assertEqual(set(coverage.reviewed_free_trip_uris), {"yokohama_bus:T"})
+        filtered = coverage.municipal_free_coverage()
+        self.assertIsNotNone(filtered)
+        self.assertEqual(set(filtered.dataset.trips), {"yokohama_bus:T"})
+        self.assertIn(trip_id, self.dataset.trips)
+        departure = datetime(2026, 10, 14, 9, 55, tzinfo=timezone.utc)
+        baseline = TransitRouteEngine(self.dataset).search_fastest(
+            "yokohama_bus:A", "yokohama_bus:B", departure=departure,
+        )
+        selected = TransitRouteEngine(filtered.dataset).search_fastest(
+            "yokohama_bus:A", "yokohama_bus:B", departure=departure,
+        )
+        self.assertEqual(baseline.arrival_minute, 606)
+        self.assertEqual(selected.arrival_minute, 630)
+        self.assertEqual(selected.legs[0].trip_id, "yokohama_bus:T")
+        valid = {
+            "kind": "bus", "route_id": "yokohama_bus:R",
+            "trip_id": "yokohama_bus:T",
+            "departureStopId": "yokohama_bus:A",
+            "arrivalPoleId": "yokohama_bus:B",
+        }
+        valid["fare_context"] = filtered.context_for_step(valid)
+        for policy_id in ("yokohama_welfare_special_pass", "yokohama_senior_special_pass"):
+            quote = evaluate_candidate_fare(
+                city_key="yokohama", candidate={"steps": [valid]},
+                policy_id=policy_id, normal_fare_yen=None,
+            )
+            self.assertEqual(quote.pay_now_yen, 0)
+        with self.assertRaisesRegex(ValueError, "unreviewed or mismatched trip"):
+            filtered.context_for_step({**valid, "trip_id": trip_id})
+        with self.assertRaisesRegex(ValueError, "unreviewed or mismatched trip"):
+            filtered.context_for_step({key: value for key, value in valid.items() if key != "trip_id"})
+
+    def test_v2_empty_review_is_no_free_routes_not_fallback_to_v1(self):
+        raw = copy.deepcopy(self.raw)
+        raw["schema_version"] = 2
+        raw["reviewed_free_trips"] = {}
+        self.assertIsNone(self._load(raw).municipal_free_coverage())
+
+    def test_v2_rejects_unverified_trip_and_evidence(self):
+        raw = copy.deepcopy(self.raw)
+        raw["schema_version"] = 2
+        uri = "https://www.city.yokohama.lg.jp/kotsu/bus/"
+        for invalid, fragment in (
+            ({"yokohama_bus:MISSING": uri}, "unknown trip"),
+            ({"yokohama_bus:XT": uri}, "non-local route"),
+            ({"yokohama_bus:T": "http://example.org/"}, "HTTPS evidence"),
+            ({"yokohama_bus:T": "not-a-url"}, "HTTPS evidence"),
+            ({"yokohama_bus:T": " https://example.org/"}, "HTTPS evidence"),
+            ({"yokohama_bus:T": ""}, "HTTPS evidence"),
+        ):
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError, fragment):
+                self._load({**raw, "reviewed_free_trips": invalid})
+        with self.assertRaisesRegex(ValueError, "ID-to-evidence-URL"):
+            self._load({**raw, "reviewed_free_trips": ["yokohama_bus:T"]})
+        with self.assertRaisesRegex(ValueError, "fields mismatch"):
+            self._load({**self.raw, "reviewed_free_trips": {}})
+        with self.assertRaisesRegex(ValueError, "fields mismatch"):
+            self._load({**raw, "reviewed_free_trips": None})
 
     def test_route_category_is_not_defaulted_to_ordinary(self):
         raw = copy.deepcopy(self.raw)
