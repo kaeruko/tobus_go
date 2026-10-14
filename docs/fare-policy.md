@@ -805,7 +805,7 @@ stop_sequence重複などはfail-fastで止める。
 `scripts/audit_yokohama_subway_routes.py`を追加した。
 これはmanifest/ハッシュ/GTFS版/運行日を検証したうえで、
 全25`route_id`ごとの生GTFS路線名・agency_idとagency_nameの対応、
-当日有効便数・使える駅数を**read-only**で出すツール。
+当日有効便数・時刻が記録された駅数を**read-only**で出すツール。
 `distinct_source_route_names`はGTFS上の名前の組数であり、
 実際の営業路線数（ブルー・グリーンの2路線）と一致する保証はない。
 複数agencyの中でrouteのagency_idが欠落していれば判定保留、
