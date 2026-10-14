@@ -157,12 +157,23 @@ class SubwayPreflightTests(unittest.TestCase):
             "T1,,,A,2,0\n"
             "T1,10:10:00,10:10:00,B,3,1\n"
         )
-        for line, error in (
-            ("T1,,,A,2,0\n", "duplicate GTFS stop sequence"),
-            ("T1,,,NONEXISTENT,2,0\n", "unknown trip or stop"),
+        for content, error in (
+            (
+                template.replace(
+                    "T1,,,A,2,0\n",
+                    "T1,,,A,2,0\nT1,,,A,2,0\n",
+                ),
+                "duplicate GTFS stop sequence",
+            ),
+            (
+                template.replace(
+                    "T1,,,A,2,0\n", "T1,,,NONEXISTENT,2,0\n",
+                ),
+                "unknown trip or stop",
+            ),
         ):
             with self.subTest(error=error):
-                p.write_text(template.replace("T1,,,A,2,0\n", line), encoding="utf-8")
+                p.write_text(content, encoding="utf-8")
                 _refresh_manifest(self.root)
                 with self.assertRaisesRegex(ValueError, error):
                     load_yokohama_subway_dataset(
