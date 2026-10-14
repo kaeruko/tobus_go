@@ -195,12 +195,27 @@ def main() -> None:
     parser.add_argument("--coverage", required=True, type=Path)
     parser.add_argument("--manifest-service-date", required=True)
     parser.add_argument("--ride-date", required=True, action="append")
+    parser.add_argument(
+        "--full", action="store_true",
+        help="Show details for every ordinary-name route (default: compact list of IDs)",
+    )
     args = parser.parse_args()
     result = review_catalog(
         gtfs_dir=args.gtfs_dir, coverage_path=args.coverage,
         manifest_service_date=args.manifest_service_date,
         ride_dates=args.ride_date,
     )
+    if not args.full:
+        # Include every candidate ID, but avoid >100 verbose identical JSON
+        # records; do not imply automatic fare eligibility.
+        ordinary = result["groups"].pop("ordinary_name_candidate_not_approved")
+        result["ordinary_name_candidate_route_ids"] = [
+            item["route_id"] for item in ordinary
+        ]
+        result["ordinary_name_candidate_detail_hint"] = (
+            "Use --full to see every regular-looking route's metadata. "
+            "None of these are approved free-fare routes."
+        )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
