@@ -273,7 +273,44 @@ python scripts/smoke_yokohama_real_gtfs.py `
 スモークは両パスをテストし、008が採用されなかった場合や対象外系統が入った場合は失敗する。比較には**同じGTFS**を使うので、独立した公式時刻表検証や制度上の無料運賃保証ではない。
 
 
-#### 288系統の実GTFS／独立公式時刻表照合（2026-10-14）
+#### 系統レビュー台帳と共通の開発用coverage生成（#241）
+
+`scripts/yokohama_municipal_route_reviews.json` が**開発用の根拠台帳**。系統ごとにGTFS feed ID・版、系統番号、GTFS上の完全一致名称、レビュー日、公式参照URL、未完了の確認事項、審査状態を明示する。今後は系統専用スクリプトを増やさず、台帳の差分をレビューしてから共通スクリプトへ渡す。
+
+- `008` / `288`: `development_eligible`（実データテストができる段階。公開用の運賃保証ではない）。
+- `272` / `275`: `pending`（両パスの適用条件・現行運賃の個別確認が残るため、**明示指定しても有効化を拒否**）。
+- その他の系統は台帳未登録。登録だけでは対象にならず、正式な人手レビューにより `development_eligible` とし、正式feed/路線名・ソースURLを照合する必要がある。
+
+一括生成スクリプト `scripts/propose_yokohama_reviewed_coverage.py` は、現在の部分coverage v1から**台帳に明示され、開発用承認された系統だけ**を追加する。公式サイトURLの形式や日付、GTFS完全一致、既存の対象系統の分類を確認し、不一致ならfail-fast。DRY RUNが既定で、ファイルは生成しない。出力には `--output` を明示し、既存ファイルは上書きしない。
+
+**例：元の3系統版から008・288をまとめて再現（読み取り専用、出力変更なし）**
+
+```powershell
+python scripts/propose_yokohama_reviewed_coverage.py `
+  --gtfs-dir ".\api\data\yokohama\2026-09-04" `
+  --coverage ".\api\data\yokohama\2026-09-04\coverage.json" `
+  --service-date "2026-09-04" `
+  --reviewed-on "2026-10-14" `
+  --route-id 008 `
+  --route-id 288
+```
+
+**例：既存の4系統版から288だけを追加するDRY RUN**（すでに生成済みの `coverage_dev_288.json` は維持する）。
+
+```powershell
+python scripts/propose_yokohama_reviewed_coverage.py `
+  --gtfs-dir ".\api\data\yokohama\2026-09-04" `
+  --coverage ".\api\data\yokohama\2026-09-04\coverage_dev_008.json" `
+  --service-date "2026-09-04" `
+  --reviewed-on "2026-10-14" `
+  --route-id 288
+```
+
+これは**レビュー台帳による明示的な許可の管理**であり、リンク先の内容が自動検証済みであることも、全便・全区間が運賃制度上0円であることも意味しない。市営交通と各民営交通の現行規程・各乗車区間の個別例外は公開前に独立照合する。既存の `propose_yokohama_route_008_coverage.py`、`propose_yokohama_route_288_coverage.py` は互換性確保のため残す。削除・改名しない。
+
+制度の重要な違い：2025年10月以降、一部の地域型「おでかけシャトル」は**敬老パスで半額程度の自己負担が残る**。市営の272・275「ふれあいバス」と名称が似ていても同一サービスとは断定しない。横浜市公式 [敬老パス対象交通](https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html) / [地域公共交通への拡大](https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/tikikotu.html)。
+
+### 288系統の実GTFS／独立公式時刻表照合（2026-10-14）
 
 ローカルGTFS `v3.0_20260727` の2026-09-04（金）に `trip_id=yokohama_bus:28800_01202606011032AO00503` を両パスのAPI検索で確認。
 聖隷横浜病院08:22発 → 水道道08:32着、GTFSの停車順1→4、徒歩0m、福祉パス／敬老パスとも検索PASS・追加支払0円。
