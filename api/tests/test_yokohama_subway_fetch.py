@@ -109,7 +109,7 @@ class SubwayDownloadTests(unittest.TestCase):
         with httpx.Client(
             transport=httpx.MockTransport(on_request),
             follow_redirects=True,
-        ) as client, self.assertRaisesRegex(RuntimeError, "HTTP 302"):
+        ) as client, self.assertRaisesRegex(ValueError, "redirect host not approved"):
             self._fetch(client)
         self.assertEqual(seen, ["api.odpt.org"])
         self.assertFalse((self.root / "output").exists())
