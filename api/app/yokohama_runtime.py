@@ -23,6 +23,17 @@ def _realtime_mode() -> str:
 
 async def setup_yokohama_on_startup(app, mode: str) -> None:
     realtime_mode = _realtime_mode()
+    walking_mode = os.getenv("YOKOHAMA_TRANSFER_WALK_MODE", "reviewed")
+    if walking_mode not in {"reviewed", "estimate_dev"}:
+        raise RuntimeError(
+            "YOKOHAMA_TRANSFER_WALK_MODE must be 'reviewed' or 'estimate_dev'"
+        )
+    # Never allow unverified straight-line walking in a hosted release,
+    # regardless of mistaken environment configuration.
+    if walking_mode == "estimate_dev" and mode != "local":
+        raise RuntimeError(
+            "YOKOHAMA_TRANSFER_WALK_MODE=estimate_dev is only permitted in local mode"
+        )
     if getattr(app.state, "loading_status", None) == "ready" and (
         getattr(app.state, "realtime_mode", None) != realtime_mode
     ):
@@ -36,7 +47,6 @@ async def setup_yokohama_on_startup(app, mode: str) -> None:
     ):
         return
 
-    del mode
     app.state.city_key = "yokohama"
     app.state.loading_status = "starting"
     app.state.transit_dataset = None
@@ -69,11 +79,6 @@ async def setup_yokohama_on_startup(app, mode: str) -> None:
     )
     subway_dir = os.getenv("YOKOHAMA_SUBWAY_GTFS_DIR")
     links_path = os.getenv("YOKOHAMA_REVIEWED_TRANSFERS_PATH")
-    walking_mode = os.getenv("YOKOHAMA_TRANSFER_WALK_MODE", "reviewed")
-    if walking_mode not in {"reviewed", "estimate_dev"}:
-        raise RuntimeError(
-            "YOKOHAMA_TRANSFER_WALK_MODE must be 'reviewed' or 'estimate_dev'"
-        )
     if walking_mode == "estimate_dev" and subway_dir is None:
         raise RuntimeError(
             "estimate_dev walking transfer mode requires YOKOHAMA_SUBWAY_GTFS_DIR"

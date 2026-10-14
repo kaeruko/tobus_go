@@ -4,11 +4,15 @@ Synthetic feeds only. No network, GTFS downloads, Windows paths or API keys.
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from fare_policy import decorate_route_result_with_fare
@@ -202,6 +206,26 @@ class MunicipalBackendContractTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(RouteSearchLimitError, "too many provisional"):
             search_with_fare_scope(engine, _request(), WELFARE)
+
+    def test_estimate_dev_refuses_hosted_backend_mode_before_loading_feed(self):
+        from app.yokohama_runtime import setup_yokohama_on_startup
+        app = SimpleNamespace(state=SimpleNamespace())
+        with patch.dict(os.environ, {
+            "YOKOHAMA_TRANSFER_WALK_MODE": "estimate_dev",
+            "YOKOHAMA_REALTIME_MODE": "disabled",
+        }):
+            with self.assertRaisesRegex(RuntimeError, "only permitted in local"):
+                asyncio.run(setup_yokohama_on_startup(app, "lambda"))
+
+    def test_invalid_transfer_walk_mode_fails_before_loading_gtfs(self):
+        from app.yokohama_runtime import setup_yokohama_on_startup
+        app = SimpleNamespace(state=SimpleNamespace())
+        with patch.dict(os.environ, {
+            "YOKOHAMA_TRANSFER_WALK_MODE": "auto",
+            "YOKOHAMA_REALTIME_MODE": "disabled",
+        }):
+            with self.assertRaisesRegex(RuntimeError, "must be 'reviewed'"):
+                asyncio.run(setup_yokohama_on_startup(app, "local"))
 
     def test_source_links_are_version_pinned_and_read_only(self):
         with tempfile.TemporaryDirectory() as tmp:
