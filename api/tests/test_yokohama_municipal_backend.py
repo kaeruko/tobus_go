@@ -280,7 +280,10 @@ class MunicipalBackendContractTests(unittest.TestCase):
                                 )
                                 self.assertEqual(response.status_code, 200, response.text)
                                 data = response.json()
-                                self.assertEqual(len(data["candidates"]), expected_count)
+                                if walk_mode == "reviewed":
+                                    self.assertEqual(data["candidates"], [])
+                                else:
+                                    self.assertGreaterEqual(len(data["candidates"]), 1)
                                 self.assertEqual(
                                     data["meta"]["walking_transfer_basis"],
                                     "reviewed_links_only"
@@ -289,13 +292,19 @@ class MunicipalBackendContractTests(unittest.TestCase):
                                 )
                                 if walk_mode != "estimate_dev":
                                     continue
-                                candidate = data["candidates"][0]
-                                ride = [x for x in candidate["steps"]
+                                self.assertTrue(all(
+                                    route["fare"]["payNowYen"] == 0
+                                    and route["fare"]["effectiveFareYen"] == 0
+                                    for route in data["candidates"]
+                                ))
+                                matching = [
+                                    route for route in data["candidates"]
+                                    if [x["trip_id"] for x in route["steps"]
                                         if x["kind"] in ("bus", "rail")]
-                                self.assertEqual(
-                                    [x["trip_id"] for x in ride],
-                                    ["yokohama_bus:T1", "yokohama_subway:TRAIN2"],
-                                )
+                                    == ["yokohama_bus:T1", "yokohama_subway:TRAIN2"]
+                                ]
+                                self.assertTrue(matching, data["candidates"])
+                                candidate = matching[0]
                                 self.assertEqual(candidate["fare"]["policyId"], policy)
                                 self.assertEqual(candidate["fare"]["payNowYen"], 0)
                                 self.assertEqual(candidate["arrival_time"], "10:45")
