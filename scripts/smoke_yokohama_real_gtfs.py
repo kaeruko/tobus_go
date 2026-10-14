@@ -1,6 +1,6 @@
 """Offline smoke test: real Yokohama GTFS -> pass-scoped /route API.
 
-Select one deterministic operating daytime bus trip from the installed feed,
+Select a deterministic operating daytime bus trip on --route-id from the installed feed,
 then search that origin/destination with BOTH pass policies. Check returned
 rides against the same source GTFS and confirm additional payment is 0.
 
@@ -12,7 +12,7 @@ Example (from repository root):
   python scripts/smoke_yokohama_real_gtfs.py ^
     --gtfs-dir api/data/yokohama/2026-09-04 ^
     --coverage api/data/yokohama/2026-09-04/coverage.json ^
-    --manifest-service-date 2026-09-04 --ride-date 2026-09-04
+    --manifest-service-date 2026-09-04 --ride-date 2026-09-04 --route-id 200
 """
 from __future__ import annotations
 
@@ -65,20 +65,21 @@ def _stops_by_trip(dataset, trip_ids: set[str]) -> dict[str, list]:
     return result
 
 
-def choose_probe(dataset, *, ride_date: str) -> dict:
+def choose_probe(dataset, *, ride_date: str, route_id: str = "089") -> dict:
     day = date.fromisoformat(ride_date)
     if day.isoformat() != ride_date:
         raise ValueError("ride-date must be YYYY-MM-DD")
+    if route_id not in {"089", "200", "280"}:
+        raise ValueError(f"unsupported tested route: {route_id!r}")
+    target_route = f"yokohama_bus:{route_id}"
     active = dataset.active_service_ids(day)
     trips = sorted(
         (trip for trip in dataset.trips.values()
-         if trip.route_id in ELIGIBLE_ROUTES and trip.service_id in active),
-        key=lambda trip: (
-            ELIGIBLE_ROUTES.index(trip.route_id), trip.source_id,
-        ),
+         if trip.route_id == target_route and trip.service_id in active),
+        key=lambda trip: trip.source_id,
     )
     if not trips:
-        raise RuntimeError(f"no active trips for three reviewed routes on {ride_date}")
+        raise RuntimeError(f"no active trips for reviewed route {route_id} on {ride_date}")
     stop_rows = _stops_by_trip(dataset, {trip.id for trip in trips})
     for trip in trips:
         rows = stop_rows.get(trip.id, ())
@@ -107,7 +108,7 @@ def choose_probe(dataset, *, ride_date: str) -> dict:
                     "source_arrival": _clock(arrival),
                 }
     raise RuntimeError(
-        f"no suitable daytime, >1km origin/destination in reviewed routes on {ride_date}; "
+        f"no suitable daytime, >1km origin/destination on route {route_id} on {ride_date}; "
         "do not silently change dates or pass classification"
     )
 
@@ -148,8 +149,10 @@ def _verify_steps(candidate: dict, dataset, active: frozenset[str], trip_rows: d
 
 def run_smoke(
     *, gtfs_dir: Path, coverage: Path,
-    manifest_service_date: str, ride_date: str,
+    manifest_service_date: str, ride_date: str, route_id: str = "089",
 ) -> dict:
+    if route_id not in {"089", "200", "280"}:
+        raise ValueError(f"unsupported tested route: {route_id!r}")
     if not gtfs_dir.is_dir():
         raise FileNotFoundError(gtfs_dir)
     if not coverage.is_file():
@@ -184,7 +187,7 @@ def run_smoke(
             if health.json().get("realtime", {}).get("vehicle_positions") is not False:
                 raise AssertionError("realtime unexpectedly enabled")
 
-            probe = choose_probe(dataset, ride_date=ride_date)
+            probe = choose_probe(dataset, ride_date=ride_date, route_id=route_id)
             active = dataset.active_service_ids(date.fromisoformat(ride_date))
             route_trip_ids = {
                 trip.id for trip in dataset.trips.values()
@@ -226,6 +229,13 @@ def run_smoke(
                 ):
                     raise AssertionError(f"invalid pass fare quote for {policy_id}: {fare}")
                 rides = _verify_steps(selected, dataset, active, trip_rows)
+                if probe["route_id"] not in {step["route_id"] for step in rides}:
+                    raise AssertionError(
+                        f"requested route {route_id} was not actually chosen for {policy_id}; "
+                        f"returned={[step['route_id'] for step in rides]!r}. "
+                        "This may be a valid faster free route; choose a separate "
+                        "source-backed OD instead of counting it as target-route coverage."
+                    )
                 # The solver may alight at an earlier stop and walk to the
                 # requested GTFS destination. Report both clocks explicitly:
                 # comparing the chosen bus arrival to the source's *other*
@@ -289,6 +299,7 @@ def run_smoke(
         "feed_version": "v3.0_20260727",
         "manifest_service_date": manifest_service_date,
         "ride_date": ride_date,
+        "tested_route_id": route_id,
         "probe": {
             "route_id": probe["route_id"],
             "trip_id": probe["trip_id"],
@@ -313,11 +324,15 @@ def main() -> None:
     parser.add_argument("--coverage", required=True, type=Path)
     parser.add_argument("--manifest-service-date", required=True)
     parser.add_argument("--ride-date", required=True)
+    parser.add_argument(
+        "--route-id", choices=("089", "200", "280"), default="089",
+        help="Municipal bus route to check (default: 089). Other free routes remain available to search.",
+    )
     args = parser.parse_args()
     result = run_smoke(
         gtfs_dir=args.gtfs_dir, coverage=args.coverage,
         manifest_service_date=args.manifest_service_date,
-        ride_date=args.ride_date,
+        ride_date=args.ride_date, route_id=args.route_id,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
