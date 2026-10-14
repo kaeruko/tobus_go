@@ -43,6 +43,9 @@ class ReviewedWalkingTimeTests(unittest.TestCase):
     def test_common_geometry_fallback_is_unchanged_without_override(self):
         self.assertEqual(walk_edge_elapsed_minutes({"meters": 80}), 1.0)
         self.assertEqual(walk_edge_elapsed_minutes({"meters": 0}), 1 / 80)
+        self.assertEqual(walk_edge_elapsed_minutes({"meters": -2}), 1 / 80)
+        with self.assertRaisesRegex(ValueError, "nonnegative"):
+            walk_edge_elapsed_minutes({"meters": -2, "reviewed_walk_minutes": 2})
         self.assertEqual(walk_edge_elapsed_minutes(
             {"meters": 392, "reviewed_walk_minutes": 10}
         ), 10.0)

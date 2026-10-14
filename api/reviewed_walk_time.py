@@ -18,7 +18,7 @@ def validate_reviewed_walk_timing(meters: int, minutes: int) -> None:
     if type(minutes) is not int or minutes < 0:
         raise ValueError("reviewed walking minutes must be a nonnegative integer")
     if minutes < math.ceil(meters / 80):
-        raise ValueError("reviewed walking minutes shorter than the distance minimum")
+        raise ValueError("reviewed walking minutes less than the distance minimum")
 
 
 def walk_edge_elapsed_minutes(edge: Mapping[str, Any], *, speed_m_per_min: float = 80.0) -> float:
@@ -35,10 +35,15 @@ def walk_edge_elapsed_minutes(edge: Mapping[str, Any], *, speed_m_per_min: float
     meters = edge.get("meters", 0)
     if isinstance(meters, bool) or not isinstance(meters, (int, float)):
         raise ValueError("walking meters must be nonnegative and finite")
-    if not math.isfinite(meters) or meters < 0:
-        raise ValueError("walking meters must be nonnegative and finite")
+    if not math.isfinite(meters):
+        raise ValueError("walking meters must be finite")
     if "reviewed_walk_minutes" not in edge:
+        # Preserve Tokyo's legacy 1-meter fallback for 0 or negative
+        # synthetic/virtual walk edges. Only reviewed walking overrides
+        # require actual nonnegative measured distance.
         return (meters if meters > 0 else 1.0) / speed_m_per_min
+    if meters < 0:
+        raise ValueError("reviewed walking meters must be nonnegative")
     minutes = edge["reviewed_walk_minutes"]
     if type(minutes) is not int or minutes < 0:
         raise ValueError("reviewed walk minutes must be nonnegative integer")
