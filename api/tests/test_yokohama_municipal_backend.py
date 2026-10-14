@@ -314,6 +314,26 @@ class MunicipalBackendContractTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "must be 'reviewed'"):
                 asyncio.run(setup_yokohama_on_startup(app, "local"))
 
+    def test_transfer_walking_mode_cannot_change_after_startup(self):
+        from app.yokohama_runtime import setup_yokohama_on_startup
+        app = SimpleNamespace(
+            state=SimpleNamespace(
+                loading_status="ready",
+                realtime_mode="disabled",
+                transfer_walk_mode="reviewed",
+            )
+        )
+        # A warm process must refuse a mode switch, rather than reporting
+        # readiness while silently keeping a different walking policy.
+        with patch.dict(os.environ, {
+            "YOKOHAMA_TRANSFER_WALK_MODE": "estimate_dev",
+            "YOKOHAMA_REALTIME_MODE": "disabled",
+        }):
+            with self.assertRaisesRegex(RuntimeError, "walking mode changed"):
+                asyncio.run(setup_yokohama_on_startup(app, "local"))
+        self.assertEqual(app.state.loading_status, "ready")
+        self.assertEqual(app.state.transfer_walk_mode, "reviewed")
+
     def test_http_route_estimated_transfer_local_only_with_both_passes(self):
         """Exercise startup → /route → fare quote with both synthetic feeds."""
         from dataclasses import replace

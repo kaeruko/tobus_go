@@ -38,6 +38,10 @@ async def setup_yokohama_on_startup(app, mode: str) -> None:
         getattr(app.state, "realtime_mode", None) != realtime_mode
     ):
         raise RuntimeError("Yokohama realtime mode changed after initialization")
+    if getattr(app.state, "loading_status", None) == "ready" and (
+        getattr(app.state, "transfer_walk_mode", None) != walking_mode
+    ):
+        raise RuntimeError("Yokohama transfer walking mode changed after initialization")
     if (
         getattr(app.state, "loading_status", None) == "ready"
         and getattr(app.state, "transit_dataset", None) is not None
@@ -55,6 +59,7 @@ async def setup_yokohama_on_startup(app, mode: str) -> None:
     app.state.realtime_provider = None
     app.state.realtime_bus_supported = False
     app.state.realtime_mode = realtime_mode
+    app.state.transfer_walk_mode = walking_mode
 
     gtfs_dir = os.getenv("YOKOHAMA_BUS_GTFS_DIR")
     if gtfs_dir is None or gtfs_dir == "":
