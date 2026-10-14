@@ -272,6 +272,67 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                 self.assertEqual(result["arrival_at_requested_destination"], "10:13")
                 self.assertEqual(result["additional_payment_yen"], 0)
 
+    def test_v2_api_ignores_faster_same_route_unreviewed_trip_for_both_passes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            trips_path = root / "trips.txt"
+            trips_path.write_text(
+                trips_path.read_text(encoding="utf-8")
+                + "089,ALL,T89FAST,桜木町駅前,0,,\n",
+                encoding="utf-8",
+            )
+            times_path = root / "stop_times.txt"
+            times_path.write_text(
+                times_path.read_text(encoding="utf-8")
+                + "T89FAST,09:58:00,09:58:00,A,1\n"
+                + "T89FAST,10:03:00,10:03:00,B,2\n",
+                encoding="utf-8",
+            )
+            proposal, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            proposal["schema_version"] = 2
+            proposal["reviewed_free_trips"] = {
+                "yokohama_bus:T89": (
+                    "https://www.city.yokohama.lg.jp/kotsu/bus/"
+                ),
+            }
+            (root / "coverage.json").write_text(
+                json.dumps(proposal), encoding="utf-8",
+            )
+            env = _environment(root)
+            env["YOKOHAMA_REALTIME_MODE"] = "disabled"
+            with patch.dict(os.environ, env, clear=False):
+                with TestClient(create_app("local")) as client:
+                    for policy in (
+                        "yokohama_welfare_special_pass",
+                        "yokohama_senior_special_pass",
+                    ):
+                        with self.subTest(policy=policy):
+                            response = client.post(
+                                "/route", headers={"X-App-City": "yokohama"},
+                                json={
+                                    "alat": 35.4660, "alon": 139.6225,
+                                    "blat": 35.4500, "blon": 139.6300,
+                                    "pref": "shortTime", "start_time": "09:55",
+                                    "target_date_str": SERVICE_DATE,
+                                    "fare_policy_id": policy,
+                                },
+                            )
+                            self.assertEqual(response.status_code, 200, response.text)
+                            candidates = response.json()["candidates"]
+                            self.assertEqual(len(candidates), 1)
+                            ride = next(
+                                step for step in candidates[0]["steps"]
+                                if step["kind"] == "bus"
+                            )
+                            self.assertEqual(ride["route_id"], "yokohama_bus:089")
+                            self.assertEqual(ride["trip_id"], "yokohama_bus:T89")
+                            self.assertEqual(ride["departure_time"], "10:00")
+                            self.assertEqual(ride["arrival_time"], "10:15")
+                            self.assertEqual(candidates[0]["fare"]["payNowYen"], 0)
+
     def test_known_route_rename_is_not_silently_accepted(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
