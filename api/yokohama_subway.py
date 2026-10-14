@@ -223,6 +223,7 @@ def fetch_yokohama_subway_gtfs(
             response = http_client.get(
                 SOURCE_URL,
                 params={"date": "current", "acl:consumerKey": consumer_key},
+                follow_redirects=False,  # Also overrides caller-provided clients.
             )
         except httpx.RequestError:
             raise RuntimeError("subway GTFS ODPT request failed") from None

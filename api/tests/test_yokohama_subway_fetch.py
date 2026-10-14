@@ -95,6 +95,25 @@ class SubwayDownloadTests(unittest.TestCase):
         self.assertEqual(len(requests), 1)
         self.assertFalse((self.root / "output").exists())
 
+    def test_client_cannot_override_no_redirect_policy(self):
+        seen = []
+
+        def on_request(req: httpx.Request) -> httpx.Response:
+            seen.append(req.url.host)
+            if req.url.host == "api.odpt.org":
+                return httpx.Response(
+                    302, headers={"Location": "https://evil.example/capture"},
+                )
+            return httpx.Response(200, content=b"should never get here")
+
+        with httpx.Client(
+            transport=httpx.MockTransport(on_request),
+            follow_redirects=True,
+        ) as client, self.assertRaisesRegex(RuntimeError, "HTTP 302"):
+            self._fetch(client)
+        self.assertEqual(seen, ["api.odpt.org"])
+        self.assertFalse((self.root / "output").exists())
+
     def test_corrupted_zip_and_nonmatching_feed_fail_without_partial_output(self):
         client, _ = _client(b"not zip data")
         with client, self.assertRaisesRegex(ValueError, "invalid ZIP archive"):
