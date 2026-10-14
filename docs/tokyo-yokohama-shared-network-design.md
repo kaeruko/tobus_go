@@ -178,3 +178,14 @@ dataset = yokohama.load()  # または tokyo.load()
 - `api/tests/test_transit_feed_sources.py`が、GTFSとODPTの合成データで同一の`load()`、同じ出発→到着の具体便、既存変換結果との一致、ID非衝突、欠損データfail-closedを確認する。
 - **非対応範囲**: 複数フィードを一つの歩行ネットワークに結ぶこと、東京の現在のODPT/GTFS混合Lambdaグラフからの実データ移行、リアルタイム、乗換歩行の自動承認、利用できる無料乗車券の判定、production runtimeへの配線。変換ラッパー追加だけで横浜⇄東京の実経路が自動統合されるわけではない。
 - 東京・横浜の本番経路を維持したまま、移行用の共通入力インターフェースを準備する小さな一歩として位置付ける。
+
+## 9. 本番未接続の共通探索実験（2026-10-14）
+
+`api/transit_network_experiment.py`は前節の`TransitFeedSource.load()`からGTFS/ODPT`TransitDataset`を受け取り、複数feedの停留所・予定便・**版拘束された方向別の審査済み徒歩リンク**だけを探索する小規模Python試作。東京/横浜ランタイムからは呼び出さず、公開候補の生成/無料表示には接続しない。
+
+- `ExperimentalMultiFeedSearch.from_sources(sources, allowed_trip_ids=..., walking_links=...)`。**便の許可リストは呼び出し側が事前に審査して明示**し、これが空なら自動で全便を許可しない。これ自体は運賃の認定器ではない。
+- `PinnedWalkLink`は既存`ReviewedWalkingLink`、出発・到着feedのversionを保持。版不一致、未知ストップ、重複方向、未審査リンクは探索前に拒否し、逆方向を増やさない。GTFS座標から徒歩辺を自動生成しない。
+- 同じ時刻表上で`ride → walk → ride → walk → ride`を探索できる。乗車は同一`trip_id`の時刻・順序に従い、徒歩後の出発に間に合う便だけを選ぶ。
+- **意図的な未対応**: 東京の独立`cost`快適さ優先、top-K複数候補、リアルタイム遅延、歩行距離上限、バリアフリー、翌サービス日への継続、全面的な東京既存探索の状態支配・性能最適化。許容値は`fastest`/`fewest_transfers`のみ。東京の本番エンジンの代替として扱わない。
+- `api/tests/test_transit_network_experiment.py`は**合成のGTFSバス＋ODPT鉄道**で、途中徒歩2回、乗換に間に合わない早い電車の排除、複数目的、逆方向禁止、古いfeed版、未許可便、日曜非運行、探索上限を確認。テスト用「公式URL」は架空であり、実際の審査記録ではない。
+- Python/Rustの既存`SearchCore`契約は**変更せず**、検証を続ける。実データを使うshadow比較・v2本番導入は後続フェーズ。
