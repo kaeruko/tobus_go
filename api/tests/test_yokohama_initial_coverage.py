@@ -132,14 +132,14 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
             stops_path = root / "stops.txt"
             stops_path.write_text(
                 stops_path.read_text(encoding="utf-8")
-                + "C,一本松手前,35.4500,139.6289\\n",
+                + "C,一本松手前,35.4500,139.6289\n",
                 encoding="utf-8",
             )
             times_path = root / "stop_times.txt"
             times_path.write_text(
                 times_path.read_text(encoding="utf-8").replace(
                     "T89,10:15:00,10:15:00,B,2",
-                    "T89,10:11:00,10:11:00,C,2\\n"
+                    "T89,10:11:00,10:11:00,C,2\n"
                     "T89,10:15:00,10:15:00,B,3",
                 ),
                 encoding="utf-8",
