@@ -129,10 +129,17 @@ def load_yokohama_subway_dataset(
     if not any(row["agency_timezone"] == "Asia/Tokyo" for row in agency):
         raise ValueError("subway agency timezone mismatch")
 
-    dataset = GtfsTransitAdapter.load(root, metadata=FeedMetadata(
-        feed_id=FEED_ID, source_type="gtfs", source_uri=SOURCE_URL,
-        version=VERSION, fetched_at=fetched_at,
-    ))
+    dataset = GtfsTransitAdapter.load(
+        root,
+        metadata=FeedMetadata(
+            feed_id=FEED_ID, source_type="gtfs", source_uri=SOURCE_URL,
+            version=VERSION, fetched_at=fetched_at,
+        ),
+        # GTFS allows intermediate timepoint=0 stops without schedule times.
+        # Do not invent those times: omit those boarding/alighting points.
+        # All other cities retain the adapter's strict default.
+        skip_untimed_intermediate_stops=True,
+    )
     if any(route.mode is not TransitMode.RAIL for route in dataset.routes.values()):
         raise ValueError("subway contains non-rail route")
     if any(

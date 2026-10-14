@@ -60,7 +60,18 @@ def _route_mode(route_type_raw: str) -> TransitMode:
 
 class GtfsTransitAdapter:
     @staticmethod
-    def load(directory: str | Path, *, metadata: FeedMetadata) -> TransitDataset:
+    def load(
+        directory: str | Path, *, metadata: FeedMetadata,
+        skip_untimed_intermediate_stops: bool = False,
+    ) -> TransitDataset:
+        """Load GTFS, optionally omitting verified untimed non-timepoints.
+
+        Strict by default for all existing cities. When opted in, an intermediate
+        row with *both* times absent may be omitted ONLY if timepoint=0. This
+        intentionally disables boarding/alighting at that stop for this trip;
+        no time is estimated or invented. Every trip must still have timed
+        first/last stops, and every stop/sequence is checked before omission.
+        """
         root = Path(directory)
         if not root.is_dir():
             raise FileNotFoundError(root)
@@ -137,8 +148,43 @@ class GtfsTransitAdapter:
                 direction_id=(row.get("direction_id") or None),
             )
 
+        rows = _read_rows(root / "stop_times.txt")
+        boundaries: dict[str, tuple[int, int]] = {}
+        seen_all_sequences: set[tuple[str, int]] = set()
+        if skip_untimed_intermediate_stops:
+            for row in rows:
+                trip_id = namespace_id(
+                    feed_id, _required(row, "trip_id", file_name="stop_times.txt"),
+                )
+                stop_id = namespace_id(
+                    feed_id, _required(row, "stop_id", file_name="stop_times.txt"),
+                )
+                try:
+                    sequence = int(
+                        _required(row, "stop_sequence", file_name="stop_times.txt")
+                    )
+                except ValueError as exc:
+                    raise ValueError(
+                        f"invalid stop_sequence for trip {trip_id}"
+                    ) from exc
+                if trip_id not in trips or stop_id not in stops:
+                    raise ValueError(
+                        "untimed GTFS validation found unknown trip or stop ID"
+                    )
+                key = (trip_id, sequence)
+                if key in seen_all_sequences:
+                    raise ValueError(f"duplicate GTFS stop sequence: {key}")
+                seen_all_sequences.add(key)
+                if trip_id in boundaries:
+                    first, last = boundaries[trip_id]
+                    boundaries[trip_id] = min(first, sequence), max(last, sequence)
+                else:
+                    boundaries[trip_id] = (sequence, sequence)
+
         stop_times: list[TransitStopTime] = []
-        for row in _read_rows(root / "stop_times.txt"):
+        kept_per_trip: dict[str, int] = {}
+        omitted_trip_ids: set[str] = set()
+        for row in rows:
             trip_id = namespace_id(
                 feed_id,
                 _required(row, "trip_id", file_name="stop_times.txt"),
@@ -157,6 +203,21 @@ class GtfsTransitAdapter:
             departure_raw = row.get("departure_time") or ""
             arrival = service_time_to_minute(arrival_raw) if arrival_raw else None
             departure = service_time_to_minute(departure_raw) if departure_raw else None
+            if arrival is None and departure is None and skip_untimed_intermediate_stops:
+                first, last = boundaries[trip_id]
+                if sequence in (first, last):
+                    raise ValueError(
+                        "GTFS first/last stop missing arrival and departure time"
+                    )
+                if row.get("timepoint") != "0":
+                    raise ValueError(
+                        "GTFS untimed intermediate stop requires explicit timepoint=0"
+                    )
+                # The stop still exists in the source feed, but without a
+                # reliable time it cannot be a boarding/alighting candidate.
+                omitted_trip_ids.add(trip_id)
+                continue
+            kept_per_trip[trip_id] = kept_per_trip.get(trip_id, 0) + 1
             stop_times.append(
                 TransitStopTime(
                     trip_id=trip_id,
@@ -166,6 +227,13 @@ class GtfsTransitAdapter:
                     departure_minute=departure,
                 )
             )
+
+        if skip_untimed_intermediate_stops and any(
+            kept_per_trip.get(trip_id, 0) < 2 for trip_id in omitted_trip_ids
+        ):
+            raise ValueError("GTFS trip has fewer than two timed stops")
+        if skip_untimed_intermediate_stops and set(trips) != set(kept_per_trip):
+            raise ValueError("GTFS trip has no timed stops")
 
         calendars: dict[str, ServiceCalendar] = {}
         calendar_path = root / "calendar.txt"

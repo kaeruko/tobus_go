@@ -74,6 +74,101 @@ class SubwayPreflightTests(unittest.TestCase):
         )
         self.assertEqual(before, {p.name: p.read_bytes() for p in self.root.iterdir()})
 
+    def test_untimed_mid_trip_non_timepoint_is_not_interpolated(self):
+        from transit_adapters.gtfs import GtfsTransitAdapter
+        from transit_dataset import FeedMetadata
+        from datetime import datetime, timezone
+
+        stops = self.root / "stops.txt"
+        stops.write_text(
+            stops.read_text(encoding="utf-8")
+            + "X,未時刻中間駅,35.4600,139.6260\n",
+            encoding="utf-8",
+        )
+        times = self.root / "stop_times.txt"
+        times.write_text(
+            "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint\n"
+            "T1,09:55:00,09:55:00,A,1,1\n"
+            "T1,,,X,2,0\n"
+            "T1,10:10:00,10:10:00,B,3,1\n",
+            encoding="utf-8",
+        )
+        _refresh_manifest(self.root)
+        dataset = load_yokohama_subway_dataset(
+            self.root, expected_service_date=DAY,
+        )
+        self.assertEqual(
+            [(row.stop_id, row.sequence) for row in dataset.stop_times],
+            [("yokohama_subway:A", 1), ("yokohama_subway:B", 3)],
+        )
+        self.assertIn("yokohama_subway:X", dataset.stops)
+        with self.assertRaisesRegex(ValueError, "stop time requires arrival"):
+            GtfsTransitAdapter.load(self.root, metadata=FeedMetadata(
+                feed_id="strict-test",
+                source_type="gtfs",
+                source_uri="https://example.org/feed",
+                version="unit",
+                fetched_at=datetime(2026, 10, 14, tzinfo=timezone.utc),
+            ))
+
+    def test_untimed_mid_trip_without_explicit_timepoint_zero_fails_closed(self):
+        p = self.root / "stop_times.txt"
+        p.write_text(
+            "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint\n"
+            "T1,09:55:00,09:55:00,A,1,1\n"
+            "T1,,,A,2,\n"
+            "T1,10:10:00,10:10:00,B,3,1\n",
+            encoding="utf-8",
+        )
+        _refresh_manifest(self.root)
+        with self.assertRaisesRegex(ValueError, "explicit timepoint=0"):
+            load_yokohama_subway_dataset(
+                self.root, expected_service_date=DAY,
+            )
+
+    def test_untimed_first_last_stop_is_rejected(self):
+        for blank_seq in (1, 3):
+            with self.subTest(blank_seq=blank_seq):
+                times = self.root / "stop_times.txt"
+                times.write_text(
+                    "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint\n"
+                    + (
+                        "T1,,,A,1,0\n"
+                        if blank_seq == 1 else "T1,09:55:00,09:55:00,A,1,1\n"
+                    )
+                    + "T1,10:00:00,10:00:00,B,2,1\n"
+                    + (
+                        "T1,,,B,3,0\n"
+                        if blank_seq == 3 else "T1,10:10:00,10:10:00,B,3,1\n"
+                    ),
+                    encoding="utf-8",
+                )
+                _refresh_manifest(self.root)
+                with self.assertRaisesRegex(ValueError, "first/last stop"):
+                    load_yokohama_subway_dataset(
+                        self.root, expected_service_date=DAY,
+                    )
+
+    def test_untimed_duplicate_sequence_and_unknown_stop_rejected(self):
+        p = self.root / "stop_times.txt"
+        template = (
+            "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint\n"
+            "T1,09:55:00,09:55:00,A,1,1\n"
+            "T1,,,A,2,0\n"
+            "T1,10:10:00,10:10:00,B,3,1\n"
+        )
+        for line, error in (
+            ("T1,,,A,2,0\n", "duplicate GTFS stop sequence"),
+            ("T1,,,NONEXISTENT,2,0\n", "unknown trip or stop"),
+        ):
+            with self.subTest(error=error):
+                p.write_text(template.replace("T1,,,A,2,0\n", line), encoding="utf-8")
+                _refresh_manifest(self.root)
+                with self.assertRaisesRegex(ValueError, error):
+                    load_yokohama_subway_dataset(
+                        self.root, expected_service_date=DAY,
+                    )
+
     def test_tampered_content_is_rejected(self):
         with (self.root / "trips.txt").open("a", encoding="utf-8") as handle:
             handle.write("BLUE,ALL,T2,横浜\n")

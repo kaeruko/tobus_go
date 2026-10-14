@@ -639,6 +639,32 @@ python scripts/fetch_yokohama_subway_gtfs.py `
 [ODPT公式カタログ](https://ckan.odpt.org/dataset/yokohama_municipal_train)で
 基本ライセンス／特定利用条件を先に確認する。
 
+### 地下鉄GTFSの空白stop_times対応（2026-10-14）
+
+実機でAzureからのZIP取得・ZIP展開・ローカルGTFSのSHA-256照合が進み、
+`GtfsTransitAdapter.load`の`stop_time requires arrival or departure`で停止。
+GTFS仕様では`timepoint=0`の中間停車駅の時刻が省略できる。
+`api/transit_adapters/gtfs.py`に**既定off**の
+`skip_untimed_intermediate_stops`を追加し、横浜地下鉄loaderだけonにした。
+
+このモードは**最初・最後の駅**では時刻空欄を拒否し、
+中間駅でも`timepoint=0`が明示されている場合に限り
+到着・出発ともに空欄のレコードを**検索可能なstop_timesから除外**。
+時刻の線形補間などの推測は一切しない。除外した駅では**乗降経路を返さず**、
+時刻がある前後の駅間の列車乗車だけを検索できる。ソースファイル自体は
+一切変更しない。未時刻の中間駅が存在する場合、停車駅表示も部分的になる。
+
+`timepoint`が省略されている空欄行、時刻がない始発/終着、
+時刻付き駅が2点未満になる便、stop_id/trip_idの不整合、
+stop_sequence重複などはfail-fastで止める。
+他都市のGTFS adapterのstrict動作は変更しない。
+
+**重要：** この対応で実ファイルが正常に読み込めたかどうかは
+ユーザー手元での再実行まで未確認。GTFSのtimepoint情報が
+そもそも無い場合は自動で規則を緩めず、データの実態を調べる。
+
+[GTFS Schedule Reference / stop_times.txt](https://gtfs.org/documentation/schedule/reference/)
+
 ### 市営交通の乗換候補トリアージ（2026-10-14）
 
 `scripts/audit_yokohama_transfer_candidates.py` を追加。**read-onlyの調査専用**であり、
