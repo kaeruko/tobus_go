@@ -550,6 +550,35 @@ python scripts/verify_yokohama_pass_routes.py `
 以下の系統別レビュー台帳・トリアージは**過去の調査資料・例外探索ツール**として保持する。
 当面、149系統を1本ずつ審査し続ける作業を再開しない。
 
+
+### 横浜市営地下鉄GTFSの事前検証（2026-10-14）
+
+[ODPTの横浜市営地下鉄カタログ](https://ckan.odpt.org/dataset/yokohama_municipal_train)には
+2025-12-26版の静的GTFS（有効期間2025-12-26〜2026-12-31）が公開されている。
+[リソースUUID](https://ckan.odpt.org/dataset/yokohama_municipal_train/resource/27ed8a34-c89f-4c5c-98af-5950f04183e2)
+は `27ed8a34-c89f-4c5c-98af-5950f04183e2`、feed_version は `20251226`。
+**ODPT開発者登録／APIキー、基本ライセンスおよび特定利用条件の確認は依然必要**。
+データはまだこのリポジトリに取り込んでいない。実データとの照合も未実施。
+
+`api/yokohama_subway.py` に読み取り専用
+`load_yokohama_subway_dataset(directory, expected_service_date=...)` を実装。
+利用者端末や横浜runtimeへの自動接続は**まだない**。
+
+- 別途用意する `yokohama_subway_gtfs_manifest.json` に
+  配布元URL、資源UUID、バージョン、タイムゾーン付き取得日時、
+  運行日、版の有効期間、GTFSの各 `*.txt` ファイルのSHA-256を記録する。
+- 解凍済みGTFSの実バイトがSHA-256と一致し、`feed_info.txt` の版、
+  `agency.txt` のAsia/Tokyo、予定運行日に稼働する便、全routesの
+  railモード、有限な停留所座標を満たした場合のみ
+  `yokohama_subway:*` namespaceの `TransitDataset` を返す。
+- 不一致・欠落・当日の便ゼロは**fail-fast**。ファイル書込みなし。
+  合成GTFSに対する回帰テストを `api/tests/test_yokohama_subway.py` に追加。
+- manifestの自己申告URLとローカルハッシュ一致は**配布元の真正性・利用許諾の証明にはならない**。
+  また公式のGTFS route IDをブルー／グリーンの2個とは仮定しない。
+- 次は、正規取得した実GTFSと個別ライセンスを確認した後、
+  市営地下鉄の完全なroute-coverageのレビュー、横浜市営バスとの
+  複数feed乗換検索を実装・テストする。**現時点では地下鉄を検索対応済みと表示しない**。
+
 ### 市営149系統のレビュー台帳照合（#241）
 
 既存のカタログ棚卸しを、単一の
