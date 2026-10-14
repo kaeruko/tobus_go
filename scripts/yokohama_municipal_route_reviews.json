@@ -4,6 +4,25 @@
   "feed_version": "v3.0_20260727",
   "purpose": "Development-only explicit fare-review decisions. Never sufficient for production fare certification.",
   "routes": {
+    "109": {
+      "status": "pending",
+      "short_name": "109系統",
+      "long_name": "",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/fukushi/annai/gaishutsu/kotsu/fukushi-jyosyaken/ticket.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001601428&date=2026-09-01&orvCode=00091228&stopNo=1",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001601160&date=2026-06-25&orvCode=00091228&stopNo=1",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001601460&date=2026-09-08&orvCode=00091228&stopNo=1",
+        "https://www.city.yokohama.lg.jp/kotsu/bus/unchin/bus_teiki.html"
+      ],
+      "remaining_checks": [
+        "The city's 2026 timetables identify express (急行), limited-express (特急), and through (直通) variants under the same 109 route; the pinned GTFS has no populated trip fare/class annotation for 109. Confirm a verifiable mapping of each scheduled trip to its actual operating variant, otherwise keep the ENTIRE route unavailable for free-pass search.",
+        "Verify independently with Yokohama City Transport Bureau and the welfare/senior pass departments whether EACH 109 variant is valid for EACH pass at zero additional payment, including any expressway use or direct-service exception. A timetable and ordinary 220-yen fare do not establish pass validity.",
+        "The 2026-09-27-terminated environmental commuter-ticket program excluded 109 limited-express, but explicitly did not cover welfare/senior passes; NEVER treat that exclusion as welfare/senior pass evidence. Through (直通) is not automatically the senior-pass category Direct (直行)."
+      ]
+    },
     "123": {
       "status": "pending",
       "short_name": "",

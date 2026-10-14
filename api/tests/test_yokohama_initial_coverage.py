@@ -78,6 +78,9 @@ def _add_pending_special_routes(root: Path) -> None:
     with (root / "routes.txt").open("a", encoding="utf-8") as stream:
         for number, title in _PENDING_SPECIAL_NAMES.items():
             stream.write(f"{number},,{title},3\n")
+        # Unlike the special-name routes, 109 has an ordinary-looking
+        # GTFS name yet multiple official 2026 operational variants.
+        stream.write("109,109系統,,3\n")
 
 
 class YokohamaPartialCoverageTest(unittest.TestCase):
@@ -837,7 +840,7 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                 "008", "089", "200", "280", "288",
             ])
             self.assertEqual(report["route_counts"], {
-                "local": 5, "sightseeing": 1, "unreviewed": 13,
+                "local": 5, "sightseeing": 1, "unreviewed": 14,
             })
             self.assertEqual(five["routes"]["yokohama_bus:271"], "sightseeing")
             self.assertEqual(five["routes"]["yokohama_bus:272"], "unreviewed")
@@ -849,6 +852,8 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                 propose_reviewed(**args, route_ids=("272",))
             with self.assertRaisesRegex(ValueError, "pending official fare review"):
                 propose_reviewed(**args, route_ids=("275",))
+            with self.assertRaisesRegex(ValueError, "pending official fare review"):
+                propose_reviewed(**args, route_ids=("109",))
             for route_id in _PENDING_SPECIAL_NAMES:
                 with self.subTest(route_id=route_id), self.assertRaisesRegex(
                     ValueError, "pending official fare review"
@@ -1039,14 +1044,25 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
             report = review_catalog(
                 gtfs_dir=root, coverage_path=coverage_path,
                 manifest_service_date=SERVICE_DATE, ride_dates=[SERVICE_DATE],
-                include_registry=True,
+                include_registry=True, ordinary_triage=True,
             )
             self.assertEqual(before, {path.name: path.read_bytes() for path in root.iterdir()})
             review = report["review_registry"]
-            self.assertEqual(report["route_count"], 19)
-            self.assertEqual(review["registered_route_count"], 15)
+            self.assertEqual(report["route_count"], 20)
+            self.assertEqual(review["registered_route_count"], 16)
             self.assertEqual(review["pending_route_ids"],
-                             sorted(["272", "275", *_PENDING_SPECIAL_NAMES]))
+                             sorted(["109", "272", "275", *_PENDING_SPECIAL_NAMES]))
+            self.assertEqual(
+                report["ordinary_review_triage"]["review_attention_tiers"][
+                    "service_or_text_lead_route_ids"
+                ], ["109"],
+            )
+            ordinary_109 = next(
+                item for item in report["groups"]["ordinary_name_candidate_not_approved"]
+                if item["route_id"] == "109"
+            )
+            self.assertEqual(ordinary_109["current_coverage_kind"], "unreviewed")
+            self.assertEqual(ordinary_109["registry_status"], "pending")
             self.assertEqual(review["unregistered_review_queue_count"], 0)
             self.assertEqual(
                 review["unregistered_route_ids_by_queue"][

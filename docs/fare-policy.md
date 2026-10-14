@@ -625,3 +625,33 @@ python scripts/review_yokohama_bus_route_catalog.py `
 
 `review_attention_tiers` は**調査順位のみ**で、合格・不合格や金額の自動判定
 には使用しない。従来通り `local=5`、除外271、その他143件は未承認。
+
+### 109系統の便種別混在・無料判定保留（2026-10-14）
+
+市交通局の2026年時刻表では、同じ109系統に`急行`・`特急`・`直通`が混在。
+2026年3月28日の改正では、`直通`便を新設し、`特急`の一部を移行した。
+ただしGTFS `v3.0_20260727` の109系統は通常名称 `109系統` で、
+`jp_trip_desc`・`jp_trip_desc_symbol`・行先表示の文面からは
+便種別の独立認証に必要な区別を取得できていない（2026-10-14実データトリアージ）。
+
+109を共通台帳の**`pending`**として登録する。全路線を
+`development_eligible` にすることは禁止し、既存coverageの109は
+`unreviewed` を保持する。109の単純な路線単位の許可は、実際の便種別が異なる
+ため不適切。両パスについて便単位で制度適用と追加支払0円の公式根拠、
+GTFS便IDと時刻表の対応が得られるまで検索対象に加えない。
+
+- [109系統・急行の公式時刻表](https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001601428&date=2026-09-01&orvCode=00091228&stopNo=1)
+- [109系統・特急の公式時刻表](https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001601160&date=2026-06-25&orvCode=00091228&stopNo=1)
+- [109系統・直通の公式時刻表](https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001601460&date=2026-09-08&orvCode=00091228&stopNo=1)
+- [敬老特別乗車証の制度・対象外種別](https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html)
+- [福祉特別乗車券の制度](https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/fukushi/annai/gaishutsu/kotsu/fukushi-jyosyaken/ticket.html)
+
+2026-09-27に終了した環境定期券の109特急対象外規則は**別制度**。
+敬老／福祉パスの対象外を示す証拠として流用しない。
+`直通`と`直行バス`を同一視せず、`高速道路を経由`だけで
+`高速バス`と分類しない。2026年の公式時刻表が運行種別を示しても
+個別乗車時の特別乗車証の有効性を証明するものではない。
+
+この追記で台帳は16件（開発用2、pending14）となる。
+既存の検索対象5系統、除外271、未審査143の分類は不変。
+**本変更後の実GTFS名称照合は未実行**のため、成功とは書かない。
