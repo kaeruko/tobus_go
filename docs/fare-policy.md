@@ -228,6 +228,30 @@ python scripts/build_yokohama_initial_pass_coverage.py --gtfs-dir ".\api\data\yo
 このcoverageによる検索結果は**社内/開発用の検証に限定**し、公開用の無料経路保証には使わない。
 敬老パスの深夜割増、特殊便の可否は追加の公式資料との突合・運行事業者への照会等が必要。
 
+### 市営深夜バス廃止の公式根拠と008系統の開発用追加候補（2026-10-14）
+
+横浜市交通局は2024年4月1日のダイヤ改正で**市営深夜バスを廃止**したと公式回答している。2024年3月の市会資料でも、コロナ禍以降休止していた深夜バスの廃止を明記。2026年には廃止された78系統の深夜バス再開を求める要望が掲載されている。これは市営交通局の資料であり、**民営バス等の深夜割増を否定する証拠ではない**。
+
+- 公式回答：https://cgi.city.yokohama.lg.jp/shimin/kouchou/search/data/36003485.html
+- 2024年ダイヤ改正資料：https://www.city.yokohama.lg.jp/shikai/kiroku/katsudo/r5/JohninSuikouR05.files/J-SK-20240315-kt-3.pdf
+- 008系統（横浜駅前・本牧車庫前）の公式時刻表：https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001600980&date=2026-10-09&orvCode=00091228&stopNo=1
+- 福祉パス：https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html
+- 敬老パス：https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html
+
+008系統は実GTFSで全service合計500便、2026-09-04（金）に130便、23時以降の停車時刻を持つ4便（出発時刻22:21／22:21／22:52／23:15）。**「23時以降に走るから深夜割増」とは扱わない**。ただし民営バス混在、特殊系統、2024年以降の運行復活などの確認を省略してよいわけではない。
+
+`scripts/propose_yokohama_route_008_coverage.py` は **008のみ** `unreviewed` → `local` にする開発用案を作る。既存の089／200／280は維持、271「あかいくつ」は除外、残り144系統を未確認のまま保持する。GTFSと既存coverageのfeed identity、全路線、route名、現行分類を検証し、異なる場合は停止する。**現行coverage v1を読み取るだけで、標準動作では一切ファイルを作らない**。
+
+```powershell
+python scripts/propose_yokohama_route_008_coverage.py `
+  --gtfs-dir ".\api\data\yokohama\2026-09-04" `
+  --coverage ".\api\data\yokohama\2026-09-04\coverage.json" `
+  --service-date "2026-09-04" `
+  --reviewed-on "2026-10-14"
+```
+
+実際に**別名ファイルを新規作成**する場合のみ `--output` を付ける。既存coverageの上書きは禁止。開発用の4系統案は**公表可能な運賃保証ではない**。対象の特殊便や現行運行の最終確認、独立時刻表との照合は継続する。
+
 ### 横浜市営バス・一般系統の運行便レビュー一覧（読み取り専用）
 
 ローカル実GTFSの一般系統を1つずつ調査する。最初の例は008系統。
