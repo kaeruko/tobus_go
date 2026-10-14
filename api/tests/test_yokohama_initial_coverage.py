@@ -333,6 +333,55 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                             self.assertEqual(ride["arrival_time"], "10:15")
                             self.assertEqual(candidates[0]["fare"]["payNowYen"], 0)
 
+    def test_real_feed_inspector_is_read_only_and_does_not_approve_trips(self):
+        from inspect_yokohama_trip_evidence import inspect_route
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            proposal, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            coverage_path = root / "coverage.json"
+            coverage_path.write_text(json.dumps(proposal), encoding="utf-8")
+            original = {p.name: p.read_bytes() for p in root.iterdir()}
+            result = inspect_route(
+                gtfs_dir=root, coverage_path=coverage_path,
+                manifest_service_date=SERVICE_DATE,
+                ride_date=SERVICE_DATE, route_id="008",
+            )
+            self.assertEqual(
+                {p.name: p.read_bytes() for p in root.iterdir()}, original
+            )
+            self.assertEqual(result["route_review_classification"], "unreviewed")
+            self.assertEqual(result["coverage_schema"], 1)
+            self.assertEqual(result["scheduled_trips_on_day"], 1)
+            self.assertEqual(result["late_clock_review_flags_on_day"], 0)
+            sample = result["daytime_and_other_nonflagged_samples"][0]
+            self.assertEqual(sample["trip_id"], "yokohama_bus:T8")
+            self.assertEqual(sample["from_stop"], "横浜駅前")
+            self.assertEqual(sample["departure"], "09:57")
+            self.assertFalse(sample["v2_explicitly_reviewed"])
+            self.assertEqual(result["late_clock_samples"], [])
+            with self.assertRaisesRegex(ValueError, "unknown route"):
+                inspect_route(
+                    gtfs_dir=root, coverage_path=coverage_path,
+                    manifest_service_date=SERVICE_DATE,
+                    ride_date=SERVICE_DATE, route_id="999",
+                )
+            with self.assertRaisesRegex(ValueError, "ASCII digits"):
+                inspect_route(
+                    gtfs_dir=root, coverage_path=coverage_path,
+                    manifest_service_date=SERVICE_DATE,
+                    ride_date=SERVICE_DATE, route_id="8",
+                )
+            with self.assertRaisesRegex(ValueError, "limit"):
+                inspect_route(
+                    gtfs_dir=root, coverage_path=coverage_path,
+                    manifest_service_date=SERVICE_DATE,
+                    ride_date=SERVICE_DATE, route_id="008", limit=0,
+                )
+
     def test_known_route_rename_is_not_silently_accepted(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
