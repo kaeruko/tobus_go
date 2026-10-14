@@ -61,3 +61,35 @@ ODPT catalog lists the 20251226 subway edition as valid through 2026-12-31;
 the source is registration-based and subject to the Basic License and
 Specific Terms of Use:
 https://ckan.odpt.org/dataset/yokohama_municipal_train
+
+
+### Before approving any walking link
+
+The existing read-only triage command extracts candidate feed stop IDs without
+creating a public transfer link. Run only against installed, licensed GTFS:
+
+```text
+python scripts/audit_yokohama_transfer_candidates.py
+  --bus-gtfs-dir <existing-bus-gtfs-dir>
+  --bus-coverage <existing-reviewed-bus-coverage.json>
+  --subway-gtfs-dir <existing-subway-gtfs-dir>
+  --service-date YYYY-MM-DD
+  --radius-m 300 --limit 40
+  --include-bus-pole-fields
+```
+
+Its report is a **candidate shortlist**. Source GTFS `platform_code`,
+`stop_code` and stop names must not be reinterpreted as a verified official
+bay number. Human review must associate the exact bus pole and subway entrance
+with the operator map, record feasible pedestrian geometry/estimated time and
+any accessibility limits, and pin both feed versions. Only after that review
+may a link be written to a local `YOKOHAMA_REVIEWED_TRANSFERS_PATH` file.
+
+The ODPT Public Transportation Open Data Basic License (Article 8) generally
+prohibits redistribution of reusable copies of the original feed or reversible
+derivative GTFS data, absent permission or applicable specific exceptions.
+Do **not** commit the raw GTFS, manifest containing licensed data extracts,
+or large GTFS-derived dumps to public GitHub merely to run this check.
+Run it on an authorized local installation and share only the small diagnostic
+summary consistent with the license. Check applicable Specific Terms of Use.
+Official license: https://developer.odpt.org/terms/data_basic_license.html
