@@ -912,6 +912,41 @@ python scripts/audit_yokohama_transfer_candidates.py `
 ライセンス条件を満たすまでは地下鉄を公開済みと扱わない。
 `ODPT_API_TOKEN` や取得した保護対象データをGitへコミットしない。
 
+### 東京の既存検索を横浜で再利用するための実装境界（2026-10-14）
+
+既存コードを調査した結果、`api/toei_engine.py`の
+`connect_walk_edges_phys`は**座標から300m半径以内の
+物理ノード同士に徒歩エッジを設定**する方式。
+東京では「同名の停留所の何番のりばかを公式図で1件ずつ登録」
+してから接続する方式ではない。
+同名の停留所はGTFS/ODPTの個々の**stop ID/trip**で区別する。
+したがって横浜だけ、公式駅の周辺停留所一覧に掲載があることや、
+バスの公式のりば番号を手作業で全件登録することを
+一般的な検索実装の前提に**しない**。
+
+横浜側の`api/gtfs_route_backend.py`は既存の
+`TransitRouteEngine`/`SearchCore`を利用するが、これまでは
+**BUS専用のassertと`kind="bus"`固定**が残り、
+validな地下鉄のRail datasetを単独でも受け付けなかった。
+今回、共通GTFSバックエンドで`TransitMode.RAIL`も受け付け、
+実際の便の`route.mode`で`kind="rail"`を出すようにした。
+`bus_only=True`かつrail入りdatasetは**railを返さず、
+未対応の混合モードフィルタだと明示して拒否**する。
+バス専用datasetは従来通り。同名の逆向き停留所が
+**別stop ID、別trip**で正しく選ばれることもテストする。
+
+**この段階の成果は単一GTFS feedの鉄道単独検索が共通バックエンドで可能に
+なったこと**であり、複数feedを一つの`TransitDataset`に混ぜてよいという
+意味ではない。`TransitDataset`はfeed namespaceを検証するため、
+バスと地下鉄をID表示名や位置で無理やりマージしない。
+次工程は**既存の各feed時刻表検索・乗換探索を横浜`/route`の
+契約に接続**すること。徒歩接続は東京版と同様に交通ノードの座標を活用しつつ、
+直線推定を実徒歩確定時間と偽装しない。
+無料判定は`YokohamaFareCoverage`で便とoperatorを検証してから、
+福祉/敬老passの各legが対象と確認された場合のみ0円にする。
+**公式のりば番号の全件審査は採用条件ではないが、
+時刻表/経路/無料対象の整合確認は必要**。
+
 ### 市営バス⇄地下鉄の明示乗換プロトタイプ（2026-10-14）
 
 `api/yokohama_municipal_transfer.py` は、先に確認した

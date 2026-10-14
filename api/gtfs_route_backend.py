@@ -98,11 +98,17 @@ class GtfsRouteEngine:
             raise ValueError("endpoint_candidate_limit must be >= 1")
         if max_rides < 1:
             raise ValueError("max_rides must be >= 1")
-        non_bus = [route.id for route in dataset.routes.values() if route.mode is not TransitMode.BUS]
-        if non_bus:
+        # City adapters already validate operators and fare coverage. The
+        # shared coordinate backend only needs the validated transport mode:
+        # bus and rail use the SAME time-indexed SearchCore. The response
+        # must still preserve the mode of each actual timetable leg.
+        unsupported = [
+            route.id for route in dataset.routes.values()
+            if route.mode not in (TransitMode.BUS, TransitMode.RAIL)
+        ]
+        if unsupported:
             raise ValueError(
-                "GtfsRouteBackend currently accepts bus-only datasets; "
-                f"found {non_bus[0]}"
+                f"GtfsRouteBackend found unsupported mode: {unsupported[0]}"
             )
         self.dataset = dataset
         if search_core is None:
@@ -227,7 +233,7 @@ class GtfsRouteEngine:
         title = route.short_name or route.long_name
         return {
             "step_id": f"ride-{index}",
-            "kind": "bus",
+            "kind": route.mode.value,
             "title": title,
             "from_": stops[0].name,
             "to": stops[-1].name,
@@ -347,6 +353,16 @@ class GtfsRouteEngine:
         }
 
     def _search_request(self, request: RouteSearchRequest) -> RouteSearchResult:
+        # A bus-only request must never silently board rail just because the
+        # reusable GTFS backend now supports both transport modes. A
+        # multimodal feed needs explicit bus-filtered search first.
+        if request.bus_only and any(
+            route.mode is TransitMode.RAIL for route in self.dataset.routes.values()
+        ):
+            raise RouteInputError(
+                "bus_only requires a bus-only GTFS dataset; "
+                "mixed-mode filtering is not configured"
+            )
         origins = self._nearby(request.origin.lat, request.origin.lon)
         destinations = self._nearby(
             request.destination.lat,
