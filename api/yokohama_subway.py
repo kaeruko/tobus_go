@@ -1,17 +1,25 @@
-"""Read-only, fail-closed OFFLINE loader for pinned Yokohama municipal subway GTFS.
+"""Fail-closed offline loader and explicit opt-in fetch for municipal subway GTFS.
 
-A separately recorded file-integrity manifest is required. This does not
-download ODPT data, enable route search, or certify pass fares/license rights.
+The fetcher never logs ODPT credentials, overwrites existing files, enables
+route search, or establishes public-redistribution/license permission.
 """
 from __future__ import annotations
 
 import csv
 import hashlib
+import io
+import os
+import shutil
+import stat
+import tempfile
+import zipfile
 import json
 import math
 import re
 from datetime import date, datetime
 from pathlib import Path
+
+import httpx
 
 from transit_adapters.gtfs import GtfsTransitAdapter
 from transit_dataset import FeedMetadata, TransitMode
@@ -136,3 +144,149 @@ def load_yokohama_subway_dataset(
     if not active or not any(t.service_id in active for t in dataset.trips.values()):
         raise ValueError("subway has no active trips for requested day")
     return dataset
+
+
+_MAX_ZIP_BYTES = 80 * 1024 * 1024
+_MAX_UNPACK_BYTES = 400 * 1024 * 1024
+_MAX_MEMBERS = 64
+
+
+def _safe_zip_text_members(archive: zipfile.ZipFile) -> dict[str, zipfile.ZipInfo]:
+    """Flatten uniquely-named GTFS text files; refuse unsafe archive members."""
+    members = archive.infolist()
+    if len(members) > _MAX_MEMBERS:
+        raise ValueError("subway GTFS ZIP contains too many members")
+    selected: dict[str, zipfile.ZipInfo] = {}
+    total = 0
+    for member in members:
+        name = member.filename.replace("\\", "/")
+        pieces = name.split("/")
+        if (
+            not name or name.startswith("/")
+            or any(part in {"", ".", ".."} for part in pieces if part != pieces[-1])
+            or any(part == ".." for part in pieces)
+            or ":" in pieces[0]
+        ):
+            raise ValueError("subway GTFS ZIP contains unsafe path")
+        if member.is_dir():
+            continue
+        mode = (member.external_attr >> 16) & 0o170000
+        if mode == stat.S_IFLNK:
+            raise ValueError("subway GTFS ZIP contains symlink")
+        basename = pieces[-1]
+        if not basename or not basename.endswith(".txt"):
+            raise ValueError("subway GTFS ZIP contains unexpected non-GTFS file")
+        if basename in selected:
+            raise ValueError("subway GTFS ZIP contains duplicate text basename")
+        if member.file_size < 0:
+            raise ValueError("subway GTFS ZIP invalid member size")
+        total += member.file_size
+        if total > _MAX_UNPACK_BYTES:
+            raise ValueError("subway GTFS ZIP uncompressed size limit exceeded")
+        selected[basename] = member
+    if not REQUIRED_FILES <= set(selected) or not (
+        {"calendar.txt", "calendar_dates.txt"} & set(selected)
+    ):
+        raise ValueError("subway GTFS ZIP missing required files")
+    return selected
+
+
+def fetch_yokohama_subway_gtfs(
+    output_dir: str | Path,
+    *,
+    expected_service_date: str,
+    consumer_key: str,
+    client: httpx.Client | None = None,
+) -> dict:
+    """Fetch+verify pinned ODPT GTFS to a NEW directory atomically, never overwrite.
+
+    An injected HTTP client permits fully offline mock testing. Network and HTTP
+    errors deliberately omit raw URLs, query parameters, keys, and response bodies.
+    """
+    day = _parse_day(expected_service_date)
+    if not VALID_FROM <= day <= VALID_UNTIL:
+        raise ValueError("subway date outside catalog edition validity")
+    if not isinstance(consumer_key, str) or not consumer_key.strip():
+        raise ValueError("ODPT consumer key is required")
+    target = Path(output_dir)
+    if target.exists():
+        raise FileExistsError("subway GTFS output directory already exists")
+    if not target.parent.is_dir():
+        raise FileNotFoundError("subway GTFS output parent directory does not exist")
+
+    own_client = client is None
+    http_client = client or httpx.Client(timeout=60.0, follow_redirects=False)
+    try:
+        try:
+            # SOURCE_URL's existing query is repeated explicitly, never read from
+            # an untrusted redirect response. Only the pinned ODPT endpoint is used.
+            response = http_client.get(
+                SOURCE_URL,
+                params={"date": "current", "acl:consumerKey": consumer_key},
+            )
+        except httpx.RequestError:
+            raise RuntimeError("subway GTFS ODPT request failed") from None
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"subway GTFS ODPT returned HTTP {response.status_code}"
+            )
+        data = response.content
+        if not data or len(data) > _MAX_ZIP_BYTES:
+            raise ValueError("subway GTFS ZIP empty or over size limit")
+    finally:
+        if own_client:
+            http_client.close()
+
+    with tempfile.TemporaryDirectory(
+        prefix=".yokohama_subway_", dir=str(target.parent)
+    ) as staging:
+        feed = Path(staging) / "feed"
+        feed.mkdir()
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                selected = _safe_zip_text_members(archive)
+                for name, member in selected.items():
+                    # Reject unexpected inflation; copy only the validated members.
+                    with archive.open(member) as source, (feed / name).open("xb") as dest:
+                        shutil.copyfileobj(source, dest)
+        except (zipfile.BadZipFile, RuntimeError, EOFError):
+            raise ValueError("subway GTFS invalid ZIP archive") from None
+
+        manifest = {
+            "source_url": SOURCE_URL,
+            "resource_id": RESOURCE_ID,
+            "feed_version": VERSION,
+            "fetched_at": datetime.now().astimezone().isoformat(),
+            "valid_from": VALID_FROM.isoformat(),
+            "valid_until": VALID_UNTIL.isoformat(),
+            "validated_service_date": day.isoformat(),
+            "files_sha256": {
+                p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                for p in sorted(feed.glob("*.txt"))
+            },
+        }
+        (feed / MANIFEST).write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        dataset = load_yokohama_subway_dataset(
+            feed, expected_service_date=day.isoformat(),
+        )
+        if not dataset.routes or not dataset.trips:
+            raise ValueError("subway GTFS dataset has no routes/trips")
+
+        # A single rename publishes only completely validated data.
+        if target.exists():
+            raise FileExistsError("subway GTFS output directory already exists")
+        os.rename(feed, target)
+    return {
+        "feed_id": dataset.metadata.feed_id,
+        "feed_version": dataset.metadata.version,
+        "validated_service_date": day.isoformat(),
+        "route_count": len(dataset.routes),
+        "trip_count": len(dataset.trips),
+        "stop_count": len(dataset.stops),
+        "file_count": len(manifest["files_sha256"]),
+        "output_path": str(target),
+        "status": "validated local GTFS; not licensed/publication approved",
+    }
