@@ -228,6 +228,27 @@ python scripts/build_yokohama_initial_pass_coverage.py --gtfs-dir ".\api\data\yo
 このcoverageによる検索結果は**社内/開発用の検証に限定**し、公開用の無料経路保証には使わない。
 敬老パスの深夜割増、特殊便の可否は追加の公式資料との突合・運行事業者への照会等が必要。
 
+### 横浜市営バス・一般系統の運行便レビュー一覧（読み取り専用）
+
+ローカル実GTFSの一般系統を1つずつ調査する。最初の例は008系統。
+このツールは**時刻を根拠に0円と認定せず、coverageを書き換えず、ファイルも新規作成しない**。
+運行日ごとに有効なGTFS便、service ID、乗降停留所ID、始終時刻、23時以降の停車時刻を持つ便数を報告する。
+表示件数は最大30件に制限し、 `--limit` で変更する。
+
+```powershell
+python scripts/inspect_yokohama_trip_evidence.py `
+  --gtfs-dir ".\api\data\yokohama\2026-09-04" `
+  --coverage ".\api\data\yokohama\2026-09-04\coverage.json" `
+  --manifest-service-date "2026-09-04" `
+  --ride-date "2026-09-04" `
+  --route-id 008
+```
+
+これは**運賃調査の下準備**。GTFSには深夜割増かどうかの便属性がなく、23時以前の便も一律無料とは判定できない。
+制度根拠が確認された便だけ、後にschema v2の `reviewed_free_trips`へ追加する。福祉パスと敬老パスの両方で無条件に追加支払0円となる便に限定する。
+横浜市福祉パスFAQ https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html
+・敬老パス深夜割増FAQ https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/kenko-korei/20211018113823735.html
+
 ### 一般系統向けの便単位レビュー（coverage schema v2 / #241）
 
 **現行の開発用 `coverage.json` は schema v1 のまま維持する。自動移行・上書きしない。**
