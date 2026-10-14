@@ -772,6 +772,39 @@ stop_sequence重複などはfail-fastで止める。
 結果はすべて `UNVERIFIED_GEOMETRIC_HINT` で、バス⇄地下鉄の
 ゼロ円経路を11件承認したわけではない。
 
+2026-10-14 **高島町候補の扱いを訂正**：
+ユーザーのGoogleマップ画像では「高島町（住所・地点）」から地下鉄高島町駅が
+**徒歩260m/4分**、「花咲橋（バス）」からが**徒歩280m/4分**、
+別の周辺乗り場からが約400m/6分だった。前者は**バス標柱そのものを
+起点としたルートと確認できていない**ため、これを
+`yokohama_bus:3018_02`の確定徒歩距離と主張しない。
+前回の監査の直線**65.6m**と**148.3m**もそれぞれ
+**GTFSの停留所座標→GTFS駅座標**であり、実際の駅入口までの徒歩ではない。
+
+横浜市交通局公式の[高島町バス停ののりば地図](https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusAboardMap?stCode=00090598)
+と[花咲橋ののりば・系統一覧](https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusCourseSearch?busstopId=00090878)
+で**両方とも市営バス停として存在する**ことを確認。
+106系統などで方向別に「高島町→花咲橋」「花咲橋→高島町」と
+通る順序が異なることも公式時刻表に載っている。
+駅周辺バス停一覧は「すべての乗換可能停留所」を保証する情報ではなく、
+**掲載されていないことを除外条件や低優先度条件に使わない**。
+高島町`3018_02`と花咲橋`5015_03`を、GTFSで
+当日の便がある限り並列の未承認候補として保持する。
+優先順位を確定するには、実標柱の座標・方向別便の系統/行先、
+駅出入口までの徒歩道筋、改札/ホームまでの移動時間を照合する。
+
+新しい監査オプション：
+`--focus-bus-stop yokohama_bus:3018_02 --focus-bus-stop yokohama_bus:5015_03`
+で**元の候補11件の算出は変更せず、表示だけ2件に限定**。
+`--include-bus-pole-fields`はローカルのGTFS `stops.txt`を
+**読み取るだけ**で`stop_code`、`platform_code`、
+`parent_station`、`stop_desc`等を出す。任意のsource
+`platform_code`が存在しても、**公式地図の番号付きのりばと
+同じと推定・自動認証しない**。各候補のGTFS緯度・経度も表示。
+焦点表示の`candidate_pair_count`は元の全件11件のままで、
+`focus_matching_pair_count`を別途返す。
+既存coverage、公式乗換承認、公開経路検索は変更しない。
+
 公式資料の突合：
 - [桜木町駅B18の公式駅情報](https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/detail/Station?id=00002909)
   は周辺市営バスに「桜木町駅前」を表示する。

@@ -6,6 +6,7 @@ prove a walkable connection, platform access, accessibility or pass eligibility.
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import math
 import sys
@@ -75,6 +76,47 @@ def _serving_routes_by_stop(dataset: TransitDataset, day: date) -> dict[str, lis
     }
 
 
+def read_bus_pole_source_fields(gtfs_dir: Path, bus_stop_ids: set[str]) -> dict[str, dict]:
+    """Read only selected raw GTFS pole fields; no stop-to-official-bay inference.
+
+    stop_code and platform_code, when present, are GTFS source labels. They
+    must NOT be treated as the numbered bays of an official stop map without
+    a separate independent cross-check.
+    """
+    if not bus_stop_ids:
+        return {}
+    if any(
+        not isinstance(value, str) or not value.startswith("yokohama_bus:")
+        for value in bus_stop_ids
+    ):
+        raise ValueError("source pole fields require namespaced Yokohama bus stop IDs")
+    path = Path(gtfs_dir) / "stops.txt"
+    with path.open(encoding="utf-8-sig", newline="") as source:
+        rows = csv.DictReader(source)
+        if rows.fieldnames is None or "stop_id" not in rows.fieldnames:
+            raise ValueError("GTFS bus stops.txt missing stop_id column")
+        found: dict[str, dict] = {}
+        for row in rows:
+            source_id = row.get("stop_id")
+            full_id = f"yokohama_bus:{source_id}"
+            if full_id not in bus_stop_ids:
+                continue
+            if full_id in found:
+                raise ValueError("duplicate source bus stop ID")
+            found[full_id] = {
+                "source_stop_id": source_id,
+                "stop_code": row.get("stop_code") or None,
+                "platform_code": row.get("platform_code") or None,
+                "parent_station": row.get("parent_station") or None,
+                "location_type": row.get("location_type") or None,
+                "stop_desc": row.get("stop_desc") or None,
+                "official_bay_number_verified": False,
+            }
+    if set(found) != bus_stop_ids:
+        raise ValueError("source bus stop metadata missing requested GTFS pole IDs")
+    return found
+
+
 def audit_transfer_candidates(
     bus_coverage: YokohamaFareCoverage,
     subway_dataset: TransitDataset,
@@ -82,6 +124,7 @@ def audit_transfer_candidates(
     service_date: str,
     radius_m: int = 300,
     limit: int = 40,
+    focus_bus_stop_ids: tuple[str, ...] = (),
 ) -> dict:
     """Return ranked UNAPPROVED geometric hints from same-day scheduled stops.
 
@@ -99,6 +142,17 @@ def audit_transfer_candidates(
     if type(limit) is not int or not 1 <= limit <= 100:
         raise ValueError("limit must be an integer from 1 to 100")
     if (
+        not isinstance(focus_bus_stop_ids, tuple)
+        or len(focus_bus_stop_ids) > 100
+        or len(set(focus_bus_stop_ids)) != len(focus_bus_stop_ids)
+        or any(
+            not isinstance(pole, str)
+            or not pole.startswith("yokohama_bus:")
+            for pole in focus_bus_stop_ids
+        )
+    ):
+        raise ValueError("focus_bus_stop_ids requires distinct bus GTFS pole IDs")
+    if (
         bus_coverage.operator_id != "yokohama_municipal_bus"
         or bus_coverage.dataset.metadata.feed_id != "yokohama_bus"
         or subway_dataset.metadata.feed_id != "yokohama_subway"
@@ -108,6 +162,8 @@ def audit_transfer_candidates(
     bus_reviewed = bus_coverage.municipal_free_coverage()
     if bus_reviewed is None:
         raise ValueError("no reviewed municipal bus routes available")
+    if set(focus_bus_stop_ids) - set(bus_reviewed.dataset.stops):
+        raise ValueError("unknown focus bus GTFS pole ID")
     bus_stop_ids = _active_served_stop_ids(bus_reviewed.dataset, parsed)
     subway_stop_ids = _active_served_stop_ids(subway_dataset, parsed)
     bus_route_hints = _serving_routes_by_stop(bus_reviewed.dataset, parsed)
@@ -124,14 +180,24 @@ def audit_transfer_candidates(
             if math.isfinite(distance) and distance <= radius_m:
                 hits.append((distance, bus_id, rail_id))
     hits.sort()
+    # Focus changes presentation only, NEVER which routes are reviewed.
+    # candidate_pair_count continues to describe ALL pairs in radius.
+    focus = set(focus_bus_stop_ids)
+    visible_hits = [
+        row for row in hits if not focus or row[1] in focus
+    ]
     suggestions = [{
         "bus_stop_id": bus_id,
         "bus_stop_name": bus_reviewed.dataset.stops[bus_id].name,
+        "bus_gtfs_lat": bus_reviewed.dataset.stops[bus_id].lat,
+        "bus_gtfs_lon": bus_reviewed.dataset.stops[bus_id].lon,
         # Only reviewed, active municipal-bus trips; NOT a verified
         # correspondence to a numbered official bus stand.
         "active_reviewed_bus_routes": bus_route_hints.get(bus_id, []),
         "subway_stop_id": rail_id,
         "subway_stop_name": subway_dataset.stops[rail_id].name,
+        "subway_gtfs_lat": subway_dataset.stops[rail_id].lat,
+        "subway_gtfs_lon": subway_dataset.stops[rail_id].lon,
         # These are raw GTFS route IDs, NOT fare-reviewed subway lines.
         "active_unapproved_subway_routes": subway_route_hints.get(rail_id, []),
         "straight_line_distance_m": round(distance, 1),
@@ -139,7 +205,7 @@ def audit_transfer_candidates(
         "official_transfer_evidence_url": None,
         "walkable_route_verified": False,
         "pass_fare_verified": False,
-    } for distance, bus_id, rail_id in hits[:limit]]
+    } for distance, bus_id, rail_id in visible_hits[:limit]]
     return {
         "operation": "READ ONLY; ZERO FREE-ROUTE APPROVAL",
         "service_date": service_date,
@@ -149,6 +215,8 @@ def audit_transfer_candidates(
         "active_reviewed_bus_stop_count": len(bus_stop_ids),
         "active_subway_stop_count_not_yet_fare_approved": len(subway_stop_ids),
         "candidate_pair_count": len(hits),
+        "focus_bus_stop_ids": list(focus_bus_stop_ids),
+        "focus_matching_pair_count": len(visible_hits),
         "shown_pair_count": len(suggestions),
         "candidates": suggestions,
         "warning": (
@@ -170,6 +238,14 @@ def main() -> None:
     parser.add_argument("--service-date", required=True)
     parser.add_argument("--radius-m", type=int, default=300)
     parser.add_argument("--limit", type=int, default=40)
+    parser.add_argument(
+        "--focus-bus-stop", action="append", default=[],
+        help="GTFS namespaced pole ID, repeatable; e.g. yokohama_bus:3018_02",
+    )
+    parser.add_argument(
+        "--include-bus-pole-fields", action="store_true",
+        help="Include selected raw GTFS stops.txt metadata, never official bay approval",
+    )
     args = parser.parse_args()
     bus_dataset = load_yokohama_bus_dataset(
         args.bus_gtfs_dir, expected_service_date=args.service_date
@@ -182,8 +258,20 @@ def main() -> None:
     )
     report = audit_transfer_candidates(
         bus_coverage, subway_dataset, service_date=args.service_date,
-        radius_m=args.radius_m, limit=args.limit
+        radius_m=args.radius_m, limit=args.limit,
+        focus_bus_stop_ids=tuple(args.focus_bus_stop),
     )
+    if args.include_bus_pole_fields:
+        poles = read_bus_pole_source_fields(
+            args.bus_gtfs_dir,
+            {row["bus_stop_id"] for row in report["candidates"]},
+        )
+        for row in report["candidates"]:
+            row["source_bus_pole_fields"] = poles[row["bus_stop_id"]]
+        report["pole_metadata_warning"] = (
+            "GTFS stop_code/platform_code are optional source fields. "
+            "They are NOT independently verified official boarding-bay numbers."
+        )
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
 

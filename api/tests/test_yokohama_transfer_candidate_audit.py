@@ -12,7 +12,9 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 from test_yokohama_municipal_transfer import DAY, _feed
-from audit_yokohama_transfer_candidates import audit_transfer_candidates
+from audit_yokohama_transfer_candidates import (
+    audit_transfer_candidates, read_bus_pole_source_fields,
+)
 
 
 class CandidateTriageTests(unittest.TestCase):
@@ -84,6 +86,57 @@ class CandidateTriageTests(unittest.TestCase):
         self.assertFalse(candidate["pass_fare_verified"])
         self.assertTrue(candidate["active_unapproved_subway_routes"])
         self.assertIsNone(candidate["official_transfer_evidence_url"])
+
+    def test_pole_focus_preserves_raw_candidates_and_does_not_change_approval(self):
+        all_pairs = self._report()
+        focused = self._report(focus_bus_stop_ids=("yokohama_bus:B",))
+        self.assertEqual(focused["focus_bus_stop_ids"], ["yokohama_bus:B"])
+        self.assertEqual(focused["candidate_pair_count"], all_pairs["candidate_pair_count"])
+        self.assertEqual(focused["focus_matching_pair_count"], 1)
+        self.assertEqual(focused["shown_pair_count"], 1)
+        self.assertEqual(focused["candidates"][0]["bus_stop_id"], "yokohama_bus:B")
+        self.assertEqual(focused["candidates"][0]["status"], "UNVERIFIED_GEOMETRIC_HINT")
+        self.assertFalse(focused["candidates"][0]["walkable_route_verified"])
+        self.assertFalse(focused["candidates"][0]["pass_fare_verified"])
+        self.assertIsNone(focused["candidates"][0]["official_transfer_evidence_url"])
+        self.assertEqual(focused["candidates"][0]["bus_gtfs_lat"], self.bus.dataset.stops["yokohama_bus:B"].lat)
+        self.assertEqual(focused["candidates"][0]["subway_gtfs_lon"], self.rail.dataset.stops["yokohama_subway:S"].lon)
+
+    def test_unknown_duplicate_or_invalid_focus_fails_closed(self):
+        for ids in (
+            ("yokohama_bus:INVALID",),
+            ("yokohama_bus:B", "yokohama_bus:B"),
+            ("yokohama_subway:S",),
+            ("other:B",),
+            ("yokohama_bus:B", "x"),
+        ):
+            with self.subTest(ids=ids), self.assertRaisesRegex(ValueError, "focus"):
+                self._report(focus_bus_stop_ids=ids)
+
+    def test_raw_pole_metadata_is_not_automatically_official_bay_mapping(self):
+        original = self.bus_root / "stops.txt"
+        raw = original.read_text(encoding="utf-8")
+        raw = raw.replace(
+            "stop_id,stop_name,stop_lat,stop_lon",
+            "stop_id,stop_name,stop_lat,stop_lon,stop_code,platform_code",
+        ).replace(
+            "O,横浜駅前,35.4700,139.6200",
+            "O,横浜駅前,35.4700,139.6200,,",
+        ).replace(
+            "B,桜木町,35.4650,139.6250",
+            "B,桜木町,35.4650,139.6250,ABC,8",
+        )
+        original.write_text(raw, encoding="utf-8")
+        found = read_bus_pole_source_fields(
+            self.bus_root, {"yokohama_bus:B"}
+        )
+        self.assertEqual(found["yokohama_bus:B"]["stop_code"], "ABC")
+        self.assertEqual(found["yokohama_bus:B"]["platform_code"], "8")
+        self.assertFalse(found["yokohama_bus:B"]["official_bay_number_verified"])
+        with self.assertRaisesRegex(ValueError, "missing requested"):
+            read_bus_pole_source_fields(
+                self.bus_root, {"yokohama_bus:MISSING"}
+            )
 
     def test_radius_changes_proximity_not_fare_certification(self):
         self.assertEqual(self._report(radius_m=1)["candidate_pair_count"], 0)
