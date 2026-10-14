@@ -1,10 +1,15 @@
 """Pure synthetic same-date bus/subway geometric triage regression tests."""
 from __future__ import annotations
 
+import sys
 import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+
+SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
 
 from test_yokohama_municipal_transfer import DAY, _feed
 from audit_yokohama_transfer_candidates import audit_transfer_candidates
