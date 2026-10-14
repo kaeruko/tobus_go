@@ -121,12 +121,27 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                             self.assertEqual(ride["trip_id"], "yokohama_bus:T89")
                             self.assertEqual(candidates[0]["fare"]["payNowYen"], 0)
 
-    def test_smoke_can_verify_200_and_280_separately(self):
+    def test_smoke_can_verify_200_and_weekend_280_separately(self):
         from smoke_yokohama_real_gtfs import run_smoke
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _realistic_named_fixture(root)
+            # The real 280 sightseeing route operates on weekends and
+            # holidays, not an ordinary Friday. Model the same constraint.
+            trips_path = root / "trips.txt"
+            trips_path.write_text(
+                trips_path.read_text(encoding="utf-8").replace(
+                    "280,ALL,T280,", "280,WEEKEND,T280,"
+                ),
+                encoding="utf-8",
+            )
+            calendar_path = root / "calendar.txt"
+            calendar_path.write_text(
+                calendar_path.read_text(encoding="utf-8")
+                + "WEEKEND,0,0,0,0,0,1,1,20260727,20270726\n",
+                encoding="utf-8",
+            )
             proposal, _ = proposed_coverage(
                 root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
             )
@@ -134,17 +149,24 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
             coverage_path.write_text(
                 json.dumps(proposal), encoding="utf-8",
             )
-            for route_id, departure, arrival in (
-                ("200", "10:30", "10:45"),
-                ("280", "11:30", "11:45"),
+            with self.assertRaisesRegex(RuntimeError, "no active trips"):
+                run_smoke(
+                    gtfs_dir=root, coverage=coverage_path,
+                    manifest_service_date=SERVICE_DATE,
+                    ride_date="2026-09-04", route_id="280",
+                )
+            for route_id, ride_date, departure, arrival in (
+                ("200", "2026-09-04", "10:30", "10:45"),
+                ("280", "2026-09-05", "11:30", "11:45"),
             ):
                 with self.subTest(route_id=route_id):
                     report = run_smoke(
                         gtfs_dir=root, coverage=coverage_path,
                         manifest_service_date=SERVICE_DATE,
-                        ride_date=SERVICE_DATE, route_id=route_id,
+                        ride_date=ride_date, route_id=route_id,
                     )
                     self.assertEqual(report["tested_route_id"], route_id)
+                    self.assertEqual(report["ride_date"], ride_date)
                     self.assertEqual(
                         report["probe"]["route_id"], f"yokohama_bus:{route_id}",
                     )
