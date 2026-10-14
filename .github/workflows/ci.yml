@@ -190,11 +190,16 @@ jobs:
           grep -Fq '"CFBundleDisplayName" = "仙台でGO";' "$localized_ja"
           test ! -e "$app/GoogleService-Info.plist"
 
+      - name: Set up isolated Python for Yokohama icons
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Generate Yokohama launcher icons
         run: |
-          python3 -m pip install Pillow==12.3.0
-          python3 scripts/generate_yokohama_app_icons.py
-          python3 scripts/generate_yokohama_app_icons.py --check
+          python -m pip install Pillow==12.3.0
+          python scripts/generate_yokohama_app_icons.py
+          python scripts/generate_yokohama_app_icons.py --check
 
       - name: Build Yokohama iOS flavor
         run: flutter build ios --simulator --debug --flavor yokohama --dart-define=APP_CITY=yokohama
