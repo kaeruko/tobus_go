@@ -63,7 +63,7 @@ def _ios_sizes() -> dict[str, int]:
         if filename in sizes and sizes[filename] != int(pixel_size):
             raise ValueError("conflicting dimensions for Yokohama icon filename")
         sizes[filename] = int(pixel_size)
-    if sizes.get("Icon-App-1024x1024@1x.png") != 1024 or len(sizes) != 21:
+    if sizes.get("Icon-App-1024x1024@1x.png") != 1024 or len(sizes) != 15:
         raise ValueError("unexpected Yokohama iOS icon inventory")
     return sizes
 
