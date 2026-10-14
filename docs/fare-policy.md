@@ -620,6 +620,46 @@ python scripts/fetch_yokohama_subway_gtfs.py `
 [ODPT公式カタログ](https://ckan.odpt.org/dataset/yokohama_municipal_train)で
 基本ライセンス／特定利用条件を先に確認する。
 
+### 市営交通の乗換候補トリアージ（2026-10-14）
+
+`scripts/audit_yokohama_transfer_candidates.py` を追加。**read-onlyの調査専用**であり、
+実際に通行できる徒歩乗換の承認、追加支払0円の認証、本番の乗換設定変更はしない。
+
+- 実GTFSで検証済みの横浜市営バス側は、ユーザーの開発用coverageで`local`承認済みの
+  路線と、その日実際に有効なtripが停車するstopだけが候補に入る。
+- 地下鉄は別feed `yokohama_subway` の有効運行日のstopを参照するが、
+  **これらの地下鉄路線はまだ福祉・敬老パスで無料承認されたわけではない**。
+- 2つのfeedの名前やIDを勝手に一致扱いにしない。同一日、位置座標の直線距離
+  （初期300m、最大600m）で候補だけを提示。各ペアに
+  `walkable_route_verified=false`、`pass_fare_verified=false`、
+  `official_transfer_evidence_url=null`を明記。
+- 名前・距離が近くても入口の違い、横断不可、改札やバリアフリー動線で
+  歩行時間が大きく変わる。公式の乗換案内と実徒歩経路が裏付けられるまで
+  `ExplicitTransferLink`に昇格しない。
+- 手元の実地下鉄GTFSで実行できていない。
+  合成GTFSの5件の純粋関数テストではread-only、
+  未承認バス除外、不正日付・feed-ID・範囲・上限を検証する。
+
+実GTFS取得後の読み取り専用例（両路線のデータが存在する場合のみ）：
+
+```powershell
+cd C:\Users\mail\work\tobus_go
+python scripts/audit_yokohama_transfer_candidates.py `
+  --bus-gtfs-dir ".\api\data\yokohama\2026-09-04" `
+  --bus-coverage ".\api\data\yokohama\2026-09-04\coverage_dev_288.json" `
+  --subway-gtfs-dir ".\api\data\yokohama\subway_2025-12-26" `
+  --service-date "2026-09-04" `
+  --radius-m 300 --limit 20
+```
+
+**公開時のODPT準拠は別作業**。
+[公共交通オープンデータ開発ガイドライン](https://developer.odpt.org/terms/data_basic_use_guideline.html)
+では静的データの取得日時の利用者への表示、更新通知後の原則1週間以内のデータ更新、
+データの出典・精度非保証・利用者の問い合わせ先（アプリ開発者）を画面に明記する旨を規定。
+事業者の**特定利用条件が優先・追加適用**される可能性があるため、
+ライセンス条件を満たすまでは地下鉄を公開済みと扱わない。
+`ODPT_API_TOKEN` や取得した保護対象データをGitへコミットしない。
+
 ### 市営バス⇄地下鉄の明示乗換プロトタイプ（2026-10-14）
 
 `api/yokohama_municipal_transfer.py` は、先に確認した
