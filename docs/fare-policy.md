@@ -503,3 +503,35 @@ python scripts/verify_yokohama_pass_routes.py `
 - https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/fukushi/annai/gaishutsu/kotsu/fukushi-jyosyaken/ticket.html
 - https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html
 - https://cgi.city.yokohama.lg.jp/somu/reiki/reiki_honbun/g202RG00001784.html
+
+
+### 市営149系統のレビュー台帳照合（#241）
+
+既存のカタログ棚卸しを、単一の
+`scripts/yokohama_municipal_route_reviews.json` と照合できる。
+`--with-reviewed-registry` は共通提案ツールと同じGTFS名称・feed版・日付・
+公式HTTPS根拠の厳格な確認を行い、台帳とcoverageの矛盾があれば停止する。
+**出力は標準出力のみ**で、GTFS・coverage・台帳を変更しない。
+
+```powershell
+python scripts/review_yokohama_bus_route_catalog.py `
+  --gtfs-dir ".\\api\\data\\yokohama\\2026-09-04" `
+  --coverage ".\\api\\data\\yokohama\\2026-09-04\\coverage_dev_288.json" `
+  --manifest-service-date "2026-09-04" `
+  --ride-date "2026-09-04" `
+  --ride-date "2026-09-05" `
+  --with-reviewed-registry
+```
+
+報告の `review_registry` は `pending`・`development_eligible` と、
+例外語・特殊名称・通常名称の未登録系統IDを分ける。
+2026-10-14時点の検証済み開発用は008/089/200/280/288、271は明示除外、
+272/275は個別運賃根拠が不足し `pending` を維持。
+その他未確認の特殊名称は091/092/123/221/326/327/328/329/341/345/346。
+「急行」を「直行バス」と同一視せず、23時以降の時刻を深夜割増とみなさない。
+通常名称130系統も名前だけで無条件無料にしない。
+制度上の路線一括適用と、便単位の追加支払がある例外を区別して審査する。
+
+公式参照: https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html
+および https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/fukushi/annai/gaishutsu/kotsu/fukushi-jyosyaken/ticket.html。
+「おでかけシャトル」と市営272/275「ふれあいバス」は別途審査する。

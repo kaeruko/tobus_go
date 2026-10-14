@@ -49,6 +49,7 @@ def _day(text: str) -> date:
 def review_catalog(
     *, gtfs_dir: Path, coverage_path: Path,
     manifest_service_date: str, ride_dates: list[str],
+    include_registry: bool = False,
 ) -> dict:
     if not ride_dates:
         raise ValueError("provide at least one --ride-date")
@@ -160,7 +161,7 @@ def review_catalog(
     )
     if reviewable + len(sections["enabled_in_development_coverage"]) + len(sections["excluded_in_current_coverage"]) != len(entries):
         raise AssertionError("route catalog partition mismatch")
-    return {
+    result = {
         "feed_version": dataset.metadata.version,
         "manifest_service_date": manifest_service_date,
         "ride_dates": list(active_services),
@@ -187,6 +188,68 @@ def review_catalog(
         },
         "file_action": "READ ONLY: no files created or modified",
     }
+    if include_registry:
+        from propose_yokohama_reviewed_coverage import _load_reviews
+        records = _load_reviews(dataset, reviewed_on=coverage.reviewed_on.isoformat())
+        annotate_catalog_with_registry(result, records)
+    return result
+
+
+
+def annotate_catalog_with_registry(report: dict, records: dict) -> None:
+    """Overlay reviewed decisions for triage without changing fare eligibility."""
+    entries = [item for section in report["groups"].values() for item in section]
+    by_id = {item["route_id"]: item for item in entries}
+    if len(by_id) != report["route_count"]:
+        raise ValueError("route catalog duplicate/missing route IDs")
+    unknown = sorted(set(records) - set(by_id))
+    if unknown:
+        raise ValueError(f"registry routes missing from GTFS catalog: {unknown}")
+    # Validate all decisions before mutating the in-memory report.
+    for number, record in records.items():
+        status = record["status"]
+        if status not in {"pending", "development_eligible"}:
+            raise ValueError(f"invalid registry status: {number}: {status!r}")
+        kind = by_id[number]["current_coverage_kind"]
+        if status == "pending" and kind != "unreviewed":
+            raise ValueError(f"pending route is enabled or excluded: {number}")
+        if status == "development_eligible" and kind not in {"local", "unreviewed"}:
+            raise ValueError(f"development route has invalid coverage: {number}")
+    for item in entries:
+        if (item["current_coverage_kind"] == "local"
+            and item["route_id"] not in {"089", "200", "280"}
+            and item["route_id"] not in records):
+            raise ValueError(
+                f"enabled route missing from explicit review registry: {item['route_id']}"
+            )
+    unregistered = {
+        "exception_terms_need_manual_review": [],
+        "nonstandard_name_need_manual_review": [],
+        "ordinary_name_candidate_not_approved": [],
+    }
+    for item in entries:
+        record = records.get(item["route_id"])
+        item["registry_status"] = record["status"] if record else "not_registered"
+        if record:
+            item["registry_remaining_checks"] = list(record["remaining_checks"])
+        elif item["review_queue"] in unregistered:
+            unregistered[item["review_queue"]].append(item["route_id"])
+    report["review_registry"] = {
+        "purpose": "READ-ONLY triage; not production fare certification",
+        "registered_route_count": len(records),
+        "pending_route_ids": sorted(
+            number for number, record in records.items() if record["status"] == "pending"
+        ),
+        "development_eligible_route_ids": sorted(
+            number for number, record in records.items()
+            if record["status"] == "development_eligible"
+        ),
+        "unregistered_route_ids_by_queue": {
+            name: sorted(ids) for name, ids in unregistered.items()
+        },
+        "unregistered_review_queue_count": sum(len(x) for x in unregistered.values()),
+        "warning": "Name/time/registry status cannot prove a trip is free; pending and unregistered stay excluded.",
+    }
 
 
 def main() -> None:
@@ -196,6 +259,10 @@ def main() -> None:
     parser.add_argument("--manifest-service-date", required=True)
     parser.add_argument("--ride-date", required=True, action="append")
     parser.add_argument(
+        "--with-reviewed-registry", action="store_true",
+        help="Strict read-only reconciliation with the common fare review registry",
+    )
+    parser.add_argument(
         "--full", action="store_true",
         help="Show details for every ordinary-name route (default: compact list of IDs)",
     )
@@ -204,6 +271,7 @@ def main() -> None:
         gtfs_dir=args.gtfs_dir, coverage_path=args.coverage,
         manifest_service_date=args.manifest_service_date,
         ride_dates=args.ride_date,
+        include_registry=args.with_reviewed_registry,
     )
     if not args.full:
         # Include every candidate ID, but avoid >100 verbose identical JSON

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import os
 import tempfile
@@ -591,6 +592,40 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                 "271",
             )
             self.assertEqual(result["file_action"], "READ ONLY: no files created or modified")
+            from review_yokohama_bus_route_catalog import annotate_catalog_with_registry
+            records = {
+                "008": {"status": "development_eligible",
+                        "remaining_checks": ["Confirm all trip variants"]},
+                "091": {"status": "pending",
+                        "remaining_checks": ["Verify direct-service fare"]},
+            }
+            annotate_catalog_with_registry(result, records)
+            self.assertEqual(result["review_registry"]["pending_route_ids"], ["091"])
+            self.assertEqual(
+                result["review_registry"]["development_eligible_route_ids"], ["008"],
+            )
+            self.assertEqual(result["review_registry"]["unregistered_review_queue_count"], 0)
+            self.assertEqual(
+                result["groups"]["exception_terms_need_manual_review"][0]["registry_status"],
+                "pending",
+            )
+            self.assertEqual(
+                result["groups"]["ordinary_name_candidate_not_approved"][0]["registry_status"],
+                "development_eligible",
+            )
+            with self.assertRaisesRegex(ValueError, "missing from GTFS catalog"):
+                annotate_catalog_with_registry(result, {
+                    **records, "999": {"status": "pending", "remaining_checks": ["Missing"]},
+                })
+            invalid_report = copy.deepcopy(result)
+            invalid_report["groups"]["exception_terms_need_manual_review"][0][
+                "current_coverage_kind"
+            ] = "local"
+            with self.assertRaisesRegex(ValueError, "pending route is enabled"):
+                annotate_catalog_with_registry(invalid_report, records)
+            with self.assertRaisesRegex(ValueError, "missing from explicit review registry"):
+                annotate_catalog_with_registry(result, {"091": records["091"]})
+            self.assertEqual(before, {p.name: p.read_bytes() for p in root.iterdir()})
 
     def test_all_route_catalog_uses_four_route_dev_coverage_without_mutating_baseline(self):
         from propose_yokohama_route_008_coverage import propose
