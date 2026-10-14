@@ -226,12 +226,61 @@ def run_smoke(
                 ):
                     raise AssertionError(f"invalid pass fare quote for {policy_id}: {fare}")
                 rides = _verify_steps(selected, dataset, active, trip_rows)
+                # The solver may alight at an earlier stop and walk to the
+                # requested GTFS destination. Report both clocks explicitly:
+                # comparing the chosen bus arrival to the source's *other*
+                # stop was misleading in the first real-feed smoke run.
+                actual_alight_id = rides[-1]["arrivalPoleId"]
+                actual_alight_stop = dataset.stops[actual_alight_id]
+                destination_walk_steps = [
+                    step for step in selected["steps"]
+                    if step.get("step_id") == "walk-destination"
+                ]
+                if len(destination_walk_steps) > 1:
+                    raise AssertionError("multiple destination walking steps")
+                destination_walk = (
+                    destination_walk_steps[0] if destination_walk_steps
+                    else {"minutes": 0, "meters": 0}
+                )
+                final_walk_minutes = destination_walk["minutes"]
+                if type(final_walk_minutes) is not int or final_walk_minutes < 0:
+                    raise AssertionError("invalid walking time")
+                if type(destination_walk["meters"]) is not int or destination_walk["meters"] < 0:
+                    raise AssertionError("invalid walking distance")
+                actual_distance_m = _distance_m(actual_alight_stop, probe["destination"])
+                if actual_distance_m > client.app.state.route_backend.walk_radius_m + 1e-6:
+                    raise AssertionError(
+                        "alighting stop is outside destination walking radius"
+                    )
+                if actual_distance_m > 0.5 and not destination_walk_steps:
+                    raise AssertionError("destination walking step was omitted")
+                def clock_minute(value: str) -> int:
+                    hour, minute = map(int, value.split(":"))
+                    if hour < 0 or not 0 <= minute < 60:
+                        raise AssertionError(f"invalid result clock: {value!r}")
+                    return hour * 60 + minute
+                end_of_bus = clock_minute(rides[-1]["arrival_time"])
+                actual_destination_clock = selected.get("arrival_time")
+                if not isinstance(actual_destination_clock, str):
+                    raise AssertionError("candidate has no destination arrival clock")
+                if clock_minute(actual_destination_clock) != end_of_bus + final_walk_minutes:
+                    raise AssertionError(
+                        "candidate destination arrival differs from actual bus arrival "
+                        "plus final walking time"
+                    )
                 results.append({
                     "policy_id": policy_id,
                     "route_ids": [step["route_id"] for step in rides],
                     "trip_ids": [step["trip_id"] for step in rides],
-                    "scheduled_departure": rides[0]["departure_time"],
-                    "scheduled_arrival": rides[-1]["arrival_time"],
+                    "boarding_stop": dataset.stops[rides[0]["departureStopId"]].name,
+                    "alighting_stop": actual_alight_stop.name,
+                    "alighting_stop_id": actual_alight_id,
+                    "bus_departure": rides[0]["departure_time"],
+                    "bus_arrival_at_alighting_stop": rides[-1]["arrival_time"],
+                    "final_walk_meters": destination_walk["meters"],
+                    "final_walk_minutes": final_walk_minutes,
+                    "arrival_at_requested_destination": actual_destination_clock,
+                    "source_probe_destination_arrival": probe["source_arrival"],
                     "additional_payment_yen": fare["payNowYen"],
                     "result": "PASS",
                 })
