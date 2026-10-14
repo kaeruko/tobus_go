@@ -958,11 +958,11 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
             self.assertEqual(review["registered_route_count"], 15)
             self.assertEqual(review["pending_route_ids"],
                              sorted(["272", "275", *_PENDING_SPECIAL_NAMES]))
-            self.assertEqual(review["unregistered_review_queue_count"], 1)
+            self.assertEqual(review["unregistered_review_queue_count"], 0)
             self.assertEqual(
                 review["unregistered_route_ids_by_queue"][
                     "ordinary_name_candidate_not_approved"
-                ], ["008"],
+                ], [],
             )
             for item in report["groups"]["nonstandard_name_need_manual_review"]:
                 self.assertEqual(item["registry_status"], "pending")
