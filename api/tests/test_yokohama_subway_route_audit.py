@@ -41,7 +41,7 @@ class SubwayRouteIdentityAuditTests(unittest.TestCase):
         self.assertEqual(item["source_agency_name"], "横浜市交通局")
         self.assertEqual(item["agency_mapping"], "GTFS_SINGLE_AGENCY_ONLY")
         self.assertEqual(item["active_service_day_trips"], 1)
-        self.assertEqual(item["active_boardable_station_count"], 2)
+        self.assertEqual(item["active_timed_station_count"], 2)
         self.assertEqual(item["pass_coverage_status"], "UNREVIEWED_GTFS_ROUTE_ID")
 
     def test_future_date_is_no_active_trips_not_fare_approved(self):
@@ -49,7 +49,7 @@ class SubwayRouteIdentityAuditTests(unittest.TestCase):
             self.dataset, self.root, service_date="2027-04-14"
         )
         self.assertEqual(result["active_route_record_count"], 0)
-        self.assertEqual(result["routes"][0]["active_boardable_station_count"], 0)
+        self.assertEqual(result["routes"][0]["active_timed_station_count"], 0)
         self.assertEqual(result["routes"][0]["pass_coverage_status"], "UNREVIEWED_GTFS_ROUTE_ID")
 
     def test_invalid_feed_identity_and_service_date_rejected(self):
