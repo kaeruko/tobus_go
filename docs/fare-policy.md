@@ -228,6 +228,32 @@ python scripts/build_yokohama_initial_pass_coverage.py --gtfs-dir ".\api\data\yo
 このcoverageによる検索結果は**社内/開発用の検証に限定**し、公開用の無料経路保証には使わない。
 敬老パスの深夜割増、特殊便の可否は追加の公式資料との突合・運行事業者への照会等が必要。
 
+### ローカル実GTFSスモークテスト記録（2026-10-14 / #241）
+
+対象: `v3.0_20260727`、manifest検証日2026-09-04。開発用部分coverageは089・200・280のみ`local`、271除外、残り145系統未確認。福祉パス・敬老パスの双方で追加支払0円を確認したが、**同一GTFSによる照合であり独立した運賃・徒歩経路の監査ではない**。
+
+- 089（2026-09-04）: 桜木町駅前08:49発 → 西戸部１丁目08:58降車 → 推定直線166m・徒歩3分で一本松小学校前付近09:01着。バスで目的停留所まで乗ると09:02。徒歩経路の実地検証は未実施。
+- 200（2026-09-04）: 横浜駅前09:50発 → パシフィコ横浜**1回目**10:05着。GTFSの同一tripには同停留所の**2回目**10:48も含まれる。後者を「目的地到着」と誤解しないため、スモーク検証は停車順と同一stop IDの複数時刻を報告するよう改善。
+- 280（2026-09-05、土曜）: 三溪園10:00発 → 横浜駅前10:33着。平日の非運行と混同しないこと。
+
+200系統の独立した公式案内では、横浜駅09:50発、パシフィコ横浜10:05・10:48、同停留所を2度通過する循環経路が示されている。
+
+- 公式停車順: https://navi.hamabus.city.yokohama.lg.jp/koutuu/smart/location/BusOperationStopPattern?courseIds=0001601424.
+- 公式横浜駅前時刻表: https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001601424&date=2026-10-02&orvCode=00091228&stopNo=1
+- 公式パシフィコ横浜時刻表（1回目）: https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001601424&date=2026-08-18&orvCode=00090894&stopNo=4
+- 公式パシフィコ横浜時刻表（2回目）: https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001601424&date=2026-09-17&orvCode=00090894&stopNo=12
+
+再実行例:
+
+```powershell
+python scripts/smoke_yokohama_real_gtfs.py `
+  --gtfs-dir ".\\api\\data\\yokohama\\2026-09-04" `
+  --coverage ".\\api\\data\\yokohama\\2026-09-04\\coverage.json" `
+  --manifest-service-date "2026-09-04" `
+  --ride-date "2026-09-04" `
+  --route-id 200
+```
+
 ### 実GTFSによる無料経路の手動正解テスト（#241）
 
 GitHub/CIに含まれる小規模GTFSは**合成データ**であり、横浜の路線網・時刻表を実測検証したものではない。
