@@ -635,6 +635,94 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                     manifest_service_date=SERVICE_DATE, ride_dates=[],
                 )
 
+    def test_288_hospital_loop_five_route_proposal_and_both_pass_smoke(self):
+        from propose_yokohama_route_008_coverage import propose as propose_008
+        from propose_yokohama_route_288_coverage import propose as propose_288
+        from smoke_yokohama_real_gtfs import run_smoke
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            routes = root / "routes.txt"
+            routes.write_text(
+                routes.read_text(encoding="utf-8") + "288,,聖隷横浜病院循環,3\n",
+                encoding="utf-8",
+            )
+            trips = root / "trips.txt"
+            trips.write_text(
+                trips.read_text(encoding="utf-8") + "288,ALL,T288,聖隷横浜病院,0,,\n",
+                encoding="utf-8",
+            )
+            times = root / "stop_times.txt"
+            times.write_text(
+                times.read_text(encoding="utf-8")
+                + "T288,08:30:00,08:30:00,A,1\n"
+                + "T288,08:50:00,08:50:00,B,2\n",
+                encoding="utf-8",
+            )
+            baseline, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            first = root / "coverage.json"
+            first.write_text(json.dumps(baseline), encoding="utf-8")
+            four, _ = propose_008(
+                gtfs_dir=root, coverage_path=first,
+                service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            second = root / "coverage_dev_008.json"
+            second.write_text(json.dumps(four), encoding="utf-8")
+            with self.assertRaisesRegex(AssertionError, "288 requires"):
+                run_smoke(
+                    gtfs_dir=root, coverage=second,
+                    manifest_service_date=SERVICE_DATE,
+                    ride_date=SERVICE_DATE, route_id="288",
+                )
+            original = {p.name: p.read_bytes() for p in root.iterdir()}
+            five, summary = propose_288(
+                gtfs_dir=root, coverage_path=second,
+                service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            self.assertEqual(original, {p.name: p.read_bytes() for p in root.iterdir()})
+            self.assertEqual(summary["route_added"], "yokohama_bus:288")
+            self.assertEqual(summary["route_counts"], {
+                "local": 5, "sightseeing": 1, "unreviewed": 0,
+            })
+            self.assertEqual(five["routes"]["yokohama_bus:271"], "sightseeing")
+            third = root / "coverage_dev_288.json"
+            third.write_text(json.dumps(five), encoding="utf-8")
+            existing = {p.name: p.read_bytes() for p in root.iterdir()}
+            report = run_smoke(
+                gtfs_dir=root, coverage=third,
+                manifest_service_date=SERVICE_DATE,
+                ride_date=SERVICE_DATE, route_id="288",
+            )
+            self.assertEqual(existing, {p.name: p.read_bytes() for p in root.iterdir()})
+            self.assertEqual(report["probe"]["route_id"], "yokohama_bus:288")
+            self.assertEqual(len(report["development_coverage_routes"]), 5)
+            self.assertEqual(len(report["results"]), 2)
+            for result in report["results"]:
+                self.assertEqual(result["route_ids"], ["yokohama_bus:288"])
+                self.assertEqual(result["bus_departure"], "08:30")
+                self.assertEqual(result["arrival_at_requested_destination"], "08:50")
+                self.assertEqual(result["additional_payment_yen"], 0)
+                self.assertEqual(result["result"], "PASS")
+            with self.assertRaisesRegex(ValueError, "four-route development baseline"):
+                propose_288(
+                    gtfs_dir=root, coverage_path=first,
+                    service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+                )
+            routes.write_text(
+                routes.read_text(encoding="utf-8").replace(
+                    "聖隷横浜病院循環", "別路線"
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "288 name/identity changed"):
+                propose_288(
+                    gtfs_dir=root, coverage_path=second,
+                    service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+                )
+
     def test_known_route_rename_is_not_silently_accepted(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
