@@ -196,7 +196,7 @@ class YokohamaFareCoverageTest(unittest.TestCase):
             self._load({**raw, "reviewed_free_trips": ["yokohama_bus:T"]})
         with self.assertRaisesRegex(ValueError, "fields mismatch"):
             self._load({**self.raw, "reviewed_free_trips": {}})
-        with self.assertRaisesRegex(ValueError, "fields mismatch"):
+        with self.assertRaisesRegex(ValueError, "ID-to-evidence-URL"):
             self._load({**raw, "reviewed_free_trips": None})
 
     def test_route_category_is_not_defaulted_to_ordinary(self):
