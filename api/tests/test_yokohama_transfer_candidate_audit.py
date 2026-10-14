@@ -15,6 +15,8 @@ from test_yokohama_municipal_transfer import DAY, _feed
 from audit_yokohama_transfer_candidates import (
     audit_transfer_candidates, read_bus_pole_source_fields,
 )
+from transit_transfer_candidates import iter_nearby_stop_pairs
+from yokohama_municipal_backend import YokohamaMunicipalRouteBackend
 
 
 class CandidateTriageTests(unittest.TestCase):
@@ -32,6 +34,51 @@ class CandidateTriageTests(unittest.TestCase):
         return audit_transfer_candidates(
             self.bus, self.rail.dataset, service_date=DAY, **kwargs,
         )
+
+    def test_shared_candidate_geometry_matches_live_estimated_mode(self):
+        # The survey and app must generate EXACTLY the same stop-ID pairs.
+        # Generating a pair never means it has been approved for public use.
+        day = __import__("datetime").date.fromisoformat(DAY)
+        audited = self._report(radius_m=300)
+        backend = YokohamaMunicipalRouteBackend(
+            self.bus, self.rail, estimated_transfer_mode=True,
+            estimated_radius_m=300, estimated_candidate_limit=100,
+        ).for_fare_policy("yokohama_welfare_special_pass")
+        live_candidates = backend._candidate_transfer_links(day)
+        audited_ids = {
+            (row["bus_stop_id"], row["subway_stop_id"])
+            for row in audited["candidates"]
+        }
+        self.assertEqual(
+            audited_ids,
+            {(row.bus_stop_id, row.subway_stop_id) for row in live_candidates},
+        )
+        for row in live_candidates:
+            self.assertEqual(type(row).__name__, "GeometricTransferEstimate")
+        self.assertTrue(all(
+            not row["walkable_route_verified"]
+            and row["status"] == "UNVERIFIED_GEOMETRIC_HINT"
+            for row in audited["candidates"]
+        ))
+        self.assertEqual(backend.transfer_links, ())
+
+    def test_common_pair_generator_refuses_missing_stop_and_invalid_radius(self):
+        stops = self.bus.dataset.stops
+        with self.assertRaises(KeyError):
+            list(iter_nearby_stop_pairs(
+                stops, self.rail.dataset.stops,
+                left_ids={"yokohama_bus:missing"},
+                right_ids={"yokohama_subway:S"},
+                radius_m=300,
+            ))
+        for radius in (0, -1, float("nan"), float("inf"), True):
+            with self.subTest(radius=radius), self.assertRaises(ValueError):
+                list(iter_nearby_stop_pairs(
+                    stops, self.rail.dataset.stops,
+                    left_ids={"yokohama_bus:B"},
+                    right_ids={"yokohama_subway:S"},
+                    radius_m=radius,
+                ))
 
     def test_read_only_one_nearby_pair_but_no_automatic_approval(self):
         before = {

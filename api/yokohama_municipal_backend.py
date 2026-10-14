@@ -12,6 +12,7 @@ from pathlib import Path
 from datetime import timedelta
 
 from gtfs_route_backend import GtfsRouteBackend, _haversine_m
+from transit_transfer_candidates import iter_nearby_stop_pairs
 from route_engine import (RouteCandidate, RouteInputError, RoutePreference,
                           RouteSearchLimitError, RouteSearchResult)
 from yokohama_municipal_transfer import (
@@ -163,27 +164,27 @@ class YokohamaMunicipalRouteBackend:
             return self.transfer_links
         reviewed_pairs = {(x.bus_stop_id, x.subway_stop_id) for x in self.transfer_links}
         estimated = []
-        for bus_id in sorted(bus.active_stops_on(service_date)):
-            a = bus.dataset.stops[bus_id]
-            for rail_id in sorted(rail.active_stops_on(service_date)):
-                if (bus_id, rail_id) in reviewed_pairs:
-                    continue
-                b = rail.dataset.stops[rail_id]
-                distance = _haversine_m(a.lat, a.lon, b.lat, b.lon)
-                if math.isfinite(distance) and distance <= self.estimated_radius_m:
-                    meters = math.ceil(distance * 1.5)
-                    estimated.append(GeometricTransferEstimate(
-                        bus_stop_id=bus_id,
-                        subway_stop_id=rail_id,
-                        straight_line_distance_m=distance,
-                        walk_meters=meters,
-                        walk_minutes=math.ceil(meters / 80) + 2,
-                    ))
-                    if len(estimated) > self.estimated_candidate_limit:
-                        raise RouteSearchLimitError(
-                            "too many provisional Yokohama walking links; "
-                            "reduce estimated_radius_m, no truncated routes"
-                        )
+        for distance, bus_id, rail_id in iter_nearby_stop_pairs(
+            bus.dataset.stops, rail.dataset.stops,
+            left_ids=bus.active_stops_on(service_date),
+            right_ids=rail.active_stops_on(service_date),
+            radius_m=self.estimated_radius_m,
+        ):
+            if (bus_id, rail_id) in reviewed_pairs:
+                continue
+            meters = math.ceil(distance * 1.5)
+            estimated.append(GeometricTransferEstimate(
+                bus_stop_id=bus_id,
+                subway_stop_id=rail_id,
+                straight_line_distance_m=distance,
+                walk_meters=meters,
+                walk_minutes=math.ceil(meters / 80) + 2,
+            ))
+            if len(estimated) > self.estimated_candidate_limit:
+                raise RouteSearchLimitError(
+                    "too many provisional Yokohama walking links; "
+                    "reduce estimated_radius_m, no truncated routes"
+                )
         return self.transfer_links + tuple(estimated)
 
     def _connections(self, request, preference):

@@ -93,3 +93,35 @@ or large GTFS-derived dumps to public GitHub merely to run this check.
 Run it on an authorized local installation and share only the small diagnostic
 summary consistent with the license. Check applicable Specific Terms of Use.
 Official license: https://developer.odpt.org/terms/data_basic_license.html
+
+### Official direction corroboration (2026-10-14; still unapproved)
+
+The first real-feed candidate audit on 2026-09-04 (radius 300m,
+`coverage_dev_288.json`) yielded **11 geometric pairs**. On two examples,
+official **2026-10-14** route/direction listings independently corroborate
+the GTFS names and directions:
+
+| Feed-specific GTFS pole -> subway station | GTFS 8-series headsign | Official departure bay for that direction | Straight line | Status |
+| --- | --- | --- | --- | --- |
+| `yokohama_bus:3018_02` 高島町 -> `yokohama_subway:B19` | 本牧車庫前行 | 高島町 **2番** | 65.6m | direction corroborated, walking **NOT approved** |
+| `yokohama_bus:2014_12` 桜木町駅前 -> `yokohama_subway:B18` | 横浜駅前行 | 桜木町駅前 **12番** | 83.6m | direction corroborated, walking **NOT approved** |
+
+Sources (official Yokohama city bus direction/bay pages):
+- https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusAboardMap?stCode=00090598
+- https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusAboardMap?stCode=00090408
+
+The raw `platform_code=12` in the second GTFS pole is a further
+corroborating *source label*, but it does not independently prove spatial
+GTFS-to-bay identity. In the first GTFS pole both `stop_code` and
+`platform_code` are absent; suffix `_02` must **not** be assumed
+to mean official bay 2. The maps describe October routes while the installed
+GTFS sample is September: a full schedule/stop-map edition crosscheck is still
+required. Station exits, pedestrian path, measured walking distance/time
+and accessibility remain unknown. Do not add these as production
+`ExplicitTransferLink` entries on the basis of this matching alone.
+
+The offline survey and the development-only proximity mode now share the
+same pure `iter_nearby_stop_pairs` geometry from
+`api/transit_transfer_candidates.py`. Both feed searches continue to reuse
+the common SearchCore, while official walking-link approval stays a distinct
+explicit input. This change does NOT authorize proximity links in production.

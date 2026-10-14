@@ -8,7 +8,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import math
 import sys
 from datetime import date
 from pathlib import Path
@@ -18,20 +17,10 @@ if str(API_DIR) not in sys.path:
     sys.path.insert(0, str(API_DIR))
 
 from transit_dataset import TransitDataset, TransitMode
+from transit_transfer_candidates import iter_nearby_stop_pairs
 from yokohama_fare_coverage import YokohamaFareCoverage
 from yokohama_subway import load_yokohama_subway_dataset
 from yokohama_transit import load_yokohama_bus_dataset
-
-
-def _distance_m(a, b) -> float:
-    lat1, lon1 = math.radians(a.lat), math.radians(a.lon)
-    lat2, lon2 = math.radians(b.lat), math.radians(b.lon)
-    term = (
-        math.sin((lat2 - lat1) / 2.0) ** 2
-        + math.cos(lat1) * math.cos(lat2)
-        * math.sin((lon2 - lon1) / 2.0) ** 2
-    )
-    return 12_742_000 * math.asin(min(1.0, math.sqrt(term)))
 
 
 def _active_served_stop_ids(dataset: TransitDataset, day: date) -> set[str]:
@@ -171,15 +160,13 @@ def audit_transfer_candidates(
     if not bus_stop_ids or not subway_stop_ids:
         raise ValueError("no active scheduled stops on service_date")
 
-    hits = []
-    for bus_id in sorted(bus_stop_ids):
-        bus_stop = bus_reviewed.dataset.stops[bus_id]
-        for rail_id in sorted(subway_stop_ids):
-            rail_stop = subway_dataset.stops[rail_id]
-            distance = _distance_m(bus_stop, rail_stop)
-            if math.isfinite(distance) and distance <= radius_m:
-                hits.append((distance, bus_id, rail_id))
-    hits.sort()
+    # Same coordinate pairing as live dev-mode. Presentation sorting is by
+    # distance, not by confidence; *all* hits remain unapproved.
+    hits = sorted(iter_nearby_stop_pairs(
+        bus_reviewed.dataset.stops, subway_dataset.stops,
+        left_ids=bus_stop_ids, right_ids=subway_stop_ids,
+        radius_m=radius_m,
+    ))
     # Focus changes presentation only, NEVER which routes are reviewed.
     # candidate_pair_count continues to describe ALL pairs in radius.
     focus = set(focus_bus_stop_ids)
