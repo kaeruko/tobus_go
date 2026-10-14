@@ -527,6 +527,114 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                 self.assertEqual(policy["additional_payment_yen"], 0)
                 self.assertEqual(policy["result"], "PASS")
 
+    def test_all_route_catalog_prioritizes_exceptions_without_approving_them(self):
+        from review_yokohama_bus_route_catalog import review_catalog
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            routes = root / "routes.txt"
+            routes.write_text(
+                routes.read_text(encoding="utf-8")
+                + "091,,【急行】91系統,3\n",
+                encoding="utf-8",
+            )
+            trips = root / "trips.txt"
+            trips.write_text(
+                trips.read_text(encoding="utf-8")
+                + "091,ALL,T91,直行便,0,,\n",
+                encoding="utf-8",
+            )
+            times = root / "stop_times.txt"
+            times.write_text(
+                times.read_text(encoding="utf-8")
+                + "T91,08:30:00,08:30:00,A,1\n"
+                "T91,08:50:00,08:50:00,B,2\n",
+                encoding="utf-8",
+            )
+            proposal, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            source = root / "coverage.json"
+            source.write_text(json.dumps(proposal), encoding="utf-8")
+            before = {p.name: p.read_bytes() for p in root.iterdir()}
+            result = review_catalog(
+                gtfs_dir=root, coverage_path=source,
+                manifest_service_date=SERVICE_DATE,
+                ride_dates=[SERVICE_DATE, "2026-10-15"],
+            )
+            self.assertEqual(
+                before, {p.name: p.read_bytes() for p in root.iterdir()}
+            )
+            self.assertEqual(result["route_count"], 6)
+            self.assertEqual(
+                result["review_queue_counts"],
+                {
+                    "enabled_in_development_coverage": 3,
+                    "excluded_in_current_coverage": 1,
+                    "exception_terms_need_manual_review": 1,
+                    "nonstandard_name_need_manual_review": 0,
+                    "ordinary_name_candidate_not_approved": 1,
+                },
+            )
+            flagged = result["groups"]["exception_terms_need_manual_review"][0]
+            self.assertEqual(flagged["route_id"], "091")
+            self.assertEqual(flagged["exception_terms"], ["直行"])
+            self.assertEqual(flagged["other_unusual_terms"], ["急行"])
+            self.assertEqual(flagged["current_coverage_kind"], "unreviewed")
+            self.assertEqual(
+                result["groups"]["ordinary_name_candidate_not_approved"][0]["route_id"],
+                "008",
+            )
+            self.assertEqual(
+                result["groups"]["excluded_in_current_coverage"][0]["route_id"],
+                "271",
+            )
+            self.assertEqual(result["file_action"], "READ ONLY: no files created or modified")
+
+    def test_all_route_catalog_uses_four_route_dev_coverage_without_mutating_baseline(self):
+        from propose_yokohama_route_008_coverage import propose
+        from review_yokohama_bus_route_catalog import review_catalog
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            baseline, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            source = root / "coverage.json"
+            source.write_text(json.dumps(baseline), encoding="utf-8")
+            four, _ = propose(
+                gtfs_dir=root, coverage_path=source,
+                service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            extended = root / "coverage_dev_008.json"
+            extended.write_text(json.dumps(four), encoding="utf-8")
+            original_bytes = source.read_bytes()
+            result = review_catalog(
+                gtfs_dir=root, coverage_path=extended,
+                manifest_service_date=SERVICE_DATE, ride_dates=[SERVICE_DATE],
+            )
+            self.assertEqual(source.read_bytes(), original_bytes)
+            self.assertEqual(result["reviewable_unapproved_routes"], 0)
+            self.assertEqual(result["review_queue_counts"]["enabled_in_development_coverage"], 4)
+            self.assertEqual(result["review_queue_counts"]["excluded_in_current_coverage"], 1)
+            self.assertEqual(
+                {x["route_id"] for x in result["groups"]["enabled_in_development_coverage"]},
+                {"008", "089", "200", "280"},
+            )
+            with self.assertRaisesRegex(ValueError, "duplicate"):
+                review_catalog(
+                    gtfs_dir=root, coverage_path=extended,
+                    manifest_service_date=SERVICE_DATE,
+                    ride_dates=[SERVICE_DATE, SERVICE_DATE],
+                )
+            with self.assertRaisesRegex(ValueError, "at least one"):
+                review_catalog(
+                    gtfs_dir=root, coverage_path=extended,
+                    manifest_service_date=SERVICE_DATE, ride_dates=[],
+                )
+
     def test_known_route_rename_is_not_silently_accepted(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
