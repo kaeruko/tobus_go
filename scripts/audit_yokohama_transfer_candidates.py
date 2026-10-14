@@ -44,6 +44,37 @@ def _active_served_stop_ids(dataset: TransitDataset, day: date) -> set[str]:
     }
 
 
+def _serving_routes_by_stop(dataset: TransitDataset, day: date) -> dict[str, list[dict]]:
+    """Source GTFS route/headsign hints, never an official bus-stand mapping."""
+    services = dataset.active_service_ids(day)
+    active_trips = {
+        trip.id: trip for trip in dataset.trips.values()
+        if trip.service_id in services
+    }
+    route_heads: dict[str, dict[str, set[str]]] = {}
+    for stop_time in dataset.stop_times:
+        trip = active_trips.get(stop_time.trip_id)
+        if trip is None:
+            continue
+        route_heads.setdefault(stop_time.stop_id, {}).setdefault(
+            trip.route_id, set()
+        )
+        if trip.headsign:
+            route_heads[stop_time.stop_id][trip.route_id].add(trip.headsign)
+    return {
+        stop_id: [
+            {
+                "route_id": route_id,
+                "route_short_name": dataset.routes[route_id].short_name,
+                "route_long_name": dataset.routes[route_id].long_name,
+                "trip_headsigns": sorted(headsigns),
+            }
+            for route_id, headsigns in sorted(routes.items())
+        ]
+        for stop_id, routes in route_heads.items()
+    }
+
+
 def audit_transfer_candidates(
     bus_coverage: YokohamaFareCoverage,
     subway_dataset: TransitDataset,
@@ -79,6 +110,8 @@ def audit_transfer_candidates(
         raise ValueError("no reviewed municipal bus routes available")
     bus_stop_ids = _active_served_stop_ids(bus_reviewed.dataset, parsed)
     subway_stop_ids = _active_served_stop_ids(subway_dataset, parsed)
+    bus_route_hints = _serving_routes_by_stop(bus_reviewed.dataset, parsed)
+    subway_route_hints = _serving_routes_by_stop(subway_dataset, parsed)
     if not bus_stop_ids or not subway_stop_ids:
         raise ValueError("no active scheduled stops on service_date")
 
@@ -94,8 +127,13 @@ def audit_transfer_candidates(
     suggestions = [{
         "bus_stop_id": bus_id,
         "bus_stop_name": bus_reviewed.dataset.stops[bus_id].name,
+        # Only reviewed, active municipal-bus trips; NOT a verified
+        # correspondence to a numbered official bus stand.
+        "active_reviewed_bus_routes": bus_route_hints.get(bus_id, []),
         "subway_stop_id": rail_id,
         "subway_stop_name": subway_dataset.stops[rail_id].name,
+        # These are raw GTFS route IDs, NOT fare-reviewed subway lines.
+        "active_unapproved_subway_routes": subway_route_hints.get(rail_id, []),
         "straight_line_distance_m": round(distance, 1),
         "status": "UNVERIFIED_GEOMETRIC_HINT",
         "official_transfer_evidence_url": None,
@@ -115,8 +153,10 @@ def audit_transfer_candidates(
         "candidates": suggestions,
         "warning": (
             "Straight-line proximity only. No walking path, interchange time, "
-            "accessibility, subway coverage, or welfare/senior zero-yen fare "
-            "is verified. Do not feed candidate pairs into /route automatically."
+            "accessibility, official platform/bay correspondence, subway "
+            "route coverage, or welfare/senior zero-yen fare is verified. "
+            "Route/headsign hints are feed observations only. "
+            "Do not feed candidate pairs into /route automatically."
         ),
         "file_action": "NONE",
     }

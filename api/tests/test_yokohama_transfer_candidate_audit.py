@@ -52,8 +52,37 @@ class CandidateTriageTests(unittest.TestCase):
         self.assertEqual(candidate["bus_stop_id"], "yokohama_bus:B")
         self.assertEqual(candidate["subway_stop_id"], "yokohama_subway:S")
         self.assertLess(candidate["straight_line_distance_m"], 20)
+        self.assertEqual(
+            [r["route_id"] for r in candidate["active_reviewed_bus_routes"]],
+            ["yokohama_bus:BUS"],
+        )
+        self.assertEqual(
+            candidate["active_reviewed_bus_routes"][0]["route_short_name"],
+            "008系統",
+        )
+        self.assertEqual(
+            candidate["active_reviewed_bus_routes"][0]["trip_headsigns"], [],
+        )
+        self.assertEqual(
+            [r["route_id"] for r in candidate["active_unapproved_subway_routes"]],
+            ["yokohama_subway:BLUE"],
+        )
+        self.assertNotIn(
+            "yokohama_bus:X",
+            str(candidate["active_reviewed_bus_routes"]),
+        )
         self.assertFalse(candidate["walkable_route_verified"])
         self.assertFalse(candidate["pass_fare_verified"])
+        self.assertIsNone(candidate["official_transfer_evidence_url"])
+
+    def test_route_hints_do_not_change_candidate_count_or_approve_subway(self):
+        result = self._report()
+        candidate = result["candidates"][0]
+        self.assertEqual(result["candidate_pair_count"], 1)
+        self.assertEqual(result["shown_pair_count"], 1)
+        self.assertEqual(candidate["status"], "UNVERIFIED_GEOMETRIC_HINT")
+        self.assertFalse(candidate["pass_fare_verified"])
+        self.assertTrue(candidate["active_unapproved_subway_routes"])
         self.assertIsNone(candidate["official_transfer_evidence_url"])
 
     def test_radius_changes_proximity_not_fare_certification(self):

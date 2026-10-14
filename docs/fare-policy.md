@@ -766,6 +766,41 @@ stop_sequence重複などはfail-fastで止める。
   合成GTFSの5件の純粋関数テストではread-only、
   未承認バス除外、不正日付・feed-ID・範囲・上限を検証する。
 
+2026-10-14 実GTFS監査で直線300m以内 **11組**（高島町B19・桜木町B18の
+2駅、バス乗り場ID11個）を抽出。バス側は審査済み105ポール、
+地下鉄側は全42駅から同日有効な時刻を持つ駅を選んだ。
+結果はすべて `UNVERIFIED_GEOMETRIC_HINT` で、バス⇄地下鉄の
+ゼロ円経路を11件承認したわけではない。
+
+公式資料の突合：
+- [桜木町駅B18の公式駅情報](https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/detail/Station?id=00002909)
+  は周辺市営バスに「桜木町駅前」を表示する。
+  [桜木町駅前のりば一覧](https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusAboardMap?stCode=00090408)
+  には複数の番号付きのりばと路線・行先が掲載されるが、
+  GTFSの`2014_12`・`2014_08`などと各番号の対応は不明。
+- [高島町駅B19の公式駅情報](https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/detail/Station?id=00002620)
+  の周辺バスは「花咲橋」「戸部警察署前」で、
+  最短候補の「高島町」`3018_02`は**この公式一覧にない**。
+  [高島町バス停のりば一覧](https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusAboardMap?stCode=00090598)
+  は別途確認可能だが、駅入口までの連絡を保証しない。
+  [花咲橋のりば一覧](https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusAboardMap?stCode=00090878)
+  は公式地下鉄駅情報と名称が一致。
+- [横浜市の福祉パス対象交通機関](https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html)
+  と[敬老パス](https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html)
+  は**市営地下鉄全線**を対象と明記。ただしGTFSの全25`route_id`が
+  市営地下鉄の通常運行であるとの識別・承認は未完了。
+
+駅構内図・公式のりば地図を参照しながら、GTFS停留所IDと番号付きのりばの
+対応、出入口、横断歩道、徒歩距離と改札/ホームまでの時間を別々に確認する。
+`straight_line_distance_m`を歩行距離として転用しない。
+
+監査のJSONに`active_reviewed_bus_routes`と
+`active_unapproved_subway_routes`を追加。
+両方とも**当日の有効GTFS便がそのポール・駅を使うroute_id/系統名/
+行先の候補表示だけ**で、公式のりば番号の証明でも、
+地下鉄の無料承認でもない。後続でGTFSの便と公式のりば番号を
+照合する材料に使う。既存11組の判定フラグ・sort・limitは変えない。
+
 実GTFS取得後の読み取り専用例（両路線のデータが存在する場合のみ）：
 
 ```powershell
