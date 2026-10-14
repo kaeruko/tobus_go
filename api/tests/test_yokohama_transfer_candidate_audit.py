@@ -67,17 +67,14 @@ class CandidateTriageTests(unittest.TestCase):
             audit_transfer_candidates(limited, self.rail.dataset, service_date=DAY)
 
     def test_bad_feed_identity_and_date_are_rejected(self):
-        wrong = replace(
-            self.rail.dataset,
-            metadata=replace(self.rail.dataset.metadata, feed_id="yokohama_bus"),
-        )
+        wrong = replace(self.bus, operator_id="unrelated_operator")
         with self.assertRaisesRegex(ValueError, "identity mismatch"):
-            audit_transfer_candidates(self.bus, wrong, service_date=DAY)
+            audit_transfer_candidates(wrong, self.rail.dataset, service_date=DAY)
         with self.assertRaisesRegex(ValueError, "active scheduled stops"):
             audit_transfer_candidates(
                 self.bus, self.rail.dataset, service_date="2027-01-01"
             )
-        with self.assertRaisesRegex(ValueError, "zero-padded"):
+        with self.assertRaisesRegex(ValueError, "YYYY-MM-DD"):
             audit_transfer_candidates(
                 self.bus, self.rail.dataset, service_date="2026-1-1"
             )
