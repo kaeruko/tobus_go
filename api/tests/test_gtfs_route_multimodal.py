@@ -36,7 +36,12 @@ class ReusableGtfsBusRailBackendTests(unittest.TestCase):
         rail_dir = tempfile.TemporaryDirectory()
         self.addCleanup(bus_dir.cleanup)
         self.addCleanup(rail_dir.cleanup)
-        self.bus = _feed(Path(bus_dir.name), rail=False).dataset
+        bus_coverage = _feed(Path(bus_dir.name), rail=False)
+        self.unfiltered_bus = bus_coverage.dataset
+        bus_reviewed = bus_coverage.municipal_free_coverage()
+        if bus_reviewed is None:
+            raise AssertionError("expected reviewed municipal bus trips")
+        self.bus = bus_reviewed.dataset
         self.rail = _feed(Path(rail_dir.name), rail=True).dataset
 
     @staticmethod
@@ -72,6 +77,20 @@ class ReusableGtfsBusRailBackendTests(unittest.TestCase):
                     9, 20, bus_only=True,
                 )
             )
+
+    def test_generic_search_requires_fare_scope_before_welfare_pass(self):
+        # The raw GTFS contains a faster sightseeing service ("EXPRESS").
+        # This engine must not pretend it is free. The caller filters the
+        # source trips via YokohamaFareCoverage BEFORE invoking SearchCore.
+        result = self._backend(self.unfiltered_bus).search(
+            _request((35.4700, 139.6200), (35.4650, 139.6250), 9, 0)
+        )
+        ride = next(
+            s for s in result.candidates[0].to_mapping()["steps"]
+            if s["kind"] == "bus"
+        )
+        self.assertEqual(ride["trip_id"], "yokohama_bus:EXPRESS")
+        self.assertNotIn("fare_context", ride)
 
     def test_bus_backend_remains_bus_for_existing_pass_trip(self):
         result = self._backend(self.bus).search(
