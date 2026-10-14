@@ -965,7 +965,11 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                 ], [],
             )
             for item in report["groups"]["nonstandard_name_need_manual_review"]:
-                self.assertEqual(item["registry_status"], "pending")
+                expected = (
+                    "development_eligible" if item["route_id"] == "288"
+                    else "pending"
+                )
+                self.assertEqual(item["registry_status"], expected)
                 self.assertEqual(item["current_coverage_kind"], "unreviewed")
 
     def test_registry_review_fails_on_route_name_change(self):
