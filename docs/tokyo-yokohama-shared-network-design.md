@@ -1,7 +1,7 @@
 # 東京・横浜の徒歩・乗換ネットワーク共通化 — 設計調査（RFC）
 
-- 状態: **RFC。GTFS/ODPTの共通読込ラッパーのみ実装済み。本番の探索・データ・UIは変更なし**
-- 調査したリポジトリ: `kaeruko/tobus_go` の `main`、`82bc14e17b7643bea0df229ded28dc0e55558e33`（2026-10-14）
+- 状態: **方式Bを採択。第一段階として東京のラベル探索本体を抽出。横浜への接続・共通データへの切替・本番デプロイは未実施**
+- 調査したリポジトリ: `kaeruko/tobus_go` の `main`、`9522377009bedc617597a4a999f76057b9f0f0b2`（2026-10-14）。このSHAを基準に第一段階を実装
 - 関連: [横浜でGO Issue #241](https://github.com/kaeruko/tobus_go/issues/241)
 - **今回の対象は東京版と横浜版のみ**。仕掛かり中の他都市は、設計・探索比較・変更の対象にしない。
 - 横浜の初回公開（市営バス＋市営地下鉄、無料対象を検証した便のみ）はこの大規模共通化の完了を待たせない。
@@ -10,7 +10,7 @@
 
 | 項目 | 東京 | 横浜 |
 | --- | --- | --- |
-| 経路探索 | `api/tokyo_route_engine.py` → `api/toei_engine.py` + `api/tokyo_search_labels.py` のNetworkXグラフ探索 | `api/gtfs_route_backend.py` の既存 `SearchCore` による各GTFSフィードの時刻表検索 |
+| 経路探索 | `api/tokyo_route_engine.py` → `api/toei_engine.py` → `api/tokyo_search_labels.py`（東京の接続層）→ `api/transit_search_labels.py`（共通ラベル探索） | `api/gtfs_route_backend.py` の既存 `SearchCore` による各GTFSフィードの時刻表検索 |
 | バス⇄地下鉄の徒歩乗換 | `walk` / `board` / `ride` / `alight` 等を同じグラフで扱う | `api/yokohama_municipal_backend.py` がバス・地下鉄を別に検索し、審査済みの徒歩リンクで**最大1回**つなぐ |
 | 探索目的 | 最速 `time`、少乗換 `fewTransfers`、東京独自の `cost`（快適さ系の重み） | 共通 `SearchCore` は `fastest` / `fewest_transfers`。東京 `cost` と等価ではない |
 | 候補 | 複数経路、実乗車便の連続性と循環路線の検証、時間・徒歩上限、部分結果/探索上限 | バス・鉄道の静的な具体便、フィード別探索、専用結合ロジック |
@@ -77,14 +77,14 @@
 - **途中徒歩を探索**: `ride → walk → ride → walk → ride` を任意の許容上限まで扱う。徒歩の分数を次の出発便の発車前に加算し、間に合わない便を選ばない。
 - **運行日/跨日**: GTFSの24:xx以降、ODPT運行日判定と到着日時の境界を明示。横浜現行の「徒歩乗換後に1440分以上なら拒否」はv2で検討すべき制限であり、制限のない解探索を暗黙に約束しない。
 - **探索状態**: 最低限、物理ノード、時刻、直近/選択済み便、実移動済みの有無、乗車数、連続徒歩m、総徒歩m、探索目的のコストを保持。将来の取り得る遷移が異なる状態を同じキーとして誤除去しない。
-- **探索優先順位**: 東京の`time`、`fewTransfers`、独立した`cost`を保持。異なる快適性スコアを最少乗換に読み替えない。複数候補top-K・安定した同点優先規則も維持。
+- **探索優先順位**: 東京の`time`、`fewTransfers`、独立した`cost`、既存の候補順と生候補予算を保持。現行のcost/fewTransfersは詳細化・重複排除前の候補数を制限するため、異なる有効経路の厳密なtop-Kを保証する契約は追加しない。異なる快適性スコアを最少乗換に読み替えない。
 - **下界と枝刈り**: 探索用ヒューリスティックは真の最短残時間/コストを**上回らない**。方向別補正で不正なA*下界や乗換候補の欠落を起こさない。走行していない「乗車→降車」で徒歩上限をリセットしない。
 - **無料乗車条件**: 横浜の福祉/敬老のポリシーで未知の便種別・除外路線等は、**候補生成前に除外**。普通の経路を見つけた後で0円ラベルを後付けしない。各返却候補をもう一度独立の運賃検証器で照合。
-- **Realtime**: 東京の実時間情報を「表示だけ変更」せず、具体便の選択に反映できること。データ取得に失敗したときの静的フォールバック・古い更新の扱いを明示。
+- **Realtime**: 東京の実時間情報を「表示だけ変更」せず、具体便の選択に反映できること。新しい共通接続層で取得失敗時に別形式・単位・バックエンドへ暗黙に切り替えない。既存東京のRealtime方針は今回変更せず、今後の静的実行は入力として明示し、別途その契約を検証する。
 - **診断**: 探索状態数、時間、キュー、上限に達した理由、部分結果、未確認の路線/徒歩辺によるカバレッジ不足を区別。「候補なし」と「存在しない」を同一視しない。
 - **出力**: 到着時刻、待ち時間、歩行時間、距離、移動経路・方向、具体便、徒歩の審査根拠、都市別の公式表示名を同じ旅程から生成。既存`RouteCandidate`の契約を維持。
 
-## 4. エンジン統合の候補（まだ選定しない）
+## 4. エンジン統合の選定 — 方式Bを採択
 
 ### A. 共通SearchCoreを拡張
 
@@ -100,19 +100,23 @@
 - 強み: 途中徒歩、東京の独立した3目的、複数候補、選択便・乗車前の待機を扱った実績。
 - リスク: Tokyo`TimetableChoices`・NetworkX・前処理・大量メモリ/性能との結合を分離する必要がある。現在のRust`SearchCore`をそのまま再利用できるわけではない。
 
-**結論は保留**: 小さな同じ合成ネットワークでA/B両方の探索結果・探索状態数・時間・メモリを比較して決める。第三の都市専用の本番エンジンを恒久的に増やさない。
+**採択: B。** 東京のラベル探索を共通Python SearchCore v2の土台とする。現行静的SearchCore v1に徒歩辺を追加するだけでは、具体便内の通過順・乗車直後/走行後・正確な総徒歩/連続徒歩・3目的・候補集約・期限を維持できない。Aではこれらの状態と契約を再構築する必要がある。Bなら蓄積した回帰テストと探索処理を維持して接続層を交換できる。
+
+性能がAより優れるという実証ではない。A/Bの実データ性能比較は未実施。現行Python/Rustのv1 `SearchCore.search(BatchSearchRequest)` は変更せず、v2をv1の設定へ暗黙に割り当てない。Rust v2は将来の明示的な契約・実装・同値検証を必要とする。
+
+`transit_network_experiment.py` は第三の本番エンジンとして採用しない。方向別リンク・許可便集合・合成fixtureを再利用し、共通本体への接続が検証できた後に探索ループの重複を整理する。既存ファイル名は維持する。
 
 ## 5. 実装の段階と合格条件
 
 | フェーズ | 変更の範囲 | 明確な合格条件 |
 | --- | --- | --- |
-| **0: 設計のみ（このRFC）** | 東京/横浜の事実確認と契約の記述 | 本番コード・データ・CI設定変更なし |
-| **1: 方向別徒歩リンクのv2契約** | 純粋データモデルとバージョン照合テスト。既存東京レビュー/横浜v1と区別する変換アダプター | 空リンクで従来結果不変、勝手に逆方向追加しない、版不一致でfail-closed |
-| **2: 探索の小規模比較実験** | 既存2方式を共通fixtureに当てる試験コード（本番未接続） | 徒歩→便の間に合い判定、複数乗換、運行日、cost、無効便除外で一致 |
-| **3: 横浜のshadow比較** | 審査済みGTFS+公式徒歩リンクを使い現行結合方式とv2を並行検証 | 両パス0円/便順/徒歩分数/GTFS版が一致。差分を記録・説明 |
-| **4: 東京のshadow比較** | ピン留めした実ODPT/GTFS→共通モデルの検証、従来結果を返しつつv2を別計算 | 具体便・時刻・候補数と順位・英語名・循環・バスのみ・Realtime・costが同等 |
-| **5: ロールアウト** | テスト済み対象だけ切替可、旧実装は戻せるように保持 | 実データ比較、性能/メモリ、必要ならPython-Rust一致、失敗時の即時rollback |
-| **6: 重複整理** | 都市別の重複実装を削減 | 東京・横浜の既存公開動作・無料対象・返却契約が維持 |
+| **0: 調査・選定** | 方式Bを選定し、互換性・データ不足・都市別条件を明文化 | コード上の事実と提案・未検証事項を分離 |
+| **1: 東京と同じ入力で抽出（今回）** | `transit_search_labels.py`へfrontier・展開を抽出。東京の既存ファイルを接続層として維持 | 既存東京テスト、都市非依存の合成便、例外・期限・SelectedPath互換性。データ変換なし |
+| **2: 共通入力契約** | source便ID・運行日/祝日・通過順・乗降制限・公式表示情報、方向別徒歩リンクと版照合 | 東京の便情報を欠落させない。横浜の未確認・逆方向・版違いを有効化しない |
+| **3: 横浜接続の比較** | 審査済み便集合・徒歩リンクを共通グラフ/具体便検索器へ接続 | 福祉/敬老の検索前除外と返却時0円再検証。現行で扱えない複数徒歩は独立に妥当性確認 |
+| **4: 東京入力の移行比較** | ピン留めした実ODPT/GTFSと凍結Realtimeで現行入力と比較 | 具体便・時刻・候補順・英語名・循環・バスのみ・3目的・部分結果が同等 |
+| **5: 性能・Rust・切替** | 明示的なv2契約、必要なNative実装、都市別の原子的prebuilt版検証 | 同環境の時間/RSS、必要なPython/Rust同値性、Lambda冷起動・warm検索。承認された都市だけ切替 |
+| **6: 重複整理** | 共通本体への委譲へ統一 | 東京の機能・横浜の公開条件を維持し、別の都市別探索ループを恒久維持しない |
 
 横浜 Issue #241の初回公開と、東京エンジンの全面統合は**別ゲート**。このRFCは初回公開を遅らせない。
 
@@ -125,7 +129,7 @@
 5. **無料乗車**: 福祉/敬老パスごとに、対象便0円だけを選ぶ。未審査・除外便が「見つかった経路」の後払い確認をすり抜けない。
 6. **境界条件**: 23:59→24:xx、曜日/祝日例外、運休、同時刻乗換、終電、見つからない場合、循環系統、分岐/終点、GTFS更新。
 7. **目的/候補**: 東京`time`/`fewTransfers`/`cost`で同一の正解経路・並び・候補件数、探索上限到達時の部分結果。
-8. **運行情報**: 遅延の有無で乗換可否と具体便が切り替わり、静的フォールバックをラベル付きで区別する。
+8. **運行情報**: 凍結した遅延の有無で乗換可否と具体便を確認。指定された静的/Realtime入力を区別し、例外時に別データ・単位・バックエンドへ暗黙に切り替えない。
 9. **安全/効率**: 300m近接で大規模な全件歩行辺を自動生成しない。探索上限で安全に停止、Python/Rustの等価テスト。
 
 ### 実データ/性能の比較（ローカルの非公開GTFSはコミットしない）
@@ -137,55 +141,30 @@
 
 ## 6. 改修対象と改修しないもの
 
-**実装候補（フェーズ1以降）**: `api/transit_dataset.py`周辺のネットワーク仕様、`api/transit_engine.py`、`api/tokyo_search_labels.py`、`api/yokohama_municipal_backend.py`、`api/reviewed_walk_time.py`、Python/Rustの探索契約とそのテスト。何を修正するかはフェーズ2の結果で決定する。
+**今回の変更**: `api/transit_search_labels.py`（新規共通本体）、`api/tokyo_search_labels.py`（既存名の接続層）、`api/tests/test_transit_search_labels.py`（新規テスト）、本設計書。東京の下界・丸め補正・具体便評価・降車時間を明示的に渡す。探索本体に東京モジュールのimportを持たせない。
 
-**現段階で変更しない**: `api/toei_engine.py`、東京/横浜の本番runtime、Flutter、既存GTFS・coverage・徒歩審査ファイル、APIインターフェース、デプロイ・Lambda設定。既存ファイル名/フォルダ名を変更せず、必要な移行があれば事前に確認する。
+**次段階の候補**: `transit_dataset.py`とsource adapters、共通グラフ/具体便検索器/下界、横浜の接続層、Python/Rustのv2契約、prebuilt生成と起動版検査。新規ファイルの候補は `transit_network.py`、`transit_timetable_choices.py`、`transit_search_bounds.py`。今回これらは実装しない。
 
-## 7. 判断・次の一手
+**今回変更しない**: `toei_engine.py`、既存Python/Rust SearchCore v1、東京/横浜runtime、Flutter、GTFS・coverage・徒歩審査ファイル、既存API、デプロイ・Lambda設定。横浜の現行バックエンドを共通本体へまだ切り替えない。
 
-最初に行うべきなのは**本番コードの共通化ではなく、同じ乗換問題を両探索方式に解かせる小規模の比較fixture**。
+## 7. 第一段階の接続契約と次の一手
 
-**採択基準**: 実乗車便の正確さ、東京`cost`/複数候補の維持、横浜の無料対象と徒歩リンクのfail-closed、性能とRust拡張の影響、差分の説明容易性。
+共通 `search_labels()` は既存のグラフ・時計・徒歩/安全上限に加え、以下を**必須引数**で受ける。別のproviderやゼロ下界へ例外時に自動切替する仕組みは設けない。
 
-この段階の成果物は設計書・合成fixture・テスト・比較レポートまで。実装方針を決めた後に初めて本番探索コードへ反映する。
+| 引数 | 契約 |
+| --- | --- |
+| `choices` | `can_wait_offboard`、全ての乗車可能な具体便を返す`board_options`。同時刻の将来状態を便・通過順・実移動済みで区別できるRideState |
+| `ride_options` | `(u,v,time,ride,edge)`から同じ便の次の通過順・到着時計を返す。サービス日・許可便・時刻の整合性はproviderが保証 |
+| `alight_minutes` | 選択便の降車時間。東京は走行後バス0分、その他1分の既存規則。未走行便の降車拒否は共通本体で維持 |
+| `prepare_bounds` | 探索開始後の`check_deadline`と`deadline`を受け、`(bounds,cost_estimator,arrival_estimator)`を返す。前処理時間も安全期限に含める |
+| `path_signature` | 完成経路の同一性。東京の現行完成経路集約を変更しない |
+| `path_factory` | ノード列・選択時計・便・query-local choices・開始分から出力を構成。東京のSelectedPathはmanager/Realtime情報を保持 |
+| `compact_queue` | 無効/展開済み項目だけを除去し、priority・sequence・親参照を維持 |
 
-## 8. ソース形式を隠す薄い読み込みラッパー（2026-10-14実装）
+単位は既存東京と同じPythonの分（float可）・距離m。Rust v1のu32整数分へ暗黙に変換しない。グラフの`walk/board/ride/alight/xfer`と`bus/rail`はこの段階の内部契約であり、任意のGTFSをそのまま渡せる公開APIではない。
 
-`api/transit_adapters/unified.py` は、すでに存在する変換処理を**そのまま呼び出す**だけの共通窓口。
+東京の `TimetableChoices` 自体を交換しないため、`tokyo_time_bounds` が型/メソッド同一性を検査する高速化条件を維持する。丸め補正の生成・ValueErrorの原因付き契約例外・旧graph-only fixtureの時計評価も東京側に残る。新しい共通SelectedPathは東京managerを要求せず、既存東京SelectedPathのmodule/class名と詳細化用属性は維持する。`TimetableManager`のpickle位置・既存prebuiltのschema/ファイル名・起動方式も変えない。
 
-```python
-from transit_adapters import GtfsFeedSource, OdptFeedSource, TransitFeedSource
+この変更だけでは横浜は共通探索を利用しない。次に、共通入力の不足（祝日/運行日例外、ODPT跨日、元pattern/run情報、pickup/drop-off、公式英語名）と、横浜の許可便集合・方向別審査の契約を固定する。既存ラッパーを再利用しつつ、静的時計全体の整合性をロード時に検証する。共通グラフを生成した後の切替前には非公開の実データ比較が必要。
 
-# 横浜GTFS: 規定のGTFSファイルが存在するピン留め済みローカルディレクトリ。
-yokohama: TransitFeedSource = GtfsFeedSource(
-    directory=validated_gtfs_dir, metadata=yokohama_metadata,
-)
-
-# 東京ODPT: ライセンス・配布元確認済みの読込済みODPT記録。
-tokyo: TransitFeedSource = OdptFeedSource(
-    metadata=tokyo_metadata, calendar_rules=approved_calendar_rules,
-    busstop_poles=odpt_poles, busroute_patterns=odpt_patterns,
-    bus_timetables=odpt_bus_timetables, stations=odpt_stations,
-    railways=odpt_railways, train_timetables=odpt_train_timetables,
-)
-
-# 下流は形式によらず同一のTransitDatasetを受け取る。
-dataset = yokohama.load()  # または tokyo.load()
-```
-
-- 両方の`load()`が、既存の`GtfsTransitAdapter.load`／`OdptTransitAdapter.build`を呼び、同じ`TransitDataset`を返す。フォーマットの自動推定をしない。
-- `FeedMetadata.feed_id`と`version`を元の通り維持する。元の停留所／便IDの名前空間化、厳格なカレンダー検証、欠落GTFSファイル検証、横浜地下鉄用の**明示的**なGTFS互換フラグも既存実装に委ねる。ODPT運行日を推測しない。
-- `api/tests/test_transit_feed_sources.py`が、GTFSとODPTの合成データで同一の`load()`、同じ出発→到着の具体便、既存変換結果との一致、ID非衝突、欠損データfail-closedを確認する。
-- **非対応範囲**: 複数フィードを一つの歩行ネットワークに結ぶこと、東京の現在のODPT/GTFS混合Lambdaグラフからの実データ移行、リアルタイム、乗換歩行の自動承認、利用できる無料乗車券の判定、production runtimeへの配線。変換ラッパー追加だけで横浜⇄東京の実経路が自動統合されるわけではない。
-- 東京・横浜の本番経路を維持したまま、移行用の共通入力インターフェースを準備する小さな一歩として位置付ける。
-
-## 9. 本番未接続の共通探索実験（2026-10-14）
-
-`api/transit_network_experiment.py`は前節の`TransitFeedSource.load()`からGTFS/ODPT`TransitDataset`を受け取り、複数feedの停留所・予定便・**版拘束された方向別の審査済み徒歩リンク**だけを探索する小規模Python試作。東京/横浜ランタイムからは呼び出さず、公開候補の生成/無料表示には接続しない。
-
-- `ExperimentalMultiFeedSearch.from_sources(sources, allowed_trip_ids=..., walking_links=...)`。**便の許可リストは呼び出し側が事前に審査して明示**し、これが空なら自動で全便を許可しない。これ自体は運賃の認定器ではない。
-- `PinnedWalkLink`は既存`ReviewedWalkingLink`、出発・到着feedのversionを保持。版不一致、未知ストップ、重複方向、未審査リンクは探索前に拒否し、逆方向を増やさない。GTFS座標から徒歩辺を自動生成しない。
-- 同じ時刻表上で`ride → walk → ride → walk → ride`を探索できる。乗車は同一`trip_id`の時刻・順序に従い、徒歩後の出発に間に合う便だけを選ぶ。
-- **意図的な未対応**: 東京の独立`cost`快適さ優先、top-K複数候補、リアルタイム遅延、歩行距離上限、バリアフリー、翌サービス日への継続、全面的な東京既存探索の状態支配・性能最適化。許容値は`fastest`/`fewest_transfers`のみ。東京の本番エンジンの代替として扱わない。
-- `api/tests/test_transit_network_experiment.py`は**合成のGTFSバス＋ODPT鉄道**で、途中徒歩2回、乗換に間に合わない早い電車の排除、複数目的、逆方向禁止、古いfeed版、未許可便、日曜非運行、探索上限を確認。テスト用「公式URL」は架空であり、実際の審査記録ではない。
-- Python/Rustの既存`SearchCore`契約は**変更せず**、検証を続ける。実データを使うshadow比較・v2本番導入は後続フェーズ。
+今回のローカル検証: 変更前・変更後の東京既存テスト220件、共通本体の追加テスト9件が成功。固定した変更前mainとの合成比較36入力で候補順・cost・実時計・選択便・徒歩距離が完全一致。横浜のcoverage/無料対象/乗換と既存SearchCoreの関連テスト105件は99件成功・Native拡張が必要な6件スキップ（Rust検証はCIで実施）。実GTFS/ODPTの結果一致、Lambda実環境のメモリ/速度、横浜v2の公開可否は未検証。ローカル合成テストの成功を本番切替の承認に読み替えない。

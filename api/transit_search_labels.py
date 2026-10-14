@@ -1,0 +1,359 @@
+"""Shared resource-aware label search, with explicit city integration hooks.
+
+This is the Python foundation for SearchCore v2, not the static v1
+BatchSearchRequest interface. Providers supply exact selected-run continuation;
+callers supply lower bounds, completed-path identity, presentation and alighting.
+No city loader, fare policy or realtime fetch is performed in this module.
+"""
+
+from __future__ import annotations
+
+import heapq
+import itertools
+import time
+from collections import defaultdict
+from dataclasses import dataclass
+
+from route_engine import RouteContractError, RouteSearchLimitError
+
+
+class SelectedPath(list):
+    """Ordinary path nodes with query-local clocks and selected vehicle runs.
+
+    List equality/serialization stays compatible with existing callers.  The
+    private selection is consumed by detail generation before path is removed
+    from the HTTP response.
+    """
+
+    def __init__(self, nodes, edge_times, edge_rides, choices, start_minute):
+        super().__init__(nodes)
+        self.edge_times = edge_times
+        self.edge_rides = edge_rides
+        self.choices = choices
+        self.start_minute = start_minute
+
+    @property
+    def arrival_minute(self):
+        return self.edge_times[-1] if self.edge_times else self.start_minute
+
+
+@dataclass(slots=True, eq=False)
+class _Label:
+    node: object
+    cost: float
+    time: float
+    total_walk: float
+    segment_walk: float
+    boardings: int
+    ride: object = None
+    parent: object = None
+    active: bool = True
+    expanded: bool = False
+    goal_signature: object = None
+
+
+class _Frontier:
+    def __init__(self, target, mode, can_wait, goal_signature=None):
+        self.target = target
+        self.mode = mode
+        self.can_wait = can_wait
+        self.labels = {}
+        self.count = 0
+        self.goal_signature = goal_signature
+
+    def _key(self, label):
+        if label.node == self.target:
+            # Only completed itineraries can ignore the final alighting stop:
+            # intermediate stops still offer useful transfers and continuations.
+            if self.mode != "time" and self.goal_signature is not None:
+                if label.goal_signature is None:
+                    label.goal_signature = self.goal_signature(label)
+                return ("goal", label.boardings if self.mode == "fewTransfers" else None,
+                        label.goal_signature)
+            # Earliest-arrival search retains its existing goal comparison.
+            return ("goal", label.boardings if self.mode == "fewTransfers" else None,
+                    int(label.segment_walk // 25))
+        context = label.ride.future_key if label.ride is not None else None
+        conservative_time = None
+        if context is not None or not self.can_wait:
+            conservative_time = label.time
+        # Fastest arrival has no boarding-count objective or hard boarding
+        # constraint.  Equivalent continuations can therefore be compared
+        # across boarding counts.  Keeping them separate retains arbitrarily
+        # many immediate board/alight cycles even when every resource is worse.
+        # The other objectives keep their conservative boarding-count groups.
+        boardings = None if self.mode == "time" else label.boardings
+        return (label.node, boardings, context, conservative_time)
+
+    def _dominates(self, first, second):
+        if first.node == self.target:
+            return (first.time <= second.time if self.mode == "time"
+                    else (first.cost, first.time, first.total_walk)
+                    <= (second.cost, second.time, second.total_walk))
+        # Comfort cost does not constrain earliest arrival.  A strictly earlier
+        # offboard label can wait and reproduce a later label's continuation.
+        # At equal times keep the cheaper prefix, preserving the queue's
+        # preference for continuing a run over needless alight/board cycles.
+        cost_ok = (first.cost <= second.cost
+                   or (self.mode == "time" and first.time < second.time))
+        return (cost_ok and first.time <= second.time
+                and first.total_walk <= second.total_walk
+                and first.segment_walk <= second.segment_walk)
+
+    def add(self, label):
+        key = self._key(label)
+        existing = self.labels.get(key, ())
+        if any(self._dominates(other, label) for other in existing):
+            label.active = False
+            return False
+        kept = []
+        for other in existing:
+            if self._dominates(label, other):
+                other.active = False
+                self.count -= 1
+            else:
+                kept.append(other)
+        kept.append(label)
+        self.labels[key] = kept
+        self.count += 1
+        return True
+
+
+def _path(label, choices, start_minute, path_factory):
+    chain = []
+    while label is not None:
+        chain.append(label)
+        label = label.parent
+    chain.reverse()
+    return path_factory(
+        [item.node for item in chain],
+        [item.time for item in chain[1:]],
+        {index: item.ride for index, item in enumerate(chain[1:])
+         if item.ride is not None},
+        choices, start_minute,
+    )
+
+
+def _compact_queue(queue):
+    """Discard only entries which could not expand on their eventual pop.
+
+    Keep each original (priority, sequence, label) tuple so candidate ordering
+    stays unchanged. Frontier and parent references remain intact.
+    """
+    original_size = len(queue)
+    kept = [entry for entry in queue
+            if entry[2].active and not entry[2].expanded]
+    removed = original_size - len(kept)
+    if removed:
+        queue[:] = kept
+        heapq.heapify(queue)
+    return removed
+
+
+def search_labels(graph, choices, start, target, *, mode, start_minute,
+                  max_search, max_visited, max_travel_min, time_limit_sec,
+                  max_total_walk, max_segment_walk, walk_speed,
+                  rail_boarding_minutes, advance_time, virtual_connections,
+                  edge_uses_rail, heuristic=lambda node: 0.0,
+                  prepare_bounds, path_signature, path_factory, compact_queue,
+                  ride_options, alight_minutes, max_expanded=None):
+    """Yield feasible paths, using one frontier at generation and pop time.
+
+    fewTransfers orders its lexicographic objective with a relaxed reverse
+    bound; time uses a reverse elapsed-time bound. These change priorities
+    only. A stale label is discarded by identity, rather than a second
+    scalar-cost map.
+    """
+    if mode not in ("time", "cost", "fewTransfers"):
+        raise RouteContractError(f"Unsupported label search mode: {mode!r}")
+    started = time.monotonic()
+    deadline = start_minute + max_travel_min
+
+    def goal_signature(label):
+        nodes = []
+        while label is not None:
+            nodes.append(label.node)
+            label = label.parent
+        nodes.reverse()
+        return path_signature(nodes)
+
+    frontier = _Frontier(target, mode, choices.can_wait_offboard, goal_signature)
+    yielded_goals = set()
+    queue = []
+    sequence = itertools.count()
+    counts = {name: defaultdict(int) for name in
+              ("popped", "expanded", "dominated", "yielded")}
+    popped = expanded = yielded = 0
+    compacted_count = 0
+    next_compaction_pop = 1000
+    bounds = None
+    cost_bound = None
+    arrival_bound = None
+
+    def priority(label):
+        if mode == "fewTransfers":
+            remaining_boardings, remaining_cost = bounds(label.node, label.segment_walk)
+            return (label.boardings + remaining_boardings, cost_bound(label.cost, remaining_cost),
+                    label.boardings, label.cost, label.time)
+        if mode == "time":
+            return (arrival_bound(label.time, bounds(label.node)),
+                    label.cost, label.boardings, label.time)
+        return (label.cost + heuristic(label.node), label.cost, label.time)
+
+    def offer(label):
+        if (label.time > deadline or label.total_walk > max_total_walk
+                or label.segment_walk > max_segment_walk):
+            return
+        if (label.node == target and mode != "time"
+                and frontier._key(label) in yielded_goals):
+            counts["dominated"][label.boardings] += 1
+            return
+        if frontier.add(label):
+            heapq.heappush(queue, (priority(label), next(sequence), label))
+        else:
+            counts["dominated"][label.boardings] += 1
+
+    def stats(tag):
+        fields = " ".join(
+            f"{name}_by_boardings={{" + ", ".join(
+                f"{key}:{value}" for key, value in sorted(counter.items())) + "}"
+            for name, counter in counts.items())
+        print(f"[ROUTE_DEBUG] {mode} stats: tag={tag} visited={popped} "
+              f"yielded={yielded} queue={len(queue)} g_score={len(frontier.labels)} "
+              f"best_cost={expanded} frontier_labels={frontier.count} "
+              f"compacted_count={compacted_count} "
+              f"lower_bound_ms={bounds.report.get('build_ms', 0.0) if bounds is not None else 0.0:.3f} "
+              f"elapsed_sec={time.monotonic() - started:.3f} {fields}", flush=True)
+
+    def fail(reason):
+        stats("abort:" + reason)
+        elapsed = time.monotonic() - started
+        raise RouteSearchLimitError(
+            f"{mode} search safety limit exceeded: reason={reason} "
+            f"visited={popped} yielded={yielded} queue={len(queue)} "
+            f"g_score={len(frontier.labels)} best_cost={expanded} "
+            f"elapsed_sec={elapsed:.3f} "
+            f"max_visited={max_visited} max_search={max_search} "
+            f"time_limit_sec={time_limit_sec}",
+            reason=reason,
+            diagnostics={
+                "mode": mode, "visited": popped, "yielded": yielded,
+                "queue": len(queue), "g_score": len(frontier.labels),
+                "best_cost": expanded, "frontier_labels": frontier.count,
+                "elapsed_sec": elapsed, "max_visited": max_visited,
+                "max_search": max_search, "max_expanded": max_expanded,
+                "time_limit_sec": time_limit_sec,
+            })
+
+    def check_deadline():
+        if time.monotonic() - started > time_limit_sec:
+            fail("time_limit_sec")
+
+    # The supplied builder runs after the deadline starts. Its exceptions
+    # propagate without selecting another bound, provider or backend.
+    bounds, cost_bound, arrival_bound = prepare_bounds(check_deadline, deadline)
+
+    offer(_Label(start, 0.0, start_minute, 0.0, 0.0, 0))
+    while queue:
+        if time.monotonic() - started > time_limit_sec:
+            fail("time_limit_sec")
+        if popped >= next_compaction_pop:
+            compacted_count += compact_queue(queue)
+            next_compaction_pop = popped + 1000
+            # Charge compaction to the same deadline before another expansion.
+            # It reduces actual heap pops, never the expanded-label budget
+            # (including fastest search's unchanged 100,000-expansion limit).
+            if time.monotonic() - started > time_limit_sec:
+                fail("time_limit_sec")
+            if not queue:
+                break
+        if len(queue) > 250000:
+            fail("queue_size")
+        if frontier.count > 500000:
+            fail("g_score_size")
+        _, _, label = heapq.heappop(queue)
+        popped += 1
+        counts["popped"][label.boardings] += 1
+        if popped > max_visited:
+            fail("max_visited")
+        if not label.active or label.expanded:
+            continue
+        label.expanded = True
+        expanded += 1
+        counts["expanded"][label.boardings] += 1
+        if max_expanded is not None and expanded > max_expanded:
+            fail("max_expanded")
+        if popped % 5000 == 0:
+            stats("tick")
+        if label.node == target:
+            # The legacy cost heuristic can discover a better representative
+            # after this itinerary was yielded. It must not use another slot.
+            key = frontier._key(label)
+            if mode != "time" and key in yielded_goals:
+                continue
+            if yielded >= max_search:
+                fail("max_search")
+            yielded_goals.add(key)
+            yielded += 1
+            counts["yielded"][label.boardings] += 1
+            stats("yield")
+            yield {"cost": label.cost, "path": _path(label, choices, start_minute, path_factory),
+                   "walk_m": label.total_walk}
+            if mode != "fewTransfers" and yielded >= max_search:
+                return
+            continue
+
+        direct = virtual_connections.get(label.node)
+        if direct is not None:
+            cost, meters = direct
+            arrival = label.time + meters / walk_speed
+            total = label.total_walk + meters
+            segment = label.segment_walk + meters
+            if arrival <= deadline and total <= max_total_walk and segment <= max_segment_walk:
+                offer(_Label(target, label.cost + cost, arrival, total, segment,
+                             label.boardings, parent=label))
+
+        for following, edge in graph[label.node].items():
+            etype = edge.get("etype")
+            # A feasible final walk does not dominate walking to another
+            # boarding stop, possibly via several physical nodes. Keep these
+            # continuations; completed-goal grouping removes suffix variants.
+            if edge_uses_rail(label.node, following):
+                continue
+            total = label.total_walk
+            segment = 0.0
+            if etype == "walk":
+                meters = edge.get("meters", 0.0)
+                step = meters if meters > 0 else 1.0
+                total += step
+                segment = label.segment_walk + step
+                # Reject physical limits before any timetable evaluation.
+                if total > max_total_walk or segment > max_segment_walk:
+                    continue
+            cost = label.cost + edge.get("w", 0.0)
+            boardings = label.boardings + (etype == "board")
+            options = None
+            if etype == "board" and graph.nodes[following].get("mode") in ("bus", "rail"):
+                ready = label.time + (rail_boarding_minutes
+                                       if graph.nodes[following].get("mode") == "rail" else 0)
+                options = choices.board_options(label.node, following, ready)
+            elif etype == "ride" and label.ride is not None:
+                options = ride_options(label.node, following, label.time,
+                                       label.ride, edge)
+            elif etype in ("alight", "xfer") and label.ride is not None:
+                # A boarding with no travelled stop is not a transit leg.
+                # Reject it before it can reset walking resources or spend a
+                # goal slot that detailed selected-run validation will reject.
+                if label.ride.sequence == label.ride.board_sequence:
+                    continue
+                options = ((label.time + alight_minutes(label.ride), None),)
+            if options is None:
+                arrival = advance_time(label.node, following, label.time, edge)
+                options = () if arrival is None else ((arrival, None),)
+            for arrival, ride in options:
+                if arrival < label.time or arrival > deadline:
+                    continue
+                offer(_Label(following, cost, arrival, total, segment, boardings,
+                             ride=ride, parent=label))
+    stats("queue_exhausted")
+
