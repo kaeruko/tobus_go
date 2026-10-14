@@ -273,6 +273,28 @@ python scripts/smoke_yokohama_real_gtfs.py `
 スモークは両パスをテストし、008が採用されなかった場合や対象外系統が入った場合は失敗する。比較には**同じGTFS**を使うので、独立した公式時刻表検証や制度上の無料運賃保証ではない。
 
 
+### 288系統「聖隷横浜病院循環」の追加調査（開発用5系統目）
+
+聖隷横浜病院の公式案内（https://www.seirei.or.jp/yokohama/outline/access/bus/circulation-bus/index.html ）は、「聖隷横浜病院循環」について **通常市営バス運賃であり、敬老特別乗車証と福祉特別乗車券の両方が使用可能**と明記。公式案内は2016〜2017年の時刻表にも言及しているため、2026年の便・停留所・運賃条件との独立照合は残る。
+
+GTFS版 `v3.0_20260727` の棚卸しでは、288系統は全サービス合計24便、2026-09-04（金）8便、2026-09-05（土）0便。この情報は搭載feedに由来し、公式時刻表の独立照合ではない。
+
+`scripts/propose_yokohama_route_288_coverage.py` は、既存の4系統版 `coverage_dev_008.json` を読み、288系統だけを追加した **5系統の開発用coverage案**を提示する。既存の `coverage.json` と `coverage_dev_008.json` は上書きしない。271「あかいくつ」は除外したまま、143系統は未確認。
+
+まずは標準出力に案を出す読み取り専用のDRY RUN：
+
+```powershell
+python scripts/propose_yokohama_route_288_coverage.py `
+  --gtfs-dir ".\api\data\yokohama\2026-09-04" `
+  --coverage ".\api\data\yokohama\2026-09-04\coverage_dev_008.json" `
+  --service-date "2026-09-04" `
+  --reviewed-on "2026-10-14"
+```
+
+新規ファイル出力を許可するときに限り `--output` で `coverage_dev_288.json` 等の別名を指定する。既存ファイルがあれば失敗。生成後は `smoke_yokohama_real_gtfs.py --route-id 288` で2026-09-04の両パスを検証する。名称不一致や期待した4系統版以外のcoverageを渡した場合も失敗する。
+
+**注意**：ここまでのAPI検証は同じGTFSの情報を照合しているだけなので、運賃制度の最新確認・公式時刻表との独立比較・経路上の徒歩の実在性確認なしに本番公開しない。
+
 ### 横浜市営バス149系統の一括トリアージ（読み取り専用）
 
 単一系統ずつ確認する前に、展開済みの同一GTFSから**全route IDと運行便数を一括棚卸し**する。\
