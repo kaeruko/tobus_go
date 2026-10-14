@@ -227,6 +227,85 @@ class MunicipalBackendContractTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "must be 'reviewed'"):
                 asyncio.run(setup_yokohama_on_startup(app, "local"))
 
+    def test_http_route_estimated_transfer_local_only_with_both_passes(self):
+        """Exercise startup → /route → fare quote with both synthetic feeds."""
+        from dataclasses import replace
+        from fastapi.testclient import TestClient
+        from app.app_factory import create_app
+        from test_yokohama_backend import _environment, _write_feed
+
+        with tempfile.TemporaryDirectory() as busdir:
+            root = Path(busdir)
+            _write_feed(root)
+            # Synthetic train: from the bus's arrival node D at 10:25
+            # back toward S at 10:45. It is NOT a real Yokohama timetable.
+            times = []
+            for st in self.rail.dataset.stop_times:
+                if st.trip_id == "yokohama_subway:TRAIN2":
+                    minute = 625 if st.stop_id == "yokohama_subway:D" else 645
+                    times.append(replace(
+                        st, arrival_minute=minute, departure_minute=minute,
+                    ))
+                else:
+                    times.append(st)
+            rail = replace(
+                self.rail,
+                dataset=replace(self.rail.dataset, stop_times=tuple(times)),
+            )
+            for walk_mode, expected_count in (("reviewed", 0), ("estimate_dev", 1)):
+                with self.subTest(walk_mode=walk_mode):
+                    env = _environment(root)
+                    env.update({
+                        "YOKOHAMA_REALTIME_MODE": "disabled",
+                        "YOKOHAMA_SUBWAY_GTFS_DIR": str(root),
+                        "YOKOHAMA_TRANSFER_WALK_MODE": walk_mode,
+                    })
+                    with patch.dict(os.environ, env, clear=True), patch(
+                        "yokohama_subway.load_reviewed_yokohama_subway_coverage",
+                        return_value=rail,
+                    ):
+                        with TestClient(create_app("local")) as client:
+                            for policy in (WELFARE, SENIOR):
+                                response = client.post(
+                                    "/route",
+                                    headers={"X-App-City": "yokohama"},
+                                    json={
+                                        "alat": 35.4660, "alon": 139.6225,
+                                        "blat": 35.4651, "blon": 139.6251,
+                                        "pref": "shortTime",
+                                        "start_time": "09:55",
+                                        "target_date_str": "2026-08-29",
+                                        "fare_policy_id": policy,
+                                    },
+                                )
+                                self.assertEqual(response.status_code, 200, response.text)
+                                data = response.json()
+                                self.assertEqual(len(data["candidates"]), expected_count)
+                                self.assertEqual(
+                                    data["meta"]["walking_transfer_basis"],
+                                    "reviewed_links_only"
+                                    if walk_mode == "reviewed"
+                                    else "provisional_gtfs_proximity",
+                                )
+                                if walk_mode != "estimate_dev":
+                                    continue
+                                candidate = data["candidates"][0]
+                                ride = [x for x in candidate["steps"]
+                                        if x["kind"] in ("bus", "rail")]
+                                self.assertEqual(
+                                    [x["trip_id"] for x in ride],
+                                    ["yokohama_bus:T1", "yokohama_subway:TRAIN2"],
+                                )
+                                self.assertEqual(candidate["fare"]["policyId"], policy)
+                                self.assertEqual(candidate["fare"]["payNowYen"], 0)
+                                self.assertEqual(candidate["arrival_time"], "10:45")
+                                transfer = [x for x in candidate["steps"]
+                                            if x["kind"] == "walk" and x.get("distance_basis") == "straight_line_estimate"]
+                                self.assertEqual(len(transfer), 1)
+                                self.assertFalse(transfer[0]["walking_connection_verified"])
+                                self.assertNotIn("evidence_url", transfer[0])
+                                self.assertIn("推定", transfer[0]["title"])
+
     def test_source_links_are_version_pinned_and_read_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "links.json"
