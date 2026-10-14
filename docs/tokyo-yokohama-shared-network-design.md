@@ -294,3 +294,14 @@ v1にない内部徒歩を含む同順位は、乗車区間キー→徒歩回数
 合成回帰8件を追加し、前段の循環便/待ち時間差のテストにもv1_path比較を追加した。安い同時刻prefixとの合流、乗車数のsecondary順位、所要0の未完成区間、limit超過、不正profile、複数候補の目的値順序、両パスでの接続層指定、審査済み徒歩を確認する。生成した循環時刻表32組×入力順2通り×目的2通りの128比較は、先頭候補の全区間キーがv1と一致した。秒境界の既存回帰にも新profileを適用した。network50件成功、共通/v1/source関連98件は92件成功・Nativeが必要な6件スキップ。東京220件、横浜/v1関連118件も成功した。新mainのCIでNativeとLambdaを検証する。
 
 **未検証**: Windowsの同じ24ケースの再実行前なので、実データの4差分が解消したとは扱わない。区間キーとlabelのcacheはquery内だけで保持し、終了時に解放するが、inactive labelや区間stop列も保持する追加メモリがある。同目的値を確定するまでの追加展開もある。Tokyoの既定profileはcache/確定待ちを使わない。横浜実GTFSのピークRSS/応答時間・全OD/top-K・別日/徒歩・東京入力移行/Realtime/prebuiltの測定は残る。Phase 2全体の完了や本番切替を宣言しない。
+
+
+## 15. Windows再比較 — 24ケースの選択区間一致（2026-10-15 JST）
+
+順位profile追加後にユーザーから提供された読み取り専用ログを解析した。バス/地下鉄×福祉/敬老パス×8/12/18時台×最速/少乗換の24ケースを確認し、集計はcomparisons=24、primary_differences=0、selection_differences=0、walking_links=0だった。各ケースの便ID・route ID・乗降地点・発着時計・順序付きstop列を独立に比較し、乗車数も全件一致した。前段の同じ24ケースにあった4つの乗換地点差は、この提供ログでは解消している。PowerShellの差分検査はREAL_DATA_RANK_GATE_OKで終了した。非公開のstop/trip ID、GTFS本体、生ログはリポジトリへ保存しない。
+
+ログはPython実行以降の抜粋であり、git rev-parse HEADやfeed version/hashの出力を含まない。検証対象として指示したmainは`a60c10bdc0e932f7a2cde6b412a6e9b8e3928ab1`だが、このログだけでWindowsの実行SHAを確認済みとは扱わない。結果の一致は確認し、版を固定した再現性はSHA確認待ちとして区別する。前段で確認したデータ版を、この抜粋で再検証したとは主張しない。
+
+上記mainのGitHub ActionsでAPI全件、Python 3.11/3.12 Rust SearchCore parity、3.11 Lambda image/smoke、repository safetyが成功した。確認時点ではAndroid/iOSビルドは実行中で、全workflow成功とは扱わない。
+
+今回の合格範囲は提供された同一feed・先頭候補・徒歩0件の24ケースである。公式審査済みの実徒歩、別運行日、全OD/複数候補順位、東京ODPT入力移行/Realtime、snapshot構築を含むピークRSS/応答時間は未検証。debug elapsed_secだけでエンドツーエンド性能を認定しない。Phase 2全体の完了、本番切替、デプロイは行わない。
