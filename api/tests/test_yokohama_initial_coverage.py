@@ -382,6 +382,93 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                     ride_date=SERVICE_DATE, route_id="008", limit=0,
                 )
 
+    def test_route_008_proposal_keeps_original_coverage_and_searches_both_passes(self):
+        from propose_yokohama_route_008_coverage import propose
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            original, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            source_path = root / "coverage.json"
+            source_path.write_text(json.dumps(original), encoding="utf-8")
+            originals = {p.name: p.read_bytes() for p in root.iterdir()}
+
+            proposed, report = propose(
+                gtfs_dir=root, coverage_path=source_path,
+                service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            self.assertEqual(
+                {p.name: p.read_bytes() for p in root.iterdir()}, originals,
+                "proposal must be a read-only operation",
+            )
+            self.assertEqual(report["route_added"], "yokohama_bus:008")
+            self.assertEqual(proposed["schema_version"], 1)
+            self.assertEqual(proposed["routes"]["yokohama_bus:008"], "local")
+            self.assertEqual(proposed["routes"]["yokohama_bus:271"], "sightseeing")
+            self.assertEqual(
+                {r for r, kind in proposed["routes"].items() if kind == "local"},
+                {"yokohama_bus:008", "yokohama_bus:089",
+                 "yokohama_bus:200", "yokohama_bus:280"},
+            )
+            new_path = root / "four_route_dev.json"
+            new_path.write_text(json.dumps(proposed), encoding="utf-8")
+            env = _environment(root)
+            env["YOKOHAMA_REALTIME_MODE"] = "disabled"
+            env["YOKOHAMA_FARE_COVERAGE_PATH"] = str(new_path)
+            with patch.dict(os.environ, env, clear=False):
+                with TestClient(create_app("local")) as client:
+                    for policy_id in (
+                        "yokohama_welfare_special_pass",
+                        "yokohama_senior_special_pass",
+                    ):
+                        with self.subTest(policy=policy_id):
+                            response = client.post(
+                                "/route", headers={"X-App-City": "yokohama"},
+                                json={
+                                    "alat": 35.4660, "alon": 139.6225,
+                                    "blat": 35.4500, "blon": 139.6300,
+                                    "pref": "shortTime", "start_time": "09:55",
+                                    "target_date_str": SERVICE_DATE,
+                                    "fare_policy_id": policy_id,
+                                },
+                            )
+                            self.assertEqual(response.status_code, 200, response.text)
+                            candidates = response.json()["candidates"]
+                            self.assertEqual(len(candidates), 1)
+                            ride = next(
+                                step for step in candidates[0]["steps"]
+                                if step["kind"] == "bus"
+                            )
+                            self.assertEqual(ride["route_id"], "yokohama_bus:008")
+                            self.assertEqual(ride["trip_id"], "yokohama_bus:T8")
+                            self.assertEqual(ride["departure_time"], "09:57")
+                            self.assertEqual(ride["arrival_time"], "10:02")
+                            self.assertEqual(candidates[0]["fare"]["payNowYen"], 0)
+
+    def test_route_008_proposal_refuses_modified_route_identifiers(self):
+        from propose_yokohama_route_008_coverage import propose
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            original, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            original_path = root / "coverage.json"
+            original_path.write_text(json.dumps(original), encoding="utf-8")
+            before = root / "routes.txt"
+            before.write_text(
+                before.read_text(encoding="utf-8").replace("008系統", "別系統"),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "name/identity changed"):
+                propose(
+                    gtfs_dir=root, coverage_path=original_path,
+                    service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+                )
+
     def test_known_route_rename_is_not_silently_accepted(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
