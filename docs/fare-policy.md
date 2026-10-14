@@ -247,8 +247,8 @@ python scripts/build_yokohama_initial_pass_coverage.py --gtfs-dir ".\api\data\yo
 
 ```powershell
 python scripts/smoke_yokohama_real_gtfs.py `
-  --gtfs-dir ".\\api\\data\\yokohama\\2026-09-04" `
-  --coverage ".\\api\\data\\yokohama\\2026-09-04\\coverage.json" `
+  --gtfs-dir ".\api\data\yokohama\2026-09-04" `
+  --coverage ".\api\data\yokohama\2026-09-04\coverage.json" `
   --manifest-service-date "2026-09-04" `
   --ride-date "2026-09-04" `
   --route-id 200
