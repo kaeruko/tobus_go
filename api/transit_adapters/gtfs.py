@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 from datetime import datetime
 from pathlib import Path
+from gtfs_loader import _load_english_stop_translations
 
 from transit_dataset import (
     FeedMetadata,
@@ -99,6 +100,16 @@ class GtfsTransitAdapter:
             )
 
         feed_id = metadata.feed_id
+        # Reuse the existing Tokyo loader's official translation selectors and
+        # conflict checks. No transliteration or generated English substitute.
+        translations_path = root / 'translations.txt'
+        if translations_path.is_file():
+            with translations_path.open(encoding='utf-8-sig', newline='') as handle:
+                columns = set(csv.DictReader(handle).fieldnames or ())
+            if (not {'table_name', 'field_name', 'language', 'translation'} <= columns
+                    or not {'record_id', 'field_value'} & columns):
+                raise ValueError('unsupported GTFS translations.txt schema: explicit table/field/language/translation and selector required')
+        names_by_id, names_by_value = _load_english_stop_translations(str(root))
 
         stops: dict[str, TransitStop] = {}
         for row in _read_rows(root / "stops.txt"):
@@ -107,6 +118,9 @@ class GtfsTransitAdapter:
             if internal_id in stops:
                 raise ValueError(f"duplicate stop_id: {source_id}")
             name = _required(row, "stop_name", file_name="stops.txt")
+            by_id, by_value = names_by_id.get(source_id), names_by_value.get(name)
+            if by_id is not None and by_value is not None and by_id != by_value:
+                raise ValueError(f'GTFS English stop translation disagrees for stop_id={source_id!r}')
             try:
                 lat = float(_required(row, "stop_lat", file_name="stops.txt"))
                 lon = float(_required(row, "stop_lon", file_name="stops.txt"))
@@ -118,6 +132,7 @@ class GtfsTransitAdapter:
                 name=name,
                 lat=lat,
                 lon=lon,
+                name_en=by_id if by_id is not None else by_value,
             )
 
         routes: dict[str, TransitRoute] = {}

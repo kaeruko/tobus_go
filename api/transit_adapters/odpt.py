@@ -91,6 +91,20 @@ def _optional_identity(record, key):
     return value
 
 
+def _official_english(record, key):
+    titles = record.get(key)
+    if titles is None:
+        return None
+    if not isinstance(titles, Mapping):
+        raise ValueError(f'invalid ODPT language map: {_id(record)} field={key}')
+    english = titles.get('en')
+    if english is None:
+        return None
+    if not isinstance(english, str) or not english.strip():
+        raise ValueError(f'invalid ODPT English name: {_id(record)} field={key}.en')
+    return english.strip()
+
+
 def _coordinates(record: Mapping[str, object]) -> tuple[float, float]:
     record_id = _id(record)
     lat = record.get("geo:lat")
@@ -153,7 +167,8 @@ class OdptTransitAdapter:
         train_timetables = list(train_timetables)
 
         stops: dict[str, TransitStop] = {}
-        for record in [*busstop_poles, *stations]:
+        for record, english_key in [*((r, 'title') for r in busstop_poles),
+                                    *((r, 'odpt:stationTitle') for r in stations)]:
             source_id = _id(record)
             internal_id = namespace_id(feed_id, source_id)
             if internal_id in stops:
@@ -165,12 +180,17 @@ class OdptTransitAdapter:
                 name=_title(record),
                 lat=lat,
                 lon=lon,
+                name_en=_official_english(record, english_key),
             )
 
         routes: dict[str, TransitRoute] = {}
         pattern_to_route: dict[str, str] = {}
+        pattern_titles: dict[str, str] = {}
         for pattern in busroute_patterns:
             pattern_id = _id(pattern)
+            if pattern_id in pattern_to_route:
+                raise ValueError(f'duplicate ODPT bus pattern id: {pattern_id}')
+            pattern_titles[pattern_id] = _title(pattern)
             source_route_id = _required_str(pattern, "odpt:busroute")
             internal_route_id = namespace_id(feed_id, source_route_id)
             pattern_to_route[pattern_id] = internal_route_id
@@ -196,6 +216,7 @@ class OdptTransitAdapter:
                 short_name=title,
                 long_name=title,
                 mode=TransitMode.RAIL,
+                name_en=_official_english(railway, 'odpt:railwayTitle'),
             )
 
         trips: dict[str, TransitTrip] = {}
@@ -237,6 +258,7 @@ class OdptTransitAdapter:
                 service_id=service_id,
                 headsign=str(timetable.get("dc:title") or ""),
                 source_pattern_id=pattern_id,
+                source_pattern_title=pattern_titles[pattern_id],
                 source_operator_id=_optional_identity(timetable, 'odpt:operator'),
             )
             objects = timetable.get("odpt:busTimetableObject")

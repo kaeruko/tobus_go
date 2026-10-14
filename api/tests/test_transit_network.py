@@ -469,6 +469,65 @@ class TransitNetworkTest(unittest.TestCase):
                     source.load()
                 del timetable[key]
 
+    def test_official_odpt_english_names_survive_selected_journey(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = feeds(Path(root))[1]
+            for station in source.stations:
+                station['odpt:stationTitle'] = {'en': 'Official ' + station['owl:sameAs']}
+            source.railways[0]['odpt:railwayTitle'] = {'en': 'Official Rail'}
+            loaded = source.load()
+            event = query(network(loaded), 'demo_rail:x', 'demo_rail:y')[0].events[0]
+            self.assertEqual(event.from_stop_name_en, 'Official x')
+            self.assertEqual(event.to_stop_name_en, 'Official y')
+            self.assertEqual(event.route_name_en, 'Official Rail')
+            self.assertIsNone(event.source_pattern_title)
+
+    def test_official_gtfs_translation_selectors_agree_or_stop(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = feeds(Path(root))[0]
+            path = Path(root) / 'translations.txt'
+            header = 'table_name,field_name,language,translation,record_id,field_value\n'
+            path.write_text(header + 'stops,stop_name,en,Official A,a,\n'
+                            + 'stops,stop_name,en,Official B,,B\n')
+            event = query(network(source.load()), 'demo_bus:a', 'demo_bus:b')[0].events[0]
+            self.assertEqual((event.from_stop_name_en, event.to_stop_name_en),
+                             ('Official A', 'Official B'))
+            path.write_text(path.read_text() + 'stops,stop_name,en,Different B,b,\n')
+            with self.assertRaisesRegex(ValueError, 'English stop translation disagrees'):
+                source.load()
+            path.write_text('unknown_format,translation\na,Guessed A\n')
+            with self.assertRaisesRegex(ValueError, 'unsupported GTFS translations.txt schema'):
+                source.load()
+
+    def test_missing_official_names_are_not_generated_from_source_ids(self):
+        with tempfile.TemporaryDirectory() as root:
+            for source in feeds(Path(root)):
+                loaded = source.load()
+                self.assertTrue(all(stop.name_en is None for stop in loaded.stops.values()))
+                self.assertTrue(all(route.name_en is None for route in loaded.routes.values()))
+
+    def test_invalid_official_name_maps_fail_without_alternate_source(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = feeds(Path(root))[1]
+            station = source.stations[0]
+            for titles in ('English substitute', {'en': 1}, {'en': ' '}):
+                station['odpt:stationTitle'] = titles
+                with self.subTest(titles=titles), self.assertRaisesRegex(ValueError, 'invalid ODPT'):
+                    source.load()
+
+    def test_odpt_patterns_keep_distinct_titles_and_reject_duplicate_identity(self):
+        from tests.test_transit_feed_sources import _odpt_source
+        source = _odpt_source()
+        second = {**source.busroute_patterns[0], 'owl:sameAs': 'p2', 'dc:title': 'Other terminal'}
+        timetable = {**source.bus_timetables[0], 'owl:sameAs': 't2', 'odpt:busroutePattern': 'p2'}
+        source = replace(source, busroute_patterns=(*source.busroute_patterns, second),
+                         bus_timetables=(*source.bus_timetables, timetable))
+        loaded = source.load()
+        self.assertEqual(loaded.trips['odpt_fixture:t'].source_pattern_title, '1')
+        self.assertEqual(loaded.trips['odpt_fixture:t2'].source_pattern_title, 'Other terminal')
+        with self.assertRaisesRegex(ValueError, 'duplicate ODPT bus pattern id'):
+            replace(source, busroute_patterns=(second, second)).load()
+
 
 class YokohamaSharedNetworkTest(unittest.TestCase):
     def setUp(self):

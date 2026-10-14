@@ -68,6 +68,11 @@ class TransitStop:
     name: str
     lat: float
     lon: float
+    name_en: str | None = None
+
+    def __post_init__(self):
+        if self.name_en is not None and (not isinstance(self.name_en, str) or not self.name_en.strip()):
+            raise ValueError(f'invalid official English stop name: {self.id}')
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +82,11 @@ class TransitRoute:
     short_name: str
     long_name: str
     mode: TransitMode
+    name_en: str | None = None
+
+    def __post_init__(self):
+        if self.name_en is not None and (not isinstance(self.name_en, str) or not self.name_en.strip()):
+            raise ValueError(f'invalid official English route name: {self.id}')
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +102,7 @@ class TransitTrip:
     train_number: str | None = None
     source_train_type: str | None = None
     source_operator_id: str | None = None
+    source_pattern_title: str | None = None
 
     def __post_init__(self):
         for name in ('source_pattern_id', 'train_number', 'source_train_type', 'source_operator_id'):
@@ -99,6 +110,9 @@ class TransitTrip:
             if value is not None and (not isinstance(value, str) or not value
                                       or value.strip() != value):
                 raise ValueError(f'invalid source trip metadata: {self.id} field={name}')
+        if self.source_pattern_title is not None and (not isinstance(self.source_pattern_title, str)
+                                                       or not self.source_pattern_title.strip()):
+            raise ValueError(f'invalid source pattern title: {self.id}')
 
 
 @dataclass(frozen=True, slots=True)

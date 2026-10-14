@@ -250,3 +250,17 @@ ODPT bus/train adapterからsnapshotまで保持し、選択したNetworkRideEve
 追加3テストで同番号の別具体便、元bus pattern/事業者、欠落情報、型不正を確認した。共通/v1/source関連90件は84件成功・Nativeの6件スキップ、network36件成功。東京220件と横浜92件も成功した。CPython 3.12のTransitTrip shallow sizeは80→112B（+32B/trip）で、source文字列やプロセスRSSを含まない。
 
 公式表示情報、実ODPT運行日の対応、Realtime接続、実データ性能/結果比較は残る。本番runtimeと無料/徒歩認定を変更しない。
+
+## 12. 入力契約の完成 — 公式表示情報の保持
+
+変更前mainは`785fc09668aec1972936489ea85ef4bb91048121`。元便識別情報の段階はGitHub ActionsでAPI全件・3.11/3.12 Rust parity・Lambda image/smokeが成功した。
+
+TransitStop/TransitRouteへoptionalな公式英語名を保持し、選択イベントへ上下車名・鉄道路線名を渡す。ODPTのbus poleは東京が使用している`title.en`、stationは`odpt:stationTitle.en`、railwayは`odpt:railwayTitle.en`という明示したsource欄から読む。異なるlanguage mapへ順に切替しない。GTFS英語stop名は既存`gtfs_loader._load_english_stop_translations`のrecord_id/field_value検査を再利用し、両指定の不一致は停止する。既存東京ローダーを変更せず、新adapterだけでtranslations.txtの未対応schemaを明示拒否する。これはGTFSに定義された明示的selectorであり、解析失敗後の代替入力ではない。
+
+未提供の英語名はNoneのままとし、翻訳・ローマ字化・IDで埋めない。sourceのlanguage mapが不正なら停止する。全フィードへ英語必須を課さず、東京の公開出力は既存の公式名検査を引き続き使う。GTFS英語route名や多言語一般対応はこの実装の契約外。
+
+同じbusrouteの別patternの元titleをTransitTripとNetworkRideEventへ保持する。routeへ集約した最初のtitleだけで別方面のラベルを作らない。元pattern ID重複は拒否する。東京のbus方面英語ラベル生成・SelectedPath詳細化は現行接続層に残し、今回の情報保存で完全に移植したとは扱わない。
+
+追加5テストでGTFS/ODPT公式名の保持、翻訳selector矛盾/未対応schema、不正map、欠落時の非生成、同一路線の別pattern title・重複ID拒否を確認した。共通/v1/source関連95件は89件成功・Nativeの6件スキップ。network41件、東京220件、横浜/v1関連118件が成功した。新mainのGitHub ActionsでNativeを含む検証を行う。
+
+追加slotのCPython 3.12 shallow sizeはStop72→80B、Route72→80B、Trip112→120B。この数値は文字列・全索引・RSSを含まない。公開HTTP serializer、東京詳細化/Realtime接続、非公開実データ比較・性能・prebuilt起動は引き続き未完了。本番切替・デプロイを行わない。
