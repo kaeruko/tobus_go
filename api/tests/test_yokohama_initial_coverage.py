@@ -121,6 +121,43 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                             self.assertEqual(ride["trip_id"], "yokohama_bus:T89")
                             self.assertEqual(candidates[0]["fare"]["payNowYen"], 0)
 
+    def test_smoke_can_verify_200_and_280_separately(self):
+        from smoke_yokohama_real_gtfs import run_smoke
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            proposal, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            coverage_path = root / "coverage.json"
+            coverage_path.write_text(
+                json.dumps(proposal), encoding="utf-8",
+            )
+            for route_id, departure, arrival in (
+                ("200", "10:30", "10:45"),
+                ("280", "11:30", "11:45"),
+            ):
+                with self.subTest(route_id=route_id):
+                    report = run_smoke(
+                        gtfs_dir=root, coverage=coverage_path,
+                        manifest_service_date=SERVICE_DATE,
+                        ride_date=SERVICE_DATE, route_id=route_id,
+                    )
+                    self.assertEqual(report["tested_route_id"], route_id)
+                    self.assertEqual(
+                        report["probe"]["route_id"], f"yokohama_bus:{route_id}",
+                    )
+                    self.assertEqual(report["probe"]["source_departure"], departure)
+                    self.assertEqual(report["probe"]["source_arrival"], arrival)
+                    self.assertEqual(len(report["results"]), 2)
+                    for result in report["results"]:
+                        self.assertEqual(result["result"], "PASS")
+                        self.assertIn(f"yokohama_bus:{route_id}", result["route_ids"])
+                        self.assertEqual(result["bus_departure"], departure)
+                        self.assertEqual(result["arrival_at_requested_destination"], arrival)
+                        self.assertEqual(result["additional_payment_yen"], 0)
+
     def test_real_feed_smoke_reports_early_alighting_and_final_walk(self):
         from smoke_yokohama_real_gtfs import run_smoke
 
