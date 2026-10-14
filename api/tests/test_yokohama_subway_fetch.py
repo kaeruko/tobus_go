@@ -77,10 +77,10 @@ class SubwayDownloadTests(unittest.TestCase):
     def test_download_counts_non_timepoint_omissions_without_estimating(self):
         p = self.source / "stop_times.txt"
         p.write_text(
-            "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint\n"
-            "T1,09:55:00,09:55:00,A,1,1\n"
-            "T1,,,A,2,\n"
-            "T1,10:10:00,10:10:00,B,3,1\n",
+            "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint,pickup_type,drop_off_type\n"
+            "T1,09:55:00,09:55:00,A,1,1,,\n"
+            "T1,,,A,2,,1,1\n"
+            "T1,10:10:00,10:10:00,B,3,1,,\n",
             encoding="utf-8",
         )
         client, _ = _client(_archive(self.source))
@@ -92,7 +92,7 @@ class SubwayDownloadTests(unittest.TestCase):
         self.assertEqual(report["excluded_untimed_rows_missing_timepoint"], 1)
         self.assertTrue((self.root / "output" / "stop_times.txt").exists())
         self.assertIn(
-            "T1,,,A,2,",
+            "T1,,,A,2,,1,1",
             (self.root / "output" / "stop_times.txt").read_text(encoding="utf-8"),
         )
 

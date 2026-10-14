@@ -87,10 +87,10 @@ class SubwayPreflightTests(unittest.TestCase):
         )
         times = self.root / "stop_times.txt"
         times.write_text(
-            "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint\n"
-            "T1,09:55:00,09:55:00,A,1,1\n"
-            "T1,,,X,2,0\n"
-            "T1,10:10:00,10:10:00,B,3,1\n",
+            "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint,pickup_type,drop_off_type\n"
+            "T1,09:55:00,09:55:00,A,1,1,,\n"
+            "T1,,,X,2,0,1,1\n"
+            "T1,10:10:00,10:10:00,B,3,1,,\n",
             encoding="utf-8",
         )
         _refresh_manifest(self.root)
@@ -118,10 +118,10 @@ class SubwayPreflightTests(unittest.TestCase):
 
         p = self.root / "stop_times.txt"
         p.write_text(
-            "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint\n"
-            "T1,09:55:00,09:55:00,A,1,1\n"
-            "T1,,,A,2,\n"
-            "T1,10:10:00,10:10:00,B,3,1\n",
+            "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint,pickup_type,drop_off_type\n"
+            "T1,09:55:00,09:55:00,A,1,1,,\n"
+            "T1,,,A,2,,1,1\n"
+            "T1,10:10:00,10:10:00,B,3,1,,\n",
             encoding="utf-8",
         )
         _refresh_manifest(self.root)
@@ -145,14 +145,31 @@ class SubwayPreflightTests(unittest.TestCase):
         for flag in ("1", "9"):
             with self.subTest(flag=flag):
                 p.write_text(
-                    "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint\n"
-                    "T1,09:55:00,09:55:00,A,1,1\n"
-                    f"T1,,,A,2,{flag}\n"
-                    "T1,10:10:00,10:10:00,B,3,1\n",
+                    "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint,pickup_type,drop_off_type\n"
+                    "T1,09:55:00,09:55:00,A,1,1,,\n"
+                    f"T1,,,A,2,{flag},1,1\n"
+                    "T1,10:10:00,10:10:00,B,3,1,,\n",
                     encoding="utf-8",
                 )
                 _refresh_manifest(self.root)
                 with self.assertRaisesRegex(ValueError, "invalid/exact timepoint"):
+                    load_yokohama_subway_dataset(
+                        self.root, expected_service_date=DAY,
+                    )
+
+    def test_untimed_intermediate_with_possible_boarding_must_fail_closed(self):
+        p = self.root / "stop_times.txt"
+        for pickup, drop_off in (("", ""), ("0", "0"), ("1", ""), ("", "1"), ("1", "0")):
+            with self.subTest(pickup=pickup, drop_off=drop_off):
+                p.write_text(
+                    "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint,pickup_type,drop_off_type\n"
+                    "T1,09:55:00,09:55:00,A,1,1,,\n"
+                    f"T1,,,A,2,,{pickup},{drop_off}\n"
+                    "T1,10:10:00,10:10:00,B,3,1,,\n",
+                    encoding="utf-8",
+                )
+                _refresh_manifest(self.root)
+                with self.assertRaisesRegex(ValueError, "pickup/drop-off prohibition"):
                     load_yokohama_subway_dataset(
                         self.root, expected_service_date=DAY,
                     )
@@ -162,15 +179,15 @@ class SubwayPreflightTests(unittest.TestCase):
             with self.subTest(blank_seq=blank_seq):
                 times = self.root / "stop_times.txt"
                 times.write_text(
-                    "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint\n"
+                    "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint,pickup_type,drop_off_type\n"
                     + (
-                        "T1,,,A,1,0\n"
-                        if blank_seq == 1 else "T1,09:55:00,09:55:00,A,1,1\n"
+                        "T1,,,A,1,0,1,1\n"
+                        if blank_seq == 1 else "T1,09:55:00,09:55:00,A,1,1,,\n"
                     )
-                    + "T1,10:00:00,10:00:00,B,2,1\n"
+                    + "T1,10:00:00,10:00:00,B,2,1,,\n"
                     + (
-                        "T1,,,B,3,0\n"
-                        if blank_seq == 3 else "T1,10:10:00,10:10:00,B,3,1\n"
+                        "T1,,,B,3,0,1,1\n"
+                        if blank_seq == 3 else "T1,10:10:00,10:10:00,B,3,1,,\n"
                     ),
                     encoding="utf-8",
                 )
@@ -183,22 +200,22 @@ class SubwayPreflightTests(unittest.TestCase):
     def test_untimed_duplicate_sequence_and_unknown_stop_rejected(self):
         p = self.root / "stop_times.txt"
         template = (
-            "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint\n"
-            "T1,09:55:00,09:55:00,A,1,1\n"
-            "T1,,,A,2,0\n"
-            "T1,10:10:00,10:10:00,B,3,1\n"
+            "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint,pickup_type,drop_off_type\n"
+            "T1,09:55:00,09:55:00,A,1,1,,\n"
+            "T1,,,A,2,0,1,1\n"
+            "T1,10:10:00,10:10:00,B,3,1,,\n"
         )
         for content, error in (
             (
                 template.replace(
-                    "T1,,,A,2,0\n",
-                    "T1,,,A,2,0\nT1,,,A,2,0\n",
+                    "T1,,,A,2,0,1,1\n",
+                    "T1,,,A,2,0,1,1\nT1,,,A,2,0,1,1\n",
                 ),
                 "duplicate GTFS stop sequence",
             ),
             (
                 template.replace(
-                    "T1,,,A,2,0\n", "T1,,,NONEXISTENT,2,0\n",
+                    "T1,,,A,2,0,1,1\n", "T1,,,NONEXISTENT,2,0,1,1\n",
                 ),
                 "unknown trip or stop",
             ),

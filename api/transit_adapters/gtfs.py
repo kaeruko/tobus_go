@@ -67,13 +67,12 @@ class GtfsTransitAdapter:
         """Load GTFS, optionally omitting verified untimed non-timepoints.
 
         Strict by default for all existing cities. When opted in, an intermediate
-        row with *both* times absent may be omitted only if timepoint=0
-        or is absent/blank, but never if explicitly exact (timepoint=1).
-        Omitted/blank timepoint on an untimed row violates strict GTFS;
-        this compatibility mode is opt-in and still forbids boarding/alighting
-        at any such stop. This
-        no time is estimated or invented. Every trip must still have timed
-        first/last stops, and every stop/sequence is checked before omission.
+        row with both times absent may be omitted only if pickup_type=1
+        AND drop_off_type=1, as well as timepoint=0 or absent/blank.
+        Explicitly exact timepoint=1 is always refused when untimed.
+        Missing timepoint on an untimed row is not strictly valid GTFS;
+        this opt-in compatibility mode does not estimate any times.
+        First/last stops must be timed. All IDs and sequences are checked.
         """
         root = Path(directory)
         if not root.is_dir():
@@ -222,8 +221,17 @@ class GtfsTransitAdapter:
                     raise ValueError(
                         "GTFS untimed intermediate stop has invalid/exact timepoint"
                     )
-                # The stop still exists in the source feed, but without a
-                # reliable time it cannot be a boarding/alighting candidate.
+                # Actual Yokohama Blue Line rapid services encode pass-through
+                # stations with both pickup_type=1 and drop_off_type=1.
+                # Missing/regular pickup or drop-off is NOT a proven pass-through:
+                # do not silently suppress potential passenger service.
+                if (row.get("pickup_type"), row.get("drop_off_type")) != ("1", "1"):
+                    raise ValueError(
+                        "GTFS untimed intermediate stop lacks explicit "
+                        "pickup/drop-off prohibition"
+                    )
+                # The stop is listed in the source but is not a passenger stop
+                # on THIS TRIP. It remains usable on local trips with times.
                 omitted_trip_ids.add(trip_id)
                 continue
             kept_per_trip[trip_id] = kept_per_trip.get(trip_id, 0) + 1
