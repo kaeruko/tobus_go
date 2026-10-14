@@ -239,7 +239,11 @@ class YokohamaMunicipalRouteBackend:
                     for index, step in enumerate(steps):
                         step["step_id"] = f"municipal-{index}"
                     total = p["total_time"] + link.walk_minutes + q["total_time"]
-                    p.update(id=p["id"] + "|" + q["id"], steps=steps,
+                    # Same trip pair can interchange at multiple direction-specific stops.
+                     # Preserve each actual walking handoff instead of silently
+                     # replacing a route in the candidate-id deduplication below.
+                     transfer_id = f"|via:{link.bus_stop_id}>{link.subway_stop_id}"
+                     p.update(id=p["id"] + "|" + q["id"] + transfer_id, steps=steps,
                              total=total, total_time=total, arrival_time=q["arrival_time"],
                              destination_coords=q["destination_coords"],
                              lines=list(dict.fromkeys(p["lines"] + q["lines"])),

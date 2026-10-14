@@ -430,6 +430,73 @@ class MunicipalBackendContractTests(unittest.TestCase):
                                 self.assertNotIn("evidence_url", transfer[0])
                                 self.assertIn("推定", transfer[0]["title"])
 
+    def test_distinct_interchange_stops_on_same_trips_are_not_deduplicated(self):
+        """Two transfer locations on the same bus/train trips are distinct routes."""
+        from dataclasses import replace
+        from transit_dataset import TransitStopTime
+
+        original = self.bus.dataset
+        intermediate = replace(
+            original.stops["yokohama_bus:B"],
+            id="yokohama_bus:B2",
+            source_id="B2",
+            name="桜木町別ポール",
+            lat=35.4651,
+            lon=139.6253,
+        )
+        updated_times = tuple(
+            replace(row, sequence=3)
+            if row.trip_id == "yokohama_bus:BUS1" and row.stop_id == "yokohama_bus:B"
+            else row
+            for row in original.stop_times
+        ) + (
+            TransitStopTime(
+                trip_id="yokohama_bus:BUS1",
+                stop_id=intermediate.id,
+                sequence=2,
+                arrival_minute=9 * 60 + 17,
+                departure_minute=9 * 60 + 17,
+            ),
+        )
+        self.bus = replace(
+            self.bus,
+            dataset=replace(
+                original,
+                stops={**original.stops, intermediate.id: intermediate},
+                stop_times=updated_times,
+            ),
+        )
+        other_link = ExplicitTransferLink(
+            bus_stop_id=intermediate.id,
+            subway_stop_id=self.link.subway_stop_id,
+            walk_meters=240,
+            walk_minutes=4,
+            official_evidence_url=self.link.official_evidence_url,
+        )
+        result = self._search(links=(self.link, other_link))
+        routes = result["candidates"]
+        self.assertEqual(len(routes), 2)
+        self.assertEqual(len({route["id"] for route in routes}), 2)
+        self.assertEqual(
+            {
+                step["departureStopId"]
+                for route in routes
+                for step in route["steps"]
+                if step["kind"] == "walk" and step.get("walking_connection_verified")
+            },
+            {"yokohama_bus:B", "yokohama_bus:B2"},
+        )
+        self.assertEqual(
+            {
+                step["trip_id"]
+                for route in routes
+                for step in route["steps"]
+                if step["kind"] in ("bus", "rail")
+            },
+            {"yokohama_bus:BUS1", "yokohama_subway:TRAIN1"},
+        )
+        self.assertTrue(all(route["fare"]["payNowYen"] == 0 for route in routes))
+
     def test_source_links_are_version_pinned_and_read_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "links.json"
