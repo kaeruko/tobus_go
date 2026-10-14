@@ -4,7 +4,8 @@ Select a deterministic operating daytime bus trip on --route-id from the install
 then search that origin/destination with BOTH pass policies. Check returned
 rides against the same source GTFS and confirm additional payment is 0.
 
-The optional route 008 REQUIRES a separate four-route development coverage.
+Optional route 008 requires the four-route development coverage;
+optional route 288 requires the five-route development coverage.
 This is an integration smoke test, NOT an independent official timetable
 oracle, proof of all pass eligibility, or permission to publish. No files are
 created or changed, no ODPT token used, and no network server is started.
@@ -43,7 +44,9 @@ POLICIES = (
 # coverage. It is not added to the unchanged three-route baseline.
 BASELINE_ROUTES = frozenset({"yokohama_bus:089", "yokohama_bus:200", "yokohama_bus:280"})
 OPTIONAL_DEV_ROUTE = "yokohama_bus:008"
+OPTIONAL_HOSPITAL_ROUTE = "yokohama_bus:288"
 SUPPORTED_ROUTES = BASELINE_ROUTES | {OPTIONAL_DEV_ROUTE}
+SUPPORTED_FIVE_ROUTES = SUPPORTED_ROUTES | {OPTIONAL_HOSPITAL_ROUTE}
 
 
 def _distance_m(a, b) -> float:
@@ -74,7 +77,7 @@ def choose_probe(dataset, *, ride_date: str, route_id: str = "089") -> dict:
     day = date.fromisoformat(ride_date)
     if day.isoformat() != ride_date:
         raise ValueError("ride-date must be YYYY-MM-DD")
-    if route_id not in {"008", "089", "200", "280"}:
+    if route_id not in {"008", "089", "200", "280", "288"}:
         raise ValueError(f"unsupported tested route: {route_id!r}")
     target_route = f"yokohama_bus:{route_id}"
     active = dataset.active_service_ids(day)
@@ -161,7 +164,7 @@ def run_smoke(
     *, gtfs_dir: Path, coverage: Path,
     manifest_service_date: str, ride_date: str, route_id: str = "089",
 ) -> dict:
-    if route_id not in {"008", "089", "200", "280"}:
+    if route_id not in {"008", "089", "200", "280", "288"}:
         raise ValueError(f"unsupported tested route: {route_id!r}")
     if not gtfs_dir.is_dir():
         raise FileNotFoundError(gtfs_dir)
@@ -192,15 +195,21 @@ def run_smoke(
             if permitted_routes not in (
                 BASELINE_ROUTES,
                 SUPPORTED_ROUTES,
+                SUPPORTED_FIVE_ROUTES,
             ):
                 raise AssertionError(
-                    "smoke test requires exactly the original three-route or "
-                    "proposed four-route development coverage; refuse other routes"
+                    "smoke test requires exactly the pinned 3, 4, or 5 "
+                    "development routes; refuse all other sets"
                 )
             if route_id == "008" and OPTIONAL_DEV_ROUTE not in permitted_routes:
                 raise AssertionError(
                     "route 008 requires the separate four-route dev coverage; "
                     "original coverage.json must not be altered"
+                )
+            if route_id == "288" and permitted_routes != SUPPORTED_FIVE_ROUTES:
+                raise AssertionError(
+                    "route 288 requires the separate five-route dev coverage; "
+                    "do not alter earlier coverage files"
                 )
             if covered.reviewed_free_trip_uris is not None:
                 raise AssertionError("this smoke is only for development coverage schema v1")
@@ -382,7 +391,7 @@ def run_smoke(
         "note": (
             "Only an offline integration smoke test against the SAME GTFS feed; "
             "not independent fare/official timetable validation. "
-            "Only the explicitly enabled 3 or 4 development routes are used. "
+            "Only the explicitly enabled 3, 4 or 5 development routes are used. "
             "All other routes stay excluded. On loop routes the last "
             "source probe destination may be reached after an earlier "
             "visit to the SAME stop; use source_destination_visits to "
@@ -398,7 +407,7 @@ def main() -> None:
     parser.add_argument("--manifest-service-date", required=True)
     parser.add_argument("--ride-date", required=True)
     parser.add_argument(
-        "--route-id", choices=("008", "089", "200", "280"), default="089",
+        "--route-id", choices=("008", "089", "200", "280", "288"), default="089",
         help="Municipal bus route to check (default: 089). Other free routes remain available to search.",
     )
     args = parser.parse_args()
