@@ -1,0 +1,62 @@
+name: Update Yokohama launcher icons
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - assets/icon/go_logo_yokohama.png
+      - scripts/generate_yokohama_app_icons.py
+      - .github/workflows/update_yokohama_icons.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: yokohama-launcher-icons-main
+  cancel-in-progress: false
+
+jobs:
+  update-icons:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned image dependency
+        run: python -m pip install Pillow==12.3.0
+      - name: Generate and verify Yokohama-only icons
+        run: |
+          set -euo pipefail
+          python scripts/generate_yokohama_app_icons.py
+          python scripts/generate_yokohama_app_icons.py --check
+      - name: Commit generated assets if changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Never stage unrelated changes or overwrite work on a moved branch.
+          git add -- 'ios/Runner/Assets.xcassets/AppIconYokohama.appiconset/*.png' \
+            'android/app/src/yokohama/res/mipmap-*/ic_launcher.png'
+          unexpected="$(git status --porcelain | grep -Ev '^([AM? ]{2}) (ios/Runner/Assets.xcassets/AppIconYokohama.appiconset/|android/app/src/yokohama/res/mipmap-)' || true)"
+          if [ -n "$unexpected" ]; then
+            echo "::error::Unexpected modified paths during icon generation"
+            printf '%s\n' "$unexpected"
+            exit 1
+          fi
+          if git diff --cached --quiet; then
+            echo "Yokohama icons already match logo"
+            exit 0
+          fi
+          current_remote="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ "$current_remote" != "$(git rev-parse HEAD)" ]; then
+            echo "::error::main advanced since icon generation; refusing to push"
+            exit 1
+          fi
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m 'Generate Yokohama launcher icons from committed logo (#241)'
+          git push origin HEAD:main

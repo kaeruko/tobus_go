@@ -97,6 +97,12 @@ jobs:
       - name: Build Sendai Android flavor
         run: flutter build apk --debug --flavor sendai --dart-define=APP_CITY=sendai
 
+      - name: Generate Yokohama launcher icons
+        run: |
+          python3 -m pip install Pillow==12.3.0
+          python3 scripts/generate_yokohama_app_icons.py
+          python3 scripts/generate_yokohama_app_icons.py --check
+
       - name: Build Yokohama Android flavor
         run: flutter build apk --debug --flavor yokohama --dart-define=APP_CITY=yokohama
 
@@ -183,6 +189,12 @@ jobs:
           grep -Fq '"CFBundleDisplayName" = "Sendai GO";' "$localized_en"
           grep -Fq '"CFBundleDisplayName" = "仙台でGO";' "$localized_ja"
           test ! -e "$app/GoogleService-Info.plist"
+
+      - name: Generate Yokohama launcher icons
+        run: |
+          python3 -m pip install Pillow==12.3.0
+          python3 scripts/generate_yokohama_app_icons.py
+          python3 scripts/generate_yokohama_app_icons.py --check
 
       - name: Build Yokohama iOS flavor
         run: flutter build ios --simulator --debug --flavor yokohama --dart-define=APP_CITY=yokohama
