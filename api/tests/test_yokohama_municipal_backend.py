@@ -281,7 +281,15 @@ class MunicipalBackendContractTests(unittest.TestCase):
                                 self.assertEqual(response.status_code, 200, response.text)
                                 data = response.json()
                                 if walk_mode == "reviewed":
-                                    self.assertEqual(data["candidates"], [])
+                                    # The shared backend may still offer a
+                                    # short walk-only route. That is NOT an
+                                    # unreviewed inter-feed interchange.
+                                    self.assertTrue(all(
+                                        not {"bus", "rail"}.issubset({
+                                            x["kind"] for x in candidate["steps"]
+                                        })
+                                        for candidate in data["candidates"]
+                                    ))
                                 else:
                                     self.assertGreaterEqual(len(data["candidates"]), 1)
                                 self.assertEqual(
