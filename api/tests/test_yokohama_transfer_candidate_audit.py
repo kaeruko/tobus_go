@@ -102,6 +102,41 @@ class CandidateTriageTests(unittest.TestCase):
         self.assertEqual(focused["candidates"][0]["bus_gtfs_lat"], self.bus.dataset.stops["yokohama_bus:B"].lat)
         self.assertEqual(focused["candidates"][0]["subway_gtfs_lon"], self.rail.dataset.stops["yokohama_subway:S"].lon)
 
+    def test_two_poles_same_station_remain_candidates_without_official_list_ranking(self):
+        # Synthetic stand O is moved alongside stand B only to verify that
+        # two distinct bus pole IDs survive; no official-nearby-list flag.
+        base = self.bus.dataset.stops["yokohama_bus:O"]
+        b = self.bus.dataset.stops["yokohama_bus:B"]
+        bus_dataset = replace(
+            self.bus.dataset,
+            stops={
+                **self.bus.dataset.stops,
+                "yokohama_bus:O": replace(
+                    base, lat=b.lat + 0.00003, lon=b.lon,
+                ),
+            },
+        )
+        coverage = replace(self.bus, dataset=bus_dataset)
+        report = audit_transfer_candidates(
+            coverage, self.rail.dataset,
+            service_date=DAY, radius_m=300,
+            focus_bus_stop_ids=("yokohama_bus:O", "yokohama_bus:B"),
+        )
+        self.assertEqual(report["candidate_pair_count"], 2)
+        self.assertEqual(report["focus_matching_pair_count"], 2)
+        self.assertEqual(report["shown_pair_count"], 2)
+        self.assertEqual(
+            {c["bus_stop_id"] for c in report["candidates"]},
+            {"yokohama_bus:O", "yokohama_bus:B"},
+        )
+        self.assertTrue(all(
+            c["status"] == "UNVERIFIED_GEOMETRIC_HINT"
+            and not c["walkable_route_verified"]
+            and not c["pass_fare_verified"]
+            and c["official_transfer_evidence_url"] is None
+            for c in report["candidates"]
+        ))
+
     def test_unknown_duplicate_or_invalid_focus_fails_closed(self):
         for ids in (
             ("yokohama_bus:INVALID",),
