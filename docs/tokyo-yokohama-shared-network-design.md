@@ -278,3 +278,19 @@ TransitStop/TransitRouteへoptionalな公式英語名を保持し、選択イベ
 追加の合成回帰は、同到着/同便/同乗車数でも乗換地点が異なることと待ち時間の差を固定する。東京の既定cost tie-breakは変更しない。共通/v1/source関連96件は90件成功・Nativeの6件スキップ、network42件は成功。main CIでNativeを含む検証を行う。
 
 **残る切替ゲート**: 横浜の同到着時順位を明示した都市別契約にする。既存v1の候補を維持するならpriorityだけでなく、prefix dominance・goal選択・具体便区間の辞書式キーも同時に検証する必要がある。待ち時間を新しい目的に採る場合は別の製品仕様変更で、今回自動採用しない。東京の順位や既存v1本体を変更せず、本番切替・デプロイを行わない。実徒歩/複数候補/別運行日/東京入力移行/性能のゲートも未達である。
+
+## 14. 横浜の明示した同到着時順位 — v1具体便区間キー
+
+変更前mainは`fbc2ec9724473b0dd62d13f28403c4f0411f0272`。前段のGitHub ActionsではAPI全件、Python 3.11/3.12 Rust SearchCore、3.11 Lambda image/smoke、Androidが成功した。確認時点のiOSは実行中だった。
+
+`search_network`に明示的な`arrival_tiebreak="v1_path"`を追加する。timeは到着→乗車数→既存TransitPathKey相当、fewTransfers/arrivalは乗車数→到着→同キーで比較する。キーはtrip ID、route ID、乗降stop ID、具体区間の発着時計、順序付きstop列を含む。時計はsnapshotのFraction MINUTESのままで、既存v1の整数時計契約を変更せず、新契約の秒精度を丸めない。cost目的・fewTransfers/costへのv1_path指定と未知profileは拒否する。
+
+横浜のopt-in接続層はtime/fewTransfersへこのprofileを明示指定する。共通探索の既定profileはcostのまま、東京facadeの呼び出し・順位・ラベルslotを変更しない。v1 Python/Rust本体・公開runtime・無料承認/徒歩審査データも変更しない。失敗時に既存v1へ探索をやり直す処理は追加しない。
+
+優先queueだけでなく、同時計prefixのdominanceを区間キーで比較する。未来の具体便/board occurrenceと乗車数を同じgroupに保ち、open legの延長に対して順序を維持する。strictly earlierのoffboard prefixは、v1同様に後続便を待てるため優越する。未完成区間の辞書式キーはgoal順位の下界ではないので、同じ目的値へ到達できるqueueを消化してから、完成した候補を順序付けてyieldする。所要0の区間で途中の降車stop順序が変わる場合も、最初にpopしたgoalを即返さない。未確定の候補をsafety limit到達時に返さず、既存例外で停止する。
+
+v1にない内部徒歩を含む同順位は、乗車区間キー→徒歩回数→方向/発着時計/距離の徒歩列という明示した拡張で決定する。徒歩回数を列より先に比較し、同じ乗車groupでprefix延長に対して順序を維持する。この拡張を既存v1と同等とは主張しない。徒歩はsnapshotにあるversion-pinnedの審査済み方向だけを利用し、逆方向生成や推定リンクの採用をしない。選択後のpass別0円再検査を維持する。
+
+合成回帰8件を追加し、前段の循環便/待ち時間差のテストにもv1_path比較を追加した。安い同時刻prefixとの合流、乗車数のsecondary順位、所要0の未完成区間、limit超過、不正profile、複数候補の目的値順序、両パスでの接続層指定、審査済み徒歩を確認する。生成した循環時刻表32組×入力順2通り×目的2通りの128比較は、先頭候補の全区間キーがv1と一致した。秒境界の既存回帰にも新profileを適用した。network50件成功、共通/v1/source関連98件は92件成功・Nativeが必要な6件スキップ。東京220件、横浜/v1関連118件も成功した。新mainのCIでNativeとLambdaを検証する。
+
+**未検証**: Windowsの同じ24ケースの再実行前なので、実データの4差分が解消したとは扱わない。区間キーとlabelのcacheはquery内だけで保持し、終了時に解放するが、inactive labelや区間stop列も保持する追加メモリがある。同目的値を確定するまでの追加展開もある。Tokyoの既定profileはcache/確定待ちを使わない。横浜実GTFSのピークRSS/応答時間・全OD/top-K・別日/徒歩・東京入力移行/Realtime/prebuiltの測定は残る。Phase 2全体の完了や本番切替を宣言しない。

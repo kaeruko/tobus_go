@@ -54,7 +54,7 @@ class _Label:
 
 class _Frontier:
     def __init__(self, target, mode, can_wait, goal_signature=None, max_boardings=None,
-                 few_transfers_tiebreak="cost"):
+                 few_transfers_tiebreak="cost", arrival_tie_key=None):
         self.target = target
         self.mode = mode
         self.can_wait = can_wait
@@ -62,6 +62,7 @@ class _Frontier:
         self.count = 0
         self.goal_signature = goal_signature
         self.max_boardings = max_boardings
+        self.arrival_tie_key = arrival_tie_key
         self.arrival_objective = (mode == "time" or
                                   (mode == "fewTransfers" and few_transfers_tiebreak == "arrival"))
 
@@ -87,10 +88,25 @@ class _Frontier:
         # many immediate board/alight cycles even when every resource is worse.
         # The other objectives keep their conservative boarding-count groups.
         boardings = (None if self.mode == "time" and self.max_boardings is None
+                     and self.arrival_tie_key is None
                      else label.boardings)
         return (label.node, boardings, context, conservative_time)
 
     def _dominates(self, first, second):
+        if self.arrival_tie_key is not None:
+            if first.node == self.target:
+                def objective(label):
+                    return ((label.time, label.boardings) if self.mode == 'time'
+                            else (label.boardings, label.time))
+                return (objective(first), self.arrival_tie_key(first)) <= (
+                    objective(second), self.arrival_tie_key(second))
+            # Prefix keys must be extension-safe within the same future state.
+            # At equal clocks, comfort cost cannot discard a better v1 prefix.
+            return (first.time <= second.time
+                    and (first.time < second.time
+                         or self.arrival_tie_key(first) <= self.arrival_tie_key(second))
+                    and first.total_walk <= second.total_walk
+                    and first.segment_walk <= second.segment_walk)
         if first.node == self.target:
             return (first.time <= second.time if self.arrival_objective
                     else (first.cost, first.time, first.total_walk)
@@ -162,7 +178,8 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
                   edge_uses_rail, heuristic=lambda node: 0.0,
                   prepare_bounds, path_signature, path_factory, compact_queue,
                   ride_options, alight_minutes, walk_meters,
-                  max_expanded=None, max_boardings=None, few_transfers_tiebreak="cost"):
+                  max_expanded=None, max_boardings=None, few_transfers_tiebreak="cost",
+                  arrival_tie_key=None):
     """Yield feasible paths, using one frontier at generation and pop time.
 
     fewTransfers orders its lexicographic objective with a relaxed reverse
@@ -176,6 +193,9 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
         raise RouteContractError("max_boardings must be a positive int or None")
     if few_transfers_tiebreak not in ("cost", "arrival"):
         raise RouteContractError("few_transfers_tiebreak must be cost or arrival")
+    if arrival_tie_key is not None and (not callable(arrival_tie_key)
+            or mode == 'cost' or (mode == 'fewTransfers' and few_transfers_tiebreak != 'arrival')):
+        raise RouteContractError('arrival_tie_key requires an arrival objective and callable key')
     started = time.monotonic()
     deadline = start_minute + max_travel_min
 
@@ -188,7 +208,7 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
         return path_signature(nodes)
 
     frontier = _Frontier(target, mode, choices.can_wait_offboard, goal_signature,
-                         max_boardings, few_transfers_tiebreak)
+                         max_boardings, few_transfers_tiebreak, arrival_tie_key)
     yielded_goals = set()
     queue = []
     sequence = itertools.count()
@@ -202,6 +222,15 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
     arrival_bound = None
 
     def priority(label):
+        if arrival_tie_key is not None:
+            # The complete-path tie is not a lower bound for a still-open leg.
+            # Equal primary objectives are therefore certified below before yield.
+            if mode == 'time':
+                primary = (arrival_bound(label.time, bounds(label.node)), label.boardings)
+            else:
+                remaining_boardings, _ = bounds(label.node, label.segment_walk)
+                primary = (label.boardings + remaining_boardings, label.time)
+            return (*primary, arrival_tie_key(label))
         if mode == "fewTransfers":
             remaining_boardings, remaining_cost = bounds(label.node, label.segment_walk)
             if few_transfers_tiebreak == "arrival":
@@ -272,9 +301,33 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
     bounds, cost_bound, arrival_bound = prepare_bounds(check_deadline, deadline)
 
     offer(_Label(start, 0.0, start_minute, 0.0, 0.0, 0))
+    pending_goals = []
+    pending_objective = None
+
+    def emit_pending():
+        nonlocal yielded
+        for goal in sorted((g for g in pending_goals if g.active), key=arrival_tie_key):
+            key = frontier._key(goal)
+            if mode != 'time' and key in yielded_goals:
+                continue
+            if yielded >= max_search:
+                fail('max_search')
+            yielded_goals.add(key)
+            yielded += 1
+            counts['yielded'][goal.boardings] += 1
+            stats('yield')
+            yield {'cost': goal.cost, 'path': _path(goal, choices, start_minute, path_factory),
+                   'walk_m': goal.total_walk}
+
     while queue:
         if time.monotonic() - started > time_limit_sec:
             fail("time_limit_sec")
+        if pending_objective is not None and queue[0][0][:2] > pending_objective:
+            yield from emit_pending()
+            pending_goals.clear()
+            pending_objective = None
+            if mode != 'fewTransfers' and yielded >= max_search:
+                return
         if popped >= next_compaction_pop:
             compacted_count += compact_queue(queue)
             next_compaction_pop = popped + 1000
@@ -304,6 +357,16 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
         if popped % 5000 == 0:
             stats("tick")
         if label.node == target:
+            if arrival_tie_key is not None:
+                objective = ((label.time, label.boardings) if mode == 'time'
+                             else (label.boardings, label.time))
+                if pending_objective is None or objective < pending_objective:
+                    pending_goals.clear()
+                    pending_objective = objective
+                if objective != pending_objective:
+                    raise RouteContractError('goal objective exceeds pending queue certificate')
+                pending_goals.append(label)
+                continue
             # The legacy cost heuristic can discover a better representative
             # after this itinerary was yielded. It must not use another slot.
             key = frontier._key(label)
@@ -372,5 +435,8 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
                     continue
                 offer(_Label(following, cost, arrival, total, segment, boardings,
                              ride=ride, parent=label))
+    if pending_goals:
+        check_deadline()
+        yield from emit_pending()
     stats("queue_exhausted")
 

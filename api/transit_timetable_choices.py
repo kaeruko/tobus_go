@@ -210,6 +210,59 @@ class _ZeroBounds:
         return (0, 0.0) if self.mode == "fewTransfers" else 0.0
 
 
+class _LegacyPathRanks:
+    """Query-local v1 leg keys, with an explicit extension for reviewed walks.
+
+    Within one frontier future state the open leg has identical occurrences;
+    replacing it on continuation therefore preserves completed-prefix ordering.
+    The key of an unfinished leg is NOT a goal lower bound.
+    """
+
+    def __init__(self, snapshot):
+        self.snapshot = snapshot
+        self.keys = {}
+        self.legs = {}
+
+    def __call__(self, label):
+        missing = []
+        current = label
+        while current is not None and current not in self.keys:
+            missing.append(current)
+            current = current.parent
+        for current in reversed(missing):
+            parent = current.parent
+            if parent is None:
+                key = ((), 0, ())
+            else:
+                rides, walks, walk_keys = self.keys[parent]
+                edge = self.snapshot.graph[parent.node][current.node]
+                kind = edge['etype']
+                if kind == 'ride':
+                    state = current.ride
+                    cache_key = (state.trip_id, state.board_position, state.position)
+                    if cache_key not in self.legs:
+                        rows = self.snapshot.rows_by_trip[state.trip_id]
+                        trip = self.snapshot.trips[state.trip_id]
+                        first, last = rows[state.board_position], rows[state.position]
+                        self.legs[cache_key] = (
+                            trip.id, trip.route_id, first.stop_id, last.stop_id,
+                            first.departure_minute, last.arrival_minute,
+                            tuple(row.stop_id for row in rows[state.board_position:state.position + 1]))
+                    # A board label has no travelled leg yet.
+                    if parent.ride.position != parent.ride.board_position:
+                        rides = rides[:-1]
+                    rides = rides + (self.legs[cache_key],)
+                elif kind == 'walk':
+                    walks += 1
+                    walk_keys += ((parent.node, current.node, parent.time,
+                                   current.time, edge['meters']),)
+                elif kind not in ('board', 'alight'):
+                    raise RouteContractError(f'unsupported v1 path-rank edge: {kind!r}')
+                key = (rides, walks, walk_keys)
+            self.keys[current] = key
+        return self.keys[label]
+
+
 def _journey(snapshot, candidate, departure):
     path = candidate["path"]
     events, boarding = [], None
@@ -255,13 +308,18 @@ def _journey(snapshot, candidate, departure):
 def search_network(
     snapshot: TransitNetworkSnapshot, origin_stop_id: str, destination_stop_id: str,
     *, service_date: date, departure_minute: int | float | Fraction, mode: str,
-    parameters: NetworkSearchParameters,
+    parameters: NetworkSearchParameters, arrival_tiebreak: str = "cost",
 ) -> tuple[NetworkJourney, ...]:
     if origin_stop_id not in snapshot.stops or destination_stop_id not in snapshot.stops:
         raise ValueError("unknown network origin/destination stop")
     departure_minute = exact_minutes(departure_minute, field="departure_minute")
     if not isinstance(parameters, NetworkSearchParameters):
         raise ValueError("explicit NetworkSearchParameters are required")
+    if arrival_tiebreak not in ("cost", "v1_path"):
+        raise ValueError("arrival_tiebreak must be cost or v1_path")
+    if arrival_tiebreak == "v1_path" and (mode == "cost" or
+            (mode == "fewTransfers" and parameters.few_transfers_tiebreak != "arrival")):
+        raise ValueError("v1_path requires an arrival objective")
     travel_minutes = exact_minutes(parameters.max_travel_minutes, field="max_travel_minutes")
     boarding_minutes = exact_minutes(parameters.rail_boarding_minutes, field="rail_boarding_minutes")
     bus_alighting = exact_minutes(parameters.bus_alighting_minutes, field="bus_alighting_minutes")
@@ -299,6 +357,7 @@ def search_network(
         alight_minutes=alight_minutes, walk_meters=lambda edge: edge["meters"],
         max_boardings=parameters.max_boardings,
         few_transfers_tiebreak=parameters.few_transfers_tiebreak,
+        arrival_tie_key=(_LegacyPathRanks(snapshot) if arrival_tiebreak == "v1_path" else None),
     )
     try:
         return tuple(_journey(snapshot, candidate, departure_minute)

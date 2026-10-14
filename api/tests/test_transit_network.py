@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import date, datetime, timezone
 from fractions import Fraction
 import io
+import random
 from pathlib import Path
 import tempfile
 import unittest
@@ -55,14 +56,36 @@ def network(*datasets, allowed=None, links=()):
         walking_links=links, costs=NetworkCosts())
 
 
-def query(snapshot, origin, destination, *, mode="time", day=SERVICE_DAY, departure=590, **params):
+def query(snapshot, origin, destination, *, mode="time", day=SERVICE_DAY, departure=590,
+          arrival_tiebreak="cost", **params):
     with contextlib.redirect_stdout(io.StringIO()):
         return search_network(snapshot, origin, destination, service_date=day,
                               departure_minute=departure, mode=mode,
+                              arrival_tiebreak=arrival_tiebreak,
                               parameters=NetworkSearchParameters(**params))
 
 
 class TransitNetworkTest(unittest.TestCase):
+    def compare_v1(self, source, origin, destination, departure, mode="time"):
+        request = BatchSearchRequest(service_date=SERVICE_DAY, departure_minute=departure,
+            origins=(SearchEndpoint(origin),), destinations=(SearchEndpoint(destination),),
+            preference="fastest" if mode == "time" else "fewest_transfers", max_rides=6)
+        legacy = PythonTransitSearchCore(source).search(request).pairs[0].itinerary
+        shared = query(network(source), origin, destination, departure=departure, mode=mode,
+                       arrival_tiebreak="v1_path", few_transfers_tiebreak="arrival", max_candidates=1)
+        if legacy is None:
+            self.assertEqual(shared, ())
+            return
+        journey = shared[0]
+        def leg_key(leg):
+            return (leg.trip_id, leg.route_id, leg.from_stop_id, leg.to_stop_id,
+                    leg.departure_minute, leg.arrival_minute, leg.stop_ids)
+        self.assertEqual((journey.arrival_minute, journey.rides),
+                         (legacy.arrival_minute, legacy.rides))
+        self.assertEqual(tuple(leg_key(e) for e in journey.events),
+                         tuple(leg_key(e) for e in legacy.legs))
+        return journey
+
     def test_equal_arrival_transfer_tie_exposes_v1_and_cost_ordering_difference(self):
         # Entirely synthetic circular runs: identical final arrival and vehicles,
         # but different transfer stop and waiting duration. Do not change Tokyo's
@@ -88,6 +111,79 @@ class TransitNetworkTest(unittest.TestCase):
         self.assertEqual(legacy.legs[1].departure_minute - legacy.legs[0].arrival_minute, 15)
         self.assertEqual(rides[1].departure_minute - rides[0].arrival_minute, 27)
         self.assertAlmostEqual(shared.cost, 11.6)
+        for mode in ("time", "fewTransfers"):
+            self.compare_v1(source, 'bus:o', 'bus:d', 100, mode)
+
+    def test_v1_rank_preserves_lexical_prefix_against_cheaper_equal_clock_merge(self):
+        source = dataset('bus', {
+            'a': [('o', 10, 10), ('x', 11, 11), ('m', 20, 20)],
+            'z': [('o', 10, 10), ('m', 20, 20)],
+            'next': [('m', 20, 20), ('d', 30, 30)],
+        })
+        result = self.compare_v1(source, 'bus:o', 'bus:d', 10)
+        self.assertEqual(result.events[0].trip_id, 'bus:a')
+        self.assertEqual(query(network(source), 'bus:o', 'bus:d', departure=10)[0]
+                         .events[0].trip_id, 'bus:z')
+
+    def test_v1_rank_certifies_zero_duration_open_leg_before_returning_goal(self):
+        source = dataset('bus', {
+            'a': [('o', 10, 10), ('c', 10, 10), ('z', 10, 10), ('b', 10, 10)],
+            'next': [('c', 10, 10), ('b', 10, 10), ('d', 10, 10)],
+        })
+        result = self.compare_v1(source, 'bus:o', 'bus:d', 10)
+        self.assertEqual(result.events[0].to_stop_id, 'bus:b')
+        # Certification still charges pending work to the safety budget.
+        with self.assertRaises(RouteSearchLimitError):
+            query(network(source), 'bus:o', 'bus:d', departure=10,
+                  arrival_tiebreak='v1_path', max_candidates=1, max_visited=9)
+
+    def test_v1_rank_fastest_prefers_fewer_rides_before_lexical_path(self):
+        source = dataset('bus', {
+            'a': [('o', 10, 10), ('m', 20, 20)],
+            'b': [('m', 20, 20), ('d', 30, 30)],
+            'z': [('o', 10, 10), ('x', 15, 15), ('d', 30, 30)],
+        })
+        for mode in ('time', 'fewTransfers'):
+            self.assertEqual(self.compare_v1(source, 'bus:o', 'bus:d', 10, mode).rides, 1)
+
+    def test_v1_rank_rejects_unknown_profile_and_nonarrival_objective(self):
+        source = dataset('bus', {'t': [('o', 10, 10), ('d', 20, 20)]})
+        for profile, mode, tie in [('unknown', 'time', 'arrival'),
+                                   ('v1_path', 'cost', 'arrival'),
+                                   ('v1_path', 'fewTransfers', 'cost')]:
+            with self.subTest(profile=profile, mode=mode, tie=tie):
+                with self.assertRaises(ValueError):
+                    query(network(source), 'bus:o', 'bus:d', departure=10, mode=mode,
+                          arrival_tiebreak=profile, few_transfers_tiebreak=tie)
+
+    def test_v1_rank_multiple_candidates_keep_objective_order_under_input_permutation(self):
+        trips = {'direct': [('o', 10, 10), ('d', 50, 50)],
+                 'first': [('o', 10, 10), ('m', 20, 20)],
+                 'second': [('m', 20, 20), ('d', 30, 30)]}
+        results = []
+        for ordered in (trips, dict(reversed(list(trips.items())))):
+            results.append(query(network(dataset('bus', ordered)), 'bus:o', 'bus:d',
+                departure=10, mode='fewTransfers', arrival_tiebreak='v1_path',
+                few_transfers_tiebreak='arrival', max_candidates=3))
+        self.assertEqual(results[0], results[1])
+        self.assertEqual([(j.rides, j.arrival_minute) for j in results[0]], [(1, 50), (2, 30)])
+
+    def test_v1_rank_differential_generated_circular_timetables(self):
+        for seed in range(32):
+            rng = random.Random(seed)
+            trips = {}
+            for index in range(5):
+                clock = rng.randrange(5, 30)
+                rows = []
+                for stop in ('o', 'b', 'a', 'x', 'a', 'b', 'd'):
+                    clock += rng.randrange(1, 8)
+                    rows.append((stop, clock, clock))
+                trips[str(index)] = rows
+            for ordered in (trips, dict(reversed(list(trips.items())))):
+                source = dataset('bus', ordered)
+                for mode in ('time', 'fewTransfers'):
+                    with self.subTest(seed=seed, mode=mode, reverse=ordered is not trips):
+                        self.compare_v1(source, 'bus:o', 'bus:d', 15, mode)
 
     def test_preparation_deadline_and_exact_query_local_board_cache(self):
         source = dataset("bus", {"t": [("a", 600, 600), ("b", 610, 610)]})
@@ -327,8 +423,11 @@ class TransitNetworkTest(unittest.TestCase):
             includes_station_access=True),
             'fixture-v1', 'fixture-v1')
         snapshot = network(bus, rail, links=(link,))
-        for mode in ('time', 'fewTransfers', 'cost'):
+        for mode, profile in (('time', 'cost'), ('fewTransfers', 'cost'), ('cost', 'cost'),
+                              ('time', 'v1_path'), ('fewTransfers', 'v1_path')):
             journey = query(snapshot, 'bus:a', 'rail:d', mode=mode, departure=540,
+                            arrival_tiebreak=profile,
+                            few_transfers_tiebreak='arrival' if profile == 'v1_path' else 'cost',
                             bus_alighting_minutes=0.1, rail_boarding_minutes=0.2)[0]
             self.assertEqual([e.trip_id for e in journey.events if isinstance(e, NetworkRideEvent)],
                              ['bus:t', 'rail:equal'])
@@ -592,6 +691,43 @@ class YokohamaSharedNetworkTest(unittest.TestCase):
                 self.assertEqual([e.trip_id for e in result.events if isinstance(e, NetworkRideEvent)],
                                  [e.trip_id for e in (*previous.first_legs, *previous.second_legs)])
                 self.assertNotIn("yokohama_bus:EXPRESS", context.snapshot.allowed_trip_ids)
+
+    def test_municipal_entry_explicitly_preserves_v1_ranking_for_both_passes(self):
+        source = dataset('yokohama_bus', {
+            'a': [('o', 10, 10), ('x', 11, 11), ('m', 20, 20)],
+            'z': [('o', 10, 10), ('m', 20, 20)],
+            'next': [('m', 20, 20), ('d', 30, 30)],
+        })
+        coverage = replace(self.bus, dataset=source,
+                           route_service_kinds={'yokohama_bus:r': 'local'})
+        for policy in ('yokohama_welfare_special_pass', 'yokohama_senior_special_pass'):
+            context = self.context(policy, links=(), bus=coverage)
+            for mode in ('time', 'fewTransfers'):
+                with self.subTest(policy=policy, mode=mode), contextlib.redirect_stdout(io.StringIO()):
+                    result = search_shared_municipal_network(
+                        context, 'yokohama_bus:o', 'yokohama_bus:d', service_date=SERVICE_DAY,
+                        departure_minute=10, mode=mode,
+                        parameters=NetworkSearchParameters(max_candidates=1,
+                                                           few_transfers_tiebreak='arrival'))
+                    self.assertEqual(result[0].events[0].trip_id, 'yokohama_bus:a')
+        with self.assertRaisesRegex(ValueError, 'explicit arrival tie-break'):
+            search_shared_municipal_network(
+                context, 'yokohama_bus:o', 'yokohama_bus:d', service_date=SERVICE_DAY,
+                departure_minute=10, mode='fewTransfers', parameters=NetworkSearchParameters())
+
+    def test_reviewed_walk_candidate_limit_has_deterministic_rank(self):
+        context = self.context('yokohama_senior_special_pass')
+        def search(snapshot):
+            return query(snapshot, 'yokohama_bus:O', 'yokohama_subway:D', departure=540,
+                         mode='fewTransfers', arrival_tiebreak='v1_path',
+                         few_transfers_tiebreak='arrival', max_candidates=3)
+        first = search(context.snapshot)
+        repeated = search(self.context('yokohama_senior_special_pass').snapshot)
+        self.assertEqual(first, repeated)
+        self.assertTrue(first)
+        self.assertTrue(all(any(isinstance(e, NetworkWalkEvent) for e in j.events) for j in first))
+        self.assertEqual([(j.rides, j.arrival_minute) for j in first],
+                         sorted((j.rides, j.arrival_minute) for j in first))
 
     def test_reverse_direction_and_empty_review_are_not_implicitly_enabled(self):
         policy = "yokohama_welfare_special_pass"

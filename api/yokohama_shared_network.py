@@ -57,7 +57,10 @@ def build_shared_municipal_network(
 def search_shared_municipal_network(context, origin_stop_id, destination_stop_id, **query):
     if query.get("mode") == "fewTransfers" and query["parameters"].few_transfers_tiebreak != "arrival":
         raise ValueError("Yokohama fewTransfers requires an explicit arrival tie-break")
-    journeys = search_network(context.snapshot, origin_stop_id, destination_stop_id, **query)
+    # A declared city ranking contract, never a retry with another backend.
+    profile = "v1_path" if query.get("mode") in ("time", "fewTransfers") else "cost"
+    journeys = search_network(context.snapshot, origin_stop_id, destination_stop_id,
+                              arrival_tiebreak=profile, **query)
     # Revalidate every selected leg against the original pinned coverage and
     # the requested pass. Never turn an unavailable quote into a free journey.
     for journey in journeys:
