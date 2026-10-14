@@ -196,6 +196,26 @@ class ExplicitTransferTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "one bus and one subway"):
             search_explicit_municipal_transfer(**{**args, "destination_stop_id": "yokohama_subway:UNKNOWN"})
 
+    def test_geographically_impossible_transfer_is_rejected(self):
+        from dataclasses import replace
+        from transit_dataset import TransitStop
+        stops = dict(self.subway.dataset.stops)
+        stop = stops["yokohama_subway:S"]
+        stops[stop.id] = replace(stop, lat=35.6000, lon=139.8000)
+        mismatched = replace(
+            self.subway,
+            dataset=replace(self.subway.dataset, stops=stops),
+        )
+        with self.assertRaisesRegex(ValueError, "too far apart"):
+            search_explicit_municipal_transfer(
+                bus_coverage=self.bus, subway_coverage=mismatched,
+                origin_stop_id="yokohama_bus:O",
+                destination_stop_id="yokohama_subway:D",
+                depart_at=datetime(2026, 10, 14, 9, 0, tzinfo=JST),
+                transfer=self.link,
+                policy_id="yokohama_welfare_special_pass",
+            )
+
     def test_transfer_link_rejects_fake_mode_and_understated_walking_time(self):
         with self.assertRaisesRegex(ValueError, "feed-namespaced"):
             ExplicitTransferLink(

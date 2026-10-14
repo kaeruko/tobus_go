@@ -127,6 +127,22 @@ def search_explicit_municipal_transfer(
         or transfer.subway_stop_id not in rail.dataset.stops
     ):
         raise ValueError("transfer stop missing from reviewed datasets")
+    # Explicit, independently sourced transfer information is still needed.
+    # Coordinates can only reject physically impossible or understated walks.
+    bus_stop = bus.dataset.stops[transfer.bus_stop_id]
+    subway_stop = rail.dataset.stops[transfer.subway_stop_id]
+    lat1, lon1 = math.radians(bus_stop.lat), math.radians(bus_stop.lon)
+    lat2, lon2 = math.radians(subway_stop.lat), math.radians(subway_stop.lon)
+    central = (
+        math.sin((lat2 - lat1) / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2)
+        * math.sin((lon2 - lon1) / 2) ** 2
+    )
+    straight_m = 2 * 6_371_000 * math.asin(min(1.0, math.sqrt(central)))
+    if not math.isfinite(straight_m) or straight_m > 600:
+        raise ValueError("explicit transfer stops too far apart")
+    if transfer.walk_meters + 1 < straight_m:
+        raise ValueError("explicit walking distance shorter than straight line")
     if (
         origin_stop_id in bus.dataset.stops
         and destination_stop_id in rail.dataset.stops
