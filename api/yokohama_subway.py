@@ -135,9 +135,11 @@ def load_yokohama_subway_dataset(
             feed_id=FEED_ID, source_type="gtfs", source_uri=SOURCE_URL,
             version=VERSION, fetched_at=fetched_at,
         ),
-        # GTFS allows intermediate timepoint=0 stops without schedule times.
-        # Do not invent those times: omit those boarding/alighting points.
-        # All other cities retain the adapter's strict default.
+        # Actual Yokohama feed also omits timepoint on some untimed
+        # intermediate rows (not strictly valid GTFS). This opt-in
+        # compatibility skips such boarding/alighting events altogether,
+        # without estimating or inventing times. Explicit timepoint=1
+        # remains an error; all other cities keep the strict default.
         skip_untimed_intermediate_stops=True,
     )
     if any(route.mode is not TransitMode.RAIL for route in dataset.routes.values()):
@@ -341,6 +343,22 @@ def fetch_yokohama_subway_gtfs(
         if not dataset.routes or not dataset.trips:
             raise ValueError("subway GTFS dataset has no routes/trips")
 
+        # Count source rows separately, so partial station-time coverage is
+        # visible to developers rather than silently misrepresented as full.
+        source_stop_times = _csv(
+            feed / "stop_times.txt",
+            ("trip_id", "stop_id", "stop_sequence"),
+        )
+        omitted_untimed_rows = len(source_stop_times) - len(dataset.stop_times)
+        if omitted_untimed_rows < 0:
+            raise ValueError("subway stop time accounting mismatch")
+        omitted_without_timepoint = sum(
+            not (row.get("arrival_time") or "")
+            and not (row.get("departure_time") or "")
+            and row.get("timepoint") in (None, "")
+            for row in source_stop_times
+        )
+
         # A single rename publishes only completely validated data.
         if target.exists():
             raise FileExistsError("subway GTFS output directory already exists")
@@ -352,6 +370,10 @@ def fetch_yokohama_subway_gtfs(
         "route_count": len(dataset.routes),
         "trip_count": len(dataset.trips),
         "stop_count": len(dataset.stops),
+        "source_stop_time_rows": len(source_stop_times),
+        "searchable_stop_time_rows": len(dataset.stop_times),
+        "excluded_untimed_intermediate_rows": omitted_untimed_rows,
+        "excluded_untimed_rows_missing_timepoint": omitted_without_timepoint,
         "file_count": len(manifest["files_sha256"]),
         "output_path": str(target),
         "status": "validated local GTFS; not licensed/publication approved",

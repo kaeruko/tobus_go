@@ -111,7 +111,11 @@ class SubwayPreflightTests(unittest.TestCase):
                 fetched_at=datetime(2026, 10, 14, tzinfo=timezone.utc),
             ))
 
-    def test_untimed_mid_trip_without_explicit_timepoint_zero_fails_closed(self):
+    def test_untimed_mid_trip_without_timepoint_is_excluded_subway_only(self):
+        from transit_adapters.gtfs import GtfsTransitAdapter
+        from transit_dataset import FeedMetadata
+        from datetime import datetime, timezone
+
         p = self.root / "stop_times.txt"
         p.write_text(
             "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint\n"
@@ -121,10 +125,37 @@ class SubwayPreflightTests(unittest.TestCase):
             encoding="utf-8",
         )
         _refresh_manifest(self.root)
-        with self.assertRaisesRegex(ValueError, "explicit timepoint=0"):
-            load_yokohama_subway_dataset(
-                self.root, expected_service_date=DAY,
-            )
+        result = load_yokohama_subway_dataset(
+            self.root, expected_service_date=DAY,
+        )
+        self.assertEqual(
+            [(stop.stop_id, stop.sequence) for stop in result.stop_times],
+            [("yokohama_subway:A", 1), ("yokohama_subway:B", 3)],
+        )
+        with self.assertRaisesRegex(ValueError, "stop time requires arrival"):
+            GtfsTransitAdapter.load(self.root, metadata=FeedMetadata(
+                feed_id="strict-city", source_type="gtfs",
+                source_uri="https://example.org/gtfs",
+                version="test",
+                fetched_at=datetime(2026, 10, 14, tzinfo=timezone.utc),
+            ))
+
+    def test_explicit_exact_or_invalid_untimed_intermediate_is_rejected(self):
+        p = self.root / "stop_times.txt"
+        for flag in ("1", "9"):
+            with self.subTest(flag=flag):
+                p.write_text(
+                    "trip_id,arrival_time,departure_time,stop_id,stop_sequence,timepoint\n"
+                    "T1,09:55:00,09:55:00,A,1,1\n"
+                    f"T1,,,A,2,{flag}\n"
+                    "T1,10:10:00,10:10:00,B,3,1\n",
+                    encoding="utf-8",
+                )
+                _refresh_manifest(self.root)
+                with self.assertRaisesRegex(ValueError, "invalid/exact timepoint"):
+                    load_yokohama_subway_dataset(
+                        self.root, expected_service_date=DAY,
+                    )
 
     def test_untimed_first_last_stop_is_rejected(self):
         for blank_seq in (1, 3):

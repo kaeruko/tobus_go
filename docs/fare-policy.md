@@ -639,6 +639,29 @@ python scripts/fetch_yokohama_subway_gtfs.py `
 [ODPT公式カタログ](https://ckan.odpt.org/dataset/yokohama_municipal_train)で
 基本ライセンス／特定利用条件を先に確認する。
 
+### 横浜地下鉄実データの未指定timepoint互換（2026-10-14追補）
+
+実端末の再ダウンロードで`GTFS untimed intermediate stop requires explicit timepoint=0`
+が発生した。GTFSの規格では**timepoint未指定はexact扱い**なので、
+時刻空欄＋未指定は不完全な入力であり、`timepoint=0`と同等に
+扱って「その駅で乗れる時刻」を推測してはならない。
+
+今回、**横浜地下鉄だけ**互換モードを拡張し、時刻空欄の中間停車行が
+`timepoint=0`か**未指定（空欄／列欠落）**の場合、時刻を補わず
+検索対象の`stop_times`からのみ**省略**する。
+`timepoint=1`（確定）や不正値は拒否。始発・終着、未知stop、
+重複sequence、時刻付き停留所不足、別feedの取扱いは従来通りfail-closed。
+`stops.txt`や取得した`stop_times.txt`の原本は無変更。
+検索は時刻が確定している駅のみで成立し、**全駅の利用可能性を意味しない**。
+
+取得成功時には次の件数をコンソールへ表示する：
+`source_stop_time_rows`（原本）、
+`searchable_stop_time_rows`（検索可能）、
+`excluded_untimed_intermediate_rows`（除外総数）、
+`excluded_untimed_rows_missing_timepoint`（timepoint未指定による除外数）。
+多量に除外された場合は地下鉄を実用と扱わず時刻表供給元や別データを検討。
+GTFSを無条件に承認したり、0円の乗車区間を推定したりはしない。
+
 ### 地下鉄GTFSの空白stop_times対応（2026-10-14）
 
 実機でAzureからのZIP取得・ZIP展開・ローカルGTFSのSHA-256照合が進み、

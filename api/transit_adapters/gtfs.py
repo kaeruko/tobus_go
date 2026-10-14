@@ -67,8 +67,11 @@ class GtfsTransitAdapter:
         """Load GTFS, optionally omitting verified untimed non-timepoints.
 
         Strict by default for all existing cities. When opted in, an intermediate
-        row with *both* times absent may be omitted ONLY if timepoint=0. This
-        intentionally disables boarding/alighting at that stop for this trip;
+        row with *both* times absent may be omitted only if timepoint=0
+        or is absent/blank, but never if explicitly exact (timepoint=1).
+        Omitted/blank timepoint on an untimed row violates strict GTFS;
+        this compatibility mode is opt-in and still forbids boarding/alighting
+        at any such stop. This
         no time is estimated or invented. Every trip must still have timed
         first/last stops, and every stop/sequence is checked before omission.
         """
@@ -209,9 +212,15 @@ class GtfsTransitAdapter:
                     raise ValueError(
                         "GTFS first/last stop missing arrival and departure time"
                     )
-                if row.get("timepoint") != "0":
+                # The actual Yokohama subway feed also contains untimed
+                # intermediate rows with omitted/empty timepoint. Strict GTFS
+                # treats omitted timepoint as exact, so these rows are NOT
+                # safe boarding/alighting points. Opt-in subway compatibility
+                # may omit them without fabricating a stop time.
+                # Explicit 1 or any invalid flag remains a hard error.
+                if row.get("timepoint") not in (None, "", "0"):
                     raise ValueError(
-                        "GTFS untimed intermediate stop requires explicit timepoint=0"
+                        "GTFS untimed intermediate stop has invalid/exact timepoint"
                     )
                 # The stop still exists in the source feed, but without a
                 # reliable time it cannot be a boarding/alighting candidate.
