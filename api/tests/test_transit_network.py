@@ -2,6 +2,7 @@
 import contextlib
 from dataclasses import replace
 from datetime import date, datetime, timezone
+from fractions import Fraction
 import io
 from pathlib import Path
 import tempfile
@@ -264,10 +265,12 @@ class TransitNetworkTest(unittest.TestCase):
             loaded = sources[0].load()
             self.assertEqual(loaded.stop_times[0].arrival_service_seconds, 36059)
             self.assertEqual(loaded.stop_times[0].arrival_minute, 601)  # existing v1 contract
-            with self.assertRaisesRegex(ValueError, "subminute source clock.*demo_bus:t1.*seconds=36059"):
-                network(loaded)
+            snapshot = network(loaded)
+            self.assertEqual(snapshot.rows_by_trip['demo_bus:t1'][0].arrival_minute, Fraction(36059, 60))
+            journey = query(snapshot, 'demo_bus:a', 'demo_bus:b')[0]
+            self.assertEqual(journey.events[0].departure_minute, Fraction(36059, 60))
 
-    def test_odpt_source_seconds_are_retained_and_use_the_same_precision_gate(self):
+    def test_odpt_source_seconds_are_retained_in_exact_scheduled_clock(self):
         with tempfile.TemporaryDirectory() as root:
             sources = feeds(Path(root))
             first = sources[1].train_timetables[0]["odpt:trainTimetableObject"][0]
@@ -275,8 +278,74 @@ class TransitNetworkTest(unittest.TestCase):
             loaded = sources[1].load()
             self.assertEqual(loaded.stop_times[0].departure_service_seconds, 37199)
             self.assertEqual(loaded.stop_times[0].departure_minute, 620)
-            with self.assertRaisesRegex(ValueError, "subminute source clock.*demo_rail:early.*seconds=37199"):
-                network(loaded)
+            snapshot = network(loaded)
+            self.assertEqual(snapshot.rows_by_trip['demo_rail:early'][0].departure_minute, Fraction(37199, 60))
+
+    def test_exact_walking_and_boarding_boundary_in_all_objectives(self):
+        def seconds_dataset(feed, trips, **kwargs):
+            source = dataset(feed, trips, **kwargs)
+            return replace(source, stop_times=tuple(replace(
+                row, arrival_minute=(row.arrival_minute + 30) // 60,
+                departure_minute=(row.departure_minute + 30) // 60,
+                arrival_service_seconds=row.arrival_minute,
+                departure_service_seconds=row.departure_minute) for row in source.stop_times))
+        bus = seconds_dataset('bus', {'t': [('a', 33000, 33000), ('b', 33659, 33659)]})
+        rail = seconds_dataset('rail', {
+            'early': [('c', 34276, 34276), ('d', 34400, 34400)],
+            'equal': [('c', 34277, 34277), ('d', 34501, 34501)],
+        }, mode=TransitMode.RAIL)
+        link = DirectedWalkLink(ReviewedWalkingLink(
+            from_stop_id='bus:b', to_stop_id='rail:c', walk_meters=100,
+            walk_minutes=10, official_evidence_url=FIXTURE_EVIDENCE,
+            includes_station_access=True),
+            'fixture-v1', 'fixture-v1')
+        snapshot = network(bus, rail, links=(link,))
+        for mode in ('time', 'fewTransfers', 'cost'):
+            journey = query(snapshot, 'bus:a', 'rail:d', mode=mode, departure=540,
+                            bus_alighting_minutes=0.1, rail_boarding_minutes=0.2)[0]
+            self.assertEqual([e.trip_id for e in journey.events if isinstance(e, NetworkRideEvent)],
+                             ['bus:t', 'rail:equal'])
+            self.assertEqual(journey.arrival_minute, Fraction(34501, 60))
+            self.assertIsInstance(journey.arrival_minute, Fraction)
+            self.assertEqual(journey.walk_meters, 100)
+
+    def test_source_order_is_checked_before_minute_rounding(self):
+        source = dataset('bus', {'t': [('a', 600, 600), ('b', 600, 600)]})
+        rows = tuple(replace(r, arrival_service_seconds=36020 if i == 0 else 36019,
+                             departure_service_seconds=36020 if i == 0 else 36019)
+                     for i, r in enumerate(source.stop_times))
+        with self.assertRaisesRegex(ValueError, 'trip goes backwards.*bus:t'):
+            network(replace(source, stop_times=rows))
+
+    def test_source_clock_mismatch_is_not_repaired(self):
+        source = dataset('bus', {'t': [('a', 600, 600), ('b', 610, 610)]})
+        bad = replace(source.stop_times[0], departure_service_seconds=36059)
+        with self.assertRaisesRegex(ValueError, 'source seconds/minutes mismatch.*bus:t'):
+            network(replace(source, stop_times=(bad, source.stop_times[1])))
+
+    def test_source_dwell_is_checked_at_second_precision(self):
+        source = dataset('bus', {'t': [('a', 600, 600), ('b', 610, 610)]})
+        bad = replace(source.stop_times[0], arrival_service_seconds=36020,
+                      departure_service_seconds=36019)
+        with self.assertRaisesRegex(ValueError, 'arrival after departure.*bus:t'):
+            network(replace(source, stop_times=(bad, source.stop_times[1])))
+
+    def test_exact_departure_and_service_day_across_midnight(self):
+        source = dataset('bus', {'t': [('a', 1440, 1440), ('b', 1440, 1440)]})
+        rows = tuple(replace(r, arrival_service_seconds=s, departure_service_seconds=s)
+                     for r, s in zip(source.stop_times, (86399, 86401)))
+        snapshot = network(replace(source, stop_times=rows))
+        for start in (Fraction(86398, 60), Fraction(86399, 60)):
+            journey = query(snapshot, 'bus:a', 'bus:b', departure=start)[0]
+            self.assertEqual(journey.arrival_minute, Fraction(86401, 60))
+            self.assertEqual(journey.events[0].service_date, SERVICE_DAY)
+        self.assertEqual(query(snapshot, 'bus:a', 'bus:b', departure=Fraction(86400, 60)), ())
+
+    def test_query_clock_rejects_unknown_types_and_nonfinite_values(self):
+        snapshot = network(dataset('bus', {'t': [('a', 600, 600), ('b', 610, 610)]}))
+        for clock in (True, '600', float('nan'), float('inf'), -1):
+            with self.subTest(clock=clock), self.assertRaises(ValueError):
+                query(snapshot, 'bus:a', 'bus:b', departure=clock)
 
 
 class YokohamaSharedNetworkTest(unittest.TestCase):

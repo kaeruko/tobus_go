@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, replace
 from datetime import date
+from fractions import Fraction
 import math
 from types import MappingProxyType
 from typing import Iterable, Mapping, Sequence
@@ -17,6 +18,7 @@ import networkx as nx
 
 from reviewed_walk_time import ReviewedWalkingLink
 from transit_dataset import TransitDataset, TransitMode, TransitRoute, TransitStop, TransitStopTime, TransitTrip, namespace_id
+from transit_time import source_clock_minutes
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +97,33 @@ class _Graph(nx.DiGraph):
 
 
 @dataclass(frozen=True, slots=True)
+class ScheduledStopTime:
+    source: TransitStopTime
+    arrival_minute: Fraction | None
+    departure_minute: Fraction | None
+
+    @property
+    def trip_id(self):
+        return self.source.trip_id
+
+    @property
+    def stop_id(self):
+        return self.source.stop_id
+
+    @property
+    def sequence(self):
+        return self.source.sequence
+
+    @property
+    def pickup_type(self):
+        return self.source.pickup_type
+
+    @property
+    def drop_off_type(self):
+        return self.source.drop_off_type
+
+
+@dataclass(frozen=True, slots=True)
 class TransitNetworkSnapshot:
     graph: nx.DiGraph
     datasets: tuple[TransitDataset, ...]
@@ -102,9 +131,9 @@ class TransitNetworkSnapshot:
     stops: Mapping[str, TransitStop]
     routes: Mapping[str, TransitRoute]
     trips: Mapping[str, TransitTrip]
-    rows_by_trip: Mapping[str, tuple[TransitStopTime, ...]]
+    rows_by_trip: Mapping[str, tuple[ScheduledStopTime, ...]]
     trip_patterns: Mapping[str, int]
-    departures: Mapping[tuple, tuple[tuple[int, str, int], ...]]
+    departures: Mapping[tuple, tuple[tuple[Fraction, str, int], ...]]
     allowed_trip_ids: frozenset[str]
     costs: NetworkCosts
 
@@ -191,25 +220,22 @@ def build_transit_network(
         raise ValueError(f"unknown allowed trip IDs: {sorted(allowed - all_trips.keys())!r}")
     # Validate source clocks, including dwell, before constructing any graph.
     validated = {}
+    clock_cache = {}
     for trip_id in all_trips:
         rows = tuple(sorted(all_rows[trip_id], key=lambda row: row.sequence))
         if len(rows) < 2:
             raise ValueError(f"trip requires at least two timed stops: {trip_id}")
         previous_departure = None
+        scheduled = []
         for index, row in enumerate(rows):
             if type(row.sequence) is not int or row.sequence < 0:
                 raise ValueError(f"invalid sequence: {trip_id} {row.sequence!r}")
-            for clock in (row.arrival_minute, row.departure_minute):
-                if clock is not None and (type(clock) is not int or clock < 0):
-                    raise ValueError(f"invalid service-day clock: {trip_id} sequence={row.sequence}")
-            for minute, second in ((row.arrival_minute, row.arrival_service_seconds),
-                                   (row.departure_minute, row.departure_service_seconds)):
-                if second is not None:
-                    if minute != second // 60 + (1 if second % 60 >= 30 else 0):
-                        raise ValueError(f"source seconds/minutes mismatch: {trip_id} sequence={row.sequence}")
-                    if second % 60:
-                        raise ValueError(f"subminute source clock requires an exact-clock v2 contract: "
-                                         f"{trip_id} sequence={row.sequence} seconds={second}")
+            row = ScheduledStopTime(
+                row,
+                source_clock_minutes(row.arrival_minute, row.arrival_service_seconds,
+                                     trip_id=trip_id, sequence=row.sequence, cache=clock_cache),
+                source_clock_minutes(row.departure_minute, row.departure_service_seconds,
+                                     trip_id=trip_id, sequence=row.sequence, cache=clock_cache))
             if index > 0 and row.arrival_minute is None:
                 raise ValueError(f"missing arrival: {trip_id} sequence={row.sequence}")
             if index < len(rows) - 1 and row.departure_minute is None:
@@ -220,8 +246,9 @@ def build_transit_network(
             if previous_departure is not None and row.arrival_minute < previous_departure:
                 raise ValueError(f"trip goes backwards: {trip_id} sequence={row.sequence}")
             previous_departure = row.departure_minute
+            scheduled.append(row)
         if trip_id in allowed:
-            validated[trip_id] = rows
+            validated[trip_id] = tuple(scheduled)
     graph = _Graph()
     for stop_id, stop in sorted(stops.items()):
         graph.add_node(physical_node(stop_id), stop_id=stop_id, lat=stop.lat, lon=stop.lon)

@@ -9,12 +9,14 @@ from __future__ import annotations
 import bisect
 from dataclasses import dataclass, replace
 from datetime import date
+from fractions import Fraction
 import itertools
 import math
 
 from route_engine import RouteContractError
 from transit_network import DirectedWalkLink, TransitNetworkSnapshot, line_node, physical_node
 from transit_search_labels import SelectedPath, _compact_queue, search_labels
+from transit_time import exact_minutes
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,14 +39,13 @@ class ScheduledRideState:
 class DatasetTimetableChoices:
     can_wait_offboard = True
 
-    def __init__(self, snapshot: TransitNetworkSnapshot, *, service_date: date, deadline: float):
+    def __init__(self, snapshot: TransitNetworkSnapshot, *, service_date: date,
+                 deadline: int | float | Fraction):
         if type(service_date) is not date:
             raise ValueError("service_date must be a date")
-        if type(deadline) not in (int, float) or not math.isfinite(deadline) or deadline < 0:
-            raise ValueError("deadline must be a nonnegative finite service-day minute")
         self.snapshot = snapshot
         self.service_date = service_date
-        self.deadline = deadline
+        self.deadline = exact_minutes(deadline, field="deadline")
         self.active_trips = None
         self._board_cache = {}
 
@@ -82,8 +83,7 @@ class DatasetTimetableChoices:
 
     def board_options(self, u, v, ready):
         self._require_prepared()
-        if type(ready) not in (int, float) or not math.isfinite(ready) or ready < 0:
-            raise RouteContractError("boarding ready time must be a finite service-day minute")
+        ready = exact_minutes(ready, field="boarding ready time")
         key = u, v, ready
         if key in self._board_cache:
             return self._board_cache[key]
@@ -108,6 +108,7 @@ class DatasetTimetableChoices:
 
     def ride_options(self, u, v, clock, ride):
         self._require_prepared()
+        clock = exact_minutes(clock, field="selected ride clock")
         if (ride.trip_id not in self.active_trips or ride.service_date != self.service_date
                 or ride.pattern != self.snapshot.trip_patterns[ride.trip_id]
                 or u != line_node(ride.pattern, ride.position)
@@ -128,13 +129,13 @@ class NetworkSearchParameters:
     max_candidates: int = 5
     max_boardings: int = 6
     max_visited: int = 100_000
-    max_travel_minutes: float = 240.0
+    max_travel_minutes: int | float | Fraction = 240.0
     time_limit_seconds: float = 15.0
     max_total_walk_meters: float = 3000.0
     max_segment_walk_meters: float = 600.0
-    rail_boarding_minutes: float = 0.0
-    bus_alighting_minutes: float = 0.0
-    rail_alighting_minutes: float = 0.0
+    rail_boarding_minutes: int | float | Fraction = 0.0
+    bus_alighting_minutes: int | float | Fraction = 0.0
+    rail_alighting_minutes: int | float | Fraction = 0.0
     few_transfers_tiebreak: str = "cost"
 
     def __post_init__(self):
@@ -142,12 +143,13 @@ class NetworkSearchParameters:
             value = getattr(self, name)
             if type(value) is not int or value < 1:
                 raise ValueError(f"{name} must be a positive int")
-        for name in ("max_travel_minutes", "time_limit_seconds", "max_total_walk_meters",
-                     "max_segment_walk_meters", "rail_boarding_minutes",
-                     "bus_alighting_minutes", "rail_alighting_minutes"):
+        for name in ("time_limit_seconds", "max_total_walk_meters", "max_segment_walk_meters"):
             value = getattr(self, name)
             if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
                 raise ValueError(f"{name} must be finite and nonnegative")
+        for name in ("max_travel_minutes", "rail_boarding_minutes",
+                     "bus_alighting_minutes", "rail_alighting_minutes"):
+            exact_minutes(getattr(self, name), field=name)
         if self.time_limit_seconds == 0:
             raise ValueError("time_limit_seconds must be positive")
         if self.few_transfers_tiebreak not in ("cost", "arrival"):
@@ -166,22 +168,22 @@ class NetworkRideEvent:
     to_stop_id: str
     from_sequence: int
     to_sequence: int
-    departure_minute: float
-    arrival_minute: float
+    departure_minute: Fraction
+    arrival_minute: Fraction
     stop_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
 class NetworkWalkEvent:
     pinned_link: DirectedWalkLink
-    departure_minute: float
-    arrival_minute: float
+    departure_minute: Fraction
+    arrival_minute: Fraction
 
 
 @dataclass(frozen=True, slots=True)
 class NetworkJourney:
-    departure_minute: float
-    arrival_minute: float
+    departure_minute: Fraction
+    arrival_minute: Fraction
     cost: float
     walk_meters: float
     events: tuple[NetworkRideEvent | NetworkWalkEvent, ...]
@@ -240,17 +242,20 @@ def _journey(snapshot, candidate, departure):
 
 def search_network(
     snapshot: TransitNetworkSnapshot, origin_stop_id: str, destination_stop_id: str,
-    *, service_date: date, departure_minute: float, mode: str,
+    *, service_date: date, departure_minute: int | float | Fraction, mode: str,
     parameters: NetworkSearchParameters,
 ) -> tuple[NetworkJourney, ...]:
     if origin_stop_id not in snapshot.stops or destination_stop_id not in snapshot.stops:
         raise ValueError("unknown network origin/destination stop")
-    if type(departure_minute) not in (int, float) or not math.isfinite(departure_minute) or departure_minute < 0:
-        raise ValueError("departure_minute must be a nonnegative finite service-day minute")
+    departure_minute = exact_minutes(departure_minute, field="departure_minute")
     if not isinstance(parameters, NetworkSearchParameters):
         raise ValueError("explicit NetworkSearchParameters are required")
+    travel_minutes = exact_minutes(parameters.max_travel_minutes, field="max_travel_minutes")
+    boarding_minutes = exact_minutes(parameters.rail_boarding_minutes, field="rail_boarding_minutes")
+    bus_alighting = exact_minutes(parameters.bus_alighting_minutes, field="bus_alighting_minutes")
+    rail_alighting = exact_minutes(parameters.rail_alighting_minutes, field="rail_alighting_minutes")
     choices = DatasetTimetableChoices(snapshot, service_date=service_date,
-                                     deadline=departure_minute + parameters.max_travel_minutes)
+                                     deadline=departure_minute + travel_minutes)
 
     def prepare_bounds(check_deadline, deadline):
         # Explicit correctness baseline, not recovery from a failed A* builder.
@@ -265,17 +270,16 @@ def search_network(
 
     def alight_minutes(ride):
         route = snapshot.routes[snapshot.trips[ride.trip_id].route_id]
-        return (parameters.bus_alighting_minutes if route.mode.value == "bus"
-                else parameters.rail_alighting_minutes)
+        return bus_alighting if route.mode.value == "bus" else rail_alighting
 
     generator = search_labels(
         snapshot.graph, choices, physical_node(origin_stop_id), physical_node(destination_stop_id),
         mode=mode, start_minute=departure_minute,
         max_search=parameters.max_candidates, max_visited=parameters.max_visited,
-        max_travel_min=parameters.max_travel_minutes, time_limit_sec=parameters.time_limit_seconds,
+        max_travel_min=travel_minutes, time_limit_sec=parameters.time_limit_seconds,
         max_total_walk=parameters.max_total_walk_meters,
         max_segment_walk=parameters.max_segment_walk_meters,
-        walk_speed=80.0, rail_boarding_minutes=parameters.rail_boarding_minutes,
+        walk_speed=80.0, rail_boarding_minutes=boarding_minutes,
         advance_time=advance_time, virtual_connections={}, edge_uses_rail=lambda u, v: False,
         prepare_bounds=prepare_bounds, path_signature=tuple, path_factory=SelectedPath,
         compact_queue=_compact_queue,
