@@ -273,6 +273,19 @@ python scripts/smoke_yokohama_real_gtfs.py `
 スモークは両パスをテストし、008が採用されなかった場合や対象外系統が入った場合は失敗する。比較には**同じGTFS**を使うので、独立した公式時刻表検証や制度上の無料運賃保証ではない。
 
 
+#### 288系統の実GTFS／独立公式時刻表照合（2026-10-14）
+
+ローカルGTFS `v3.0_20260727` の2026-09-04（金）に `trip_id=yokohama_bus:28800_01202606011032AO00503` を両パスのAPI検索で確認。
+聖隷横浜病院08:22発 → 水道道08:32着、GTFSの停車順1→4、徒歩0m、福祉パス／敬老パスとも検索PASS・追加支払0円。
+
+**独立した公式時刻表でも平日08:22発・水道道08:32発が掲載されている**（2026年に公開された市交通局の改正時刻表）。発車時刻の掲載は到着時刻や実際の運行実績そのものではないが、GTFS/APIの時刻との整合を独立確認できた。
+
+- 聖隷横浜病院の平日時刻表: https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001600784&date=2026-10-11&orvCode=00091288&stopNo=1
+- 水道道の平日時刻表: https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001600784&date=2026-10-06&orvCode=00090538&stopNo=4
+- 福祉・敬老パス利用可の病院公式案内: https://www.seirei.or.jp/yokohama/outline/access/bus/circulation-bus/index.html
+
+**注意**：同じ便が2026-09-04に実際に運行したか、当該便が2026年の制度下で追加料金なしで乗れるかについては、現行情報と事業者の最終確認が必要。開発用の5系統版が「公開可能な全域検証済みcoverage」になったわけではない。
+
 ### 288系統「聖隷横浜病院循環」の追加調査（開発用5系統目）
 
 聖隷横浜病院の公式案内（https://www.seirei.or.jp/yokohama/outline/access/bus/circulation-bus/index.html ）は、「聖隷横浜病院循環」について **通常市営バス運賃であり、敬老特別乗車証と福祉特別乗車券の両方が使用可能**と明記。公式案内は2016〜2017年の時刻表にも言及しているため、2026年の便・停留所・運賃条件との独立照合は残る。
