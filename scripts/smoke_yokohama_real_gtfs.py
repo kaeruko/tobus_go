@@ -216,6 +216,19 @@ def run_smoke(
                 for visit in source_destination_visits
             ):
                 raise AssertionError("probe destination stop/time not present in GTFS trip")
+            # A circular line can visit the same named stop on distinct
+            # physical poles with distinct GTFS IDs, so report that too.
+            source_destination_name_visits = [
+                {
+                    "stop_id": row.stop_id,
+                    "stop_sequence": row.sequence,
+                    "arrival_time": _clock(row.arrival_minute),
+                }
+                for row in trip_rows[probe["trip_id"]]
+                if row.sequence > probe["source_boarding_sequence"]
+                and dataset.stops[row.stop_id].name == probe["destination"].name
+                and row.arrival_minute is not None
+            ]
             for policy_id in POLICIES:
                 response = client.post(
                     "/route", headers={"X-App-City": "yokohama"},
@@ -332,8 +345,11 @@ def run_smoke(
             "source_arrival": probe["source_arrival"],
             "source_boarding_sequence": probe["source_boarding_sequence"],
             "source_destination_sequence": probe["source_destination_sequence"],
+            "source_destination_stop_id": probe["destination"].id,
             "source_destination_visits": source_destination_visits,
             "revisits_same_destination_stop": len(source_destination_visits) > 1,
+            "source_destination_name_visits": source_destination_name_visits,
+            "revisits_same_destination_name": len(source_destination_name_visits) > 1,
         },
         "results": results,
         "note": (
