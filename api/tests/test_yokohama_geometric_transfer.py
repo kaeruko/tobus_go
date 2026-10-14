@@ -104,6 +104,36 @@ class GeometricMunicipalTransferTests(unittest.TestCase):
         )
         self.assertEqual(plans, ())
 
+    def test_timetable_indexes_created_once_per_spatial_search(self):
+        from unittest.mock import patch
+        from transit_engine import TransitRouteEngine
+
+        with patch(
+            "yokohama_municipal_transfer.TransitRouteEngine",
+            wraps=TransitRouteEngine,
+        ) as constructor:
+            plans = self._bus_to_rail()
+        self.assertEqual(len(plans), 1)
+        self.assertEqual(constructor.call_count, 2)
+
+    def test_too_many_links_fails_rather_than_silently_truncating(self):
+        # Move the origin pole near the rail station to manufacture a second
+        # candidate link. The explicit cap must cause an error, not a partial
+        # result mislabeled as exhaustive.
+        revised = dict(self.bus.dataset.stops)
+        revised["yokohama_bus:O"] = replace(
+            revised["yokohama_bus:O"], lat=35.4652, lon=139.6251,
+        )
+        adjusted = replace(self.bus, dataset=replace(self.bus.dataset, stops=revised))
+        with self.assertRaisesRegex(ValueError, "too many proximity"):
+            search_geometric_municipal_transfers(
+                bus_coverage=adjusted, subway_coverage=self.rail,
+                origin_stop_id="yokohama_bus:O",
+                destination_stop_id="yokohama_subway:D",
+                depart_at=DAY, policy_id="yokohama_welfare_special_pass",
+                radius_m=300, max_candidate_links=1,
+            )
+
     def test_no_subway_fare_review_means_no_provisional_free_route(self):
         not_reviewed = replace(
             self.rail, route_service_kinds={"yokohama_subway:BLUE": "unreviewed"}
