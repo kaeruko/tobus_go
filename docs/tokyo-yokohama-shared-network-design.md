@@ -224,3 +224,17 @@ CPython 3.12のshallow sizeは追加scheduled行56B、Fraction48B。整数payloa
 秒時計の合成回帰成功後も、ODPT運行日例外/深夜表現、公式表示情報、東京Realtime接続、共通A*、Native v2、prebuilt manifest、非公開実GTFS/ODPT差分は残る。次の入力契約作業ではこれらのsource意味を既存東京コードと固定してから移行する。未対応データを別providerや旧snapshotへ自動切替しない。
 
 ローカル検証: 東京既存220件、横浜関連92件が成功。共通/v1関連77件は71件成功・Native拡張が必要な6件スキップ。共通接続28件を含み、秒精度の新規境界テスト6件とGTFS/ODPTの既存精度テスト2件を更新した。Nativeの実検証はmainのGitHub Actionsで行う。
+
+## 10. 入力契約の完成 — ODPTの明示した運行日例外と深夜規則
+
+変更前mainは`1ae54bc3a7520cae875665bd59fac80104db3098`。秒時計のコミットはGitHub ActionsでAPI全件、Python 3.11/3.12のRust parity、3.11 Lambda image/smokeが成功した。
+
+`OdptCalendarRule`へ`added_dates`/`removed_dates`と`service_day_start_second`を追加する。曜日7値・有効期間・例外日・境界秒を厳密検査し、重複・追加/除外の矛盾・期間外・型/単位不一致は停止する。サービスごとに一度だけnamespaced ServiceExceptionを生成し、共通Datasetの既存例外機構で曜日より優先する。Holidayという文字や日本の祝日を推測して日付を追加しない。初期値は空例外・境界0で、既存入力の結果を維持する。
+
+境界を明示したsourceでは、その秒より前のcivil時計だけを同じservice dayの翌civil日へ置く。元時計の秒精度を失わず、24:xx表記にはさらに24時間を足さない。規則なしの23:59→00:00は自動補正せず、network構築の逆転検査で停止する。合成テストの03:00境界は実ODPTの公式規則ではなく、本番へ登録しない。東京の既存読み込みは便内の前後関係から日を進める処理を持つため、新契約の境界方式だけで全東京便が同等とは断定しない。複数日便・例外的な深夜表記は今後の実入力比較で契約を確認する。
+
+ODPTの不正なclock型を「時刻欠落」とみなす処理を除き、trip/sequence/fieldを伴う例外で停止する。解析ValueErrorはcauseを保持する。正当な欠落/空時計は従来どおり残し、必要な発着時刻はnetwork構築で検査する。busのbool indexも拒否する。source wrapper、既存runtime、v1 SearchCore、運賃認定、徒歩審査データを変更しない。
+
+追加5テストは追加/除外日、設定なし逆転、明示境界と24:xx、bus/rail両形式、カレンダー不正値、不正clock型/元例外保持を確認する。共通/v1/source関連87件は81件成功・Nativeが必要な6件スキップ、うちnetwork33件は成功。東京220件・横浜92件の直前回帰も成功した。新mainのGitHub Actionsで全APIとNative parityを再検証する。
+
+Phase 2全体はまだ完了ではない。公式英語名・元pattern/run/便種別メタデータの契約、実ODPTへの運行日規則の対応、東京Realtimeの接続、非公開実データ比較、性能・prebuilt起動は残る。本番切替・デプロイを行わない。

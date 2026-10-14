@@ -11,6 +11,7 @@ import unittest
 import networkx as nx
 
 from reviewed_walk_time import ReviewedWalkingLink
+from transit_adapters.odpt import OdptCalendarRule
 from route_engine import RouteContractError, RouteSearchLimitError
 from transit_dataset import (
     FeedMetadata, ServiceCalendar, ServiceException, TransitDataset, TransitMode,
@@ -346,6 +347,84 @@ class TransitNetworkTest(unittest.TestCase):
         for clock in (True, '600', float('nan'), float('inf'), -1):
             with self.subTest(clock=clock), self.assertRaises(ValueError):
                 query(snapshot, 'bus:a', 'bus:b', departure=clock)
+
+    def test_odpt_explicit_service_exceptions_override_weekday_calendar(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = feeds(Path(root))[1]
+            rule = source.calendar_rules['weekday']
+            saturday = date(2026, 10, 17)
+            source = replace(source, calendar_rules={'weekday': replace(
+                rule, removed_dates=(SERVICE_DAY,), added_dates=(saturday,))})
+            loaded = source.load()
+            self.assertEqual(len(loaded.service_exceptions), 2)  # one pair per service, not per trip
+            snapshot = network(loaded)
+            self.assertEqual(query(snapshot, 'demo_rail:x', 'demo_rail:y'), ())
+            self.assertTrue(query(snapshot, 'demo_rail:x', 'demo_rail:y', day=saturday))
+            self.assertEqual(query(snapshot, 'demo_rail:x', 'demo_rail:y', day=date(2026, 10, 18)), ())
+
+    def test_odpt_midnight_requires_explicit_source_boundary(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = feeds(Path(root))[1]
+            timetable = source.train_timetables[0]
+            objects = timetable['odpt:trainTimetableObject']
+            objects[0]['odpt:arrivalTime'] = objects[0]['odpt:departureTime'] = '23:59:59'
+            objects[1]['odpt:arrivalTime'] = objects[1]['odpt:departureTime'] = '00:00:01'
+            source = replace(source, train_timetables=(timetable,))
+            # No inference from descending clocks: preserve the source failure.
+            with self.assertRaises(ValueError):
+                network(source.load())
+            rule = replace(source.calendar_rules['weekday'], service_day_start_second=3 * 3600)
+            source = replace(source, calendar_rules={'weekday': rule})
+            loaded = source.load()
+            self.assertEqual(loaded.stop_times[1].arrival_service_seconds, 86401)
+            journey = query(network(loaded), 'demo_rail:x', 'demo_rail:y', departure=1439)[0]
+            self.assertEqual(journey.arrival_minute, Fraction(86401, 60))
+            self.assertEqual(journey.events[0].service_date, SERVICE_DAY)
+            # Explicit 24:xx must not gain a second day.
+            objects[1]['odpt:arrivalTime'] = objects[1]['odpt:departureTime'] = '24:00:01'
+            self.assertEqual(source.load().stop_times[1].arrival_service_seconds, 86401)
+
+    def test_odpt_bus_uses_the_same_explicit_midnight_contract(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = feeds(Path(root))[1]
+            rule = replace(source.calendar_rules['weekday'], service_day_start_second=10800)
+            source = replace(source, stations=(), railways=(), train_timetables=(),
+                calendar_rules={'weekday': rule}, busstop_poles=source.stations,
+                busroute_patterns=({'owl:sameAs': 'p', 'odpt:busroute': 'r', 'dc:title': 'R'},),
+                bus_timetables=({'owl:sameAs': 't', 'odpt:busroutePattern': 'p',
+                    'odpt:calendar': 'weekday', 'odpt:busTimetableObject': [
+                        {'odpt:index': 2, 'odpt:busstopPole': 'x', 'odpt:departureTime': '23:59:59'},
+                        {'odpt:index': 7, 'odpt:busstopPole': 'y', 'odpt:arrivalTime': '00:00:01'},
+                    ]},))
+            loaded = source.load()
+            journey = query(network(loaded), 'demo_rail:x', 'demo_rail:y', departure=1439)[0]
+            self.assertEqual(journey.events[0].mode, 'bus')
+            self.assertEqual(journey.events[0].to_sequence, 7)
+            self.assertEqual(journey.arrival_minute, Fraction(86401, 60))
+
+    def test_odpt_calendar_rules_reject_ambiguous_exceptions_and_units(self):
+        rule = OdptCalendarRule((True,) * 7, date(2026, 1, 1), date(2026, 12, 31))
+        for change in ({'added_dates': (SERVICE_DAY, SERVICE_DAY)},
+                       {'added_dates': (SERVICE_DAY,), 'removed_dates': (SERVICE_DAY,)},
+                       {'added_dates': (date(2027, 1, 1),)},
+                       {'removed_dates': ('2026-10-14',)},
+                       {'service_day_start_second': True},
+                       {'service_day_start_second': 10800.0},
+                       {'weekdays': (1,) * 7}):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                replace(rule, **change)
+
+    def test_odpt_invalid_clock_type_is_not_treated_as_missing_terminal_time(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = feeds(Path(root))[1]
+            obj = source.train_timetables[0]['odpt:trainTimetableObject'][-1]
+            obj['odpt:departureTime'] = 630
+            with self.assertRaisesRegex(ValueError, 'invalid ODPT clock type.*early.*departureTime'):
+                source.load()
+            obj['odpt:departureTime'] = 'bad-clock'
+            with self.assertRaisesRegex(ValueError, 'invalid ODPT clock.*early') as raised:
+                source.load()
+            self.assertIsInstance(raised.exception.__cause__, ValueError)
 
 
 class YokohamaSharedNetworkTest(unittest.TestCase):

@@ -7,6 +7,7 @@ from typing import Iterable, Mapping
 from transit_dataset import (
     FeedMetadata,
     ServiceCalendar,
+    ServiceException,
     TransitDataset,
     TransitMode,
     TransitRoute,
@@ -14,7 +15,6 @@ from transit_dataset import (
     TransitStopTime,
     TransitTrip,
     namespace_id,
-    service_time_to_minute,
     service_time_to_second,
 )
 
@@ -24,6 +24,47 @@ class OdptCalendarRule:
     weekdays: tuple[bool, bool, bool, bool, bool, bool, bool]
     start_date: date
     end_date: date
+    added_dates: tuple[date, ...] = ()
+    removed_dates: tuple[date, ...] = ()
+    # Explicit source convention: civil clocks below this boundary belong
+    # to the next civil date of the SAME service day. Zero means no rewrite.
+    service_day_start_second: int = 0
+
+    def __post_init__(self):
+        if (type(self.weekdays) is not tuple or len(self.weekdays) != 7
+                or any(type(value) is not bool for value in self.weekdays)):
+            raise ValueError('ODPT weekdays require seven explicit bool values')
+        if (type(self.start_date) is not date or type(self.end_date) is not date
+                or self.end_date < self.start_date):
+            raise ValueError('invalid ODPT calendar date range')
+        if (type(self.service_day_start_second) is not int
+                or not 0 <= self.service_day_start_second < 86400):
+            raise ValueError('ODPT service-day boundary requires integer seconds in [0, 86400)')
+        for name in ('added_dates', 'removed_dates'):
+            values = getattr(self, name)
+            if (type(values) is not tuple or any(type(day) is not date for day in values)
+                    or len(set(values)) != len(values)
+                    or any(not self.start_date <= day <= self.end_date for day in values)):
+                raise ValueError(f'invalid ODPT {name}: explicit unique dates within rule validity required')
+        if set(self.added_dates) & set(self.removed_dates):
+            raise ValueError('conflicting ODPT service exceptions')
+
+
+def _clock_fields(obj, key, rule, *, trip_id, sequence):
+    raw = obj.get(key)
+    if raw is None or raw == '':
+        return None, None
+    if not isinstance(raw, str):
+        raise ValueError(f'invalid ODPT clock type: {trip_id} sequence={sequence} field={key}')
+    try:
+        seconds = service_time_to_second(raw)
+    except ValueError as error:
+        raise ValueError(f'invalid ODPT clock: {trip_id} sequence={sequence} field={key}: {error}') from error
+    if seconds < rule.service_day_start_second:
+        seconds += 86400
+    # Only the legacy v1 projection is rounded; scheduled v2 consumes seconds.
+    minute = seconds // 60 + (1 if seconds % 60 >= 30 else 0)
+    return minute, seconds
 
 
 def _id(record: Mapping[str, object]) -> str:
@@ -69,6 +110,8 @@ def _service_calendar(
             f"ODPT calendar rule is not configured: {source_id}. "
             "Calendar semantics must be supplied explicitly."
         )
+    if not isinstance(rule, OdptCalendarRule):
+        raise ValueError(f'ODPT calendar requires an explicit OdptCalendarRule: {source_id}')
     internal_id = namespace_id(feed_id, source_id)
     return ServiceCalendar(
         id=internal_id,
@@ -149,6 +192,7 @@ class OdptTransitAdapter:
         trips: dict[str, TransitTrip] = {}
         stop_times: list[TransitStopTime] = []
         calendars: dict[str, ServiceCalendar] = {}
+        exceptions: list[ServiceException] = []
 
         def ensure_calendar(source_calendar_id: str) -> str:
             internal_id = namespace_id(feed_id, source_calendar_id)
@@ -158,6 +202,10 @@ class OdptTransitAdapter:
                     source_id=source_calendar_id,
                     calendar_rules=calendar_rules,
                 )
+                rule = calendar_rules[source_calendar_id]
+                exceptions.extend(ServiceException(internal_id, day, kind)
+                                  for dates, kind in ((rule.added_dates, 1), (rule.removed_dates, 2))
+                                  for day in dates)
             return internal_id
 
         for timetable in bus_timetables:
@@ -193,22 +241,15 @@ class OdptTransitAdapter:
                         f"bus timetable references unknown stop: {stop_source_id}"
                     )
                 sequence_raw = obj.get("odpt:index")
-                if not isinstance(sequence_raw, int):
+                if type(sequence_raw) is not int:
                     raise ValueError(
                         f"bus timetable stop has invalid odpt:index: {source_trip_id}"
                     )
-                arrival_raw = obj.get("odpt:arrivalTime")
-                departure_raw = obj.get("odpt:departureTime")
-                arrival = (
-                    service_time_to_minute(arrival_raw)
-                    if isinstance(arrival_raw, str) and arrival_raw
-                    else None
-                )
-                departure = (
-                    service_time_to_minute(departure_raw)
-                    if isinstance(departure_raw, str) and departure_raw
-                    else None
-                )
+                rule = calendar_rules[source_calendar_id]
+                arrival, arrival_seconds = _clock_fields(
+                    obj, "odpt:arrivalTime", rule, trip_id=source_trip_id, sequence=sequence_raw)
+                departure, departure_seconds = _clock_fields(
+                    obj, "odpt:departureTime", rule, trip_id=source_trip_id, sequence=sequence_raw)
                 stop_times.append(
                     TransitStopTime(
                         trip_id=internal_trip_id,
@@ -216,8 +257,8 @@ class OdptTransitAdapter:
                         sequence=sequence_raw,
                         arrival_minute=arrival,
                         departure_minute=departure,
-                        arrival_service_seconds=service_time_to_second(arrival_raw) if arrival is not None else None,
-                        departure_service_seconds=service_time_to_second(departure_raw) if departure is not None else None,
+                        arrival_service_seconds=arrival_seconds,
+                        departure_service_seconds=departure_seconds,
                     )
                 )
 
@@ -272,18 +313,11 @@ class OdptTransitAdapter:
                     raise ValueError(
                         f"train timetable references unknown station: {source_stop_id}"
                     )
-                arrival_raw = obj.get("odpt:arrivalTime")
-                departure_raw = obj.get("odpt:departureTime")
-                arrival = (
-                    service_time_to_minute(arrival_raw)
-                    if isinstance(arrival_raw, str) and arrival_raw
-                    else None
-                )
-                departure = (
-                    service_time_to_minute(departure_raw)
-                    if isinstance(departure_raw, str) and departure_raw
-                    else None
-                )
+                rule = calendar_rules[source_calendar_id]
+                arrival, arrival_seconds = _clock_fields(
+                    obj, "odpt:arrivalTime", rule, trip_id=source_trip_id, sequence=sequence)
+                departure, departure_seconds = _clock_fields(
+                    obj, "odpt:departureTime", rule, trip_id=source_trip_id, sequence=sequence)
                 stop_times.append(
                     TransitStopTime(
                         trip_id=internal_trip_id,
@@ -291,8 +325,8 @@ class OdptTransitAdapter:
                         sequence=sequence,
                         arrival_minute=arrival,
                         departure_minute=departure,
-                        arrival_service_seconds=service_time_to_second(arrival_raw) if arrival is not None else None,
-                        departure_service_seconds=service_time_to_second(departure_raw) if departure is not None else None,
+                        arrival_service_seconds=arrival_seconds,
+                        departure_service_seconds=departure_seconds,
                     )
                 )
 
@@ -303,5 +337,6 @@ class OdptTransitAdapter:
             trips=trips,
             stop_times=tuple(stop_times),
             calendars=calendars,
+            service_exceptions=tuple(exceptions),
         )
 
