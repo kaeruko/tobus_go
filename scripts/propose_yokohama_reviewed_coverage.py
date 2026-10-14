@@ -7,7 +7,8 @@ GTFS feed/route-name, previous-coverage, reference URL and review-date checks.
 Routes marked "pending" are refused. ALL source files remain unmodified.
 
 By default stdout is a DRY RUN; --output creates a NEW JSON file (exclusive
-create) and never overwrites an existing file.
+create) and never overwrites an existing file. --verify-against compares the
+proposed JSON semantically against an EXISTING coverage, with no writes.
 
 Example, starting from the original three-route partial coverage:
  python scripts/propose_yokohama_reviewed_coverage.py \
@@ -234,6 +235,42 @@ def propose_reviewed(
     }
 
 
+def verify_equivalent_coverage(*, proposal: dict, existing_path: Path) -> dict:
+    """Fail if a pre-existing v1 coverage differs from the proposed JSON.
+
+    Comparison is semantic JSON equality, including feed identity, source
+    metadata, all route statuses, dates, exclusions and other coverage keys.
+    Does not write, create or delete files. This is only a migration-integrity
+    check, not a pass-fare audit.
+    """
+    if not existing_path.is_file():
+        raise FileNotFoundError(f"existing coverage to compare not found: {existing_path}")
+    existing = json.loads(existing_path.read_text(encoding="utf-8"))
+    if type(existing) is not dict:
+        raise ValueError("existing coverage to compare is not a JSON object")
+    if existing != proposal:
+        differing_keys = sorted({
+            key for key in set(existing) | set(proposal)
+            if existing.get(key) != proposal.get(key)
+        })
+        route_ids = []
+        if isinstance(existing.get("routes"), dict) and isinstance(proposal.get("routes"), dict):
+            old, new = existing["routes"], proposal["routes"]
+            route_ids = sorted(
+                route for route in set(old) | set(new)
+                if old.get(route) != new.get(route)
+            )
+        raise ValueError(
+            "proposed coverage does not match existing coverage: "
+            f"fields={differing_keys}, differing_route_ids={route_ids[:20]}"
+        )
+    return {
+        "verification": "MATCH: all JSON coverage fields and route classifications",
+        "verified_against": str(existing_path),
+        "existing_file_modified": False,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gtfs-dir", required=True, type=Path)
@@ -241,14 +278,25 @@ def main() -> None:
     parser.add_argument("--service-date", required=True)
     parser.add_argument("--reviewed-on", required=True)
     parser.add_argument("--route-id", required=True, action="append")
-    parser.add_argument("--output", type=Path)
+    destination = parser.add_mutually_exclusive_group()
+    destination.add_argument("--output", type=Path)
+    destination.add_argument(
+        "--verify-against", type=Path,
+        help="Read-only semantic comparison to an existing development coverage; "
+             "fails on any difference (cannot be combined with --output)",
+    )
     args = parser.parse_args()
     proposal, report = propose_reviewed(
         gtfs_dir=args.gtfs_dir, coverage_path=args.coverage,
         service_date=args.service_date, reviewed_on=args.reviewed_on,
         route_ids=tuple(args.route_id),
     )
-    if args.output is None:
+    if args.verify_against is not None:
+        report.update(verify_equivalent_coverage(
+            proposal=proposal, existing_path=args.verify_against,
+        ))
+        report["file_action"] = "VERIFY ONLY: no files written"
+    elif args.output is None:
         report["file_action"] = "DRY RUN: no files written"
     else:
         if args.output.resolve() == args.coverage.resolve():
