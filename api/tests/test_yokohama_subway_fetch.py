@@ -159,6 +159,59 @@ class SubwayDownloadTests(unittest.TestCase):
             self._fetch(client)
         self.assertEqual(len(requests), 2)
 
+    def test_odpt_azure_blob_redirect_succeeds_without_forwarding_credentials(self):
+        requests = []
+        azure_location = (
+            "https://dataodpt.blob.core.windows.net/yokohama/Train.zip"
+            "?sv=2026-01-01&sig=synthetic-signed-access"
+        )
+
+        def respond(req: httpx.Request) -> httpx.Response:
+            requests.append(req)
+            if len(requests) == 1:
+                return httpx.Response(302, headers={"Location": azure_location})
+            return httpx.Response(200, content=self.archive)
+
+        with httpx.Client(
+            transport=httpx.MockTransport(respond),
+            follow_redirects=True,
+            headers={"Authorization": f"Bearer {KEY}", "Cookie": f"session={KEY}"},
+            params={"client_default": KEY},
+        ) as client:
+            result = self._fetch(client)
+        self.assertEqual(result["feed_id"], "yokohama_subway")
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(requests[1].url.host, "dataodpt.blob.core.windows.net")
+        self.assertEqual(str(requests[1].url), azure_location)
+        self.assertNotIn(KEY, str(requests[1].url))
+        self.assertNotIn(KEY, str(requests[1].headers))
+        self.assertNotIn("authorization", {x.lower() for x in requests[1].headers})
+        self.assertNotIn("cookie", {x.lower() for x in requests[1].headers})
+        self.assertNotIn("client_default", requests[1].url.params)
+        self.assertNotIn("acl:consumerKey", requests[1].url.params)
+        self.assertFalse(list(self.root.glob(".yokohama_subway_*")))
+
+    def test_azure_host_allowlist_is_exact_not_wildcard(self):
+        malicious = (
+            "https://dataodpt.blob.core.windows.net.evil.example/Train.zip",
+            "https://notdataodpt.blob.core.windows.net/Train.zip",
+            "https://dataodpt-blob.core.windows.net/Train.zip",
+            "http://dataodpt.blob.core.windows.net/Train.zip",
+            "https://dataodpt.blob.core.windows.net:444/Train.zip",
+            "https://dataodpt.blob.core.windows.net/Train.zip?acl%3AconsumerKey=" + KEY,
+        )
+        for location in malicious:
+            with self.subTest(location="redacted"):
+                requests = []
+                def respond(req: httpx.Request) -> httpx.Response:
+                    requests.append(req)
+                    return httpx.Response(302, headers={"Location": location})
+                with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+                    with self.assertRaisesRegex(ValueError, "redirect"):
+                        self._fetch(client)
+                self.assertEqual(len(requests), 1)
+                self.assertFalse((self.root / "output").exists())
+
     def test_redirect_cannot_leak_key_or_change_to_http_or_untrusted_host(self):
         for location in (
             "https://evil.example/train.zip",

@@ -161,7 +161,7 @@ def _safe_odpt_redirect(location: str, *, consumer_key: str) -> str:
     host = (parsed.hostname or "").lower()
     allowed = (
         host in {"api.odpt.org", "api-public.odpt.org", "storage.googleapis.com",
-                 "s3.amazonaws.com"}
+                 "s3.amazonaws.com", "dataodpt.blob.core.windows.net"}
         or bool(re.fullmatch(r"[a-z0-9-]+\.cloudfront\.net", host))
         or bool(re.fullmatch(r"s3[.-][a-z0-9-]+\.amazonaws\.com", host))
         or bool(re.fullmatch(r"[a-z0-9.-]+\.s3[.-][a-z0-9-]+\.amazonaws\.com", host))
