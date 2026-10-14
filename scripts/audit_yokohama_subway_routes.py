@@ -114,7 +114,7 @@ def audit_subway_routes(
             "agency_mapping": identity_state,
             "total_trips": trip_count_by_route.get(route_id, 0),
             "active_service_day_trips": active_trip_count_by_route.get(route_id, 0),
-            "active_boardable_station_count": len(active_stops_by_route[route_id]),
+            "active_timed_station_count": len(active_stops_by_route[route_id]),
             "pass_coverage_status": "UNREVIEWED_GTFS_ROUTE_ID",
         })
     if visited != set(dataset.routes):
