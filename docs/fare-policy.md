@@ -228,6 +228,32 @@ python scripts/build_yokohama_initial_pass_coverage.py --gtfs-dir ".\api\data\yo
 このcoverageによる検索結果は**社内/開発用の検証に限定**し、公開用の無料経路保証には使わない。
 敬老パスの深夜割増、特殊便の可否は追加の公式資料との突合・運行事業者への照会等が必要。
 
+### 一般系統向けの便単位レビュー（coverage schema v2 / #241）
+
+**現行の開発用 `coverage.json` は schema v1 のまま維持する。自動移行・上書きしない。**
+v1の`routes`は**系統単位**なので、同一系統に通常便と深夜割増便が混在すると、系統を`local`にするだけでは無料を保証できない。GTFS-JPにはこのfeedの便ごとの深夜割増フラグがなく、23時以降という時刻だけで運賃を判定することもできない。
+
+そこでschema v2を追加した。v1の必須項目は維持し、下記のような`reviewed_free_trips`を**追加で必須**とする。
+
+```json
+{
+  "schema_version": 2,
+  "...": "v1と同じfeed identity・reviewed_on・全routes・stop_municipalities等",
+  "reviewed_free_trips": {
+    "yokohama_bus:<GTFS便ID>": "https://<公式路線・運賃または時刻表の照会根拠URL>"
+  }
+}
+```
+
+- 上記は**項目の説明用**であり、そのまま読み込める完成JSONではない。URLはレビュー結果の記録欄であり、コードがリンク先の内容や便の運賃を自動認定するわけではない。
+- **掲載した便だけ**が検索候補。未掲載の便は、路線を`local`に分類しても除外する。空の`reviewed_free_trips`は無料候補なし（通常路線への自動フォールバックなし）。
+- 各キーはfeedに実在するtrip IDで、その便の系統が`local`か確認する。未知ID・除外系統・非HTTPSの根拠URLは検証エラー。
+- 同じ系統の速い未確認便より、遅い確認済み便を探索することを福祉・敬老パスそれぞれのAPI結合テストで検証。
+- 現段階のv2は横浜市営バス専用であり、`reviewed_free_trips`は**両パスとも追加支払0円と確認した便のみ**を想定する。片方だけ利用可能な便や民営バス市境区間は別途制度別の設計が必要。
+- 便が公式運賃条件を満たすことの人手レビューが済むまでは、一般系統を`local`へ一括昇格しない。合成GTFSのテスト成功は、実路線の運賃正確性の保証ではない。
+
+公式の制度根拠：福祉パス https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html 、敬老パス https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html 。
+
 ### ローカル実GTFSスモークテスト記録（2026-10-14 / #241）
 
 対象: `v3.0_20260727`、manifest検証日2026-09-04。開発用部分coverageは089・200・280のみ`local`、271除外、残り145系統未確認。福祉パス・敬老パスの双方で追加支払0円を確認したが、**同一GTFSによる照合であり独立した運賃・徒歩経路の監査ではない**。
