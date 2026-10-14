@@ -803,6 +803,37 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
 
             five_file = root / "coverage_dev_288.json"
             five_file.write_text(json.dumps(five), encoding="utf-8")
+            from propose_yokohama_reviewed_coverage import verify_equivalent_coverage
+            before_verification = {p.name: p.read_bytes() for p in root.iterdir()}
+            verification = verify_equivalent_coverage(
+                proposal=five, existing_path=five_file,
+            )
+            self.assertTrue(verification["verification"].startswith("MATCH:"))
+            self.assertFalse(verification["existing_file_modified"])
+            self.assertEqual(
+                before_verification, {p.name: p.read_bytes() for p in root.iterdir()}
+            )
+            with self.assertRaises(FileNotFoundError):
+                verify_equivalent_coverage(
+                    proposal=five, existing_path=root / "no_such_file.json",
+                )
+            with self.assertRaisesRegex(ValueError, "differing_route_ids"):
+                verify_equivalent_coverage(
+                    proposal={**five, "routes": {
+                        **five["routes"], "yokohama_bus:272": "local",
+                    }}, existing_path=five_file,
+                )
+            with self.assertRaisesRegex(ValueError, "reviewed_on"):
+                verify_equivalent_coverage(
+                    proposal={**five, "reviewed_on": "2026-10-13"},
+                    existing_path=five_file,
+                )
+            with self.assertRaisesRegex(ValueError, "JSON object"):
+                empty_list = root / "not_an_object.json"
+                empty_list.write_text("[]", encoding="utf-8")
+                verify_equivalent_coverage(
+                    proposal=five, existing_path=empty_list,
+                )
             with self.assertRaisesRegex(ValueError, "already enabled"):
                 propose_reviewed(
                     gtfs_dir=root, coverage_path=five_file,
