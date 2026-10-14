@@ -623,8 +623,14 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
             ] = "local"
             with self.assertRaisesRegex(ValueError, "pending route is enabled"):
                 annotate_catalog_with_registry(invalid_report, records)
+            unregistered_enabled = copy.deepcopy(result)
+            unregistered_enabled["groups"]["ordinary_name_candidate_not_approved"][0][
+                "current_coverage_kind"
+            ] = "local"
             with self.assertRaisesRegex(ValueError, "missing from explicit review registry"):
-                annotate_catalog_with_registry(result, {"091": records["091"]})
+                annotate_catalog_with_registry(
+                    unregistered_enabled, {"091": records["091"]},
+                )
             self.assertEqual(before, {p.name: p.read_bytes() for p in root.iterdir()})
 
     def test_all_route_catalog_uses_four_route_dev_coverage_without_mutating_baseline(self):
