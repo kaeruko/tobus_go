@@ -855,7 +855,7 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                 ):
                     propose_reviewed(**args, route_ids=(route_id,))
             with self.assertRaisesRegex(ValueError, "no explicit review record"):
-                propose_reviewed(**args, route_ids=("091",))
+                propose_reviewed(**args, route_ids=("999",))
             with self.assertRaisesRegex(ValueError, "duplicate"):
                 propose_reviewed(**args, route_ids=("008", "008"))
             with self.assertRaisesRegex(ValueError, "at least one"):
