@@ -183,6 +183,93 @@ class MunicipalBackendContractTests(unittest.TestCase):
         )
         return search_with_fare_scope(engine, _request(), WELFARE).candidates
 
+    def test_provisional_transfer_links_respect_actual_service_day(self):
+        from dataclasses import replace
+        from datetime import date
+        from transit_dataset import ServiceException
+
+        excluded = replace(
+            self.bus,
+            dataset=replace(
+                self.bus.dataset,
+                service_exceptions=(
+                    ServiceException(
+                        "yokohama_bus:ALL", date(2026, 10, 14), 2,
+                    ),
+                ),
+            ),
+        )
+        engine = YokohamaMunicipalRouteBackend(
+            excluded, self.rail, estimated_transfer_mode=True,
+        )
+        # The source GTFS still contains all bus stops and train stops,
+        # but its bus trips do not run on this day. They must not produce
+        # links or count toward the development-only candidate cap.
+        self.assertTrue(engine.backends["bus"].active_stops)
+        self.assertFalse(engine.backends["bus"].active_stops_on(date(2026, 10, 14)))
+        self.assertEqual(engine._candidate_transfer_links(date(2026, 10, 14)), ())
+        scoped = search_with_fare_scope(engine, _request(), WELFARE)
+        self.assertEqual(scoped.candidates, [])
+
+    def test_provisional_transfer_links_include_only_stops_used_that_day(self):
+        from dataclasses import replace
+        from datetime import date
+        from transit_dataset import ServiceCalendar, TransitTrip
+
+        # A second inactive service contains a pole next to the station.
+        # Even with max_candidate_links=1, that weekend-only pole cannot
+        # create a spurious overflow in weekday searches.
+        original = self.bus.dataset
+        off_service = ServiceCalendar(
+            id="yokohama_bus:OFF",
+            source_id="OFF",
+            weekdays=(False, False, False, False, False, False, True),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        # The existing two poles are in ALL. An extra duplicate stop on an
+        # inactive service is placed at subway station S coordinates.
+        near_stop = replace(
+            original.stops["yokohama_bus:O"],
+            id="yokohama_bus:EXTRA",
+            source_id="EXTRA",
+            lat=35.4651,
+            lon=139.6251,
+        )
+        off_trip = replace(
+            original.trips["yokohama_bus:BUS1"],
+            id="yokohama_bus:OFFTRIP",
+            source_id="OFFTRIP",
+            service_id="yokohama_bus:OFF",
+        )
+        from transit_dataset import TransitStopTime
+        data = replace(
+            original,
+            calendars={**original.calendars, off_service.id: off_service},
+            stops={**original.stops, near_stop.id: near_stop},
+            trips={**original.trips, off_trip.id: off_trip},
+            stop_times=(
+                *original.stop_times,
+                TransitStopTime(
+                    trip_id=off_trip.id, stop_id=near_stop.id,
+                    sequence=1, arrival_minute=550, departure_minute=550,
+                ),
+                TransitStopTime(
+                    trip_id=off_trip.id, stop_id="yokohama_bus:B",
+                    sequence=2, arrival_minute=560, departure_minute=560,
+                ),
+            ),
+        )
+        modified = replace(self.bus, dataset=data)
+        engine = YokohamaMunicipalRouteBackend(
+            modified, self.rail, estimated_transfer_mode=True,
+            estimated_candidate_limit=1,
+        )
+        links = engine._candidate_transfer_links(date(2026, 10, 14))
+        self.assertEqual(len(links), 1)
+        self.assertEqual(links[0].bus_stop_id, "yokohama_bus:B")
+        self.assertNotIn("yokohama_bus:EXTRA", [x.bus_stop_id for x in links])
+
     def test_estimate_limit_and_types_fail_closed(self):
         with self.assertRaisesRegex(ValueError, "estimated_transfer_mode"):
             YokohamaMunicipalRouteBackend(self.bus, self.rail, estimated_transfer_mode=1)

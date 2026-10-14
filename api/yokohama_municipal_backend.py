@@ -39,7 +39,25 @@ class _CoveredFeedBackend(GtfsRouteBackend):
     def __init__(self, coverage, **kwargs):
         self.coverage = coverage
         self.active_stops = frozenset(row.stop_id for row in coverage.dataset.stop_times)
+        # Keep the service-day stop index next to the shared timetable index.
+        # An inactive Saturday-only pole must not create a transfer candidate
+        # on Wednesday (nor consume the capped dev-only proximity budget).
+        by_service = {}
+        for row in coverage.dataset.stop_times:
+            service_id = coverage.dataset.trips[row.trip_id].service_id
+            by_service.setdefault(service_id, set()).add(row.stop_id)
+        self.stops_by_service = {
+            key: frozenset(value) for key, value in by_service.items()
+        }
         super().__init__(coverage.dataset, **kwargs)
+
+    def active_stops_on(self, service_date):
+        active_services = self.dataset.active_service_ids(service_date)
+        return frozenset(
+            stop_id
+            for service_id in active_services
+            for stop_id in self.stops_by_service.get(service_id, ())
+        )
 
     def _nearby(self, lat, lon):
         # Excluded routes' poles must not consume the endpoint candidate budget.
@@ -131,7 +149,7 @@ class YokohamaMunicipalRouteBackend:
             blon=destination.lon, departure=departure, preference=preference,
         )
 
-    def _candidate_transfer_links(self):
+    def _candidate_transfer_links(self, service_date):
         """Keep reviewed evidence separate from provisional GTFS proximity.
 
         This is an explicit development-only switch; public default stays
@@ -145,9 +163,9 @@ class YokohamaMunicipalRouteBackend:
             return self.transfer_links
         reviewed_pairs = {(x.bus_stop_id, x.subway_stop_id) for x in self.transfer_links}
         estimated = []
-        for bus_id in sorted(bus.active_stops):
+        for bus_id in sorted(bus.active_stops_on(service_date)):
             a = bus.dataset.stops[bus_id]
-            for rail_id in sorted(rail.active_stops):
+            for rail_id in sorted(rail.active_stops_on(service_date)):
                 if (bus_id, rail_id) in reviewed_pairs:
                     continue
                 b = rail.dataset.stops[rail_id]
@@ -169,7 +187,7 @@ class YokohamaMunicipalRouteBackend:
         return self.transfer_links + tuple(estimated)
 
     def _connections(self, request, preference):
-        for link in self._candidate_transfer_links():
+        for link in self._candidate_transfer_links(request.departure_at.date()):
             for first_mode, second_mode in (("bus", "rail"), ("rail", "bus")):
                 first, second = self.backends[first_mode], self.backends[second_mode]
                 if first is None or second is None:
