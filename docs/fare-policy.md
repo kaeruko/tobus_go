@@ -580,6 +580,46 @@ python scripts/verify_yokohama_pass_routes.py `
   複数feed乗換検索を実装・テストする。**現時点では地下鉄を検索対応済みと表示しない**。
 
 
+### 地下鉄GTFSの認証付きローカル取得（2026-10-14）
+
+既存バスGTFS用の安全な取得処理に倣って、**手元のODPTキーを用いて**
+市営地下鉄の静的GTFS（ODPTカタログの2025-12-26版）を取得する
+`scripts/fetch_yokohama_subway_gtfs.py` と
+`api/yokohama_subway.py::fetch_yokohama_subway_gtfs` を追加。
+
+- `api/.env` の `ODPT_API_TOKEN` をローカルで読む（既存の環境変数を優先）。
+  APIキー、認証付きURL、レスポンス本文は標準出力・GitHub・エラー文に含めない。
+  HTTPリダイレクトには追随せず、想定外のHTTPステータスは停止。
+- `--output` は**存在しない新規ディレクトリ**のパスで、親は存在する必要がある。
+  同名ディレクトリは上書きしない。ZIPのパス移動、シンボリックリンク、重複
+  TXTベース名、不明拡張子、容量上限超過を拒否。検査後に一括で配置するため、
+  エラー時に不完全な取得物を最終出力に残さない。
+- 必須GTFSテキストの取り込み後、ローカルsha256 manifestを生成し、
+  `feed_info.txt` の正規バージョン、適用日、Asia/Tokyo、鉄道route、
+  当日の運行便があることなどを**既存の厳格なloaderで再検証**する。
+  このmanifestは配布元の真正性やライセンス許諾の証明とは別。
+- `api/tests/test_yokohama_subway_fetch.py`で、HTTP 200正常系、401拒否、
+  302拒否、破損／別版ZIP、zip slip、重複エントリ、既存フォルダの保護を
+  **httpx.MockTransportの合成データ**でテストする。実ODPTとの通信ではない。
+- **重要**：カタログ日付 `20251226` とGTFS内のfeed_info版が本当に一致するかは
+  実ダウンロードで最終確認が必要。違う場合は勝手に受け入れず停止し、
+  データ版・リソースIDの実体と公式更新履歴を調べる。
+
+ローカル実行例（**GTFSおよび個人のキーはGitに加えない**）：
+
+```powershell
+cd C:\Users\mail\work\tobus_go
+python scripts/fetch_yokohama_subway_gtfs.py `
+  --output ".\api\data\yokohama\subway_2025-12-26" `
+  --expected-service-date "2026-10-14"
+```
+
+このコマンドは現在まだ実行済みではない。既に出力先がある場合は
+**削除・上書きをせず**別の新規パスを指定する。
+動作したとしても、地下鉄の経路探索をruntimeに接続したことにはならない。
+[ODPT公式カタログ](https://ckan.odpt.org/dataset/yokohama_municipal_train)で
+基本ライセンス／特定利用条件を先に確認する。
+
 ### 市営バス⇄地下鉄の明示乗換プロトタイプ（2026-10-14）
 
 `api/yokohama_municipal_transfer.py` は、先に確認した
