@@ -252,6 +252,27 @@ python scripts/propose_yokohama_route_008_coverage.py `
 
 実際に**別名ファイルを新規作成**する場合のみ `--output` を付ける。既存coverageの上書きは禁止。開発用の4系統案は**公表可能な運賃保証ではない**。対象の特殊便や現行運行の最終確認、独立時刻表との照合は継続する。
 
+実GTFSで008を検索するときは、必ず元の3系統版とは別ファイルとして4系統版を作る。作成先を限定し、上書きも禁止。
+
+```powershell
+python scripts/propose_yokohama_route_008_coverage.py `
+  --gtfs-dir ".\api\data\yokohama\2026-09-04" `
+  --coverage ".\api\data\yokohama\2026-09-04\coverage.json" `
+  --service-date "2026-09-04" `
+  --reviewed-on "2026-10-14" `
+  --output ".\api\data\yokohama\2026-09-04\coverage_dev_008.json"
+
+python scripts/smoke_yokohama_real_gtfs.py `
+  --gtfs-dir ".\api\data\yokohama\2026-09-04" `
+  --coverage ".\api\data\yokohama\2026-09-04\coverage_dev_008.json" `
+  --manifest-service-date "2026-09-04" `
+  --ride-date "2026-09-04" `
+  --route-id 008
+```
+
+スモークは両パスをテストし、008が採用されなかった場合や対象外系統が入った場合は失敗する。比較には**同じGTFS**を使うので、独立した公式時刻表検証や制度上の無料運賃保証ではない。
+
+
 ### 横浜市営バス・一般系統の運行便レビュー一覧（読み取り専用）
 
 ローカル実GTFSの一般系統を1つずつ調査する。最初の例は008系統。

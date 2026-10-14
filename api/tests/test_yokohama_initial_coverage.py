@@ -469,6 +469,64 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                     service_date=SERVICE_DATE, reviewed_on="2026-10-14",
                 )
 
+    def test_008_real_gtfs_smoke_requires_four_route_proposal_and_preserves_original(self):
+        from propose_yokohama_route_008_coverage import propose
+        from smoke_yokohama_real_gtfs import run_smoke
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            # A daytime 008 trip with 15-minute travel; the original
+            # synthetic 008 was 5 minutes and cannot be a smoke probe.
+            times = root / "stop_times.txt"
+            times.write_text(
+                times.read_text(encoding="utf-8").replace(
+                    "T8,10:02:00,10:02:00,B,2",
+                    "T8,10:12:00,10:12:00,B,2",
+                ),
+                encoding="utf-8",
+            )
+            original, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            base_path = root / "coverage.json"
+            base_path.write_text(json.dumps(original), encoding="utf-8")
+            with self.assertRaisesRegex(AssertionError, "route 008 requires"):
+                run_smoke(
+                    gtfs_dir=root, coverage=base_path,
+                    manifest_service_date=SERVICE_DATE,
+                    ride_date=SERVICE_DATE, route_id="008",
+                )
+
+            extended, _ = propose(
+                gtfs_dir=root, coverage_path=base_path,
+                service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            proposed_path = root / "coverage_dev_008.json"
+            proposed_path.write_text(json.dumps(extended), encoding="utf-8")
+            prior = {p.name: p.read_bytes() for p in root.iterdir()}
+            result = run_smoke(
+                gtfs_dir=root, coverage=proposed_path,
+                manifest_service_date=SERVICE_DATE,
+                ride_date=SERVICE_DATE, route_id="008",
+            )
+            self.assertEqual(
+                prior, {p.name: p.read_bytes() for p in root.iterdir()},
+                "smoke must not modify GTFS or either coverage file",
+            )
+            self.assertEqual(result["tested_route_id"], "008")
+            self.assertEqual(result["probe"]["route_id"], "yokohama_bus:008")
+            self.assertEqual(result["probe"]["source_departure"], "09:57")
+            self.assertEqual(result["probe"]["source_arrival"], "10:12")
+            self.assertEqual(len(result["development_coverage_routes"]), 4)
+            self.assertEqual(len(result["results"]), 2)
+            for policy in result["results"]:
+                self.assertEqual(policy["route_ids"], ["yokohama_bus:008"])
+                self.assertEqual(policy["bus_departure"], "09:57")
+                self.assertEqual(policy["arrival_at_requested_destination"], "10:12")
+                self.assertEqual(policy["additional_payment_yen"], 0)
+                self.assertEqual(policy["result"], "PASS")
+
     def test_known_route_rename_is_not_silently_accepted(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

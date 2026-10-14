@@ -4,6 +4,7 @@ Select a deterministic operating daytime bus trip on --route-id from the install
 then search that origin/destination with BOTH pass policies. Check returned
 rides against the same source GTFS and confirm additional payment is 0.
 
+The optional route 008 REQUIRES a separate four-route development coverage.
 This is an integration smoke test, NOT an independent official timetable
 oracle, proof of all pass eligibility, or permission to publish. No files are
 created or changed, no ODPT token used, and no network server is started.
@@ -38,7 +39,11 @@ POLICIES = (
     "yokohama_welfare_special_pass",
     "yokohama_senior_special_pass",
 )
-ELIGIBLE_ROUTES = ("yokohama_bus:089", "yokohama_bus:200", "yokohama_bus:280")
+# 008 is available ONLY in the explicitly generated four-route development
+# coverage. It is not added to the unchanged three-route baseline.
+BASELINE_ROUTES = frozenset({"yokohama_bus:089", "yokohama_bus:200", "yokohama_bus:280"})
+OPTIONAL_DEV_ROUTE = "yokohama_bus:008"
+SUPPORTED_ROUTES = BASELINE_ROUTES | {OPTIONAL_DEV_ROUTE}
 
 
 def _distance_m(a, b) -> float:
@@ -69,7 +74,7 @@ def choose_probe(dataset, *, ride_date: str, route_id: str = "089") -> dict:
     day = date.fromisoformat(ride_date)
     if day.isoformat() != ride_date:
         raise ValueError("ride-date must be YYYY-MM-DD")
-    if route_id not in {"089", "200", "280"}:
+    if route_id not in {"008", "089", "200", "280"}:
         raise ValueError(f"unsupported tested route: {route_id!r}")
     target_route = f"yokohama_bus:{route_id}"
     active = dataset.active_service_ids(day)
@@ -115,13 +120,16 @@ def choose_probe(dataset, *, ride_date: str, route_id: str = "089") -> dict:
     )
 
 
-def _verify_steps(candidate: dict, dataset, active: frozenset[str], trip_rows: dict) -> list:
+def _verify_steps(
+    candidate: dict, dataset, active: frozenset[str], trip_rows: dict,
+    permitted_routes: frozenset[str],
+) -> list:
     rides = [step for step in candidate.get("steps", ()) if step.get("kind") == "bus"]
     if not rides:
         raise AssertionError("candidate has no actual bus ride")
     for step in rides:
         route_id, trip_id = step.get("route_id"), step.get("trip_id")
-        if route_id not in ELIGIBLE_ROUTES:
+        if route_id not in permitted_routes:
             raise AssertionError(f"unreviewed/excluded route returned: {route_id}")
         trip = dataset.trips.get(trip_id)
         if trip is None or trip.route_id != route_id or trip.service_id not in active:
@@ -153,7 +161,7 @@ def run_smoke(
     *, gtfs_dir: Path, coverage: Path,
     manifest_service_date: str, ride_date: str, route_id: str = "089",
 ) -> dict:
-    if route_id not in {"089", "200", "280"}:
+    if route_id not in {"008", "089", "200", "280"}:
         raise ValueError(f"unsupported tested route: {route_id!r}")
     if not gtfs_dir.is_dir():
         raise FileNotFoundError(gtfs_dir)
@@ -178,8 +186,24 @@ def run_smoke(
             covered = client.app.state.route_backend.fare_coverage
             if covered is None:
                 raise AssertionError("the reviewed coverage was not loaded")
-            if {key for key, kind in covered.route_service_kinds.items() if kind == "local"} != set(ELIGIBLE_ROUTES):
-                raise AssertionError("smoke test only supports the partial three-route coverage")
+            permitted_routes = frozenset(
+                key for key, kind in covered.route_service_kinds.items() if kind == "local"
+            )
+            if permitted_routes not in (
+                BASELINE_ROUTES,
+                SUPPORTED_ROUTES,
+            ):
+                raise AssertionError(
+                    "smoke test requires exactly the original three-route or "
+                    "proposed four-route development coverage; refuse other routes"
+                )
+            if route_id == "008" and OPTIONAL_DEV_ROUTE not in permitted_routes:
+                raise AssertionError(
+                    "route 008 requires the separate four-route dev coverage; "
+                    "original coverage.json must not be altered"
+                )
+            if covered.reviewed_free_trip_uris is not None:
+                raise AssertionError("this smoke is only for development coverage schema v1")
             if covered.route_service_kinds["yokohama_bus:271"] != "sightseeing":
                 raise AssertionError("Akai Kutsu must be excluded")
             if any(kind not in {"local", "sightseeing", "unreviewed"} for kind in covered.route_service_kinds.values()):
@@ -193,7 +217,7 @@ def run_smoke(
             active = dataset.active_service_ids(date.fromisoformat(ride_date))
             route_trip_ids = {
                 trip.id for trip in dataset.trips.values()
-                if trip.route_id in ELIGIBLE_ROUTES and trip.service_id in active
+                if trip.route_id in permitted_routes and trip.service_id in active
             }
             trip_rows = _stops_by_trip(dataset, route_trip_ids)
             # GTFS stop IDs can appear more than once in a loop trip.
@@ -263,7 +287,9 @@ def run_smoke(
                     or fare["effectiveFareYen"] != 0
                 ):
                     raise AssertionError(f"invalid pass fare quote for {policy_id}: {fare}")
-                rides = _verify_steps(selected, dataset, active, trip_rows)
+                rides = _verify_steps(
+                    selected, dataset, active, trip_rows, permitted_routes
+                )
                 if probe["route_id"] not in {step["route_id"] for step in rides}:
                     raise AssertionError(
                         f"requested route {route_id} was not actually chosen for {policy_id}; "
@@ -335,6 +361,7 @@ def run_smoke(
         "manifest_service_date": manifest_service_date,
         "ride_date": ride_date,
         "tested_route_id": route_id,
+        "development_coverage_routes": sorted(permitted_routes),
         "probe": {
             "route_id": probe["route_id"],
             "trip_id": probe["trip_id"],
@@ -355,6 +382,7 @@ def run_smoke(
         "note": (
             "Only an offline integration smoke test against the SAME GTFS feed; "
             "not independent fare/official timetable validation. "
+            "Only the explicitly enabled 3 or 4 development routes are used. "
             "All other routes stay excluded. On loop routes the last "
             "source probe destination may be reached after an earlier "
             "visit to the SAME stop; use source_destination_visits to "
@@ -370,7 +398,7 @@ def main() -> None:
     parser.add_argument("--manifest-service-date", required=True)
     parser.add_argument("--ride-date", required=True)
     parser.add_argument(
-        "--route-id", choices=("089", "200", "280"), default="089",
+        "--route-id", choices=("008", "089", "200", "280"), default="089",
         help="Municipal bus route to check (default: 089). Other free routes remain available to search.",
     )
     args = parser.parse_args()
