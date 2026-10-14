@@ -48,6 +48,7 @@ def audit_subway_routes(
         raise ValueError("service_date must be zero-padded YYYY-MM-DD")
     if (
         dataset.metadata.feed_id != FEED_ID
+        or dataset.metadata.source_type != "gtfs"
         or not dataset.routes
         or any(route.mode is not TransitMode.RAIL for route in dataset.routes.values())
     ):

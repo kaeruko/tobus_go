@@ -58,7 +58,7 @@ class SubwayRouteIdentityAuditTests(unittest.TestCase):
             audit_subway_routes(
                 replace(
                     self.dataset,
-                    metadata=replace(self.dataset.metadata, feed_id="foreign"),
+                    metadata=replace(self.dataset.metadata, source_type="foreign"),
                 ),
                 self.root, service_date=DAY,
             )
