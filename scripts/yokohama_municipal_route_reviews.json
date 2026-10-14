@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "feed_id": "yokohama_bus",
+  "feed_version": "v3.0_20260727",
+  "purpose": "Development-only explicit fare-review decisions. Never sufficient for production fare certification.",
+  "routes": {
+    "272": {
+      "status": "pending",
+      "short_name": "",
+      "long_name": "ふれあいバス（緑区・十日市場地区）",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001600900&date=2026-10-02&orvCode=00090719&stopNo=1"
+      ],
+      "remaining_checks": [
+        "Verify both passes cause zero additional payment on current municipal bus service 272, distinguishing welfare/elderly shuttles.",
+        "An official timetable is not individual fare exemption evidence."
+      ]
+    },
+    "275": {
+      "status": "pending",
+      "short_name": "",
+      "long_name": "ふれあいバス（緑区・上山地区）",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001600643&date=2026-09-01&orvCode=00090264&stopNo=5"
+      ],
+      "remaining_checks": [
+        "Verify current fare type and zero additional payment under each special pass.",
+        "Do not confuse municipal ふれあい bus with non-free おでかけシャトル."
+      ]
+    },
+    "288": {
+      "status": "development_eligible",
+      "short_name": "",
+      "long_name": "聖隷横浜病院循環",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://www.seirei.or.jp/yokohama/outline/access/bus/circulation-bus/index.html"
+      ],
+      "remaining_checks": [
+        "Hospital page cites a timetable first published in 2017; confirm the current operating and fare conditions.",
+        "Independent GTFS cross-check is still development scope."
+      ]
+    },
+    "008": {
+      "status": "development_eligible",
+      "short_name": "008系統",
+      "long_name": "",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://cgi.city.yokohama.lg.jp/shimin/kouchou/search/data/36003485.html",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001600980&date=2026-10-09&orvCode=00091228&stopNo=1"
+      ],
+      "remaining_checks": [
+        "Recheck exceptions and all trip variations before production.",
+        "Same-feed smoke does not independently certify fare."
+      ]
+    }
+  }
+}
