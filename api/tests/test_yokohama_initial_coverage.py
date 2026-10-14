@@ -180,6 +180,55 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                         self.assertEqual(result["arrival_at_requested_destination"], arrival)
                         self.assertEqual(result["additional_payment_yen"], 0)
 
+    def test_loop_route_visits_same_stop_twice_but_selects_earliest_arrival(self):
+        from smoke_yokohama_real_gtfs import run_smoke
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            # A -> B -> C -> B, with the same GTFS stop ID for both
+            # occurrences of B. The source probe chooses the final B;
+            # the route engine should alight at the first B.
+            stops = root / "stops.txt"
+            stops.write_text(
+                stops.read_text(encoding="utf-8")
+                + "C,循環中継点,35.4400,139.6450\n",
+                encoding="utf-8",
+            )
+            times = root / "stop_times.txt"
+            times.write_text(
+                times.read_text(encoding="utf-8").replace(
+                    "T200,10:45:00,10:45:00,B,2",
+                    "T200,10:45:00,10:45:00,B,2\n"
+                    "T200,11:00:00,11:00:00,C,3\n"
+                    "T200,11:15:00,11:15:00,B,4",
+                ),
+                encoding="utf-8",
+            )
+            proposed, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            (root / "coverage.json").write_text(
+                json.dumps(proposed), encoding="utf-8",
+            )
+            report = run_smoke(
+                gtfs_dir=root, coverage=root / "coverage.json",
+                manifest_service_date=SERVICE_DATE,
+                ride_date=SERVICE_DATE, route_id="200",
+            )
+            self.assertEqual(report["probe"]["source_arrival"], "11:15")
+            self.assertEqual(
+                [x["arrival_time"] for x in report["probe"]["source_destination_visits"]],
+                ["10:45", "11:15"],
+            )
+            self.assertTrue(report["probe"]["revisits_same_destination_stop"])
+            for result in report["results"]:
+                self.assertEqual(result["route_ids"], ["yokohama_bus:200"])
+                self.assertEqual(result["bus_arrival_at_alighting_stop"], "10:45")
+                self.assertEqual(result["arrival_at_requested_destination"], "10:45")
+                self.assertEqual(result["final_walk_meters"], 0)
+                self.assertEqual(result["additional_payment_yen"], 0)
+
     def test_real_feed_smoke_reports_early_alighting_and_final_walk(self):
         from smoke_yokohama_real_gtfs import run_smoke
 
