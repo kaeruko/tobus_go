@@ -121,6 +121,49 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                             self.assertEqual(ride["trip_id"], "yokohama_bus:T89")
                             self.assertEqual(candidates[0]["fare"]["payNowYen"], 0)
 
+    def test_real_feed_smoke_reports_early_alighting_and_final_walk(self):
+        from smoke_yokohama_real_gtfs import run_smoke
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            # Extend 089 with a stop reached earlier than the requested
+            # destination. Walking 100m from C should beat staying to B.
+            stops_path = root / "stops.txt"
+            stops_path.write_text(
+                stops_path.read_text(encoding="utf-8")
+                + "C,一本松手前,35.4500,139.6289\\n",
+                encoding="utf-8",
+            )
+            times_path = root / "stop_times.txt"
+            times_path.write_text(
+                times_path.read_text(encoding="utf-8").replace(
+                    "T89,10:15:00,10:15:00,B,2",
+                    "T89,10:11:00,10:11:00,C,2\\n"
+                    "T89,10:15:00,10:15:00,B,3",
+                ),
+                encoding="utf-8",
+            )
+            proposed, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            (root / "coverage.json").write_text(
+                json.dumps(proposed), encoding="utf-8",
+            )
+            report = run_smoke(
+                gtfs_dir=root,
+                coverage=root / "coverage.json",
+                manifest_service_date=SERVICE_DATE,
+                ride_date=SERVICE_DATE,
+            )
+            self.assertEqual(report["probe"]["source_arrival"], "10:15")
+            for result in report["results"]:
+                self.assertEqual(result["bus_arrival_at_alighting_stop"], "10:11")
+                self.assertEqual(result["alighting_stop"], "一本松手前")
+                self.assertGreater(result["final_walk_meters"], 0)
+                self.assertEqual(result["arrival_at_requested_destination"], "10:13")
+                self.assertEqual(result["additional_payment_yen"], 0)
+
     def test_known_route_rename_is_not_silently_accepted(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
