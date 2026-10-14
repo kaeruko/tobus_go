@@ -38,6 +38,46 @@ REQUIRED_FILES = frozenset({
 })
 
 
+def load_reviewed_yokohama_subway_coverage(
+    directory: str | Path, *, expected_service_date: str,
+):
+    """Review the pinned municipal subway edition against operator attributes.
+
+    Both municipal passes cover all municipal subway lines. This rule is
+    intentionally restricted to the loader's reviewed edition, not route names.
+    No local GTFS or coverage file is written.
+    """
+    from yokohama_fare_coverage import YokohamaFareCoverage
+
+    dataset = load_yokohama_subway_dataset(
+        directory, expected_service_date=expected_service_date,
+    )
+    root = Path(directory)
+    agencies = _csv(root / "agency.txt", (
+        "agency_id", "agency_name", "agency_url", "agency_timezone",
+    ))
+    expected = {
+        "agency_id": "3000020141003",
+        "agency_name": "横浜市",
+        "agency_url": "https://www.city.yokohama.lg.jp/kotsu/",
+        "agency_timezone": "Asia/Tokyo",
+    }
+    if len(agencies) != 1 or any(agencies[0][k] != v for k, v in expected.items()):
+        raise ValueError("subway fare coverage municipal agency identity mismatch")
+    routes = _csv(root / "routes.txt", ("route_id", "agency_id", "route_type"))
+    ids = [f"{FEED_ID}:{row['route_id']}" for row in routes]
+    if len(ids) != len(set(ids)) or set(ids) != set(dataset.routes):
+        raise ValueError("subway fare coverage route inventory mismatch")
+    if any(row["agency_id"] != expected["agency_id"] or row["route_type"] != "1"
+           for row in routes):
+        raise ValueError("subway fare coverage route operator/type mismatch")
+    return YokohamaFareCoverage(
+        dataset=dataset, operator_id="yokohama_municipal_subway",
+        route_service_kinds={key: "local" for key in ids},
+        stop_municipalities={}, reviewed_on=date(2026, 10, 14),
+    )
+
+
 def _parse_day(text: str) -> date:
     if not isinstance(text, str):
         raise ValueError("subway service date must be YYYY-MM-DD")

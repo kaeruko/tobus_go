@@ -67,6 +67,29 @@ async def setup_yokohama_on_startup(app, mode: str) -> None:
         dataset,
         fare_coverage=fare_coverage,
     )
+    subway_dir = os.getenv("YOKOHAMA_SUBWAY_GTFS_DIR")
+    links_path = os.getenv("YOKOHAMA_REVIEWED_TRANSFERS_PATH")
+    if subway_dir == "" or links_path == "":
+        raise RuntimeError("Yokohama subway/transfer paths must not be empty when set")
+    if links_path is not None and subway_dir is None:
+        raise RuntimeError("Yokohama transfer reviews require YOKOHAMA_SUBWAY_GTFS_DIR")
+    if subway_dir is not None:
+        from yokohama_municipal_backend import (
+            YokohamaMunicipalRouteBackend, load_reviewed_transfer_links,
+        )
+        from yokohama_subway import load_reviewed_yokohama_subway_coverage
+
+        if fare_coverage is None:
+            raise RuntimeError("Municipal integration requires YOKOHAMA_FARE_COVERAGE_PATH")
+        subway_coverage = load_reviewed_yokohama_subway_coverage(
+            subway_dir, expected_service_date=expected_service_date,
+        )
+        links = () if links_path is None else load_reviewed_transfer_links(
+            links_path, fare_coverage, subway_coverage,
+        )
+        backend = YokohamaMunicipalRouteBackend(
+            fare_coverage, subway_coverage, transfer_links=links,
+        )
     realtime_provider = (
         create_yokohama_bus_realtime_provider()
         if realtime_mode == "enabled" else None
