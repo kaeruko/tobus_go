@@ -131,4 +131,6 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
         path_signature=lambda nodes: transit_path_signature(graph, nodes, transit_only=True),
         path_factory=SelectedPath, compact_queue=_compact_queue,
         ride_options=ride_options, alight_minutes=_alight_minutes,
+        walk_meters=lambda edge: (edge.get("meters", 0.0)
+                                 if edge.get("meters", 0.0) > 0 else 1.0),
     )

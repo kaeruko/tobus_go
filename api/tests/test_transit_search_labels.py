@@ -88,6 +88,7 @@ def _search(mode, **overrides):
         path_factory=shared.SelectedPath, compact_queue=shared._compact_queue,
         ride_options=lambda u, v, clock, ride, edge: choices.ride_options(u, v, clock, ride),
         alight_minutes=lambda ride: 0.0,
+        walk_meters=lambda edge: edge["meters"],
     )
     arguments.update(overrides)
     with contextlib.redirect_stdout(io.StringIO()):

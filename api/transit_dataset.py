@@ -20,8 +20,8 @@ def namespace_id(feed_id: str, source_id: str) -> str:
     return f"{feed_id}:{source_id}"
 
 
-def service_time_to_minute(value: str) -> int:
-    """Parse a GTFS/ODPT HH:MM[:SS] service-day time, including 24:xx+."""
+def service_time_to_second(value: str) -> int:
+    """Parse an exact service-day HH:MM[:SS] clock, including 24:xx+."""
     parts = value.split(":")
     if len(parts) not in (2, 3):
         raise ValueError(f"invalid service time: {value!r}")
@@ -32,7 +32,13 @@ def service_time_to_minute(value: str) -> int:
     second = int(parts[2]) if len(parts) == 3 else 0
     if minute > 59 or second > 59:
         raise ValueError(f"invalid service time: {value!r}")
-    return hour * 60 + minute + (1 if second >= 30 else 0)
+    return hour * 3600 + minute * 60 + second
+
+
+def service_time_to_minute(value: str) -> int:
+    """Preserve the existing v1 rounded-minute contract."""
+    seconds = service_time_to_second(value)
+    return seconds // 60 + (1 if seconds % 60 >= 30 else 0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,12 +96,24 @@ class TransitStopTime:
     sequence: int
     arrival_minute: int | None
     departure_minute: int | None
+    pickup_type: int = 0
+    drop_off_type: int = 0
+    arrival_service_seconds: int | None = None
+    departure_service_seconds: int | None = None
 
     def __post_init__(self) -> None:
         if self.sequence < 0:
             raise ValueError("stop sequence must be non-negative")
         if self.arrival_minute is None and self.departure_minute is None:
             raise ValueError("stop time requires arrival or departure")
+        for name in ("pickup_type", "drop_off_type"):
+            value = getattr(self, name)
+            if type(value) is not int or value not in (0, 1, 2, 3):
+                raise ValueError(f"invalid {name}: {value!r}")
+        for name in ("arrival_service_seconds", "departure_service_seconds"):
+            value = getattr(self, name)
+            if value is not None and (type(value) is not int or value < 0):
+                raise ValueError(f"invalid {name}: {value!r}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,3 +207,4 @@ class TransitDataset:
             else:
                 active.discard(exception.service_id)
         return frozenset(active)
+

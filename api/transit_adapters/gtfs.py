@@ -16,10 +16,21 @@ from transit_dataset import (
     TransitTrip,
     namespace_id,
     service_time_to_minute,
+    service_time_to_second,
 )
 
 
 _REQUIRED_FILES = ("stops.txt", "routes.txt", "trips.txt", "stop_times.txt")
+
+
+def _passenger_service_type(row: dict[str, str], name: str, trip_id: str) -> int:
+    value = row.get(name)
+    # GTFS specifies regular service when this optional field is omitted/blank.
+    if value in (None, ""):
+        return 0
+    if value not in ("0", "1", "2", "3"):
+        raise ValueError(f"invalid GTFS {name} for trip {trip_id}: {value!r}")
+    return int(value)
 
 
 def _parse_date(value: str, *, field: str) -> datetime.date:
@@ -186,6 +197,16 @@ class GtfsTransitAdapter:
         stop_times: list[TransitStopTime] = []
         kept_per_trip: dict[str, int] = {}
         omitted_trip_ids: set[str] = set()
+        parsed_clocks: dict[str, tuple[int, int]] = {}
+
+        def clock_values(raw: str) -> tuple[int, int]:
+            # Share immutable clocks within this load; never cache a failure.
+            # Exact source seconds and the existing rounded v1 minutes remain
+            # separate declared fields. No query/day/backend switching occurs.
+            if raw not in parsed_clocks:
+                parsed_clocks[raw] = (service_time_to_minute(raw), service_time_to_second(raw))
+            return parsed_clocks[raw]
+
         for row in rows:
             trip_id = namespace_id(
                 feed_id,
@@ -203,8 +224,8 @@ class GtfsTransitAdapter:
                 raise ValueError(f"invalid stop_sequence for trip {trip_id}") from error
             arrival_raw = row.get("arrival_time") or ""
             departure_raw = row.get("departure_time") or ""
-            arrival = service_time_to_minute(arrival_raw) if arrival_raw else None
-            departure = service_time_to_minute(departure_raw) if departure_raw else None
+            arrival, arrival_seconds = clock_values(arrival_raw) if arrival_raw else (None, None)
+            departure, departure_seconds = clock_values(departure_raw) if departure_raw else (None, None)
             if arrival is None and departure is None and skip_untimed_intermediate_stops:
                 first, last = boundaries[trip_id]
                 if sequence in (first, last):
@@ -242,6 +263,10 @@ class GtfsTransitAdapter:
                     sequence=sequence,
                     arrival_minute=arrival,
                     departure_minute=departure,
+                    pickup_type=_passenger_service_type(row, "pickup_type", trip_id),
+                    drop_off_type=_passenger_service_type(row, "drop_off_type", trip_id),
+                    arrival_service_seconds=arrival_seconds,
+                    departure_service_seconds=departure_seconds,
                 )
             )
 
@@ -336,3 +361,4 @@ class GtfsTransitAdapter:
             calendars=calendars,
             service_exceptions=tuple(service_exceptions),
         )
+

@@ -53,13 +53,17 @@ class _Label:
 
 
 class _Frontier:
-    def __init__(self, target, mode, can_wait, goal_signature=None):
+    def __init__(self, target, mode, can_wait, goal_signature=None, max_boardings=None,
+                 few_transfers_tiebreak="cost"):
         self.target = target
         self.mode = mode
         self.can_wait = can_wait
         self.labels = {}
         self.count = 0
         self.goal_signature = goal_signature
+        self.max_boardings = max_boardings
+        self.arrival_objective = (mode == "time" or
+                                  (mode == "fewTransfers" and few_transfers_tiebreak == "arrival"))
 
     def _key(self, label):
         if label.node == self.target:
@@ -82,12 +86,13 @@ class _Frontier:
         # across boarding counts.  Keeping them separate retains arbitrarily
         # many immediate board/alight cycles even when every resource is worse.
         # The other objectives keep their conservative boarding-count groups.
-        boardings = None if self.mode == "time" else label.boardings
+        boardings = (None if self.mode == "time" and self.max_boardings is None
+                     else label.boardings)
         return (label.node, boardings, context, conservative_time)
 
     def _dominates(self, first, second):
         if first.node == self.target:
-            return (first.time <= second.time if self.mode == "time"
+            return (first.time <= second.time if self.arrival_objective
                     else (first.cost, first.time, first.total_walk)
                     <= (second.cost, second.time, second.total_walk))
         # Comfort cost does not constrain earliest arrival.  A strictly earlier
@@ -95,7 +100,7 @@ class _Frontier:
         # At equal times keep the cheaper prefix, preserving the queue's
         # preference for continuing a run over needless alight/board cycles.
         cost_ok = (first.cost <= second.cost
-                   or (self.mode == "time" and first.time < second.time))
+                   or (self.arrival_objective and first.time < second.time))
         return (cost_ok and first.time <= second.time
                 and first.total_walk <= second.total_walk
                 and first.segment_walk <= second.segment_walk)
@@ -156,7 +161,8 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
                   rail_boarding_minutes, advance_time, virtual_connections,
                   edge_uses_rail, heuristic=lambda node: 0.0,
                   prepare_bounds, path_signature, path_factory, compact_queue,
-                  ride_options, alight_minutes, max_expanded=None):
+                  ride_options, alight_minutes, walk_meters,
+                  max_expanded=None, max_boardings=None, few_transfers_tiebreak="cost"):
     """Yield feasible paths, using one frontier at generation and pop time.
 
     fewTransfers orders its lexicographic objective with a relaxed reverse
@@ -166,6 +172,10 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
     """
     if mode not in ("time", "cost", "fewTransfers"):
         raise RouteContractError(f"Unsupported label search mode: {mode!r}")
+    if max_boardings is not None and (type(max_boardings) is not int or max_boardings < 1):
+        raise RouteContractError("max_boardings must be a positive int or None")
+    if few_transfers_tiebreak not in ("cost", "arrival"):
+        raise RouteContractError("few_transfers_tiebreak must be cost or arrival")
     started = time.monotonic()
     deadline = start_minute + max_travel_min
 
@@ -177,7 +187,8 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
         nodes.reverse()
         return path_signature(nodes)
 
-    frontier = _Frontier(target, mode, choices.can_wait_offboard, goal_signature)
+    frontier = _Frontier(target, mode, choices.can_wait_offboard, goal_signature,
+                         max_boardings, few_transfers_tiebreak)
     yielded_goals = set()
     queue = []
     sequence = itertools.count()
@@ -193,6 +204,11 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
     def priority(label):
         if mode == "fewTransfers":
             remaining_boardings, remaining_cost = bounds(label.node, label.segment_walk)
+            if few_transfers_tiebreak == "arrival":
+                # Current clock is an explicit zero remaining-time lower bound;
+                # never reinterpret the comfort-cost bound as a time bound.
+                return (label.boardings + remaining_boardings, label.time,
+                        label.cost, label.boardings)
             return (label.boardings + remaining_boardings, cost_bound(label.cost, remaining_cost),
                     label.boardings, label.cost, label.time)
         if mode == "time":
@@ -201,6 +217,8 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
         return (label.cost + heuristic(label.node), label.cost, label.time)
 
     def offer(label):
+        if max_boardings is not None and label.boardings > max_boardings:
+            return
         if (label.time > deadline or label.total_walk > max_total_walk
                 or label.segment_walk > max_segment_walk):
             return
@@ -323,8 +341,7 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
             total = label.total_walk
             segment = 0.0
             if etype == "walk":
-                meters = edge.get("meters", 0.0)
-                step = meters if meters > 0 else 1.0
+                step = walk_meters(edge)
                 total += step
                 segment = label.segment_walk + step
                 # Reject physical limits before any timetable evaluation.
