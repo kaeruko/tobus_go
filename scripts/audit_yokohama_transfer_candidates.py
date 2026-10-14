@@ -144,12 +144,12 @@ def audit_transfer_candidates(
     if (
         not isinstance(focus_bus_stop_ids, tuple)
         or len(focus_bus_stop_ids) > 100
-        or len(set(focus_bus_stop_ids)) != len(focus_bus_stop_ids)
         or any(
             not isinstance(pole, str)
             or not pole.startswith("yokohama_bus:")
             for pole in focus_bus_stop_ids
         )
+        or len(set(focus_bus_stop_ids)) != len(focus_bus_stop_ids)
     ):
         raise ValueError("focus_bus_stop_ids requires distinct bus GTFS pole IDs")
     if (
