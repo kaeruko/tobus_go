@@ -273,6 +273,37 @@ python scripts/smoke_yokohama_real_gtfs.py `
 スモークは両パスをテストし、008が採用されなかった場合や対象外系統が入った場合は失敗する。比較には**同じGTFS**を使うので、独立した公式時刻表検証や制度上の無料運賃保証ではない。
 
 
+### 横浜市営バス149系統の一括トリアージ（読み取り専用）
+
+単一系統ずつ確認する前に、展開済みの同一GTFSから**全route IDと運行便数を一括棚卸し**する。\
+`scripts/review_yokohama_bus_route_catalog.py` は `api/data/yokohama/2026-09-04` の厳密なfeed metadataと既存coverageを照合してから、以下のレビュー順で分類する。
+
+- **開発用coverageで有効**: 008/089/200/280（4系統版を渡した場合）。これは承認済み本番運賃を意味しない。
+- **明示的に除外**: 271（あかいくつ）。路線名称が一致しなければ停止する。
+- **要調査・対象外キーワード候補**: 空港、羽田、深夜、高速、直行、貸切、あかいくつ等が路線名称または行先に含まれる場合。**キーワードだけで対象外運賃と決めない**。
+- **要調査・特殊名称候補**: 急行、循環、ふれあい、観光などの路線。急行≠直行であり、名称だけで有料扱いにしない。
+- **通常系統名の未確認候補**: 規則的な「008系統」等の短名で特殊キーワードがないもの。**こちらも自動的に無料認定しない**。
+
+平日・土曜の双方でservice calendarに合致する便数を表示し、23時以降の停車時刻は割増運賃とは区別して監査フラグとして表示する。
+通常系統候補はデフォルトではroute IDの短い一覧のみ表示し、全件詳細が必要なら `--full`。いずれの場合も**読み取り専用**で、通常のcoverageと開発用coverageを変更しない。
+
+```powershell
+python scripts/review_yokohama_bus_route_catalog.py `
+  --gtfs-dir ".\api\data\yokohama\2026-09-04" `
+  --coverage ".\api\data\yokohama\2026-09-04\coverage_dev_008.json" `
+  --manifest-service-date "2026-09-04" `
+  --ride-date "2026-09-04" `
+  --ride-date "2026-09-05"
+```
+
+公式根拠（2026-10-14再確認）：
+
+- 福祉パス: [利用交通機関](https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html)。「あかいくつ」、羽田空港線、深夜急行は不可。
+- 敬老パス: [対象交通機関](https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html)。「あかいくつ」、空港連絡、深夜急行、高速、直行は不可。一般路線の深夜バスには割増分が必要。
+- 市営バスの2024-04-01深夜バス廃止: [横浜市交通局回答](https://cgi.city.yokohama.lg.jp/shimin/kouchou/search/data/36003485.html)。民営バスまで廃止した証拠ではない。
+
+**出力は調査キューであり、149系統を一括で無料扱いする処理ではない。** 公式資料と運行会社で特殊系統の種別・例外を確認した後、明示的に開発用coverageへ追加して実GTFSで検証する。
+
 ### 横浜市営バス・一般系統の運行便レビュー一覧（読み取り専用）
 
 ローカル実GTFSの一般系統を1つずつ調査する。最初の例は008系統。
