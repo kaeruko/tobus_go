@@ -947,6 +947,67 @@ validな地下鉄のRail datasetを単独でも受け付けなかった。
 **公式のりば番号の全件審査は採用条件ではないが、
 時刻表/経路/無料対象の整合確認は必要**。
 
+### 共通検索エンジンによるバス⇄地下鉄の近接乗換試作（2026-10-14）
+
+[Issue #241](https://github.com/kaeruko/tobus_go/issues/241)の段階実装として
+`api/yokohama_municipal_transfer.py`に
+`search_geometric_municipal_transfers`を追加した。
+これは**横浜の方向別停留所を特別扱いせず**、
+東京`connect_walk_edges_phys`と同じくGTFS座標から近接する
+バス標柱と地下鉄駅を探す**開発用・オフライン**の実装である。
+
+- 市営バス・地下鉄を、それぞれ既存の`TransitRouteEngine`で
+  便ID・停車順・運行日・予定時刻に従い探索する。
+  stop IDはGTFSのfeed namespace付きで扱い、
+  バス停の同名・方向別を名称で統合しない。
+- `YokohamaFareCoverage.municipal_free_coverage()`で
+  **先に審査済み路線/便だけへ絞って**各feedを探索。
+  運賃は2便群の全rideについて既存の
+  `YokohamaWelfarePassFarePolicy`または
+  `YokohamaSeniorPassFarePolicy`を実行して0円を再確認。
+  **地下鉄のroute IDが未審査なら検索結果は空**。
+- 当日の有効な停車時刻を持つ駅・標柱のみ近接候補とし、
+  既定の直線距離300m（最大600m）で判定する。
+  ストップIDの対応を公式のりば番号で手入力する必要はない。
+- 徒歩距離は暫定で**直線距離×1.5**、徒歩所要時間は
+  **80m/分＋2分**で推定。これは**道路の測量・駅出入口・
+  横断歩道・改札までの時間を検証した値ではない**。
+  `GeometricTransferEstimate`と
+  `MunicipalTransferPlan.walking_connection_verified=False`を
+  明示しており、**結果をそのまま本番APIや地図の確定徒歩案内へ渡さない**。
+- 一度のバス⇄地下鉄乗換を試す**限定的な検索**であり、
+  2回以上のfeed横断乗換、全ネットワークの最適経路、
+  日付を跨ぐ乗換、徒歩経路のアクセシビリティは未対応。
+  日付跨ぎが必要ならfail-fastで停止する。
+- 一度の検索で候補上限（既定40組）を超える場合は
+  途中で任意切捨てせず失敗させる。
+  **検索の完全性を誤表示しない**。
+  2feedの時刻表indexは候補ごとに作り直さず
+  **検索当たり各1回**生成する。
+- 既存の`ExplicitTransferLink`は根拠付きの手動評価用として
+  保持したが、近接検索はこの公式リンクや乗り場一覧掲載を
+  前提にしない。根拠付きと未確認の近接リンクを区別している。
+
+`api/tests/test_yokohama_geometric_transfer.py`で、
+両パス、バス→地下鉄、地下鉄→バス、速いが対象外の
+観光便の除外、近接しない/乗換時刻に間に合わないケース、
+未審査地下鉄の排除、入力制限と候補上限、GTFS index再利用を
+合成データで確認する。既存の東京版・Flutter・横浜`/route`は
+**一切接続変更しない**。
+
+**本番接続に残ること**：
+1. 実GTFSに含まれる25の地下鉄route recordsを
+   operator/agency/route semanticsで確認し、
+   福祉・敬老パスに適用する運賃カバレッジを確定
+   （25路線分の別制度を手作業で調べる必要はない）。
+2. 実停留所・時刻表で近接乗換の成立性/徒歩アクセスを評価し、
+   現在の推定歩行を正規の歩行経路扱いしないこと。
+3. 現行`/route`契約へ複数feedの旅程と待機・徒歩・
+   rail/bus stepを出力する統合Backendを実装し、
+   `bus_only`、無料判定、エラー挙動を回帰検証すること。
+4. 静的データ起動・feed更新・運行日・日跨ぎ・Flutter表示を
+   実データで合格させること。
+
 ### 市営バス⇄地下鉄の明示乗換プロトタイプ（2026-10-14）
 
 `api/yokohama_municipal_transfer.py` は、先に確認した
