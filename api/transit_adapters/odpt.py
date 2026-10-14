@@ -82,6 +82,15 @@ def _required_str(record: Mapping[str, object], key: str) -> str:
     return value
 
 
+def _optional_identity(record, key):
+    value = record.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value or value.strip() != value:
+        raise ValueError(f'invalid ODPT identity: {_id(record)} field={key}')
+    return value
+
+
 def _coordinates(record: Mapping[str, object]) -> tuple[float, float]:
     record_id = _id(record)
     lat = record.get("geo:lat")
@@ -227,6 +236,8 @@ class OdptTransitAdapter:
                 route_id=route_id,
                 service_id=service_id,
                 headsign=str(timetable.get("dc:title") or ""),
+                source_pattern_id=pattern_id,
+                source_operator_id=_optional_identity(timetable, 'odpt:operator'),
             )
             objects = timetable.get("odpt:busTimetableObject")
             if not isinstance(objects, list) or not objects:
@@ -281,6 +292,9 @@ class OdptTransitAdapter:
                 route_id=route_id,
                 service_id=service_id,
                 headsign=str(timetable.get("dc:title") or ""),
+                train_number=_optional_identity(timetable, 'odpt:trainNumber'),
+                source_train_type=_optional_identity(timetable, 'odpt:trainType'),
+                source_operator_id=_optional_identity(timetable, 'odpt:operator'),
             )
             objects = timetable.get("odpt:trainTimetableObject")
             if not isinstance(objects, list) or not objects:

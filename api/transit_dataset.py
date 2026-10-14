@@ -87,6 +87,18 @@ class TransitTrip:
     service_id: str
     headsign: str
     direction_id: str | None = None
+    # Original source identities, not inferred fare classification or realtime.
+    source_pattern_id: str | None = None
+    train_number: str | None = None
+    source_train_type: str | None = None
+    source_operator_id: str | None = None
+
+    def __post_init__(self):
+        for name in ('source_pattern_id', 'train_number', 'source_train_type', 'source_operator_id'):
+            value = getattr(self, name)
+            if value is not None and (not isinstance(value, str) or not value
+                                      or value.strip() != value):
+                raise ValueError(f'invalid source trip metadata: {self.id} field={name}')
 
 
 @dataclass(frozen=True, slots=True)

@@ -426,6 +426,49 @@ class TransitNetworkTest(unittest.TestCase):
                 source.load()
             self.assertIsInstance(raised.exception.__cause__, ValueError)
 
+    def test_odpt_run_metadata_survives_snapshot_and_selected_event(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = feeds(Path(root))[1]
+            for timetable in source.train_timetables:
+                timetable.update({'odpt:trainNumber': '001A',
+                    'odpt:trainType': 'odpt.TrainType:Fixture.Local',
+                    'odpt:operator': 'odpt.Operator:Fixture'})
+            loaded = source.load()
+            self.assertEqual(loaded.trips['demo_rail:early'].train_number, '001A')
+            snapshot = network(loaded)
+            # Identical train numbers must not merge separate concrete runs.
+            self.assertEqual(len(snapshot.trips), 2)
+            event = query(snapshot, 'demo_rail:x', 'demo_rail:y')[0].events[0]
+            self.assertEqual(event.trip_id, 'demo_rail:early')
+            self.assertEqual(event.train_number, '001A')
+            self.assertEqual(event.source_train_type, 'odpt.TrainType:Fixture.Local')
+            self.assertEqual(event.source_operator_id, 'odpt.Operator:Fixture')
+            self.assertIsNone(event.source_pattern_id)
+
+    def test_odpt_bus_pattern_identity_is_retained_without_fare_inference(self):
+        from tests.test_transit_feed_sources import _odpt_source
+        source = _odpt_source()
+        source.bus_timetables[0]['odpt:operator'] = 'odpt.Operator:Fixture'
+        loaded = source.load()
+        self.assertEqual(loaded.trips['odpt_fixture:t'].source_pattern_id, 'p')
+        event = query(network(loaded), 'odpt_fixture:a', 'odpt_fixture:b')[0].events[0]
+        self.assertEqual(event.source_pattern_id, 'p')
+        self.assertEqual(event.source_operator_id, 'odpt.Operator:Fixture')
+        self.assertIsNone(event.source_train_type)
+        self.assertIsNone(event.train_number)
+
+    def test_odpt_metadata_rejects_type_coercion_and_keeps_missing_explicit(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = feeds(Path(root))[1]
+            self.assertIsNone(source.load().trips['demo_rail:early'].train_number)
+            for key, value in (('odpt:trainNumber', 1), ('odpt:trainType', ''),
+                               ('odpt:operator', ['odpt.Operator:Fixture'])):
+                timetable = source.train_timetables[0]
+                timetable[key] = value
+                with self.assertRaisesRegex(ValueError, 'invalid ODPT identity.*early'):
+                    source.load()
+                del timetable[key]
+
 
 class YokohamaSharedNetworkTest(unittest.TestCase):
     def setUp(self):

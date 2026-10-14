@@ -171,6 +171,10 @@ class NetworkRideEvent:
     departure_minute: Fraction
     arrival_minute: Fraction
     stop_ids: tuple[str, ...]
+    source_pattern_id: str | None = None
+    train_number: str | None = None
+    source_train_type: str | None = None
+    source_operator_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,7 +233,9 @@ def _journey(snapshot, candidate, departure):
                 start.service_date, snapshot.feed_versions[trip.id.split(":", 1)[0]],
                 rows[start.position].stop_id, rows[end.position].stop_id,
                 start.sequence, end.sequence, boarded_at, arrived_at,
-                tuple(row.stop_id for row in rows[start.position:end.position + 1])))
+                tuple(row.stop_id for row in rows[start.position:end.position + 1]),
+                trip.source_pattern_id, trip.train_number, trip.source_train_type,
+                trip.source_operator_id))
             boarding = last_ride = None
         elif edge["etype"] == "walk":
             events.append(NetworkWalkEvent(edge["reviewed_link"], previous, arrival))

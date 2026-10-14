@@ -238,3 +238,15 @@ ODPTの不正なclock型を「時刻欠落」とみなす処理を除き、trip/
 追加5テストは追加/除外日、設定なし逆転、明示境界と24:xx、bus/rail両形式、カレンダー不正値、不正clock型/元例外保持を確認する。共通/v1/source関連87件は81件成功・Nativeが必要な6件スキップ、うちnetwork33件は成功。東京220件・横浜92件の直前回帰も成功した。新mainのGitHub Actionsで全APIとNative parityを再検証する。
 
 Phase 2全体はまだ完了ではない。公式英語名・元pattern/run/便種別メタデータの契約、実ODPTへの運行日規則の対応、東京Realtimeの接続、非公開実データ比較、性能・prebuilt起動は残る。本番切替・デプロイを行わない。
+
+## 11. 入力契約の完成 — 元便の識別情報
+
+変更前mainは`0119351f00f19f100483447929b219dbbce4a871`。前段のODPT規則はGitHub ActionsでAPI全件・Python 3.11/3.12 Native parity・Lambda image/smokeが成功した。
+
+`TransitTrip`に元ODPTのpattern ID、train number、train type、operator IDをoptionalなimmutable文字列として保持する。欠落はNoneのまま、整数の番号・空の種別・配列のoperatorを文字列化して埋めない。これらは元sourceの識別情報であり、種別名から無料承認や実運行状態を生成しない。GTFS既存入力の既定値はNoneで、既存v1の検索・Native入出力は変更しない。
+
+ODPT bus/train adapterからsnapshotまで保持し、選択したNetworkRideEventにも引き継ぐ。同じ列車番号の異なるtimetable IDを合成便として統合しない。busの元patternはsource IDとして保存し、共通graphの共有pattern番号とは区別する。Realtime対応のための情報保存であり、Realtime取得・遅延適用を有効にしない。
+
+追加3テストで同番号の別具体便、元bus pattern/事業者、欠落情報、型不正を確認した。共通/v1/source関連90件は84件成功・Nativeの6件スキップ、network36件成功。東京220件と横浜92件も成功した。CPython 3.12のTransitTrip shallow sizeは80→112B（+32B/trip）で、source文字列やプロセスRSSを含まない。
+
+公式表示情報、実ODPT運行日の対応、Realtime接続、実データ性能/結果比較は残る。本番runtimeと無料/徒歩認定を変更しない。
