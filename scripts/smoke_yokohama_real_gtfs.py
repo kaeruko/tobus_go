@@ -106,6 +106,8 @@ def choose_probe(dataset, *, ride_date: str, route_id: str = "089") -> dict:
                     "start_time": _clock(depart - 5),
                     "source_departure": _clock(depart),
                     "source_arrival": _clock(arrival),
+                    "source_boarding_sequence": start.sequence,
+                    "source_destination_sequence": finish.sequence,
                 }
     raise RuntimeError(
         f"no suitable daytime, >1km origin/destination on route {route_id} on {ride_date}; "
@@ -194,6 +196,26 @@ def run_smoke(
                 if trip.route_id in ELIGIBLE_ROUTES and trip.service_id in active
             }
             trip_rows = _stops_by_trip(dataset, route_trip_ids)
+            # GTFS stop IDs can appear more than once in a loop trip.
+            # In that case the source probe's last stop_time is not
+            # necessarily the arrival selected by shortest-time search.
+            source_destination_visits = [
+                {
+                    "stop_id": row.stop_id,
+                    "stop_sequence": row.sequence,
+                    "arrival_time": _clock(row.arrival_minute),
+                }
+                for row in trip_rows[probe["trip_id"]]
+                if row.sequence > probe["source_boarding_sequence"]
+                and row.stop_id == probe["destination"].id
+                and row.arrival_minute is not None
+            ]
+            if not source_destination_visits or not any(
+                visit["stop_sequence"] == probe["source_destination_sequence"]
+                and visit["arrival_time"] == probe["source_arrival"]
+                for visit in source_destination_visits
+            ):
+                raise AssertionError("probe destination stop/time not present in GTFS trip")
             for policy_id in POLICIES:
                 response = client.post(
                     "/route", headers={"X-App-City": "yokohama"},
@@ -308,12 +330,19 @@ def run_smoke(
             "search_time": probe["start_time"],
             "source_departure": probe["source_departure"],
             "source_arrival": probe["source_arrival"],
+            "source_boarding_sequence": probe["source_boarding_sequence"],
+            "source_destination_sequence": probe["source_destination_sequence"],
+            "source_destination_visits": source_destination_visits,
+            "revisits_same_destination_stop": len(source_destination_visits) > 1,
         },
         "results": results,
         "note": (
             "Only an offline integration smoke test against the SAME GTFS feed; "
             "not independent fare/official timetable validation. "
-            "All other routes stay excluded."
+            "All other routes stay excluded. On loop routes the last "
+            "source probe destination may be reached after an earlier "
+            "visit to the SAME stop; use source_destination_visits to "
+            "compare the selected alighting time."
         ),
     }
 
