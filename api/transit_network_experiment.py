@@ -220,9 +220,9 @@ class ExperimentalMultiFeedSearch:
                 raise RouteSearchLimitError("experimental search time limit exceeded")
             if len(queue) > limits.max_queue_size:
                 raise RouteSearchLimitError("experimental search queue limit exceeded")
-            _, _, state = heapq.heappop(queue)
+            queued_priority, _, state = heapq.heappop(queue)
             current = best[state]
-            if rank(current, state[1]) != _:
+            if rank(current, state[1]) != queued_priority:
                 continue
             visited += 1
             if visited > limits.max_visited_states:
