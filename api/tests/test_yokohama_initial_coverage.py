@@ -723,6 +723,138 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                     service_date=SERVICE_DATE, reviewed_on="2026-10-14",
                 )
 
+    def test_registry_reviewed_routes_are_only_enabled_by_explicit_request(self):
+        from propose_yokohama_reviewed_coverage import propose_reviewed
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            routes = root / "routes.txt"
+            routes.write_text(
+                routes.read_text(encoding="utf-8")
+                + "272,,ふれあいバス（緑区・十日市場地区）,3\n"
+                + "275,,ふれあいバス（緑区・上山地区）,3\n"
+                + "288,,聖隷横浜病院循環,3\n",
+                encoding="utf-8",
+            )
+            trips = root / "trips.txt"
+            trips.write_text(
+                trips.read_text(encoding="utf-8")
+                + "288,ALL,T288,聖隷横浜病院,0,,\n",
+                encoding="utf-8",
+            )
+            times = root / "stop_times.txt"
+            times.write_text(
+                times.read_text(encoding="utf-8")
+                + "T288,08:30:00,08:30:00,A,1\n"
+                + "T288,08:50:00,08:50:00,B,2\n",
+                encoding="utf-8",
+            )
+            original, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            baseline = root / "coverage.json"
+            baseline.write_text(json.dumps(original), encoding="utf-8")
+            before = {p.name: p.read_bytes() for p in root.iterdir()}
+            args = dict(
+                gtfs_dir=root, coverage_path=baseline,
+                service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            five, report = propose_reviewed(
+                **args, route_ids=("008", "288"),
+            )
+            self.assertEqual(before, {p.name: p.read_bytes() for p in root.iterdir()})
+            self.assertEqual(report["added_route_ids"], ["008", "288"])
+            self.assertEqual(report["enabled_route_ids"], [
+                "008", "089", "200", "280", "288",
+            ])
+            self.assertEqual(report["route_counts"], {
+                "local": 5, "sightseeing": 1, "unreviewed": 2,
+            })
+            self.assertEqual(five["routes"]["yokohama_bus:271"], "sightseeing")
+            self.assertEqual(five["routes"]["yokohama_bus:272"], "unreviewed")
+            self.assertEqual(five["routes"]["yokohama_bus:275"], "unreviewed")
+            self.assertIn("008", report["review_evidence"])
+            self.assertIn("288", report["review_evidence"])
+
+            with self.assertRaisesRegex(ValueError, "pending official fare review"):
+                propose_reviewed(**args, route_ids=("272",))
+            with self.assertRaisesRegex(ValueError, "pending official fare review"):
+                propose_reviewed(**args, route_ids=("275",))
+            with self.assertRaisesRegex(ValueError, "no explicit review record"):
+                propose_reviewed(**args, route_ids=("091",))
+            with self.assertRaisesRegex(ValueError, "duplicate"):
+                propose_reviewed(**args, route_ids=("008", "008"))
+            with self.assertRaisesRegex(ValueError, "at least one"):
+                propose_reviewed(**args, route_ids=())
+
+            four = {**original, "routes": {
+                **original["routes"], "yokohama_bus:008": "local",
+            }}
+            middle = root / "coverage_dev_008.json"
+            middle.write_text(json.dumps(four), encoding="utf-8")
+            incremental, inc_report = propose_reviewed(
+                gtfs_dir=root, coverage_path=middle,
+                service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+                route_ids=("288",),
+            )
+            self.assertEqual(incremental, five)
+            self.assertEqual(inc_report["added_route_ids"], ["288"])
+
+            five_file = root / "coverage_dev_288.json"
+            five_file.write_text(json.dumps(five), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "already enabled"):
+                propose_reviewed(
+                    gtfs_dir=root, coverage_path=five_file,
+                    service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+                    route_ids=("288",),
+                )
+
+            # An unreviewed route must never be imported as an approved base
+            # merely because the v1 JSON says "local".
+            tampered = {**five, "routes": {
+                **five["routes"], "yokohama_bus:272": "local",
+            }}
+            wrong_path = root / "unexpected.json"
+            wrong_path.write_text(json.dumps(tampered), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "unexpected enabled route"):
+                propose_reviewed(
+                    gtfs_dir=root, coverage_path=wrong_path,
+                    service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+                    route_ids=("275",),
+                )
+
+    def test_registry_review_fails_on_route_name_change(self):
+        from propose_yokohama_reviewed_coverage import propose_reviewed
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            routes = root / "routes.txt"
+            routes.write_text(
+                routes.read_text(encoding="utf-8")
+                + "272,,ふれあいバス（緑区・十日市場地区）,3\n"
+                + "275,,ふれあいバス（緑区・上山地区）,3\n"
+                + "288,,聖隷横浜病院循環,3\n",
+                encoding="utf-8",
+            )
+            original, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            source = root / "coverage.json"
+            source.write_text(json.dumps(original), encoding="utf-8")
+            routes.write_text(
+                routes.read_text(encoding="utf-8").replace(
+                    "聖隷横浜病院循環", "別路線"
+                ), encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "name/identity changed"):
+                propose_reviewed(
+                    gtfs_dir=root, coverage_path=source,
+                    service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+                    route_ids=("008",),
+                )
+
     def test_known_route_rename_is_not_silently_accepted(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
