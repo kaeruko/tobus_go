@@ -801,6 +801,24 @@ stop_sequence重複などはfail-fastで止める。
 地下鉄の無料承認でもない。後続でGTFSの便と公式のりば番号を
 照合する材料に使う。既存11組の判定フラグ・sort・limitは変えない。
 
+地下鉄のGTFS内部路線25レコードについて、
+`scripts/audit_yokohama_subway_routes.py`を追加した。
+これはmanifest/ハッシュ/GTFS版/運行日を検証したうえで、
+全25`route_id`ごとの生GTFS路線名・agency_idとagency_nameの対応、
+当日有効便数・使える駅数を**read-only**で出すツール。
+`distinct_source_route_names`はGTFS上の名前の組数であり、
+実際の営業路線数（ブルー・グリーンの2路線）と一致する保証はない。
+複数agencyの中でrouteのagency_idが欠落していれば判定保留、
+未知agency_id参照は拒否する。**全レコードに
+`UNREVIEWED_GTFS_ROUTE_ID`を明示**し、現時点で1件も
+運賃承認を生成しない。
+
+```powershell
+python scripts/audit_yokohama_subway_routes.py `
+  --subway-gtfs-dir ".\api\data\yokohama\subway_2025-12-26" `
+  --service-date "2026-09-04"
+```
+
 実GTFS取得後の読み取り専用例（両路線のデータが存在する場合のみ）：
 
 ```powershell
