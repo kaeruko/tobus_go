@@ -306,6 +306,23 @@ python scripts/propose_yokohama_reviewed_coverage.py `
   --route-id 288
 ```
 
+#### 既存の5系統版との内容一致を検証する（書き込みなし）
+
+共通ツールで提案した内容が、以前の個別スクリプトで生成した `coverage_dev_288.json` と**すべてのJSON項目で一致するか**を検証するには、`--verify-against` を指定する。順序や空白は問わず、フィード版、reviewed_on、149系統の分類、その他すべてのフィールドを比較する。1件でも違えば例外で停止し、`differing_route_ids` と食い違いフィールド名を出す。**比較するだけで、ファイルを新規作成・書換・削除しない**。
+
+```powershell
+python scripts/propose_yokohama_reviewed_coverage.py `
+  --gtfs-dir ".\api\data\yokohama\2026-09-04" `
+  --coverage ".\api\data\yokohama\2026-09-04\coverage.json" `
+  --service-date "2026-09-04" `
+  --reviewed-on "2026-10-14" `
+  --route-id 008 `
+  --route-id 288 `
+  --verify-against ".\api\data\yokohama\2026-09-04\coverage_dev_288.json"
+```
+
+一致時のみ `verification: MATCH`、`file_action: VERIFY ONLY: no files written` と表示。存在しない照合ファイルや差分は失敗として扱う。`--verify-against` と `--output` は同時指定不可。これが成功しても実運賃や公式ダイヤを検証したことにはならず、**生成された設定の同等性のみ**を示す。
+
 これは**レビュー台帳による明示的な許可の管理**であり、リンク先の内容が自動検証済みであることも、全便・全区間が運賃制度上0円であることも意味しない。市営交通と各民営交通の現行規程・各乗車区間の個別例外は公開前に独立照合する。既存の `propose_yokohama_route_008_coverage.py`、`propose_yokohama_route_288_coverage.py` は互換性確保のため残す。削除・改名しない。
 
 制度の重要な違い：2025年10月以降、一部の地域型「おでかけシャトル」は**敬老パスで半額程度の自己負担が残る**。市営の272・275「ふれあいバス」と名称が似ていても同一サービスとは断定しない。横浜市公式 [敬老パス対象交通](https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html) / [地域公共交通への拡大](https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/tikikotu.html)。
