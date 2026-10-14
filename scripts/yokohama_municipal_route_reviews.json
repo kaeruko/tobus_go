@@ -4,6 +4,36 @@
   "feed_version": "v3.0_20260727",
   "purpose": "Development-only explicit fare-review decisions. Never sufficient for production fare certification.",
   "routes": {
+    "123": {
+      "status": "pending",
+      "short_name": "",
+      "long_name": "【急行】123系統",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001601263&date=2026-09-29&orvCode=00091228&stopNo=1"
+      ],
+      "remaining_checks": [
+        "Official timetable lists the Nissan Honmoku private wharf destination. Verify whether ordinary passengers and both special passes may use all relevant stops/trips; do not infer from an express label.",
+        "Timetable existence and the municipal operator's general policy do not establish zero additional payment for every individual trip. Keep pending until fare classification is independently confirmed."
+      ]
+    },
+    "221": {
+      "status": "pending",
+      "short_name": "",
+      "long_name": "鴨居・東本郷線",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001601412&date=2026-10-08&orvCode=00090926&stopNo=2"
+      ],
+      "remaining_checks": [
+        "Official timetable shows Higashi-Hongo via Tokanji route variants. Confirm 221 is in each pass's zero-payment municipal ordinary-service scope rather than a separate community-fare service.",
+        "Timetable existence and the municipal operator's general policy do not establish zero additional payment for every individual trip. Keep pending until fare classification is independently confirmed."
+      ]
+    },
     "272": {
       "status": "pending",
       "short_name": "",
@@ -49,6 +79,111 @@
         "Independent GTFS cross-check is still development scope."
       ]
     },
+    "326": {
+      "status": "pending",
+      "short_name": "",
+      "long_name": "【急行】326系統",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001600340&date=2026-08-08&orvCode=00090421&stopNo=17"
+      ],
+      "remaining_checks": [
+        "Official timetable lists the Yokohama West Exit express alongside ordinary route 36. Verify separate express trip fare and both pass eligibility.",
+        "Timetable existence and the municipal operator's general policy do not establish zero additional payment for every individual trip. Keep pending until fare classification is independently confirmed."
+      ]
+    },
+    "327": {
+      "status": "pending",
+      "short_name": "",
+      "long_name": "【急行】327系統",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001601269&date=2026-08-13&orvCode=00090881&stopNo=6"
+      ],
+      "remaining_checks": [
+        "Official timetable lists the Sakuragicho express alongside ordinary route 113. Verify both-pass fare treatment for express trips.",
+        "Timetable existence and the municipal operator's general policy do not establish zero additional payment for every individual trip. Keep pending until fare classification is independently confirmed."
+      ]
+    },
+    "328": {
+      "status": "pending",
+      "short_name": "",
+      "long_name": "【急行】328系統",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001600978&date=2026-08-13&orvCode=00091033&stopNo=5"
+      ],
+      "remaining_checks": [
+        "Official timetable lists the Honmoku Hara to Yokohama Station express. Verify both passes and fare/boarding exceptions for weekday trips.",
+        "Timetable existence and the municipal operator's general policy do not establish zero additional payment for every individual trip. Keep pending until fare classification is independently confirmed."
+      ]
+    },
+    "329": {
+      "status": "pending",
+      "short_name": "",
+      "long_name": "【急行】329系統",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001600954&date=2026-07-27&orvCode=00090142&stopNo=16"
+      ],
+      "remaining_checks": [
+        "The pinned GTFS lists 16 trips but zero on 2026-09-04 and 2026-09-05. Verify operating dates separately; official combined timetables alone do not prove service on those dates or either pass's free eligibility.",
+        "Timetable existence and the municipal operator's general policy do not establish zero additional payment for every individual trip. Keep pending until fare classification is independently confirmed."
+      ]
+    },
+    "341": {
+      "status": "pending",
+      "short_name": "",
+      "long_name": "【急行】341系統",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001601413&date=2026-08-08&orvCode=00091031&stopNo=1"
+      ],
+      "remaining_checks": [
+        "Official timetable lists the Honmoku/Sakuragicho express via Motomachi, including weekend departures. Confirm both passes and route/trip-specific fare exceptions.",
+        "Timetable existence and the municipal operator's general policy do not establish zero additional payment for every individual trip. Keep pending until fare classification is independently confirmed."
+      ]
+    },
+    "345": {
+      "status": "pending",
+      "short_name": "",
+      "long_name": "【急行】345系統",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001601233&date=2026-10-11&orvCode=00090719&stopNo=1"
+      ],
+      "remaining_checks": [
+        "Official timetable lists the Tokaichiba to Wakabadai Chuo express alongside route 55. Verify actual operation date and both special-pass fare on express trips.",
+        "Timetable existence and the municipal operator's general policy do not establish zero additional payment for every individual trip. Keep pending until fare classification is independently confirmed."
+      ]
+    },
+    "346": {
+      "status": "pending",
+      "short_name": "",
+      "long_name": "【急行】346系統",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001600032&date=2026-08-21&orvCode=00090220&stopNo=1"
+      ],
+      "remaining_checks": [
+        "Official timetable lists the Yokohama West Exit express alongside ordinary route 35. Verify both-pass eligibility and any premium or trip-level exceptions.",
+        "Timetable existence and the municipal operator's general policy do not establish zero additional payment for every individual trip. Keep pending until fare classification is independently confirmed."
+      ]
+    },
     "008": {
       "status": "development_eligible",
       "short_name": "008系統",
@@ -63,6 +198,36 @@
       "remaining_checks": [
         "Recheck exceptions and all trip variations before production.",
         "Same-feed smoke does not independently certify fare."
+      ]
+    },
+    "091": {
+      "status": "pending",
+      "short_name": "",
+      "long_name": "【急行】91系統",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001600723&date=2026-09-04&orvCode=00091295&stopNo=4"
+      ],
+      "remaining_checks": [
+        "Official timetable lists the weekday Mitsubishi Honmoku factory service. Verify both passes apply to all allowed boardings and that no direct/contract or premium-fare exception exists.",
+        "Timetable existence and the municipal operator's general policy do not establish zero additional payment for every individual trip. Keep pending until fare classification is independently confirmed."
+      ]
+    },
+    "092": {
+      "status": "pending",
+      "short_name": "",
+      "long_name": "【急行】92系統",
+      "reviewed_on": "2026-10-14",
+      "evidence_urls": [
+        "https://www.city.yokohama.lg.jp/faq/kukyoku/kenko/shogaijiritsu/20211015164324433.html",
+        "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html",
+        "https://navi.hamabus.city.yokohama.lg.jp/koutuu/pc/diagram/BusDiagram?course=0001601416&date=2026-09-16&orvCode=00091229&stopNo=1"
+      ],
+      "remaining_checks": [
+        "Official timetable lists the Sasayama Danchi Chuo service. Check both passes and all express trip fare variants.",
+        "Timetable existence and the municipal operator's general policy do not establish zero additional payment for every individual trip. Keep pending until fare classification is independently confirmed."
       ]
     }
   }

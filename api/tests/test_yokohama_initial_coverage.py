@@ -54,6 +54,32 @@ def _realistic_named_fixture(root: Path) -> None:
     )
 
 
+
+# Confirm exact route identity against pinned GTFS before permitting a fare review.
+# These additional 11 routes are PENDING only, never approved as free.
+_PENDING_SPECIAL_NAMES = {
+    "091": "【急行】91系統",
+    "092": "【急行】92系統",
+    "123": "【急行】123系統",
+    "221": "鴨居・東本郷線",
+    "326": "【急行】326系統",
+    "327": "【急行】327系統",
+    "328": "【急行】328系統",
+    "329": "【急行】329系統",
+    "341": "【急行】341系統",
+    "345": "【急行】345系統",
+    "346": "【急行】346系統",
+}
+
+
+def _add_pending_special_routes(root: Path) -> None:
+    # Appended fixture routes intentionally have NO trips.
+    # A review record is not authority to invent a trip or fare.
+    with (root / "routes.txt").open("a", encoding="utf-8") as stream:
+        for number, title in _PENDING_SPECIAL_NAMES.items():
+            stream.write(f"{number},,{title},3\n")
+
+
 class YokohamaPartialCoverageTest(unittest.TestCase):
     def test_proposal_produces_only_three_safe_ordinary_routes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -778,6 +804,7 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                 + "288,,聖隷横浜病院循環,3\n",
                 encoding="utf-8",
             )
+            _add_pending_special_routes(root)
             trips = root / "trips.txt"
             trips.write_text(
                 trips.read_text(encoding="utf-8")
@@ -810,7 +837,7 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                 "008", "089", "200", "280", "288",
             ])
             self.assertEqual(report["route_counts"], {
-                "local": 5, "sightseeing": 1, "unreviewed": 2,
+                "local": 5, "sightseeing": 1, "unreviewed": 13,
             })
             self.assertEqual(five["routes"]["yokohama_bus:271"], "sightseeing")
             self.assertEqual(five["routes"]["yokohama_bus:272"], "unreviewed")
@@ -822,6 +849,11 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                 propose_reviewed(**args, route_ids=("272",))
             with self.assertRaisesRegex(ValueError, "pending official fare review"):
                 propose_reviewed(**args, route_ids=("275",))
+            for route_id in _PENDING_SPECIAL_NAMES:
+                with self.subTest(route_id=route_id), self.assertRaisesRegex(
+                    ValueError, "pending official fare review"
+                ):
+                    propose_reviewed(**args, route_ids=(route_id,))
             with self.assertRaisesRegex(ValueError, "no explicit review record"):
                 propose_reviewed(**args, route_ids=("091",))
             with self.assertRaisesRegex(ValueError, "duplicate"):
@@ -896,6 +928,46 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                     route_ids=("275",),
                 )
 
+
+    def test_registry_catalog_includes_all_pending_special_routes_without_approval(self):
+        from review_yokohama_bus_route_catalog import review_catalog
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            with (root / "routes.txt").open("a", encoding="utf-8") as stream:
+                stream.write(
+                    "272,,ふれあいバス（緑区・十日市場地区）,3\n"
+                    "275,,ふれあいバス（緑区・上山地区）,3\n"
+                    "288,,聖隷横浜病院循環,3\n"
+                )
+            _add_pending_special_routes(root)
+            proposal, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            coverage_path = root / "coverage.json"
+            coverage_path.write_text(json.dumps(proposal), encoding="utf-8")
+            before = {path.name: path.read_bytes() for path in root.iterdir()}
+            report = review_catalog(
+                gtfs_dir=root, coverage_path=coverage_path,
+                manifest_service_date=SERVICE_DATE, ride_dates=[SERVICE_DATE],
+                include_registry=True,
+            )
+            self.assertEqual(before, {path.name: path.read_bytes() for path in root.iterdir()})
+            review = report["review_registry"]
+            self.assertEqual(report["route_count"], 19)
+            self.assertEqual(review["registered_route_count"], 15)
+            self.assertEqual(review["pending_route_ids"],
+                             sorted(["272", "275", *_PENDING_SPECIAL_NAMES]))
+            self.assertEqual(review["unregistered_review_queue_count"], 1)
+            self.assertEqual(
+                review["unregistered_route_ids_by_queue"][
+                    "ordinary_name_candidate_not_approved"
+                ], ["008"],
+            )
+            for item in report["groups"]["nonstandard_name_need_manual_review"]:
+                self.assertEqual(item["registry_status"], "pending")
+                self.assertEqual(item["current_coverage_kind"], "unreviewed")
+
     def test_registry_review_fails_on_route_name_change(self):
         from propose_yokohama_reviewed_coverage import propose_reviewed
 
@@ -910,6 +982,7 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                 + "288,,聖隷横浜病院循環,3\n",
                 encoding="utf-8",
             )
+            _add_pending_special_routes(root)
             original, _ = proposed_coverage(
                 root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
             )
