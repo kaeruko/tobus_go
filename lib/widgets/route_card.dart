@@ -109,6 +109,12 @@ class RouteCard extends ConsumerWidget {
           ),
         );
     final fareChip = _fareChip(effectiveFare, l10n);
+    // Match the route detail's arrival clock. Do not estimate a new
+    // arrival from totalTime: this field is already part of the API result.
+    final arrivalTime = candidate.arrivalTime?.trim();
+    final arrivalChip = arrivalTime == null || arrivalTime.isEmpty
+        ? l10n.replanUnknownTime
+        : l10n.segmentArrivalAt(arrivalTime);
 
     return Container(
       decoration: BoxDecoration(
@@ -182,7 +188,7 @@ class RouteCard extends ConsumerWidget {
             spacing: 6,
             runSpacing: 4,
             children: [
-              _chip(l10n.totalTimeChip(candidate.totalTime)),
+              _chip(arrivalChip),
               _chip(l10n.transfersChip(candidate.transfers)),
               _chip(l10n.ridesChip(candidate.rides)),
               _chip(l10n.walkChip(candidate.walkingDistanceMeters)),

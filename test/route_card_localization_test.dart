@@ -16,6 +16,7 @@ void main() {
     transfers: 0,
     total: 64,
     totalTime: 64,
+    arrivalTime: '11:33',
     points: const [],
     originName: '押上',
     originNameEn: 'Oshiage',
@@ -66,6 +67,7 @@ void main() {
     Locale locale, {
     bool showRank = true,
     Widget? titleTrailing,
+    Candidate? route,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -75,7 +77,7 @@ void main() {
           supportedLocales: AppLocalizations.supportedLocales,
           home: CupertinoPageScaffold(
             child: RouteCard(
-              candidate: candidate,
+              candidate: route ?? candidate,
               rank: 1,
               showRank: showRank,
               titleTrailing: titleTrailing,
@@ -118,6 +120,50 @@ void main() {
     expect(find.text('📝'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('memo-title-action')));
     expect(tapped, isTrue);
+  });
+
+  testWidgets('Japanese route card shows destination arrival, not duration', (
+    tester,
+  ) async {
+    await pumpCard(tester, const Locale('ja'));
+
+    expect(find.text('11:33着'), findsOneWidget);
+    expect(find.text('所要 64分'), findsNothing);
+  });
+
+  testWidgets('English route card shows destination arrival, not duration', (
+    tester,
+  ) async {
+    await pumpCard(tester, const Locale('en'));
+
+    expect(find.text('Arrive 11:33'), findsOneWidget);
+    expect(find.text('64 min'), findsNothing);
+  });
+
+  testWidgets('route card uses provided arrival even when it is after midnight', (
+    tester,
+  ) async {
+    final overnight = Candidate.fromJson({
+      ...candidate.toJson(),
+      'arrival_time': '00:05',
+    });
+    await pumpCard(tester, const Locale('ja'), route: overnight);
+
+    expect(find.text('00:05着'), findsOneWidget);
+    expect(find.text('11:33着'), findsNothing);
+  });
+
+  testWidgets('route card clearly reports missing arrival time', (
+    tester,
+  ) async {
+    final missingArrival = Candidate.fromJson({
+      ...candidate.toJson(),
+      'arrival_time': null,
+    });
+    await pumpCard(tester, const Locale('ja'), route: missingArrival);
+
+    expect(find.text('時刻不明'), findsOneWidget);
+    expect(find.text('所要 64分'), findsNothing);
   });
 
   testWidgets('English route card localizes wait summary', (tester) async {
