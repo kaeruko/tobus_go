@@ -15,6 +15,7 @@ from transit_dataset import (
     TransitTrip,
     namespace_id,
     service_time_to_minute,
+    service_time_to_second,
 )
 
 
@@ -215,6 +216,8 @@ class OdptTransitAdapter:
                         sequence=sequence_raw,
                         arrival_minute=arrival,
                         departure_minute=departure,
+                        arrival_service_seconds=service_time_to_second(arrival_raw) if arrival is not None else None,
+                        departure_service_seconds=service_time_to_second(departure_raw) if departure is not None else None,
                     )
                 )
 
@@ -288,6 +291,8 @@ class OdptTransitAdapter:
                         sequence=sequence,
                         arrival_minute=arrival,
                         departure_minute=departure,
+                        arrival_service_seconds=service_time_to_second(arrival_raw) if arrival is not None else None,
+                        departure_service_seconds=service_time_to_second(departure_raw) if departure is not None else None,
                     )
                 )
 
@@ -299,3 +304,4 @@ class OdptTransitAdapter:
             stop_times=tuple(stop_times),
             calendars=calendars,
         )
+

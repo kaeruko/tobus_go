@@ -267,6 +267,17 @@ class TransitNetworkTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "subminute source clock.*demo_bus:t1.*seconds=36059"):
                 network(loaded)
 
+    def test_odpt_source_seconds_are_retained_and_use_the_same_precision_gate(self):
+        with tempfile.TemporaryDirectory() as root:
+            sources = feeds(Path(root))
+            first = sources[1].train_timetables[0]["odpt:trainTimetableObject"][0]
+            first["odpt:arrivalTime"] = first["odpt:departureTime"] = "10:19:59"
+            loaded = sources[1].load()
+            self.assertEqual(loaded.stop_times[0].departure_service_seconds, 37199)
+            self.assertEqual(loaded.stop_times[0].departure_minute, 620)
+            with self.assertRaisesRegex(ValueError, "subminute source clock.*demo_rail:early.*seconds=37199"):
+                network(loaded)
+
 
 class YokohamaSharedNetworkTest(unittest.TestCase):
     def setUp(self):

@@ -178,7 +178,7 @@
 - `transit_network.py`: `TransitNetworkSnapshot`と`build_transit_network()`。静的Dataset、明示した許可便集合、`DirectedWalkLink`からグラフを作る。方向・exact stop ID・両feed版・審査した距離/時間を検証する。近接リンク/逆方向を自動生成しない。
 - `transit_timetable_choices.py`: `DatasetTimetableChoices`と`search_network()`。共通label本体へ委譲し、別のfrontier/探索ループを作らない。具体便・service date・乗車位置・元stop_sequenceを維持し、同便だけを継続する。静的比較用でRealtime取得は行わない。
 - `yokohama_shared_network.py`: 福祉/敬老の明示したpassと現行coverage v1/v2から許可便を作る。返却する全乗車区間を元coverageと現行fare policyで0円再検証する。空の便単位審査からv1の路線単位承認へ戻さない。新たな無料認定や徒歩認定は行わない。
-- Dataset/GTFS adapterにpickup/drop-offと元service-day秒を保持する。GTFSで省略/空の乗降条件は仕様上の0。1は禁止、2/3は予約/申出を実装していないため新接続の乗降点にはせず、通過は維持する。既存Python/Rust v1の検索ロジック・整数分・Native入出力は変更しない。
+- Dataset/GTFS adapterにpickup/drop-offと元service-day秒を保持し、ODPT adapterも元の秒を保持する。GTFSで省略/空の乗降条件は仕様上の0。1は禁止、2/3は予約/申出を実装していないため新接続の乗降点にはせず、通過は維持する。既存Python/Rust v1の検索ロジック・整数分・Native入出力は変更しない。
 
 ### 状態・時計・都市別目的
 
@@ -196,8 +196,8 @@ lineノードは便ごとでなく、路線と順序付きstop ID/乗降条件�
 
 現在の新接続は正しさ比較のため**明示した0下界**を使う。下界の失敗後の0切替を新設しない。東京の既存A*と型同一性条件は維持する。共通A*、Native v2、snapshotのpickle/manifest、Lambda v2冷起動、実GTFS/ODPTの時刻/候補/性能比較は未実装・未検証。
 
-StopTimeの4追加slotはCPython 3.12の単体shallow sizeを72→104B（+32B/row）に増やす。読込内で同じ原文時計のimmutableな分/秒を共有し、秒整数を行ごとに重複生成しない。これはプロセスRSSの測定ではなく、source読込と索引/graph/queryを合わせた実データのpeak RSS/速度を保証しない。計測前にデプロイしない。
+StopTimeの4追加slotはCPython 3.12の単体shallow sizeを72→104B（+32B/row）に増やす。GTFS読込内で同じ原文時計のimmutableな分/秒を共有し、秒整数を行ごとに重複生成しない。これはプロセスRSSの測定ではなく、source読込と索引/graph/queryを合わせた実データのpeak RSS/速度を保証しない。計測前にデプロイしない。
 
-東京の既存220件が成功。共通接続/モデル/既存v1関連70件は64件成功・Nativeが必要な6件スキップ。横浜coverage/無料対象/乗換の既存関連92件が成功。新しい共通接続テスト21件は循環・具体便・後発早着・徒歩2回・乗降禁止・時刻不整合・24時以降/サービス例外・未承認の除外・乗車上限・二次目的の違いを確認する。CIでは新共通テストをPython 3.11/3.12双方で実行する。
+東京の既存220件が成功。共通接続/モデル/既存v1関連71件は65件成功・Nativeが必要な6件スキップ。横浜coverage/無料対象/乗換の既存関連92件が成功。新しい共通接続テスト22件は循環・具体便・後発早着・徒歩2回・乗降禁止・時刻不整合・24時以降/サービス例外・未承認の除外・乗車上限・二次目的の違いを確認する。CIでは新共通テストをPython 3.11/3.12双方で実行する。
 
 公開切替には、許可された非公開GTFSの読取り専用比較、両パスの全候補の独立確認、方向別の実審査、秒精度の入力ゲート、性能測定が必要。本番runtimeは既存v1のままで、横浜初回公開はこの統合完了を待たせない。
