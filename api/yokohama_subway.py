@@ -18,6 +18,7 @@ import math
 import re
 from datetime import date, datetime
 from pathlib import Path
+from urllib.parse import parse_qsl, urljoin, urlsplit
 
 import httpx
 
@@ -146,6 +147,39 @@ def load_yokohama_subway_dataset(
     return dataset
 
 
+def _safe_odpt_redirect(location: str, *, consumer_key: str) -> str:
+    """Validate a CDN handoff without ever logging/copying ODPT API credentials.
+
+    SOURCE_URL (without the secret) is the only relative redirect base.
+    Only HTTPS ODPT/CDN storage destinations may receive an unauthed GET.
+    """
+    if not isinstance(location, str) or not location.strip():
+        raise ValueError("subway GTFS download redirect missing Location")
+    # A relative Location must never resolve against the authenticated URL.
+    resolved = urljoin(SOURCE_URL, location)
+    parsed = urlsplit(resolved)
+    host = (parsed.hostname or "").lower()
+    allowed = (
+        host in {"api.odpt.org", "api-public.odpt.org", "storage.googleapis.com",
+                 "s3.amazonaws.com"}
+        or bool(re.fullmatch(r"[a-z0-9-]+\\.cloudfront\\.net", host))
+        or bool(re.fullmatch(r"s3[.-][a-z0-9-]+\\.amazonaws\\.com", host))
+        or bool(re.fullmatch(r"[a-z0-9.-]+\\.s3[.-][a-z0-9-]+\\.amazonaws\\.com", host))
+        or bool(re.fullmatch(r"[a-z0-9.-]+\\.s3\\.amazonaws\\.com", host))
+    )
+    if parsed.scheme != "https" or parsed.username or parsed.password or parsed.fragment:
+        raise ValueError("subway GTFS redirect must be HTTPS without userinfo or fragment")
+    if not allowed or parsed.port not in (None, 443):
+        # Host is intentionally returned, but NEVER the full signed URL or key.
+        raise ValueError(f"subway GTFS redirect host not approved: {host or 'unknown'}")
+    if consumer_key in resolved or any(
+        key.lower() in {"acl:consumerkey", "consumerkey"}
+        for key, _ in parse_qsl(parsed.query, keep_blank_values=True)
+    ):
+        raise ValueError("subway GTFS redirect must not carry ODPT API credentials")
+    return resolved
+
+
 _MAX_ZIP_BYTES = 80 * 1024 * 1024
 _MAX_UNPACK_BYTES = 400 * 1024 * 1024
 _MAX_MEMBERS = 64
@@ -218,19 +252,43 @@ def fetch_yokohama_subway_gtfs(
     http_client = client or httpx.Client(timeout=60.0, follow_redirects=False)
     try:
         try:
-            # SOURCE_URL's existing query is repeated explicitly, never read from
-            # an untrusted redirect response. Only the pinned ODPT endpoint is used.
+            # Authenticate against ODPT ONLY. The next hop must never inherit
+            # acl:consumerKey, cookies, Authorization, or client default params.
             response = http_client.get(
                 SOURCE_URL,
                 params={"date": "current", "acl:consumerKey": consumer_key},
-                follow_redirects=False,  # Also overrides caller-provided clients.
+                follow_redirects=False,
             )
         except httpx.RequestError:
             raise RuntimeError("subway GTFS ODPT request failed") from None
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"subway GTFS ODPT returned HTTP {response.status_code}"
+
+        # ODPT may return 302 pointing at a separate file-delivery host.
+        # Follow only explicitly checked HTTPS targets with a FRESH unauthenticated
+        # Request. Never use automatic redirects (which could forward secrets).
+        for _ in range(3):
+            if response.status_code == 200:
+                break
+            if response.status_code not in {301, 302, 303, 307, 308}:
+                raise RuntimeError(
+                    f"subway GTFS ODPT returned HTTP {response.status_code}"
+                )
+            if not response.headers.get("location"):
+                raise RuntimeError(
+                    f"subway GTFS ODPT returned HTTP {response.status_code}"
+                )
+            target_url = _safe_odpt_redirect(
+                response.headers["location"], consumer_key=consumer_key,
             )
+            try:
+                response = http_client.send(
+                    httpx.Request("GET", target_url),
+                    auth=None,
+                    follow_redirects=False,
+                )
+            except httpx.RequestError:
+                raise RuntimeError("subway GTFS redirected download failed") from None
+        else:
+            raise RuntimeError("subway GTFS exceeded safe redirect limit")
         data = response.content
         if not data or len(data) > _MAX_ZIP_BYTES:
             raise ValueError("subway GTFS ZIP empty or over size limit")

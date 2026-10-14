@@ -114,6 +114,83 @@ class SubwayDownloadTests(unittest.TestCase):
         self.assertEqual(seen, ["api.odpt.org"])
         self.assertFalse((self.root / "output").exists())
 
+    def test_allowlisted_https_cdn_redirect_strips_odpt_credentials(self):
+        requests = []
+
+        def respond(req: httpx.Request) -> httpx.Response:
+            requests.append(req)
+            if req.url.host == "api.odpt.org":
+                return httpx.Response(
+                    302,
+                    headers={"Location": "https://storage.googleapis.com/"
+                                         "yokohama-odpt/test.zip?signature=public"},
+                )
+            return httpx.Response(200, content=self.archive)
+
+        with httpx.Client(
+            transport=httpx.MockTransport(respond),
+            follow_redirects=True,
+            headers={"Authorization": f"Bearer {KEY}"},
+            params={"inherited": KEY},
+        ) as client:
+            report = self._fetch(client)
+        self.assertEqual(report["trip_count"], 1)
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(requests[1].url.host, "storage.googleapis.com")
+        self.assertNotIn(KEY, str(requests[1].url))
+        self.assertNotIn("acl:consumerKey", str(requests[1].url))
+        self.assertNotIn("authorization", {x.lower() for x in requests[1].headers})
+        self.assertNotIn("inherited", str(requests[1].url))
+        self.assertFalse(list(self.root.glob(".yokohama_subway_*")))
+
+    def test_s3_redirect_with_absolute_url_and_no_location_secret(self):
+        requests = []
+
+        def respond(req: httpx.Request) -> httpx.Response:
+            requests.append(req)
+            if len(requests) == 1:
+                return httpx.Response(
+                    302, headers={"Location":
+                        "https://odpt-feed.s3.ap-northeast-1.amazonaws.com/train.zip"},
+                )
+            return httpx.Response(200, content=self.archive)
+
+        with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+            self._fetch(client)
+        self.assertEqual(len(requests), 2)
+
+    def test_redirect_cannot_leak_key_or_change_to_http_or_untrusted_host(self):
+        for location in (
+            "https://evil.example/train.zip",
+            "http://storage.googleapis.com/unsafe.zip",
+            "https://storage.googleapis.com/train.zip?acl%3AconsumerKey=" + KEY,
+            "https://storage.googleapis.com/train.zip?key=" + KEY,
+            "https://storage.googleapis.com:8443/train.zip",
+        ):
+            with self.subTest(redirect="redacted"):
+                count = []
+                def respond(req):
+                    count.append(req)
+                    return httpx.Response(302, headers={"Location": location})
+                with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+                    with self.assertRaisesRegex(ValueError, "redirect"):
+                        self._fetch(client)
+                self.assertEqual(len(count), 1)
+                self.assertFalse((self.root / "output").exists())
+
+    def test_redirect_loop_fails_without_partial_output(self):
+        responses = []
+        def respond(req):
+            responses.append(req)
+            return httpx.Response(
+                302, headers={"Location": "https://storage.googleapis.com/loop.zip"}
+            )
+        with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+            with self.assertRaisesRegex(RuntimeError, "safe redirect limit"):
+                self._fetch(client)
+        self.assertEqual(len(responses), 4)
+        self.assertFalse((self.root / "output").exists())
+
     def test_corrupted_zip_and_nonmatching_feed_fail_without_partial_output(self):
         client, _ = _client(b"not zip data")
         with client, self.assertRaisesRegex(ValueError, "invalid ZIP archive"):
