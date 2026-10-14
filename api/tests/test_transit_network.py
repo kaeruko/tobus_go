@@ -63,6 +63,32 @@ def query(snapshot, origin, destination, *, mode="time", day=SERVICE_DAY, depart
 
 
 class TransitNetworkTest(unittest.TestCase):
+    def test_equal_arrival_transfer_tie_exposes_v1_and_cost_ordering_difference(self):
+        # Entirely synthetic circular runs: identical final arrival and vehicles,
+        # but different transfer stop and waiting duration. Do not change Tokyo's
+        # default cost tie-break to hide a municipal v1 comparison difference.
+        source = dataset('bus', {
+            'later': [('o', 100, 100), ('b', 109, 109), ('a', 115, 115),
+                      ('x', 135, 135), ('a', 163, 163), ('b', 169, 169), ('d', 177, 177)],
+            'earlier': [('o', 70, 70), ('b', 79, 79), ('a', 85, 85),
+                        ('x', 105, 105), ('a', 130, 130), ('b', 136, 136), ('d', 147, 147)],
+        })
+        core = PythonTransitSearchCore(source)
+        request = BatchSearchRequest(service_date=SERVICE_DAY, departure_minute=100,
+            origins=(SearchEndpoint('bus:o'),), destinations=(SearchEndpoint('bus:d'),),
+            preference='fastest', max_rides=6)
+        legacy = core.search(request).pairs[0].itinerary
+        shared = query(network(source), 'bus:o', 'bus:d', departure=100, max_candidates=1)[0]
+        rides = [e for e in shared.events if isinstance(e, NetworkRideEvent)]
+        self.assertEqual((legacy.arrival_minute, legacy.rides),
+                         (shared.arrival_minute, shared.rides))
+        self.assertEqual([e.trip_id for e in legacy.legs], [e.trip_id for e in rides])
+        self.assertEqual(legacy.legs[0].to_stop_id, 'bus:a')
+        self.assertEqual(rides[0].to_stop_id, 'bus:b')
+        self.assertEqual(legacy.legs[1].departure_minute - legacy.legs[0].arrival_minute, 15)
+        self.assertEqual(rides[1].departure_minute - rides[0].arrival_minute, 27)
+        self.assertAlmostEqual(shared.cost, 11.6)
+
     def test_preparation_deadline_and_exact_query_local_board_cache(self):
         source = dataset("bus", {"t": [("a", 600, 600), ("b", 610, 610)]})
         snapshot = network(source)
