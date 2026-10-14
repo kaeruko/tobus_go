@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 # Deterministically expands the stock Runner Xcode configurations into
-# Debug/Profile/Release configurations for tokyo, nagoya and sendai.
+# Debug/Profile/Release configurations for tokyo, nagoya, sendai and yokohama.
 #
 # The script is intentionally fail-fast: it only knows the exact configuration
 # IDs in this repository and refuses a partially generated or unexpected state.
@@ -55,6 +55,12 @@ CITIES = {
     bundle_id: 'jp.cloxs.go.sendai',
     display_name: '仙台でGO',
     app_icon_name: 'AppIconSendai',
+    exclude_tokyo_firebase_plist: true
+  },
+  'yokohama' => {
+    bundle_id: 'jp.cloxs.go.yokohama',
+    display_name: '横浜でGO',
+    app_icon_name: 'AppIconYokohama',
     exclude_tokyo_firebase_plist: true
   }
 }.freeze
@@ -191,15 +197,24 @@ BASE_RUNNER_CONFIGS.each do |_kind, id|
 end
 
 expected_names = CITIES.keys.product(BUILD_KINDS).map { |city, kind| "#{kind}-#{city}" }
-core_ids = PROJECT_IDS.values + RUNNER_IDS.values
-core_present = core_ids.select { |id| config_block_present?(text, id) }
-if core_present.any? && core_present.length != core_ids.length
-  abort 'Xcode project/Runner flavor configurations are partially generated'
+# Existing city configurations are preserved. Missing new city configs may
+# be generated, but a partially generated city fails fast.
+missing_core_cities = []
+CITIES.each_key do |city|
+  ids = BUILD_KINDS.flat_map do |kind|
+    [PROJECT_IDS.fetch([kind, city]), RUNNER_IDS.fetch([kind, city])]
+  end
+  present = ids.select { |id| config_block_present?(text, id) }
+  if present.any? && present.length != ids.length
+    abort "Xcode project/Runner flavor #{city} is partially generated"
+  end
+  missing_core_cities << city if present.empty?
 end
 
-if core_present.empty?
+unless missing_core_cities.empty?
   generated_blocks = []
-  CITIES.each do |city, config|
+  missing_core_cities.each do |city|
+    config = CITIES.fetch(city)
     BUILD_KINDS.each do |kind|
       project_base = extract_config_block(text, BASE_PROJECT_CONFIGS.fetch(kind))
       project_block = rename_config_block(
@@ -257,15 +272,20 @@ end
 # CocoaPods inspects every target for every project configuration. RunnerTests
 # therefore needs the same flavored configuration names as Runner; otherwise
 # CocoaPods sees a mixture of Swift 5.0 and an undefined Swift version.
-test_ids = TEST_IDS.values
-test_present = test_ids.select { |id| config_block_present?(text, id) }
-if test_present.any? && test_present.length != test_ids.length
-  abort 'RunnerTests flavor configurations are partially generated'
+missing_test_cities = []
+CITIES.each_key do |city|
+  ids = BUILD_KINDS.map { |kind| TEST_IDS.fetch([kind, city]) }
+  present = ids.select { |id| config_block_present?(text, id) }
+  if present.any? && present.length != ids.length
+    abort "RunnerTests flavor #{city} is partially generated"
+  end
+  missing_test_cities << city if present.empty?
 end
 
-if test_present.empty?
+unless missing_test_cities.empty?
   generated_test_blocks = []
-  CITIES.each do |city, config|
+  missing_test_cities.each do |city|
+    config = CITIES.fetch(city)
     BUILD_KINDS.each do |kind|
       test_base = extract_config_block(text, BASE_TEST_CONFIGS.fetch(kind))
       test_block = rename_config_block(
@@ -284,13 +304,14 @@ if test_present.empty?
   end
   marker = "/* End XCBuildConfiguration section */"
   text = text.sub(marker, "#{generated_test_blocks.join("\n")}\n#{marker}")
-else
-  CITIES.each do |city, config|
-    BUILD_KINDS.each do |kind|
-      block = extract_config_block(text, TEST_IDS.fetch([kind, city]))
-      updated = ensure_test_city_settings(block, bundle_id: config.fetch(:bundle_id))
-      text = text.sub(block, updated)
-    end
+end
+
+# Reconcile both existing and newly generated RunnerTests configurations.
+CITIES.each do |city, config|
+  BUILD_KINDS.each do |kind|
+    block = extract_config_block(text, TEST_IDS.fetch([kind, city]))
+    updated = ensure_test_city_settings(block, bundle_id: config.fetch(:bundle_id))
+    text = text.sub(block, updated)
   end
 end
 

@@ -7,12 +7,16 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 from pathlib import Path
 from datetime import timedelta
 
 from gtfs_route_backend import GtfsRouteBackend, _haversine_m
-from route_engine import RouteCandidate, RouteInputError, RoutePreference, RouteSearchResult
-from yokohama_municipal_transfer import ExplicitTransferLink, _reviewed
+from route_engine import (RouteCandidate, RouteInputError, RoutePreference,
+                          RouteSearchLimitError, RouteSearchResult)
+from yokohama_municipal_transfer import (
+    ExplicitTransferLink, GeometricTransferEstimate, _reviewed,
+)
 from yokohama_transit import _yokohama_service_clock
 
 PASS_IDS = frozenset({"yokohama_welfare_special_pass", "yokohama_senior_special_pass"})
@@ -35,7 +39,25 @@ class _CoveredFeedBackend(GtfsRouteBackend):
     def __init__(self, coverage, **kwargs):
         self.coverage = coverage
         self.active_stops = frozenset(row.stop_id for row in coverage.dataset.stop_times)
+        # Keep the service-day stop index next to the shared timetable index.
+        # An inactive Saturday-only pole must not create a transfer candidate
+        # on Wednesday (nor consume the capped dev-only proximity budget).
+        by_service = {}
+        for row in coverage.dataset.stop_times:
+            service_id = coverage.dataset.trips[row.trip_id].service_id
+            by_service.setdefault(service_id, set()).add(row.stop_id)
+        self.stops_by_service = {
+            key: frozenset(value) for key, value in by_service.items()
+        }
         super().__init__(coverage.dataset, **kwargs)
+
+    def active_stops_on(self, service_date):
+        active_services = self.dataset.active_service_ids(service_date)
+        return frozenset(
+            stop_id
+            for service_id in active_services
+            for stop_id in self.stops_by_service.get(service_id, ())
+        )
 
     def _nearby(self, lat, lon):
         # Excluded routes' poles must not consume the endpoint candidate budget.
@@ -75,7 +97,20 @@ class YokohamaMunicipalRouteBackend:
     A missing walking review excludes connections, never enables proximity
     estimates. Bus-only searches select the bus feed before any search runs.
     """
-    def __init__(self, bus_coverage, subway_coverage, *, transfer_links=(), **kwargs):
+    def __init__(
+        self, bus_coverage, subway_coverage, *, transfer_links=(),
+        estimated_transfer_mode=False, estimated_radius_m=300,
+        estimated_candidate_limit=100, **kwargs,
+    ):
+        if type(estimated_transfer_mode) is not bool:
+            raise ValueError("estimated_transfer_mode must be bool")
+        if type(estimated_radius_m) is not int or not 1 <= estimated_radius_m <= 600:
+            raise ValueError("estimated_radius_m must be 1..600")
+        if type(estimated_candidate_limit) is not int or not 1 <= estimated_candidate_limit <= 100:
+            raise ValueError("estimated_candidate_limit must be 1..100")
+        self.estimated_transfer_mode = estimated_transfer_mode
+        self.estimated_radius_m = estimated_radius_m
+        self.estimated_candidate_limit = estimated_candidate_limit
         bus = _reviewed(bus_coverage, "yokohama_bus", "yokohama_municipal_bus")
         rail = _reviewed(subway_coverage, "yokohama_subway", "yokohama_municipal_subway")
         self.backends = {
@@ -114,8 +149,45 @@ class YokohamaMunicipalRouteBackend:
             blon=destination.lon, departure=departure, preference=preference,
         )
 
+    def _candidate_transfer_links(self, service_date):
+        """Keep reviewed evidence separate from provisional GTFS proximity.
+
+        This is an explicit development-only switch; public default stays
+        reviewed links only. Every mode preserves direction-specific pole IDs.
+        """
+        if not self.estimated_transfer_mode:
+            return self.transfer_links
+        bus = self.backends["bus"]
+        rail = self.backends["rail"]
+        if bus is None or rail is None:
+            return self.transfer_links
+        reviewed_pairs = {(x.bus_stop_id, x.subway_stop_id) for x in self.transfer_links}
+        estimated = []
+        for bus_id in sorted(bus.active_stops_on(service_date)):
+            a = bus.dataset.stops[bus_id]
+            for rail_id in sorted(rail.active_stops_on(service_date)):
+                if (bus_id, rail_id) in reviewed_pairs:
+                    continue
+                b = rail.dataset.stops[rail_id]
+                distance = _haversine_m(a.lat, a.lon, b.lat, b.lon)
+                if math.isfinite(distance) and distance <= self.estimated_radius_m:
+                    meters = math.ceil(distance * 1.5)
+                    estimated.append(GeometricTransferEstimate(
+                        bus_stop_id=bus_id,
+                        subway_stop_id=rail_id,
+                        straight_line_distance_m=distance,
+                        walk_meters=meters,
+                        walk_minutes=math.ceil(meters / 80) + 2,
+                    ))
+                    if len(estimated) > self.estimated_candidate_limit:
+                        raise RouteSearchLimitError(
+                            "too many provisional Yokohama walking links; "
+                            "reduce estimated_radius_m, no truncated routes"
+                        )
+        return self.transfer_links + tuple(estimated)
+
     def _connections(self, request, preference):
-        for link in self.transfer_links:
+        for link in self._candidate_transfer_links(request.departure_at.date()):
             for first_mode, second_mode in (("bus", "rail"), ("rail", "bus")):
                 first, second = self.backends[first_mode], self.backends[second_mode]
                 if first is None or second is None:
@@ -149,16 +221,29 @@ class YokohamaMunicipalRouteBackend:
                         continue
                     p = self._payload(left, best, request, request.departure_at, request.origin, a, preference)
                     q = self._payload(right, onward, request, departure, b, request.destination, preference)
-                    walk = dict(kind="walk", title="徒歩乗換", from_=a.name, to=b.name,
-                                minutes=link.walk_minutes, meters=link.walk_meters, stops=[],
-                                departureStopId=a.id, arrivalPoleId=b.id,
-                                walking_connection_verified=True,
-                                evidence_url=link.official_evidence_url)
+                    is_reviewed = isinstance(link, ExplicitTransferLink)
+                    walk = dict(
+                        kind="walk",
+                        title="徒歩乗換" if is_reviewed else "徒歩乗換（座標から推定）",
+                        from_=a.name, to=b.name, minutes=link.walk_minutes,
+                        meters=link.walk_meters, stops=[],
+                        departureStopId=a.id, arrivalPoleId=b.id,
+                        walking_connection_verified=is_reviewed,
+                    )
+                    if is_reviewed:
+                        walk["evidence_url"] = link.official_evidence_url
+                    else:
+                        walk["distance_basis"] = "straight_line_estimate"
+                        walk["walking_route_confirmed"] = False
                     steps = p["steps"] + [walk] + q["steps"]
                     for index, step in enumerate(steps):
                         step["step_id"] = f"municipal-{index}"
                     total = p["total_time"] + link.walk_minutes + q["total_time"]
-                    p.update(id=p["id"] + "|" + q["id"], steps=steps,
+                    # Same trip pair can interchange at multiple direction-specific stops.
+                    # Preserve each actual walking handoff instead of silently
+                    # replacing a route in the candidate-id deduplication below.
+                    transfer_id = f"|via:{link.bus_stop_id}>{link.subway_stop_id}"
+                    p.update(id=p["id"] + "|" + q["id"] + transfer_id, steps=steps,
                              total=total, total_time=total, arrival_time=q["arrival_time"],
                              destination_coords=q["destination_coords"],
                              lines=list(dict.fromkeys(p["lines"] + q["lines"])),
@@ -200,7 +285,16 @@ class YokohamaMunicipalRouteBackend:
             "search_scope": self.policy_id, "timetable_only": True,
             "covered_modes": list(modes), "max_inter_feed_transfers": 1,
             "unreviewed_transport_excluded": True,
-            "unverified_walking_transfers_excluded": True,
+            "unverified_walking_transfers_excluded": not self.estimated_transfer_mode,
             "reviewed_transfer_links": len(self.transfer_links),
-            "coverage_notice": "未対応・無料の確認未了の路線と、徒歩接続未確認の乗換は検索対象外です。",
+            "walking_transfer_basis": (
+                "provisional_gtfs_proximity" if self.estimated_transfer_mode
+                else "reviewed_links_only"
+            ),
+            "coverage_notice": (
+                "未対応・無料の確認未了の路線は検索対象外です。"
+                "徒歩乗換はGTFSの位置情報からの推定で、歩行経路・駅入口は未検証です。"
+                if self.estimated_transfer_mode
+                else "未対応・無料の確認未了の路線と、徒歩接続未確認の乗換は検索対象外です。"
+            ),
         })

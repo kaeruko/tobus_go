@@ -1008,6 +1008,40 @@ validな地下鉄のRail datasetを単独でも受け付けなかった。
 4. 静的データ起動・feed更新・運行日・日跨ぎ・Flutter表示を
    実データで合格させること。
 
+### 市営バス⇄地下鉄 位置ベース徒歩乗換のローカル試験モード（2026-10-14）
+
+`api/yokohama_municipal_backend.py`には
+`YOKOHAMA_TRANSFER_WALK_MODE`を導入した。
+**既定値`reviewed`は変更なし**：別途レビュー済みの
+`YOKOHAMA_REVIEWED_TRANSFERS_PATH`内の明示リンクだけでバス⇄地下鉄を接続する。
+公式のバス乗り場番号を全件登録する必要はないが、
+実用的に歩けることがまだ未確認の区間を公開経路だと見せない。
+
+`estimate_dev`は**`create_app("local")`だけ**で利用でき、
+他のbackend実行モード（クラウド本番・Lambda等）では
+起動時にfail-fastで拒否する。設定する場合は、検証済みの
+`YOKOHAMA_BUS_GTFS_DIR`・`YOKOHAMA_SUBWAY_GTFS_DIR`・
+`YOKOHAMA_FARE_COVERAGE_PATH`を揃えること。
+運賃検証を回避する機能ではない。
+
+`estimate_dev`では、審査済みのバス・地下鉄それぞれの
+GTFS停留所・駅の座標から**300m以内の近接リンクを自動生成**し、
+既存のSearchCoreの時刻表で乗り継ぎを検索する。
+徒歩は直線距離×1.5、80m/分＋2分という**暫定の推定**で、
+`walking_connection_verified=false`、
+`walking_route_confirmed=false`、
+`distance_basis=straight_line_estimate`と明記する。
+**駅入口や道路の通行可能性、信号待ち、段差・エレベーター、
+ホーム移動時間を保証しない**。表示用に無印の
+確定徒歩案内として利用しない。位置ベースの候補は最大100件、
+超える場合は切り捨てず`RouteSearchLimitError`。
+
+このローカル試験機能で東京と同様に「同名・方向別のGTFS ID」
+で徒歩接続候補を探索できるが、**実データの計測・公開仕様の最終承認までは
+`reviewed`を本番既定値から変更しない**。
+合成回帰テストは`api/tests/test_yokohama_municipal_backend.py`。
+データ更新・無料審査・アクセシビリティ・実歩行経路の検証は別工程。
+
 ### 市営バス⇄地下鉄の明示乗換プロトタイプ（2026-10-14）
 
 `api/yokohama_municipal_transfer.py` は、先に確認した
