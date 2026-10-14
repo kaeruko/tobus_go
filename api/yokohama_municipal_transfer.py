@@ -1,18 +1,21 @@
-"""Isolated two-feed, one-walk transfer probe for Yokohama municipal passes.
+"""Offline two-feed municipal pass transfer planning using shared TransitRouteEngine.
 
-NOT wired to the public runtime. Transfer links and fare coverages must be
-independently reviewed. Never infer transfers by name or GTFS coordinates.
+NOT wired to the public runtime. Explicit links require reviewed evidence.
+Geometry-based links are only provisional development hints, not verified
+walking connections or walking times; never expose them as confirmed routes.
+Fare coverage must be independently reviewed before either search mode.
 """
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Union
 from urllib.parse import urlsplit
 
 from fare_policy import FarePolicyContext, RideFareContext, get_fare_policy
 from route_engine import RouteContractError
-from transit_dataset import TransitMode
+from transit_dataset import TransitMode, TransitDataset
 from transit_engine import TransitLeg, TransitRouteEngine
 from yokohama_fare_coverage import YokohamaFareCoverage
 
@@ -56,17 +59,81 @@ class ExplicitTransferLink:
 
 
 @dataclass(frozen=True, slots=True)
+class GeometricTransferEstimate:
+    """Provisional cross-feed link: GTFS stop centers, NOT a measured footpath."""
+
+    bus_stop_id: str
+    subway_stop_id: str
+    straight_line_distance_m: float
+    walk_meters: int
+    walk_minutes: int
+
+    def __post_init__(self) -> None:
+        if (
+            not self.bus_stop_id.startswith(_BUS_FEED + ":")
+            or not self.subway_stop_id.startswith(_RAIL_FEED + ":")
+        ):
+            raise ValueError("geometric transfer requires feed-namespaced stop IDs")
+        if (
+            not math.isfinite(self.straight_line_distance_m)
+            or self.straight_line_distance_m < 0
+        ):
+            raise ValueError("geometric distance must be finite and nonnegative")
+        if type(self.walk_meters) is not int or self.walk_meters < 0:
+            raise ValueError("geometric walk_meters must be a nonnegative integer")
+        if type(self.walk_minutes) is not int or self.walk_minutes < 0:
+            raise ValueError("geometric walk_minutes must be a nonnegative integer")
+        if self.walk_meters + 1 < self.straight_line_distance_m:
+            raise ValueError("geometric walk cannot understate straight-line distance")
+        if self.walk_minutes < math.ceil(self.walk_meters / 80):
+            raise ValueError("geometric walking time cannot understate assumed speed")
+
+
+@dataclass(frozen=True, slots=True)
 class MunicipalTransferPlan:
     first_legs: tuple[TransitLeg, ...]
     second_legs: tuple[TransitLeg, ...]
     first_mode: str
     second_mode: str
-    transfer: ExplicitTransferLink
+    transfer: ExplicitTransferLink | GeometricTransferEstimate
     transfer_arrival_minute: int
     onward_ready_minute: int
     final_arrival_minute: int
     policy_id: str
     additional_payment_yen: int
+
+    @property
+    def walking_connection_verified(self) -> bool:
+        return isinstance(self.transfer, ExplicitTransferLink)
+
+
+def _haversine_m(a, b) -> float:
+    lat1, lon1 = math.radians(a.lat), math.radians(a.lon)
+    lat2, lon2 = math.radians(b.lat), math.radians(b.lon)
+    central = (
+        math.sin((lat2 - lat1) / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2)
+        * math.sin((lon2 - lon1) / 2) ** 2
+    )
+    return 2 * 6_371_000 * math.asin(min(1.0, math.sqrt(central)))
+
+
+def _active_stop_ids(
+    dataset: TransitDataset, day, *, use_departure: bool
+) -> set[str]:
+    services = dataset.active_service_ids(day)
+    active_trips = {
+        trip_id for trip_id, trip in dataset.trips.items()
+        if trip.service_id in services
+    }
+    return {
+        row.stop_id for row in dataset.stop_times
+        if row.trip_id in active_trips
+        and (
+            row.departure_minute is not None if use_departure
+            else row.arrival_minute is not None
+        )
+    }
 
 
 def _reviewed(coverage: YokohamaFareCoverage, feed: str, operator: str):
@@ -95,22 +162,20 @@ def _step(leg: TransitLeg, coverage: YokohamaFareCoverage):
     return RideFareContext.from_step(data)
 
 
-def search_explicit_municipal_transfer(
+def _search_municipal_transfer_with_link(
     *,
     bus_coverage: YokohamaFareCoverage,
     subway_coverage: YokohamaFareCoverage,
     origin_stop_id: str,
     destination_stop_id: str,
     depart_at: datetime,
-    transfer: ExplicitTransferLink,
+    transfer: ExplicitTransferLink | GeometricTransferEstimate,
     policy_id: str,
 ) -> MunicipalTransferPlan | None:
-    """Find one explicitly defined cross-feed walking transfer.
+    """Find one cross-feed walking transfer using existing timetable search.
 
-    This is an offline prototype for reviewed stop IDs, not a route API.  It
-    does not claim to find the globally optimal itinerary or infer footpaths.
-    Cross-midnight transfers are intentionally refused pending service-day
-    handling across two different feeds.
+    Offline only. Geometric links are unverified hypotheses, NOT public routes.
+    Cross-midnight transfers are refused until service-day handling is proven.
     """
     if policy_id not in _PASS_IDS:
         raise ValueError("Yokohama transfer requires an explicit welfare/senior pass")
@@ -131,14 +196,7 @@ def search_explicit_municipal_transfer(
     # Coordinates can only reject physically impossible or understated walks.
     bus_stop = bus.dataset.stops[transfer.bus_stop_id]
     subway_stop = rail.dataset.stops[transfer.subway_stop_id]
-    lat1, lon1 = math.radians(bus_stop.lat), math.radians(bus_stop.lon)
-    lat2, lon2 = math.radians(subway_stop.lat), math.radians(subway_stop.lon)
-    central = (
-        math.sin((lat2 - lat1) / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2)
-        * math.sin((lon2 - lon1) / 2) ** 2
-    )
-    straight_m = 2 * 6_371_000 * math.asin(min(1.0, math.sqrt(central)))
+    straight_m = _haversine_m(bus_stop, subway_stop)
     if not math.isfinite(straight_m) or straight_m > 600:
         raise ValueError("explicit transfer stops too far apart")
     if transfer.walk_meters + 1 < straight_m:
@@ -212,3 +270,124 @@ def search_explicit_municipal_transfer(
         policy_id=policy_id,
         additional_payment_yen=0,
     )
+
+def search_explicit_municipal_transfer(
+    *,
+    bus_coverage: YokohamaFareCoverage,
+    subway_coverage: YokohamaFareCoverage,
+    origin_stop_id: str,
+    destination_stop_id: str,
+    depart_at: datetime,
+    transfer: ExplicitTransferLink,
+    policy_id: str,
+) -> MunicipalTransferPlan | None:
+    """Preserve the separately evidenced/manual link test entrypoint."""
+    if not isinstance(transfer, ExplicitTransferLink):
+        raise ValueError("explicit transfer requires a reviewed ExplicitTransferLink")
+    return _search_municipal_transfer_with_link(
+        bus_coverage=bus_coverage, subway_coverage=subway_coverage,
+        origin_stop_id=origin_stop_id, destination_stop_id=destination_stop_id,
+        depart_at=depart_at, transfer=transfer, policy_id=policy_id,
+    )
+
+
+def search_geometric_municipal_transfers(
+    *,
+    bus_coverage: YokohamaFareCoverage,
+    subway_coverage: YokohamaFareCoverage,
+    origin_stop_id: str,
+    destination_stop_id: str,
+    depart_at: datetime,
+    policy_id: str,
+    radius_m: int = 300,
+    max_candidate_links: int = 40,
+) -> tuple[MunicipalTransferPlan, ...]:
+    """Offline provisional bus↔subway candidate search with GTFS spatial links.
+
+    Reuses each feed's unchanged TransitRouteEngine for actual GTFS trips and
+    YokohamaFareCoverage for fare approval. Walking is conservatively estimated
+    from straight-line separation, NOT proven physically possible. Do not wire
+    these outputs to /route; human review/real walking directions still needed.
+    The returned list is sorted by scheduled arrival and contains at most one
+    cross-feed transfer (not a globally optimal cross-network search).
+    """
+    if type(radius_m) is not int or not 1 <= radius_m <= 600:
+        raise ValueError("radius_m must be an integer from 1 to 600")
+    if type(max_candidate_links) is not int or not 1 <= max_candidate_links <= 100:
+        raise ValueError("max_candidate_links must be between 1 and 100")
+    if policy_id not in _PASS_IDS:
+        raise ValueError("Yokohama transfer requires an explicit welfare/senior pass")
+    if (
+        depart_at.tzinfo is None
+        or depart_at.utcoffset() != timedelta(hours=9)
+    ):
+        raise ValueError("Yokohama transfer requires an aware JST datetime")
+
+    bus = _reviewed(bus_coverage, _BUS_FEED, "yokohama_municipal_bus")
+    rail = _reviewed(subway_coverage, _RAIL_FEED, "yokohama_municipal_subway")
+    if bus is None or rail is None:
+        return ()
+
+    if origin_stop_id in bus.dataset.stops and destination_stop_id in rail.dataset.stops:
+        bus_first = True
+        before = _active_stop_ids(bus.dataset, depart_at.date(), use_departure=False)
+        after = _active_stop_ids(rail.dataset, depart_at.date(), use_departure=True)
+    elif origin_stop_id in rail.dataset.stops and destination_stop_id in bus.dataset.stops:
+        bus_first = False
+        before = _active_stop_ids(rail.dataset, depart_at.date(), use_departure=False)
+        after = _active_stop_ids(bus.dataset, depart_at.date(), use_departure=True)
+    else:
+        raise ValueError("transfer requires one bus and one subway endpoint")
+
+    # Find all nearby poles/stations from scheduled, reviewed service. No
+    # name-based same-stop merge; GTFS pole IDs remain distinct by direction.
+    pairs: list[tuple[float, str, str]] = []
+    for bus_id in (before if bus_first else after):
+        bus_stop = bus.dataset.stops[bus_id]
+        for rail_id in (after if bus_first else before):
+            rail_stop = rail.dataset.stops[rail_id]
+            dist = _haversine_m(bus_stop, rail_stop)
+            if math.isfinite(dist) and dist <= radius_m:
+                pairs.append((dist, bus_id, rail_id))
+    pairs.sort(key=lambda item: (item[0], item[1], item[2]))
+
+    # The cap is an explicit safety bound. Do not claim search completeness
+    # if legitimate candidates would be discarded by the cap.
+    if len(pairs) > max_candidate_links:
+        raise ValueError(
+            "too many proximity transfer links; narrow radius or raise "
+            "max_candidate_links, no truncated free routes returned"
+        )
+
+    plans: list[MunicipalTransferPlan] = []
+    for distance, bus_id, rail_id in pairs:
+        # Tokyo already uses Haversine-based station/bus proximity. This is
+        # deliberately a cautious timetable probe, not a measured footpath:
+        # 1.5x distance, plus two minutes for transfer access/boarding.
+        estimated_meters = max(
+            math.ceil(distance * 1.5), math.ceil(distance)
+        )
+        estimated_minutes = math.ceil(estimated_meters / 80) + 2
+        estimate = GeometricTransferEstimate(
+            bus_stop_id=bus_id,
+            subway_stop_id=rail_id,
+            straight_line_distance_m=distance,
+            walk_meters=estimated_meters,
+            walk_minutes=estimated_minutes,
+        )
+        plan = _search_municipal_transfer_with_link(
+            bus_coverage=bus_coverage, subway_coverage=subway_coverage,
+            origin_stop_id=origin_stop_id,
+            destination_stop_id=destination_stop_id,
+            depart_at=depart_at,
+            transfer=estimate, policy_id=policy_id,
+        )
+        if plan is not None:
+            plans.append(plan)
+    plans.sort(key=lambda p: (
+        p.final_arrival_minute,
+        len(p.first_legs) + len(p.second_legs),
+        p.transfer.walk_minutes,
+        p.transfer.bus_stop_id, p.transfer.subway_stop_id,
+    ))
+    return tuple(plans)
