@@ -1,6 +1,6 @@
 # 東京・横浜の徒歩・乗換ネットワーク共通化 — 設計調査（RFC）
 
-- 状態: **設計案／実装・本番経路の変更なし**
+- 状態: **RFC。GTFS/ODPTの共通読込ラッパーのみ実装済み。本番の探索・データ・UIは変更なし**
 - 調査したリポジトリ: `kaeruko/tobus_go` の `main`、`82bc14e17b7643bea0df229ded28dc0e55558e33`（2026-10-14）
 - 関連: [横浜でGO Issue #241](https://github.com/kaeruko/tobus_go/issues/241)
 - **今回の対象は東京版と横浜版のみ**。仕掛かり中の他都市は、設計・探索比較・変更の対象にしない。
@@ -148,3 +148,33 @@
 **採択基準**: 実乗車便の正確さ、東京`cost`/複数候補の維持、横浜の無料対象と徒歩リンクのfail-closed、性能とRust拡張の影響、差分の説明容易性。
 
 この段階の成果物は設計書・合成fixture・テスト・比較レポートまで。実装方針を決めた後に初めて本番探索コードへ反映する。
+
+## 8. ソース形式を隠す薄い読み込みラッパー（2026-10-14実装）
+
+`api/transit_adapters/unified.py` は、すでに存在する変換処理を**そのまま呼び出す**だけの共通窓口。
+
+```python
+from transit_adapters import GtfsFeedSource, OdptFeedSource, TransitFeedSource
+
+# 横浜GTFS: 規定のGTFSファイルが存在するピン留め済みローカルディレクトリ。
+yokohama: TransitFeedSource = GtfsFeedSource(
+    directory=validated_gtfs_dir, metadata=yokohama_metadata,
+)
+
+# 東京ODPT: ライセンス・配布元確認済みの読込済みODPT記録。
+tokyo: TransitFeedSource = OdptFeedSource(
+    metadata=tokyo_metadata, calendar_rules=approved_calendar_rules,
+    busstop_poles=odpt_poles, busroute_patterns=odpt_patterns,
+    bus_timetables=odpt_bus_timetables, stations=odpt_stations,
+    railways=odpt_railways, train_timetables=odpt_train_timetables,
+)
+
+# 下流は形式によらず同一のTransitDatasetを受け取る。
+dataset = yokohama.load()  # または tokyo.load()
+```
+
+- 両方の`load()`が、既存の`GtfsTransitAdapter.load`／`OdptTransitAdapter.build`を呼び、同じ`TransitDataset`を返す。フォーマットの自動推定をしない。
+- `FeedMetadata.feed_id`と`version`を元の通り維持する。元の停留所／便IDの名前空間化、厳格なカレンダー検証、欠落GTFSファイル検証、横浜地下鉄用の**明示的**なGTFS互換フラグも既存実装に委ねる。ODPT運行日を推測しない。
+- `api/tests/test_transit_feed_sources.py`が、GTFSとODPTの合成データで同一の`load()`、同じ出発→到着の具体便、既存変換結果との一致、ID非衝突、欠損データfail-closedを確認する。
+- **非対応範囲**: 複数フィードを一つの歩行ネットワークに結ぶこと、東京の現在のODPT/GTFS混合Lambdaグラフからの実データ移行、リアルタイム、乗換歩行の自動承認、利用できる無料乗車券の判定、production runtimeへの配線。変換ラッパー追加だけで横浜⇄東京の実経路が自動統合されるわけではない。
+- 東京・横浜の本番経路を維持したまま、移行用の共通入力インターフェースを準備する小さな一歩として位置付ける。
