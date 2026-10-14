@@ -611,8 +611,14 @@ python scripts/verify_yokohama_pass_routes.py `
 cd C:\Users\mail\work\tobus_go
 python scripts/fetch_yokohama_subway_gtfs.py `
   --output ".\api\data\yokohama\subway_2025-12-26" `
-  --expected-service-date "2026-10-14"
+  --expected-service-date "2026-09-04"
 ```
+
+**日付合わせが必須**：既存の市営バス開発用GTFS manifestは
+`validated_service_date=2026-09-04`なので、直後のバス＋地下鉄の
+乗換候補監査に流す地下鉄GTFSも**同じ日付で取得・検証**する。
+現行loaderのmanifestは検証日を固定している。先に2026-10-14で
+取得した出力を、そのまま監査の2026-09-04に流用してはいけない。
 
 このコマンドは現在まだ実行済みではない。既に出力先がある場合は
 **削除・上書きをせず**別の新規パスを指定する。
