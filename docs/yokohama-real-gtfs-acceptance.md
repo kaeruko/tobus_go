@@ -125,3 +125,36 @@ same pure `iter_nearby_stop_pairs` geometry from
 `api/transit_transfer_candidates.py`. Both feed searches continue to reuse
 the common SearchCore, while official walking-link approval stays a distinct
 explicit input. This change does NOT authorize proximity links in production.
+
+### Cross-city reviewed transfer-time core (Tokyo and Yokohama)
+
+`api/reviewed_walk_time.py` defines the common walking-time validation and
+`walk_edge_elapsed_minutes` conversion. Without independently reviewed timing,
+Tokyo's existing edge duration (GTFS/ODPT point distance divided by 80m/min)
+is unchanged, and Yokohama continues to refuse public unreviewed links.
+
+Tokyo's graph builder now accepts optional, **directional**
+`reviewed_walk_links` containing `ReviewedWalkingLink` records. These
+are applied only to **existing** graph edges, never created from nearby
+coordinates. Their measured route meters and conservative time replace both
+the cost weight and the elapsed walking minutes used by the selected journey;
+detailed walk steps disclose `walking_time_basis` and
+`walking_connection_verified`. Tokyo's reverse elapsed-time bound also uses
+the same corrected duration. A missing edge, unmatched stop ID, duplicate
+direction, implausible distance or missing station access review rejects the
+entire correction batch without mutating any edge.
+
+Do **not** infer a Tokyo link from station names or apply any official
+departure-platform estimate without confirming the full station-to-platform
+access component. The `includes_station_access=True` field is a human
+review declaration and is not automatically inferred from nearby coordinates.
+Published official standard walking minutes are not an accessible-route
+promise. No verified Tokyo/Yokohama links have been shipped automatically
+with this code. The same walk meter/minute minimum is applied to Yokohama's
+existing `ExplicitTransferLink` validation; its city-specific government
+URL check and version-scoped link file stay intact.
+
+Because Tokyo's production graph has no new reviewed-link inventory configured,
+**all present Tokyo routes remain on the old estimate until explicit approved
+records are supplied**. This is an incremental migration, not a claim that
+Tokyo stations already have accurate underground transfer timing.

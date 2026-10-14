@@ -240,6 +240,7 @@ from datetime import datetime as dt_class # datetime.datetimeと競合しない�
 from google.transit import gtfs_realtime_pb2
 from gtfs_loader import gtfs_repo
 from route_engine import RouteContractError, RouteSearchLimitError
+from reviewed_walk_time import ReviewedWalkingLink, walk_edge_elapsed_minutes
 from tokyo_route_signatures import transit_path_signature
 from tokyo_route_geometry import path_to_route_geometry
 
@@ -1226,7 +1227,7 @@ class TimetableManager:
         return None
 
 # -------------------- グラフ構築 --------------------
-def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railways_path, walk_radius=300):
+def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railways_path, walk_radius=300, *, reviewed_walk_links=()):
     _phase_log("build_graph begin", f"walk_radius={walk_radius}")
     G = nx.DiGraph()
     poles = load_json(busstop_poles_path)
@@ -1403,7 +1404,8 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
     _phase_log("connect_walk_edges_phys begin", f"radius_m={walk_radius}")
     connect_walk_edges_phys(G, radius_m=walk_radius)
     _phase_log("connect_walk_edges_phys end")
-    
+    apply_reviewed_walking_links(G, reviewed_walk_links)
+
     del poles
     del stations
     del patterns
@@ -1413,6 +1415,47 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
     _mem_log("build_graph done")
     _phase_log("build_graph end")
     return G
+
+def apply_reviewed_walking_links(graph, links) -> None:
+    """Apply explicitly evidenced, directional corrections to existing edges.
+
+    Validates *all* entries before changing any graph edge; stale IDs, bad
+    geometry and missing walk edges refuse the entire reviewed batch.
+    Defaults to no changes when links are empty. Only reviewed station/platform
+    access durations may affect public Tokyo graph search.
+    """
+    pending = []
+    seen = set()
+    for link in links:
+        if not isinstance(link, ReviewedWalkingLink):
+            raise ValueError("Tokyo reviewed walking links require ReviewedWalkingLink")
+        first = ("phys", link.from_stop_id)
+        second = ("phys", link.to_stop_id)
+        key = (first, second)
+        if key in seen:
+            raise ValueError("duplicate directed Tokyo reviewed walk link")
+        seen.add(key)
+        if (first not in graph or second not in graph
+                or not graph.has_edge(first, second)
+                or graph.edges[first, second].get("etype") != "walk"):
+            raise ValueError("Tokyo reviewed walking link refers to missing walk edge")
+        a, b = graph.nodes[first], graph.nodes[second]
+        straight = haversine(a["lat"], a["lon"], b["lat"], b["lon"])
+        if not math.isfinite(straight) or link.walk_meters + 1 < straight:
+            raise ValueError("reviewed walk is shorter than GTFS point distance")
+        if link.walk_meters > MAX_WALK_SEG_M:
+            raise ValueError("reviewed walk exceeds Tokyo per-segment walk limit")
+        pending.append((first, second, link))
+    for first, second, link in pending:
+        edge = graph.edges[first, second]
+        edge.update(
+            meters=link.walk_meters,
+            reviewed_walk_minutes=link.walk_minutes,
+            walking_connection_verified=True,
+            evidence_url=link.official_evidence_url,
+            w=WALK_COST * link.walk_minutes,
+        )
+
 
 def connect_walk_edges_phys(G, radius_m=300):
     si = SpatialIndex(G)
@@ -1500,8 +1543,9 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=Non
     meters = edge.get("meters", 0)
 
     if etype == "walk":
-        mm = meters if meters and meters > 0 else 1.0
-        return curr_time + (mm / WALK_SPEED_M_PER_MIN)
+        return curr_time + walk_edge_elapsed_minutes(
+            edge, speed_m_per_min=WALK_SPEED_M_PER_MIN
+        )
 
     if etype == "board":
         node = v if v[0] == "line" else u
@@ -2375,8 +2419,22 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 if cur.get("meters", 0) <= 0:
                     cur = None
                     return
-                # 徒歩所要時間の計算 (距離 / 速度)
-                cur["minutes"] = max(1, math.ceil(cur.get("meters", 0) / WALK_SPEED_M_PER_MIN))
+                # Keep search and displayed walking clocks aligned, including
+                # reviewed station-access durations (not just straight lines).
+                minutes = cur.pop("_walk_elapsed", None)
+                cur["minutes"] = max(1, math.ceil(
+                    minutes if minutes is not None
+                    else cur.get("meters", 0) / WALK_SPEED_M_PER_MIN
+                ))
+                reviewed = cur.pop("_reviewed_edges", 0)
+                unreviewed = cur.pop("_unreviewed_edges", 0)
+                evidence = cur.pop("_evidence_urls", [])
+                if reviewed:
+                    cur["walking_connection_verified"] = unreviewed == 0
+                    cur["walking_time_basis"] = (
+                        "official_reviewed" if unreviewed == 0 else "mixed_estimated"
+                    )
+                    cur["evidence_urls"] = evidence
             elif cur["kind"] in ("bus", "rail"):
                 # 公共交通機関の所要時間計算
                 if cur.get("arrival_time"):
@@ -2433,9 +2491,24 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     "to": None,
                     "to_en": None,
                     "meters": 0,
+                    "_walk_elapsed": 0.0,
+                    "_reviewed_edges": 0,
+                    "_unreviewed_edges": 0,
+                    "_evidence_urls": [],
                 }
             cur["edges"] += 1
             cur["meters"] += edge.get("meters", 0)
+            elapsed = walk_edge_elapsed_minutes(
+                edge, speed_m_per_min=WALK_SPEED_M_PER_MIN
+            )
+            cur["_walk_elapsed"] += elapsed
+            if "reviewed_walk_minutes" in edge:
+                cur["_reviewed_edges"] += 1
+                url = edge.get("evidence_url")
+                if url and url not in cur["_evidence_urls"]:
+                    cur["_evidence_urls"].append(url)
+            else:
+                cur["_unreviewed_edges"] += 1
             if v[0] == "phys":
                 if str(v[1]).startswith("dest:"):
                     cur["to"] = "目的地"
@@ -2447,9 +2520,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     cur["to"] = str(v[1])
                     cur["to_en"] = None
             # 徒歩速度で時間を加算(分)
-            curr_time = selected_time if selected_path else (
-                curr_time + edge.get("meters", 0) / WALK_SPEED_M_PER_MIN
-            )
+            curr_time = selected_time if selected_path else curr_time + elapsed
             continue
 
         node = v if v[0] == "line" else (u if u[0] == "line" else None)

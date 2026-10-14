@@ -9,6 +9,8 @@ the caller's TimeRoundingGuard, which covers pinned-delay clock rounding.
 
 from __future__ import annotations
 
+from reviewed_walk_time import walk_edge_elapsed_minutes
+
 import heapq
 import math
 import time
@@ -372,7 +374,7 @@ def make_time_bounds(graph, choices, target, virtual_connections, *,
                 raise ValueError("walking meters must be finite") from error
             if not math.isfinite(meters):
                 raise ValueError("walking meters must be finite")
-            minutes = (meters if meters > 0 else 1.0) / walk_speed
+            minutes = walk_edge_elapsed_minutes(edge, speed_m_per_min=walk_speed)
         elif kind == "board":
             if graph.nodes[v].get("mode") == "rail":
                 minutes = rail_boarding_minutes

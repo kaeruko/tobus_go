@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 
 from fare_policy import FarePolicyContext, RideFareContext, get_fare_policy
 from route_engine import RouteContractError
+from reviewed_walk_time import validate_reviewed_walk_timing
 from transit_dataset import TransitMode, TransitDataset
 from transit_engine import TransitLeg, TransitRouteEngine
 from yokohama_fare_coverage import YokohamaFareCoverage
@@ -38,12 +39,7 @@ class ExplicitTransferLink:
             raise ValueError("transfer bus stop must be feed-namespaced")
         if not self.subway_stop_id.startswith(_RAIL_FEED + ":"):
             raise ValueError("transfer subway stop must be feed-namespaced")
-        if type(self.walk_meters) is not int or self.walk_meters < 0:
-            raise ValueError("transfer walk_meters must be nonnegative integer")
-        if type(self.walk_minutes) is not int or self.walk_minutes < 0:
-            raise ValueError("transfer walk_minutes must be nonnegative integer")
-        if self.walk_minutes < math.ceil(self.walk_meters / 80):
-            raise ValueError("transfer walk_minutes cannot be less than walking time")
+        validate_reviewed_walk_timing(self.walk_meters, self.walk_minutes)
         parsed = urlsplit(self.official_evidence_url)
         if (
             parsed.scheme != "https"
