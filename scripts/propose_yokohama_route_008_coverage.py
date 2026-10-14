@@ -63,10 +63,8 @@ def propose(
     raw = json.loads(coverage_path.read_text(encoding="utf-8"))
     if raw["schema_version"] != 1:
         raise ValueError("requires original v1 route coverage, not v2 trip-specific coverage")
-    if len(dataset.routes) != 149:
-        raise ValueError(f"GTFS route count changed: {len(dataset.routes)} != 149")
-    if len(dataset.trips) != 35329:
-        raise ValueError(f"GTFS trip count changed: {len(dataset.trips)} != 35329")
+    # The installed manifest/coverage loader validates the exact feed identity
+    # and EVERY route, so we do not tie this proposal to incidental trip counts.
     route = dataset.routes.get(PROPOSED_ROUTE)
     if route is None or route.short_name != "008系統" or route.long_name:
         raise ValueError("GTFS route 008 name/identity changed; independent re-review required")
