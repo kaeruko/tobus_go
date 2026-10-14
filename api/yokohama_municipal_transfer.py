@@ -10,7 +10,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Union
 from urllib.parse import urlsplit
 
 from fare_policy import FarePolicyContext, RideFareContext, get_fare_policy
@@ -171,6 +170,7 @@ def _search_municipal_transfer_with_link(
     depart_at: datetime,
     transfer: ExplicitTransferLink | GeometricTransferEstimate,
     policy_id: str,
+    _prevalidated=None,
 ) -> MunicipalTransferPlan | None:
     """Find one cross-feed walking transfer using existing timetable search.
 
@@ -183,10 +183,15 @@ def _search_municipal_transfer_with_link(
         depart_at.tzinfo is None or depart_at.utcoffset() != timedelta(hours=9)
     ):
         raise ValueError("Yokohama transfer requires an aware JST datetime")
-    bus = _reviewed(bus_coverage, _BUS_FEED, "yokohama_municipal_bus")
-    rail = _reviewed(subway_coverage, _RAIL_FEED, "yokohama_municipal_subway")
-    if bus is None or rail is None:
-        return None
+    if _prevalidated is None:
+        bus = _reviewed(bus_coverage, _BUS_FEED, "yokohama_municipal_bus")
+        rail = _reviewed(subway_coverage, _RAIL_FEED, "yokohama_municipal_subway")
+        if bus is None or rail is None:
+            return None
+        bus_engine = TransitRouteEngine(bus.dataset)
+        rail_engine = TransitRouteEngine(rail.dataset)
+    else:
+        bus, rail, bus_engine, rail_engine = _prevalidated
     if (
         transfer.bus_stop_id not in bus.dataset.stops
         or transfer.subway_stop_id not in rail.dataset.stops
@@ -206,6 +211,7 @@ def _search_municipal_transfer_with_link(
         and destination_stop_id in rail.dataset.stops
     ):
         first, second = bus, rail
+        first_engine, second_engine = bus_engine, rail_engine
         first_end, second_start = transfer.bus_stop_id, transfer.subway_stop_id
         modes = ("bus", "rail")
     elif (
@@ -213,12 +219,13 @@ def _search_municipal_transfer_with_link(
         and destination_stop_id in bus.dataset.stops
     ):
         first, second = rail, bus
+        first_engine, second_engine = rail_engine, bus_engine
         first_end, second_start = transfer.subway_stop_id, transfer.bus_stop_id
         modes = ("rail", "bus")
     else:
         raise ValueError("transfer requires one bus and one subway endpoint")
 
-    first_route = TransitRouteEngine(first.dataset).search_fastest(
+    first_route = first_engine.search_fastest(
         origin_stop_id, first_end, departure=depart_at, max_rides=3,
     )
     if first_route is None or not first_route.legs:
@@ -230,7 +237,7 @@ def _search_municipal_transfer_with_link(
     onward_departure = depart_at.replace(
         hour=next_minute // 60, minute=next_minute % 60, second=0, microsecond=0,
     )
-    second_route = TransitRouteEngine(second.dataset).search_fastest(
+    second_route = second_engine.search_fastest(
         second_start, destination_stop_id,
         departure=onward_departure, max_rides=3,
     )
@@ -359,6 +366,11 @@ def search_geometric_municipal_transfers(
             "max_candidate_links, no truncated free routes returned"
         )
 
+    # Build the two shared timetable indexes once per request rather than
+    # rebuilding every trip's stop_times for each candidate walking link.
+    checked = (
+        bus, rail, TransitRouteEngine(bus.dataset), TransitRouteEngine(rail.dataset)
+    )
     plans: list[MunicipalTransferPlan] = []
     for distance, bus_id, rail_id in pairs:
         # Tokyo already uses Haversine-based station/bus proximity. This is
@@ -381,6 +393,7 @@ def search_geometric_municipal_transfers(
             destination_stop_id=destination_stop_id,
             depart_at=depart_at,
             transfer=estimate, policy_id=policy_id,
+            _prevalidated=checked,
         )
         if plan is not None:
             plans.append(plan)
