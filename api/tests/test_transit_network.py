@@ -132,10 +132,13 @@ class TransitNetworkTest(unittest.TestCase):
         })
         result = self.compare_v1(source, 'bus:o', 'bus:d', 10)
         self.assertEqual(result.events[0].to_stop_id, 'bus:b')
-        # Certification still charges pending work to the safety budget.
-        with self.assertRaises(RouteSearchLimitError):
+        # The first goal pops at 11, but its equal-objective queue is not yet
+        # exhausted at 12. A pending goal must not escape the safety budget.
+        with self.assertRaises(RouteSearchLimitError) as raised:
             query(network(source), 'bus:o', 'bus:d', departure=10,
-                  arrival_tiebreak='v1_path', max_candidates=1, max_visited=9)
+                  arrival_tiebreak='v1_path', max_candidates=1, max_visited=12)
+        self.assertEqual(raised.exception.reason, 'max_visited')
+        self.assertEqual(raised.exception.diagnostics['yielded'], 0)
 
     def test_v1_rank_fastest_prefers_fewer_rides_before_lexical_path(self):
         source = dataset('bus', {
