@@ -929,6 +929,73 @@ class YokohamaPartialCoverageTest(unittest.TestCase):
                 )
 
 
+
+    def test_ordinary_review_triage_highlights_special_trip_without_approval(self):
+        from review_yokohama_bus_route_catalog import (
+            review_catalog, ordinary_review_triage,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _realistic_named_fixture(root)
+            with (root / "routes.txt").open("a", encoding="utf-8") as stream:
+                stream.write("109,109系統,,3\n")
+            with (root / "trips.txt").open("a", encoding="utf-8") as stream:
+                stream.write("109,ALL,T109,横浜駅前,0,特急,特\n")
+            with (root / "stop_times.txt").open("a", encoding="utf-8") as stream:
+                stream.write(
+                    "T109,23:05:00,23:05:00,A,1\n"
+                    "T109,23:12:00,23:12:00,B,2\n"
+                )
+            proposed, _ = proposed_coverage(
+                root, service_date=SERVICE_DATE, reviewed_on="2026-10-14",
+            )
+            coverage_path = root / "coverage.json"
+            coverage_path.write_text(json.dumps(proposed), encoding="utf-8")
+            before = {p.name: p.read_bytes() for p in root.iterdir()}
+            result = review_catalog(
+                gtfs_dir=root, coverage_path=coverage_path,
+                manifest_service_date=SERVICE_DATE, ride_dates=[SERVICE_DATE],
+            )
+            triage = ordinary_review_triage(gtfs_dir=root, report=result)
+            self.assertEqual(before, {p.name: p.read_bytes() for p in root.iterdir()})
+            self.assertEqual(triage["ordinary_unapproved_route_count"], 2)
+            self.assertEqual(triage["priority_route_ids"], ["109"])
+            self.assertEqual(triage["other_ordinary_route_ids"], ["008"])
+            self.assertIn(
+                "109_express_historical_other_scheme_needs_independent_review",
+                triage["priority_reasons_by_route"]["109"],
+            )
+            self.assertIn(
+                "gtfs_jp_trip_annotation",
+                triage["priority_reasons_by_route"]["109"],
+            )
+            self.assertEqual(
+                triage["priority_trip_examples_by_route"]["109"][
+                    "matched_trip_keywords"
+                ], ["特急"],
+            )
+            self.assertEqual(
+                triage["priority_trip_examples_by_route"]["109"][
+                    "after_23_clock_trip_flags"
+                ], 1,
+            )
+            self.assertEqual(triage["priority_trip_examples_by_route"]["109"][
+                "sample_raw_trip_ids"
+            ], ["T109"])
+            self.assertEqual(result["groups"][
+                "ordinary_name_candidate_not_approved"
+            ][1]["current_coverage_kind"], "unreviewed")
+            with self.assertRaisesRegex(ValueError, "requires --with-reviewed-registry"):
+                review_catalog(
+                    gtfs_dir=root, coverage_path=coverage_path,
+                    manifest_service_date=SERVICE_DATE, ride_dates=[SERVICE_DATE],
+                    ordinary_triage=True,
+                )
+            with (root / "trips.txt").open("a", encoding="utf-8") as stream:
+                stream.write("UNKNOWN,ALL,T_BAD,Elsewhere,0,,\n")
+            with self.assertRaisesRegex(ValueError, "trip route missing"):
+                ordinary_review_triage(gtfs_dir=root, report=result)
+
     def test_registry_catalog_includes_all_pending_special_routes_without_approval(self):
         from review_yokohama_bus_route_catalog import review_catalog
         with tempfile.TemporaryDirectory() as directory:

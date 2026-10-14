@@ -28,7 +28,7 @@ API_DIR = Path(__file__).resolve().parents[1] / "api"
 if str(API_DIR) not in sys.path:
     sys.path.insert(0, str(API_DIR))
 
-from audit_yokohama_bus_gtfs import audit
+from audit_yokohama_bus_gtfs import audit, _rows, _unique
 from yokohama_fare_coverage import YokohamaFareCoverage
 from yokohama_transit import load_yokohama_bus_dataset
 
@@ -50,7 +50,10 @@ def review_catalog(
     *, gtfs_dir: Path, coverage_path: Path,
     manifest_service_date: str, ride_dates: list[str],
     include_registry: bool = False,
+    ordinary_triage: bool = False,
 ) -> dict:
+    if ordinary_triage and not include_registry:
+        raise ValueError("--ordinary-triage requires --with-reviewed-registry")
     if not ride_dates:
         raise ValueError("provide at least one --ride-date")
     if len(set(ride_dates)) != len(ride_dates):
@@ -192,6 +195,10 @@ def review_catalog(
         from propose_yokohama_reviewed_coverage import _load_reviews
         records = _load_reviews(dataset, reviewed_on=coverage.reviewed_on.isoformat())
         annotate_catalog_with_registry(result, records)
+    if ordinary_triage:
+        result["ordinary_review_triage"] = ordinary_review_triage(
+            gtfs_dir=gtfs_dir, report=result,
+        )
     return result
 
 
@@ -252,6 +259,111 @@ def annotate_catalog_with_registry(report: dict, records: dict) -> None:
     }
 
 
+
+# Text is only a lead for human fare review; no keyword decides eligibility.
+_ORDINARY_TRIP_ATTENTION_TERMS = (
+    "深夜", "深夜急行", "高速", "直行", "特急", "貸切", "空港", "羽田", "観光",
+)
+_109_REFERENCE = "https://www.city.yokohama.lg.jp/kotsu/bus/unchin/bus_teiki.html"
+
+
+def ordinary_review_triage(*, gtfs_dir: Path, report: dict) -> dict:
+    """Prioritize manual review of ordinary-named unapproved routes.
+
+    Route names, service descriptions, late clocks and references to special
+    fare programs are leads only.  This function cannot approve free trips,
+    change the source coverage or substitute metadata for fare evidence.
+    """
+    ordinary = report["groups"]["ordinary_name_candidate_not_approved"]
+    all_entries = [
+        item for group in report["groups"].values() for item in group
+    ]
+    route_index = {item["route_id"]: item for item in all_entries}
+    if len(route_index) != report["route_count"]:
+        raise ValueError("route catalog must contain unique route IDs")
+    candidates = {item["route_id"] for item in ordinary}
+    if any(item["current_coverage_kind"] != "unreviewed" for item in ordinary):
+        raise ValueError("ordinary review queue contains enabled or excluded route")
+
+    trips = _unique(_rows(
+        gtfs_dir / "trips.txt",
+        required=("trip_id", "route_id", "jp_trip_desc", "jp_trip_desc_symbol"),
+    ), "trip_id", table="trips")
+    counts: Counter[str] = Counter()
+    annotations: Counter[str] = Counter()
+    keywords: dict[str, set[str]] = defaultdict(set)
+    samples: dict[str, list[str]] = defaultdict(list)
+    for trip_id, trip in trips.items():
+        number = trip["route_id"]
+        if number not in route_index:
+            raise ValueError(f"trip route missing from reviewed catalog: {number}")
+        counts[number] += 1
+        fields = [trip.get(k) for k in (
+            "jp_trip_desc", "jp_trip_desc_symbol", "trip_headsign",
+        )]
+        if any(value is not None and not isinstance(value, str) for value in fields):
+            raise ValueError(f"invalid trip description for {trip_id}")
+        desc, symbol, headsign = (value or "" for value in fields)
+        if number not in candidates:
+            continue
+        if desc.strip() or symbol.strip():
+            annotations[number] += 1
+        hits = {
+            term for term in _ORDINARY_TRIP_ATTENTION_TERMS
+            if term in f"{desc} {symbol} {headsign}"
+        }
+        keywords[number].update(hits)
+        if (desc.strip() or symbol.strip() or hits) and len(samples[number]) < 5:
+            samples[number].append(trip_id)
+    if len(trips) != report["trip_count_all_calendar_services"]:
+        raise ValueError("trip inventory count differs from reviewed GTFS")
+    if any(counts[item["route_id"]] != item["total_feed_trips"] for item in all_entries):
+        raise ValueError("trip inventory per-route count differs from reviewed GTFS")
+
+    reasons: dict[str, list[str]] = {}
+    priority_samples: dict[str, dict] = {}
+    for item in ordinary:
+        number = item["route_id"]
+        flags = []
+        if keywords[number]:
+            flags.append("trip_text_fare_exception_keyword")
+        if annotations[number]:
+            flags.append("gtfs_jp_trip_annotation")
+        if item["after_23_clock_trip_flags"]:
+            flags.append("after_23_clock_not_proof_of_surcharge")
+        if number == "109":
+            # Historical environmental commuter pass discount excluded 109
+            # express trips, but that scheme ended 2026-09-27.  It is NOT
+            # evidence of the welfare/senior pass fare on 2026-10-14.
+            flags.append("109_express_historical_other_scheme_needs_independent_review")
+        if flags:
+            reasons[number] = flags
+            priority_samples[number] = {
+                "matched_trip_keywords": sorted(keywords[number]),
+                "gtfs_jp_annotated_trip_count": annotations[number],
+                "after_23_clock_trip_flags": item["after_23_clock_trip_flags"],
+                "sample_raw_trip_ids": samples[number],
+            }
+    priority = sorted(reasons)
+    return {
+        "purpose": "READ ONLY manual investigation order, NOT fare approval",
+        "ordinary_unapproved_route_count": len(candidates),
+        "priority_route_count": len(priority),
+        "priority_route_ids": priority,
+        "priority_reasons_by_route": reasons,
+        "priority_trip_examples_by_route": priority_samples,
+        "other_ordinary_route_ids": sorted(candidates - set(priority)),
+        "official_109_context_url": _109_REFERENCE if "109" in candidates else None,
+        "warning": (
+            "109 was excluded from a DIFFERENT commuter-pass discount scheme "
+            "ending on 2026-09-27; this does NOT prove welfare/senior exclusion. "
+            "No GTFS annotation or late-clock flag proves a surcharge or exemption. "
+            "No flag means UNREVIEWED, not eligible for free-pass search."
+        ),
+        "file_action": "READ ONLY: no fare/GTFS/coverage/registry files written",
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gtfs-dir", required=True, type=Path)
@@ -263,6 +375,11 @@ def main() -> None:
         help="Strict read-only reconciliation with the common fare review registry",
     )
     parser.add_argument(
+        "--ordinary-triage", action="store_true",
+        help="Read-only trip-metadata priority queue for ordinary unapproved routes; "
+             "requires --with-reviewed-registry, never approves fare",
+    )
+    parser.add_argument(
         "--full", action="store_true",
         help="Show details for every ordinary-name route (default: compact list of IDs)",
     )
@@ -272,6 +389,7 @@ def main() -> None:
         manifest_service_date=args.manifest_service_date,
         ride_dates=args.ride_date,
         include_registry=args.with_reviewed_registry,
+        ordinary_triage=args.ordinary_triage,
     )
     if not args.full:
         # Include every candidate ID, but avoid >100 verbose identical JSON

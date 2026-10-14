@@ -558,3 +558,37 @@ python scripts/review_yokohama_bus_route_catalog.py `
 `remaining_checks` に保持する。現在の `local=5` / `sightseeing=1` /
 `unreviewed=143` は変更していない。149系統の実GTFSと新台帳の照合は
 台帳変更後のため未実行。合成GTFSのCIテストは別途確認する。
+
+### 通常名称130系統の便メタデータ審査キュー（2026-10-14）
+
+全149系統の実GTFS台帳照合が成功した。未登録は通常名称130系統のみ。
+**「109系統特急」には別制度での取扱い例外がある**：
+[横浜市営バス定期券の環境定期券制度](https://www.city.yokohama.lg.jp/kotsu/bus/unchin/bus_teiki.html)
+では「あかいくつ、109系統特急」が対象外と記載されている。
+ただし**環境定期券制度は2026-09-27に終了しており、福祉・敬老パスの対象外を示す証拠ではない**。
+109系統の普通名称だけで承認できないことを示す *調査上の例* として用いる。
+
+既存カタログツールに読み取り専用 `--ordinary-triage` を追加。
+`--with-reviewed-registry` と同時指定が必須で、次を優先調査順の根拠として表示する。
+- 通常名称・未承認の系統に属する便の `jp_trip_desc` /
+  `jp_trip_desc_symbol` の有無、`trip_headsign` の例外語（深夜、直行、特急等）、
+  23時以降の時刻フラグ、109系統の**別制度の歴史的注意点**
+- 便の生IDサンプルは先頭5件に限定。IDは変換せず表示。
+- 全routeのGTFS便数と元の全系統カタログの便数が一致しなければ
+  fail-fast。既存ファイルへの書込みなし。
+- フラグなしも `unreviewed` のまま。深夜時刻や「特急」の文字のみから、
+  深夜割増・追加支払の有無を確定しない。
+
+```powershell
+python scripts/review_yokohama_bus_route_catalog.py `
+  --gtfs-dir ".\\api\\data\\yokohama\\2026-09-04" `
+  --coverage ".\\api\\data\\yokohama\\2026-09-04\\coverage_dev_288.json" `
+  --manifest-service-date "2026-09-04" `
+  --ride-date "2026-09-04" `
+  --with-reviewed-registry `
+  --ordinary-triage
+```
+
+報告の `ordinary_review_triage.priority_route_ids` から公式運賃を優先照合し、
+`other_ordinary_route_ids` は無条件承認せず別途制度確認する。
+ユーザー実GTFSでの新しいオプションの検証は未実施。
