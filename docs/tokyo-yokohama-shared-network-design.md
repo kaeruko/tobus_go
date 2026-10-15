@@ -392,3 +392,21 @@ MiBは2^20 bytes、p95は216samplesの昇順ceil(0.95*n)番目。共通profile�
 検証対象SHAのGitHub Actions run `38663097030`でWindows probe/streaming回帰、API全件、Python3.11/3.12 Rust parity、3.11 Lambda image/smoke、repository safety、Androidが成功した。確認時点のiOSは実行中。本節追加は測定記録のみで製品コードを変更しない。
 
 今回のGTFS読込変更はこの実データsampleで互換性とピーク改善を確認できた。次の入力契約ゲートは東京ODPTの明示calendar/便identity/秒時計と既存TimetableChoicesの実入力比較、およびprebuilt起動との接続確認である。snapshot構築の再検証/copyの費用、リアルタイム統合、公式審査済み実徒歩、真のtop-K、Lambda実メモリ/cold-startは引き続き未検証。Phase 2全体完了・本番切替・デプロイを宣言しない。
+
+## 21. 東京ODPT入力の読み取り専用ゲート — 原JSON・具体便・prebuilt
+
+変更前mainは`b51e5067d7ae560619c734ea0a66001032eb4cc5`。`scripts/check_tokyo_odpt_local.py`と合成11回帰を追加し、Windows CIでも実行する。変更は検証器・テスト・CI・本書であり、東京/横浜の公開runtime、探索順位、SearchCore v1/v2、GTFS/無料/徒歩審査データを変更しない。
+
+コード上、東京TimetableManagerの列車ローダーはHH:MMを整数minuteへ変換し、便内の前区間の到着より早い次の出発や、出発より早い到着へ1440分を加算する。元run_key、0始まりstop_sequence、calendarを保持する。共通ODPT adapterは元秒時計を保持し、明示したOdptCalendarRule.service_day_start_secondで境界未満のcivil clockを翌日側へ置く。両規則の実入力における対応を未検証のまま共通calendarや日付境界を自動採用しない。
+
+検証器は非emptyのlist、単一record、result listという現行load_jsonの入力envelopeを明示的に受け付ける。UTF-8のみで原JSONを読み、明示run identityの重複/欠落、駅とrailwayのidentity、異なる到着/出発駅、clock型/構文、calendar/train number/stop objectを検査する。既存ローダーへHH:MM:SSを丸めたりSS=00を削って渡したりしない。HH:MM:SSがあれば秒を保ったまま比較未対応として停止する。未知calendar文字列の公式意味は推測せず、既存weekday/weekend格納とTimetableChoicesのweekday/saturday/holiday絞り込みを観測するだけで、公式運行日検証とは扱わない。
+
+原JSONから現行のminute/rollover契約に従う全区間を構成し、ローダーの全区間とのmultiset一致を検査する。次に原区間に基づく徒歩無しの合成接続graphで、既存TimetableChoicesのboard_options/ride_options/metadataを通して全boardable occurrenceのrun、sequence、乗降駅、発着時計、train numberを比較する。同じ駅を再訪する便や同じ番号の別calendar便も独立に保持する。このgraphは本番graphの代替ではなく、入力処理の検証専用。到着clock欠落等で現行ローダーが構成しない区間はその明示した既存規則を反映し、欠落件数も記録する。共通Datasetがその欠落を受理できるとは主張しない。
+
+`--trusted-prebuilt`を明示した場合だけユーザーの信頼済みlocal pickleを読み、そのTMと原JSONの全区間/各day profileの具体便選択を同じ条件で検査する。graph、SI、compiled GTFS、Lambda実起動の一致はこの検査の範囲外。古いrun/calendar/occurrence metadata、異なるsource、型不一致は停止し、ensure_train_run_metadataによる修復/原JSONへの差替えを行わない。pickleは取得/作成/更新/再保存しない。指定なしの場合はprebuilt_verified=falseであり、prebuiltへアクセスを試みて失敗を回避した結果ではない。
+
+clean mainと完全expected SHAを実行前後に検査し、指定原JSON/任意prebuiltのhashも前後比較する。git pull/fetch/stash/reset、通信、credential読込、データ取得、bytecode/出力ファイル生成を行わない。成功markerはREAD_ONLY_TOKYO_RAIL_INPUT_OK。正常出力はcalendar件数、source dateの範囲/件数（版の証明ではない）、source時計範囲、03時未満clock件数、rollover加算/反復駅/時刻欠落の件数と比較区間数を含む。private駅/便IDは通常reportへ出さず、不正入力時だけlocal例外の診断へ保持する。未検証項目shared adapter/公式calendar/経路順位/Realtime/Lambda起動をfalseで明示する。原例外と診断を保持し、成功markerを出さない。
+
+合成11回帰は日付跨ぎ/循環/同番号別calendar、24時超/内部到着clock欠落、source秒非変換、parse cause、重複/identity/schema、元UTF-8/JSON例外、任意prebuilt一致/古いmetadata/区間差と非変更、誤SHA/変更inputで成功marker非出力、正常CLIのhash/未検証gate出力を確認した。新検証器・既存横浜probe/GTFS streaming・東京train migration/Lambda startup関連34件がローカルで成功した。実データのこの新ゲートはユーザーWindowsでの実行待ち。非公開GTFS/ODPT/pickle・hash値・生ログはリポジトリへ追加しない。
+
+次は`api/data/odpt_TrainTimetable.json`とユーザーの信頼済み`api/data/app_data.pkl`を再取得/修復せず比較し、実calendarと時計表記/欠落/反復occurrenceを確認する。その結果に基づき、版固定した明示calendarと境界の契約、共通ODPT adapter→DatasetTimetableChoices比較器を実装する。現時点で共通ODPT実経路移行、Phase 2全体完了や本番切替/デプロイを宣言しない。
