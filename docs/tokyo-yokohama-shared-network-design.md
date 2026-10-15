@@ -335,3 +335,26 @@ Tokyoの既定cost tie、fewTransfers/cost、fewTransfers/arrival、歩行edge�
 追加3回帰は、先頭を確定できるが後続の循環で上限を超える合成graphを使い、max_candidates1/3の同じ代表を上限20以内で返すこと、既定cost tieの元のlimit例外、実walkの別group、仮想walkの別groupを検証する。既存の所要0区間の順位確定前limit例外も通過した。検証器は完了したworkerの計測を順にstdoutへ出し、後続失敗時も既存計測と元例外を保持する。queryごとのengine/pass/feed/day/hour/mode/repeatをstderrの診断へ出し、候補区間のprivate IDを通常の集計に含めない。追加1テストで後段worker失敗時の部分report保持と成功marker非出力を確認した。
 
 ローカル共通/v1/source関連112件は106件成功・Nativeの6件スキップ、network52件・検証器11件が成功。東京220件、横浜/v1関連118件も成功した。新mainのWindows/API/Native/Lambda CIと、同じ条件の実データ再実行で評価する。72ケース全体、実メモリ/速度、fewTransfersの追加候補、真のtime top-K、東京ODPT入力移行/Realtime/prebuilt、実徒歩は未完了。本番切替・デプロイを行わない。
+
+
+## 18. Windows実データmatrix完了 — 72ケースの一致と性能測定
+
+提供ログのコードSHAは`a9fd3477255fdf748182c8fd573c5cbea377a327`、Windows Python3.12.10 64bit、memory sourceはwindows-psapi。query dateは2026-09-04/05/06、8/12/18時台、両feed/両パス/両目的、repeat3、max_candidates3を維持した。全3workerが完了し、comparisons72、selection_differences0、shared_queries_with_multiple_candidates36、walking_links0、top_k_completeness_verified=false、READ_ONLY_SHARED_MATRIX_OKを確認した。各worker72行/各3repeat（216query、全worker648query）を独立に集計した。バス版v3.0_20260727、地下鉄版20251226、入力23ファイルのhash辞書が3workerで完全一致した。最終markerにより元検証器の実行前後の入力hash/SHA/clean main検査も通過した。hash値・生ログ・private stop/trip ID・元GTFS行は保存しない。
+
+v1とshared_headは全72ケースで先頭の到着/乗車数/具体便/乗降地点/区間発着時計/停車列が一致。shared（上限3）も先頭は全72ケースで一致した。time36ケースは各1候補、fewTransfers36ケースは各3候補。追加候補はactiveな承認対象便の具体sequence/時計/停車列、接続、乗降条件、pass別0円、目的値/区間キーの順序、重複なし、3repeatの全候補順一致を元検証器で検査した。これは選択区間の整合性と現在の候補選択規則の再現性であり、意味のある異なる経路の網羅性や真の上位K件を証明しない。timeの上限3を3件列挙の実装済みとは扱わない。
+
+各profile216queryの秒をmsに換算して集計した。p95は昇順のceil(0.95*n)番目で補間せず、profile/processの反復ではない。
+
+| 測定profile | query中央値 | query p95 | query最大 | query計測合計 | process peak working set |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| v1 Python / 先頭のみ | 4.64 ms | 465.94 ms | 630.56 ms | 20.58 s | 781.87 MiB |
+| 共通 / 先頭のみ | 5.05 ms | 426.51 ms | 530.21 ms | 14.83 s | 782.07 MiB |
+| 共通 / 上限3 | 10.17 ms | 471.91 ms | 629.29 ms | 20.03 s | 781.38 MiB |
+
+profile全体wallはv1 24.52秒、shared_head 21.29秒、shared 27.46秒。入力読み込みは3.37/3.27/3.85秒、v1 index構築は0.043秒、shared_head snapshot構築は福祉1.400秒/敬老1.293秒、sharedは1.661/1.393秒。snapshotは両パスとも許可便2,544、nodes3,035/edges1,335だった。各profileは別processで順番に一度ずつ実行したため、OS file cache、GC、スケジューリング、warm-upなどを統制したbenchmarkではない。total時間差や全体中央値だけで一律に共通探索が速い/遅いとは判定しない。上限3のworkloadはv1先頭のみと同じ出力件数ではない。
+
+同じ目的のqueryを区別すると、最速（各profile108samples）の中央値はv1 11.65ms、shared_head 12.86ms、shared 15.26ms。少乗換の中央値はv1先頭3.01ms、shared_head先頭2.07ms、shared3候補8.21msだった。先頭のみのquery p95は最速v1 535.85ms/共通478.09ms、少乗換v1 104.57ms/共通16.70ms。これらも今回のOD sample/Windows環境の観測である。
+
+メモリは2^20 bytesを1MiBとしたOS working set。全profileでloaded_memoryのprocess_peakとfinal_memoryのprocess_peakが等しく、約782MiBのピークは入力読込終了時点で既に記録されていた。query後の現在RSS最大はv1 318.23MiB、shared_head 319.57MiB、shared 320.40MiBで、query最中のstage別peakを直接分離した数値ではない。約782MiBをlabel coreだけの使用量とは扱わず、CSV/GTFS loader・adapter・入力検査のどの段階で発生するかは未切り分け。Windows working setをLambdaの実メモリと同一視しない。snapshotの再利用/prebuilt、cold-start、並列query、実Lambda RSSは残る。
+
+検証したcode SHAのGitHub ActionsはAPI全件、Windows probe、Python3.11/3.12 Rust parity、3.11 Lambda image/smoke、repository safetyが成功した。確認時点のAndroid/iOSは実行中。今回のsampleの先頭互換性と追加候補の整合性は合格とするが、未設定の性能閾値を満たしたという合格、真のtop-K、実徒歩、東京ODPT/Realtime移行、Phase 2全体完了は宣言しない。本番切替・デプロイを行わない。
