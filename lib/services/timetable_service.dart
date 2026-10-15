@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../constants.dart';
+import '../core/city_profile.dart';
 import 'package:flutter/services.dart';
 import '../core/app_clock.dart';
 import '../core/api_client.dart';
@@ -41,6 +44,147 @@ class TimetableService {
     if (now.weekday == DateTime.sunday) return "Holiday";
     if (now.weekday == DateTime.saturday) return "Saturday";
     return "Weekday";
+  }
+
+  // The API may use realtime delays to select "upcoming" departures.
+  // Only allTimes (the fixed daily schedule) is persisted here.
+  static const _fixedSchedulePrefix = 'bus_static_schedule_v1:';
+  static const _fixedScheduleLifetime = Duration(hours: 24);
+  final Map<String, Future<_SavedBusSchedule>> _pendingFixedSchedules = {};
+
+  /// Persist a static timetable across page visits and app restarts.
+  /// Calendar date, direction, city, API endpoint and all source IDs are scoped
+  /// independently. This cache never holds live vehicles or predicted delays.
+  Future<List<Map<String, dynamic>>> getSavedFullDayBusesFromApi(
+    String routeId,
+    String poleId, {
+    String? targetPoleId,
+    String? patternTripId,
+    String? preferredPatternTripId,
+    bool includeStopCluster = false,
+    String? dayType,
+    DateTime? referenceTime,
+    int limit = 3,
+    void Function(String dayType)? onResolvedDayType,
+  }) async {
+    if (routeId.trim().isEmpty || poleId.trim().isEmpty) {
+      throw ArgumentError('Static timetable requires routeId and poleId');
+    }
+    if (limit < 1) {
+      throw ArgumentError.value(limit, 'limit', 'must be at least 1');
+    }
+    if (dayType != null &&
+        !const {'Weekday', 'Saturday', 'Holiday'}.contains(dayType)) {
+      throw ArgumentError.value(dayType, 'dayType', 'unsupported day type');
+    }
+
+    final time = referenceTime ?? appClock.now();
+    final selector = dayType == null
+        ? 'date:' + time.year.toString().padLeft(4, '0') + '-' +
+            time.month.toString().padLeft(2, '0') + '-' +
+            time.day.toString().padLeft(2, '0')
+        : 'day:$dayType';
+    final key = _fixedSchedulePrefix + jsonEncode([
+      kApiBase, configuredCityKey, selector, routeId, poleId, targetPoleId,
+      patternTripId, preferredPatternTripId, includeStopCluster, limit,
+    ]);
+    final preferences = await SharedPreferences.getInstance();
+    final cached = preferences.getString(key);
+    if (cached != null) {
+      final entry = _SavedBusSchedule.decode(cached);
+      final age = DateTime.now().millisecondsSinceEpoch - entry.savedAtMillis;
+      if (age >= 0 && age < _fixedScheduleLifetime.inMilliseconds) {
+        if (dayType != null && entry.dayType != dayType) {
+          throw const FormatException('Cached timetable day type mismatch');
+        }
+        onResolvedDayType?.call(entry.dayType);
+        return _scheduledUpcoming(entry.groups, time, limit);
+      }
+      await preferences.remove(key);
+    }
+
+    final pending = _pendingFixedSchedules.putIfAbsent(key, () async {
+      String? resolved;
+      final groups = await getNextBusesFromApi(
+        routeId,
+        poleId,
+        targetPoleId: targetPoleId,
+        patternTripId: patternTripId,
+        preferredPatternTripId: preferredPatternTripId,
+        includeStopCluster: includeStopCluster,
+        dayType: dayType,
+        referenceTime: time,
+        limit: limit,
+        includeAllDay: true,
+        onResolvedDayType: (value) => resolved = value,
+      );
+      if (resolved == null) {
+        throw StateError('Full-day timetable is missing its service-day type');
+      }
+      _scheduledUpcoming(groups, time, limit); // Validate before persisting.
+      final entry = _SavedBusSchedule(
+        savedAtMillis: DateTime.now().millisecondsSinceEpoch,
+        dayType: resolved!,
+        groups: groups,
+      );
+      if (!await preferences.setString(key, entry.encode())) {
+        throw StateError('Could not persist the static bus timetable');
+      }
+      return entry;
+    });
+    try {
+      final entry = await pending;
+      onResolvedDayType?.call(entry.dayType);
+      return _scheduledUpcoming(entry.groups, time, limit);
+    } finally {
+      if (identical(_pendingFixedSchedules[key], pending)) {
+        _pendingFixedSchedules.remove(key);
+      }
+    }
+  }
+
+  List<Map<String, dynamic>> _scheduledUpcoming(
+    List<Map<String, dynamic>> groups,
+    DateTime referenceTime,
+    int limit,
+  ) {
+    var hour = referenceTime.hour;
+    if (hour < 3) hour += 24;
+    final currentMinute = hour * 60 + referenceTime.minute;
+    return [
+      for (final group in groups)
+        {
+          ...group,
+          'times': _checkedFullDayTimes(group)
+              .where((value) => _scheduledMinute(value) >= currentMinute)
+              .take(limit)
+              .toList(),
+        },
+    ];
+  }
+
+  static List<String> _checkedFullDayTimes(Map<String, dynamic> group) {
+    final times = group['allTimes'];
+    if (times is! List || times.any((value) => value is! String)) {
+      throw const FormatException('Full-day timetable requires string allTimes');
+    }
+    final typed = times.cast<String>();
+    for (final value in typed) {
+      _scheduledMinute(value);
+    }
+    return typed;
+  }
+
+  static int _scheduledMinute(String text) {
+    final match = RegExp(r'^(\d{1,2}):([0-5]\d)$').firstMatch(text);
+    if (match == null) {
+      throw FormatException('Invalid static timetable clock: $text');
+    }
+    final hour = int.parse(match.group(1)!);
+    if (hour > 47) {
+      throw FormatException('Invalid static timetable hour: $text');
+    }
+    return hour * 60 + int.parse(match.group(2)!);
   }
 
   // 指定された系統・バス停における、全方向の次のバスを取得する (API版)
@@ -277,5 +421,58 @@ class TimetableService {
     });
 
     return results;
+  }
+}
+
+class _SavedBusSchedule {
+  final int savedAtMillis;
+  final String dayType;
+  final List<Map<String, dynamic>> groups;
+
+  const _SavedBusSchedule({
+    required this.savedAtMillis,
+    required this.dayType,
+    required this.groups,
+  });
+
+  String encode() => jsonEncode({
+        'schema': 1,
+        'saved_at_millis': savedAtMillis,
+        'day_type': dayType,
+        'groups': groups,
+      });
+
+  static _SavedBusSchedule decode(String raw) {
+    final Object? decoded = jsonDecode(raw);
+    if (decoded is! Map ||
+        decoded['schema'] != 1 ||
+        decoded['saved_at_millis'] is! int ||
+        decoded['day_type'] is! String ||
+        decoded['groups'] is! List) {
+      throw const FormatException('Malformed saved bus timetable');
+    }
+    final day = decoded['day_type'] as String;
+    if (!const {'Weekday', 'Saturday', 'Holiday'}.contains(day)) {
+      throw const FormatException('Unsupported cached timetable day type');
+    }
+    final groups = <Map<String, dynamic>>[];
+    for (final item in decoded['groups'] as List) {
+      if (item is! Map) {
+        throw const FormatException('Malformed saved timetable destination');
+      }
+      final group = Map<String, dynamic>.from(item);
+      if (group['destinationName'] is! String ||
+          group['destinationNameEn'] is! String ||
+          group['allTimes'] is! List) {
+        throw const FormatException('Incomplete saved timetable destination');
+      }
+      TimetableService._checkedFullDayTimes(group);
+      groups.add(group);
+    }
+    return _SavedBusSchedule(
+      savedAtMillis: decoded['saved_at_millis'] as int,
+      dayType: day,
+      groups: groups,
+    );
   }
 }
