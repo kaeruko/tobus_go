@@ -518,3 +518,34 @@ feed版20260828_030922、期間2026-08-28〜2029-08-27、GTFS txt15ファイル�
 合成回帰はraw/compiled両方で禁止位置からの新規乗車不可、同便継続・降車、後続の合法便、循環再訪のsequence区別を確認する。不正flag・重複sequence、欠落metadataのfail-fast、schema1拒否/atomic hydrate、schema2保存、旧artifact非上書きも固定する。Windows CIに新回帰moduleを追加する。実GTFSでの修正後比較・指定prebuilt監査、全ODの最速/少乗換/快適さ・候補順位の差分、Realtime、実compiled/Lambdaの起動・メモリ/速度は未検証であり、Phase 2全体完了を宣言しない。非公開データ・認証情報は追加しない。
 
 実装時のローカルPython3.12ではAPI全842件を実行し、failure/errorは0、native module未導入による6件のみskipだった。Windows対象module群とcompiled download回帰の67件も成功した。nativeの実行とLambda image smokeはGitHub Actionsで別途確認する。これらの合成テスト合格を実GTFSや実Lambda起動の確認に代えない。
+
+## 29. 東京バス実入力と禁止乗車修正の確認
+
+ユーザーのWindows Python3.12.10、main `338e93f6955e1311ad63ae1449cf3fb16ec37367`でREAD_ONLY_TOKYO_BUS_INPUT_OKとREAD_ONLY_TOKYO_BOARDING_AUDIT_OKを確認した。feed版20260828_030922、期間2026-08-28〜2029-08-27、5,368stop、150route、61,324trip、1,161,955stop_time。pickup0/drop-off0は1,160,403row、pickup1/drop-off0は1,552rowで、source全行を保持した比較である。
+
+| 日付 | active service | active trip | 新規乗車可能な具体隣接区間 | 差分 |
+| --- | ---: | ---: | ---: | ---: |
+| 2026-09-04 | 20 | 14,927 | 276,637 | 0 |
+| 2026-09-05 | 20 | 12,806 | 243,996 | 0 |
+| 2026-09-06 | 20 | 11,531 | 222,270 | 0 |
+| 2026-09-21 | 20 | 11,634 | 223,642 | 0 |
+
+source metadata、Tokyo raw/common具体便、schema2のメモリ内payload復元後の具体便が一致した。指定GTFS txt一式は実行前後・前段監査と同じhashで、SHA/clean main検査も通過した。指定prebuilt監査のactive対象は258/228/169/169row。全日missing binding0、bound-not-boardableは各対象件数と同じ、boardable/rideableは各0となった。前段では同じgraph・入力で全対象から乗車できたため、承認した新規乗車禁止が適用されたことを確認できる。rideable0は「その位置から新規乗車して次停車へ進む」検査の結果であり、それ以前から乗車中の便が通過できないという意味ではない。
+
+GitHub Actionsの同SHAでAPI842件（native無し6skip）、Windows64件、Rust3.11/3.12各82件、3.11 Lambda image build/native smokeが成功した。private inputや実compiledを使ったLambda起動の確認ではない。入力hash値・実ID・原行・生ログは保存しない。全経路/候補順位、Realtime、実artifact起動・性能は引き続き未検証で、本番切替・デプロイを行わない。
+
+## 30. 次の入力ゲート — 指定グラフ上のraw/compiled経路サンプル
+
+変更前mainは`338e93f6955e1311ad63ae1449cf3fb16ec37367`。製品の探索動作を追加変更せず、読み取り専用の`scripts/check_tokyo_compiled_routes_local.py`を追加する。GTFSの版・期間・全source秒精度・乗降契約を既存strict入力検査で確認し、rawのtrip集合/全sequence/stop/時計/flag/指定日のactive serviceを共通入力と照合する。jpholidayを事前に必須importし、既存の実日付policy検証を使う。指定信頼済みprebuiltのG/TMをそのまま読み、rail rideを含むgraphでは具体列車intervalのmetadataを検査する。repairや再取得をしない。
+
+raw repositoryを、製品writerと同じgzip設定（level6、mtime0、空filename）とpickle protocolでメモリ内にserialize/decodeし、schema2をhydrateする。実zipのhashを検証したartifactではないため、source identityは明示した合成0であり、reportでもsynthetic_in_memory_not_source_zip_hashと示す。S3/manifestやprivateファイルを書かない。
+
+各指定日にsource trip ID順・sequence順で、pickup1/drop-off0を持つactive occurrenceのうち、前の合法乗車位置と次停車が既存graphの同patternのride edgeで繋がり、終端条件と物理nodeが一致する最初の位置を事前選択する。前→次、前→禁止位置、禁止位置→次の3つのODを設定し、元発車時計の2分前を明示した照会時計とする。負時計や非整数minuteを丸めない。ケースが無ければ停止する。探索失敗後に別ODへ変更しない。ケース名は照会の役割であり、返った最適経路が必ずその便・乗換を使うという証明ではない。
+
+各ODで既存Tokyo/shared label統合を同じgraph・日付・上限でtime/fewTransfers/costへ適用する。rawとcompiledを独立に指定し、返却順、cost、全node、edge clock、各edgeの具体便stateを完全比較する。各selected bus boardingのpickup0を検査し、busを一度も使わないmatrixを十分な合格としない。既存graphの徒歩辺はそのまま利用する。別の探索loopや自動backend切替を追加しない。limit到達までに探索limit/errorが出た場合は、途中候補を成功扱いせず元例外を伝播する。
+
+既定最大候補3、各queryの安全上限15秒・100,000visit・既存MAX_TRAVEL_MINを維持する。4日なら36caseでraw/compiled各検索を比較する。これはlabel候補のサンプル比較であり、HTTP adapterの最終dedupe/表示、全OD、共通DatasetTimetableChoicesへの東京graph移行、Realtime、真のtop-K網羅性、実Lambda起動・性能は認定しない。reportのraw_compiled_sample_rank_verifiedとcommon_dataset_route_ranking_verifiedを区別し、後者はfalseに保つ。
+
+成功markerはREAD_ONLY_TOKYO_COMPILED_ROUTE_SAMPLE_OK。元txtとprebuiltを実行前後にhash比較し、SHA/clean mainを検査する。正常reportには集計だけを出す。合成回帰は全3mode/全3OD、複数候補、選択便の禁止乗車排除、gzip復元、ケース不足、非整数時計拒否、順位差、入力変更、途中成功後の元例外伝播とglobal repository復元を確認する。Windows CIにも同moduleを追加する。実データでの次gateは未実施で、Phase 2完了や本番切替・デプロイは宣言しない。
+
+新規7合成回帰とWindows対象71件がローカルで成功した。API全体は849件、failure/error0、native未導入の6skipだった。製品コードや公開runtime設定はこの段階で変更していない。
