@@ -40,6 +40,57 @@ class TokyoOdptLocalCheckTest(unittest.TestCase):
     def write(self, data):
         self.path.write_text(json.dumps(data), encoding="utf-8")
 
+    def shared_files(self):
+        stations = Path(self.tmp.name) / 'stations.json'
+        stations.write_text(json.dumps([{'owl:sameAs': s, 'dc:title': s,
+            'geo:lat': 35., 'geo:long': 139.} for s in (A, B)]), encoding='utf-8')
+        railways = Path(self.tmp.name) / 'railways.json'
+        railways.write_text(json.dumps([{'owl:sameAs': RAILWAY, 'dc:title': 'Rail'}]), encoding='utf-8')
+        return stations, railways
+
+    def test_shared_ordered_adapter_and_choices_match_all_legacy_profiles(self):
+        self.write([entry(), entry('sat', 'odpt.Calendar:Saturday'),
+                    entry('hol', 'odpt.Calendar:Holiday'), entry('both', 'odpt.Calendar:SaturdayHoliday')])
+        stations, railways = self.shared_files()
+        originals = [p.read_bytes() for p in (self.path, stations, railways)]
+        result = probe.inspect(self.path, stations_path=stations, railways_path=railways)
+        self.assertTrue(result['shared_adapter_verified'])
+        self.assertEqual(result['shared_choices'], result['choices'])
+        self.assertEqual(result['calendar_projection'], 'legacy_day_profile_test_only')
+        self.assertFalse(result['operational_calendar_verified'])
+        self.assertEqual(originals, [p.read_bytes() for p in (self.path, stations, railways)])
+
+    def test_shared_first_after_midnight_run_is_not_shifted_by_fixed_boundary(self):
+        data = entry()
+        for obj in data['odpt:trainTimetableObject']:
+            for key in ('odpt:arrivalTime', 'odpt:departureTime'):
+                if key in obj:
+                    obj[key] = {'23:58': '00:00', '00:01': '00:01',
+                                '00:02': '00:02', '00:05': '00:05'}[obj[key]]
+        self.write([data])
+        stations, railways = self.shared_files()
+        result = probe.inspect(self.path, stations_path=stations, railways_path=railways)
+        self.assertTrue(result['shared_adapter_verified'])
+        self.assertEqual(result['shared_choices'][0]['intervals'], 2)
+
+    def test_shared_invalid_coordinates_stop_instead_of_dropping_source_station(self):
+        self.write([entry()])
+        stations, railways = self.shared_files()
+        data = json.loads(stations.read_text())
+        del data[0]['geo:lat']
+        stations.write_text(json.dumps(data), encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'invalid coordinates'):
+            probe.inspect(self.path, stations_path=stations, railways_path=railways)
+
+    def test_shared_cli_requires_explicit_complete_input_set(self):
+        for extra in (['--shared-rail'], ['--stations', 'unused.json']):
+            with patch.object(sys, 'argv', [str(SCRIPT), '--train-timetables', str(self.path),
+                                           '--expected-sha', 'a'*40, *extra]):
+                with patch.object(probe, 'check_repository') as guard:
+                    with self.assertRaisesRegex(ValueError, '--shared-rail requires'):
+                        probe.main()
+                    guard.assert_not_called()
+
     def test_midnight_circular_and_separate_calendars_preserve_occurrences(self):
         self.write([entry(), entry("sat", "odpt.Calendar:Saturday"),
                     entry("hol", "odpt.Calendar:Holiday"),

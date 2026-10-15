@@ -67,6 +67,38 @@ def _clock_fields(obj, key, rule, *, trip_id, sequence):
     return minute, seconds
 
 
+def _ordered_train_clocks(objects, rule, *, trip_id):
+    """Explicit Tokyo ordered-run convention; never selected after an error.
+
+    The first clock retains its civil date. Each following event is placed at
+    the first integral service day on/after the previous event, without losing
+    source seconds. A separate fixed civil-day boundary cannot also be used.
+    """
+    if rule.service_day_start_second != 0:
+        raise ValueError(f'ordered train clocks conflict with calendar boundary: {trip_id}')
+    floor = 0
+    result = []
+    for index, obj in enumerate(objects):
+        if not isinstance(obj, Mapping):
+            raise ValueError(f'invalid train timetable object: {trip_id}')
+        clocks = []
+        for key in ('odpt:arrivalTime', 'odpt:departureTime'):
+            _, seconds = _clock_fields(obj, key, rule, trip_id=trip_id, sequence=index + 1)
+            if seconds is None:
+                if ((key == 'odpt:arrivalTime' and index != 0)
+                        or (key == 'odpt:departureTime' and index != len(objects) - 1)):
+                    raise ValueError(f'missing ordered train clock: {trip_id} sequence={index + 1} field={key}')
+                clocks.append((None, None))
+                continue
+            if seconds < floor:
+                seconds += ((floor - seconds + 86399) // 86400) * 86400
+            floor = seconds
+            minute = seconds // 60 + (1 if seconds % 60 >= 30 else 0)
+            clocks.append((minute, seconds))
+        result.append(tuple(clocks))
+    return tuple(result)
+
+
 def _id(record: Mapping[str, object]) -> str:
     for key in ("owl:sameAs", "@id", "id"):
         value = record.get(key)
@@ -157,7 +189,10 @@ class OdptTransitAdapter:
         railways: Iterable[Mapping[str, object]] = (),
         train_timetables: Iterable[Mapping[str, object]] = (),
         calendar_rules: Mapping[str, OdptCalendarRule],
+        train_clock_convention: str = 'calendar_boundary',
     ) -> TransitDataset:
+        if train_clock_convention not in ('calendar_boundary', 'ordered_run'):
+            raise ValueError(f'unsupported train clock convention: {train_clock_convention!r}')
         feed_id = metadata.feed_id
         busstop_poles = list(busstop_poles)
         busroute_patterns = list(busroute_patterns)
@@ -321,6 +356,9 @@ class OdptTransitAdapter:
             objects = timetable.get("odpt:trainTimetableObject")
             if not isinstance(objects, list) or not objects:
                 raise ValueError(f"train timetable has no stop objects: {source_trip_id}")
+            rule = calendar_rules[source_calendar_id]
+            ordered_clocks = (_ordered_train_clocks(objects, rule, trip_id=source_trip_id)
+                              if train_clock_convention == 'ordered_run' else None)
             for sequence, obj in enumerate(objects, start=1):
                 if not isinstance(obj, Mapping):
                     raise ValueError(f"invalid train timetable object: {source_trip_id}")
@@ -349,11 +387,13 @@ class OdptTransitAdapter:
                     raise ValueError(
                         f"train timetable references unknown station: {source_stop_id}"
                     )
-                rule = calendar_rules[source_calendar_id]
-                arrival, arrival_seconds = _clock_fields(
-                    obj, "odpt:arrivalTime", rule, trip_id=source_trip_id, sequence=sequence)
-                departure, departure_seconds = _clock_fields(
-                    obj, "odpt:departureTime", rule, trip_id=source_trip_id, sequence=sequence)
+                if ordered_clocks is not None:
+                    (arrival, arrival_seconds), (departure, departure_seconds) = ordered_clocks[sequence - 1]
+                else:
+                    arrival, arrival_seconds = _clock_fields(
+                        obj, "odpt:arrivalTime", rule, trip_id=source_trip_id, sequence=sequence)
+                    departure, departure_seconds = _clock_fields(
+                        obj, "odpt:departureTime", rule, trip_id=source_trip_id, sequence=sequence)
                 stop_times.append(
                     TransitStopTime(
                         trip_id=internal_trip_id,

@@ -410,3 +410,23 @@ clean mainと完全expected SHAを実行前後に検査し、指定原JSON/任�
 合成11回帰は日付跨ぎ/循環/同番号別calendar、24時超/内部到着clock欠落、source秒非変換、parse cause、重複/identity/schema、元UTF-8/JSON例外、任意prebuilt一致/古いmetadata/区間差と非変更、誤SHA/変更inputで成功marker非出力、正常CLIのhash/未検証gate出力を確認した。新検証器・既存横浜probe/GTFS streaming・東京train migration/Lambda startup関連34件がローカルで成功した。実データのこの新ゲートはユーザーWindowsでの実行待ち。非公開GTFS/ODPT/pickle・hash値・生ログはリポジトリへ追加しない。
 
 次は`api/data/odpt_TrainTimetable.json`とユーザーの信頼済み`api/data/app_data.pkl`を再取得/修復せず比較し、実calendarと時計表記/欠落/反復occurrenceを確認する。その結果に基づき、版固定した明示calendarと境界の契約、共通ODPT adapter→DatasetTimetableChoices比較器を実装する。現時点で共通ODPT実経路移行、Phase 2全体完了や本番切替/デプロイを宣言しない。
+
+## 22. 東京実入力の一致と明示した便内時計契約
+
+ユーザーのWindows Python3.12.10 64bit、main `46a73d38c9d15cebafe0e176cc16744dbc5ad996`で前段の検証器がREAD_ONLY_TOKYO_RAIL_INPUT_OKで完了した。原列車JSONは5,600便/116,658区間。calendarはWeekday2,818、Saturday344、Holiday322、SaturdayHoliday2,116便。原JSONと現行ローダーの区間multisetが一致し、具体便選択は平日57,804、土曜50,418、休日49,850区間で差分0。指定した信頼済みprebuiltのTMと各profileの具体便選択も一致した。実行前後の指定2ファイルhash、clean main/SHA検査も通過した。hash値/原JSON/pickle/生ログは保存しない。
+
+原clock範囲は0〜86,340秒（23:59）、03時未満は2,440clock、legacyの24時間加算は1,718回、同じ駅を再訪する便709。到着欠落/出発欠落は各5,600clock。欠落件数だけで全てが端点と判断せず、次の共通network構築でも個々の位置を検査する。dc:dateは6種類、2023-11-25〜2026-06-15だが、収録日付をfeedの版/運行有効期間と同一視しない。今回の結果は原入力・既存具体便・prebuilt TMの一致であり、共通adapter、公式calendar、経路順位、Realtime、Lambda実起動は未検証。
+
+変更前mainは上記`46a73d38`。OdptTransitAdapter.buildへ`train_clock_convention`を追加する。既定calendar_boundaryは従来のまま。東京の現行意味を移すため、明示的にordered_runを選べるようにする。最初のclockは元のcivil-day時計のまま、以後の到着→出発の各eventは前のevent以上になる最初の整数service dayへ置く。秒を維持して86,400の整数倍のみ加算し、等時刻/24時超/複数日跨ぎを保持する。03時未満の最初の便を一律に翌日へ移さない。この規則は元ローダーの順序によるrolloverを秒へ拡張した入力契約で、parse/validation失敗時の修復や再試行ではない。
+
+ordered_runと非zeroのservice_day_start_secondは矛盾として停止する。未知convention、内部到着/出発の欠落、端点の必須clock欠落、不正clock/型は診断と元causeを保持して停止する。始点arrival/終点departureの欠落は元のままNone。元clockの秒精度はv2 service_seconds/Fraction MINUTESへ保持し、既存v1 minute投影の丸め契約だけを従来通り残す。bus側と既定calendar_boundaryの処理、既存東京/横浜runtime、Python/Rust SearchCore v1を変更しない。便ごとのclock配列はその便のrow数に比例し、性能/メモリ改善済みとは主張しない。
+
+検証器へ明示した`--shared-rail --stations ... --railways ...`を追加する。両ファイルを必須とし、指定3原JSON/任意prebuiltの前後hashを検査する。原JSONを共通adapterのordered_runで読み、元ID/具体順序を保持したnetworkを徒歩0/全source tripという検証専用scopeで構築する。全隣接区間のrun、sequence、駅、Fraction時計、列車番号を既存区間と比較する。schema/未知参照/座標/欠落等の不正は元adapter/networkで停止し、座標生成やsourceの除外をしない。
+
+公式運行日の推測を避けるため、calendarは初めに全曜日falseの比較専用日2000-01-01へ固定する。各legacy weekday/saturday/holiday profileが選ぶcalendarだけ、その比較日に明示した追加運行例外を与える。既に検証済みgraph/clock索引を保持したまま、immutableな比較用Datasetの例外列だけを差し替え、DatasetTimetableChoices.prepare/board_options/ride_optionsの全区間を旧profileと比較する。これは明示した旧day profileの投影テストであり、2000年の実運行、日付から祝日判定、公式運行期間/例外を実装したとは扱わない。reportへcalendar_projection=legacy_day_profile_test_only、operational_calendar_verified=falseを必ず残す。Realtime/経路順位/Lambda実起動のgateもfalseのまま。
+
+ordered clockの合成7回帰は秒/深夜/dwell/反復駅、最初の深夜便非シフト、24時超/複数日、同時計、既定convention非変更、矛盾/不正/欠落/元causeを確認した。比較器の追加4回帰は全day profile区間一致、最初の00時便、座標欠落を除外しないこと、明示input set必須/元入力非変更を確認した。新旧入力契約・共通network/label・東京具体便/cache・横浜probe・GTFS streaming・東京migration/Lambda startup関連128件がローカルで成功した。新mainのGitHub ActionsでAPI全件、Windows、Rust parity、Lambdaを検証する。
+
+追加で東京/横浜のtest moduleをunittest discoverし397件が成功した。比較用metadata.versionは3原JSONの名前付きhash辞書から作るbundle digestで固定し、fetched_atはlocal読込時の観測時刻で、公式取得時刻や運行版の認定ではない。
+
+次の実データは同じ列車JSON/prebuiltに`api/data/odpt_Station.json`と`api/data/odpt_Railway.json`を加え、再取得/修復せず実行する。この共通adapter/具体便比較の実測はまだ未実施。成功しても公式calendar/サービス期間/祝日例外、東京本番graphと候補順位/快適さ/徒歩/Realtime、compiled GTFSを含むLambda起動/メモリ、Phase 2全体の完了を自動認定しない。本番切替・デプロイを行わない。

@@ -8,6 +8,8 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 import contextlib
+from dataclasses import replace
+from datetime import date, datetime, timezone
 import hashlib
 import io
 import json
@@ -24,7 +26,10 @@ sys.path.insert(0, str(ROOT / "api"))
 import networkx as nx
 from toei_engine import TimetableManager
 from tokyo_timetable_choices import TimetableChoices, _calendar_matches, _railway_id
-from transit_dataset import service_time_to_second
+from transit_adapters.odpt import OdptCalendarRule, OdptTransitAdapter
+from transit_dataset import FeedMetadata, ServiceException, service_time_to_second
+from transit_network import NetworkCosts, build_transit_network, line_node
+from transit_timetable_choices import DatasetTimetableChoices
 
 
 def sha256(path):
@@ -192,7 +197,71 @@ def choices_intervals(manager, expected, day):
     return {"profile": day, "intervals": len(result), "differences": 0}
 
 
-def inspect(train_path, prebuilt_path=None):
+def shared_intervals(train_path, stations_path, railways_path, expected):
+    """Project legacy day profiles onto a fixture day, NOT an official calendar.
+
+    Each enabled source calendar gets an explicit exception on that fixture
+    day. No inference of public holidays or feed validity is made here.
+    """
+    projection_day = date(2000, 1, 1)
+    rules = {r[0]: OdptCalendarRule((False,) * 7, projection_day, projection_day)
+             for r in expected}
+    bundle_hash = hashlib.sha256(json.dumps({key: sha256(path) for key, path in (
+        ('train_timetables', train_path), ('stations', stations_path), ('railways', railways_path))},
+        sort_keys=True).encode('ascii')).hexdigest()
+    dataset = OdptTransitAdapter.build(
+        metadata=FeedMetadata('tokyo_probe', 'odpt-local-probe', train_path.as_uri(),
+            'sha256:' + bundle_hash, datetime.now(timezone.utc)),
+        stations=records(stations_path), railways=records(railways_path),
+        train_timetables=records(train_path), calendar_rules=rules,
+        train_clock_convention='ordered_run')
+    snapshot = build_transit_network((dataset,), allowed_trip_ids=dataset.trips,
+                                    walking_links=(), costs=NetworkCosts())
+    source_rows = []
+    for trip_id, rows in snapshot.rows_by_trip.items():
+        trip = snapshot.trips[trip_id]
+        calendar = dataset.calendars[trip.service_id].source_id
+        for current, following in zip(rows, rows[1:]):
+            source_rows.append((calendar, trip.source_id, current.sequence - 1,
+                snapshot.stops[current.stop_id].source_id, snapshot.stops[following.stop_id].source_id,
+                current.departure_minute, following.arrival_minute, trip.train_number))
+    compare_intervals(expected, source_rows, 'shared adapter/ordered-run intervals')
+    deadline = max(r[6] for r in source_rows)
+    profiles = []
+    for day in ('weekday', 'saturday', 'holiday'):
+        enabled = {r[0] for r in expected if ('Weekday' in r[0]) == (day == 'weekday')
+                   and _calendar_matches(r[0], day)}
+        # Keep the validated graph/clock indexes; replace only the explicitly
+        # projected test-day exceptions used by prepare(). No live input mutates.
+        projected = replace(snapshot.datasets[0], service_exceptions=tuple(
+            ServiceException(key, projection_day, 1) for key, calendar in dataset.calendars.items()
+            if calendar.source_id in enabled))
+        choices = DatasetTimetableChoices(replace(snapshot, datasets=(projected,)),
+            service_date=projection_day, deadline=deadline)
+        choices.prepare(lambda: None)
+        result = []
+        for u, v in snapshot.departures:
+            for dep, state in choices.board_options(u, v, 0):
+                trip = snapshot.trips[state.trip_id]
+                calendar = dataset.calendars[trip.service_id].source_id
+                following = line_node(state.pattern, state.position + 1)
+                for arr, continued in choices.ride_options(v, following, dep, state):
+                    rows = snapshot.rows_by_trip[state.trip_id]
+                    result.append((calendar, trip.source_id, state.sequence - 1,
+                        snapshot.stops[rows[state.position].stop_id].source_id,
+                        snapshot.stops[rows[continued.position].stop_id].source_id,
+                        dep, arr, trip.train_number))
+        compare_intervals([r for r in expected if r[0] in enabled], result, f'shared choices/{day}')
+        profiles.append({'profile': day, 'intervals': len(result), 'differences': 0})
+    return {'shared_adapter_verified': True, 'shared_choices': profiles,
+            'shared_clock_convention': 'ordered_run',
+            'calendar_projection': 'legacy_day_profile_test_only',
+            'projection_day': projection_day.isoformat(), 'walking_links': 0}
+
+
+def inspect(train_path, prebuilt_path=None, *, stations_path=None, railways_path=None):
+    if (stations_path is None) != (railways_path is None):
+        raise ValueError('shared rail comparison requires both stations and railways')
     expected, summary = source_intervals(records(train_path))
     manager = TimetableManager()
     with contextlib.redirect_stdout(io.StringIO()):
@@ -212,6 +281,8 @@ def inspect(train_path, prebuilt_path=None):
         summary["prebuilt_verified"] = True
     summary.update(shared_adapter_verified=False, operational_calendar_verified=False,
                    route_ranking_verified=False, realtime_verified=False, lambda_startup_verified=False)
+    if stations_path is not None:
+        summary.update(shared_intervals(train_path.resolve(), stations_path, railways_path, expected))
     return summary
 
 
@@ -231,14 +302,23 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--train-timetables", type=Path, required=True)
     parser.add_argument("--trusted-prebuilt", type=Path)
+    parser.add_argument("--shared-rail", action="store_true")
+    parser.add_argument("--stations", type=Path)
+    parser.add_argument("--railways", type=Path)
     parser.add_argument("--expected-sha", required=True)
     args = parser.parse_args()
+    if (args.shared_rail and (args.stations is None or args.railways is None)
+            or not args.shared_rail and (args.stations is not None or args.railways is not None)):
+        raise ValueError('--shared-rail requires explicit --stations and --railways together')
     check_repository(args.expected_sha)
     paths = {"train_timetables": args.train_timetables.resolve()}
     if args.trusted_prebuilt is not None:
         paths["trusted_prebuilt"] = args.trusted_prebuilt.resolve()
+    if args.shared_rail:
+        paths.update(stations=args.stations.resolve(), railways=args.railways.resolve())
     before = {k: sha256(p) for k, p in paths.items()}
-    summary = inspect(paths["train_timetables"], paths.get("trusted_prebuilt"))
+    summary = inspect(paths["train_timetables"], paths.get("trusted_prebuilt"),
+                      stations_path=paths.get('stations'), railways_path=paths.get('railways'))
     if before != {k: sha256(p) for k, p in paths.items()}:
         raise AssertionError("input files changed during verification")
     check_repository(args.expected_sha)
