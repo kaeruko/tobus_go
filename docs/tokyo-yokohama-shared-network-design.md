@@ -910,4 +910,6 @@ N_f<N_r、辺/seed対応の欠落、未知のdispatch形状、opaque/custom/Real
 
 **認定範囲。** 成功時は `static_time_priority_admissibility_verified` と遷移対応・時計非減少・辺別条件・単純射影辺数・reverse不等式の各flagをtrueにする。全合法suffix長そのものの上限は証明しないため `unexpanded_suffix_step_bound_verified=false`、構成を問わない認定ではないため `unconditional_priority_admissibility_verified=false` を維持する。第45節の18,984node/N_r=18,985/N_f=100,000は今回の十分条件の数値部分を満たすが、新ゲートを実データで実行した結果へ読み替えない。今回の認定対象は合成fixtureであり、`real_timetable_suffix_admissibility_verified`、全体候補順位、真のtop-k、Realtime、公式calendarはfalseのまま。実データ用CLI配線と新ゲートの実データ適用は未実施。共通下界は `not_selected_audit_only` のまま、本番切替・デプロイ・S3・本番設定は変更しない。
 
-ローカル合成回帰とGitHub Actionsの確定結果は、この節へ追記する。
+ローカルの最終新規回帰22件が成功した。実装SHA `413a4780cc5e55d5a6f625e27cabe433c3125446` のGitHub Actions run [38740206561](https://github.com/kaeruko/tobus_go/actions/runs/38740206561) は、workflow全体でstatus=completed・conclusion=success。API958件（既存のnative未導入6skip）、Windows193件が成功し、新規22回帰すべてが両jobのログに実際に出現して成功したことを確認した。Rust Python3.11/3.12各82件・Rust unit各2件、既存Lambda image build/smoke、repository safety、FlutterテストとAndroid全flavor、iOS全flavorのbuildおよびidentity/Firebase分離検査も成功した。
+
+これは監査専用実装と合成CIの合格であり、新しい証明ゲートを実データで実行した結果ではない。許容性の認定は明示した静的time構成の前提に限定し、全合法suffix長、構成を問わない安全性、候補順位、真のtop-kへ拡張しない。第1〜第3段階の実データ監査・36case比較は再実行しておらず、探索・guard・本番provider選択・デプロイ・S3・本番設定は変更していない。
