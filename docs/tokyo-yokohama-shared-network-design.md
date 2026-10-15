@@ -952,3 +952,104 @@ if ($LASTEXITCODE -ne 0) { throw 'static time projection proof gate failed' }
 実装SHA `41d4f139d1086aa559b31ecaad1cd462d2c309e0` のGitHub Actions run [38744573479](https://github.com/kaeruko/tobus_go/actions/runs/38744573479) は、全7jobが成功し、workflow全体のstatus=completed・conclusion=successを確認した。API972件（既存native未導入6skip）とWindows207件が成功した。新規CLI14回帰が両jobの終了ログに実際に出現し、すべて成功したことを確認した。Rust Python3.11/3.12各82件・Rust unit各2件、既存Lambda image build/smoke、repository safety、Flutter静的解析/テストとAndroid全flavor build、iOS全flavor buildとidentity/Firebase分離検査も成功した。
 
 このCI結果は新CLIの合成入力による検証であり、指定実ODPT・GTFS・trusted prebuiltによる新証明ゲートの合格ではない。実データでの成功marker・入力前後hash・scope/profileごとの前提検査結果は未確認である。
+
+
+## 48. Windows実データによる静的time射影証明ゲートの成功（2026-10-15）
+
+ユーザーから第47節の実データ16検査がすべて成功したとの報告を受け、今回のログ「貼り付けたテキスト（1）(20261015-140326).txt」全74行でも確認した。実行mainは `9add9d4505054d1f22e21a80b3b6a22ef7644e1a`、Windows Python 3.12.10。`verify_static_time_projection` の成功eventが16件、停止eventは0件で、最終seal確認、結果JSON、`READ_ONLY_TOKYO_COMMON_TIME_PROJECTION_PROOF_OK` が出力された。こちらで実データゲートを再実行したものではない。第47節の実データ未実行という時点記録を、以下の範囲で更新する。
+
+**実行構成と件数。** 同じ固定4目的地を、通常graph／rail除外graphと、通常時計600〜840分／跨日時計1439〜1679分で検査した。8case・16profileのすべてで `N_f=100000`、`N_r=len(G)+1=18985`、最大辺/seed重み `W=20.999999999999996` が一致し、上限・guard係数の拡大は行っていない。
+
+| scope | 全node | 対象辺 | 除外辺 | 到達node | 到達不能node | reverse辺不等式検査/profile |
+|---|---:|---:|---:|---:|---:|---:|
+| full_graph | 18,984 | 63,970 | 0 | 15,714 | 3,270 | 54,215 |
+| bus_only_rail_excluded | 18,984 | 63,384 | 586 | 15,533 | 3,451 | 53,627 |
+
+各profileのraw source条件検査は、rail 116,658区間、bus 1,100,631区間・1,161,955停車rowを対象とした。bus専用scopeでもsourceの時計/index条件は全calendarについて検査している。これらは各profileで同じsourceを検査した件数であり、16倍した値を固有source件数と数えない。物理目的地、複数virtual seed、物理目的地と非改善virtual seedを含み、virtual構成ではgraphに存在しない1 seedも値を検証した後に明示的に除外した。
+
+GTFSは既存の `20260828_030922`、trusted prebuiltは既存 `api/data/app_data.pkl`（SHA-256 `db10fc598e0da81e2ac200ba742ab75283440823651fb1d800037f7c0a74bae5`）。ODPT3ファイル・prebuilt・GTFS全15 txt、計19項目のhashとファイル集合の前後比較、clean main/SHA検査まで完了した後の成功markerを確認した。新しい入力の取得・置換や、実データのID/行程の保存は行わない。
+
+**今回認定できる範囲。** `static_time_projection_premises_verified`、`static_time_priority_admissibility_verified`、全遷移対応、時計非減少、辺別誤差条件、単純射影辺数上限、reverse不等式、既存guardの条件付き誤差係数はtrueである。第46節の証明を、今回固定したsource/graph・目的地/seed・物理start・2時計profile・静的canonical time構成へ適用する前提が実入力でも成立したと認める。これは合法suffixを運行上短縮する認定ではなく、元の非負時計差を残した下界射影でのみ循環を除去する証明である。
+
+`unexpanded_suffix_step_bound_verified=false`、`unconditional_priority_admissibility_verified=false` は維持する。任意の構成、別目的地/seed/時計、未レビュー実装、line start、Realtime、公式calendar、実Lambda起動へ自動的に拡張しない。`real_timetable_suffix_admissibility_verified=false` は、実時刻表の全suffixを独立に列挙・比較した結果ではないことを示す。今回の前提確認と数学的証明の適用を取り消すflagではない。`common_dataset_route_ranking_verified=false`、`true_top_k_verified=false` も維持し、A*の終了・枝刈り・候補classの完全性は次の独立した検討対象とする。
+
+reportの `accepted_audits_rerun=false`、`route_search_executed=false`、`runtime_selection=not_selected_audit_only` を確認した。合格済みの第1〜第3段階・36case比較は再実行していない。探索処理、guard、候補順位、本番provider選択、本番切替・デプロイ・S3・本番設定は変更しない。
+
+
+## 49. A*探索終了・枝刈り・top-kの設計レビュー（2026-10-15）
+
+レビュー基準mainは `9add9d4505054d1f22e21a80b3b6a22ef7644e1a`。`api/transit_search_labels.py` のfrontier/queue/goal、`api/tokyo_search_labels.py` のtime優先度、`api/tokyo_timetable_choices.py` の具体便列挙、`api/toei_engine.py` のcollector、`api/tokyo_route_signatures.py` と `api/tokyo_route_engine.py` の表示候補境界を照合した。今回は設計レビューと文書記録だけで、探索・guard・候補順位・provider・本番設定は変更しない。
+
+**結論と認定の分離。** 第48節で成立したのは、固定した静的time構成に対する優先度の許容性である。最初のgoal popによる最短到着の証明には、未探索の合法完走に対するOPEN側のwitnessが、展開・dominance・資源枝刈りの後にも残ることが必要になる。表示候補のtop-kには、さらに候補classの定義・保存・全体順位・終了証明が必要である。現行frontierは最短到着の代表を残す設計であり、すべての具体経路や表示候補classを列挙する設計ではない。従って現行動作を維持したまま、無条件の真のtop-kを認定することはできない。新旧候補の移行同値性と、数学的な最適性/完全性は別の証拠として扱う。
+
+**現在の終了箇所。** 東京integrationは `arrival_tie_key` を渡さない。timeのqueue keyは `(guard(clock,h), cost, boardings, clock)` で、同じkeyのheap entryには元の生成sequenceが付く。`search_labels` はactiveで未展開のgoalをpopした後にyieldする。goalのoffer時点では終了しない。`find_fastest_path` は `max_search=1` のgeneratorから1件だけ取り、finallyでcloseするため、東京の公開time/fastは最大1件である。公開 `limit` を真の時間順top-k指定とは扱えない。共通coreにある `arrival_tie_key` 用のpending waveとsingle-time-goal shortcutは、この東京呼出しでは有効ではなく、東京の終了証明へ流用しない。
+
+**最短到着1件の十分条件。** 固定queryの合法完走Pの実binary64到着時計をA(P)、OPEN labelのguard付き主優先度をLとする。次を独立に成立させる。
+
+1. 第46〜48節の範囲で、各合法suffixについて `L(label)<=A(completion)` が成立し、goalでは `L(goal)=goal.time` となる。
+2. providerが、固定したcalendar・路線/方向・禁止乗車・期限に対する必要な具体便/次occurrenceをすべて列挙する。未知のproviderや欠落便を下界の許容性で補わない。
+3. 枝刈りしたprefixに合法完走があれば、残したprefixにも到着が遅くならない合法完走がある。既展開labelによる置換では、その展開で生成した子孫までwitnessを追跡できる。
+4. 有効なOPEN entryを最小Lから処理し、改善labelを再投入できる。`expanded` は個別labelの状態であり、nodeを永久に閉じる集合へ置き換えない。
+5. 安全上限・例外で止まった実行を、queueの完全消尽や最適性証明の成立と区別する。
+
+この条件下で、最初にpopしたgoalの時計をAとする。Aより早い合法完走があれば、OPENにはそれ以下のLを持つwitnessが残るため、そのgoalを先にpopできず矛盾する。これは最短到着の主目的についての証明であり、副キーcost/boardingsや具体便代表の全域最適性を含まない。incumbentを生成時に保持する別実装であれば、主到着値だけの終了に必要なのは `min_OPEN L>=A` とwitness保存である。単にgoalを生成した時点で止める変更は認めない。許容性から整合性を導いたことにはせず、改善labelの再投入を維持する。
+
+**枝刈りの証明義務。** 以下は最短到着のためのsimulation条件であり、すべての経路classを残す条件ではない。
+
+| 現行規則 | 最短到着に必要な条件と境界 |
+|---|---|
+| bus_onlyのrail辺除外 | queryが宣言した合法集合の制限である。同じ終点/seed/policyのまま比較する |
+| offboardの早い時計によるdominance | 同じ物理node、固定provider、`can_wait_offboard=true`、歩行資源が両方とも以下なら、遅いprefixが選べた同じ便を待って選べる。静的な列挙・filterがreadyに対して単調であることを確認する |
+| onboardのdominance | provider/service/run/line/sequence/movedを含む `future_key` と保守的な同一時計を保つ。異なる便・反復stop occurrence・fresh/movedを統合しない。静的delay=0の範囲に限定する |
+| exact walk/deadline制約 | 同じ非負有限の距離と既存binary64加算、同じsegment resetを使う。totalとsegmentを別々に比較する。表示ceilやepsilonで可否を変えない |
+| fresh boardからのalight/xfer拒否 | 承認済みの合法性規則として維持する。無料の歩行資源resetとして使わせない。移動済みの0分便や正当な循環は削除しない |
+| timeのgoal bucket | `int(segment_walk//25)` が同じgoalは到着時計だけで比較する。終端なので主到着値は保存できるが、別路線・別便・同着cost順位を保存する保証はない |
+| stale entryとqueue compaction | inactiveまたはそのlabel自身がexpandedのentryだけを除き、元のpriority/sequence/labelを保つ。node一律のclosed化や、active labelの間引きは別の変更となる |
+
+offboardでは、厳密に早いprefixはcostが高くても、東京timeのboarding制約がない範囲でdominanceできる。これは現行の `test_tokyo_time_dominance.py` が意図的に保持する規則である。後で同じ便を待って最終到着が等しくなっても、高いprefix costが回復するとは限らない。従ってheapの副キーが存在することを、完走経路全体の副順位保証へ読み替えない。
+
+**小さい反例の確認。** 製品ファイルを変更せず、合成sourceと現在の関数を使って以下の例をローカルで確認した。旧/共通providerの実データ監査や36case比較は呼んでいない。以下は現在の保証範囲を示す負例であり、実ネットワークの誤到着を観測した報告ではない。
+
+| 合成構成 | 確認した結果 | 認定できない主張 |
+|---|---|---|
+| 異なるbus路線R/Sの直行2便。出発600、到着610/611、終端walk=0。既存static provider・time bound・guardで `max_search=3` | 合法な表示上の異なる2路線があるが、同じgoal bucketにより610到着の1件だけをyield | raw `max_search` が異なる旅程のtop-k列挙数になるという主張 |
+| Sからvirtual終点へ400m/cost10。S→Mの80m/cost0とM→終点の320m/cost0も合法。開始600 | 両方605到着・total/segment400mだが、先にofferされた直行cost10をgoal dominanceが残し、cost0を捨てる | timeの同着時に全経路中の最小costまで保証するという主張 |
+| 標準Tokyo重み（board5、bus ride0.8）で、RはA→X→Mに610着、SはA→Mに611着。両方がMを612発・Tに620着の同じ接続便へ乗れる。歩行資源はいずれも0 | 現行static providerとtime探索はR経由のcost12.4を返す。合法なS経由は同じ620着でcost11.600000000000001だが、Mで早い高cost prefixにdominanceされる | 中間dominanceが副順位や異なるprefixの候補classも保存するという主張 |
+| 同じbusのX→Y→T便と、別便のY→T。AはXで前便へ、BはYで前便へ、CはYで後便へ乗る。全て同じoriginからの合法な歩行/乗車を構成 | A/Bはsame initial concrete bus、B/Cはsame itinerary。A/Cだけのcollector関係は2群、Bを加えた全体は1群。到着610/610/611を確認 | 観測済みraw集合でのclass分割が、そのまま未探索候補を含む固定class分割になるという主張 |
+
+最後の例は `transit_path_signature` と `_initial_bus_run_variant_key` で関係を求め、独立に連結成分を数えた。候補同値性の推移閉包がraw集合に依存する点が重要になる。collectorはcost/fewTransfersでraw `limit` 件に達した時点で停止し、その後に統合・詳細検証する既存仕様なので、表示候補が少なくても、他のclassが存在しない証明にはならない。timeの上記1件契約とは別の層の問題であり、今回cost/fewTransfersの探索・収集規則を変更する提案ではない。
+
+標準重みの合流例では、中間hubですでに別旅程が失われる。goalのbucketを旅程署名へ変更するだけでは、真のtop-kの保存条件を満たせない。同着の標準重みcounterexampleも主到着620自体は保存しており、候補順位を修正せずに認定範囲を分ける根拠として扱う。
+
+**安全上限・検証・API境界。** `max_visited` はstaleを含む実pop数、`max_expanded` は有効labelの展開数である。`find_fastest_path` の既存値はpop 200000・展開100000・15秒で、第47〜48節の監査profile `N_f=100000` と同一の設定ではない。数学的な `N_f>=N_r` と係数条件の適用範囲を明示し、pop数を全合法suffix長の上限として再利用しない。値の拡大で終了証明を成立させない。
+
+正常なqueue消尽、最初のgoal pop、raw quota到達によるconsumer close、安全上限、契約不一致を別のtermination reasonとして扱う必要がある。現在のcost/fewTransfers collectorには既知のlimit後に検証済みpartialを返し、APIが `truncated=true` を付ける既存契約がある。これはtop-k完全性の証明ではなく、既存collectorは例外のtraceback/contextも明示的に解放するため、原tracebackを保持する監査と同じ契約だとは記録しない。新しい監査はpartialから成功証明を作らず、元例外・診断を保持して停止させる。
+
+将来の終了監査は、対象の呼出し先と同じ実パラメータで既存guardの係数条件を検査する。監査profileの100000と実searchの200000を暗黙に置換したり、一方の合格を他方のbit同値性として扱ったりしない。観測の処理時間も既存の期限に含め、安全上限へ達した監査を継続するために時計・期限を補正しない。
+
+さらに、詳細検証による候補不採用、同値class内代表の歩行/cost選好、origin node選定、virtual destination接続の範囲、最寄りdestination nodeへの既存API分岐、表示時計のceilは別の契約である。固定graph/queryの主到着証明を、全座標間の最適性や最終JSON候補の完全性に自動拡張しない。監査では別OD/seedへの切替を比較継続の手段にせず、各queryを固定する。
+
+**真のtop-kに追加で必要な条件。** まず「全具体便経路」「表示上異なる旅程」「現在のbucket代表」のどれをk個数えるかと、class全体の代表選択・同着順位を固定する。現在のprefix集合だけで決まる同値関係を、未探索経路の完全なclass定義として使わない。異なるclassを持つprefixをdominanceするなら、そのclassの少なくともk個までの必要な完走witnessが失われない別証明が要る。現行の最短到着用dominanceからは導けない。
+
+固定classと順位が定義済みで、class保存と列挙完全性が別に成立している場合、k番目の確定候補の到着をtauとし、`min_OPEN L>tau` までの全同着waveを閉じることは、primaryが同じ未探索候補による副順位逆転を防ぐ保守的な条件になる。`>=tau` は主到着値1件の議論と同じではなく、同着の別classや良い代表を残し得る。順位全体に対するextension-safeな下界を証明できた場合だけ、別の停止式を検討する。現行queue tupleや他都市用 `arrival_tie_key` をその証明の代用にしない。
+
+ただし、この停止式だけでは失われたclassは復元できない。0分循環による未展開の合法suffixがいくらでも長くなる構成も引き続き存在する。history/classをkeyへ追加するだけでは、同着waveを有限に閉じられるとは限らない。全列挙器の打切り深さや返却経路のpop上限で完全性を証明したことにせず、有限化できるclass意味論と、元の便/sequence/資源を保存した独立の証明が必要である。
+
+**推奨する順序と変更候補。** 当面は主到着1件を対象に、現行規則を変えない監査専用 `api/tokyo_search_correctness_audit.py` と `api/tests/test_tokyo_search_correctness_audit.py` を別実装として検討する。これは今回まだ作成していない。raw scheduleから合法な次occurrence・待機・walk資源を独立に列挙する小fixture oracleと、frontierの各破棄に対するsimulation witnessを分ける。期待値生成に製品search/provider/下界builderを呼ばず、製品側を比較対象としてのみ呼ぶ。全列挙を完了できる正例fixtureの条件を宣言し、循環負例を深さ制限で成功扱いにしない。
+
+| 次の回帰・受け入れ項目 | 要求する判定 |
+|---|---|
+| 10分直行goalを先に生成し、後から1+1分経路を発見 | 最初のpop/yieldは2分。生成時停止を拒否 |
+| 許容的だが非整合な小さい抽象下界と、展開後の改善label | 改善を再投入し、固定closed-node化を拒否。抽象例を第48節の実構成認定へ混在させない |
+| より早いが歩行残量が悪いprefix、virtual最終walk、ちょうど600m/3000m | total/segment・時計を独立に全列挙し、合法完走witnessを失わない |
+| 同便番号別run・循環sequence・fresh/moved・pickup禁止・通常/跨日 | 生sourceの具体便/occurrenceとbinary64時計を保存し、合法性誤統合を拒否 |
+| 上記のgoal同着と早い高cost prefix | 現行の代表選択を互換性として保持し、副順位の最適性認定を拒否 |
+| 2路線同goal bucket、中間hubへ合流する別旅程prefix | 主到着1件の成立と、class完全性の不成立を別判定にする |
+| A/B/Cの同値関係bridge、詳細不採用とraw quota | raw件数・表示class数・代表検証数を分離し、k件未満やclass分割の変化を隠さない |
+| 0分循環と同着wave | suffix長やoracle深さによる認定を拒否。有限のwitness確認と全体完全性を区別 |
+| queue compaction、stale、consumer close、各安全上限 | 元priority/sequenceとtermination reasonを保存。中断・partialを完了証明にしない |
+| 旧/共通hとguardがbit一致する固定query | 既存の順序・具体便・時計・metadataを保つ。許容性だけから候補同値性を推論しない |
+
+新監査の受け入れは、①固定query/source/実装の前提、②dominanceの主到着simulation、③第一goalの終了証明、④元例外と中断理由の保持を別flagで確認する構成とする。候補classの意味論・保存・全同着wave・代表順位の証明が未完なら `true_top_k_verified=false` を維持し、top-k認定を要求する入口は理由付きで拒否する。想定する追加ファイルは上記監査module/test、Windowsの明示test登録、設計書のみで、既存の第47節CLIや本番searchへ暗黙に組み込まない。reviewed ASTを変更する観測hookを製品coreへ足して自動認定することもしない。
+
+将来、真のtop-kそのものを実装する場合は、class保存frontier、collectorの停止/統合、署名/代表順位の契約見直しが必要となり得る。`api/transit_search_labels.py`、`api/toei_engine.py`、`api/tokyo_route_signatures.py` 等の変更は候補集合と順位へ影響するため、互換性を維持する今回の監査追加とは別のopt-in設計として合意する。当面の推奨は主到着1件の監査を先行し、現行の探索上限・guard・frontier・候補順位を保持すること。合格済み実データ監査は再実行せず、本番切替・デプロイ・S3・本番設定変更は行わない。
