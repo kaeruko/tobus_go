@@ -948,3 +948,7 @@ if ($LASTEXITCODE -ne 0) { throw 'static time projection proof gate failed' }
 ```
 
 こちらの環境には実ODPT・GTFS・指定prebuiltがないため、新CLIの実データ検査は未実行。第45節の実データ合格や第46節の合成CIから今回の実データ合格を推定しない。本番切替・デプロイ・S3・本番設定変更は行わない。
+
+実装SHA `41d4f139d1086aa559b31ecaad1cd462d2c309e0` のGitHub Actions run [38744573479](https://github.com/kaeruko/tobus_go/actions/runs/38744573479) は、全7jobが成功し、workflow全体のstatus=completed・conclusion=successを確認した。API972件（既存native未導入6skip）とWindows207件が成功した。新規CLI14回帰が両jobの終了ログに実際に出現し、すべて成功したことを確認した。Rust Python3.11/3.12各82件・Rust unit各2件、既存Lambda image build/smoke、repository safety、Flutter静的解析/テストとAndroid全flavor build、iOS全flavor buildとidentity/Firebase分離検査も成功した。
+
+このCI結果は新CLIの合成入力による検証であり、指定実ODPT・GTFS・trusted prebuiltによる新証明ゲートの合格ではない。実データでの成功marker・入力前後hash・scope/profileごとの前提検査結果は未確認である。
