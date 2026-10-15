@@ -749,3 +749,30 @@ bindingはrail-only・全source tripを要求し、元trip ID/列車番号/calen
 
 
 実装SHA `eb449377f5ab67ee87fc0f4d8856da4877e63856` のGitHub Actions run [38717787343](https://github.com/kaeruko/tobus_go/actions/runs/38717787343)で、**API906件（native未導入6件スキップ）、Windows128件、Rust Python3.11/3.12各82件、Lambda image build/smoke、repository safetyが成功**した。終了ログと各job conclusionを確認した。記録時点でAndroid/iOS全flavor buildは完了未確認であり、workflow全体の成功とは記載しない。この結果は新監査の合成回帰・イメージスモークであり、実ODPT/prebuiltの列車min監査、graph投影、目的地別下界、最終優先度guardの合格ではない。
+
+
+## 42. Windows実データによる共通列車A*隣接区間min監査の成功（2026-10-15）
+
+ユーザー提示のWindows PowerShell実行結果で、第41節の読み取り専用監査が成功した。実行時mainは `9f9434c4300d8f7ff3486501cd9f86c875dd2bb0`、Python 3.12.10。入口は `scripts/check_tokyo_rail_bounds_local.py`。指定prebuiltの事前SHA-256検査を通過し、成功reportのtrusted_prebuilt hashも `db10fc598e0da81e2ac200ba742ab75283440823651fb1d800037f7c0a74bae5` で一致した。TrainTimetable/Station/Railway JSONのhashも第40節の成功実行と同じである。今回こちらで実データを再実行したものではない。
+
+| 指標 | 確認結果 |
+| --- | ---: |
+| 有向駅ペアの区間min | 310キー・全値一致 |
+| source trip | 5,600 |
+| source stop_time行 | 122,258 |
+| 共通側の隣接区間 | 116,658 |
+| 旧東京参照レコード | 116,658 |
+| source calendar | 4（全source、日付filterなし） |
+| 不正区間 | 0 |
+
+`common_rail_interval_minima_verified=true`、`audit_mode=tokyo_common_rail_static_interval_minima`、成功marker `READ_ONLY_TOKYO_COMMON_RAIL_INTERVAL_MINIMA_OK` を確認した。旧参照レコード数は共通の隣接区間数と一致し、122,258 stop_time行 − 5,600 trip = 116,658区間というsource coverageの関係も一致する。これはsource trip単位の件数で、4日分の乗車候補数やgraph上の一意辺数ではない。
+
+`calendar_scope=all_source_calendars_no_date_filter`、`interval_clock=current_departure_to_next_arrival_excludes_dwell`、`float_policy=existing_tokyo_binary64_subtraction_downward_guard`。全calendarを含む現駅departure→次駅arrivalの隣接minについて、元時計・旧東京のbinary64減算/下方向guard・有向pairキー・件数・全最小値を維持した入力比較ゲートの合格である。active serviceやgraph上の乗車可否で区間を削った監査ではない。
+
+4入力の前後hashとclean main/expected SHA検査を含むPython監査の成功markerまで確認した。ログ末尾の `if ($LASTEXITCODE -ne ...` は途中で切れているため、後続PowerShell式の完了や数値終了コードを別途観測したとは記載しない。これはPython監査本体の成功確認を取り消すものではなく、同一監査の再実行を要求しない。
+
+`common_rail_time_bounds_provider=not_selected_audit_only`、`rail_provider=not_selected_audit_only`、`bus_provider=not_evaluated`。`common_rail_sample_rank_verified=false` はこの監査がOD探索を実行しないことを示し、第40節の列車provider36ケース・108候補の合格を取り消さない。共通graph投影、目的地別下界、最終優先度の丸めguard、全体候補順位、公式運行calendar、Realtime、実Lambda起動、真のtop-kの各verified flagはfalseを維持する。
+
+第36節のバス隣接min入力監査と今回の列車監査により、第35節の**A*静的区間min入力比較（第1段階）は両交通手段で合格**した。次は同じ東京graphへの辺重み投影を独立比較する第2段階であり、目的地別全node下界とguard付き優先度はさらに後の第3段階である。共通下界を探索へ供給する切替、共通bus+rail合成provider、全OD/全時刻、性能・ピークメモリをこの結果で認定しない。
+
+今回の変更は本書への成功記録のみ。合格済みbus36ケース・bus下界監査・rail36ケース・今回のrail区間min監査を新たに呼び出さず、本番切替・デプロイ・S3・本番設定を変更していない。
