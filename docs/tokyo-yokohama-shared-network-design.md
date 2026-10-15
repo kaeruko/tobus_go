@@ -671,3 +671,5 @@ bindingはrail-only・全source tripを要求し、元trip ID/列車番号/calen
 事前選定の旧検索回数は`--max-selection-queries`（1日あたり既定90、明示した整数9以上）で制限する。上限や構造候補を使い切って未選定の種別/モードが残れば診断付きで停止し、成功扱いや予算の自動増加を行わない。`--max-candidates`の既定3および各検索の既存安全上限は維持する。正常reportにselection_reports（検索数、条件不一致数、選定数、上限）と各比較のsample_id/必要手段を含むmatching_candidatesを追加する。元のOD IDを正常reportへ出さず、36ケース/108候補が必ず返るとは約束しない。成功markerは従来のREAD_ONLY_TOKYO_COMMON_RAIL_ROUTE_SAMPLE_OKで、全必要サンプルの一致後だけ出す。
 
 追加6回帰は、構造的には混在可能だが上位3に混在が無い実検索fixture、モード別の異なる適格OD、固定後の不一致/例外と候補上限変更の停止、旧検索の元例外伝播、選定予算不足、全日選定前のcommon比較禁止を確認する。既存15回帰と合わせ21件が成功。ローカル全API885件（native未導入6件スキップ）、Windows CIと同じ対象107件は失敗/エラー0。CIは既存の当該module入口で新回帰も実行する。実データのこの修正版ゲートは未実行であり、上記停止ログを全体合格へ読み替えない。合格済み実バス36ケース・バス下界監査は再実行していない。本番切替・デプロイ・S3・本番設定変更は行わない。
+
+修正版の実装SHA `714e7828b5c4020fc9ef576ad4d1188491be62df` のGitHub Actions run [38690619538](https://github.com/kaeruko/tobus_go/actions/runs/38690619538)で、API885件（native未導入6件スキップ）、Windows107件、Rust Python3.11/3.12各82件、Lambda image/smoke、repository safetyが成功した。終了ログとjob conclusionを確認した。記録時点のAndroid/iOS全flavor buildは完了未確認で、workflow全体成功とは扱わない。これは修正版検証器の合成回帰・イメージスモークの合格であり、ユーザーの実入力での全4日・全36比較の合格ではない。
