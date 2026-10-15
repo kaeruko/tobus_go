@@ -276,7 +276,7 @@ jobs:
       - name: Verify Windows memory API and separate-process synthetic comparison
         env:
           PYTHONPATH: tests
-        run: python -m unittest tests.test_shared_yokohama_local_check tests.test_gtfs_streaming tests.test_tokyo_odpt_local_check tests.test_odpt_ordered_train_clocks tests.test_tokyo_gtfs_local_check tests.test_tokyo_pickup_contract tests.test_tokyo_compiled_routes_local_check tests.test_tokyo_dataset_bus_choices -v
+        run: python -m unittest tests.test_shared_yokohama_local_check tests.test_gtfs_streaming tests.test_tokyo_odpt_local_check tests.test_odpt_ordered_train_clocks tests.test_tokyo_gtfs_local_check tests.test_tokyo_pickup_contract tests.test_tokyo_compiled_routes_local_check tests.test_tokyo_dataset_bus_choices tests.test_tokyo_dataset_rail_choices -v
 
   rust-search-core:
     name: Rust SearchCore (Python ${{ matrix.python-version }})
@@ -354,4 +354,5 @@ jobs:
           /usr/bin/time -f 'lambda_image_smoke_elapsed_seconds=%e' \
             docker run --rm --entrypoint python tobus-go-route-core-test -c \
             "from _transit_search_core import TransitSearchIndex; index=TransitSearchIndex(2,1,1,[0],[0],[0,2],[0,1],[600,620],[600,620]); pairs,_=index.search([True],595,[(0,0)],[(1,0)],'fastest',6,100,100,100,1.0); assert pairs[0][3] == 620"
+
 

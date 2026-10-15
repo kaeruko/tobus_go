@@ -634,3 +634,21 @@ main `f40a7fb7d112cdbd2b18531104f5dce98900b855` の実データ候補一致を�
 - `common_bus_time_bounds_provider=not_selected_audit_only`、`rail_provider=not_evaluated`、`common_dataset_route_ranking_verified=false`、`realtime_verified=false`、`lambda_startup_verified=false`、`true_top_k_verified=false` を維持。`source_identity_kind=synthetic_in_memory_not_source_zip_hash` であり実ZIP同一性の証明ではない。
 
 この成功が証明する範囲は**東京既存のバス隣接時間min索引と共通Dataset由来索引の同値性（A*入力の第1段階）だけ**。全graphへの辺重み投影、列車を含む全sourceのmin索引、目的地別全node下界、binary64丸めguard付き最終優先度、候補順位、Realtime、実Lambda起動、横浜統合、真のtop-kは本監査で検証していない。次は第35節の列車provider移行を独立に進め、A*切替時は投影・全node・guard付き優先度のゲートを別途通す。**本番探索provider切替、デプロイ、S3・本番設定変更は一切行っていない。**
+
+## 37. 静的列車providerの独立opt-in接続（2026-10-15）
+
+変更前mainは`74e19aa285b41efc926639f104adcd3d151ea192`。第35節に従い、`api/tokyo_dataset_rail_choices.py`へ明示した`TokyoRailDatasetBinding`と静的列車接続を追加した。公開runtimeからは選択しない。東京graph、徒歩/乗降時間、cost、frontier、候補署名/順位規則、A*時間/少乗換下界、丸めguard、既存bus providerは変更しない。既存の`choices_factory`入口だけで比較する。
+
+bindingはrail-only・全source tripを要求し、元trip ID/列車番号/calendar/route、全時計/停車順、共通1始まりsequenceと東京0始まりpositionを検査する。旧providerの全weekday/saturday/holiday具体便と一対一で照合し、`service_key|source_run_key|part:0`以外の分割/曖昧/欠落対応は停止する。番号だけで便を統合せず、停車ID再訪をoccurrenceで区別する。元clockは共通Fractionのまま保持し、今回の東京互換bridgeは正確な整数分に限る。端数を丸めたり秒を捨てて受理しない。第一駅arrival/終点departureは既存metadataの端点表現へ明示変換する。
+
+新しいboard/rideは`DatasetTimetableChoices`で評価し、既存`RideState.future_key`、具体便ID、`(departure, concrete_run_id, sequence)`順、segment_records/全metadataへ戻す。旧列車評価への自動切替は無い。列車準備2分/降車1分は既存接続層が一度だけ加算する。静的のみを入口で検査し、Realtime/opaque providerを明示拒否する。binding検査後の同件数source編集も内容digestで停止する。元例外/causeを保持し、検査失敗時に別便・別日・別clock/providerで継続しない。
+
+日付は明示ServiceDayTypeと必須jpholidayによる既存東京のweekday/saturday/holiday互換を確認する。共通calendar/例外をquery日に明示投影する`legacy_date_policy_compatibility_only`であり、公式時刻表の運行有効期間・臨時運行を独立に認定しない。時間下界は別の標準`TimetableChoices`を`validated_tokyo_reference`として明示注入し、標準型ゲートの緩和や共通A*への切替を行わない。
+
+読み取り専用の新入口は`scripts/check_tokyo_rail_routes_local.py`。明示したTrainTimetable/Station/Railway JSON・信頼済みprebuiltのG/TM・版固定GTFS・query dateを使用する。全graph rail board候補の順序/状態、各boarding originからgraph上で辿れる同便全continuationとmetadataを旧providerと比較する。探索前に既存graph/具体便からrail_only、rail_bus、walking_transferの3種の構造的witness ODを固定する。各ODをtime/fewTransfers/costで比較し、全node・edge clock・選択便・metadata・cost・徒歩量・候補順を照合する。walking_transferは2回以上の列車乗車と、列車乗車区間の間のwalkを実際の候補に要求する。必要categoryを含む候補無し、探索エラー/上限到達はそのまま停止し、別ODへ再試行しない。
+
+この検証器は全JSON/GTFS txt/prebuiltのhashとclean main/expected SHAを前後検査する。通信・認証・元入力更新・pickle修復/再保存・出力ファイル/bytecode生成を行わない。既存bus36ケース・compiled bus比較・bus下界監査を呼ばない。正常reportは集計のみ、private graph node/runは不一致時のlocal診断に限る。成功markerは`READ_ONLY_TOKYO_COMMON_RAIL_ROUTE_SAMPLE_OK`、`rail_binding_verified=true`、`common_rail_sample_rank_verified=true`。`common_dataset_route_ranking_verified`、`operational_calendar_verified`、Realtime/実Lambda/真のtop-kはfalseを維持する。bus_providerは明示的にexisting_tokyoであり、共通busと共通railの合成providerを認定したものではない。
+
+合成14回帰で、旧列車board/build/ride評価を禁止した共通provider使用、同番号別便、同時刻順序/入力順反転、複数候補、循環/跨日/dwell/期限、乗換準備境界、4calendar/4実日付policy、seq欠番/旧便分割拒否、型/精度/scope/metadata不一致、source同件数編集、Realtime/opaque拒否、元例外伝播とgenerator close、CLI入力hash変化時の成功marker非出力、入力非変更を確認した。ローカル全API878件は失敗/エラー0、native未導入6件スキップ。Windows jobと同じ対象100件もローカルで成功。Windows CIの対象へ新moduleを追加する。これらは合成/ローカルの結果で、GitHub Actionsの結果は別途確認する。
+
+実ODPT/GTFS/prebuiltを用いたこの新rail graph/候補比較は未実施。binding/snapshot/graph queryを含む実データ性能・ピークRSS、共通bus+rail合成、共通A*の投影/全node/guard付き優先度、Realtime、実compiled artifact/Lambda起動、公式calendar、横浜統合、真のtop-kは未検証。本番切替・デプロイ・S3・本番設定変更は行わない。
