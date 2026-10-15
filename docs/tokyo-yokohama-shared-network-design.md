@@ -446,3 +446,19 @@ date_choices/prebuilt_date_choices/shared_date_choicesへ各date/profile/区間�
 追加3合成回帰は通常平日/土曜/日曜/祝日の旧・prebuilt・共通の区間一致とprebuilt非変更、dateの不正/重複/依存欠落/旧policy矛盾、未知calendar拒否を確認した。新検証器・横浜probe・GTFS streaming・ordered clock・東京migration/Lambda startup関連48件、dataset/networkを含む選択83件がローカルで成功した。Windows CIは既に検証器moduleを含むため同じ追加回帰を実行する。今回の変更対象は検証器・回帰テスト・本書である。
 
 実データでの次の指定日は2026-09-04/05/06と2026-09-21。前段と同じ4ファイルを更新/再取得せず使い、通常weekday/saturday/holidayと既存libraryの祝日profileを比較する。実日付比較はまだ未実施で、公式運行版/有効期間/例外、本番graph/候補順位/快適さ/徒歩/Realtime、compiled GTFS/Lambda実起動・性能は残る。Phase 2全体完了・本番切替・デプロイを宣言しない。
+
+## 24. 東京実日付の一致とバスGTFS入力比較
+
+ユーザーのWindows Python3.12.10、main `5d61aa461c9919cc503e75e59f2c51689babbfbc`でREAD_ONLY_TOKYO_RAIL_INPUT_OKを確認した。jpholiday1.0.3、query2026-09-04/05/06/21でprofileはweekday/saturday/holiday/holiday。各57,804/50,418/49,850/49,850区間が原JSON/旧具体便/prebuilt/共通具体便で差分0。legacy_date_policy_verified=true、shared_adapter_verified=true、prebuilt_verified=trueで、指定4ファイルhashは前段とも一致し、実行前後の入力hash・clean main/SHA検査を通過した。公式有効期間/臨時運行、production graph/経路順位/Realtime/実Lambda起動は未検証。raw入力/hash値/生ログを保存しない。
+
+次の変更前mainは同じ`5d61aa46`。`scripts/check_tokyo_gtfs_local.py`と合成回帰を追加する。指定GTFSの全txtとfeed_infoをhashで固定し、完全expected SHA・clean mainを実行前後に検査する。feed_infoの1行と明示したexpected-feed-version、start/endの形式・順序・query date範囲を要求する。query dateは明示/厳密parse/重複無し。非empty frequenciesは未対応として停止し、頻度便を合成したり別feedへ切り替えたりしない。取得/書換え・ネットワーク・credential読込・出力ファイル生成を行わない。
+
+GtfsTransitAdapterを通常strict modeで読み、全stop_timeのarrival/departure source secondsが存在してminute-alignedであることを確認してから旧GtfsRepositoryを読む。旧minute投影との比較のために秒端数を丸めない。秒データの不正ではなく、旧比較器との精度互換性未確認として診断で停止する。共通v2の秒対応は維持する。bus-onlyの全source tripを明示scopeにして徒歩0のnetworkを構築し、全時計/停車順序を検査する。旧/共通でstop/route/trip集合、stop名/公式英語/座標、route表示名、tripのroute/service/headsign/direction、全sequence/stop/発着時計を比較する。例外だけで運行するserviceも元IDで扱い、calendarを捏造しない。
+
+コード上、現行東京TimetableChoices._bus_optionsはpickup_typeを参照せず、ride後のalightにもGTFS drop_off_typeを渡していない。共通networkは乗降flagを保持し、制約に従う。新検証器は乗車可能positionのnonzero pickup、降車可能positionのnonzero drop-offがあれば、既存結果維持の契約が未確定として停止する。始点drop-off/終点pickupの制限は乗降positionと矛盾しないので元のまま保持し検証する。flagの削除/無効化・未確認便の除外で比較を通過させない。実Toei feedのその条件は実行まで未確認。
+
+旧具体便の比較graphはsource route/stopの全隣接区間から作る検証専用のcanonical GTFS graphで、ODPTのbuspat graphや標柱→GTFS ID対応の代替ではない。旧TimetableChoicesと共通DatasetTimetableChoicesについて、指定各dateのactive service/trip集合と全boarding occurrence→次停車区間のtrip、sequence、乗降stop、発着時計を比較する。同じstopの再訪をsequenceで区別し、時刻表prepare後に列挙する。無料対象範囲やYokohamaの審査dataを変更せず、元GTFS transfersや推定徒歩を自動有効化しない。ODPT graphの方面/terminal絞り込み、全経路候補順位・快適さ・徒歩・Realtime、compiled GTFS/Lambda実起動・メモリ/速度の一致はこのgateの範囲外とfalseで明示する。
+
+合成8回帰はsource全行/metadata/運行例外/具体便一致と入力非変更、秒非丸め、pickup差で停止、始終端の乗降制約保持、例外だけのservice、誤版/不正・重複・期間外date/非empty frequencies/承認日便無し、誤SHA・hash変更で成功marker非出力、正常CLIのhash/未検証gateを確認した。Windows CIへ新moduleを追加する。成功markerはREAD_ONLY_TOKYO_BUS_INPUT_OKで、正常reportはfeed版/期間/件数、pickup/drop-off件数、date別active service/trip/具体区間数/差分だけを出し、private stop/trip IDを通常出力に含めない。不正入力のlocal例外には診断IDを保持する。原GTFSやログをリポジトリへ追加しない。
+
+次の実入力は既にユーザーが確認した`api/data/ToeiBus-GTFS`、feed_version20260828_030922（2026-08-28〜2029-08-27）。query2026-09-04/05/06/21を同じ版で読み取り専用比較する。新bus gateの実データはまだ未検証で、Phase 2全体完了・本番切替・デプロイを宣言しない。

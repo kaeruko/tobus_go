@@ -276,7 +276,7 @@ jobs:
       - name: Verify Windows memory API and separate-process synthetic comparison
         env:
           PYTHONPATH: tests
-        run: python -m unittest tests.test_shared_yokohama_local_check tests.test_gtfs_streaming tests.test_tokyo_odpt_local_check tests.test_odpt_ordered_train_clocks -v
+        run: python -m unittest tests.test_shared_yokohama_local_check tests.test_gtfs_streaming tests.test_tokyo_odpt_local_check tests.test_odpt_ordered_train_clocks tests.test_tokyo_gtfs_local_check -v
 
   rust-search-core:
     name: Rust SearchCore (Python ${{ matrix.python-version }})
