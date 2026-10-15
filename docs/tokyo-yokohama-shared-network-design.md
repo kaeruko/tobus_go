@@ -695,3 +695,35 @@ bindingはrail-only・全source tripを要求し、元trip ID/列車番号/calen
 
 
 実装SHA `d75746318912a914c02832a020a6973835306acb` のGitHub Actions run [38693056584](https://github.com/kaeruko/tobus_go/actions/runs/38693056584)で、**API893件（native未導入6件スキップ）、Windows115件、Rust Python3.11/3.12各82件、Lambda image build/smoke、repository safetyが成功**した。API/Windows/Rustの終了ログ、Lambda smokeの終了、各job conclusionを確認した。記録時点ではAndroid/iOS全flavor buildは完了未確認で、workflow全体成功とは記載しない。これは検証器の合成回帰とイメージスモークの結果であり、Windows実データでの修正版サンプル選定・新旧provider全36比較・性能を認定しない。
+
+
+## 40. Windows実データによる共通列車provider比較ゲートの成功（2026-10-15）
+
+ユーザー提供のWindows PowerShellログ「貼り付けたテキスト（1）(20261015-094108).txt」の末尾で、第39節の修正版ゲートが成功した。実行時mainは `834535cf5aef46bb7d5b91c47c418223474cc0c1`、Python 3.12.10、GTFS feed `20260828_030922`。指定prebuiltのSHA-256は `db10fc598e0da81e2ac200ba742ab75283440823651fb1d800037f7c0a74bae5`。先頭には過去のcompiled/bus/bus下界監査と旧版railの停止記録も含まれるため、それらを末尾の修正版の結果へ混在させない。途中に残るcategory欠落とqueue_sizeの例外は以前の実行分であり、末尾の実行では選定・固定後の比較に停止eventは無かった。
+
+### 確認できた受け入れ結果
+
+- 2026-09-04/05/06/21の4日 × rail_only/rail_bus/walking_transferの3category × time/fewTransfers/costの3modeについて、重複の無い期待どおりの**36ケースをすべて比較した。各3候補、延べ108候補で差分0**。候補順、全node、edge時計、選択された具体便状態、metadata、cost、徒歩量を照合した結果である。
+- 全36ケースで必要categoryを実際に含む候補が1件以上ある。categoryに合致する候補数はrail_onlyが延べ28/36、rail_busが25/36、walking_transferが26/36であり、比較した108候補全部が各caseの必要categoryに合致するという意味ではない。これらは各サンプル内の集計で、別OD/別modeをまたぐ一意経路数ではない。
+- graph上の全rail board候補と各boarding originから辿れる同便continuationを比較し、全4日の `metadata_differences=0`、`differences=0` を確認した。合計は延べ207,234 boarding options、2,707,927 continuationsで、日付をまたぐ一意便数・一意区間数ではない。
+- 全指定日の旧provider選定を先に完了し、36件の `frozen_comparison / completed / equal` を確認した。候補数3・選定query予算90はコマンドでも固定されており、今回の選定数は各日の予算内だった。9/5の条件不一致3検索は正常完了後のcategory不採用であり、探索例外を無視した結果ではない。
+- 成功reportは `rail_binding_verified=true`、`common_rail_sample_rank_verified=true`。19入力（3 JSON、trusted prebuilt、GTFS txt）の前後hashとclean main/expected SHA検査の後に、`READ_ONLY_TOKYO_COMMON_RAIL_ROUTE_SAMPLE_OK` が出てPowerShell promptへ戻っている。shell終了コードの数値表示は含まれないため、数値の `$LASTEXITCODE=0` を別途観測したとは記載しない。
+
+| query日付 | 構造候補数 | 旧選定検索数 | 正常完了後の条件不一致数 | boarding options | continuations |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 2026-09-04 | 1,292 | 9 | 0 | 57,647 | 748,793 |
+| 2026-09-05 | 1,254 | 12 | 3 | 50,241 | 658,556 |
+| 2026-09-06 | 1,196 | 9 | 0 | 49,673 | 650,289 |
+| 2026-09-21 | 1,196 | 9 | 0 | 49,673 | 650,289 |
+
+各日9ケースを選定済みで、固定した異なるOD/時計は順に3、5、3、3件。モード別の適格ODを認める第38節の契約どおりで、比較開始後のOD変更ではない。局所候補policyは `local_one_stop_witness_v1`、基準時計600分、構造的所要30分以内、乗換徒歩300m以内、最初の列車区間ごとに元時計1件である。実検索の探索規則や安全上限は従来のまま検証した。
+
+### この合格の範囲
+
+これは指定入力・指定東京graph・4日・36サンプルについての**静的共通列車bindingと候補順位の合格**である。bus providerは `existing_tokyo`、時間下界は `validated_tokyo_reference`、徒歩policyは `unchanged_supplied_tokyo_graph`。calendarは `legacy_date_policy_compatibility_only`（jpholiday 1.0.3）であり、公式時刻表の運行有効期間を独立に認定した結果ではない。
+
+`common_dataset_route_ranking_verified=false`、`operational_calendar_verified=false`、`realtime_verified=false`、`lambda_startup_verified=false`、`true_top_k_verified=false` を維持する。全OD・全時刻の保証、共通bus+rail合成provider、共通A*のgraph投影/全node下界/丸めguard付き優先度、Realtime、実artifact/Lambda起動、横浜統合、真のtop-k、候補pool生成を含む総実行時間・ピークメモリは未検証である。
+
+当該実行SHA `834535cf5aef46bb7d5b91c47c418223474cc0c1` のGitHub Actions run [38693348062](https://github.com/kaeruko/tobus_go/actions/runs/38693348062)も、status=completed・conclusion=successを確認した。これは合成CIとbuild/smokeの結果であり、上記Windows実入力の結果とは別の証拠である。
+
+今回の作業はユーザー提供ログの読取確認と本書への結果記録のみ。実データをこちらで再実行せず、過去のbus36ケース・108候補やbus下界監査も新たに呼び出していない。この合格済みrail検証も同一条件での無条件再実行を要求しない。本番切替・デプロイ・S3・本番設定は変更しない。
