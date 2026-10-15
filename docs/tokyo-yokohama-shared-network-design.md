@@ -486,3 +486,19 @@ GtfsTransitAdapterを通常strict modeで読み、全stop_timeのarrival/departu
 監査modeはdefaultmode失敗後の自動再試行ではなく、CLIで事前選択する別の検証目的である。GTFS txt一式と指定prebuiltを実行前後にhash比較し、clean main/SHAを維持する。成功markerはREAD_ONLY_TOKYO_BOARDING_AUDIT_OKであり、READ_ONLY_TOKYO_BUS_INPUT_OKを出さない。reportもbus_choice_parity_verified/route_ranking/realtime/compiled_gtfs/lambda_startupをfalseに保つ。指定local prebuilt G＋指定GTFSの静的な乗車可否であり、実デプロイ先のartifact版一致や全ODの候補採用を認定する検査ではない。無料/徒歩policy、製品コード・公開設定を変更しない。
 
 追加4合成回帰は既存graphで乗車・同便rideできるflag1、board edge無し、buspat終端不一致による乗車不可、明示mode必須/別marker/前後prebuilt hash/元artifact非変更を確認した。関連127件がローカルで成功した。Windows CIは同じ検証器test moduleを既に含む。次は指定prebuilt G上での実データ監査を行い、実乗車可の有無と件数を確認してから契約の採否を検討する。Tokyoバス互換性合格、Phase 2全体完了、本番切替・デプロイを宣言しない。
+
+## 27. 指定グラフでの乗車可を確認 — 結果維持と禁止乗車の修正範囲
+
+ユーザーのWindows Python3.12.10、main `1bbff9642843c6b51306829a071638545091518e`でREAD_ONLY_TOKYO_BOARDING_AUDIT_OKを確認した。query2026-09-04/05/06/21のactive conflicting rowは258/228/169/169。各日でmissing bindingとbound-but-not-boardableは0、旧選択器のboardable/同便rideableは全件同数だった。つまり指定prebuilt Gと指定GTFSでは、原GTFSがpickup1とする各active occurrenceから、既存具体便処理が乗車し次停車へ進める。全ODの経路探索でこれらが実際に選択される件数は未測定で、実デプロイ先のcompiled GTFSやRealtimeで同じ結果になるとまでは主張しない。
+
+feed版20260828_030922、期間2026-08-28〜2029-08-27、GTFS txt15ファイルと指定prebuiltの前後hash/clean main/SHA検査が通過した。prebuilt hashは前段の列車監査と同じ。4日間のrow件数は延べ日別件数であり、合計をdistinctな便数と呼ばない。最大5例のstop/routeは全体分布を表す保証がない。実ID/stop名/原GTFS行/hash値/生ログはリポジトリへ追加しない。
+
+**確認できた衝突**: 東京の既存候補を完全に維持することと、同じGTFSのpickup1による新規乗車禁止を適用することは、この対象positionでは同時に達成できない。共通側flagを無効化して合格扱いにしたり、差分を自動で旧探索へ回したりしない。横浜の無料/公式徒歩制約へ例外を広げない。通常のTokyo bus parity gateは引き続き保留する。
+
+**推奨する承認対象の修正範囲（未実装）**: pickup1の停車位置で新たに乗車する候補だけを禁止する。停車rowや便自体を削除せず、それ以前から同便で乗り続ける移動とdrop-off0での降車は維持する。今回確認した差以外のコスト/目的値/tie-break・時計・無料判定・徒歩policyを同時変更しない。禁止乗車に起因する結果差を、既存結果完全維持の明示した例外としてユーザーへ確認する。全経路候補/順位の実差分を測定する前に影響範囲を確定済みとは扱わない。
+
+変更対象案は`api/gtfs_loader.py`（既存stop_times三要素tupleを保持したまま別のtrip/sequence別乗降metadataを保持）、`api/tokyo_timetable_choices.py`（新規boardのpickup1検査）、`api/gtfs_state.py`（compiled artifactで同じmetadataを必須保存/検査）、対応するcompiled-state/具体便/network/監査回帰、検証器と本書。現compiled schema1のpayloadは乗降metadataを持たないことをコードで確認した。新しい厳密契約に古いartifactを渡してflag0とみなさず、形式/capabilityを明示して必要metadata欠落は停止する。compiled artifact形式とSearchCore v1の型契約を混同せず、Python/Rust SearchCore v1の探索API・時計・配列契約は変更対象外とする。artifact再生成/本番適用は別段階で、今回行わない。
+
+検証計画は、合成A→B→CのBをpickup1/drop-off0とし、Bからの新規乗車禁止、AからCへの同便継続、Bでの降車、別の乗車可能便の選択、循環再訪のsequence区別を固定する。raw GTFS→旧repositoryの新metadata→compiled round-trip→Tokyo choicesと共通choicesの同じ制約を比較し、欠落artifactはfail-fastを確認する。実データでは今回4日と本番graphを使うOD比較で、禁止乗車に起因する差分と影響のないODを区別し、最速/少乗換/快適さ・全候補順位/具体区間・Realtime差分を評価する。保存/アップロードは合成回帰と集計のみとする。
+
+本節追加時点では推奨の製品動作変更を実装/コミットしていない。「既存東京の探索結果・候補順位を維持する」という指示と衝突するため、この一点の例外についてユーザー判断待ち。既存の監査codeは関連128回帰とCIのAPI/Windows/Rust3.11/3.12/Lambda検証が成功している。設計上の衝突と修正対象が明確になったことを、Tokyo bus parity/Phase 2全体完了と扱わない。本番切替・デプロイを行わない。
