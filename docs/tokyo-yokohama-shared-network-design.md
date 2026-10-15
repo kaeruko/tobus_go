@@ -1053,3 +1053,63 @@ offboardでは、厳密に早いprefixはcostが高くても、東京timeのboar
 新監査の受け入れは、①固定query/source/実装の前提、②dominanceの主到着simulation、③第一goalの終了証明、④元例外と中断理由の保持を別flagで確認する構成とする。候補classの意味論・保存・全同着wave・代表順位の証明が未完なら `true_top_k_verified=false` を維持し、top-k認定を要求する入口は理由付きで拒否する。想定する追加ファイルは上記監査module/test、Windowsの明示test登録、設計書のみで、既存の第47節CLIや本番searchへ暗黙に組み込まない。reviewed ASTを変更する観測hookを製品coreへ足して自動認定することもしない。
 
 将来、真のtop-kそのものを実装する場合は、class保存frontier、collectorの停止/統合、署名/代表順位の契約見直しが必要となり得る。`api/transit_search_labels.py`、`api/toei_engine.py`、`api/tokyo_route_signatures.py` 等の変更は候補集合と順位へ影響するため、互換性を維持する今回の監査追加とは別のopt-in設計として合意する。当面の推奨は主到着1件の監査を先行し、現行の探索上限・guard・frontier・候補順位を保持すること。合格済み実データ監査は再実行せず、本番切替・デプロイ・S3・本番設定変更は行わない。
+
+
+## 50. 現行time規則を維持した最短到着1件の有限query監査（2026-10-16）
+
+実装基準mainは `993b553ba2469c614af5de5b2c10c29411fe98a3`。第49節の推奨に従い、監査専用 `api/tokyo_search_correctness_audit.py`、独立回帰 `api/tests/test_tokyo_search_correctness_audit.py`、Windows CIへの明示登録だけを追加した。製品のsearch/frontier、資源枝刈り、guard、provider、候補順位、本番設定は変更していない。Linux API CIは既存のtest discoveryで新moduleを実行する。第1〜第4段階の合格済み実データ監査と36case比較は再実行しない。
+
+**結論と認定単位。** 今回の正例は、固定したgraph/source/queryで運行状態の閉包を完全に構成できた場合の、time主到着1件を認定する。現行規則で主到着witnessを失う反例は、この合成検証では観測していない。実ネットワークの全queryや最終API JSONの最適性を認定したものではない。oracle列挙不能、対応遷移の欠落/余分、witness消失、不正な枝刈り、過大priority、非最短goal、検索中断のいずれでも成功reportを返さない。別OD・別時計への変更や、上限拡大・暗黙の0下界・別providerへの切替は行わない。
+
+**独立oracleと有限化の前提。** `RawRun` / `RawStop` は生の停車列から供給する独立した入力であり、製品providerのboard/ride出力から期待値を作らない。oracleの状態は `(node, binary64 clock, total_walk, segment_walk, concrete ride provenance)`。rideはprovider/service/run/line、現在sequence、board sequence、乗車時計、trip/train/route/service metadataをすべて保持する。同便番号の別run、循環の反復occurrence、fresh/movedを統合しない。全ての合法な次状態を、dominance・A*・下界builderを使わず列挙する。完走時計は、goalの絶対時計を逆向きに伝播するworklistで計算する。経過時間をまとめて開始時計へ足したり、製品の逆Dijkstraを期待値生成に使ったりしない。
+
+costとboardingsだけは状態から除く。これは固定したcanonical Tokyo time呼出しが `arrival_tie_key=None`、`max_boardings=None` で、cost/boarding数による可否制約や履歴依存filterを持たない範囲に限る。具体便・時計・資源が同じ状態の将来の合法集合は同じなので、同じ状態の再訪を統合しても最短到着の有限完走witnessを失わない。0分の再乗車・循環により運行上のsuffixが任意に長くても、この同一状態の閉包が完成すれば扱える。返却経路のpop上限や、運行suffixの長さを有限化の根拠にはしない。
+
+`max_oracle_states` / `max_oracle_transitions` はoracle作業の受け入れ上限であり、深さ打切りでも探索上限の代替でもない。閉包完成前に到達したら理由付きで停止する。現在の対象schemaはphysical間walk、同一stopのboard/alight/xfer、同一lineのride、明示run/line/stop ID対応である。独立にモデル化していないalias・pattern filter等は、canonical providerとの全遷移照合で不一致なら認定しない。raw時計は非負のexact integral minute、pickupは0/1、静的な非減少停車列を要求する。未知のschemaや条件付きpickupを推測して補わない。
+
+oracle完成後、別のfresh canonical static providerで、全到達状態の合法な次状態集合を照合する。元の検索用providerのcacheは事前評価でwarmしない。期待値生成と比較側dispatchを分け、検索側の実際のofferもoracle状態に対応することを確認する。graph、rail/GTFS source、timetable indexの前後digestと、query/raw runのdigestを記録する。静的provider・通常のsource container・物理start・固定目的地/virtual seed・review済み実装が前提で、Realtime/opaque/custom provider、warm provider、未レビューのsource/helper差異は拒否する。公式calendarの正しさをこの照合だけで認定しない。
+
+**witness保存と終了条件の検査。** 製品coreへhookを追加せず、呼出しthreadの `sys.settrace` で元のsearchを観測する。既存traceがあれば上書きせず拒否し、正常・異常終了のいずれでも自分のobserverを解除する。従来のtransition/rounding fingerprintに加え、`_Frontier`、`_Label`、queue compaction、最短1件の公開entry、path再構成のreview済みAST/結合を確認する。
+
+| 検査 | 成立を要求する条件 |
+|---|---|
+| generation時のdominance / 以前のlabelの無効化 | retained状態の最短合法完走時計がdiscarded状態以下。失敗時は両状態indexと完走witness index列を保持 |
+| 既展開dominator | 上と同じ完走条件に加え、展開完了後のOPENにその最短完走を達成できる子孫が残る |
+| walk/deadline枝刈り | 生の距離・既存binary64演算で独立に不可と判定できる。totalとsegmentを別々に確認し、表示ceil/epsilonを使わない |
+| fresh boardのalight/xfer拒否 | 承認済みの合法性規則を保持し、未移動乗車を無料のsegment resetに使わせない |
+| 各展開後のOPEN | active・未展開entryの最短完走時計のminが、oracle初期状態の最短完走時計と等しい。既展開label自身をOPEN witnessと数えない |
+| 実priority | queueの実主キー、および閉包内全状態の実guard付きpriorityが、その状態の最短合法完走時計以下 |
+| 最初の有効goal pop | goalのpriorityが実到着時計とbit一致し、その時計がoracleの最短到着時計と一致。生成時終了を許さない |
+| yield/consumer close | 返却pathのnode・binary64時計・具体ride・歩行量がgoalの親鎖と一致し、各隣接状態がoracleの合法遷移に存在する |
+| queue消尽 | oracleにも合法完走が存在しない。予算超過やpartialと混同しない |
+
+この最短完走時計の比較は、discarded prefixに完走があれば、retained prefixにもそれ以下の到着時計の完走が少なくとも1つあることを検査する。全具体経路、同じ旅程class、同着cost最適な代表を残す証明ではない。展開途中に親がqueueから外れた瞬間と、全子孫をofferした後のOPENを区別する。許容性から整合性を仮定せず、改善labelをnode単位で永久に閉じないことは別の抽象回帰でも検査する。
+
+**探索・guardパラメータの分離。** `SearchLimits` はprofileと全値を必須とする。`production_fastest` はpop 200000・expanded 100000・15秒と完全一致する場合だけ受け付ける。合成用 `synthetic_explicit` は別名でreportし、その実値をそのまま元searchへ渡す。いずれも `max_search=1`、歩行3000m/600m、80m/分、rail準備2分を変更しない。公開 `find_fastest_path` 自体を実行したとはreportせず、実際のentryが `tokyo_search_labels.search_labels` であることと、公開1件契約の上限を使ったかを分けて記録する。
+
+guardは実検索のprepare結果から取得する。実 `max_visited`、実boundsの `nodes+1` と最大辺重みで係数を検査し、同じ全パラメータから作った既存guardとのbit同値性も確認する。第47〜48節の監査 `N_f=100000` を製品searchの200000へ読み替えない。今回の全閉包状態に対する許容性は有限queryで直接検査した結果であり、第46節の全合法suffix射影証明を再実行した結果ではない。oracle作成・比較側照合は事前作業だが、実search開始後のbounds構築・observer処理は元の期限へ課金し、時計補正も期限延長も行わない。
+
+検索中に発生した元例外は同じobject・reason・diagnostics・traceback/contextを保持して再送出し、認定falseの監査診断だけを追加する。通常の新規診断と反例は状態index/件数で、source IDや経路を追加出力しない。既存provider例外の内容を隠して別例外へ変換することもない。observerによる全走査は合成fixture向けで、実データで同じ15秒以内に完了することは未検証である。
+
+**独立回帰・反例探索。** 新しい29 testには、4nodeの全64 DAG × 通常/跨日時計の128固定queryに対する別の完全path列挙器との照合、および生のloop/fast便閉包で同じfrontier keyを持つ58個のtrue dominance比較を含む。期待値側は製品のsearch/provider/boundを呼ばない。正例のraw rail/bus混合には停車dwell、同一stopへの再訪、pickup禁止、別run、通常/跨日を含む。
+
+| 回帰 / 意図的な反例 | 判定 |
+|---|---|
+| 10分の合法goalを先に生成し、別の1+1分経路を後から生成 | 最初のgoal popは2分 |
+| 許容的だが非整合な抽象hで、Aを3分で展開後に2分prefixが到着 | Aの別labelを再展開し12分goal。canonical Tokyo認定とは分離 |
+| 早いが歩行残量の悪いprefix、既展開dominator、新しいdominatorによる無効化 | 最短完走witnessを保存 |
+| 最終segmentがちょうど600mと1 ULP超、5回の正当なtransitを挟んだtotal 3000mと3001m | segment/totalを独立に検査。後者の超過はsegment 1mでも拒否 |
+| binary64でちょうどdeadlineと1 ULP手前のdeadline、review済walk時計、legacy 0m→1m時計 | 既存の実演算通りの可否 |
+| 0分の具体便再乗車cycleを含む状態graph | 強連結成分を含む閉包が完成。suffix長の認定はfalseのまま |
+| 正の歩行cycleでoracle作業上限に達する | `oracle_state_limit` / `oracle_transition_limit` で停止し認定なし |
+| oracleから便を欠落 / 架空便を追加 | `independent_transition_relation_differs`、index/差分件数で停止 |
+| 遅いgoalによる置換、最短OPEN witness削除、早いgoalの無視、合法状態への誤ったresource rejection | 各証明条件を個別に拒否し、完走witness indexを保持 |
+| pop / expanded / 時間上限 | 元 `RouteSearchLimitError` のreason/diagnostics/tracebackを保持し成功なし |
+| 条件付きpickup、source変更、既存trace、Realtime/opaque/warm/差替frontier | 理由付き拒否、製品探索の修正なし |
+| 同着virtual経路のcost反例 | 主到着605だけを認定し、副順位/class/top-k flagをfalseに維持 |
+
+queue/g_scoreの固定閾値を超える巨大fixtureは追加していない。閾値とcompactionを含む元関数のASTを固定し、compactionが元のlive entry tupleだけを保持する小回帰を別途実行する。安全上限を大きくして正例を通す検査は行わない。既存の実データ証明gateを呼んだ場合に失敗するprofile観測も含め、新監査から合格済みgateを呼び直さないことを検査する。
+
+**flagと未検証範囲。** 正常な有限query reportでは `earliest_arrival_verified`、`independent_transition_closure_verified`、`dominance_completion_witnesses_verified`、`resource_pruning_verified`、`finite_query_priority_admissibility_verified` をtrueとする。`first_goal_pop_verified` と `queue_exhaustion_verified` は実際のterminationに応じて分ける。`same_arrival_cost_optimality_verified=false`、`candidate_class_completeness_verified=false`、`true_top_k_verified=false`、`unexpanded_suffix_step_bound_verified=false`、`unconditional_search_correctness_verified=false`、`operational_calendar_verified=false`、`realtime_verified=false` を維持する。true top-k認定を要求する入口は明示的に拒否する。任意OD・全座標・詳細検証/候補統合・旧/共通providerの新しい順位同値性・実Lambda起動へ拡張しない。
+
+ローカルPython 3.12.14で新規29 testが成功。全APIの合成unit testも1001件、skip 6件で成功した（新規29件を含む）。GitHub Actionsの当該実装SHAに対する結果は、完了を確認して追記する。本番切替・デプロイ・S3・本番設定変更は行わない。
