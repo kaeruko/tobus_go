@@ -69,6 +69,63 @@ def compare(expected, actual, stage):
         raise AssertionError(f'{stage} concrete interval multiset differs')
 
 
+class TokyoBoardingContractError(ValueError):
+    """Unsupported legacy/shared contract with bounded local diagnostics."""
+
+    def __init__(self, first_trip, first_sequence, diagnostics):
+        self.diagnostics = diagnostics
+        super().__init__('legacy Tokyo ignores boarding/alighting flags; shared choice parity not established: '
+            f'{first_trip} sequence={first_sequence}; diagnostics=' + json.dumps(diagnostics, ensure_ascii=True))
+
+
+def check_boarding_contract(dataset, snapshot, days):
+    # Complete diagnostics before attempting either choice provider. Do not
+    # filter trips, remove flags or continue comparison after this gate fails.
+    date_counts = {day: {'date': day.isoformat(), 'conflicting_rows': 0,
+        'boarding_conflicts': 0, 'alighting_conflicts': 0} for day in days}
+    active = {day: dataset.active_service_ids(day) for day in days}
+    date_trips = {day: set() for day in days}
+    affected_trips, examples = set(), []
+    kinds = Counter()
+    rows_count = boarding_count = alighting_count = 0
+    first = None
+    for trip_id, rows in snapshot.rows_by_trip.items():
+        trip = snapshot.trips[trip_id]
+        for index, row in enumerate(rows):
+            boarding = index < len(rows) - 1 and row.pickup_type != 0
+            alighting = index > 0 and row.drop_off_type != 0
+            if not boarding and not alighting:
+                continue
+            if first is None:
+                first = trip_id, row.sequence
+            rows_count += 1
+            boarding_count += boarding
+            alighting_count += alighting
+            affected_trips.add(trip_id)
+            kinds[row.pickup_type, row.drop_off_type] += 1
+            active_dates = [day for day in days if trip.service_id in active[day]]
+            for day in active_dates:
+                date_counts[day]['conflicting_rows'] += 1
+                date_counts[day]['boarding_conflicts'] += boarding
+                date_counts[day]['alighting_conflicts'] += alighting
+                date_trips[day].add(trip_id)
+            if len(examples) < 5:
+                stop = snapshot.stops[row.stop_id]
+                examples.append({'trip_id': trip.source_id,
+                    'route_id': snapshot.routes[trip.route_id].source_id,
+                    'stop_id': stop.source_id, 'stop_name': stop.name, 'sequence': row.sequence,
+                    'pickup_type': row.pickup_type, 'drop_off_type': row.drop_off_type,
+                    'boarding_conflict': boarding, 'alighting_conflict': alighting,
+                    'active_query_dates': [day.isoformat() for day in active_dates]})
+    if first is not None:
+        raise TokyoBoardingContractError(*first, {'conflicting_rows': rows_count,
+            'boarding_conflicts': boarding_count, 'alighting_conflicts': alighting_count,
+            'affected_trips': len(affected_trips), 'flag_pairs': [
+                {'pickup': p, 'drop_off': d, 'rows': n} for (p, d), n in sorted(kinds.items())],
+            'dates': [{**date_counts[day], 'affected_trips': len(date_trips[day])} for day in days],
+            'examples': examples, 'examples_limit': 5, 'production_graph_reachability_verified': False})
+
+
 def inspect(root, expected_version, day_values):
     days = tuple(parse_day(value) for value in day_values)
     if not days or len(set(days)) != len(days):
@@ -86,10 +143,7 @@ def inspect(root, expected_version, day_values):
         raise ValueError('Tokyo bus comparison requires a bus-only feed; no route exclusion')
     snapshot = build_transit_network((dataset,), allowed_trip_ids=dataset.trips,
                                     walking_links=(), costs=NetworkCosts())
-    for trip_id, rows in snapshot.rows_by_trip.items():
-        for index, row in enumerate(rows):
-            if index < len(rows) - 1 and row.pickup_type != 0 or index > 0 and row.drop_off_type != 0:
-                raise ValueError(f'legacy Tokyo ignores boarding/alighting flags; shared choice parity not established: {trip_id} sequence={row.sequence}')
+    check_boarding_contract(dataset, snapshot, days)
     repository = GtfsRepository('tokyo_bus_probe')
     repository.load_data(str(root))
     if set(repository.stops) != {s.source_id for s in dataset.stops.values()} or set(repository.routes) != {r.source_id for r in dataset.routes.values()}:

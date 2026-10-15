@@ -462,3 +462,15 @@ GtfsTransitAdapterを通常strict modeで読み、全stop_timeのarrival/departu
 合成8回帰はsource全行/metadata/運行例外/具体便一致と入力非変更、秒非丸め、pickup差で停止、始終端の乗降制約保持、例外だけのservice、誤版/不正・重複・期間外date/非empty frequencies/承認日便無し、誤SHA・hash変更で成功marker非出力、正常CLIのhash/未検証gateを確認した。Windows CIへ新moduleを追加する。成功markerはREAD_ONLY_TOKYO_BUS_INPUT_OKで、正常reportはfeed版/期間/件数、pickup/drop-off件数、date別active service/trip/具体区間数/差分だけを出し、private stop/trip IDを通常出力に含めない。不正入力のlocal例外には診断IDを保持する。原GTFSやログをリポジトリへ追加しない。
 
 次の実入力は既にユーザーが確認した`api/data/ToeiBus-GTFS`、feed_version20260828_030922（2026-08-28〜2029-08-27）。query2026-09-04/05/06/21を同じ版で読み取り専用比較する。新bus gateの実データはまだ未検証で、Phase 2全体完了・本番切替・デプロイを宣言しない。
+
+## 25. 東京GTFSの乗降契約差で停止 — 制約を維持して診断を追加
+
+ユーザーはmain `6e7c5fc06bd7d411c06e0e3c6c164a842729d8e3`へfast-forward後、指定版・同じ4日でbus検証器を実行した。通常strict GTFS読込・秒精度のminute整合・bus-only・全trip network構築を通過し、乗車可能positionのnonzero pickupまたは降車可能positionのnonzero drop-offという前段の明示gateでValueError停止した。READ_ONLY_TOKYO_BUS_INPUT_OKは出ておらず、旧repository/旧・共通choiceの比較は未実行。元PowerShellの非zero exit検査も停止した。このログは乗降契約差の存在を示すが、pickup/drop-offのどちらか、flag値、件数、指定dateのactive便や本番graphでの到達性は含まない。非公開trip IDや原行を本書へ転記しない。
+
+現時点でデータ不正や本番の不正乗降を断定しない。ODPT graphの方面/終端/隣接stopや標柱対応で、そのoccurrenceが探索対象へ現れない可能性もまだ検証していない。既存結果維持とsource制約の対応を確認する前に、共通側flag無効化、旧処理への自動探索切替、source便除外、元GTFSの修正を行わない。製品コード・公開設定は変更しない。
+
+変更前mainは同じ`6e7c5fc0`。検証器の乗降事前検査へTokyoBoardingContractError（ValueError subclass）を追加する。旧エラー文prefixと最初のtrip/sequenceを保持し、全sourceの該当row/boarding/alighting/便件数、flag pairの分布、指定dateのactive serviceに該当するrow/便件数を添付して停止する。boundedな最大5例にはlocal診断として元trip/route/stop ID、stop名、sequence、両flag、乗降position、active query dateを含める。最大5例は全症例を代表する保証ではなく、件数集計は全該当rowを対象にする。本番graph到達性はfalseと明記する。inactiveな便を除外して比較へ進む処理も追加しない。
+
+全件診断はchoice比較を試行する前の事前検査の一部で、既に失敗した探索を別方式で継続する処理ではない。該当があれば旧repository loadも両choice providerの比較も開始せず、成功markerを出さない。型/clock/schema等の例外を捕捉してこの診断へ置き換えず、元の位置で停止する。診断は失敗時のlocal例外へ付けるだけで、原GTFS・元ログ・実ID・入力hash値をGitHubへ追加しない。
+
+追加2合成回帰でpickup2/drop-off3の全件数、対象日/非対象日の集計、最大5例、ValueError互換、旧loader非呼出し、元入力非変更、成功marker非出力を確認した。元8回帰も成功した。次は同じ入力・date・feed版で診断を取得し、種類とactive便への影響を確認する。その後に本番ODPT graphの到達性を比較する。Tokyoバスの入力/choice互換性合格やPhase 2完了、本番切替・デプロイを宣言しない。

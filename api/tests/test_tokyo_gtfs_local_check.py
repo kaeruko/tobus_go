@@ -55,6 +55,42 @@ class TokyoGtfsLocalCheckTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'ignores boarding/alighting flags'):
             self.run_probe()
 
+    def test_contract_error_reports_all_flags_dates_and_bounded_local_examples_before_legacy_load(self):
+        path = self.root / 'stop_times.txt'
+        lines = path.read_text().splitlines()
+        path.write_text(lines[0] + ',pickup_type,drop_off_type\n' +
+            '\n'.join(line + ',2,3' for line in lines[1:]) + '\n', encoding='utf-8')
+        before = probe.fingerprints(self.root)
+        with patch.object(probe.GtfsRepository, 'load_data') as loader:
+            with self.assertRaises(probe.TokyoBoardingContractError) as error:
+                self.run_probe('2026-09-04', '2026-09-05', '2026-09-06')
+            loader.assert_not_called()
+        report = error.exception.diagnostics
+        self.assertEqual(report['conflicting_rows'], 6)
+        self.assertEqual(report['boarding_conflicts'], 3)
+        self.assertEqual(report['alighting_conflicts'], 3)
+        self.assertEqual(report['affected_trips'], 3)
+        self.assertEqual([r['conflicting_rows'] for r in report['dates']], [6, 6, 0])
+        self.assertEqual([r['affected_trips'] for r in report['dates']], [3, 3, 0])
+        self.assertEqual(len(report['examples']), 5)
+        self.assertEqual(report['examples'][0]['pickup_type'], 2)
+        self.assertEqual(report['examples'][0]['drop_off_type'], 3)
+        self.assertFalse(report['production_graph_reachability_verified'])
+        self.assertIsInstance(error.exception, ValueError)
+        self.assertEqual(before, probe.fingerprints(self.root))
+
+    def test_contract_error_still_emits_no_success_marker(self):
+        path = self.root / 'stop_times.txt'
+        lines = path.read_text().splitlines()
+        path.write_text(lines[0] + ',pickup_type\n' + '\n'.join(line + ',1' for line in lines[1:]) + '\n', encoding='utf-8')
+        args = [str(SCRIPT), '--gtfs-dir', str(self.root), '--expected-feed-version', 'fixture',
+                '--query-date', '2026-09-04', '--expected-sha', 'a'*40]
+        with patch.object(sys, 'argv', args), patch.object(probe, 'check_repository'):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output), self.assertRaises(probe.TokyoBoardingContractError):
+                probe.main()
+            self.assertNotIn('READ_ONLY_TOKYO_BUS_INPUT_OK', output.getvalue())
+
     def test_terminal_pickup_and_initial_dropoff_restrictions_are_preserved(self):
         path = self.root / 'stop_times.txt'
         lines = path.read_text().splitlines()
