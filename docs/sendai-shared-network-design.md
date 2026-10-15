@@ -38,6 +38,8 @@
 
 [公式地下鉄駅GIS](https://www.city.sendai.jp/joho-kikaku/shise/security/kokai/opendata_chikatetsueki.html) から[原CSV](https://www2.wagmap.jp/sendaicity/sendaicity/opendatafile/map_235/CSV/opendata_925.csv)を取得。UTF-8 BOM、名称・住所・経度・緯度等の30行。SHA-256は `7a7fd7cebaa3fafc9e1fe17d51a4e2e065392d1df7f7e2228b2b8b5fb9a282b0`。公開詳細は2025-04-23更新、CC表示。仙台駅（南北線）と仙台駅（東西線）は別座標なので、`namboku/仙台` と `tozai/仙台` を別stopにする。公開された緯度経度の確認と、運行用WGS84/駅出入口・ホーム接続の認定は区別する。CRS・出入口からホームまでの動線/所要時間は追加確認が必要。
 
+追加照合として[同じ公式GISのKML](https://www2.wagmap.jp/sendaicity/sendaicity/opendatafile/map_235/KML/opendata_925.kml)も取得した。SHA-256は `20d3e8b77f80a0c934c29aabe50022a6b9401030f3a073b03384c5926abb238f`、同名の30地点を確認。CSVとKMLの原座標は全地点で異なり、概算差は約0.87〜1.16mだった。同じ公開元だから同じ数値・CRSだと推測しない。SHAPE配布にもPRJは含まれていなかった。[OGC KMLのCRS規則](https://docs.ogc.org/is/12-007r2/12-007r2.html)に従うWGS84座標としてはKMLの原値を別証拠で固定する選択肢がある。CSVへ未確認の変換を適用しない。これは公開代表点の参照系の確認であり、現地測量精度や駅出入口・ホーム接続時間を保証しない。
+
 市営バスの[ODPT公式カタログ](https://ckan.odpt.org/dataset/sendai_municipal_bus_realtime_information)はCC BY 4.0。現行リソースの説明文に適用年の不整合があるため、説明文から運行日を仮定しない。この環境にODPTキー/承認済みGTFS本体はなく、公式static URLへの無認証取得は403だった。ミラーや旧データへ切り替えて実経路の合格を作らない。
 
 ## 3. 独立Adapterの入力契約
@@ -61,6 +63,8 @@
 許可便集合を `build_transit_network` に渡してから検索するため、対象外の安い/速い経路を検索後だけで除く方式ではない。徒歩は向き・正確なstop ID・両feed版・測定距離・所要時間・駅構内動線を確認した `DirectedWalkLink` だけを使う。近接、同じ駅名、同じ座標からリンクを作らない。逆方向は独立にレビューする。
 
 検索は既存共通coreの `time` と明示した `NetworkSearchParameters` を使う独立opt-in。既存coreの明示ゼロ下界baselineをそのまま使い、新しいA*を導入しない。エラー時のゼロ下界への切替ではない。静的時刻表のみでRealtime指定は拒否する。順位は既存共通coreのtime/同着cost規則で、横浜v1互換の順位を持ち込まない。既存仙台runtimeや東京をこの実装へ切り替えない。
+
+今回の入口はstop IDを指定する独立検証用ライブラリである。公開APIの座標入力・起終点の徒歩・既存候補形式へのserializer・`for_fare_policy` 接続・アプリのパス選択は未実装/未接続。Policyの `quote` は確認済みnetworkの具体便eventを要求し、既存の端点だけのFarePolicyContextから無料を推測しない。実データゲート合格後に、これらを別途実装・検証する必要がある。認定flagを反転するだけで本番起動できる状態とは扱わない。
 
 24時台は元の営業日付きで検索する。民生日付00時台の要求から前営業日の24時台と当日を結合する機能は未実装・未認定。UI接続前に別ゲートが必要。時刻表だけから自動的に前日を推測しない。
 
@@ -89,8 +93,12 @@ python -B scripts/check_sendai_subway_sources.py --csv-dir sendai-review-YYYYMMD
 if ($LASTEXITCODE -ne 0) { throw 'Sendai source inspection failed' }
 ```
 
-成功マーカーは `READ_ONLY_SENDAI_SUBWAY_SOURCE_INSPECTION_OK`。同時に `OPERATIONAL_CERTIFICATION_WITHHELD` を出し、`operational_ready=false` と未認定理由を必ず記録する。これは運行用データ認定CLIではない。現在の資料不足を埋めた成功マーカーは用意しない。成功済み東京/バス監査は一切呼ばない。
+成功マーカーは `READ_ONLY_SENDAI_SUBWAY_SOURCE_INSPECTION_OK`。同時に `OPERATIONAL_CERTIFICATION_WITHHELD` を出し、`operational_ready=false` と未認定理由を必ず記録する。これは運行用データ認定CLIではない。現在の資料不足を埋めた成功マーカーは用意しない。合格済みの東京/バス実データ監査と36ケース比較は一切呼ばない。
 
 ## 7. 実行結果
 
-ローカルPython 3.12.14で新規17件成功。原CSVの全1,046便と10跨日便を確認し、現行公式HTMLの112組比較も成功した。公開実データによる混在経路の合格や仙台SearchCore全体の安全性認定は保留。GitHub Actions結果は検証完了後に追記する。
+ローカルPython 3.12.14で新規17件成功。原CSVの全1,046便と10跨日便を確認し、現行公式HTMLの112組比較も成功した。公開実データによる混在経路の合格や仙台SearchCore全体の安全性認定は保留。検証した実装SHAは `ace3874ba6b66acf5d1fd999ecbf903b00ee6dfc`。GitHub Actions [38804515065](https://github.com/kaeruko/tobus_go/actions/runs/38804515065) は `completed/success`、全7 jobが成功した。Linux APIは1,018件・skip 6、Windowsは253件で成功し、Windows logでも新規17件すべての `ok` を確認。Repository safety、Rust/Python 3.11・3.12、Flutter analyze/test、Android/iOS全4 flavorとidentity/Firebase分離検査も成功した。仙台runtime・公開fare registry・Dart profileを変更した結果ではない。
+
+取得スクリプトは保存済み公式37入力の再生でも確認し、出力先の上書き拒否と、取得例外をそのまま伝播して完了manifestを残さないことを確認した。この再生を追加の現行ダイヤ認定として数えない。
+
+以上は独立opt-in実装・入力検査・合成固定queryの回帰結果であり、実バス＋地下鉄OD、民生日付跨ぎ、駅構内動線、通常運賃の正確性、真のtop-k、仙台全queryの正当性は未認定のまま。追加資料と実データゲートが必要。公開UI/API・本番切替・デプロイ・S3・ストア提出は実施していない。横浜の既存実装/データ/監査記録を保持し、合格済み東京/バスの実データ監査と36ケース比較は再実行していない。
