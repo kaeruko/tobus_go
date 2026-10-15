@@ -692,3 +692,6 @@ bindingはrail-only・全source tripを要求し、元trip ID/列車番号/calen
 追加8回帰は、ID順で先の長距離ODを実検索しないこと、始発でなく指定基準に近い元時計の選定、短時間/低分岐/目的地徒歩アクセスの優先、300m制約と既存徒歩時計、1候補後のqueue_size停止・generator close・元例外保持・再試行禁止、診断のcategory/mode/attempt/reasonとprivate情報非出力、通常不採用/採用/候補pool枯渇/予算枯渇の区別、固定後の同一queryと安全上限停止、候補上限変更の拒否を確認した。前回の「構造上は列車＋バスが可能だが実上位3には無い」回帰も維持する。列車module計29回帰を含め、ローカルAPI全体893件（native未導入6件スキップ）、Windows CIと同じ対象115件は失敗/エラー0。GitHub Actionsの確認結果は実装SHAに結び付けて追記する。
 
 変更ファイルは検証器、その合成回帰、本書だけ。実ODPT/GTFS/prebuiltによる修正版の全4日・全category/mode比較、候補pool生成を含む所要時間/ピークメモリは未検証である。合格済みの実バス36ケース・108候補とバス下界監査は再実行していない。列車binding・共通A*切替・本番runtime/provider・デプロイ・S3・本番設定を変更しない。
+
+
+実装SHA `d75746318912a914c02832a020a6973835306acb` のGitHub Actions run [38693056584](https://github.com/kaeruko/tobus_go/actions/runs/38693056584)で、**API893件（native未導入6件スキップ）、Windows115件、Rust Python3.11/3.12各82件、Lambda image build/smoke、repository safetyが成功**した。API/Windows/Rustの終了ログ、Lambda smokeの終了、各job conclusionを確認した。記録時点ではAndroid/iOS全flavor buildは完了未確認で、workflow全体成功とは記載しない。これは検証器の合成回帰とイメージスモークの結果であり、Windows実データでの修正版サンプル選定・新旧provider全36比較・性能を認定しない。
