@@ -838,3 +838,34 @@ CLIは検索結果を使わず、graph構造だけからbus物理node、rail物�
 
 
 実装SHA `9b4a886f4cfe7e95fb99ee4bfcc76bf91584a199` のGitHub Actions run [38726483466](https://github.com/kaeruko/tobus_go/actions/runs/38726483466)で、API936件（native未導入6skip）、Windows171件、Rust Python3.11/3.12各82件（Rust unitは各2件）、Lambda image build/smoke、repository safety、FlutterテストとAndroid全flavor buildが成功した。API/Windows/Rustの終了ログと各job conclusionを確認した。iOS全flavorのbuildとidentity/Firebase分離検査も成功し、workflow全体のstatus=completed・conclusion=successを確認した。 これは合成CI・既存image smokeの検証であり、第3段階の実ODPT/GTFS/prebuilt比較、未展開suffixのN_f上限、無条件の優先度許容性、実データによる候補順位・Lambda起動・性能を認定しない。共通下界は本番から選択していない。
+
+
+## 45. Windows実データによる目的地別全node下界・guard付き優先度の同値性ゲート成功（2026-10-15）
+
+ユーザー提供ログ「貼り付けたテキスト（1）(20261015-115521).txt」をscratch上の添付コピーから読み取り、結果JSON・8caseのequal event・成功markerを確認した。実行SHAは `4210f22e80468c8a2d7b96e3bd6a14106be2f2a5`、Windows Python 3.12.10、監査modeは `tokyo_common_static_destination_bounds_and_guard_parity`。今回はログの読取確認と記録のみで、実データ監査をこちらで再実行したものではない。第44節の「実データ未実行」という時点記録に対し、以下の同値性ゲートが新たに合格した。
+
+bus_physical / rail_physical / virtual_multiple / physical_and_virtualの4固定目的地条件を、全graphとbus-onlyの2条件で比較した。期待する8caseの集合と結果のキーが一致し、started/equalが各8件、停止eventは0件である。各caseで18,984 nodeすべてについて、到達集合への登録有無・下界のbinary64 bit・guard係数・指定時計のguard付き優先度が一致した。
+
+| 指標 | 全graph（4caseそれぞれ） | bus-only（4caseそれぞれ） |
+| --- | ---: | ---: |
+| 全node比較 | 18,984 | 18,984 |
+| 到達node | 15,714 | 15,533 |
+| 到達不能node | 3,270 | 3,451 |
+| included edge | 63,970 | 63,384 |
+| rail除外edge | 0 | 586 |
+| 既知区間を使うride edge | 14,532 | 14,244 |
+| 区間不明による0 ride edge | 0 | 0 |
+| 既知の0分ride edge | 1,955 | 1,917 |
+| guard付き優先度比較 | 189,840組 | 189,840組 |
+
+全8caseの合計は**延べ151,872 node比較、1,518,720組の優先度比較**である。同じnodeを目的地条件・除外条件ごとに繰り返し比較した件数で、一意node数を増やした値ではない。到達不能の既存0下界と、到達可能な0分区間も区別して照合している。物理目的地caseはseed 1件・欠落seed 0件、仮想/共存caseはseed 2件・欠落seed 1件だった。
+
+全caseのclock profileは600〜840分と1439〜1679分の2条件、N_fは100,000、N_rは18,985。各nodeで5時計ずつ比較した。guardは16 profileすべてでenabled=true、条件付き誤差係数の有理数監査もtrueだった。最大辺時間は `20.999999999999996` 分で、固定誤差は通常時計 `8.517585540230813e-07` 分、跨日時計 `8.631272377952429e-07` 分。旧/共通間で係数もbit一致しており、係数や精度を緩めて通した結果ではない。
+
+19入力hash（3 JSON、trusted prebuilt、15 GTFS txt）が出力され、指定SHA/clean mainと入力前後hash検査の後に `READ_ONLY_TOKYO_COMMON_DESTINATION_BOUNDS_PARITY_OK` が出ている。trusted prebuilt hashは `db10fc598e0da81e2ac200ba742ab75283440823651fb1d800037f7c0a74bae5` で、3 JSONのhashも第42節の列車区間min監査と同じだった。後続PowerShellの `if ($LASTEXITCODE -ne 0)` 検査は閉じ括弧まで表示され、throwエラー出力なしで次のprompt表示へ戻っている。数値終了コード自体が別途表示されたとは記載しない。
+
+source集計はrail 5,600 trip・122,258 stop_time・116,658隣接区間、bus 1,100,631隣接区間。これは共通側の隣接区間を読むための集計で、合格済みの第1段階監査や36case比較を再実行した結果ではない。
+
+`common_destination_bounds_verified`、`rounding_guard_equivalence_verified`、`guarded_priority_equivalence_verified`、`conditional_error_coefficients_verified` はtrue。一方、`unexpanded_suffix_step_bound_verified`、`unconditional_priority_admissibility_verified`、`real_timetable_suffix_admissibility_verified` はfalseを維持する。このfalseは設計どおりの認定範囲である。実データの全合法suffixの最短到着時計を独立列挙した検証ではなく、N_fの無条件証明や無条件の優先度許容性の認定へ読み替えない。
+
+第1段階の全calendar区間min、第2段階の同一graph投影、第3段階の上記固定目的地別全node/guard同値性までが指定入力で合格した。残る数学的な難所は、未展開の合法suffixに対するN_f上限の証明である。全目的地・全OD/全時刻、全体候補順位、公式運行calendar、Realtime、実Lambda起動、性能/ピークメモリ、真のtop-kは未認定のまま。共通下界は `not_selected_audit_only` で、同じ監査や既存36caseの無条件再実行は要求しない。本番切替・デプロイ・S3・本番設定は変更しない。
