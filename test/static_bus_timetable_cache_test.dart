@@ -160,9 +160,12 @@ void main() {
       service.getSavedFullDayBusesFromApi('route-a', 'stop-a',
         referenceTime: time),
     ];
-    for (final request in pending) {
-      await expectLater(request, throwsA(isA<ApiException>()));
-    }
+    // Attach the rejection handler to both futures immediately so neither
+    // error is unhandled while the other assertion is awaiting completion.
+    await expectLater(
+      Future.wait(pending),
+      throwsA(isA<ApiException>()),
+    );
     expect(calls, 1);
     fail = false;
     final success = await Future.wait([
