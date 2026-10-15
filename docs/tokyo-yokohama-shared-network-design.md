@@ -1112,6 +1112,10 @@ queue/g_scoreの固定閾値を超える巨大fixtureは追加していない。
 
 **flagと未検証範囲。** 正常な有限query reportでは `earliest_arrival_verified`、`independent_transition_closure_verified`、`dominance_completion_witnesses_verified`、`resource_pruning_verified`、`finite_query_priority_admissibility_verified` をtrueとする。`first_goal_pop_verified` と `queue_exhaustion_verified` は実際のterminationに応じて分ける。`same_arrival_cost_optimality_verified=false`、`candidate_class_completeness_verified=false`、`true_top_k_verified=false`、`unexpanded_suffix_step_bound_verified=false`、`unconditional_search_correctness_verified=false`、`operational_calendar_verified=false`、`realtime_verified=false` を維持する。true top-k認定を要求する入口は明示的に拒否する。任意OD・全座標・詳細検証/候補統合・旧/共通providerの新しい順位同値性・実Lambda起動へ拡張しない。
 
-ローカルPython 3.12.14で新規29 testが成功。全APIの合成unit testも1001件、skip 6件で成功した（新規29件を含む）。GitHub Actionsの当該実装SHAに対する結果は、完了を確認して追記する。本番切替・デプロイ・S3・本番設定変更は行わない。
+ローカルPython 3.12.14で新規29 testが成功。全APIの合成unit testも1001件、skip 6件で成功した（新規29件を含む）。GitHub Actionsの最終結果は本節末尾に記録する。本番切替・デプロイ・S3・本番設定変更は行わない。
 
 初回CIの実装SHA `587bb52c57a58c2a98c4853f5b5050bd330dc7bc`、run [38794774548](https://github.com/kaeruko/tobus_go/actions/runs/38794774548) では、Linux API・Rust 2構成は成功したが、Windows 236 test中、時間上限の負例1件が失敗した。極小の `1e-300` 秒を指定すれば実時計が必ず進んでtimeoutする、というテスト側の仮定によるものだった。Windowsではそのassertionが成立しなかったため、成功とは記録しない。負例だけを、productionのpop 200000・expanded 100000・15秒を維持し、検索開始後に観測clockが16秒進む決定的なfault injectionへ修正した。この負例は必ず元 `RouteSearchLimitError` で停止する検査であり、mock時計から正例の認定reportを作らない。監査module、実検索、guard、期限処理は変更しない。
+
+**最終CI結果。** 検証した実装SHAは `2c334b32531367915f23510c8c901a0665a03c23`。GitHub Actions [38795372872](https://github.com/kaeruko/tobus_go/actions/runs/38795372872) は `completed/success`、全7 jobが成功した。Linux APIは1001 test・skip 6、Windowsは236 testで成功し、両jobのlogから新規moduleの29件がそれぞれ全件 `ok` であることも確認した。Repository safety、Rust SearchCoreのPython 3.11/3.12、Flutter analyze/testとAndroid全4 flavor、iOS全4 flavorとidentity/privacy/ATS/Firebase分離検査も成功した。初回Windows失敗を成功へ読み替えた結果ではなく、負例を修正した別SHAでの検証結果である。
+
+今回認定するのは、閉包・遷移照合・実priority・各破棄の完走witness・最初のgoal popを検査できた合成の固定queryにおける主到着1件である。実ネットワークの全OD/時計での完走、同着cost副順位、候補class完全性、真のtop-k、無条件の探索正当性は引き続き未認定。既存の第1〜第4段階の実データ監査と36case比較は呼び直していない。実装/CI登録は予定の4ファイルだけで、最後の成功記録追記は設計書のみ。探索・枝刈り・guard・候補順位・本番設定の変更、本番切替・デプロイ・S3変更は行っていない。
