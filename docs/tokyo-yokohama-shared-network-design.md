@@ -727,3 +727,22 @@ bindingはrail-only・全source tripを要求し、元trip ID/列車番号/calen
 当該実行SHA `834535cf5aef46bb7d5b91c47c418223474cc0c1` のGitHub Actions run [38693348062](https://github.com/kaeruko/tobus_go/actions/runs/38693348062)も、status=completed・conclusion=successを確認した。これは合成CIとbuild/smokeの結果であり、上記Windows実入力の結果とは別の証拠である。
 
 今回の作業はユーザー提供ログの読取確認と本書への結果記録のみ。実データをこちらで再実行せず、過去のbus36ケース・108候補やbus下界監査も新たに呼び出していない。この合格済みrail検証も同一条件での無条件再実行を要求しない。本番切替・デプロイ・S3・本番設定は変更しない。
+
+
+## 41. 共通列車区間のA*静的min入力監査を独立追加（2026-10-15）
+
+変更前mainは `a1c0195bbac646f2e706150e520f36d8f013b1c2`。第40節の列車provider実データ比較合格を受け、第35節のA*入力移行第1段階として `api/tokyo_rail_interval_audit.py` と読み取り専用の `scripts/check_tokyo_rail_bounds_local.py` を追加する。最新mainのFlutter静的バス時刻表キャッシュ修正を保持する。runtime、列車binding、既存A* builder/型gate、graph、徒歩、cost、frontier、候補順位は変更しない。
+
+監査APIは、既存の `TokyoRailDatasetBinding` で全sourceとの一対一対応を検証したsnapshotを明示入力とする。全source trip・全calendarのordered_run隣接occurrenceについて、現駅departureから次駅arrivalまでを取り、元stop IDの有向pairへ集約する。停車中のdwellを加えず、active service、乗車可否、graph上のboard辺、query日付で区間を落とさない。現在の整数minute互換・上限2**53を厳密に維持し、Fractionの端数を丸めたりfloat時計を再解釈して受理しない。各区間は既存 `tokyo_time_bounds._adjacent_minutes` のbinary64減算と下方向guardで計算し、新しい丸め方式を導入しない。これは入力minの同値性であり、最終A*優先度の丸めguard検証ではない。
+
+旧参照は `_build_rail_index` を全weekday/weekend sourceに対して新規に呼び、隣接レコード件数、全pairキー、全最小値、不正区間数0を照合する。ownerの既存indexキャッシュを再利用・更新せず、bus indexや目的地下界を呼ばない。binding時の全内容digestを監査の前後にも照合し、件数・最小値が同じままの元レコード編集も停止する。referenceの不正区間を0下界として成功扱いにせず、元例外/期限callback例外を保持して停止する。別データや別providerでの再試行は無い。正常reportは集計と入力hashのみで、不一致時は差分件数・値・segment hashを示し、OD/便/区間IDを通常ログへ出さない。
+
+既存bindingの未対応制約は緩和しない。共通区間collectorの合成回帰ではpickup1・sequence欠番でも実際の隣接rowを落とさないことを独立確認するが、CLIの既存bindingが拒否する乗降flag・分割/非連続便を新たに受理する修正ではない。循環のstop再訪はoccurrence順で扱い、23:59/24:xx以降の時計は既存ordered_runを用いる。
+
+新CLIはTrainTimetable/Station/Railway JSONと明示したtrusted prebuiltのTMだけを要求し、`--expected-sha` でclean mainを前後確認する。4入力のhashも前後比較する。prebuiltに含まれるGをこの段階では検査/投影せず、GTFS directoryやquery-dateを引数に持たない。Realtimeやquery-date/GTFS引数を指定すれば入口で拒否し、暗黙に別modeへ移行しない。通信、download、pickle修復・再保存、入力/キャッシュ更新、出力ファイル・bytecode生成を行わない。合格済みrail36ケース、bus36ケース・108候補、bus下界監査は呼ばない。
+
+成功markerは `READ_ONLY_TOKYO_COMMON_RAIL_INTERVAL_MINIMA_OK`、`audit_mode=tokyo_common_rail_static_interval_minima`、`common_rail_interval_minima_verified=true`。trip数・stop_time行数・隣接区間数・旧参照レコード数・pair数・calendar数・不正区間数を記録する。`calendar_scope=all_source_calendars_no_date_filter`、`common_rail_time_bounds_provider=not_selected_audit_only`、`bus_provider=not_evaluated`。このreport内の `common_rail_sample_rank_verified=false` は今回OD比較を実行しないことを示し、第40節の合格を取り消すものではない。`common_rail_graph_projection_verified`、`common_rail_destination_bounds_verified`、`common_rail_priority_rounding_verified`、`common_dataset_route_ranking_verified`、公式運行calendar、Realtime、実Lambda起動、真のtop-kもfalseのままとする。
+
+新規13回帰は、全calendar/非active便と遅い先発・速い後発のmin、dwell除外、4calendarの重複計上禁止、循環・跨日、pickup1/seq欠番の区間保持、0分区間、scope不足、端数/欠落/負/過大/型違い時計拒否、最小値の変わらない同件数source編集、重複レコードの件数不一致、不正区間/キー/値不一致、private ID非出力、旧キャッシュ非更新・bus/graph/OD非呼出し、元期限/参照例外と途中source変更の停止、CLI非変更/hash変更時のmarker非出力・未対応引数拒否を確認した。ローカル全API906件（native未導入6件スキップ）、Windows CIと同じ対象128件は失敗/エラー0。Windows jobへこの新moduleを明示追加し、Linux API jobでは既存discoverで実行する。GitHub Actions結果は実装SHAと結び付けて追記する。
+
+実ODPT/prebuiltでのこの新しい列車区間min監査は未実行である。第40節の候補一致を、この入力監査の実データ合格へ読み替えない。全graphへの投影、目的地別全node下界、丸めguard付き最終優先度、共通bus+rail合成、性能/ピークメモリは後続の未検証項目である。今回の変更は監査API・CLI・合成回帰・CI対象・本書のみで、本番切替・デプロイ・S3・本番設定変更は行わない。
