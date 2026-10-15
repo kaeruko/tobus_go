@@ -1119,3 +1119,9 @@ queue/g_scoreの固定閾値を超える巨大fixtureは追加していない。
 **最終CI結果。** 検証した実装SHAは `2c334b32531367915f23510c8c901a0665a03c23`。GitHub Actions [38795372872](https://github.com/kaeruko/tobus_go/actions/runs/38795372872) は `completed/success`、全7 jobが成功した。Linux APIは1001 test・skip 6、Windowsは236 testで成功し、両jobのlogから新規moduleの29件がそれぞれ全件 `ok` であることも確認した。Repository safety、Rust SearchCoreのPython 3.11/3.12、Flutter analyze/testとAndroid全4 flavor、iOS全4 flavorとidentity/privacy/ATS/Firebase分離検査も成功した。初回Windows失敗を成功へ読み替えた結果ではなく、負例を修正した別SHAでの検証結果である。
 
 今回認定するのは、閉包・遷移照合・実priority・各破棄の完走witness・最初のgoal popを検査できた合成の固定queryにおける主到着1件である。実ネットワークの全OD/時計での完走、同着cost副順位、候補class完全性、真のtop-k、無条件の探索正当性は引き続き未認定。既存の第1〜第4段階の実データ監査と36case比較は呼び直していない。実装/CI登録は予定の4ファイルだけで、最後の成功記録追記は設計書のみ。探索・枝刈り・guard・候補順位・本番設定の変更、本番切替・デプロイ・S3変更は行っていない。
+
+## 51. 次の開発優先都市を仙台へ変更（2026-10-15）
+
+次の新規開発対象は「仙台でGO」の市営バス＋地下鉄・ふれあい乗車証とする。横浜のコード・データ・監査履歴は保持し、新規開発のみ保留する。既存名・アプリIDは変更しない。
+
+[仙台共通ネットワーク設計](sendai-shared-network-design.md) に独立Adapter、全乗車区間の無料scope、公式資料の照合結果と未認定項目を記録する。東京の第50節や第1〜第4段階の成功結果から仙台のSearchCoreを自動認定しない。成功済み実データ監査と36ケース比較は呼び直さない。東京の探索・guard・候補順位・本番設定は変更しない。

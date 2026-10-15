@@ -80,5 +80,7 @@ class ReviewedWalkingLink:
         if (parsed.scheme != "https" or not parsed.hostname
                 or parsed.username or parsed.password or parsed.fragment
                 or not (parsed.hostname.endswith(".lg.jp")
-                        or parsed.hostname.endswith(".tokyo.jp"))):
+                        or parsed.hostname.endswith(".tokyo.jp")
+                        or parsed.hostname in {"www.city.sendai.jp", "www.kotsu.city.sendai.jp",
+                                               "www.navi.kotsu.city.sendai.jp"})):
             raise ValueError("reviewed walk requires official government HTTPS evidence")

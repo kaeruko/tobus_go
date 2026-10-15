@@ -1,0 +1,809 @@
+{
+  "blockers": [
+    "terminal arrivals and intermediate arrival/dwell clocks unverified",
+    "explicit operational dates including holidays/special schedules unverified",
+    "municipal bus GTFS, full free segment scope and platform walking links require separate gates"
+  ],
+  "csv_sha256": {
+    "namboku_h_north_20230701.csv": "e67011c6c0100e9b00ca3c210bbe99587f028b701bf6bd8aa0e54f9005c5d7aa",
+    "namboku_h_south_20230701.csv": "21cdcb666a3e125b83835fd56637d9df37ab9e83419fc50c6473b324566b1d6f",
+    "namboku_w_north_20230701.csv": "a8f57231a311cc45a76d1f863fa0600a93254aa2333a40b47102116dc083eca2",
+    "namboku_w_south_20230701.csv": "200b9652bd2b6db551c996db74d962c0921979d30a8c83e6e5a4ca67298b81fd",
+    "tozai_h_east_20230701.csv": "ff24e68bcfb8c3cf4272bb72b82fdf8f4f80e9b900842fddc0b27642935ee050",
+    "tozai_h_west_20230701.csv": "621a24b8d3a179e49b4f259dd1a8c4d3fcadcdab77770da3e6f938d4b4eef8b6",
+    "tozai_w_east_20230701.csv": "88b1ff652ee9b03ed543dbe476f85f85444fa675d892afdbb6f9e25095c8f460",
+    "tozai_w_west_20230701.csv": "6b03c9c11ac8576316c6e7d4323226042af1b159033ab9695679edc9500ed723"
+  },
+  "departure_comparisons": [
+    {
+      "column": 2,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "dd97c8c0c9ce33a6cdea7ec4a756cb20b69205005ce57608a22c25fa825f2a17",
+      "station_code": "6646"
+    },
+    {
+      "column": 3,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "6fcc027c8b2507230c9e4f3adbb8d7673b189245ec02aec4b24b484beb5231e2",
+      "station_code": "6647"
+    },
+    {
+      "column": 4,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "cd90cf171652396dbb85a8f27dca5d48b66d464294aaaa66164293045d88e333",
+      "station_code": "6648"
+    },
+    {
+      "column": 5,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "b268917bb94921da09c473acce70a72e94a88dc90d6e4786dd7f36074087bae7",
+      "station_code": "6649"
+    },
+    {
+      "column": 6,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "446cec01216a139c00c5f717fad83a627edf58fcd726539b5224fb09833ea5c1",
+      "station_code": "6650"
+    },
+    {
+      "column": 7,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "22e52e5bfc5b4af1a6bb8e4fcfd4405c0b4a8f2294b146f1c6a444be0d510b0d",
+      "station_code": "1222"
+    },
+    {
+      "column": 8,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "e35f5c898d653c6a4ca2164f02da140590e5f7cb09f9d5a595773445fa0f5df8",
+      "station_code": "6651"
+    },
+    {
+      "column": 9,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "9cabdd93255ed525ecabd14375a0a2034c00a096a8fec1d6d3114138078d8cbc",
+      "station_code": "6652"
+    },
+    {
+      "column": 10,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "e4e208f957c10f8872fcf8d1f34669a03d8bb6df546f2ea701044c1826b731c9",
+      "station_code": "6653"
+    },
+    {
+      "column": 11,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae",
+      "station_code": "9285"
+    },
+    {
+      "column": 12,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "5b038352e864506393ebac6fdbfe8421818523fe31ffa470d904ac7397d53f03",
+      "station_code": "6654"
+    },
+    {
+      "column": 13,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "b084ddb2b11efba6eef889a15af60a140800f4742524662b29ec7c0ca408428d",
+      "station_code": "6655"
+    },
+    {
+      "column": 14,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "5f1c368793ebe1a8a02b17bd9f4478ba000145d6165408608d6afa8fac63ff97",
+      "station_code": "6656"
+    },
+    {
+      "column": 15,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "36b7967d76f5fb4752c20c3a7bf36ad8ee5fd9cd776cc5c9ce81b16eff269d32",
+      "station_code": "6657"
+    },
+    {
+      "column": 16,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "00db720426652ac1a0a056c51a9af9bae805e7ac041fcfed6791c08dd8261618",
+      "station_code": "975"
+    },
+    {
+      "column": 17,
+      "departures": 157,
+      "file": "namboku_w_south_20230701.csv",
+      "html_sha256": "a4d962404589f60710e7723a927e60aac26b4479703972c6fd25aab4f9a23337",
+      "station_code": "6658"
+    },
+    {
+      "column": 2,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "1b24c66c5e1969fe5d6022e39b867c85a2b2c54e25e17ded59fc20b5224db580",
+      "station_code": "6659"
+    },
+    {
+      "column": 3,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "a4d962404589f60710e7723a927e60aac26b4479703972c6fd25aab4f9a23337",
+      "station_code": "6658"
+    },
+    {
+      "column": 4,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "00db720426652ac1a0a056c51a9af9bae805e7ac041fcfed6791c08dd8261618",
+      "station_code": "975"
+    },
+    {
+      "column": 5,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "36b7967d76f5fb4752c20c3a7bf36ad8ee5fd9cd776cc5c9ce81b16eff269d32",
+      "station_code": "6657"
+    },
+    {
+      "column": 6,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "5f1c368793ebe1a8a02b17bd9f4478ba000145d6165408608d6afa8fac63ff97",
+      "station_code": "6656"
+    },
+    {
+      "column": 7,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "b084ddb2b11efba6eef889a15af60a140800f4742524662b29ec7c0ca408428d",
+      "station_code": "6655"
+    },
+    {
+      "column": 8,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "5b038352e864506393ebac6fdbfe8421818523fe31ffa470d904ac7397d53f03",
+      "station_code": "6654"
+    },
+    {
+      "column": 9,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae",
+      "station_code": "9285"
+    },
+    {
+      "column": 10,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "e4e208f957c10f8872fcf8d1f34669a03d8bb6df546f2ea701044c1826b731c9",
+      "station_code": "6653"
+    },
+    {
+      "column": 11,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "9cabdd93255ed525ecabd14375a0a2034c00a096a8fec1d6d3114138078d8cbc",
+      "station_code": "6652"
+    },
+    {
+      "column": 12,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "e35f5c898d653c6a4ca2164f02da140590e5f7cb09f9d5a595773445fa0f5df8",
+      "station_code": "6651"
+    },
+    {
+      "column": 13,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "22e52e5bfc5b4af1a6bb8e4fcfd4405c0b4a8f2294b146f1c6a444be0d510b0d",
+      "station_code": "1222"
+    },
+    {
+      "column": 14,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "446cec01216a139c00c5f717fad83a627edf58fcd726539b5224fb09833ea5c1",
+      "station_code": "6650"
+    },
+    {
+      "column": 15,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "b268917bb94921da09c473acce70a72e94a88dc90d6e4786dd7f36074087bae7",
+      "station_code": "6649"
+    },
+    {
+      "column": 16,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "cd90cf171652396dbb85a8f27dca5d48b66d464294aaaa66164293045d88e333",
+      "station_code": "6648"
+    },
+    {
+      "column": 17,
+      "departures": 157,
+      "file": "namboku_w_north_20230701.csv",
+      "html_sha256": "6fcc027c8b2507230c9e4f3adbb8d7673b189245ec02aec4b24b484beb5231e2",
+      "station_code": "6647"
+    },
+    {
+      "column": 2,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "dd97c8c0c9ce33a6cdea7ec4a756cb20b69205005ce57608a22c25fa825f2a17",
+      "station_code": "6646"
+    },
+    {
+      "column": 3,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "6fcc027c8b2507230c9e4f3adbb8d7673b189245ec02aec4b24b484beb5231e2",
+      "station_code": "6647"
+    },
+    {
+      "column": 4,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "cd90cf171652396dbb85a8f27dca5d48b66d464294aaaa66164293045d88e333",
+      "station_code": "6648"
+    },
+    {
+      "column": 5,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "b268917bb94921da09c473acce70a72e94a88dc90d6e4786dd7f36074087bae7",
+      "station_code": "6649"
+    },
+    {
+      "column": 6,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "446cec01216a139c00c5f717fad83a627edf58fcd726539b5224fb09833ea5c1",
+      "station_code": "6650"
+    },
+    {
+      "column": 7,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "22e52e5bfc5b4af1a6bb8e4fcfd4405c0b4a8f2294b146f1c6a444be0d510b0d",
+      "station_code": "1222"
+    },
+    {
+      "column": 8,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "e35f5c898d653c6a4ca2164f02da140590e5f7cb09f9d5a595773445fa0f5df8",
+      "station_code": "6651"
+    },
+    {
+      "column": 9,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "9cabdd93255ed525ecabd14375a0a2034c00a096a8fec1d6d3114138078d8cbc",
+      "station_code": "6652"
+    },
+    {
+      "column": 10,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "e4e208f957c10f8872fcf8d1f34669a03d8bb6df546f2ea701044c1826b731c9",
+      "station_code": "6653"
+    },
+    {
+      "column": 11,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae",
+      "station_code": "9285"
+    },
+    {
+      "column": 12,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "5b038352e864506393ebac6fdbfe8421818523fe31ffa470d904ac7397d53f03",
+      "station_code": "6654"
+    },
+    {
+      "column": 13,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "b084ddb2b11efba6eef889a15af60a140800f4742524662b29ec7c0ca408428d",
+      "station_code": "6655"
+    },
+    {
+      "column": 14,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "5f1c368793ebe1a8a02b17bd9f4478ba000145d6165408608d6afa8fac63ff97",
+      "station_code": "6656"
+    },
+    {
+      "column": 15,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "36b7967d76f5fb4752c20c3a7bf36ad8ee5fd9cd776cc5c9ce81b16eff269d32",
+      "station_code": "6657"
+    },
+    {
+      "column": 16,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "00db720426652ac1a0a056c51a9af9bae805e7ac041fcfed6791c08dd8261618",
+      "station_code": "975"
+    },
+    {
+      "column": 17,
+      "departures": 113,
+      "file": "namboku_h_south_20230701.csv",
+      "html_sha256": "a4d962404589f60710e7723a927e60aac26b4479703972c6fd25aab4f9a23337",
+      "station_code": "6658"
+    },
+    {
+      "column": 2,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "1b24c66c5e1969fe5d6022e39b867c85a2b2c54e25e17ded59fc20b5224db580",
+      "station_code": "6659"
+    },
+    {
+      "column": 3,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "a4d962404589f60710e7723a927e60aac26b4479703972c6fd25aab4f9a23337",
+      "station_code": "6658"
+    },
+    {
+      "column": 4,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "00db720426652ac1a0a056c51a9af9bae805e7ac041fcfed6791c08dd8261618",
+      "station_code": "975"
+    },
+    {
+      "column": 5,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "36b7967d76f5fb4752c20c3a7bf36ad8ee5fd9cd776cc5c9ce81b16eff269d32",
+      "station_code": "6657"
+    },
+    {
+      "column": 6,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "5f1c368793ebe1a8a02b17bd9f4478ba000145d6165408608d6afa8fac63ff97",
+      "station_code": "6656"
+    },
+    {
+      "column": 7,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "b084ddb2b11efba6eef889a15af60a140800f4742524662b29ec7c0ca408428d",
+      "station_code": "6655"
+    },
+    {
+      "column": 8,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "5b038352e864506393ebac6fdbfe8421818523fe31ffa470d904ac7397d53f03",
+      "station_code": "6654"
+    },
+    {
+      "column": 9,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae",
+      "station_code": "9285"
+    },
+    {
+      "column": 10,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "e4e208f957c10f8872fcf8d1f34669a03d8bb6df546f2ea701044c1826b731c9",
+      "station_code": "6653"
+    },
+    {
+      "column": 11,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "9cabdd93255ed525ecabd14375a0a2034c00a096a8fec1d6d3114138078d8cbc",
+      "station_code": "6652"
+    },
+    {
+      "column": 12,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "e35f5c898d653c6a4ca2164f02da140590e5f7cb09f9d5a595773445fa0f5df8",
+      "station_code": "6651"
+    },
+    {
+      "column": 13,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "22e52e5bfc5b4af1a6bb8e4fcfd4405c0b4a8f2294b146f1c6a444be0d510b0d",
+      "station_code": "1222"
+    },
+    {
+      "column": 14,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "446cec01216a139c00c5f717fad83a627edf58fcd726539b5224fb09833ea5c1",
+      "station_code": "6650"
+    },
+    {
+      "column": 15,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "b268917bb94921da09c473acce70a72e94a88dc90d6e4786dd7f36074087bae7",
+      "station_code": "6649"
+    },
+    {
+      "column": 16,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "cd90cf171652396dbb85a8f27dca5d48b66d464294aaaa66164293045d88e333",
+      "station_code": "6648"
+    },
+    {
+      "column": 17,
+      "departures": 114,
+      "file": "namboku_h_north_20230701.csv",
+      "html_sha256": "6fcc027c8b2507230c9e4f3adbb8d7673b189245ec02aec4b24b484beb5231e2",
+      "station_code": "6647"
+    },
+    {
+      "column": 2,
+      "departures": 140,
+      "file": "tozai_w_east_20230701.csv",
+      "html_sha256": "51fd651ed9360f31ec79c9387f8cd28bd9d6af01e634bd95a9762afdec46199b",
+      "station_code": "9727"
+    },
+    {
+      "column": 3,
+      "departures": 140,
+      "file": "tozai_w_east_20230701.csv",
+      "html_sha256": "fc1c0aefe2743ce83ab890b2f16e44191c1b4dc00f679b5ddf8e7c1490aca9bb",
+      "station_code": "9728"
+    },
+    {
+      "column": 4,
+      "departures": 140,
+      "file": "tozai_w_east_20230701.csv",
+      "html_sha256": "000e29c9377b2b5e53ae2c369f9ef4a11d59a595ab7c7c92a0ef81280be6b05f",
+      "station_code": "9729"
+    },
+    {
+      "column": 5,
+      "departures": 140,
+      "file": "tozai_w_east_20230701.csv",
+      "html_sha256": "4de0761ab72c24f9e96c4bd6433ae54bcaca53c440ec6f456a12e9bdc2ad1ce6",
+      "station_code": "9730"
+    },
+    {
+      "column": 6,
+      "departures": 140,
+      "file": "tozai_w_east_20230701.csv",
+      "html_sha256": "dac20843eabb92cb9360cd982a981db29b8051cffe7f2c869b444e11c15bcf21",
+      "station_code": "9731"
+    },
+    {
+      "column": 7,
+      "departures": 140,
+      "file": "tozai_w_east_20230701.csv",
+      "html_sha256": "71e91295bc112242bd0b6367c5225e8e38cf6d01cf85c4593337e186a1d63c07",
+      "station_code": "9732"
+    },
+    {
+      "column": 8,
+      "departures": 140,
+      "file": "tozai_w_east_20230701.csv",
+      "html_sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae",
+      "station_code": "9285"
+    },
+    {
+      "column": 9,
+      "departures": 140,
+      "file": "tozai_w_east_20230701.csv",
+      "html_sha256": "de20599b0818d5d0a5d3569efd352e419e6e12d6bacaeef3d21cd94e96acf017",
+      "station_code": "9733"
+    },
+    {
+      "column": 10,
+      "departures": 140,
+      "file": "tozai_w_east_20230701.csv",
+      "html_sha256": "1196f8fb580362ad35df2ef51223892d283dc9c3bb4f3dd640bc70b389980d55",
+      "station_code": "9734"
+    },
+    {
+      "column": 11,
+      "departures": 140,
+      "file": "tozai_w_east_20230701.csv",
+      "html_sha256": "ac62b5796097bd35ba7041d19452341a5531df9d23198dead6ac6c4712ec01ac",
+      "station_code": "9735"
+    },
+    {
+      "column": 12,
+      "departures": 140,
+      "file": "tozai_w_east_20230701.csv",
+      "html_sha256": "a97efcc0740de986d330c8f7d27fbf225e1d7ce69ace384c6aa205cd2c467eda",
+      "station_code": "9736"
+    },
+    {
+      "column": 13,
+      "departures": 140,
+      "file": "tozai_w_east_20230701.csv",
+      "html_sha256": "1421ec54e73ae072d926d6b6a3e31d16ef79a2a585231a78d5c2f07e7c9068ea",
+      "station_code": "9737"
+    },
+    {
+      "column": 2,
+      "departures": 140,
+      "file": "tozai_w_west_20230701.csv",
+      "html_sha256": "0faef4e0b7f221e42c2b453cb04119223acd78f85fb9df295605e9a1a6a285ce",
+      "station_code": "9738"
+    },
+    {
+      "column": 3,
+      "departures": 140,
+      "file": "tozai_w_west_20230701.csv",
+      "html_sha256": "1421ec54e73ae072d926d6b6a3e31d16ef79a2a585231a78d5c2f07e7c9068ea",
+      "station_code": "9737"
+    },
+    {
+      "column": 4,
+      "departures": 140,
+      "file": "tozai_w_west_20230701.csv",
+      "html_sha256": "a97efcc0740de986d330c8f7d27fbf225e1d7ce69ace384c6aa205cd2c467eda",
+      "station_code": "9736"
+    },
+    {
+      "column": 5,
+      "departures": 140,
+      "file": "tozai_w_west_20230701.csv",
+      "html_sha256": "ac62b5796097bd35ba7041d19452341a5531df9d23198dead6ac6c4712ec01ac",
+      "station_code": "9735"
+    },
+    {
+      "column": 6,
+      "departures": 140,
+      "file": "tozai_w_west_20230701.csv",
+      "html_sha256": "1196f8fb580362ad35df2ef51223892d283dc9c3bb4f3dd640bc70b389980d55",
+      "station_code": "9734"
+    },
+    {
+      "column": 7,
+      "departures": 140,
+      "file": "tozai_w_west_20230701.csv",
+      "html_sha256": "de20599b0818d5d0a5d3569efd352e419e6e12d6bacaeef3d21cd94e96acf017",
+      "station_code": "9733"
+    },
+    {
+      "column": 8,
+      "departures": 140,
+      "file": "tozai_w_west_20230701.csv",
+      "html_sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae",
+      "station_code": "9285"
+    },
+    {
+      "column": 9,
+      "departures": 140,
+      "file": "tozai_w_west_20230701.csv",
+      "html_sha256": "71e91295bc112242bd0b6367c5225e8e38cf6d01cf85c4593337e186a1d63c07",
+      "station_code": "9732"
+    },
+    {
+      "column": 10,
+      "departures": 140,
+      "file": "tozai_w_west_20230701.csv",
+      "html_sha256": "dac20843eabb92cb9360cd982a981db29b8051cffe7f2c869b444e11c15bcf21",
+      "station_code": "9731"
+    },
+    {
+      "column": 11,
+      "departures": 140,
+      "file": "tozai_w_west_20230701.csv",
+      "html_sha256": "4de0761ab72c24f9e96c4bd6433ae54bcaca53c440ec6f456a12e9bdc2ad1ce6",
+      "station_code": "9730"
+    },
+    {
+      "column": 12,
+      "departures": 140,
+      "file": "tozai_w_west_20230701.csv",
+      "html_sha256": "000e29c9377b2b5e53ae2c369f9ef4a11d59a595ab7c7c92a0ef81280be6b05f",
+      "station_code": "9729"
+    },
+    {
+      "column": 13,
+      "departures": 140,
+      "file": "tozai_w_west_20230701.csv",
+      "html_sha256": "fc1c0aefe2743ce83ab890b2f16e44191c1b4dc00f679b5ddf8e7c1490aca9bb",
+      "station_code": "9728"
+    },
+    {
+      "column": 2,
+      "departures": 112,
+      "file": "tozai_h_east_20230701.csv",
+      "html_sha256": "51fd651ed9360f31ec79c9387f8cd28bd9d6af01e634bd95a9762afdec46199b",
+      "station_code": "9727"
+    },
+    {
+      "column": 3,
+      "departures": 112,
+      "file": "tozai_h_east_20230701.csv",
+      "html_sha256": "fc1c0aefe2743ce83ab890b2f16e44191c1b4dc00f679b5ddf8e7c1490aca9bb",
+      "station_code": "9728"
+    },
+    {
+      "column": 4,
+      "departures": 112,
+      "file": "tozai_h_east_20230701.csv",
+      "html_sha256": "000e29c9377b2b5e53ae2c369f9ef4a11d59a595ab7c7c92a0ef81280be6b05f",
+      "station_code": "9729"
+    },
+    {
+      "column": 5,
+      "departures": 112,
+      "file": "tozai_h_east_20230701.csv",
+      "html_sha256": "4de0761ab72c24f9e96c4bd6433ae54bcaca53c440ec6f456a12e9bdc2ad1ce6",
+      "station_code": "9730"
+    },
+    {
+      "column": 6,
+      "departures": 112,
+      "file": "tozai_h_east_20230701.csv",
+      "html_sha256": "dac20843eabb92cb9360cd982a981db29b8051cffe7f2c869b444e11c15bcf21",
+      "station_code": "9731"
+    },
+    {
+      "column": 7,
+      "departures": 112,
+      "file": "tozai_h_east_20230701.csv",
+      "html_sha256": "71e91295bc112242bd0b6367c5225e8e38cf6d01cf85c4593337e186a1d63c07",
+      "station_code": "9732"
+    },
+    {
+      "column": 8,
+      "departures": 112,
+      "file": "tozai_h_east_20230701.csv",
+      "html_sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae",
+      "station_code": "9285"
+    },
+    {
+      "column": 9,
+      "departures": 112,
+      "file": "tozai_h_east_20230701.csv",
+      "html_sha256": "de20599b0818d5d0a5d3569efd352e419e6e12d6bacaeef3d21cd94e96acf017",
+      "station_code": "9733"
+    },
+    {
+      "column": 10,
+      "departures": 112,
+      "file": "tozai_h_east_20230701.csv",
+      "html_sha256": "1196f8fb580362ad35df2ef51223892d283dc9c3bb4f3dd640bc70b389980d55",
+      "station_code": "9734"
+    },
+    {
+      "column": 11,
+      "departures": 112,
+      "file": "tozai_h_east_20230701.csv",
+      "html_sha256": "ac62b5796097bd35ba7041d19452341a5531df9d23198dead6ac6c4712ec01ac",
+      "station_code": "9735"
+    },
+    {
+      "column": 12,
+      "departures": 112,
+      "file": "tozai_h_east_20230701.csv",
+      "html_sha256": "a97efcc0740de986d330c8f7d27fbf225e1d7ce69ace384c6aa205cd2c467eda",
+      "station_code": "9736"
+    },
+    {
+      "column": 13,
+      "departures": 112,
+      "file": "tozai_h_east_20230701.csv",
+      "html_sha256": "1421ec54e73ae072d926d6b6a3e31d16ef79a2a585231a78d5c2f07e7c9068ea",
+      "station_code": "9737"
+    },
+    {
+      "column": 2,
+      "departures": 113,
+      "file": "tozai_h_west_20230701.csv",
+      "html_sha256": "0faef4e0b7f221e42c2b453cb04119223acd78f85fb9df295605e9a1a6a285ce",
+      "station_code": "9738"
+    },
+    {
+      "column": 3,
+      "departures": 113,
+      "file": "tozai_h_west_20230701.csv",
+      "html_sha256": "1421ec54e73ae072d926d6b6a3e31d16ef79a2a585231a78d5c2f07e7c9068ea",
+      "station_code": "9737"
+    },
+    {
+      "column": 4,
+      "departures": 113,
+      "file": "tozai_h_west_20230701.csv",
+      "html_sha256": "a97efcc0740de986d330c8f7d27fbf225e1d7ce69ace384c6aa205cd2c467eda",
+      "station_code": "9736"
+    },
+    {
+      "column": 5,
+      "departures": 113,
+      "file": "tozai_h_west_20230701.csv",
+      "html_sha256": "ac62b5796097bd35ba7041d19452341a5531df9d23198dead6ac6c4712ec01ac",
+      "station_code": "9735"
+    },
+    {
+      "column": 6,
+      "departures": 113,
+      "file": "tozai_h_west_20230701.csv",
+      "html_sha256": "1196f8fb580362ad35df2ef51223892d283dc9c3bb4f3dd640bc70b389980d55",
+      "station_code": "9734"
+    },
+    {
+      "column": 7,
+      "departures": 113,
+      "file": "tozai_h_west_20230701.csv",
+      "html_sha256": "de20599b0818d5d0a5d3569efd352e419e6e12d6bacaeef3d21cd94e96acf017",
+      "station_code": "9733"
+    },
+    {
+      "column": 8,
+      "departures": 113,
+      "file": "tozai_h_west_20230701.csv",
+      "html_sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae",
+      "station_code": "9285"
+    },
+    {
+      "column": 9,
+      "departures": 113,
+      "file": "tozai_h_west_20230701.csv",
+      "html_sha256": "71e91295bc112242bd0b6367c5225e8e38cf6d01cf85c4593337e186a1d63c07",
+      "station_code": "9732"
+    },
+    {
+      "column": 10,
+      "departures": 113,
+      "file": "tozai_h_west_20230701.csv",
+      "html_sha256": "dac20843eabb92cb9360cd982a981db29b8051cffe7f2c869b444e11c15bcf21",
+      "station_code": "9731"
+    },
+    {
+      "column": 11,
+      "departures": 113,
+      "file": "tozai_h_west_20230701.csv",
+      "html_sha256": "4de0761ab72c24f9e96c4bd6433ae54bcaca53c440ec6f456a12e9bdc2ad1ce6",
+      "station_code": "9730"
+    },
+    {
+      "column": 12,
+      "departures": 113,
+      "file": "tozai_h_west_20230701.csv",
+      "html_sha256": "000e29c9377b2b5e53ae2c369f9ef4a11d59a595ab7c7c92a0ef81280be6b05f",
+      "station_code": "9729"
+    },
+    {
+      "column": 13,
+      "departures": 113,
+      "file": "tozai_h_west_20230701.csv",
+      "html_sha256": "fc1c0aefe2743ce83ab890b2f16e44191c1b4dc00f679b5ddf8e7c1490aca9bb",
+      "station_code": "9728"
+    }
+  ],
+  "midnight_runs": 10,
+  "operational_ready": false,
+  "real_bus_subway_routes_verified": false,
+  "source_runs": 1046,
+  "captured_on": "2026-10-15",
+  "source_catalog": "https://www.city.sendai.jp/joho-kikaku/shise/security/kokai/opendata_example.html"
+}
