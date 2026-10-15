@@ -80,7 +80,7 @@ def _store_compiled_state(
     *,
     compiled_prefix: str,
 ) -> str:
-    object_key = f"{compiled_prefix.strip('/')}/{artifact.source_sha256}.pkl.gz"
+    object_key = f"{compiled_prefix.strip('/')}/v{artifact.schema_version}/{artifact.source_sha256}.pkl.gz"
     try:
         response = store.s3.head_object(
             Bucket=store.bucket_name,
@@ -160,7 +160,7 @@ def _compile_and_publish(
 ) -> CompiledGtfsArtifact:
     compiled_path = os.path.join(
         tempfile.gettempdir(),
-        f"toeigo-gtfs-{source_sha256}.pkl.gz",
+        f"toeigo-gtfs-v{GTFS_STATE_SCHEMA_VERSION}-{source_sha256}.pkl.gz",
     )
     try:
         artifact = build_compiled_state_from_zip(
@@ -387,3 +387,4 @@ def lambda_handler(event, context):
             flush=True,
         )
     return asdict(result)
+

@@ -502,3 +502,19 @@ feed版20260828_030922、期間2026-08-28〜2029-08-27、GTFS txt15ファイル�
 検証計画は、合成A→B→CのBをpickup1/drop-off0とし、Bからの新規乗車禁止、AからCへの同便継続、Bでの降車、別の乗車可能便の選択、循環再訪のsequence区別を固定する。raw GTFS→旧repositoryの新metadata→compiled round-trip→Tokyo choicesと共通choicesの同じ制約を比較し、欠落artifactはfail-fastを確認する。実データでは今回4日と本番graphを使うOD比較で、禁止乗車に起因する差分と影響のないODを区別し、最速/少乗換/快適さ・全候補順位/具体区間・Realtime差分を評価する。保存/アップロードは合成回帰と集計のみとする。
 
 本節追加時点では推奨の製品動作変更を実装/コミットしていない。「既存東京の探索結果・候補順位を維持する」という指示と衝突するため、この一点の例外についてユーザー判断待ち。既存の監査codeは関連128回帰とCIのAPI/Windows/Rust3.11/3.12/Lambda検証が成功している。設計上の衝突と修正対象が明確になったことを、Tokyo bus parity/Phase 2全体完了と扱わない。本番切替・デプロイを行わない。
+
+## 28. 承認されたpickup1の例外を実装し、入力比較を再開する
+
+ユーザーが前節の限定した修正を承認したため、変更前main `f5fb9da80935bd86c95c07ac1fc8e391785554cd`を確認して実装する。Tokyoの新規bus boardingで元GTFSのpickup1を禁止する。原trip/stop occurrenceを削除せず、乗車済み便の通過・継続とdrop-off0での降車は維持する。禁止乗車に起因する結果差だけを従来結果維持の例外とし、目的値・候補tie-break・時計・Realtimeの取得方式・無料判定・徒歩policyは変更しない。横浜の未確認交通・徒歩を有効にしない。
+
+`gtfs_loader.py`は既存stop_timesの三要素tupleと時計変換を保ち、別のtrip/sequence別`stop_time_boarding`へ元pickup/drop-offを保存する。GTFSで省略・空欄のoptional flagだけは仕様の既定0として扱い、不正flag・重複sequenceはatomic loadで停止する。読み込み済みデータのmetadata欠落は0へ補完しない。`tokyo_timetable_choices.py`は具体便の新規乗車時にpickup1を除外する。pickup2/3をこの変更で通常乗車扱いにはせず、その乗車候補が照会された時点で未対応エラーとする。降車制約の新機能は実装せず、比較器は非始端drop-off制約を引き続き未対応として停止する。
+
+**compiled artifact形式はschema2が必要**。schema1に乗降metadataが無いため、新しいreaderはschema1やmetadata欠落・scope不一致・不正型をhydrate前に拒否する。Python/Rust SearchCore v1のAPI、配列・時計契約は変更しない。Lambdaのcompiledキャッシュ名にv2を含め、publisherのartifact keyもschema別`.../v2/<source-sha>.pkl.gz`へ分ける。これにより同じraw SHAの旧schema1オブジェクトを上書きしない。
+
+このコードを将来デプロイするにはschema2 artifactの生成・検証とreader/refresh publisher/active manifestの切替順序を調整する必要がある。現行readerがschema1のみを扱う状態でactive manifestだけをschema2へ更新しない。今回refresh publisher実行、S3へのアップロード、active manifest変更、本番切替・デプロイは実施しない。旧artifactへの自動fallbackも追加しない。
+
+`check_tokyo_gtfs_local.py`の通常modeはpickup1を対応済み制約として許可し、全source行とflagを保持したまま、新規乗車可能な隣接具体区間のmultisetをTokyo raw/commonで比較する。さらにメモリ内でrepository payloadをschema2へ変換・hydrateし、同じ具体便比較を行う。private compiledファイルは生成しない。`compiled_memory_choices_verified`とschema版を明示する一方、gzip実artifact/Lambda起動を認定する`compiled_gtfs_verified`はfalseに保つ。指定prebuilt監査modeでは修正後のboardable/rideableが0になることを確認する。版・SHA・元ファイル前後hash検査と明示date、秒精度gateは維持する。
+
+合成回帰はraw/compiled両方で禁止位置からの新規乗車不可、同便継続・降車、後続の合法便、循環再訪のsequence区別を確認する。不正flag・重複sequence、欠落metadataのfail-fast、schema1拒否/atomic hydrate、schema2保存、旧artifact非上書きも固定する。Windows CIに新回帰moduleを追加する。実GTFSでの修正後比較・指定prebuilt監査、全ODの最速/少乗換/快適さ・候補順位の差分、Realtime、実compiled/Lambdaの起動・メモリ/速度は未検証であり、Phase 2全体完了を宣言しない。非公開データ・認証情報は追加しない。
+
+実装時のローカルPython3.12ではAPI全842件を実行し、failure/errorは0、native module未導入による6件のみskipだった。Windows対象module群とcompiled download回帰の67件も成功した。nativeの実行とLambda image smokeはGitHub Actionsで別途確認する。これらの合成テスト合格を実GTFSや実Lambda起動の確認に代えない。

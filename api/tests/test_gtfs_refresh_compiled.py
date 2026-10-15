@@ -143,6 +143,27 @@ def _raw_state(payload, object_key):
 
 
 class CompiledRefreshTest(unittest.TestCase):
+    def test_schema_one_object_is_retained_when_same_source_gets_schema_two(self):
+        payload = _gtfs_zip()
+        digest = hashlib.sha256(payload).hexdigest()
+        raw_key = f'{VERSION_PREFIX}/{digest}.zip'
+        old_key = f'gtfs/toei/compiled/{digest}.pkl.gz'
+        fake_s3 = _FakeS3()
+        fake_s3.objects[raw_key] = payload
+        fake_s3.objects[old_key] = b'old-schema-one-object'
+        state = _raw_state(payload,raw_key)
+        state.update(compiled_state_key=old_key, compiled_state_schema_version=1,
+                     compiled_state_sha256='a'*64, compiled_state_record_counts={})
+        fake_s3.objects[STATE_KEY] = json.dumps(state).encode('utf-8')
+        result = refresh_gtfs_with_compiled_state(downloader=_FakeDownloader(status_code=500),
+            store=_store(fake_s3),request_url=SOURCE_URL,source_url=SOURCE_URL)
+        self.assertEqual(result.reason,'compiled_state_backfill')
+        self.assertEqual(fake_s3.objects[old_key],b'old-schema-one-object')
+        self.assertNotIn(old_key,fake_s3.put_order)
+        updated = json.loads(fake_s3.objects[STATE_KEY])
+        self.assertIn('/v2/',updated['compiled_state_key'])
+        self.assertEqual(updated['compiled_state_schema_version'],2)
+
     def test_initial_refresh_publishes_compiled_artifact_before_state_switch(self):
         payload = _gtfs_zip()
         fake_s3 = _FakeS3()
@@ -157,7 +178,8 @@ class CompiledRefreshTest(unittest.TestCase):
         self.assertEqual(result.status, "updated")
         state = json.loads(fake_s3.objects[STATE_KEY])
         self.assertEqual(state["sha256"], hashlib.sha256(payload).hexdigest())
-        self.assertEqual(state["compiled_state_schema_version"], 1)
+        self.assertEqual(state["compiled_state_schema_version"], 2)
+        self.assertIn('/v2/', state['compiled_state_key'])
         self.assertIn(state["compiled_state_key"], fake_s3.objects)
         self.assertEqual(
             fake_s3.metadata[state["compiled_state_key"]]["sha256"],
@@ -241,3 +263,4 @@ class CompiledRefreshTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -118,6 +118,7 @@ class GtfsRepository:
     def _reset_data(self) -> None:
         self.trips = {}
         self.stop_times = defaultdict(dict)
+        self.stop_time_boarding = defaultdict(dict)
         self.stops = {}
         self.routes = {}
         self.route_name_to_id = {}
@@ -131,6 +132,19 @@ class GtfsRepository:
         if not isinstance(source_id, str) or not source_id:
             raise ValueError("source_id must be a non-empty string")
         return f"{self.feed_id}:{source_id}"
+
+    def get_stop_time_boarding(self, trip_id: str, sequence: int) -> tuple[int, int]:
+        """Exact source flags for an occurrence; missing metadata is fatal."""
+        try:
+            if trip_id not in self.stop_time_boarding:
+                raise KeyError(trip_id)
+            flags = self.stop_time_boarding[trip_id][sequence]
+        except KeyError as error:
+            raise ValueError(f'GTFS boarding metadata missing: trip={trip_id} sequence={sequence}') from error
+        if (type(flags) is not tuple or len(flags) != 2
+                or any(type(value) is not int or value not in (0, 1, 2, 3) for value in flags)):
+            raise ValueError(f'invalid GTFS boarding metadata: trip={trip_id} sequence={sequence}')
+        return flags
 
     def load_data(self, gtfs_dir: str):
         """Load one GTFS feed atomically.
@@ -164,6 +178,7 @@ class GtfsRepository:
 
         trips = {}
         stop_times = defaultdict(dict)
+        stop_time_boarding = defaultdict(dict)
         stops = {}
         routes = {}
         route_name_to_id = {}
@@ -259,6 +274,14 @@ class GtfsRepository:
                         f"GTFS stop_time for trip {trip_id!r} references unknown stop_id {stop_id!r}"
                     )
                 sequence = int(row["stop_sequence"])
+                if sequence in stop_times[trip_id]:
+                    raise ValueError(f'duplicate GTFS stop occurrence: trip={trip_id} sequence={sequence}')
+                flags = []
+                for field in ('pickup_type', 'drop_off_type'):
+                    raw = row.get(field, '')
+                    if raw not in ('', '0', '1', '2', '3'):
+                        raise ValueError(f'invalid GTFS {field}: trip={trip_id} sequence={sequence} value={raw!r}')
+                    flags.append(0 if raw == '' else int(raw))
                 arrival_minute = _time_to_minute(row["arrival_time"])
                 departure_minute = _time_to_minute(row["departure_time"])
                 stop_times[trip_id][sequence] = (
@@ -266,6 +289,7 @@ class GtfsRepository:
                     arrival_minute,
                     departure_minute,
                 )
+                stop_time_boarding[trip_id][sequence] = tuple(flags)
                 route_id = trip_to_route[trip_id]
                 timetable_index[f"{route_id}|{stop_id}"].append(
                     (departure_minute, sequence, trip_id)
@@ -277,6 +301,7 @@ class GtfsRepository:
 
         self.trips = trips
         self.stop_times = stop_times
+        self.stop_time_boarding = stop_time_boarding
         self.stops = stops
         self.routes = routes
         self.route_name_to_id = route_name_to_id
@@ -523,3 +548,4 @@ class GtfsFeedRegistry:
 gtfs_repo = GtfsRepository("toei_bus")
 gtfs_feeds = GtfsFeedRegistry()
 gtfs_feeds.register(gtfs_repo)
+

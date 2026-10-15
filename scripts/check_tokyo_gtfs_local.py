@@ -22,6 +22,7 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 import networkx as nx
 from check_tokyo_odpt_local import check_repository, sha256
 from gtfs_loader import GtfsRepository
+from gtfs_state import GTFS_STATE_SCHEMA_VERSION, hydrate_repository_state, repository_state_payload
 from toei_engine import ServiceDayType, TimetableManager
 from tokyo_timetable_choices import TimetableChoices
 from transit_adapters.gtfs import GtfsTransitAdapter
@@ -80,8 +81,8 @@ class TokyoBoardingContractError(ValueError):
 
 
 def check_boarding_contract(dataset, snapshot, days):
-    # Complete diagnostics before attempting either choice provider. Do not
-    # filter trips, remove flags or continue comparison after this gate fails.
+    # Pickup=1 is explicitly supported by Tokyo. Conditional pickup and
+    # noninitial drop-off restrictions remain outside the approved change.
     date_counts = {day: {'date': day.isoformat(), 'conflicting_rows': 0,
         'boarding_conflicts': 0, 'alighting_conflicts': 0} for day in days}
     active = {day: dataset.active_service_ids(day) for day in days}
@@ -93,7 +94,7 @@ def check_boarding_contract(dataset, snapshot, days):
     for trip_id, rows in snapshot.rows_by_trip.items():
         trip = snapshot.trips[trip_id]
         for index, row in enumerate(rows):
-            boarding = index < len(rows) - 1 and row.pickup_type != 0
+            boarding = index < len(rows) - 1 and row.pickup_type not in (0, 1)
             alighting = index > 0 and row.drop_off_type != 0
             if not boarding and not alighting:
                 continue
@@ -242,6 +243,10 @@ def inspect(root, expected_version, day_values):
     check_boarding_contract(dataset, snapshot, days)
     repository = GtfsRepository('tokyo_bus_probe')
     repository.load_data(str(root))
+    # In-memory compiled contract round trip; no private artifact is written.
+    compiled = GtfsRepository('tokyo_bus_probe')
+    state = repository_state_payload(repository, '0' * 64)
+    hydrate_repository_state(compiled, state, expected_source_sha256='0' * 64)
     if set(repository.stops) != {s.source_id for s in dataset.stops.values()} or set(repository.routes) != {r.source_id for r in dataset.routes.values()}:
         raise AssertionError('legacy/shared stop or route scope differs')
     if set(repository.trips) != {t.source_id for t in dataset.trips.values()}:
@@ -274,15 +279,18 @@ def inspect(root, expected_version, day_values):
             stop = snapshot.stops[row.stop_id].source_id
             if (stop, row.arrival_minute, row.departure_minute) != source_rows[row.sequence]:
                 raise AssertionError(f'concrete source clock/stop differs: {trip.source_id} sequence={row.sequence}')
+            if repository.get_stop_time_boarding(trip.source_id, row.sequence) != (row.pickup_type, row.drop_off_type):
+                raise AssertionError(f'concrete source boarding flags differ: {trip.source_id} sequence={row.sequence}')
         for current, following in zip(rows, rows[1:]):
             a, b = snapshot.stops[current.stop_id].source_id, snapshot.stops[following.stop_id].source_id
             u, v = ('line', a, 'gtfs:' + route), ('line', b, 'gtfs:' + route)
             graph.add_node(u, mode='bus', route_id=route)
             graph.add_node(v, mode='bus', route_id=route)
             graph.add_edge(u, v, etype='ride', mode='bus')
-            expected_all.append((trip.source_id, current.sequence, a, b,
+            if current.pickup_type == 0:
+                expected_all.append((trip.source_id, current.sequence, a, b,
                                  current.departure_minute, following.arrival_minute))
-    deadline = max(r[5] for r in expected_all)
+    deadline = max(row.arrival_minute for rows in snapshot.rows_by_trip.values() for row in rows)
     reports = []
     for day in days:
         active = repository.get_active_service_ids(day)
@@ -294,17 +302,18 @@ def inspect(root, expected_version, day_values):
         if not active_trips:
             raise ValueError(f'no active source trips on explicit query date: {day}')
         expected = [r for r in expected_all if r[0] in active_trips]
-        legacy = TimetableChoices(graph, TimetableManager(), ServiceDayType('gtfs', day, active, True),
-                                  use_realtime=False, deadline=deadline, bus_repository=repository)
-        old_rows = []
-        for u in graph:
-            for dep, state in legacy.board_options(('phys', u[1]), u, 0):
-                run = legacy._runs[('bus', state.run_id)]
-                position = legacy._positions[('bus', state.run_id)][state.sequence]
-                following = run.stops[position + 1].stop_id
-                for arr, _ in legacy.ride_options(u, ('line', following, u[2]), dep, state):
-                    old_rows.append((state.trip_id, state.sequence, u[1], following, dep, arr))
-        compare(expected, old_rows, f'legacy choices/{day}')
+        for stage, source in (('raw', repository), ('compiled-memory', compiled)):
+            legacy = TimetableChoices(graph, TimetableManager(), ServiceDayType('gtfs', day, active, True),
+                                      use_realtime=False, deadline=deadline, bus_repository=source)
+            old_rows = []
+            for u in graph:
+                for dep, state in legacy.board_options(('phys', u[1]), u, 0):
+                    run = legacy._runs[('bus', state.run_id)]
+                    position = legacy._positions[('bus', state.run_id)][state.sequence]
+                    following = run.stops[position + 1].stop_id
+                    for arr, _ in legacy.ride_options(u, ('line', following, u[2]), dep, state):
+                        old_rows.append((state.trip_id, state.sequence, u[1], following, dep, arr))
+            compare(expected, old_rows, f'Tokyo {stage} choices with pickup prohibition/{day}')
         shared = DatasetTimetableChoices(snapshot, service_date=day, deadline=deadline)
         shared.prepare(lambda: None)
         if {snapshot.trips[key].source_id for key in shared.active_trips} != active_trips:
@@ -325,7 +334,9 @@ def inspect(root, expected_version, day_values):
             {'pickup': p, 'drop_off': d, 'rows': n} for (p, d), n in sorted(flags.items())],
         'date_choices': reports, 'source_metadata_verified': True, 'bus_choice_parity_verified': True,
         'walking_links': 0, 'production_graph_verified': False, 'route_ranking_verified': False,
-        'realtime_verified': False, 'compiled_gtfs_verified': False, 'lambda_startup_verified': False}
+        'realtime_verified': False, 'compiled_gtfs_verified': False,
+        'compiled_memory_choices_verified': True, 'compiled_state_schema_version': GTFS_STATE_SCHEMA_VERSION,
+        'lambda_startup_verified': False}
 
 
 def main():

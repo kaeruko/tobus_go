@@ -201,6 +201,8 @@ class TokyoTimeBoundsTest(unittest.TestCase):
             sequence_map[sequence]: stop
             for sequence, stop in repository.stop_times["loop"].items()
         }
+        repository.stop_time_boarding['loop'] = {
+            sequence_map[sequence]: flags for sequence, flags in repository.stop_time_boarding['loop'].items()}
         for key, entries in repository.timetable_index.items():
             repository.timetable_index[key] = [
                 (departure, sequence_map[sequence], trip_id)
@@ -313,6 +315,7 @@ class TokyoTimeBoundsTest(unittest.TestCase):
         replacement = bus._repository(("new", "active", (("A", 600, 600), ("B", 601, 601))))
         repository.trips = replacement.trips
         repository.stop_times = replacement.stop_times
+        repository.stop_time_boarding = replacement.stop_time_boarding
         repository.timetable_index = replacement.timetable_index
         choices, _ = bus._choices(graph, repository, manager=manager)
         bound = _bound(graph, choices, bus._phys("B"))
@@ -454,3 +457,4 @@ class TokyoTimeBoundsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

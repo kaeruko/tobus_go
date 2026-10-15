@@ -59,6 +59,7 @@ def _repository(*trips):
                 "lon": 139.0,
             }
             repository.stop_times[trip_id][sequence] = (stop, arrival, departure)
+            repository.stop_time_boarding[trip_id][sequence] = (0, 0)
             repository.timetable_index[f"{ROUTE}|{stop}"].append(
                 (departure, sequence, trip_id)
             )
@@ -267,3 +268,4 @@ class TokyoBusChoicesContractTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

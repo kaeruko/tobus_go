@@ -17,12 +17,13 @@ from typing import Any, Mapping
 from gtfs_loader import GtfsRepository
 
 
-GTFS_STATE_SCHEMA_VERSION = 1
+GTFS_STATE_SCHEMA_VERSION = 2
 _COMPILED_STATE_SUFFIX = ".pkl.gz"
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _REQUIRED_PAYLOAD_KEYS = {
     "trips",
     "stop_times",
+    "stop_time_boarding",
     "stops",
     "routes",
     "route_name_to_id",
@@ -79,6 +80,22 @@ def _record_counts(payload: Mapping[str, Any]) -> dict[str, int]:
     }
 
 
+def _boarding_metadata(stop_times, boarding):
+    if not isinstance(boarding, Mapping) or set(boarding) != set(stop_times):
+        raise CompiledGtfsStateError('Compiled GTFS boarding trip scope mismatch')
+    result = {}
+    for trip_id, rows in stop_times.items():
+        flags = boarding[trip_id]
+        if not isinstance(flags, Mapping) or set(flags) != set(rows):
+            raise CompiledGtfsStateError(f'Compiled GTFS boarding occurrence scope mismatch: {trip_id}')
+        for sequence, value in flags.items():
+            if (type(value) is not tuple or len(value) != 2
+                    or any(type(flag) is not int or flag not in (0, 1, 2, 3) for flag in value)):
+                raise CompiledGtfsStateError(f'Compiled GTFS boarding metadata invalid: {trip_id} sequence={sequence}')
+        result[trip_id] = dict(flags)
+    return result
+
+
 def repository_state_payload(
     repository: GtfsRepository,
     source_sha256: str,
@@ -92,6 +109,7 @@ def repository_state_payload(
         "stop_times": {
             trip_id: dict(rows) for trip_id, rows in repository.stop_times.items()
         },
+        "stop_time_boarding": _boarding_metadata(repository.stop_times, repository.stop_time_boarding),
         "stops": dict(repository.stops),
         "routes": dict(repository.routes),
         "route_name_to_id": dict(repository.route_name_to_id),
@@ -132,7 +150,7 @@ def hydrate_repository_state(
         raise CompiledGtfsStateError("Compiled GTFS state root must be an object")
 
     schema_version = state.get("schema_version")
-    if schema_version != GTFS_STATE_SCHEMA_VERSION:
+    if type(schema_version) is not int or schema_version != GTFS_STATE_SCHEMA_VERSION:
         raise CompiledGtfsStateError(
             "Compiled GTFS state schema mismatch: "
             f"expected={GTFS_STATE_SCHEMA_VERSION}, actual={schema_version!r}"
@@ -182,6 +200,7 @@ def hydrate_repository_state(
         for date, rows in materialized["service_exceptions"].items()
     }
     materialized["stop_times"] = stop_times
+    materialized['stop_time_boarding'] = _boarding_metadata(stop_times, materialized['stop_time_boarding'])
     materialized["timetable_index"] = timetable_index
     materialized["service_exceptions"] = service_exceptions
 
@@ -204,6 +223,7 @@ def hydrate_repository_state(
 
     repository.trips = materialized["trips"]
     repository.stop_times = defaultdict(dict, stop_times)
+    repository.stop_time_boarding = defaultdict(dict, materialized['stop_time_boarding'])
     repository.stops = materialized["stops"]
     repository.routes = materialized["routes"]
     repository.route_name_to_id = materialized["route_name_to_id"]
@@ -381,7 +401,7 @@ def download_compiled_lambda_assets(data_dir: str = "/tmp/data") -> LambdaCompil
         "state.compiled_state_sha256",
     )
     schema_version = manifest.get("compiled_state_schema_version")
-    if schema_version != GTFS_STATE_SCHEMA_VERSION:
+    if type(schema_version) is not int or schema_version != GTFS_STATE_SCHEMA_VERSION:
         raise CompiledGtfsStateError(
             "GTFS state manifest compiled schema mismatch: "
             f"expected={GTFS_STATE_SCHEMA_VERSION}, actual={schema_version!r}"
@@ -392,7 +412,7 @@ def download_compiled_lambda_assets(data_dir: str = "/tmp/data") -> LambdaCompil
     prebuilt_path = os.path.join(data_dir, "app_data.pkl")
     compiled_state_path = os.path.join(
         data_dir,
-        f"gtfs_state-{source_sha256}{_COMPILED_STATE_SUFFIX}",
+        f"gtfs_state-v{GTFS_STATE_SCHEMA_VERSION}-{source_sha256}{_COMPILED_STATE_SUFFIX}",
     )
 
     if not os.path.exists(prebuilt_path):
@@ -425,3 +445,4 @@ def download_compiled_lambda_assets(data_dir: str = "/tmp/data") -> LambdaCompil
         compiled_state_path=compiled_state_path,
         source_sha256=source_sha256,
     )
+

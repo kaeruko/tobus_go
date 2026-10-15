@@ -46,7 +46,7 @@ class CompiledGtfsDownloadTest(unittest.TestCase):
             "object_key": "gtfs/toei/versions/source.zip",
             "compiled_state_key": "gtfs/toei/compiled/source.pkl.gz",
             "compiled_state_sha256": _sha(compiled),
-            "compiled_state_schema_version": 1,
+            "compiled_state_schema_version": 2,
             "compiled_state_record_counts": {"trips": 1},
         }
         fake_s3 = _FakeS3(
@@ -73,6 +73,7 @@ class CompiledGtfsDownloadTest(unittest.TestCase):
                 assets = download_compiled_lambda_assets(data_dir)
 
             self.assertEqual(assets.source_sha256, source_sha)
+            self.assertEqual(os.path.basename(assets.compiled_state_path), f'gtfs_state-v2-{source_sha}.pkl.gz')
             with open(assets.prebuilt_path, "rb") as file:
                 self.assertEqual(file.read(), prebuilt)
             with open(assets.compiled_state_path, "rb") as file:
@@ -130,7 +131,7 @@ class CompiledGtfsDownloadTest(unittest.TestCase):
             "object_key": "gtfs/toei/versions/source.zip",
             "compiled_state_key": "gtfs/toei/compiled/source.pkl.gz",
             "compiled_state_sha256": "b" * 64,
-            "compiled_state_schema_version": 1,
+            "compiled_state_schema_version": 2,
             "compiled_state_record_counts": {"trips": 1},
         }
         fake_s3 = _FakeS3(
@@ -163,3 +164,4 @@ class CompiledGtfsDownloadTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

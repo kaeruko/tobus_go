@@ -497,6 +497,11 @@ class TimetableChoices:
             position = self._positions[("bus", run.run_id)].get(sequence)
             if position is None or position + 1 == len(run.stops):
                 continue
+            pickup, _ = self.repository.get_stop_time_boarding(trip_id, sequence)
+            if pickup == 1:
+                continue
+            if pickup in (2, 3):
+                raise ValueError(f'Tokyo conditional pickup is unsupported: trip={trip_id} sequence={sequence} pickup_type={pickup}')
             following = run.stops[position + 1].stop_id
             # The graph may contain multiple patterns of the same route.  A
             # selected trip must have an actual next stop reachable in this
@@ -639,3 +644,4 @@ class TimetableChoices:
         result["actual_arrival_minute"] = current.arrival + delay
         result["stops"] = tuple(stop.stop_id for stop in run.stops)
         return result
+

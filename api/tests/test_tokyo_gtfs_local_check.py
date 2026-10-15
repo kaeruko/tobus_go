@@ -50,12 +50,15 @@ class TokyoGtfsLocalCheckTest(unittest.TestCase):
                 self.run_probe()
             load.assert_not_called()
 
-    def test_nonzero_boarding_flag_stops_without_disabling_shared_constraint(self):
+    def test_pickup_one_is_preserved_and_excluded_from_new_boarding(self):
         path = self.root / 'stop_times.txt'
         lines = path.read_text().splitlines()
         path.write_text(lines[0] + ',pickup_type\n' + '\n'.join(line + ',1' for line in lines[1:]) + '\n', encoding='utf-8')
-        with self.assertRaisesRegex(ValueError, 'ignores boarding/alighting flags'):
-            self.run_probe()
+        result = self.run_probe()
+        self.assertTrue(result['bus_choice_parity_verified'])
+        self.assertTrue(result['compiled_memory_choices_verified'])
+        self.assertEqual(result['date_choices'][0]['intervals'], 0)
+        self.assertEqual(result['stop_times'], 6)
 
     def test_contract_error_reports_all_flags_dates_and_bounded_local_examples_before_legacy_load(self):
         path = self.root / 'stop_times.txt'
@@ -84,7 +87,7 @@ class TokyoGtfsLocalCheckTest(unittest.TestCase):
     def test_contract_error_still_emits_no_success_marker(self):
         path = self.root / 'stop_times.txt'
         lines = path.read_text().splitlines()
-        path.write_text(lines[0] + ',pickup_type\n' + '\n'.join(line + ',1' for line in lines[1:]) + '\n', encoding='utf-8')
+        path.write_text(lines[0] + ',pickup_type\n' + '\n'.join(line + ',2' for line in lines[1:]) + '\n', encoding='utf-8')
         args = [str(SCRIPT), '--gtfs-dir', str(self.root), '--expected-feed-version', 'fixture',
                 '--query-date', '2026-09-04', '--expected-sha', 'a'*40]
         with patch.object(sys, 'argv', args), patch.object(probe, 'check_repository'):
@@ -109,14 +112,15 @@ class TokyoGtfsLocalCheckTest(unittest.TestCase):
         prebuilt.write_bytes(pickle.dumps({'G': graph, 'TM': probe.TimetableManager()}))
         return prebuilt
 
-    def test_explicit_prebuilt_audit_detects_boardable_flag_without_marking_parity(self):
+    def test_explicit_prebuilt_audit_confirms_pickup_one_blocked_without_marking_parity(self):
         prebuilt = self.audit_fixture()
         before = prebuilt.read_bytes()
         result = probe.audit_production_boarding(self.root, 'fixture', ('2026-09-04',), prebuilt)
         row = result['date_audit'][0]
         self.assertEqual(row['active_conflicting_rows'], 1)
-        self.assertEqual(row['boardable_conflicting_rows'], 1)
-        self.assertEqual(row['rideable_conflicting_rows'], 1)
+        self.assertEqual(row['boardable_conflicting_rows'], 0)
+        self.assertEqual(row['rideable_conflicting_rows'], 0)
+        self.assertEqual(row['bound_not_boardable_rows'], 1)
         self.assertFalse(result['bus_choice_parity_verified'])
         self.assertEqual(prebuilt.read_bytes(), before)
 
@@ -133,7 +137,7 @@ class TokyoGtfsLocalCheckTest(unittest.TestCase):
         del data['G'][('line', 'a', 'fixture')][('line', 'b', 'fixture')]['mode']
         prebuilt.write_bytes(pickle.dumps(data))
         row = probe.audit_production_boarding(self.root, 'fixture', ('2026-09-04',), prebuilt)['date_audit'][0]
-        self.assertEqual(row['rideable_conflicting_rows'], 1)
+        self.assertEqual(row['rideable_conflicting_rows'], 0)
 
     def test_prebuilt_audit_terminal_filter_can_prevent_existing_boarding(self):
         prebuilt = self.audit_fixture()
