@@ -83,6 +83,43 @@ class Leg {
     }
 
     final candidateJson = Map<String, dynamic>.from(rawCandidate);
+    // A Firestore-safe list of typed legs, each with a flat coordinates array.
+    // Legacy routePoints remains unchanged for backward compatibility.
+    if (json.containsKey('routeGeometrySegments')) {
+      if (candidateJson.containsKey('route_geometry')) {
+        throw const FormatException('conflicting route geometry representations');
+      }
+      final rawSegments = json['routeGeometrySegments'];
+      if (rawSegments is! List) {
+        throw const FormatException('routeGeometrySegments must be a list');
+      }
+      final decoded = <Map<String, dynamic>>[];
+      for (final segment in rawSegments) {
+        if (segment is! Map ||
+            segment['kind'] is! String ||
+            segment['coordinates'] is! List) {
+          throw const FormatException('invalid routeGeometrySegments entry');
+        }
+        final coordinates = segment['coordinates'] as List;
+        if (coordinates.length < 4 || coordinates.length.isOdd) {
+          throw const FormatException('incomplete routeGeometrySegments pairs');
+        }
+        final points = <List<double>>[];
+        for (var i = 0; i < coordinates.length; i += 2) {
+          final lat = coordinates[i];
+          final lon = coordinates[i + 1];
+          if (lat is! num || lon is! num ||
+              !lat.isFinite || !lon.isFinite ||
+              lat < -90 || lat > 90 || lon < -180 || lon > 180 ||
+              (lat == 0 && lon == 0)) {
+            throw FormatException('invalid segment coordinate at index $i');
+          }
+          points.add([lat.toDouble(), lon.toDouble()]);
+        }
+        decoded.add({'kind': segment['kind'], 'points': points});
+      }
+      candidateJson['route_geometry'] = decoded;
+    }
     final rawGeometry = json['routePoints'];
     final rawApproximate = json['routeGeometryIsApproximate'];
     if (rawApproximate != null && rawApproximate is! bool) {
@@ -156,6 +193,17 @@ class Leg {
     return {
       ...toJson(includePoints: false),
       'routePoints': coordinates,
+      if (candidate.routeGeometry != null)
+        'routeGeometrySegments': [
+          for (final segment in candidate.routeGeometry!)
+            {
+              'kind': segment.kind,
+              'coordinates': [
+                for (final point in segment.points)
+                  ...[point.latitude, point.longitude],
+              ],
+            },
+        ],
     };
   }
 }

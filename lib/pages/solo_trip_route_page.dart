@@ -62,6 +62,9 @@ class SoloTripRoutePage extends ConsumerWidget {
                     // Recreate the map camera when a replan changes geometry.
                     key: ValueKey(Object.hashAll(candidate.points)),
                     points: candidate.points,
+                    routeGeometry: leg.routeGeometryIsApproximate
+                        ? null
+                        : candidate.routeGeometry,
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 12)),

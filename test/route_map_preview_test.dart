@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -9,6 +10,8 @@ import 'package:url_launcher_platform_interface/url_launcher_platform_interface.
     as launcher;
 import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/models/route_map_segment.dart';
+import 'package:toeigo/logic/trip_navigator.dart';
+import 'package:toeigo/widgets/active_trip_navigation_view.dart';
 import 'package:toeigo/widgets/route_map_preview.dart';
 
 class TestMaps extends maps.GoogleMapsFlutterPlatform {
@@ -255,6 +258,54 @@ void main() {
     expect(rail.points, geometry[2].points);
     expect(map.markers, hasLength(2));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('active trip overview renders walking legs dashed', (tester) async {
+    final geometry = [
+      RouteMapSegment(
+        kind: 'walk',
+        points: const [LatLng(35.0, 139.0), LatLng(35.001, 139.0)],
+      ),
+      RouteMapSegment(
+        kind: 'bus',
+        points: const [LatLng(35.001, 139.0), LatLng(35.005, 139.0)],
+      ),
+    ];
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('ja'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: ActiveTripRouteOverview(
+            navState: const NavigationState(
+              mainText: '出発前',
+              subText: '15:23 出発予定',
+              color: Colors.white,
+              statusLabel: '出発前',
+            ),
+            tripTitle: '徒歩とバス',
+            originLabel: '出発地',
+            originPlace: '現在地',
+            destinationLabel: '目的地',
+            destinationPlace: '駅前',
+            routePoints: const [LatLng(35.0, 139.0), LatLng(35.005, 139.0)],
+            routeGeometry: geometry,
+            onTapStops: () {},
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(map.polylines, hasLength(2));
+    final walking = map.polylines.singleWhere(
+      (line) => line.polylineId.value == 'route_leg_0',
+    );
+    expect(walking.patterns, isNotEmpty);
+    expect(map.polylines.singleWhere(
+      (line) => line.polylineId.value == 'route_leg_1',
+    ).patterns, isEmpty);
   });
 
   testWidgets('legacy map still draws one solid polyline', (tester) async {

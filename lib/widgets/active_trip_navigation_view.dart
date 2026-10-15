@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../logic/trip_navigator.dart';
+import '../models/route_map_segment.dart';
 import 'route_map_preview.dart';
 import 'trip_navigation_status_card.dart';
 
@@ -152,6 +153,7 @@ class ActiveTripRouteOverview extends StatelessWidget {
   final String destinationLabel;
   final String destinationPlace;
   final List<LatLng> routePoints;
+  final List<RouteMapSegment>? routeGeometry;
   final VoidCallback onTapStops;
   final Widget? statusHeaderTrailing;
 
@@ -164,6 +166,7 @@ class ActiveTripRouteOverview extends StatelessWidget {
     required this.destinationLabel,
     required this.destinationPlace,
     required this.routePoints,
+    this.routeGeometry,
     required this.onTapStops,
     this.statusHeaderTrailing,
   });
@@ -191,6 +194,7 @@ class ActiveTripRouteOverview extends StatelessWidget {
           RouteMapPreview(
             key: ValueKey(Object.hashAll(routePoints)),
             points: routePoints,
+            routeGeometry: routeGeometry,
             showOpenButton: false,
             height: 150,
             margin: EdgeInsets.zero,

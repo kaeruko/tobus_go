@@ -127,6 +127,9 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
               origin: false,
             ),
             routePoints: activeCandidate.points,
+            routeGeometry: activeLeg.routeGeometryIsApproximate
+                ? null
+                : activeCandidate.routeGeometry,
             statusHeaderTrailing: _MemberTripLabel(
               title: displayTitle,
             ),
