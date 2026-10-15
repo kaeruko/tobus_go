@@ -329,6 +329,24 @@ class StaticTimeProjectionProofTest(unittest.TestCase):
         with self.assertRaisesRegex(RouteContractError, "clock_domain_outside_exact_source_scope"):
             proof.verify_static_time_projection(**self.case(start=1e16, upper=1e16 + 240.0))
 
+    def test_custom_lookup_semantics_cannot_bypass_enumerated_transition_or_bound_rows(self):
+        class DifferentLookup(dict):
+            def get(self, key, default=None):
+                return default
+        case = self.case()
+        case["virtual_connections"] = DifferentLookup(case["virtual_connections"])
+        with self.assertRaisesRegex(RouteContractError, "plain_virtual_seed_mapping_required"):
+            proof.verify_static_time_projection(**case)
+        case = self.case()
+        case["bounds"] = TimeBounds(DifferentLookup(case["bounds"]._values), case["bounds"].report)
+        with self.assertRaisesRegex(RouteContractError, "plain_bound_values_required"):
+            proof.verify_static_time_projection(**case)
+        case = self.case()
+        case["projection"] = replace(case["projection"], reverse=MappingProxyType(
+            DifferentLookup(case["projection"].reverse)))
+        with self.assertRaisesRegex(RouteContractError, "reverse_map_lookup_differs"):
+            proof.verify_static_time_projection(**case)
+
     def test_changed_executable_contract_stops_instead_of_assuming_old_proof(self):
         case = self.case()
         with patch.object(proof.forward, "search_labels", lambda *a, **kw: ()):

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import ast
 from collections import defaultdict, deque
-from collections.abc import Mapping
 from fractions import Fraction
 import hashlib
 import inspect
@@ -24,6 +23,7 @@ import json
 import math
 import sys
 import textwrap
+from types import MappingProxyType
 
 import networkx as nx
 
@@ -175,6 +175,32 @@ def _clock(value, field):
     return value
 
 
+def _check_snapshot_containers(inputs, projection):
+    """The proof and execution must read the same fixed, ordinary rows."""
+    repository = inputs.repository
+    for name in ("trips", "stop_times", "routes", "stops", "timetable_index", "stop_time_boarding",
+                 "route_name_to_id"):
+        if type(getattr(repository, name)) not in (dict, defaultdict):
+            _stop("custom_source_container", field=name)
+    for name in ("train_patterns_weekday", "train_patterns_weekend"):
+        if type(getattr(inputs.manager, name)) not in (dict, defaultdict):
+            _stop("custom_source_container", field=name)
+        if getattr(projection.choices.manager, name) is not getattr(inputs.manager, name):
+            _stop("different_static_source_owner", field=name)
+    for values in (inputs.rail, inputs.bus):
+        if type(values) is not MappingProxyType:
+            _stop("immutable_interval_map_required")
+        for key, value in values.items():
+            if values[key] is not value or values.get(key) is not value:
+                _stop("interval_map_lookup_differs")
+    if type(projection.reverse) is not MappingProxyType:
+        _stop("immutable_reverse_map_required")
+    for node, rows in projection.reverse.items():
+        if (type(rows) is not tuple or projection.reverse[node] is not rows
+                or projection.reverse.get(node) is not rows):
+            _stop("reverse_map_lookup_differs")
+
+
 def _proof_state(projection, inputs, bounds, guard, virtual, checkpoint):
     """Seal caller-owned proof inputs as well as the source/graph snapshots."""
     def rows():
@@ -196,8 +222,12 @@ def _source_ceilings(inputs, checkpoint):
     for name in ("train_patterns_weekday", "train_patterns_weekend"):
         for station, records in getattr(inputs.manager, name).items():
             checkpoint()
+            if type(records) not in (list, tuple):
+                _stop("custom_rail_source_rows")
             for record in records:
                 checkpoint()
+                if type(record) is not dict:
+                    _stop("custom_rail_source_record")
                 departure = _clock(record["dep"], "rail_departure")
                 arrival = _clock(record["arr"], "rail_arrival")
                 following = record.get("next_sta")
@@ -212,6 +242,9 @@ def _source_ceilings(inputs, checkpoint):
         _stop("bus_trip_occurrence_scope_differs")
     for trip_index, (trip_id, trip) in enumerate(repository.trips.items()):
         checkpoint()
+        if (type(trip_id) is not str or type(trip) is not dict
+                or type(repository.stop_times[trip_id]) not in (dict, defaultdict)):
+            _stop("custom_bus_source_rows", trip_index=trip_index)
         route = trip["route_id"]
         if route not in repository.routes:
             _stop("unknown_bus_route", trip_index=trip_index)
@@ -219,10 +252,14 @@ def _source_ceilings(inputs, checkpoint):
         if len(rows) < 2:
             _stop("bus_run_has_no_interval", trip_index=trip_index)
         previous = None
-        for position, (sequence, (stop, arrival, departure)) in enumerate(rows):
+        for position, (sequence, row) in enumerate(rows):
             checkpoint()
+            if type(row) is not tuple or len(row) != 3:
+                _stop("custom_bus_stop_time_row", trip_index=trip_index, position=position)
+            stop, arrival, departure = row
             arrival, departure = _clock(arrival, "bus_arrival"), _clock(departure, "bus_departure")
-            if type(sequence) is not int or sequence < 0 or stop not in repository.stops:
+            if (type(sequence) is not int or sequence < 0
+                    or type(stop) is not str or stop not in repository.stops):
                 _stop("invalid_bus_occurrence", trip_index=trip_index, position=position)
             if arrival > departure or previous is not None and arrival < previous[1]:
                 _stop("decreasing_bus_source_clock", trip_index=trip_index, position=position)
@@ -262,12 +299,13 @@ def _roles(graph, checkpoint):
     result = {}
     for index, (node, data) in enumerate(graph.nodes(data=True)):
         checkpoint()
-        if (type(node) is not tuple or len(node) not in (2, 3)
+        if (type(data) is not dict or type(node) is not tuple or len(node) not in (2, 3)
                 or type(node[1]) is not str or not node[1]):
             _stop("unsupported_node_schema", node_index=index)
         if node[0] == "phys" and len(node) == 2 and data.get("mode") is None:
             result[node] = "phys"
-        elif node[0] == "line" and len(node) == 3 and data.get("mode") in ("rail", "bus"):
+        elif (node[0] == "line" and len(node) == 3 and type(node[2]) is str
+              and type(data.get("mode")) is str and data["mode"] in ("rail", "bus")):
             result[node] = data["mode"]
         else:
             _stop("unsupported_node_schema", node_index=index)
@@ -297,6 +335,8 @@ def _projected_edges(projection, inputs, scope, ceilings, checkpoint):
     maximum = 0.0
     for index, (u, v, edge) in enumerate(graph.edges(data=True)):
         checkpoint()
+        if type(edge) is not dict:
+            _stop("custom_edge_attribute_container", edge_index=index)
         excluded = scope == "bus_only_rail_excluded" and engine._edge_uses_rail(graph, u, v)
         if excluded:
             if (u, v) in observed:
@@ -309,6 +349,8 @@ def _projected_edges(projection, inputs, scope, ceilings, checkpoint):
         _number(edge.get("w", 0.0), "edge_cost")
         expected = 0.0
         if kind == "walk" and a == b == "phys":
+            if type(edge.get("meters", 0)) not in (int, float):
+                _stop("custom_walking_distance_type", edge_index=index)
             expected = walking.walk_edge_elapsed_minutes(edge, speed_m_per_min=projection.walk_speed)
         elif kind == "board" and a == "phys" and b in ("rail", "bus") and u[1] == v[1]:
             if b == "bus":
@@ -419,10 +461,15 @@ def verify_static_time_projection(projection, inputs, bounds, guard, target, vir
     if (type(projection) is not CommonProjection or type(inputs) is not CommonIntervalInputs
             or type(bounds) is not TimeBounds or type(guard) is not rounding.TimeRoundingGuard):
         _stop("unsupported_proof_input_type")
+    # The executable TimeBounds/forward loop use .get(), while the proof
+    # enumerates .items(). Do not certify custom container implementations
+    # whose lookups can have different semantics from their enumerated rows.
+    if type(bounds._values) is not dict:
+        _stop("plain_bound_values_required")
     if not guard._enabled or guard.report.get("enabled") is not True:
         _stop("rounding_guard_disabled", detail=guard.report.get("disabled_reason", "disabled"))
-    if not isinstance(virtual_connections, Mapping):
-        _stop("virtual_seed_mapping_required")
+    if type(virtual_connections) is not dict:
+        _stop("plain_virtual_seed_mapping_required")
     _check_binary64_environment()
     if mode != "time" or scope not in ("full_graph", "bus_only_rail_excluded"):
         _stop("unsupported_proof_scope")
@@ -442,8 +489,12 @@ def verify_static_time_projection(projection, inputs, bounds, guard, target, vir
     for name in ("_runs", "_positions", "_rail_departures", "_rail_clocks", "_rail_delays",
                  "_rail_segments", "_bus_departures", "_bus_run_cache", "_concrete_board_options",
                  "_bus_pattern_terminals"):
-        if getattr(choices, name) or choices._rail_built:
+        if (type(getattr(choices, name)) not in (dict, defaultdict)
+                or len(getattr(choices, name)) or choices._rail_built):
             _stop("provider_already_used", cache=name)
+    if type(choices._line_route_cache) is not dict or type(choices._bus_pole_stop_ids) is not dict:
+        _stop("custom_provider_lookup_cache")
+    _check_snapshot_containers(inputs, projection)
     inputs.check_sources(check_deadline)
     if (_source_digest(choices.manager) != _source_digest(inputs.manager)
             or projection.graph_digest != _graph_digest(graph, check_deadline)):

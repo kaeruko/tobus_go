@@ -894,7 +894,7 @@ source集計はrail 5,600 trip・122,258 stop_time・116,658隣接区間、bus 1
 | line→physのalight/xfer | 移動済みrailは `fl(t+1)`、移動済みbusはt。fresh alight/xferは既存規則で拒否 |
 | 仮想目的地への最後のwalk | 同じmeters/80のseedへ対応。line-originも含み、`fl(t+seed)` を使用 |
 
-静的source時計は0〜2^53の整数minuteに限定し、sourceのdwellと隣接時計を非減少として検査する。bus departure indexも全stop occurrenceと照合するため、静的boarding時のderived delayは0となる。railも既存の静的0 delayを使用する。物理/仮想walk、rail準備・降車の加算にはepsを許し、時計差を格納floatの正確な差として扱う。資源制約、停車順、禁止乗車、calendarは実経路に残したまま、下界の射影でのみ緩和する。
+静的source時計は0〜2^53の整数minuteに限定し、sourceのdwellと隣接時計を非減少として検査する。bus departure indexも全stop occurrenceと照合するため、静的boarding時のderived delayは0となる。railも既存の静的0 delayを使用する。物理/仮想walk、rail準備・降車の加算にはepsを許し、時計差を格納floatの正確な差として扱う。資源制約、停車順、禁止乗車、calendarは実経路に残したまま、下界の射影でのみ緩和する。seedとh値は通常のdictだけを受理し、itemsで列挙した値と実行時のgetが異なる独自Mappingを認定しない。
 
 **証明ゲートの適用条件と停止条件。** canonical DiGraph、物理start、静的な参照TimetableChoices、80m/分・rail準備2分、整数source時計、有限なquery時計 `0<=S<=U<=2^53`、非負有限の辺/seed、未使用のquery-local便cache、固定されたgraph/source/min/seed/h/guardを要求する。full_graphとbus_only_rail_excludedだけを受理する。CPythonのbinary64特性、丸めとsubnormalの校正を確認し、その算術環境が不変であることを前提とする。レビュー済みの探索・provider・walking・guard等12項目の正規化AST SHA-256とmethod identityを照合し、将来の未レビューの遷移変更を自動認定しない。Python3.12の空type_params追加だけをAST表現上で正規化し、実行コードや入力データは変換しない。
 
