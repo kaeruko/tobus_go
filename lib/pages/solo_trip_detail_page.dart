@@ -131,6 +131,9 @@ class SoloTripDetailPage extends ConsumerWidget {
             RouteMapPreview(
               key: ValueKey(Object.hashAll(routePoints)),
               points: routePoints,
+              routeGeometry: trip.legs.single.routeGeometryIsApproximate
+                  ? null
+                  : candidate.routeGeometry,
               showOpenButton: false,
               height: 150,
               margin: EdgeInsets.zero,

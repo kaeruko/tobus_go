@@ -237,6 +237,9 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         destinationLabel: l10n.destinationFallback,
         destinationPlace: _localizedEndpoint(locale, destinationEndpoint),
         routePoints: routePoints,
+        routeGeometry: trip.legs.single.routeGeometryIsApproximate
+            ? null
+            : candidate.routeGeometry,
         onTapStops: () => openNavigationRideStops(
           context: context,
           trip: trip,

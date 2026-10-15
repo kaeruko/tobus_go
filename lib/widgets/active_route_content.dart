@@ -158,6 +158,7 @@ class _ActiveRouteContentState extends State<ActiveRouteContent> {
         if (widget.candidate.points.isNotEmpty) ...[
           RouteMapPreview(
             points: widget.candidate.points,
+            routeGeometry: widget.candidate.routeGeometry,
             vehiclePosition: _vehiclePosition,
           ),
           const SizedBox(height: 16),
