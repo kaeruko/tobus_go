@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from gtfs_loader import _load_english_stop_translations
@@ -49,6 +50,23 @@ def _read_rows(path: Path) -> list[dict[str, str]]:
         if reader.fieldnames is None:
             raise ValueError(f"CSV has no header: {path}")
         return [dict(row) for row in reader]
+
+
+@contextmanager
+def _stop_time_rows(path: Path, *, materialize: bool):
+    """One-pass CSV in strict mode; retain explicit untimed two-pass review.
+
+    UTF-8-sig, CSV interpretation and row order match _read_rows. The file is
+    closed even when row validation raises, without retaining raw dictionaries
+    for every strict-mode stop time alongside the converted Dataset records.
+    """
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        if reader.fieldnames is None:
+            raise ValueError(f"CSV has no header: {path}")
+        yield [dict(row) for row in reader] if materialize else reader
 
 
 def _required(row: dict[str, str], key: str, *, file_name: str) -> str:
@@ -176,121 +194,121 @@ class GtfsTransitAdapter:
                 direction_id=(row.get("direction_id") or None),
             )
 
-        rows = _read_rows(root / "stop_times.txt")
-        boundaries: dict[str, tuple[int, int]] = {}
-        seen_all_sequences: set[tuple[str, int]] = set()
-        if skip_untimed_intermediate_stops:
+        with _stop_time_rows(root / "stop_times.txt", materialize=skip_untimed_intermediate_stops) as rows:
+            boundaries: dict[str, tuple[int, int]] = {}
+            seen_all_sequences: set[tuple[str, int]] = set()
+            if skip_untimed_intermediate_stops:
+                for row in rows:
+                    trip_id = namespace_id(
+                        feed_id, _required(row, "trip_id", file_name="stop_times.txt"),
+                    )
+                    stop_id = namespace_id(
+                        feed_id, _required(row, "stop_id", file_name="stop_times.txt"),
+                    )
+                    try:
+                        sequence = int(
+                            _required(row, "stop_sequence", file_name="stop_times.txt")
+                        )
+                    except ValueError as exc:
+                        raise ValueError(
+                            f"invalid stop_sequence for trip {trip_id}"
+                        ) from exc
+                    if trip_id not in trips or stop_id not in stops:
+                        raise ValueError(
+                            "untimed GTFS validation found unknown trip or stop ID"
+                        )
+                    key = (trip_id, sequence)
+                    if key in seen_all_sequences:
+                        raise ValueError(f"duplicate GTFS stop sequence: {key}")
+                    seen_all_sequences.add(key)
+                    if trip_id in boundaries:
+                        first, last = boundaries[trip_id]
+                        boundaries[trip_id] = min(first, sequence), max(last, sequence)
+                    else:
+                        boundaries[trip_id] = (sequence, sequence)
+
+            stop_times: list[TransitStopTime] = []
+            kept_per_trip: dict[str, int] = {}
+            omitted_trip_ids: set[str] = set()
+            parsed_clocks: dict[str, tuple[int, int]] = {}
+
+            def clock_values(raw: str) -> tuple[int, int]:
+                # Share immutable clocks within this load; never cache a failure.
+                # Exact source seconds and the existing rounded v1 minutes remain
+                # separate declared fields. No query/day/backend switching occurs.
+                if raw not in parsed_clocks:
+                    parsed_clocks[raw] = (service_time_to_minute(raw), service_time_to_second(raw))
+                return parsed_clocks[raw]
+
             for row in rows:
                 trip_id = namespace_id(
-                    feed_id, _required(row, "trip_id", file_name="stop_times.txt"),
+                    feed_id,
+                    _required(row, "trip_id", file_name="stop_times.txt"),
                 )
                 stop_id = namespace_id(
-                    feed_id, _required(row, "stop_id", file_name="stop_times.txt"),
+                    feed_id,
+                    _required(row, "stop_id", file_name="stop_times.txt"),
                 )
                 try:
                     sequence = int(
                         _required(row, "stop_sequence", file_name="stop_times.txt")
                     )
-                except ValueError as exc:
-                    raise ValueError(
-                        f"invalid stop_sequence for trip {trip_id}"
-                    ) from exc
-                if trip_id not in trips or stop_id not in stops:
-                    raise ValueError(
-                        "untimed GTFS validation found unknown trip or stop ID"
-                    )
-                key = (trip_id, sequence)
-                if key in seen_all_sequences:
-                    raise ValueError(f"duplicate GTFS stop sequence: {key}")
-                seen_all_sequences.add(key)
-                if trip_id in boundaries:
+                except ValueError as error:
+                    raise ValueError(f"invalid stop_sequence for trip {trip_id}") from error
+                arrival_raw = row.get("arrival_time") or ""
+                departure_raw = row.get("departure_time") or ""
+                arrival, arrival_seconds = clock_values(arrival_raw) if arrival_raw else (None, None)
+                departure, departure_seconds = clock_values(departure_raw) if departure_raw else (None, None)
+                if arrival is None and departure is None and skip_untimed_intermediate_stops:
                     first, last = boundaries[trip_id]
-                    boundaries[trip_id] = min(first, sequence), max(last, sequence)
-                else:
-                    boundaries[trip_id] = (sequence, sequence)
-
-        stop_times: list[TransitStopTime] = []
-        kept_per_trip: dict[str, int] = {}
-        omitted_trip_ids: set[str] = set()
-        parsed_clocks: dict[str, tuple[int, int]] = {}
-
-        def clock_values(raw: str) -> tuple[int, int]:
-            # Share immutable clocks within this load; never cache a failure.
-            # Exact source seconds and the existing rounded v1 minutes remain
-            # separate declared fields. No query/day/backend switching occurs.
-            if raw not in parsed_clocks:
-                parsed_clocks[raw] = (service_time_to_minute(raw), service_time_to_second(raw))
-            return parsed_clocks[raw]
-
-        for row in rows:
-            trip_id = namespace_id(
-                feed_id,
-                _required(row, "trip_id", file_name="stop_times.txt"),
-            )
-            stop_id = namespace_id(
-                feed_id,
-                _required(row, "stop_id", file_name="stop_times.txt"),
-            )
-            try:
-                sequence = int(
-                    _required(row, "stop_sequence", file_name="stop_times.txt")
+                    if sequence in (first, last):
+                        raise ValueError(
+                            "GTFS first/last stop missing arrival and departure time"
+                        )
+                    # The actual Yokohama subway feed also contains untimed
+                    # intermediate rows with omitted/empty timepoint. Strict GTFS
+                    # treats omitted timepoint as exact, so these rows are NOT
+                    # safe boarding/alighting points. Opt-in subway compatibility
+                    # may omit them without fabricating a stop time.
+                    # Explicit 1 or any invalid flag remains a hard error.
+                    if row.get("timepoint") not in (None, "", "0"):
+                        raise ValueError(
+                            "GTFS untimed intermediate stop has invalid/exact timepoint"
+                        )
+                    # Actual Yokohama Blue Line rapid services encode pass-through
+                    # stations with both pickup_type=1 and drop_off_type=1.
+                    # Missing/regular pickup or drop-off is NOT a proven pass-through:
+                    # do not silently suppress potential passenger service.
+                    if (row.get("pickup_type"), row.get("drop_off_type")) != ("1", "1"):
+                        raise ValueError(
+                            "GTFS untimed intermediate stop lacks explicit "
+                            "pickup/drop-off prohibition"
+                        )
+                    # The stop is listed in the source but is not a passenger stop
+                    # on THIS TRIP. It remains usable on local trips with times.
+                    omitted_trip_ids.add(trip_id)
+                    continue
+                kept_per_trip[trip_id] = kept_per_trip.get(trip_id, 0) + 1
+                stop_times.append(
+                    TransitStopTime(
+                        trip_id=trip_id,
+                        stop_id=stop_id,
+                        sequence=sequence,
+                        arrival_minute=arrival,
+                        departure_minute=departure,
+                        pickup_type=_passenger_service_type(row, "pickup_type", trip_id),
+                        drop_off_type=_passenger_service_type(row, "drop_off_type", trip_id),
+                        arrival_service_seconds=arrival_seconds,
+                        departure_service_seconds=departure_seconds,
+                    )
                 )
-            except ValueError as error:
-                raise ValueError(f"invalid stop_sequence for trip {trip_id}") from error
-            arrival_raw = row.get("arrival_time") or ""
-            departure_raw = row.get("departure_time") or ""
-            arrival, arrival_seconds = clock_values(arrival_raw) if arrival_raw else (None, None)
-            departure, departure_seconds = clock_values(departure_raw) if departure_raw else (None, None)
-            if arrival is None and departure is None and skip_untimed_intermediate_stops:
-                first, last = boundaries[trip_id]
-                if sequence in (first, last):
-                    raise ValueError(
-                        "GTFS first/last stop missing arrival and departure time"
-                    )
-                # The actual Yokohama subway feed also contains untimed
-                # intermediate rows with omitted/empty timepoint. Strict GTFS
-                # treats omitted timepoint as exact, so these rows are NOT
-                # safe boarding/alighting points. Opt-in subway compatibility
-                # may omit them without fabricating a stop time.
-                # Explicit 1 or any invalid flag remains a hard error.
-                if row.get("timepoint") not in (None, "", "0"):
-                    raise ValueError(
-                        "GTFS untimed intermediate stop has invalid/exact timepoint"
-                    )
-                # Actual Yokohama Blue Line rapid services encode pass-through
-                # stations with both pickup_type=1 and drop_off_type=1.
-                # Missing/regular pickup or drop-off is NOT a proven pass-through:
-                # do not silently suppress potential passenger service.
-                if (row.get("pickup_type"), row.get("drop_off_type")) != ("1", "1"):
-                    raise ValueError(
-                        "GTFS untimed intermediate stop lacks explicit "
-                        "pickup/drop-off prohibition"
-                    )
-                # The stop is listed in the source but is not a passenger stop
-                # on THIS TRIP. It remains usable on local trips with times.
-                omitted_trip_ids.add(trip_id)
-                continue
-            kept_per_trip[trip_id] = kept_per_trip.get(trip_id, 0) + 1
-            stop_times.append(
-                TransitStopTime(
-                    trip_id=trip_id,
-                    stop_id=stop_id,
-                    sequence=sequence,
-                    arrival_minute=arrival,
-                    departure_minute=departure,
-                    pickup_type=_passenger_service_type(row, "pickup_type", trip_id),
-                    drop_off_type=_passenger_service_type(row, "drop_off_type", trip_id),
-                    arrival_service_seconds=arrival_seconds,
-                    departure_service_seconds=departure_seconds,
-                )
-            )
 
-        if skip_untimed_intermediate_stops and any(
-            kept_per_trip.get(trip_id, 0) < 2 for trip_id in omitted_trip_ids
-        ):
-            raise ValueError("GTFS trip has fewer than two timed stops")
-        if skip_untimed_intermediate_stops and set(trips) != set(kept_per_trip):
-            raise ValueError("GTFS trip has no timed stops")
+            if skip_untimed_intermediate_stops and any(
+                kept_per_trip.get(trip_id, 0) < 2 for trip_id in omitted_trip_ids
+            ):
+                raise ValueError("GTFS trip has fewer than two timed stops")
+            if skip_untimed_intermediate_stops and set(trips) != set(kept_per_trip):
+                raise ValueError("GTFS trip has no timed stops")
 
         calendars: dict[str, ServiceCalendar] = {}
         calendar_path = root / "calendar.txt"

@@ -358,3 +358,17 @@ profile全体wallはv1 24.52秒、shared_head 21.29秒、shared 27.46秒。入�
 メモリは2^20 bytesを1MiBとしたOS working set。全profileでloaded_memoryのprocess_peakとfinal_memoryのprocess_peakが等しく、約782MiBのピークは入力読込終了時点で既に記録されていた。query後の現在RSS最大はv1 318.23MiB、shared_head 319.57MiB、shared 320.40MiBで、query最中のstage別peakを直接分離した数値ではない。約782MiBをlabel coreだけの使用量とは扱わず、CSV/GTFS loader・adapter・入力検査のどの段階で発生するかは未切り分け。Windows working setをLambdaの実メモリと同一視しない。snapshotの再利用/prebuilt、cold-start、並列query、実Lambda RSSは残る。
 
 検証したcode SHAのGitHub ActionsはAPI全件、Windows probe、Python3.11/3.12 Rust parity、3.11 Lambda image/smoke、repository safetyが成功した。確認時点のAndroid/iOSは実行中。今回のsampleの先頭互換性と追加候補の整合性は合格とするが、未設定の性能閾値を満たしたという合格、真のtop-K、実徒歩、東京ODPT/Realtime移行、Phase 2全体完了は宣言しない。本番切替・デプロイを行わない。
+
+## 19. GTFS読込の一時メモリ — 通常stop_timesのストリーム処理
+
+変更前mainは`0a656e2b3cb0ad2ffeb908d726a84118499894eb`。コード上、GtfsTransitAdapterはstop_times.txtの全行をdict listへ読み、全リストを保持したままTransitStopTime列・Datasetの重複検査setを構築していた。実バス709,448行で大きな一時メモリになり得るが、前段のWindowsピーク782MiBをすべてこのlistへ帰属させたとは扱わない。
+
+通常（skip_untimed_intermediate_stops=False）のstop_timesだけをcsv.DictReaderから1行ずつ処理する。UTF-8-sig、新行/引用符のCSV解釈、元行順、namespaced ID、秒精度のsource時計、既存v1のminute欄、乗降flag、重複/未知参照検査は同じ。元の解析/変換/検査bodyはindentと入力reader以外一致することを旧SHAと比較確認した。_read_rowsのlist契約と、stops/routes/trips/calendarの読込は変更しない。未対応schema・decode・clockのエラーを別encoding/型/データで回復しない。複数の不正箇所がある入力では、全file読込より先に最初のrow解析エラーが発生し得るが、失敗を隠して継続しない。
+
+横浜地下鉄の明示した時刻欠落互換モードは、全rowでtripごとのfirst/last・ID/重複sequenceを検査してから未時刻/乗降禁止条件を確認する従来の2段階を維持し、raw listを残す。error時にこのmodeへ切り替えない。csv fileはcontext managerで正常/例外の両方でcloseする。strict/互換modeとも解析/validation例外をそのまま伝播させる。公開runtime、SearchCore v1/v2の入力型、無料scope、徒歩review、探索順位、ファイル名・データ版を変更しない。東京の現行GTFS repository loaderは別のgtfs_loader.pyで、この変更を東京本番loaderの最適化済みとは扱わない。
+
+合成5回帰は、最初の不正rowを検査する前に残りのCSVをmaterializeしないこと、元ValueError causeとclose、BOM/CRLF/未ソートsequence・24時超・秒とminuteの独立保持、duplicate/未知stop、空header/不正UTF-8、consumer例外の保持を確認した。既存地下鉄13テストの未時刻・first/last・乗降禁止・duplicate/unknown検査も成功。共通/v1/source関連117件は111件成功・Nativeの6件スキップ。東京220件、横浜/v1関連118件も成功した。Windows CI jobへ同じstreaming回帰を追加する。
+
+非公開データを使わず、Linux Python3.12.14、5,000便×20行の合成GTFSを旧SHAのadapterと新adapterで別processへ読み込ませた。全100,000 TransitStopTime recordのdigestが一致し、順番に実行した各1回のprocess peak working setは110.72→71.50MiB（約35.4%減）、load wallは0.587→0.563秒だった。並列に行った事前の各1回も同じrecord digestでpeak110.73/71.49MiB。これは合成データ/少数実行での観測で、実Windows GTFS・Lambda・速度SLAの証明ではない。消去したraw list以外のDataSet本体、ID string、重複検査setは残る。
+
+次は同じ72ケース/3repeat/max_candidates3/元23ファイルでWindows matrixを再実行し、全選択区間・候補順位/再現性・版/hash、load/snapshot/query時間、loaded/final process peakを比較する。地下鉄のmodeを変えずに測り、データを更新/削減して改善量を作らない。snapshotの検証/copy/prebuilt、東京ODPT/Realtime、真のtop-K、実徒歩、LambdaでのRSS/cold-startは未完了。本番切替・デプロイを行わない。
