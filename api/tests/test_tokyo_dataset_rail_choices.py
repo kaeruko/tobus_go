@@ -28,6 +28,7 @@ from tests import test_tokyo_bus_choices_contract as bus
 SCRIPT = Path(__file__).resolve().parents[2]/'scripts/check_tokyo_rail_routes_local.py'
 spec = importlib.util.spec_from_file_location('rail_routes_probe',SCRIPT)
 probe = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = probe
 spec.loader.exec_module(probe)
 
 
@@ -182,14 +183,108 @@ class TokyoDatasetRailChoicesTest(unittest.TestCase):
 
     def test_three_modes_rail_bus_walk_keep_ranked_paths_metadata_and_reference_bounds(self):
         self.multimodal()
-        cases = probe.select_cases(self.graph,self.manager,self.repository,self.day,3000)
-        self.assertEqual([c[0] for c in cases],['rail_only','rail_bus','walking_transfer'])
-        for case in cases:
-            for mode in ('time','fewTransfers','cost'):
-                with self.subTest(case=case[0],mode=mode):
-                    old = probe.route_sample(self.graph,self.manager,self.repository,self.day,case,mode,3)
-                    new = probe.route_sample(self.graph,self.manager,self.repository,self.day,case,mode,3,self.binding.choices)
-                    self.assertEqual(old,new)
+        plan = probe.select_cases(self.graph,self.manager,self.repository,self.day,3000)
+        self.assertEqual(set(plan.cases),{(kind,mode) for kind in probe.KINDS for mode in probe.MODES})
+        for (kind,mode),case in plan.cases.items():
+            with self.subTest(case=kind,mode=mode):
+                old = probe.route_sample(self.graph,self.manager,self.repository,self.day,case,mode,3)
+                new = probe.route_sample(self.graph,self.manager,self.repository,self.day,case,mode,3,self.binding.choices)
+                self.assertEqual(old,new)
+
+    def preselection_fixture(self):
+        self.fixture(rail._run('first',(('A',600),('B',605))),
+                     rail._run('last',(('D',609),('E',612))),
+                     rail._run('shortcut',(('A',600),('Z',604))))
+        self.graph = nx.compose(self.graph,bus._graph(('Q',rail._station('Z'))))
+        self.graph = nx.compose(self.graph,bus._graph(('U','V'),line='other'))
+        self.repository = bus._repository(
+            ('bad_bus','active',(('Q',608,608),(rail._station('Z'),615,615))),
+            ('good_bus','active',(('U',608,608),('V',615,615))))
+        self.repository.service_calendar['active']={'start_date':'20260101','end_date':'20261231','weekdays':(True,)*7}
+        for stop in ('Q','U'):
+            rail._walk(self.graph,rail._physical('B'),bus._phys(stop),80)
+        rail._walk(self.graph,rail._physical('B'),rail._physical('D'),80)
+
+    def test_structural_rail_bus_absent_from_top_three_is_rejected_before_freezing(self):
+        self.preselection_fixture()
+        candidates = list(probe.structural_cases(self.graph,self.manager,self.repository,self.day,3000))
+        bad = next(case for case in candidates if case[0]=='rail_bus' and case[2]==rail._physical('Z'))
+        rows = probe.search_sample(self.graph,self.manager,self.repository,self.day,bad,'time',3)
+        self.assertTrue(rows)
+        self.assertFalse(any(row['relevant'] for row in rows))
+        with self.assertRaisesRegex(RouteContractError,'lacks required category'):
+            probe.route_sample(self.graph,self.manager,self.repository,self.day,bad,'time',3)
+        with (patch.object(self.binding,'choices',side_effect=AssertionError('common during preselection')),
+              patch.object(probe,'search_sample',wraps=probe.search_sample) as search):
+            plan = probe.select_cases(self.graph,self.manager,self.repository,self.day,3000,3)
+            self.assertGreaterEqual(plan.nonmatching_queries,1)
+            self.assertNotEqual(bad,plan.cases['rail_bus','time'])
+            self.assertTrue(all(call.args[6]==3 and len(call.args)==7 for call in search.call_args_list))
+        with self.assertRaises(TypeError):
+            plan.cases['rail_bus','time'] = bad
+        chosen = plan.cases['rail_bus','time']
+        self.assertEqual(chosen[2],bus._phys('V'))
+        for key in plan.cases:
+            self.assertTrue(any(row['relevant'] for row in plan.baseline[key]))
+        report = probe.compare_plan(self.graph,self.manager,self.repository,self.day,self.binding,plan,3)
+        self.assertEqual(len(report),9)
+        self.assertTrue(all(row['matching_candidates']>0 and row['differences']==0 for row in report))
+
+    def test_preselection_freezes_each_mode_qualified_od_without_extra_cross_mode_requirement(self):
+        self.multimodal()
+        cases = [('rail_bus','origin','bad',598),('rail_bus','origin','good',598),
+                 ('rail_only','origin','rail',598),('walking_transfer','origin','walk',598)]
+        def selected(graph,manager,repository,profile,case,mode,limit):
+            return [{'relevant':not(case[2]=='bad' and mode=='fewTransfers')}]
+        with patch.object(probe,'structural_cases',return_value=iter(cases)),patch.object(probe,'search_sample',side_effect=selected):
+            plan = probe.select_cases(self.graph,self.manager,self.repository,self.day,3000,3)
+        self.assertEqual(plan.cases['rail_bus','time'],cases[0])
+        self.assertEqual(plan.cases['rail_bus','fewTransfers'],cases[1])
+        self.assertEqual(plan.cases['rail_bus','cost'],cases[0])
+        self.assertEqual(plan.nonmatching_queries,1)
+        self.assertEqual(plan.selection_queries,10)
+
+    def test_preselection_budget_and_missing_category_never_succeed(self):
+        self.multimodal()
+        cases = [('rail_bus','origin',str(index),598) for index in range(11)]
+        with (patch.object(probe,'structural_cases',return_value=iter(cases)),
+              patch.object(probe,'search_sample',return_value=[{'relevant':False}]) as search,
+              patch.object(self.binding,'choices',side_effect=AssertionError('common before qualification'))):
+            with self.assertRaisesRegex(RouteContractError,'budget exhausted'):
+                probe.select_cases(self.graph,self.manager,self.repository,self.day,3000,3,max_selection_queries=9)
+            self.assertEqual(search.call_count,9)
+        for budget in (8,True,9.0):
+            with self.assertRaises(ValueError):
+                probe.select_cases(self.graph,self.manager,self.repository,self.day,3000,3,max_selection_queries=budget)
+
+    def test_reference_search_error_is_preserved_without_trying_next_case(self):
+        self.multimodal()
+        error = RuntimeError('original reference search error')
+        cases = [('rail_bus','origin',str(index),598) for index in range(3)]
+        with (patch.object(probe,'structural_cases',return_value=iter(cases)),
+              patch.object(probe,'search_sample',side_effect=error) as search):
+            with self.assertRaises(RuntimeError) as raised:
+                probe.select_cases(self.graph,self.manager,self.repository,self.day,3000,3)
+            self.assertIs(raised.exception,error)
+            search.assert_called_once()
+
+    def test_frozen_comparison_mismatch_or_exception_never_reselects_or_changes_limit(self):
+        self.multimodal()
+        plan = probe.select_cases(self.graph,self.manager,self.repository,self.day,3000,3)
+        with (patch.object(probe,'select_cases',side_effect=AssertionError('reselection')),
+              patch.object(probe,'route_sample',return_value=[]) as search):
+            with self.assertRaisesRegex(RouteContractError,'frozen sample is not replaced'):
+                probe.compare_plan(self.graph,self.manager,self.repository,self.day,self.binding,plan,3)
+            search.assert_called_once()
+        error = RuntimeError('original common comparison error')
+        with patch.object(probe,'route_sample',side_effect=error) as search:
+            with self.assertRaises(RuntimeError) as raised:
+                probe.compare_plan(self.graph,self.manager,self.repository,self.day,self.binding,plan,3)
+            self.assertIs(raised.exception,error)
+            search.assert_called_once()
+        with patch.object(probe,'route_sample',side_effect=AssertionError('changed limit')):
+            with self.assertRaisesRegex(RouteContractError,'candidate limit changed'):
+                probe.compare_plan(self.graph,self.manager,self.repository,self.day,self.binding,plan,4)
 
     def test_multiple_candidates_and_input_reordering_keep_tied_order(self):
         runs = (rail._run('z',(('A',600),('B',605),('C',610))),
@@ -215,10 +310,10 @@ class TokyoDatasetRailChoicesTest(unittest.TestCase):
             options = chosen.board_options(rail._physical('B'),rail._line('B'),ready)
             self.assertEqual(bool(options),departure >= 608)
 
-    def test_no_structural_sample_stops_before_od_search(self):
+    def test_no_reference_sample_stops_before_common_comparison(self):
         self.fixture(rail._run('run',(('A',600),('B',605))))
-        with patch.object(bus.engine,'_tokyo_label_search',side_effect=AssertionError('unexpected search')):
-            with self.assertRaisesRegex(RouteContractError,'no fixed structural'):
+        with patch.object(self.binding,'choices',side_effect=AssertionError('unexpected common comparison')):
+            with self.assertRaisesRegex(RouteContractError,'no reference-qualified'):
                 probe.select_cases(self.graph,self.manager,self.repository,self.day,3000)
 
     def test_partial_search_error_preserves_exception_and_closes_generator_without_retry(self):
@@ -277,6 +372,30 @@ class TokyoDatasetRailChoicesTest(unittest.TestCase):
             TokyoRailDatasetBinding(self.snapshot,self.manager,check_deadline=stop)
         self.assertIs(raised.exception,error)
 
+    def test_all_dates_are_selected_before_any_common_provider_comparison(self):
+        self.multimodal()
+        plan = probe.select_cases(self.graph,self.manager,self.repository,self.day,3000,3)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            train,stations,railways,prebuilt = [root/name for name in ('train.json','stations.json','railways.json','trusted.pkl')]
+            train.write_text(json.dumps(self.runs),encoding='utf-8')
+            stations.write_text(json.dumps(self.stations),encoding='utf-8')
+            railways.write_text(json.dumps(self.railways),encoding='utf-8')
+            prebuilt.write_bytes(pickle.dumps({'G':self.graph,'TM':self.manager}))
+            (root/'feed_info.txt').write_text('feed_version,feed_start_date,feed_end_date\nfixture,20260101,20261231\n',encoding='utf-8')
+            error = RuntimeError('reference selection failed on second date')
+            with (patch.object(probe.GtfsRepository,'load_data',return_value=self.repository),
+                  patch.object(probe,'select_cases',side_effect=(plan,error)) as select,
+                  patch.object(probe,'compare_choices',side_effect=AssertionError('common before all dates frozen')) as choices,
+                  patch.object(probe,'compare_plan',side_effect=AssertionError('rank before all dates frozen')) as compare):
+                with self.assertRaises(RuntimeError) as raised:
+                    probe.inspect(train,stations,railways,prebuilt,root,'fixture',
+                                  ('2026-09-04','2026-09-07'),3)
+                self.assertIs(raised.exception,error)
+                self.assertEqual(select.call_count,2)
+                choices.assert_not_called()
+                compare.assert_not_called()
+
     def test_readonly_cli_full_gate_and_marker_do_not_run_bus_matrix(self):
         self.multimodal()
         with tempfile.TemporaryDirectory() as directory:
@@ -300,10 +419,13 @@ class TokyoDatasetRailChoicesTest(unittest.TestCase):
             report = json.loads(lines[-2])
             self.assertTrue(report['rail_binding_verified'])
             self.assertFalse(report['common_dataset_route_ranking_verified'])
+            self.assertEqual(report['sample_selection'],'reference_ranked_preselection_then_frozen_comparison')
+            self.assertTrue(all(row['matching_candidates']>0 for row in report['date_cases']))
+            self.assertTrue(all(row['all_modes_reference_qualified'] for row in report['selection_reports']))
             self.assertEqual(before,{p.name:p.read_bytes() for p in root.iterdir()})
             self.assertEqual(len(report['date_cases']),9)
             self.assertEqual(len(report['date_choices']),1)
-            def changed(*args):
+            def changed(*args, **kwargs):
                 train.write_text('[]',encoding='utf-8')
                 return {}
             with (patch.object(sys,'argv',args),patch.object(probe,'check_repository'),

@@ -656,3 +656,18 @@ bindingはrail-only・全source tripを要求し、元trip ID/列車番号/calen
 初回実装コミット`9665c3e33c28d1e21a3353f805f3a8492751116c`のGitHub Actions run [38685842512](https://github.com/kaeruko/tobus_go/actions/runs/38685842512)でAPI878件（6件スキップ）、Windows100件、Rust Python3.11/3.12各82件、Lambda image/smoke、repository safetyが成功した。後続の期限内投影・single-use準備の追加回帰は、この初回CIの結果に含めず、新しい実装SHAのCIで別途確認する。
 
 最終実装SHA `78c8f4223c67d6a49b69568d89830cdeb94b826f` のGitHub Actions run [38686168216](https://github.com/kaeruko/tobus_go/actions/runs/38686168216)でも、**API879件（native未導入6件スキップ）、Windows101件、Rust Python3.11/3.12各82件、Lambda image/smoke、repository safetyが成功**した。API/Windows/Rustの終了ログとjob conclusionを確認した。期限内calendar投影・single-use準備の追加回帰もこの実装SHAに含む。記録時点でAndroid/iOS全flavor buildは完了未確認であり、全workflow成功とは記載しない。これらのCI成功は合成テスト/イメージスモークの範囲で、実入力の新rail graph比較・実artifact/Lambda起動・性能を認定しない。
+
+
+## 38. 列車検証器のサンプル選定停止と参照検索による事前固定（2026-10-15）
+
+ユーザー提供のWindowsログ「貼り付けたテキスト（1）(20261015-055825).txt」は、第37節の検証器が旧providerの`rail_bus/time`サンプル検査で`fixed rail sample lacks required category`として停止した記録である。構造上は列車＋バスで到達できても、その検索上位3候補に混在経路が含まれる保証はなかった。新providerの同ケース比較には進んでおらず、provider間の不一致を確認したログではない。ログの進行から最初の日付のboard/ride・metadata比較とrail_onlyの3モード比較を通過した範囲は確認できるが、全4日・全交通手段の合格、成功marker、入力前後hash検査の完了を認定しない。
+
+変更前mainは徒歩破線修正を含む`6fee196016665bdea3f0aa7f2c0c308fd7bc9af3`。変更は検証器・その合成回帰・本書だけであり、列車binding、東京graph、徒歩/cost/frontier/候補順位、A*下界、Realtime拒否、本番設定を変更しない。
+
+構造候補の生成と、旧providerの実検索による事前選定を分離する。構造候補は決定的な順序で列挙し、交通手段種別/ODごとに最初の構造的witness時計を使う。旧providerが正常に返した指定上限内の候補に必要な交通手段が無ければ、その日付/種別/モードでは採用しない。これは比較開始前の入力サンプル選定であり、例外を捕捉した再試行や不一致後の経路変更ではない。旧検索の例外・安全上限到達・部分結果後の例外は元のまま停止する。
+
+日付×rail_only/rail_bus/walking_transfer×time/fewTransfers/costごとに、必要な交通手段を実際に含む旧候補列・OD・発車時計・モード・候補上限を固定する。同じODでもtimeには混在経路が出ずfewTransfers/costには出る場合があるため、モード間のOD同一性は追加要件にしない。各新旧比較のOD・時計・モード・上限は必ず同一である。全指定日の9サンプル/日を事前固定してから、board/ride/metadataおよび新providerの経路比較を開始する。比較開始後のcategory欠落、不一致、例外では別ODへ戻らず停止する。候補上限の事後変更も拒否する。
+
+事前選定の旧検索回数は`--max-selection-queries`（1日あたり既定90、明示した整数9以上）で制限する。上限や構造候補を使い切って未選定の種別/モードが残れば診断付きで停止し、成功扱いや予算の自動増加を行わない。`--max-candidates`の既定3および各検索の既存安全上限は維持する。正常reportにselection_reports（検索数、条件不一致数、選定数、上限）と各比較のsample_id/必要手段を含むmatching_candidatesを追加する。元のOD IDを正常reportへ出さず、36ケース/108候補が必ず返るとは約束しない。成功markerは従来のREAD_ONLY_TOKYO_COMMON_RAIL_ROUTE_SAMPLE_OKで、全必要サンプルの一致後だけ出す。
+
+追加6回帰は、構造的には混在可能だが上位3に混在が無い実検索fixture、モード別の異なる適格OD、固定後の不一致/例外と候補上限変更の停止、旧検索の元例外伝播、選定予算不足、全日選定前のcommon比較禁止を確認する。既存15回帰と合わせ21件が成功。ローカル全API885件（native未導入6件スキップ）、Windows CIと同じ対象107件は失敗/エラー0。CIは既存の当該module入口で新回帰も実行する。実データのこの修正版ゲートは未実行であり、上記停止ログを全体合格へ読み替えない。合格済み実バス36ケース・バス下界監査は再実行していない。本番切替・デプロイ・S3・本番設定変更は行わない。

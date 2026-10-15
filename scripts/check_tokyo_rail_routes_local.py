@@ -6,13 +6,15 @@ inspection, provider selection in production, or second search algorithm.
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import date, datetime, timezone
 import hashlib
 import json
 from pathlib import Path
 import pickle
 import sys
+from types import MappingProxyType
+from typing import Mapping
 from unittest.mock import patch
 
 sys.dont_write_bytecode = True
@@ -101,15 +103,15 @@ def compare_choices(graph, manager, repository, profile, binding, deadline):
             'metadata_differences': 0, 'differences': 0}
 
 
-def select_cases(graph, manager, repository, profile, deadline):
-    """Fix three feasible structural witness ODs BEFORE ranked searches.
+def structural_cases(graph, manager, repository, profile, deadline):
+    """Deterministic, distinct structural ODs for reference-only preselection.
 
-    Selection inspects existing graph edges and scheduled options only. Once
-    chosen, an empty/wrong-category/failed search stops; it never selects again.
+    One source witness clock per (category, origin, destination). Structure does
+    not certify that a required mode appears in the top requested candidates.
     """
     choices = TimetableChoices(graph, manager, profile, use_realtime=False,
                               deadline=deadline, bus_repository=repository)
-    result = {}
+    seen = set()
     rail_edges = sorted(((u, v) for u, v, e in graph.edges(data=True)
                          if e.get('etype') == 'board' and graph.nodes[v].get('mode') == 'rail'), key=repr)
     for origin, node in rail_edges:
@@ -126,7 +128,10 @@ def select_cases(graph, manager, repository, profile, deadline):
             minute = departure - 2
             if not float(minute).is_integer():
                 raise RouteContractError('rail sample requires integral source minutes; no rounding')
-            result.setdefault('rail_only', ('rail_only', origin, physical, int(minute)))
+            identity = ('rail_only', origin, physical)
+            if identity not in seen:
+                seen.add(identity)
+                yield ('rail_only', origin, physical, int(minute))
             access = [(physical, arrival, False)]
             for target, edge in sorted(graph[physical].items(), key=lambda item: repr(item[0])):
                 if edge.get('etype') == 'walk':
@@ -141,7 +146,7 @@ def select_cases(graph, manager, repository, profile, deadline):
                         continue
                     mode = graph.nodes[board].get('mode')
                     kind = 'rail_bus' if mode == 'bus' else 'walking_transfer' if mode == 'rail' and walked else None
-                    if kind is None or kind in result:
+                    if kind is None:
                         continue
                     options = choices.board_options(stop, board, ready + (2 if mode == 'rail' else 0))
                     for dep, selected in options:
@@ -153,6 +158,7 @@ def select_cases(graph, manager, repository, profile, deadline):
                                 and e.get('mode', 'bus') == 'bus' and choices._stop_id(n[1]) == following_stop]
                         else:
                             next_nodes = [('line', following_stop, selected.line_id)]
+                        feasible = False
                         for next_node in sorted(next_nodes, key=repr):
                             destination = ('phys', next_node[1])
                             if (destination in (origin, physical) or not graph.has_edge(board, next_node)
@@ -160,16 +166,17 @@ def select_cases(graph, manager, repository, profile, deadline):
                                 continue
                             if vehicle.stops[position+1].arrival+1 > minute+engine.MAX_TRAVEL_MIN:
                                 continue
-                            result[kind] = (kind, origin, destination, int(minute))
+                            feasible = True
+                            identity = (kind, origin, destination)
+                            if identity not in seen:
+                                seen.add(identity)
+                                yield (kind, origin, destination, int(minute))
                             break
-                        if kind in result:
+                        if feasible:
                             break
-            if len(result) == 3:
-                return tuple(result[kind] for kind in ('rail_only', 'rail_bus', 'walking_transfer'))
-    raise RouteContractError(f'no fixed structural rail sample for categories: {sorted(set(("rail_only","rail_bus","walking_transfer"))-result.keys())}; no OD search performed')
 
 
-def route_sample(graph, manager, repository, profile, case, mode, limit, factory=None):
+def search_sample(graph, manager, repository, profile, case, mode, limit, factory=None):
     kind, origin, destination, minute = case
     if type(minute) is not int or minute < 0:
         raise ValueError('rail sample requires nonnegative integer minute; no rounding')
@@ -203,14 +210,91 @@ def route_sample(graph, manager, repository, profile, case, mode, limit, factory
                     break
         finally:
             generator.close()
-    if not results or not any(row['relevant'] for row in results):
-        raise RouteContractError(f'fixed rail sample lacks required category: case={kind} mode={mode}; no replacement OD')
     return results
 
 
-def inspect(train, stations, railways, prebuilt, gtfs, expected_version, day_values, limit):
+def route_sample(graph, manager, repository, profile, case, mode, limit, factory=None):
+    """Strict comparison execution: no category loss or replacement is allowed."""
+    results = search_sample(graph, manager, repository, profile, case, mode, limit, factory)
+    if not results or not any(row['relevant'] for row in results):
+        raise RouteContractError(f'fixed rail sample lacks required category: case={case[0]} mode={mode}; no replacement OD')
+    return results
+
+
+KINDS = ('rail_only', 'rail_bus', 'walking_transfer')
+MODES = ('time', 'fewTransfers', 'cost')
+
+
+@dataclass(frozen=True, slots=True)
+class RailSamplePlan:
+    cases: Mapping[tuple[str, str], tuple]
+    baseline: Mapping[tuple[str, str], tuple]
+    selection_queries: int
+    nonmatching_queries: int
+    max_selection_queries: int
+    max_candidates: int
+
+
+def select_cases(graph, manager, repository, profile, deadline, limit=3, *, max_selection_queries=90):
+    """Select ONLY from successful reference searches, before any comparison.
+
+    An ordinary result with no category witness rejects a prospective OD.
+    Exceptions (including search limits/partial failures) are never caught.
+    Each (category, mode) fixes its own reference-qualified OD/clock. The
+    candidate limit stays identical during selection and comparison.
+    The finite query budget is explicit; exhaustion is failure, never success.
+    """
     if type(limit) is not int or not 1 <= limit <= 5:
         raise ValueError('max-candidates must be an integer in [1,5]')
+    if type(max_selection_queries) is not int or max_selection_queries < len(KINDS)*len(MODES):
+        raise ValueError('max-selection-queries must be an integer >= 9')
+    cases, baseline = {}, {}
+    queries = rejected = 0
+    required = tuple((kind, mode) for kind in KINDS for mode in MODES)
+    for case in structural_cases(graph, manager, repository, profile, deadline):
+        kind = case[0]
+        for mode in MODES:
+            key = kind, mode
+            if key in cases:
+                continue
+            if queries == max_selection_queries:
+                raise RouteContractError(f'rail reference preselection budget exhausted: queries={queries} nonmatching={rejected} missing={sorted(set(required)-cases.keys())}; no common-provider comparison started')
+            queries += 1
+            rows = search_sample(graph, manager, repository, profile, case, mode, limit)
+            if not rows or not any(row['relevant'] for row in rows):
+                rejected += 1
+                continue
+            cases[key] = case
+            baseline[key] = tuple(rows)
+        if len(cases) == len(required):
+            return RailSamplePlan(MappingProxyType({key:cases[key] for key in required}),
+                MappingProxyType(baseline), queries, rejected, max_selection_queries, limit)
+    raise RouteContractError(f'no reference-qualified rail sample: queries={queries} nonmatching={rejected} missing={sorted(set(required)-cases.keys())}; no common-provider comparison started')
+
+
+def compare_plan(graph, manager, repository, profile, binding, plan, limit):
+    """Execute every frozen comparison once; propagate mismatches and failures."""
+    if limit != plan.max_candidates or type(limit) is not int:
+        raise RouteContractError('frozen rail sample candidate limit changed; no comparison started')
+    reports = []
+    for (kind, mode), case in plan.cases.items():
+        old = plan.baseline[kind, mode]
+        new = route_sample(graph, manager, repository, profile, case, mode, limit, binding.choices)
+        if old != tuple(new):
+            raise RouteContractError(f'rail ranked sample differs: date={profile.service_date} case={kind} mode={mode}; frozen sample is not replaced')
+        reports.append({'date':profile.service_date.isoformat(), 'case':kind,
+            'mode':mode, 'candidates':len(old),
+            'sample_id':hashlib.sha256(json.dumps((profile.service_date.isoformat(),case),
+                ensure_ascii=True).encode('ascii')).hexdigest(),
+            'matching_candidates':sum(row['relevant'] for row in old), 'differences':0})
+    return reports
+
+
+def inspect(train, stations, railways, prebuilt, gtfs, expected_version, day_values, limit, *, max_selection_queries=90):
+    if type(limit) is not int or not 1 <= limit <= 5:
+        raise ValueError('max-candidates must be an integer in [1,5]')
+    if type(max_selection_queries) is not int or max_selection_queries < 9:
+        raise ValueError('max-selection-queries must be an integer >= 9')
     dates, holiday_version = resolve_probe_dates(day_values)
     if not dates:
         raise ValueError('at least one explicit query date is required')
@@ -233,24 +317,30 @@ def inspect(train, stations, railways, prebuilt, gtfs, expected_version, day_val
     repository = GtfsRepository('tokyo_rail_bus_reference').load_data(str(gtfs))
     reports = []
     choice_reports = []
+    plans = []
+    selection_reports = []
     for day, _ in dates:
         profile = engine.ServiceDayType(str(engine.determine_day_type(day)),day,
                                        repository.get_active_service_ids(day),True)
         deadline = max(float(row.departure_minute if row.arrival_minute is None else row.arrival_minute)
                        for rows in binding.snapshot.rows_by_trip.values() for row in rows)
+        plan = select_cases(graph, manager, repository, profile, deadline, limit,
+                            max_selection_queries=max_selection_queries)
+        plans.append((profile, plan, deadline))
+        selection_reports.append({'date':day.isoformat(),
+            'selection_queries':plan.selection_queries, 'nonmatching_queries':plan.nonmatching_queries,
+            'max_selection_queries':plan.max_selection_queries,
+            'selected_cases':len(plan.cases), 'selected_od_clocks':len(set(plan.cases.values())),
+            'selection_scope':'per_date_category_mode', 'all_modes_reference_qualified':True})
+    # Freeze ALL dates before starting ranked common-provider comparisons.
+    for profile, plan, deadline in plans:
         choice_report = compare_choices(graph, manager, repository, profile, binding, deadline)
-        cases = select_cases(graph, manager, repository, profile, deadline)
-        for case in cases:
-            for mode in ('time', 'fewTransfers', 'cost'):
-                old = route_sample(graph, manager, repository, profile, case, mode, limit)
-                new = route_sample(graph, manager, repository, profile, case, mode, limit, binding.choices)
-                if old != new:
-                    raise RouteContractError(f'rail ranked sample differs: date={day} case={case[0]} mode={mode}')
-                reports.append({'date':day.isoformat(), 'case':case[0], 'mode':mode,
-                                'candidates':len(old), 'differences':0})
-        choice_report['date'] = day.isoformat()
+        choice_report['date'] = profile.service_date.isoformat()
         choice_reports.append(choice_report)
-    return {'audit_mode':'tokyo_common_rail_label_route_sample', 'date_cases':reports, 'date_choices':choice_reports,
+        reports.extend(compare_plan(graph, manager, repository, profile, binding, plan, limit))
+    return {'sample_selection':'reference_ranked_preselection_then_frozen_comparison',
+        'selection_reports':selection_reports,
+        'audit_mode':'tokyo_common_rail_label_route_sample', 'date_cases':reports, 'date_choices':choice_reports,
         'common_rail_sample_rank_verified':True, 'rail_binding_verified':True,
         'bus_provider':'existing_tokyo', 'time_bounds_provider':'validated_tokyo_reference',
         'calendar_projection':'legacy_date_policy_compatibility_only',
@@ -267,6 +357,7 @@ def main():
     parser.add_argument('--query-date', action='append', required=True)
     parser.add_argument('--max-candidates', type=int, default=3)
     parser.add_argument('--expected-sha', required=True)
+    parser.add_argument('--max-selection-queries', type=int, default=90)
     args = parser.parse_args()
     check_repository(args.expected_sha)
     paths = {key:getattr(args,key).resolve() for key in
@@ -277,7 +368,8 @@ def main():
                 **{'gtfs/'+path.name:sha256(path) for path in sorted(root.glob('*.txt'))}}
     before = inputs()
     result = inspect(paths['train_timetables'],paths['stations'],paths['railways'],
-        paths['trusted_prebuilt'],root,args.expected_feed_version,args.query_date,args.max_candidates)
+        paths['trusted_prebuilt'],root,args.expected_feed_version,args.query_date,args.max_candidates,
+        max_selection_queries=args.max_selection_queries)
     if before != inputs():
         raise AssertionError('input files changed during rail verification')
     check_repository(args.expected_sha)
