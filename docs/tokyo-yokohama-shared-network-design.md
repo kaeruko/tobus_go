@@ -792,3 +792,46 @@ bindingはrail-only・全source tripを要求し、元trip ID/列車番号/calen
 次の第3段階は静的・timeのみの監査専用実装とする。全node下界同値性と、独立した小fixtureの合法suffixに対する優先度許容性を別々に検証する。binary64の同値判定にepsilonを使わず、到達可能0と未登録0を区別する。既存の下方向丸め・逆向きDijkstra・seed順・guard・frontier・候補順位を変更しない。
 
 特に `max_visited` が覆う「返却可能経路の親labelのpop数」と、未展開の全合法suffixの遷移数上限を同一視しない。N_fの無条件の証明が未完了なら、検証済みの上限内fixtureと誤差係数の認定範囲を明示し、無条件の優先度安全性・全OD・真のtop-kを認定しない。異常時のゼロ下界・旧providerへの暗黙フォールバックは設けない。本番切替・デプロイ・S3・本番設定変更は行わない。
+
+
+## 44. 目的地別全node下界と丸めguardの独立監査を追加（2026-10-15）
+
+第43節の実データ合格を受け、変更前main `cd7839314baea04a4a0bcea0799d0af802704228` から第3段階の監査専用実装を追加する。`api/tokyo_destination_bounds_audit.py`、`api/tokyo_time_rounding_audit.py`、読み取り専用 `scripts/check_tokyo_destination_bounds_local.py` と合成回帰を新設する。既存の `make_time_bounds`、`TimeRoundingGuard`、探索loop、frontier、graph、具体便provider、候補順位、fewTransfers/costを変更しない。第2段階の監査moduleも変更しない。
+
+### 全node同値性のゲート
+
+全source calendarの共通bus/rail bindingから区間mapを一度だけ構成し、同じ東京graphを独立に投影する。旧下界のobserver・reverse graph・結果を共通側へ流用しない。元node IDとgraph/辺のiteration順、binary64の逆向き加算、heap sequence、厳密な改善判定、仮想seedの投入順を維持する。到達集合と格納floatのbitを別々に全node比較し、到達可能な0と未登録nodeの既存返却値0を区別する。signed zero・1 ULP差も不一致として停止する。
+
+CLIは検索結果を使わず、graph構造だけからbus物理node、rail物理node、graph外仮想目的地の複数接続、graph内目的地と仮想接続の共存という4条件を比較前に固定する。graph内目的地自身への非改善seedとgraph外の欠落seedも含める。各条件を全graph/bus-onlyの2条件で比較し、計8caseそれぞれで全nodeを照合する。選定不能・不一致・例外の後に別の目的地を選ばない。これは4固定目的地条件についての全node比較であり、全目的地・全ODの実測認定ではない。
+
+最大辺時間は到達領域や採用された最短経路へ絞らず、旧実装同様に全included edgeと有効な仮想seedから取る。非改善seedも含め、欠落nodeのseedは検証後に除外する。node数、逆向きstep上限 `len(G)+1`、最大辺時間、seed件数、rail除外とride分類の件数も比較する。graph/sourceの全内容fingerprint、固定seed、4入力とGTFS txtの前後hash、clean main/expected SHAを確認する。trusted prebuiltの指定SHA-256をunpickle前に検査する。入力修復、出力artifact、bytecode、通信、downloadは行わない。旧参照のquery-localなメモリ内index準備は通常どおり行うが、source artifactへは保存しない。
+
+### guardの同値性と条件付き誤差係数
+
+通常時計600〜840分と跨日時計1439〜1679分、既存サンプルと同じ `max_visited=100000` を明示した2profileを使う。各nodeについて開始・開始直後・中間・期限直前・期限の5時計でguard付き優先度を旧参照とbit比較する。このprofile値は監査の入力であり、実検索の既定値や上限を変更するものではない。guardの全report係数、内部誤差量、remaining上限もbit比較する。全node下界の一致と優先度の一致を別flagで報告する。
+
+係数監査は製品側の `_up_sum/_up_product/_up_gamma` を期待値計算に使わず、`Fraction.from_float` で格納binary64を正確な有理数として検証する。N_rとWに対する逆向き誤差 `gamma(N_r)*N_r*W`、N_fと期限Uに対する `N_f*ulp(U)`、remaining上限、最後の加算のulp、固定誤差の上側包含を確認する。無効guard、非有限値、範囲外の下界、加算overflow、旧側の下界全体の無効化を暗黙の0として成功扱いにしない。元の期限/参照例外は再試行せず伝播する。到達不能nodeの既存の明示的な0下界と、この異常停止は区別する。
+
+### 許容性の証明範囲と未完了事項
+
+有限・非負・非減少の実装時計t_0,...,t_kがquery範囲内にあり、合法suffixの遷移数kが宣言したN_f以下であるとする。各緩和辺w_iが、その遷移の格納float間の正確な差に `ulp(U)` を加えた値以下なら、時計差は時刻表arrivalへの代入も含めてtelescopingする。従ってexactな緩和最短値は `A-t+N_f*ulp(U)` 以下であり、逆向きbinary64下界hにはさらに上記の逆向き誤差を加えればよい。最後の加算誤差と下方向補正を含めた既存guardは、この前提下で実到着時計A以下となる。0下界・goalは元時計そのものを返し、非減少時計なのでcurrentへのclampも許容性を保つ。
+
+**返却可能な経路についてのpop上限の根拠**：初期labelは深さ0。子labelの各遷移（仮想目的地への最後の徒歩も含む）は、親labelがpopされ、max_visited検査に合格してから生成される。親pointerの深さdには少なくともd回の親popが必要で、stale popはこの数を減らさない。返却されるgoal自身にもpop時の上限検査がある。従って返却可能な経路全体とそのsuffixの遷移数を `max_visited` で保守的に覆える。
+
+**これは未展開の全合法suffixの長さ上限の証明ではない。** 上限外の仮想的な経路も含めた無制約の最短到着時計に対して、現在のN_fが十分であるという証明は未完了である。返却経路の深さの根拠だけから、その無条件の許容性や真のtop-kまで主張しない。N_fや探索上限、guard係数を変更してこの未証明点を隠さない。
+
+### 独立oracleと合成回帰
+
+新規23回帰は、全node/到達集合/bit、独立common計算、使用されないseedと非到達領域の最大辺時間、同件数source/graph編集、元例外・無効guard・Realtime/非canonical拒否、固定後のseed変更、1case一致後のエラーでmarkerを出さないこと、CLI前後hash・別marker・未対応引数拒否、固定time queryの候補順/全node/edge時計/具体便/metadata/徒歩量の一致を確認する。
+
+丸め側は通常・跨日の生fixtureから、便ID・occurrence・board位置・pickup1・dwell・準備/降車・徒歩資源・仮想最後の徒歩を明示した合法継続を列挙する。実到着時計の生成に探索loop、TimetableChoicesのboard/ride、区間index、下界builderを使わない。完了した各経路の全prefixについて `guard(clock,h) <= actual_arrival` を許容差なしで検査し、同じfixture状態から列挙された最早到着とも比較する。独立した有理数のpath長DPで逆向き誤差も検査する。
+
+600分から2m+4mの徒歩で、生の優先度600.075が実到着600.0749999999999を超える最小反例、0.3/0.2/0.1の逆向き加算差、subnormal/2の冪境界/大きな時計、4,320件の小徒歩prefix比較を含める。また1e16から0.6分を12回加えるfixtureでN_fを1と過小宣言すると、guard適用後も実到着を超える反例を保持する。係数包含の合格だけでは、そのN_f前提を保証できないことを明示する。
+
+ローカルAPI全体936件（native未導入6skip）は失敗/エラー0。Windows jobには新規2moduleに加え、既存の丸めと第2段階投影の関連回帰も明示追加する。GitHub Actionsの結果は実装SHAに結び付けて追記する。
+
+### 実データで次に確認する項目
+
+第3段階の新CLIによる実ODPT/GTFS/prebuilt比較は未実行。成功markerは `READ_ONLY_TOKYO_COMMON_DESTINATION_BOUNDS_PARITY_OK` であり、安全性認定のmarkerではない。成功時は `common_destination_bounds_verified`、`rounding_guard_equivalence_verified`、`guarded_priority_equivalence_verified`、`conditional_error_coefficients_verified` をtrueにする。実データの合法suffix全体に対する許容性は検証していないため、`real_timetable_suffix_admissibility_verified`、`unexpanded_suffix_step_bound_verified`、`unconditional_priority_admissibility_verified` はfalseを維持する。共通下界providerは `not_selected_audit_only`。全体候補順位、Realtime、公式運行calendar、実Lambda、性能/ピークメモリ、真のtop-kも認定しない。
+
+合格済み第1/第2段階の実データ監査やbus/rail36ケースは呼ばない。今回の実装は監査専用で、本番切替・デプロイ・S3・本番設定変更を行わない。
