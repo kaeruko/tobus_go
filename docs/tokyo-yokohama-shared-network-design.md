@@ -746,3 +746,6 @@ bindingはrail-only・全source tripを要求し、元trip ID/列車番号/calen
 新規13回帰は、全calendar/非active便と遅い先発・速い後発のmin、dwell除外、4calendarの重複計上禁止、循環・跨日、pickup1/seq欠番の区間保持、0分区間、scope不足、端数/欠落/負/過大/型違い時計拒否、最小値の変わらない同件数source編集、重複レコードの件数不一致、不正区間/キー/値不一致、private ID非出力、旧キャッシュ非更新・bus/graph/OD非呼出し、元期限/参照例外と途中source変更の停止、CLI非変更/hash変更時のmarker非出力・未対応引数拒否を確認した。ローカル全API906件（native未導入6件スキップ）、Windows CIと同じ対象128件は失敗/エラー0。Windows jobへこの新moduleを明示追加し、Linux API jobでは既存discoverで実行する。GitHub Actions結果は実装SHAと結び付けて追記する。
 
 実ODPT/prebuiltでのこの新しい列車区間min監査は未実行である。第40節の候補一致を、この入力監査の実データ合格へ読み替えない。全graphへの投影、目的地別全node下界、丸めguard付き最終優先度、共通bus+rail合成、性能/ピークメモリは後続の未検証項目である。今回の変更は監査API・CLI・合成回帰・CI対象・本書のみで、本番切替・デプロイ・S3・本番設定変更は行わない。
+
+
+実装SHA `eb449377f5ab67ee87fc0f4d8856da4877e63856` のGitHub Actions run [38717787343](https://github.com/kaeruko/tobus_go/actions/runs/38717787343)で、**API906件（native未導入6件スキップ）、Windows128件、Rust Python3.11/3.12各82件、Lambda image build/smoke、repository safetyが成功**した。終了ログと各job conclusionを確認した。記録時点でAndroid/iOS全flavor buildは完了未確認であり、workflow全体の成功とは記載しない。この結果は新監査の合成回帰・イメージスモークであり、実ODPT/prebuiltの列車min監査、graph投影、目的地別下界、最終優先度guardの合格ではない。
