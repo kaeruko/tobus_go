@@ -372,3 +372,23 @@ profile全体wallはv1 24.52秒、shared_head 21.29秒、shared 27.46秒。入�
 非公開データを使わず、Linux Python3.12.14、5,000便×20行の合成GTFSを旧SHAのadapterと新adapterで別processへ読み込ませた。全100,000 TransitStopTime recordのdigestが一致し、順番に実行した各1回のprocess peak working setは110.72→71.50MiB（約35.4%減）、load wallは0.587→0.563秒だった。並列に行った事前の各1回も同じrecord digestでpeak110.73/71.49MiB。これは合成データ/少数実行での観測で、実Windows GTFS・Lambda・速度SLAの証明ではない。消去したraw list以外のDataSet本体、ID string、重複検査setは残る。
 
 次は同じ72ケース/3repeat/max_candidates3/元23ファイルでWindows matrixを再実行し、全選択区間・候補順位/再現性・版/hash、load/snapshot/query時間、loaded/final process peakを比較する。地下鉄のmodeを変えずに測り、データを更新/削減して改善量を作らない。snapshotの検証/copy/prebuilt、東京ODPT/Realtime、真のtop-K、実徒歩、LambdaでのRSS/cold-startは未完了。本番切替・デプロイを行わない。
+
+## 20. Windows再測定 — 入力・候補を維持して読込ピークを削減
+
+提供された読み取り専用ログのSHAは`bfb55837c476245430f163ddf7e3e36a89d262bc`。Python3.12.10 64bit、windows-psapi、3日/3時台、両feed/両パス/両目的、repeat3、max_candidates3は前段と同じ。旧測定SHA `a9fd3477255fdf748182c8fd573c5cbea377a327`と新測定の全3profileで、23入力ファイルのhash辞書が一致した。データ削減や版変更による改善ではない。生ログ・入力hash値・非公開GTFS行・認証情報は保存しない。
+
+comparisons72、selection_differences0、shared_queries_with_multiple_candidates36、walking_links0、top_k_completeness_verified=false、READ_ONLY_SHARED_MATRIX_OKを確認した。各profile72ケース/216query。先頭の具体区間はv1と全件一致し、fewTransfersの36ケースでは各3候補が返り、元検証器の承認対象便・具体sequence/時計・接続・乗降条件・無料判定・候補順位/重複/3repeat再現性検査が成功した。timeは各1候補という既存group規則を維持する。全OD、実徒歩、真のtop-Kの合格とはしない。
+
+| profile | 旧process peak | 新process peak | 新query中央値 | 新query p95 |
+| --- | ---: | ---: | ---: | ---: |
+| v1 Python / 先頭のみ | 781.87 MiB | 340.13 MiB | 4.37 ms | 466.78 ms |
+| 共通 / 先頭のみ | 782.07 MiB | 353.11 MiB | 4.80 ms | 426.93 ms |
+| 共通 / 上限3 | 781.38 MiB | 353.03 MiB | 8.42 ms | 441.57 ms |
+
+MiBは2^20 bytes、p95は216samplesの昇順ceil(0.95*n)番目。共通profileのprocess peakは約55%低下した。loaded時点のpeakは全profile約340MiBで、共通profileはsnapshot構築後に約353MiBとなった。query後の現在RSS最大はv1 291.22MiB、shared_head 310.18MiB、shared 310.41MiB。high-water markと現在RSSの差をsnapshot/labelの単独使用量とは解釈しない。Windows working setをLambda使用量へ置き換えない。
+
+入力読込はv1/shared_head/sharedで3.107/3.025/3.153秒。snapshot構築はshared_head福祉1.262秒/敬老1.407秒、shared福祉1.193秒/敬老1.324秒で、両パスの許可便2,544・nodes3,035/edges1,335を維持した。各profile全体wallは24.043/20.963/24.445秒。OS cache・GC・スケジューリングを統制した反復process benchmarkではなく、query時間の差から速度SLA合格や一般的な速度向上を宣言しない。
+
+検証対象SHAのGitHub Actions run `38663097030`でWindows probe/streaming回帰、API全件、Python3.11/3.12 Rust parity、3.11 Lambda image/smoke、repository safety、Androidが成功した。確認時点のiOSは実行中。本節追加は測定記録のみで製品コードを変更しない。
+
+今回のGTFS読込変更はこの実データsampleで互換性とピーク改善を確認できた。次の入力契約ゲートは東京ODPTの明示calendar/便identity/秒時計と既存TimetableChoicesの実入力比較、およびprebuilt起動との接続確認である。snapshot構築の再検証/copyの費用、リアルタイム統合、公式審査済み実徒歩、真のtop-K、Lambda実メモリ/cold-startは引き続き未検証。Phase 2全体完了・本番切替・デプロイを宣言しない。
