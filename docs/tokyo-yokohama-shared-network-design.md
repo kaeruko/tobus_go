@@ -835,3 +835,6 @@ CLIは検索結果を使わず、graph構造だけからbus物理node、rail物�
 第3段階の新CLIによる実ODPT/GTFS/prebuilt比較は未実行。成功markerは `READ_ONLY_TOKYO_COMMON_DESTINATION_BOUNDS_PARITY_OK` であり、安全性認定のmarkerではない。成功時は `common_destination_bounds_verified`、`rounding_guard_equivalence_verified`、`guarded_priority_equivalence_verified`、`conditional_error_coefficients_verified` をtrueにする。実データの合法suffix全体に対する許容性は検証していないため、`real_timetable_suffix_admissibility_verified`、`unexpanded_suffix_step_bound_verified`、`unconditional_priority_admissibility_verified` はfalseを維持する。共通下界providerは `not_selected_audit_only`。全体候補順位、Realtime、公式運行calendar、実Lambda、性能/ピークメモリ、真のtop-kも認定しない。
 
 合格済み第1/第2段階の実データ監査やbus/rail36ケースは呼ばない。今回の実装は監査専用で、本番切替・デプロイ・S3・本番設定変更を行わない。
+
+
+実装SHA `9b4a886f4cfe7e95fb99ee4bfcc76bf91584a199` のGitHub Actions run [38726483466](https://github.com/kaeruko/tobus_go/actions/runs/38726483466)で、API936件（native未導入6skip）、Windows171件、Rust Python3.11/3.12各82件（Rust unitは各2件）、Lambda image build/smoke、repository safety、FlutterテストとAndroid全flavor buildが成功した。API/Windows/Rustの終了ログと各job conclusionを確認した。iOS全flavorのbuildとidentity/Firebase分離検査も成功し、workflow全体のstatus=completed・conclusion=successを確認した。 これは合成CI・既存image smokeの検証であり、第3段階の実ODPT/GTFS/prebuilt比較、未展開suffixのN_f上限、無条件の優先度許容性、実データによる候補順位・Lambda起動・性能を認定しない。共通下界は本番から選択していない。
