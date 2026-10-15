@@ -575,3 +575,15 @@ query準備はlabel探索のdeadline開始後に行い、共通active tripと明
 回帰は旧bus query/runを禁止した状態で共通board/rideが働くこと、全3modeの候補順、同時刻でのsequence優先、循環再訪/欠番、乗車禁止位置の通過、次停車/期限、精度/metadata/scope/calendar不一致、Realtime/opaque拒否、元例外伝播と旧provider非呼出し、明示reference下界、CLI別markerを確認する。新規moduleをWindows CIにも追加する。実GTFSでのshared-bus比較はまだ未実施で、Phase 2全体完了・本番切替・デプロイを宣言しない。
 
 新規10回帰と既存検証器の関連17件、Windows対象81件がローカルで成功した。API全体は859件、failure/error0、native未導入の6skipだった。native parityとLambda image smokeはGitHub Actionsで別途確認する。今回のopt-in接続は本番設定から選択しない。
+## 33. 東京指定グラフで共通バス接続の候補一致（読み取り専用サンプル）
+
+ユーザー提供のWindows実行ログ「貼り付けたテキスト（1）(20261015-041335).txt」について、前スレッドで末尾の結果JSONと成功マーカーを確認済みとの引き継ぎを受けた。実行時mainは \`f40a7fb7d112cdbd2b18531104f5dce98900b855\`、Python 3.12.10、GTFS feed \`20260828_030922\`（2026-08-28〜2029-08-27）、指定東京グラフ \`api/data/app_data.pkl\`（指定SHA-256で検証）、検証日は2026-09-04/05/06/21。検証は \`scripts/check_tokyo_compiled_routes_local.py\` の \`--shared-bus\` を指定した読み取り専用実行であり、今回のGitHub作業環境で実GTFSを再実行したものではない。
+
+- \`audit_mode=tokyo_common_bus_label_route_sample\`。\`through\` / \`alight\` / \`blocked_origin\` の3 OD種別、\`time\` / \`fewTransfers\` / \`cost\` の3モード、4日合計36ケースで各3候補、延べ108候補。
+- 既存Tokyo raw、schema2 serialized/compiledメモリ復元後、opt-in共通バスbridge間で、候補順・cost・経路node・edge時計・具体便の選択状態の差分は全ケース0。busを含む候補は延べ96で、残り12をバス候補に算入しない。
+- \`raw_compiled_sample_rank_verified=true\`、\`common_bus_sample_rank_verified=true\`、\`compiled_state_schema_version=2\`、\`serialized_bytes=9794519\`。成功マーカーは \`READ_ONLY_TOKYO_COMMON_BUS_ROUTE_SAMPLE_OK\`。
+- \`rail_provider=existing_tokyo\`、\`common_bus_time_bounds_provider=validated_tokyo_reference\`、\`walking_policy=unchanged_supplied_tokyo_graph\`、\`holiday_dependency_version=1.0.3\`。列車・A*下界・徒歩辺の共通入力移行を認定しない。
+- \`source_identity_kind=synthetic_in_memory_not_source_zip_hash\`。メモリ内serialized比較であって実source ZIP hashに拘束された完成artifact検証ではない。
+- \`common_dataset_route_ranking_verified=false\`、\`realtime_verified=false\`、\`lambda_startup_verified=false\`、\`true_top_k_verified=false\` を維持する。全OD、HTTP出力、Realtime、実Lambda起動・性能、横浜統合を認定しない。
+
+スクリプトの結果JSONと成功マーカーの後にPowerShellの \`if\` 式が途中まで表示された状態でログが切れているため、シェル全体の終了コード・当該 \`if\` 式の完了は確認済みと書かない。既に合格した同一36ケースを理由なく再実行要求しない。元GTFS・graph・source ID・原行・生ログはこの文書へ追加しない。本番切替、デプロイ、S3、本番設定の変更は引き続き行わない。
