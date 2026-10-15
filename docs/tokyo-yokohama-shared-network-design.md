@@ -869,3 +869,45 @@ source集計はrail 5,600 trip・122,258 stop_time・116,658隣接区間、bus 1
 `common_destination_bounds_verified`、`rounding_guard_equivalence_verified`、`guarded_priority_equivalence_verified`、`conditional_error_coefficients_verified` はtrue。一方、`unexpanded_suffix_step_bound_verified`、`unconditional_priority_admissibility_verified`、`real_timetable_suffix_admissibility_verified` はfalseを維持する。このfalseは設計どおりの認定範囲である。実データの全合法suffixの最短到着時計を独立列挙した検証ではなく、N_fの無条件証明や無条件の優先度許容性の認定へ読み替えない。
 
 第1段階の全calendar区間min、第2段階の同一graph投影、第3段階の上記固定目的地別全node/guard同値性までが指定入力で合格した。残る数学的な難所は、未展開の合法suffixに対するN_f上限の証明である。全目的地・全OD/全時刻、全体候補順位、公式運行calendar、Realtime、実Lambda起動、性能/ピークメモリ、真のtop-kは未認定のまま。共通下界は `not_selected_audit_only` で、同じ監査や既存36caseの無条件再実行は要求しない。本番切替・デプロイ・S3・本番設定は変更しない。
+
+
+## 46. 循環除去した下界射影による静的time優先度の証明ゲート（2026-10-15）
+
+変更前mainは `b47721a6229e423a285966bca140ab6dee467411`。第45節の同値性成功を維持し、`api/tokyo_time_projection_proof.py` の明示的な監査関数 `verify_static_time_projection` と独立した合成回帰を追加する。製品の探索、graph、provider選択、逆向きDijkstra、仮想目的地seed、探索上限、guard本体と係数、候補順位は変更しない。第1〜第3段階の実データ監査・36case比較は再実行しない。既存の第3段階CLI・成功marker・認定flagも変更しない。
+
+**pop上限と全合法suffix長を分離する。** 返却経路は親labelのpop連鎖から深さをmax_visitedで覆えるが、未展開の全合法suffix長の有限上限にはならない。同一時刻の異なる停車occurrenceを持つ循環バスでは、board→ride→moved alightの3遷移を繰り返せる。合成の2node fixtureで100,003遷移を検証し、宣言N_f=100,000を超えることを確認する。fresh boardingからの降車は使わない。この反例は遷移の合法性についてのもので、frontierがその循環を保持することや既存検索の誤答を主張しない。`unexpanded_suffix_step_bound_verified` は引き続きfalseとする。旧guard docstringの返却経路のpop説明を全合法suffixへ拡張せず、以下の独立した証明を認定根拠とする。
+
+**採用する証明。** 任意の有限な合法suffixを、そのqueryで使う同一の有向緩和graphへ射影する。物理目的地の0 seedと仮想目的地seedは共通の終端sinkへの辺として扱う。格納binary64時計を `t=t_0<=...<=t_k=A`、正確な格納時計差を `Delta_i=t_(i+1)-t_i>=0`、`eps=ulp(U)` とする。すべての遷移に対して対応する緩和辺/seedが存在し、その重みが `w_i<=Delta_i+eps` を満たすことを前提とする。
+
+射影したwalkから循環だけを除く。残る辺は元suffixの添字集合Iから選ばれ、単純な緩和経路Qになる。これは具体便の停車順を短縮した合法経路を構築する操作ではない。同一graph nodeでもrun/stop occurrenceが異なり得るため、Qが時刻表上の合法経路である必要はない。元の非負時計差の部分和を使うことで `sum_Q(w_i)<=sum_I(Delta_i)+|I|*eps<=A-t+N_r*eps` が成立する。元のsuffix全長kには依存しない。終端sinkを含む有限graphの単純経路なので、既存の保守的な `N_r=len(G)+1` をそのまま辺数上限として使える。
+
+逆向きbinary64値hは、全seedの `h(seed)<=seed_minutes` と全到達辺の `h(u)<=fl(h(v)+w(u,v))` から、Qの逆向きfloat評価以下となる。非負・有限の重みと既存N_r,Wに対する逆向き誤差E_rを使うと `h<=A-t+N_r*eps+E_r`。従って **`N_f>=N_r=len(G)+1`** なら、既存の遷移誤差予算N_f*epsと最終加算誤差がこれを覆う。既存の下方向補正とcurrentへのclampによりguard付き優先度はA以下となる。許容性を示すためにN_fや探索上限、guard誤差を増やす処理は追加しない。
+
+**全遷移の対応と時計条件。** 監査はサンプルで観測した遷移だけでなく、対象graphの全辺と全seedを検査する。物理startからride=Noneで開始し、以下の規則とshared loopの非減少/期限検査を組み合わせ、到達したline labelには具体便contextがあることを帰納的に保つ。
+
+| 対象となる遷移 | 対応する重みと時計条件 |
+|---|---|
+| phys→physのwalk | 同じreviewed/legacy elapsed helperと80m/分を使用。`fl(t+w)` の損失はeps以下 |
+| phys→railのboard | 重み2。既存の `fl(t+2)` 以降の実departureだけを選ぶ |
+| phys→busのboard | 重み0。整合したdeparture indexからcurrent以降を選ぶ。pickup=1を新規乗車させない |
+| 同じmode/lineのride | 全calendarの各source区間について共通重み<=正確なarrival-departureを検査。具体便の次occurrenceだけへ進み、current<=departure<=arrivalを維持 |
+| line→physのalight/xfer | 移動済みrailは `fl(t+1)`、移動済みbusはt。fresh alight/xferは既存規則で拒否 |
+| 仮想目的地への最後のwalk | 同じmeters/80のseedへ対応。line-originも含み、`fl(t+seed)` を使用 |
+
+静的source時計は0〜2^53の整数minuteに限定し、sourceのdwellと隣接時計を非減少として検査する。bus departure indexも全stop occurrenceと照合するため、静的boarding時のderived delayは0となる。railも既存の静的0 delayを使用する。物理/仮想walk、rail準備・降車の加算にはepsを許し、時計差を格納floatの正確な差として扱う。資源制約、停車順、禁止乗車、calendarは実経路に残したまま、下界の射影でのみ緩和する。
+
+**証明ゲートの適用条件と停止条件。** canonical DiGraph、物理start、静的な参照TimetableChoices、80m/分・rail準備2分、整数source時計、有限なquery時計 `0<=S<=U<=2^53`、非負有限の辺/seed、未使用のquery-local便cache、固定されたgraph/source/min/seed/h/guardを要求する。full_graphとbus_only_rail_excludedだけを受理する。CPythonのbinary64特性、丸めとsubnormalの校正を確認し、その算術環境が不変であることを前提とする。レビュー済みの探索・provider・walking・guard等12項目の正規化AST SHA-256とmethod identityを照合し、将来の未レビューの遷移変更を自動認定しない。Python3.12の空type_params追加だけをAST表現上で正規化し、実行コードや入力データは変換しない。
+
+全projected辺の有無・重複・除外・役割・重みと全seedを確認し、reverse graphのBFSでhの到達可能性membershipを照合する。全到達辺/seedの上記Bellman不等式を独立に検査するため、Dijkstraの再実装やサンプル最短時計を証明の根拠にしない。未使用・非改善seedを含む全重みの最大Wも照合する。既存のFraction係数監査と、同一パラメータで生成した既存guardとのbit比較により、係数の増減で証明を通さない。epsilonで同値性を緩める処理はない。
+
+N_f<N_r、辺/seed対応の欠落、未知のdispatch形状、opaque/custom/Realtime、非整数/逆行source時計、不整合なindex、guard無効/変更、hの不等式違反、source/graph等の変更は、理由と安全なindex/countを付けて停止する。例外を別provider、別OD、別上限、ゼロ下界へ変換しない。元の期限例外等は同じobjectを伝播する。到達不能nodeに対する既存の明示的0下界はBFS membershipで区別する。
+
+**合成回帰と独立反例探索。** 新規 `api/tests/test_tokyo_time_projection_proof.py` をAPI discoveryとWindows probeに組み込む。4種の辺選択の全4^4 graph×5時計×3 seed形態=3,840構成で、独立した全単純経路の逆向きfloat列挙とcommon hを比較する。34,700本の完走walkから251,380件のsuffixを検査し、98,640件は宣言N_fより長い。循環を含むsuffixは144,900件。元時計差・last occurrenceによる独立した射影witness・guard付き優先度をFraction/厳密比較で検証し、反例0を要求する。この有限探索は上記の数学的証明を置き換えない。抽象guard探索には大きな時計も含むが、証明ゲートの適用範囲は上記の厳格なquery条件に限る。
+
+別のraw rail/bus fixtureでは、通常/跨日、後発先着、dwell、同一便の反復stop、禁止乗車停留所の通過、徒歩資源制約、alight/xferの両形態、最後のvirtual walkを独立列挙する。固定したE出口seedを追加して、最終列車に0.05分間に合わないthrough busも完走させ、禁止乗車の通過検査を空振りにしない。全board/ride/alight/xfer×rail/bus、walk、virtualの実際の出現をassertする。期待arrivalの生成に製品search・provider board/rideを呼ばない。既存の合格済み監査関数やOD探索の呼出し禁止も実呼出しprofileで確認する。
+
+小さい負例として、600分から0.49*ulp(600)の徒歩10辺、N_f=2/N_r=12では、実到着600.0に対して既存guard優先度600.0000000000001となることを保持する。N_fが足りない一般構成を係数合格だけで認定しないための反例であり、現在の実データgraphの誤答とは扱わない。A→B→A→Cの同一列車をA→Cへ運行上短縮できないこと、0分バスの100,003遷移、欠落/余剰辺、source逆行、index不整合、Bellman違反、変更guard、途中mutation、期限例外も回帰に含める。
+
+**認定範囲。** 成功時は `static_time_priority_admissibility_verified` と遷移対応・時計非減少・辺別条件・単純射影辺数・reverse不等式の各flagをtrueにする。全合法suffix長そのものの上限は証明しないため `unexpanded_suffix_step_bound_verified=false`、構成を問わない認定ではないため `unconditional_priority_admissibility_verified=false` を維持する。第45節の18,984node/N_r=18,985/N_f=100,000は今回の十分条件の数値部分を満たすが、新ゲートを実データで実行した結果へ読み替えない。今回の認定対象は合成fixtureであり、`real_timetable_suffix_admissibility_verified`、全体候補順位、真のtop-k、Realtime、公式calendarはfalseのまま。実データ用CLI配線と新ゲートの実データ適用は未実施。共通下界は `not_selected_audit_only` のまま、本番切替・デプロイ・S3・本番設定は変更しない。
+
+ローカル合成回帰とGitHub Actionsの確定結果は、この節へ追記する。
