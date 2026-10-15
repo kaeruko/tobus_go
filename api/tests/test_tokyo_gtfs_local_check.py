@@ -126,6 +126,15 @@ class TokyoGtfsLocalCheckTest(unittest.TestCase):
         self.assertEqual(row['missing_boarding_binding_rows'], 1)
         self.assertEqual(row['boardable_conflicting_rows'], 0)
 
+    def test_prebuilt_audit_preserves_legacy_default_for_missing_ride_mode(self):
+        prebuilt = self.audit_fixture()
+        with prebuilt.open('rb') as stream:
+            data = pickle.load(stream)
+        del data['G'][('line', 'a', 'fixture')][('line', 'b', 'fixture')]['mode']
+        prebuilt.write_bytes(pickle.dumps(data))
+        row = probe.audit_production_boarding(self.root, 'fixture', ('2026-09-04',), prebuilt)['date_audit'][0]
+        self.assertEqual(row['rideable_conflicting_rows'], 1)
+
     def test_prebuilt_audit_terminal_filter_can_prevent_existing_boarding(self):
         prebuilt = self.audit_fixture()
         with prebuilt.open('rb') as stream:

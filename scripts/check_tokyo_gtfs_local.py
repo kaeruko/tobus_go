@@ -220,7 +220,7 @@ def audit_production_boarding(root, expected_version, day_values, prebuilt):
                     following = snapshot.stops[snapshot.rows_by_trip[trip_id][position + 1].stop_id].source_id
                     for neighbor in graph.successors(node):
                         edge = graph[node][neighbor]
-                        if (edge.get('etype') == 'ride' and edge.get('mode') == 'bus'
+                        if (edge.get('etype') == 'ride' and edge.get('mode', 'bus') == 'bus'
                                 and choices._stop_id(neighbor[1]) == following):
                             ridden |= bool(choices.ride_options(node, neighbor, departure, state))
             counts['missing_boarding_binding_rows'] += not bool(nodes)
