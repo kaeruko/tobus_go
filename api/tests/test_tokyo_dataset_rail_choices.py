@@ -242,6 +242,25 @@ class TokyoDatasetRailChoicesTest(unittest.TestCase):
         self.assertEqual(closed,[True])
         self.assertIs(bus.engine.gtfs_repo,original)
 
+    def test_projection_runs_inside_original_query_deadline_and_never_retries(self):
+        self.fixture(rail._run('run',(('A',600),('B',605))))
+        import tokyo_dataset_rail_choices as module
+        with patch.object(module,'project_legacy_rail_snapshot',wraps=module.project_legacy_rail_snapshot) as project:
+            chosen = self.binding.choices(self.graph,self.manager,day_type=self.day,
+                use_realtime=False,deadline=838,bus_repository=self.repository)
+            project.assert_not_called()
+            with self.assertRaisesRegex(RouteContractError,'deadline-scoped preparation'):
+                chosen.board_options(rail._physical('A'),rail._line('A'),600)
+            error = RuntimeError('original query deadline before projection')
+            def stop():
+                raise error
+            with self.assertRaises(RuntimeError) as raised:
+                chosen.prepare(stop)
+            self.assertIs(raised.exception,error)
+            project.assert_not_called()
+            with self.assertRaisesRegex(RouteContractError,'single-use'):
+                chosen.prepare(lambda:None)
+
     def test_bad_reference_identity_and_original_binding_deadline_stop(self):
         self.fixture(rail._run('run',(('A',600),('B',605))))
         row = self.manager.train_patterns_weekday[rail._station('A')][0]

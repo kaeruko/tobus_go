@@ -641,7 +641,7 @@ main `f40a7fb7d112cdbd2b18531104f5dce98900b855` の実データ候補一致を�
 
 bindingはrail-only・全source tripを要求し、元trip ID/列車番号/calendar/route、全時計/停車順、共通1始まりsequenceと東京0始まりpositionを検査する。旧providerの全weekday/saturday/holiday具体便と一対一で照合し、`service_key|source_run_key|part:0`以外の分割/曖昧/欠落対応は停止する。番号だけで便を統合せず、停車ID再訪をoccurrenceで区別する。元clockは共通Fractionのまま保持し、今回の東京互換bridgeは正確な整数分に限る。端数を丸めたり秒を捨てて受理しない。第一駅arrival/終点departureは既存metadataの端点表現へ明示変換する。
 
-新しいboard/rideは`DatasetTimetableChoices`で評価し、既存`RideState.future_key`、具体便ID、`(departure, concrete_run_id, sequence)`順、segment_records/全metadataへ戻す。旧列車評価への自動切替は無い。列車準備2分/降車1分は既存接続層が一度だけ加算する。静的のみを入口で検査し、Realtime/opaque providerを明示拒否する。binding検査後の同件数source編集も内容digestで停止する。元例外/causeを保持し、検査失敗時に別便・別日・別clock/providerで継続しない。
+新しいboard/rideは`DatasetTimetableChoices`で評価し、既存`RideState.future_key`、具体便ID、`(departure, concrete_run_id, sequence)`順、segment_records/全metadataへ戻す。旧列車評価への自動切替は無い。列車準備2分/降車1分は既存接続層が一度だけ加算する。静的のみを入口で検査し、Realtime/opaque providerを明示拒否する。binding検査後の同件数source編集も内容digestで停止する。元例外/causeを保持し、検査失敗時に別便・別日・別clock/providerで継続しない。queryごとのcalendar投影・Dataset検査・active trip準備は既存の探索期限内で行い、prepareは失敗後も再試行できないsingle-useとする。
 
 日付は明示ServiceDayTypeと必須jpholidayによる既存東京のweekday/saturday/holiday互換を確認する。共通calendar/例外をquery日に明示投影する`legacy_date_policy_compatibility_only`であり、公式時刻表の運行有効期間・臨時運行を独立に認定しない。時間下界は別の標準`TimetableChoices`を`validated_tokyo_reference`として明示注入し、標準型ゲートの緩和や共通A*への切替を行わない。
 
@@ -649,6 +649,8 @@ bindingはrail-only・全source tripを要求し、元trip ID/列車番号/calen
 
 この検証器は全JSON/GTFS txt/prebuiltのhashとclean main/expected SHAを前後検査する。通信・認証・元入力更新・pickle修復/再保存・出力ファイル/bytecode生成を行わない。既存bus36ケース・compiled bus比較・bus下界監査を呼ばない。正常reportは集計のみ、private graph node/runは不一致時のlocal診断に限る。成功markerは`READ_ONLY_TOKYO_COMMON_RAIL_ROUTE_SAMPLE_OK`、`rail_binding_verified=true`、`common_rail_sample_rank_verified=true`。`common_dataset_route_ranking_verified`、`operational_calendar_verified`、Realtime/実Lambda/真のtop-kはfalseを維持する。bus_providerは明示的にexisting_tokyoであり、共通busと共通railの合成providerを認定したものではない。
 
-合成14回帰で、旧列車board/build/ride評価を禁止した共通provider使用、同番号別便、同時刻順序/入力順反転、複数候補、循環/跨日/dwell/期限、乗換準備境界、4calendar/4実日付policy、seq欠番/旧便分割拒否、型/精度/scope/metadata不一致、source同件数編集、Realtime/opaque拒否、元例外伝播とgenerator close、CLI入力hash変化時の成功marker非出力、入力非変更を確認した。ローカル全API878件は失敗/エラー0、native未導入6件スキップ。Windows jobと同じ対象100件もローカルで成功。Windows CIの対象へ新moduleを追加する。これらは合成/ローカルの結果で、GitHub Actionsの結果は別途確認する。
+合成15回帰で、旧列車board/build/ride評価を禁止した共通provider使用、同番号別便、同時刻順序/入力順反転、複数候補、循環/跨日/dwell/期限、乗換準備境界、4calendar/4実日付policy、seq欠番/旧便分割拒否、型/精度/scope/metadata不一致、source同件数編集、Realtime/opaque拒否、元例外伝播とgenerator close、CLI入力hash変化時の成功marker非出力、入力非変更を確認した。ローカル全API879件は失敗/エラー0、native未導入6件スキップ。Windows jobと同じ対象101件もローカルで成功。Windows CIの対象へ新moduleを追加する。これらは合成/ローカルの結果で、GitHub Actionsの結果は別途確認する。
 
 実ODPT/GTFS/prebuiltを用いたこの新rail graph/候補比較は未実施。binding/snapshot/graph queryを含む実データ性能・ピークRSS、共通bus+rail合成、共通A*の投影/全node/guard付き優先度、Realtime、実compiled artifact/Lambda起動、公式calendar、横浜統合、真のtop-kは未検証。本番切替・デプロイ・S3・本番設定変更は行わない。
+
+初回実装コミット`9665c3e33c28d1e21a3353f805f3a8492751116c`のGitHub Actions run [38685842512](https://github.com/kaeruko/tobus_go/actions/runs/38685842512)でAPI878件（6件スキップ）、Windows100件、Rust Python3.11/3.12各82件、Lambda image/smoke、repository safetyが成功した。後続の期限内投影・single-use準備の追加回帰は、この初回CIの結果に含めず、新しい実装SHAのCIで別途確認する。

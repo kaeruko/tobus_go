@@ -192,27 +192,40 @@ class TokyoDatasetRailChoices(TimetableChoices):
             raise RouteContractError('Tokyo dataset rail bridge is scheduled-only; realtime unsupported')
         if type(deadline) not in (int, float) or not math.isfinite(deadline) or deadline < 0:
             raise RouteContractError('Tokyo rail bridge requires a finite nonnegative deadline')
-        projected = project_legacy_rail_snapshot(binding.snapshot, day_type)
+        if type(getattr(day_type, 'service_date', None)) is not date or str(day_type) not in _PROFILES:
+            raise RouteContractError('Tokyo rail bridge requires an explicit date and legacy day profile')
         kwargs = dict(day_type=day_type, use_realtime=False, deadline=deadline,
             delays_snapshot=delays_snapshot, bus_repository=bus_repository,
             rail_boarding_minutes=rail_boarding_minutes)
         super().__init__(graph, manager, **kwargs)
         self.binding = binding
-        self.scheduled = DatasetTimetableChoices(projected,
-            service_date=day_type.service_date, deadline=deadline)
+        self.scheduled = None
+        self._preparation_started = False
         # Explicit independent dependency. Do not pass this subclass through
         # make_time_bounds' standard-provider gate or change the gate itself.
         self.time_bounds_choices = TimetableChoices(graph, manager, **kwargs)
         self._common_rail_keys = {}
 
     def prepare(self, check_deadline):
+        if self._preparation_started:
+            raise RouteContractError('Tokyo rail bridge preparation is single-use')
+        self._preparation_started = True
         check_deadline()
         if _source_digest(self.manager) != self.binding.source_digest:
             raise RouteContractError('Tokyo rail source changed since binding validation')
         check_deadline()
+        projected = project_legacy_rail_snapshot(self.binding.snapshot, self.day_type)
+        check_deadline()
+        self.scheduled = DatasetTimetableChoices(projected,
+            service_date=self.day_type.service_date, deadline=self.deadline)
         self.scheduled.prepare(check_deadline)
         if self.scheduled.active_trips != self.binding.profile_trips[str(self.day_type)]:
             raise RouteContractError('Tokyo rail bridge active trip scope differs')
+
+    def _require_scheduled(self):
+        if self.scheduled is None:
+            raise RouteContractError('Tokyo rail bridge requires deadline-scoped preparation')
+        self.scheduled._require_prepared()
 
     def _fallback_options(self, *args):
         raise RouteContractError('Tokyo rail bridge does not support opaque timetable providers')
@@ -237,7 +250,7 @@ class TokyoDatasetRailChoices(TimetableChoices):
         return self._runs['rail', run_id]
 
     def _rail_options(self, u, v, ready):
-        self.scheduled._require_prepared()
+        self._require_scheduled()
         snapshot = self.binding.snapshot
         options = []
         for a, b in self.binding.edges.get(v[1], ()):
@@ -265,7 +278,7 @@ class TokyoDatasetRailChoices(TimetableChoices):
             return super().ride_options(u, v, clock, state)
         if state.provider != 'rail':
             raise RouteContractError('Tokyo rail bridge requires concrete run states')
-        self.scheduled._require_prepared()
+        self._require_scheduled()
         if self._line_id(u) != state.line_id or self._line_id(v) != state.line_id:
             return ()
         key = self._common_rail_keys[state.run_id]
