@@ -108,7 +108,7 @@ class _TimetableViewState extends State<TimetableView> {
   }
 
   Future<void> _updateBusInfo() async {
-    final groups = await _service.getNextBusesFromApi(
+    final groups = await _service.getSavedFullDayBusesFromApi(
       widget.routeId,
       widget.stopId,
       targetPoleId: widget.targetPoleId,
@@ -118,7 +118,6 @@ class _TimetableViewState extends State<TimetableView> {
       dayType: widget.showFullDay && _dayType.isNotEmpty ? _dayType : null,
       referenceTime: _now,
       limit: widget.limit,
-      includeAllDay: true,
       onResolvedDayType: (resolvedDayType) {
         if (!mounted) return;
         _dayType = resolvedDayType;
