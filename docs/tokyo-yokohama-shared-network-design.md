@@ -913,3 +913,38 @@ N_f<N_r、辺/seed対応の欠落、未知のdispatch形状、opaque/custom/Real
 ローカルの最終新規回帰22件が成功した。実装SHA `413a4780cc5e55d5a6f625e27cabe433c3125446` のGitHub Actions run [38740206561](https://github.com/kaeruko/tobus_go/actions/runs/38740206561) は、workflow全体でstatus=completed・conclusion=success。API958件（既存のnative未導入6skip）、Windows193件が成功し、新規22回帰すべてが両jobのログに実際に出現して成功したことを確認した。Rust Python3.11/3.12各82件・Rust unit各2件、既存Lambda image build/smoke、repository safety、FlutterテストとAndroid全flavor、iOS全flavorのbuildおよびidentity/Firebase分離検査も成功した。
 
 これは監査専用実装と合成CIの合格であり、新しい証明ゲートを実データで実行した結果ではない。許容性の認定は明示した静的time構成の前提に限定し、全合法suffix長、構成を問わない安全性、候補順位、真のtop-kへ拡張しない。第1〜第3段階の実データ監査・36case比較は再実行しておらず、探索・guard・本番provider選択・デプロイ・S3・本番設定は変更していない。
+
+
+## 47. 既存ODPT・GTFS・trusted prebuiltへの証明前提CLI（2026-10-15）
+
+変更前mainは `e7afab9572951b75fbc076731116efeb8b579026`。`scripts/check_tokyo_time_projection_proof_local.py` を追加し、第46節の新証明ゲートを既存の明示指定入力へ配線する。第1〜第3段階の成功済み監査関数・CLI実行入口・36case比較・経路探索は呼ばない。既存のstrict入力ローダー、ODPTとprebuiltのsource binding整合検査、共通interval map生成、構造的destination manifestの純粋helperだけを再利用する。新CLIが行うraw source区間の不等式・時計・index検査は新証明の前提確認であり、旧providerとのmin/graph/全node/候補の同値性監査を再実行するものではない。
+
+**固定した検査構成。** 読み込んだ東京DiGraphをそのまま使い、`full_graph` とcanonical `_edge_uses_rail` による `bus_only_rail_excluded` を両方検査する。第44節と同じbus物理目的地、rail物理目的地、複数virtual seed、物理目的地と非改善virtual seedの4構成を、下界計算前に固定する。full側のstartは固定rail物理node、bus専用側は固定bus物理nodeで、どちらもrideなし物理startの証明条件を満たす。実検索によるOD選定・別目的地への再試行は行わない。
+
+共通mapのみから逆向きgraphと目的地別hを計算し、各構成に通常時計600〜840分／跨日時計1439〜1679分の既存2profileを適用する。計8case・16証明検査がすべて成功した場合に限り最終reportを返す。`N_f=100000`、`N_r=len(G)+1` は第3段階と同じ監査入力とし、既存 `TimeRoundingGuard` を同じ値で生成する。`N_f<N_r` は `projection_step_budget_insufficient` で停止し、上限・誤差量を増やさない。各profileで第46節の全遷移対応、非減少source時計、辺別誤差条件、全seed、単純射影辺数、全到達node/辺のreverse不等式、binary64・reviewed AST・guard係数の前提を検査する。具体便cacheを実行しない静的な参照providerを使用し、Realtime・未知の遷移・非対応入力を認定しない。
+
+**停止と非変更。** 完全な期待main SHA・clean mainを実行前後に要求する。指定trusted prebuiltは明示したSHA-256と一致した後にだけunpickleし、元の厳密なDiGraph/TimetableManager以外は修復せず停止する。ODPT3ファイル・prebuilt・GTFS全txtのhashとファイル集合を前後比較し、メモリ上のgraph/source/departure index/固定manifestも封印して途中変更を拒否する。前提不一致、guard無効、下界生成失敗、例外、未完のcertificateは成功扱いにしない。進捗はscope・destination種別・case番号・時計profile・profile番号・mode・phase・stageと安全なreason codeだけを記録し、実ID・座標・行程や任意の例外本文を複写しない。元例外は同じobjectのまま再送出し、最後の元例外・tracebackで詳細を確認できる。別provider・旧下界・ゼロ下界への暗黙のフォールバックはない。
+
+成功markerは新規の `READ_ONLY_TOKYO_COMMON_TIME_PROJECTION_PROOF_OK` とし、全profile、入力hash、実行SHA、既存guard reportを含むJSONの後にのみ出力する。`static_time_projection_premises_verified=true` と、検査構成に限定した `static_time_priority_admissibility_verified=true` を報告する。任意の目的地・別seed・別時計・別実装への自動認定、実時刻表suffix全列挙、全合法suffixの遷移数上限、無条件の許容性、候補順位・真のtop-k・公式calendar・Realtime・実Lambda起動は認定しない。従って既存の `unexpanded_suffix_step_bound_verified`、`unconditional_priority_admissibility_verified`、`real_timetable_suffix_admissibility_verified` 等はfalseを維持する。共通下界の本番選択は `not_selected_audit_only` のまま、探索・guard・既存設定を変更しない。
+
+**合成回帰。** 新規 `api/tests/test_tokyo_time_projection_proof_local.py` の14回帰で、実ファイルのstrict読込から8case/16profileとhash前後検査、全scopeとclockのcoverage、元データ非変更、旧監査・旧下界builder・board/ride・経路探索の実呼出し禁止、最初/途中/bus専用での停止、元例外と予算の保持、partial certificate拒否、未知辺と未レビュー実装の拒否、hash照合前unpickle禁止・prebuilt修復禁止、秒端数拒否、ファイル追加/編集・clean SHA・最終profile後のgraph/index/source/manifest変更、Realtime/mode/上限変更/skip引数の拒否を確認する。呼出し禁止はprofile hookで観測し、reviewed methodを差し替えて合格させない。ローカル新規14件とAPI全体972件が成功した（既存native未導入6skip）。API discoverとWindows CIの明示module一覧へ追加し、GitHub Actions結果は実装SHAに結び付けて追記する。
+
+**Windowsで新CLIだけを実行するコマンド。** 合格済みの同じ入力を使用し、GTFSを再取得・置換しない。clean mainへ最新変更を取り込んだ後、リポジトリrootで次を実行する。`$projectionProofSha` はその時点のmain SHAを固定し、CLIが開始時・終了時の両方で一致を要求する。
+
+```powershell
+$projectionProofSha = (git rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0) { throw 'git rev-parse failed' }
+& 'C:\Users\mail\AppData\Local\Programs\Python\Python312\python.exe' -B `
+  scripts/check_tokyo_time_projection_proof_local.py `
+  --train-timetables api/data/odpt_TrainTimetable.json `
+  --stations api/data/odpt_Station.json `
+  --railways api/data/odpt_Railway.json `
+  --gtfs-dir api/data/ToeiBus-GTFS `
+  --expected-feed-version 20260828_030922 `
+  --trusted-prebuilt api/data/app_data.pkl `
+  --expected-prebuilt-sha256 db10fc598e0da81e2ac200ba742ab75283440823651fb1d800037f7c0a74bae5 `
+  --expected-sha $projectionProofSha
+if ($LASTEXITCODE -ne 0) { throw 'static time projection proof gate failed' }
+```
+
+こちらの環境には実ODPT・GTFS・指定prebuiltがないため、新CLIの実データ検査は未実行。第45節の実データ合格や第46節の合成CIから今回の実データ合格を推定しない。本番切替・デプロイ・S3・本番設定変更は行わない。
