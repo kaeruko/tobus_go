@@ -18,6 +18,7 @@ from tests import test_tokyo_bus_choices_contract as bus
 from tests import test_tokyo_dataset_rail_choices as rail_choice_tests
 from tests import test_tokyo_waiting_contract as rail
 from tokyo_bound_projection_audit import _compare_projection, _common_bus_minima
+from tokyo_time_bounds import _adjacent_minutes
 from tokyo_rail_interval_audit import _collect_static_rail_minima
 from tokyo_timetable_choices import TimetableChoices
 
@@ -56,7 +57,7 @@ class TokyoGraphProjectionAuditTest(unittest.TestCase):
         )[0]
         # Independent bus fixture source: no call to the old interval gate.
         self.bus_minima = {
-            (self.choices._bus_route(bus._line("Q")), "Q", "Z"): 2.0,
+            (self.choices._bus_route(bus._line("Q")), "Q", "Z"): _adjacent_minutes(605, 607),
         }
         self.target = bus._phys("Z")
         self.virtual = {
