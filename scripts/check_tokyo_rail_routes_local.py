@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass
 from datetime import date, datetime, timezone
 import hashlib
 import json
+import math
 from pathlib import Path
 import pickle
 import sys
@@ -27,12 +28,53 @@ import toei_engine as engine
 from check_tokyo_odpt_local import (check_repository, compare_intervals,
     manager_intervals, records, resolve_probe_dates, sha256, source_intervals)
 from gtfs_loader import GtfsRepository
-from route_engine import RouteContractError
+from route_engine import RouteContractError, RouteSearchLimitError
 from tokyo_dataset_rail_choices import TokyoRailDatasetBinding
 from tokyo_timetable_choices import TimetableChoices
 from transit_adapters.odpt import OdptCalendarRule, OdptTransitAdapter
 from transit_dataset import FeedMetadata
 from transit_network import NetworkCosts, build_transit_network
+
+
+KINDS = ('rail_only', 'rail_bus', 'walking_transfer')
+MODES = ('time', 'fewTransfers', 'cost')
+CANDIDATE_LIMIT = 3
+STRUCTURAL_POLICY = MappingProxyType({
+    'name': 'local_one_stop_witness_v1',
+    'reference_minute': 600,
+    'max_witness_minutes': 30,
+    'max_transfer_walk_m': 300,
+    'rail_clocks_per_directed_leg': 1,
+})
+
+
+def diagnostic(profile, phase, status, *, category=None, mode=None, attempt=None,
+               reason=None, **counts):
+    """Only callers' fixed labels and numeric aggregates belong in this log."""
+    row = {'date': profile.service_date.isoformat(), 'phase': phase, 'status': status}
+    row.update({name: value for name, value in
+                (('category', category), ('mode', mode), ('attempt', attempt), ('reason', reason))
+               if value is not None})
+    row.update(counts)
+    print('[RAIL_SAMPLE] ' + json.dumps(row, ensure_ascii=True, sort_keys=True), flush=True)
+
+
+def search_failure(profile, phase, kind, mode, attempt, error):
+    # Do not stringify the exception or copy arbitrary diagnostic fields: source
+    # IDs, paths and external exception messages must not enter progress logs.
+    details = {}
+    reason = 'contract_error' if isinstance(error, RouteContractError) else 'search_exception'
+    if isinstance(error, RouteSearchLimitError):
+        allowed = {'queue_size', 'g_score_size', 'max_visited', 'max_expanded',
+                   'time_limit_sec', 'max_search'}
+        reason = error.reason if type(error.reason) is str and error.reason in allowed else 'search_safety_limit'
+        for name in ('visited', 'queue', 'yielded', 'elapsed_sec', 'max_search',
+                     'max_visited', 'max_expanded', 'time_limit_sec'):
+            value = error.diagnostics.get(name)
+            if type(value) is int or type(value) is float and math.isfinite(value):
+                details[name] = value
+    diagnostic(profile, phase, 'stopped', category=kind, mode=mode,
+               attempt=attempt, reason=reason, **details)
 
 
 def load_binding(train, stations, railways, manager):
@@ -104,18 +146,53 @@ def compare_choices(graph, manager, repository, profile, binding, deadline):
 
 
 def structural_cases(graph, manager, repository, profile, deadline):
-    """Deterministic, distinct structural ODs for reference-only preselection.
+    """Rank a local witness pool completely BEFORE any reference route search.
 
-    One source witness clock per (category, origin, destination). Structure does
-    not certify that a required mode appears in the top requested candidates.
+    Use one rail stop, at most one short transfer walk and one further vehicle
+    stop. Pick the source rail clock nearest 10:00 query readiness for each
+    directed leg. All witness arrivals must be within 30 minutes. These are
+    sample-selection rules, never query limits, graph edits or a completeness
+    certificate. In particular, structure cannot certify a top-three category.
     """
     choices = TimetableChoices(graph, manager, profile, use_realtime=False,
-                              deadline=deadline, bus_repository=repository)
-    seen = set()
+                              # The rail-source horizon need not include the
+                              # bus arrival after its last rail departure.
+                              deadline=deadline+STRUCTURAL_POLICY['max_witness_minutes'],
+                              bus_repository=repository)
+    # Favor destinations with several short incoming walks: a lone alighting
+    # goal can leave a time search exploring a long dominated tail. This is
+    # only a ranking hint; neither goal grouping nor the frontier is changed.
+    walk_access = {}
+    branching = {}
+    for physical in graph:
+        if physical[0] != 'phys':
+            continue
+        walk_access[physical] = sum(edge.get('etype') == 'walk'
+            and edge.get('meters', 0) <= STRUCTURAL_POLICY['max_transfer_walk_m']
+            for _, _, edge in graph.in_edges(physical, data=True))
+        branching[physical] = sum(edge.get('etype') in ('board', 'walk')
+            for edge in graph[physical].values())
+    ranked = {}
+
+    def offer(kind, origin, destination, minute, arrival, walk_m, footprint):
+        elapsed = arrival - minute
+        if elapsed < 0 or elapsed > STRUCTURAL_POLICY['max_witness_minutes']:
+            return
+        case = (kind, origin, destination, minute)
+        score = (max(0, 2-walk_access.get(destination, 0)), elapsed,
+                 sum(branching.get(stop, 0) for stop in set(footprint)), walk_m,
+                 abs(minute-STRUCTURAL_POLICY['reference_minute']), repr(case))
+        identity = kind, origin, destination
+        if identity not in ranked or score < ranked[identity][0]:
+            ranked[identity] = score, case
+
+    legs = {}
     rail_edges = sorted(((u, v) for u, v, e in graph.edges(data=True)
                          if e.get('etype') == 'board' and graph.nodes[v].get('mode') == 'rail'), key=repr)
     for origin, node in rail_edges:
         for departure, state in choices.board_options(origin, node, 2):
+            if state.provider != 'rail':
+                raise RouteContractError('structural rail sample requires concrete static choices')
             run = choices._runs['rail', state.run_id]
             pos = choices._positions['rail', state.run_id][state.sequence]
             arrival_node = ('line', run.stops[pos+1].stop_id, state.line_id)
@@ -124,59 +201,79 @@ def structural_cases(graph, manager, repository, profile, deadline):
                     or graph[arrival_node][physical].get('etype') not in ('alight', 'xfer')
                     or origin == physical):
                 continue
-            arrival = run.stops[pos+1].arrival + 1
             minute = departure - 2
-            if not float(minute).is_integer():
+            if not math.isfinite(minute) or not float(minute).is_integer():
                 raise RouteContractError('rail sample requires integral source minutes; no rounding')
-            identity = ('rail_only', origin, physical)
-            if identity not in seen:
-                seen.add(identity)
-                yield ('rail_only', origin, physical, int(minute))
-            access = [(physical, arrival, False)]
-            for target, edge in sorted(graph[physical].items(), key=lambda item: repr(item[0])):
-                if edge.get('etype') == 'walk':
-                    # Use the unchanged forward evaluator, not a guessed speed.
-                    walk_arrival = engine.advance_time(graph, choices.manager, physical,
-                        target, arrival, profile, {}, use_realtime=False, edge=edge)
-                    if walk_arrival is not None:
-                        access.append((target, walk_arrival, True))
-            for stop, ready, walked in access:
-                for board, edge in sorted(graph[stop].items(), key=lambda item: repr(item[0])):
-                    if edge.get('etype') != 'board':
-                        continue
-                    mode = graph.nodes[board].get('mode')
-                    kind = 'rail_bus' if mode == 'bus' else 'walking_transfer' if mode == 'rail' and walked else None
-                    if kind is None:
-                        continue
-                    options = choices.board_options(stop, board, ready + (2 if mode == 'rail' else 0))
-                    for dep, selected in options:
-                        vehicle = choices._runs[selected.provider, selected.run_id]
-                        position = choices._positions[selected.provider, selected.run_id][selected.sequence]
-                        following_stop = vehicle.stops[position+1].stop_id
-                        if mode == 'bus':
-                            next_nodes = [n for n, e in graph[board].items() if e.get('etype') == 'ride'
-                                and e.get('mode', 'bus') == 'bus' and choices._stop_id(n[1]) == following_stop]
-                        else:
-                            next_nodes = [('line', following_stop, selected.line_id)]
-                        feasible = False
-                        for next_node in sorted(next_nodes, key=repr):
-                            destination = ('phys', next_node[1])
-                            if (destination in (origin, physical) or not graph.has_edge(board, next_node)
-                                    or not graph.has_edge(next_node, destination)):
-                                continue
-                            if vehicle.stops[position+1].arrival+1 > minute+engine.MAX_TRAVEL_MIN:
-                                continue
-                            feasible = True
-                            identity = (kind, origin, destination)
-                            if identity not in seen:
-                                seen.add(identity)
-                                yield (kind, origin, destination, int(minute))
-                            break
-                        if feasible:
-                            break
+            ridden = choices.ride_options(node, arrival_node, departure, state)
+            if not ridden:
+                continue
+            arrival = ridden[0][0] + 1
+            if arrival-minute > STRUCTURAL_POLICY['max_witness_minutes']:
+                continue
+            key = origin, node, arrival_node
+            clock_score = (abs(minute-STRUCTURAL_POLICY['reference_minute']),
+                           arrival-minute, departure, state.run_id, state.sequence)
+            if key not in legs or clock_score < legs[key][0]:
+                legs[key] = clock_score, (origin, physical, int(minute), arrival)
+
+    for _, (origin, physical, minute, arrival) in sorted(legs.values(), key=repr):
+        offer('rail_only', origin, physical, minute, arrival, 0, (origin, physical))
+        access = [(physical, arrival, False, 0)]
+        for target, edge in sorted(graph[physical].items(), key=lambda item: repr(item[0])):
+            if edge.get('etype') != 'walk':
+                continue
+            walk_m = edge.get('meters', 0)
+            if type(walk_m) not in (int, float) or not math.isfinite(walk_m) or walk_m < 0:
+                raise RouteContractError('structural sample has invalid walk meters')
+            if walk_m > STRUCTURAL_POLICY['max_transfer_walk_m']:
+                continue
+            # Retain reviewed walk times and the unchanged forward clock.
+            walk_arrival = engine.advance_time(graph, choices.manager, physical,
+                target, arrival, profile, {}, use_realtime=False, edge=edge)
+            if walk_arrival is not None and walk_arrival-minute <= STRUCTURAL_POLICY['max_witness_minutes']:
+                access.append((target, walk_arrival, True, walk_m))
+        for stop, ready, walked, walk_m in access:
+            for board, edge in sorted(graph[stop].items(), key=lambda item: repr(item[0])):
+                if edge.get('etype') != 'board':
+                    continue
+                mode = graph.nodes[board].get('mode')
+                kind = 'rail_bus' if mode == 'bus' else 'walking_transfer' if mode == 'rail' and walked else None
+                if kind is None:
+                    continue
+                options = choices.board_options(stop, board, ready + (2 if mode == 'rail' else 0))
+                for dep, selected in options:
+                    if dep > minute+STRUCTURAL_POLICY['max_witness_minutes']:
+                        break
+                    if selected.provider != mode:
+                        raise RouteContractError('structural sample requires concrete static vehicle choices')
+                    vehicle = choices._runs[selected.provider, selected.run_id]
+                    position = choices._positions[selected.provider, selected.run_id][selected.sequence]
+                    following_stop = vehicle.stops[position+1].stop_id
+                    if mode == 'bus':
+                        next_nodes = [n for n, e in graph[board].items() if e.get('etype') == 'ride'
+                            and e.get('mode', 'bus') == 'bus' and choices._stop_id(n[1]) == following_stop]
+                    else:
+                        next_nodes = [('line', following_stop, selected.line_id)]
+                    for next_node in sorted(next_nodes, key=repr):
+                        destination = ('phys', next_node[1])
+                        if (destination in (origin, physical) or not graph.has_edge(board, next_node)
+                                or not graph.has_edge(next_node, destination)
+                                or graph[next_node][destination].get('etype') not in ('alight', 'xfer')):
+                            continue
+                        ridden = choices.ride_options(board, next_node, dep, selected)
+                        if not ridden:
+                            continue
+                        # Tokyo bus alighting is zero; rail alighting is one.
+                        finish = ridden[0][0] + (1 if mode == 'rail' else 0)
+                        offer(kind, origin, destination, minute, finish, walk_m,
+                              (origin, physical, stop, destination))
+    yield from (case for _, case in sorted(ranked.values(), key=lambda row:
+        (KINDS.index(row[1][0]), row[0])))
 
 
 def search_sample(graph, manager, repository, profile, case, mode, limit, factory=None):
+    if type(limit) is not int or limit != CANDIDATE_LIMIT:
+        raise ValueError('max-candidates must remain exactly 3')
     kind, origin, destination, minute = case
     if type(minute) is not int or minute < 0:
         raise ValueError('rail sample requires nonnegative integer minute; no rounding')
@@ -221,10 +318,6 @@ def route_sample(graph, manager, repository, profile, case, mode, limit, factory
     return results
 
 
-KINDS = ('rail_only', 'rail_bus', 'walking_transfer')
-MODES = ('time', 'fewTransfers', 'cost')
-
-
 @dataclass(frozen=True, slots=True)
 class RailSamplePlan:
     cases: Mapping[tuple[str, str], tuple]
@@ -233,34 +326,61 @@ class RailSamplePlan:
     nonmatching_queries: int
     max_selection_queries: int
     max_candidates: int
+    structural_candidates: int
 
 
 def select_cases(graph, manager, repository, profile, deadline, limit=3, *, max_selection_queries=90):
     """Select ONLY from successful reference searches, before any comparison.
 
     An ordinary result with no category witness rejects a prospective OD.
-    Exceptions (including search limits/partial failures) are never caught.
+    Exceptions (including partial failures) are logged and re-raised unchanged.
     Each (category, mode) fixes its own reference-qualified OD/clock. The
     candidate limit stays identical during selection and comparison.
     The finite query budget is explicit; exhaustion is failure, never success.
     """
-    if type(limit) is not int or not 1 <= limit <= 5:
-        raise ValueError('max-candidates must be an integer in [1,5]')
+    if type(limit) is not int or limit != CANDIDATE_LIMIT:
+        raise ValueError('max-candidates must remain exactly 3')
     if type(max_selection_queries) is not int or max_selection_queries < len(KINDS)*len(MODES):
         raise ValueError('max-selection-queries must be an integer >= 9')
     cases, baseline = {}, {}
     queries = rejected = 0
     required = tuple((kind, mode) for kind in KINDS for mode in MODES)
-    for case in structural_cases(graph, manager, repository, profile, deadline):
+    diagnostic(profile, 'structural_generation', 'started', candidate_limit=limit,
+               policy=dict(STRUCTURAL_POLICY))
+    try:
+        pool = tuple(structural_cases(graph, manager, repository, profile, deadline))
+    except Exception as error:
+        search_failure(profile, 'structural_generation', None, None, None, error)
+        raise
+    diagnostic(profile, 'structural_generation', 'completed', candidates=len(pool),
+               candidates_by_category={kind:sum(case[0] == kind for case in pool) for kind in KINDS})
+    for case in pool:
         kind = case[0]
+        if kind not in KINDS:
+            raise RouteContractError('unsupported structural rail sample category')
         for mode in MODES:
             key = kind, mode
             if key in cases:
                 continue
             if queries == max_selection_queries:
+                diagnostic(profile, 'reference_preselection', 'stopped', category=kind,
+                           mode=mode, attempt=queries+1, reason='selection_query_budget',
+                           completed_queries=queries, nonmatching_queries=rejected,
+                           missing=[list(key) for key in required if key not in cases])
                 raise RouteContractError(f'rail reference preselection budget exhausted: queries={queries} nonmatching={rejected} missing={sorted(set(required)-cases.keys())}; no common-provider comparison started')
             queries += 1
-            rows = search_sample(graph, manager, repository, profile, case, mode, limit)
+            diagnostic(profile, 'reference_preselection', 'started', category=kind,
+                       mode=mode, attempt=queries, candidate_limit=limit)
+            try:
+                rows = search_sample(graph, manager, repository, profile, case, mode, limit)
+            except Exception as error:
+                search_failure(profile, 'reference_preselection', kind, mode, queries, error)
+                raise
+            matching = sum(row['relevant'] for row in rows)
+            diagnostic(profile, 'reference_preselection', 'completed', category=kind,
+                       mode=mode, attempt=queries, candidates=len(rows), matching_candidates=matching,
+                       reason='qualified' if matching else 'category_absent' if rows else 'no_candidates',
+                       completion='candidate_limit' if len(rows) == limit else 'exhausted')
             if not rows or not any(row['relevant'] for row in rows):
                 rejected += 1
                 continue
@@ -268,7 +388,11 @@ def select_cases(graph, manager, repository, profile, deadline, limit=3, *, max_
             baseline[key] = tuple(rows)
         if len(cases) == len(required):
             return RailSamplePlan(MappingProxyType({key:cases[key] for key in required}),
-                MappingProxyType(baseline), queries, rejected, max_selection_queries, limit)
+                MappingProxyType(baseline), queries, rejected, max_selection_queries, limit, len(pool))
+    diagnostic(profile, 'reference_preselection', 'stopped', attempt=queries,
+               reason='structural_pool_exhausted', completed_queries=queries,
+               nonmatching_queries=rejected,
+               missing=[list(key) for key in required if key not in cases])
     raise RouteContractError(f'no reference-qualified rail sample: queries={queries} nonmatching={rejected} missing={sorted(set(required)-cases.keys())}; no common-provider comparison started')
 
 
@@ -277,11 +401,21 @@ def compare_plan(graph, manager, repository, profile, binding, plan, limit):
     if limit != plan.max_candidates or type(limit) is not int:
         raise RouteContractError('frozen rail sample candidate limit changed; no comparison started')
     reports = []
-    for (kind, mode), case in plan.cases.items():
+    for attempt, ((kind, mode), case) in enumerate(plan.cases.items(), 1):
         old = plan.baseline[kind, mode]
-        new = route_sample(graph, manager, repository, profile, case, mode, limit, binding.choices)
+        diagnostic(profile, 'frozen_comparison', 'started', category=kind,
+                   mode=mode, attempt=attempt, candidate_limit=limit)
+        try:
+            new = route_sample(graph, manager, repository, profile, case, mode, limit, binding.choices)
+        except Exception as error:
+            search_failure(profile, 'frozen_comparison', kind, mode, attempt, error)
+            raise
         if old != tuple(new):
+            diagnostic(profile, 'frozen_comparison', 'stopped', category=kind,
+                       mode=mode, attempt=attempt, reason='provider_mismatch')
             raise RouteContractError(f'rail ranked sample differs: date={profile.service_date} case={kind} mode={mode}; frozen sample is not replaced')
+        diagnostic(profile, 'frozen_comparison', 'completed', category=kind,
+                   mode=mode, attempt=attempt, reason='equal', candidates=len(old))
         reports.append({'date':profile.service_date.isoformat(), 'case':kind,
             'mode':mode, 'candidates':len(old),
             'sample_id':hashlib.sha256(json.dumps((profile.service_date.isoformat(),case),
@@ -291,8 +425,8 @@ def compare_plan(graph, manager, repository, profile, binding, plan, limit):
 
 
 def inspect(train, stations, railways, prebuilt, gtfs, expected_version, day_values, limit, *, max_selection_queries=90):
-    if type(limit) is not int or not 1 <= limit <= 5:
-        raise ValueError('max-candidates must be an integer in [1,5]')
+    if type(limit) is not int or limit != CANDIDATE_LIMIT:
+        raise ValueError('max-candidates must remain exactly 3')
     if type(max_selection_queries) is not int or max_selection_queries < 9:
         raise ValueError('max-selection-queries must be an integer >= 9')
     dates, holiday_version = resolve_probe_dates(day_values)
@@ -330,6 +464,7 @@ def inspect(train, stations, railways, prebuilt, gtfs, expected_version, day_val
         selection_reports.append({'date':day.isoformat(),
             'selection_queries':plan.selection_queries, 'nonmatching_queries':plan.nonmatching_queries,
             'max_selection_queries':plan.max_selection_queries,
+            'structural_candidates':plan.structural_candidates,
             'selected_cases':len(plan.cases), 'selected_od_clocks':len(set(plan.cases.values())),
             'selection_scope':'per_date_category_mode', 'all_modes_reference_qualified':True})
     # Freeze ALL dates before starting ranked common-provider comparisons.
@@ -339,6 +474,7 @@ def inspect(train, stations, railways, prebuilt, gtfs, expected_version, day_val
         choice_reports.append(choice_report)
         reports.extend(compare_plan(graph, manager, repository, profile, binding, plan, limit))
     return {'sample_selection':'reference_ranked_preselection_then_frozen_comparison',
+        'structural_policy':dict(STRUCTURAL_POLICY),
         'selection_reports':selection_reports,
         'audit_mode':'tokyo_common_rail_label_route_sample', 'date_cases':reports, 'date_choices':choice_reports,
         'common_rail_sample_rank_verified':True, 'rail_binding_verified':True,
@@ -355,7 +491,7 @@ def main():
         parser.add_argument('--'+flag, type=Path, required=True)
     parser.add_argument('--expected-feed-version', required=True)
     parser.add_argument('--query-date', action='append', required=True)
-    parser.add_argument('--max-candidates', type=int, default=3)
+    parser.add_argument('--max-candidates', type=int, choices=(CANDIDATE_LIMIT,), default=CANDIDATE_LIMIT)
     parser.add_argument('--expected-sha', required=True)
     parser.add_argument('--max-selection-queries', type=int, default=90)
     args = parser.parse_args()

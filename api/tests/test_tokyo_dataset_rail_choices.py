@@ -215,6 +215,7 @@ class TokyoDatasetRailChoicesTest(unittest.TestCase):
         with self.assertRaisesRegex(RouteContractError,'lacks required category'):
             probe.route_sample(self.graph,self.manager,self.repository,self.day,bad,'time',3)
         with (patch.object(self.binding,'choices',side_effect=AssertionError('common during preselection')),
+              patch.object(probe,'structural_cases',return_value=iter((bad,*(case for case in candidates if case != bad)))),
               patch.object(probe,'search_sample',wraps=probe.search_sample) as search):
             plan = probe.select_cases(self.graph,self.manager,self.repository,self.day,3000,3)
             self.assertGreaterEqual(plan.nonmatching_queries,1)
@@ -229,6 +230,152 @@ class TokyoDatasetRailChoicesTest(unittest.TestCase):
         report = probe.compare_plan(self.graph,self.manager,self.repository,self.day,self.binding,plan,3)
         self.assertEqual(len(report),9)
         self.assertTrue(all(row['matching_candidates']>0 and row['differences']==0 for row in report))
+
+    def test_local_structural_pool_precedes_reference_search_and_avoids_lexical_long_od(self):
+        self.fixture(rail._run('long',(('A',600),('B',635))),
+                     rail._run('local',(('Y',600),('Z',604))),
+                     rail._run('first_train',(('Y',300),('Z',304))))
+        before = pickle.dumps((self.graph.graph,dict(self.graph.nodes(data=True)),list(self.graph.edges(data=True))))
+        with patch.object(bus.engine,'_tokyo_label_search',side_effect=AssertionError('route search during generation')):
+            cases = tuple(probe.structural_cases(self.graph,self.manager,self.repository,self.day,3000))
+        self.assertEqual(cases,(('rail_only',rail._physical('Y'),rail._physical('Z'),598),))
+        self.assertEqual(pickle.dumps((self.graph.graph,dict(self.graph.nodes(data=True)),list(self.graph.edges(data=True)))),before)
+        # The distant, lexically earlier source must never be attempted. A
+        # later search error still stops this local plan without trying more.
+        error = bus.engine.RouteSearchLimitError('unsafe synthetic queue',reason='queue_size')
+        with patch.object(probe,'search_sample',side_effect=error) as search:
+            with self.assertRaises(bus.engine.RouteSearchLimitError) as raised:
+                probe.select_cases(self.graph,self.manager,self.repository,self.day,3000)
+        self.assertIs(raised.exception,error)
+        self.assertEqual(search.call_args.args[4],cases[0])
+        search.assert_called_once()
+
+    def test_structural_pool_prioritizes_short_time_low_branching_and_walking_access(self):
+        self.fixture(rail._run('slow',(('A',600),('B',619))),
+                     rail._run('branchy',(('C',600),('D',605))),
+                     rail._run('local',(('Y',600),('Z',605))))
+        for name in ('branch_one','branch_two'):
+            rail._walk(self.graph,rail._physical('C'),('phys',name),80)
+        cases = tuple(probe.structural_cases(self.graph,self.manager,self.repository,self.day,3000))
+        self.assertEqual([case[1] for case in cases],list(map(rail._physical,('Y','C','A'))))
+        # Incoming walks are a ranking hint, not proof of actual top-three
+        # results; no walk is added or removed by the verifier itself.
+        for name in ('access_one','access_two'):
+            rail._walk(self.graph,('phys',name),rail._physical('D'),80)
+        cases = tuple(probe.structural_cases(self.graph,self.manager,self.repository,self.day,3000))
+        self.assertEqual(cases[0][1],rail._physical('C'))
+
+    def test_local_witness_respects_short_walk_reviewed_clock_and_fixed_source_scope(self):
+        self.multimodal()
+        self.graph[rail._physical('B')][bus._phys('Q')]['meters'] = 301
+        cases = tuple(probe.structural_cases(self.graph,self.manager,self.repository,self.day,3000))
+        self.assertFalse(any(case[0] == 'rail_bus' for case in cases))
+        self.graph[rail._physical('B')][bus._phys('Q')]['meters'] = 80
+        # A reviewed access time must be evaluated, never inferred from meters.
+        original = bus.engine.advance_time
+        def reviewed(graph,manager,u,v,current,*args,**kwargs):
+            return current+40 if (u,v) == (rail._physical('B'),bus._phys('Q')) else original(graph,manager,u,v,current,*args,**kwargs)
+        with patch.object(bus.engine,'advance_time',side_effect=reviewed):
+            cases = tuple(probe.structural_cases(self.graph,self.manager,self.repository,self.day,3000))
+        self.assertFalse(any(case[0] == 'rail_bus' for case in cases))
+
+    def test_selection_diagnostics_identify_partial_queue_failure_without_private_data_or_retry(self):
+        self.multimodal()
+        from transit_search_labels import SelectedPath
+        secret = 'PRIVATE_OD_RUN_PATH'
+        error = bus.engine.RouteSearchLimitError(secret,reason='queue_size',diagnostics={
+            'visited':90994,'queue':250105,'yielded':1,'max_search':3,
+            'elapsed_sec':10.641,'path':secret,'mode':secret})
+        closed = []
+        case = ('rail_bus',('phys',secret),bus._phys('Z'),598)
+        def failing():
+            try:
+                yield {'cost':1,'walk_m':0,'path':SelectedPath([('phys',secret)],[],{},None,598)}
+                raise error
+            finally:
+                closed.append(True)
+        with (patch.object(probe,'structural_cases',return_value=iter((case,case))),
+              patch.object(bus.engine,'_tokyo_label_search',return_value=failing()) as search,
+              contextlib.redirect_stdout(io.StringIO()) as output):
+            with self.assertRaises(bus.engine.RouteSearchLimitError) as raised:
+                probe.select_cases(self.graph,self.manager,self.repository,self.day,3000)
+        self.assertIs(raised.exception,error)
+        self.assertEqual(closed,[True])
+        search.assert_called_once()
+        log = output.getvalue()
+        self.assertNotIn(secret,log)
+        events = [json.loads(line.removeprefix('[RAIL_SAMPLE] ')) for line in log.splitlines()]
+        stopped = events[-1]
+        self.assertEqual({key:stopped[key] for key in ('phase','category','mode','attempt','reason')},
+                         dict(phase='reference_preselection',category='rail_bus',mode='time',attempt=1,reason='queue_size'))
+        self.assertEqual(stopped['yielded'],1)
+        self.assertEqual(stopped['queue'],250105)
+        self.assertFalse(any(row['status']=='completed' and row['phase']=='reference_preselection' for row in events))
+        self.assertNotIn('READ_ONLY_TOKYO_COMMON_RAIL_ROUTE_SAMPLE_OK',log)
+
+    def test_diagnostics_distinguish_normal_rejection_qualification_and_pool_exhaustion(self):
+        self.multimodal()
+        cases = [('rail_bus','PRIVATE_ORIGIN','PRIVATE_DEST',598)]*2
+        with (patch.object(probe,'structural_cases',return_value=iter(cases)),
+              patch.object(probe,'search_sample',side_effect=([],[{'relevant':False}],
+                  [{'relevant':True}],[],[])) as search,
+              contextlib.redirect_stdout(io.StringIO()) as output):
+            with self.assertRaisesRegex(RouteContractError,'no reference-qualified'):
+                probe.select_cases(self.graph,self.manager,self.repository,self.day,3000)
+        events = [json.loads(line.removeprefix('[RAIL_SAMPLE] ')) for line in output.getvalue().splitlines()]
+        complete = [row for row in events if row['phase']=='reference_preselection' and row['status']=='completed']
+        self.assertEqual([row['reason'] for row in complete],['no_candidates','category_absent','qualified','no_candidates','no_candidates'])
+        self.assertTrue(all(row['completion']=='exhausted' for row in complete))
+        self.assertEqual(events[-1]['reason'],'structural_pool_exhausted')
+        self.assertIn(['rail_only','time'],events[-1]['missing'])
+        self.assertNotIn('PRIVATE_',output.getvalue())
+        self.assertEqual(search.call_count,5)
+
+    def test_three_candidate_cap_cannot_be_changed_at_selection_or_search(self):
+        self.multimodal()
+        for limit in (1,2,4,5,True,3.0):
+            with self.subTest(limit=limit),patch.object(bus.engine,'_tokyo_label_search') as search:
+                with self.assertRaisesRegex(ValueError,'exactly 3'):
+                    probe.select_cases(self.graph,self.manager,self.repository,self.day,3000,limit)
+                with self.assertRaisesRegex(ValueError,'exactly 3'):
+                    probe.search_sample(self.graph,self.manager,self.repository,self.day,
+                        ('rail_only',rail._physical('A'),rail._physical('B'),598),'time',limit)
+                search.assert_not_called()
+
+    def test_frozen_limit_failure_is_diagnosed_without_changing_the_fixed_query(self):
+        self.multimodal()
+        plan = probe.select_cases(self.graph,self.manager,self.repository,self.day,3000,3)
+        error = bus.engine.RouteSearchLimitError('PRIVATE_COMMON_RUN',reason='queue_size',
+            diagnostics={'yielded':1,'queue':250105})
+        with (patch.object(probe,'route_sample',side_effect=error) as search,
+              patch.object(probe,'select_cases',side_effect=AssertionError('reselection')),
+              contextlib.redirect_stdout(io.StringIO()) as output):
+            with self.assertRaises(bus.engine.RouteSearchLimitError) as raised:
+                probe.compare_plan(self.graph,self.manager,self.repository,self.day,self.binding,plan,3)
+        self.assertIs(raised.exception,error)
+        search.assert_called_once()
+        kind,mode = next(iter(plan.cases))
+        self.assertEqual(search.call_args.args[4:7],(plan.cases[kind,mode],mode,3))
+        events = [json.loads(line.removeprefix('[RAIL_SAMPLE] ')) for line in output.getvalue().splitlines()]
+        self.assertEqual(events[-1]['phase'],'frozen_comparison')
+        self.assertEqual(events[-1]['reason'],'queue_size')
+        self.assertNotIn('PRIVATE_',output.getvalue())
+
+    def test_diagnostic_whitelist_does_not_copy_unknown_limit_reason_or_private_fields(self):
+        self.multimodal()
+        error = bus.engine.RouteSearchLimitError('PRIVATE_MESSAGE',reason='PRIVATE_REASON',diagnostics={
+            'queue':'PRIVATE_QUEUE','path':'PRIVATE_PATH','max_search':3,'visited':True,
+            'elapsed_sec':math.inf,'mode':'PRIVATE_MODE'})
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            probe.search_failure(self.day,'reference_preselection','rail_bus','time',7,error)
+        event = json.loads(output.getvalue().removeprefix('[RAIL_SAMPLE] '))
+        self.assertEqual(event['reason'],'search_safety_limit')
+        self.assertEqual(event['attempt'],7)
+        self.assertEqual(event['max_search'],3)
+        self.assertNotIn('queue',event)
+        self.assertNotIn('elapsed_sec',event)
+        self.assertNotIn('visited',event)
+        self.assertNotIn('PRIVATE_',output.getvalue())
 
     def test_preselection_freezes_each_mode_qualified_od_without_extra_cross_mode_requirement(self):
         self.multimodal()
@@ -249,10 +396,14 @@ class TokyoDatasetRailChoicesTest(unittest.TestCase):
         cases = [('rail_bus','origin',str(index),598) for index in range(11)]
         with (patch.object(probe,'structural_cases',return_value=iter(cases)),
               patch.object(probe,'search_sample',return_value=[{'relevant':False}]) as search,
-              patch.object(self.binding,'choices',side_effect=AssertionError('common before qualification'))):
+              patch.object(self.binding,'choices',side_effect=AssertionError('common before qualification')),
+              contextlib.redirect_stdout(io.StringIO()) as output):
             with self.assertRaisesRegex(RouteContractError,'budget exhausted'):
                 probe.select_cases(self.graph,self.manager,self.repository,self.day,3000,3,max_selection_queries=9)
             self.assertEqual(search.call_count,9)
+        events = [json.loads(line.removeprefix('[RAIL_SAMPLE] ')) for line in output.getvalue().splitlines()]
+        self.assertEqual(events[-1]['reason'],'selection_query_budget')
+        self.assertEqual(events[-1]['attempt'],10)
         for budget in (8,True,9.0):
             with self.assertRaises(ValueError):
                 probe.select_cases(self.graph,self.manager,self.repository,self.day,3000,3,max_selection_queries=budget)
@@ -420,11 +571,20 @@ class TokyoDatasetRailChoicesTest(unittest.TestCase):
             self.assertTrue(report['rail_binding_verified'])
             self.assertFalse(report['common_dataset_route_ranking_verified'])
             self.assertEqual(report['sample_selection'],'reference_ranked_preselection_then_frozen_comparison')
+            self.assertEqual(report['structural_policy'],dict(probe.STRUCTURAL_POLICY))
             self.assertTrue(all(row['matching_candidates']>0 for row in report['date_cases']))
             self.assertTrue(all(row['all_modes_reference_qualified'] for row in report['selection_reports']))
             self.assertEqual(before,{p.name:p.read_bytes() for p in root.iterdir()})
             self.assertEqual(len(report['date_cases']),9)
             self.assertEqual(len(report['date_choices']),1)
+            # Invalid cap must be rejected before any repository/input read.
+            with (patch.object(sys,'argv',args+['--max-candidates','4']),
+                  patch.object(probe,'check_repository') as check,
+                  contextlib.redirect_stderr(io.StringIO())):
+                with self.assertRaises(SystemExit) as raised:
+                    probe.main()
+                self.assertEqual(raised.exception.code,2)
+                check.assert_not_called()
             def changed(*args, **kwargs):
                 train.write_text('[]',encoding='utf-8')
                 return {}

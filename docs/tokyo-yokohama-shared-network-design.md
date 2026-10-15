@@ -673,3 +673,22 @@ bindingはrail-only・全source tripを要求し、元trip ID/列車番号/calen
 追加6回帰は、構造的には混在可能だが上位3に混在が無い実検索fixture、モード別の異なる適格OD、固定後の不一致/例外と候補上限変更の停止、旧検索の元例外伝播、選定予算不足、全日選定前のcommon比較禁止を確認する。既存15回帰と合わせ21件が成功。ローカル全API885件（native未導入6件スキップ）、Windows CIと同じ対象107件は失敗/エラー0。CIは既存の当該module入口で新回帰も実行する。実データのこの修正版ゲートは未実行であり、上記停止ログを全体合格へ読み替えない。合格済み実バス36ケース・バス下界監査は再実行していない。本番切替・デプロイ・S3・本番設定変更は行わない。
 
 修正版の実装SHA `714e7828b5c4020fc9ef576ad4d1188491be62df` のGitHub Actions run [38690619538](https://github.com/kaeruko/tobus_go/actions/runs/38690619538)で、API885件（native未導入6件スキップ）、Windows107件、Rust Python3.11/3.12各82件、Lambda image/smoke、repository safetyが成功した。終了ログとjob conclusionを確認した。記録時点のAndroid/iOS全flavor buildは完了未確認で、workflow全体成功とは扱わない。これは修正版検証器の合成回帰・イメージスモークの合格であり、ユーザーの実入力での全4日・全36比較の合格ではない。
+
+
+## 39. 列車検証器の局所OD選定と安全上限診断（2026-10-15）
+
+変更前mainは `a85175ac7f6ccfd384b520bdaf3b4195e0a281a7`。ユーザー提供のWindowsログ「貼り付けたテキスト（1）(20261015-061440).txt」は、旧providerの `select_cases → search_sample` で `time / RouteSearchLimitError / queue_size` となった記録である。visited=90,994、queue=250,105、yielded=1、max_search=3、elapsed=10.641秒。部分候補を返した後の安全上限停止であり、新旧providerの不一致ではない。この修正版の旧参照サンプル選定は全指定日分を終えておらず、共通providerの比較完了・成功marker・入力前後hash確認の完了を認定しない。
+
+第38節の「ID順で最初の構造的witness時計を使う」方式を、実検索前に全候補を生成・整列する `local_one_stop_witness_v1` に変更する。列車の隣接1区間ごとに、query開始が10:00に最も近い元発車時計を1つ選ぶ。列車1区間、必要なら既存の徒歩1辺、次の列車/バス1区間までとし、構造的到着がquery開始から30分以内、乗換徒歩が300m以内のODだけを選定対象とする。徒歩は既存の `advance_time` を用い、審査済み徒歩時間を距離から再推定しない。同便区間は旧providerのride評価で確認し、列車降車1分・バス降車0分を維持する。列車sourceの末尾より後のバス到着も構造検査できるよう、構造用choicesのsource horizonにこの30分を含めるが、実検索のdeadlineや安全上限は変更しない。
+
+候補の優先順は、目的地への短い既存徒歩アクセスの数（2辺までを優先度へ反映）、構造的所要時間、経由physical nodeの乗車/徒歩分岐数、乗換徒歩量、10:00からの差、決定的な同順位順である。目的地の徒歩アクセスは、1候補後の探索が長引くリスクを下げるための選定ヒントに限る。徒歩辺・frontier・目的地候補のgrouping・A*・cost・候補順位規則は一切変更しない。局所性や徒歩辺数だけで上位3候補の交通手段や探索完走を保証しない。この限定された候補poolで必要サンプルを選べなければ、範囲を自動拡大せず失敗する。
+
+`--max-candidates` は厳密に3だけを受理する。実検索のmax_visited=100,000、time_limit_sec=15.0、MAX_TRAVEL_MINおよびqueue/frontier上限、1日あたりの選定query予算（既定90）は維持する。3は既存探索契約の候補数上限であり、通常のqueue枯渇で候補が3未満の場合と、途中で例外になった部分結果を区別する。前者は `completion=exhausted`、3候補を正常消費した場合は `completion=candidate_limit` と明示する。後者は候補を1つ以上返していても固定・比較・成功へ進めず、診断後に元の例外objectをbare raiseし、別ODを試さない。
+
+旧providerがこの同じ上限3の検索を正常に終え、必要categoryを含むことを確認した日付×category×modeだけを固定する。正常完了したがcategoryが無い候補だけは、比較開始前の選定対象から外す。全指定日分のOD・時計・モード・上限と旧候補列を先に固定し、共通providerとは同じ入力・同じ上限で全候補列を比較する。固定後のcategory欠落・探索例外・不一致は停止し、再選定しない。
+
+通常の進捗は `[RAIL_SAMPLE]` のJSONで出す。phaseは `structural_generation` / `reference_preselection` / `frozen_comparison`。検索ごとにdate・category・mode・その日付内のattempt・開始/完了/停止・候補数・必要手段を含む候補数を出す。停止理由は既知の安全上限reason、`selection_query_budget`、`structural_pool_exhausted`、`provider_mismatch` 等で区別し、選定不能時は未充足category/modeも示す。安全上限診断からは許可した数値counterだけを抽出し、任意の例外message・未知のreason・source ID・OD・便・経路・元diagnostics全体を通常ログへコピーしない。元例外自体は保持する。成功reportにも構造policyと候補pool件数を記録する。
+
+追加8回帰は、ID順で先の長距離ODを実検索しないこと、始発でなく指定基準に近い元時計の選定、短時間/低分岐/目的地徒歩アクセスの優先、300m制約と既存徒歩時計、1候補後のqueue_size停止・generator close・元例外保持・再試行禁止、診断のcategory/mode/attempt/reasonとprivate情報非出力、通常不採用/採用/候補pool枯渇/予算枯渇の区別、固定後の同一queryと安全上限停止、候補上限変更の拒否を確認した。前回の「構造上は列車＋バスが可能だが実上位3には無い」回帰も維持する。列車module計29回帰を含め、ローカルAPI全体893件（native未導入6件スキップ）、Windows CIと同じ対象115件は失敗/エラー0。GitHub Actionsの確認結果は実装SHAに結び付けて追記する。
+
+変更ファイルは検証器、その合成回帰、本書だけ。実ODPT/GTFS/prebuiltによる修正版の全4日・全category/mode比較、候補pool生成を含む所要時間/ピークメモリは未検証である。合格済みの実バス36ケース・108候補とバス下界監査は再実行していない。列車binding・共通A*切替・本番runtime/provider・デプロイ・S3・本番設定を変更しない。
