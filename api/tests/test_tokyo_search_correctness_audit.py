@@ -407,11 +407,19 @@ class TokyoSearchCorrectnessAuditTest(unittest.TestCase):
     def test_time_limit_is_not_extended_to_pay_for_observation(self):
         graph = _walk_graph((("S", "T", 80.0),))
         query = Query(bus._phys("S"), bus._phys("T"), 600.0, 240.0)
-        limits = SearchLimits("synthetic_explicit", 100, 100, 1e-300)
-        with self.assertRaises(RouteSearchLimitError) as caught:
-            _audit(graph, (), query, limits=limits)
+        limits = SearchLimits("production_fastest", 200000, 100000, 15.0)
+        # Negative fault injection only: do not assume two real clock reads
+        # differ on every OS. Keep the real production limits, and advance
+        # the observed clock by 16s after the original search start read.
+        ticks = itertools.chain((100.0,), itertools.repeat(116.0))
+        with patch.object(forward.time, "monotonic", side_effect=lambda: next(ticks)):
+            with self.assertRaises(RouteSearchLimitError) as caught:
+                _audit(graph, (), query, limits=limits)
         self.assertEqual(caught.exception.reason, "time_limit_sec")
-        self.assertEqual(caught.exception.diagnostics["time_limit_sec"], 1e-300)
+        self.assertEqual(caught.exception.diagnostics["time_limit_sec"], 15.0)
+        self.assertEqual(caught.exception.diagnostics["elapsed_sec"], 16.0)
+        self.assertEqual(caught.exception.diagnostics["max_visited"], 200000)
+        self.assertEqual(caught.exception.diagnostics["max_expanded"], 100000)
         self.assertFalse(caught.exception.tokyo_correctness_audit["certified"])
         self.assertIsNone(sys.gettrace())
 
