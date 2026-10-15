@@ -6,6 +6,7 @@ import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platf
     as maps;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:toeigo/constants.dart';
 import 'package:toeigo/core/api_client.dart';
@@ -84,6 +85,7 @@ class _RouteDetailHarness extends StatelessWidget {
 
 void main() {
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     final previous = maps.GoogleMapsFlutterPlatform.instance;
     maps.GoogleMapsFlutterPlatform.instance = TestMaps();
     addTearDown(() => maps.GoogleMapsFlutterPlatform.instance = previous);

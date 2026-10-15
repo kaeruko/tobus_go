@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -33,7 +32,8 @@ void main() {
       expect(request.url.path, '/bus/next');
       expect(request.url.queryParameters['include_all'], 'true');
       expect(request.url.queryParameters['date'], '2026-10-15');
-      return http.Response(_fullDayResponse, 200);
+      return http.Response(_fullDayResponse, 200,
+        headers: const {'content-type': 'application/json; charset=utf-8'});
     });
     addTearDown(() => ApiClient.httpClient = previous);
 
@@ -68,7 +68,8 @@ void main() {
     var calls = 0;
     ApiClient.httpClient = MockClient((request) async {
       calls++;
-      return http.Response(_fullDayResponse, 200);
+      return http.Response(_fullDayResponse, 200,
+        headers: const {'content-type': 'application/json; charset=utf-8'});
     });
     addTearDown(() => ApiClient.httpClient = previous);
     final service = TimetableService();
@@ -90,7 +91,8 @@ void main() {
     var calls = 0;
     ApiClient.httpClient = MockClient((request) async {
       calls++;
-      return http.Response(_fullDayResponse, 200);
+      return http.Response(_fullDayResponse, 200,
+        headers: const {'content-type': 'application/json; charset=utf-8'});
     });
     addTearDown(() => ApiClient.httpClient = previous);
     final service = TimetableService();
@@ -115,7 +117,8 @@ void main() {
     var calls = 0;
     ApiClient.httpClient = MockClient((request) async {
       calls++;
-      return http.Response(_fullDayResponse, 200);
+      return http.Response(_fullDayResponse, 200,
+        headers: const {'content-type': 'application/json; charset=utf-8'});
     });
     addTearDown(() => ApiClient.httpClient = previous);
     final service = TimetableService();
@@ -145,7 +148,8 @@ void main() {
       if (fail) {
         return http.Response('{"detail":"unavailable"}', 503);
       }
-      return http.Response(_fullDayResponse, 200);
+      return http.Response(_fullDayResponse, 200,
+        headers: const {'content-type': 'application/json; charset=utf-8'});
     });
     addTearDown(() => ApiClient.httpClient = previous);
     final service = TimetableService();
@@ -177,7 +181,7 @@ void main() {
     ApiClient.httpClient = MockClient((request) async {
       calls++;
       return http.Response(_fullDayResponse.replaceAll('16:08', 'bad'),
-        200);
+        200, headers: const {'content-type': 'application/json; charset=utf-8'});
     });
     addTearDown(() => ApiClient.httpClient = previous);
     final service = TimetableService();
