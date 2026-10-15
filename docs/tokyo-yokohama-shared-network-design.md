@@ -300,8 +300,24 @@ v1にない内部徒歩を含む同順位は、乗車区間キー→徒歩回数
 
 順位profile追加後にユーザーから提供された読み取り専用ログを解析した。バス/地下鉄×福祉/敬老パス×8/12/18時台×最速/少乗換の24ケースを確認し、集計はcomparisons=24、primary_differences=0、selection_differences=0、walking_links=0だった。各ケースの便ID・route ID・乗降地点・発着時計・順序付きstop列を独立に比較し、乗車数も全件一致した。前段の同じ24ケースにあった4つの乗換地点差は、この提供ログでは解消している。PowerShellの差分検査はREAL_DATA_RANK_GATE_OKで終了した。非公開のstop/trip ID、GTFS本体、生ログはリポジトリへ保存しない。
 
-ログはPython実行以降の抜粋であり、git rev-parse HEADやfeed version/hashの出力を含まない。検証対象として指示したmainは`a60c10bdc0e932f7a2cde6b412a6e9b8e3928ab1`だが、このログだけでWindowsの実行SHAを確認済みとは扱わない。結果の一致は確認し、版を固定した再現性はSHA確認待ちとして区別する。前段で確認したデータ版を、この抜粋で再検証したとは主張しない。
+ログはPython実行以降の抜粋であり、git rev-parse HEADやfeed version/hashの出力を含まない。後続のユーザーによるpullなしのgit rev-parse HEAD出力で、Windowsの実行SHAは指示した`a60c10bdc0e932f7a2cde6b412a6e9b8e3928ab1`と確認できた。結果の一致と検証したコード版を確認した。前段で確認したデータ版/hashを、この抜粋で再検証したとは主張しない。
 
 上記mainのGitHub ActionsでAPI全件、Python 3.11/3.12 Rust SearchCore parity、3.11 Lambda image/smoke、repository safetyが成功した。確認時点ではAndroid/iOSビルドは実行中で、全workflow成功とは扱わない。
 
 今回の合格範囲は提供された同一feed・先頭候補・徒歩0件の24ケースである。公式審査済みの実徒歩、別運行日、全OD/複数候補順位、東京ODPT入力移行/Realtime、snapshot構築を含むピークRSS/応答時間は未検証。debug elapsed_secだけでエンドツーエンド性能を認定しない。Phase 2全体の完了、本番切替、デプロイは行わない。
+
+## 16. 別運行日・複数候補・速度/メモリの読み取り専用検証器
+
+変更前mainは`e7d6acb042ee3ee8e8e62193fbfaf656c99041bb`。前段のWindows実行SHAはユーザーによるpullなしのHEAD出力で`a60c10bdc0e932f7a2cde6b412a6e9b8e3928ab1`と確定した。24ケースの全区間一致を維持し、今回の変更は検証器・テスト・CI・本書だけで、製品探索コードを変更しない。
+
+`scripts/check_shared_yokohama_local.py`を追加する。既存のDownloadsの同名比較ファイルは変更/移動せず、以後はリポジトリのこの明示したpathから実行する。clean mainと完全なexpected SHAを確認し、取得・stash/reset/pull・GTFS/coverage/manifest書換え・ファイル出力を行わない。bytecode生成も止める。入力のGTFS txt一式とmanifest、選択したbus coverageのSHA-256を実行前後/子プロセス間で比較する。version・コードSHA・Python版・条件・測定値をstdoutへ出す。成功時の出力は具体stop/trip IDや元便の行を含まず、差分時はローカルの診断として選択区間を含む例外で停止する。非公開入力/出力をGitHubへ追加しない。
+
+manifestのvalidated_service_dateは`--manifest-date`で明示し、query dateを別に指定する。元loaderの版/審査/manifest検査を維持して入力を一度読み、各query dateがeditionのvalid期間・元feed_infoの提供された期間内であることを確認する。カレンダー/運行日例外からその日の承認対象便だけでODを決定する。指定hourに承認便がない場合は、別のhour/date/coverageへ変更せず診断付きで停止する。v1との比較は承認対象便のminute-aligned時計に限り、秒端数を丸めて比較しない。新探索の秒対応を削減する制約ではなく、この旧v1比較器の適用範囲である。
+
+v1 Python、共通の先頭候補のみ、共通の最大K候補を3つの独立したOSプロセスで実行する。同じ入力・case・乗車上限6・両パス・time/fewTransfers-arrivalで、先頭の全選択区間を比較する。追加候補はactiveな元tripの具体sequence/発着時計/停車列、乗降制約、承認scope、接続時刻、候補の目的値/区間キー順、重複なし、repeatの全候補順一致を確認する。元のpass別0円再検査は接続層に残る。徒歩リンクは明示的に0で、実徒歩のゲートを合格にはしない。v1は先頭だけを返すので、K件の網羅性・v1相当のtop-K一致は未検証と明示する。K件未満も候補数を記録し、複数候補が得られたqueryの件数を集計する。
+
+計測は、読み込み、case作成、index/snapshot構築、各queryのrepeat別秒数、子プロセス全体のwall timeを区別する。query秒数は新探索の時刻表prepare・探索・選択イベント/無料検査を含み、検証器による区間再検査を除く。全体wallにはPython起動/import・読み込み/検査・hash・構築・全query・JSONの処理も含む。Windowsは明示した`windows-psapi`でGetProcessMemoryInfoのWorkingSetSize/PeakWorkingSetSize、Linuxは明示した`linux-proc`でVmRSS/VmHWMをbytesへ変換する。OS/API不一致やAPI失敗は別providerへ切り替えない。現在RSSとプロセス寿命全体の高水位を区別し、stage前後のピーク差をstage自身の使用量とは解釈しない。OSのworking set指標をPython allocatorやLambda課金メモリと同一視しない。sharedのsnapshotはパスごとに構築し参照を解放するが、GCやallocatorの残存もプロセス全体の測定に含む。v1 Pythonとの比較であり、Rust v1の性能比較ではない。
+
+合成10テストは元calendarの除外日、hour欠落、秒端数拒否、先頭差分/hash差分、元例外stderr/return code保持、誤SHAで子プロセス開始前に停止、元入力非変更、追加候補の順位/再現性、実子プロセス3種類のJSON protocolを確認した。共通/v1/source関連108件は102件成功・Nativeの6件スキップ。既存API CIに加えWindows Python 3.12のjobを追加し、WindowsメモリAPIと合成子プロセス比較を実行する。実GTFSはCIへ入れない。
+
+次のWindows実データ計画は、manifest stamp2026-09-04、query2026-09-04/05/06（平日/土曜/日曜）、8/12/18時台、両feed/両パス/両目的、repeat3、最大候補3。各worker72ケースで、先頭比較72件を予定するが、元データでその日時に承認便があることは実行まで未確認。測定結果と追加候補件数を解析してから性能/順位のゲートを評価する。閾値を未設定のまま速度合格やK件網羅性を宣言しない。東京ODPT/Realtime/prebuilt、実徒歩、全ODは残り、Phase 2完了や本番切替/デプロイを行わない。

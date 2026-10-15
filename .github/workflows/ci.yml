@@ -252,6 +252,32 @@ jobs:
       - name: Run API unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
 
+  windows-shared-probe:
+    name: Windows shared-network probe
+    runs-on: windows-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: api/requirements.txt
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Verify Windows memory API and separate-process synthetic comparison
+        env:
+          PYTHONPATH: tests
+        run: python -m unittest tests.test_shared_yokohama_local_check -v
+
   rust-search-core:
     name: Rust SearchCore (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
