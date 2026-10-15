@@ -430,3 +430,19 @@ ordered clockの合成7回帰は秒/深夜/dwell/反復駅、最初の深夜便�
 追加で東京/横浜のtest moduleをunittest discoverし397件が成功した。比較用metadata.versionは3原JSONの名前付きhash辞書から作るbundle digestで固定し、fetched_atはlocal読込時の観測時刻で、公式取得時刻や運行版の認定ではない。
 
 次の実データは同じ列車JSON/prebuiltに`api/data/odpt_Station.json`と`api/data/odpt_Railway.json`を加え、再取得/修復せず実行する。この共通adapter/具体便比較の実測はまだ未実施。成功しても公式calendar/サービス期間/祝日例外、東京本番graphと候補順位/快適さ/徒歩/Realtime、compiled GTFSを含むLambda起動/メモリ、Phase 2全体の完了を自動認定しない。本番切替・デプロイを行わない。
+
+## 23. 東京共通入力の実データ一致と実日付比較ゲート
+
+ユーザーのWindows Python3.12.10、main `60fbcc62c0b9f9a64a1baf6606870b85b68f666a`で共通入力比較がREAD_ONLY_TOKYO_RAIL_INPUT_OKで完了した。列車5,600便/116,658区間とcalendar/反復駅/深夜補正の件数を維持し、原JSON→共通ordered_run adapter/networkの全区間multisetが一致した。DatasetTimetableChoicesは平日57,804、土曜50,418、休日49,850区間で差分0。旧選択器/prebuiltの各profileとも一致し、shared_adapter_verified=trueだった。列車JSON/prebuiltの2hashは前段のユーザーログとも一致し、指定4ファイルの実行前後hashとclean main/SHA検査も通過した。徒歩0件、比較用日2000-01-01の旧profile投影であり、operational_calendar/route_ranking/realtime/lambda_startup_verifiedはfalseのまま。raw JSON/pickle/hash値/生ログを保存しない。
+
+次の変更前mainは同じ`60fbcc62`。製品コードを変更せず、検証器へ反復可能な`--query-date YYYY-MM-DD`を追加する。shared-railと両原JSONの明示が必須で、日付はzero-paddedの実date、重複無しを要求する。既定の日付は採用せず、指定なしは前段のprofile比較だけを行う。
+
+コード上、既存determine_day_typeは不正/未指定入力を今日へ置き換え、jpholidayのImportError時は祝日なしで継続する。検証器では日付を事前に厳密parseしてdate型で渡し、指定実日付がある場合はjpholidayとそのinstalled distribution versionを必須にする。依存不足は元例外で停止し、別の祝日判定やweekday-onlyへ切り替えない。返却profile/保持service_dateと明示入力の整合性も検査する。現行runtimeの日付処理を今回変更したとは扱わない。
+
+原JSONローダーの旧具体便、任意prebuiltの旧具体便、共通DatasetTimetableChoicesについて、指定各dateの全選択区間を比較する。対応calendarは実入力で確認したWeekday/Saturday/Holiday/SaturdayHolidayの4IDに限り、未知IDから意味を推定しない。共通側は選択した旧date profileだけを指定実日に明示exceptionで有効化し、全曜日falseの比較用calendarの範囲をその日だけへ設定する。immutableな比較用Dataset/calendar/exceptionを新しく構成し、検証済みsource clock/graph索引を再利用する。実日付のstate.service_dateも一致を要求する。clockは前段の秒/Fraction時計のままで、運行dateを変えて元便のclockを丸めたり異なるfeedへ切り替えたりしない。
+
+date_choices/prebuilt_date_choices/shared_date_choicesへ各date/profile/区間数/差分を出し、成功時はlegacy_date_policy_verified=trueとholiday_dependency_versionを記録する。これは現行東京のdate/祝日policyと共通側の明示exception・service_dateの互換性検証であり、元時刻表の公式有効期間や独自臨時運行の確認ではない。operational_calendar_verified=falseを維持する。前段のprofile用projection_day=2000-01-01と、今回の実query dateを区別する。
+
+追加3合成回帰は通常平日/土曜/日曜/祝日の旧・prebuilt・共通の区間一致とprebuilt非変更、dateの不正/重複/依存欠落/旧policy矛盾、未知calendar拒否を確認した。新検証器・横浜probe・GTFS streaming・ordered clock・東京migration/Lambda startup関連48件、dataset/networkを含む選択83件がローカルで成功した。Windows CIは既に検証器moduleを含むため同じ追加回帰を実行する。今回の変更対象は検証器・回帰テスト・本書である。
+
+実データでの次の指定日は2026-09-04/05/06と2026-09-21。前段と同じ4ファイルを更新/再取得せず使い、通常weekday/saturday/holidayと既存libraryの祝日profileを比較する。実日付比較はまだ未実施で、公式運行版/有効期間/例外、本番graph/候補順位/快適さ/徒歩/Realtime、compiled GTFS/Lambda実起動・性能は残る。Phase 2全体完了・本番切替・デプロイを宣言しない。

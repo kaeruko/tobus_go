@@ -91,6 +91,48 @@ class TokyoOdptLocalCheckTest(unittest.TestCase):
                         probe.main()
                     guard.assert_not_called()
 
+    def test_explicit_dates_include_weekday_saturday_sunday_and_public_holiday(self):
+        self.write([entry(), entry('sat', 'odpt.Calendar:Saturday'),
+                    entry('hol', 'odpt.Calendar:Holiday'), entry('both', 'odpt.Calendar:SaturdayHoliday')])
+        stations, railways = self.shared_files()
+        manager = TimetableManager()
+        with contextlib.redirect_stdout(io.StringIO()):
+            manager.load_train_timetables(str(self.path))
+        prebuilt = Path(self.tmp.name) / 'dated.pkl'
+        prebuilt.write_bytes(pickle.dumps({'TM': manager}))
+        before = prebuilt.read_bytes()
+        result = probe.inspect(self.path, prebuilt, stations_path=stations, railways_path=railways,
+                               query_dates=('2026-09-04', '2026-09-05', '2026-09-06', '2026-01-01'))
+        self.assertTrue(result['legacy_date_policy_verified'])
+        self.assertFalse(result['operational_calendar_verified'])
+        self.assertEqual(result['date_choices'], result['shared_date_choices'])
+        self.assertEqual(result['prebuilt_date_choices'], result['shared_date_choices'])
+        self.assertEqual(prebuilt.read_bytes(), before)
+        self.assertEqual([r['profile'] for r in result['shared_date_choices']],
+                         ['weekday', 'saturday', 'holiday', 'holiday'])
+        self.assertEqual([r['intervals'] for r in result['shared_date_choices']], [2, 4, 4, 4])
+        self.assertIsInstance(result['holiday_dependency_version'], str)
+
+    def test_date_scope_invalid_duplicate_missing_dependency_and_policy_mismatch_fail(self):
+        for values in (('2026-9-4',), ('invalid',), ('2026-09-04', '2026-09-04')):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                probe.resolve_probe_dates(values)
+        with patch.dict(sys.modules, {'jpholiday': None}):
+            with self.assertRaises(ModuleNotFoundError):
+                probe.resolve_probe_dates(('2026-09-04',))
+        with patch.object(probe, 'determine_day_type', return_value='holiday'):
+            with self.assertRaisesRegex(AssertionError, 'date policy disagrees'):
+                probe.resolve_probe_dates(('2026-09-04',))
+        with self.assertRaisesRegex(ValueError, 'shared rail inputs'):
+            probe.inspect(self.path, query_dates=('2026-09-04',))
+
+    def test_unknown_calendar_not_inferred_for_real_date_comparison(self):
+        self.write([entry(calendar='odpt.Calendar:Unknown')])
+        stations, railways = self.shared_files()
+        with self.assertRaisesRegex(ValueError, 'unsupported calendar'):
+            probe.inspect(self.path, stations_path=stations, railways_path=railways,
+                          query_dates=('2026-09-04',))
+
     def test_midnight_circular_and_separate_calendars_preserve_occurrences(self):
         self.write([entry(), entry("sat", "odpt.Calendar:Saturday"),
                     entry("hol", "odpt.Calendar:Holiday"),

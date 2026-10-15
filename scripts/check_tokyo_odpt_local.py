@@ -12,19 +12,21 @@ from dataclasses import replace
 from datetime import date, datetime, timezone
 import hashlib
 import io
+from importlib.metadata import version
 import json
 from pathlib import Path
 import pickle
 import re
 import subprocess
 import sys
+from types import MappingProxyType
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "api"))
 
 import networkx as nx
-from toei_engine import TimetableManager
+from toei_engine import TimetableManager, determine_day_type
 from tokyo_timetable_choices import TimetableChoices, _calendar_matches, _railway_id
 from transit_adapters.odpt import OdptCalendarRule, OdptTransitAdapter
 from transit_dataset import FeedMetadata, ServiceException, service_time_to_second
@@ -197,7 +199,28 @@ def choices_intervals(manager, expected, day):
     return {"profile": day, "intervals": len(result), "differences": 0}
 
 
-def shared_intervals(train_path, stations_path, railways_path, expected):
+def resolve_probe_dates(values):
+    days = tuple(date.fromisoformat(value) for value in values)
+    if any(day.isoformat() != value for day, value in zip(days, values)) or len(set(days)) != len(days):
+        raise ValueError('query dates require unique zero-padded YYYY-MM-DD')
+    if not days:
+        return (), None
+    # Require this dependency before calling legacy code, whose ImportError
+    # branch would otherwise quietly disable public-holiday classification.
+    import jpholiday
+    dependency_version = version('jpholiday')
+    result = []
+    for day in days:
+        profile = determine_day_type(day)
+        expected = ('holiday' if day.weekday() == 6 or jpholiday.is_holiday(day)
+                    else 'saturday' if day.weekday() == 5 else 'weekday')
+        if str(profile) != expected or profile.service_date != day:
+            raise AssertionError(f'legacy date policy disagrees with explicit date/holiday dependency: {day}')
+        result.append((day, profile))
+    return tuple(result), dependency_version
+
+
+def shared_intervals(train_path, stations_path, railways_path, expected, date_profiles=()):
     """Project legacy day profiles onto a fixture day, NOT an official calendar.
 
     Each enabled source calendar gets an explicit exception on that fixture
@@ -227,21 +250,24 @@ def shared_intervals(train_path, stations_path, railways_path, expected):
                 current.departure_minute, following.arrival_minute, trip.train_number))
     compare_intervals(expected, source_rows, 'shared adapter/ordered-run intervals')
     deadline = max(r[6] for r in source_rows)
-    profiles = []
-    for day in ('weekday', 'saturday', 'holiday'):
+    def evaluate(day, service_date):
         enabled = {r[0] for r in expected if ('Weekday' in r[0]) == (day == 'weekday')
                    and _calendar_matches(r[0], day)}
         # Keep the validated graph/clock indexes; replace only the explicitly
         # projected test-day exceptions used by prepare(). No live input mutates.
-        projected = replace(snapshot.datasets[0], service_exceptions=tuple(
-            ServiceException(key, projection_day, 1) for key, calendar in dataset.calendars.items()
+        projected = replace(snapshot.datasets[0], calendars=MappingProxyType({
+            key: replace(calendar, start_date=service_date, end_date=service_date)
+            for key, calendar in dataset.calendars.items()}), service_exceptions=tuple(
+            ServiceException(key, service_date, 1) for key, calendar in dataset.calendars.items()
             if calendar.source_id in enabled))
         choices = DatasetTimetableChoices(replace(snapshot, datasets=(projected,)),
-            service_date=projection_day, deadline=deadline)
+            service_date=service_date, deadline=deadline)
         choices.prepare(lambda: None)
         result = []
         for u, v in snapshot.departures:
             for dep, state in choices.board_options(u, v, 0):
+                if state.service_date != service_date:
+                    raise AssertionError('shared state lost its explicit service date')
                 trip = snapshot.trips[state.trip_id]
                 calendar = dataset.calendars[trip.service_id].source_id
                 following = line_node(state.pattern, state.position + 1)
@@ -252,16 +278,28 @@ def shared_intervals(train_path, stations_path, railways_path, expected):
                         snapshot.stops[rows[continued.position].stop_id].source_id,
                         dep, arr, trip.train_number))
         compare_intervals([r for r in expected if r[0] in enabled], result, f'shared choices/{day}')
-        profiles.append({'profile': day, 'intervals': len(result), 'differences': 0})
+        return {'profile': str(day), 'intervals': len(result), 'differences': 0}
+    profiles = [evaluate(day, projection_day) for day in ('weekday', 'saturday', 'holiday')]
+    date_results = []
+    if date_profiles:
+        known = {'odpt.Calendar:' + name for name in ('Weekday', 'Saturday', 'Holiday', 'SaturdayHoliday')}
+        unknown = set(rules) - known
+        if unknown:
+            raise ValueError(f'unsupported calendar in explicit legacy-date comparison: {sorted(unknown)}')
+        date_results = [{'date': day.isoformat(), **evaluate(profile, day)} for day, profile in date_profiles]
     return {'shared_adapter_verified': True, 'shared_choices': profiles,
             'shared_clock_convention': 'ordered_run',
             'calendar_projection': 'legacy_day_profile_test_only',
-            'projection_day': projection_day.isoformat(), 'walking_links': 0}
+            'projection_day': projection_day.isoformat(), 'walking_links': 0,
+            'shared_date_choices': date_results}
 
 
-def inspect(train_path, prebuilt_path=None, *, stations_path=None, railways_path=None):
+def inspect(train_path, prebuilt_path=None, *, stations_path=None, railways_path=None, query_dates=()):
     if (stations_path is None) != (railways_path is None):
         raise ValueError('shared rail comparison requires both stations and railways')
+    if query_dates and stations_path is None:
+        raise ValueError('query dates require explicit shared rail inputs')
+    date_profiles, holiday_version = resolve_probe_dates(query_dates)
     expected, summary = source_intervals(records(train_path))
     manager = TimetableManager()
     with contextlib.redirect_stdout(io.StringIO()):
@@ -269,6 +307,8 @@ def inspect(train_path, prebuilt_path=None, *, stations_path=None, railways_path
     compare_intervals(expected, manager_intervals(manager), "raw loader")
     summary["choices"] = [choices_intervals(manager, expected, day)
                           for day in ("weekday", "saturday", "holiday")]
+    summary['date_choices'] = [{'date': day.isoformat(), **choices_intervals(manager, expected, profile)}
+                               for day, profile in date_profiles]
     summary["prebuilt_verified"] = False
     if prebuilt_path is not None:
         with prebuilt_path.open("rb") as stream:
@@ -279,10 +319,16 @@ def inspect(train_path, prebuilt_path=None, *, stations_path=None, railways_path
         summary["prebuilt_choices"] = [choices_intervals(data["TM"], expected, day)
                                       for day in ("weekday", "saturday", "holiday")]
         summary["prebuilt_verified"] = True
+        summary['prebuilt_date_choices'] = [{'date': day.isoformat(), **choices_intervals(data['TM'], expected, profile)}
+                                           for day, profile in date_profiles]
     summary.update(shared_adapter_verified=False, operational_calendar_verified=False,
                    route_ranking_verified=False, realtime_verified=False, lambda_startup_verified=False)
     if stations_path is not None:
-        summary.update(shared_intervals(train_path.resolve(), stations_path, railways_path, expected))
+        summary.update(shared_intervals(train_path.resolve(), stations_path, railways_path, expected, date_profiles))
+        if summary['date_choices'] != summary['shared_date_choices']:
+            raise AssertionError('legacy/shared date-scoped interval comparison differs')
+    summary['legacy_date_policy_verified'] = bool(date_profiles)
+    summary['holiday_dependency_version'] = holiday_version
     return summary
 
 
@@ -305,8 +351,11 @@ def main():
     parser.add_argument("--shared-rail", action="store_true")
     parser.add_argument("--stations", type=Path)
     parser.add_argument("--railways", type=Path)
+    parser.add_argument('--query-date', action='append', default=[])
     parser.add_argument("--expected-sha", required=True)
     args = parser.parse_args()
+    if args.query_date and not args.shared_rail:
+        raise ValueError('--query-date requires --shared-rail')
     if (args.shared_rail and (args.stations is None or args.railways is None)
             or not args.shared_rail and (args.stations is not None or args.railways is not None)):
         raise ValueError('--shared-rail requires explicit --stations and --railways together')
@@ -318,7 +367,8 @@ def main():
         paths.update(stations=args.stations.resolve(), railways=args.railways.resolve())
     before = {k: sha256(p) for k, p in paths.items()}
     summary = inspect(paths["train_timetables"], paths.get("trusted_prebuilt"),
-                      stations_path=paths.get('stations'), railways_path=paths.get('railways'))
+                      stations_path=paths.get('stations'), railways_path=paths.get('railways'),
+                      query_dates=args.query_date)
     if before != {k: sha256(p) for k, p in paths.items()}:
         raise AssertionError("input files changed during verification")
     check_repository(args.expected_sha)
