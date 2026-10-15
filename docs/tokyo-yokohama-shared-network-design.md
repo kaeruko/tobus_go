@@ -654,3 +654,5 @@ bindingはrail-only・全source tripを要求し、元trip ID/列車番号/calen
 実ODPT/GTFS/prebuiltを用いたこの新rail graph/候補比較は未実施。binding/snapshot/graph queryを含む実データ性能・ピークRSS、共通bus+rail合成、共通A*の投影/全node/guard付き優先度、Realtime、実compiled artifact/Lambda起動、公式calendar、横浜統合、真のtop-kは未検証。本番切替・デプロイ・S3・本番設定変更は行わない。
 
 初回実装コミット`9665c3e33c28d1e21a3353f805f3a8492751116c`のGitHub Actions run [38685842512](https://github.com/kaeruko/tobus_go/actions/runs/38685842512)でAPI878件（6件スキップ）、Windows100件、Rust Python3.11/3.12各82件、Lambda image/smoke、repository safetyが成功した。後続の期限内投影・single-use準備の追加回帰は、この初回CIの結果に含めず、新しい実装SHAのCIで別途確認する。
+
+最終実装SHA `78c8f4223c67d6a49b69568d89830cdeb94b826f` のGitHub Actions run [38686168216](https://github.com/kaeruko/tobus_go/actions/runs/38686168216)でも、**API879件（native未導入6件スキップ）、Windows101件、Rust Python3.11/3.12各82件、Lambda image/smoke、repository safetyが成功**した。API/Windows/Rustの終了ログとjob conclusionを確認した。期限内calendar投影・single-use準備の追加回帰もこの実装SHAに含む。記録時点でAndroid/iOS全flavor buildは完了未確認であり、全workflow成功とは記載しない。これらのCI成功は合成テスト/イメージスモークの範囲で、実入力の新rail graph比較・実artifact/Lambda起動・性能を認定しない。
