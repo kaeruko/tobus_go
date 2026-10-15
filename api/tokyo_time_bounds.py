@@ -245,7 +245,8 @@ class TimeBounds:
 
 def make_time_bounds(graph, choices, target, virtual_connections, *,
                      edge_uses_rail, walk_speed=80.0, rail_boarding_minutes=2.0,
-                     check_deadline=lambda: None, start=None):
+                     check_deadline=lambda: None, start=None,
+                     projection_edge_observer=None, projection_seed_observer=None):
     """Build node-only bounds against the same query-local timetable snapshot.
 
     For concrete rides, a label cannot leave after the selected run's departure.
@@ -363,6 +364,8 @@ def make_time_bounds(graph, choices, target, virtual_connections, *,
     for u, v, edge in graph.edges(data=True):
         checkpoint()
         if edge_uses_rail(u, v):
+            if projection_edge_observer is not None:
+                projection_edge_observer(u, v, None)
             excluded_edges += 1
             continue
         kind = edge.get("etype")
@@ -402,6 +405,8 @@ def make_time_bounds(graph, choices, target, virtual_connections, *,
                 zero_duration_ride_edges += 1
         if not math.isfinite(minutes) or minutes < 0:
             raise ValueError("elapsed edge minutes must be finite and nonnegative")
+        if projection_edge_observer is not None:
+            projection_edge_observer(u, v, minutes)
         reverse[v].append((u, minutes))
         included_edges += 1
         maximum_edge_minutes = max(maximum_edge_minutes, minutes)
@@ -424,6 +429,8 @@ def make_time_bounds(graph, choices, target, virtual_connections, *,
             queue_peak = max(queue_peak, len(queue))
 
     if target in graph:
+        if projection_seed_observer is not None:
+            projection_seed_observer(target, 0.0)
         seed(target, 0.0)
         seeded.add(target)
     for node, (cost, meters) in (virtual_connections or {}).items():
@@ -437,6 +444,8 @@ def make_time_bounds(graph, choices, target, virtual_connections, *,
         if not math.isfinite(minutes):
             raise ValueError("virtual walking minutes must be finite")
         maximum_edge_minutes = max(maximum_edge_minutes, minutes)
+        if projection_seed_observer is not None:
+            projection_seed_observer(node, minutes)
         seed(node, minutes)
         seeded.add(node)
     check_deadline()
