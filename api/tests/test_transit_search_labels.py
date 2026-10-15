@@ -96,6 +96,28 @@ def _search(mode, **overrides):
 
 
 class TransitSearchLabelsTest(unittest.TestCase):
+    def test_virtual_walk_can_produce_another_certified_time_goal_bucket(self):
+        graph = nx.DiGraph()
+        graph.add_edge('start', 'target', etype='access', minutes=1, w=0)
+        graph.add_edge('start', 'via', etype='access', minutes=1, w=0)
+        def bounds(check_deadline, deadline):
+            check_deadline()
+            return _ZeroBound('time'), lambda cost, remaining: cost, lambda clock, remaining: clock
+        with contextlib.redirect_stdout(io.StringIO()):
+            result = list(shared.search_labels(graph, SimpleNamespace(can_wait_offboard=True),
+                'start', 'target', mode='time', start_minute=0, max_search=3,
+                max_visited=100, max_travel_min=10, time_limit_sec=15,
+                max_total_walk=100, max_segment_walk=100, walk_speed=80,
+                rail_boarding_minutes=0,
+                advance_time=lambda u, v, clock, edge: clock + edge['minutes'],
+                virtual_connections={'via': (1, 25)}, edge_uses_rail=lambda u, v: False,
+                prepare_bounds=bounds, path_signature=tuple, path_factory=shared.SelectedPath,
+                compact_queue=shared._compact_queue, ride_options=lambda *args: (),
+                alight_minutes=lambda ride: 0, walk_meters=lambda edge: edge['meters'],
+                arrival_tie_key=lambda label: ()))
+        self.assertEqual([r['path'].arrival_minute for r in result], [1, 1.3125])
+        self.assertEqual([r['walk_m'] for r in result], [0, 25])
+
     def test_circular_run_and_exact_clocks_in_all_objectives_without_tokyo_manager(self):
         for mode in ("cost", "time", "fewTransfers"):
             with self.subTest(mode=mode):

@@ -12,6 +12,7 @@ import heapq
 import itertools
 import time
 from collections import defaultdict
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from route_engine import RouteContractError, RouteSearchLimitError
@@ -300,6 +301,24 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
     # propagate without selecting another bound, provider or backend.
     bounds, cost_bound, arrival_bound = prepare_bounds(check_deadline, deadline)
 
+    # With no walking edge or virtual walk, every completed time label has
+    # segment_walk=0 and the SAME frontier goal key. After its primary wave
+    # is certified, all future goals are dominated by that representative.
+    # max_search is an upper bound, not a request to exhaust a dominated tail.
+    # Do not apply this shortcut to Tokyo's default cost ties, other objectives
+    # or a graph that could create another walking-resource goal bucket.
+    single_time_goal = False
+    if (mode == 'time' and arrival_tie_key is not None
+            and isinstance(virtual_connections, Mapping) and not virtual_connections):
+        single_time_goal = True
+        for index, (_, _, edge) in enumerate(graph.edges(data=True)):
+            if index % 256 == 0:
+                check_deadline()
+            if edge.get('etype') == 'walk':
+                single_time_goal = False
+                break
+        check_deadline()
+
     offer(_Label(start, 0.0, start_minute, 0.0, 0.0, 0))
     pending_goals = []
     pending_objective = None
@@ -326,6 +345,9 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
             yield from emit_pending()
             pending_goals.clear()
             pending_objective = None
+            if single_time_goal and yielded > 0:
+                stats('goal_groups_complete')
+                return
             if mode != 'fewTransfers' and yielded >= max_search:
                 return
         if popped >= next_compaction_pop:

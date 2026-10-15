@@ -261,6 +261,9 @@ def run_cases(coverages, config, engine, memory):
                 durations, expected, count = [], None, 0
                 before = memory.sample()
                 for repeat in range(config["repeats"]):
+                    print(json.dumps({"probe_query": {"engine": engine, "policy": policy,
+                        "feed": feed, "date": day.isoformat(), "hour": hour, "mode": mode,
+                        "repeat": repeat + 1}}), file=sys.stderr, flush=True)
                     start = time.perf_counter()
                     if engine == "v1":
                         itinerary = cores[feed].search(BatchSearchRequest(day, departure,
@@ -350,6 +353,15 @@ def run_worker(config, engine):
     return output
 
 
+def emit_report(result):
+    # Completed measurements remain available if a subsequent worker fails.
+    # Only the final marker certifies the entire matrix, including source/SHA.
+    print(json.dumps({k: v for k, v in result.items() if k != "results"}), flush=True)
+    for row in result["results"]:
+        print(json.dumps({"engine": result["engine"],
+                          **{k: v for k, v in row.items() if k != "candidates"}}), flush=True)
+
+
 def main():
     if sys.argv[1:2] == ["--worker"]:
         if len(sys.argv) != 3:
@@ -393,18 +405,17 @@ def main():
     # Head-only performance and multiple-candidate validation are distinct
     # workloads, each with its own OS process-lifetime peak.
     old = run_worker(config, "v1")
+    emit_report(old)
     head = run_worker(config, "shared_head")
     compare_workers(old, head)
+    emit_report(head)
     new = run_worker(config, "shared")
     summary = compare_workers(old, new)
     if fingerprints(config) != new["input_hashes"]:
         raise AssertionError("source files changed after worker comparisons")
     if git("rev-parse", "HEAD") != actual or git("status", "--porcelain"):
         raise AssertionError("repository changed during comparison")
-    for result in (old, head, new):
-        print(json.dumps({k: v for k, v in result.items() if k != "results"}))
-        for row in result["results"]:
-            print(json.dumps({"engine": result["engine"], **{k: v for k, v in row.items() if k != "candidates"}}))
+    emit_report(new)
     print(json.dumps(summary))
     print("READ_ONLY_SHARED_MATRIX_OK")
 

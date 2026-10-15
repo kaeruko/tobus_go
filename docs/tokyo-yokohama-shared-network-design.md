@@ -321,3 +321,17 @@ v1 Python、共通の先頭候補のみ、共通の最大K候補を3つの独立
 合成10テストは元calendarの除外日、hour欠落、秒端数拒否、先頭差分/hash差分、元例外stderr/return code保持、誤SHAで子プロセス開始前に停止、元入力非変更、追加候補の順位/再現性、実子プロセス3種類のJSON protocolを確認した。共通/v1/source関連108件は102件成功・Nativeの6件スキップ。既存API CIに加えWindows Python 3.12のjobを追加し、WindowsメモリAPIと合成子プロセス比較を実行する。実GTFSはCIへ入れない。
 
 次のWindows実データ計画は、manifest stamp2026-09-04、query2026-09-04/05/06（平日/土曜/日曜）、8/12/18時台、両feed/両パス/両目的、repeat3、最大候補3。各worker72ケースで、先頭比較72件を予定するが、元データでその日時に承認便があることは実行まで未確認。測定結果と追加候補件数を解析してから性能/順位のゲートを評価する。閾値を未設定のまま速度合格やK件網羅性を宣言しない。東京ODPT/Realtime/prebuilt、実徒歩、全ODは残り、Phase 2完了や本番切替/デプロイを行わない。
+
+## 17. 実データmatrixの停止 — 確定済み最速goal後の不要な展開
+
+変更前mainは`93a5a4aae644f118b69a0d0dfc45ea7ed0bef492`。提供されたWindowsログに同じSHA、Python3.12.10、3日/3時台、repeat3、max_candidates3、windows-psapiが記録されている。最後はshared workerのtimeでmax_visitedに到達し、visited100,001、yielded1、queue2,749、frontier_labels102,750、elapsed2.203秒、max_search3で停止した。元RouteSearchLimitErrorとCalledProcessErrorを保持して終了し、成功markerや最終集計は出ていない。matrix全体の成功や実データ性能合格とは扱わない。mainの制御フローではv1/shared_head比較を通過後にこのworkerへ進んでいるが、それらの計測行も後段停止で表示されなかったため、性能値をこのログから集計できない。生ログや非公開便IDは保存しない。
+
+コード上の原因は、time goalの既存groupが最後のsegment_walkの25m区間であること。徒歩edgeと仮想徒歩connectionがともに無いgraphでは、どの完了goalもsegment_walk=0で同じgroupに入る。v1_pathの同目的値waveを消化して完成順位を確定した後は、未来のgoalがこの代表を改善できず、他のgroupも作れない。それでもmax_searchの件数まで達しようとして、後続の循環便/乗換labelを全展開していた。探索を制限無しで完了した場合も、そのgroupの代表1件だけが残る現在の候補選択規則である。
+
+共通label coreに、time/v1_path、空のvirtual connection mapping、walk edge無しを確認した場合のgroup完了判定を追加する。graph確認は元deadlineへ計上し、同目的値waveの確定後だけ終了する。max_candidates3、max_visited100,000、15秒、運行日、入力版、scope、時計、無料/徒歩審査を変更しない。候補件数の上限に満たなくても、既存groupの全代表を確定できた場合はそれらを返す。未確定時のlimit例外を捕捉して結果へ変換しない。これはgoal frontierの同じ選択結果を保つ終了条件で、真の最速top-K列挙の実装ではない。
+
+Tokyoの既定cost tie、fewTransfers/cost、fewTransfers/arrival、歩行edgeまたは仮想connectionがあるtimeにはこの終了条件を適用しない。徒歩で異なるgoal groupが生まれる場合の候補を維持する。Python/Rust v1を変更しない。元の同時計順位、秒時計、具体便区間、boarding capの比較規則も変更しない。
+
+追加3回帰は、先頭を確定できるが後続の循環で上限を超える合成graphを使い、max_candidates1/3の同じ代表を上限20以内で返すこと、既定cost tieの元のlimit例外、実walkの別group、仮想walkの別groupを検証する。既存の所要0区間の順位確定前limit例外も通過した。検証器は完了したworkerの計測を順にstdoutへ出し、後続失敗時も既存計測と元例外を保持する。queryごとのengine/pass/feed/day/hour/mode/repeatをstderrの診断へ出し、候補区間のprivate IDを通常の集計に含めない。追加1テストで後段worker失敗時の部分report保持と成功marker非出力を確認した。
+
+ローカル共通/v1/source関連112件は106件成功・Nativeの6件スキップ、network52件・検証器11件が成功。東京220件、横浜/v1関連118件も成功した。新mainのWindows/API/Native/Lambda CIと、同じ条件の実データ再実行で評価する。72ケース全体、実メモリ/速度、fewTransfersの追加候補、真のtime top-K、東京ODPT入力移行/Realtime/prebuilt、実徒歩は未完了。本番切替・デプロイを行わない。

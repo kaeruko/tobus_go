@@ -171,6 +171,35 @@ class TransitNetworkTest(unittest.TestCase):
         self.assertEqual(results[0], results[1])
         self.assertEqual([(j.rides, j.arrival_minute) for j in results[0]], [(1, 50), (2, 30)])
 
+    def test_certified_single_time_goal_does_not_exhaust_dominated_circular_tail(self):
+        source = dataset('bus', {
+            'winner': [('o', 10, 10), ('d', 11, 11)],
+            'tail': [('o', 10, 10)] + [('x' if t % 2 else 'y', t, t) for t in range(12, 200)],
+        })
+        snapshot = network(source)
+        parameters = dict(departure=10, arrival_tiebreak='v1_path', max_visited=20)
+        one = query(snapshot, 'bus:o', 'bus:d', max_candidates=1, **parameters)
+        three = query(snapshot, 'bus:o', 'bus:d', max_candidates=3, **parameters)
+        self.assertEqual(three, one)
+        self.assertEqual(len(three), 1)
+        self.assertEqual(three[0].events[0].trip_id, 'bus:winner')
+        # Default cost-profile behavior remains unchanged, including limits.
+        with self.assertRaises(RouteSearchLimitError) as raised:
+            query(snapshot, 'bus:o', 'bus:d', departure=10, max_candidates=3, max_visited=20)
+        self.assertEqual(raised.exception.reason, 'max_visited')
+
+    def test_walk_goal_buckets_are_not_closed_after_first_time_candidate(self):
+        source = dataset('bus', {
+            'direct': [('o', 10, 10), ('d', 20, 20)],
+            'walking': [('o', 10, 10), ('x', 20, 20)],
+        })
+        link = DirectedWalkLink(ReviewedWalkingLink('bus:x', 'bus:d', 25, 1,
+            FIXTURE_EVIDENCE, True), 'fixture-v1', 'fixture-v1')
+        result = query(network(source, links=(link,)), 'bus:o', 'bus:d', departure=10,
+                       arrival_tiebreak='v1_path', max_candidates=3)
+        self.assertEqual([j.arrival_minute for j in result], [20, 21])
+        self.assertIsInstance(result[1].events[-1], NetworkWalkEvent)
+
     def test_v1_rank_differential_generated_circular_timetables(self):
         for seed in range(32):
             rng = random.Random(seed)

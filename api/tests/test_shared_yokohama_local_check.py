@@ -49,7 +49,7 @@ class SharedYokohamaProbeTests(unittest.TestCase):
                        'repeats': 2, 'max_candidates': 3}
 
     def run_probe(self, engine, coverages=None):
-        with contextlib.redirect_stdout(io.StringIO()):
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             result = probe.run_cases(self.coverages if coverages is None else coverages,
                                      self.config, engine, _Memory())
         return {'input_hashes': {'fixture': 'synthetic'}, 'versions': {'fixture': 'v1'}, **result}
@@ -216,6 +216,30 @@ class SharedYokohamaProbeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'clean main at expected SHA'):
                 probe.main()
             worker.assert_not_called()
+
+    def test_completed_reports_remain_visible_when_later_worker_fails(self):
+        old = {'engine': 'v1', **self.run_probe('v1')}
+        head = {'engine': 'shared_head', **self.run_probe('shared_head')}
+        failure = subprocess.CalledProcessError(1, ['synthetic-worker'], stderr='original failure')
+        argv = [str(SCRIPT), '--bus-gtfs-dir', 'missing_bus', '--bus-coverage', 'missing_coverage',
+                '--subway-gtfs-dir', 'missing_rail', '--manifest-date', '2026-10-14',
+                '--query-date', '2026-10-14', '--hour', '9', '--memory-source', 'linux-proc',
+                '--expected-sha', 'a' * 40]
+        def git_result(command, **kwargs):
+            last = command[-1]
+            stdout = 'a' * 40 if last == 'HEAD' else ('' if last == '--porcelain' else 'main')
+            return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr='')
+        output = io.StringIO()
+        with patch.object(sys, 'argv', argv), patch.object(probe.subprocess, 'run', side_effect=git_result), \
+                patch.object(probe, 'run_worker', side_effect=[old, head, failure]), \
+                contextlib.redirect_stdout(output):
+            with self.assertRaises(subprocess.CalledProcessError) as raised:
+                probe.main()
+        self.assertIs(raised.exception, failure)
+        rows = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertEqual({row['engine'] for row in rows if 'engine' in row}, {'v1', 'shared_head'})
+        self.assertFalse(any('candidates' in row for row in rows))
+        self.assertNotIn('READ_ONLY_SHARED_MATRIX_OK', output.getvalue())
 
 
 if __name__ == '__main__':
