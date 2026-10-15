@@ -3,10 +3,12 @@ import contextlib
 import importlib.util
 import io
 import json
+import pickle
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+import networkx as nx
 from unittest.mock import patch
 
 from tests import test_transit_dataset as fixtures
@@ -90,6 +92,72 @@ class TokyoGtfsLocalCheckTest(unittest.TestCase):
             with contextlib.redirect_stdout(output), self.assertRaises(probe.TokyoBoardingContractError):
                 probe.main()
             self.assertNotIn('READ_ONLY_TOKYO_BUS_INPUT_OK', output.getvalue())
+
+    def audit_fixture(self, *, board=True, mode='bus'):
+        path = self.root / 'stop_times.txt'
+        lines = path.read_text().splitlines()
+        path.write_text(lines[0] + ',pickup_type\n' +
+            '\n'.join(line + (',1' if line.startswith('t1,') else ',0') for line in lines[1:]) + '\n', encoding='utf-8')
+        graph = nx.DiGraph()
+        for stop in ('a', 'b'):
+            graph.add_node(('phys', stop))
+            graph.add_node(('line', stop, 'fixture'), mode=mode, route_id='r1')
+        graph.add_edge(('line', 'a', 'fixture'), ('line', 'b', 'fixture'), etype='ride', mode=mode)
+        if board:
+            graph.add_edge(('phys', 'a'), ('line', 'a', 'fixture'), etype='board')
+        prebuilt = self.root / 'trusted.pkl'
+        prebuilt.write_bytes(pickle.dumps({'G': graph, 'TM': probe.TimetableManager()}))
+        return prebuilt
+
+    def test_explicit_prebuilt_audit_detects_boardable_flag_without_marking_parity(self):
+        prebuilt = self.audit_fixture()
+        before = prebuilt.read_bytes()
+        result = probe.audit_production_boarding(self.root, 'fixture', ('2026-09-04',), prebuilt)
+        row = result['date_audit'][0]
+        self.assertEqual(row['active_conflicting_rows'], 1)
+        self.assertEqual(row['boardable_conflicting_rows'], 1)
+        self.assertEqual(row['rideable_conflicting_rows'], 1)
+        self.assertFalse(result['bus_choice_parity_verified'])
+        self.assertEqual(prebuilt.read_bytes(), before)
+
+    def test_prebuilt_audit_absent_board_edge_is_distinct_from_graph_binding(self):
+        prebuilt = self.audit_fixture(board=False)
+        row = probe.audit_production_boarding(self.root, 'fixture', ('2026-09-04',), prebuilt)['date_audit'][0]
+        self.assertEqual(row['missing_boarding_binding_rows'], 1)
+        self.assertEqual(row['boardable_conflicting_rows'], 0)
+
+    def test_prebuilt_audit_terminal_filter_can_prevent_existing_boarding(self):
+        prebuilt = self.audit_fixture()
+        with prebuilt.open('rb') as stream:
+            data = pickle.load(stream)
+        graph = nx.relabel_nodes(data['G'], {('line', s, 'fixture'): ('line', s, 'buspat:fixture') for s in ('a', 'b')})
+        graph.add_node(('line', 'c', 'buspat:fixture'), mode='bus', route_id='r1')
+        graph.add_edge(('line', 'b', 'buspat:fixture'), ('line', 'c', 'buspat:fixture'), etype='ride', mode='bus')
+        manager = probe.TimetableManager()
+        manager.pattern_stops_map['fixture'] = ['a', 'b', 'c']
+        prebuilt.write_bytes(pickle.dumps({'G': graph, 'TM': manager}))
+        row = probe.audit_production_boarding(self.root, 'fixture', ('2026-09-04',), prebuilt)['date_audit'][0]
+        self.assertEqual(row['bound_not_boardable_rows'], 1)
+        self.assertEqual(row['rideable_conflicting_rows'], 0)
+
+    def test_audit_cli_has_distinct_marker_and_hashes_prebuilt_without_claiming_parity(self):
+        prebuilt = self.audit_fixture()
+        args = [str(SCRIPT), '--gtfs-dir', str(self.root), '--expected-feed-version', 'fixture',
+                '--query-date', '2026-09-04', '--expected-sha', 'a'*40,
+                '--audit-production-boarding', '--trusted-prebuilt', str(prebuilt)]
+        with patch.object(sys, 'argv', args), patch.object(probe, 'check_repository'):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                probe.main()
+        lines = output.getvalue().splitlines()
+        self.assertEqual(lines[-1], 'READ_ONLY_TOKYO_BOARDING_AUDIT_OK')
+        self.assertNotIn('READ_ONLY_TOKYO_BUS_INPUT_OK', lines)
+        self.assertEqual(json.loads(lines[-2])['input_hashes']['trusted_prebuilt'], probe.sha256(prebuilt))
+        for option in (['--audit-production-boarding'], ['--trusted-prebuilt', str(prebuilt)]):
+            with patch.object(sys, 'argv', args[:-3] + option), patch.object(probe, 'check_repository') as guard:
+                with self.assertRaisesRegex(ValueError, 'requires explicit'):
+                    probe.main()
+                guard.assert_not_called()
 
     def test_terminal_pickup_and_initial_dropoff_restrictions_are_preserved(self):
         path = self.root / 'stop_times.txt'

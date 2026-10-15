@@ -474,3 +474,15 @@ GtfsTransitAdapterを通常strict modeで読み、全stop_timeのarrival/departu
 全件診断はchoice比較を試行する前の事前検査の一部で、既に失敗した探索を別方式で継続する処理ではない。該当があれば旧repository loadも両choice providerの比較も開始せず、成功markerを出さない。型/clock/schema等の例外を捕捉してこの診断へ置き換えず、元の位置で停止する。診断は失敗時のlocal例外へ付けるだけで、原GTFS・元ログ・実ID・入力hash値をGitHubへ追加しない。
 
 追加2合成回帰でpickup2/drop-off3の全件数、対象日/非対象日の集計、最大5例、ValueError互換、旧loader非呼出し、元入力非変更、成功marker非出力を確認した。元8回帰も成功した。次は同じ入力・date・feed版で診断を取得し、種類とactive便への影響を確認する。その後に本番ODPT graphの到達性を比較する。Tokyoバスの入力/choice互換性合格やPhase 2完了、本番切替・デプロイを宣言しない。
+
+## 26. 乗車不可の実件数と指定prebuiltグラフの監査
+
+ユーザーのWindows、main `4317e05621626caa1900327f7ad0ecd839533e75`の診断で、該当1,552row/1,552便、全てpickup1/drop-off0を確認した。boarding conflict1,552、alighting conflict0。query2026-09-04/05/06/21のactive対象は各258/228/169/169rowで、各便件数も同じだった。最大5例は同じstop/routeの例であり、全1,552件の位置を代表するとは扱わない。通常比較は元gateで停止し、成功markerを出していない。実ID/stop名/原行/生ログは保存しない。
+
+変更前mainは同じ`4317e056`。検証器へ`--audit-production-boarding --trusted-prebuilt ...`という明示した別監査modeを追加する。通常のsource/choice互換性modeは引き続き乗降契約差で停止する。監査modeは元GTFSの精度/schema/版/date/clock/全trip network検査を同じ条件で行い、指定した信頼済みpickleのG/TMを読み、同じGTFSの旧repositoryと全trip/route/service/sequence/stop/clockの一致を検査する。repair・旧snapshot選択・元flag変更・source便除外はしない。監査は現在確認済みのpickup1の乗車差に限定し、降車差やpickup2/3があれば未対応として停止する。
+
+指定prebuiltのboard edgeがあるbus line nodeについて、既存TimetableChoicesの標柱→GTFS stopとroute対応を使ってbindingを作る。指定日のactiveな各該当rowに対して元departure時計を渡し、旧board_optionsが同じtrip/sequenceを返すか、次のGTFS停車と一致した既存ride edgeでride_optionsが成功するかを確認する。旧buspatの方面/終端・次停車絞り込みもそのまま呼び出し、branch/cycle/ordered patternの元エラーを捕捉して回避しない。binding無し、bindingあり乗車不可、乗車可、次停車への同便ride可を別集計する。最大5例は乗車可のlocal診断としてだけ返す。
+
+監査modeはdefaultmode失敗後の自動再試行ではなく、CLIで事前選択する別の検証目的である。GTFS txt一式と指定prebuiltを実行前後にhash比較し、clean main/SHAを維持する。成功markerはREAD_ONLY_TOKYO_BOARDING_AUDIT_OKであり、READ_ONLY_TOKYO_BUS_INPUT_OKを出さない。reportもbus_choice_parity_verified/route_ranking/realtime/compiled_gtfs/lambda_startupをfalseに保つ。指定local prebuilt G＋指定GTFSの静的な乗車可否であり、実デプロイ先のartifact版一致や全ODの候補採用を認定する検査ではない。無料/徒歩policy、製品コード・公開設定を変更しない。
+
+追加4合成回帰は既存graphで乗車・同便rideできるflag1、board edge無し、buspat終端不一致による乗車不可、明示mode必須/別marker/前後prebuilt hash/元artifact非変更を確認した。関連127件がローカルで成功した。Windows CIは同じ検証器test moduleを既に含む。次は指定prebuilt G上での実データ監査を行い、実乗車可の有無と件数を確認してから契約の採否を検討する。Tokyoバス互換性合格、Phase 2全体完了、本番切替・デプロイを宣言しない。

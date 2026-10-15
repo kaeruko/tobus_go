@@ -10,6 +10,7 @@ from collections import Counter
 import csv
 from datetime import date, datetime, timezone
 import json
+import pickle
 from pathlib import Path
 import sys
 
@@ -126,7 +127,7 @@ def check_boarding_contract(dataset, snapshot, days):
             'examples': examples, 'examples_limit': 5, 'production_graph_reachability_verified': False})
 
 
-def inspect(root, expected_version, day_values):
+def load_inputs(root, expected_version, day_values):
     days = tuple(parse_day(value) for value in day_values)
     if not days or len(set(days)) != len(days):
         raise ValueError('require explicit unique query dates')
@@ -143,6 +144,101 @@ def inspect(root, expected_version, day_values):
         raise ValueError('Tokyo bus comparison requires a bus-only feed; no route exclusion')
     snapshot = build_transit_network((dataset,), allowed_trip_ids=dataset.trips,
                                     walking_links=(), costs=NetworkCosts())
+    return info, dataset, snapshot, days, flags
+
+
+def audit_production_boarding(root, expected_version, day_values, prebuilt):
+    """Explicit reachability audit; never marks source-choice parity passed."""
+    info, dataset, snapshot, days, _ = load_inputs(root, expected_version, day_values)
+    with prebuilt.open('rb') as stream:
+        data = pickle.load(stream)
+    if (not isinstance(data, dict) or not isinstance(data.get('G'), nx.DiGraph)
+            or not isinstance(data.get('TM'), TimetableManager)):
+        raise ValueError('trusted prebuilt requires Tokyo G and TM; no repair performed')
+    graph, manager = data['G'], data['TM']
+    repository = GtfsRepository('tokyo_bus_probe')
+    repository.load_data(str(root))
+    conflicts = []
+    for trip_id, rows in snapshot.rows_by_trip.items():
+        trip = snapshot.trips[trip_id]
+        source = repository.trips.get(trip.source_id)
+        prefix = dataset.metadata.feed_id + ':'
+        if (source is None or source['route_id'] != snapshot.routes[trip.route_id].source_id
+                or source['service_id'] != trip.service_id[len(prefix):]):
+            raise AssertionError(f'legacy/shared source identity differs in audit: {trip.source_id}')
+        legacy_rows = repository.stop_times[trip.source_id]
+        if set(legacy_rows) != {row.sequence for row in rows}:
+            raise AssertionError(f'legacy/shared source occurrence differs in audit: {trip.source_id}')
+        for row in rows:
+            if legacy_rows[row.sequence] != (snapshot.stops[row.stop_id].source_id, row.arrival_minute, row.departure_minute):
+                raise AssertionError(f'legacy/shared source clock differs in audit: {trip.source_id} sequence={row.sequence}')
+        for position, row in enumerate(rows):
+            if position > 0 and row.drop_off_type != 0:
+                raise ValueError('production boarding audit does not cover alighting conflicts')
+            if position < len(rows) - 1 and row.pickup_type != 0:
+                if row.pickup_type != 1:
+                    raise ValueError('production boarding audit requires pickup_type=1 conflicts')
+                conflicts.append((trip_id, position, row))
+    deadline = max(row.arrival_minute for rows in snapshot.rows_by_trip.values() for row in rows
+                   if row.arrival_minute is not None)
+    reports = []
+    for day in days:
+        active = repository.get_active_service_ids(day)
+        prefix = dataset.metadata.feed_id + ':'
+        if active != frozenset(key[len(prefix):] for key in dataset.active_service_ids(day)):
+            raise AssertionError(f'active services differ in boarding audit: {day}')
+        choices = TimetableChoices(graph, manager, ServiceDayType('gtfs', day, active, True),
+            use_realtime=False, deadline=deadline, bus_repository=repository)
+        bindings = {}
+        for node, attrs in graph.nodes(data=True):
+            if not isinstance(node, tuple) or len(node) < 3 or node[0] != 'line' or attrs.get('mode') != 'bus':
+                continue
+            phys = ('phys', node[1])
+            if not graph.has_edge(phys, node) or graph[phys][node].get('etype') != 'board':
+                continue
+            stop, route = choices._stop_id(node[1]), choices._bus_route(node)
+            if stop is not None and route is not None:
+                bindings.setdefault((route, stop), []).append(node)
+        counts = {'date': day.isoformat(), 'active_conflicting_rows': 0,
+                  'missing_boarding_binding_rows': 0, 'bound_not_boardable_rows': 0,
+                  'boardable_conflicting_rows': 0, 'rideable_conflicting_rows': 0}
+        examples = []
+        for trip_id, position, row in conflicts:
+            trip = snapshot.trips[trip_id]
+            if trip.service_id[len(prefix):] not in active:
+                continue
+            counts['active_conflicting_rows'] += 1
+            source_stop = snapshot.stops[row.stop_id].source_id
+            route = snapshot.routes[trip.route_id].source_id
+            nodes = bindings.get((route, source_stop), ())
+            boarded = ridden = False
+            for node in nodes:
+                for departure, state in choices.board_options(('phys', node[1]), node, row.departure_minute):
+                    if state.trip_id != trip.source_id or state.sequence != row.sequence:
+                        continue
+                    boarded = True
+                    following = snapshot.stops[snapshot.rows_by_trip[trip_id][position + 1].stop_id].source_id
+                    for neighbor in graph.successors(node):
+                        edge = graph[node][neighbor]
+                        if (edge.get('etype') == 'ride' and edge.get('mode') == 'bus'
+                                and choices._stop_id(neighbor[1]) == following):
+                            ridden |= bool(choices.ride_options(node, neighbor, departure, state))
+            counts['missing_boarding_binding_rows'] += not bool(nodes)
+            counts['bound_not_boardable_rows'] += bool(nodes) and not boarded
+            counts['boardable_conflicting_rows'] += boarded
+            counts['rideable_conflicting_rows'] += ridden
+            if boarded and len(examples) < 5:
+                examples.append({'trip_id': trip.source_id, 'route_id': route,
+                    'stop_id': source_stop, 'stop_name': snapshot.stops[row.stop_id].name,
+                    'sequence': row.sequence, 'pickup_type': row.pickup_type, 'rideable': ridden})
+        reports.append({**counts, 'examples': examples})
+    return {**info, 'audit_mode': 'production_boarding_reachability', 'date_audit': reports,
+        'bus_choice_parity_verified': False, 'route_ranking_verified': False,
+        'realtime_verified': False, 'lambda_startup_verified': False, 'compiled_gtfs_verified': False}
+
+
+def inspect(root, expected_version, day_values):
+    info, dataset, snapshot, days, flags = load_inputs(root, expected_version, day_values)
     check_boarding_contract(dataset, snapshot, days)
     repository = GtfsRepository('tokyo_bus_probe')
     repository.load_data(str(root))
@@ -238,16 +334,27 @@ def main():
     parser.add_argument('--expected-feed-version', required=True)
     parser.add_argument('--query-date', action='append', required=True)
     parser.add_argument('--expected-sha', required=True)
+    parser.add_argument('--audit-production-boarding', action='store_true')
+    parser.add_argument('--trusted-prebuilt', type=Path)
     args = parser.parse_args()
+    if args.audit_production_boarding != (args.trusted_prebuilt is not None):
+        raise ValueError('boarding audit requires explicit --trusted-prebuilt together with --audit-production-boarding')
     check_repository(args.expected_sha)
     root = args.gtfs_dir.resolve()
     before = fingerprints(root)
-    result = inspect(root, args.expected_feed_version, args.query_date)
-    if before != fingerprints(root):
+    if args.audit_production_boarding:
+        before['trusted_prebuilt'] = sha256(args.trusted_prebuilt)
+        result = audit_production_boarding(root, args.expected_feed_version, args.query_date, args.trusted_prebuilt)
+    else:
+        result = inspect(root, args.expected_feed_version, args.query_date)
+    after = fingerprints(root)
+    if args.audit_production_boarding:
+        after['trusted_prebuilt'] = sha256(args.trusted_prebuilt)
+    if before != after:
         raise AssertionError('GTFS input files changed during comparison')
     check_repository(args.expected_sha)
     print(json.dumps({'sha': args.expected_sha, 'python': sys.version, 'input_hashes': before, **result}))
-    print('READ_ONLY_TOKYO_BUS_INPUT_OK')
+    print('READ_ONLY_TOKYO_BOARDING_AUDIT_OK' if args.audit_production_boarding else 'READ_ONLY_TOKYO_BUS_INPUT_OK')
 
 
 if __name__ == '__main__':
