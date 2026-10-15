@@ -109,7 +109,9 @@ class Leg {
           final lat = coordinates[i];
           final lon = coordinates[i + 1];
           if (lat is! num || lon is! num ||
-              !lat.isFinite || !lon.isFinite) {
+              !lat.isFinite || !lon.isFinite ||
+              lat < -90 || lat > 90 || lon < -180 || lon > 180 ||
+              (lat == 0 && lon == 0)) {
             throw FormatException('invalid segment coordinate at index $i');
           }
           points.add([lat.toDouble(), lon.toDouble()]);
