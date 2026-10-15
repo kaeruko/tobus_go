@@ -621,3 +621,16 @@ main `f40a7fb7d112cdbd2b18531104f5dce98900b855` の実データ候補一致を�
 必須の合成反例は、同番号の別便、seq欠番による旧便分割、A→B→A→C再訪、同時刻便の順序、dwellを除いた下界、遅い先発/速い後発、pickup1継続、23:59/24:xx、乗換準備時刻境界、非整数遅延のfloat guard、graphと仮想目的地seedの共存、同件数source変更後のindex invalidation。候補比較では時刻・cost・全node・具体便・徒歩量・候補順・期限/部分結果契約まで確認する。
 
 現時点で本項の列車bridge・A*投影/全node検証・Realtime・本番Lambda実artifact検証は**未実装または未検証**。東京・横浜の本番切替/デプロイ/S3/本番設定は変更しない。
+
+## 36. 実GTFSによる共通バスA*隣接区間min入力監査の成功（2026-10-15）
+
+ユーザー提供のWindows PowerShell実行結果により、第34節の**読み取り専用・バス隣接区間最小値比較ゲートが成功**した。実行時mainは `410e8b30fb6ff08ebe13772d85909de4a903a1d5`、Python `3.12.10`、GTFS feed `20260828_030922`（2026-08-28〜2029-08-27）、東京指定prebuilt `api/data/app_data.pkl`（SHA-256 `db10fc598e0da81e2ac200ba742ab75283440823651fb1d800037f7c0a74bae5`）。監査日付は2026-09-04、09-05、09-06、09-21の4日。Gitがmainで指定SHAに一致し、指定prebuiltの事前SHA検査を通過したログを確認した。
+
+- `audit_mode=tokyo_common_bus_static_interval_minima`、`common_bus_interval_minima_verified=true`。
+- 旧東京参照と共通Dataset由来の隣接区間minを比較：**6,368キー、61,324 trip、1,161,955 stop_time行、不正区間0**。対象全キー・最小値・入力件数・不正区間数に不一致があれば失敗する監査を通過した。
+- 指定feedファイル・trusted prebuiltの入力前後ハッシュ検証を含む実行。`feed_version=20260828_030922`、`date_count=4`、`holiday_dependency_version=1.0.3`。
+- 成功マーカー：`READ_ONLY_TOKYO_COMMON_BUS_INTERVAL_MINIMA_OK`。PowerShellはその後の`$LASTEXITCODE -ne 0`チェックをエラーなく完了している。
+- `common_bus_sample_rank_verified=false` は**この独立監査のreport内の値**であり、第33節で合格した36ケースの共通バス経路候補一致を取り消すものではない。今回その36ケースを再実行していない。
+- `common_bus_time_bounds_provider=not_selected_audit_only`、`rail_provider=not_evaluated`、`common_dataset_route_ranking_verified=false`、`realtime_verified=false`、`lambda_startup_verified=false`、`true_top_k_verified=false` を維持。`source_identity_kind=synthetic_in_memory_not_source_zip_hash` であり実ZIP同一性の証明ではない。
+
+この成功が証明する範囲は**東京既存のバス隣接時間min索引と共通Dataset由来索引の同値性（A*入力の第1段階）だけ**。全graphへの辺重み投影、列車を含む全sourceのmin索引、目的地別全node下界、binary64丸めguard付き最終優先度、候補順位、Realtime、実Lambda起動、横浜統合、真のtop-kは本監査で検証していない。次は第35節の列車provider移行を独立に進め、A*切替時は投影・全node・guard付き優先度のゲートを別途通す。**本番探索provider切替、デプロイ、S3・本番設定変更は一切行っていない。**
