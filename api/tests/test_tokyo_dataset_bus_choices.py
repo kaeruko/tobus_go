@@ -34,6 +34,41 @@ class TokyoDatasetBusChoicesTest(unittest.TestCase):
         kwargs.update(overrides)
         return self.binding.choices(self.graph,self.manager,**kwargs)
 
+    def test_static_bus_minima_are_equal_without_changing_search_provider(self):
+        result = self.binding.verify_static_bus_interval_minima(lambda: None)
+        self.assertTrue(result['common_bus_interval_minima_verified'])
+        self.assertGreater(result['bus_interval_pairs'], 0)
+        self.assertEqual(result['bus_source_trips'], len(self.repository.trips))
+        self.assertEqual(self.choices().time_bounds_choices.__class__, TimetableChoices)
+
+    def test_static_bus_minima_mismatch_stops_without_provider_fallback(self):
+        # Mutation happens AFTER the binding validates the pinned source.
+        stop, arrival, departure = self.repository.stop_times['t'][2]
+        self.repository.stop_times['t'][2] = (stop, arrival + 1, departure + 1)
+        with self.assertRaisesRegex(RouteContractError, 'interval minimum differs'):
+            self.binding.verify_static_bus_interval_minima(lambda: None)
+
+    def test_static_bus_minima_bounds_only_cli_does_not_rerun_od_routes(self):
+        import contextlib
+        import io
+        import json
+        import sys
+        args = [str(routes.SCRIPT), '--gtfs-dir', str(self.root),
+                '--expected-feed-version', 'fixture', '--query-date', '2026-09-04',
+                '--trusted-prebuilt', str(self.prebuilt), '--expected-sha', 'a'*40,
+                '--shared-bus-bounds-only']
+        with (patch.object(sys, 'argv', args),
+              patch.object(routes.probe, 'check_repository'),
+              patch.object(routes.probe, 'route_sample', side_effect=AssertionError('unexpected OD query')),
+              contextlib.redirect_stdout(io.StringIO()) as output):
+            routes.probe.main()
+        lines = output.getvalue().splitlines()
+        self.assertEqual(lines[-1], 'READ_ONLY_TOKYO_COMMON_BUS_INTERVAL_MINIMA_OK')
+        report = json.loads(lines[-2])
+        self.assertTrue(report['common_bus_interval_minima_verified'])
+        self.assertFalse(report['common_bus_sample_rank_verified'])
+        self.assertEqual(report['common_bus_time_bounds_provider'], 'not_selected_audit_only')
+
     def test_board_ride_and_metadata_use_common_provider_without_legacy_bus_queries(self):
         legacy = TimetableChoices(self.graph,self.manager,day_type=self.day,use_realtime=False,
                                   deadline=838,bus_repository=self.repository)

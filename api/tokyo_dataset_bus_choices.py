@@ -67,6 +67,65 @@ class TokyoBusDatasetBinding:
         self.source_trips = MappingProxyType(sources)
         self.edges = MappingProxyType({key:tuple(value) for key,value in edges.items()})
 
+    def verify_static_bus_interval_minima(self, check_deadline):
+        """Read-only gate: common schedule must reproduce Tokyo's static bus bounds.
+
+        This compares adjacent interval minima, not destination A* bounds or
+        ranked routes. It does not select a new provider or change any cache.
+        """
+        from tokyo_time_bounds import _adjacent_minutes, _build_bus_index
+
+        minima = {}
+        trip_count = stop_count = 0
+        for trip_key, trip in self.snapshot.trips.items():
+            check_deadline()
+            trip_count += 1
+            rows = self.snapshot.rows_by_trip[trip_key]
+            stop_count += len(rows)
+            route = self.snapshot.routes[trip.route_id].source_id
+            for previous, following in zip(rows, rows[1:]):
+                check_deadline()
+                key = (
+                    route,
+                    self.snapshot.stops[previous.stop_id].source_id,
+                    self.snapshot.stops[following.stop_id].source_id,
+                )
+                minutes = _adjacent_minutes(previous.departure_minute, following.arrival_minute)
+                if minutes is None:
+                    raise RouteContractError(
+                        f'Tokyo common bus bounds contain an invalid interval: {key!r}'
+                    )
+                minima[key] = min(minima.get(key, math.inf), minutes)
+
+        reference = _build_bus_index(
+            None, (self.repository.trips, self.repository.stop_times), check_deadline
+        )
+        if reference.invalid or (reference.trips, reference.stops) != (trip_count, stop_count):
+            raise RouteContractError(
+                'Tokyo common bus bounds source coverage differs: '
+                f'common=({trip_count},{stop_count}), '
+                f'reference=({reference.trips},{reference.stops}), '
+                f'reference_invalid={reference.invalid}'
+            )
+        if minima != reference.minima:
+            keys = set(minima) | set(reference.minima)
+            different = next(
+                key for key in sorted(keys)
+                if minima.get(key) != reference.minima.get(key)
+            )
+            raise RouteContractError(
+                f'Tokyo common bus interval minimum differs: segment={different!r}, '
+                f'common={minima.get(different)!r}, '
+                f'reference={reference.minima.get(different)!r}'
+            )
+        return {
+            'common_bus_interval_minima_verified': True,
+            'bus_interval_pairs': len(minima),
+            'bus_source_trips': trip_count,
+            'bus_source_stop_times': stop_count,
+            'bus_invalid_intervals': 0,
+        }
+
     def choices(self, graph, manager, **kwargs):
         return TokyoDatasetBusChoices(graph,manager,binding=self,**kwargs)
 

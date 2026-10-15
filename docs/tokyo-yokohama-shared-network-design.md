@@ -587,3 +587,11 @@ query準備はlabel探索のdeadline開始後に行い、共通active tripと明
 - \`common_dataset_route_ranking_verified=false\`、\`realtime_verified=false\`、\`lambda_startup_verified=false\`、\`true_top_k_verified=false\` を維持する。全OD、HTTP出力、Realtime、実Lambda起動・性能、横浜統合を認定しない。
 
 スクリプトの結果JSONと成功マーカーの後にPowerShellの \`if\` 式が途中まで表示された状態でログが切れているため、シェル全体の終了コード・当該 \`if\` 式の完了は確認済みと書かない。既に合格した同一36ケースを理由なく再実行要求しない。元GTFS・graph・source ID・原行・生ログはこの文書へ追加しない。本番切替、デプロイ、S3、本番設定の変更は引き続き行わない。
+
+## 34. 次の独立検証ゲート — 共通Datasetのバス区間A*下界入力
+
+main `f40a7fb7d112cdbd2b18531104f5dce98900b855` の実データ候補一致を受け、**現行の探索経路/下界providerを変更せずに**、共通snapshotと東京旧repositoryから作る全sourceバス隣接区間の静的最小所要時間を比較する読み取り専用ゲートを追加した。共通側は全許可tripの元sequence順・隣接stop・元発着時計から、旧東京A*と同じ非負・下方向のfloat丸めで路線・出発stop・次stop別のminを作る。旧側は `tokyo_time_bounds._build_bus_index` の参照計算を用い、全trip/stop row件数・invalid数・全キー/値が一致しなければRouteContractErrorで停止する。便・乗車制約を外して求める緩和下界であり、乗車可能な便だけに絞って誤った強い下界にしない。
+
+新しい明示コマンドフラグは `scripts/check_tokyo_compiled_routes_local.py --shared-bus-bounds-only`。従来の厳密なfeed版、日付、source boarding、expected main SHA、入力前後hash確認を維持し、**合格済み36 ODケースを再検索しない**。成功マーカーは `READ_ONLY_TOKYO_COMMON_BUS_INTERVAL_MINIMA_OK`、reportは `common_bus_interval_minima_verified=true` と件数を出す。列車・候補順・実artifact・Realtime・Lambda・真のtop-Kはこのゲートで認定しない（`common_dataset_route_ranking_verified=false`、`common_bus_sample_rank_verified=false`、`common_bus_time_bounds_provider=not_selected_audit_only`）。
+
+合成回帰ではmin一致、参照sourceが変わった場合のfail-fast、OD未再実行のCLI分岐を検証する。**Windows実GTFSによるこの新ゲートの合格はまだ未確認**。共通datasetから実際にA*下界を供給する切替・同じ下界の全graph/OD照合・性能検証は後続であり、本番切替・デプロイ・S3更新はしない。

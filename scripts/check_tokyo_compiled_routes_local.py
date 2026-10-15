@@ -202,6 +202,35 @@ def inspect(root, expected_version, day_values, prebuilt, limit, *, shared_bus=F
         'walking_policy':'unchanged_supplied_tokyo_graph', 'true_top_k_verified':False}
 
 
+def inspect_shared_bus_bounds(root, expected_version, day_values):
+    """Audit source interval minima only; do not rerun the ranked OD samples."""
+    info, dataset, snapshot, days, _ = load_inputs(root, expected_version, day_values)
+    _, holiday_version = resolve_probe_dates(day_values)
+    check_boarding_contract(dataset, snapshot, days)
+    repository = GtfsRepository('tokyo_bus_probe').load_data(str(root))
+    binding = TokyoBusDatasetBinding(snapshot, repository)
+    prefix = dataset.metadata.feed_id + ':'
+    for day in days:
+        if repository.get_active_service_ids(day) != frozenset(
+                key[len(prefix):] for key in dataset.active_service_ids(day)):
+            raise AssertionError(f'raw/shared active services differ on {day}')
+    verified = binding.verify_static_bus_interval_minima(lambda: None)
+    return {
+        **info, **verified,
+        'audit_mode': 'tokyo_common_bus_static_interval_minima',
+        'date_count': len(days),
+        'common_bus_sample_rank_verified': False,
+        'common_dataset_route_ranking_verified': False,
+        'common_bus_time_bounds_provider': 'not_selected_audit_only',
+        'rail_provider': 'not_evaluated',
+        'realtime_verified': False,
+        'lambda_startup_verified': False,
+        'true_top_k_verified': False,
+        'source_identity_kind': 'synthetic_in_memory_not_source_zip_hash',
+        'holiday_dependency_version': holiday_version,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--gtfs-dir',type=Path,required=True)
@@ -211,17 +240,26 @@ def main():
     parser.add_argument('--expected-sha',required=True)
     parser.add_argument('--max-candidates',type=int,default=3)
     parser.add_argument('--shared-bus',action='store_true')
+    parser.add_argument('--shared-bus-bounds-only',action='store_true')
     args = parser.parse_args()
+    if args.shared_bus and args.shared_bus_bounds_only:
+        parser.error('--shared-bus and --shared-bus-bounds-only are mutually exclusive')
     check_repository(args.expected_sha)
     before = {**fingerprints(args.gtfs_dir),'trusted_prebuilt':sha256(args.trusted_prebuilt)}
-    result = inspect(args.gtfs_dir,args.expected_feed_version,args.query_date,args.trusted_prebuilt,args.max_candidates,
-                     shared_bus=args.shared_bus)
+    if args.shared_bus_bounds_only:
+        result = inspect_shared_bus_bounds(args.gtfs_dir,args.expected_feed_version,args.query_date)
+    else:
+        result = inspect(args.gtfs_dir,args.expected_feed_version,args.query_date,args.trusted_prebuilt,args.max_candidates,
+                         shared_bus=args.shared_bus)
     after = {**fingerprints(args.gtfs_dir),'trusted_prebuilt':sha256(args.trusted_prebuilt)}
     if before != after:
         raise AssertionError('inputs changed during route sample comparison')
     check_repository(args.expected_sha)
     print(json.dumps({'sha':args.expected_sha,'python':sys.version,'input_hashes':before,**result}))
-    print('READ_ONLY_TOKYO_COMMON_BUS_ROUTE_SAMPLE_OK' if args.shared_bus else 'READ_ONLY_TOKYO_COMPILED_ROUTE_SAMPLE_OK')
+    marker = ('READ_ONLY_TOKYO_COMMON_BUS_INTERVAL_MINIMA_OK' if args.shared_bus_bounds_only
+              else 'READ_ONLY_TOKYO_COMMON_BUS_ROUTE_SAMPLE_OK' if args.shared_bus
+              else 'READ_ONLY_TOKYO_COMPILED_ROUTE_SAMPLE_OK')
+    print(marker)
 
 
 if __name__ == '__main__':
