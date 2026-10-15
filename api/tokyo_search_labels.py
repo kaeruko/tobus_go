@@ -53,9 +53,11 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
                   max_total_walk, max_segment_walk, walk_speed,
                   rail_boarding_minutes, advance_time, virtual_connections,
                   edge_uses_rail, heuristic=lambda node: 0.0,
-                  max_expanded=None):
+                  max_expanded=None, prepare_choices=None, time_bounds_choices=None):
     """Delegate with the unchanged Tokyo clocks, bounds and selected runs."""
     def prepare_bounds(check_deadline, deadline):
+        if prepare_choices is not None:
+            prepare_choices(check_deadline)
         bounds = cost_bound = arrival_bound = None
         if mode == "time":
             # Static interval minima are shared by data version; the reverse graph
@@ -63,7 +65,7 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
             # run continuity and exact walking limits stay in the forward search.
             try:
                 bounds = make_time_bounds(
-                    graph, choices, target, virtual_connections,
+                    graph, choices if time_bounds_choices is None else time_bounds_choices, target, virtual_connections,
                     edge_uses_rail=edge_uses_rail, walk_speed=walk_speed,
                     rail_boarding_minutes=rail_boarding_minutes,
                     check_deadline=check_deadline, start=start,

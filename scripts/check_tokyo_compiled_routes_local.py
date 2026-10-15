@@ -27,6 +27,7 @@ from check_tokyo_odpt_local import check_repository, manager_intervals, resolve_
 from gtfs_loader import GtfsRepository
 from gtfs_state import GTFS_STATE_SCHEMA_VERSION, hydrate_repository_state, repository_state_payload
 from tokyo_timetable_choices import TimetableChoices
+from tokyo_dataset_bus_choices import TokyoBusDatasetBinding
 
 
 def compiled_copy(repository):
@@ -104,16 +105,17 @@ def select_cases(graph, manager, repository, day):
     raise ValueError(f'no active pickup=1 occurrence with both adjacent graph rides on {day}')
 
 
-def route_sample(graph, manager, repository, day, case, mode, limit):
+def route_sample(graph, manager, repository, day, case, mode, limit, *, choices_factory=None):
     kind, origin, destination, minute = case
     if type(minute) is not int:
         raise ValueError('route sample requires integral source minutes; no rounding')
     clock = f'{minute // 60:02d}:{minute % 60:02d}'
     results = []
     with patch.object(engine, 'gtfs_repo', repository):
+        extra = {} if choices_factory is None else {'choices_factory':choices_factory}
         generator = engine._tokyo_label_search(
             graph, manager, origin, destination, clock, engine.determine_day_type(day.isoformat()),
-            mode, limit, 100000, engine.MAX_TRAVEL_MIN, None, 15.0, None, None, False, False)
+            mode, limit, 100000, engine.MAX_TRAVEL_MIN, None, 15.0, None, None, False, False, **extra)
         try:
             for candidate in generator:
                 path = candidate['path']
@@ -133,7 +135,7 @@ def route_sample(graph, manager, repository, day, case, mode, limit):
     return results
 
 
-def inspect(root, expected_version, day_values, prebuilt, limit):
+def inspect(root, expected_version, day_values, prebuilt, limit, *, shared_bus=False):
     if type(limit) is not int or not 1 <= limit <= 5:
         raise ValueError('max_candidates must be an integer between 1 and 5')
     info, dataset, snapshot, days, _ = load_inputs(root, expected_version, day_values)
@@ -158,6 +160,7 @@ def inspect(root, expected_version, day_values, prebuilt, limit):
             if repository.get_stop_time_boarding(trip.source_id, row.sequence) != (row.pickup_type,row.drop_off_type):
                 raise AssertionError('raw/shared source boarding flags differ')
     compiled, byte_count = compiled_copy(repository)
+    binding = TokyoBusDatasetBinding(snapshot,repository) if shared_bus else None
     with prebuilt.open('rb') as stream:
         data = pickle.load(stream)
     if not isinstance(data,dict) or not isinstance(data.get('G'),nx.DiGraph) or not isinstance(data.get('TM'),engine.TimetableManager):
@@ -178,15 +181,21 @@ def inspect(root, expected_version, day_values, prebuilt, limit):
                 restored = route_sample(graph,manager,compiled,day,case,mode,limit)
                 if raw != restored:
                     raise AssertionError(f'raw/compiled ranked sample differs: date={day} case={case[0]} mode={mode}')
+                if binding is not None:
+                    shared = route_sample(graph,manager,repository,day,case,mode,limit,choices_factory=binding.choices)
+                    if raw != shared:
+                        raise AssertionError(f'Tokyo/common bus ranked sample differs: date={day} case={case[0]} mode={mode}')
                 reports.append({'date':day.isoformat(),'case':case[0],'mode':mode,
                     'candidates':len(raw),'differences':0,
                     'bus_candidates':sum(any(state is not None and state['provider'] == 'bus'
                                              for state in row['selected_rides'].values()) for row in raw)})
     if not any(row['bus_candidates'] for row in reports):
         raise AssertionError('selected sample never exercised a bus ride; parity is insufficient')
-    return {**info, 'audit_mode':'raw_compiled_label_route_sample', 'date_cases':reports,
+    return {**info, 'audit_mode':('tokyo_common_bus_label_route_sample' if shared_bus else 'raw_compiled_label_route_sample'), 'date_cases':reports,
         'compiled_state_schema_version':GTFS_STATE_SCHEMA_VERSION,'serialized_bytes':byte_count,
         'raw_compiled_sample_rank_verified':True, 'common_dataset_route_ranking_verified':False,
+        'common_bus_sample_rank_verified':shared_bus, 'rail_provider':'existing_tokyo',
+        'common_bus_time_bounds_provider':'validated_tokyo_reference' if shared_bus else None,
         'realtime_verified':False,'lambda_startup_verified':False,
         'source_identity_kind':'synthetic_in_memory_not_source_zip_hash',
         'holiday_dependency_version':holiday_version,
@@ -201,16 +210,18 @@ def main():
     parser.add_argument('--trusted-prebuilt',type=Path,required=True)
     parser.add_argument('--expected-sha',required=True)
     parser.add_argument('--max-candidates',type=int,default=3)
+    parser.add_argument('--shared-bus',action='store_true')
     args = parser.parse_args()
     check_repository(args.expected_sha)
     before = {**fingerprints(args.gtfs_dir),'trusted_prebuilt':sha256(args.trusted_prebuilt)}
-    result = inspect(args.gtfs_dir,args.expected_feed_version,args.query_date,args.trusted_prebuilt,args.max_candidates)
+    result = inspect(args.gtfs_dir,args.expected_feed_version,args.query_date,args.trusted_prebuilt,args.max_candidates,
+                     shared_bus=args.shared_bus)
     after = {**fingerprints(args.gtfs_dir),'trusted_prebuilt':sha256(args.trusted_prebuilt)}
     if before != after:
         raise AssertionError('inputs changed during route sample comparison')
     check_repository(args.expected_sha)
     print(json.dumps({'sha':args.expected_sha,'python':sys.version,'input_hashes':before,**result}))
-    print('READ_ONLY_TOKYO_COMPILED_ROUTE_SAMPLE_OK')
+    print('READ_ONLY_TOKYO_COMMON_BUS_ROUTE_SAMPLE_OK' if args.shared_bus else 'READ_ONLY_TOKYO_COMPILED_ROUTE_SAMPLE_OK')
 
 
 if __name__ == '__main__':

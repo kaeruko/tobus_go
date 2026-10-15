@@ -2067,12 +2067,13 @@ def ensure_train_run_metadata(tm, source_path):
 def _tokyo_label_search(G, tm, start_node, target_node, start_time_str, day_type,
                         mode, max_search, max_visited, max_travel_min,
                         delays_snapshot, time_limit_sec, virtual_dest_connections,
-                        target_coords, use_realtime, bus_only, max_expanded=None):
+                        target_coords, use_realtime, bus_only, max_expanded=None, *, choices_factory=None):
     from tokyo_search_labels import search_labels
     from tokyo_timetable_choices import TimetableChoices
 
     start_min = time_str_to_min(start_time_str)
-    choices = TimetableChoices(
+    factory = TimetableChoices if choices_factory is None else choices_factory
+    choices = factory(
         G, tm, day_type=day_type, use_realtime=use_realtime,
         delays_snapshot=delays_snapshot, deadline=start_min + max_travel_min,
         bus_repository=gtfs_repo,
@@ -2105,6 +2106,8 @@ def _tokyo_label_search(G, tm, start_node, target_node, start_time_str, day_type
         virtual_connections=_virtual_destination_connections_by_node(target_node, virtual_dest_connections),
         edge_uses_rail=lambda u, v: bus_only and _edge_uses_rail(G, u, v),
         heuristic=legacy_cost_heuristic, max_expanded=max_expanded,
+        prepare_choices=None if choices_factory is None else choices.prepare,
+        time_bounds_choices=None if choices_factory is None else choices.time_bounds_choices,
     )
 
 
