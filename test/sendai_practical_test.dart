@@ -60,7 +60,8 @@ void main() {
         expect(body['civil_date'], '2026-10-16'); expect(body['departure_minute'], 600);
         expect(body['fare_policy_id'], 'sendai_fureai_pass');
         expect(body['accept_experimental_transfer_model'], true);
-        return http.Response(jsonEncode({'schema':'sendai_practical_route_v1', 'candidates':[candidate()]}), 200);
+        return http.Response(jsonEncode({'schema':'sendai_practical_route_v1', 'candidates':[candidate()]}), 200,
+          headers: {'content-type': 'application/json; charset=utf-8'});
       }));
     await expectLater(service.search(originStopId: 'a', destinationStopId: 'b', civilDate: '2026-10-16',
       departureMinute: 600, farePolicyId: 'normal', acceptExperimentalTransfers: true), throwsArgumentError);
@@ -89,8 +90,9 @@ void main() {
     expect(find.text('宮城交通・未確認の市営区間・特別ダイヤ・Realtimeは未対応'), findsOneWidget);
     expect(find.text('乗車証を明示選択'), findsOneWidget);
     final button = find.text('追加支払0円の確認済み区間を検索');
-    await tester.scrollUntilVisible(button, 180); await tester.tap(button); await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.byKey(const Key('sendai-test-error')), 100);
+    final pageScroll = find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(button, 180, scrollable: pageScroll); await tester.tap(button); await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('sendai-test-error')), 100, scrollable: pageScroll);
     expect(find.byKey(const Key('sendai-test-error')), findsOneWidget);
     expect(find.textContaining('選択してください'), findsOneWidget);
   });
