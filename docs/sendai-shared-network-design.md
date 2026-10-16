@@ -383,6 +383,61 @@ CIのRust専用2jobをPython3.11/3.12の共通v2委譲・独立Sendai回帰へ�
 
 ### 11.6 検証結果・未認定項目
 
-新規混在回帰・manifest改変負例・明示public取得/単一source/SHA負例・原秒直列化・テストAPIを検査する。Windowsと共通v2のPython両版CIへ新規moduleを組み込む。Flutterでは専用型・明示pass request・エラー伝播・未対応表示/未選択停止を検査する。ローカルとCIの最終SHA・結果は確認後に追記する。
+新規混在回帰・manifest改変負例・明示public取得/単一source/SHA負例・原秒直列化・テストAPIを検査する。Windowsと共通v2のPython両版CIへ新規moduleを組み込む。Flutterでは専用型・明示pass request・エラー伝播・未対応表示/未選択停止を検査する。実装commitは `0d48b71fb180931f8f755ea65ef80e7eef628208`。読み取り専用実データゲートはローカルsource `c4be364415d020134955e53a4d5c9b7959ccdfec` で固定4件すべてが成功し、`READ_ONLY_SENDAI_PRACTICAL_MUNICIPAL_MODEL_OK` を確認した。canonical実装commitとの変更対象全blob一致・native/v1削除・別Dart差分の非混入も検査した。入力17ファイルの前後SHA検査とmain/source変更検査が成功した。実データを読み込んだ独立テストAPIでも、ASGI TestClientを介した4カテゴリすべてが同じ到着/0円を返し、`TEST_ASGI_REAL_SOURCE_FIXED_FOUR_OK` を確認した。これは実機Flutterからの通し操作やネットワーク越し実測ではない。
+
+新規混在moduleの12回帰が成功。休日のGTFS例外・具体便・時計/metadata・free scope・方向別接続欠落・元探索エラー伝播・test API拒否・ZIP/member/manifest改変・明示public source/不一致SHAを含む。24時台バスと30秒時計の追加ケースは**合成**であり、実在する深夜20系統の認定ではない。既存分欄の丸め契約と原秒を区別したinputを作り、共通v2が原秒・営業日を保持することを独立raw oracleで確認した。
+
+最初のCI [38836542633](https://github.com/kaeruko/tobus_go/actions/runs/38836542633) は新規FlutterテストのUTF-8指定漏れとScrollable finderの曖昧性で停止した。`bc1202512439d571d99c5ba31394ec7f75c22403` はそのテスト2点だけの修正で、探索・serializer・gate・実入力は変更していない。最終CI [38836806011](https://github.com/kaeruko/tobus_go/actions/runs/38836806011) はhead **`bc1202512439d571d99c5ba31394ec7f75c22403`**、`completed/success`、**全7 job成功**。Linux API **984件**、Windows probe **277件**、共通v2 Python3.11/3.12 **各95件**が成功。新規混在12件・v1不存在/DTO分離回帰・Flutter新規4件のokをログで確認した。Flutter analyze/test・Android全4flavor、iOS全4flavor・identity/ATS/privacy/Firebase分離も成功。不要nativeを除いたLambda image buildと、image内の東京/共通v2探索関数同一性smokeも成功し、deployではない。
+
+最後の結果/手順追記は文書だけの `[skip ci]` commitとし、成功済みCIや実データ監査を再起動しない。CIが認定するsource SHAは上記bc12025であり、文書commitを新たな実運行認定に使わない。一般住所/実機操作・実測歩行/到着精度・正式な乗換余裕・公開配信準備は今回の成功から自動認定しない。
 
 既存第1〜第4段階の実データ監査、112組照合、バス36ケースは再実行しない。今回の認定は原データに基づく限定した予定時刻モデルであり、実測到着・方向別乗換精度・余裕の正式採用・全バリアフリー動線・全市営系統・宮城交通・全特別日・SearchCoreの都市全体完全性/top-kは引き続き未認定。公開API切替・本番deploy・S3変更・ストア提出は実施していない。
+
+### 11.7 ローカル再現方法（公開版への切替ではない）
+
+以下は新しい検証環境を構成する場合の例。上記成功済みゲートを無条件に再実行する指示ではない。日付対応は有限の2026-10-11〜18で、前営業日/翌日を要するqueryはその日もレビューが必要。現行保証・無期限の有効期限として表示しない。既存の古いフォルダへ上書きしない。
+
+```powershell
+# リポジトリroot。必要ならこの明示版を新しい保存先へ取得する。
+python -B scripts/fetch_sendai_gtfs.py `
+  --output api/data/sendai/20261006_model `
+  --expected-service-date 2026-10-16 `
+  --source-url 'https://api-public.odpt.org/api/v4/files/odpt/SendaiMunicipal/bus_realtime_information.zip?date=20261006' `
+  --expected-sha256 53a08400776b3229743b24eb53566eb523b354a5b783dcfffd3e40f39258e6a2
+if ($LASTEXITCODE -ne 0) { throw 'Sendai official data preparation failed' }
+
+# localhostだけにbindする別テストサービス。既存server.handlerは変更しない。
+python -B scripts/serve_sendai_practical_local.py `
+  --bus-gtfs-dir api/data/sendai/20261006_model `
+  --expected-service-date 2026-10-16 `
+  --subway-published api/tests/fixtures/sendai_subway/published_20230701.json `
+  --subway-review api/tests/fixtures/sendai_subway/practical_review_20261016.json `
+  --municipal-review api/tests/fixtures/sendai_subway/municipal_review_20261016.json `
+  --accept-experimental-transfer-model
+```
+
+別ターミナルで、明示したテストentry pointを起動する。Chromeのlocalhost originだけをこのテストAPIのCORSで許可し、本番CORS設定は変更しない。
+
+```powershell
+flutter run -d chrome -t lib/main_sendai_practical.dart `
+  --dart-define=SENDAI_TEST_API_BASE=http://127.0.0.1:8000
+```
+
+例えば出発「仙台（東西線）」=`sendai_subway:tozai/仙台`、目的「震災遺構仙台市立荒浜小学校前」=`sendai_bus:5099_0`、対応日2026-10-16、10:00、ふれあい乗車証と仮設定を明示選択すると、表の地下鉄→バス経路が対象となる。停留所suffixで自動接続しているという意味ではなく、これらは固定レビューにある具体IDの選択例である。
+
+読み取り専用ゲートを別環境で再現する必要がある場合は、同じ明示bundleを次のCLIへ渡す。`$sendaiModelSha` は実行するmainの**full SHA**を確認して設定する。CLIはmain/SHA/APIとscriptの未commit変更/入力SHAを検査し、pull・stash・reset・fetch・書込みをしない。Python3.11/3.12・必要依存の整った環境を使い、例外時に別Python/backend/sourceへ自動変更しない。
+
+```powershell
+$sendaiModelSha = (git rev-parse HEAD).Trim()
+python -B scripts/check_sendai_practical_local.py `
+  --bus-gtfs-dir api/data/sendai/20261006_model `
+  --expected-service-date 2026-10-16 `
+  --subway-published api/tests/fixtures/sendai_subway/published_20230701.json `
+  --subway-review api/tests/fixtures/sendai_subway/practical_review_20261016.json `
+  --municipal-review api/tests/fixtures/sendai_subway/municipal_review_20261016.json `
+  --bus-subset api/tests/fixtures/sendai_subway/municipal_bus_subset_20261006.json `
+  --cases api/tests/fixtures/sendai_subway/municipal_fixed_cases_20261016.json `
+  --expected-sha $sendaiModelSha `
+  --accept-experimental-transfer-model
+if ($LASTEXITCODE -ne 0) { throw 'Sendai model gate failed; do not use partial results' }
+```
