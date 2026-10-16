@@ -36,7 +36,7 @@ def raw_day_kinds(period):
             if day not in excluded}
 
 
-def verify_model(bus, source_files, raw_subway, subway, review, matrix):
+def verify_model(bus, source_files, raw_subway, subway, review, matrix, *, profile):
     period = OperatingPeriodReview.from_mapping(review['operating_period'])
     network = build_reviewed_municipal_model(subway, bus, review, accept_experimental_bus_transfers=True)
     parameters = NetworkSearchParameters(**matrix['parameters'])
@@ -45,7 +45,13 @@ def verify_model(bus, source_files, raw_subway, subway, review, matrix):
     app = TestClient(create_sendai_practical_test_app(network, environment='test', parameters=parameters,
         operating_period=period, coverage_label=review['coverage_label']))
     caps = app.get('/test/sendai/capabilities').json()
-    if ('2026-10-19' not in caps['operating_dates'] or '2026-10-31' not in caps['operating_dates']
+    if profile == 'stage3':
+        required = {'2026-10-19', '2026-11-03', '2026-11-19', '2026-11-23', '2026-11-30'}
+        forbidden = {'2026-10-25', '2026-11-22', '2026-12-01'}
+        if (not required <= set(caps['operating_dates']) or forbidden & set(caps['operating_dates'])
+                or len(caps['operating_dates']) != 48):
+            raise AssertionError('stage3 November finite-day coverage or exclusions differ')
+    elif ('2026-10-19' not in caps['operating_dates'] or '2026-10-31' not in caps['operating_dates']
             or '2026-10-25' in caps['operating_dates'] or '2026-11-01' in caps['operating_dates']):
         raise AssertionError('finite period/excluded bus day was not preserved by the API')
     kinds = raw_day_kinds(review['operating_period'])
@@ -54,7 +60,7 @@ def verify_model(bus, source_files, raw_subway, subway, review, matrix):
         rr = runs(source_files, raw_subway, kinds, day, review)
         expected = optimum(rr, review, case['origin'], case['destination'], case['departure_minute'],
             max_boardings=parameters.max_boardings, max_minutes=parameters.max_travel_minutes)
-        if expected is None or expected != case['expected_arrival_minute']:
+        if expected is None or (case['expected_arrival_minute'] is not None and expected != case['expected_arrival_minute']):
             raise AssertionError('fixed raw expectation differs: ' + case['category'])
         with contextlib.redirect_stdout(io.StringIO()):
             result = search_practical_subway(network, case['origin'], case['destination'], civil_date=day,
@@ -68,7 +74,8 @@ def verify_model(bus, source_files, raw_subway, subway, review, matrix):
         validate(journey, rr, review, day, case['origin'], case['destination'], case['departure_minute'])
         rides = [e.source for e in journey.events if isinstance(e, PracticalRide)]
         if ([r.mode for r in rides] != case['modes'] or
-                case['required_route_id'] not in {bus.trips[r.trip_id].route_id for r in rides if r.mode=='bus'}):
+                ('required_route_id' in case and
+                case['required_route_id'] not in {bus.trips[r.trip_id].route_id for r in rides if r.mode=='bus'})):
             raise AssertionError('new exact route/mode witness differs: ' + case['category'])
         body = dict(origin_stop_id=case['origin'], destination_stop_id=case['destination'],
             civil_date=case['civil_date'], departure_minute=case['departure_minute'],
@@ -92,7 +99,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--bus-gtfs-dir', type=Path, required=True)
     p.add_argument('--expected-sha', required=True)
-    p.add_argument('--profile', choices=('stage1','stage2'), default='stage1',
+    p.add_argument('--profile', choices=('stage1','stage2','stage3'), default='stage1',
         help='Explicit reviewed scope; never select another profile on failure')
     args=p.parse_args()
     git=lambda *parts: subprocess.run(['git','-C',str(ROOT),*parts],check=True,capture_output=True,text=True).stdout.strip()
@@ -100,9 +107,9 @@ def main():
         raise ValueError('explicit current main SHA required')
     fixture=ROOT/'api/tests/fixtures/sendai_subway'
     profile=args.profile
-    review_name=f'municipal_review_20261016_{profile}.json'
-    subset_name=f'municipal_bus_subset_20261006_{profile}.json'
-    cases_name=f'municipal_fixed_cases_20261016_{profile}.json'
+    review_name=f'municipal_review_{"20261017" if profile == "stage3" else "20261016"}_{profile}.json'
+    subset_name=f'municipal_bus_subset_20261006_{"stage2" if profile == "stage3" else profile}.json'
+    cases_name=f'municipal_fixed_cases_{"20261017" if profile == "stage3" else "20261016"}_{profile}.json'
     paths=list(args.bus_gtfs_dir.glob('*.txt')) + [args.bus_gtfs_dir/'sendai_gtfs_manifest.json',
         args.bus_gtfs_dir/'sendai_gtfs_source.zip'] + [fixture/name for name in (
         'published_20230701.json','practical_review_20261016.json',review_name,subset_name,cases_name)]
@@ -111,18 +118,19 @@ def main():
     source=json.loads((fixture/subset_name).read_text(encoding='utf-8'))
     review=json.loads((fixture/review_name).read_text(encoding='utf-8'))
     matrix=json.loads((fixture/cases_name).read_text(encoding='utf-8'))
-    if review['stage_profile'] != f'sendai_municipal_{profile}' or len(matrix['cases']) != {'stage1':7,'stage2':6}[profile]:
+    if review['stage_profile'] != f'sendai_municipal_{profile}' or len(matrix['cases']) != {'stage1':7,'stage2':6,'stage3':7}[profile]:
         raise ValueError('Explicit review profile and complete fixed case matrix required')
     verify_subset(args.bus_gtfs_dir,source,review)
     bus=load_sendai_dataset(args.bus_gtfs_dir,expected_service_date='2026-10-16')
     subway,raw=load_reviewed_subway(fixture/'published_20230701.json',fixture/'practical_review_20261016.json',
         operating_period=OperatingPeriodReview.from_mapping(review['operating_period']))
     full_files={name:(args.bus_gtfs_dir/name).read_text(encoding='utf-8-sig') for name in source['files']}
-    verify_model(bus,full_files,raw,subway,review,matrix)
+    verify_model(bus,full_files,raw,subway,review,matrix,profile=profile)
     if before != digests() or git('rev-parse','HEAD') != args.expected_sha:
         raise AssertionError('source or input bytes changed during the new-stage read-only gate')
     print({'stage1':'READ_ONLY_SENDAI_STAGE1_NEW_SEVEN_OK',
-           'stage2':'READ_ONLY_SENDAI_STAGE2_NEW_SIX_OK'}[profile])
+           'stage2':'READ_ONLY_SENDAI_STAGE2_NEW_SIX_OK',
+           'stage3':'READ_ONLY_SENDAI_STAGE3_NOVEMBER_OK'}[profile])
 
 
 if __name__=='__main__':

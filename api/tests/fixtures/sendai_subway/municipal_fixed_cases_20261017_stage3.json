@@ -1,0 +1,96 @@
+{
+  "parameters": {
+    "max_candidates": 1,
+    "max_boardings": 3,
+    "max_travel_minutes": 180
+  },
+  "cases": [
+    {
+      "category": "november_sumiyoshi_20_only",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:1294_10",
+      "destination": "sendai_bus:1085_0",
+      "required_route_id": "sendai_bus:10030",
+      "modes": [
+        "bus"
+      ],
+      "expected_arrival_minute": 589
+    },
+    {
+      "category": "november_sumiyoshi_20_rail",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:1294_10",
+      "destination": "sendai_subway:namboku/仙台",
+      "required_route_id": "sendai_bus:10030",
+      "modes": [
+        "bus",
+        "rail"
+      ],
+      "expected_arrival_minute": 616
+    },
+    {
+      "category": "november_rail_sumiyoshi_20",
+      "civil_date": "2026-11-19",
+      "departure_minute": 500,
+      "origin": "sendai_subway:namboku/仙台",
+      "destination": "sendai_bus:1294_0",
+      "required_route_id": "sendai_bus:10030",
+      "modes": [
+        "rail",
+        "bus"
+      ],
+      "expected_arrival_minute": 597
+    },
+    {
+      "category": "november_sumiyoshi_two_subway_lines",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:1294_10",
+      "destination": "sendai_subway:tozai/荒井",
+      "required_route_id": "sendai_bus:10030",
+      "modes": [
+        "bus",
+        "rail",
+        "rail"
+      ],
+      "expected_arrival_minute": 643
+    },
+    {
+      "category": "november_sumiyoshi_20_holiday",
+      "civil_date": "2026-11-03",
+      "departure_minute": 540,
+      "origin": "sendai_bus:1294_10",
+      "destination": "sendai_bus:1085_0",
+      "required_route_id": "sendai_bus:10030",
+      "modes": [
+        "bus"
+      ],
+      "expected_arrival_minute": 609
+    },
+    {
+      "category": "november_sumiyoshi_20_saturday_outbound",
+      "civil_date": "2026-11-21",
+      "departure_minute": 540,
+      "origin": "sendai_bus:1085_12",
+      "destination": "sendai_bus:1294_0",
+      "required_route_id": "sendai_bus:10030",
+      "modes": [
+        "bus"
+      ],
+      "expected_arrival_minute": 623
+    },
+    {
+      "category": "november_namboku_subway_only",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_subway:namboku/仙台",
+      "destination": "sendai_subway:namboku/泉中央",
+      "modes": [
+        "rail"
+      ],
+      "expected_arrival_minute": null
+    }
+  ]
+}

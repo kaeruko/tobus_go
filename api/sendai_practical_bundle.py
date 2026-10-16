@@ -44,7 +44,7 @@ def load_reviewed_subway(published_path, review_path, *, operating_period=None):
 def _validate_expanded_period(subway, bus, review, days):
     """Bind the new finite review, bus exclusions and actual feed coverage."""
     from sendai_operating_period import OperatingPeriodReview
-    if review.get("stage_profile") not in {"sendai_municipal_stage1", "sendai_municipal_stage2"}:
+    if review.get("stage_profile") not in {"sendai_municipal_stage1", "sendai_municipal_stage2", "sendai_municipal_stage3"}:
         raise ValueError("explicit supported municipal stage profile required")
     period = OperatingPeriodReview.from_mapping(review["operating_period"])
     table = period.operating_days()
