@@ -1,0 +1,99 @@
+{
+  "parameters": {
+    "max_candidates": 1,
+    "max_boardings": 3,
+    "max_travel_minutes": 180
+  },
+  "cases": [
+    {
+      "category": "arai_21_only",
+      "civil_date": "2026-10-16",
+      "departure_minute": 420,
+      "origin": "sendai_bus:5181_11",
+      "destination": "sendai_bus:5099_0",
+      "required_route_id": "sendai_bus:10039",
+      "modes": [
+        "bus"
+      ],
+      "expected_arrival_minute": 442
+    },
+    {
+      "category": "arai_21_rail",
+      "civil_date": "2026-10-12",
+      "departure_minute": 500,
+      "origin": "sendai_bus:5099_10",
+      "destination": "sendai_subway:tozai/仙台",
+      "required_route_id": "sendai_bus:10039",
+      "modes": [
+        "bus",
+        "rail"
+      ],
+      "expected_arrival_minute": 547
+    },
+    {
+      "category": "rail_arai_21",
+      "civil_date": "2026-10-17",
+      "departure_minute": 450,
+      "origin": "sendai_subway:tozai/仙台",
+      "destination": "sendai_bus:5099_0",
+      "required_route_id": "sendai_bus:10039",
+      "modes": [
+        "rail",
+        "bus"
+      ],
+      "expected_arrival_minute": 491
+    },
+    {
+      "category": "izumi_21_only",
+      "civil_date": "2026-10-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:9260_10",
+      "destination": "sendai_bus:1085_0",
+      "required_route_id": "sendai_bus:10038",
+      "modes": [
+        "bus"
+      ],
+      "expected_arrival_minute": 570
+    },
+    {
+      "category": "izumi_21_rail",
+      "civil_date": "2026-10-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:9260_10",
+      "destination": "sendai_subway:namboku/仙台",
+      "required_route_id": "sendai_bus:10038",
+      "modes": [
+        "bus",
+        "rail"
+      ],
+      "expected_arrival_minute": 600
+    },
+    {
+      "category": "rail_izumi_21",
+      "civil_date": "2026-10-19",
+      "departure_minute": 500,
+      "origin": "sendai_subway:namboku/仙台",
+      "destination": "sendai_bus:9260_0",
+      "required_route_id": "sendai_bus:10038",
+      "modes": [
+        "rail",
+        "bus"
+      ],
+      "expected_arrival_minute": 576
+    },
+    {
+      "category": "izumi_bus_two_subway_lines",
+      "civil_date": "2026-10-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:9260_10",
+      "destination": "sendai_subway:tozai/荒井",
+      "required_route_id": "sendai_bus:10038",
+      "modes": [
+        "bus",
+        "rail",
+        "rail"
+      ],
+      "expected_arrival_minute": 627
+    }
+  ]
+}

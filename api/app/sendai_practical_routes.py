@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from route_engine import RouteSearchLimitError
 from sendai_practical_network import PracticalFreeNetwork, search_practical_subway
 from sendai_practical_serializer import SCHEMA, serialize_practical_journey
+from sendai_operating_period import OperatingPeriodReview
 from transit_timetable_choices import NetworkSearchParameters
 
 
@@ -25,11 +26,18 @@ class PracticalRouteRequest(BaseModel):
         extra = "forbid"
 
 
-def create_sendai_practical_test_app(network, *, environment, parameters):
+def create_sendai_practical_test_app(network, *, environment, parameters,
+                                    operating_period=None, coverage_label=None):
     if environment != "test" or not isinstance(network, PracticalFreeNetwork):
         raise ValueError("explicit reviewed network and test environment required")
     if not isinstance(parameters, NetworkSearchParameters) or parameters.max_candidates != 1:
         raise ValueError("explicit shared v2 parameters with one earliest result required")
+    if operating_period is not None:
+        if (not isinstance(operating_period, OperatingPeriodReview)
+                or operating_period.operating_days() != network.source.operating_days):
+            raise ValueError("operating-period review must match the exact loaded subway days")
+    if coverage_label is not None and (not isinstance(coverage_label, str) or not coverage_label.strip()):
+        raise ValueError("explicit non-empty coverage label required")
     app = FastAPI(title="仙台でGO 予定時刻モデル検証")
     app.add_middleware(CORSMiddleware, allow_origin_regex=r"http://(?:localhost|127\.0\.0\.1)(?::[0-9]+)?",
                        allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
@@ -39,15 +47,24 @@ def create_sendai_practical_test_app(network, *, environment, parameters):
         snapshot = network.free_scope.snapshot
         served = {row.stop_id for trip in network.free_scope.allowed_trip_ids for row in snapshot.rows_by_trip[trip]}
         modes = sorted({snapshot.routes[snapshot.trips[t].route_id].mode.value for t in snapshot.allowed_trip_ids})
-        return {"schema": SCHEMA, "environment": "test", "city": "sendai",
+        dates = sorted(e.day.isoformat() for e in network.source.operating_days.entries if e.kind is not None
+                       and ("bus" not in modes or e.day in network.bus_reviewed_days))
+        extra = {}
+        if operating_period is not None:
+            dates = [day.isoformat() for day in operating_period.advertised_dates(
+                service_day_offsets=(0,), additional_reviewed_days=(network.bus_reviewed_days,))]
+            extra = {"date_boundary_notice": "通常ダイヤの対応日です。深夜・日付境界では前日や翌日の確認不足により検索できない場合があります。",
+                     "normal_timetable_only": True, "special_timetables_verified": False}
+        if coverage_label is not None:
+            extra["coverage_label"] = coverage_label
+        return {"schema": SCHEMA, "environment": "test", "city": "sendai", **extra,
             "fare_policy_ids": ["sendai_fureai_pass"], "supported_modes": modes,
             "unsupported": ["miyagi_kotsu", "unreviewed_municipal_segments", "realtime", "unreviewed_special_days"],
             "feed_versions": dict(snapshot.feed_versions),
             "feed_provenance": [{"feed_id": d.metadata.feed_id, "source_uri": d.metadata.source_uri,
                                  "version": d.metadata.version} for d in snapshot.datasets],
             "attribution": "仙台市・仙台市交通局 / 公共交通オープンデータセンター / CC BY 4.0。到着は予定時刻モデル。",
-            "operating_dates": sorted(e.day.isoformat() for e in network.source.operating_days.entries if e.kind is not None
-                       and ("bus" not in modes or e.day in network.bus_reviewed_days)),
+            "operating_dates": dates,
             "stops": [{"id": key, "name": snapshot.stops[key].name,
                        "mode": "rail" if key.startswith("sendai_subway:") else "bus"} for key in sorted(served)],
             "transfer_time_measured": False, "actual_connection_guaranteed": False,
@@ -58,6 +75,11 @@ def create_sendai_practical_test_app(network, *, environment, parameters):
     @app.post("/test/sendai/route")
     def route(request: PracticalRouteRequest):
         try:
+            if operating_period is not None:
+                operating_period.require_query_days(request.civil_date, (request.civil_date,),
+                    additional_reviewed_days=(network.bus_reviewed_days,))
+                # The existing materializer additionally validates every exact
+                # previous/next service day needed by this time and horizon.
             journeys = search_practical_subway(network, request.origin_stop_id, request.destination_stop_id,
                 civil_date=request.civil_date, departure_minute=request.departure_minute, parameters=parameters)
         except ValueError as error:

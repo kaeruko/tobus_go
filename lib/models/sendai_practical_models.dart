@@ -35,9 +35,12 @@ class SendaiPracticalCapabilities {
   final List<String> supportedModes;
   final List<String> unsupported;
   final List<String> operatingDates;
+  final String? coverageLabel;
+  final String? dateBoundaryNotice;
 
   const SendaiPracticalCapabilities(
-      this.stops, this.supportedModes, this.unsupported, this.operatingDates);
+      this.stops, this.supportedModes, this.unsupported, this.operatingDates,
+      {this.coverageLabel, this.dateBoundaryNotice});
 
   factory SendaiPracticalCapabilities.fromJson(Map<String, dynamic> json) {
     if (json['schema'] != 'sendai_practical_route_v1' ||
@@ -51,7 +54,9 @@ class SendaiPracticalCapabilities {
         (json['stops'] as List).map((s) => SendaiStop.fromJson(s as Map<String, dynamic>)).toList(),
         List<String>.from(json['supported_modes'] as List),
         List<String>.from(json['unsupported'] as List),
-        List<String>.from(json['operating_dates'] as List));
+        List<String>.from(json['operating_dates'] as List),
+        coverageLabel: json['coverage_label'] as String?,
+        dateBoundaryNotice: json['date_boundary_notice'] as String?);
   }
 }
 

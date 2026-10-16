@@ -9,6 +9,7 @@ from app.sendai_practical_routes import create_sendai_practical_test_app
 from sendai_practical_bundle import load_reviewed_subway,build_reviewed_municipal_model
 from sendai_transit import load_sendai_dataset
 from transit_timetable_choices import NetworkSearchParameters
+from sendai_operating_period import OperatingPeriodReview
 
 
 def main():
@@ -16,16 +17,19 @@ def main():
     for name in ('bus-gtfs-dir','subway-published','subway-review','municipal-review'):p.add_argument('--'+name,type=Path,required=True)
     p.add_argument('--expected-service-date',required=True)
     p.add_argument('--accept-experimental-transfer-model',action='store_true')
+    p.add_argument('--use-reviewed-operating-period',action='store_true')
     p.add_argument('--port',type=int,default=8000)
     args=p.parse_args()
     if not args.accept_experimental_transfer_model:raise ValueError('explicit test model selection required')
     bus=load_sendai_dataset(args.bus_gtfs_dir,expected_service_date=args.expected_service_date)
-    subway,_=load_reviewed_subway(args.subway_published,args.subway_review)
     review=json.loads(args.municipal_review.read_text(encoding='utf-8'))
+    period = OperatingPeriodReview.from_mapping(review['operating_period']) if args.use_reviewed_operating_period else None
+    subway,_=load_reviewed_subway(args.subway_published,args.subway_review,operating_period=period)
     net=build_reviewed_municipal_model(subway,bus,review,accept_experimental_bus_transfers=True)
     # Existing shared v2 default safety limits; one earliest result, no top-k claim.
     params=NetworkSearchParameters(max_candidates=1,max_boardings=3,max_travel_minutes=180)
-    app=create_sendai_practical_test_app(net,environment='test',parameters=params)
+    app=create_sendai_practical_test_app(net,environment='test',parameters=params,
+        operating_period=period,coverage_label=review.get('coverage_label'))
     import uvicorn
     uvicorn.run(app,host='127.0.0.1',port=args.port)
 

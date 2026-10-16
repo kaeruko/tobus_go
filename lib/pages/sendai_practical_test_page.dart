@@ -66,6 +66,8 @@ class _SendaiPracticalTestPageState extends State<SendaiPracticalTestPage> {
       return ListView(padding: const EdgeInsets.all(16), children: [
         const Text('通常ダイヤの予定時刻モデル。到着は目安・乗換は保証しません。'),
         Text('確認済み: ${cap.supportedModes.map((m) => m == 'bus' ? '市営バスの限定区間' : '地下鉄').join('・')}'),
+        if (cap.coverageLabel != null) Text('対象: ${cap.coverageLabel}'),
+        if (cap.dateBoundaryNotice != null) Text(cap.dateBoundaryNotice!),
         if (!cap.supportedModes.contains('bus')) const Text('市営バスはこのデータでは未対応'),
         const Text('宮城交通・未確認の市営区間・特別ダイヤ・Realtimeは未対応'),
         const Text('データ: 仙台市・仙台市交通局 / 公共交通オープンデータセンター / CC BY 4.0'),
@@ -80,7 +82,7 @@ class _SendaiPracticalTestPageState extends State<SendaiPracticalTestPage> {
             onChanged: _busy ? null : (v) => setState(() { _pass = v; _results = null; })),
         CheckboxListTile(key: const Key('sendai-accept-transfer'), value: _accept, onChanged: _busy ? null : (v) => setState(() { _accept = v ?? false; _results = null; }),
             title: const Text('検証用の乗換仮設定を使用する'),
-            subtitle: const Text('仙台の地下鉄間は公式5分＋仮の余裕2分。荒井のバス接続5分＋2分は全体が仮定です。実測・正式採用・保証ではありません。')),
+            subtitle: const Text('仙台の地下鉄間は公式5分＋仮の余裕2分。バス接続は拠点別の仮設定です。実測・正式採用・保証ではありません。')),
         FilledButton(key: const Key('sendai-search'), onPressed: _busy ? null : _search, child: Text(_busy ? '検索中' : '追加支払0円の確認済み区間を検索')),
         if (_error != null) Text(_error!, key: const Key('sendai-test-error')),
         if (_results != null && _results!.isEmpty) const Text('この条件で確認済み経路はありません'),

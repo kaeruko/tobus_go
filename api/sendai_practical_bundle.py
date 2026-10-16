@@ -18,7 +18,7 @@ from transit_adapters.sendai_subway_practical import (
 from transit_network import NetworkCosts, StandardTransferLink
 
 
-def load_reviewed_subway(published_path, review_path):
+def load_reviewed_subway(published_path, review_path, *, operating_period=None):
     published = json.loads(Path(published_path).read_text(encoding="utf-8"))
     review = json.loads(Path(review_path).read_text(encoding="utf-8"))
     files = {name: base64.b64decode(value["cp932_base64"], validate=True) for name,value in published.items()}
@@ -27,6 +27,11 @@ def load_reviewed_subway(published_path, review_path):
     evidence = lambda x: Evidence(**x)
     days = FiniteOperatingDays(tuple(DayClassification(date.fromisoformat(e["day"]),e["kind"],e["reason"])
         for e in review["days"]), (evidence(review["day_source"]),),date.fromisoformat(review["reviewed_at"]),review["holiday_source_uri"],review["holiday_source_sha256"])
+    if operating_period is not None:
+        from sendai_operating_period import OperatingPeriodReview
+        if not isinstance(operating_period, OperatingPeriodReview):
+            raise ValueError("explicit operating-period review required")
+        days = operating_period.operating_days()
     stations = {key: StationReview(*value,evidence(review["coordinate_source"])) for key,value in review["stations"].items()}
     tables = {name: PracticalTableReview(value["csv_sha256"],tuple(evidence(e) for e in value["current_departure_evidence"]),
         value["source_comparison_record_sha256"],value["comparison_scope"],evidence(review["license_source"]),"CC-BY-4.0")

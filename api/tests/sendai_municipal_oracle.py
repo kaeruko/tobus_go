@@ -36,17 +36,24 @@ def raw_services(files,day):
 
 def runs(bus_files,subway_files,day_kinds,civil_day,review):
     result=[]
-    patterns={p['route_id'].split(':',1)[1]:p for p in review['bus_patterns']}
+    # A GTFS route can contain both directions (and other driven paths).
+    # Match the whole ordered path as well as the concrete trip whitelist.
+    patterns={}
+    for p in review['bus_patterns']:
+        key=(p['route_id'].split(':',1)[1],tuple(p['stop_ids']))
+        if key in patterns:raise ValueError('duplicate raw oracle reviewed pattern')
+        patterns[key]=p
+    reviewed_routes={route_id for route_id,_ in patterns}
     tt={}
     for r in rows(bus_files['stop_times.txt']):tt.setdefault(r['trip_id'],[]).append(r)
     for day,kind in day_kinds.items():
         shift=(day-civil_day).days*1440
         active=raw_services(bus_files,day)
         for trip in rows(bus_files['trips.txt']):
-            if trip['service_id'] not in active or trip['route_id'] not in patterns:continue
+            if trip['service_id'] not in active or trip['route_id'] not in reviewed_routes:continue
             rr=sorted(tt[trip['trip_id']],key=lambda r:int(r['stop_sequence']))
-            p=patterns[trip['route_id']]
-            if ['sendai_bus:'+r['stop_id'] for r in rr]!=p['stop_ids'] or 'sendai_bus:'+trip['trip_id'] not in p['trip_ids']:continue
+            p=patterns.get((trip['route_id'],tuple('sendai_bus:'+r['stop_id'] for r in rr)))
+            if p is None or 'sendai_bus:'+trip['trip_id'] not in p['trip_ids']:continue
             result.append(dict(trip='sendai_bus:'+trip['trip_id'],day=day,mode='bus',
                 stops=tuple('sendai_bus:'+r['stop_id'] for r in rr),seq=tuple(int(r['stop_sequence']) for r in rr),
                 deps=tuple(seconds(r['departure_time'])+shift for r in rr),arrs=tuple(seconds(r['arrival_time'])+shift for r in rr),

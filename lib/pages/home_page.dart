@@ -9,6 +9,7 @@ import '../l10n/trip_display_localizations.dart';
 import '../models/route_models.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/app_navigation_bar.dart';
+import '../widgets/sendai_practical_launcher.dart';
 import '../widgets/place_field.dart';
 import '../widgets/route_card.dart';
 import 'map_picker_page.dart';
@@ -278,6 +279,8 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
         child: SafeArea(
           child: CustomScrollView(
             slivers: [
+              if (kDebugMode && ref.watch(cityProfileProvider).key == 'sendai')
+                const SliverToBoxAdapter(child: SendaiPracticalLauncher(city: 'sendai')),
               // Active Trip Card
               if (activeTripAsync?.value != null &&
                   activeTripAsync!.value!.status != TripStatus.completed &&
