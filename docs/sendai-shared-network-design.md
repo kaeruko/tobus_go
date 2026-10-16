@@ -629,3 +629,19 @@ flutter run -d chrome -t lib/main.dart `
 原行subsetは `municipal_bus_subset_20261006_stage2.json`、固定期待は `municipal_fixed_cases_20261016_stage2.json`。ゲートは明示 `--profile stage2` でこの組だけを読み、別profileへ再試行しない。実運用入力は従来どおり検証済み原ZIPであり、subsetを代用しない。共通SearchCore v2・枝刈り・候補順位は変更しない。
 
 次の優先事項は第13.7節の有限期間更新と既存拠点の追加路線、主要地下鉄駅/仙台駅の方向別接続、公開画面への本接続である。宮城交通、未確認の同番号route、他系統、11月以降の検索候補、全特別ダイヤ、住所アクセス徒歩、実測乗換、全市の全queryは未対応/未認定のまま。本番deploy・AWS/S3・アプリID・Firebase・ストア操作は行わない。
+
+### 14.4 実装と検証の証拠（2026-10-17）
+
+実装sourceは **`3d88bfbd69e76342637d8982e38b378d46ef5376`**。変更9ファイルのうち、運行モデルのローダー変更は明示stage2 profileの許可1行だけである。対象scopeと完全patternは別reviewへ追加し、旧review/固定queryは保持した。共通探索・順位・東京公開API・通常画面の本番設定・native ID・Firebase・deploy設定は変更していない。
+
+追加module `tests.test_sendai_stage2` は**7件成功**。新6固定queryの独立raw最適値・完全witness・ASGIと直列化の具体便/停車順/通常運賃不明、拡張後bundle上での前段7queryの期待値維持、119便・平土日祝の全pattern、片方向reviewの非伝播、便集合/全停車順の改変拒否、合成の未承認同番号20 routeの拒否、既存接続/期間/除外日の等値とcapabilitiesの追加範囲を確認した。旧監査一式を起動したものではない。
+
+共有loader変更で自動起動した旧4query Chrome [38979986810](https://github.com/kaeruko/tobus_go/actions/runs/38979986810) は上記sourceで **completed/success**。保持済みの固定4queryを変更せず、実Flutter UIから同じ結果を確認した。成功済みrunの手動再実行はしていない。
+
+第2段workflow [38979986784](https://github.com/kaeruko/tobus_go/actions/runs/38979986784) は同じsourceで **completed/success**。新規Python7件、指定原ZIP・schema2 manifest・member SHAと新subsetの原行一致、新6queryの独立raw oracle・全具体便witness・ASGI比較が成功し、`READ_ONLY_SENDAI_STAGE2_NEW_SIX_OK` を確認した。続けて実Flutter/Chromeで住吉台→泉中央、住吉台→地下鉄仙台、地下鉄仙台→住吉台の**3query**が固定期待どおり成功し、`All tests passed.` を確認した。
+
+通常CIのPython API **859件**、Windows回帰 **277件**、共通v2 Python3.11/3.12 **各89件**が成功した。今回の7件を加えたAPI回帰は成功しており、旧112組・第1〜第4段階・36ケース監査を新たに起動したものではない。
+
+通常CI [38979986752](https://github.com/kaeruko/tobus_go/actions/runs/38979986752) は **`3d88bfbd69e76342637d8982e38b378d46ef5376`** で **completed/success・全7job成功**。Flutter解析/テスト、東京・仙台のAndroid/iOS両flavor、iOS identity/privacy/ATS/Firebase分離、repository safety、API、Windows、共通v2の両Python版、Lambda imageのbuild/import検査が成功した。Lambda imageの検査はdeployではない。
+
+最後の反映は、この結果記録だけの文書commit（`[skip ci]`）とする。CI・原ZIP6経路・Chrome3経路の認定sourceは上記3d88bfbdであり、文書commitを追加のコード検証や実運行保証として扱わない。反映直前にもmainと未マージPRを確認し、他の変更を上書きしていない。次の作業は、公式祝日/変更案内を使う11月の有限期間更新と追加路線の選定から進める。
