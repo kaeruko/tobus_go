@@ -6,7 +6,7 @@
 
 | city | Flutter flavor | Android applicationId | iOS bundle identifier | Firebase |
 | --- | --- | --- | --- | --- |
-| Tokyo | `tokyo` | `jp.cloxs.toeigo` | `jp.cloxs.go.tokyo` | existing Tokyo project, new iOS app registration |
+| Tokyo | `tokyo` | `jp.cloxs.toeigo` | `jp.cloxs.go.tokyo` | existing Tokyo project |
 | Sendai | `sendai` | `jp.cloxs.go.sendai` | `jp.cloxs.go.sendai` | disabled until a Sendai-specific app is configured |
 
 Tokyo Androidの既存applicationId `jp.cloxs.toeigo` はGoogle Play更新互換のため変更しない。Tokyo iOSは初回App Store登録前に `jp.cloxs.go.tokyo` へ移行した。
