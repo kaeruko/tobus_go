@@ -1,0 +1,40 @@
+name: Sendai staged expansion
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sendai-expansion.yml'
+      - 'scripts/inspect_sendai_expansion.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reviewed-source-inventory:
+    name: Inventory candidate 21 from the exact reviewed official feed
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: api/requirements.txt
+      - name: Install existing dependencies
+        run: python -m pip install -r api/requirements.txt
+      - name: Prepare the explicitly approved source and manifest
+        run: |
+          python -B scripts/fetch_sendai_gtfs.py \
+            --output api/data/sendai/20261006_model \
+            --expected-service-date 2026-10-16 \
+            --source-url 'https://api-public.odpt.org/api/v4/files/odpt/SendaiMunicipal/bus_realtime_information.zip?date=20261006' \
+            --expected-sha256 53a08400776b3229743b24eb53566eb523b354a5b783dcfffd3e40f39258e6a2
+      - name: Inventory complete candidate patterns without approving free coverage
+        run: |
+          python -B scripts/inspect_sendai_expansion.py \
+            --bus-gtfs-dir api/data/sendai/20261006_model \
+            --route-short-names 20 R20 21 R21 \
+            --expected-sha256 53a08400776b3229743b24eb53566eb523b354a5b783dcfffd3e40f39258e6a2
