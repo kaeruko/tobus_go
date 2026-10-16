@@ -76,7 +76,7 @@ class _SendaiPracticalTestPageState extends State<SendaiPracticalTestPage> {
             onChanged: _busy ? null : (v) => setState(() { _date = v; _results = null; })),
         TextField(key: const Key('sendai-time'), controller: _time, enabled: !_busy, decoration: const InputDecoration(labelText: '出発時刻 HH:MM')),
         DropdownButtonFormField<String>(key: const Key('sendai-pass'), decoration: const InputDecoration(labelText: '乗車証を明示選択'),
-            items: const [DropdownMenuItem(key: ValueKey('sendai-pass-item'), value: 'sendai_fureai_pass', child: Text('ふれあい乗車証（有効な証を所持）'))],
+            items: const [DropdownMenuItem(key: ValueKey('sendai-pass-item-sendai_fureai_pass'), value: 'sendai_fureai_pass', child: Text('ふれあい乗車証（有効な証を所持）'))],
             onChanged: _busy ? null : (v) => setState(() { _pass = v; _results = null; })),
         CheckboxListTile(key: const Key('sendai-accept-transfer'), value: _accept, onChanged: _busy ? null : (v) => setState(() { _accept = v ?? false; _results = null; }),
             title: const Text('検証用の乗換仮設定を使用する'),
