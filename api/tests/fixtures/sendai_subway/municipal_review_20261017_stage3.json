@@ -660,7 +660,7 @@
       "review_note": "泉中央20: 泉中央～野村～実沢～芦沢～住吉台入口～住吉台東・西の全走行経路を令和8年4月実沢系統図と全具体停車順で確認。仙台市泉区内で完結する2方向の完全patternのみ。同じ番号の荒井20や他地域のrouteを番号だけで許可しない。"
     }
   ],
-  "subway_feed_version": "f4cc1bf90b18dea7a214aca5e2da3e9ce9588793cb091d1eef36326db5480c82",
+  "subway_feed_version": "68b9a8c58b82c7e6ea959d4216c45ed0e67ccfb84656315dcbac82d533167b85",
   "subway_free_path_evidence": {
     "uri": "https://www.kotsu.city.sendai.jp/images/guide2026.pdf",
     "sha256": "2154d455ad80d5b8c33b16122352b444a1b97d39b7290efa211cb54c9df76921"
