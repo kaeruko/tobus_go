@@ -15,6 +15,7 @@ class SendaiPracticalTestPage extends StatefulWidget {
 class _SendaiPracticalTestPageState extends State<SendaiPracticalTestPage> {
   late final Future<SendaiPracticalCapabilities> _capabilities;
   final _time = TextEditingController(text: '10:00');
+  final _directDate = TextEditingController();
   String? _origin, _destination, _date, _pass;
   bool _accept = false, _busy = false;
   String? _error;
@@ -26,7 +27,7 @@ class _SendaiPracticalTestPageState extends State<SendaiPracticalTestPage> {
     _capabilities = widget.service.capabilities();
   }
   @override
-  void dispose() { _time.dispose(); super.dispose(); }
+  void dispose() { _time.dispose(); _directDate.dispose(); super.dispose(); }
 
   Future<void> _search() async {
     final parts = _time.text.split(':');
@@ -77,7 +78,25 @@ class _SendaiPracticalTestPageState extends State<SendaiPracticalTestPage> {
         stopField('目的地', 'destination', _destination, (v) => _destination = v),
         DropdownButtonFormField<String>(key: const Key('sendai-date'), decoration: const InputDecoration(labelText: '対応日'),
             items: cap.operatingDates.map((d) => DropdownMenuItem(key: ValueKey('sendai-date-item-$d'), value: d, child: Text(d))).toList(),
-            onChanged: _busy ? null : (v) => setState(() { _date = v; _results = null; })),
+            onChanged: _busy ? null : (v) => setState(() {
+              _date = v;
+              _directDate.text = v ?? '';
+              _results = null;
+            })),
+        TextField(
+            key: const Key('sendai-date-direct'),
+            controller: _directDate,
+            enabled: !_busy,
+            decoration: InputDecoration(
+              labelText: '対応日を直接入力 YYYY-MM-DD',
+              helperText: '表示された対応日のみ。未対応日や臨時運行日は検索不可',
+              errorText: _directDate.text.isNotEmpty && _date == null
+                  ? 'この日付は現在の確認範囲外です' : null,
+            ),
+            onChanged: _busy ? null : (text) => setState(() {
+              _date = cap.operatingDates.contains(text) ? text : null;
+              _results = null;
+            })),
         TextField(key: const Key('sendai-time'), controller: _time, enabled: !_busy, decoration: const InputDecoration(labelText: '出発時刻 HH:MM')),
         DropdownButtonFormField<String>(key: const Key('sendai-pass'), decoration: const InputDecoration(labelText: '乗車証を明示選択'),
             items: const [DropdownMenuItem(key: ValueKey('sendai-pass-item-sendai_fureai_pass'), value: 'sendai_fureai_pass', child: Text('ふれあい乗車証（有効な証を所持）'))],

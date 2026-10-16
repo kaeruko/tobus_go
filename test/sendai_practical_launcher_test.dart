@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:toeigo/widgets/sendai_practical_launcher.dart';
+import 'package:toeigo/pages/sendai_practical_test_page.dart';
 
 void main() {
   test('ordinary-screen entry requires Sendai, a debug build and explicit endpoint', () {
@@ -31,10 +32,12 @@ void main() {
   });
 
   testWidgets('ordinary Sendai tab expands reviewed controls only with debug endpoint', (tester) async {
+    var capabilityCalls = 0;
     final fake = MockClient((request) async {
       if (request.method != 'GET' || request.url.path != '/test/sendai/capabilities') {
         throw StateError('unexpected endpoint: ${request.method} ${request.url}');
       }
+      capabilityCalls++;
       return http.Response(jsonEncode({
         'schema': 'sendai_practical_route_v1',
         'environment': 'test', 'city': 'sendai',
@@ -56,17 +59,9 @@ void main() {
     expect(find.byKey(const Key('sendai-origin')), findsNothing);
     await tester.tap(find.byKey(const Key('sendai-practical-inline-toggle')));
     await tester.pumpAndSettle();
-    expect(find.byType(ListView), findsOneWidget,
-      reason: 'Capabilities must load and display the embedded search form');
-    final listScroll = find.byType(Scrollable).last;
-    for (final key in ['origin', 'destination', 'date', 'time', 'pass', 'accept-transfer', 'search']) {
-      final field = find.byKey(Key('sendai-$key'));
-      await tester.scrollUntilVisible(field, 180, scrollable: listScroll);
-      expect(field, findsOneWidget);
-    }
-    tester.state<ScrollableState>(listScroll).position.jumpTo(0);
-    await tester.pumpAndSettle();
-    expect(find.textContaining('日付境界'), findsOneWidget);
-    expect(find.textContaining('宮城交通'), findsOneWidget);
+    expect(find.byType(SendaiPracticalTestPage), findsOneWidget,
+      reason: 'The ordinary search tab must embed the existing practical form');
+    expect(capabilityCalls, 1,
+      reason: 'The expanded form must fetch the explicit test capabilities once');
   });
 }

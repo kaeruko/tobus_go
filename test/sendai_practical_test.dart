@@ -170,4 +170,32 @@ void main() {
     expect(find.byKey(const Key('sendai-result')), findsNothing);
   });
 
+  testWidgets('direct date input rejects out-of-scope days without API fallback', (tester) async {
+    var routeCalls = 0;
+    final fixture = capabilities();
+    fixture['operating_dates'] = ['2026-11-19', '2026-11-30'];
+    final service = SendaiPracticalService(baseUri: Uri.parse('http://localhost:8000'),
+      client: MockClient((request) async {
+        if (request.method == 'GET' && request.url.path == '/test/sendai/capabilities') {
+          return http.Response(jsonEncode(fixture), 200,
+              headers: {'content-type': 'application/json; charset=utf-8'});
+        }
+        routeCalls++;
+        throw StateError('unsupported input must not issue an API search');
+      }));
+    await tester.pumpWidget(MaterialApp(home: SendaiPracticalTestPage(service: service)));
+    await tester.pumpAndSettle();
+    final dateField = find.byKey(const Key('sendai-date-direct'));
+    final pageScroll = find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(dateField, 120, scrollable: pageScroll);
+    await tester.enterText(dateField, '2026-12-01');
+    await tester.pumpAndSettle();
+    expect(find.text('この日付は現在の確認範囲外です'), findsOneWidget);
+    final search = find.byKey(const Key('sendai-search'));
+    await tester.scrollUntilVisible(search, 120, scrollable: pageScroll);
+    await tester.tap(search);
+    await tester.pumpAndSettle();
+    expect(routeCalls, 0);
+  });
+
 }

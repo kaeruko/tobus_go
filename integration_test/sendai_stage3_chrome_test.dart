@@ -39,7 +39,11 @@ Future<void> _query(WidgetTester tester, {required String origin,
     required String destination, required String day, required String time,
     String? arrival, required bool izumiTransfer}) async {
   debugPrint('SENDAI_NOV_UI query $origin -> $destination $day $time');
-  await _select(tester, 'date', day);
+  final directDate = find.byKey(const Key('sendai-date-direct'));
+  await _reveal(tester, directDate);
+  await tester.enterText(directDate, day);
+  await tester.pumpAndSettle();
+  expect(tester.widget<TextField>(directDate).controller!.text, day);
   await _select(tester, 'origin', origin);
   await _select(tester, 'destination', destination);
   final input = find.byKey(const Key('sendai-time'));
