@@ -110,7 +110,7 @@ def build_reviewed_municipal_model(subway, bus, review, *, accept_experimental_b
     subway_rows = {}
     for row in subway.dataset.stop_times: subway_rows.setdefault(row.trip_id,[]).append(row)
     if review["subway_feed_version"] != subway.dataset.metadata.version:
-        raise ValueError("subway free scope review version mismatch")
+        raise ValueError(f"subway free scope review version mismatch: reviewed={review['subway_feed_version']} loaded={subway.dataset.metadata.version}")
     subway_evidence = Evidence(**review["subway_free_path_evidence"])
     for tid,rr in subway_rows.items():
         segments.extend(FreeSegmentReview(tid,subway.dataset.metadata.version,a.sequence,b.sequence,a.stop_id,b.stop_id,
