@@ -22,8 +22,12 @@ Future<void> _select(WidgetTester tester, String field, String value) async {
   tester.state<ScrollableState>(menu).position.jumpTo(0);
   await tester.pumpAndSettle();
   // Re-selecting the current date renders its key in both the field and the
-  // open overlay. Select the menu occurrence explicitly, including for scroll.
-  final item = find.byKey(ValueKey('sendai-$field-item-$value')).last;
+  // open overlay. Scope to the menu while allowing lazily built items to be
+  // absent until scrollUntilVisible scrolls them into view.
+  final item = find.descendant(
+    of: menu,
+    matching: find.byKey(ValueKey('sendai-$field-item-$value')),
+  );
   await tester.scrollUntilVisible(item, 220, scrollable: menu);
   await tester.tap(item);
   await tester.pumpAndSettle();
