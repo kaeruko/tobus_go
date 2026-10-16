@@ -125,10 +125,6 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: SendaiPracticalTestPage(service: service)));
     await tester.pumpAndSettle();
     expect(find.text('宮城交通・未確認の市営区間・特別ダイヤ・Realtimeは未対応'), findsOneWidget);
-    final dateField = tester.widget<DropdownButtonFormField<String>>(
-        find.byKey(const Key('sendai-date')));
-    expect(dateField.items!.map((item) => item.value).toList(), ['2026-10-16']);
-
     final pageScroll = find.descendant(
         of: find.byType(ListView), matching: find.byType(Scrollable)).first;
     Future<void> reveal(Finder target) async {
@@ -149,7 +145,15 @@ void main() {
     }
     await choose('origin', 'sendai_subway:tozai/仙台');
     await choose('destination', 'sendai_subway:tozai/荒井');
-    await choose('date', '2026-10-16');
+    final dateField = find.byKey(const Key('sendai-date'));
+    await reveal(dateField);
+    await tester.tap(dateField);
+    await tester.pumpAndSettle();
+    final reviewedDay = find.byKey(const ValueKey('sendai-date-item-2026-10-16'));
+    expect(reviewedDay, findsWidgets);
+    expect(find.text('2026-12-31'), findsNothing);
+    await tester.tap(reviewedDay.last);
+    await tester.pumpAndSettle();
     await choose('pass', 'sendai_fureai_pass');
     final accept = find.byKey(const Key('sendai-accept-transfer'));
     await reveal(accept);
