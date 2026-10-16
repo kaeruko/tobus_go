@@ -59,6 +59,10 @@ Future<void> _search(
   await _select(tester, 'destination', destination);
   final timeInput = find.byKey(const Key('sendai-time'));
   await _reveal(tester, timeInput);
+  // Chrome may retain the preceding input session across dropdown changes.
+  // Give the editable field focus explicitly before replacing its content.
+  await tester.tap(timeInput);
+  await tester.pumpAndSettle();
   await tester.enterText(timeInput, time);
   await tester.pumpAndSettle();
   expect(tester.widget<TextField>(timeInput).controller!.text, time,
