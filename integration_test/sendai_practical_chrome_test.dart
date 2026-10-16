@@ -68,8 +68,12 @@ Future<void> _search(
   final result = find.byKey(const Key('sendai-result'));
   await _reveal(tester, result);
   expect(result, findsOneWidget);
-  expect(find.textContaining('追加支払0円・到着目安 $_day $expectedArrival'),
-      findsOneWidget);
+  final rendered = tester.widgetList<Text>(find.descendant(
+    of: result, matching: find.byType(Text),
+  )).map((widget) => widget.data).whereType<String>().toList();
+  final expected = '追加支払0円・到着目安 $_day $expectedArrival';
+  expect(rendered.any((value) => value.contains(expected)), isTrue,
+      reason: 'Rendered route for $origin -> $destination at $time: $rendered');
   expect(find.textContaining(firstMode), findsWidgets);
   if (secondMode != null) {
     expect(find.textContaining(secondMode), findsWidgets);
