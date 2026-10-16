@@ -56,8 +56,12 @@ void main() {
     expect(find.byKey(const Key('sendai-origin')), findsNothing);
     await tester.tap(find.byKey(const Key('sendai-practical-inline-toggle')));
     await tester.pumpAndSettle();
+    final listScroll = find.descendant(
+      of: find.byType(ListView).first, matching: find.byType(Scrollable)).first;
     for (final key in ['origin', 'destination', 'date', 'time', 'pass', 'accept-transfer', 'search']) {
-      expect(find.byKey(Key('sendai-$key')), findsOneWidget);
+      final field = find.byKey(Key('sendai-$key'));
+      await tester.scrollUntilVisible(field, 180, scrollable: listScroll);
+      expect(field, findsOneWidget);
     }
     expect(find.textContaining('日付境界'), findsOneWidget);
     expect(find.textContaining('宮城交通'), findsOneWidget);
