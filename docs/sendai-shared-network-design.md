@@ -2,6 +2,8 @@
 
 ## 1. 優先順位・現状（2026-10-15）
 
+2026-10-16の共通v2への統一・旧実装削除・実用profileの実装状況は第10節を参照。本節〜第9節の「現状」「未実装」は各記録時点の状態である。
+
 開始時mainは `f1900123d03fb0947c52c20aadc07dcbab32a4c5`。次の新規開発は横浜から仙台へ切り替える。横浜の既存コード・データ・監査履歴、既存ファイル名・ディレクトリ名・アプリIDは保持する。本番デプロイ・S3変更・ストア提出は行わない。
 
 - `api/sendai_transit.py`: ODPT公式市営バスGTFS-JPの取得・明示日付のmanifest検証。`SendaiRouteBackend` はこのバスfeedだけを受け入れる。
@@ -229,3 +231,80 @@ if ($LASTEXITCODE -ne 0) { throw 'Sendai source inspection failed' }
 受け入れるのは、確認した入力版・通常運行日・無料区間・接続基準を使う**モデル上の時刻表経路**である。独立到着秒の認定、遅延/Realtime、実運行の乗換保証、バリアフリー全動線、未確認特別ダイヤ、全queryの正当性・真のtop-kは引き続き未認定とする。厳密到着秒が後から得られた場合は別profileの証拠として検証する。
 
 **今回の変更と実行：** 設計書のみ。2026ガイドの取得・発行年月/5分注記の視覚確認を行い、実用版の受け入れ条件を更新した。実用Adapter/接続型/実データゲートの実装・実行はまだ0、合格済み17テスト・112組照合・東京A*監査・36ケース比較の再実行も0。文書commitは `[skip ci]`。厳密認定flag・探索・guard・候補順位・公開API/UI・本番設定・S3・ストア・既存名/アプリIDは変更していない。
+
+
+## 10. 共通v2への統一・旧実装の整理・実用profileの実装（2026-10-16）
+
+### 10.1 変更前mainと探索境界
+
+開始時及び実装前確認のmainは `836ac54b7f340ba6d5cb0f50666a870c01731ec5`。ユーザーの追加指示により、未公開都市の旧方式との互換維持を目的とした二重経路を廃止した。削除対象と参照元を先に会話で一覧提示し、参照を更新してから削除した。東京の公開runtime・API・順位・設定と、`transit_search_labels.py` の探索・dominance・枝刈り・guard処理は変更していない。
+
+仙台・名古屋・横浜のバス入口は `TransitDataset -> build_transit_network -> search_network -> transit_search_labels.search_labels` へ統一した。既存ファイル名・都市backend名は保持し、feed検証・座標入力・結果直列化だけを接続層に残す。`transit_network_core.py` のendpoint組合せ処理は共通接続層であり、別の時刻表探索ループ・frontier・枝刈りではない。各組合せの検索は同じv2へ委譲し、batch全体の時間予算を減算して次の呼出しに渡す。別backendへの再試行はない。最早1件の範囲で検証し、真のtop-kを認定しない。
+
+東京は `toei_engine._tokyo_label_search -> tokyo_search_labels.search_labels -> transit_search_labels.search_labels` という既存接続を保持する。新しい委譲テストは東京接続層の `_shared_search_labels` とDataset接続層の関数同一性を確認し、仙台・名古屋・横浜の実呼出し及び元例外の伝播も検査する。東京固有の仮想目的地・下界・時計・RTを共通入力層へ移していない。
+
+### 10.2 削除したファイル・機能と残した依存
+
+| 対象 | 変更前の参照元 | 整理内容・理由 |
+| --- | --- | --- |
+| `api/transit_network_experiment.py` | 専用実験テスト | 独立した複数feed探索ループを削除。共通v2で代替 |
+| `api/tests/test_transit_network_experiment.py` | `test_transit_network.py` が入力fixtureを参照 | 実験本体専用テストを削除。必要なGTFS/ODPT原入力fixtureだけを既存 `test_transit_network.py` 内へ保持 |
+| `api/yokohama_municipal_transfer.py` | municipal backend、shared wrapper、旧移動テスト、実データ読取検証器 | 旧2段探索・幾何推定・暗黙の双方向形式を削除。必要な無料coverage検査は `yokohama_shared_network.py`、独立した原GTFS照合は既存acceptance検証器へ保持 |
+| `api/tests/test_yokohama_geometric_transfer.py` | 旧幾何推定実験 | 廃止した推定経路探索だけを対象とするテストを削除。近接候補の読み取り専用調査・未承認表示は別途保持 |
+| `GtfsRouteBackend` 互換class、`.engine` 互換属性、座標keywordの旧search入口 | 仙台・横浜backendと関連テスト | `GtfsRouteEngine` の単一typed request入口に統一。旧v1 factoryを呼ばない。未公開都市APIの入力型を分けて既定をtimeにし、東京のcost既定は保持 |
+| 名古屋独自検索・直列化・距離/時計helper、旧cost→fewTransfers対応 | 名古屋runtime・旧互換テスト | 共通接続層に統合。未公開都市でTokyo comfort/costをfewTransfersに読み替えず明示拒否 |
+| `_LegacyPathRanks` / `v1_path` 選択と旧順位専用回帰 | 横浜shared wrapper、共通ネットワークの旧順位比較 | 未公開都市の旧候補順位を再現するための処理を削除。共通v2の通常規則を使用 |
+| 横浜municipal backendの別feed検索結果結合・独自順位・`estimate_dev` | 横浜runtime・旧実験テスト | 同じ共通グラフのv2検索に置換。旧設定は理由付きで拒否し、暗黙にreviewedへ変更しない |
+
+削除後の横浜runtimeが読む徒歩レビューはschema v2の方向別 `ReviewedWalkingLink` とfeed版を要求する。旧schema v1・双方向レコードから自動変換しない。各方向の根拠が無ければその接続は無い。実データacceptance検証器も同じ方向別入力に更新したが、既存の合格済み実データ監査は再実行していない。過去の横浜認定記録を新実装の合格へ読み替えない。
+
+保持したもの：各都市のGTFS取得/manifest/公式データ照合、Realtime配信、無料coverage、共通v2、東京の接続・証明・回帰、`transit_transfer_candidates.py` と読取専用の徒歩候補調査。`transit_engine.py` の共通DTOとPython参照探索、`search_core_factory.py`、Rust参照実装・golden/parity資料は独立比較の証拠として残す。都市runtimeからv1 factoryへの参照は削除し、旧 `ROUTE_SEARCH_CORE` 設定を共通v2都市backendに渡すと停止する。参照用Python/Rustをruntimeのfallbackには使わない。`test_yokohama_municipal_transfer.py` は他の現役テストが利用する原入力fixtureのためファイル名を維持し、旧探索専用のclassは削除した。
+
+### 10.3 実用Adapter・型・標準乗換
+
+`api/transit_adapters/sendai_subway_practical.py` の `SendaiSubwayPracticalAdapter` は `profile=sendai_published_minute_v1` の明示指定を要求する。既存の厳密 `SendaiSubwayAdapter.load` は未変更。原8CSVのSHA、非終着発車集合比較の既存記録SHA/公式HTML証拠、CC BY 4.0、30の線別駅KML座標、有限運行日レビューを必須とする。旧17件や112組照合の成功マーカーを実用版の成功に転用しない。
+
+`PublishedMinuteProvenance` は原URL/SHA・行/列・原時計・営業日分時計・1分精度と、`published_departure_minute` / `published_clock_arrival_proxy` を区別する。Dataset metadata、stop time、`NetworkRideEvent`、実用結果まで根拠を保持する。到着/発車のexact source seconds欄は `None`。終着は到着目安だけを持ち乗車不可、始発は降車不可。原秒であるかのように `minute * 60` をsource secondsへ埋めない。根拠欠落・source profileへの偽装・モデル時計の無印変更は停止する。従来の座標API serializerへ実用profileを渡すことも明示拒否する。
+
+`api/sendai_practical_network.py` は無料区間レビューによる許可便集合を先に作り、共通v2へ渡す。結果は `PracticalRide` の予定発車/到着目安・元具体便/営業日と、`PracticalTransfer` の標準時間/余裕/根拠を分ける。無料quoteは元便・版・停車順・営業日・モデル時計に戻して再検査する。元のclock provenanceと結果の対応も検査する。バスや宮城交通を自動で追加しない。
+
+仙台駅は線別stopを保持し、2026公式ガイドの5分と、明示指定した実験用余裕を `StandardTransferLink` で扱う。今回のモデル境界検証は余裕2分＝合計7分。余裕1分/3分との境界比較も行うが、2分の実測・誤差上界・正式採用を認定しない。両方向とも公式標準を使うモデルであり、方向別実測という意味ではない。ready以降の実際の公開発車便を選び、平均待ち時間を別加算しない。同じ具体便の継続に乗換余裕を重ねない。
+
+標準接続を実測 `ReviewedWalkingLink` へ偽装しない。既存coreへは同じ時間前進の接続辺として入力する。物理距離は不明であり、label上の距離資源へ課す0は「実歩行0m」という認定ではない。`physical_walk_meters=None` と測定/接続保証falseを返す。したがってこの接続を含む結果の物理的歩行距離上限・バリアフリー所要時間も未認定である。未知の距離を制限内と保証するUIは接続しない。
+
+### 10.4 有限日付・営業日24時台
+
+`FiniteOperatingDays` は各日をw/h又は除外理由付きNoneとして保持する。未掲載日はunsupported、未確認特別日も明示除外で停止する。曜日から無期限に延長しない。fixtureは通常ダイヤのモデルとして2026-10-11〜18の8日を明示分類し、10月12日は[内閣府のスポーツの日](https://www8.cao.go.jp/chosei/shukujitsu/gaiyou.html)をhとした。内閣府原HTMLのSHAは `565ed19991424566812ce202196adc2a5f7932d9e607940ce28df76456413e43`。2026-12-31は年末特別ダイヤ未確認として除外する。それ以外を年全体へ拡大しない。通常便の全臨時変更/運休を網羅したという認定ではない。
+
+民生日付/分を受け、検索期間の各当日・翌日と、24時台が届く場合の前営業日をすべて対応表で検査する。必要な1日でも未確認なら部分検索せず理由付きで停止する。各具体便を営業日付きのquery-local版へ明示配置し、元のrow ID・営業日時計・provenanceと非負の整数日offsetを保存する。前日をanchorにした共通Datasetへ渡し、結果は元の便/営業日と民生日付へ戻す。旧日付へ自動retryしない。前日w→当日h、当日23時台→翌日0時台、前日除外の負例を回帰に含む。
+
+### 10.5 独立oracleと公開CSVで確認した範囲
+
+新規 `sendai_practical_oracle.py` はraw CP932の行・列・分時計と明示日付から乗降位置を独立に列挙/緩和する。Adapter・Dataset calendar・共通graph・frontier・下界を呼ばず、boarding数を固定したモデルの最早到着を比較する。返却witnessについて、原行、発車時計、同じ便の停車順、営業日、接続ready、到着代理時計、許可便、追加支払0円を独立検査する。
+
+公開8CSV/1,046便を使う新しい固定10経路はすべてoracleと一致した。下表の到着は**公開時計を代理値にしたモデル上の目安**であり実測ではない。通常ダイヤの有限日付モデル、`max_candidates=1`、`max_boardings=2`、`max_travel_minutes=120`、公式標準5分＋実験用余裕2分を固定した。上限を緩めてサンプルを通した結果ではない。
+
+| 民生日付・出発 | OD | 到着目安 |
+| --- | --- | --- |
+| 10/16 10:00 | 南北線 泉中央→仙台 | 10:16 |
+| 10/16 10:00 | 南北線 富沢→広瀬通 | 10:17 |
+| 10/16 10:00 | 東西線 八木山動物公園→仙台 | 10:13 |
+| 10/16 10:00 | 東西線 荒井→青葉通一番町 | 10:21 |
+| 10/16 10:00 | 南北線 広瀬通→東西線 宮城野通 | 10:23 |
+| 10/16 10:00 | 東西線 青葉通一番町→南北線 五橋 | 10:18 |
+| 10/12 10:00（祝日h） | 南北線 泉中央→仙台 | 10:16 |
+| 10/17 10:00（土曜h） | 東西線 八木山動物公園→荒井 | 10:27 |
+| 10/16 23:50 | 南北線 仙台→富沢 | 10/17 00:11 |
+| 10/17 00:00 | 南北線 五橋→富沢（前営業日w便） | 00:11 |
+
+固定入力のDataset版は `dacb54426e087d8a6a802b4b17410df8e0a36c7f62d81433d77f2c913f1a2351`。レビューfixtureは `api/tests/fixtures/sendai_subway/practical_review_20261016.json`。当該版の両地下鉄線の市内区間・公式路線図に基づくレビューを具体便/区間へ固定する。端点座標だけで無料認定した結果ではない。市営バスの承認済みGTFS/接続根拠がこの環境に無い点は継続し、実バス単独/実バス混在の新しい合格を作っていない。既存の合成バス/混在回帰は共通入力の検査として保持する。
+
+新規profile回帰には、推定情報・秒欄・版・license・明示profile、休日/除外日、跨日、乗換境界、同便継続、無料scopeの検索前除外、元例外/実探索上限の伝播、12seedの独立境界反例探索を含む。別の委譲回帰は東京/仙台の共通本体、未公開3都市のv1非使用、旧cost読み替えの拒否を検査する。合格済みの実データ第1〜第4段階、112組の現行HTML比較、36ケース比較は呼ばない。共通型と接続層を変更したため、CIでは既存の通常合成回帰も実行する。
+
+### 10.6 CIと未認定項目
+
+実装commitのGitHub Actions全jobを確認して本項へ確定結果を追記する。Windows probeにも新規profile/委譲回帰を追加した。ローカルの関連回帰は成功、Git diff whitespace検査も実施する。過去の第7節のCI成功を今回の実装へ転用しない。
+
+認定するのは上記入力版・有限通常日付モデル・固定queryの予定経路とprovenanceの整合性である。独立到着秒、実到着に対する誤差保証、実際の接続保証、余裕2分の正式採用、全特別ダイヤ、物理歩行距離/全バリアフリー動線、仙台全query/真のtop-k、承認済み実バスとの混在、公開API/UI接続は未認定。`exact_arrival_verified=false`、`actual_connection_guaranteed=false`、`experimental_margin_formally_adopted=false` を結果に保持する。厳密版の `operational_ready=false` を反転しない。
+
+公開API/UIへ地下鉄/パスを接続しておらず、通常運賃設定・ファイル名・アプリID・東京本番設定・デプロイ設定・S3・ストアを変更していない。作業開始時から存在したDartの別差分はコミット対象に含めない。

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
+import re
 from typing import Mapping, Sequence
 
 
@@ -10,6 +11,38 @@ class TransitMode(str, Enum):
     BUS = "bus"
     RAIL = "rail"
 
+
+
+@dataclass(frozen=True, slots=True)
+class PublishedMinuteProvenance:
+    """A published minute or an explicit proxy, never observed arrival seconds."""
+    basis: str
+    source_uri: str
+    source_sha256: str
+    row_number: int
+    column_number: int
+    published_clock: str
+    service_minute: int
+    precision_minutes: int = 1
+
+    def __post_init__(self):
+        if self.basis not in ("published_departure_minute", "published_clock_arrival_proxy"):
+            raise ValueError("unsupported published-minute basis")
+        if (not isinstance(self.source_uri, str) or not self.source_uri.startswith("https://")
+                or re.fullmatch(r"[a-f0-9]{64}", self.source_sha256) is None
+                or type(self.row_number) is not int or self.row_number < 2
+                or type(self.column_number) is not int or self.column_number < 3
+                or type(self.service_minute) is not int or self.service_minute < 0
+                or type(self.precision_minutes) is not int or self.precision_minutes != 1
+                or re.fullmatch(r"(?:[0-9]|1[0-9]|2[0-3]):[0-5][0-9]", self.published_clock) is None):
+            raise ValueError("invalid published-minute provenance")
+        hour, minute = map(int, self.published_clock.split(":"))
+        if self.service_minute % 1440 != hour * 60 + minute:
+            raise ValueError("published clock/service minute mismatch")
+
+    @property
+    def is_estimate(self):
+        return self.basis == "published_clock_arrival_proxy"
 
 def namespace_id(feed_id: str, source_id: str) -> str:
     """Return a globally unique internal id without rewriting the source id."""
@@ -48,9 +81,12 @@ class FeedMetadata:
     source_uri: str
     version: str
     fetched_at: datetime
+    clock_profile: str = "source"
 
     def __post_init__(self) -> None:
         namespace_id(self.feed_id, "validation")
+        if self.clock_profile not in ("source", "sendai_published_minute_v1"):
+            raise ValueError("unsupported feed clock profile")
         if not self.source_type:
             raise ValueError("source_type is required")
         if not self.source_uri:
@@ -126,6 +162,9 @@ class TransitStopTime:
     drop_off_type: int = 0
     arrival_service_seconds: int | None = None
     departure_service_seconds: int | None = None
+    arrival_provenance: PublishedMinuteProvenance | None = None
+    departure_provenance: PublishedMinuteProvenance | None = None
+    model_day_offset_minutes: int = 0
 
     def __post_init__(self) -> None:
         if self.sequence < 0:
@@ -215,6 +254,27 @@ class TransitDataset:
             if key in seen_trip_sequences:
                 raise ValueError(f"duplicate stop sequence: {key}")
             seen_trip_sequences.add(key)
+            if self.metadata.clock_profile == "sendai_published_minute_v1":
+                for kind in ("arrival", "departure"):
+                    clock = getattr(stop_time, kind + "_minute")
+                    provenance = getattr(stop_time, kind + "_provenance")
+                    if getattr(stop_time, kind + "_service_seconds") is not None:
+                        raise ValueError("practical minute clocks cannot assert source seconds")
+                    if clock is None:
+                        if provenance is not None:
+                            raise ValueError("provenance without model clock")
+                    elif (not isinstance(provenance, PublishedMinuteProvenance)
+                          or provenance.is_estimate != (kind == "arrival")
+                          or type(clock) is not int or clock < 0
+                          or type(stop_time.model_day_offset_minutes) is not int
+                          or stop_time.model_day_offset_minutes < 0
+                          or stop_time.model_day_offset_minutes % 1440 != 0
+                          or clock != provenance.service_minute + stop_time.model_day_offset_minutes):
+                        raise ValueError("practical clock requires matching typed provenance")
+            elif (stop_time.arrival_provenance is not None or stop_time.departure_provenance is not None
+                  or stop_time.model_day_offset_minutes != 0):
+                raise ValueError("published minute provenance requires explicit practical profile")
+
         for exception in self.service_exceptions:
             if not exception.service_id.startswith(feed_prefix):
                 raise ValueError(f"unnamespaced exception service: {exception.service_id}")
@@ -233,4 +293,5 @@ class TransitDataset:
             else:
                 active.discard(exception.service_id)
         return frozenset(active)
+
 

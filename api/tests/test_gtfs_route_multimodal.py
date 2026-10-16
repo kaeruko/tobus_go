@@ -50,7 +50,6 @@ class ReusableGtfsBusRailBackendTests(unittest.TestCase):
             dataset,
             walk_radius_m=100,
             endpoint_candidate_limit=3,
-            search_core=PythonTransitSearchCore(dataset),
         )
 
     def test_rail_uses_same_coordinate_time_search_without_bus_label(self):
@@ -136,3 +135,4 @@ class ReusableGtfsBusRailBackendTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

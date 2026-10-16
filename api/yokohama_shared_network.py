@@ -1,4 +1,4 @@
-"""Opt-in municipal comparison adapter; public runtime stays on SearchCore v1.
+"""Municipal fare scope over the shared v2 network.
 
 Only independently supplied directional reviews are accepted. The old v1
 ExplicitTransferLink is not implicitly converted into two approved directions.
@@ -13,8 +13,23 @@ from fare_policy import evaluate_candidate_fare
 from route_engine import RouteContractError
 from transit_network import TransitNetworkSnapshot, build_transit_network
 from transit_timetable_choices import NetworkRideEvent, search_network
-from yokohama_municipal_transfer import _reviewed
+from transit_dataset import TransitMode
 from yokohama_fare_coverage import YokohamaFareCoverage
+
+
+def _reviewed(coverage: YokohamaFareCoverage, feed: str, operator: str):
+    if (
+        coverage.dataset.metadata.feed_id != feed
+        or coverage.operator_id != operator
+    ):
+        raise ValueError(f"wrong {feed} fare coverage identity")
+    if any(
+        route.mode is not (TransitMode.BUS if feed == "yokohama_bus" else TransitMode.RAIL)
+        for route in coverage.dataset.routes.values()
+    ):
+        raise ValueError(f"wrong {feed} route mode")
+    return coverage.municipal_free_coverage()
+
 
 
 _PASS_IDS = frozenset({"yokohama_welfare_special_pass", "yokohama_senior_special_pass"})
@@ -55,12 +70,7 @@ def build_shared_municipal_network(
 
 
 def search_shared_municipal_network(context, origin_stop_id, destination_stop_id, **query):
-    if query.get("mode") == "fewTransfers" and query["parameters"].few_transfers_tiebreak != "arrival":
-        raise ValueError("Yokohama fewTransfers requires an explicit arrival tie-break")
-    # A declared city ranking contract, never a retry with another backend.
-    profile = "v1_path" if query.get("mode") in ("time", "fewTransfers") else "cost"
-    journeys = search_network(context.snapshot, origin_stop_id, destination_stop_id,
-                              arrival_tiebreak=profile, **query)
+    journeys = search_network(context.snapshot, origin_stop_id, destination_stop_id, **query)
     # Revalidate every selected leg against the original pinned coverage and
     # the requested pass. Never turn an unavailable quote into a free journey.
     for journey in journeys:
@@ -81,3 +91,4 @@ def search_shared_municipal_network(context, origin_stop_id, destination_stop_id
         if quote.status != "available" or quote.pay_now_yen != 0:
             raise RouteContractError("municipal shared journey failed independent zero-fare validation")
     return journeys
+

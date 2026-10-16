@@ -13,7 +13,6 @@ from reviewed_walk_time import (
 from toei_engine import (
     WALK_COST, advance_time, apply_reviewed_walking_links, segments_detailed,
 )
-from yokohama_municipal_transfer import ExplicitTransferLink
 
 
 def _link(first="pole-A", second="station-B", meters=392, minutes=10, access=True):
@@ -116,17 +115,18 @@ class ReviewedWalkingTimeTests(unittest.TestCase):
 
     def test_yokohama_link_uses_same_distance_minimum(self):
         self.assertIsNone(validate_reviewed_walk_timing(392, 10))
-        valid = ExplicitTransferLink(
+        valid = ReviewedWalkingLink(
             "yokohama_bus:3018_02", "yokohama_subway:B19", 392, 10,
-            "https://www.city.yokohama.lg.jp/kotsu/"
+            "https://www.city.yokohama.lg.jp/kotsu/", True
         )
         self.assertEqual(valid.walk_minutes, 10)
         with self.assertRaises(ValueError):
-            ExplicitTransferLink(
+            ReviewedWalkingLink(
                 "yokohama_bus:3018_02", "yokohama_subway:B19", 392, 4,
-                "https://www.city.yokohama.lg.jp/kotsu/"
+                "https://www.city.yokohama.lg.jp/kotsu/", True
             )
 
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -120,10 +120,12 @@ def register_route_endpoint(
     *,
     warmup_message: str,
     lock: asyncio.Lock | None = None,
+    request_model: type[ApiRouteRequest] = ApiRouteRequest,
 ) -> None:
+    if not isinstance(request_model, type) or not issubclass(request_model, ApiRouteRequest):
+        raise ValueError("explicit route request model required")
     route_lock = lock or asyncio.Lock()
 
-    @app.post("/route")
     async def route_start(request: ApiRouteRequest):
         if getattr(app.state, "loading_status", "starting") != "ready":
             raise HTTPException(503, warmup_message)
@@ -177,3 +179,8 @@ def register_route_endpoint(
             RouteContractError,
         ) as error:
             raise _http_error(error) from error
+
+    # Tokyo retains ApiRouteRequest (including its existing default). Other
+    # cities declare their own input defaults before FastAPI builds the schema.
+    route_start.__annotations__["request"] = request_model
+    app.post("/route")(route_start)

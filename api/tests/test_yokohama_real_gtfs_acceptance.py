@@ -12,7 +12,7 @@ from route_fare_scope import search_with_fare_scope
 from fare_policy import decorate_route_result_with_fare
 from test_yokohama_municipal_transfer import _feed
 from yokohama_municipal_backend import YokohamaMunicipalRouteBackend
-from yokohama_municipal_transfer import ExplicitTransferLink
+from tests.test_yokohama_municipal_backend import directed_links
 from yokohama_real_gtfs_acceptance import (
     check_real_municipal_od, validate_reviewed_candidate,
 )
@@ -26,18 +26,16 @@ class RealGtfsAcceptanceContractTests(unittest.TestCase):
         self.addCleanup(subwaydir.cleanup)
         self.bus = _feed(Path(busdir.name), rail=False)
         self.subway = _feed(Path(subwaydir.name), rail=True)
-        self.link = ExplicitTransferLink(
-            "yokohama_bus:B", "yokohama_subway:S", 120, 3,
-            "https://www.city.yokohama.lg.jp/kotsu/",
-        )
+        self.links = directed_links(self.bus, self.subway)
+        self.link = self.links[0]
 
     def _check(self, *, origin="yokohama_bus:O", destination="yokohama_subway:D",
                minute=0, hour=9, links=None):
         return check_real_municipal_od(
             bus_coverage=self.bus, subway_coverage=self.subway,
-            transfer_links=(self.link,) if links is None else links,
-            bus_transfer_stop_id=self.link.bus_stop_id,
-            subway_transfer_stop_id=self.link.subway_stop_id,
+            transfer_links=self.links if links is None else links,
+            bus_transfer_stop_id=self.link.link.from_stop_id,
+            subway_transfer_stop_id=self.link.link.to_stop_id,
             origin_stop_id=origin, destination_stop_id=destination,
             departure=datetime(2026, 10, 14, hour, minute,
                                tzinfo=ZoneInfo("Asia/Tokyo")),
@@ -123,7 +121,7 @@ class RealGtfsAcceptanceContractTests(unittest.TestCase):
     def test_reviewed_transfer_cannot_be_too_short_for_timetable(self):
         candidate = self._candidate()
         from dataclasses import replace
-        link = replace(self.link, walk_minutes=8)
+        link = replace(self.link, link=replace(self.link.link, walk_minutes=8))
         with self.assertRaisesRegex(AssertionError, "handoff differs"):
             validate_reviewed_candidate(
                 candidate, bus_coverage=self.bus, subway_coverage=self.subway,
@@ -136,3 +134,4 @@ class RealGtfsAcceptanceContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

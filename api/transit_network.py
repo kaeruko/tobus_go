@@ -11,6 +11,8 @@ from dataclasses import dataclass, replace
 from datetime import date
 from fractions import Fraction
 import math
+import re
+from urllib.parse import urlsplit
 from types import MappingProxyType
 from typing import Iterable, Mapping, Sequence
 
@@ -33,6 +35,46 @@ class DirectedWalkLink:
         for value in (self.from_feed_version, self.to_feed_version):
             if not isinstance(value, str) or not value or value.strip() != value:
                 raise ValueError("walking link requires exact feed versions")
+
+
+@dataclass(frozen=True, slots=True)
+class StandardTransferLink:
+    """Official planning standard plus an experimental margin, not measured walk.
+
+    The label core consumes elapsed time only. Physical walking distance is
+    unknown and is not certified by the zero charged walking-resource value.
+    """
+    from_stop_id: str
+    to_stop_id: str
+    from_feed_version: str
+    to_feed_version: str
+    standard_minutes: int
+    margin_minutes: int
+    source_uri: str
+    source_sha256: str
+    profile: str
+    margin_status: str = "experimental_unvalidated"
+
+    def __post_init__(self):
+        for value in (self.from_stop_id, self.to_stop_id, self.from_feed_version,
+                      self.to_feed_version, self.profile):
+            if not isinstance(value, str) or not value or value.strip() != value:
+                raise ValueError("standard transfer requires explicit identities/profile")
+        if (self.from_stop_id == self.to_stop_id
+                or type(self.standard_minutes) is not int or self.standard_minutes <= 0
+                or type(self.margin_minutes) is not int or self.margin_minutes < 0
+                or self.margin_status != "experimental_unvalidated"
+                or re.fullmatch(r"[a-f0-9]{64}", self.source_sha256) is None
+                or urlsplit(self.source_uri).scheme != "https"):
+            raise ValueError("invalid official standard transfer")
+
+    @property
+    def physical_walk_meters(self):
+        return None
+
+    @property
+    def planning_minutes(self):
+        return self.standard_minutes + self.margin_minutes
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,6 +198,7 @@ def _freeze_dataset(dataset):
 def build_transit_network(
     datasets: Sequence[TransitDataset], *, allowed_trip_ids: Iterable[str],
     walking_links: Iterable[DirectedWalkLink], costs: NetworkCosts,
+    standard_transfers: Iterable[StandardTransferLink] = (),
 ) -> TransitNetworkSnapshot:
     if not datasets or not isinstance(costs, NetworkCosts):
         raise ValueError("datasets and explicit NetworkCosts are required")
@@ -302,6 +345,22 @@ def build_transit_network(
         graph.add_edge(physical_node(pair[0]), physical_node(pair[1]), etype="walk",
                        meters=link.walk_meters, reviewed_walk_minutes=link.walk_minutes,
                        w=costs.walking_per_minute * link.walk_minutes, reviewed_link=pinned)
+    for link in standard_transfers:
+        if not isinstance(link, StandardTransferLink):
+            raise ValueError("standard transfers require their own explicit type")
+        pair = link.from_stop_id, link.to_stop_id
+        if pair[0] not in stops or pair[1] not in stops or pair in seen:
+            raise ValueError("unknown/duplicate standard transfer endpoints")
+        if (feeds[pair[0].split(":", 1)[0]] != link.from_feed_version
+                or feeds[pair[1].split(":", 1)[0]] != link.to_feed_version):
+            raise ValueError("standard transfer feed version mismatch")
+        seen.add(pair)
+        # Reuse the existing elapsed-time edge machinery without inventing a
+        # measured ReviewedWalkingLink. Distance limits do not certify this edge.
+        graph.add_edge(physical_node(pair[0]), physical_node(pair[1]), etype="walk",
+                       meters=0.0, reviewed_walk_minutes=Fraction(link.planning_minutes),
+                       w=costs.walking_per_minute * link.planning_minutes,
+                       standard_transfer=link)
     nx.freeze(graph)
     graph.graph.sealed = True
     for attributes in graph.nodes.values():
@@ -314,3 +373,4 @@ def build_transit_network(
         MappingProxyType(validated), MappingProxyType(trip_patterns),
         MappingProxyType({key: tuple(sorted(rows)) for key, rows in departures.items()}), allowed, costs,
     )
+

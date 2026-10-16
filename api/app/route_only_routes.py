@@ -5,7 +5,12 @@ from typing import Any
 
 from fastapi import Body, HTTPException
 
-from app.route_endpoint import register_route_endpoint
+from app.route_endpoint import ApiRouteRequest, register_route_endpoint
+
+
+class SharedNetworkApiRouteRequest(ApiRouteRequest):
+    """Unreleased cities use the v2 time objective, never Tokyo comfort alias."""
+    pref: str = "time"
 
 
 def register_route_only_core_routes(
@@ -24,6 +29,7 @@ def register_route_only_core_routes(
     register_route_endpoint(
         app,
         warmup_message=f"Server is warming up (loading {data_label}).",
+        request_model=SharedNetworkApiRouteRequest,
     )
 
     @app.get("/healthz")
@@ -81,3 +87,4 @@ def register_unsupported_bus_realtime_routes(
                 "message": message,
             },
         )
+

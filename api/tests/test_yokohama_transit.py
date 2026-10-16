@@ -1,3 +1,5 @@
+
+from tests.route_request_fixture import search_coordinates
 import io
 import json
 import tempfile
@@ -130,15 +132,7 @@ class YokohamaBusStaticGtfsTest(unittest.TestCase):
             self.assertIn("yokohama_bus:R1", dataset.routes)
             self.assertIn("yokohama_bus:T1", dataset.trips)
             backend = YokohamaBusRouteBackend(dataset, walk_radius_m=100)
-            result = backend.search(
-                alat=35.4660,
-                alon=139.6225,
-                blat=35.4650,
-                blon=139.6220,
-                pref="time",
-                start_time="09:55",
-                date_str=SERVICE_DATE,
-            )
+            result = search_coordinates(backend, alat=35.4660, alon=139.6225, blat=35.4650, blon=139.6220, pref="time", start_time="09:55", date_str=SERVICE_DATE)
             self.assertEqual(result["candidates"][0]["arrival_time"], "10:15")
 
     def test_yokohama_preserves_24_plus_service_day_departures(self):
@@ -162,11 +156,7 @@ class YokohamaBusStaticGtfsTest(unittest.TestCase):
                 ),
             )
             backend = YokohamaBusRouteBackend(dataset, walk_radius_m=100)
-            response = backend.search(
-                alat=35.4660, alon=139.6225,
-                blat=35.4650, blon=139.6220,
-                pref="time", start_time="23:55", date_str=SERVICE_DATE,
-            )
+            response = search_coordinates(backend, alat=35.4660, alon=139.6225, blat=35.4650, blon=139.6220, pref="time", start_time="23:55", date_str=SERVICE_DATE)
             self.assertEqual(len(response["candidates"]), 1)
             candidate = response["candidates"][0]
             ride = next(step for step in candidate["steps"] if step["kind"] == "bus")
@@ -290,3 +280,4 @@ class YokohamaBusStaticGtfsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

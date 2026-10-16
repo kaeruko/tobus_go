@@ -1,0 +1,701 @@
+{
+  "profile": "sendai_published_minute_v1",
+  "reviewed_at": "2026-10-16",
+  "source_comparison_commit": "ace3874ba6b66acf5d1fd999ecbf903b00ee6dfc",
+  "source_comparison_record_sha256": "9f87dab0551a0d73b6d18276bfdc20c2ecc2861ddb4305e9e326facf7b82e4bf",
+  "tables": {
+    "namboku_h_north_20230701.csv": {
+      "csv_sha256": "e67011c6c0100e9b00ca3c210bbe99587f028b701bf6bd8aa0e54f9005c5d7aa",
+      "current_departure_evidence": [
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/1222/",
+          "sha256": "22e52e5bfc5b4af1a6bb8e4fcfd4405c0b4a8f2294b146f1c6a444be0d510b0d"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6647/",
+          "sha256": "6fcc027c8b2507230c9e4f3adbb8d7673b189245ec02aec4b24b484beb5231e2"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6648/",
+          "sha256": "cd90cf171652396dbb85a8f27dca5d48b66d464294aaaa66164293045d88e333"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6649/",
+          "sha256": "b268917bb94921da09c473acce70a72e94a88dc90d6e4786dd7f36074087bae7"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6650/",
+          "sha256": "446cec01216a139c00c5f717fad83a627edf58fcd726539b5224fb09833ea5c1"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6651/",
+          "sha256": "e35f5c898d653c6a4ca2164f02da140590e5f7cb09f9d5a595773445fa0f5df8"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6652/",
+          "sha256": "9cabdd93255ed525ecabd14375a0a2034c00a096a8fec1d6d3114138078d8cbc"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6653/",
+          "sha256": "e4e208f957c10f8872fcf8d1f34669a03d8bb6df546f2ea701044c1826b731c9"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6654/",
+          "sha256": "5b038352e864506393ebac6fdbfe8421818523fe31ffa470d904ac7397d53f03"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6655/",
+          "sha256": "b084ddb2b11efba6eef889a15af60a140800f4742524662b29ec7c0ca408428d"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6656/",
+          "sha256": "5f1c368793ebe1a8a02b17bd9f4478ba000145d6165408608d6afa8fac63ff97"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6657/",
+          "sha256": "36b7967d76f5fb4752c20c3a7bf36ad8ee5fd9cd776cc5c9ce81b16eff269d32"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6658/",
+          "sha256": "a4d962404589f60710e7723a927e60aac26b4479703972c6fd25aab4f9a23337"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6659/",
+          "sha256": "1b24c66c5e1969fe5d6022e39b867c85a2b2c54e25e17ded59fc20b5224db580"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9285/",
+          "sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/975/",
+          "sha256": "00db720426652ac1a0a056c51a9af9bae805e7ac041fcfed6791c08dd8261618"
+        }
+      ],
+      "source_comparison_record_sha256": "9f87dab0551a0d73b6d18276bfdc20c2ecc2861ddb4305e9e326facf7b82e4bf",
+      "comparison_scope": "nonterminal_departure_multisets_only"
+    },
+    "namboku_h_south_20230701.csv": {
+      "csv_sha256": "21cdcb666a3e125b83835fd56637d9df37ab9e83419fc50c6473b324566b1d6f",
+      "current_departure_evidence": [
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/1222/",
+          "sha256": "22e52e5bfc5b4af1a6bb8e4fcfd4405c0b4a8f2294b146f1c6a444be0d510b0d"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6646/",
+          "sha256": "dd97c8c0c9ce33a6cdea7ec4a756cb20b69205005ce57608a22c25fa825f2a17"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6647/",
+          "sha256": "6fcc027c8b2507230c9e4f3adbb8d7673b189245ec02aec4b24b484beb5231e2"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6648/",
+          "sha256": "cd90cf171652396dbb85a8f27dca5d48b66d464294aaaa66164293045d88e333"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6649/",
+          "sha256": "b268917bb94921da09c473acce70a72e94a88dc90d6e4786dd7f36074087bae7"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6650/",
+          "sha256": "446cec01216a139c00c5f717fad83a627edf58fcd726539b5224fb09833ea5c1"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6651/",
+          "sha256": "e35f5c898d653c6a4ca2164f02da140590e5f7cb09f9d5a595773445fa0f5df8"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6652/",
+          "sha256": "9cabdd93255ed525ecabd14375a0a2034c00a096a8fec1d6d3114138078d8cbc"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6653/",
+          "sha256": "e4e208f957c10f8872fcf8d1f34669a03d8bb6df546f2ea701044c1826b731c9"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6654/",
+          "sha256": "5b038352e864506393ebac6fdbfe8421818523fe31ffa470d904ac7397d53f03"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6655/",
+          "sha256": "b084ddb2b11efba6eef889a15af60a140800f4742524662b29ec7c0ca408428d"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6656/",
+          "sha256": "5f1c368793ebe1a8a02b17bd9f4478ba000145d6165408608d6afa8fac63ff97"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6657/",
+          "sha256": "36b7967d76f5fb4752c20c3a7bf36ad8ee5fd9cd776cc5c9ce81b16eff269d32"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6658/",
+          "sha256": "a4d962404589f60710e7723a927e60aac26b4479703972c6fd25aab4f9a23337"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9285/",
+          "sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/975/",
+          "sha256": "00db720426652ac1a0a056c51a9af9bae805e7ac041fcfed6791c08dd8261618"
+        }
+      ],
+      "source_comparison_record_sha256": "9f87dab0551a0d73b6d18276bfdc20c2ecc2861ddb4305e9e326facf7b82e4bf",
+      "comparison_scope": "nonterminal_departure_multisets_only"
+    },
+    "namboku_w_north_20230701.csv": {
+      "csv_sha256": "a8f57231a311cc45a76d1f863fa0600a93254aa2333a40b47102116dc083eca2",
+      "current_departure_evidence": [
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/1222/",
+          "sha256": "22e52e5bfc5b4af1a6bb8e4fcfd4405c0b4a8f2294b146f1c6a444be0d510b0d"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6647/",
+          "sha256": "6fcc027c8b2507230c9e4f3adbb8d7673b189245ec02aec4b24b484beb5231e2"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6648/",
+          "sha256": "cd90cf171652396dbb85a8f27dca5d48b66d464294aaaa66164293045d88e333"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6649/",
+          "sha256": "b268917bb94921da09c473acce70a72e94a88dc90d6e4786dd7f36074087bae7"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6650/",
+          "sha256": "446cec01216a139c00c5f717fad83a627edf58fcd726539b5224fb09833ea5c1"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6651/",
+          "sha256": "e35f5c898d653c6a4ca2164f02da140590e5f7cb09f9d5a595773445fa0f5df8"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6652/",
+          "sha256": "9cabdd93255ed525ecabd14375a0a2034c00a096a8fec1d6d3114138078d8cbc"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6653/",
+          "sha256": "e4e208f957c10f8872fcf8d1f34669a03d8bb6df546f2ea701044c1826b731c9"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6654/",
+          "sha256": "5b038352e864506393ebac6fdbfe8421818523fe31ffa470d904ac7397d53f03"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6655/",
+          "sha256": "b084ddb2b11efba6eef889a15af60a140800f4742524662b29ec7c0ca408428d"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6656/",
+          "sha256": "5f1c368793ebe1a8a02b17bd9f4478ba000145d6165408608d6afa8fac63ff97"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6657/",
+          "sha256": "36b7967d76f5fb4752c20c3a7bf36ad8ee5fd9cd776cc5c9ce81b16eff269d32"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6658/",
+          "sha256": "a4d962404589f60710e7723a927e60aac26b4479703972c6fd25aab4f9a23337"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6659/",
+          "sha256": "1b24c66c5e1969fe5d6022e39b867c85a2b2c54e25e17ded59fc20b5224db580"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9285/",
+          "sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/975/",
+          "sha256": "00db720426652ac1a0a056c51a9af9bae805e7ac041fcfed6791c08dd8261618"
+        }
+      ],
+      "source_comparison_record_sha256": "9f87dab0551a0d73b6d18276bfdc20c2ecc2861ddb4305e9e326facf7b82e4bf",
+      "comparison_scope": "nonterminal_departure_multisets_only"
+    },
+    "namboku_w_south_20230701.csv": {
+      "csv_sha256": "200b9652bd2b6db551c996db74d962c0921979d30a8c83e6e5a4ca67298b81fd",
+      "current_departure_evidence": [
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/1222/",
+          "sha256": "22e52e5bfc5b4af1a6bb8e4fcfd4405c0b4a8f2294b146f1c6a444be0d510b0d"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6646/",
+          "sha256": "dd97c8c0c9ce33a6cdea7ec4a756cb20b69205005ce57608a22c25fa825f2a17"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6647/",
+          "sha256": "6fcc027c8b2507230c9e4f3adbb8d7673b189245ec02aec4b24b484beb5231e2"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6648/",
+          "sha256": "cd90cf171652396dbb85a8f27dca5d48b66d464294aaaa66164293045d88e333"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6649/",
+          "sha256": "b268917bb94921da09c473acce70a72e94a88dc90d6e4786dd7f36074087bae7"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6650/",
+          "sha256": "446cec01216a139c00c5f717fad83a627edf58fcd726539b5224fb09833ea5c1"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6651/",
+          "sha256": "e35f5c898d653c6a4ca2164f02da140590e5f7cb09f9d5a595773445fa0f5df8"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6652/",
+          "sha256": "9cabdd93255ed525ecabd14375a0a2034c00a096a8fec1d6d3114138078d8cbc"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6653/",
+          "sha256": "e4e208f957c10f8872fcf8d1f34669a03d8bb6df546f2ea701044c1826b731c9"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6654/",
+          "sha256": "5b038352e864506393ebac6fdbfe8421818523fe31ffa470d904ac7397d53f03"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6655/",
+          "sha256": "b084ddb2b11efba6eef889a15af60a140800f4742524662b29ec7c0ca408428d"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6656/",
+          "sha256": "5f1c368793ebe1a8a02b17bd9f4478ba000145d6165408608d6afa8fac63ff97"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6657/",
+          "sha256": "36b7967d76f5fb4752c20c3a7bf36ad8ee5fd9cd776cc5c9ce81b16eff269d32"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/6658/",
+          "sha256": "a4d962404589f60710e7723a927e60aac26b4479703972c6fd25aab4f9a23337"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9285/",
+          "sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/975/",
+          "sha256": "00db720426652ac1a0a056c51a9af9bae805e7ac041fcfed6791c08dd8261618"
+        }
+      ],
+      "source_comparison_record_sha256": "9f87dab0551a0d73b6d18276bfdc20c2ecc2861ddb4305e9e326facf7b82e4bf",
+      "comparison_scope": "nonterminal_departure_multisets_only"
+    },
+    "tozai_h_east_20230701.csv": {
+      "csv_sha256": "ff24e68bcfb8c3cf4272bb72b82fdf8f4f80e9b900842fddc0b27642935ee050",
+      "current_departure_evidence": [
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9285/",
+          "sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9727/",
+          "sha256": "51fd651ed9360f31ec79c9387f8cd28bd9d6af01e634bd95a9762afdec46199b"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9728/",
+          "sha256": "fc1c0aefe2743ce83ab890b2f16e44191c1b4dc00f679b5ddf8e7c1490aca9bb"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9729/",
+          "sha256": "000e29c9377b2b5e53ae2c369f9ef4a11d59a595ab7c7c92a0ef81280be6b05f"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9730/",
+          "sha256": "4de0761ab72c24f9e96c4bd6433ae54bcaca53c440ec6f456a12e9bdc2ad1ce6"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9731/",
+          "sha256": "dac20843eabb92cb9360cd982a981db29b8051cffe7f2c869b444e11c15bcf21"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9732/",
+          "sha256": "71e91295bc112242bd0b6367c5225e8e38cf6d01cf85c4593337e186a1d63c07"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9733/",
+          "sha256": "de20599b0818d5d0a5d3569efd352e419e6e12d6bacaeef3d21cd94e96acf017"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9734/",
+          "sha256": "1196f8fb580362ad35df2ef51223892d283dc9c3bb4f3dd640bc70b389980d55"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9735/",
+          "sha256": "ac62b5796097bd35ba7041d19452341a5531df9d23198dead6ac6c4712ec01ac"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9736/",
+          "sha256": "a97efcc0740de986d330c8f7d27fbf225e1d7ce69ace384c6aa205cd2c467eda"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9737/",
+          "sha256": "1421ec54e73ae072d926d6b6a3e31d16ef79a2a585231a78d5c2f07e7c9068ea"
+        }
+      ],
+      "source_comparison_record_sha256": "9f87dab0551a0d73b6d18276bfdc20c2ecc2861ddb4305e9e326facf7b82e4bf",
+      "comparison_scope": "nonterminal_departure_multisets_only"
+    },
+    "tozai_h_west_20230701.csv": {
+      "csv_sha256": "621a24b8d3a179e49b4f259dd1a8c4d3fcadcdab77770da3e6f938d4b4eef8b6",
+      "current_departure_evidence": [
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9285/",
+          "sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9728/",
+          "sha256": "fc1c0aefe2743ce83ab890b2f16e44191c1b4dc00f679b5ddf8e7c1490aca9bb"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9729/",
+          "sha256": "000e29c9377b2b5e53ae2c369f9ef4a11d59a595ab7c7c92a0ef81280be6b05f"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9730/",
+          "sha256": "4de0761ab72c24f9e96c4bd6433ae54bcaca53c440ec6f456a12e9bdc2ad1ce6"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9731/",
+          "sha256": "dac20843eabb92cb9360cd982a981db29b8051cffe7f2c869b444e11c15bcf21"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9732/",
+          "sha256": "71e91295bc112242bd0b6367c5225e8e38cf6d01cf85c4593337e186a1d63c07"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9733/",
+          "sha256": "de20599b0818d5d0a5d3569efd352e419e6e12d6bacaeef3d21cd94e96acf017"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9734/",
+          "sha256": "1196f8fb580362ad35df2ef51223892d283dc9c3bb4f3dd640bc70b389980d55"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9735/",
+          "sha256": "ac62b5796097bd35ba7041d19452341a5531df9d23198dead6ac6c4712ec01ac"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9736/",
+          "sha256": "a97efcc0740de986d330c8f7d27fbf225e1d7ce69ace384c6aa205cd2c467eda"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9737/",
+          "sha256": "1421ec54e73ae072d926d6b6a3e31d16ef79a2a585231a78d5c2f07e7c9068ea"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9738/",
+          "sha256": "0faef4e0b7f221e42c2b453cb04119223acd78f85fb9df295605e9a1a6a285ce"
+        }
+      ],
+      "source_comparison_record_sha256": "9f87dab0551a0d73b6d18276bfdc20c2ecc2861ddb4305e9e326facf7b82e4bf",
+      "comparison_scope": "nonterminal_departure_multisets_only"
+    },
+    "tozai_w_east_20230701.csv": {
+      "csv_sha256": "88b1ff652ee9b03ed543dbe476f85f85444fa675d892afdbb6f9e25095c8f460",
+      "current_departure_evidence": [
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9285/",
+          "sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9727/",
+          "sha256": "51fd651ed9360f31ec79c9387f8cd28bd9d6af01e634bd95a9762afdec46199b"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9728/",
+          "sha256": "fc1c0aefe2743ce83ab890b2f16e44191c1b4dc00f679b5ddf8e7c1490aca9bb"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9729/",
+          "sha256": "000e29c9377b2b5e53ae2c369f9ef4a11d59a595ab7c7c92a0ef81280be6b05f"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9730/",
+          "sha256": "4de0761ab72c24f9e96c4bd6433ae54bcaca53c440ec6f456a12e9bdc2ad1ce6"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9731/",
+          "sha256": "dac20843eabb92cb9360cd982a981db29b8051cffe7f2c869b444e11c15bcf21"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9732/",
+          "sha256": "71e91295bc112242bd0b6367c5225e8e38cf6d01cf85c4593337e186a1d63c07"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9733/",
+          "sha256": "de20599b0818d5d0a5d3569efd352e419e6e12d6bacaeef3d21cd94e96acf017"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9734/",
+          "sha256": "1196f8fb580362ad35df2ef51223892d283dc9c3bb4f3dd640bc70b389980d55"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9735/",
+          "sha256": "ac62b5796097bd35ba7041d19452341a5531df9d23198dead6ac6c4712ec01ac"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9736/",
+          "sha256": "a97efcc0740de986d330c8f7d27fbf225e1d7ce69ace384c6aa205cd2c467eda"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9737/",
+          "sha256": "1421ec54e73ae072d926d6b6a3e31d16ef79a2a585231a78d5c2f07e7c9068ea"
+        }
+      ],
+      "source_comparison_record_sha256": "9f87dab0551a0d73b6d18276bfdc20c2ecc2861ddb4305e9e326facf7b82e4bf",
+      "comparison_scope": "nonterminal_departure_multisets_only"
+    },
+    "tozai_w_west_20230701.csv": {
+      "csv_sha256": "6b03c9c11ac8576316c6e7d4323226042af1b159033ab9695679edc9500ed723",
+      "current_departure_evidence": [
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9285/",
+          "sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9728/",
+          "sha256": "fc1c0aefe2743ce83ab890b2f16e44191c1b4dc00f679b5ddf8e7c1490aca9bb"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9729/",
+          "sha256": "000e29c9377b2b5e53ae2c369f9ef4a11d59a595ab7c7c92a0ef81280be6b05f"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9730/",
+          "sha256": "4de0761ab72c24f9e96c4bd6433ae54bcaca53c440ec6f456a12e9bdc2ad1ce6"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9731/",
+          "sha256": "dac20843eabb92cb9360cd982a981db29b8051cffe7f2c869b444e11c15bcf21"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9732/",
+          "sha256": "71e91295bc112242bd0b6367c5225e8e38cf6d01cf85c4593337e186a1d63c07"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9733/",
+          "sha256": "de20599b0818d5d0a5d3569efd352e419e6e12d6bacaeef3d21cd94e96acf017"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9734/",
+          "sha256": "1196f8fb580362ad35df2ef51223892d283dc9c3bb4f3dd640bc70b389980d55"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9735/",
+          "sha256": "ac62b5796097bd35ba7041d19452341a5531df9d23198dead6ac6c4712ec01ac"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9736/",
+          "sha256": "a97efcc0740de986d330c8f7d27fbf225e1d7ce69ace384c6aa205cd2c467eda"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9737/",
+          "sha256": "1421ec54e73ae072d926d6b6a3e31d16ef79a2a585231a78d5c2f07e7c9068ea"
+        },
+        {
+          "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9738/",
+          "sha256": "0faef4e0b7f221e42c2b453cb04119223acd78f85fb9df295605e9a1a6a285ce"
+        }
+      ],
+      "source_comparison_record_sha256": "9f87dab0551a0d73b6d18276bfdc20c2ecc2861ddb4305e9e326facf7b82e4bf",
+      "comparison_scope": "nonterminal_departure_multisets_only"
+    }
+  },
+  "stations": {
+    "namboku/泉中央": [
+      38.3232227840926,
+      140.880728966975
+    ],
+    "namboku/八乙女": [
+      38.3128326924461,
+      140.884050282258
+    ],
+    "namboku/黒松": [
+      38.3031844317504,
+      140.886429421609
+    ],
+    "namboku/旭ヶ丘": [
+      38.2956488299812,
+      140.88361085512
+    ],
+    "namboku/台原": [
+      38.2884270154177,
+      140.878563577582
+    ],
+    "namboku/北仙台": [
+      38.2824451934748,
+      140.868675826804
+    ],
+    "namboku/北四番丁": [
+      38.2721824998418,
+      140.869043223942
+    ],
+    "namboku/勾当台公園": [
+      38.2664454476831,
+      140.871209418386
+    ],
+    "namboku/広瀬通": [
+      38.2629484757932,
+      140.875456438224
+    ],
+    "namboku/仙台": [
+      38.2600281046349,
+      140.879724540172
+    ],
+    "namboku/五橋": [
+      38.2522018268536,
+      140.881137842678
+    ],
+    "namboku/愛宕橋": [
+      38.2473335272056,
+      140.882078546466
+    ],
+    "namboku/河原町": [
+      38.2411388521141,
+      140.887733627338
+    ],
+    "namboku/長町一丁目": [
+      38.234260751219,
+      140.887550078535
+    ],
+    "namboku/長町": [
+      38.2283008056766,
+      140.884910032052
+    ],
+    "namboku/長町南": [
+      38.2246401450087,
+      140.876397051548
+    ],
+    "namboku/富沢": [
+      38.2142253433317,
+      140.870612764133
+    ],
+    "tozai/八木山動物公園": [
+      38.2432012811794,
+      140.843736598588
+    ],
+    "tozai/青葉山": [
+      38.2557520546075,
+      140.835604030984
+    ],
+    "tozai/川内": [
+      38.2607902516126,
+      140.850223638508
+    ],
+    "tozai/国際センター": [
+      38.2602208887579,
+      140.856754010346
+    ],
+    "tozai/大町西公園": [
+      38.2589765241398,
+      140.864318394619
+    ],
+    "tozai/青葉通一番町": [
+      38.2597436702297,
+      140.872318666388
+    ],
+    "tozai/仙台": [
+      38.2597778912927,
+      140.879990001239
+    ],
+    "tozai/宮城野通": [
+      38.2580302635117,
+      140.885804580807
+    ],
+    "tozai/連坊": [
+      38.2511562728392,
+      140.893176267649
+    ],
+    "tozai/薬師堂": [
+      38.2495678337185,
+      140.906046229862
+    ],
+    "tozai/卸町": [
+      38.2515060428287,
+      140.920786864123
+    ],
+    "tozai/六丁の目": [
+      38.2508985461903,
+      140.935542617457
+    ],
+    "tozai/荒井": [
+      38.2448709549252,
+      140.948602113617
+    ]
+  },
+  "coordinate_source": {
+    "uri": "https://www2.wagmap.jp/sendaicity/sendaicity/opendatafile/map_235/KML/opendata_925.kml",
+    "sha256": "20d3e8b77f80a0c934c29aabe50022a6b9401030f3a073b03384c5926abb238f"
+  },
+  "license_source": {
+    "uri": "https://www.city.sendai.jp/opendata/index.php?asc=data_upddt&displayedresults=100&p=4_1",
+    "sha256": "28fdef6eecbb45a053fc38a2c116cc054fb6e168168a71a0a5b5910edb73a47b"
+  },
+  "day_source": {
+    "uri": "https://www.navi.kotsu.city.sendai.jp/dia/bustime/sp/subway/9285/",
+    "sha256": "da14667739a093215d224cc6e6722d6dcad07b6bc00f215bd8fe70755ff470ae"
+  },
+  "holiday_source_uri": "https://www8.cao.go.jp/chosei/shukujitsu/gaiyou.html",
+  "holiday_source_sha256": "565ed19991424566812ce202196adc2a5f7932d9e607940ce28df76456413e43",
+  "days": [
+    {
+      "day": "2026-10-11",
+      "kind": "h",
+      "reason": "normal weekday/Sat-Sun timetable model"
+    },
+    {
+      "day": "2026-10-12",
+      "kind": "h",
+      "reason": "Sports Day (Cabinet Office)"
+    },
+    {
+      "day": "2026-10-13",
+      "kind": "w",
+      "reason": "normal weekday/Sat-Sun timetable model"
+    },
+    {
+      "day": "2026-10-14",
+      "kind": "w",
+      "reason": "normal weekday/Sat-Sun timetable model"
+    },
+    {
+      "day": "2026-10-15",
+      "kind": "w",
+      "reason": "normal weekday/Sat-Sun timetable model"
+    },
+    {
+      "day": "2026-10-16",
+      "kind": "w",
+      "reason": "normal weekday/Sat-Sun timetable model"
+    },
+    {
+      "day": "2026-10-17",
+      "kind": "h",
+      "reason": "normal weekday/Sat-Sun timetable model"
+    },
+    {
+      "day": "2026-10-18",
+      "kind": "h",
+      "reason": "normal weekday/Sat-Sun timetable model"
+    },
+    {
+      "day": "2026-12-31",
+      "kind": null,
+      "reason": "year-end special timetable not verified"
+    }
+  ],
+  "free_scope": {
+    "review_basis": "2026 official municipal subway network map, source CSV station order, Sendai city in-city pass policy; entire two municipal lines reviewed within Sendai",
+    "source_uri": "https://www.kotsu.city.sendai.jp/images/guide2026.pdf",
+    "sha256": "2154d455ad80d5b8c33b16122352b444a1b97d39b7290efa211cb54c9df76921"
+  },
+  "scope_notice": "Static normal timetable model only; full special-service closure, exact arrivals and actual connection guarantees are not certified."
+}

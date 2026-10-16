@@ -15,7 +15,7 @@ from route_engine import (
 )
 from route_fare_scope import search_with_fare_scope
 from yokohama_municipal_backend import YokohamaMunicipalRouteBackend
-from yokohama_municipal_transfer import ExplicitTransferLink
+from transit_network import DirectedWalkLink
 
 PASS_IDS = ("yokohama_welfare_special_pass", "yokohama_senior_special_pass")
 
@@ -72,7 +72,7 @@ def _verify_ride(step: dict[str, Any], coverage, day: date) -> tuple[int, int]:
 def validate_reviewed_candidate(
     candidate: dict[str, Any], *,
     bus_coverage, subway_coverage,
-    transfer: ExplicitTransferLink, policy_id: str,
+    transfer: DirectedWalkLink, policy_id: str,
     direction: str, service_date: date, earliest_departure_minute: int,
 ) -> dict[str, Any]:
     """Verify fare, exact reviewed handoff, and every timed ride against GTFS."""
@@ -108,17 +108,16 @@ def validate_reviewed_candidate(
     if len(handoffs) != 1:
         raise AssertionError(f"expected exactly one verified walk, got {len(handoffs)}")
     handoff = handoffs[0]
-    expected_from, expected_to = (
-        (transfer.bus_stop_id, transfer.subway_stop_id)
-        if direction == "bus_to_rail"
-        else (transfer.subway_stop_id, transfer.bus_stop_id)
-    )
+    if not isinstance(transfer, DirectedWalkLink):
+        raise ValueError("candidate audit requires a version-pinned directed review")
+    link = transfer.link
+    expected_from, expected_to = link.from_stop_id, link.to_stop_id
     if any((
         handoff.get("departureStopId") != expected_from,
         handoff.get("arrivalPoleId") != expected_to,
-        handoff.get("meters") != transfer.walk_meters,
-        handoff.get("minutes") != transfer.walk_minutes,
-        handoff.get("evidence_url") != transfer.official_evidence_url,
+        handoff.get("meters") != link.walk_meters,
+        handoff.get("minutes") != link.walk_minutes,
+        handoff.get("evidence_url") != link.official_evidence_url,
         "distance_basis" in handoff,
     )):
         raise AssertionError("walking handoff differs from reviewed, version-locked link")
@@ -130,7 +129,7 @@ def validate_reviewed_candidate(
     if expected_ride_data[0][0] < earliest_departure_minute:
         raise AssertionError("candidate boards before requested departure")
     transition = modes.index(expected[1])
-    if expected_ride_data[transition - 1][1] + transfer.walk_minutes > expected_ride_data[transition][0]:
+    if expected_ride_data[transition - 1][1] + link.walk_minutes > expected_ride_data[transition][0]:
         raise AssertionError("insufficient time to walk to the second vehicle")
     for left, right in zip(expected_ride_data, expected_ride_data[1:]):
         if left[1] > right[0]:
@@ -145,10 +144,10 @@ def validate_reviewed_candidate(
         "policy_id": policy_id,
         "trip_ids": [s["trip_id"] for s in rides],
         "ride_modes": modes,
-        "verified_bus_stop_id": transfer.bus_stop_id,
-        "verified_subway_stop_id": transfer.subway_stop_id,
-        "walk_meters": transfer.walk_meters,
-        "walk_minutes": transfer.walk_minutes,
+        "verified_bus_stop_id": expected_from if direction == "bus_to_rail" else expected_to,
+        "verified_subway_stop_id": expected_to if direction == "bus_to_rail" else expected_from,
+        "walk_meters": link.walk_meters,
+        "walk_minutes": link.walk_minutes,
         "arrival_time": candidate["arrival_time"],
         "additional_payment_yen": 0,
     }
@@ -156,7 +155,7 @@ def validate_reviewed_candidate(
 
 def check_real_municipal_od(
     *, bus_coverage, subway_coverage,
-    transfer_links: tuple[ExplicitTransferLink, ...],
+    transfer_links: tuple[DirectedWalkLink, ...],
     bus_transfer_stop_id: str, subway_transfer_stop_id: str,
     origin_stop_id: str, destination_stop_id: str,
     departure: datetime,
@@ -168,14 +167,6 @@ def check_real_municipal_od(
         raise ValueError("departure must be in JST (+09:00)")
     if departure.second or departure.microsecond:
         raise ValueError("departure must have minute precision")
-    pair = [
-        x for x in transfer_links
-        if x.bus_stop_id == bus_transfer_stop_id
-        and x.subway_stop_id == subway_transfer_stop_id
-    ]
-    if len(pair) != 1:
-        raise ValueError("requested transfer must exist exactly once in reviewed links")
-    link = pair[0]
     bus = bus_coverage.dataset
     subway = subway_coverage.dataset
     stops = {**bus.stops, **subway.stops}
@@ -189,9 +180,15 @@ def check_real_municipal_od(
         direction = "rail_to_bus"
     else:
         raise ValueError("OD must cross the bus/subway feed boundary")
+    expected_from, expected_to = ((bus_transfer_stop_id, subway_transfer_stop_id)
+        if direction == "bus_to_rail" else (subway_transfer_stop_id, bus_transfer_stop_id))
+    pair = [x for x in transfer_links if isinstance(x, DirectedWalkLink)
+            and x.link.from_stop_id == expected_from and x.link.to_stop_id == expected_to]
+    if len(pair) != 1:
+        raise ValueError("requested directed transfer must exist exactly once in reviewed links")
+    selected_link = pair[0]
     backend = YokohamaMunicipalRouteBackend(
         bus_coverage, subway_coverage, transfer_links=transfer_links,
-        estimated_transfer_mode=False,
     )
     results = []
     request = RouteSearchRequest(
@@ -211,11 +208,6 @@ def check_real_municipal_od(
         if (meta.get("walking_transfer_basis") != "reviewed_links_only"
                 or meta.get("unverified_walking_transfers_excluded") is not True):
             raise AssertionError("public search unexpectedly enabled estimated transfers")
-        expected_from, expected_to = (
-            (link.bus_stop_id, link.subway_stop_id)
-            if direction == "bus_to_rail"
-            else (link.subway_stop_id, link.bus_stop_id)
-        )
         matched = [
             c for c in payload["candidates"]
             if any(s.get("kind") == "walk"
@@ -233,7 +225,7 @@ def check_real_municipal_od(
         results.append(validate_reviewed_candidate(
             matched[0],
             bus_coverage=bus_coverage, subway_coverage=subway_coverage,
-            transfer=link, policy_id=policy_id,
+            transfer=selected_link, policy_id=policy_id,
             direction=direction, service_date=departure.date(),
             earliest_departure_minute=departure.hour * 60 + departure.minute,
         ))
@@ -254,3 +246,4 @@ def check_real_municipal_od(
             "ODPT licensing and permission to redistribute GTFS are NOT proven.",
         ],
     }
+

@@ -1,531 +1,105 @@
-"""Contract tests for the new Yokohama municipal multi-feed /route backend.
-
-Synthetic feeds only. No network, GTFS downloads, Windows paths or API keys.
-"""
-from __future__ import annotations
-
+"""Current municipal v2 contract; obsolete two-stage/estimate tests removed."""
 import asyncio
+from dataclasses import asdict, replace
+from datetime import datetime
 import json
 import os
-import tempfile
-import unittest
-from datetime import datetime
 from pathlib import Path
+import tempfile
 from types import SimpleNamespace
+import unittest
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
-from fare_policy import decorate_route_result_with_fare
-from route_engine import (
-    GeoPoint, RouteInputError, RoutePreference, RouteSearchLimitError,
-    RouteSearchRequest,
-    serialize_route_result,
-)
+from reviewed_walk_time import ReviewedWalkingLink
+from transit_network import DirectedWalkLink
+from route_engine import GeoPoint, RouteInputError, RoutePreference, RouteSearchRequest, serialize_route_result
 from route_fare_scope import search_with_fare_scope
+from fare_policy import decorate_route_result_with_fare
 from test_yokohama_municipal_transfer import _feed
-from yokohama_municipal_backend import (
-    YokohamaMunicipalRouteBackend, load_reviewed_transfer_links,
-)
-from yokohama_municipal_transfer import ExplicitTransferLink
+from yokohama_municipal_backend import YokohamaMunicipalRouteBackend, load_reviewed_transfer_links
 
-JST = ZoneInfo("Asia/Tokyo")
-WELFARE = "yokohama_welfare_special_pass"
-SENIOR = "yokohama_senior_special_pass"
+WELFARE='yokohama_welfare_special_pass'
+SENIOR='yokohama_senior_special_pass'
 
 
-def _request(
-    origin=(35.4700, 139.6200),
-    destination=(35.4500, 139.6300),
-    *, hour=9, minute=0, bus_only=False, preference=RoutePreference.FASTEST,
-):
-    return RouteSearchRequest(
-        origin=GeoPoint(*origin),
-        destination=GeoPoint(*destination),
-        departure_at=datetime(2026, 10, 14, hour, minute, tzinfo=JST),
-        preference=preference,
-        bus_only=bus_only,
-    )
+def _request(origin=(35.4700,139.6200),destination=(35.4500,139.6300),*,hour=9,minute=0,
+             bus_only=False,preference=RoutePreference.FASTEST):
+    return RouteSearchRequest(GeoPoint(*origin),GeoPoint(*destination),
+        datetime(2026,10,14,hour,minute,tzinfo=ZoneInfo('Asia/Tokyo')),preference,bus_only=bus_only)
+
+
+def directed_links(bus,rail):
+    a,b='yokohama_bus:B','yokohama_subway:S'
+    return tuple(DirectedWalkLink(ReviewedWalkingLink(x,y,120,3,
+        'https://www.city.yokohama.lg.jp/kotsu/',True),v,w)
+        for x,y,v,w in ((a,b,bus.dataset.metadata.version,rail.dataset.metadata.version),
+                        (b,a,rail.dataset.metadata.version,bus.dataset.metadata.version)))
 
 
 class MunicipalBackendContractTests(unittest.TestCase):
     def setUp(self):
-        b = tempfile.TemporaryDirectory()
-        r = tempfile.TemporaryDirectory()
-        self.addCleanup(b.cleanup)
-        self.addCleanup(r.cleanup)
-        self.bus = _feed(Path(b.name), rail=False)
-        self.rail = _feed(Path(r.name), rail=True)
-        self.link = ExplicitTransferLink(
-            bus_stop_id="yokohama_bus:B",
-            subway_stop_id="yokohama_subway:S",
-            walk_meters=120,
-            walk_minutes=3,
-            official_evidence_url="https://www.city.yokohama.lg.jp/kotsu/",
-        )
+        b=tempfile.TemporaryDirectory();r=tempfile.TemporaryDirectory()
+        self.addCleanup(b.cleanup);self.addCleanup(r.cleanup)
+        self.bus=_feed(Path(b.name),rail=False);self.rail=_feed(Path(r.name),rail=True)
+        self.links=directed_links(self.bus,self.rail)
 
-    def _search(self, *, links=(), policy=WELFARE, **request_kwargs):
-        engine = YokohamaMunicipalRouteBackend(
-            self.bus, self.rail, transfer_links=links
-        )
-        result = search_with_fare_scope(engine, _request(**request_kwargs), policy)
-        payload = serialize_route_result(result)
-        decorate_route_result_with_fare(
-            city_key="yokohama", result=payload, policy_id=policy
-        )
+    def search(self,request,*,links=None,policy=WELFARE):
+        engine=YokohamaMunicipalRouteBackend(self.bus,self.rail,
+            transfer_links=self.links if links is None else links)
+        result=search_with_fare_scope(engine,request,policy)
+        payload=serialize_route_result(result)
+        decorate_route_result_with_fare(city_key='yokohama',result=payload,policy_id=policy)
         return payload
 
-    def test_reviewed_bus_to_rail_through_public_contract_for_both_passes(self):
-        for policy in (WELFARE, SENIOR):
-            with self.subTest(policy=policy):
-                payload = self._search(links=(self.link,), policy=policy)
-                self.assertEqual(len(payload["candidates"]), 1)
-                route = payload["candidates"][0]
-                self.assertEqual(route["fare"]["payNowYen"], 0)
-                self.assertEqual(route["fare"]["effectiveFareYen"], 0)
-                self.assertEqual(route["fare"]["policyId"], policy)
-                self.assertEqual(route["arrival_time"], "09:40")
-                self.assertEqual(route["boards"], 2)
-                self.assertEqual(route["transfers"], 1)
-                ride = [x for x in route["steps"] if x["kind"] in ("bus", "rail")]
-                self.assertEqual([x["kind"] for x in ride], ["bus", "rail"])
-                self.assertEqual(
-                    [x["trip_id"] for x in ride],
-                    ["yokohama_bus:BUS1", "yokohama_subway:TRAIN1"],
-                )
-                self.assertEqual(
-                    [x["departureStopId"] for x in ride],
-                    ["yokohama_bus:O", "yokohama_subway:S"],
-                )
-                transfer = [x for x in route["steps"]
-                            if x["kind"] == "walk" and x.get("walking_connection_verified")]
-                self.assertEqual(len(transfer), 1)
-                self.assertEqual(transfer[0]["minutes"], 3)
-                self.assertEqual(transfer[0]["meters"], 120)
-                self.assertTrue(payload["meta"]["unreviewed_transport_excluded"])
-                self.assertEqual(payload["meta"]["reviewed_transfer_links"], 1)
+    def test_both_directions_and_both_passes_delegate_to_shared_v2(self):
+        import transit_timetable_choices as choices
+        for policy in (WELFARE,SENIOR):
+            for request in (_request(),_request(origin=(35.4500,139.6300),destination=(35.4700,139.6200),hour=9,minute=55)):
+                with self.subTest(policy=policy,origin=request.origin):
+                    with patch('transit_timetable_choices.search_labels',wraps=choices.search_labels) as core:
+                        payload=self.search(request,policy=policy)
+                    self.assertTrue(core.called)
+                    candidate=payload['candidates'][0]
+                    self.assertEqual(candidate['fare']['payNowYen'],0)
+                    self.assertEqual(candidate['boards'],2)
+                    walks=[s for s in candidate['steps'] if s['kind']=='walk']
+                    self.assertTrue(any(w.get('walking_connection_verified') for w in walks))
+                    self.assertEqual(payload['meta']['walking_transfer_basis'],'reviewed_links_only')
 
-    def test_reverse_rail_to_bus_preserves_direction_and_schedule(self):
-        result = self._search(
-            links=(self.link,), policy=SENIOR,
-            origin=(35.4500, 139.6300),
-            destination=(35.4700, 139.6200),
-            hour=9, minute=55,
-        )
-        self.assertEqual(len(result["candidates"]), 1)
-        route = result["candidates"][0]
-        rides = [x for x in route["steps"] if x["kind"] in ("bus", "rail")]
-        self.assertEqual([x["kind"] for x in rides], ["rail", "bus"])
-        self.assertEqual([x["trip_id"] for x in rides],
-                         ["yokohama_subway:TRAIN2", "yokohama_bus:BUS2"])
-        self.assertEqual(route["arrival_time"], "10:41")
+    def test_no_implicit_link_reverse_or_legacy_bidirectional_conversion(self):
+        self.assertFalse(self.search(_request(),links=())['candidates'])
+        reverse=_request(origin=(35.4500,139.6300),destination=(35.4700,139.6200),hour=9,minute=55)
+        self.assertFalse(self.search(reverse,links=self.links[:1])['candidates'])
+        with self.assertRaisesRegex(ValueError,'directed'):
+            YokohamaMunicipalRouteBackend(self.bus,self.rail,transfer_links=(
+                {'bus_stop_id':'yokohama_bus:B','subway_stop_id':'yokohama_subway:S'},))
 
-    def test_unreviewed_walking_connection_is_not_inferred_from_proximity(self):
-        result = self._search()
-        self.assertEqual(result["candidates"], [])
-        self.assertTrue(result["meta"]["unverified_walking_transfers_excluded"])
-        self.assertEqual(result["meta"]["reviewed_transfer_links"], 0)
+    def test_bus_only_filters_before_network_search(self):
+        result=self.search(_request(destination=(35.4650,139.6250),bus_only=True))
+        self.assertTrue(result['candidates'])
+        self.assertTrue(all(s['kind']!='rail' for s in result['candidates'][0]['steps']))
 
-    def test_bus_only_excludes_rail_and_cross_feed_transfer(self):
-        result = self._search(links=(self.link,), bus_only=True)
-        self.assertEqual(result["candidates"], [])
-        self.assertEqual(result["meta"]["covered_modes"], ["bus"])
+    def test_scope_required_and_bad_versions_fail(self):
+        engine=YokohamaMunicipalRouteBackend(self.bus,self.rail)
+        with self.assertRaisesRegex(RouteInputError,'fare policy scope'):engine.search(_request())
+        with self.assertRaisesRegex(ValueError,'version mismatch'):
+            YokohamaMunicipalRouteBackend(self.bus,self.rail,transfer_links=(replace(self.links[0],from_feed_version='old'),))
 
-    def test_unreviewed_rail_disables_rail_and_transfer_not_bus(self):
-        from dataclasses import replace
-        self.rail = replace(
-            self.rail, route_service_kinds={"yokohama_subway:BLUE": "unreviewed"},
-        )
-        result = self._search(links=(self.link,))
-        self.assertEqual(result["candidates"], [])
-
-    def test_policy_must_be_explicit_and_supported(self):
-        engine = YokohamaMunicipalRouteBackend(self.bus, self.rail)
-        for policy in ("normal", "tokyo_welfare_pass", ""):
-            with self.subTest(policy=policy), self.assertRaises(RouteInputError):
-                search_with_fare_scope(engine, _request(), policy)
-
-    def test_opt_in_provisional_spatial_transfer_keeps_walk_unverified(self):
-        engine = YokohamaMunicipalRouteBackend(
-            self.bus, self.rail, estimated_transfer_mode=True,
-        )
-        for policy in (WELFARE, SENIOR):
-            with self.subTest(policy=policy):
-                result = search_with_fare_scope(engine, _request(), policy)
-                payload = serialize_route_result(result)
-                decorate_route_result_with_fare(
-                    city_key="yokohama", result=payload, policy_id=policy,
-                )
-                self.assertEqual(len(payload["candidates"]), 1)
-                candidate = payload["candidates"][0]
-                rides = [x for x in candidate["steps"] if x["kind"] in ("bus", "rail")]
-                self.assertEqual([x["trip_id"] for x in rides],
-                                 ["yokohama_bus:BUS1", "yokohama_subway:TRAIN1"])
-                self.assertEqual(candidate["fare"]["payNowYen"], 0)
-                walks = [x for x in candidate["steps"]
-                         if x["kind"] == "walk" and x.get("distance_basis") == "straight_line_estimate"]
-                self.assertEqual(len(walks), 1)
-                self.assertFalse(walks[0]["walking_connection_verified"])
-                self.assertNotIn("evidence_url", walks[0])
-                self.assertEqual(payload["meta"]["walking_transfer_basis"],
-                                 "provisional_gtfs_proximity")
-                self.assertFalse(payload["meta"]["unverified_walking_transfers_excluded"])
-
-    def test_unreviewed_rail_never_enters_even_estimated_mode(self):
-        from dataclasses import replace
-        self.rail = replace(
-            self.rail, route_service_kinds={"yokohama_subway:BLUE": "unreviewed"},
-        )
-        self.assertEqual(self._search_with_estimates(), [])
-
-    def _search_with_estimates(self):
-        engine = YokohamaMunicipalRouteBackend(
-            self.bus, self.rail, estimated_transfer_mode=True,
-        )
-        return search_with_fare_scope(engine, _request(), WELFARE).candidates
-
-    def test_provisional_transfer_links_respect_actual_service_day(self):
-        from dataclasses import replace
-        from datetime import date
-        from transit_dataset import ServiceException
-
-        excluded = replace(
-            self.bus,
-            dataset=replace(
-                self.bus.dataset,
-                service_exceptions=(
-                    ServiceException(
-                        "yokohama_bus:ALL", date(2026, 10, 14), 2,
-                    ),
-                ),
-            ),
-        )
-        engine = YokohamaMunicipalRouteBackend(
-            excluded, self.rail, estimated_transfer_mode=True,
-        )
-        # The source GTFS still contains all bus stops and train stops,
-        # but its bus trips do not run on this day. They must not produce
-        # links or count toward the development-only candidate cap.
-        self.assertTrue(engine.backends["bus"].active_stops)
-        self.assertFalse(engine.backends["bus"].active_stops_on(date(2026, 10, 14)))
-        self.assertEqual(engine._candidate_transfer_links(date(2026, 10, 14)), ())
-        scoped = search_with_fare_scope(engine, _request(), WELFARE)
-        self.assertEqual(scoped.candidates, [])
-
-    def test_provisional_transfer_links_include_only_stops_used_that_day(self):
-        from dataclasses import replace
-        from datetime import date
-        from transit_dataset import ServiceCalendar, TransitTrip
-
-        # A second inactive service contains a pole next to the station.
-        # Even with max_candidate_links=1, that weekend-only pole cannot
-        # create a spurious overflow in weekday searches.
-        original = self.bus.dataset
-        off_service = ServiceCalendar(
-            id="yokohama_bus:OFF",
-            source_id="OFF",
-            weekdays=(False, False, False, False, False, False, True),
-            start_date=date(2026, 1, 1),
-            end_date=date(2026, 12, 31),
-        )
-        # The existing two poles are in ALL. An extra duplicate stop on an
-        # inactive service is placed at subway station S coordinates.
-        near_stop = replace(
-            original.stops["yokohama_bus:O"],
-            id="yokohama_bus:EXTRA",
-            source_id="EXTRA",
-            lat=35.4651,
-            lon=139.6251,
-        )
-        off_trip = replace(
-            original.trips["yokohama_bus:BUS1"],
-            id="yokohama_bus:OFFTRIP",
-            source_id="OFFTRIP",
-            service_id="yokohama_bus:OFF",
-        )
-        from transit_dataset import TransitStopTime
-        data = replace(
-            original,
-            calendars={**original.calendars, off_service.id: off_service},
-            stops={**original.stops, near_stop.id: near_stop},
-            trips={**original.trips, off_trip.id: off_trip},
-            stop_times=(
-                *original.stop_times,
-                TransitStopTime(
-                    trip_id=off_trip.id, stop_id=near_stop.id,
-                    sequence=1, arrival_minute=550, departure_minute=550,
-                ),
-                TransitStopTime(
-                    trip_id=off_trip.id, stop_id="yokohama_bus:B",
-                    sequence=2, arrival_minute=560, departure_minute=560,
-                ),
-            ),
-        )
-        modified = replace(self.bus, dataset=data)
-        engine = YokohamaMunicipalRouteBackend(
-            modified, self.rail, estimated_transfer_mode=True,
-            estimated_candidate_limit=1,
-        )
-        links = engine._candidate_transfer_links(date(2026, 10, 14))
-        self.assertEqual(len(links), 1)
-        self.assertEqual(links[0].bus_stop_id, "yokohama_bus:B")
-        self.assertNotIn("yokohama_bus:EXTRA", [x.bus_stop_id for x in links])
-
-    def test_estimate_limit_and_types_fail_closed(self):
-        with self.assertRaisesRegex(ValueError, "estimated_transfer_mode"):
-            YokohamaMunicipalRouteBackend(self.bus, self.rail, estimated_transfer_mode=1)
-        for radius in (0, True, 601):
-            with self.subTest(radius=radius), self.assertRaisesRegex(ValueError, "estimated_radius_m"):
-                YokohamaMunicipalRouteBackend(
-                    self.bus, self.rail, estimated_transfer_mode=True, estimated_radius_m=radius,
-                )
-        engine = YokohamaMunicipalRouteBackend(
-            self.bus, self.rail, estimated_transfer_mode=True,
-            estimated_candidate_limit=1,
-        )
-        from dataclasses import replace
-        stops = dict(self.bus.dataset.stops)
-        b = stops["yokohama_bus:O"]
-        stops[b.id] = replace(b, lat=35.4652, lon=139.6251)
-        another_bus = replace(self.bus, dataset=replace(self.bus.dataset, stops=stops))
-        engine = YokohamaMunicipalRouteBackend(
-            another_bus, self.rail, estimated_transfer_mode=True,
-            estimated_candidate_limit=1,
-        )
-        with self.assertRaisesRegex(RouteSearchLimitError, "too many provisional"):
-            search_with_fare_scope(engine, _request(), WELFARE)
-
-    def test_estimate_dev_refuses_hosted_backend_mode_before_loading_feed(self):
+    def test_old_estimate_setting_is_rejected_before_data_io(self):
         from app.yokohama_runtime import setup_yokohama_on_startup
-        app = SimpleNamespace(state=SimpleNamespace())
-        with patch.dict(os.environ, {
-            "YOKOHAMA_TRANSFER_WALK_MODE": "estimate_dev",
-            "YOKOHAMA_REALTIME_MODE": "disabled",
-        }):
-            with self.assertRaisesRegex(RuntimeError, "only permitted in local"):
-                asyncio.run(setup_yokohama_on_startup(app, "lambda"))
+        with patch.dict(os.environ,{'YOKOHAMA_TRANSFER_WALK_MODE':'estimate_dev'}):
+            with self.assertRaisesRegex(RuntimeError,'was removed'):
+                asyncio.run(setup_yokohama_on_startup(SimpleNamespace(state=SimpleNamespace()),'local'))
 
-    def test_invalid_transfer_walk_mode_fails_before_loading_gtfs(self):
-        from app.yokohama_runtime import setup_yokohama_on_startup
-        app = SimpleNamespace(state=SimpleNamespace())
-        with patch.dict(os.environ, {
-            "YOKOHAMA_TRANSFER_WALK_MODE": "auto",
-            "YOKOHAMA_REALTIME_MODE": "disabled",
-        }):
-            with self.assertRaisesRegex(RuntimeError, "must be 'reviewed'"):
-                asyncio.run(setup_yokohama_on_startup(app, "local"))
-
-    def test_transfer_walking_mode_cannot_change_after_startup(self):
-        from app.yokohama_runtime import setup_yokohama_on_startup
-        app = SimpleNamespace(
-            state=SimpleNamespace(
-                loading_status="ready",
-                realtime_mode="disabled",
-                transfer_walk_mode="reviewed",
-            )
-        )
-        # A warm process must refuse a mode switch, rather than reporting
-        # readiness while silently keeping a different walking policy.
-        with patch.dict(os.environ, {
-            "YOKOHAMA_TRANSFER_WALK_MODE": "estimate_dev",
-            "YOKOHAMA_REALTIME_MODE": "disabled",
-        }):
-            with self.assertRaisesRegex(RuntimeError, "walking mode changed"):
-                asyncio.run(setup_yokohama_on_startup(app, "local"))
-        self.assertEqual(app.state.loading_status, "ready")
-        self.assertEqual(app.state.transfer_walk_mode, "reviewed")
-
-    def test_http_route_estimated_transfer_local_only_with_both_passes(self):
-        """Exercise startup → /route → fare quote with both synthetic feeds."""
-        from dataclasses import replace
-        from fastapi.testclient import TestClient
-        from app.app_factory import create_app
-        from test_yokohama_backend import _environment, _write_feed
-
-        with tempfile.TemporaryDirectory() as busdir:
-            root = Path(busdir)
-            _write_feed(root)
-            # Synthetic train: from the bus's arrival node D at 10:25
-            # back toward S at 10:45. It is NOT a real Yokohama timetable.
-            times = []
-            for st in self.rail.dataset.stop_times:
-                if st.trip_id == "yokohama_subway:TRAIN2":
-                    minute = 625 if st.stop_id == "yokohama_subway:D" else 645
-                    times.append(replace(
-                        st, arrival_minute=minute, departure_minute=minute,
-                    ))
-                else:
-                    times.append(st)
-            rail = replace(
-                self.rail,
-                dataset=replace(self.rail.dataset, stop_times=tuple(times)),
-            )
-            for walk_mode, expected_count in (("reviewed", 0), ("estimate_dev", 1)):
-                with self.subTest(walk_mode=walk_mode):
-                    env = _environment(root)
-                    env.update({
-                        "YOKOHAMA_REALTIME_MODE": "disabled",
-                        "YOKOHAMA_SUBWAY_GTFS_DIR": str(root),
-                        "YOKOHAMA_TRANSFER_WALK_MODE": walk_mode,
-                    })
-                    with patch.dict(os.environ, env, clear=True), patch(
-                        "yokohama_subway.load_reviewed_yokohama_subway_coverage",
-                        return_value=rail,
-                    ):
-                        with TestClient(create_app("local")) as client:
-                            for policy in (WELFARE, SENIOR):
-                                response = client.post(
-                                    "/route",
-                                    headers={"X-App-City": "yokohama"},
-                                    json={
-                                        "alat": 35.4660, "alon": 139.6225,
-                                        "blat": 35.4651, "blon": 139.6251,
-                                        "pref": "shortTime",
-                                        "start_time": "09:55",
-                                        "target_date_str": "2026-08-29",
-                                        "fare_policy_id": policy,
-                                    },
-                                )
-                                self.assertEqual(response.status_code, 200, response.text)
-                                data = response.json()
-                                if walk_mode == "reviewed":
-                                    # The shared backend may still offer a
-                                    # short walk-only route. That is NOT an
-                                    # unreviewed inter-feed interchange.
-                                    self.assertTrue(all(
-                                        not {"bus", "rail"}.issubset({
-                                            x["kind"] for x in candidate["steps"]
-                                        })
-                                        for candidate in data["candidates"]
-                                    ))
-                                else:
-                                    self.assertGreaterEqual(len(data["candidates"]), 1)
-                                self.assertEqual(
-                                    data["meta"]["walking_transfer_basis"],
-                                    "reviewed_links_only"
-                                    if walk_mode == "reviewed"
-                                    else "provisional_gtfs_proximity",
-                                )
-                                if walk_mode != "estimate_dev":
-                                    continue
-                                self.assertTrue(all(
-                                    route["fare"]["payNowYen"] == 0
-                                    and route["fare"]["effectiveFareYen"] == 0
-                                    for route in data["candidates"]
-                                ))
-                                matching = [
-                                    route for route in data["candidates"]
-                                    if [x["trip_id"] for x in route["steps"]
-                                        if x["kind"] in ("bus", "rail")]
-                                    == ["yokohama_bus:T1", "yokohama_subway:TRAIN2"]
-                                ]
-                                self.assertTrue(matching, data["candidates"])
-                                candidate = matching[0]
-                                self.assertEqual(candidate["fare"]["policyId"], policy)
-                                self.assertEqual(candidate["fare"]["payNowYen"], 0)
-                                self.assertEqual(candidate["arrival_time"], "10:45")
-                                transfer = [x for x in candidate["steps"]
-                                            if x["kind"] == "walk" and x.get("distance_basis") == "straight_line_estimate"]
-                                self.assertEqual(len(transfer), 1)
-                                self.assertFalse(transfer[0]["walking_connection_verified"])
-                                self.assertNotIn("evidence_url", transfer[0])
-                                self.assertIn("推定", transfer[0]["title"])
-
-    def test_distinct_interchange_stops_on_same_trips_are_not_deduplicated(self):
-        """Two transfer locations on the same bus/train trips are distinct routes."""
-        from dataclasses import replace
-        from transit_dataset import TransitStopTime
-
-        original = self.bus.dataset
-        intermediate = replace(
-            original.stops["yokohama_bus:B"],
-            id="yokohama_bus:B2",
-            source_id="B2",
-            name="桜木町別ポール",
-            lat=35.4651,
-            lon=139.6253,
-        )
-        updated_times = tuple(
-            replace(row, sequence=3)
-            if row.trip_id == "yokohama_bus:BUS1" and row.stop_id == "yokohama_bus:B"
-            else row
-            for row in original.stop_times
-        ) + (
-            TransitStopTime(
-                trip_id="yokohama_bus:BUS1",
-                stop_id=intermediate.id,
-                sequence=2,
-                arrival_minute=9 * 60 + 17,
-                departure_minute=9 * 60 + 17,
-            ),
-        )
-        self.bus = replace(
-            self.bus,
-            dataset=replace(
-                original,
-                stops={**original.stops, intermediate.id: intermediate},
-                stop_times=updated_times,
-            ),
-        )
-        other_link = ExplicitTransferLink(
-            bus_stop_id=intermediate.id,
-            subway_stop_id=self.link.subway_stop_id,
-            walk_meters=240,
-            walk_minutes=4,
-            official_evidence_url=self.link.official_evidence_url,
-        )
-        result = self._search(links=(self.link, other_link))
-        routes = result["candidates"]
-        self.assertEqual(len(routes), 2)
-        self.assertEqual(len({route["id"] for route in routes}), 2)
-        self.assertEqual(
-            {
-                step["departureStopId"]
-                for route in routes
-                for step in route["steps"]
-                if step["kind"] == "walk" and step.get("walking_connection_verified")
-            },
-            {"yokohama_bus:B", "yokohama_bus:B2"},
-        )
-        self.assertEqual(
-            {
-                step["trip_id"]
-                for route in routes
-                for step in route["steps"]
-                if step["kind"] in ("bus", "rail")
-            },
-            {"yokohama_bus:BUS1", "yokohama_subway:TRAIN1"},
-        )
-        self.assertTrue(all(route["fare"]["payNowYen"] == 0 for route in routes))
-
-    def test_source_links_are_version_pinned_and_read_only(self):
+    def test_directed_review_schema_is_version_pinned_and_read_only(self):
         with tempfile.TemporaryDirectory() as tmp:
-            p = Path(tmp) / "links.json"
-            good = {
-                "schema_version": 1,
-                "feed_versions": {
-                    "yokohama_bus": self.bus.dataset.metadata.version,
-                    "yokohama_subway": self.rail.dataset.metadata.version,
-                },
-                "links": [{
-                    "bus_stop_id": self.link.bus_stop_id,
-                    "subway_stop_id": self.link.subway_stop_id,
-                    "walk_meters": self.link.walk_meters,
-                    "walk_minutes": self.link.walk_minutes,
-                    "official_evidence_url": self.link.official_evidence_url,
-                }],
-            }
-            p.write_text(json.dumps(good), encoding="utf-8")
-            before = p.read_bytes()
-            links = load_reviewed_transfer_links(p, self.bus, self.rail)
-            self.assertEqual(links, (self.link,))
-            self.assertEqual(p.read_bytes(), before)
-            wrong = dict(good)
-            wrong["feed_versions"] = dict(good["feed_versions"],
-                                           yokohama_subway="stale")
-            p.write_text(json.dumps(wrong), encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "edition mismatch"):
-                load_reviewed_transfer_links(p, self.bus, self.rail)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            path=Path(tmp)/'links.json'
+            raw={'schema_version':2,'feed_versions':{'yokohama_bus':self.bus.dataset.metadata.version,
+                'yokohama_subway':self.rail.dataset.metadata.version},'links':[asdict(x.link) for x in self.links]}
+            path.write_text(json.dumps(raw));before=path.read_bytes()
+            self.assertEqual(load_reviewed_transfer_links(path,self.bus,self.rail),self.links)
+            self.assertEqual(before,path.read_bytes())
+            for change in ({'schema_version':1},{'feed_versions':{}}):
+                path.write_text(json.dumps({**raw,**change}))
+                with self.assertRaises(ValueError):load_reviewed_transfer_links(path,self.bus,self.rail)

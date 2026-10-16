@@ -14,7 +14,7 @@ from typing import Any
 
 import httpx
 
-from gtfs_route_backend import GtfsRouteBackend
+from gtfs_route_backend import GtfsRouteEngine
 from transit_adapters.gtfs import GtfsTransitAdapter
 from transit_dataset import FeedMetadata, TransitDataset, TransitMode
 
@@ -277,8 +277,9 @@ def load_sendai_dataset(
     return dataset
 
 
-class SendaiRouteBackend(GtfsRouteBackend):
+class SendaiRouteBackend(GtfsRouteEngine):
     def __init__(self, dataset: TransitDataset, **kwargs: Any) -> None:
         if dataset.metadata.feed_id != SENDAI_FEED_ID:
             raise ValueError(f"SendaiRouteBackend requires {SENDAI_FEED_ID} dataset")
         super().__init__(dataset, **kwargs)
+

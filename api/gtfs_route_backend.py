@@ -1,28 +1,30 @@
 from __future__ import annotations
 
+import os
 import math
 from datetime import datetime
 from typing import Any
+from types import SimpleNamespace
+from fractions import Fraction
+from transit_network import TransitNetworkSnapshot
+from transit_timetable_choices import NetworkRideEvent, NetworkWalkEvent
 from zoneinfo import ZoneInfo
 
 from route_engine import (
-    GeoPoint,
     RouteCandidate,
     RouteInputError,
+    RouteContractError,
     RoutePreference,
     RouteSearchRequest,
     RouteSearchResult,
-    normalize_route_preference,
-    serialize_route_result,
 )
+from transit_network_core import NetworkSearchCore
 from transit_dataset import TransitDataset, TransitMode, TransitStop
 from transit_engine import (
     BatchSearchRequest,
-    SearchCore,
     SearchEndpoint,
     TransitItinerary,
     TransitLeg,
-    itinerary_path_key,
 )
 
 _JST = ZoneInfo("Asia/Tokyo")
@@ -42,26 +44,8 @@ def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 def _clock(minute: int) -> str:
-    minute %= 24 * 60
+    minute = int(minute) % (24 * 60)
     return f"{minute // 60:02d}:{minute % 60:02d}"
-
-
-def _parse_departure(date_str: str | None, start_time: str) -> datetime:
-    if date_str is None:
-        date_part = datetime.now(_JST).date().isoformat()
-    else:
-        try:
-            parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-        except ValueError as error:
-            raise ValueError("target_date_str must be YYYY-MM-DD") from error
-        if parsed_date.isoformat() != date_str:
-            raise ValueError("target_date_str must be zero-padded YYYY-MM-DD")
-        date_part = date_str
-    try:
-        parsed = datetime.strptime(f"{date_part} {start_time}", "%Y-%m-%d %H:%M")
-    except ValueError as error:
-        raise ValueError("start_time must be HH:MM") from error
-    return parsed.replace(tzinfo=_JST)
 
 
 def _point(stop: TransitStop) -> dict[str, Any]:
@@ -88,8 +72,10 @@ class GtfsRouteEngine:
         walk_speed_m_per_min: float = 80.0,
         endpoint_candidate_limit: int = 6,
         max_rides: int = 6,
-        search_core: SearchCore | None = None,
+        network_snapshot: TransitNetworkSnapshot | None = None,
     ) -> None:
+        if "ROUTE_SEARCH_CORE" in os.environ:
+            raise RuntimeError("ROUTE_SEARCH_CORE v1 selector is not supported by common v2 city backends")
         if walk_radius_m <= 0:
             raise ValueError("walk_radius_m must be > 0")
         if walk_speed_m_per_min <= 0:
@@ -98,6 +84,11 @@ class GtfsRouteEngine:
             raise ValueError("endpoint_candidate_limit must be >= 1")
         if max_rides < 1:
             raise ValueError("max_rides must be >= 1")
+        if network_snapshot is not None:
+            if not isinstance(network_snapshot, TransitNetworkSnapshot):
+                raise ValueError("explicit v2 network snapshot required")
+            dataset = SimpleNamespace(stops=network_snapshot.stops, routes=network_snapshot.routes,
+                trips=network_snapshot.trips, metadata=SimpleNamespace(feed_id="municipal_network"))
         # City adapters already validate operators and fare coverage. The
         # shared coordinate backend only needs the validated transport mode:
         # bus and rail use the SAME time-indexed SearchCore. The response
@@ -108,16 +99,10 @@ class GtfsRouteEngine:
         ]
         if unsupported:
             raise ValueError(
-                f"GtfsRouteBackend found unsupported mode: {unsupported[0]}"
+                f"GtfsRouteEngine found unsupported mode: {unsupported[0]}"
             )
         self.dataset = dataset
-        if search_core is None:
-            from search_core_factory import create_search_core
-
-            search_core = create_search_core(dataset)
-        self.search_core = search_core
-        # Compatibility for callers that still inspect the former backend.
-        self.engine = self.search_core
+        self.search_core = NetworkSearchCore(dataset, snapshot=network_snapshot)
         self.walk_radius_m = walk_radius_m
         self.walk_speed_m_per_min = walk_speed_m_per_min
         self.endpoint_candidate_limit = endpoint_candidate_limit
@@ -170,6 +155,8 @@ class GtfsRouteEngine:
             )
             for index, (destination, destination_distance) in enumerate(destinations)
         )
+        if any(departure.hour * 60 + departure.minute + e.walk_minutes >= 1440 for e in origin_endpoints):
+            raise RuntimeError("coordinate origin walk crosses unsupported service-day boundary")
         result = self.search_core.search(
             BatchSearchRequest(
                 service_date=departure.date(),
@@ -192,24 +179,22 @@ class GtfsRouteEngine:
             ].walk_minutes
             itinerary = pair.itinerary
             final_arrival = itinerary.arrival_minute + destination_walk
-            path_key = itinerary_path_key(itinerary)
             objective = (
                 (
                     final_arrival,
-                    itinerary.transfers,
+                    pair.planning_cost,
                     itinerary.arrival_minute,
                     origin_endpoints[pair.origin_index].rank,
                     destination_endpoints[pair.destination_index].rank,
-                    path_key,
                 )
                 if preference == "time"
                 else (
                     itinerary.transfers,
+                    pair.planning_cost,
                     final_arrival,
                     itinerary.arrival_minute,
                     origin_endpoints[pair.origin_index].rank,
                     destination_endpoints[pair.destination_index].rank,
-                    path_key,
                 )
             )
             row = (
@@ -219,12 +204,13 @@ class GtfsRouteEngine:
                 origin_distance,
                 destination,
                 destination_distance,
+                pair.journey,
             )
             if best is None or row[0] < best[0]:
                 best = row
         if best is None:
             return None
-        return best[1], best[2], best[3], best[4], best[5]
+        return best[1], best[2], best[3], best[4], best[5], best[6]
 
     def _ride_step(self, leg: TransitLeg, index: int) -> dict[str, Any]:
         route = self.dataset.routes[leg.route_id]
@@ -263,6 +249,7 @@ class GtfsRouteEngine:
         blon: float,
         departure: datetime,
         preference: str,
+        network_journey,
     ) -> dict[str, Any]:
         steps: list[dict[str, Any]] = []
         points: list[list[float]] = [[alat, alon]]
@@ -285,30 +272,38 @@ class GtfsRouteEngine:
 
         current_minute = departure.hour * 60 + departure.minute + origin_walk
         lines: list[str] = []
-        for index, leg in enumerate(itinerary.legs):
+        events = network_journey.events
+        for index, leg in enumerate(events):
             if leg.departure_minute > current_minute:
-                steps.append(
-                    {
-                        "step_id": f"wait-{index}",
-                        "kind": "wait",
-                        "title": "待ち時間",
-                        "from_": self.dataset.stops[leg.from_stop_id].name,
-                        "to": self.dataset.stops[leg.from_stop_id].name,
-                        "place": self.dataset.stops[leg.from_stop_id].name,
-                        "minutes": leg.departure_minute - current_minute,
-                        "meters": 0,
-                        "departure_time": _clock(current_minute),
-                        "arrival_time": _clock(leg.departure_minute),
-                        "stops": [],
-                    }
-                )
-            ride = self._ride_step(leg, index)
-            steps.append(ride)
-            if ride["title"] not in lines:
-                lines.append(ride["title"])
-            for stop_id in leg.stop_ids[1:]:
-                stop = self.dataset.stops[stop_id]
+                place = (self.dataset.stops[leg.from_stop_id].name
+                         if isinstance(leg, NetworkRideEvent) else "乗換地点")
+                steps.append({"step_id": f"wait-{index}", "kind": "wait", "title": "待ち時間",
+                    "from_": place, "to": place, "place": place,
+                    "minutes": leg.departure_minute - current_minute, "meters": 0,
+                    "departure_time": _clock(current_minute), "arrival_time": _clock(leg.departure_minute), "stops": []})
+            if isinstance(leg, NetworkWalkEvent):
+                link = leg.pinned_link.link
+                steps.append({"step_id": f"walk-transfer-{index}", "kind": "walk", "title": "徒歩乗換",
+                    "from_": self.dataset.stops[link.from_stop_id].name,
+                    "to": self.dataset.stops[link.to_stop_id].name,
+                    "minutes": leg.arrival_minute - leg.departure_minute, "meters": link.walk_meters,
+                    "departure_time": _clock(leg.departure_minute), "arrival_time": _clock(leg.arrival_minute),
+                    "departureStopId": link.from_stop_id, "arrivalPoleId": link.to_stop_id,
+                    "walking_connection_verified": True, "walking_time_verified": True,
+                    "evidence_url": link.official_evidence_url,
+                    "includes_station_access": link.includes_station_access, "stops": []})
+                stop = self.dataset.stops[link.to_stop_id]
                 points.append([stop.lat, stop.lon])
+            elif isinstance(leg, NetworkRideEvent):
+                ride = self._ride_step(leg, index)
+                steps.append(ride)
+                if ride["title"] not in lines:
+                    lines.append(ride["title"])
+                for stop_id in leg.stop_ids[1:]:
+                    stop = self.dataset.stops[stop_id]
+                    points.append([stop.lat, stop.lon])
+            else:
+                raise RouteContractError("coordinate serializer requires an explicitly supported network event")
             current_minute = leg.arrival_minute
 
         if destination_walk:
@@ -328,7 +323,7 @@ class GtfsRouteEngine:
         total_time = origin_walk + itinerary.total_minutes + destination_walk
         arrival = departure.hour * 60 + departure.minute + total_time
         trip_key = "|".join(leg.trip_id for leg in itinerary.legs) or "walk"
-        return {
+        payload = {
             "id": f"{self.dataset.metadata.feed_id}:{trip_key}:{departure.date().isoformat()}:{departure.strftime('%H%M')}",
             "lines": lines,
             "rides": itinerary.rides,
@@ -337,8 +332,7 @@ class GtfsRouteEngine:
                 for step in steps
                 if step["kind"] == "walk"
             ),
-            "walking_segment_count": int(origin_walk > 0)
-            + int(destination_walk > 0),
+            "walking_segment_count": sum(step["kind"] == "walk" for step in steps),
             "boards": itinerary.rides,
             "transfers": itinerary.transfers,
             "total": total_time,
@@ -352,7 +346,19 @@ class GtfsRouteEngine:
             "arrival_time": _clock(arrival),
         }
 
+        def json_minutes(value):
+            if isinstance(value, Fraction):
+                return int(value) if value.denominator == 1 else float(value)
+            if isinstance(value, dict):
+                return {key: json_minutes(item) for key, item in value.items()}
+            if isinstance(value, list):
+                return [json_minutes(item) for item in value]
+            return value
+        return json_minutes(payload)
+
     def _search_request(self, request: RouteSearchRequest) -> RouteSearchResult:
+        if request.preference not in (RoutePreference.FASTEST, RoutePreference.FEWEST_TRANSFERS):
+            raise RouteInputError("common v2 city backend does not accept Tokyo comfort/cost preference")
         # A bus-only request must never silently board rail just because the
         # reusable GTFS backend now supports both transport modes. A
         # multimodal feed needs explicit bus-filtered search first.
@@ -393,7 +399,7 @@ class GtfsRouteEngine:
             meta["destination_reachable"] = True
             return RouteSearchResult(candidates=[], meta=meta)
 
-        itinerary, origin, origin_distance, destination, destination_distance = best
+        itinerary, origin, origin_distance, destination, destination_distance, journey = best
         payload = self._serialize(
             itinerary,
             origin,
@@ -405,6 +411,7 @@ class GtfsRouteEngine:
             blat=request.destination.lat,
             blon=request.destination.lon,
             departure=request.departure_at,
+            network_journey=journey,
             preference=(
                 "time"
                 if request.preference is RoutePreference.FASTEST
@@ -423,43 +430,7 @@ class GtfsRouteEngine:
             meta=meta,
         )
 
-    def search(
-        self,
-        request: RouteSearchRequest | None = None,
-        *,
-        alat: float | None = None,
-        alon: float | None = None,
-        blat: float | None = None,
-        blon: float | None = None,
-        pref: str | None = None,
-        start_time: str | None = None,
-        date_str: str | None = None,
-    ) -> RouteSearchResult | dict[str, Any]:
-        if request is not None:
-            if any(
-                value is not None
-                for value in (alat, alon, blat, blon, pref, start_time, date_str)
-            ):
-                raise RouteInputError(
-                    "RouteSearchRequest cannot be combined with legacy arguments"
-                )
-            return self._search_request(request)
-
-        if None in (alat, alon, blat, blon, pref, start_time):
-            raise ValueError("legacy route search requires all coordinate fields")
-        try:
-            legacy_request = RouteSearchRequest(
-                origin=GeoPoint(float(alat), float(alon)),
-                destination=GeoPoint(float(blat), float(blon)),
-                departure_at=_parse_departure(date_str, str(start_time)),
-                preference=normalize_route_preference(pref),
-            )
-        except RouteInputError:
-            raise
-        except (TypeError, ValueError) as error:
-            raise RouteInputError(str(error)) from error
-        return serialize_route_result(self._search_request(legacy_request))
-
-
-class GtfsRouteBackend(GtfsRouteEngine):
-    """Backward-compatible name for the shared GTFS route engine."""
+    def search(self, request: RouteSearchRequest) -> RouteSearchResult:
+        if not isinstance(request, RouteSearchRequest):
+            raise RouteInputError("explicit RouteSearchRequest required")
+        return self._search_request(request)

@@ -1,3 +1,5 @@
+
+from tests.route_request_fixture import search_coordinates
 import io
 import json
 import tempfile
@@ -6,7 +8,7 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from gtfs_route_backend import GtfsRouteBackend
+from gtfs_route_backend import GtfsRouteEngine
 from sendai_transit import (
     SENDAI_FEED_ID,
     SENDAI_MANIFEST_FILENAME,
@@ -125,16 +127,8 @@ class SendaiStaticGtfsTest(unittest.TestCase):
             self.assertIn("sendai_bus:A", dataset.stops)
             self.assertIn("sendai_bus:R1", dataset.routes)
             self.assertIn("sendai_bus:T1", dataset.trips)
-            backend = GtfsRouteBackend(dataset, walk_radius_m=100)
-            result = backend.search(
-                alat=38.2600,
-                alon=140.8820,
-                blat=38.2710,
-                blon=140.8610,
-                pref="time",
-                start_time="09:55",
-                date_str=SERVICE_DATE,
-            )
+            backend = GtfsRouteEngine(dataset, walk_radius_m=100)
+            result = search_coordinates(backend, alat=38.2600, alon=140.8820, blat=38.2710, blon=140.8610, pref="time", start_time="09:55", date_str=SERVICE_DATE)
             self.assertEqual(result["candidates"][0]["arrival_time"], "10:25")
 
     def test_sendai_backend_uses_shared_engine_for_fewest_transfers(self):
@@ -147,15 +141,7 @@ class SendaiStaticGtfsTest(unittest.TestCase):
                 expected_service_date=SERVICE_DATE,
             )
             backend = SendaiRouteBackend(dataset, walk_radius_m=100)
-            result = backend.search(
-                alat=38.2600,
-                alon=140.8820,
-                blat=38.2710,
-                blon=140.8610,
-                pref="fewTransfers",
-                start_time="09:55",
-                date_str=SERVICE_DATE,
-            )
+            result = search_coordinates(backend, alat=38.2600, alon=140.8820, blat=38.2710, blon=140.8610, pref="fewTransfers", start_time="09:55", date_str=SERVICE_DATE)
 
             candidate = result["candidates"][0]
             self.assertEqual(candidate["rides"], 1)
@@ -206,3 +192,4 @@ class SendaiStaticGtfsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

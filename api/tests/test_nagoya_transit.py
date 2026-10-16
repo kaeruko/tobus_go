@@ -1,3 +1,5 @@
+
+from tests.route_request_fixture import search_coordinates
 import asyncio
 import io
 import json
@@ -180,15 +182,7 @@ class NagoyaRouteBackendTest(unittest.TestCase):
         self.temp_dir.cleanup()
 
     def _search(self, pref):
-        return self.backend.search(
-            alat=35.170900,
-            alon=136.881500,
-            blat=35.170600,
-            blon=136.906600,
-            pref=pref,
-            start_time="09:55",
-            date_str="2026-08-21",
-        )
+        return search_coordinates(self.backend, alat=35.170900, alon=136.881500, blat=35.170600, blon=136.906600, pref=pref, start_time="09:55", date_str="2026-08-21")
 
     def test_fastest_route_can_transfer_using_only_nagoya_gtfs(self):
         result = self._search("time")
@@ -219,21 +213,10 @@ class NagoyaRouteBackendTest(unittest.TestCase):
         bus_steps = [step for step in candidate["steps"] if step["kind"] == "bus"]
         self.assertEqual(bus_steps[0]["title"], "直通")
 
-    def test_legacy_cost_value_matches_visible_few_transfer_default(self):
-        result = self._search("cost")
-        self.assertEqual(result["candidates"][0]["transfers"], 0)
 
     def test_initial_walk_cannot_cross_the_service_day_boundary(self):
         with self.assertRaisesRegex(RuntimeError, "service-day boundary"):
-            self.backend.search(
-                alat=35.170200,
-                alon=136.881500,
-                blat=35.170600,
-                blon=136.906600,
-                pref="time",
-                start_time="23:59",
-                date_str="2026-08-21",
-            )
+            search_coordinates(self.backend, alat=35.170200, alon=136.881500, blat=35.170600, blon=136.906600, pref="time", start_time="23:59", date_str="2026-08-21")
 
     def test_nagoya_runtime_requires_no_odpt_token_or_toei_graph(self):
         app = SimpleNamespace(state=SimpleNamespace())
@@ -255,3 +238,4 @@ class NagoyaRouteBackendTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

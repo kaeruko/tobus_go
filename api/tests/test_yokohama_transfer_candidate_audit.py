@@ -35,32 +35,6 @@ class CandidateTriageTests(unittest.TestCase):
             self.bus, self.rail.dataset, service_date=DAY, **kwargs,
         )
 
-    def test_shared_candidate_geometry_matches_live_estimated_mode(self):
-        # The survey and app must generate EXACTLY the same stop-ID pairs.
-        # Generating a pair never means it has been approved for public use.
-        day = __import__("datetime").date.fromisoformat(DAY)
-        audited = self._report(radius_m=300)
-        backend = YokohamaMunicipalRouteBackend(
-            self.bus, self.rail, estimated_transfer_mode=True,
-            estimated_radius_m=300, estimated_candidate_limit=100,
-        ).for_fare_policy("yokohama_welfare_special_pass")
-        live_candidates = backend._candidate_transfer_links(day)
-        audited_ids = {
-            (row["bus_stop_id"], row["subway_stop_id"])
-            for row in audited["candidates"]
-        }
-        self.assertEqual(
-            audited_ids,
-            {(row.bus_stop_id, row.subway_stop_id) for row in live_candidates},
-        )
-        for row in live_candidates:
-            self.assertEqual(type(row).__name__, "GeometricTransferEstimate")
-        self.assertTrue(all(
-            not row["walkable_route_verified"]
-            and row["status"] == "UNVERIFIED_GEOMETRIC_HINT"
-            for row in audited["candidates"]
-        ))
-        self.assertEqual(backend.transfer_links, ())
 
     def test_common_pair_generator_refuses_missing_stop_and_invalid_radius(self):
         stops = self.bus.dataset.stops
@@ -263,3 +237,4 @@ class CandidateTriageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

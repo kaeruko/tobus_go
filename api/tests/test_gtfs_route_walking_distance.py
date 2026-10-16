@@ -3,14 +3,15 @@ from types import SimpleNamespace
 import unittest
 from zoneinfo import ZoneInfo
 
-from gtfs_route_backend import GtfsRouteBackend
+from gtfs_route_backend import GtfsRouteEngine
 from transit_dataset import TransitStop
 from transit_engine import TransitItinerary
+from transit_timetable_choices import NetworkJourney
 
 
 class GtfsRouteWalkingDistanceTest(unittest.TestCase):
     def test_aggregate_distance_matches_serialized_walk_steps(self) -> None:
-        backend = object.__new__(GtfsRouteBackend)
+        backend = object.__new__(GtfsRouteEngine)
         backend.dataset = SimpleNamespace(
             metadata=SimpleNamespace(feed_id="test")
         )
@@ -55,6 +56,7 @@ class GtfsRouteWalkingDistanceTest(unittest.TestCase):
                 tzinfo=ZoneInfo("Asia/Tokyo"),
             ),
             preference="time",
+            network_journey=NetworkJourney(600, 600, 0, 0, ()),
         )
 
         walk_meters = [
@@ -73,3 +75,4 @@ class GtfsRouteWalkingDistanceTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -72,21 +72,15 @@ class SearchCoreFactoryTest(unittest.TestCase):
             rust_core.search(request).pairs,
         )
 
-    @unittest.skipUnless(
-        importlib.util.find_spec("_transit_search_core") is not None,
-        "Rust extension is not installed",
-    )
-    def test_gtfs_backend_uses_the_configured_core(self) -> None:
-        from rust_transit_search_core import RustTransitSearchCore
-
-        with patch.dict(
-            "os.environ",
-            {"ROUTE_SEARCH_CORE": "rust"},
-            clear=False,
-        ):
-            backend = GtfsRouteEngine(self.dataset)
-
-        self.assertIsInstance(backend.search_core, RustTransitSearchCore)
+    def test_gtfs_backend_rejects_old_configured_core_and_uses_v2(self):
+        from transit_network_core import NetworkSearchCore
+        with patch.dict("os.environ", {"ROUTE_SEARCH_CORE": "rust"}, clear=False):
+            with self.assertRaisesRegex(RuntimeError, "v1 selector"):
+                GtfsRouteEngine(self.dataset)
+        with patch.dict("os.environ", {}, clear=False):
+            import os
+            os.environ.pop("ROUTE_SEARCH_CORE", None)
+            self.assertIsInstance(GtfsRouteEngine(self.dataset).search_core, NetworkSearchCore)
 
     def test_shadow_reports_a_structural_mismatch_but_returns_python(self) -> None:
         request = BatchSearchRequest(
@@ -139,3 +133,4 @@ class SearchCoreFactoryTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

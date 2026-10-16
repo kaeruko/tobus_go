@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from fractions import Fraction
 import hashlib
 import json
 import math
@@ -16,7 +17,7 @@ from typing import Any
 
 import httpx
 
-from gtfs_route_backend import GtfsRouteBackend
+from gtfs_route_backend import GtfsRouteEngine
 from route_engine import RouteEngineUnavailableError, RouteInputError, RouteSearchResult
 from transit_adapters.gtfs import GtfsTransitAdapter
 from transit_dataset import FeedMetadata, TransitDataset, TransitMode
@@ -440,12 +441,13 @@ def load_yokohama_bus_dataset(
 
 def _yokohama_service_clock(minute: int) -> str:
     """Preserve GTFS 24+ service-day hours in Yokohama schedule responses."""
-    if isinstance(minute, bool) or not isinstance(minute, int) or minute < 0:
+    if type(minute) not in (int, Fraction) or minute < 0:
         raise ValueError(f"invalid GTFS service-day minute: {minute!r}")
-    return f"{minute // 60:02d}:{minute % 60:02d}"
+    display_minute = int(minute)  # HH:MM display; the v2 source clock is retained separately.
+    return f"{display_minute // 60:02d}:{display_minute % 60:02d}"
 
 
-class YokohamaBusRouteBackend(GtfsRouteBackend):
+class YokohamaBusRouteBackend(GtfsRouteEngine):
     def __init__(
         self,
         dataset: TransitDataset,
@@ -534,3 +536,4 @@ class _NoCoveredYokohamaRoutes:
                 "coverage_reason": "no_covered_routes",
             },
         )
+

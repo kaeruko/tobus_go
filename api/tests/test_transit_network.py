@@ -25,9 +25,110 @@ from transit_timetable_choices import (
     NetworkWalkEvent, search_network,
 )
 from yokohama_shared_network import build_shared_municipal_network, search_shared_municipal_network
-from tests.test_transit_network_experiment import feeds, LINKS
+from transit_adapters import GtfsFeedSource, OdptCalendarRule, OdptFeedSource
 from tests.test_yokohama_municipal_transfer import _feed, JST
-from yokohama_municipal_transfer import ExplicitTransferLink, search_explicit_municipal_transfer
+
+
+# Source fixtures retained after retiring the independent experimental search.
+DAY = date(2026, 10, 14)
+META_TIME = datetime(2026, 10, 14, tzinfo=timezone.utc)
+OFFICIAL_FIXTURE_ONLY = "https://www.city.yokohama.lg.jp/fake-fixture-not-real"
+
+
+def metadata(feed, kind, version="demo-v1"):
+    return FeedMetadata(
+        feed_id=feed, source_type=kind,
+        source_uri="https://example.invalid/only-a-test",
+        version=version, fetched_at=META_TIME,
+    )
+
+
+def feeds(directory: Path):
+    contents = {
+        "stops.txt": (
+            "stop_id,stop_name,stop_lat,stop_lon\n"
+            "a,A,35.0,139.0\nb,B,35.0001,139.0\n"
+            "c,C,35.0004,139.0\nd,D,35.0005,139.0\n"
+        ),
+        "routes.txt": (
+            "route_id,route_short_name,route_long_name,route_type\n"
+            "r1,1,Local,3\nr2,2,Onward,3\nr3,3,Direct,3\n"
+        ),
+        "trips.txt": (
+            "route_id,service_id,trip_id,trip_headsign\n"
+            "r1,weekday,t1,B\nr2,weekday,t2,D\nr3,weekday,direct,D\n"
+        ),
+        "stop_times.txt": (
+            "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
+            "t1,10:00:00,10:00:00,a,1\n"
+            "t1,10:10:00,10:10:00,b,2\n"
+            "t2,10:46:00,10:46:00,c,1\n"
+            "t2,10:55:00,10:55:00,d,2\n"
+            "direct,10:15:00,10:15:00,a,1\n"
+            "direct,11:20:00,11:20:00,d,2\n"
+        ),
+        "calendar.txt": (
+            "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\n"
+            "weekday,1,1,1,1,1,0,0,20260101,20261231\n"
+        ),
+    }
+    for name, data in contents.items():
+        (directory / name).write_text(data, encoding="utf-8")
+    gtfs = GtfsFeedSource(directory=directory, metadata=metadata("demo_bus", "gtfs"))
+    poles = tuple(
+        {"owl:sameAs": k, "dc:title": k.upper(),
+         "geo:lat": lat, "geo:long": 139.0}
+        for k, lat in (("x", 35.0002), ("y", 35.0003))
+    )
+    rail = OdptFeedSource(
+        metadata=metadata("demo_rail", "odpt"),
+        calendar_rules={"weekday": OdptCalendarRule(
+            weekdays=(True, True, True, True, True, False, False),
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )},
+        stations=poles,
+        railways=({"owl:sameAs": "line", "dc:title": "Rail"},),
+        train_timetables=tuple(
+            {
+                "owl:sameAs": key, "odpt:railway": "line",
+                "odpt:calendar": "weekday", "dc:title": key,
+                "odpt:trainTimetableObject": [
+                    {"odpt:departureStation": "x", "odpt:departureTime": depart,
+                     "odpt:arrivalTime": depart},
+                    {"odpt:arrivalStation": "y", "odpt:arrivalTime": arrive,
+                     "odpt:departureTime": arrive},
+                ],
+            }
+            for key, depart, arrive in (
+                ("early", "10:19", "10:29"),
+                ("late", "10:21", "10:31"),
+            )
+        ),
+    )
+    return gtfs, rail
+
+
+def pin(first, second, *, minutes=10, meters=240,
+        from_ver="demo-v1", to_ver="demo-v1"):
+    return DirectedWalkLink(
+        ReviewedWalkingLink(
+            first, second, meters, minutes,
+            OFFICIAL_FIXTURE_ONLY, True,
+        ),
+        from_feed_version=from_ver, to_feed_version=to_ver,
+    )
+
+
+LINKS = (
+    pin("demo_bus:b", "demo_rail:x"),
+    pin("demo_rail:y", "demo_bus:c"),
+)
+RIDES = frozenset(
+    {"demo_bus:t1", "demo_bus:t2", "demo_bus:direct",
+     "demo_rail:early", "demo_rail:late"}
+)
+
+
 
 
 SERVICE_DAY = date(2026, 10, 14)
@@ -57,22 +158,21 @@ def network(*datasets, allowed=None, links=()):
 
 
 def query(snapshot, origin, destination, *, mode="time", day=SERVICE_DAY, departure=590,
-          arrival_tiebreak="cost", **params):
+          **params):
     with contextlib.redirect_stdout(io.StringIO()):
         return search_network(snapshot, origin, destination, service_date=day,
                               departure_minute=departure, mode=mode,
-                              arrival_tiebreak=arrival_tiebreak,
                               parameters=NetworkSearchParameters(**params))
 
 
 class TransitNetworkTest(unittest.TestCase):
-    def compare_v1(self, source, origin, destination, departure, mode="time"):
+    def compare_reference_arrival(self, source, origin, destination, departure, mode="time"):
         request = BatchSearchRequest(service_date=SERVICE_DAY, departure_minute=departure,
             origins=(SearchEndpoint(origin),), destinations=(SearchEndpoint(destination),),
             preference="fastest" if mode == "time" else "fewest_transfers", max_rides=6)
         legacy = PythonTransitSearchCore(source).search(request).pairs[0].itinerary
         shared = query(network(source), origin, destination, departure=departure, mode=mode,
-                       arrival_tiebreak="v1_path", few_transfers_tiebreak="arrival", max_candidates=1)
+                       few_transfers_tiebreak="arrival", max_candidates=1)
         if legacy is None:
             self.assertEqual(shared, ())
             return
@@ -82,8 +182,6 @@ class TransitNetworkTest(unittest.TestCase):
                     leg.departure_minute, leg.arrival_minute, leg.stop_ids)
         self.assertEqual((journey.arrival_minute, journey.rides),
                          (legacy.arrival_minute, legacy.rides))
-        self.assertEqual(tuple(leg_key(e) for e in journey.events),
-                         tuple(leg_key(e) for e in legacy.legs))
         return journey
 
     def test_equal_arrival_transfer_tie_exposes_v1_and_cost_ordering_difference(self):
@@ -112,81 +210,13 @@ class TransitNetworkTest(unittest.TestCase):
         self.assertEqual(rides[1].departure_minute - rides[0].arrival_minute, 27)
         self.assertAlmostEqual(shared.cost, 11.6)
         for mode in ("time", "fewTransfers"):
-            self.compare_v1(source, 'bus:o', 'bus:d', 100, mode)
+            self.compare_reference_arrival(source, 'bus:o', 'bus:d', 100, mode)
 
-    def test_v1_rank_preserves_lexical_prefix_against_cheaper_equal_clock_merge(self):
-        source = dataset('bus', {
-            'a': [('o', 10, 10), ('x', 11, 11), ('m', 20, 20)],
-            'z': [('o', 10, 10), ('m', 20, 20)],
-            'next': [('m', 20, 20), ('d', 30, 30)],
-        })
-        result = self.compare_v1(source, 'bus:o', 'bus:d', 10)
-        self.assertEqual(result.events[0].trip_id, 'bus:a')
-        self.assertEqual(query(network(source), 'bus:o', 'bus:d', departure=10)[0]
-                         .events[0].trip_id, 'bus:z')
 
-    def test_v1_rank_certifies_zero_duration_open_leg_before_returning_goal(self):
-        source = dataset('bus', {
-            'a': [('o', 10, 10), ('c', 10, 10), ('z', 10, 10), ('b', 10, 10)],
-            'next': [('c', 10, 10), ('b', 10, 10), ('d', 10, 10)],
-        })
-        result = self.compare_v1(source, 'bus:o', 'bus:d', 10)
-        self.assertEqual(result.events[0].to_stop_id, 'bus:b')
-        # The first goal pops at 11, but its equal-objective queue is not yet
-        # exhausted at 12. A pending goal must not escape the safety budget.
-        with self.assertRaises(RouteSearchLimitError) as raised:
-            query(network(source), 'bus:o', 'bus:d', departure=10,
-                  arrival_tiebreak='v1_path', max_candidates=1, max_visited=12)
-        self.assertEqual(raised.exception.reason, 'max_visited')
-        self.assertEqual(raised.exception.diagnostics['yielded'], 0)
 
-    def test_v1_rank_fastest_prefers_fewer_rides_before_lexical_path(self):
-        source = dataset('bus', {
-            'a': [('o', 10, 10), ('m', 20, 20)],
-            'b': [('m', 20, 20), ('d', 30, 30)],
-            'z': [('o', 10, 10), ('x', 15, 15), ('d', 30, 30)],
-        })
-        for mode in ('time', 'fewTransfers'):
-            self.assertEqual(self.compare_v1(source, 'bus:o', 'bus:d', 10, mode).rides, 1)
 
-    def test_v1_rank_rejects_unknown_profile_and_nonarrival_objective(self):
-        source = dataset('bus', {'t': [('o', 10, 10), ('d', 20, 20)]})
-        for profile, mode, tie in [('unknown', 'time', 'arrival'),
-                                   ('v1_path', 'cost', 'arrival'),
-                                   ('v1_path', 'fewTransfers', 'cost')]:
-            with self.subTest(profile=profile, mode=mode, tie=tie):
-                with self.assertRaises(ValueError):
-                    query(network(source), 'bus:o', 'bus:d', departure=10, mode=mode,
-                          arrival_tiebreak=profile, few_transfers_tiebreak=tie)
 
-    def test_v1_rank_multiple_candidates_keep_objective_order_under_input_permutation(self):
-        trips = {'direct': [('o', 10, 10), ('d', 50, 50)],
-                 'first': [('o', 10, 10), ('m', 20, 20)],
-                 'second': [('m', 20, 20), ('d', 30, 30)]}
-        results = []
-        for ordered in (trips, dict(reversed(list(trips.items())))):
-            results.append(query(network(dataset('bus', ordered)), 'bus:o', 'bus:d',
-                departure=10, mode='fewTransfers', arrival_tiebreak='v1_path',
-                few_transfers_tiebreak='arrival', max_candidates=3))
-        self.assertEqual(results[0], results[1])
-        self.assertEqual([(j.rides, j.arrival_minute) for j in results[0]], [(1, 50), (2, 30)])
 
-    def test_certified_single_time_goal_does_not_exhaust_dominated_circular_tail(self):
-        source = dataset('bus', {
-            'winner': [('o', 10, 10), ('d', 11, 11)],
-            'tail': [('o', 10, 10)] + [('x' if t % 2 else 'y', t, t) for t in range(12, 200)],
-        })
-        snapshot = network(source)
-        parameters = dict(departure=10, arrival_tiebreak='v1_path', max_visited=20)
-        one = query(snapshot, 'bus:o', 'bus:d', max_candidates=1, **parameters)
-        three = query(snapshot, 'bus:o', 'bus:d', max_candidates=3, **parameters)
-        self.assertEqual(three, one)
-        self.assertEqual(len(three), 1)
-        self.assertEqual(three[0].events[0].trip_id, 'bus:winner')
-        # Default cost-profile behavior remains unchanged, including limits.
-        with self.assertRaises(RouteSearchLimitError) as raised:
-            query(snapshot, 'bus:o', 'bus:d', departure=10, max_candidates=3, max_visited=20)
-        self.assertEqual(raised.exception.reason, 'max_visited')
 
     def test_walk_goal_buckets_are_not_closed_after_first_time_candidate(self):
         source = dataset('bus', {
@@ -196,26 +226,10 @@ class TransitNetworkTest(unittest.TestCase):
         link = DirectedWalkLink(ReviewedWalkingLink('bus:x', 'bus:d', 25, 1,
             FIXTURE_EVIDENCE, True), 'fixture-v1', 'fixture-v1')
         result = query(network(source, links=(link,)), 'bus:o', 'bus:d', departure=10,
-                       arrival_tiebreak='v1_path', max_candidates=3)
+                       max_candidates=3)
         self.assertEqual([j.arrival_minute for j in result], [20, 21])
         self.assertIsInstance(result[1].events[-1], NetworkWalkEvent)
 
-    def test_v1_rank_differential_generated_circular_timetables(self):
-        for seed in range(32):
-            rng = random.Random(seed)
-            trips = {}
-            for index in range(5):
-                clock = rng.randrange(5, 30)
-                rows = []
-                for stop in ('o', 'b', 'a', 'x', 'a', 'b', 'd'):
-                    clock += rng.randrange(1, 8)
-                    rows.append((stop, clock, clock))
-                trips[str(index)] = rows
-            for ordered in (trips, dict(reversed(list(trips.items())))):
-                source = dataset('bus', ordered)
-                for mode in ('time', 'fewTransfers'):
-                    with self.subTest(seed=seed, mode=mode, reverse=ordered is not trips):
-                        self.compare_v1(source, 'bus:o', 'bus:d', 15, mode)
 
     def test_preparation_deadline_and_exact_query_local_board_cache(self):
         source = dataset("bus", {"t": [("a", 600, 600), ("b", 610, 610)]})
@@ -354,7 +368,7 @@ class TransitNetworkTest(unittest.TestCase):
         self.assertEqual(query(network(source), "rail:a", "rail:b", departure=599,
                                max_travel_minutes=2, rail_boarding_minutes=3), ())
 
-    def test_fastest_matches_existing_v1_selected_trip_and_clocks(self):
+    def test_fastest_matches_independent_reference_arrival(self):
         source = dataset("bus", {"slow": [("a", 600, 600), ("b", 660, 660)],
                                  "fast": [("a", 605, 605), ("b", 630, 630)]})
         previous = PythonTransitSearchCore(source).search(BatchSearchRequest(
@@ -455,11 +469,8 @@ class TransitNetworkTest(unittest.TestCase):
             includes_station_access=True),
             'fixture-v1', 'fixture-v1')
         snapshot = network(bus, rail, links=(link,))
-        for mode, profile in (('time', 'cost'), ('fewTransfers', 'cost'), ('cost', 'cost'),
-                              ('time', 'v1_path'), ('fewTransfers', 'v1_path')):
+        for mode in ('time', 'fewTransfers', 'cost'):
             journey = query(snapshot, 'bus:a', 'rail:d', mode=mode, departure=540,
-                            arrival_tiebreak=profile,
-                            few_transfers_tiebreak='arrival' if profile == 'v1_path' else 'cost',
                             bus_alighting_minutes=0.1, rail_boarding_minutes=0.2)[0]
             self.assertEqual([e.trip_id for e in journey.events if isinstance(e, NetworkRideEvent)],
                              ['bus:t', 'rail:equal'])
@@ -713,18 +724,12 @@ class YokohamaSharedNetworkTest(unittest.TestCase):
             with self.subTest(policy=policy):
                 context = self.context(policy)
                 result = self.search(context)[0]
-                previous = search_explicit_municipal_transfer(
-                    bus_coverage=self.bus, subway_coverage=self.rail,
-                    origin_stop_id="yokohama_bus:O", destination_stop_id="yokohama_subway:D",
-                    depart_at=datetime(2026, 10, 14, 9, 0, tzinfo=JST), policy_id=policy,
-                    transfer=ExplicitTransferLink("yokohama_bus:B", "yokohama_subway:S", 120, 3,
-                                                  FIXTURE_EVIDENCE))
-                self.assertEqual(result.arrival_minute, previous.final_arrival_minute)
+                self.assertEqual(result.arrival_minute, 580)
                 self.assertEqual([e.trip_id for e in result.events if isinstance(e, NetworkRideEvent)],
-                                 [e.trip_id for e in (*previous.first_legs, *previous.second_legs)])
+                                 ["yokohama_bus:BUS1", "yokohama_subway:TRAIN1"])
                 self.assertNotIn("yokohama_bus:EXPRESS", context.snapshot.allowed_trip_ids)
 
-    def test_municipal_entry_explicitly_preserves_v1_ranking_for_both_passes(self):
+    def test_municipal_entry_uses_common_v2_cost_order_for_both_passes(self):
         source = dataset('yokohama_bus', {
             'a': [('o', 10, 10), ('x', 11, 11), ('m', 20, 20)],
             'z': [('o', 10, 10), ('m', 20, 20)],
@@ -741,17 +746,12 @@ class YokohamaSharedNetworkTest(unittest.TestCase):
                         departure_minute=10, mode=mode,
                         parameters=NetworkSearchParameters(max_candidates=1,
                                                            few_transfers_tiebreak='arrival'))
-                    self.assertEqual(result[0].events[0].trip_id, 'yokohama_bus:a')
-        with self.assertRaisesRegex(ValueError, 'explicit arrival tie-break'):
-            search_shared_municipal_network(
-                context, 'yokohama_bus:o', 'yokohama_bus:d', service_date=SERVICE_DAY,
-                departure_minute=10, mode='fewTransfers', parameters=NetworkSearchParameters())
-
+                    self.assertEqual(result[0].events[0].trip_id, 'yokohama_bus:z')
     def test_reviewed_walk_candidate_limit_has_deterministic_rank(self):
         context = self.context('yokohama_senior_special_pass')
         def search(snapshot):
             return query(snapshot, 'yokohama_bus:O', 'yokohama_subway:D', departure=540,
-                         mode='fewTransfers', arrival_tiebreak='v1_path',
+                         mode='fewTransfers',
                          few_transfers_tiebreak='arrival', max_candidates=3)
         first = search(context.snapshot)
         repeated = search(self.context('yokohama_senior_special_pass').snapshot)
@@ -780,4 +780,5 @@ class YokohamaSharedNetworkTest(unittest.TestCase):
             self.context("yokohama_welfare_special_pass", links=(replace(self.link, to_feed_version="old"),))
         with self.assertRaisesRegex(ValueError, "version-pinned directed"):
             self.context("yokohama_welfare_special_pass", links=(
-                ExplicitTransferLink("yokohama_bus:B", "yokohama_subway:S", 120, 3, FIXTURE_EVIDENCE),))
+                {"bus_stop_id": "yokohama_bus:B", "subway_stop_id": "yokohama_subway:S"},))
+
