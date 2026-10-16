@@ -1,0 +1,217 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-10-16",
+  "bus_feed_version": "sha256:53a08400776b3229743b24eb53566eb523b354a5b783dcfffd3e40f39258e6a2",
+  "bus_source_uri": "https://api-public.odpt.org/api/v4/files/odpt/SendaiMunicipal/bus_realtime_information.zip?date=20261006",
+  "bus_source_sha256": "53a08400776b3229743b24eb53566eb523b354a5b783dcfffd3e40f39258e6a2",
+  "catalog_resource_uri": "https://ckan.odpt.org/dataset/sendai_municipal_bus_realtime_information/resource/d4aac294-ea89-4c00-b655-af5ffc3fb0f6",
+  "bus_published_version": "20261007_20261130",
+  "bus_license": "CC-BY-4.0",
+  "bus_patterns": [
+    {
+      "route_id": "sendai_bus:10033",
+      "stop_ids": [
+        "sendai_bus:5181_11",
+        "sendai_bus:5183_10",
+        "sendai_bus:5071_50",
+        "sendai_bus:5117_50",
+        "sendai_bus:5121_10",
+        "sendai_bus:5123_10",
+        "sendai_bus:5125_10",
+        "sendai_bus:5127_10",
+        "sendai_bus:5129_50",
+        "sendai_bus:5077_50",
+        "sendai_bus:5079_50",
+        "sendai_bus:5081_50",
+        "sendai_bus:5083_50",
+        "sendai_bus:5085_10",
+        "sendai_bus:5099_0"
+      ],
+      "stop_names": [
+        "荒井駅",
+        "荒井六丁目",
+        "七郷小学校前",
+        "揚戸",
+        "広瀬",
+        "南原田",
+        "四ツ谷",
+        "農業園芸センター前",
+        "神屋敷北",
+        "神屋敷",
+        "笹新田西",
+        "笹新田",
+        "石場",
+        "南長沼",
+        "震災遺構仙台市立荒浜小学校前"
+      ],
+      "trip_ids": [
+        "sendai_bus:20_1_12002200",
+        "sendai_bus:20_1_12002290",
+        "sendai_bus:20_1_12002300",
+        "sendai_bus:20_1_12002310",
+        "sendai_bus:20_1_12002320",
+        "sendai_bus:20_1_12002330",
+        "sendai_bus:20_1_12002340",
+        "sendai_bus:20_1_12002350",
+        "sendai_bus:20_2_22001430",
+        "sendai_bus:20_2_22001440",
+        "sendai_bus:20_2_22001450",
+        "sendai_bus:20_2_22001460",
+        "sendai_bus:20_2_22001470",
+        "sendai_bus:20_2_22001480",
+        "sendai_bus:20_2_22001490",
+        "sendai_bus:20_2_22001500",
+        "sendai_bus:20_3_32001350",
+        "sendai_bus:20_3_32001360",
+        "sendai_bus:20_3_32001370",
+        "sendai_bus:20_3_32001380",
+        "sendai_bus:20_3_32001390",
+        "sendai_bus:20_3_32001400",
+        "sendai_bus:20_3_32001410",
+        "sendai_bus:20_3_32001420"
+      ],
+      "source_pattern_ids": [
+        "312371_2"
+      ],
+      "entire_driven_path_municipality": "04100",
+      "service_kind": "local",
+      "map_evidence": {
+        "uri": "https://www.kotsu.city.sendai.jp/wp-content/uploads/2026/03/r0804-4_kasuminome.pdf",
+        "sha256": "2b7191d3cc03de50f93ea4bfb3da9766abd8a86ccf624baf9b5c2290e64493e8"
+      },
+      "review_note": "20/R20 complete route on official Kasuminome Apr2026 map: Arai–Nii浜–school coastal corridor wholly in Wakabayashi ward. All stop occurrences checked; not endpoint city inference."
+    },
+    {
+      "route_id": "sendai_bus:10255",
+      "stop_ids": [
+        "sendai_bus:5099_10",
+        "sendai_bus:5085_10",
+        "sendai_bus:5083_10",
+        "sendai_bus:5081_10",
+        "sendai_bus:5079_10",
+        "sendai_bus:5077_10",
+        "sendai_bus:5129_10",
+        "sendai_bus:5127_10",
+        "sendai_bus:5125_10",
+        "sendai_bus:5123_10",
+        "sendai_bus:5121_10",
+        "sendai_bus:5117_10",
+        "sendai_bus:5071_10",
+        "sendai_bus:5183_50",
+        "sendai_bus:5181_0"
+      ],
+      "stop_names": [
+        "震災遺構仙台市立荒浜小学校前",
+        "南長沼",
+        "石場",
+        "笹新田",
+        "笹新田西",
+        "神屋敷",
+        "神屋敷北",
+        "農業園芸センター前",
+        "四ツ谷",
+        "南原田",
+        "広瀬",
+        "揚戸",
+        "七郷小学校前",
+        "荒井六丁目",
+        "荒井駅"
+      ],
+      "trip_ids": [
+        "sendai_bus:20_1_12002220",
+        "sendai_bus:20_1_12002230",
+        "sendai_bus:20_1_12002240",
+        "sendai_bus:20_1_12002250",
+        "sendai_bus:20_1_12002260",
+        "sendai_bus:20_1_12002270",
+        "sendai_bus:20_2_22001350",
+        "sendai_bus:20_2_22001360",
+        "sendai_bus:20_2_22001370",
+        "sendai_bus:20_2_22001380",
+        "sendai_bus:20_2_22001390",
+        "sendai_bus:20_2_22001400",
+        "sendai_bus:20_2_22001410",
+        "sendai_bus:20_2_22001420",
+        "sendai_bus:20_3_32001270",
+        "sendai_bus:20_3_32001280",
+        "sendai_bus:20_3_32001290",
+        "sendai_bus:20_3_32001300",
+        "sendai_bus:20_3_32001310",
+        "sendai_bus:20_3_32001320",
+        "sendai_bus:20_3_32001330",
+        "sendai_bus:20_3_32001340"
+      ],
+      "source_pattern_ids": [
+        "312371_1"
+      ],
+      "entire_driven_path_municipality": "04100",
+      "service_kind": "local",
+      "map_evidence": {
+        "uri": "https://www.kotsu.city.sendai.jp/wp-content/uploads/2026/03/r0804-4_kasuminome.pdf",
+        "sha256": "2b7191d3cc03de50f93ea4bfb3da9766abd8a86ccf624baf9b5c2290e64493e8"
+      },
+      "review_note": "20/R20 complete route on official Kasuminome Apr2026 map: Arai–Nii浜–school coastal corridor wholly in Wakabayashi ward. All stop occurrences checked; not endpoint city inference."
+    }
+  ],
+  "subway_feed_version": "dacb54426e087d8a6a802b4b17410df8e0a36c7f62d81433d77f2c913f1a2351",
+  "subway_free_path_evidence": {
+    "uri": "https://www.kotsu.city.sendai.jp/images/guide2026.pdf",
+    "sha256": "2154d455ad80d5b8c33b16122352b444a1b97d39b7290efa211cb54c9df76921"
+  },
+  "subway_transfer_margin_minutes": 2,
+  "reviewed_days": [
+    "2026-10-11",
+    "2026-10-12",
+    "2026-10-13",
+    "2026-10-14",
+    "2026-10-15",
+    "2026-10-16",
+    "2026-10-17",
+    "2026-10-18"
+  ],
+  "bus_subway_transfers": [
+    {
+      "from_stop_id": "sendai_bus:5181_0",
+      "to_stop_id": "sendai_subway:tozai/荒井",
+      "bus_bay": "到着用停留所5181_0（南側ロータリー西側）",
+      "subway_entrance": "南2出入口",
+      "path_description": "到着用停留所5181_0（南側ロータリー西側） ↔ 南2出入口 ↔ 改札 ↔ 東西線ホーム（このレコードの方向のみ）",
+      "standard_minutes": 5,
+      "margin_minutes": 2,
+      "time_basis": "experimental_planning_assumption",
+      "map_evidence": [
+        {
+          "uri": "https://www.kotsu.city.sendai.jp/assets/img/shibus/noriba/arai/arai_r0204.jpg",
+          "sha256": "d8f98e5bbace5cfe2b9e589fec9b37ff75ad47158ec706d20223949e95511ff1"
+        },
+        {
+          "uri": "https://www.kotsu.city.sendai.jp/assets/img/subway/station/arai/T13_arai_24.pdf",
+          "sha256": "737a9f9f31897ebc2f49e74ae04bf5eb10bc6299fb1886b430f7c18fe53568e2"
+        }
+      ],
+      "review_note": "GTFS exact pole coordinates/usage matched to official bay/station maps; 5+2 is an explicit test assumption, NOT official numeric standard or directional measurement. Inbound pole is not conflated with outbound platform2."
+    },
+    {
+      "from_stop_id": "sendai_subway:tozai/荒井",
+      "to_stop_id": "sendai_bus:5181_11",
+      "bus_bay": "2番のりば（GTFS platform_code=2）",
+      "subway_entrance": "南2出入口",
+      "path_description": "2番のりば（GTFS platform_code=2） ↔ 南2出入口 ↔ 改札 ↔ 東西線ホーム（このレコードの方向のみ）",
+      "standard_minutes": 5,
+      "margin_minutes": 2,
+      "time_basis": "experimental_planning_assumption",
+      "map_evidence": [
+        {
+          "uri": "https://www.kotsu.city.sendai.jp/assets/img/shibus/noriba/arai/arai_r0204.jpg",
+          "sha256": "d8f98e5bbace5cfe2b9e589fec9b37ff75ad47158ec706d20223949e95511ff1"
+        },
+        {
+          "uri": "https://www.kotsu.city.sendai.jp/assets/img/subway/station/arai/T13_arai_24.pdf",
+          "sha256": "737a9f9f31897ebc2f49e74ae04bf5eb10bc6299fb1886b430f7c18fe53568e2"
+        }
+      ],
+      "review_note": "GTFS exact pole coordinates/usage matched to official bay/station maps; 5+2 is an explicit test assumption, NOT official numeric standard or directional measurement. Inbound pole is not conflated with outbound platform2."
+    }
+  ],
+  "attribution": "仙台市交通局 / 公共交通オープンデータセンター / CC BY 4.0。経路・到着は予定時刻モデル。"
+}

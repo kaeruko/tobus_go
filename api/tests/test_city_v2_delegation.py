@@ -28,13 +28,12 @@ class CityV2DelegationTests(unittest.TestCase):
         for cls,feed in ((SendaiRouteBackend,'sendai_bus'),(NagoyaRouteBackend,'nagoya_bus'),
                          (YokohamaBusRouteBackend,'yokohama_bus')):
             with self.subTest(city=feed):
-                with patch('search_core_factory.create_search_core',side_effect=AssertionError('v1 forbidden')):
-                    backend=cls(_dataset(feed),walk_radius_m=100)
-                    self.assertIsInstance(backend.search_core,NetworkSearchCore)
-                    with patch('transit_timetable_choices.search_labels',wraps=transit_search_labels.search_labels) as core:
-                        with contextlib.redirect_stdout(io.StringIO()):result=backend.search(_request())
-                    self.assertTrue(core.called);self.assertTrue(result.candidates)
-                    self.assertFalse(hasattr(backend,'engine'))  # Deleted compatibility alias.
+                backend=cls(_dataset(feed),walk_radius_m=100)
+                self.assertIsInstance(backend.search_core,NetworkSearchCore)
+                with patch('transit_timetable_choices.search_labels',wraps=transit_search_labels.search_labels) as core:
+                    with contextlib.redirect_stdout(io.StringIO()):result=backend.search(_request())
+                self.assertTrue(core.called);self.assertTrue(result.candidates)
+                self.assertFalse(hasattr(backend,'engine'))  # Deleted compatibility alias.
 
     def test_practical_search_calls_same_core_and_propagates_original_failure(self):
         net=build(load(inputs()))
@@ -48,7 +47,7 @@ class CityV2DelegationTests(unittest.TestCase):
 
     def test_estimates_cannot_enter_unaware_coordinate_serializer(self):
         backend=GtfsRouteEngine(load(inputs()).dataset)
-        from transit_engine import BatchSearchRequest, SearchEndpoint
+        from transit_search_dto import BatchSearchRequest, SearchEndpoint
         from datetime import date
         with self.assertRaisesRegex(ValueError,'estimate-aware serializer'):
             backend.search_core.search(BatchSearchRequest(date(2026,10,16),600,
@@ -79,4 +78,13 @@ class CityV2DelegationTests(unittest.TestCase):
             tree=ast.parse((root/filename).read_text(encoding='utf-8'))
             imports=[node.module for node in ast.walk(tree) if isinstance(node,ast.ImportFrom)]
             self.assertNotIn('search_core_factory',imports)
+            self.assertNotIn('transit_engine',imports)
         self.assertFalse((root/'transit_network_experiment.py').exists())
+
+    def test_v1_implementations_are_absent_and_active_dtos_are_separate(self):
+        root=Path(__file__).resolve().parents[1]
+        for name in ('transit_engine.py','search_core_factory.py','rust_transit_search_core.py',
+                     'native/transit_search_core/Cargo.toml'):
+            self.assertFalse((root/name).exists(),name)
+        from transit_search_dto import BatchSearchRequest
+        self.assertEqual(BatchSearchRequest.__module__,'transit_search_dto')

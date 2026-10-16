@@ -1,4 +1,4 @@
-"""Opt-in municipal subway model over the shared v2 network, never public UI.
+"""Opt-in municipal scheduled model over the shared v2 network.
 
 Civil requests explicitly materialize each reviewed service day. No alternate
 search, pruning, candidate sorting, realtime or implicit calendar is introduced.
@@ -18,7 +18,7 @@ from transit_adapters.sendai_subway_practical import (
 from transit_dataset import ServiceCalendar, ServiceException, TransitDataset
 from transit_network import NetworkCosts, StandardTransferLink, build_transit_network
 from transit_timetable_choices import (
-    NetworkRideEvent, NetworkStandardTransferEvent, NetworkSearchParameters, search_network,
+    NetworkRideEvent, NetworkStandardTransferEvent, NetworkWalkEvent, NetworkSearchParameters, search_network,
 )
 
 
@@ -72,13 +72,53 @@ class PracticalTransfer:
     physical_walk_meters: None = None
     walking_time_measured: bool = False
     connection_guaranteed: bool = False
+    time_basis: str = "official_standard"
+    path_description: str | None = None
+
+
+@dataclass(frozen=True)
+class PracticalWalk:
+    source: NetworkWalkEvent
+    departure: CivilMinute
+    ready: CivilMinute
+
+
+@dataclass(frozen=True)
+class BusSubwayTransferReview:
+    """Exact pole -> platform direction. Map evidence does not measure time.
+
+    These are opt-in experimental planning assumptions until numeric official
+    evidence or measurements have been independently reviewed. No default link.
+    """
+    link: StandardTransferLink
+    valid_days: frozenset[date]
+    bus_bay: str
+    subway_entrance: str
+    path_description: str
+    map_evidence: tuple
+    time_basis: str = "experimental_planning_assumption"
+
+    def __post_init__(self):
+        from urllib.parse import urlsplit
+        from transit_adapters.sendai_subway import Evidence
+        if (not isinstance(self.link, StandardTransferLink)
+                or {self.link.from_stop_id.split(':')[0], self.link.to_stop_id.split(':')[0]}
+                    != {"sendai_bus", "sendai_subway"}
+                or not self.valid_days or any(type(d) is not date for d in self.valid_days)
+                or not all(isinstance(x, str) and x.strip() for x in
+                    (self.bus_bay, self.subway_entrance, self.path_description))
+                or self.time_basis != "experimental_planning_assumption"
+                or not self.map_evidence or any(not isinstance(e, Evidence) or
+                    urlsplit(e.uri).hostname not in ("www.city.sendai.jp", "www.kotsu.city.sendai.jp")
+                    for e in self.map_evidence)):
+            raise ValueError("explicit directional municipal pole/entrance map and experimental time review required")
 
 
 @dataclass(frozen=True)
 class PracticalJourney:
     departure: CivilMinute
     arrival_estimate: CivilMinute
-    events: tuple[PracticalRide | PracticalTransfer, ...]
+    events: tuple[PracticalRide | PracticalTransfer | PracticalWalk, ...]
     fare_quote: FareQuote
     profile: str
     input_version: str
@@ -93,9 +133,14 @@ class PracticalFreeNetwork:
     source: PracticalSubwayDataset
     free_scope: SendaiFreeNetwork
     transfers: SendaiStandardTransferReview | None
+    bus_transfers: tuple[BusSubwayTransferReview, ...] = ()
+    walking_links: tuple = ()
+    bus_reviewed_days: frozenset[date] = frozenset()
 
 
-def build_practical_subway_network(source, *, segment_reviews, transfers, costs):
+def build_practical_subway_network(source, *, segment_reviews, transfers, costs,
+                                    bus_dataset=None, walking_links=(), bus_transfers=(),
+                                    use_experimental_bus_transfers=False, bus_reviewed_days=frozenset()):
     if not isinstance(source, PracticalSubwayDataset) or source.dataset.metadata.clock_profile != PROFILE:
         raise ValueError("explicit practical subway dataset required")
     if transfers is not None and not isinstance(transfers, SendaiStandardTransferReview):
@@ -103,9 +148,33 @@ def build_practical_subway_network(source, *, segment_reviews, transfers, costs)
     days = frozenset(e.day for e in source.operating_days.entries if e.kind is not None)
     if transfers is not None and not transfers.valid_days <= days:
         raise ValueError("standard transfer days exceed reviewed operating-day table")
-    scope = build_sendai_free_network((source.dataset,), segment_reviews=segment_reviews,
-        reviewed_days=days, walking_links=(), costs=costs)
-    return PracticalFreeNetwork(source, scope, transfers)
+    walking_links = tuple(walking_links)
+    datasets = (source.dataset,) if bus_dataset is None else (source.dataset, bus_dataset)
+    if bus_dataset is not None and (bus_dataset.metadata.feed_id != "sendai_bus"
+            or bus_dataset.metadata.clock_profile != "source"):
+        raise ValueError("explicit static municipal bus dataset required")
+    if bus_dataset is not None and (not bus_reviewed_days or not bus_reviewed_days <= days):
+        raise ValueError("explicit finite bus operating-date review required")
+    bus_transfers = tuple(bus_transfers)
+    if bus_transfers and use_experimental_bus_transfers is not True:
+        raise ValueError("experimental bus transfer model must be explicitly selected")
+    versions = {d.metadata.feed_id: d.metadata.version for d in datasets}
+    stops = {key for d in datasets for key in d.stops}
+    pairs = set()
+    for review in bus_transfers:
+        if not isinstance(review, BusSubwayTransferReview) or not review.valid_days <= days:
+            raise ValueError("bus transfer days exceed reviewed scope")
+        link = review.link
+        pair = link.from_stop_id, link.to_stop_id
+        if pair in pairs or any(stop not in stops for stop in pair):
+            raise ValueError("duplicate or unknown bus transfer direction")
+        pairs.add(pair)
+        if (link.from_feed_version != versions[link.from_stop_id.split(':')[0]]
+                or link.to_feed_version != versions[link.to_stop_id.split(':')[0]]):
+            raise ValueError("bus transfer feed version mismatch")
+    scope = build_sendai_free_network(datasets, segment_reviews=segment_reviews,
+        reviewed_days=days, walking_links=tuple(walking_links), costs=costs)
+    return PracticalFreeNetwork(source, scope, transfers, bus_transfers, tuple(walking_links), frozenset(bus_reviewed_days))
 
 
 def _civil(anchor, minute):
@@ -127,54 +196,73 @@ def search_practical_subway(network, origin, destination, *, civil_date,
             or parameters.bus_alighting_minutes != 0):
         raise ValueError("practical profile requires zero additional implicit boarding/alighting buffers")
     source = network.source
-    if origin not in source.dataset.stops or destination not in source.dataset.stops:
+    if origin not in network.free_scope.snapshot.stops or destination not in network.free_scope.snapshot.stops:
         raise ValueError("unknown practical origin/destination")
-    original = source.dataset
+    originals = network.free_scope.snapshot.datasets
     finish = Fraction(departure_minute) + Fraction(str(parameters.max_travel_minutes))
-    latest = max(r.arrival_minute for r in original.stop_times)
+    latest = max(r.arrival_minute or r.departure_minute or 0 for d in originals for r in d.stop_times)
     first = -1 if departure_minute <= latest - 1440 else 0
     last = int(finish // 1440)
     days = tuple(civil_date + timedelta(days=i) for i in range(first, last + 1))
     for day in days:
-        source.operating_days.kind_on(day)  # reasoned failure; never partial coverage.
+        source.operating_days.kind_on(day)
         if network.transfers is not None and day not in network.transfers.valid_days:
             raise ValueError(f"standard transfer is not reviewed for operating day {day}")
+        if any(day not in r.valid_days for r in network.bus_transfers):
+            raise ValueError(f"bus transfer is not reviewed for operating day {day}")
+        for dataset in originals:
+            if dataset.metadata.feed_id == "sendai_bus":
+                # Finite approval dates are independent of the subway w/h table.
+                # Every materialized bus day must be explicitly reviewed too.
+                if day not in network.bus_reviewed_days:
+                    raise ValueError(f"bus service date is outside reviewed scope: {day}")
     anchor = civil_date - timedelta(days=1)
-    trips, times, calendars, exceptions, identities = {}, [], {}, [], {}
-    rows = {}
-    for row in original.stop_times:
-        rows.setdefault(row.trip_id, []).append(row)
-    for day in days:
-        offset = (day - anchor).days * 1440
-        active = original.active_service_ids(day)
-        for trip_id in sorted(network.free_scope.allowed_trip_ids):
-            trip = original.trips[trip_id]
-            if trip.service_id not in active:
-                continue
-            source_id = trip.source_id + "/service-" + day.isoformat()
-            clone = "sendai_subway:" + source_id
-            service_source = original.calendars[trip.service_id].source_id + "/service-" + day.isoformat()
-            service_id = "sendai_subway:" + service_source
-            trips[clone] = replace(trip, id=clone, source_id=source_id, service_id=service_id)
-            identities[clone] = trip_id, day, offset
-            if service_id not in calendars:
-                calendars[service_id] = ServiceCalendar(service_id, service_source, (False,) * 7, anchor, anchor)
-                exceptions.append(ServiceException(service_id, anchor, 1))
-            for row in rows[trip_id]:
-                times.append(replace(row, trip_id=clone, model_day_offset_minutes=offset,
-                    arrival_minute=row.arrival_minute + offset,
-                    departure_minute=None if row.departure_minute is None else row.departure_minute + offset))
-    if not trips:
+    identities, materialized, versions = {}, [], {}
+    for original in originals:
+        feed = original.metadata.feed_id
+        trips, times, calendars, exceptions = {}, [], {}, []
+        rows = {}
+        for row in original.stop_times:
+            rows.setdefault(row.trip_id, []).append(row)
+        for day in days:
+            offset = (day - anchor).days * 1440
+            active = original.active_service_ids(day)
+            for trip_id in sorted(network.free_scope.allowed_trip_ids & original.trips.keys()):
+                trip = original.trips[trip_id]
+                if trip.service_id not in active:
+                    continue
+                source_id = trip.source_id + "/service-" + day.isoformat()
+                clone = feed + ":" + source_id
+                # Exception-only GTFS services need not have a calendar row.
+                service_source = trip.service_id.split(':', 1)[1] + "/service-" + day.isoformat()
+                service_id = feed + ":" + service_source
+                trips[clone] = replace(trip, id=clone, source_id=source_id, service_id=service_id)
+                identities[clone] = original, trip_id, day, offset
+                if service_id not in calendars:
+                    calendars[service_id] = ServiceCalendar(service_id, service_source, (False,) * 7, anchor, anchor)
+                    exceptions.append(ServiceException(service_id, anchor, 1))
+                for row in rows[trip_id]:
+                    times.append(replace(row, trip_id=clone,
+                        model_day_offset_minutes=offset if original.metadata.clock_profile == PROFILE else 0,
+                        arrival_minute=None if row.arrival_minute is None else row.arrival_minute + offset,
+                        departure_minute=None if row.departure_minute is None else row.departure_minute + offset,
+                        arrival_service_seconds=None if row.arrival_service_seconds is None else row.arrival_service_seconds + offset*60,
+                        departure_service_seconds=None if row.departure_service_seconds is None else row.departure_service_seconds + offset*60))
+        version = _digest({"input": original.metadata.version, "anchor": anchor, "days": days})
+        versions[feed] = version
+        materialized.append(TransitDataset(replace(original.metadata, version=version), original.stops,
+            original.routes, MappingProxyType(trips), tuple(times), MappingProxyType(calendars), tuple(exceptions)))
+    if not identities:
         return ()
-    version = _digest({"input": original.metadata.version, "anchor": anchor,
-        "days": days, "transfers": None if network.transfers is None else {
-            "margin": network.transfers.margin_minutes, "days": sorted(network.transfers.valid_days),
-            "source": network.transfers.source_sha256}})
-    materialized = TransitDataset(replace(original.metadata, version=version), original.stops,
-        original.routes, MappingProxyType(trips), tuple(times), MappingProxyType(calendars), tuple(exceptions))
-    links = () if network.transfers is None else network.transfers.links(version)
-    snapshot = build_transit_network((materialized,), allowed_trip_ids=trips, walking_links=(),
-        costs=network.free_scope.snapshot.costs, standard_transfers=links)
+    def reversion(link):
+        endpoints = link.link if hasattr(link, "link") else link
+        return replace(link, from_feed_version=versions[endpoints.from_stop_id.split(':')[0]],
+                       to_feed_version=versions[endpoints.to_stop_id.split(':')[0]])
+    links = list(() if network.transfers is None else network.transfers.links(versions["sendai_subway"]))
+    links.extend(reversion(review.link) for review in network.bus_transfers)
+    walks = tuple(reversion(link) for link in network.walking_links)
+    snapshot = build_transit_network(tuple(materialized), allowed_trip_ids=identities, walking_links=walks,
+        costs=network.free_scope.snapshot.costs, standard_transfers=tuple(links))
     start = 1440 + departure_minute
     journeys = search_network(snapshot, origin, destination, service_date=anchor,
         departure_minute=start, mode="time", parameters=parameters)
@@ -183,7 +271,7 @@ def search_practical_subway(network, origin, destination, *, civil_date,
         events, quoted_rides = [], []
         for event in journey.events:
             if isinstance(event, NetworkRideEvent):
-                trip_id, day, offset = identities[event.trip_id]
+                original, trip_id, day, offset = identities[event.trip_id]
                 trip = original.trips[trip_id]
                 restored = replace(event, trip_id=trip_id, source_trip_id=trip.source_id,
                     service_date=day, feed_version=original.metadata.version,
@@ -191,7 +279,7 @@ def search_practical_subway(network, origin, destination, *, civil_date,
                     arrival_minute=event.arrival_minute - offset)
                 source_rows = network.free_scope.snapshot.rows_by_trip[trip_id]
                 by_sequence = {row.sequence: row.source for row in source_rows}
-                if (restored.departure_provenance is None or restored.arrival_provenance is None
+                if original.metadata.clock_profile == PROFILE and (restored.departure_provenance is None or restored.arrival_provenance is None
                         or not restored.arrival_provenance.is_estimate
                         or restored.from_sequence not in by_sequence or restored.to_sequence not in by_sequence
                         or restored.departure_provenance != by_sequence[restored.from_sequence].departure_provenance
@@ -202,13 +290,26 @@ def search_practical_subway(network, origin, destination, *, civil_date,
                     _civil(anchor, event.arrival_minute)))
             elif isinstance(event, NetworkStandardTransferEvent):
                 link = event.standard
+                review = next((r for r in network.bus_transfers if
+                    (r.link.from_stop_id, r.link.to_stop_id) == (link.from_stop_id, link.to_stop_id)), None)
                 events.append(PracticalTransfer(link.standard_minutes, link.margin_minutes,
                     link.margin_status, link.from_stop_id, link.to_stop_id,
                     _civil(anchor, event.departure_minute), _civil(anchor, event.arrival_minute),
-                    link.source_uri, link.source_sha256))
+                    link.source_uri, link.source_sha256,
+                    time_basis="official_standard" if review is None else review.time_basis,
+                    path_description=None if review is None else review.path_description))
+            elif isinstance(event, NetworkWalkEvent):
+                events.append(PracticalWalk(event, _civil(anchor, event.departure_minute),
+                    _civil(anchor, event.arrival_minute)))
             else:
                 raise ValueError("unreviewed practical event type")
         quote = SendaiFureaiPassPolicy().quote(network.free_scope, replace(journey, events=tuple(quoted_rides)))
         result.append(PracticalJourney(CivilMinute(civil_date, Fraction(departure_minute)),
-            _civil(anchor, journey.arrival_minute), tuple(events), quote, PROFILE, original.metadata.version))
+            _civil(anchor, journey.arrival_minute), tuple(events), quote, PROFILE, _digest({
+                "feeds": dict(network.free_scope.snapshot.feed_versions),
+                "bus_reviewed_days": sorted(network.bus_reviewed_days),
+                "transfers": [repr(r) for r in network.bus_transfers],
+                "subway_transfer": repr(network.transfers),
+                "walks": [repr(w) for w in network.walking_links],
+                "allowed": sorted(network.free_scope.allowed_trip_ids)})))
     return tuple(result)

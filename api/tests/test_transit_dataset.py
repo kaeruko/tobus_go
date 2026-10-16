@@ -6,7 +6,7 @@ from datetime import date, datetime, timezone
 from transit_adapters.gtfs import GtfsTransitAdapter
 from transit_adapters.odpt import OdptCalendarRule, OdptTransitAdapter
 from transit_dataset import FeedMetadata, namespace_id
-from transit_engine import TransitRouteEngine
+from tests.transit_schedule_oracle import FixtureScheduleOracle
 
 
 WEEKDAYS = (True, True, True, True, True, False, False)
@@ -198,7 +198,7 @@ class TransitDatasetTest(unittest.TestCase):
 
         for dataset, origin, destination in cases:
             with self.subTest(source=dataset.metadata.source_type):
-                engine = TransitRouteEngine(dataset)
+                engine = FixtureScheduleOracle(dataset)
                 fastest = engine.search_fastest(
                     origin,
                     destination,
@@ -317,3 +317,4 @@ class TransitDatasetTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

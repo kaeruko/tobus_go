@@ -14,7 +14,6 @@ from zoneinfo import ZoneInfo
 
 from gtfs_route_backend import GtfsRouteEngine
 from route_engine import GeoPoint, RouteInputError, RoutePreference, RouteSearchRequest
-from transit_engine import PythonTransitSearchCore
 from test_yokohama_municipal_transfer import _feed
 
 JST = ZoneInfo("Asia/Tokyo")

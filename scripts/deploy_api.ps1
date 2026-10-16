@@ -126,14 +126,8 @@ elseif ($runtimeCity -ne $City) {
     throw "Lambda city mismatch. Requested=$City, APP_CITY='$runtimeCity'. Configure the city-specific Lambda before deploying."
 }
 
-$routeSearchCore = if ([string]::IsNullOrWhiteSpace([string]$functionConfig.RouteSearchCore)) {
-    'python'
-}
-else {
-    [string]$functionConfig.RouteSearchCore
-}
-if (@('python', 'rust', 'shadow') -notcontains $routeSearchCore) {
-    throw "Lambda ROUTE_SEARCH_CORE is invalid: '$routeSearchCore'"
+if ($City -ne 'tokyo' -and -not [string]::IsNullOrWhiteSpace([string]$functionConfig.RouteSearchCore)) {
+    throw "ROUTE_SEARCH_CORE is obsolete for shared v2 cities; remove it explicitly before deployment."
 }
 
 if ($City -eq 'nagoya') {
@@ -170,7 +164,7 @@ Write-Host "Region      : $Region"
 Write-Host "ECR repo    : $EcrRepository"
 Write-Host "Lambda      : $LambdaFunction"
 Write-Host "APP_CITY    : $runtimeCity"
-Write-Host "Search core : $routeSearchCore"
+Write-Host "Search core : shared SearchCore v2 (existing Tokyo connection preserved)"
 Write-Host "Platform    : $dockerPlatform"
 Write-Host "Image       : $imageUri"
 

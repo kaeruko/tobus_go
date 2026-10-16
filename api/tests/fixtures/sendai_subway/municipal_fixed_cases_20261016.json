@@ -1,0 +1,41 @@
+{
+  "parameters": {
+    "max_candidates": 1,
+    "max_boardings": 3,
+    "max_travel_minutes": 180
+  },
+  "cases": [
+    {
+      "category": "bus_only",
+      "origin": "sendai_bus:5099_10",
+      "destination": "sendai_bus:5181_0",
+      "civil_date": "2026-10-16",
+      "departure_minute": 660,
+      "expected_arrival_minute": 711
+    },
+    {
+      "category": "subway_only",
+      "origin": "sendai_subway:tozai/仙台",
+      "destination": "sendai_subway:tozai/荒井",
+      "civil_date": "2026-10-16",
+      "departure_minute": 600,
+      "expected_arrival_minute": 619
+    },
+    {
+      "category": "bus_rail",
+      "origin": "sendai_bus:5099_10",
+      "destination": "sendai_subway:tozai/仙台",
+      "civil_date": "2026-10-16",
+      "departure_minute": 660,
+      "expected_arrival_minute": 734
+    },
+    {
+      "category": "rail_bus",
+      "origin": "sendai_subway:tozai/仙台",
+      "destination": "sendai_bus:5099_0",
+      "civil_date": "2026-10-16",
+      "departure_minute": 600,
+      "expected_arrival_minute": 658
+    }
+  ]
+}

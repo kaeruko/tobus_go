@@ -11,7 +11,7 @@ from time import perf_counter
 from route_engine import RouteSearchLimitError
 
 from transit_dataset import TransitMode
-from transit_engine import (BatchSearchRequest, SearchDiagnostics, TransitItinerary, TransitLeg)
+from transit_search_dto import (BatchSearchRequest, SearchDiagnostics, TransitItinerary, TransitLeg)
 from transit_network import NetworkCosts, build_transit_network
 from transit_timetable_choices import NetworkRideEvent, NetworkJourney, NetworkSearchParameters, search_network
 

@@ -12,7 +12,7 @@ from transit_adapters import (
     TransitFeedSource,
 )
 from transit_dataset import FeedMetadata, TransitDataset, namespace_id
-from transit_engine import TransitRouteEngine
+from tests.transit_schedule_oracle import FixtureScheduleOracle
 
 
 DAY = date(2026, 10, 14)
@@ -119,7 +119,7 @@ class TransitFeedSourceTest(unittest.TestCase):
                         dataset.active_service_ids(DAY),
                         frozenset({namespace_id(prefix, "weekday")}),
                     )
-                    engine = TransitRouteEngine(dataset)
+                    engine = FixtureScheduleOracle(dataset)
                     journey = engine.search_fastest(
                         namespace_id(prefix, "a"), namespace_id(prefix, "b"),
                         departure=DEPARTURE,
@@ -186,3 +186,4 @@ class TransitFeedSourceTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

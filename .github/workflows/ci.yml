@@ -38,8 +38,7 @@ jobs:
           $files = @(
             'scripts/inspect_city_infra.ps1',
             'scripts/bootstrap_city_api.ps1',
-            'scripts/deploy_api.ps1',
-            'scripts/set_route_search_core.ps1'
+            'scripts/deploy_api.ps1'
           )
           foreach ($file in $files) {
             $tokens = $null
@@ -273,15 +272,15 @@ jobs:
       - name: Install Python dependencies
         run: python -m pip install -r requirements.txt
 
-      - name: Verify Windows memory API and separate-process synthetic comparison
+      - name: Verify Windows read-only gates and Sendai model regressions
         env:
           PYTHONPATH: tests
-        run: python -m unittest tests.test_shared_yokohama_local_check tests.test_gtfs_streaming tests.test_tokyo_odpt_local_check tests.test_odpt_ordered_train_clocks tests.test_tokyo_gtfs_local_check tests.test_tokyo_pickup_contract tests.test_tokyo_compiled_routes_local_check tests.test_tokyo_dataset_bus_choices tests.test_tokyo_dataset_rail_choices tests.test_tokyo_rail_interval_audit tests.test_tokyo_bound_projection_audit tests.test_tokyo_destination_bounds_audit tests.test_tokyo_time_rounding tests.test_tokyo_time_rounding_audit tests.test_tokyo_time_projection_proof tests.test_tokyo_time_projection_proof_local tests.test_tokyo_search_correctness_audit tests.test_sendai_subway tests.test_sendai_shared_network tests.test_sendai_practical tests.test_city_v2_delegation -v
+        run: python -m unittest tests.test_gtfs_streaming tests.test_tokyo_odpt_local_check tests.test_odpt_ordered_train_clocks tests.test_tokyo_gtfs_local_check tests.test_tokyo_pickup_contract tests.test_tokyo_compiled_routes_local_check tests.test_tokyo_dataset_bus_choices tests.test_tokyo_dataset_rail_choices tests.test_tokyo_rail_interval_audit tests.test_tokyo_bound_projection_audit tests.test_tokyo_destination_bounds_audit tests.test_tokyo_time_rounding tests.test_tokyo_time_rounding_audit tests.test_tokyo_time_projection_proof tests.test_tokyo_time_projection_proof_local tests.test_tokyo_search_correctness_audit tests.test_sendai_subway tests.test_sendai_shared_network tests.test_sendai_practical tests.test_city_v2_delegation tests.test_sendai_multimodal_practical -v
 
-  rust-search-core:
-    name: Rust SearchCore (Python ${{ matrix.python-version }})
+  shared-v2:
+    name: Shared SearchCore v2 (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -290,69 +289,19 @@ jobs:
       run:
         working-directory: api
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: api/requirements.txt
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: api/native/transit_search_core
-
-      - name: Install Python build dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt 'maturin>=1.9.4,<2'
-
-      - name: Check Rust formatting
-        run: cargo fmt --manifest-path native/transit_search_core/Cargo.toml --check
-
-      - name: Lint Rust
-        run: cargo clippy --locked --manifest-path native/transit_search_core/Cargo.toml --all-targets -- -D warnings
-
-      - name: Run Rust unit tests
-        run: cargo test --locked --manifest-path native/transit_search_core/Cargo.toml
-
-      - name: Build and install native wheel
-        run: |
-          python -m maturin build --release --locked \
-            --manifest-path native/transit_search_core/Cargo.toml \
-            --out native/transit_search_core/target/wheels
-          python -c "from pathlib import Path; wheels=list(Path('native/transit_search_core/target/wheels').glob('*.whl')); assert len(wheels) == 1; print(f'native_wheel_bytes={wheels[0].stat().st_size}')"
-          python -m pip install native/transit_search_core/target/wheels/*.whl
-
-      - name: Run Python/Rust parity tests
-        run: >-
-          python -m unittest
-          tests.test_route_search_golden
-          tests.test_search_core_factory
-          tests.test_route_engine_contract
-          tests.test_transit_search_labels
-          tests.test_transit_network
-          -v
-
-      - name: Build Lambda image
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Common v2 delegation and Sendai independent regressions
+        run: python -m unittest tests.test_route_engine_contract tests.test_route_search_golden tests.test_transit_search_labels tests.test_transit_network tests.test_city_v2_delegation tests.test_sendai_practical tests.test_sendai_multimodal_practical -v
+      - name: Build Lambda image without unused v1 native extension
         if: matrix.python-version == '3.11'
-        run: |
-          docker build -t tobus-go-route-core-test .
-          docker image inspect --format='lambda_image_bytes={{.Size}}' tobus-go-route-core-test
-
-      - name: Smoke-test native route search in Lambda image
+        run: docker build -t tobus-go-route-core-test .
+      - name: Check shared v2 imports in Lambda image
         if: matrix.python-version == '3.11'
-        run: |
-          /usr/bin/time -f 'lambda_image_smoke_elapsed_seconds=%e' \
-            docker run --rm --entrypoint python tobus-go-route-core-test -c \
-            "from _transit_search_core import TransitSearchIndex; index=TransitSearchIndex(2,1,1,[0],[0],[0,2],[0,1],[600,620],[600,620]); pairs,_=index.search([True],595,[(0,0)],[(1,0)],'fastest',6,100,100,100,1.0); assert pairs[0][3] == 620"
-
-
+        run: docker run --rm --entrypoint python tobus-go-route-core-test -c "import transit_search_labels, transit_timetable_choices, tokyo_search_labels; assert transit_timetable_choices.search_labels is transit_search_labels.search_labels; assert tokyo_search_labels._shared_search_labels is transit_search_labels.search_labels"

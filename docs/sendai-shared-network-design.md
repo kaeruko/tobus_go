@@ -314,3 +314,75 @@ Repository safety、Python/Rust参照coreの3.11・3.12 parity/format/clippy、L
 認定するのは上記入力版・有限通常日付モデル・固定queryの予定経路とprovenanceの整合性である。独立到着秒、実到着に対する誤差保証、実際の接続保証、余裕2分の正式採用、全特別ダイヤ、物理歩行距離/全バリアフリー動線、仙台全query/真のtop-k、承認済み実バスとの混在、公開API/UI接続は未認定。`exact_arrival_verified=false`、`actual_connection_guaranteed=false`、`experimental_margin_formally_adopted=false` を結果に保持する。厳密版の `operational_ready=false` を反転しない。
 
 公開API/UIへ地下鉄/パスを接続しておらず、通常運賃設定・ファイル名・アプリID・東京本番設定・デプロイ設定・S3・ストアを変更していない。作業開始時から存在したDartの別差分はコミット対象に含めない。
+
+## 11. 市営バス＋地下鉄の限定実経路・検証用API/Flutter・v1削除（2026-10-16）
+
+### 11.1 開始mainと公式バスデータ
+
+変更前mainは `aaccd9bfbaa276c5e5c13f998b5111989364b292`（第10節の最終記録）。作業開始時のDart別差分は保持し対象外とした。承認済み仙台bundle/manifest・ODPTキーはアクセス可能な環境に無かった。過去ZIP・横浜データ・別事業者へfallbackせず、[公式公開告知](https://www.kotsu.city.sendai.jp/bus_news/gtfs-jp_gtfs_data/)が示す[ODPTカタログの20261006リソース](https://ckan.odpt.org/dataset/sendai_municipal_bus_realtime_information/resource/d4aac294-ea89-4c00-b655-af5ffc3fb0f6)を確認した。原HTMLにはキー不要の `api-public.odpt.org` と認証用 `api.odpt.org` の両取得URLがある。前者の**明示された版付きURL**を選び、認証失敗時の自動切替にはしていない。
+
+取得URLは `https://api-public.odpt.org/api/v4/files/odpt/SendaiMunicipal/bus_realtime_information.zip?date=20261006`。3,087,453 bytes、SHA-256 **`53a08400776b3229743b24eb53566eb523b354a5b783dcfffd3e40f39258e6a2`**。`feed_info.txt` の発行者は仙台市交通局、版 **`20261007_20261130`**、期間 **2026-10-07〜11-30**。calendarも同期間、10月12日等の祝日例外あり。従来カタログ説明文の「2025年10月7日〜25日」との矛盾は、内部データを確認して区別した。版名・説明文だけで運行日を認定しない。GTFSの2,149 stops・8,231 trips・215,949 stop timesを厳密Adapterで読み込んだ。ライセンスはカタログ記載のCC BY 4.0。原ZIP・manifestはローカル検証用に保存し、リポジトリには限定した原行subsetと出典・SHA・抽出条件を記録する。
+
+`SendaiGtfsManifest` はschema 2を必須化。原ZIPを `sendai_gtfs_source.zip` として保持し、原ZIP SHA・全入力member SHA・抽出済みbytes・完全な入力一覧・calendar期間・feed_info期間/版を検査する。Dataset版は日付だけでなく原ZIP SHAとした。schema 1を自動昇格しない。既存の未公開仙台bundleは、原ZIP付きで明示再取得が必要である。`fetch_sendai_gtfs.py --source-url --expected-sha256` は明示URLだけを使用し、失敗時に別版/hostへ再試行しない。東京のloader・runtimeには影響しない。
+
+### 11.2 荒井駅の方向別接続と認定境界
+
+公式の[令和8年4月のりば案内](https://www.kotsu.city.sendai.jp/shibus/noriba/arai/)と[駅情報](https://www.kotsu.city.sendai.jp/subway/station/list/arai/)、現掲載の構内図を確認した。
+
+| 根拠原本 | SHA-256 | 確認内容 |
+| --- | --- | --- |
+| `https://www.kotsu.city.sendai.jp/assets/img/shibus/noriba/arai/arai_r0204.jpg` | `d8f98e5bbace5cfe2b9e589fec9b37ff75ad47158ec706d20223949e95511ff1` | 2番のりばと南2出入口の配置 |
+| `https://www.kotsu.city.sendai.jp/assets/img/subway/station/arai/T13_arai_24.pdf` | `737a9f9f31897ebc2f49e74ae04bf5eb10bc6299fb1886b430f7c18fe53568e2` | 南2出入口・改札・ホームの動線。数値所要時間の記載とは扱わない |
+| `https://www.kotsu.city.sendai.jp/assets/img/subway/station/arai/13arai.pdf` | `c62a0590d0d78a139750a621357d1e79e6a78a0f68370eebdba122b107c7c539` | 駅周辺/出入口の補助根拠 |
+| `https://www.kotsu.city.sendai.jp/wp-content/uploads/2026/03/r0804-4_kasuminome.pdf` | `2b7191d3cc03de50f93ea4bfb3da9766abd8a86ccf624baf9b5c2290e64493e8` | 20/R20の全経路・起終点・経由地。若林区内の荒井〜新浜〜荒浜小学校の経路をレビュー |
+
+GTFSの `5181_11` は `platform_code=2` の出発用。`5181_0` は同駅の到着用具体停留所で、20/R20の降車位置・座標を公式図の南側ロータリー西側と照合した。親停留所や同名だけで同一化しない。到着用→南2→改札→地下鉄ホームと、地下鉄ホーム→改札→南2→2番のりばを別レコードに固定した。駅代表KML座標から歩行距離・所要時間を生成していない。
+
+**バス乗換5分＋余裕2分は、両方とも今回の検証用計画仮定**である。地下鉄間の公式5分をバスにも適用したという意味ではない。2019年等の古い数値を現行認定へ転用していない。`time_basis=experimental_planning_assumption`、距離不明、実測false、接続保証falseで返す。独立した方向別時間レビューや実用精度検証が済むまでは、正式な公開用標準時間に採用しない。`accept_experimental_transfer_model=true` が無ければ検索を受け付けない。地下鉄間の公式標準5分＋実験用余裕2分とは型/結果/UIで区別する。未知の物理歩行距離上限・バリアフリー時間も保証しない。
+
+無料範囲は20/R20の完全な2停車pattern・46具体便・690 stop times・25具体停留所と、既存レビューに固定した地下鉄2線に限定する。具体便集合・全停車順・名前・feed版をレビューJSONへ固定した。全走行区間が市内であるという公式路線図のレビューを使い、端点座標だけで無料認定しない。それ以外の市営系統も自動で追加せず、宮城交通も未対応。ふれあい乗車証の有効な所持を利用者が明示選択する前提であり、敬老乗車証や通常運賃を無料へ変更しない。
+
+### 11.3 共通v2・時計・独立oracle
+
+`sendai_practical_network.py` は複数feedを同じ民生日付anchorへ明示配置し、検索前の無料scope・有限日付・方向別接続を一つの `build_transit_network -> search_network -> transit_search_labels.search_labels` に渡す。前営業日24時台、当日、検索期間が必要とする翌日をすべて検査する。バス日付の明示レビューを地下鉄w/h分類とは別に要求し、exception-only GTFSも扱う。原GTFS秒は整数日offsetを正しく加減して復元し、地下鉄は公式分時計/到着代理値のprovenanceを保持する。別都市の探索ループ・frontier・順位は追加していない。既存core・枝刈り・guard・候補順位は変更していない。
+
+`tests/sendai_municipal_oracle.py` は原GTFSのcalendar/calendar_dates/時刻/乗降条件と原CP932行から独立に乗降位置を列挙し、有限boarding数で最早到着を比較する。Adapter・Dataset calendar・共通graph・本番探索本体は最適値の算出に呼ばない。witnessも具体便、営業日、停車occurrence、公式発車、到着代理値、乗換ready、無料許可patternを独立検査する。
+
+| 固定query（2026-10-16） | 出発 | 到着予定/目安 | 交通 |
+| --- | --- | --- | --- |
+| 荒浜小学校前 `5099_10` → 荒井駅到着用 `5181_0` | 11:00 | 11:51（GTFS予定） | バス |
+| 地下鉄 仙台→荒井 | 10:00 | 10:19（公開時計の代理値） | 地下鉄 |
+| 荒浜小学校前→地下鉄 仙台 | 11:00 | 12:14（目安） | バス→地下鉄 |
+| 地下鉄 仙台→荒浜小学校前 `5099_0` | 10:00 | 10:58（GTFS予定を含むモデル） | 地下鉄→バス |
+
+固定後の不一致・探索上限・必要交通不在は停止し、別ODへ差し替えない。通常ログはカテゴリ・mode・試行・理由のみで、実ID/経路を出さない。`scripts/check_sendai_practical_local.py` は原ZIP/manifestとsubset抽出の一致も検証し、入力SHA・source main SHAを前後検査する。既存合格済み監査を呼ばない。上表は新規の実データモデル比較であり、実到着精度・実際の接続・都市全query・真のtop-kの認定ではない。
+
+### 11.4 テスト専用API・Flutter
+
+`app/sendai_practical_routes.py` は明示注入されたnetwork/parametersと `environment=test` だけを受ける独立factory。既存 `app_factory`・公開 `/route`・都市runtimeへ登録していない。serializerは `sendai_practical_route_v1` で、東京の契約とは別。公式分発車、地下鉄到着目安、GTFS予定発着、公式地下鉄間標準、バス乗換仮定、追加余裕、追加支払0円、通常運賃不明、所持前提、未対応区間/日付/RTを区別する。非整数分の原GTFS秒も分数と表示時計で保持し、無印に切り捨てない。
+
+Flutterの型・service・検証用pageと `lib/main_sendai_practical.dart` を追加。対応する具体停留所/駅から出発地・目的地・有限対応日・時刻を利用者が選択し、パスと仮設定を明示選択して検索できる。通常運賃の保存設定・既存city profile・公開navigationには接続していない。bus未搭載capabilitiesなら市バス未対応と表示する。失敗時の別endpoint再試行はない。日本語の検証用画面であり、公開向け多言語化・通常navigationへの組込み・一般住所からのアクセス歩行は未対応である。
+
+### 11.5 v1削除と残した依存
+
+対象一覧と参照元を会話で先に提示したうえで、以下を削除した。
+
+| 削除対象 | 変更前参照と理由 |
+| --- | --- |
+| `api/transit_engine.py` | 共通接続層と複数テスト。必要なDTOのみ `transit_search_dto.py` に分離し、v1探索・旧limits・protocol・互換入口は削除 |
+| `api/search_core_factory.py`・`api/rust_transit_search_core.py` | v1 selector/shadow/parity専用。都市runtimeは既に非依存 |
+| `api/native/transit_search_core/` のCargo.lock/Cargo.toml/README/pyprojectとsrcのindex/lib/model/reconstruct/search | v1の分単位native参照探索。factory・wrapper・専用CI・旧imageビルドだけが参照。東京v2とは非依存 |
+| `api/tests/test_search_core_factory.py`・golden内Rust/v1比較・旧diagnostics専用テスト | 削除実装専用。元のgolden入力・adapter検証・共通v2契約と独立oracle検証を保持 |
+| `api/benchmarks/route_search.py` | v1 Python/Rust/shadow専用。corpus・結果・過去READMEは歴史資料として保持 |
+| `scripts/check_shared_yokohama_local.py`・専用 `test_shared_yokohama_local_check.py` | 廃止v1との比較用。memory helperを参照する他の現役モジュールは無かった。過去の横浜データ・監査記録は保持 |
+| `scripts/set_route_search_core.ps1` | 旧v1 selectorの本番設定更新専用。代替設定や新しい切替scriptは作らない |
+
+`transit_schedule_oracle.py` は小さなadapter fixture向けの新しい独立有限列挙であり、旧探索を移設したものではない。production importは無い。残る現役DTO依存は `transit_network_core.py`・`gtfs_route_backend.py`。東京の接続層/共通v2・制度/公式データ検証・RT配信・元fixture/歴史証拠は残す。既存の名前・app IDは変更しない。
+
+CIのRust専用2jobをPython3.11/3.12の共通v2委譲・独立Sendai回帰へ置換し、image内の共通本体import同一性も検査する。Dockerfileは不要native build/installだけを削除し、Lambda基底/Python版/依存/handlerを維持。deploy scriptは未公開都市に残る旧selectorを明示拒否するpreflightへ整理しただけで、設定値の書込み・deployを実行していない。東京のruntime・順位・API・本番設定は変更しない。
+
+### 11.6 検証結果・未認定項目
+
+新規混在回帰・manifest改変負例・明示public取得/単一source/SHA負例・原秒直列化・テストAPIを検査する。Windowsと共通v2のPython両版CIへ新規moduleを組み込む。Flutterでは専用型・明示pass request・エラー伝播・未対応表示/未選択停止を検査する。ローカルとCIの最終SHA・結果は確認後に追記する。
+
+既存第1〜第4段階の実データ監査、112組照合、バス36ケースは再実行しない。今回の認定は原データに基づく限定した予定時刻モデルであり、実測到着・方向別乗換精度・余裕の正式採用・全バリアフリー動線・全市営系統・宮城交通・全特別日・SearchCoreの都市全体完全性/top-kは引き続き未認定。公開API切替・本番deploy・S3変更・ストア提出は実施していない。

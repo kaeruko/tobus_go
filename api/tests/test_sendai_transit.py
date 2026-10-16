@@ -67,19 +67,8 @@ def _write_feed(root: Path):
 
 
 def _write_manifest(root: Path, *, service_date: str = SERVICE_DATE):
-    (root / SENDAI_MANIFEST_FILENAME).write_text(
-        json.dumps(
-            {
-                "source_url": SENDAI_STATIC_URL,
-                "validated_service_date": service_date,
-                "fetched_at": "2026-08-21T00:00:00+00:00",
-                "sha256": "c" * 64,
-                "valid_from": "2026-01-01",
-                "valid_until": "2026-12-31",
-            }
-        ),
-        encoding="utf-8",
-    )
+    from tests.sendai_bundle_fixture import write_manifest
+    write_manifest(root,service_date=service_date)
 
 
 def _zip_bytes():
@@ -182,7 +171,6 @@ class SendaiStaticGtfsTest(unittest.TestCase):
                     (
                         SENDAI_STATIC_URL,
                         {
-                            "date": "current",
                             "acl:consumerKey": "test-token",
                         },
                     )

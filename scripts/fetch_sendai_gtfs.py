@@ -21,16 +21,20 @@ def main() -> None:
     )
     parser.add_argument("--output", required=True)
     parser.add_argument("--expected-service-date", required=True)
+    parser.add_argument("--source-url", help="Explicit official catalog resource; no alternate source retry")
+    parser.add_argument("--expected-sha256")
     args = parser.parse_args()
 
     token = os.getenv("ODPT_API_TOKEN")
-    if token is None or token == "":
+    if (token is None or token == "") and args.source_url is None:
         raise RuntimeError("ODPT_API_TOKEN is required to fetch Sendai static GTFS")
 
     manifest = fetch_sendai_gtfs(
         args.output,
         expected_service_date=args.expected_service_date,
         consumer_key=token,
+        expected_sha256=args.expected_sha256,
+        **({"source_url": args.source_url} if args.source_url is not None else {}),
     )
     print(
         "Sendai GTFS fetched: "
@@ -42,3 +46,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

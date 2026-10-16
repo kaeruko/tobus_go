@@ -20,7 +20,7 @@ from route_engine import (
 )
 from transit_network_core import NetworkSearchCore
 from transit_dataset import TransitDataset, TransitMode, TransitStop
-from transit_engine import (
+from transit_search_dto import (
     BatchSearchRequest,
     SearchEndpoint,
     TransitItinerary,

@@ -1,4 +1,9 @@
-# Route Search Benchmark
+# Historical SearchCore v1 Benchmark
+
+The Python/Rust v1 implementations, selector, and benchmark runner were removed
+on 2026-10-16 after all active Dataset cities moved to shared SearchCore v2.
+The commands and timings below are historical evidence, not runnable current
+instructions or v2 certification. Corpora and results are retained unchanged.
 
 The committed corpora under `corpus/` exercise representative batched OD pairs
 for Sendai, Yokohama, and Nagoya. Run each engine in a separate process so index

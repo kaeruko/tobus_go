@@ -34,13 +34,6 @@ from transit_dataset import (
     TransitStopTime,
     TransitTrip,
 )
-from transit_engine import (
-    BatchSearchRequest,
-    PythonTransitSearchCore,
-    SearchCore,
-    SearchEndpoint,
-    SearchLimits,
-)
 from yokohama_transit import YOKOHAMA_BUS_FEED_ID, YokohamaBusRouteBackend
 
 
@@ -232,73 +225,8 @@ class RouteEngineContractTest(unittest.TestCase):
             raw,
         )
 
-    def test_python_search_core_exposes_diagnostics_hook(self) -> None:
-        diagnostics = []
-        core = PythonTransitSearchCore(
-            _dataset("diagnostics"),
-            diagnostics_callback=diagnostics.append,
-        )
-        self.assertIsInstance(core, SearchCore)
-        result = core.search_fastest(
-            "diagnostics:A",
-            "diagnostics:B",
-            departure=SERVICE_DAY,
-        )
-        self.assertIsNotNone(result)
-        self.assertEqual(len(diagnostics), 1)
-        self.assertEqual(diagnostics[0].preference, "fastest")
-        self.assertTrue(diagnostics[0].route_found)
-
-    def test_python_search_core_searches_multiple_destinations_in_one_run(self) -> None:
-        core = PythonTransitSearchCore(_dataset("batch"))
-        result = core.search(
-            BatchSearchRequest(
-                service_date=SERVICE_DAY.date(),
-                departure_minute=SERVICE_DAY.hour * 60 + SERVICE_DAY.minute,
-                origins=(SearchEndpoint("batch:A"),),
-                destinations=(
-                    SearchEndpoint("batch:A"),
-                    SearchEndpoint("batch:B"),
-                ),
-                preference="fastest",
-            )
-        )
-
-        self.assertEqual(
-            [(pair.origin_index, pair.destination_index) for pair in result.pairs],
-            [(0, 0), (0, 1)],
-        )
-        self.assertEqual(result.pairs[0].itinerary.legs, ())
-        self.assertEqual(result.pairs[1].itinerary.arrival_minute, 620)
-        self.assertEqual(result.diagnostics.origin_searches, 1)
-        self.assertGreaterEqual(result.diagnostics.visited_states, 2)
-        self.assertGreaterEqual(result.diagnostics.queue_peak, 1)
-        self.assertEqual(result.diagnostics.termination_reason, "completed")
-
-    def test_python_search_core_stops_at_the_visited_state_limit(self) -> None:
-        diagnostics = []
-        core = PythonTransitSearchCore(
-            _dataset("limited"),
-            diagnostics_callback=diagnostics.append,
-        )
-        request = BatchSearchRequest(
-            service_date=SERVICE_DAY.date(),
-            departure_minute=SERVICE_DAY.hour * 60 + SERVICE_DAY.minute,
-            origins=(SearchEndpoint("limited:A"),),
-            destinations=(SearchEndpoint("limited:B"),),
-            preference="fastest",
-            limits=SearchLimits(max_visited_states=1),
-        )
-
-        with self.assertRaisesRegex(
-            RouteSearchLimitError,
-            "reason=max_visited_states",
-        ):
-            core.search(request)
-
-        self.assertEqual(len(diagnostics), 1)
-        self.assertEqual(diagnostics[0].termination_reason, "limit")
 
 
 if __name__ == "__main__":
     unittest.main()
+

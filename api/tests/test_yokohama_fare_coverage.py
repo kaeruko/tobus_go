@@ -11,7 +11,7 @@ from pathlib import Path
 from fare_policy import YOKOHAMA_WELFARE_PASS_SOURCE, evaluate_candidate_fare
 from transit_adapters.gtfs import GtfsTransitAdapter
 from transit_dataset import FeedMetadata, TransitStopTime, TransitTrip
-from transit_engine import TransitRouteEngine
+from tests.transit_schedule_oracle import FixtureScheduleOracle
 from yokohama_fare_coverage import YokohamaFareCoverage
 
 
@@ -49,11 +49,11 @@ class YokohamaFareCoverageTest(unittest.TestCase):
 
     def test_filter_finds_slower_free_route_before_search(self):
         departure = datetime(2026, 10, 14, 9, 55, tzinfo=timezone.utc)
-        original = TransitRouteEngine(self.dataset).search_fastest(
+        original = FixtureScheduleOracle(self.dataset).search_fastest(
             "yokohama_bus:A", "yokohama_bus:B", departure=departure,
         )
         selected = self._load().municipal_free_coverage()
-        free = TransitRouteEngine(selected.dataset).search_fastest(
+        free = FixtureScheduleOracle(selected.dataset).search_fastest(
             "yokohama_bus:A", "yokohama_bus:B", departure=departure,
         )
         self.assertEqual(original.arrival_minute, 610)
@@ -145,10 +145,10 @@ class YokohamaFareCoverageTest(unittest.TestCase):
         self.assertEqual(set(filtered.dataset.trips), {"yokohama_bus:T"})
         self.assertIn(trip_id, self.dataset.trips)
         departure = datetime(2026, 10, 14, 9, 55, tzinfo=timezone.utc)
-        baseline = TransitRouteEngine(self.dataset).search_fastest(
+        baseline = FixtureScheduleOracle(self.dataset).search_fastest(
             "yokohama_bus:A", "yokohama_bus:B", departure=departure,
         )
-        selected = TransitRouteEngine(filtered.dataset).search_fastest(
+        selected = FixtureScheduleOracle(filtered.dataset).search_fastest(
             "yokohama_bus:A", "yokohama_bus:B", departure=departure,
         )
         self.assertEqual(baseline.arrival_minute, 606)
@@ -223,3 +223,4 @@ class YokohamaFareCoverageTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

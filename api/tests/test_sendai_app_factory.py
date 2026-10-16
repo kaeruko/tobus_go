@@ -40,19 +40,8 @@ def _write_feed(root: Path):
     }
     for name, content in files.items():
         (root / name).write_text(content, encoding="utf-8")
-    (root / SENDAI_MANIFEST_FILENAME).write_text(
-        json.dumps(
-            {
-                "source_url": SENDAI_STATIC_URL,
-                "validated_service_date": SERVICE_DATE,
-                "fetched_at": "2026-08-21T00:00:00+00:00",
-                "sha256": "d" * 64,
-                "valid_from": "2026-01-01",
-                "valid_until": "2026-12-31",
-            }
-        ),
-        encoding="utf-8",
-    )
+    from tests.sendai_bundle_fixture import write_manifest
+    write_manifest(root,service_date=SERVICE_DATE)
 
 
 class SendaiAppFactoryTest(unittest.TestCase):
@@ -113,3 +102,4 @@ class SendaiAppFactoryTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

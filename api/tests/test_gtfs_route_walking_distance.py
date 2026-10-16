@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from gtfs_route_backend import GtfsRouteEngine
 from transit_dataset import TransitStop
-from transit_engine import TransitItinerary
+from transit_search_dto import TransitItinerary
 from transit_timetable_choices import NetworkJourney
 
 
