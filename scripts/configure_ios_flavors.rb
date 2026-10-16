@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 # Deterministically expands the stock Runner Xcode configurations into
-# Debug/Profile/Release configurations for tokyo, nagoya, sendai and yokohama.
+# Debug/Profile/Release configurations for tokyo and sendai.
 #
 # The script is intentionally fail-fast: it only knows the exact configuration
 # IDs in this repository and refuses a partially generated or unexpected state.
@@ -40,29 +40,19 @@ BASE_TEST_CONFIGS = {
 
 CITIES = {
   'tokyo' => {
+    configuration_ordinal: 1,
     bundle_id: 'jp.cloxs.go.tokyo',
     display_name: '都営でGO',
     app_icon_name: 'AppIconTokyo',
     exclude_tokyo_firebase_plist: false
   },
-  'nagoya' => {
-    bundle_id: 'jp.cloxs.nagoyago',
-    display_name: '名古屋でGO',
-    app_icon_name: 'AppIconNagoya',
-    exclude_tokyo_firebase_plist: true
-  },
   'sendai' => {
+    configuration_ordinal: 7,
     bundle_id: 'jp.cloxs.go.sendai',
     display_name: '仙台でGO',
     app_icon_name: 'AppIconSendai',
     exclude_tokyo_firebase_plist: true
   },
-  'yokohama' => {
-    bundle_id: 'jp.cloxs.go.yokohama',
-    display_name: '横浜でGO',
-    app_icon_name: 'AppIconYokohama',
-    exclude_tokyo_firebase_plist: true
-  }
 }.freeze
 
 BUILD_KINDS = %w[Debug Release Profile].freeze
@@ -70,9 +60,9 @@ BUILD_KINDS = %w[Debug Release Profile].freeze
 PROJECT_IDS = {}
 RUNNER_IDS = {}
 TEST_IDS = {}
-CITIES.keys.each_with_index do |city, city_index|
+CITIES.each_key do |city|
   BUILD_KINDS.each_with_index do |kind, kind_index|
-    ordinal = city_index * BUILD_KINDS.length + kind_index + 1
+    ordinal = CITIES.fetch(city).fetch(:configuration_ordinal) + kind_index
     PROJECT_IDS[[kind, city]] = format('A1000000000000000000%04X', ordinal)
     RUNNER_IDS[[kind, city]] = format('B1000000000000000000%04X', ordinal)
     TEST_IDS[[kind, city]] = format('C1000000000000000000%04X', ordinal)
@@ -197,6 +187,14 @@ BASE_RUNNER_CONFIGS.each do |_kind, id|
 end
 
 expected_names = CITIES.keys.product(BUILD_KINDS).map { |city, kind| "#{kind}-#{city}" }
+actual_names = text.scan(/\bname = "?((?:Debug|Release|Profile)-[^";\n]+)"?;/).flatten.uniq
+unexpected_names = actual_names - expected_names
+abort "Unexpected iOS flavor configurations: #{unexpected_names.join(', ')}" unless unexpected_names.empty?
+scheme_dir = File.join(File.dirname(PROJECT_PATH), 'xcshareddata', 'xcschemes')
+actual_schemes = Dir.glob(File.join(scheme_dir, '*.xcscheme')).map { |path| File.basename(path, '.xcscheme') }
+unless actual_schemes.sort == CITIES.keys.sort
+  abort "Expected only #{CITIES.keys.join(', ')} iOS schemes, got #{actual_schemes.sort.join(', ')}"
+end
 # Existing city configurations are preserved. Missing new city configs may
 # be generated, but a partially generated city fails fast.
 missing_core_cities = []

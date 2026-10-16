@@ -2,9 +2,7 @@
   "routeGeometryApproximate": "経路線は概略です。一部または全体を停留所などの位置で結んでいます。",
   "@@locale": "ja",
   "appNameTokyo": "都営でGO",
-  "appNameNagoya": "名古屋でGO",
   "appNameSendai": "仙台でGO",
-  "appNameYokohama": "横浜でGO",
   "bootstrapFailed": "起動に失敗しました",
   "updateRequiredTitle": "アップデートが必要です",
   "updateNow": "最新版に更新",
@@ -1105,7 +1103,6 @@
   "settlementReimbursementLong": "いったん支払い・後日支給",
   "farePolicyNormal": "通常運賃",
   "farePolicyTokyoMentalDisabilityPass": "精神障害者都営交通乗車証",
-  "farePolicyNagoyaWelfarePass": "福祉特別乗車券（無料乗車区間）",
   "exploreTitle": "一本で行ける場所を探す",
   "exploreDescription": "現在地から乗り換えなしで行ける\n都営交通の駅・バス停を探します。",
   "exploreNearbyButton": "周辺を探索する",
@@ -1676,23 +1673,5 @@
   "groupReportDemoFall": "転倒により軽傷",
   "groupReportDemoLost": "はぐれてしまった",
   "groupReportDemoReunited": "合流完了",
-  "groupReportNotesHint": "特記事項や対応内容を入力してください",
-  "farePolicyYokohamaWelfarePass": "福祉特別乗車券（福祉パス）",
-  "farePolicyYokohamaWelfarePassCondition": "横浜市の福祉特別乗車券をお持ちの方が対象です。障害者手帳だけでは無料になりません。対象外の路線・区間は通常運賃です。"
-,
-  "scheduleCardTitle": "時刻表による案内",
-  "scheduleDeparturePlanned": "{time} 発予定",
-  "@scheduleDeparturePlanned": {"placeholders": {"time": {"type": "String"}}},
-  "scheduleMinutesUntil": "発車まであと {minutes} 分",
-  "@scheduleMinutesUntil": {"placeholders": {"minutes": {"type": "int"}}},
-  "scheduleDeparturePassed": "予定発車時刻を過ぎました。必要なら再検索してください。",
-  "scheduleDelayDisclaimer": "時刻表の予定です。遅延・運休は反映されません。",
-  "scheduleDepartureUnknown": "予定発車時刻を確認できません",
-  "scheduleWalkOnly": "徒歩のみの経路です"
-,
-  "farePolicyYokohamaSeniorPass": "敬老特別乗車証（敬老パス）",
-  "farePolicyYokohamaChoosePass": "利用するパスを選んでください。"
-,
-  "farePolicyYokohamaWelfareShort": "福祉パス",
-  "farePolicyYokohamaSeniorShort": "敬老パス"
+  "groupReportNotesHint": "特記事項や対応内容を入力してください"
 }

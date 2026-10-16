@@ -2,9 +2,7 @@
   "routeGeometryApproximate": "This route line is schematic. Part or all of it connects stop and endpoint locations.",
   "@@locale": "en",
   "appNameTokyo": "Toei GO",
-  "appNameNagoya": "Nagoya GO",
   "appNameSendai": "Sendai GO",
-  "appNameYokohama": "Yokohama GO",
   "bootstrapFailed": "Couldn’t start the app",
   "updateRequiredTitle": "Update required",
   "updateNow": "Update now",
@@ -1105,7 +1103,6 @@
   "settlementReimbursementLong": "Pay first, reimbursed later",
   "farePolicyNormal": "Regular fare",
   "farePolicyTokyoMentalDisabilityPass": "Toei Transportation Pass for People with Mental Disabilities",
-  "farePolicyNagoyaWelfarePass": "Welfare Special Pass (free-ride area)",
   "exploreTitle": "Find places with no transfers",
   "exploreDescription": "Find Toei subway stations and bus stops you can reach from your current location without transfers.",
   "exploreNearbyButton": "Explore nearby",
@@ -1676,23 +1673,5 @@
   "groupReportDemoFall": "Minor injury after a fall",
   "groupReportDemoLost": "Separated from the group",
   "groupReportDemoReunited": "Rejoined the group",
-  "groupReportNotesHint": "Enter any special notes or actions taken",
-  "farePolicyYokohamaWelfarePass": "Yokohama Welfare Special Transit Pass",
-  "farePolicyYokohamaWelfarePassCondition": "This option is for holders of a Yokohama Welfare Special Transit Pass. A disability certificate alone does not provide free travel. Regular fares apply to routes and sections outside the pass coverage."
-,
-  "scheduleCardTitle": "Scheduled journey",
-  "scheduleDeparturePlanned": "Scheduled departure: {time}",
-  "@scheduleDeparturePlanned": {"placeholders": {"time": {"type": "String"}}},
-  "scheduleMinutesUntil": "Departs in {minutes} min",
-  "@scheduleMinutesUntil": {"placeholders": {"minutes": {"type": "int"}}},
-  "scheduleDeparturePassed": "The scheduled departure time has passed. Search again if needed.",
-  "scheduleDelayDisclaimer": "Timetable only. Delays and cancellations are not reflected.",
-  "scheduleDepartureUnknown": "Scheduled departure time is unavailable",
-  "scheduleWalkOnly": "Walking-only route"
-,
-  "farePolicyYokohamaSeniorPass": "Yokohama Senior Special Transit Pass",
-  "farePolicyYokohamaChoosePass": "Select your transit pass before searching."
-,
-  "farePolicyYokohamaWelfareShort": "Welfare pass",
-  "farePolicyYokohamaSeniorShort": "Senior pass"
+  "groupReportNotesHint": "Enter any special notes or actions taken"
 }

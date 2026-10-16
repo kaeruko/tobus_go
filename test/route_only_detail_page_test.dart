@@ -12,7 +12,7 @@ import 'package:toeigo/providers/navigation_provider.dart';
 import 'package:toeigo/providers/route_search_provider.dart';
 
 void main() {
-  testWidgets('Yokohama uses shared detail and exposes realtime action', (
+  testWidgets('Sendai uses shared detail and exposes realtime action', (
     tester,
   ) async {
     final candidate = Candidate(
@@ -28,10 +28,10 @@ void main() {
           stepId: 'bus-1',
           kind: 'bus',
           title: '8系統',
-          fromName: '横浜駅前',
+          fromName: '出発駅前',
           toName: '山下公園前',
-          routeId: 'yokohama_bus:R1',
-          tripId: 'yokohama_bus:T1',
+          routeId: 'fixture_bus:R1',
+          tripId: 'fixture_bus:T1',
         ),
       ],
       points: const [],
@@ -40,7 +40,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [cityProfileProvider.overrideWithValue(yokohamaCityProfile)],
+        overrides: [cityProfileProvider.overrideWithValue(sendaiCityProfile)],
         child: CupertinoApp(
           locale: const Locale('ja'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -57,7 +57,7 @@ void main() {
     expect(find.byIcon(CupertinoIcons.bookmark), findsNothing);
     expect(find.text('お気に入りに追加'), findsNothing);
   });
-  testWidgets('Yokohama route detail renders English labels', (tester) async {
+  testWidgets('Sendai route detail renders English labels', (tester) async {
     final candidate = Candidate(
       id: 'candidate-en',
       lines: const ['8'],
@@ -72,12 +72,12 @@ void main() {
           kind: 'bus',
           title: '8系統',
           titleEn: 'Route 8',
-          fromName: '横浜駅前',
-          fromNameEn: 'Yokohama Station',
+          fromName: '出発駅前',
+          fromNameEn: 'Origin Station',
           toName: '山下公園前',
           toNameEn: 'Yamashita Park',
-          routeId: 'yokohama_bus:R1',
-          tripId: 'yokohama_bus:T1',
+          routeId: 'fixture_bus:R1',
+          tripId: 'fixture_bus:T1',
         ),
       ],
       points: const [],
@@ -86,7 +86,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [cityProfileProvider.overrideWithValue(yokohamaCityProfile)],
+        overrides: [cityProfileProvider.overrideWithValue(sendaiCityProfile)],
         child: CupertinoApp(
           locale: const Locale('en'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -102,7 +102,7 @@ void main() {
     expect(find.text('Route 8'), findsNWidgets(2));
     expect(
       find.text(
-        'Yokohama Station (横浜駅前) → Yamashita Park (山下公園前)',
+        'Origin Station (出発駅前) → Yamashita Park (山下公園前)',
       ),
       findsOneWidget,
     );

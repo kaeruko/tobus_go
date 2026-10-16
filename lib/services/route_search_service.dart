@@ -7,7 +7,6 @@ import '../core/api_client.dart';
 import '../core/city_profile.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
-import 'fare_policy_preferences.dart';
 
 class RouteSearchRequest {
   final LatLng origin;
@@ -19,7 +18,6 @@ class RouteSearchRequest {
   final DateTime startTime;
   final String? preference;
   final bool busOnly;
-  final String? farePolicyId;
 
   RouteSearchRequest({
     required this.origin,
@@ -31,7 +29,6 @@ class RouteSearchRequest {
     required this.startTime,
     this.preference,
     this.busOnly = false,
-    this.farePolicyId,
   }) : originName = originName.trim(),
        destinationName = destinationName.trim(),
        originNameEn = _trimNullable(originNameEn),
@@ -40,7 +37,7 @@ class RouteSearchRequest {
     _validatePoint(destination, 'destination');
   }
 
-  Map<String, dynamic> toApiBody({String? farePolicyId}) {
+  Map<String, dynamic> toApiBody() {
     final localStartTime = startTime.toLocal();
     return {
       'alat': origin.latitude.toString(),
@@ -56,7 +53,6 @@ class RouteSearchRequest {
           '${localStartTime.year.toString().padLeft(4, '0')}-'
           '${localStartTime.month.toString().padLeft(2, '0')}-'
           '${localStartTime.day.toString().padLeft(2, '0')}',
-      if (farePolicyId != null) 'fare_policy_id': farePolicyId,
     };
   }
 
@@ -95,11 +91,7 @@ class ApiRouteSearchService implements RouteSearchService {
 
   @override
   Future<RouteSearchResult> search(RouteSearchRequest request) async {
-    final policyId = configuredCityProfile.city == AppCity.yokohama
-        ? (request.farePolicyId ?? await FarePolicyPreferences.load(configuredCityProfile))
-        : null;
-    if (policyId != null) configuredCityProfile.farePolicyById(policyId);
-    final apiBody = request.toApiBody(farePolicyId: policyId);
+    final apiBody = request.toApiBody();
     // Share only unfinished identical searches, including identity resolution.
     // Names affect the parsed result even though they are absent from /route.
     final key = jsonEncode([

@@ -26,8 +26,8 @@ void main() {
         kind: 'bus',
         title: '008系統',
         titleEn: 'Route 008',
-        fromName: '横浜駅前',
-        fromNameEn: 'Yokohama Station',
+        fromName: '出発駅前',
+        fromNameEn: 'Origin Station',
         toName: '山下公園前',
         toNameEn: 'Yamashita Park',
         minutes: 12,
@@ -41,8 +41,8 @@ void main() {
         kind: 'walk',
         title: '徒歩',
         titleEn: 'Walk',
-        fromName: '横浜駅前',
-        fromNameEn: 'Yokohama Station',
+        fromName: '出発駅前',
+        fromNameEn: 'Origin Station',
         toName: '交差点',
         toNameEn: 'Intersection',
         minutes: 3,
@@ -94,7 +94,7 @@ void main() {
         find.descendant(
           of: card,
           matching: find.text(
-            'Yokohama Station (横浜駅前) → '
+            'Origin Station (出発駅前) → '
             'Red Brick Warehouse Entrance (赤レンガ倉庫入口)',
           ),
         ),
@@ -103,7 +103,7 @@ void main() {
       expect(
         find.descendant(
           of: summary,
-          matching: find.text('Yokohama Station (横浜駅前)'),
+          matching: find.text('Origin Station (出発駅前)'),
         ),
         findsOneWidget,
       );
@@ -118,7 +118,7 @@ void main() {
       );
       expect(
         find.text(
-          'Yokohama Station (横浜駅前) → Intersection (交差点)',
+          'Origin Station (出発駅前) → Intersection (交差点)',
         ),
         findsOneWidget,
       );
@@ -141,12 +141,12 @@ void main() {
         kind: 'wait',
         title: '待ち時間',
         titleEn: 'Wait',
-        fromName: '横浜駅前',
-        fromNameEn: 'Yokohama Station',
-        toName: '横浜駅前',
-        toNameEn: 'Yokohama Station',
-        place: '横浜駅前',
-        placeEn: 'Yokohama Station',
+        fromName: '出発駅前',
+        fromNameEn: 'Origin Station',
+        toName: '出発駅前',
+        toNameEn: 'Origin Station',
+        place: '出発駅前',
+        placeEn: 'Origin Station',
         minutes: 2,
       );
       final lastWalk = StepSeg(
@@ -191,7 +191,7 @@ void main() {
         find.descendant(
           of: find.byType(RouteCard),
           matching: find.text(
-            'Yokohama Station (横浜駅前) → '
+            'Origin Station (出発駅前) → '
             'Red Brick Warehouse Entrance (赤レンガ倉庫入口)',
           ),
         ),
@@ -200,12 +200,12 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(RouteEndpointSummary),
-          matching: find.text('Yokohama Station (横浜駅前)'),
+          matching: find.text('Origin Station (出発駅前)'),
         ),
         findsOneWidget,
       );
       expect(
-        find.text('Wait at Yokohama Station (横浜駅前)'),
+        find.text('Wait at Origin Station (出発駅前)'),
         findsOneWidget,
       );
     },

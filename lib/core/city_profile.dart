@@ -2,9 +2,7 @@ import 'package:flutter/services.dart' show appFlavor;
 
 enum AppCity {
   tokyo,
-  nagoya,
   sendai,
-  yokohama,
 }
 
 class RealtimeCapabilities {
@@ -143,46 +141,6 @@ const tokyoCityProfile = CityProfile(
   ),
 );
 
-const nagoyaCityProfile = CityProfile(
-  city: AppCity.nagoya,
-  key: 'nagoya',
-  appName: '名古屋でGO',
-  capabilities: CityCapabilities(
-    features: FeatureCapabilities(
-      routeSearchOnly: true,
-      outingDiscovery: false,
-      savedRoutes: false,
-      history: false,
-      groupTrips: false,
-    ),
-    realtime: RealtimeCapabilities(
-      vehiclePosition: false,
-      tripUpdates: false,
-      alerts: false,
-    ),
-  ),
-  farePolicies: [
-    FarePolicyOption(
-      id: 'normal',
-      displayName: '通常運賃',
-      settlementType: 'normal',
-    ),
-    FarePolicyOption(
-      id: 'nagoya_welfare_special_pass',
-      displayName: '福祉特別乗車券（無料乗車区間）',
-      settlementType: 'free_pass',
-      sourceUri:
-          'https://www.city.nagoya.jp/kenkofukushi/shougaisha/1016573/1016578.html',
-    ),
-  ],
-  distribution: CityDistributionConfig(
-    androidApplicationId: 'jp.cloxs.nagoyago',
-    iosBundleIdentifier: 'jp.cloxs.nagoyago',
-    firebaseEnabled: false,
-    storeMetadataDirectory: 'store/nagoya',
-  ),
-);
-
 const sendaiCityProfile = CityProfile(
   city: AppCity.sendai,
   key: 'sendai',
@@ -216,62 +174,15 @@ const sendaiCityProfile = CityProfile(
   ),
 );
 
-const yokohamaCityProfile = CityProfile(
-  city: AppCity.yokohama,
-  key: 'yokohama',
-  appName: '横浜でGO',
-  defaultFarePolicyId: '',
-  capabilities: CityCapabilities(
-    features: FeatureCapabilities(
-      routeSearchOnly: true,
-      outingDiscovery: false,
-      savedRoutes: false,
-      history: false,
-      groupTrips: false,
-    ),
-    realtime: RealtimeCapabilities(
-      vehiclePosition: false,
-      tripUpdates: false,
-      alerts: false,
-    ),
-  ),
-  farePolicies: [
-    FarePolicyOption(
-      id: 'yokohama_welfare_special_pass',
-      displayName: '福祉特別乗車券（福祉パス）',
-      settlementType: 'free_pass',
-      sourceUri:
-          'https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/fukushi/annai/gaishutsu/kotsu/fukushi-jyosyaken/ticket.html',
-    ),
-    FarePolicyOption(
-      id: 'yokohama_senior_special_pass',
-      displayName: '敬老特別乗車証（敬老パス）',
-      settlementType: 'free_pass',
-      sourceUri:
-          'https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigoyobo-kenkoudukuri-ikigai/ikigai-shakaisanka/keirou.html',
-    ),
-  ],
-  distribution: CityDistributionConfig(
-    androidApplicationId: 'jp.cloxs.go.yokohama',
-    iosBundleIdentifier: 'jp.cloxs.go.yokohama',
-    firebaseEnabled: false,
-    storeMetadataDirectory: 'store/yokohama',
-  ),
-);
-
 CityProfile cityProfileForKey(String key) {
   switch (key) {
     case 'tokyo':
       return tokyoCityProfile;
-    case 'nagoya':
-      return nagoyaCityProfile;
     case 'sendai':
       return sendaiCityProfile;
-    case 'yokohama':
-      return yokohamaCityProfile;
     default:
       throw StateError(
-        'Unsupported APP_CITY="$key". Expected one of: tokyo, nagoya, sendai, yokohama',
+        'Unsupported APP_CITY="$key". Expected one of: tokyo, sendai',
       );
   }
 }

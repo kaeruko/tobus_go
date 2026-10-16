@@ -55,17 +55,9 @@ android {
             dimension = "city"
             applicationId = "jp.cloxs.toeigo"
         }
-        create("nagoya") {
-            dimension = "city"
-            applicationId = "jp.cloxs.nagoyago"
-        }
         create("sendai") {
             dimension = "city"
             applicationId = "jp.cloxs.go.sendai"
-        }
-        create("yokohama") {
-            dimension = "city"
-            applicationId = "jp.cloxs.go.yokohama"
         }
     }
 
@@ -96,15 +88,13 @@ android {
 }
 
 // The repository currently contains only the existing Tokyo Firebase native
-// configuration. Nagoya/Sendai/Yokohama are route-only and Firebase is disabled
+// configuration. Sendai is route-only and Firebase is disabled
 // in CityProfile, so do not run Google Services for those variants. When a city
 // later gets its own Firebase app, add a flavor-specific google-services.json
 // and remove that flavor from this guard in the same change.
 tasks.configureEach {
     val isRouteOnlyGoogleServicesTask =
-        (name.startsWith("processNagoya") ||
-            name.startsWith("processSendai") ||
-            name.startsWith("processYokohama")) &&
+        name.startsWith("processSendai") &&
             name.endsWith("GoogleServices")
     if (isRouteOnlyGoogleServicesTask) {
         enabled = false

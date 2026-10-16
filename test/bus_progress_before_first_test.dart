@@ -8,18 +8,18 @@ void main() {
     stepId: 'bus-1',
     kind: 'bus',
     title: '008系統',
-    routeId: 'yokohama_bus:008',
-    tripId: 'yokohama_bus:T1',
+    routeId: 'fixture_bus:008',
+    tripId: 'fixture_bus:T1',
     stops: [
       StopPoint(
-        name: '横浜駅前',
+        name: '出発駅前',
         point: const LatLng(35.466, 139.622),
-        stopId: 'yokohama_bus:A',
+        stopId: 'fixture_bus:A',
       ),
       StopPoint(
         name: '山下公園前',
         point: const LatLng(35.444, 139.649),
-        stopId: 'yokohama_bus:B',
+        stopId: 'fixture_bus:B',
       ),
     ],
   );
@@ -29,16 +29,16 @@ void main() {
       step: busStep(),
       fromStopId: null,
       beforeFirstStop: true,
-      tripStopIds: const ['yokohama_bus:A', 'yokohama_bus:B'],
+      tripStopIds: const ['fixture_bus:A', 'fixture_bus:B'],
       observedStopId: 'A',
-      observedStopName: '横浜駅前',
+      observedStopName: '出発駅前',
       currentStatus: 'IN_TRANSIT_TO',
     );
 
     expect(progress.phase, BusProgressPhase.approaching);
     expect(progress.fromStopId, isNull);
     expect(progress.fromStopIndex, isNull);
-    expect(progress.nextStopId, 'yokohama_bus:A');
+    expect(progress.nextStopId, 'fixture_bus:A');
     expect(progress.nextStopIndex, 0);
     expect(progress.stopsUntilBoarding, 1);
   });
@@ -48,18 +48,18 @@ void main() {
       stepId: 'bus-later',
       kind: 'bus',
       title: '008系統',
-      routeId: 'yokohama_bus:008',
-      tripId: 'yokohama_bus:T1',
+      routeId: 'fixture_bus:008',
+      tripId: 'fixture_bus:T1',
       stops: [
         StopPoint(
           name: 'C停留所',
           point: const LatLng(35.450, 139.640),
-          stopId: 'yokohama_bus:C',
+          stopId: 'fixture_bus:C',
         ),
         StopPoint(
           name: 'D停留所',
           point: const LatLng(35.440, 139.650),
-          stopId: 'yokohama_bus:D',
+          stopId: 'fixture_bus:D',
         ),
       ],
     );
@@ -69,12 +69,12 @@ void main() {
       fromStopId: null,
       beforeFirstStop: true,
       tripStopIds: const [
-        'yokohama_bus:A',
-        'yokohama_bus:B',
-        'yokohama_bus:C',
-        'yokohama_bus:D',
+        'fixture_bus:A',
+        'fixture_bus:B',
+        'fixture_bus:C',
+        'fixture_bus:D',
       ],
-      observedStopId: 'yokohama_bus:A',
+      observedStopId: 'fixture_bus:A',
       observedStopName: 'A停留所',
       currentStatus: 'IN_TRANSIT_TO',
     );
@@ -101,7 +101,7 @@ void main() {
     expect(
       () => BusProgress.forStep(
         step: busStep(),
-        fromStopId: 'yokohama_bus:A',
+        fromStopId: 'fixture_bus:A',
         beforeFirstStop: true,
         currentStatus: 'IN_TRANSIT_TO',
       ),

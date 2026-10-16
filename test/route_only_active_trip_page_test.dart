@@ -25,8 +25,8 @@ class _BeforeFirstStopSource implements BusLocationSource {
       vehicleLon: 139.622,
       beforeFirstStop: true,
       rawStopId: 'A',
-      rawStopName: '横浜駅前',
-      rawStopNameEn: 'Yokohama Station',
+      rawStopName: '出発駅前',
+      rawStopNameEn: 'Origin Station',
       fromStopSequence: null,
       observedStopSequence: 1,
       currentStatus: 'IN_TRANSIT_TO',
@@ -53,10 +53,10 @@ void main() {
             stepId: 'bus-1',
             kind: 'bus',
             title: '008系統',
-            fromName: '横浜駅前',
+            fromName: '出発駅前',
             toName: '山下公園前',
-            routeId: 'yokohama_bus:008',
-            tripId: 'yokohama_bus:T1',
+            routeId: 'fixture_bus:008',
+            tripId: 'fixture_bus:T1',
           ),
         ],
       );
@@ -76,7 +76,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('車両 1772'), findsOneWidget);
-      expect(find.text('横浜駅前（始発停留所）へ向かっています'), findsOneWidget);
+      expect(find.text('出発駅前（始発停留所）へ向かっています'), findsOneWidget);
       expect(find.text('008系統'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
@@ -100,12 +100,12 @@ void main() {
             kind: 'bus',
             title: '008系統',
             titleEn: 'Route 008',
-            fromName: '横浜駅前',
-            fromNameEn: 'Yokohama Station',
+            fromName: '出発駅前',
+            fromNameEn: 'Origin Station',
             toName: '山下公園前',
             toNameEn: 'Yamashita Park',
-            routeId: 'yokohama_bus:008',
-            tripId: 'yokohama_bus:T1',
+            routeId: 'fixture_bus:008',
+            tripId: 'fixture_bus:T1',
           ),
         ],
       );
@@ -126,7 +126,7 @@ void main() {
 
       expect(find.text('Vehicle 1772'), findsOneWidget);
       expect(
-        find.text('Heading to Yokohama Station (横浜駅前) (first stop)'),
+        find.text('Heading to Origin Station (出発駅前) (first stop)'),
         findsOneWidget,
       );
       expect(find.text('Refresh bus position'), findsOneWidget);

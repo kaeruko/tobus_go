@@ -19,8 +19,6 @@ void main() {
       kTokyoRuntimeConfigGoogleDriveFileId,
     );
     expect(runtimeConfigGoogleDriveFileIdForCity(AppCity.sendai), isNull);
-    expect(runtimeConfigGoogleDriveFileIdForCity(AppCity.nagoya), isNull);
-    expect(runtimeConfigGoogleDriveFileIdForCity(AppCity.yokohama), isNull);
   });
 
   test('Tokyo and Sendai use city-specific Google Drive endpoint files', () {
@@ -34,8 +32,4 @@ void main() {
     );
   });
 
-  test('cities without a Drive endpoint file keep using API_BASE', () {
-    expect(apiGoogleDriveFileIdForCity(AppCity.nagoya), isNull);
-    expect(apiGoogleDriveFileIdForCity(AppCity.yokohama), isNull);
-  });
 }

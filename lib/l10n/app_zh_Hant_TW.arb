@@ -2,9 +2,7 @@
   "routeGeometryApproximate": "此路線圖僅為示意圖，部分或全部線路由站點等位置連線而成。",
   "@@locale": "zh_Hant_TW",
   "appNameTokyo": "都營GO",
-  "appNameNagoya": "名古屋GO",
   "appNameSendai": "仙台GO",
-  "appNameYokohama": "橫濱GO",
   "bootstrapFailed": "應用程式啟動失敗",
   "updateRequiredTitle": "需要更新",
   "updateNow": "更新至最新版本",
@@ -1105,7 +1103,6 @@
   "settlementReimbursementLong": "先支付，日後發放補貼",
   "farePolicyNormal": "普通票價",
   "farePolicyTokyoMentalDisabilityPass": "精神障礙者都營交通乘車證",
-  "farePolicyNagoyaWelfarePass": "福利特別乘車券（免費乘車區間）",
   "exploreTitle": "探索無需轉乘即可到達的地點",
   "exploreDescription": "查詢從目前位置出發，無需轉乘即可到達的都營地鐵站和巴士站。",
   "exploreNearbyButton": "探索附近",
@@ -1692,23 +1689,5 @@
   "groupReportDemoFall": "跌倒後輕微受傷",
   "groupReportDemoLost": "與隊伍走散",
   "groupReportDemoReunited": "已歸隊",
-  "groupReportNotesHint": "請輸入注意事項或處理內容",
-  "farePolicyYokohamaWelfarePass": "橫濱市福利特別乘車券",
-  "farePolicyYokohamaWelfarePassCondition": "此選項適用於持有橫濱市福利特別乘車券的使用者。僅持有身心障礙證明不能免費乘車。不在乘車券適用範圍內的路線及區間按一般票價收費。"
-,
-  "scheduleCardTitle": "依時刻表乘車",
-  "scheduleDeparturePlanned": "預計 {time} 發車",
-  "@scheduleDeparturePlanned": {"placeholders": {"time": {"type": "String"}}},
-  "scheduleMinutesUntil": "距離發車還有 {minutes} 分鐘",
-  "@scheduleMinutesUntil": {"placeholders": {"minutes": {"type": "int"}}},
-  "scheduleDeparturePassed": "預定發車時間已過。如有需要請重新搜尋。",
-  "scheduleDelayDisclaimer": "僅為時刻表資訊，未反映延誤與停駛。",
-  "scheduleDepartureUnknown": "無法確認預定發車時間",
-  "scheduleWalkOnly": "僅步行路線"
-,
-  "farePolicyYokohamaSeniorPass": "橫濱市敬老特別乘車證",
-  "farePolicyYokohamaChoosePass": "請先選擇乘車證，再搜尋路線。"
-,
-  "farePolicyYokohamaWelfareShort": "福利乘車證",
-  "farePolicyYokohamaSeniorShort": "敬老乘車證"
+  "groupReportNotesHint": "請輸入注意事項或處理內容"
 }

@@ -7,19 +7,18 @@
 | city | Flutter flavor | Android applicationId | iOS bundle identifier | Firebase |
 | --- | --- | --- | --- | --- |
 | Tokyo | `tokyo` | `jp.cloxs.toeigo` | `jp.cloxs.go.tokyo` | existing Tokyo project, new iOS app registration |
-| Nagoya | `nagoya` | `jp.cloxs.nagoyago` | `jp.cloxs.nagoyago` | disabled until a Nagoya-specific app is configured |
-| Sendai | `sendai` | `jp.cloxs.sendaigo` | `jp.cloxs.sendaigo` | disabled until a Sendai-specific app is configured |
+| Sendai | `sendai` | `jp.cloxs.go.sendai` | `jp.cloxs.go.sendai` | disabled until a Sendai-specific app is configured |
 
 Tokyo Androidの既存applicationId `jp.cloxs.toeigo` はGoogle Play更新互換のため変更しない。Tokyo iOSは初回App Store登録前に `jp.cloxs.go.tokyo` へ移行した。
 
-Nagoya / SendaiのIDは新規アプリ登録前のリポジトリ上の識別子であり、ストア登録時に変更する場合はAndroid・iOS・`CityProfile`・store metadataを同一PRで更新する。
+東京は公開版、仙台は開発版。既存の両都市IDを固定し、native flavorは `tokyo` と `sendai` の2種類だけとする。
 
 ## FlavorとAPP_CITY
 
 ストア用ビルドではnative flavorとDart defineを同時に指定する。
 
 ```text
---flavor nagoya --dart-define=APP_CITY=nagoya
+--flavor sendai --dart-define=APP_CITY=sendai
 ```
 
 両者が異なる場合は起動時に停止する。大文字小文字・前後空白も自動補正しない。
@@ -38,7 +37,6 @@ backendは自身の `APP_CITY` とheaderが異なる場合、HTTP 409 / `city_mi
 
 ```text
 tokyo-api   APP_CITY=tokyo
-nagoya-api  APP_CITY=nagoya
 sendai-api  APP_CITY=sendai
 ```
 
@@ -67,7 +65,7 @@ debug/profileでは開発用の`API_BASE`を明示するとDrive取得と強制�
 
 Tokyoだけ既存Firebaseを利用する。
 
-Nagoya / Sendai route-only appはFirebaseを初期化しない。Tokyo設定へfallbackしない。
+Sendai route-only appはFirebaseを初期化しない。Tokyo設定へfallbackしない。
 
 今後Firebaseが必要になった都市では、その都市専用Firebase appを登録し、native configと`firebase_options`相当を同一変更で追加してから `firebaseEnabled=true` にする。
 
@@ -76,10 +74,8 @@ Nagoya / Sendai route-only appはFirebaseを初期化しない。Tokyo設定へf
 ```powershell
 .\scripts\build_aab.ps1 -City tokyo
 .\scripts\build_aab.ps1 -City sendai
-.\scripts\build_aab.ps1 -City nagoya -ApiBase 'https://<nagoya-api>'
 ```
 
-Nagoya / Yokohamaで`ApiBase`を省略した場合は停止する。別都市APIへのfallbackはしない。
 
 `build_aab.ps1` は `pubspec.yaml` の `version: MAJOR.MINOR.PATCH+BUILD` を厳密に読み取り、
 現在のBUILDに1を加えた番号でAABを作成する。AAB生成が成功した場合にだけ

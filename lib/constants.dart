@@ -38,7 +38,7 @@ const String kSendaiApiGoogleDriveFileId = '1Frhq_kZt6kEX_smdSdlcKsmTv4vLnjEf';
 String? runtimeConfigGoogleDriveFileIdForCity(AppCity city) {
   return switch (city) {
     AppCity.tokyo => kTokyoRuntimeConfigGoogleDriveFileId,
-    AppCity.nagoya || AppCity.sendai || AppCity.yokohama => null,
+    AppCity.sendai => null,
   };
 }
 
@@ -46,7 +46,6 @@ String? apiGoogleDriveFileIdForCity(AppCity city) {
   return switch (city) {
     AppCity.tokyo => kTokyoApiGoogleDriveFileId,
     AppCity.sendai => kSendaiApiGoogleDriveFileId,
-    AppCity.nagoya || AppCity.yokohama => null,
   };
 }
 

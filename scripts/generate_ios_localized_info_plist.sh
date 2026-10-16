@@ -11,20 +11,10 @@ case "$APP_CITY" in
     display_name_en="Toei GO"
     display_name_zh="都营GO"
     ;;
-  nagoya)
-    display_name_ja="名古屋でGO"
-    display_name_en="Nagoya GO"
-    display_name_zh="名古屋GO"
-    ;;
   sendai)
     display_name_ja="仙台でGO"
     display_name_en="Sendai GO"
     display_name_zh="仙台GO"
-    ;;
-  yokohama)
-    display_name_ja="横浜でGO"
-    display_name_en="Yokohama GO"
-    display_name_zh="横滨GO"
     ;;
   *)
     echo "error: unsupported APP_CITY for localized InfoPlist.strings: $APP_CITY" >&2
