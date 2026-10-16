@@ -57,10 +57,10 @@ class _SendaiPracticalTestPageState extends State<SendaiPracticalTestPage> {
       if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
       final cap = snapshot.data!;
       String name(String id) => cap.stops.firstWhere((s) => s.id == id).name;
-      Widget stopField(String label, String? value, void Function(String?) change) =>
-          DropdownButtonFormField<String>(initialValue: value, isExpanded: true,
+      Widget stopField(String label, String field, String? value, void Function(String?) change) =>
+          DropdownButtonFormField<String>(key: Key('sendai-$field'), initialValue: value, isExpanded: true,
             decoration: InputDecoration(labelText: label),
-            items: cap.stops.map((s) => DropdownMenuItem(value: s.id,
+            items: cap.stops.map((s) => DropdownMenuItem(key: ValueKey('sendai-$field-item-${s.id}'), value: s.id,
                 child: Text('${s.name}（${s.mode == 'bus' ? '市バス' : '地下鉄'}・${s.id.split(':').last}）', maxLines: 1, overflow: TextOverflow.ellipsis))).toList(),
             onChanged: _busy ? null : (v) => setState(() { change(v); _results = null; }));
       return ListView(padding: const EdgeInsets.all(16), children: [
@@ -69,22 +69,22 @@ class _SendaiPracticalTestPageState extends State<SendaiPracticalTestPage> {
         if (!cap.supportedModes.contains('bus')) const Text('市営バスはこのデータでは未対応'),
         const Text('宮城交通・未確認の市営区間・特別ダイヤ・Realtimeは未対応'),
         const Text('データ: 仙台市・仙台市交通局 / 公共交通オープンデータセンター / CC BY 4.0'),
-        stopField('出発地', _origin, (v) => _origin = v),
-        stopField('目的地', _destination, (v) => _destination = v),
-        DropdownButtonFormField<String>(decoration: const InputDecoration(labelText: '対応日'),
-            items: cap.operatingDates.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+        stopField('出発地', 'origin', _origin, (v) => _origin = v),
+        stopField('目的地', 'destination', _destination, (v) => _destination = v),
+        DropdownButtonFormField<String>(key: const Key('sendai-date'), decoration: const InputDecoration(labelText: '対応日'),
+            items: cap.operatingDates.map((d) => DropdownMenuItem(key: ValueKey('sendai-date-item-$d'), value: d, child: Text(d))).toList(),
             onChanged: _busy ? null : (v) => setState(() { _date = v; _results = null; })),
-        TextField(controller: _time, enabled: !_busy, decoration: const InputDecoration(labelText: '出発時刻 HH:MM')),
-        DropdownButtonFormField<String>(decoration: const InputDecoration(labelText: '乗車証を明示選択'),
-            items: const [DropdownMenuItem(value: 'sendai_fureai_pass', child: Text('ふれあい乗車証（有効な証を所持）'))],
+        TextField(key: const Key('sendai-time'), controller: _time, enabled: !_busy, decoration: const InputDecoration(labelText: '出発時刻 HH:MM')),
+        DropdownButtonFormField<String>(key: const Key('sendai-pass'), decoration: const InputDecoration(labelText: '乗車証を明示選択'),
+            items: const [DropdownMenuItem(key: ValueKey('sendai-pass-item'), value: 'sendai_fureai_pass', child: Text('ふれあい乗車証（有効な証を所持）'))],
             onChanged: _busy ? null : (v) => setState(() { _pass = v; _results = null; })),
-        CheckboxListTile(value: _accept, onChanged: _busy ? null : (v) => setState(() { _accept = v ?? false; _results = null; }),
+        CheckboxListTile(key: const Key('sendai-accept-transfer'), value: _accept, onChanged: _busy ? null : (v) => setState(() { _accept = v ?? false; _results = null; }),
             title: const Text('検証用の乗換仮設定を使用する'),
             subtitle: const Text('仙台の地下鉄間は公式5分＋仮の余裕2分。荒井のバス接続5分＋2分は全体が仮定です。実測・正式採用・保証ではありません。')),
-        FilledButton(onPressed: _busy ? null : _search, child: Text(_busy ? '検索中' : '追加支払0円の確認済み区間を検索')),
+        FilledButton(key: const Key('sendai-search'), onPressed: _busy ? null : _search, child: Text(_busy ? '検索中' : '追加支払0円の確認済み区間を検索')),
         if (_error != null) Text(_error!, key: const Key('sendai-test-error')),
         if (_results != null && _results!.isEmpty) const Text('この条件で確認済み経路はありません'),
-        for (final route in _results ?? <SendaiPracticalCandidate>[]) Card(child: Padding(
+        for (final route in _results ?? <SendaiPracticalCandidate>[]) Card(key: const Key('sendai-result'), child: Padding(
           padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('追加支払0円・到着目安 ${route.arrival.date} ${route.arrival.time}'),
             for (final event in route.events)

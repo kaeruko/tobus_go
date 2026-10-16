@@ -1,0 +1,100 @@
+name: Sendai practical Chrome E2E
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sendai-practical-chrome.yml'
+      - 'api/app/sendai_practical_routes.py'
+      - 'api/sendai_practical_*.py'
+      - 'lib/main_sendai_practical.dart'
+      - 'lib/pages/sendai_practical_test_page.dart'
+      - 'lib/models/sendai_practical_models.dart'
+      - 'lib/services/sendai_practical_service.dart'
+      - 'integration_test/sendai_practical_chrome_test.dart'
+      - 'test_driver/integration_test.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chrome-real-data:
+    name: Chrome UI + official bus GTFS localhost API
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: api/requirements.txt
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Set up Chrome and matching ChromeDriver
+        id: chrome
+        uses: browser-actions/setup-chrome@v2
+        with:
+          chrome-version: stable
+          install-chromedriver: true
+      - name: Install test dependencies
+        run: |
+          python -m pip install -r api/requirements.txt
+          flutter pub get
+      - name: Retrieve exactly the reviewed official GTFS-JP bundle
+        run: |
+          python -B scripts/fetch_sendai_gtfs.py \
+            --output api/data/sendai/20261006_model \
+            --expected-service-date 2026-10-16 \
+            --source-url 'https://api-public.odpt.org/api/v4/files/odpt/SendaiMunicipal/bus_realtime_information.zip?date=20261006' \
+            --expected-sha256 53a08400776b3229743b24eb53566eb523b354a5b783dcfffd3e40f39258e6a2
+      - name: Start isolated localhost API from verified sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B scripts/serve_sendai_practical_local.py \
+            --bus-gtfs-dir api/data/sendai/20261006_model \
+            --expected-service-date 2026-10-16 \
+            --subway-published api/tests/fixtures/sendai_subway/published_20230701.json \
+            --subway-review api/tests/fixtures/sendai_subway/practical_review_20261016.json \
+            --municipal-review api/tests/fixtures/sendai_subway/municipal_review_20261016.json \
+            --accept-experimental-transfer-model > "$RUNNER_TEMP/sendai-api.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/sendai-api.pid"
+          for attempt in {1..45}; do
+            if curl --fail --silent http://127.0.0.1:8000/test/sendai/capabilities > "$RUNNER_TEMP/sendai-capabilities.json"; then
+              python -c 'import json,os; from pathlib import Path; p=json.loads((Path(os.environ["RUNNER_TEMP"])/"sendai-capabilities.json").read_text()); assert p["environment"]=="test" and p["supported_modes"]==["bus","rail"] and "2026-10-16" in p["operating_dates"], p'
+              exit 0
+            fi
+            if ! kill -0 "$(cat "$RUNNER_TEMP/sendai-api.pid")" 2>/dev/null; then
+              cat "$RUNNER_TEMP/sendai-api.log"
+              exit 1
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/sendai-api.log"
+          exit 1
+      - name: Launch browser driver
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'CHROME_EXECUTABLE=${{ steps.chrome.outputs.chrome-path }}' >> "$GITHUB_ENV"
+          '${{ steps.chrome.outputs.chromedriver-path }}' --port=4444 > "$RUNNER_TEMP/sendai-chromedriver.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/sendai-chromedriver.pid"
+      - name: Search four fixed routes from actual Flutter UI in headless Chrome
+        run: |
+          flutter drive -d web-server --browser-name=chrome \
+            --driver=test_driver/integration_test.dart \
+            --target=integration_test/sendai_practical_chrome_test.dart \
+            --dart-define=SENDAI_TEST_API_BASE=http://127.0.0.1:8000
+      - name: Show logs on failure
+        if: failure()
+        shell: bash
+        run: |
+          if test -f "$RUNNER_TEMP/sendai-api.log"; then tail -n 100 "$RUNNER_TEMP/sendai-api.log"; fi
+          if test -f "$RUNNER_TEMP/sendai-chromedriver.log"; then tail -n 100 "$RUNNER_TEMP/sendai-chromedriver.log"; fi
