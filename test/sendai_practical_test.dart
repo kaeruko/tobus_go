@@ -96,4 +96,74 @@ void main() {
     expect(find.byKey(const Key('sendai-test-error')), findsOneWidget);
     expect(find.textContaining('選択してください'), findsOneWidget);
   });
+  testWidgets('unsupported scope is visible and an API error is shown without retry', (tester) async {
+    var routeCalls = 0;
+    final service = SendaiPracticalService(
+      baseUri: Uri.parse('http://localhost:8000'),
+      client: MockClient((request) async {
+        if (request.url.path == '/test/sendai/capabilities' && request.method == 'GET') {
+          return http.Response(jsonEncode(capabilities()), 200,
+              headers: {'content-type': 'application/json; charset=utf-8'});
+        }
+        if (request.url.path != '/test/sendai/route' || request.method != 'POST') {
+          throw StateError('Unexpected Sendai test request: ${request.method} ${request.url.path}');
+        }
+        routeCalls++;
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['origin_stop_id'], 'sendai_subway:tozai/仙台');
+        expect(body['destination_stop_id'], 'sendai_subway:tozai/荒井');
+        expect(body['departure_minute'], 600);
+        expect(body['civil_date'], '2026-10-16');
+        expect(body['fare_policy_id'], 'sendai_fureai_pass');
+        expect(body['accept_experimental_transfer_model'], true);
+        return http.Response(jsonEncode({'detail': {
+          'code': 'unsupported_review_scope',
+          'message': 'Outside the reviewed test scope'
+        }}), 422, headers: {'content-type': 'application/json; charset=utf-8'});
+      }),
+    );
+    await tester.pumpWidget(MaterialApp(home: SendaiPracticalTestPage(service: service)));
+    await tester.pumpAndSettle();
+    expect(find.text('宮城交通・未確認の市営区間・特別ダイヤ・Realtimeは未対応'), findsOneWidget);
+    final dateField = tester.widget<DropdownButtonFormField<String>>(
+        find.byKey(const Key('sendai-date')));
+    expect(dateField.items!.map((item) => item.value).toList(), ['2026-10-16']);
+
+    final pageScroll = find.descendant(
+        of: find.byType(ListView), matching: find.byType(Scrollable)).first;
+    Future<void> reveal(Finder target) async {
+      final position = tester.state<ScrollableState>(pageScroll).position;
+      position.jumpTo(position.minScrollExtent);
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(target, 200, scrollable: pageScroll);
+      await tester.pumpAndSettle();
+    }
+    Future<void> choose(String field, String id) async {
+      final selector = find.byKey(Key('sendai-$field'));
+      await reveal(selector);
+      await tester.tap(selector);
+      await tester.pumpAndSettle();
+      final item = find.byKey(ValueKey('sendai-$field-item-$id'));
+      await tester.tap(item.last);
+      await tester.pumpAndSettle();
+    }
+    await choose('origin', 'sendai_subway:tozai/仙台');
+    await choose('destination', 'sendai_subway:tozai/荒井');
+    await choose('date', '2026-10-16');
+    await choose('pass', 'sendai_fureai_pass');
+    final accept = find.byKey(const Key('sendai-accept-transfer'));
+    await reveal(accept);
+    await tester.tap(accept);
+    await tester.pumpAndSettle();
+    final search = find.byKey(const Key('sendai-search'));
+    await reveal(search);
+    await tester.tap(search);
+    await tester.pumpAndSettle();
+    await reveal(find.byKey(const Key('sendai-test-error')));
+    expect(find.textContaining('HTTP 422'), findsOneWidget);
+    expect(find.textContaining('unsupported_review_scope'), findsOneWidget);
+    expect(routeCalls, 1);
+    expect(find.byKey(const Key('sendai-result')), findsNothing);
+  });
+
 }
