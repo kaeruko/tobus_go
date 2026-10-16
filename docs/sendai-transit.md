@@ -1,6 +1,6 @@
 # 仙台市営バス GTFS-JP / GTFS-Realtime
 
-Phase 7 (#137) では、名古屋で導入した共通 `TransitDataset -> TransitRouteEngine` を仙台市営バスへ再利用し、GTFS-Realtimeを共通 `RealtimeProvider` 境界へ追加する。
+Phase 7 (#137) では、共通 `TransitDataset -> TransitRouteEngine` を仙台市営バスへ再利用し、GTFS-Realtimeを共通 `RealtimeProvider` 境界へ追加する。
 
 ## 公式データ
 
@@ -79,9 +79,9 @@ Sendai runtimeはTokyoのgraph/timetable runtimeを初期化せず、`GtfsTransi
 
 ## 開発優先都市の変更（2026-10-15）
 
-新規開発は横浜から仙台へ切り替える。横浜の既存実装・データ・監査記録は保持する。
+現在は東京＝公開版、仙台＝開発版の2都市構成とする。
 仙台市営バス＋地下鉄とふれあい乗車証の独立実装・未認定範囲・解除条件は
 [仙台共通ネットワーク設計](sendai-shared-network-design.md) に記録する。
 現行runtimeと公開UIは従来の市営バス・通常運賃のまま。地下鉄を認定済みとして起動しない。
 
-2026-10-16更新: 仙台・名古屋・横浜の実行時検索は共通v2へ統一した。旧 `GtfsRouteBackend` 互換名と `ROUTE_SEARCH_CORE` によるv1選択は使用しない。残るPython/Rust v1実装は独立比較用であり、都市runtimeの代替経路ではない。地下鉄の分単位実用profile・有限運行日・到着目安の検証範囲は [共通ネットワーク設計第10節](sendai-shared-network-design.md#10-共通v2への統一旧実装の整理実用profileの実装2026-10-16) を参照。公開APIは既存の通常運賃バス入口を維持し、地下鉄/ふれあい選択の公開接続はまだ行わない。
+2026-10-16更新: 仙台の実行時検索は共通v2へ統一した。旧 `GtfsRouteBackend` 互換名と `ROUTE_SEARCH_CORE` によるv1選択は使用しない。旧Python/Rust v1探索・selectorは削除済みであり、別backendへ再試行しない。地下鉄の分単位実用profile・有限運行日・到着目安の検証範囲は [共通ネットワーク設計第10節](sendai-shared-network-design.md#10-共通v2への統一旧実装の整理実用profileの実装2026-10-16) を参照。公開APIは既存の通常運賃バス入口を維持し、地下鉄/ふれあい選択の公開接続はまだ行わない。

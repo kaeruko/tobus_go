@@ -35,14 +35,6 @@ def _source_id(value: str, *, feed_id: str, field: str) -> str:
 
 
 def _provider(app):
-    if getattr(app.state, "realtime_mode", None) == "disabled":
-        raise HTTPException(
-            503,
-            detail={
-                "code": "bus_realtime_unsupported",
-                "message": "Yokohama is running in explicit static timetable mode",
-            },
-        )
     provider = getattr(app.state, "realtime_provider", None)
     if provider is None:
         raise HTTPException(

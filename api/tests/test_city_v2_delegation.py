@@ -1,4 +1,4 @@
-"""Tokyo and unreleased cities share one expansion implementation; no v1 retry."""
+"""Tokyo and Sendai share one expansion implementation; no v1 retry."""
 from dataclasses import replace
 from pathlib import Path
 import ast
@@ -12,8 +12,6 @@ import transit_timetable_choices
 from transit_network_core import NetworkSearchCore
 from gtfs_route_backend import GtfsRouteEngine
 from sendai_transit import SendaiRouteBackend
-from nagoya_transit import NagoyaRouteBackend
-from yokohama_transit import YokohamaBusRouteBackend
 from tests.test_route_engine_contract import _dataset, _request
 from tests.test_sendai_practical import inputs, load, build, query
 
@@ -24,9 +22,8 @@ class CityV2DelegationTests(unittest.TestCase):
         self.assertIs(tokyo_search_labels._shared_search_labels,transit_search_labels.search_labels)
         self.assertIs(transit_timetable_choices.search_labels,transit_search_labels.search_labels)
 
-    def test_all_three_unreleased_bus_backends_use_network_v2_and_never_v1_factory(self):
-        for cls,feed in ((SendaiRouteBackend,'sendai_bus'),(NagoyaRouteBackend,'nagoya_bus'),
-                         (YokohamaBusRouteBackend,'yokohama_bus')):
+    def test_sendai_and_generic_bus_backends_delegate_to_v2_and_never_v1_factory(self):
+        for cls,feed in ((SendaiRouteBackend,'sendai_bus'),(GtfsRouteEngine,'fixture_bus')):
             with self.subTest(city=feed):
                 backend=cls(_dataset(feed),walk_radius_m=100)
                 self.assertIsInstance(backend.search_core,NetworkSearchCore)
@@ -73,8 +70,7 @@ class CityV2DelegationTests(unittest.TestCase):
         self.assertFalse(hasattr(gtfs_route_backend,'GtfsRouteBackend'))
         self.assertFalse(hasattr(transit_timetable_choices,'_LegacyPathRanks'))
         root=Path(__file__).resolve().parents[1]
-        for filename in ('sendai_transit.py','nagoya_transit.py','gtfs_route_backend.py',
-                         'yokohama_transit.py','yokohama_municipal_backend.py'):
+        for filename in ('sendai_transit.py','gtfs_route_backend.py'):
             tree=ast.parse((root/filename).read_text(encoding='utf-8'))
             imports=[node.module for node in ast.walk(tree) if isinstance(node,ast.ImportFrom)]
             self.assertNotIn('search_core_factory',imports)

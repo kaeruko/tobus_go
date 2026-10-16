@@ -1,7 +1,7 @@
 """Contract checks for reusable GTFS bus/rail search, distinct stop IDs.
 
 No cross-feed walking connections or fare approval are inferred here.
-Existing Tokyo runtime and Yokohama API routing remain unchanged.
+Existing city runtimes are not switched by these synthetic tests.
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 from gtfs_route_backend import GtfsRouteEngine
 from route_engine import GeoPoint, RouteInputError, RoutePreference, RouteSearchRequest
-from test_yokohama_municipal_transfer import _feed
+from tests.transit_gtfs_fixture import load_fixture_feed
 
 JST = ZoneInfo("Asia/Tokyo")
 
@@ -35,13 +35,13 @@ class ReusableGtfsBusRailBackendTests(unittest.TestCase):
         rail_dir = tempfile.TemporaryDirectory()
         self.addCleanup(bus_dir.cleanup)
         self.addCleanup(rail_dir.cleanup)
-        bus_coverage = _feed(Path(bus_dir.name), rail=False)
-        self.unfiltered_bus = bus_coverage.dataset
-        bus_reviewed = bus_coverage.municipal_free_coverage()
-        if bus_reviewed is None:
-            raise AssertionError("expected reviewed municipal bus trips")
-        self.bus = bus_reviewed.dataset
-        self.rail = _feed(Path(rail_dir.name), rail=True).dataset
+        self.unfiltered_bus = load_fixture_feed(Path(bus_dir.name), rail=False)
+        trips = {key: trip for key, trip in self.unfiltered_bus.trips.items()
+                 if trip.source_id != "EXPRESS"}
+        self.bus = replace(self.unfiltered_bus, trips=trips,
+                           stop_times=tuple(row for row in self.unfiltered_bus.stop_times
+                                            if row.trip_id in trips))
+        self.rail = load_fixture_feed(Path(rail_dir.name), rail=True)
 
     @staticmethod
     def _backend(dataset):
@@ -60,10 +60,10 @@ class ReusableGtfsBusRailBackendTests(unittest.TestCase):
         rides = [step for step in mapping["steps"] if step["kind"] in ("bus", "rail")]
         self.assertEqual(len(rides), 1)
         self.assertEqual(rides[0]["kind"], "rail")
-        self.assertEqual(rides[0]["route_id"], "yokohama_subway:BLUE")
-        self.assertEqual(rides[0]["trip_id"], "yokohama_subway:TRAIN1")
-        self.assertEqual(rides[0]["departureStopId"], "yokohama_subway:S")
-        self.assertEqual(rides[0]["arrivalPoleId"], "yokohama_subway:D")
+        self.assertEqual(rides[0]["route_id"], "fixture_subway:BLUE")
+        self.assertEqual(rides[0]["trip_id"], "fixture_subway:TRAIN1")
+        self.assertEqual(rides[0]["departureStopId"], "fixture_subway:S")
+        self.assertEqual(rides[0]["arrivalPoleId"], "fixture_subway:D")
         self.assertEqual(mapping["arrival_time"], "09:40")
         self.assertNotIn("fare_context", rides[0])  # never automatically 0 yen
 
@@ -79,7 +79,7 @@ class ReusableGtfsBusRailBackendTests(unittest.TestCase):
     def test_generic_search_requires_fare_scope_before_welfare_pass(self):
         # The raw GTFS contains a faster sightseeing service ("EXPRESS").
         # This engine must not pretend it is free. The caller filters the
-        # source trips via YokohamaFareCoverage BEFORE invoking SearchCore.
+        # source trips BEFORE invoking SearchCore; the fixture scope is explicit.
         result = self._backend(self.unfiltered_bus).search(
             _request((35.4700, 139.6200), (35.4650, 139.6250), 9, 0)
         )
@@ -87,7 +87,7 @@ class ReusableGtfsBusRailBackendTests(unittest.TestCase):
             s for s in result.candidates[0].to_mapping()["steps"]
             if s["kind"] == "bus"
         )
-        self.assertEqual(ride["trip_id"], "yokohama_bus:EXPRESS")
+        self.assertEqual(ride["trip_id"], "fixture_bus:EXPRESS")
         self.assertNotIn("fare_context", ride)
 
     def test_bus_backend_remains_bus_for_existing_pass_trip(self):
@@ -102,7 +102,7 @@ class ReusableGtfsBusRailBackendTests(unittest.TestCase):
             step for step in result.candidates[0].to_mapping()["steps"]
             if step["kind"] == "bus"
         )
-        self.assertEqual(ride["trip_id"], "yokohama_bus:BUS1")
+        self.assertEqual(ride["trip_id"], "fixture_bus:BUS1")
 
     def test_same_named_opposite_direction_poles_use_stop_ids_not_names(self):
         # No city-specific name normalization or numbered bay registry.
@@ -125,11 +125,11 @@ class ReusableGtfsBusRailBackendTests(unittest.TestCase):
         out_ride = next(step for step in outward.candidates[0].to_mapping()["steps"] if step["kind"] == "bus")
         in_ride = next(step for step in inbound.candidates[0].to_mapping()["steps"] if step["kind"] == "bus")
         self.assertEqual((out_ride["departureStopId"], out_ride["arrivalPoleId"]),
-                         ("yokohama_bus:O", "yokohama_bus:B"))
+                         ("fixture_bus:O", "fixture_bus:B"))
         self.assertEqual((in_ride["departureStopId"], in_ride["arrivalPoleId"]),
-                         ("yokohama_bus:B", "yokohama_bus:O"))
-        self.assertEqual(out_ride["trip_id"], "yokohama_bus:BUS1")
-        self.assertEqual(in_ride["trip_id"], "yokohama_bus:BUS2")
+                         ("fixture_bus:B", "fixture_bus:O"))
+        self.assertEqual(out_ride["trip_id"], "fixture_bus:BUS1")
+        self.assertEqual(in_ride["trip_id"], "fixture_bus:BUS2")
 
 
 if __name__ == "__main__":

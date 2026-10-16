@@ -30,8 +30,8 @@ class RouteFareScopeTest(unittest.TestCase):
 
         base.for_fare_policy = select
         request = object()
-        search_with_fare_scope(base, request, "yokohama_welfare_special_pass")
-        self.assertEqual(selected, ["yokohama_welfare_special_pass"])
+        search_with_fare_scope(base, request, "sendai_fureai_pass")
+        self.assertEqual(selected, ["sendai_fureai_pass"])
         self.assertEqual(scoped.requests, [request])
         self.assertEqual(base.requests, [])
 
@@ -50,7 +50,7 @@ class RouteFareScopeTest(unittest.TestCase):
 
         engine.for_fare_policy = select
         with self.assertRaises(RuntimeError) as caught:
-            search_with_fare_scope(engine, object(), "yokohama_welfare_special_pass")
+            search_with_fare_scope(engine, object(), "sendai_fureai_pass")
         self.assertIs(caught.exception, original)
         self.assertEqual(engine.requests, [])
 

@@ -54,8 +54,8 @@ class RouteOnlyPlacesTest(unittest.TestCase):
                     "suggestions": [
                         {
                             "placePrediction": {
-                                "placeId": "yokohama-station",
-                                "text": {"text": "横浜駅, 神奈川県横浜市"},
+                                "placeId": "fixture-station",
+                                "text": {"text": "出発駅, 例示県例示市"},
                             }
                         }
                     ]
@@ -67,7 +67,7 @@ class RouteOnlyPlacesTest(unittest.TestCase):
             patch("app.route_only_places.httpx.AsyncClient", return_value=fake),
             _client() as client,
         ):
-            response = client.get("/autocomplete", params={"q": "横浜駅"})
+            response = client.get("/autocomplete", params={"q": "出発駅"})
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
@@ -75,8 +75,8 @@ class RouteOnlyPlacesTest(unittest.TestCase):
             {
                 "predictions": [
                     {
-                        "place_id": "yokohama-station",
-                        "description": "横浜駅, 神奈川県横浜市",
+                        "place_id": "fixture-station",
+                        "description": "出発駅, 例示県例示市",
                     }
                 ]
             },
@@ -88,7 +88,7 @@ class RouteOnlyPlacesTest(unittest.TestCase):
         self.assertEqual(
             kwargs["json"],
             {
-                "input": "横浜駅",
+                "input": "出発駅",
                 "languageCode": "ja",
                 "regionCode": "JP",
                 "includedRegionCodes": ["JP"],
@@ -105,9 +105,9 @@ class RouteOnlyPlacesTest(unittest.TestCase):
             _response(
                 200,
                 {
-                    "id": "yokohama-station",
-                    "displayName": {"text": "横浜駅"},
-                    "formattedAddress": "神奈川県横浜市西区高島2丁目",
+                    "id": "fixture-station",
+                    "displayName": {"text": "出発駅"},
+                    "formattedAddress": "例示県例示市西区高島2丁目",
                     "location": {
                         "latitude": 35.465981,
                         "longitude": 139.622142,
@@ -120,15 +120,15 @@ class RouteOnlyPlacesTest(unittest.TestCase):
             patch("app.route_only_places.httpx.AsyncClient", return_value=fake),
             _client() as client,
         ):
-            response = client.get("/details", params={"place_id": "yokohama-station"})
+            response = client.get("/details", params={"place_id": "fixture-station"})
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.json(),
             {
                 "result": {
-                    "name": "横浜駅",
-                    "formatted_address": "神奈川県横浜市西区高島2丁目",
+                    "name": "出発駅",
+                    "formatted_address": "例示県例示市西区高島2丁目",
                     "geometry": {
                         "location": {
                             "lat": 35.465981,
@@ -143,7 +143,7 @@ class RouteOnlyPlacesTest(unittest.TestCase):
         self.assertEqual(method, "GET")
         self.assertEqual(
             url,
-            "https://places.googleapis.com/v1/places/yokohama-station",
+            "https://places.googleapis.com/v1/places/fixture-station",
         )
         self.assertEqual(
             kwargs["headers"]["X-Goog-FieldMask"],
@@ -158,7 +158,7 @@ class RouteOnlyPlacesTest(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("GOOGLE_MAPS_API_KEY", None)
             with _client() as client:
-                response = client.get("/autocomplete", params={"q": "横浜駅"})
+                response = client.get("/autocomplete", params={"q": "出発駅"})
 
         self.assertEqual(response.status_code, 500)
         self.assertEqual(
@@ -184,7 +184,7 @@ class RouteOnlyPlacesTest(unittest.TestCase):
             patch("app.route_only_places.httpx.AsyncClient", return_value=fake),
             _client() as client,
         ):
-            response = client.get("/autocomplete", params={"q": "横浜駅"})
+            response = client.get("/autocomplete", params={"q": "出発駅"})
 
         self.assertEqual(response.status_code, 502)
         detail = response.json()["detail"]
@@ -204,8 +204,8 @@ class RouteOnlyPlacesTest(unittest.TestCase):
                     "suggestions": [
                         {
                             "placePrediction": {
-                                "placeId": "yokohama-station",
-                                "text": {"text": "Yokohama Station"},
+                                "placeId": "fixture-station",
+                                "text": {"text": "Origin Station"},
                             }
                         }
                     ]
@@ -219,13 +219,13 @@ class RouteOnlyPlacesTest(unittest.TestCase):
         ):
             response = client.get(
                 "/autocomplete",
-                params={"q": "Yokohama Station", "lang": "en"},
+                params={"q": "Origin Station", "lang": "en"},
             )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.json()["predictions"][0]["description"],
-            "Yokohama Station",
+            "Origin Station",
         )
         self.assertEqual(fake.calls[0][2]["json"]["languageCode"], "en")
 
@@ -233,7 +233,7 @@ class RouteOnlyPlacesTest(unittest.TestCase):
         with _client() as client:
             response = client.get(
                 "/autocomplete",
-                params={"q": "Yokohama", "lang": "fr"},
+                params={"q": "Sendai", "lang": "fr"},
             )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(

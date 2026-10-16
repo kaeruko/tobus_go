@@ -25,15 +25,13 @@ from transit_timetable_choices import (
     DatasetTimetableChoices, NetworkRideEvent, NetworkSearchParameters,
     NetworkWalkEvent, search_network,
 )
-from yokohama_shared_network import build_shared_municipal_network, search_shared_municipal_network
 from transit_adapters import GtfsFeedSource, OdptCalendarRule, OdptFeedSource
-from tests.test_yokohama_municipal_transfer import _feed, JST
 
 
 # Source fixtures retained after retiring the independent experimental search.
 DAY = date(2026, 10, 14)
 META_TIME = datetime(2026, 10, 14, tzinfo=timezone.utc)
-OFFICIAL_FIXTURE_ONLY = "https://www.city.yokohama.lg.jp/fake-fixture-not-real"
+OFFICIAL_FIXTURE_ONLY = "https://www.city.sendai.jp/fake-fixture-not-real"
 
 
 def metadata(feed, kind, version="demo-v1"):
@@ -133,7 +131,7 @@ RIDES = frozenset(
 
 
 SERVICE_DAY = date(2026, 10, 14)
-FIXTURE_EVIDENCE = "https://www.city.yokohama.lg.jp/fake-fixture-not-real"
+FIXTURE_EVIDENCE = "https://www.city.sendai.jp/fake-fixture-not-real"
 
 
 def dataset(feed, trips, *, mode=TransitMode.BUS):
@@ -694,90 +692,3 @@ class TransitNetworkTest(unittest.TestCase):
         self.assertEqual(loaded.trips['odpt_fixture:t2'].source_pattern_title, 'Other terminal')
         with self.assertRaisesRegex(ValueError, 'duplicate ODPT bus pattern id'):
             replace(source, busroute_patterns=(second, second)).load()
-
-
-class YokohamaSharedNetworkTest(unittest.TestCase):
-    def setUp(self):
-        bus_dir, rail_dir = tempfile.TemporaryDirectory(), tempfile.TemporaryDirectory()
-        self.addCleanup(bus_dir.cleanup)
-        self.addCleanup(rail_dir.cleanup)
-        self.bus = _feed(Path(bus_dir.name), rail=False)
-        self.rail = _feed(Path(rail_dir.name), rail=True)
-        self.link = DirectedWalkLink(ReviewedWalkingLink(
-            "yokohama_bus:B", "yokohama_subway:S", 120, 3, FIXTURE_EVIDENCE, True),
-            "synthetic-v1", "synthetic-v1")
-
-    def context(self, policy, links=None, bus=None):
-        return build_shared_municipal_network(
-            self.bus if bus is None else bus, self.rail, policy_id=policy,
-            walking_links=(self.link,) if links is None else links, costs=NetworkCosts())
-
-    def search(self, context, origin="yokohama_bus:O", destination="yokohama_subway:D"):
-        with contextlib.redirect_stdout(io.StringIO()):
-            return search_shared_municipal_network(
-                context, origin, destination, service_date=SERVICE_DAY,
-                departure_minute=540, mode="time", parameters=NetworkSearchParameters())
-
-    def test_both_passes_match_existing_reviewed_handoff_and_exclude_faster_sightseeing(self):
-        for policy in ("yokohama_welfare_special_pass", "yokohama_senior_special_pass"):
-            with self.subTest(policy=policy):
-                context = self.context(policy)
-                result = self.search(context)[0]
-                self.assertEqual(result.arrival_minute, 580)
-                self.assertEqual([e.trip_id for e in result.events if isinstance(e, NetworkRideEvent)],
-                                 ["yokohama_bus:BUS1", "yokohama_subway:TRAIN1"])
-                self.assertNotIn("yokohama_bus:EXPRESS", context.snapshot.allowed_trip_ids)
-
-    def test_municipal_entry_uses_common_v2_cost_order_for_both_passes(self):
-        source = dataset('yokohama_bus', {
-            'a': [('o', 10, 10), ('x', 11, 11), ('m', 20, 20)],
-            'z': [('o', 10, 10), ('m', 20, 20)],
-            'next': [('m', 20, 20), ('d', 30, 30)],
-        })
-        coverage = replace(self.bus, dataset=source,
-                           route_service_kinds={'yokohama_bus:r': 'local'})
-        for policy in ('yokohama_welfare_special_pass', 'yokohama_senior_special_pass'):
-            context = self.context(policy, links=(), bus=coverage)
-            for mode in ('time', 'fewTransfers'):
-                with self.subTest(policy=policy, mode=mode), contextlib.redirect_stdout(io.StringIO()):
-                    result = search_shared_municipal_network(
-                        context, 'yokohama_bus:o', 'yokohama_bus:d', service_date=SERVICE_DAY,
-                        departure_minute=10, mode=mode,
-                        parameters=NetworkSearchParameters(max_candidates=1,
-                                                           few_transfers_tiebreak='arrival'))
-                    self.assertEqual(result[0].events[0].trip_id, 'yokohama_bus:z')
-    def test_reviewed_walk_candidate_limit_has_deterministic_rank(self):
-        context = self.context('yokohama_senior_special_pass')
-        def search(snapshot):
-            return query(snapshot, 'yokohama_bus:O', 'yokohama_subway:D', departure=540,
-                         mode='fewTransfers',
-                         few_transfers_tiebreak='arrival', max_candidates=3)
-        first = search(context.snapshot)
-        repeated = search(self.context('yokohama_senior_special_pass').snapshot)
-        self.assertEqual(first, repeated)
-        self.assertTrue(first)
-        self.assertTrue(all(any(isinstance(e, NetworkWalkEvent) for e in j.events) for j in first))
-        self.assertEqual([(j.rides, j.arrival_minute) for j in first],
-                         sorted((j.rides, j.arrival_minute) for j in first))
-
-    def test_reverse_direction_and_empty_review_are_not_implicitly_enabled(self):
-        policy = "yokohama_welfare_special_pass"
-        self.assertEqual(self.search(self.context(policy, links=())), ())
-        context = self.context(policy)
-        self.assertFalse(context.snapshot.graph.has_edge(
-            physical_node("yokohama_subway:S"), physical_node("yokohama_bus:B")))
-        self.assertEqual(self.search(context, "yokohama_subway:S", "yokohama_bus:O"), ())
-
-    def test_empty_trip_level_approval_does_not_revert_to_v1_route_approval(self):
-        bus = replace(self.bus, reviewed_free_trip_uris={})
-        context = self.context("yokohama_senior_special_pass", bus=bus)
-        self.assertFalse(any(t.startswith("yokohama_bus:") for t in context.snapshot.allowed_trip_ids))
-        self.assertEqual(self.search(context), ())
-
-    def test_mismatched_version_and_legacy_bidirectional_review_are_rejected(self):
-        with self.assertRaisesRegex(ValueError, "feed version mismatch"):
-            self.context("yokohama_welfare_special_pass", links=(replace(self.link, to_feed_version="old"),))
-        with self.assertRaisesRegex(ValueError, "version-pinned directed"):
-            self.context("yokohama_welfare_special_pass", links=(
-                {"bus_stop_id": "yokohama_bus:B", "subway_stop_id": "yokohama_subway:S"},))
-

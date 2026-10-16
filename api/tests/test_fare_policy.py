@@ -72,34 +72,13 @@ class FarePolicyTest(unittest.TestCase):
             "normal_fare_not_calculable_from_current_route_data",
         )
 
-    def test_nagoya_welfare_pass_is_city_scoped(self):
-        policy = get_fare_policy("nagoya", "nagoya_welfare_special_pass")
-        quote = policy.apply(
-            FarePolicyContext(
-                city_key="nagoya",
-                normal_fare_yen=420,
-                ride_modes=("bus", "bus"),
-            )
-        )
-        self.assertEqual(quote.pay_now_yen, 0)
-        self.assertEqual(quote.effective_fare_yen, 0)
-
-        with self.assertRaisesRegex(ValueError, "city mismatch"):
-            policy.apply(
-                FarePolicyContext(
-                    city_key="tokyo",
-                    normal_fare_yen=420,
-                    ride_modes=("bus",),
-                )
-            )
-
     def test_unknown_policy_fails_fast(self):
         with self.assertRaisesRegex(ValueError, "unsupported fare policy"):
-            get_fare_policy("nagoya", "tokyo_toei_transport_pass")
+            get_fare_policy("sendai", "tokyo_toei_transport_pass")
 
     def test_discount_settlement_is_supported_without_city_specific_logic(self):
         policy = PercentageDiscountFarePolicy(
-            city_key="nagoya",
+            city_key="sendai",
             policy_id="fixture_discount",
             display_name="fixture",
             numerator=1,
@@ -107,7 +86,7 @@ class FarePolicyTest(unittest.TestCase):
         )
         quote = policy.apply(
             FarePolicyContext(
-                city_key="nagoya",
+                city_key="sendai",
                 normal_fare_yen=420,
                 ride_modes=("bus",),
             )
@@ -118,14 +97,14 @@ class FarePolicyTest(unittest.TestCase):
 
     def test_reimbursement_keeps_pay_now_and_zeroes_effective_cost(self):
         policy = ReimbursementFarePolicy(
-            city_key="nagoya",
+            city_key="sendai",
             policy_id="fixture_reimbursement",
             display_name="fixture",
             source_uri="https://example.invalid/policy",
         )
         quote = policy.apply(
             FarePolicyContext(
-                city_key="nagoya",
+                city_key="sendai",
                 normal_fare_yen=300,
                 ride_modes=("rail",),
             )
@@ -135,9 +114,9 @@ class FarePolicyTest(unittest.TestCase):
         self.assertEqual(quote.effective_fare_yen, 0)
 
     def test_api_shape_uses_explicit_fare_names(self):
-        quote = get_fare_policy("nagoya", "normal").apply(
+        quote = get_fare_policy("sendai", "normal").apply(
             FarePolicyContext(
-                city_key="nagoya",
+                city_key="sendai",
                 normal_fare_yen=210,
                 ride_modes=("bus",),
             )

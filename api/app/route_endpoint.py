@@ -89,32 +89,6 @@ def _http_error(error: Exception) -> HTTPException:
     return HTTPException(500, detail=detail)
 
 
-def require_yokohama_free_route_quotes(payload: dict, policy_id: str) -> None:
-    """Do not return a paid or unverified route from pass-only search."""
-    candidates = payload.get("candidates")
-    if not isinstance(candidates, list):
-        raise RouteContractError("Yokohama route response lacks candidates")
-    for candidate in candidates:
-        if not isinstance(candidate, dict):
-            raise RouteContractError("Yokohama route candidate must be an object")
-        fare = candidate.get("fare")
-        if not isinstance(fare, dict):
-            raise RouteContractError("Yokohama route is missing verified fare quote")
-        if (
-            fare.get("policyId") != policy_id
-            or fare.get("status") != "available"
-            or fare.get("settlementType") != "free_pass"
-            or type(fare.get("payNowYen")) is not int
-            or fare["payNowYen"] != 0
-            or type(fare.get("effectiveFareYen")) is not int
-            or fare["effectiveFareYen"] != 0
-        ):
-            raise RouteContractError(
-                "Yokohama pass-only search produced an unverified or paid route: "
-                f"candidate={candidate.get('id')!r}, policy={policy_id!r}"
-            )
-
-
 def register_route_endpoint(
     app: Any,
     *,
@@ -137,14 +111,6 @@ def register_route_endpoint(
             )
 
         try:
-            city = getattr(app.state, "city_key", None)
-            if city == "yokohama" and request.fare_policy_id not in {
-                "yokohama_welfare_special_pass", "yokohama_senior_special_pass",
-            }:
-                raise RouteInputError(
-                    "Yokohama route search requires a selected fare_policy_id "
-                    "(welfare or senior pass)"
-                )
             policy_id = request.fare_policy_id if request.fare_policy_id is not None else "normal"
             domain_request = to_domain_request(request)
             loop = asyncio.get_running_loop()
@@ -169,8 +135,6 @@ def register_route_endpoint(
                     )
                 except ValueError as error:
                     raise RouteContractError(f"Scoped route fare context is invalid: {error}") from error
-                if city_key == "yokohama":
-                    require_yokohama_free_route_quotes(payload, policy_id)
             return payload
         except (
             RouteInputError,

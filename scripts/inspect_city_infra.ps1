@@ -8,16 +8,13 @@
   to another region/name.
 
 .EXAMPLE
-  .\scripts\inspect_city_infra.ps1 -City nagoya
-
-.EXAMPLE
   .\scripts\inspect_city_infra.ps1 -City sendai
 #>
 
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('nagoya', 'sendai')]
+    [ValidateSet('sendai')]
     [string]$City,
 
     [Parameter()]
@@ -49,11 +46,7 @@ if (-not (Get-Command aws -ErrorAction SilentlyContinue)) {
     throw 'Required command was not found: aws'
 }
 
-$expectedResourceName = switch ($City) {
-    'nagoya' { 'nagoyago-api' }
-    'sendai' { 'sendaigo-api' }
-    default { throw "Unsupported city: $City" }
-}
+$expectedResourceName = 'sendaigo-api'
 
 if ([string]::IsNullOrWhiteSpace($EcrRepository)) {
     $EcrRepository = $expectedResourceName
@@ -82,7 +75,7 @@ if ($null -eq $ecr -or [string]::IsNullOrWhiteSpace([string]$ecr.Name)) {
 $lambdaJson = aws lambda get-function-configuration `
     --region $Region `
     --function-name $LambdaFunction `
-    --query "{FunctionName:FunctionName,PackageType:PackageType,Architecture:Architectures[0],AppCity:Environment.Variables.APP_CITY,RouteSearchCore:Environment.Variables.ROUTE_SEARCH_CORE,HasGoogleMapsKey:contains(keys(Environment.Variables), 'GOOGLE_MAPS_API_KEY'),HasNagoyaGtfsDir:contains(keys(Environment.Variables), 'NAGOYA_GTFS_DIR'),HasNagoyaRevision:contains(keys(Environment.Variables), 'NAGOYA_GTFS_EXPECTED_REVISION'),HasNagoyaBundleBucket:contains(keys(Environment.Variables), 'NAGOYA_GTFS_BUNDLE_S3_BUCKET'),HasNagoyaBundleKey:contains(keys(Environment.Variables), 'NAGOYA_GTFS_BUNDLE_S3_KEY'),HasNagoyaBundleSha:contains(keys(Environment.Variables), 'NAGOYA_GTFS_BUNDLE_SHA256'),HasSendaiGtfsDir:contains(keys(Environment.Variables), 'SENDAI_GTFS_DIR'),HasSendaiServiceDate:contains(keys(Environment.Variables), 'SENDAI_GTFS_EXPECTED_SERVICE_DATE'),HasSendaiBundleBucket:contains(keys(Environment.Variables), 'SENDAI_GTFS_BUNDLE_S3_BUCKET'),HasSendaiBundleKey:contains(keys(Environment.Variables), 'SENDAI_GTFS_BUNDLE_S3_KEY'),HasSendaiBundleSha:contains(keys(Environment.Variables), 'SENDAI_GTFS_BUNDLE_SHA256')}" `
+    --query "{FunctionName:FunctionName,PackageType:PackageType,Architecture:Architectures[0],AppCity:Environment.Variables.APP_CITY,RouteSearchCore:Environment.Variables.ROUTE_SEARCH_CORE,HasGoogleMapsKey:contains(keys(Environment.Variables), 'GOOGLE_MAPS_API_KEY'),HasSendaiGtfsDir:contains(keys(Environment.Variables), 'SENDAI_GTFS_DIR'),HasSendaiServiceDate:contains(keys(Environment.Variables), 'SENDAI_GTFS_EXPECTED_SERVICE_DATE'),HasSendaiBundleBucket:contains(keys(Environment.Variables), 'SENDAI_GTFS_BUNDLE_S3_BUCKET'),HasSendaiBundleKey:contains(keys(Environment.Variables), 'SENDAI_GTFS_BUNDLE_S3_KEY'),HasSendaiBundleSha:contains(keys(Environment.Variables), 'SENDAI_GTFS_BUNDLE_SHA256')}" `
     --output json
 Assert-LastExitCode 'aws lambda get-function-configuration'
 $lambda = $lambdaJson | ConvertFrom-Json
@@ -100,49 +93,25 @@ if (-not $lambda.HasGoogleMapsKey) {
     throw "Lambda is missing GOOGLE_MAPS_API_KEY: $LambdaFunction"
 }
 
-$routeSearchCore = if ([string]::IsNullOrWhiteSpace([string]$lambda.RouteSearchCore)) {
-    'python'
+if (-not [string]::IsNullOrWhiteSpace([string]$lambda.RouteSearchCore)) {
+    throw 'ROUTE_SEARCH_CORE is obsolete for shared v2; remove it explicitly before deployment.'
 }
-else {
-    [string]$lambda.RouteSearchCore
-}
-if (@('python', 'rust', 'shadow') -notcontains $routeSearchCore) {
-    throw "Lambda ROUTE_SEARCH_CORE is invalid: '$routeSearchCore'"
-}
+$routeSearchCore = 'shared-v2'
 
-if ($City -eq 'nagoya') {
-    if (-not $lambda.HasNagoyaGtfsDir) {
-        throw "Nagoya Lambda is missing NAGOYA_GTFS_DIR: $LambdaFunction"
-    }
-    if (-not $lambda.HasNagoyaRevision) {
-        throw "Nagoya Lambda is missing NAGOYA_GTFS_EXPECTED_REVISION: $LambdaFunction"
-    }
-    if (-not $lambda.HasNagoyaBundleBucket) {
-        throw "Nagoya Lambda is missing NAGOYA_GTFS_BUNDLE_S3_BUCKET: $LambdaFunction"
-    }
-    if (-not $lambda.HasNagoyaBundleKey) {
-        throw "Nagoya Lambda is missing NAGOYA_GTFS_BUNDLE_S3_KEY: $LambdaFunction"
-    }
-    if (-not $lambda.HasNagoyaBundleSha) {
-        throw "Nagoya Lambda is missing NAGOYA_GTFS_BUNDLE_SHA256: $LambdaFunction"
-    }
+if (-not $lambda.HasSendaiGtfsDir) {
+    throw "Sendai Lambda is missing SENDAI_GTFS_DIR: $LambdaFunction"
 }
-elseif ($City -eq 'sendai') {
-    if (-not $lambda.HasSendaiGtfsDir) {
-        throw "Sendai Lambda is missing SENDAI_GTFS_DIR: $LambdaFunction"
-    }
-    if (-not $lambda.HasSendaiServiceDate) {
-        throw "Sendai Lambda is missing SENDAI_GTFS_EXPECTED_SERVICE_DATE: $LambdaFunction"
-    }
-    if (-not $lambda.HasSendaiBundleBucket) {
-        throw "Sendai Lambda is missing SENDAI_GTFS_BUNDLE_S3_BUCKET: $LambdaFunction"
-    }
-    if (-not $lambda.HasSendaiBundleKey) {
-        throw "Sendai Lambda is missing SENDAI_GTFS_BUNDLE_S3_KEY: $LambdaFunction"
-    }
-    if (-not $lambda.HasSendaiBundleSha) {
-        throw "Sendai Lambda is missing SENDAI_GTFS_BUNDLE_SHA256: $LambdaFunction"
-    }
+if (-not $lambda.HasSendaiServiceDate) {
+    throw "Sendai Lambda is missing SENDAI_GTFS_EXPECTED_SERVICE_DATE: $LambdaFunction"
+}
+if (-not $lambda.HasSendaiBundleBucket) {
+    throw "Sendai Lambda is missing SENDAI_GTFS_BUNDLE_S3_BUCKET: $LambdaFunction"
+}
+if (-not $lambda.HasSendaiBundleKey) {
+    throw "Sendai Lambda is missing SENDAI_GTFS_BUNDLE_S3_KEY: $LambdaFunction"
+}
+if (-not $lambda.HasSendaiBundleSha) {
+    throw "Sendai Lambda is missing SENDAI_GTFS_BUNDLE_SHA256: $LambdaFunction"
 }
 
 Write-Host 'AWS city infrastructure preflight: core resources OK'

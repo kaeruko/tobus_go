@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Create the first production AWS backend for Nagoya or Sendai.
+  Create the first production AWS backend for Sendai.
 
 .DESCRIPTION
   This is a one-time bootstrap for a city that does not already have its own
@@ -29,12 +29,6 @@
 
 .EXAMPLE
   .\scripts\bootstrap_city_api.ps1 `
-    -City nagoya `
-    -GtfsDir C:\data\nagoya\2026-03-28 `
-    -ExpectedDataVersion 2026-03-28
-
-.EXAMPLE
-  .\scripts\bootstrap_city_api.ps1 `
     -City sendai `
     -GtfsDir C:\data\sendai\2026-08-22 `
     -ExpectedDataVersion 2026-08-22
@@ -43,7 +37,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('nagoya', 'sendai')]
+    [ValidateSet('sendai')]
     [string]$City,
 
     [Parameter(Mandatory = $true)]
@@ -69,10 +63,6 @@ param(
     [Parameter()]
     [ValidateRange(512, 10240)]
     [int]$EphemeralStorageMb = 1024,
-
-    [Parameter()]
-    [ValidateSet('python', 'rust', 'shadow')]
-    [string]$RouteSearchCore = 'python',
 
     [Parameter()]
     [ValidateNotNullOrEmpty()]
@@ -188,11 +178,7 @@ if (-not (Test-Path -LiteralPath $resolvedGtfsDir -PathType Container)) {
     throw "GTFS directory was not found: $resolvedGtfsDir"
 }
 
-$manifestFileName = switch ($City) {
-    'nagoya' { 'nagoya_gtfs_manifest.json' }
-    'sendai' { 'sendai_gtfs_manifest.json' }
-    default { throw "Unsupported city: $City" }
-}
+$manifestFileName = 'sendai_gtfs_manifest.json'
 $manifestPath = Join-Path $resolvedGtfsDir $manifestFileName
 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
     throw "Validated GTFS directory is missing ${manifestFileName}: $resolvedGtfsDir"
@@ -211,25 +197,17 @@ if (
 }
 
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-if ($City -eq 'nagoya') {
-    $installedVersion = [string]$manifest.revision
-    if ($installedVersion -cne $ExpectedDataVersion) {
-        throw "Nagoya manifest revision mismatch. Expected=$ExpectedDataVersion Installed='$installedVersion'"
-    }
+$installedVersion = [string]$manifest.validated_service_date
+if ($installedVersion -cne $ExpectedDataVersion) {
+    throw "Sendai manifest service-date mismatch. Expected=$ExpectedDataVersion Installed='$installedVersion'"
 }
-else {
-    $installedVersion = [string]$manifest.validated_service_date
-    if ($installedVersion -cne $ExpectedDataVersion) {
-        throw "Sendai manifest service-date mismatch. Expected=$ExpectedDataVersion Installed='$installedVersion'"
-    }
-    $validFrom = [string]$manifest.valid_from
-    $validUntil = [string]$manifest.valid_until
-    if ([string]::IsNullOrWhiteSpace($validFrom) -or [string]::IsNullOrWhiteSpace($validUntil)) {
-        throw 'Sendai manifest is missing valid_from or valid_until.'
-    }
-    if ($ExpectedDataVersion -lt $validFrom -or $ExpectedDataVersion -gt $validUntil) {
-        throw "Sendai expected service date is outside manifest coverage. Date=$ExpectedDataVersion Coverage=$validFrom..$validUntil"
-    }
+$validFrom = [string]$manifest.valid_from
+$validUntil = [string]$manifest.valid_until
+if ([string]::IsNullOrWhiteSpace($validFrom) -or [string]::IsNullOrWhiteSpace($validUntil)) {
+    throw 'Sendai manifest is missing valid_from or valid_until.'
+}
+if ($ExpectedDataVersion -lt $validFrom -or $ExpectedDataVersion -gt $validUntil) {
+    throw "Sendai expected service date is outside manifest coverage. Date=$ExpectedDataVersion Coverage=$validFrom..$validUntil"
 }
 
 $googleMapsKey = Get-GoogleMapsKeyFromEnvironment
@@ -401,22 +379,12 @@ try {
     $variables = @{
         APP_CITY = $City
         GOOGLE_MAPS_API_KEY = $googleMapsKey
-        ROUTE_SEARCH_CORE = $RouteSearchCore
     }
-    if ($City -eq 'nagoya') {
-        $variables['NAGOYA_GTFS_DIR'] = '/tmp/gtfs/nagoya'
-        $variables['NAGOYA_GTFS_EXPECTED_REVISION'] = $ExpectedDataVersion
-        $variables['NAGOYA_GTFS_BUNDLE_S3_BUCKET'] = $gtfsBucket
-        $variables['NAGOYA_GTFS_BUNDLE_S3_KEY'] = $bundleKey
-        $variables['NAGOYA_GTFS_BUNDLE_SHA256'] = $bundleSha256
-    }
-    else {
-        $variables['SENDAI_GTFS_DIR'] = '/tmp/gtfs/sendai'
-        $variables['SENDAI_GTFS_EXPECTED_SERVICE_DATE'] = $ExpectedDataVersion
-        $variables['SENDAI_GTFS_BUNDLE_S3_BUCKET'] = $gtfsBucket
-        $variables['SENDAI_GTFS_BUNDLE_S3_KEY'] = $bundleKey
-        $variables['SENDAI_GTFS_BUNDLE_SHA256'] = $bundleSha256
-    }
+    $variables['SENDAI_GTFS_DIR'] = '/tmp/gtfs/sendai'
+    $variables['SENDAI_GTFS_EXPECTED_SERVICE_DATE'] = $ExpectedDataVersion
+    $variables['SENDAI_GTFS_BUNDLE_S3_BUCKET'] = $gtfsBucket
+    $variables['SENDAI_GTFS_BUNDLE_S3_KEY'] = $bundleKey
+    $variables['SENDAI_GTFS_BUNDLE_SHA256'] = $bundleSha256
 
     $environmentPayload = @{ Variables = $variables } | ConvertTo-Json -Depth 6 -Compress
     [System.IO.File]::WriteAllText(

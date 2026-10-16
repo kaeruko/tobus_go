@@ -51,14 +51,14 @@ def _write_feed(
 class GtfsMultiFeedTest(unittest.TestCase):
     def test_repositories_are_normal_independent_instances(self):
         tokyo = GtfsRepository("toei_bus_test")
-        nagoya = GtfsRepository("nagoya_bus_test")
+        sendai = GtfsRepository("sendai_bus_test")
 
-        self.assertIsNot(tokyo, nagoya)
+        self.assertIsNot(tokyo, sendai)
         self.assertEqual(tokyo.feed_id, "toei_bus_test")
-        self.assertEqual(nagoya.feed_id, "nagoya_bus_test")
+        self.assertEqual(sendai.feed_id, "sendai_bus_test")
 
     def test_same_raw_ids_do_not_collide_between_feeds(self):
-        with tempfile.TemporaryDirectory() as tokyo_dir, tempfile.TemporaryDirectory() as nagoya_dir:
+        with tempfile.TemporaryDirectory() as tokyo_dir, tempfile.TemporaryDirectory() as sendai_dir:
             _write_feed(
                 tokyo_dir,
                 route_name="上２３",
@@ -66,30 +66,30 @@ class GtfsMultiFeedTest(unittest.TestCase):
                 destination_name="社会福祉会館前",
             )
             _write_feed(
-                nagoya_dir,
-                route_name="名駅1",
-                origin_name="名古屋駅",
+                sendai_dir,
+                route_name="市営1",
+                origin_name="仙台駅",
                 destination_name="栄",
             )
 
             registry = GtfsFeedRegistry()
             tokyo = registry.load("toei_bus", tokyo_dir)
-            nagoya = registry.load("nagoya_bus", nagoya_dir)
+            sendai = registry.load("sendai_bus", sendai_dir)
 
-            self.assertEqual(registry.feed_ids(), ("toei_bus", "nagoya_bus"))
+            self.assertEqual(registry.feed_ids(), ("toei_bus", "sendai_bus"))
             self.assertEqual(tokyo.routes["R1"]["route_short_name"], "上２３")
-            self.assertEqual(nagoya.routes["R1"]["route_short_name"], "名駅1")
+            self.assertEqual(sendai.routes["R1"]["route_short_name"], "市営1")
             self.assertEqual(tokyo.stops["S1"]["name"], "平井七丁目")
-            self.assertEqual(nagoya.stops["S1"]["name"], "名古屋駅")
+            self.assertEqual(sendai.stops["S1"]["name"], "仙台駅")
             self.assertEqual(tokyo.find_route_id_by_name("上23"), "R1")
-            self.assertEqual(nagoya.find_route_id_by_name("名駅1"), "R1")
+            self.assertEqual(sendai.find_route_id_by_name("市営1"), "R1")
             self.assertEqual(tokyo.qualified_id("R1"), "toei_bus:R1")
-            self.assertEqual(nagoya.qualified_id("R1"), "nagoya_bus:R1")
+            self.assertEqual(sendai.qualified_id("R1"), "sendai_bus:R1")
 
     def test_loading_one_feed_does_not_block_another(self):
         with tempfile.TemporaryDirectory() as first_dir, tempfile.TemporaryDirectory() as second_dir:
             _write_feed(first_dir, route_name="東京", origin_name="A", destination_name="B")
-            _write_feed(second_dir, route_name="名古屋", origin_name="C", destination_name="D")
+            _write_feed(second_dir, route_name="別feed", origin_name="C", destination_name="D")
 
             registry = GtfsFeedRegistry()
             first = registry.load("first", first_dir)
