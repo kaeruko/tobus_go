@@ -14,6 +14,7 @@ Future<void> _reveal(WidgetTester tester, Finder input) async {
 }
 
 Future<void> _select(WidgetTester tester, String field, String value) async {
+  debugPrint('SENDAI_NOV_UI selecting $field=$value');
   final input = find.byKey(Key('sendai-$field'));
   await _reveal(tester, input);
   await tester.tap(input);
@@ -28,14 +29,16 @@ Future<void> _select(WidgetTester tester, String field, String value) async {
     of: menu,
     matching: find.byKey(ValueKey('sendai-$field-item-$value')),
   );
-  await tester.scrollUntilVisible(item, 220, scrollable: menu);
+  await tester.scrollUntilVisible(item, 64, maxScrolls: 160, scrollable: menu);
   await tester.tap(item);
   await tester.pumpAndSettle();
+  debugPrint('SENDAI_NOV_UI selected $field=$value');
 }
 
 Future<void> _query(WidgetTester tester, {required String origin,
     required String destination, required String day, required String time,
     String? arrival, required bool izumiTransfer}) async {
+  debugPrint('SENDAI_NOV_UI query $origin -> $destination $day $time');
   await _select(tester, 'date', day);
   await _select(tester, 'origin', origin);
   await _select(tester, 'destination', destination);
@@ -49,6 +52,7 @@ Future<void> _query(WidgetTester tester, {required String origin,
   await _reveal(tester, button);
   await tester.tap(button);
   await tester.pumpAndSettle();
+  debugPrint('SENDAI_NOV_UI search returned for $day $origin');
   final result = find.byKey(const Key('sendai-result'));
   await _reveal(tester, result);
   final rendered = tester.widgetList<Text>(find.descendant(of: result,
