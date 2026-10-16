@@ -62,7 +62,7 @@ def materialize_city_gtfs_bundle(
     manifest_filename: str,
     s3_client: Any | None = None,
 ) -> Path:
-    if city not in {"nagoya", "sendai"}:
+    if city != "sendai":
         raise ValueError(f"Unsupported city GTFS bundle: {city!r}")
     if not manifest_filename or Path(manifest_filename).name != manifest_filename:
         raise ValueError("manifest_filename must be one file name")

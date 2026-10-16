@@ -57,7 +57,6 @@ void main() {
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
 
     expect(localizedCityAppName(l10n, AppCity.tokyo), 'Toei GO');
-    expect(localizedCityAppName(l10n, AppCity.nagoya), 'Nagoya GO');
     expect(l10n.tabSearch, 'Search');
     expect(l10n.departureSearch, 'From');
     expect(l10n.arrivalSearch, 'To');

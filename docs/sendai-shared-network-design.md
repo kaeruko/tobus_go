@@ -4,17 +4,17 @@
 
 2026-10-16の共通v2への統一・旧実装削除・実用profileの実装状況は第10節を参照。本節〜第9節の「現状」「未実装」は各記録時点の状態である。
 
-開始時mainは `f1900123d03fb0947c52c20aadc07dcbab32a4c5`。次の新規開発は横浜から仙台へ切り替える。横浜の既存コード・データ・監査履歴、既存ファイル名・ディレクトリ名・アプリIDは保持する。本番デプロイ・S3変更・ストア提出は行わない。
+開始時mainは `f1900123d03fb0947c52c20aadc07dcbab32a4c5`。2026-10-16の2都市整理後は東京＝公開版、仙台＝開発版。共通入力契約・東京監査履歴は [共通設計](shared-network-design.md) に移設した。仙台のアプリID、データ、原資料、独立oracleと検証資産を保持し、本番デプロイ・S3変更・ストア提出は行わない。
 
 - `api/sendai_transit.py`: ODPT公式市営バスGTFS-JPの取得・明示日付のmanifest検証。`SendaiRouteBackend` はこのバスfeedだけを受け入れる。
 - `api/app/sendai_runtime.py`: 既存のバスbackendとバスRT3種を起動する。新しい地下鉄は選択しない。
-- `api/gtfs_route_backend.py`: 汎用Dataset検索を利用するが、異なるfeed間のレビュー済み徒歩接続を扱う新しい都市wrapperではない。ここへ横浜固有条件を追加しない。
+- `api/gtfs_route_backend.py`: 汎用Dataset検索を利用するが、異なるfeed間のレビュー済み徒歩接続を扱う新しい都市wrapperではない。ここへ都市固有の運賃条件を追加しない。
 - `api/fare_policy.py`: 仙台の公開選択肢・既定値は `normal` のみ。通常運賃が不明なら不明のまま保持し、0円へ置き換えない。
 - `lib/core/city_profile.dart`: 仙台も `normal` のみ。アプリIDは `jp.cloxs.go.sendai`。Issue #148記載の別表記へ改名しない。
 - [Issue #148](https://github.com/kaeruko/tobus_go/issues/148): 本番環境・承認済みバスデータ・端末/ストアの作業。今回の実装をデプロイ承認や完了と扱わない。
 - [Issue #171](https://github.com/kaeruko/tobus_go/issues/171): 市営バスとRTは既存対応、地下鉄CSVは2023年基準で条件付き、宮城交通データは未確認。今回も宮城交通は未対応とする。
 
-再利用するのは `TransitDataset`、`transit_network.build_transit_network`、`transit_timetable_choices.search_network`、`ReviewedWalkingLink`。横浜wrapper・運賃対象条件・順位互換規則はimportしない。探索・枝刈り・guard・候補順位の処理は変更しない。歩行根拠URLのvalidatorに仙台市の公式3ホストだけを追加し、既存の他都市条件を保持する。
+再利用するのは `TransitDataset`、`transit_network.build_transit_network`、`transit_timetable_choices.search_network`、`ReviewedWalkingLink`。都市固有wrapper・他制度の運賃条件・旧順位互換規則はimportしない。探索・枝刈り・guard・候補順位の処理は変更しない。歩行根拠URLのvalidatorに仙台市の公式3ホストだけを追加し、既存の他都市条件を保持する。
 
 ## 2. 公式データ調査と認定の限界
 
@@ -66,7 +66,7 @@
 
 許可便集合を `build_transit_network` に渡してから検索するため、対象外の安い/速い経路を検索後だけで除く方式ではない。徒歩は向き・正確なstop ID・両feed版・測定距離・所要時間・駅構内動線を確認した `DirectedWalkLink` だけを使う。近接、同じ駅名、同じ座標からリンクを作らない。逆方向は独立にレビューする。
 
-検索は既存共通coreの `time` と明示した `NetworkSearchParameters` を使う独立opt-in。既存coreの明示ゼロ下界baselineをそのまま使い、新しいA*を導入しない。エラー時のゼロ下界への切替ではない。静的時刻表のみでRealtime指定は拒否する。順位は既存共通coreのtime/同着cost規則で、横浜v1互換の順位を持ち込まない。既存仙台runtimeや東京をこの実装へ切り替えない。
+検索は既存共通coreの `time` と明示した `NetworkSearchParameters` を使う独立opt-in。既存coreの明示ゼロ下界baselineをそのまま使い、新しいA*を導入しない。エラー時のゼロ下界への切替ではない。静的時刻表のみでRealtime指定は拒否する。順位は既存共通coreのtime/同着cost規則で、旧v1互換の順位を持ち込まない。既存仙台runtimeや東京をこの実装へ切り替えない。
 
 今回の入口はstop IDを指定する独立検証用ライブラリである。公開APIの座標入力・起終点の徒歩・既存候補形式へのserializer・`for_fare_policy` 接続・アプリのパス選択は未実装/未接続。Policyの `quote` は確認済みnetworkの具体便eventを要求し、既存の端点だけのFarePolicyContextから無料を推測しない。実データゲート合格後に、これらを別途実装・検証する必要がある。認定flagを反転するだけで本番起動できる状態とは扱わない。
 
@@ -105,7 +105,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Sendai source inspection failed' }
 
 取得スクリプトは保存済み公式37入力の再生でも確認し、出力先の上書き拒否と、取得例外をそのまま伝播して完了manifestを残さないことを確認した。この再生を追加の現行ダイヤ認定として数えない。
 
-以上は独立opt-in実装・入力検査・合成固定queryの回帰結果であり、実バス＋地下鉄OD、民生日付跨ぎ、駅構内動線、通常運賃の正確性、真のtop-k、仙台全queryの正当性は未認定のまま。追加資料と実データゲートが必要。公開UI/API・本番切替・デプロイ・S3・ストア提出は実施していない。横浜の既存実装/データ/監査記録を保持し、合格済み東京/バスの実データ監査と36ケース比較は再実行していない。
+以上は独立opt-in実装・入力検査・合成固定queryの回帰結果であり、実バス＋地下鉄OD、民生日付跨ぎ、駅構内動線、通常運賃の正確性、真のtop-k、仙台全queryの正当性は未認定のまま。追加資料と実データゲートが必要。公開UI/API・本番切替・デプロイ・S3・ストア提出は実施していない。合格済み東京/バスの実データ監査と36ケース比較は再実行していない。
 
 ## 8. 到着時計・運行日・実歩行時間の追加調査と停止（2026-10-16 JST）
 
@@ -239,9 +239,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Sendai source inspection failed' }
 
 開始時及び実装前確認のmainは `836ac54b7f340ba6d5cb0f50666a870c01731ec5`。ユーザーの追加指示により、未公開都市の旧方式との互換維持を目的とした二重経路を廃止した。削除対象と参照元を先に会話で一覧提示し、参照を更新してから削除した。東京の公開runtime・API・順位・設定と、`transit_search_labels.py` の探索・dominance・枝刈り・guard処理は変更していない。
 
-仙台・名古屋・横浜のバス入口は `TransitDataset -> build_transit_network -> search_network -> transit_search_labels.search_labels` へ統一した。既存ファイル名・都市backend名は保持し、feed検証・座標入力・結果直列化だけを接続層に残す。`transit_network_core.py` のendpoint組合せ処理は共通接続層であり、別の時刻表探索ループ・frontier・枝刈りではない。各組合せの検索は同じv2へ委譲し、batch全体の時間予算を減算して次の呼出しに渡す。別backendへの再試行はない。最早1件の範囲で検証し、真のtop-kを認定しない。
+仙台のバス入口は `TransitDataset -> build_transit_network -> search_network -> transit_search_labels.search_labels` へ統一した。既存ファイル名・都市backend名は保持し、feed検証・座標入力・結果直列化だけを接続層に残す。`transit_network_core.py` のendpoint組合せ処理は共通接続層であり、別の時刻表探索ループ・frontier・枝刈りではない。各組合せの検索は同じv2へ委譲し、batch全体の時間予算を減算して次の呼出しに渡す。別backendへの再試行はない。最早1件の範囲で検証し、真のtop-kを認定しない。
 
-東京は `toei_engine._tokyo_label_search -> tokyo_search_labels.search_labels -> transit_search_labels.search_labels` という既存接続を保持する。新しい委譲テストは東京接続層の `_shared_search_labels` とDataset接続層の関数同一性を確認し、仙台・名古屋・横浜の実呼出し及び元例外の伝播も検査する。東京固有の仮想目的地・下界・時計・RTを共通入力層へ移していない。
+東京は `toei_engine._tokyo_label_search -> tokyo_search_labels.search_labels -> transit_search_labels.search_labels` という既存接続を保持する。新しい委譲テストは東京接続層の `_shared_search_labels` とDataset接続層の関数同一性を確認し、仙台の実呼出し及び元例外の伝播も検査する。東京固有の仮想目的地・下界・時計・RTを共通入力層へ移していない。
 
 ### 10.2 削除したファイル・機能と残した依存
 
@@ -249,16 +249,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Sendai source inspection failed' }
 | --- | --- | --- |
 | `api/transit_network_experiment.py` | 専用実験テスト | 独立した複数feed探索ループを削除。共通v2で代替 |
 | `api/tests/test_transit_network_experiment.py` | `test_transit_network.py` が入力fixtureを参照 | 実験本体専用テストを削除。必要なGTFS/ODPT原入力fixtureだけを既存 `test_transit_network.py` 内へ保持 |
-| `api/yokohama_municipal_transfer.py` | municipal backend、shared wrapper、旧移動テスト、実データ読取検証器 | 旧2段探索・幾何推定・暗黙の双方向形式を削除。必要な無料coverage検査は `yokohama_shared_network.py`、独立した原GTFS照合は既存acceptance検証器へ保持 |
-| `api/tests/test_yokohama_geometric_transfer.py` | 旧幾何推定実験 | 廃止した推定経路探索だけを対象とするテストを削除。近接候補の読み取り専用調査・未承認表示は別途保持 |
-| `GtfsRouteBackend` 互換class、`.engine` 互換属性、座標keywordの旧search入口 | 仙台・横浜backendと関連テスト | `GtfsRouteEngine` の単一typed request入口に統一。旧v1 factoryを呼ばない。未公開都市APIの入力型を分けて既定をtimeにし、東京のcost既定は保持 |
-| 名古屋独自検索・直列化・距離/時計helper、旧cost→fewTransfers対応 | 名古屋runtime・旧互換テスト | 共通接続層に統合。未公開都市でTokyo comfort/costをfewTransfersに読み替えず明示拒否 |
-| `_LegacyPathRanks` / `v1_path` 選択と旧順位専用回帰 | 横浜shared wrapper、共通ネットワークの旧順位比較 | 未公開都市の旧候補順位を再現するための処理を削除。共通v2の通常規則を使用 |
-| 横浜municipal backendの別feed検索結果結合・独自順位・`estimate_dev` | 横浜runtime・旧実験テスト | 同じ共通グラフのv2検索に置換。旧設定は理由付きで拒否し、暗黙にreviewedへ変更しない |
 
-削除後の横浜runtimeが読む徒歩レビューはschema v2の方向別 `ReviewedWalkingLink` とfeed版を要求する。旧schema v1・双方向レコードから自動変換しない。各方向の根拠が無ければその接続は無い。実データacceptance検証器も同じ方向別入力に更新したが、既存の合格済み実データ監査は再実行していない。過去の横浜認定記録を新実装の合格へ読み替えない。
-
-保持したもの：各都市のGTFS取得/manifest/公式データ照合、Realtime配信、無料coverage、共通v2、東京の接続・証明・回帰、`transit_transfer_candidates.py` と読取専用の徒歩候補調査。`transit_engine.py` の共通DTOとPython参照探索、`search_core_factory.py`、Rust参照実装・golden/parity資料は独立比較の証拠として残す。都市runtimeからv1 factoryへの参照は削除し、旧 `ROUTE_SEARCH_CORE` 設定を共通v2都市backendに渡すと停止する。参照用Python/Rustをruntimeのfallbackには使わない。`test_yokohama_municipal_transfer.py` は他の現役テストが利用する原入力fixtureのためファイル名を維持し、旧探索専用のclassは削除した。
+保持したもの：仙台のGTFS取得/manifest/公式データ照合、Realtime配信、無料scope、共通v2、東京の接続・証明・回帰、`transit_transfer_candidates.py` と読取専用の徒歩候補調査。旧Python/Rust v1本体・selectorは第11節の作業で削除済み。共通GTFS原入力fixtureは2都市整理時に `tests/transit_gtfs_fixture.py` へ移し、都市Policyへの依存を除いた。
 
 ### 10.3 実用Adapter・型・標準乗換
 
@@ -319,7 +311,7 @@ Repository safety、Python/Rust参照coreの3.11・3.12 parity/format/clippy、L
 
 ### 11.1 開始mainと公式バスデータ
 
-変更前mainは `aaccd9bfbaa276c5e5c13f998b5111989364b292`（第10節の最終記録）。作業開始時のDart別差分は保持し対象外とした。承認済み仙台bundle/manifest・ODPTキーはアクセス可能な環境に無かった。過去ZIP・横浜データ・別事業者へfallbackせず、[公式公開告知](https://www.kotsu.city.sendai.jp/bus_news/gtfs-jp_gtfs_data/)が示す[ODPTカタログの20261006リソース](https://ckan.odpt.org/dataset/sendai_municipal_bus_realtime_information/resource/d4aac294-ea89-4c00-b655-af5ffc3fb0f6)を確認した。原HTMLにはキー不要の `api-public.odpt.org` と認証用 `api.odpt.org` の両取得URLがある。前者の**明示された版付きURL**を選び、認証失敗時の自動切替にはしていない。
+変更前mainは `aaccd9bfbaa276c5e5c13f998b5111989364b292`（第10節の最終記録）。作業開始時のDart別差分は保持し対象外とした。承認済み仙台bundle/manifest・ODPTキーはアクセス可能な環境に無かった。過去ZIP・他都市データ・別事業者へfallbackせず、[公式公開告知](https://www.kotsu.city.sendai.jp/bus_news/gtfs-jp_gtfs_data/)が示す[ODPTカタログの20261006リソース](https://ckan.odpt.org/dataset/sendai_municipal_bus_realtime_information/resource/d4aac294-ea89-4c00-b655-af5ffc3fb0f6)を確認した。原HTMLにはキー不要の `api-public.odpt.org` と認証用 `api.odpt.org` の両取得URLがある。前者の**明示された版付きURL**を選び、認証失敗時の自動切替にはしていない。
 
 取得URLは `https://api-public.odpt.org/api/v4/files/odpt/SendaiMunicipal/bus_realtime_information.zip?date=20261006`。3,087,453 bytes、SHA-256 **`53a08400776b3229743b24eb53566eb523b354a5b783dcfffd3e40f39258e6a2`**。`feed_info.txt` の発行者は仙台市交通局、版 **`20261007_20261130`**、期間 **2026-10-07〜11-30**。calendarも同期間、10月12日等の祝日例外あり。従来カタログ説明文の「2025年10月7日〜25日」との矛盾は、内部データを確認して区別した。版名・説明文だけで運行日を認定しない。GTFSの2,149 stops・8,231 trips・215,949 stop timesを厳密Adapterで読み込んだ。ライセンスはカタログ記載のCC BY 4.0。原ZIP・manifestはローカル検証用に保存し、リポジトリには限定した原行subsetと出典・SHA・抽出条件を記録する。
 
@@ -374,7 +366,6 @@ Flutterの型・service・検証用pageと `lib/main_sendai_practical.dart` を�
 | `api/native/transit_search_core/` のCargo.lock/Cargo.toml/README/pyprojectとsrcのindex/lib/model/reconstruct/search | v1の分単位native参照探索。factory・wrapper・専用CI・旧imageビルドだけが参照。東京v2とは非依存 |
 | `api/tests/test_search_core_factory.py`・golden内Rust/v1比較・旧diagnostics専用テスト | 削除実装専用。元のgolden入力・adapter検証・共通v2契約と独立oracle検証を保持 |
 | `api/benchmarks/route_search.py` | v1 Python/Rust/shadow専用。corpus・結果・過去READMEは歴史資料として保持 |
-| `scripts/check_shared_yokohama_local.py`・専用 `test_shared_yokohama_local_check.py` | 廃止v1との比較用。memory helperを参照する他の現役モジュールは無かった。過去の横浜データ・監査記録は保持 |
 | `scripts/set_route_search_core.ps1` | 旧v1 selectorの本番設定更新専用。代替設定や新しい切替scriptは作らない |
 
 `transit_schedule_oracle.py` は小さなadapter fixture向けの新しい独立有限列挙であり、旧探索を移設したものではない。production importは無い。残る現役DTO依存は `transit_network_core.py`・`gtfs_route_backend.py`。東京の接続層/共通v2・制度/公式データ検証・RT配信・元fixture/歴史証拠は残す。既存の名前・app IDは変更しない。
@@ -441,3 +432,7 @@ python -B scripts/check_sendai_practical_local.py `
   --accept-experimental-transfer-model
 if ($LASTEXITCODE -ne 0) { throw 'Sendai model gate failed; do not use partial results' }
 ```
+
+## 12. 2都市構成への整理（2026-10-16）
+
+東京と仙台以外の未公開都市は開発中止し専用コード・資産を削除した。仙台のruntime、GTFS、実用地下鉄Adapter、ふれあいPolicy、原資料・SHA・独立oracle・固定ケースは変更していない。削除依存の移設と検証結果は [2都市整理記録](two-city-cleanup.md) を参照。

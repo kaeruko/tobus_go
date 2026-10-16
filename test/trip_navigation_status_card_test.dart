@@ -586,8 +586,8 @@ void main() {
       titleEn: 'Walk',
       fromName: '交差点',
       fromNameEn: 'Intersection',
-      toName: '横浜駅前',
-      toNameEn: 'Yokohama Station',
+      toName: '出発駅前',
+      toNameEn: 'Origin Station',
       meters: 420,
     );
     final navigation = NavigationState.navigating(
@@ -611,8 +611,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Head to Yokohama Station (横浜駅前)'), findsOneWidget);
-    expect(find.text('Next: Yokohama Station (横浜駅前)'), findsOneWidget);
+    expect(find.text('Head to Origin Station (出発駅前)'), findsOneWidget);
+    expect(find.text('Next: Origin Station (出発駅前)'), findsOneWidget);
   });
 
   for (final language in ['en', 'zh', 'ko']) {

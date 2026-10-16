@@ -8,7 +8,6 @@ from zoneinfo import ZoneInfo
 import networkx as nx
 
 from gtfs_route_backend import GtfsRouteEngine
-from nagoya_transit import NAGOYA_FEED_ID, NagoyaRouteBackend
 from route_engine import (
     GeoPoint,
     RouteCandidate,
@@ -34,7 +33,6 @@ from transit_dataset import (
     TransitStopTime,
     TransitTrip,
 )
-from yokohama_transit import YOKOHAMA_BUS_FEED_ID, YokohamaBusRouteBackend
 
 
 SERVICE_DAY = datetime(2026, 9, 4, 9, 55, tzinfo=ZoneInfo("Asia/Tokyo"))
@@ -99,12 +97,7 @@ class RouteEngineContractTest(unittest.TestCase):
     def test_gtfs_city_engines_share_the_same_typed_contract(self) -> None:
         engines = (
             GtfsRouteEngine(_dataset("generic"), walk_radius_m=100),
-            NagoyaRouteBackend(_dataset(NAGOYA_FEED_ID), walk_radius_m=100),
             SendaiRouteBackend(_dataset(SENDAI_FEED_ID), walk_radius_m=100),
-            YokohamaBusRouteBackend(
-                _dataset(YOKOHAMA_BUS_FEED_ID),
-                walk_radius_m=100,
-            ),
         )
         for engine in engines:
             with self.subTest(engine=type(engine).__name__):

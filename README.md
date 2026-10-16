@@ -56,7 +56,7 @@ flutter run `
   --dart-define=API_BASE=http://10.0.2.2:8001
 ```
 
-`--flavor tokyo` は必須です。Android側には `tokyo` / `nagoya` / `sendai` / `yokohama` のproduct flavorがあります。
+`--flavor tokyo` は必須です。Android側には `tokyo` / `sendai` のproduct flavorがあります。
 
 AndroidエミュレータからホストPC上のAPIへ接続するため、`127.0.0.1` ではなく `10.0.2.2` を使用します。
 
@@ -82,3 +82,5 @@ Flutterの`--enable-software-rendering`はFlutter側の描画設定で、エミ�
 ## APIの詳細
 
 他都市のローカルAPI起動手順は [api/README.md](api/README.md) を参照してください。
+
+現在の構成は **東京＝公開版、仙台＝開発版** の2都市です。都市別IDと配布設定は [都市別アプリ配布](docs/city-distribution.md) を参照してください。

@@ -16,9 +16,9 @@ class GtfsRepositoryConstructorTest(unittest.TestCase):
 
     def test_invalid_feed_id_fails_without_normalizing(self):
         with self.assertRaises(ValueError):
-            GtfsRepository(" Nagoya ")
+            GtfsRepository(" Sendai ")
         with self.assertRaises(ValueError):
-            GtfsRepository("nagoya:bus")
+            GtfsRepository("sendai:bus")
 
 
 if __name__ == "__main__":

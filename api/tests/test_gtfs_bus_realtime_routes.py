@@ -8,14 +8,14 @@ class GtfsBusRealtimeRoutesTest(unittest.TestCase):
     def test_vehicle_before_first_stop_keeps_exact_vehicle_match(self) -> None:
         dataset = SimpleNamespace(
             stops={
-                "yokohama_bus:A": SimpleNamespace(source_id="A"),
+                "fixture_bus:A": SimpleNamespace(source_id="A"),
             }
         )
         schedule = [
             {
                 "sequence": 1,
-                "stop_id": "yokohama_bus:A",
-                "stop_name": "横浜駅前",
+                "stop_id": "fixture_bus:A",
+                "stop_name": "出発駅前",
             }
         ]
         row = {

@@ -68,8 +68,8 @@ void main() {
         home: CupertinoPageScaffold(
           navigationBar: buildAppNavigationBar(
             middle: cityBrandNavigationTitle(
-              city: AppCity.nagoya,
-              fallbackTitle: '名古屋でGO',
+              city: AppCity.sendai,
+              fallbackTitle: '仙台でGO',
             ),
           ),
           child: const SizedBox.shrink(),
@@ -77,7 +77,7 @@ void main() {
       ),
     );
 
-    expect(find.text('名古屋でGO'), findsOneWidget);
+    expect(find.text('仙台でGO'), findsOneWidget);
     expect(find.byType(Image), findsNothing);
   });
 }

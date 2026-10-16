@@ -308,8 +308,8 @@ class TransitDatasetTest(unittest.TestCase):
             )
 
     def test_namespace_id_does_not_normalize_invalid_input(self):
-        self.assertEqual(namespace_id("nagoya_bus", "001"), "nagoya_bus:001")
-        for invalid_feed in (" nagoya_bus", "nagoya_bus ", "nagoya:bus"):
+        self.assertEqual(namespace_id("sendai_bus", "001"), "sendai_bus:001")
+        for invalid_feed in (" sendai_bus", "sendai_bus ", "sendai:bus"):
             with self.subTest(feed=invalid_feed):
                 with self.assertRaises(ValueError):
                     namespace_id(invalid_feed, "001")

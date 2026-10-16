@@ -22,7 +22,7 @@ class FakeS3:
         Path(filename).write_bytes(self.payload)
 
 
-def make_bundle(*, manifest: str = "nagoya_gtfs_manifest.json", unsafe: bool = False) -> bytes:
+def make_bundle(*, manifest: str = "sendai_gtfs_manifest.json", unsafe: bool = False) -> bytes:
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("stops.txt", "stop_id,stop_name,stop_lat,stop_lon\nS1,One,35,139\n")
@@ -49,44 +49,44 @@ class CityGtfsBundleTests(unittest.TestCase):
         payload = make_bundle()
         sha256 = hashlib.sha256(payload).hexdigest()
         env = {
-            "NAGOYA_GTFS_BUNDLE_S3_BUCKET": "nagoya-bucket",
-            "NAGOYA_GTFS_BUNDLE_S3_KEY": "gtfs/nagoya/release.zip",
-            "NAGOYA_GTFS_BUNDLE_SHA256": sha256,
+            "SENDAI_GTFS_BUNDLE_S3_BUCKET": "sendai-bucket",
+            "SENDAI_GTFS_BUNDLE_S3_KEY": "gtfs/sendai/release.zip",
+            "SENDAI_GTFS_BUNDLE_SHA256": sha256,
         }
         with tempfile.TemporaryDirectory() as temp_dir, patch.dict(
             os.environ, env, clear=True
         ):
-            target = Path(temp_dir) / "nagoya"
+            target = Path(temp_dir) / "sendai"
             s3 = FakeS3(payload)
             result = materialize_city_gtfs_bundle(
-                city="nagoya",
+                city="sendai",
                 target_dir=target,
-                manifest_filename="nagoya_gtfs_manifest.json",
+                manifest_filename="sendai_gtfs_manifest.json",
                 s3_client=s3,
             )
 
             self.assertEqual(result, target)
             self.assertTrue((target / "routes.txt").is_file())
-            self.assertTrue((target / "nagoya_gtfs_manifest.json").is_file())
+            self.assertTrue((target / "sendai_gtfs_manifest.json").is_file())
             self.assertEqual(len(s3.calls), 1)
-            self.assertEqual(s3.calls[0][0:2], ("nagoya-bucket", "gtfs/nagoya/release.zip"))
+            self.assertEqual(s3.calls[0][0:2], ("sendai-bucket", "gtfs/sendai/release.zip"))
 
     def test_sha_mismatch_does_not_publish_target(self) -> None:
         payload = make_bundle()
         env = {
-            "NAGOYA_GTFS_BUNDLE_S3_BUCKET": "nagoya-bucket",
-            "NAGOYA_GTFS_BUNDLE_S3_KEY": "gtfs/nagoya/release.zip",
-            "NAGOYA_GTFS_BUNDLE_SHA256": "0" * 64,
+            "SENDAI_GTFS_BUNDLE_S3_BUCKET": "sendai-bucket",
+            "SENDAI_GTFS_BUNDLE_S3_KEY": "gtfs/sendai/release.zip",
+            "SENDAI_GTFS_BUNDLE_SHA256": "0" * 64,
         }
         with tempfile.TemporaryDirectory() as temp_dir, patch.dict(
             os.environ, env, clear=True
         ):
-            target = Path(temp_dir) / "nagoya"
+            target = Path(temp_dir) / "sendai"
             with self.assertRaisesRegex(RuntimeError, "SHA-256 mismatch"):
                 materialize_city_gtfs_bundle(
-                    city="nagoya",
+                    city="sendai",
                     target_dir=target,
-                    manifest_filename="nagoya_gtfs_manifest.json",
+                    manifest_filename="sendai_gtfs_manifest.json",
                     s3_client=FakeS3(payload),
                 )
             self.assertFalse(target.exists())
@@ -94,19 +94,19 @@ class CityGtfsBundleTests(unittest.TestCase):
     def test_unsafe_zip_path_does_not_publish_target(self) -> None:
         payload = make_bundle(unsafe=True)
         env = {
-            "NAGOYA_GTFS_BUNDLE_S3_BUCKET": "nagoya-bucket",
-            "NAGOYA_GTFS_BUNDLE_S3_KEY": "gtfs/nagoya/release.zip",
-            "NAGOYA_GTFS_BUNDLE_SHA256": hashlib.sha256(payload).hexdigest(),
+            "SENDAI_GTFS_BUNDLE_S3_BUCKET": "sendai-bucket",
+            "SENDAI_GTFS_BUNDLE_S3_KEY": "gtfs/sendai/release.zip",
+            "SENDAI_GTFS_BUNDLE_SHA256": hashlib.sha256(payload).hexdigest(),
         }
         with tempfile.TemporaryDirectory() as temp_dir, patch.dict(
             os.environ, env, clear=True
         ):
-            target = Path(temp_dir) / "nagoya"
+            target = Path(temp_dir) / "sendai"
             with self.assertRaisesRegex(RuntimeError, "Unsafe path"):
                 materialize_city_gtfs_bundle(
-                    city="nagoya",
+                    city="sendai",
                     target_dir=target,
-                    manifest_filename="nagoya_gtfs_manifest.json",
+                    manifest_filename="sendai_gtfs_manifest.json",
                     s3_client=FakeS3(payload),
                 )
             self.assertFalse(target.exists())
@@ -135,13 +135,13 @@ class CityGtfsBundleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir, patch.dict(
             os.environ, {}, clear=True
         ):
-            target = Path(temp_dir) / "nagoya"
+            target = Path(temp_dir) / "sendai"
             s3 = FakeS3(make_bundle())
-            with self.assertRaisesRegex(RuntimeError, "NAGOYA_GTFS_BUNDLE_S3_BUCKET"):
+            with self.assertRaisesRegex(RuntimeError, "SENDAI_GTFS_BUNDLE_S3_BUCKET"):
                 materialize_city_gtfs_bundle(
-                    city="nagoya",
+                    city="sendai",
                     target_dir=target,
-                    manifest_filename="nagoya_gtfs_manifest.json",
+                    manifest_filename="sendai_gtfs_manifest.json",
                     s3_client=s3,
                 )
             self.assertEqual(s3.calls, [])
@@ -149,23 +149,23 @@ class CityGtfsBundleTests(unittest.TestCase):
     def test_existing_target_is_never_reused_or_overwritten(self) -> None:
         payload = make_bundle()
         env = {
-            "NAGOYA_GTFS_BUNDLE_S3_BUCKET": "nagoya-bucket",
-            "NAGOYA_GTFS_BUNDLE_S3_KEY": "gtfs/nagoya/release.zip",
-            "NAGOYA_GTFS_BUNDLE_SHA256": hashlib.sha256(payload).hexdigest(),
+            "SENDAI_GTFS_BUNDLE_S3_BUCKET": "sendai-bucket",
+            "SENDAI_GTFS_BUNDLE_S3_KEY": "gtfs/sendai/release.zip",
+            "SENDAI_GTFS_BUNDLE_SHA256": hashlib.sha256(payload).hexdigest(),
         }
         with tempfile.TemporaryDirectory() as temp_dir, patch.dict(
             os.environ, env, clear=True
         ):
-            target = Path(temp_dir) / "nagoya"
+            target = Path(temp_dir) / "sendai"
             target.mkdir()
             marker = target / "keep.txt"
             marker.write_text("keep", encoding="utf-8")
             s3 = FakeS3(payload)
             with self.assertRaises(FileExistsError):
                 materialize_city_gtfs_bundle(
-                    city="nagoya",
+                    city="sendai",
                     target_dir=target,
-                    manifest_filename="nagoya_gtfs_manifest.json",
+                    manifest_filename="sendai_gtfs_manifest.json",
                     s3_client=s3,
                 )
             self.assertEqual(marker.read_text(encoding="utf-8"), "keep")

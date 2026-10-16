@@ -62,7 +62,6 @@ class _ActiveRouteContentState extends State<ActiveRouteContent> {
   BusLocation? _vehicle;
   String? _realtimeMessage;
   bool _loadingRealtime = false;
-  DateTime _scheduledNow = DateTime.now();
 
   BusLocationSource get _source =>
       widget.busLocationSource ??
@@ -89,11 +88,7 @@ class _ActiveRouteContentState extends State<ActiveRouteContent> {
   @override
   void initState() {
     super.initState();
-    if (widget.cityProfile.city == AppCity.yokohama) {
-      _timer = Timer.periodic(const Duration(seconds: 30), (_) {
-        if (mounted) setState(() => _scheduledNow = DateTime.now());
-      });
-    } else if (_supportsVehiclePosition && _trackedBusStep != null) {
+    if (_supportsVehiclePosition && _trackedBusStep != null) {
       _refreshRealtime(forceRefresh: true);
       _timer = Timer.periodic(
         kRealtimePollInterval,
@@ -163,18 +158,14 @@ class _ActiveRouteContentState extends State<ActiveRouteContent> {
           ),
           const SizedBox(height: 16),
         ],
-        if (widget.cityProfile.city == AppCity.yokohama)
-          ScheduledRideCard(candidate: widget.candidate, now: _scheduledNow)
-        else
-          BusRealtimeCard(
-            cityProfile: widget.cityProfile,
-            trackedBusStep: _trackedBusStep,
-            vehicle: _vehicle,
-            loading: _loadingRealtime,
-            message: _realtimeMessage,
-          ),
-        if (widget.cityProfile.city != AppCity.yokohama &&
-            _supportsVehiclePosition && _trackedBusStep != null) ...[
+        BusRealtimeCard(
+          cityProfile: widget.cityProfile,
+          trackedBusStep: _trackedBusStep,
+          vehicle: _vehicle,
+          loading: _loadingRealtime,
+          message: _realtimeMessage,
+        ),
+        if (_supportsVehiclePosition && _trackedBusStep != null) ...[
           const SizedBox(height: 8),
           Center(
             child: CupertinoButton(
@@ -202,95 +193,6 @@ class _ActiveRouteContentState extends State<ActiveRouteContent> {
           ),
         ],
       ],
-    );
-  }
-}
-
-DateTime? scheduledRideDepartureAt(Candidate candidate, StepSeg ride) {
-  if (!ride.isRide) {
-    throw ArgumentError('scheduledRideDepartureAt expects a bus or rail step');
-  }
-  final baseDate = candidate.departureDate;
-  final clock = ride.departureTime;
-  if (baseDate == null || clock == null) return null;
-  final match = RegExp(r'^([0-9]{2,}):([0-5][0-9])$').firstMatch(clock);
-  if (match == null) {
-    throw FormatException('Invalid scheduled ride departure_time: $clock');
-  }
-  final localDate = baseDate.toLocal();
-  return DateTime(localDate.year, localDate.month, localDate.day).add(
-    Duration(
-      hours: int.parse(match.group(1)!),
-      minutes: int.parse(match.group(2)!),
-    ),
-  );
-}
-
-class ScheduledRideCard extends StatelessWidget {
-  final Candidate candidate;
-  final DateTime now;
-
-  const ScheduledRideCard({
-    super.key,
-    required this.candidate,
-    required this.now,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final rides = candidate.steps.where((step) => step.isRide);
-    final ride = rides.isEmpty ? null : rides.first;
-    final scheduled = ride == null
-        ? null
-        : scheduledRideDepartureAt(candidate, ride);
-    String status;
-    if (ride == null) {
-      status = l10n.scheduleWalkOnly;
-    } else if (scheduled == null) {
-      status = l10n.scheduleDepartureUnknown;
-    } else if (!now.isBefore(scheduled)) {
-      status = l10n.scheduleDeparturePassed;
-    } else {
-      final remaining = scheduled.difference(now).inSeconds;
-      status = l10n.scheduleMinutesUntil((remaining + 59) ~/ 60);
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: CupertinoColors.systemGrey6.resolveFrom(context),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.scheduleCardTitle,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            if (ride != null) ...[
-              Text(ride.title),
-              if (ride.toName != null) Text(ride.toName!),
-              if (ride.departureTime != null)
-                Text(l10n.scheduleDeparturePlanned(ride.departureTime!)),
-            ],
-            Text(status),
-            const SizedBox(height: 8),
-            Text(
-              l10n.scheduleDelayDisclaimer,
-              style: const TextStyle(
-                color: CupertinoColors.systemGrey,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -265,7 +265,7 @@ class GtfsTransitAdapter:
                         raise ValueError(
                             "GTFS first/last stop missing arrival and departure time"
                         )
-                    # The actual Yokohama subway feed also contains untimed
+                    # Some subway feeds also contain untimed
                     # intermediate rows with omitted/empty timepoint. Strict GTFS
                     # treats omitted timepoint as exact, so these rows are NOT
                     # safe boarding/alighting points. Opt-in subway compatibility
@@ -275,7 +275,7 @@ class GtfsTransitAdapter:
                         raise ValueError(
                             "GTFS untimed intermediate stop has invalid/exact timepoint"
                         )
-                    # Actual Yokohama Blue Line rapid services encode pass-through
+                    # Rapid services can encode pass-through
                     # stations with both pickup_type=1 and drop_off_type=1.
                     # Missing/regular pickup or drop-off is NOT a proven pass-through:
                     # do not silently suppress potential passenger service.

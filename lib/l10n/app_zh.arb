@@ -2,9 +2,7 @@
   "routeGeometryApproximate": "此路线图仅为示意图，部分或全部线路由站点等位置连接而成。",
   "@@locale": "zh",
   "appNameTokyo": "都营GO",
-  "appNameNagoya": "名古屋GO",
   "appNameSendai": "仙台GO",
-  "appNameYokohama": "横滨GO",
   "bootstrapFailed": "应用启动失败",
   "updateRequiredTitle": "需要更新",
   "updateNow": "更新至最新版本",
@@ -1105,7 +1103,6 @@
   "settlementReimbursementLong": "先支付，日后发放补贴",
   "farePolicyNormal": "普通票价",
   "farePolicyTokyoMentalDisabilityPass": "精神障碍者都营交通乘车证",
-  "farePolicyNagoyaWelfarePass": "福利特别乘车券（免费乘车区间）",
   "exploreTitle": "探索无需换乘即可到达的地点",
   "exploreDescription": "查找从当前位置出发，无需换乘即可到达的都营地铁站和巴士站。",
   "exploreNearbyButton": "探索附近",
@@ -1676,23 +1673,5 @@
   "groupReportDemoFall": "跌倒后轻微受伤",
   "groupReportDemoLost": "与队伍走散",
   "groupReportDemoReunited": "已归队",
-  "groupReportNotesHint": "请输入注意事项或处理内容",
-  "farePolicyYokohamaWelfarePass": "横滨市福利特别乘车券",
-  "farePolicyYokohamaWelfarePassCondition": "此选项适用于持有横滨市福利特别乘车券的用户。仅持有残疾人证不能免费乘车。不在乘车券适用范围内的线路和区间按普通票价收费。"
-,
-  "scheduleCardTitle": "按时刻表出行",
-  "scheduleDeparturePlanned": "计划 {time} 发车",
-  "@scheduleDeparturePlanned": {"placeholders": {"time": {"type": "String"}}},
-  "scheduleMinutesUntil": "距离发车还有 {minutes} 分钟",
-  "@scheduleMinutesUntil": {"placeholders": {"minutes": {"type": "int"}}},
-  "scheduleDeparturePassed": "计划发车时间已过。如有需要请重新搜索。",
-  "scheduleDelayDisclaimer": "仅为时刻表信息，未反映延误和停运。",
-  "scheduleDepartureUnknown": "无法确认计划发车时间",
-  "scheduleWalkOnly": "仅步行路线"
-,
-  "farePolicyYokohamaSeniorPass": "横滨市敬老特别乘车证",
-  "farePolicyYokohamaChoosePass": "请先选择乘车证，再搜索路线。"
-,
-  "farePolicyYokohamaWelfareShort": "福利乘车证",
-  "farePolicyYokohamaSeniorShort": "敬老乘车证"
+  "groupReportNotesHint": "请输入注意事项或处理内容"
 }

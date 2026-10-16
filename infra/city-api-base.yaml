@@ -5,7 +5,6 @@ Parameters:
   City:
     Type: String
     AllowedValues:
-      - nagoya
       - sendai
 
 Resources:

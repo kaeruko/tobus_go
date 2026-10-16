@@ -14,67 +14,8 @@ class FareRoutesTest(unittest.TestCase):
         register_fare_routes(app)
         return TestClient(app)
 
-    def test_nagoya_normal_fare_is_210_per_city_bus_ride(self):
-        result = {
-            "candidates": [
-                {
-                    "id": "n1",
-                    "steps": [
-                        {"kind": "walk"},
-                        {"kind": "bus", "route_id": "nagoya_bus:R1"},
-                        {"kind": "wait"},
-                        {"kind": "bus", "route_id": "nagoya_bus:R2"},
-                    ],
-                }
-            ]
-        }
-
-        decorate_route_result_with_fare(
-            city_key="nagoya",
-            result=result,
-            policy_id="normal",
-        )
-
-        candidate = result["candidates"][0]
-        self.assertEqual(candidate["fare"]["normalFareYen"], 420)
-        self.assertEqual(candidate["fare"]["payNowYen"], 420)
-        ride_steps = [
-            step for step in candidate["steps"] if step["kind"] == "bus"
-        ]
-        self.assertEqual([step["fare_yen"] for step in ride_steps], [210, 210])
-
-    def test_nagoya_free_pass_changes_only_fare_quote_not_route(self):
-        candidate = {
-            "id": "same-route",
-            "steps": [{"kind": "bus", "route_id": "nagoya_bus:R1"}],
-        }
-        normal_result = {"candidates": [candidate.copy() | {"steps": [dict(candidate["steps"][0])] }]}
-        pass_result = {"candidates": [candidate.copy() | {"steps": [dict(candidate["steps"][0])] }]}
-
-        decorate_route_result_with_fare(
-            city_key="nagoya",
-            result=normal_result,
-            policy_id="normal",
-        )
-        decorate_route_result_with_fare(
-            city_key="nagoya",
-            result=pass_result,
-            policy_id="nagoya_welfare_special_pass",
-        )
-
-        self.assertEqual(
-            normal_result["candidates"][0]["id"],
-            pass_result["candidates"][0]["id"],
-        )
-        self.assertEqual(normal_result["candidates"][0]["fare"]["payNowYen"], 210)
-        self.assertEqual(pass_result["candidates"][0]["fare"]["payNowYen"], 0)
-        self.assertEqual(
-            pass_result["candidates"][0]["fare"]["settlementType"],
-            "free_pass",
-        )
-
     def test_fare_apply_endpoint_rejects_other_city_policy(self):
-        client = self._client("nagoya")
+        client = self._client("sendai")
         response = client.post(
             "/fare/apply",
             json={
@@ -91,13 +32,13 @@ class FareRoutesTest(unittest.TestCase):
         self.assertIn("unsupported fare policy", response.json()["detail"])
 
     def test_policy_endpoint_is_city_scoped(self):
-        client = self._client("nagoya")
+        client = self._client("sendai")
         response = client.get("/fare/policies")
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(payload["city"], "nagoya")
+        self.assertEqual(payload["city"], "sendai")
         ids = [item["policyId"] for item in payload["policies"]]
-        self.assertEqual(ids, ["normal", "nagoya_welfare_special_pass"])
+        self.assertEqual(ids, ["normal"])
         self.assertNotIn("tokyo_toei_transport_pass", ids)
 
     def test_tokyo_normal_fare_remains_unavailable_without_exact_step_fares(self):
@@ -120,18 +61,6 @@ class FareRoutesTest(unittest.TestCase):
         self.assertEqual(quote["status"], "unavailable")
         self.assertIsNone(quote["normalFareYen"])
         self.assertIsNone(quote["payNowYen"])
-
-    def test_yokohama_only_offers_two_free_passes(self):
-        client = self._client("yokohama")
-        response = client.get("/fare/policies")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            [p["policyId"] for p in response.json()["policies"]],
-            ["yokohama_welfare_special_pass", "yokohama_senior_special_pass"],
-        )
-        response = client.post("/fare/apply", json={"policy_id": "normal", "candidates": []})
-        self.assertEqual(response.status_code, 422)
-
 
 if __name__ == "__main__":
     unittest.main()

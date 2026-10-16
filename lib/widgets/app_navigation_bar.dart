@@ -46,9 +46,7 @@ Widget cityBrandNavigationTitle({
           );
         },
       );
-    case AppCity.nagoya:
     case AppCity.sendai:
-    case AppCity.yokohama:
       return Text(fallbackTitle);
   }
 }

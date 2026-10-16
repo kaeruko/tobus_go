@@ -122,18 +122,18 @@ void main() {
         expect(
           localizedOptionalPlaceName(
             locale,
-            japanese: '横浜赤レンガ倉庫入口',
+            japanese: '公園入口',
             english: null,
             field: 'walk_to_en',
             identity: 'stepId=walk-1',
           ),
-          '横浜赤レンガ倉庫入口',
+          '公園入口',
         );
 
         expect(
           () => localizedOptionalPlaceName(
             locale,
-            japanese: '横浜赤レンガ倉庫入口',
+            japanese: '公園入口',
             english: '   ',
             field: 'walk_to_en',
             identity: 'stepId=walk-1',

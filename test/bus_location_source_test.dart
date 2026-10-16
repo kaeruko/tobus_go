@@ -6,10 +6,10 @@ void main() {
     'vehicle_id': '1772',
     'vehicle_lat': 35.466,
     'vehicle_lon': 139.622,
-    'trip_id': 'yokohama_bus:T1',
-    'trip_stop_ids': ['yokohama_bus:A', 'yokohama_bus:B'],
+    'trip_id': 'fixture_bus:T1',
+    'trip_stop_ids': ['fixture_bus:A', 'fixture_bus:B'],
     'raw_stop_id': 'A',
-    'raw_stop_name': '横浜駅前',
+    'raw_stop_name': '出発駅前',
     'observed_stop_sequence': 1,
     'current_status': 2,
     'feed_ts': 1700000000,
@@ -24,8 +24,8 @@ void main() {
 
     final location = BusLocation.fromJson(
       payload,
-      routeId: 'yokohama_bus:R1',
-      tripId: 'yokohama_bus:T1',
+      routeId: 'fixture_bus:R1',
+      tripId: 'fixture_bus:T1',
     );
 
     expect(location.beforeFirstStop, isTrue);
@@ -55,18 +55,18 @@ void main() {
   test('normal location requires and preserves previous stop', () {
     final payload = basePayload()
       ..['before_first_stop'] = false
-      ..['odpt:fromBusstopPole'] = 'yokohama_bus:A'
+      ..['odpt:fromBusstopPole'] = 'fixture_bus:A'
       ..['from_stop_sequence'] = 1
       ..['observed_stop_sequence'] = 2;
 
     final location = BusLocation.fromJson(
       payload,
-      routeId: 'yokohama_bus:R1',
-      tripId: 'yokohama_bus:T1',
+      routeId: 'fixture_bus:R1',
+      tripId: 'fixture_bus:T1',
     );
 
     expect(location.beforeFirstStop, isFalse);
-    expect(location.fromStopId, 'yokohama_bus:A');
+    expect(location.fromStopId, 'fixture_bus:A');
     expect(location.fromStopSequence, 1);
   });
 
@@ -80,8 +80,8 @@ void main() {
     expect(
       () => BusLocation.fromJson(
         payload,
-        routeId: 'yokohama_bus:R1',
-        tripId: 'yokohama_bus:T1',
+        routeId: 'fixture_bus:R1',
+        tripId: 'fixture_bus:T1',
       ),
       throwsFormatException,
     );
@@ -90,14 +90,14 @@ void main() {
   test('explicit before-first-stop cannot coexist with previous stop', () {
     final payload = basePayload()
       ..['before_first_stop'] = true
-      ..['odpt:fromBusstopPole'] = 'yokohama_bus:A'
+      ..['odpt:fromBusstopPole'] = 'fixture_bus:A'
       ..['from_stop_sequence'] = 1;
 
     expect(
       () => BusLocation.fromJson(
         payload,
-        routeId: 'yokohama_bus:R1',
-        tripId: 'yokohama_bus:T1',
+        routeId: 'fixture_bus:R1',
+        tripId: 'fixture_bus:T1',
       ),
       throwsFormatException,
     );
@@ -113,8 +113,8 @@ void main() {
     expect(
       () => BusLocation.fromJson(
         payload,
-        routeId: 'yokohama_bus:R1',
-        tripId: 'yokohama_bus:T1',
+        routeId: 'fixture_bus:R1',
+        tripId: 'fixture_bus:T1',
       ),
       throwsFormatException,
     );

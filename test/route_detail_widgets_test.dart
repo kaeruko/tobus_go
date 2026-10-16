@@ -25,8 +25,8 @@ void main() {
     transfers: 0,
     total: 20,
     totalTime: 20,
-    originName: '横浜駅',
-    originNameEn: 'Yokohama Station',
+    originName: '出発駅',
+    originNameEn: 'Origin Station',
     destinationName: '山下公園',
     destinationNameEn: 'Yamashita Park',
     arrivalTime: '10:20',
@@ -38,10 +38,10 @@ void main() {
         kind: 'walk',
         title: '徒歩',
         titleEn: 'Walk',
-        fromName: '横浜駅',
-        fromNameEn: 'Yokohama Station',
-        toName: '横浜駅前',
-        toNameEn: 'Yokohama Station',
+        fromName: '出発駅',
+        fromNameEn: 'Origin Station',
+        toName: '出発駅前',
+        toNameEn: 'Origin Station',
         minutes: 2,
         meters: 120,
       ),
@@ -50,8 +50,8 @@ void main() {
         kind: 'bus',
         title: '008系統',
         titleEn: 'Route 008',
-        fromName: '横浜駅前',
-        fromNameEn: 'Yokohama Station',
+        fromName: '出発駅前',
+        fromNameEn: 'Origin Station',
         toName: '山下公園前',
         toNameEn: 'Yamashita Park',
         minutes: 15,
@@ -121,12 +121,12 @@ void main() {
       ),
     );
 
-    expect(find.text('横浜駅'), findsOneWidget);
+    expect(find.text('出発駅'), findsOneWidget);
     expect(find.text('山下公園'), findsOneWidget);
     expect(find.text('通常払い'), findsNothing);
     expect(find.text('今回の支払 220円'), findsOneWidget);
     expect(find.text('008系統'), findsOneWidget);
-    expect(find.text('横浜駅前 → 山下公園前'), findsOneWidget);
+    expect(find.text('出発駅前 → 山下公園前'), findsOneWidget);
   });
 
   testWidgets('English leading wait renders the bilingual origin', (
@@ -209,9 +209,9 @@ void main() {
         stepId: 'wait-missing-en',
         kind: 'wait',
         title: '待ち時間',
-        fromName: '横浜駅前',
-        toName: '横浜駅前',
-        place: '横浜駅前',
+        fromName: '出発駅前',
+        toName: '出発駅前',
+        place: '出発駅前',
         minutes: 2,
       );
 

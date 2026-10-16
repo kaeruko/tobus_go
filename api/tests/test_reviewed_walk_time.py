@@ -1,4 +1,4 @@
-"""Directed, evidence-scoped Tokyo/Yokohama walking-time correction tests."""
+"""Directed, evidence-scoped Tokyo/Sendai walking-time correction tests."""
 from __future__ import annotations
 
 import contextlib
@@ -113,17 +113,17 @@ class ReviewedWalkingTimeTests(unittest.TestCase):
                 "a", "b", 100, 3, "https://example.com/approvals", True,
             )
 
-    def test_yokohama_link_uses_same_distance_minimum(self):
+    def test_sendai_link_uses_same_distance_minimum(self):
         self.assertIsNone(validate_reviewed_walk_timing(392, 10))
         valid = ReviewedWalkingLink(
-            "yokohama_bus:3018_02", "yokohama_subway:B19", 392, 10,
-            "https://www.city.yokohama.lg.jp/kotsu/", True
+            "fixture_bus:3018_02", "fixture_subway:B19", 392, 10,
+            "https://www.kotsu.city.sendai.jp/", True
         )
         self.assertEqual(valid.walk_minutes, 10)
         with self.assertRaises(ValueError):
             ReviewedWalkingLink(
-                "yokohama_bus:3018_02", "yokohama_subway:B19", 392, 4,
-                "https://www.city.yokohama.lg.jp/kotsu/", True
+                "fixture_bus:3018_02", "fixture_subway:B19", 392, 4,
+                "https://www.kotsu.city.sendai.jp/", True
             )
 
 

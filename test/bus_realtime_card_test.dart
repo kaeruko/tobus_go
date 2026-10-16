@@ -18,17 +18,17 @@ void main() {
   BusLocation location({
     required String status,
     bool beforeFirstStop = false,
-    String? rawStopNameEn = 'Yokohama Station',
+    String? rawStopNameEn = 'Origin Station',
   }) => BusLocation(
     vehicleId: '3438',
     fromStopId: beforeFirstStop ? null : 'stop-1',
-    routeId: 'yokohama_bus:008',
-    tripId: 'yokohama_bus:T1',
+    routeId: 'fixture_bus:008',
+    tripId: 'fixture_bus:T1',
     vehicleLat: 35.465,
     vehicleLon: 139.625,
     beforeFirstStop: beforeFirstStop,
     rawStopId: 'stop-1',
-    rawStopName: '横浜駅前',
+    rawStopName: '出発駅前',
     rawStopNameEn: rawStopNameEn,
     currentStatus: status,
   );
@@ -132,14 +132,14 @@ void main() {
   test('IN_TRANSIT_TO says the bus is heading to the stop', () {
     expect(
       busRealtimeStatusText(location(status: 'IN_TRANSIT_TO'), l10n: ja, locale: const Locale('ja')),
-      '横浜駅前へ向かっています',
+      '出発駅前へ向かっています',
     );
   });
 
   test('STOPPED_AT says the bus is stopped at the stop', () {
     expect(
       busRealtimeStatusText(location(status: 'STOPPED_AT'), l10n: ja, locale: const Locale('ja')),
-      '横浜駅前に停車中',
+      '出発駅前に停車中',
     );
   });
 
@@ -150,7 +150,7 @@ void main() {
         l10n: ja,
         locale: const Locale('ja'),
       ),
-      '横浜駅前（始発停留所）へ向かっています',
+      '出発駅前（始発停留所）へ向かっています',
     );
   });
 
@@ -185,11 +185,11 @@ void main() {
   test('English realtime status uses the same vehicle state', () {
     expect(
       busRealtimeStatusText(location(status: 'IN_TRANSIT_TO'), l10n: en, locale: const Locale('en')),
-      'Heading to Yokohama Station (横浜駅前)',
+      'Heading to Origin Station (出発駅前)',
     );
     expect(
       busRealtimeStatusText(location(status: 'STOPPED_AT'), l10n: en, locale: const Locale('en')),
-      'Stopped at Yokohama Station (横浜駅前)',
+      'Stopped at Origin Station (出発駅前)',
     );
     expect(
       busRealtimeStatusText(
@@ -197,7 +197,7 @@ void main() {
         l10n: en,
         locale: const Locale('en'),
       ),
-      'Heading to Yokohama Station (横浜駅前) (first stop)',
+      'Heading to Origin Station (出発駅前) (first stop)',
     );
   });
 

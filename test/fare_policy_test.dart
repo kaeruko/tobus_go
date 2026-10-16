@@ -12,7 +12,7 @@ void main() {
         'normalFareYen': 210,
         'payNowYen': 0,
         'effectiveFareYen': 0,
-        'policyId': 'nagoya_welfare_special_pass',
+        'policyId': 'tokyo_toei_transport_pass',
         'settlementType': 'free_pass',
         'status': 'available',
         'unavailableReason': null,
@@ -61,49 +61,16 @@ void main() {
     });
 
     test('first use defaults to normal only when nothing is stored', () async {
-      final id = await FarePolicyPreferences.load(nagoyaCityProfile);
+      final id = await FarePolicyPreferences.load(sendaiCityProfile);
       expect(id, 'normal');
     });
 
-    test('Yokohama first use and legacy normal require a new selection', () async {
-      expect(await FarePolicyPreferences.loadOptional(yokohamaCityProfile), isNull);
-      await expectLater(
-        FarePolicyPreferences.load(yokohamaCityProfile),
-        throwsStateError,
-      );
-      SharedPreferences.setMockInitialValues({
-        'farePolicyId:yokohama': 'normal',
-      });
-      expect(await FarePolicyPreferences.loadOptional(yokohamaCityProfile), isNull);
-      await expectLater(
-        FarePolicyPreferences.load(yokohamaCityProfile),
-        throwsStateError,
-      );
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('farePolicyId:yokohama'), 'normal');
-    });
 
-    test('Yokohama senior selection persists and unknown ID fails', () async {
-      await FarePolicyPreferences.save(
-        yokohamaCityProfile, 'yokohama_senior_special_pass',
-      );
-      expect(
-        await FarePolicyPreferences.load(yokohamaCityProfile),
-        'yokohama_senior_special_pass',
-      );
-      SharedPreferences.setMockInitialValues({
-        'farePolicyId:yokohama': 'invalid-id',
-      });
-      await expectLater(
-        FarePolicyPreferences.loadOptional(yokohamaCityProfile),
-        throwsStateError,
-      );
-    });
 
     test('explicit selected policy is stored per city', () async {
       await FarePolicyPreferences.save(
-        nagoyaCityProfile,
-        'nagoya_welfare_special_pass',
+        sendaiCityProfile,
+        'normal',
       );
       await FarePolicyPreferences.save(
         tokyoCityProfile,
@@ -111,8 +78,8 @@ void main() {
       );
 
       expect(
-        await FarePolicyPreferences.load(nagoyaCityProfile),
-        'nagoya_welfare_special_pass',
+        await FarePolicyPreferences.load(sendaiCityProfile),
+        'normal',
       );
       expect(
         await FarePolicyPreferences.load(tokyoCityProfile),
@@ -122,11 +89,11 @@ void main() {
 
     test('stored policy from another city is not silently replaced', () async {
       SharedPreferences.setMockInitialValues({
-        'farePolicyId:nagoya': 'tokyo_toei_transport_pass',
+        'farePolicyId:sendai': 'tokyo_toei_transport_pass',
       });
 
       await expectLater(
-        FarePolicyPreferences.load(nagoyaCityProfile),
+        FarePolicyPreferences.load(sendaiCityProfile),
         throwsStateError,
       );
     });
@@ -134,13 +101,13 @@ void main() {
     test('saving an unsupported policy fails before persistence', () async {
       await expectLater(
         FarePolicyPreferences.save(
-          nagoyaCityProfile,
+          sendaiCityProfile,
           'tokyo_toei_transport_pass',
         ),
         throwsStateError,
       );
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('farePolicyId:nagoya'), isNull);
+      expect(prefs.getString('farePolicyId:sendai'), isNull);
     });
   });
 }

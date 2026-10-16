@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 
 StartupHandler = Callable[[FastAPI, str], Awaitable[None]]
-_SUPPORTED_BACKEND_CITIES = ("tokyo", "nagoya", "sendai", "yokohama")
+_SUPPORTED_BACKEND_CITIES = ("tokyo", "sendai")
 
 
 def _configured_backend_city() -> str:
@@ -59,13 +59,6 @@ def create_app(mode: str) -> FastAPI:
             register_explore_content_routes,
         )
         title = "Toei Route API"
-    elif city == "nagoya":
-        from .nagoya_routes import register_nagoya_routes
-        from .nagoya_runtime import setup_nagoya_on_startup
-
-        startup = setup_nagoya_on_startup
-        route_registrars = (register_nagoya_routes,)
-        title = "Nagoya Route API"
     elif city == "sendai":
         from .sendai_routes import register_sendai_routes
         from .sendai_runtime import setup_sendai_on_startup
@@ -73,13 +66,6 @@ def create_app(mode: str) -> FastAPI:
         startup = setup_sendai_on_startup
         route_registrars = (register_sendai_routes,)
         title = "Sendai Route API"
-    elif city == "yokohama":
-        from .yokohama_routes import register_yokohama_routes
-        from .yokohama_runtime import setup_yokohama_on_startup
-
-        startup = setup_yokohama_on_startup
-        route_registrars = (register_yokohama_routes,)
-        title = "Yokohama Route API"
     else:
         raise RuntimeError(f"unreachable backend city branch: {city!r}")
 

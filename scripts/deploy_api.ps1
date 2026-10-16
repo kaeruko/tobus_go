@@ -7,14 +7,6 @@
   .\scripts\deploy_api.ps1 -City tokyo
 
 .EXAMPLE
-  # Nagoya must name its own infrastructure explicitly
-  .\scripts\deploy_api.ps1 `
-    -City nagoya `
-    -EcrRepository nagoyago-api `
-    -LambdaFunction nagoyago-api `
-    -ImageTag manual-test
-
-.EXAMPLE
   # Sendai must also name its own infrastructure explicitly
   .\scripts\deploy_api.ps1 `
     -City sendai `
@@ -26,7 +18,7 @@
 [CmdletBinding()]
 param(
     [Parameter()]
-    [ValidateSet('tokyo', 'nagoya', 'sendai')]
+    [ValidateSet('tokyo', 'sendai')]
     [string]$City = 'tokyo',
 
     [Parameter()]
@@ -106,7 +98,7 @@ Assert-LastExitCode 'aws ecr describe-repositories'
 $functionConfigJson = aws lambda get-function-configuration `
     --region $Region `
     --function-name $LambdaFunction `
-    --query '{PackageType:PackageType,Architecture:Architectures[0],AppCity:Environment.Variables.APP_CITY,RouteSearchCore:Environment.Variables.ROUTE_SEARCH_CORE,NagoyaGtfsDir:Environment.Variables.NAGOYA_GTFS_DIR,NagoyaExpectedRevision:Environment.Variables.NAGOYA_GTFS_EXPECTED_REVISION,SendaiGtfsDir:Environment.Variables.SENDAI_GTFS_DIR,SendaiExpectedServiceDate:Environment.Variables.SENDAI_GTFS_EXPECTED_SERVICE_DATE}' `
+    --query '{PackageType:PackageType,Architecture:Architectures[0],AppCity:Environment.Variables.APP_CITY,RouteSearchCore:Environment.Variables.ROUTE_SEARCH_CORE,SendaiGtfsDir:Environment.Variables.SENDAI_GTFS_DIR,SendaiExpectedServiceDate:Environment.Variables.SENDAI_GTFS_EXPECTED_SERVICE_DATE}' `
     --output json
 Assert-LastExitCode 'aws lambda get-function-configuration'
 
@@ -130,15 +122,7 @@ if ($City -ne 'tokyo' -and -not [string]::IsNullOrWhiteSpace([string]$functionCo
     throw "ROUTE_SEARCH_CORE is obsolete for shared v2 cities; remove it explicitly before deployment."
 }
 
-if ($City -eq 'nagoya') {
-    if ([string]::IsNullOrWhiteSpace([string]$functionConfig.NagoyaGtfsDir)) {
-        throw "Nagoya Lambda '$LambdaFunction' is missing NAGOYA_GTFS_DIR."
-    }
-    if ([string]::IsNullOrWhiteSpace([string]$functionConfig.NagoyaExpectedRevision)) {
-        throw "Nagoya Lambda '$LambdaFunction' is missing NAGOYA_GTFS_EXPECTED_REVISION."
-    }
-}
-elseif ($City -eq 'sendai') {
+if ($City -eq 'sendai') {
     if ([string]::IsNullOrWhiteSpace([string]$functionConfig.SendaiGtfsDir)) {
         throw "Sendai Lambda '$LambdaFunction' is missing SENDAI_GTFS_DIR."
     }

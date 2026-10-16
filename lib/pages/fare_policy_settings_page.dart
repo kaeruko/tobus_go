@@ -6,7 +6,6 @@ import '../core/city_profile.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/city_profile_provider.dart';
 import '../services/fare_policy_preferences.dart';
-import '../providers/route_search_provider.dart';
 import 'settings_page.dart';
 
 class FarePolicySettingsPage extends ConsumerStatefulWidget {
@@ -32,7 +31,7 @@ class _FarePolicySettingsPageState
   Future<void> _load() async {
     final profile = ref.read(cityProfileProvider);
     try {
-      final selected = await FarePolicyPreferences.loadOptional(profile);
+      final selected = await FarePolicyPreferences.load(profile);
       if (!mounted) return;
       setState(() {
         _selectedPolicyId = selected;
@@ -49,14 +48,8 @@ class _FarePolicySettingsPageState
   }
 
   Future<void> _select(CityProfile profile, String policyId) async {
-    if (profile.city == AppCity.yokohama) {
-      ref.read(routeSearchProvider.notifier).setFarePolicyId(null);
-    }
     try {
       await FarePolicyPreferences.save(profile, policyId);
-      if (profile.city == AppCity.yokohama) {
-        ref.read(routeSearchProvider.notifier).setFarePolicyId(policyId);
-      }
       if (!mounted) return;
       setState(() {
         _selectedPolicyId = policyId;
@@ -100,12 +93,6 @@ class _FarePolicySettingsPageState
         return l10n.farePolicyNormal;
       case 'tokyo_toei_transport_pass':
         return l10n.farePolicyTokyoMentalDisabilityPass;
-      case 'nagoya_welfare_special_pass':
-        return l10n.farePolicyNagoyaWelfarePass;
-      case 'yokohama_welfare_special_pass':
-        return l10n.farePolicyYokohamaWelfarePass;
-      case 'yokohama_senior_special_pass':
-        return l10n.farePolicyYokohamaSeniorPass;
       default:
         throw StateError('Unsupported localized fare policy: ${option.id}');
     }
@@ -136,13 +123,6 @@ class _FarePolicySettingsPageState
               l10n.fareSettingsDescription,
               style: const TextStyle(color: CupertinoColors.systemGrey),
             ),
-            if (profile.city == AppCity.yokohama) ...[
-              const SizedBox(height: 8),
-              Text(
-                l10n.farePolicyYokohamaWelfarePassCondition,
-                style: const TextStyle(color: CupertinoColors.systemGrey),
-              ),
-            ],
             const SizedBox(height: 16),
             if (_loading)
               const Center(child: CupertinoActivityIndicator())

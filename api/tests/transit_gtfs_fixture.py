@@ -1,29 +1,21 @@
-"""Synthetic bus/subway handoff regression tests (no runtime/ODPT IO)."""
-from __future__ import annotations
-
-import json
-import tempfile
-import unittest
+"""Synthetic raw GTFS for shared bus/rail contract tests; no city policy or IO."""
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from fare_policy import YOKOHAMA_WELFARE_PASS_SOURCE
 from transit_adapters.gtfs import GtfsTransitAdapter
-from transit_dataset import FeedMetadata
-from yokohama_fare_coverage import YokohamaFareCoverage
+from transit_dataset import FeedMetadata, TransitDataset
 
 JST = ZoneInfo("Asia/Tokyo")
-DAY = "2026-10-14"
 
 
-def _feed(root: Path, *, rail: bool) -> YokohamaFareCoverage:
-    feed = "yokohama_subway" if rail else "yokohama_bus"
+def load_fixture_feed(root: Path, *, rail: bool) -> TransitDataset:
+    feed = "fixture_subway" if rail else "fixture_bus"
     if rail:
         inputs = {
             "stops.txt": (
                 "stop_id,stop_name,stop_lat,stop_lon\n"
-                "S,桜木町,35.4651,139.6251\nD,関内,35.4500,139.6300\n"
+                "S,乗換地点,35.4651,139.6251\nD,到着駅,35.4500,139.6300\n"
             ),
             "routes.txt": "route_id,route_short_name,route_long_name,route_type\nBLUE,ブルーライン,市営地下鉄,1\n",
             "trips.txt": "route_id,service_id,trip_id\nBLUE,ALL,TRAIN1\nBLUE,ALL,TRAIN2\n",
@@ -35,17 +27,15 @@ def _feed(root: Path, *, rail: bool) -> YokohamaFareCoverage:
                 "TRAIN2,10:20:00,10:20:00,S,2\n"
             ),
         }
-        operator = "yokohama_municipal_subway"
-        routes = {"yokohama_subway:BLUE": "local"}
     else:
         inputs = {
             "stops.txt": (
                 "stop_id,stop_name,stop_lat,stop_lon\n"
-                "O,横浜駅前,35.4700,139.6200\nB,桜木町,35.4650,139.6250\n"
+                "O,出発駅前,35.4700,139.6200\nB,乗換地点,35.4650,139.6250\n"
             ),
             "routes.txt": (
                 "route_id,route_short_name,route_long_name,route_type\n"
-                "BUS,008系統,市営バス,3\nX,あかいくつ,観光,3\n"
+                "BUS,008系統,市営バス,3\nX,特別便,観光,3\n"
             ),
             "trips.txt": (
                 "route_id,service_id,trip_id\n"
@@ -61,8 +51,6 @@ def _feed(root: Path, *, rail: bool) -> YokohamaFareCoverage:
                 "EXPRESS,09:10:00,09:10:00,B,2\n"
             ),
         }
-        operator = "yokohama_municipal_bus"
-        routes = {"yokohama_bus:BUS": "local", "yokohama_bus:X": "sightseeing"}
     inputs["calendar.txt"] = (
         "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\n"
         "ALL,1,1,1,1,1,1,1,20260101,20261231\n"
@@ -72,23 +60,9 @@ def _feed(root: Path, *, rail: bool) -> YokohamaFareCoverage:
     metadata = FeedMetadata(
         feed_id=feed,
         source_type="gtfs",
-        source_uri="https://api.odpt.org/api/v4/files/odpt/YokohamaMunicipal/",
+        source_uri="https://example.invalid/synthetic-feed",
         version="synthetic-v1",
         fetched_at=datetime(2026, 10, 14, tzinfo=JST),
     )
     dataset = GtfsTransitAdapter.load(root, metadata=metadata)
-    raw = {
-        "schema_version": 1,
-        "city": "yokohama",
-        "feed_id": feed,
-        "feed_version": metadata.version,
-        "feed_source_uri": metadata.source_uri,
-        "operator_id": operator,
-        "policy_source_uri": YOKOHAMA_WELFARE_PASS_SOURCE,
-        "reviewed_on": DAY,
-        "routes": routes,
-        "stop_municipalities": {},
-    }
-    path = root / "coverage.json"
-    path.write_text(json.dumps(raw), encoding="utf-8")
-    return YokohamaFareCoverage.load(path, dataset=dataset)
+    return dataset

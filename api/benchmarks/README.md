@@ -3,10 +3,10 @@
 The Python/Rust v1 implementations, selector, and benchmark runner were removed
 on 2026-10-16 after all active Dataset cities moved to shared SearchCore v2.
 The commands and timings below are historical evidence, not runnable current
-instructions or v2 certification. Corpora and results are retained unchanged.
+instructions or v2 certification. The Sendai corpus and Tokyo results are retained.
 
 The committed corpora under `corpus/` exercise representative batched OD pairs
-for Sendai, Yokohama, and Nagoya. Run each engine in a separate process so index
+for Sendai. Run each engine in a separate process so index
 construction and RSS measurements do not share allocator state.
 
 ```powershell
@@ -34,10 +34,6 @@ telemetry.
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | Sendai | FASTEST | 2781.593 ms | 2931.501 ms | 920.898 ms | 923.358 ms | 3.17x |
 | Sendai | FEWEST_TRANSFERS | 2774.450 ms | 2986.164 ms | 931.726 ms | 943.741 ms | 3.16x |
-| Yokohama | FASTEST | 3051.971 ms | 3184.692 ms | 1097.447 ms | 1126.408 ms | 2.83x |
-| Yokohama | FEWEST_TRANSFERS | 3085.430 ms | 3291.036 ms | 1103.381 ms | 1139.996 ms | 2.89x |
-| Nagoya | FASTEST | 7942.213 ms | 8148.439 ms | 2651.553 ms | 2760.022 ms | 2.95x |
-| Nagoya | FEWEST_TRANSFERS | 7682.798 ms | 8003.831 ms | 2539.088 ms | 2619.123 ms | 3.06x |
 
 For every row, route presence, pair count, visited states, queue peak, and
 generated labels matched between Python and Rust.
@@ -45,8 +41,6 @@ generated labels matched between Python and Rust.
 | City | Python index build | Rust index build | Python RSS delta | Rust RSS delta |
 | --- | ---: | ---: | ---: | ---: |
 | Sendai | 379.843 ms | 108.471 ms | 7,921,664 B | 11,730,944 B |
-| Yokohama | 991.956 ms | 430.366 ms | 25,821,184 B | 31,645,696 B |
-| Nagoya | 919.694 ms | 339.417 ms | 22,097,920 B | 27,648,000 B |
 
 RSS deltas are process snapshots and include allocator effects. Use Lambda cold
 start duration, peak memory, error rate, and shadow mismatch logs as the rollout

@@ -1,4 +1,4 @@
-"""Independent finite timetable oracle; no Tokyo/Yokohama audit helpers."""
+"""Independent finite timetable oracle; no other city audit helpers."""
 import contextlib
 from dataclasses import replace
 from datetime import date, datetime, timezone
