@@ -1,5 +1,6 @@
 """New hub and finite-date/API regressions for the reviewed stage1 model."""
 import contextlib
+import copy
 from dataclasses import replace
 from datetime import date
 import io
@@ -108,6 +109,20 @@ class SendaiStage1Tests(unittest.TestCase):
             create_sendai_practical_test_app(self.network,environment='production',parameters=self.params,operating_period=self.period)
         self.assertEqual(self.post({**self.body(),'fare_policy_id':'normal'}).status_code,422)
         self.assertEqual(self.post({**self.body(),'fare_policy_id':'sendai_keiro_pass'}).status_code,422)
+
+    def test_bus_exclusion_period_and_actual_gtfs_coverage_must_agree(self):
+        for change in ('readmit_excluded','unexplained_gap','duplicate_exclusion','coverage'):
+            with self.subTest(change=change):
+                review=copy.deepcopy(self.review)
+                bus=self.bus
+                if change=='readmit_excluded':review['reviewed_days'].append('2026-10-25')
+                elif change=='unexplained_gap':review['bus_excluded_days']=[]
+                elif change=='duplicate_exclusion':review['bus_excluded_days'].append(copy.deepcopy(review['bus_excluded_days'][0]))
+                elif change=='coverage':
+                    bus=replace(bus,calendars={key:replace(value,end_date=date(2026,10,20)) for key,value in bus.calendars.items()},
+                        service_exceptions=tuple(e for e in bus.service_exceptions if e.day<=date(2026,10,20)))
+                with self.assertRaises(ValueError):
+                    build_reviewed_municipal_model(self.subway,bus,review,accept_experimental_bus_transfers=True)
 
 
 if __name__=='__main__':unittest.main()

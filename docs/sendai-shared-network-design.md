@@ -488,7 +488,7 @@ APIの候補日は合計19日。10/24深夜・10/26の前営業日を必要と�
 | 地下鉄仙台→実沢営業所 | 10/19 08:20 | 09:36 | 南北線→バス |
 | 実沢営業所→地下鉄荒井 | 10/19 09:00 | 10:27 | バス→南北線→東西線 |
 
-原行subsetの新規Python回帰28件と、新7queryの独立oracle・完全witness・ASGI比較はローカルで成功した。これは原ZIP全体を使う新ゲートやChromeの成功を代用しない。新 workflowは原ZIP/manifest/member SHA・subset原行一致を再利用し、新7経路だけを検証してから新3queryを実Flutter/Chromeで操作する。旧112組・36ケース・第1〜4段階ゲートは実行しない。
+原行subsetの新規Python回帰と、新7queryの独立oracle・完全witness・ASGI比較を追加した。期間付きレビューでは、除外日とreviewed_daysの矛盾・日付の重複・実GTFS全体coverage外の延長・ロード済み地下鉄日付表との不一致も停止する。これは原ZIP全体を使う新ゲートやChromeの成功を代用しない。新workflowは原ZIP/manifest/member SHA・subset原行一致を再利用し、新7経路だけを検証してから新3queryを実Flutter/Chromeで操作する。旧112組・36ケース・第1〜4段階ゲートは実行しない。共有API/UIの変更に伴う既定の旧4query Chrome workflowはGitHub側で自動起動するが、成功済みrunの手動再実行は指示しない。
 
 通常の仙台検索画面に、debug buildかつ明示 `SENDAI_TEST_API_BASE` がある場合だけ開発用入口を追加した。東京・release build・未設定時には入口が出ない。既存の検証画面/テストAPIを利用し、通常運賃の保存設定、公開 `/route`、都市runtimeの公開選択は切り替えない。一般住所のアクセス徒歩、多言語化、実機/公開配信、本番RTとの混在は未完了である。
 

@@ -41,12 +41,50 @@ def load_reviewed_subway(published_path, review_path, *, operating_period=None):
     return source, files
 
 
+def _validate_expanded_period(subway, bus, review, days):
+    """Bind the new finite review, bus exclusions and actual feed coverage."""
+    from sendai_operating_period import OperatingPeriodReview
+    if review.get("stage_profile") != "sendai_municipal_stage1":
+        raise ValueError("explicit supported municipal stage profile required")
+    period = OperatingPeriodReview.from_mapping(review["operating_period"])
+    table = period.operating_days()
+    if table != subway.operating_days:
+        raise ValueError("municipal period does not match loaded subway operating days")
+    values = review["reviewed_days"]
+    if (not isinstance(values, list) or len(values) != len(days)
+            or any(date.fromisoformat(value).isoformat() != value for value in values)):
+        raise ValueError("unique canonical reviewed bus dates required")
+    rows = review["bus_excluded_days"]
+    if not isinstance(rows, list):
+        raise ValueError("explicit bus excluded-day review list required")
+    excluded = set()
+    for row in rows:
+        if (not isinstance(row, dict) or set(row) != {"day", "reason", "evidence"}
+                or not isinstance(row["reason"], str) or not row["reason"].strip()):
+            raise ValueError("bus excluded day requires an exact date, reason and evidence")
+        day = date.fromisoformat(row["day"])
+        if (day.isoformat() != row["day"] or day in excluded
+                or not period.coverage_start <= day <= period.coverage_end):
+            raise ValueError("unique bus exclusion within reviewed coverage required")
+        Evidence(**row["evidence"])
+        excluded.add(day)
+    expected = {entry.day for entry in table.entries if entry.kind is not None} - excluded
+    if days != expected:
+        raise ValueError("reviewed bus dates contradict finite period or explicit exclusions")
+    bounds = [day for calendar in bus.calendars.values() for day in (calendar.start_date, calendar.end_date)]
+    bounds.extend(exception.day for exception in bus.service_exceptions)
+    if (not bounds or period.coverage_start < min(bounds) or period.coverage_end > max(bounds)):
+        raise ValueError("municipal operating period exceeds explicit GTFS coverage")
+
+
 def build_reviewed_municipal_model(subway, bus, review, *, accept_experimental_bus_transfers):
     if review["schema_version"] != 1 or review["bus_feed_version"] != bus.metadata.version:
         raise ValueError("municipal bus review does not match this exact feed version")
     if review["bus_source_uri"] != bus.metadata.source_uri:
         raise ValueError("municipal bus review source URI mismatch")
     days = frozenset(date.fromisoformat(d) for d in review["reviewed_days"])
+    if "operating_period" in review:
+        _validate_expanded_period(subway, bus, review, days)
     rows = {}
     for row in bus.stop_times: rows.setdefault(row.trip_id,[]).append(row)
     segments = []
