@@ -493,3 +493,83 @@ APIの候補日は合計19日。10/24深夜・10/26の前営業日を必要と�
 通常の仙台検索画面に、debug buildかつ明示 `SENDAI_TEST_API_BASE` がある場合だけ開発用入口を追加した。東京・release build・未設定時には入口が出ない。既存の検証画面/テストAPIを利用し、通常運賃の保存設定、公開 `/route`、都市runtimeの公開選択は切り替えない。一般住所のアクセス徒歩、多言語化、実機/公開配信、本番RTとの混在は未完了である。
 
 宮城交通・その他の市営pattern/接続・11月以降の追加検索期間・全特別ダイヤ・4乗車を必要とする両端バスの全市経路・全query完全性/真のtop-k・到着/接続/バリアフリーの実測保証は今回の範囲外。ふれあい乗車証の有効な所持を明示選択する前提を保持し、敬老乗車証や通常運賃不明を無料へ変換しない。本番deploy・AWS/S3・ストア操作は行わない。
+
+### 13.5 追加された具体停留所
+
+荒井21は既存の具体停留所集合で経由と便を追加する。泉中央21で以下の26名称・49具体IDを追加する。表のIDはGTFSの `stop_id` であり、検索APIでは `sendai_bus:` を前置する。到着専用・出発専用や乗降禁止は原 `stop_times` のまま扱うため、表の全IDで任意の乗降ができるという意味ではない。
+
+| 名称 | 追加したstop_id |
+| --- | --- |
+| 泉中央駅 | `1085_0`, `1085_12` |
+| 泉中央駅北口 | `1093_10` |
+| 泉区役所・イズミティ２１前 | `1091_50` |
+| 菅間 | `1095_10`, `1095_50` |
+| 朴木沢 | `1099_10`, `1099_50` |
+| 泉総合運動場・社会福祉センター前 | `1103_10`, `1103_50` |
+| 野村 | `1107_10`, `1107_50` |
+| 上野前 | `1109_10`, `1109_50` |
+| 泉パークタウン入口 | `1111_10`, `1111_50` |
+| 八沢川 | `1113_10`, `1113_50` |
+| 実沢 | `1115_10`, `1115_50` |
+| 小角 | `1117_10`, `1117_50` |
+| 鼻毛橋 | `1119_10`, `1119_50` |
+| 窪 | `1121_11`, `1121_51` |
+| 芦沢 | `1315_10`, `1315_11` |
+| 泉ビレジ一丁目南 | `9182_10`, `9182_50` |
+| 泉ビレジ一丁目西 | `9183_10`, `9183_50` |
+| 泉ビレジ一丁目 | `9185_10`, `9185_50` |
+| 泉ビレジ二丁目 | `9189_10`, `9189_50` |
+| 泉ビレジ三丁目 | `9191_10`, `9191_50` |
+| 泉ビレジ五丁目 | `9193_10`, `9193_50` |
+| 泉ビレジ四丁目 | `9195_10`, `9195_50` |
+| 水泉荘前 | `9251_10`, `9251_50` |
+| 道祖神 | `9252_10`, `9252_50` |
+| 二ノ関屋敷 | `9253_10` |
+| 市営バス実沢営業所前 | `9260_0`, `9260_10` |
+
+### 13.6 第1段の起動方法
+
+第11.7節の明示版・SHAで準備済みのデータを再利用する。新reviewと期間オプションを明示して起動する。旧4経路用reviewからの自動切替はない。
+
+```powershell
+python -B scripts/serve_sendai_practical_local.py `
+  --bus-gtfs-dir api/data/sendai/20261006_model `
+  --expected-service-date 2026-10-16 `
+  --subway-published api/tests/fixtures/sendai_subway/published_20230701.json `
+  --subway-review api/tests/fixtures/sendai_subway/practical_review_20261016.json `
+  --municipal-review api/tests/fixtures/sendai_subway/municipal_review_20261016_stage1.json `
+  --use-reviewed-operating-period `
+  --accept-experimental-transfer-model
+```
+
+別ターミナルの専用entryは第11.7節と同じ。通常の仙台画面から検証入口を開く場合はdebugで以下を使う（本番API切替ではない）。
+
+```powershell
+flutter run -d chrome -t lib/main.dart `
+  --dart-define=APP_CITY=sendai `
+  --dart-define=SENDAI_TEST_API_BASE=http://127.0.0.1:8000
+```
+
+### 13.7 次の優先順
+
+1. **既存拠点に接続できる高頻度の市内完結patternを追加する。** 今回の原GTFS棚卸しを再利用し、同じ泉中央または荒井の具体poleを使う便を先に選ぶ。次に主要地下鉄駅と仙台駅の市営のりばを候補にする。route番号でなく完全stop順・trip集合・全隣接区間の制度対象をレビューし、追加patternごとに新しい具体queryとraw oracleを追加する。既存の成功済み監査一式を再実行する前提にしない。
+2. **通常期間を次の有限区間へ更新する。** 原feedの有効期間内で、既存公開地下鉄時計・内閣府祝日一覧・公式運行変更を確認し、未確認の例外だけを明示除外する。まず11月の祝日と既知の臨時変更を扱い、10/25は影響便の具体差分を確認してから再開する。日付単位の実地調査や暗黙の自動延長は要求しない。
+3. **公開画面への本接続を準備する。** debug入口での実機確認、対応範囲と期限を保つcapabilities契約、一般住所からの徒歩アクセス、多言語表示、公開用API登録と運用を順に整理する。現段階の限定対象を全市対応と表示せず、本番切替・配信は別の明示作業とする。
+
+市境をまたぐ便を追加する段階では、無料な連続区間を具体trip・営業日・停車occurrenceで許可する設計を検討する。同じ便の途中を別便のように乗り直す辺へ変換せず、既存の具体便連続性と未知運賃を保持する。今回の市内完結pattern追加のために共通探索を変更する必要はない。4乗車や順位変更は、それを必要とする固定queryと具体的な欠落を先に示してから別単位で検討する。
+
+### 13.8 実装・検証の証拠
+
+実装sourceは **`b8a95f67e76776b49e3e9cd7e31813b1ea65d652`**。棚卸し `66fce43c`、有限期間 `4a082ea2`、路線・乗換・画面入口 `cb305338`、期間整合検査 `e1d68592`、Chromeのlazy menu finder修正 `b8a95f67` に分けた。変更23ファイルに共通探索本体・枝刈り・候補順位、東京の公開API、アプリID、Firebase、本番deploy設定の変更はない。
+
+新規workflow [38892415460](https://github.com/kaeruko/tobus_go/actions/runs/38892415460) は上記sourceで **completed/success**。新規Python **29件**、承認済み原ZIP/schema2 manifest/member SHAとsubset原行の一致、新7queryの独立raw oracle・具体便witness・ASGI比較が成功し、`READ_ONLY_SENDAI_STAGE1_NEW_SEVEN_OK` を確認した。同じrunの実Flutter/Chrome UIで、荒井21単独・実沢営業所→地下鉄仙台・地下鉄仙台→実沢営業所の**3query**が成功し、`All tests passed.` を確認した。
+
+最初の新Chrome run [38891145432](https://github.com/kaeruko/tobus_go/actions/runs/38891145432) は再選択中のdate keyがfieldとmenuに重複して停止した。次の [38891669348](https://github.com/kaeruko/tobus_go/actions/runs/38891669348) は `.last` が未生成のlazy itemへ適用されて停止した。最終版では開いているmenu配下へFinderを限定し、未生成の0件状態を保ってスクロールする。経路・日付・上限・source/backendを差し替えて成功させていない。
+
+旧固定4queryの既定Chrome workflow [38891669456](https://github.com/kaeruko/tobus_go/actions/runs/38891669456) も `e1d68592` で **completed/success**。この後のコード差分は新ChromeテストのFinderだけで、旧4query・API・bundle・Flutter画面のblobは同一である。成功済み監査の手動再実行ではなく、共有ファイル変更によるGitHubの自動回帰である。
+
+最終コードの通常CIではPython API **852件**、Windows回帰 **277件**、共通v2 Python3.11/3.12 **各89件**が成功した。Flutter analyze/testでは、通常画面の開発用入口が都市・debug・明示endpointで制限される新規2件も成功した。通常運賃・乗車証設定の自動変更、公開runtime切替、AWS/S3操作、ストア提出、本番deployは行っていない。
+
+通常CI [38892415423](https://github.com/kaeruko/tobus_go/actions/runs/38892415423) は同じ **`b8a95f67e76776b49e3e9cd7e31813b1ea65d652`** で **completed/success・全7job成功**。Flutter解析/テスト、東京・仙台のAndroid/iOS両flavor、iOS identity/privacy/ATS/Firebase分離、repository safety、共通v2の両Python版、Windows、APIを確認した。Lambda imageのbuild/import検査も成功したがdeployではない。
+
+最後は結果・停留所一覧・起動方法・残課題だけの文書commit（`[skip ci]`）で記録する。CIと実データ/Chromeの認定source SHAは上記b8a95f67であり、文書commitを新しいコード検証や実運行保証に読み替えない。作業終了前にもmain/未マージPRを確認し、他の変更を上書きしていない。
