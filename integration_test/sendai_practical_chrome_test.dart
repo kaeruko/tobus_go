@@ -61,6 +61,8 @@ Future<void> _search(
   await _reveal(tester, timeInput);
   await tester.enterText(timeInput, time);
   await tester.pumpAndSettle();
+  expect(tester.widget<TextField>(timeInput).controller!.text, time,
+      reason: 'Search time field did not accept the requested time');
   final button = find.byKey(const Key('sendai-search'));
   await _reveal(tester, button);
   await tester.tap(button);
