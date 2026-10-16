@@ -63,6 +63,8 @@ void main() {
       await tester.scrollUntilVisible(field, 180, scrollable: listScroll);
       expect(field, findsOneWidget);
     }
+    tester.state<ScrollableState>(listScroll).position.jumpTo(0);
+    await tester.pumpAndSettle();
     expect(find.textContaining('日付境界'), findsOneWidget);
     expect(find.textContaining('宮城交通'), findsOneWidget);
   });
