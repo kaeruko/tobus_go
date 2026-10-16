@@ -56,8 +56,9 @@ void main() {
     expect(find.byKey(const Key('sendai-origin')), findsNothing);
     await tester.tap(find.byKey(const Key('sendai-practical-inline-toggle')));
     await tester.pumpAndSettle();
-    final listScroll = find.descendant(
-      of: find.byType(ListView).first, matching: find.byType(Scrollable)).first;
+    expect(find.byType(ListView), findsOneWidget,
+      reason: 'Capabilities must load and display the embedded search form');
+    final listScroll = find.byType(Scrollable).last;
     for (final key in ['origin', 'destination', 'date', 'time', 'pass', 'accept-transfer', 'search']) {
       final field = find.byKey(Key('sendai-$key'));
       await tester.scrollUntilVisible(field, 180, scrollable: listScroll);
