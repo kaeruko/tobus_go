@@ -303,7 +303,13 @@ if ($LASTEXITCODE -ne 0) { throw 'Sendai source inspection failed' }
 
 ### 10.6 CIと未認定項目
 
-実装commitのGitHub Actions全jobを確認して本項へ確定結果を追記する。Windows probeにも新規profile/委譲回帰を追加した。ローカルの関連回帰は成功、Git diff whitespace検査も実施する。過去の第7節のCI成功を今回の実装へ転用しない。
+検証した実装commitは `dbb1d4276ead5e5b28a612beec4b22abd9372c25`。GitHub Actions [38831209934](https://github.com/kaeruko/tobus_go/actions/runs/38831209934) は `completed/success`、**全7 jobが成功**した。Linux APIは **997件・skip 5**、Windows probeは **275件**で成功。両jobのログで **新規22テストすべてのok** を確認した。22件には独立oracleとの実CSV固定10経路比較、12seedの境界反例探索、実core上限の停止、東京/仙台の同一探索本体への委譲、旧cost読み替え拒否、東京/未公開都市のAPI既定値分離を含む。第7節の旧17件/旧CIや112組の成功を新profileの合格へ転用した結果ではない。
+
+Repository safety、Python/Rust参照coreの3.11・3.12 parity/format/clippy、Lambda image内の独立smoke、Flutter analyze/test、Android/iOSの全4flavorビルドとidentity/Firebase分離検査も成功した。Docker内の検証はデプロイではない。合格済みの実データ監査CLI・112組ソース比較・バス36ケースは再実行していない。共通入力型/接続層の変更を検証する既存の通常合成回帰はCIで実行した。
+
+未公開都市の入力型 `SharedNetworkApiRouteRequest` は既定time、東京の既存 `ApiRouteRequest` は既定costを保持する。明示costのfewTransfersへの読替えは廃止した。共通endpoint登録の追加引数は既存型を既定とし、東京のAPI契約を保持することを既存endpoint 11回帰と新規既定値回帰で確認した。公開UIの保存済み設定や通常運賃を変換していない。
+
+ローカル関連回帰及び `git diff --check` も成功。最後のCI結果追記は文書だけの `[skip ci]` commitとし、成功済みjobを再起動しない。CIの認定対象は上記実装SHAであり、文書追記を新たな実運行認定とは扱わない。
 
 認定するのは上記入力版・有限通常日付モデル・固定queryの予定経路とprovenanceの整合性である。独立到着秒、実到着に対する誤差保証、実際の接続保証、余裕2分の正式採用、全特別ダイヤ、物理歩行距離/全バリアフリー動線、仙台全query/真のtop-k、承認済み実バスとの混在、公開API/UI接続は未認定。`exact_arrival_verified=false`、`actual_connection_guaranteed=false`、`experimental_margin_formally_adopted=false` を結果に保持する。厳密版の `operational_ready=false` を反転しない。
 
