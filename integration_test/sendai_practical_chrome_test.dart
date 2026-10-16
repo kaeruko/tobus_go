@@ -16,7 +16,11 @@ Finder get _pageScroll => find.descendant(
 ).first;
 
 Future<void> _reveal(WidgetTester tester, Finder target) async {
-  print('sendai-e2e reveal $target: found=${target.evaluate().length}, scrolls=${_pageScroll.evaluate().length}');
+  // Every search starts from a known scroll position; the preceding result
+  // may have left the page below an earlier dropdown.
+  final page = tester.state<ScrollableState>(_pageScroll);
+  page.position.jumpTo(page.position.minScrollExtent);
+  await tester.pumpAndSettle();
   await tester.scrollUntilVisible(
     target, 250, scrollable: _pageScroll,
   );
@@ -26,16 +30,18 @@ Future<void> _reveal(WidgetTester tester, Finder target) async {
 Future<void> _select(
   WidgetTester tester, String field, String value,
 ) async {
-  print('sendai-e2e select $field: $value');
   final input = find.byKey(Key('sendai-$field'));
   await _reveal(tester, input);
   await tester.tap(input);
   await tester.pumpAndSettle();
   final item = find.byKey(ValueKey('sendai-$field-item-$value'));
-  print('sendai-e2e opened $field: item=${item.evaluate().length}, scrollables=${find.byType(Scrollable).evaluate().length}');
-  await tester.scrollUntilVisible(item, 220,
-      scrollable: find.byType(Scrollable).last);
-  print('sendai-e2e choosing $field: item=${item.evaluate().length}');
+  final menuScroll = find.byType(Scrollable).last;
+  // Dropdowns re-open at their previously selected item, so rewind before
+  // selecting an earlier stop (e.g. after a rail -> bus query).
+  final menu = tester.state<ScrollableState>(menuScroll);
+  menu.position.jumpTo(menu.position.minScrollExtent);
+  await tester.pumpAndSettle();
+  await tester.scrollUntilVisible(item, 220, scrollable: menuScroll);
   await tester.tap(item.last);
   await tester.pumpAndSettle();
 }
@@ -49,7 +55,6 @@ Future<void> _search(
   required String firstMode,
   String? secondMode,
 }) async {
-  print('sendai-e2e route $origin -> $destination @ $time');
   await _select(tester, 'origin', origin);
   await _select(tester, 'destination', destination);
   final timeInput = find.byKey(const Key('sendai-time'));
@@ -82,7 +87,6 @@ void main() {
     // No mock client, dataset substitution, or production endpoint.
     app.main();
     await tester.pumpAndSettle();
-    print('sendai-e2e app booted: listViews=${find.byType(ListView).evaluate().length}');
     expect(find.text('仙台でGO 検証用'), findsOneWidget);
     expect(find.textContaining('確認済み:'), findsOneWidget);
 
