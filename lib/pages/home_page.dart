@@ -623,7 +623,6 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
 
   @override
   void dispose() {
-    _fareLoadGeneration++;
     widget.tabIndexListenable?.removeListener(_handleTabChange);
     super.dispose();
   }
