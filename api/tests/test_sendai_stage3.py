@@ -3,6 +3,7 @@ import contextlib
 from datetime import date
 import io
 import json
+import sys
 from pathlib import Path
 import unittest
 
@@ -14,6 +15,7 @@ from sendai_practical_network import PracticalRide, search_practical_subway
 from transit_timetable_choices import NetworkSearchParameters
 from tests.sendai_municipal_oracle import optimum, raw_services, runs, validate
 from tests.test_sendai_arai21_practical import load_bus
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.check_sendai_expansion import raw_day_kinds
 
 ROOT = Path(__file__).parent / "fixtures" / "sendai_subway"
@@ -109,7 +111,7 @@ class NovemberStage3Tests(unittest.TestCase):
         self.assertEqual(self.review["bus_excluded_days"], self.previous["bus_excluded_days"])
         self.assertEqual(self.review["bus_feed_version"], self.previous["bus_feed_version"])
         self.assertEqual(self.review["subway_transfer_margin_minutes"], self.previous["subway_transfer_margin_minutes"])
-        self.assertEqual(len(self.network.free_scope.allowed_trip_ids), 197)
+        self.assertEqual(sum(t.startswith("sendai_bus:") for t in self.network.free_scope.allowed_trip_ids), 197)
 
 
 if __name__ == "__main__":

@@ -645,3 +645,17 @@ flutter run -d chrome -t lib/main.dart `
 通常CI [38979986752](https://github.com/kaeruko/tobus_go/actions/runs/38979986752) は **`3d88bfbd69e76342637d8982e38b378d46ef5376`** で **completed/success・全7job成功**。Flutter解析/テスト、東京・仙台のAndroid/iOS両flavor、iOS identity/privacy/ATS/Firebase分離、repository safety、API、Windows、共通v2の両Python版、Lambda imageのbuild/import検査が成功した。Lambda imageの検査はdeployではない。
 
 最後の反映は、この結果記録だけの文書commit（`[skip ci]`）とする。CI・原ZIP6経路・Chrome3経路の認定sourceは上記3d88bfbdであり、文書commitを追加のコード検証や実運行保証として扱わない。反映直前にもmainと未マージPRを確認し、他の変更を上書きしていない。次の作業は、公式祝日/変更案内を使う11月の有限期間更新と追加路線の選定から進める。
+
+## 15. 2026年11月有限通常期間・通常画面内フォーム（2026-10-17）
+
+開始main `357fbeb5d00bf4e30fc87c8c7a78b0166db87ad9`、成功済みsource `3d88bfbd69e76342637d8982e38b378d46ef5376`。作業開始時に未マージPR0件、実行中CI0件を確認した。第13〜14節の公式バスZIP/member SHA・地下鉄8原CSV/112組・接続・全197便/8pattern・旧固定queryと成功済み監査を再利用し、再監査や共通探索の変更をしない。
+
+新規 `municipal_review_20261017_stage3.json` を**明示的に**指定した場合だけ、原GTFS-JP `20261007_20261130` 内の2026-10-11〜11-30の有限日付表、利用者選択2026-10-12〜11-30を扱う。土曜/日曜と11/3「文化の日」・11/23「勤労感謝の日」の地下鉄w/hは内閣府2026年一覧（従来retained SHA `565ed19991424566812ce202196adc2a5f7932d9e607940ce28df76456413e43`）で決め、バスは独立したGTFS `calendar.txt` と `calendar_dates.txt` の11/3・11/23例外を使う。旧review、旧fixture、stage2の固定期待は保持する。
+
+10/25の全日本大学女子駅伝による市バス便別影響未認定は従来どおりバス日付から除外する。**11/22（日）クイーンズ駅伝2026**は宮城県が2026-10-09に交通規制と路線バス一部運休・迂回を告知（https://www.pref.miyagi.jp/soshiki/sports/queens_roadrace/2026_queens_roadrace.html）。便別差分と原HTML SHAを未保持のため、11/22を**共通の検証用通常日付モデル全体**から保守的に除外する。これは地下鉄が運休するとの認定ではない。新告知のSHAを捏造して証拠欄へ入れない。stage3の内部バス日付49日、検索候補48日。候補日であっても当該OD/時刻の完全な運行保証を意味しない。
+
+**11/30が原バスGTFSの末日**。当日日中で必要な営業日が11/30以前なら検索し、最長180分の探索で12/1を必要とする深夜条件は未認定として422停止する。12/1への暗黙拡張・別feed fallbackはしない。公式の臨時運行更新は自動反映されないため実運行・到着・接続は保証しない。
+
+既存の `SendaiPracticalTestPage` に `embedded` を設け、仙台debugかつ明示 `SENDAI_TEST_API_BASE` でだけ通常の検索画面からフォームを**展開**できるようにする。出発地・目的地・日付・時刻・有効ふれあい乗車証の明示選択・乗換仮設定、検索・目安結果を従来と同じテストAPIで表示する。従来の検証ページへの入口も維持する。Release/Tokyo/未指定URLでは入口は表示しない。一般住所・宮城交通・未確認路線は追加せず、通常 `/route` や利用者設定・東京・native ID・Firebase・AWS/S3・deploy・storeも変更しない。
+
+原ZIPを使う新専用CIの `--profile stage3` はstage2と同じ検証済みZIPとschema2 manifestを使い、新しい11月7ケース（平日バス、バス＋地下鉄、地下鉄→バス、2地下鉄、祝日、土曜、地下鉄単独）だけを原行oracle・具体便・APIと照合する。既存4経路と住吉台方面の回帰は通常CIに保持し、Chromeは11月の選択・検索を実画面で検査する。成功が確定する前にCI結果を記載しない。

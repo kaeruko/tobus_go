@@ -1,4 +1,4 @@
-name: Sendai staged expansion
+name: Sendai November finite period
 
 on:
   push:
@@ -11,6 +11,11 @@ on:
       - 'api/tests/test_sendai_arai21_practical.py'
       - 'api/tests/test_sendai_stage1.py'
       - 'api/tests/test_sendai_stage2.py'
+      - 'api/tests/test_sendai_stage3.py'
+      - 'api/tests/fixtures/sendai_subway/*stage3.json'
+      - 'lib/widgets/sendai_practical_launcher.dart'
+      - 'test/sendai_practical_launcher_test.dart'
+      - 'integration_test/sendai_stage3_chrome_test.dart'
       - 'api/tests/sendai_municipal_oracle.py'
       - 'api/tests/fixtures/sendai_subway/*stage1.json'
       - 'api/tests/fixtures/sendai_subway/*stage2.json'
@@ -19,7 +24,7 @@ on:
       - 'lib/pages/sendai_practical_test_page.dart'
       - 'lib/models/sendai_practical_models.dart'
       - 'integration_test/sendai_stage1_chrome_test.dart'
-      - 'integration_test/sendai_stage2_chrome_test.dart'
+      - 'integration_test/sendai_stage3_chrome_test.dart'
   workflow_dispatch:
 
 permissions:
@@ -27,7 +32,7 @@ permissions:
 
 jobs:
   stage1-model:
-    name: Sumiyoshidai 20 complete routes and existing Izumi connections
+    name: November 2026 scheduled bus and subway
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -39,9 +44,9 @@ jobs:
           cache-dependency-path: api/requirements.txt
       - name: Install existing Python dependencies
         run: python -m pip install -r api/requirements.txt
-      - name: New independent regression modules only
+      - name: November-specific regression module only
         working-directory: api
-        run: python -B -m unittest -f tests.test_sendai_stage2
+        run: python -B -m unittest -f tests.test_sendai_stage3
       - name: Prepare exactly the approved official GTFS and manifest
         run: |
           python -B scripts/fetch_sendai_gtfs.py \
@@ -49,8 +54,8 @@ jobs:
             --expected-service-date 2026-10-16 \
             --source-url 'https://api-public.odpt.org/api/v4/files/odpt/SendaiMunicipal/bus_realtime_information.zip?date=20261006' \
             --expected-sha256 53a08400776b3229743b24eb53566eb523b354a5b783dcfffd3e40f39258e6a2
-      - name: New six fixed real-source routes, independent oracle and API
-        run: python -B scripts/check_sendai_expansion.py --profile stage2 --bus-gtfs-dir api/data/sendai/20261006_model --expected-sha '${{ github.sha }}'
+      - name: November real-source routes, independent oracle and API
+        run: python -B scripts/check_sendai_expansion.py --profile stage3 --bus-gtfs-dir api/data/sendai/20261006_model --expected-sha '${{ github.sha }}'
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -73,7 +78,7 @@ jobs:
             --expected-service-date 2026-10-16 \
             --subway-published api/tests/fixtures/sendai_subway/published_20230701.json \
             --subway-review api/tests/fixtures/sendai_subway/practical_review_20261016.json \
-            --municipal-review api/tests/fixtures/sendai_subway/municipal_review_20261016_stage2.json \
+            --municipal-review api/tests/fixtures/sendai_subway/municipal_review_20261017_stage3.json \
             --use-reviewed-operating-period --accept-experimental-transfer-model > "$RUNNER_TEMP/sendai-stage1-api.log" 2>&1 &
           server_pid=$!
           for attempt in {1..45}; do
@@ -92,11 +97,11 @@ jobs:
           set -euo pipefail
           echo 'CHROME_EXECUTABLE=${{ steps.chrome.outputs.chrome-path }}' >> "$GITHUB_ENV"
           '${{ steps.chrome.outputs.chromedriver-path }}' --port=4444 > "$RUNNER_TEMP/sendai-stage1-chromedriver.log" 2>&1 &
-      - name: Sumiyoshidai 20 and both Izumi directions through actual Flutter Chrome UI
+      - name: November bus, rail and Izumi directions through Flutter Chrome UI
         run: |
           flutter drive -d web-server --browser-name=chrome \
             --driver=test_driver/integration_test.dart \
-            --target=integration_test/sendai_stage2_chrome_test.dart \
+            --target=integration_test/sendai_stage3_chrome_test.dart \
             --dart-define=SENDAI_TEST_API_BASE=http://127.0.0.1:8000
       - name: Show original diagnostics on failure
         if: failure()

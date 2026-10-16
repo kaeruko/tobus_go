@@ -5,7 +5,9 @@ import '../services/sendai_practical_service.dart';
 /// Opt-in test page; not linked from the released application's navigation.
 class SendaiPracticalTestPage extends StatefulWidget {
   final SendaiPracticalService service;
-  const SendaiPracticalTestPage({super.key, required this.service});
+  /// Embedded only behind the Sendai debug/local endpoint guard.
+  final bool embedded;
+  const SendaiPracticalTestPage({super.key, required this.service, this.embedded = false});
   @override
   State<SendaiPracticalTestPage> createState() => _SendaiPracticalTestPageState();
 }
@@ -50,9 +52,9 @@ class _SendaiPracticalTestPageState extends State<SendaiPracticalTestPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('仙台でGO 検証用')),
-    body: FutureBuilder<SendaiPracticalCapabilities>(future: _capabilities, builder: (context, snapshot) {
+  Widget build(BuildContext context) {
+    final content = FutureBuilder<SendaiPracticalCapabilities>(
+      future: _capabilities, builder: (context, snapshot) {
       if (snapshot.hasError) return Text('データを確認できません: ${snapshot.error}');
       if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
       final cap = snapshot.data!;
@@ -97,6 +99,10 @@ class _SendaiPracticalTestPageState extends State<SendaiPracticalTestPage> {
             const Text('有効な乗車証の所持を前提。通常運賃の設定は変更しません。'),
           ]))),
       ]);
-    }),
-  );
+    });
+    return widget.embedded ? content : Scaffold(
+      appBar: AppBar(title: const Text('仙台でGO 検証用')),
+      body: content,
+    );
+  }
 }
