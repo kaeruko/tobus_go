@@ -105,7 +105,7 @@ class ApiRouteSearchService implements RouteSearchService {
     ]);
     return _inFlight.putIfAbsent(
       key,
-      () => _performSearch(request, apiBody, policyId).whenComplete(() {
+      () => _performSearch(request, apiBody).whenComplete(() {
         // A later explicit search must obtain a fresh realtime snapshot, and
         // a failed request must remain retryable.
         _inFlight.remove(key);
@@ -116,7 +116,6 @@ class ApiRouteSearchService implements RouteSearchService {
   Future<RouteSearchResult> _performSearch(
     RouteSearchRequest request,
     Map<String, dynamic> apiBody,
-    String? policyId,
   ) async {
     final response = await ApiClient.post('/route', body: apiBody);
 
@@ -156,7 +155,6 @@ class ApiRouteSearchService implements RouteSearchService {
     }
 
     final candidates = <Candidate>[];
-    final fareByCandidateId = <String, FareQuote>{};
     final candidateIds = <String>{};
     for (final rawCandidate in rawCandidates) {
       if (rawCandidate is! Map) {
@@ -188,23 +186,12 @@ class ApiRouteSearchService implements RouteSearchService {
         throw FormatException('duplicate route candidate id: ${candidate.id}');
       }
       candidates.add(candidate);
-      if (policyId != null && policyId != 'normal') {
-        final rawFare = map['fare'];
-        if (rawFare is! Map) {
-          throw const FormatException('scoped route response is missing fare quote');
-        }
-        final fare = FareQuote.fromJson(Map<String, dynamic>.from(rawFare));
-        if (fare.policyId != policyId) {
-          throw const FormatException('scoped route fare policy does not match request');
-        }
-        fareByCandidateId[candidate.id] = fare;
-      }
     }
 
     return RouteSearchResult(
       candidates: List.unmodifiable(candidates),
       meta: RouteMeta.fromJson(Map<String, dynamic>.from(rawMeta)),
-      fareByCandidateId: Map.unmodifiable(fareByCandidateId),
+      fareByCandidateId: const {},
     );
   }
 
