@@ -35,8 +35,13 @@ Future<void> _select(WidgetTester tester, String field, String value) async {
     of: menu,
     matching: find.byKey(ValueKey('sendai-$field-item-$value')),
   );
-  _chromeStage = 'select $field=$value: find menu item';
-  await tester.scrollUntilVisible(item, 64, maxScrolls: 160, scrollable: menu);
+  // Separate drags consume touch slop: a 64px gesture does not advance the
+  // list by all 64px. Derive a finite budget from this menu's actual extent,
+  // rather than the old 160-gesture cap for the smaller stage3 stop list.
+  final extent = tester.state<ScrollableState>(menu).position.maxScrollExtent;
+  final maxScrolls = (extent / 32).ceil() + 20;
+  _chromeStage = 'select $field=$value: find menu item; extent=$extent, budget=$maxScrolls';
+  await tester.scrollUntilVisible(item, 64, maxScrolls: maxScrolls, scrollable: menu);
   await Scrollable.ensureVisible(tester.element(item), alignment: 0.5);
   await tester.pumpAndSettle();
   await tester.tap(item);
