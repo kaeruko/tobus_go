@@ -129,7 +129,8 @@ class _SelectedScope:
         materializations = {}  # Immutable date windows, released at request end.
         source_metadata = {}  # One source range/version calculation per request.
         timetable_choices = {}  # At most one existing same-condition provider.
-        diagnostic = {"comparison_complete": False, "completed_pairs": 0, "non_transit_pairs": []}
+        diagnostic = {"comparison_complete": False, "completed_pairs": 0,
+                      "minimum_transit_boardings": 1}
         try:
             a.period.require_query_days(day, (day,), additional_reviewed_days=(a.network.bus_reviewed_days,))
             origins, origin_scope = a.endpoint_candidates(request.origin, "origin")
@@ -142,16 +143,6 @@ class _SelectedScope:
                 raise RouteInputError("access walk crosses an unreviewed civil-day boundary")
             best = None
             for i, j, origin, destination in pairs:
-                if (origin["stop_id"] == destination["stop_id"] and
-                        (origin_scope.get("scope") == "geometric_estimate" or
-                         destination_scope.get("scope") == "geometric_estimate")):
-                    # The shared search's same-node optimum is a zero-ride
-                    # path. It cannot receive a free transit fare quote. Keep
-                    # this classification visible, without inventing a loop
-                    # journey or a road-walking route.
-                    diagnostic["non_transit_pairs"].append([origin["stop_id"],destination["stop_id"]])
-                    diagnostic["completed_pairs"] += 1
-                    continue
                 remaining = deadline - monotonic()
                 if remaining <= 0:
                     raise RouteSearchLimitError("Sendai coordinate request deadline exceeded", reason="time_limit")

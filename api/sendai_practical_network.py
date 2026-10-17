@@ -328,8 +328,12 @@ def search_practical_subway(network, origin, destination, *, civil_date,
                                        reason="time_limit")
         parameters = replace(parameters, time_limit_seconds=min(parameters.time_limit_seconds, remaining))
     start = 1440 + departure_minute
+    # The free transit policy requires a travelled ride. A walk-only arrival
+    # (including origin==destination) must remain an intermediate state, so
+    # it neither consumes the sole candidate nor hides a valid transit path.
     journeys = search_network(snapshot, origin, destination, service_date=anchor,
-        departure_minute=start, mode=mode, parameters=parameters, _request_choices=_request_choices)
+        departure_minute=start, mode=mode, parameters=parameters, _request_choices=_request_choices,
+        _require_transit=True)
     result = []
     for journey in journeys:
         events, quoted_rides = [], []

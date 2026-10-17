@@ -108,6 +108,58 @@ def optimum(raw_runs,review,origin,destination,start,*,max_boardings,max_minutes
     return arrivals(raw_runs,review,origin,start,max_boardings=max_boardings,max_minutes=max_minutes).get(destination)
 
 
+def few_transfer_arrivals(raw_runs,review,origin,start,*,max_boardings,max_minutes,
+                          destination_walk_minutes=None):
+    """Test-only finite raw-row scan, retaining clock/cost Pareto alternatives.
+
+    Costs are independent integer tenths: boarding=50, each travelled row=8,
+    reviewed connection minute=15. Waiting and endpoint walks do not enter the
+    established planning-cost objective. No production search/ranker is used.
+    The witness records original trip, sequences, clocks and connection rows.
+    """
+    deadline=Fraction(start)+max_minutes
+    def add(layer,stop,clock,cost,witness):
+        if clock>deadline:return False
+        current=layer.setdefault(stop,[])
+        if any(t<=clock and c<=cost for t,c,_ in current):return False
+        current[:]=[(t,c,w) for t,c,w in current if not (clock<=t and cost<=c)]
+        current.append((clock,cost,witness));return True
+    layer={origin:[(Fraction(start),0,())]};best={}
+    for count in range(max_boardings+1):
+        for _ in range(len(links(review))+1):
+            changed=False
+            for a,b,minutes in links(review):
+                for clock,cost,witness in tuple(layer.get(a,())):
+                    changed=add(layer,b,clock+minutes,cost+15*minutes,
+                        witness+(('walk',a,b,minutes),)) or changed
+            if not changed:break
+        if count:
+            for stop,values in layer.items():
+                if stop not in best:
+                    walk=(destination_walk_minutes or {}).get(stop,0)
+                    feasible=[v for v in values if v[0]+walk<=deadline]
+                    if not feasible:continue
+                    clock,cost,witness=min(feasible,key=lambda v:(v[1],v[0]))
+                    best[stop]=(count,cost,clock,witness)
+        if count==max_boardings:break
+        following={}
+        for run in raw_runs:
+            for i,a in enumerate(run['stops'][:-1]):
+                if run['pickup'][i]!='0':continue
+                ready=[v for v in layer.get(a,()) if v[0]<=run['deps'][i]]
+                if not ready:continue
+                # Every available prefix boards the SAME concrete departure;
+                # its arrival thereafter is identical. Keep the cheapest.
+                clock,cost,witness=min(ready,key=lambda v:(v[1],v[0]))
+                for j in range(i+1,len(run['stops'])):
+                    if run['dropoff'][j]!='0':continue
+                    add(following,run['stops'][j],run['arrs'][j],cost+50+8*(j-i),
+                        witness+(('ride',run['trip'],run['seq'][i],run['seq'][j],
+                            str(run['deps'][i]),str(run['arrs'][j])),))
+        layer=following
+    return best
+
+
 def validate(result,raw_runs,review,civil_day,origin,destination,start):
     from sendai_practical_network import PracticalRide,PracticalTransfer
     ready=Fraction(start);at=origin;boards=0

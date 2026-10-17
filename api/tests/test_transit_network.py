@@ -165,6 +165,39 @@ def query(snapshot, origin, destination, *, mode="time", day=SERVICE_DAY, depart
 
 
 class TransitNetworkTest(unittest.TestCase):
+    def test_transit_goal_retains_rides_after_walk_only_or_same_stop_arrivals(self):
+        source=dataset('goal',{'ride':[('c',600,600),('d',610,610)],
+            'poles':[('a',700,700,1,0),('b',710,710)]})
+        walking=tuple(pin('goal:'+a,'goal:'+b,minutes=1,meters=80,
+            from_ver='fixture-v1',to_ver='fixture-v1') for a,b in
+            (('a','b'),('b','c'),('d','c'),('d','a')))
+        snapshot=network(source,links=walking)
+        original_edges=tuple(snapshot.graph.edges(data=True))
+        def run(destination,mode,require=True,**changes):
+            with contextlib.redirect_stdout(io.StringIO()):
+                return search_network(snapshot,'goal:a','goal:'+destination,service_date=DAY,
+                    departure_minute=590,mode=mode,_require_transit=require,
+                    parameters=NetworkSearchParameters(max_candidates=1,max_boardings=3,**changes))
+        for mode in ('time','fewTransfers'):
+            with self.subTest(mode=mode):
+                self.assertEqual(run('c',mode,False)[0].rides,0)
+                for destination in ('c','a'):
+                    result=run(destination,mode)
+                    self.assertEqual(len(result),1)
+                    self.assertEqual(result[0].rides,1)
+                    self.assertEqual(result[0].arrival_minute,611)
+                    ride=next(e for e in result[0].events if isinstance(e,NetworkRideEvent))
+                    self.assertEqual((ride.trip_id,ride.from_stop_id,ride.to_stop_id),
+                                     ('goal:ride','goal:c','goal:d'))
+                    self.assertTrue(all(e.pinned_link in walking for e in result[0].events
+                                        if isinstance(e,NetworkWalkEvent)))
+                self.assertEqual(run('c',mode,max_travel_minutes=2),())
+                with self.assertRaises(RouteSearchLimitError) as raised:
+                    run('c',mode,max_visited=1)
+                self.assertEqual(raised.exception.reason,'max_visited')
+                self.assertEqual(raised.exception.diagnostics['visited'],2)
+        self.assertEqual(tuple(snapshot.graph.edges(data=True)),original_edges)
+
     def compare_reference_arrival(self, source, origin, destination, departure, mode="time"):
         request = BatchSearchRequest(service_date=SERVICE_DAY, departure_minute=departure,
             origins=(SearchEndpoint(origin),), destinations=(SearchEndpoint(destination),),
@@ -692,3 +725,4 @@ class TransitNetworkTest(unittest.TestCase):
         self.assertEqual(loaded.trips['odpt_fixture:t2'].source_pattern_title, 'Other terminal')
         with self.assertRaisesRegex(ValueError, 'duplicate ODPT bus pattern id'):
             replace(source, busroute_patterns=(second, second)).load()
+

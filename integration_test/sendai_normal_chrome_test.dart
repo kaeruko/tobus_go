@@ -133,13 +133,16 @@ void main() {
         ['若林区役所（代表点）','太白区役所（代表点）','10:04','bus,rail'],
         ['太白区役所（代表点）','泉中央駅','09:46','rail'],
         ['霞の目','太白区役所（代表点）','11:00','bus,rail'],
+        ['若林区役所（代表点）','太白区役所（代表点）','10:14','bus','fewTransfers'],
+        ['太白区役所（代表点）','泉中央駅','09:46','rail','fewTransfers'],
+        ['霞の目','太白区役所（代表点）','11:00','bus,rail','fewTransfers'],
       ];
       for (var index=0;index<cases.length;index++) {
         final c=cases[index];
         notifier.setFrom('');notifier.setTo('');
         notifier.setStartTime(DateTime(2026,11,19,9));
         notifier.setBusOnly(index==0);
-        notifier.setPref('shortTime');
+        notifier.setPref(c.length > 4 ? c[4] : 'shortTime');
         await tester.pump();
         await _place(tester,'origin',c[0]);
         await _wait(tester,()=>container.read(routeSearchProvider).from.isNotEmpty);

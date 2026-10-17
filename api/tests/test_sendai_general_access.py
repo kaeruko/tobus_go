@@ -167,16 +167,20 @@ class GeneralAccessContracts(unittest.TestCase):
         self.assertFalse(caught.exception.diagnostics['coordinate_access']['comparison_complete'])
         self.assertEqual(caught.exception.diagnostics['coordinate_access']['completed_pairs'],0)
 
-    def test_geometric_same_pole_is_reported_as_no_transit_not_free_walking(self):
+    def test_same_pole_is_searched_for_a_real_ride_for_both_access_scopes(self):
         a=adapter();point=GeoPoint(38.0016,140)
         values,info=a.endpoint_candidates(point,'origin')
         value=values[:1]
-        with patch.object(a,'endpoint_candidates',return_value=(value,info)), \
-             patch('sendai_coordinate_routes.search_practical_subway') as search:
-            result=a.for_fare_policy('sendai_fureai_pass').search(request())
-        self.assertEqual(result.candidates,[])
-        self.assertEqual(result.meta['coordinate_access']['non_transit_pairs'],[[value[0]['stop_id']]*2])
-        search.assert_not_called()
+        for scope in (info, {'scope':'explicit'}):
+            with self.subTest(scope=scope), \
+                 patch.object(a,'endpoint_candidates',return_value=(value,scope)), \
+                 patch('sendai_coordinate_routes.search_practical_subway',return_value=(journey(560),)) as search, \
+                 patch('sendai_coordinate_routes._candidate',return_value='actual transit'):
+                result=a.for_fare_policy('sendai_fureai_pass').search(request())
+            self.assertEqual(result.candidates,['actual transit'])
+            self.assertEqual(result.meta['coordinate_access']['minimum_transit_boardings'],1)
+            self.assertEqual(result.meta['coordinate_access']['completed_pairs'],1)
+            search.assert_called_once()
 
 
 if __name__=='__main__':unittest.main()

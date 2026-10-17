@@ -15,6 +15,8 @@ def main():
         'api/tests/fixtures/sendai_subway/normal_coordinate_cases_20261017.json').read_text(encoding='utf-8'))['cases']
     general=json.loads((Path(__file__).resolve().parents[1]/
         'api/tests/fixtures/sendai_subway/general_coordinate_cases_20261018.json').read_text(encoding='utf-8'))['cases']
+    few=json.loads((Path(__file__).resolve().parents[1]/
+        'api/tests/fixtures/sendai_subway/general_few_transfers_20261018.json').read_text(encoding='utf-8'))
     with httpx.Client(base_url=args.base_url,headers={'X-App-City':'sendai'},timeout=60) as client:
         cap=client.get('/test/sendai/capabilities');cap.raise_for_status()
         review=json.loads((Path(__file__).resolve().parents[1]/
@@ -66,6 +68,33 @@ def main():
             print(json.dumps(dict(case=case['name'],arrival=candidate['arrival_time'],
                 seconds=time.perf_counter()-started,access=candidate['access'],
                 diagnostics=payload['meta']['coordinate_access']),ensure_ascii=False))
+        for case,expected in zip(general,few['facility_cases'],strict=True):
+            started=time.perf_counter()
+            response=client.post('/route',json={**base,'pref':'fewTransfers',
+                'alat':case['origin'][0],'alon':case['origin'][1],
+                'blat':case['destination'][0],'blon':case['destination'][1]})
+            response.raise_for_status();payload=response.json();candidate=payload['candidates'][0]
+            minute=expected['arrival_minute']
+            assert candidate['arrival_time']==f'{minute//60:02d}:{minute%60:02d}',response.text
+            assert candidate['boards']==expected['boardings'],response.text
+            assert candidate['access']['origin']['stop_id']==expected['origin'],response.text
+            assert candidate['access']['destination']['stop_id']==expected['destination'],response.text
+            assert candidate['total_time']==minute-540
+            diagnostic=payload['meta']['coordinate_access']
+            assert diagnostic['comparison_complete'] and diagnostic['completed_pairs']==diagnostic['total_pairs']
+            print(json.dumps(dict(case=case['name'],mode='fewTransfers',arrival=candidate['arrival_time'],
+                seconds=time.perf_counter()-started,boards=candidate['boards'],diagnostics=diagnostic),ensure_ascii=False))
+        for case in few['zero_ride_regressions']:
+            for mode,minute in (('time',case['earliest']),('fewTransfers',case['few']['arrival_minute'])):
+                response=client.post('/route',json={**base,'pref':mode,
+                    'alat':case['origin'][0],'alon':case['origin'][1],
+                    'blat':case['destination'][0],'blon':case['destination'][1]})
+                response.raise_for_status();payload=response.json();candidate=payload['candidates'][0]
+                assert candidate['arrival_time']==f'{minute//60:02d}:{minute%60:02d}',response.text
+                assert candidate['boards']==2 and candidate['fare']['payNowYen']==0,response.text
+                assert payload['meta']['coordinate_access']['minimum_transit_boardings']==1
+                print(json.dumps(dict(zero_ride_regression=case['destination_stop_id'],mode=mode,
+                    arrival=candidate['arrival_time'],boards=candidate['boards']),ensure_ascii=False))
         empty=client.post('/route',json={**base,'alat':0,'alon':0})
         empty.raise_for_status();assert empty.json()['candidates']==[]
     print('NORMAL_SENDAI_REAL_HTTP_OK')

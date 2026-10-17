@@ -7,6 +7,7 @@ The initial integration explicitly uses zero lower bounds for correctness work.
 from __future__ import annotations
 
 import bisect
+from collections import ChainMap
 from dataclasses import dataclass, replace
 from datetime import date
 from fractions import Fraction
@@ -275,11 +276,49 @@ def _journey(snapshot, candidate, departure):
                           tuple(dataset.metadata.clock_profile for dataset in snapshot.datasets))
 
 
+class _TransitGoalView:
+    """Read-only final-alighting suffix over the SAME reviewed graph.
+
+    Only actual alight edges enter the suffix; search_labels already rejects
+    alighting before travelling a stop. Copy only reverse-reachable walk nodes
+    and their original edges, without computing new connections or weights.
+    Normalizing the selected path restores every original concrete node.
+    """
+    def __init__(self, graph, destination):
+        self.graph=graph
+        suffix={destination};pending=[destination]
+        while pending:
+            node=pending.pop()
+            for previous,edge in graph.pred[node].items():
+                if edge['etype']=='walk' and previous not in suffix:
+                    suffix.add(previous);pending.append(previous)
+        copies={node:('transit_goal',node) for node in suffix}
+        self.originals={copy:node for node,copy in copies.items()}
+        self.nodes=ChainMap({copy:graph.nodes[node] for node,copy in copies.items()},graph.nodes)
+        self.additions={copy:{} for copy in copies.values()}
+        for node,copy in copies.items():
+            for previous,edge in graph.pred[node].items():
+                if edge['etype']=='alight':
+                    self.additions.setdefault(previous,{})[copy]=edge
+                elif edge['etype']=='walk':
+                    self.additions[copies[previous]][copy]=edge
+        self.adjacency={node:(extra if node in self.originals else ChainMap(extra,graph[node]))
+                        for node,extra in self.additions.items()}
+        self.target=copies[destination]
+
+    def __getitem__(self,node):
+        return self.adjacency[node] if node in self.adjacency else self.graph[node]
+
+    def path(self,nodes,*args):
+        return SelectedPath([self.originals.get(node,node) for node in nodes],*args)
+
+
 def search_network(
     snapshot: TransitNetworkSnapshot, origin_stop_id: str, destination_stop_id: str,
     *, service_date: date, departure_minute: int | float | Fraction, mode: str,
     parameters: NetworkSearchParameters,
     _request_choices=None,
+    _require_transit=False,
 ) -> tuple[NetworkJourney, ...]:
     if origin_stop_id not in snapshot.stops or destination_stop_id not in snapshot.stops:
         raise ValueError("unknown network origin/destination stop")
@@ -326,8 +365,15 @@ def search_network(
         route = snapshot.routes[snapshot.trips[ride.trip_id].route_id]
         return bus_alighting if route.mode.value == "bus" else rail_alighting
 
+    graph=snapshot.graph
+    target=physical_node(destination_stop_id)
+    path_factory=SelectedPath
+    if _require_transit:
+        graph=_TransitGoalView(graph,target)
+        target=graph.target
+        path_factory=graph.path
     generator = search_labels(
-        snapshot.graph, choices, physical_node(origin_stop_id), physical_node(destination_stop_id),
+        graph, choices, physical_node(origin_stop_id), target,
         mode=mode, start_minute=departure_minute,
         max_search=parameters.max_candidates, max_visited=parameters.max_visited,
         max_travel_min=travel_minutes, time_limit_sec=parameters.time_limit_seconds,
@@ -335,7 +381,7 @@ def search_network(
         max_segment_walk=parameters.max_segment_walk_meters,
         walk_speed=80.0, rail_boarding_minutes=boarding_minutes,
         advance_time=advance_time, virtual_connections={}, edge_uses_rail=lambda u, v: False,
-        prepare_bounds=prepare_bounds, path_signature=tuple, path_factory=SelectedPath,
+        prepare_bounds=prepare_bounds, path_signature=tuple, path_factory=path_factory,
         compact_queue=_compact_queue,
         ride_options=lambda u, v, clock, ride, edge: choices.ride_options(u, v, clock, ride),
         alight_minutes=alight_minutes, walk_meters=lambda edge: edge["meters"],

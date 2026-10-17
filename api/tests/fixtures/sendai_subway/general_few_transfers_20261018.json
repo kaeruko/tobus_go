@@ -1,0 +1,195 @@
+{
+  "source": "Independent finite original GTFS/CP932 scan, frozen before changed /route queries",
+  "cost_tenths": {
+    "boarding": 50,
+    "ride_edge": 8,
+    "standard_transfer_minute": 15
+  },
+  "civil_date": "2026-11-19",
+  "start_minute": 540,
+  "max_boardings": 3,
+  "max_total_minutes": 180,
+  "facility_cases": [
+    {
+      "name": "ward_offices",
+      "origin": "sendai_bus:5055_51",
+      "destination": "sendai_bus:7111_0",
+      "boardings": 1,
+      "planning_cost_tenths": 170,
+      "transit_arrival": 612,
+      "arrival_minute": 614,
+      "origin_rank": 5,
+      "destination_rank": 2,
+      "witness": [
+        [
+          "ride",
+          "sendai_bus:20_1_12003910",
+          6,
+          21,
+          "586",
+          "612"
+        ]
+      ]
+    },
+    {
+      "name": "tai_to_izumi",
+      "origin": "sendai_bus:7111_10",
+      "destination": "sendai_bus:1085_12",
+      "boardings": 1,
+      "planning_cost_tenths": 425,
+      "transit_arrival": 586,
+      "arrival_minute": 586,
+      "origin_rank": 4,
+      "destination_rank": 0,
+      "witness": [
+        [
+          "walk",
+          "sendai_bus:7111_10",
+          "sendai_subway:namboku/長町南",
+          7
+        ],
+        [
+          "ride",
+          "namboku_w_north_20230701.csv/a8f57231a311cc45a76d1f863fa0600a93254aa2333a40b47102116dc083eca2/row-45",
+          1,
+          16,
+          "550",
+          "576"
+        ],
+        [
+          "walk",
+          "sendai_subway:namboku/泉中央",
+          "sendai_bus:1085_12",
+          10
+        ]
+      ]
+    },
+    {
+      "name": "kasu_to_tai",
+      "origin": "sendai_bus:5227_10",
+      "destination": "sendai_bus:7111_10",
+      "boardings": 2,
+      "planning_cost_tenths": 614,
+      "transit_arrival": 658,
+      "arrival_minute": 660,
+      "origin_rank": 0,
+      "destination_rank": 3,
+      "witness": [
+        [
+          "ride",
+          "sendai_bus:20_1_12001130",
+          1,
+          18,
+          "599",
+          "622"
+        ],
+        [
+          "walk",
+          "sendai_bus:50_210",
+          "sendai_subway:namboku/仙台",
+          14
+        ],
+        [
+          "ride",
+          "namboku_w_south_20230701.csv/200b9652bd2b6db551c996db74d962c0921979d30a8c83e6e5a4ca67298b81fd/row-53",
+          9,
+          15,
+          "640",
+          "650"
+        ],
+        [
+          "walk",
+          "sendai_subway:namboku/長町南",
+          "sendai_bus:7111_10",
+          8
+        ]
+      ]
+    }
+  ],
+  "zero_ride_regressions": [
+    {
+      "origin_stop_id": "sendai_bus:7111_10",
+      "destination_stop_id": "sendai_bus:7111_11",
+      "origin": [
+        38.224419,
+        140.876138
+      ],
+      "destination": [
+        38.224693,
+        140.876349
+      ],
+      "earliest": 565,
+      "few": {
+        "boardings": 2,
+        "planning_cost_tenths": 356,
+        "arrival_minute": 565,
+        "witness": [
+          [
+            "walk",
+            "sendai_bus:7111_10",
+            "sendai_subway:namboku/長町南",
+            7
+          ],
+          [
+            "ride",
+            "namboku_w_north_20230701.csv/a8f57231a311cc45a76d1f863fa0600a93254aa2333a40b47102116dc083eca2/row-45",
+            1,
+            2,
+            "550",
+            "551"
+          ],
+          [
+            "ride",
+            "namboku_w_south_20230701.csv/200b9652bd2b6db551c996db74d962c0921979d30a8c83e6e5a4ca67298b81fd/row-38",
+            14,
+            15,
+            "554",
+            "556"
+          ],
+          [
+            "walk",
+            "sendai_subway:namboku/長町南",
+            "sendai_bus:7111_11",
+            9
+          ]
+        ]
+      }
+    },
+    {
+      "origin_stop_id": "sendai_bus:7111_10",
+      "destination_stop_id": "sendai_bus:7111_10",
+      "origin": [
+        38.224419,
+        140.876138
+      ],
+      "destination": [
+        38.224419,
+        140.876138
+      ],
+      "earliest": 564,
+      "few": {
+        "boardings": 2,
+        "planning_cost_tenths": 340,
+        "arrival_minute": 674,
+        "witness": [
+          [
+            "ride",
+            "sendai_bus:30_1_13003050",
+            4,
+            14,
+            "582",
+            "599"
+          ],
+          [
+            "ride",
+            "sendai_bus:30_1_13005180",
+            2,
+            22,
+            "650",
+            "674"
+          ]
+        ]
+      }
+    }
+  ]
+}

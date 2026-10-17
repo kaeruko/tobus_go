@@ -10,6 +10,7 @@ on:
       - 'api/gtfs_route_backend.py'
       - 'api/transit_network_core.py'
       - 'api/transit_timetable_choices.py'
+      - 'api/transit_search_labels.py'
       - 'api/tokyo_route_engine.py'
       - 'api/toei_engine.py'
       - 'api/reviewed_walk_time.py'
@@ -18,7 +19,10 @@ on:
       - 'api/app/sendai_runtime.py'
       - 'api/tests/test_sendai_normal_coordinates.py'
       - 'api/tests/test_sendai_general_*.py'
+      - 'api/tests/sendai_municipal_oracle.py'
+      - 'api/tests/test_transit_network.py'
       - 'api/tests/fixtures/sendai_subway/general_coordinate_cases_20261018.json'
+      - 'api/tests/fixtures/sendai_subway/general_few_transfers_20261018.json'
       - 'api/tests/test_walking_access.py'
       - 'api/tests/fixtures/sendai_subway/normal_coordinate_parity_20261017.json'
       - 'api/tests/fixtures/sendai_subway/normal_coordinate_cases_20261017.json'
@@ -67,7 +71,7 @@ jobs:
       - name: Focused normal boundary, oracle and Flutter result regressions
         run: |
           cd api
-          python -m unittest -f tests.test_walking_access tests.test_route_initial_walk tests.test_gtfs_route_walking_distance tests.test_reviewed_walk_time tests.test_tokyo_walk_boarding_access tests.test_sendai_normal_coordinates tests.test_sendai_general_access tests.test_sendai_general_real -v
+          python -m unittest -f tests.test_walking_access tests.test_route_initial_walk tests.test_gtfs_route_walking_distance tests.test_reviewed_walk_time tests.test_tokyo_walk_boarding_access tests.test_transit_search_labels tests.test_transit_network tests.test_sendai_normal_coordinates tests.test_sendai_general_access tests.test_sendai_general_real -v
       - name: Retrieve the same approved GTFS; no new feed or old audit replay
         run: |
           python -B scripts/fetch_sendai_gtfs.py --output api/data/sendai/20261006_model \
