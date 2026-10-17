@@ -50,7 +50,7 @@ class _SendaiPracticalTestPageState extends State<SendaiPracticalTestPage> {
     try {
       final results = await widget.service.search(originStopId: _origin!,
           destinationStopId: _destination!, civilDate: _date!,
-          departureMinute: hour * 60 + minute, farePolicyId: _pass!,
+          departureMinute: hour! * 60 + minute!, farePolicyId: _pass!,
           acceptExperimentalTransfers: _accept);
       if (mounted) setState(() => _results = results);
     } catch (error) {
