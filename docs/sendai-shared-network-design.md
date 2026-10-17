@@ -804,3 +804,19 @@ Flutterは第15節の通常画面内フォーム・従来の検証ページとca
 `tests.test_sendai_stage4` の新規8回帰はローカルで成功した。既存raw oracle・ASGI gateを再利用し、全具体便witness・平土休日・同名occurrence・未知routeの非承認・改変拒否・追加bay接続の必要性・R18逆方向の非生成・前段reviewと有限日付の保持を検査する。既存112組や第1〜第4段階の公式監査、過去全経路の独立検証を再起動しない。Actionsの確定結果は成功後に追記する。
 
 残課題は、今回見送った15/16等の市内完結路線、仙台駅・長町等の公式資料に基づく方向別接続、未確認特別ダイヤの便別影響、12/1以降の新feedレビュー、正式な乗換時間・実端末の確認。宮城交通・一般住所・全路線一括・公開APIへの本接続は今回の対象外。本番API・公開release・東京・アプリID・Firebase・AWS/S3・deploy・storeは変更しない。
+
+### 16.5 実装・検証結果の記録
+
+棚卸しは `73efe295`、既存hubを実際に通る便数と原行順を保持する修正は `61cd8356`、路線追加本体は **`6dd937ff0463b9d2c599e5729c916f5395810e9d`**。本体の変更はreview/fixture/新規回帰・E2Eと既存workflow/gate、明示stage4 profileのローダー許可1行である。共通探索・Adapter・運行日モデル・無料scope判定本体・既存接続レコード・製品UIのコードは変更していない。
+
+最初の専用run [38988585508](https://github.com/kaeruko/tobus_go/actions/runs/38988585508) は、新規Python8件、元ZIP/member SHA・subset原行一致、新8経路の独立oracle・具体便witness・ASGIまで成功し、`READ_ONLY_SENDAI_STAGE4_NEW_EIGHT_OK` を確認した。その後Chromeが2件目の地下鉄仙台メニュー選択で旧160回のスクロール上限に達し停止した。
+
+**`7203b371a6b5119c6fe0b2b509ccbb32d39f82ee`** は新規Chromeテスト1ファイルだけの修正。64pxの独立dragにはtouch slopがあるため、メニューの実scroll extentから有限な操作回数を算出し、元の例外・stackにextent/budgetの診断を付けた。経路・時刻・期待値・探索上限・API・backend・元データを変更していない。
+
+既存4経路のChrome [38988585437](https://github.com/kaeruko/tobus_go/actions/runs/38988585437) は `6dd937ff` で成功。以後のコード差分は新規Chromeテストだけであり、旧4経路・既存フォーム・API・reviewのblobは同じである。共有loader変更によるGitHubの自動回帰であり、成功済みrunの手動再実行ではない。
+
+最終の第4段CI [38989081577](https://github.com/kaeruko/tobus_go/actions/runs/38989081577) は **`7203b371a6b5119c6fe0b2b509ccbb32d39f82ee`** で **completed/success**。新規Python8件、承認済み原ZIP/schema2 manifest/member SHAとsubset全原行順一致、新8経路の独立raw最適値・具体便witness・ASGI比較が成功し、`READ_ONLY_SENDAI_STAGE4_NEW_EIGHT_OK` を確認した。同じ元GTFSから起動したlocalhostサービスを使い、既存Launcherの埋込みフォームをChromeで展開して新5経路を選択・検索し、固定目安値と泉中央1番の出発接続表示が成功、`All tests passed.` を確認した。テスト成功のために元データやqueryを変更していない。
+
+通常CI [38989081576](https://github.com/kaeruko/tobus_go/actions/runs/38989081576) も同じ **`7203b371`** で **completed/success・全7job成功**。API **870件**、Windows回帰 **277件**、共通SearchCore v2のPython3.11/3.12 **各89件**、Flutter **659件**が成功した。Flutter解析は既存ジョブ判定条件で成功し、非致命的な指摘は従来と同じ97件であり0件とは扱わない。東京・仙台のAndroid/iOS両flavor、iOS identity/privacy/ATS/Firebase分離、repository safety、Lambda image build/import検査も成功した。本番deployではない。
+
+終了時にもmain/未マージPRを確認した。最後の反映は、この確定結果だけの文書commit（`[skip ci]`）とし、検証済みコードは上記7203b371とrun IDに固定する。後続の文書SHAをコードの新しい検証や実運行認定へ読み替えず、成功済みの監査・CIを文書追記のために再起動しない。
