@@ -14,6 +14,10 @@ def main():
     cases=json.loads((Path(__file__).resolve().parents[1]/
         'api/tests/fixtures/sendai_subway/normal_coordinate_cases_20261017.json').read_text(encoding='utf-8'))['cases']
     with httpx.Client(base_url=args.base_url,headers={'X-App-City':'sendai'},timeout=60) as client:
+        cap=client.get('/test/sendai/capabilities');cap.raise_for_status()
+        review=json.loads((Path(__file__).resolve().parents[1]/
+            'api/tests/fixtures/sendai_subway/municipal_review_20261017_bulk.json').read_text(encoding='utf-8'))
+        assert cap.json()['coverage_label']==review['coverage_label'],cap.text
         for case in cases:
             body=dict(alat=case['origin'][0],alon=case['origin'][1],blat=case['destination'][0],blon=case['destination'][1],
                 pref='time',bus_only=case['bus_only'],target_date_str=case['civil_date'],start_time='09:00',

@@ -4,6 +4,7 @@ The existing stop-ID API is also available for regression comparison. No source
 download, fallback, production listener or external-service stub is installed.
 """
 import argparse
+import json
 import os
 from pathlib import Path
 import sys
@@ -29,12 +30,13 @@ def main():
     from app.sendai_practical_routes import create_sendai_practical_test_app
     from transit_timetable_choices import NetworkSearchParameters
     app = create_app("development")
+    coverage_label = json.loads(args.municipal_review.read_text(encoding="utf-8"))["coverage_label"]
     @app.on_event("startup")
     async def add_regression_entry():
         regression = create_sendai_practical_test_app(app.state.sendai_reviewed_network,
             environment="test", parameters=NetworkSearchParameters(max_candidates=1,
                 max_boardings=3, max_travel_minutes=180),
-            operating_period=app.state.sendai_operating_period)
+            operating_period=app.state.sendai_operating_period, coverage_label=coverage_label)
         app.include_router(regression.router)
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=args.port)
