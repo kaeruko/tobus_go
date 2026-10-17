@@ -79,6 +79,10 @@ Future<void> _query(WidgetTester tester, {required String origin,
   // once, with a finite wait; never retry the API or alter the search.
   for (var attempt = 0; attempt < 100; attempt++) {
     if (result.evaluate().isNotEmpty || errorFinder.evaluate().isNotEmpty) break;
+    // Results are lazy ListView children: scroll to where a new result is
+    // mounted, rather than mistaking an off-screen card for no API response.
+    final page = tester.state<ScrollableState>(_pageScroll).position;
+    page.jumpTo(page.maxScrollExtent);
     await tester.pump(const Duration(milliseconds: 250));
   }
   if (result.evaluate().isEmpty) {
