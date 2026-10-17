@@ -95,7 +95,7 @@ void main() {
   testWidgets('Normal Sendai Places -> real route -> card -> detail and picker contract', (tester) async {
     final container = ProviderContainer();
     final oldMaps = maps.GoogleMapsFlutterPlatform.instance;
-    const selectedPoint = LatLng(38.22439,140.87613);
+    var selectedPoint = const LatLng(38.22439,140.87613);
     maps.GoogleMapsFlutterPlatform.instance = _MapSurface(() {
       final map = tester.widget<GoogleMap>(find.byType(GoogleMap).last);
       map.onLongPress?.call(selectedPoint);
@@ -130,6 +130,9 @@ void main() {
         ['霞の目','泉中央駅','11:06','bus,rail'],
         ['仙台駅前','泉岳自然ふれあい館','10:48','rail,bus'],
         ['霞の目','芦口小学校前','11:07','bus,rail,bus'],
+        ['若林区役所（代表点）','太白区役所（代表点）','10:04','bus,rail'],
+        ['太白区役所（代表点）','泉中央駅','09:46','rail'],
+        ['霞の目','太白区役所（代表点）','11:00','bus,rail'],
       ];
       for (var index=0;index<cases.length;index++) {
         final c=cases[index];
@@ -162,6 +165,13 @@ void main() {
         expect(candidate.arrivalTime,c[2]);
         expect(candidate.steps.where((s)=>s.isRide).map((s)=>s.kind).join(','),c[3]);
         expect(candidate.planningJourney,isNotNull);
+        if (index >= 4) {
+          expect(candidate.steps.any((s) => s.kind == 'walk' &&
+              s.planningDetails?['basis'] == 'haversine_80m_per_minute_estimate'),isTrue);
+          expect(candidate.steps.where((s) =>
+              s.planningDetails?['basis'] == 'haversine_80m_per_minute_estimate')
+              .every((s) => s.planningDetails!['connection_guaranteed'] == false),isTrue);
+        }
         expect(state.fareByCandidateId[candidate.id]!.normalFareYen,isNull);
         expect(state.fareByCandidateId[candidate.id]!.payNowYen,0);
         final scroll=find.descendant(of:find.byType(CustomScrollView).first,
@@ -181,9 +191,12 @@ void main() {
             s.tripId!.startsWith('sendai_') && s.routeId!.startsWith('sendai_')),isTrue);
         navigator.pop();await tester.pumpAndSettle();
       }
-      _stage='existing MapPickerPage selection and confirm contract';
+      for (final generalMap in [false,true]) {
+      selectedPoint = generalMap ? const LatLng(38.224395,140.877212) : const LatLng(38.22439,140.87613);
+      final mapArrival = generalMap ? '09:46' : '09:24';
+      _stage='existing MapPickerPage selection and confirm contract general=$generalMap';
       notifier.setFrom('');notifier.setTo('');
-      notifier.setStartTime(DateTime(2026,11,19,9));notifier.setBusOnly(true);
+      notifier.setStartTime(DateTime(2026,11,19,9));notifier.setBusOnly(!generalMap);
       await tester.pump();
       await _reveal(tester,find.byKey(const Key('route-map-origin')));
       await tester.tap(find.byKey(const Key('route-map-origin')));
@@ -193,16 +206,21 @@ void main() {
       await tester.pump();
       final l10n=AppLocalizations.of(tester.element(find.byType(MapPickerPage)));
       await tester.tap(find.text(l10n.mapConfirm));await tester.pumpAndSettle();
-      expect(container.read(routeSearchProvider).from,'38.22439,140.87613');
-      await _place(tester,'destination','長町駅西口');
+      expect(container.read(routeSearchProvider).from,'${selectedPoint.latitude},${selectedPoint.longitude}');
+      await _place(tester,'destination',generalMap ? '泉中央駅' : '長町駅西口');
       await _wait(tester,()=>container.read(routeSearchProvider).to.isNotEmpty);
       await _reveal(tester,find.byKey(const Key('route-search-submit')));
       await tester.tap(find.byKey(const Key('route-search-submit')));
       await _wait(tester,()=>!container.read(routeSearchProvider).isLoading);
       final surface=container.read(routeSearchProvider);
-      expect(surface.errorMessage,isNull);expect(surface.candidates.first.arrivalTime,'09:24');
+      expect(surface.errorMessage,isNull);expect(surface.candidates.first.arrivalTime,mapArrival);
       expect(surface.candidates.first.steps.first.kind,'walk');
       expect(surface.candidates.first.steps.first.planningDetails!['walking_time_measured'],isFalse);
+      if (generalMap) {
+        expect(surface.candidates.first.steps.first.planningDetails!['basis'],
+            'haversine_80m_per_minute_estimate');
+        expect(surface.candidates.first.steps.first.planningDetails!['connection_guaranteed'],isFalse);
+      }
       _stage='map-origin result card and route detail';
       final resultScroll=find.descendant(of:find.byType(CustomScrollView).first,
           matching:find.byType(Scrollable)).first;
@@ -210,7 +228,7 @@ void main() {
           tester.state<ScrollableState>(resultScroll).position.maxScrollExtent);
       await tester.pump();
       await _reveal(tester,find.byType(RouteCard).first);
-      expect(find.text('到着目安 09:24'),findsOneWidget);
+      expect(find.text('到着目安 $mapArrival'),findsOneWidget);
       await tester.tap(find.byType(RouteCard).first);
       await tester.pumpAndSettle();
       final surfaceDetail=tester.widget<RouteDetailPage>(find.byType(RouteDetailPage));
@@ -225,6 +243,8 @@ void main() {
       expect(tester.widget<CupertinoDatePicker>(find.byType(CupertinoDatePicker)).initialDateTime,
           DateTime(2026,11,19,9));
       navigator.pop();await tester.pumpAndSettle();
+      navigator.pop();await tester.pumpAndSettle();
+      }
       print('NORMAL_SENDAI_REAL_ROUTE_UI_OK; Places upstream fixture; Maps picker contract fixture, live SDK unverified');
     } catch(error,stack) {
       print('NORMAL_UI_STAGE=$_stage\n$error\n$stack');

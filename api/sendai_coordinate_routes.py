@@ -1,21 +1,28 @@
-"""Development coordinate/result adapter; routing remains the reviewed v2 call.
+"""Development coordinate/result adapter over the unchanged practical v2 clock.
 
-Geometric candidates are not walking evidence. A coordinate can enter at an
-identical GTFS bus pole (one centimetre numeric tolerance, no access walk), or
-through a separately pinned directional access review. Rail centroids never
-become entrances. The existing station transfer links are left untouched.
+Exact poles and directional reviews take precedence. General coordinates use
+explicitly unverified geometric access to concrete bus poles only. Such access
+never creates a public-transport transfer or approves a subway entrance.
 """
+from dataclasses import replace
 from datetime import timedelta
 from fractions import Fraction
 import hashlib
 import math
+from time import monotonic
 
-from route_engine import RouteCandidate, RouteInputError, RoutePreference, RouteSearchResult, WalkStep
+from route_engine import RouteCandidate, RouteInputError, RoutePreference, RouteSearchLimitError, RouteSearchResult, WalkStep
 from sendai_coordinate_access import COORDINATE_ACCESS_RULES
 from sendai_practical_network import CivilMinute, PracticalRide, search_practical_subway
 from sendai_practical_serializer import civil_clock, serialize_practical_journey
 from transit_timetable_choices import NetworkSearchParameters
-from walking_access import reviewed_coordinate_endpoint, walking_metrics
+from transit_network_core import coordinate_pair_objective
+from walking_access import nearby_stops, reviewed_coordinate_endpoint, walking_minutes, walking_display_meters, walking_metrics
+
+# Initial evaluation scope, inherited from the common GTFS coordinate backend;
+# neither a Sendai optimum nor evidence that any point is physically walkable.
+GENERAL_RADIUS_M = 600
+GENERAL_CANDIDATE_LIMIT = 6
 
 POLICY = "sendai_fureai_pass"
 NOTICE = ("仙台・開発検証用。地下鉄は公式発車時刻と到着目安、バスはGTFS予定時刻です。"
@@ -72,6 +79,38 @@ class SendaiCoordinateScope:
             rules=COORDINATE_ACCESS_RULES)
 
 
+    def endpoint_candidates(self, point, role):
+        if role not in ("origin", "destination"):
+            raise RouteInputError("coordinate role must be origin or destination")
+        explicit = reviewed_coordinate_endpoint(point, role, stops=self.bus_stops,
+            boarding_stops=self.boarding_stops, reviews=self.access_reviews,
+            rules=COORDINATE_ACCESS_RULES, require_explicit=False)
+        permitted = self.boarding_stops if role == "origin" else self.alighting_stops
+        if explicit is not None:
+            # Preserve the explicit pole/transfer contract. A boarding-only
+            # bay can also be the endpoint of an already reviewed rail access;
+            # the shared graph still enforces each actual bus ride's flags.
+            values = (explicit,)
+            return values, {"scope": "explicit", "eligible_count": len(values), "omitted_stop_ids": []}
+        role_stops = {key: stop for key, stop in self.bus_stops.items() if key in permitted}
+        nearby = nearby_stops(role_stops, point.lat, point.lon,
+            radius_m=GENERAL_RADIUS_M, candidate_limit=len(role_stops))
+        values = tuple({"stop_id": stop.id, "minutes": walking_minutes(meters),
+            "meters": walking_display_meters(meters), "geometric_distance_meters": meters,
+            "basis": "haversine_80m_per_minute_estimate", "label": stop.name,
+            "source_stop_id": stop.id, "feed_version": self.network.free_scope.snapshot.feed_versions["sendai_bus"],
+            "path_description": "一般地点とGTFS具体標柱間の直線距離を80m/分で換算。道路・横断・河川・建物出口の通行可能性は未確認",
+            "physical_walk_meters": None, "walking_time_measured": False,
+            "walking_distance_measured": False, "connection_guaranteed": False,
+            "walking_connection_verified": False}
+            for stop, meters in nearby[:GENERAL_CANDIDATE_LIMIT])
+        return values, {"scope": "geometric_estimate", "radius_m": GENERAL_RADIUS_M,
+            "candidate_limit": GENERAL_CANDIDATE_LIMIT, "eligible_count": len(nearby),
+            "selected_stop_ids": [v["stop_id"] for v in values],
+            "omitted_stop_ids": [stop.id for stop, _ in nearby[GENERAL_CANDIDATE_LIMIT:]],
+            "outside_radius_compared": False, "physical_walkability_verified": False}
+
+
 class _SelectedScope:
     def __init__(self, adapter):
         self.adapter = adapter
@@ -83,27 +122,77 @@ class _SelectedScope:
         if request.preference not in (RoutePreference.FASTEST, RoutePreference.FEWEST_TRANSFERS):
             raise RouteInputError("Sendai reviewed scope supports time or fewTransfers")
         day = request.departure_at.date()
+        mode = "time" if request.preference == RoutePreference.FASTEST else "fewTransfers"
+        parameters = NetworkSearchParameters(max_candidates=1, max_boardings=3, max_travel_minutes=180)
+        started = monotonic()
+        deadline = started + parameters.time_limit_seconds
+        materializations = {}  # Immutable date windows, released at request end.
+        diagnostic = {"comparison_complete": False, "completed_pairs": 0, "non_transit_pairs": []}
         try:
             a.period.require_query_days(day, (day,), additional_reviewed_days=(a.network.bus_reviewed_days,))
-            origin = a.endpoint(request.origin, "origin")
-            destination = a.endpoint(request.destination, "destination")
+            origins, origin_scope = a.endpoint_candidates(request.origin, "origin")
+            destinations, destination_scope = a.endpoint_candidates(request.destination, "destination")
+            pairs = [(i, j, origin, destination) for i, origin in enumerate(origins)
+                     for j, destination in enumerate(destinations)]
+            diagnostic.update(origin=origin_scope, destination=destination_scope, total_pairs=len(pairs))
             start = request.departure_at.hour * 60 + request.departure_at.minute
-            if start + origin["minutes"] >= 1440:
+            if any(start + origin["minutes"] >= 1440 for origin in origins):
                 raise RouteInputError("access walk crosses an unreviewed civil-day boundary")
-            journeys = search_practical_subway(a.network, origin["stop_id"], destination["stop_id"],
-                civil_date=day, departure_minute=start + origin["minutes"],
-                parameters=NetworkSearchParameters(max_candidates=1, max_boardings=3,
-                    max_travel_minutes=180 - origin["minutes"] - destination["minutes"]),
-                mode="time" if request.preference == RoutePreference.FASTEST else "fewTransfers",
-                bus_only=request.bus_only)
+            best = None
+            for i, j, origin, destination in pairs:
+                if (origin["stop_id"] == destination["stop_id"] and
+                        (origin_scope.get("scope") == "geometric_estimate" or
+                         destination_scope.get("scope") == "geometric_estimate")):
+                    # The shared search's same-node optimum is a zero-ride
+                    # path. It cannot receive a free transit fare quote. Keep
+                    # this classification visible, without inventing a loop
+                    # journey or a road-walking route.
+                    diagnostic["non_transit_pairs"].append([origin["stop_id"],destination["stop_id"]])
+                    diagnostic["completed_pairs"] += 1
+                    continue
+                remaining = deadline - monotonic()
+                if remaining <= 0:
+                    raise RouteSearchLimitError("Sendai coordinate request deadline exceeded", reason="time_limit")
+                journeys = search_practical_subway(a.network, origin["stop_id"], destination["stop_id"],
+                    civil_date=day, departure_minute=start + origin["minutes"],
+                    parameters=replace(parameters, time_limit_seconds=remaining,
+                        max_travel_minutes=180 - origin["minutes"] - destination["minutes"]),
+                    mode=mode, bus_only=request.bus_only,
+                    _request_materializations=materializations, _request_deadline=deadline)
+                if monotonic() > deadline:
+                    raise RouteSearchLimitError("Sendai coordinate request deadline exceeded", reason="time_limit")
+                for journey in journeys:
+                    final_day = _add(journey.arrival_estimate, destination["minutes"]).day
+                    dependency_days = (day,) if final_day == day else (day, final_day)
+                    a.period.require_query_days(day, dependency_days,
+                        additional_reviewed_days=(a.network.bus_reviewed_days,))
+                    boards = sum(isinstance(e, PracticalRide) for e in journey.events)
+                    objective = coordinate_pair_objective(preference=mode,
+                        arrival_minute=_absolute(journey.arrival_estimate),
+                        destination_walk_minutes=destination["minutes"], planning_cost=journey.planning_cost,
+                        transfers=max(0, boards-1), origin_rank=i, destination_rank=j)
+                    if best is None or objective < best[0]:
+                        best = objective, journey, origin, destination
+                diagnostic["completed_pairs"] += 1
+        except RouteSearchLimitError as error:
+            diagnostic.update(network_builds=len(materializations),
+                uncompared_pairs=[[o["stop_id"], d["stop_id"]]
+                    for _, _, o, d in pairs[diagnostic["completed_pairs"]:]],
+                elapsed_seconds=monotonic()-started)
+            error.diagnostics["coordinate_access"] = diagnostic
+            raise  # Same exception, reason and original core diagnostic.
         except ValueError as error:
             if isinstance(error, RouteInputError):
                 raise
             raise RouteInputError(str(error)) from error
-        candidates = [_candidate(a.network, j, request, origin, destination) for j in journeys]
+        candidates = [] if best is None else [_candidate(a.network, best[1], request, best[2], best[3])]
+        diagnostic.update(comparison_complete=True, uncompared_pairs=[], network_builds=len(materializations),
+            elapsed_seconds=monotonic()-started, optimality_scope="selected_endpoint_pairs_only",
+            all_geographic_candidates_compared=False)
         return RouteSearchResult(candidates, {"destination_reachable": bool(candidates),
             "destination_label": "目的地", "development_only": True, "planning_notice": NOTICE,
-            "access_scope": "exact_bus_poles_and_reviewed_directional_access_only",
+            "access_scope": "explicit_access_first_then_unverified_geometric_bus_poles",
+            "coordinate_access": diagnostic,
             "actual_connection_guaranteed": False, "normal_fare_known": False})
 
 

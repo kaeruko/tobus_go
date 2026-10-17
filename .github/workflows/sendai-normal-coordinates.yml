@@ -8,6 +8,7 @@ on:
       - 'api/sendai_coordinate_*.py'
       - 'api/walking_access.py'
       - 'api/gtfs_route_backend.py'
+      - 'api/transit_network_core.py'
       - 'api/tokyo_route_engine.py'
       - 'api/toei_engine.py'
       - 'api/reviewed_walk_time.py'
@@ -15,6 +16,8 @@ on:
       - 'api/app/route_endpoint.py'
       - 'api/app/sendai_runtime.py'
       - 'api/tests/test_sendai_normal_coordinates.py'
+      - 'api/tests/test_sendai_general_*.py'
+      - 'api/tests/fixtures/sendai_subway/general_coordinate_cases_20261018.json'
       - 'api/tests/test_walking_access.py'
       - 'api/tests/fixtures/sendai_subway/normal_coordinate_parity_20261017.json'
       - 'api/tests/fixtures/sendai_subway/normal_coordinate_cases_20261017.json'
@@ -29,6 +32,7 @@ on:
       - 'lib/widgets/route_card.dart'
       - 'lib/widgets/route_detail_widgets.dart'
       - 'scripts/*sendai_normal*.py'
+      - 'scripts/benchmark_sendai_general_coordinates.py'
       - 'integration_test/sendai_normal_chrome_test.dart'
   workflow_dispatch:
 
@@ -62,7 +66,7 @@ jobs:
       - name: Focused normal boundary, oracle and Flutter result regressions
         run: |
           cd api
-          python -m unittest tests.test_walking_access tests.test_route_initial_walk tests.test_gtfs_route_walking_distance tests.test_reviewed_walk_time tests.test_tokyo_walk_boarding_access tests.test_sendai_normal_coordinates -v
+          python -m unittest -f tests.test_walking_access tests.test_route_initial_walk tests.test_gtfs_route_walking_distance tests.test_reviewed_walk_time tests.test_tokyo_walk_boarding_access tests.test_sendai_normal_coordinates tests.test_sendai_general_access tests.test_sendai_general_real -v
       - name: Retrieve the same approved GTFS; no new feed or old audit replay
         run: |
           python -B scripts/fetch_sendai_gtfs.py --output api/data/sendai/20261006_model \
@@ -95,6 +99,18 @@ jobs:
         run: python -B scripts/check_sendai_normal_http.py --base-url http://127.0.0.1:8000
       - name: Same-condition stop-ID versus normal HTTP response time and peak RSS
         run: python -B scripts/benchmark_sendai_normal_coordinates.py --bus-gtfs-dir api/data/sendai/20261006_model
+      - name: Same-runner pinned before and after, fixed and general coordinates
+        shell: bash
+        run: |
+          git fetch --no-tags --depth=1 origin 744b8c9a893d969c31ce8e4436d524949f89cf30
+          python -B scripts/benchmark_sendai_general_coordinates.py --bus-gtfs-dir api/data/sendai/20261006_model \
+            | tee "$RUNNER_TEMP/sendai-general-benchmark.json"
+      - name: Preserve same-runner measurements
+        uses: actions/upload-artifact@v4
+        with:
+          name: sendai-general-benchmark
+          path: ${{ runner.temp }}/sendai-general-benchmark.json
+          if-no-files-found: error
       - name: Launch Chrome driver
         shell: bash
         run: |

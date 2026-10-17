@@ -16,7 +16,9 @@ def install():
     fixture = json.loads((Path(__file__).resolve().parents[1]/
         'api/tests/fixtures/sendai_subway/normal_coordinate_cases_20261017.json').read_text(encoding='utf-8'))
     entries = {}
-    for case in fixture['cases']:
+    general = json.loads((Path(__file__).resolve().parents[1]/
+        'api/tests/fixtures/sendai_subway/general_coordinate_cases_20261018.json').read_text(encoding='utf-8'))
+    for case in fixture['cases'] + general['cases']:
         for role in ('origin','destination'):
             key = case['name'] + '-' + role
             entries[key] = dict(label=case[role+'_label'], coordinate=case[role])

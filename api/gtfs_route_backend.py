@@ -18,8 +18,8 @@ from route_engine import (
     RouteSearchResult,
     WalkStep,
 )
-from walking_access import haversine_m as _haversine_m, nearby_stops, walking_minutes, walking_metrics
-from transit_network_core import NetworkSearchCore
+from walking_access import haversine_m as _haversine_m, nearby_stops, walking_minutes, walking_metrics, walking_display_meters
+from transit_network_core import NetworkSearchCore, coordinate_pair_objective
 from transit_dataset import TransitDataset, TransitMode, TransitStop
 from transit_search_dto import (
     BatchSearchRequest,
@@ -157,25 +157,11 @@ class GtfsRouteEngine:
                 pair.destination_index
             ].walk_minutes
             itinerary = pair.itinerary
-            final_arrival = itinerary.arrival_minute + destination_walk
-            objective = (
-                (
-                    final_arrival,
-                    pair.planning_cost,
-                    itinerary.arrival_minute,
-                    origin_endpoints[pair.origin_index].rank,
-                    destination_endpoints[pair.destination_index].rank,
-                )
-                if preference == "time"
-                else (
-                    itinerary.transfers,
-                    pair.planning_cost,
-                    final_arrival,
-                    itinerary.arrival_minute,
-                    origin_endpoints[pair.origin_index].rank,
-                    destination_endpoints[pair.destination_index].rank,
-                )
-            )
+            objective = coordinate_pair_objective(preference=preference,
+                arrival_minute=itinerary.arrival_minute, destination_walk_minutes=destination_walk,
+                planning_cost=pair.planning_cost, transfers=itinerary.transfers,
+                origin_rank=origin_endpoints[pair.origin_index].rank,
+                destination_rank=destination_endpoints[pair.destination_index].rank)
             row = (
                 objective,
                 itinerary,
@@ -236,7 +222,7 @@ class GtfsRouteEngine:
         destination_walk = walking_minutes(destination_distance, speed_m_per_min=self.walk_speed_m_per_min)
         if origin_walk:
             steps.append(WalkStep("徒歩", "現在地", origin.name, origin_walk,
-                int(round(origin_distance)), step_id="walk-origin", extra={"stops": []}).to_mapping())
+                walking_display_meters(origin_distance), step_id="walk-origin", extra={"stops": []}).to_mapping())
         points.append([origin.lat, origin.lon])
 
         current_minute = departure.hour * 60 + departure.minute + origin_walk
@@ -277,7 +263,7 @@ class GtfsRouteEngine:
 
         if destination_walk:
             steps.append(WalkStep("徒歩", destination.name, "目的地", destination_walk,
-                int(round(destination_distance)), step_id="walk-destination", extra={"stops": []}).to_mapping())
+                walking_display_meters(destination_distance), step_id="walk-destination", extra={"stops": []}).to_mapping())
         points.append([blat, blon])
         total_time = origin_walk + itinerary.total_minutes + destination_walk
         arrival = departure.hour * 60 + departure.minute + total_time

@@ -61,6 +61,11 @@ def walking_minutes(meters, *, speed_m_per_min=80.0):
     return math.ceil(walking_elapsed_minutes(meters, speed_m_per_min=speed_m_per_min))
 
 
+def walking_display_meters(meters):
+    """The existing GTFS/WalkStep integer distance contract."""
+    return int(round(meters))
+
+
 def walking_metrics(steps):
     """Aggregate the existing integer WalkStep display contract."""
     walks = [step for step in steps if step.get("kind") == "walk"]
@@ -104,7 +109,8 @@ class ReviewedPoleAccess:
                 "walking_distance_measured": False}
 
 
-def reviewed_coordinate_endpoint(point, role, *, stops, boarding_stops, reviews, rules):
+def reviewed_coordinate_endpoint(point, role, *, stops, boarding_stops, reviews, rules,
+                                 require_explicit=True):
     """Resolve one exact pole or one directional review, failing on ambiguity.
 
     Source-defined boarding/alighting-only poles can resolve a coincident
@@ -128,5 +134,9 @@ def reviewed_coordinate_endpoint(point, role, *, stops, boarding_stops, reviews,
     matches = [review for review in reviews if review.matches(point, role)]
     if len(matches) == 1:
         return matches[0].endpoint()
+    # Optional resolution is an explicit input classification, never recovery
+    # from an exception. Ambiguous exact poles/reviews must still fail closed.
+    if not require_explicit and not exact and not matches:
+        return None
     raise RouteInputError(f"unreviewed_coordinate_access: {role} {point.lat},{point.lon}; "
                          "徒歩経路・出入口を確認できない地点です。近い標柱や反対側へ自動接続しません。")

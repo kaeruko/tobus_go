@@ -1,0 +1,541 @@
+{
+  "source": "Independent original GTFS/CP932 oracle, fixed before querying the changed adapter",
+  "coordinate_sources": {
+    "taihakuku": "https://geoshape.ex.nii.ac.jp/city/resource/04104A1989.html",
+    "wakabayashiku": "https://geoshape.ex.nii.ac.jp/city/resource/04103A1989.html"
+  },
+  "coordinate_notice": "Facility representative points, not surveyed entrances or accessible walking paths",
+  "cases": [
+    {
+      "name": "ward_offices",
+      "origin": [
+        38.24418,
+        140.900748
+      ],
+      "destination": [
+        38.224395,
+        140.877212
+      ],
+      "origin_candidates": [
+        [
+          96.96762893477224,
+          "sendai_bus:5053_10",
+          2,
+          "若林区役所前"
+        ],
+        [
+          103.83709783260903,
+          "sendai_bus:5053_50",
+          2,
+          "若林区役所前"
+        ],
+        [
+          175.38108607212706,
+          "sendai_bus:5051_10",
+          3,
+          "保春院前丁"
+        ],
+        [
+          223.53855880676264,
+          "sendai_bus:5055_10",
+          3,
+          "一本杉町"
+        ],
+        [
+          268.8317119842269,
+          "sendai_bus:5201_10",
+          4,
+          "若林区文化センター入口"
+        ],
+        [
+          269.29979941434885,
+          "sendai_bus:5055_51",
+          4,
+          "一本杉町"
+        ]
+      ],
+      "destination_candidates": [
+        [
+          79.45726477256987,
+          "sendai_bus:7111_50",
+          1,
+          "長町南駅・太白区役所前"
+        ],
+        [
+          82.34745620813698,
+          "sendai_bus:7111_11",
+          2,
+          "長町南駅・太白区役所前"
+        ],
+        [
+          93.0735319622732,
+          "sendai_bus:7111_0",
+          2,
+          "長町南駅・太白区役所前"
+        ],
+        [
+          93.85614329169871,
+          "sendai_bus:7111_10",
+          2,
+          "長町南駅・太白区役所前"
+        ],
+        [
+          307.1025291347904,
+          "sendai_bus:7103_10",
+          4,
+          "仙台南年金事務所前"
+        ],
+        [
+          323.4932746652105,
+          "sendai_bus:7113_50",
+          5,
+          "長町七丁目"
+        ]
+      ],
+      "pairs": [
+        {
+          "origin": "sendai_bus:5053_10",
+          "destination": "sendai_bus:7111_50",
+          "origin_walk": 2,
+          "destination_walk": 1,
+          "transit_arrival": 619,
+          "final_arrival": 620
+        },
+        {
+          "origin": "sendai_bus:5053_10",
+          "destination": "sendai_bus:7111_11",
+          "origin_walk": 2,
+          "destination_walk": 2,
+          "transit_arrival": 603,
+          "final_arrival": 605
+        },
+        {
+          "origin": "sendai_bus:5053_10",
+          "destination": "sendai_bus:7111_0",
+          "origin_walk": 2,
+          "destination_walk": 2,
+          "transit_arrival": 612,
+          "final_arrival": 614
+        },
+        {
+          "origin": "sendai_bus:5053_10",
+          "destination": "sendai_bus:7111_10",
+          "origin_walk": 2,
+          "destination_walk": 2,
+          "transit_arrival": 602,
+          "final_arrival": 604
+        },
+        {
+          "origin": "sendai_bus:5053_10",
+          "destination": "sendai_bus:7103_10",
+          "origin_walk": 2,
+          "destination_walk": 4,
+          "transit_arrival": 612,
+          "final_arrival": 616
+        },
+        {
+          "origin": "sendai_bus:5053_50",
+          "destination": "sendai_bus:7111_50",
+          "origin_walk": 2,
+          "destination_walk": 1,
+          "transit_arrival": 619,
+          "final_arrival": 620
+        },
+        {
+          "origin": "sendai_bus:5053_50",
+          "destination": "sendai_bus:7111_11",
+          "origin_walk": 2,
+          "destination_walk": 2,
+          "transit_arrival": 635,
+          "final_arrival": 637
+        },
+        {
+          "origin": "sendai_bus:5053_50",
+          "destination": "sendai_bus:7111_0",
+          "origin_walk": 2,
+          "destination_walk": 2,
+          "transit_arrival": 612,
+          "final_arrival": 614
+        },
+        {
+          "origin": "sendai_bus:5053_50",
+          "destination": "sendai_bus:7111_10",
+          "origin_walk": 2,
+          "destination_walk": 2,
+          "transit_arrival": 632,
+          "final_arrival": 634
+        },
+        {
+          "origin": "sendai_bus:5053_50",
+          "destination": "sendai_bus:7103_10",
+          "origin_walk": 2,
+          "destination_walk": 4,
+          "transit_arrival": 641,
+          "final_arrival": 645
+        },
+        {
+          "origin": "sendai_bus:5051_10",
+          "destination": "sendai_bus:7111_50",
+          "origin_walk": 3,
+          "destination_walk": 1,
+          "transit_arrival": 619,
+          "final_arrival": 620
+        },
+        {
+          "origin": "sendai_bus:5051_10",
+          "destination": "sendai_bus:7111_11",
+          "origin_walk": 3,
+          "destination_walk": 2,
+          "transit_arrival": 603,
+          "final_arrival": 605
+        },
+        {
+          "origin": "sendai_bus:5051_10",
+          "destination": "sendai_bus:7111_0",
+          "origin_walk": 3,
+          "destination_walk": 2,
+          "transit_arrival": 612,
+          "final_arrival": 614
+        },
+        {
+          "origin": "sendai_bus:5051_10",
+          "destination": "sendai_bus:7111_10",
+          "origin_walk": 3,
+          "destination_walk": 2,
+          "transit_arrival": 602,
+          "final_arrival": 604
+        },
+        {
+          "origin": "sendai_bus:5051_10",
+          "destination": "sendai_bus:7103_10",
+          "origin_walk": 3,
+          "destination_walk": 4,
+          "transit_arrival": 612,
+          "final_arrival": 616
+        },
+        {
+          "origin": "sendai_bus:5055_10",
+          "destination": "sendai_bus:7111_50",
+          "origin_walk": 3,
+          "destination_walk": 1,
+          "transit_arrival": 619,
+          "final_arrival": 620
+        },
+        {
+          "origin": "sendai_bus:5055_10",
+          "destination": "sendai_bus:7111_11",
+          "origin_walk": 3,
+          "destination_walk": 2,
+          "transit_arrival": 603,
+          "final_arrival": 605
+        },
+        {
+          "origin": "sendai_bus:5055_10",
+          "destination": "sendai_bus:7111_0",
+          "origin_walk": 3,
+          "destination_walk": 2,
+          "transit_arrival": 612,
+          "final_arrival": 614
+        },
+        {
+          "origin": "sendai_bus:5055_10",
+          "destination": "sendai_bus:7111_10",
+          "origin_walk": 3,
+          "destination_walk": 2,
+          "transit_arrival": 602,
+          "final_arrival": 604
+        },
+        {
+          "origin": "sendai_bus:5055_10",
+          "destination": "sendai_bus:7103_10",
+          "origin_walk": 3,
+          "destination_walk": 4,
+          "transit_arrival": 612,
+          "final_arrival": 616
+        },
+        {
+          "origin": "sendai_bus:5201_10",
+          "destination": "sendai_bus:7111_50",
+          "origin_walk": 4,
+          "destination_walk": 1,
+          "transit_arrival": 649,
+          "final_arrival": 650
+        },
+        {
+          "origin": "sendai_bus:5201_10",
+          "destination": "sendai_bus:7111_11",
+          "origin_walk": 4,
+          "destination_walk": 2,
+          "transit_arrival": 635,
+          "final_arrival": 637
+        },
+        {
+          "origin": "sendai_bus:5201_10",
+          "destination": "sendai_bus:7111_10",
+          "origin_walk": 4,
+          "destination_walk": 2,
+          "transit_arrival": 634,
+          "final_arrival": 636
+        },
+        {
+          "origin": "sendai_bus:5201_10",
+          "destination": "sendai_bus:7103_10",
+          "origin_walk": 4,
+          "destination_walk": 4,
+          "transit_arrival": 641,
+          "final_arrival": 645
+        },
+        {
+          "origin": "sendai_bus:5055_51",
+          "destination": "sendai_bus:7111_50",
+          "origin_walk": 4,
+          "destination_walk": 1,
+          "transit_arrival": 619,
+          "final_arrival": 620
+        },
+        {
+          "origin": "sendai_bus:5055_51",
+          "destination": "sendai_bus:7111_11",
+          "origin_walk": 4,
+          "destination_walk": 2,
+          "transit_arrival": 635,
+          "final_arrival": 637
+        },
+        {
+          "origin": "sendai_bus:5055_51",
+          "destination": "sendai_bus:7111_0",
+          "origin_walk": 4,
+          "destination_walk": 2,
+          "transit_arrival": 612,
+          "final_arrival": 614
+        },
+        {
+          "origin": "sendai_bus:5055_51",
+          "destination": "sendai_bus:7111_10",
+          "origin_walk": 4,
+          "destination_walk": 2,
+          "transit_arrival": 632,
+          "final_arrival": 634
+        },
+        {
+          "origin": "sendai_bus:5055_51",
+          "destination": "sendai_bus:7103_10",
+          "origin_walk": 4,
+          "destination_walk": 4,
+          "transit_arrival": 641,
+          "final_arrival": 645
+        }
+      ],
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "bus_only": false,
+      "arrival_minute": 604,
+      "origin_label": "若林区役所（代表点）",
+      "destination_label": "太白区役所（代表点）"
+    },
+    {
+      "name": "tai_to_izumi",
+      "origin": [
+        38.224395,
+        140.877212
+      ],
+      "destination": [
+        38.322914,
+        140.881465
+      ],
+      "destination_stop_id": "sendai_bus:1085_12",
+      "origin_candidates": [
+        [
+          68.04832718188658,
+          "sendai_bus:7111_51",
+          1,
+          "長町南駅・太白区役所前"
+        ],
+        [
+          79.45726477256987,
+          "sendai_bus:7111_50",
+          1,
+          "長町南駅・太白区役所前"
+        ],
+        [
+          81.27883666398174,
+          "sendai_bus:7111_12",
+          2,
+          "長町南駅・太白区役所前"
+        ],
+        [
+          82.34745620813698,
+          "sendai_bus:7111_11",
+          2,
+          "長町南駅・太白区役所前"
+        ],
+        [
+          93.85614329169871,
+          "sendai_bus:7111_10",
+          2,
+          "長町南駅・太白区役所前"
+        ],
+        [
+          307.1025291347904,
+          "sendai_bus:7103_10",
+          4,
+          "仙台南年金事務所前"
+        ]
+      ],
+      "destination_candidates": [
+        [
+          0,
+          "sendai_bus:1085_12",
+          0,
+          "泉中央駅"
+        ]
+      ],
+      "pairs": [
+        {
+          "origin": "sendai_bus:7111_51",
+          "destination": "sendai_bus:1085_12",
+          "origin_walk": 1,
+          "destination_walk": 0,
+          "transit_arrival": 686,
+          "final_arrival": 686
+        },
+        {
+          "origin": "sendai_bus:7111_50",
+          "destination": "sendai_bus:1085_12",
+          "origin_walk": 1,
+          "destination_walk": 0,
+          "transit_arrival": 634,
+          "final_arrival": 634
+        },
+        {
+          "origin": "sendai_bus:7111_11",
+          "destination": "sendai_bus:1085_12",
+          "origin_walk": 2,
+          "destination_walk": 0,
+          "transit_arrival": 586,
+          "final_arrival": 586
+        },
+        {
+          "origin": "sendai_bus:7111_10",
+          "destination": "sendai_bus:1085_12",
+          "origin_walk": 2,
+          "destination_walk": 0,
+          "transit_arrival": 586,
+          "final_arrival": 586
+        },
+        {
+          "origin": "sendai_bus:7103_10",
+          "destination": "sendai_bus:1085_12",
+          "origin_walk": 4,
+          "destination_walk": 0,
+          "transit_arrival": 594,
+          "final_arrival": 594
+        }
+      ],
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "bus_only": false,
+      "arrival_minute": 586,
+      "origin_label": "太白区役所（代表点）",
+      "destination_label": "泉中央駅"
+    },
+    {
+      "name": "kasu_to_tai",
+      "origin": [
+        38.235139,
+        140.927499
+      ],
+      "destination": [
+        38.224395,
+        140.877212
+      ],
+      "origin_stop_id": "sendai_bus:5227_10",
+      "origin_candidates": [
+        [
+          0,
+          "sendai_bus:5227_10",
+          0,
+          "霞の目"
+        ]
+      ],
+      "destination_candidates": [
+        [
+          79.45726477256987,
+          "sendai_bus:7111_50",
+          1,
+          "長町南駅・太白区役所前"
+        ],
+        [
+          82.34745620813698,
+          "sendai_bus:7111_11",
+          2,
+          "長町南駅・太白区役所前"
+        ],
+        [
+          93.0735319622732,
+          "sendai_bus:7111_0",
+          2,
+          "長町南駅・太白区役所前"
+        ],
+        [
+          93.85614329169871,
+          "sendai_bus:7111_10",
+          2,
+          "長町南駅・太白区役所前"
+        ],
+        [
+          307.1025291347904,
+          "sendai_bus:7103_10",
+          4,
+          "仙台南年金事務所前"
+        ],
+        [
+          323.4932746652105,
+          "sendai_bus:7113_50",
+          5,
+          "長町七丁目"
+        ]
+      ],
+      "pairs": [
+        {
+          "origin": "sendai_bus:5227_10",
+          "destination": "sendai_bus:7111_50",
+          "origin_walk": 0,
+          "destination_walk": 1,
+          "transit_arrival": 679,
+          "final_arrival": 680
+        },
+        {
+          "origin": "sendai_bus:5227_10",
+          "destination": "sendai_bus:7111_11",
+          "origin_walk": 0,
+          "destination_walk": 2,
+          "transit_arrival": 659,
+          "final_arrival": 661
+        },
+        {
+          "origin": "sendai_bus:5227_10",
+          "destination": "sendai_bus:7111_10",
+          "origin_walk": 0,
+          "destination_walk": 2,
+          "transit_arrival": 658,
+          "final_arrival": 660
+        },
+        {
+          "origin": "sendai_bus:5227_10",
+          "destination": "sendai_bus:7103_10",
+          "origin_walk": 0,
+          "destination_walk": 4,
+          "transit_arrival": 663,
+          "final_arrival": 667
+        }
+      ],
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "bus_only": false,
+      "arrival_minute": 660,
+      "origin_label": "霞の目",
+      "destination_label": "太白区役所（代表点）"
+    }
+  ]
+}

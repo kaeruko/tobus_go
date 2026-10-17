@@ -81,6 +81,8 @@ def _http_error(error: Exception) -> HTTPException:
     if isinstance(error, RouteSearchLimitError):
         detail["code"] = "route_search_limit"
         detail["diagnostic"] = str(error)
+        if "coordinate_access" in error.diagnostics:
+            detail["search_diagnostics"] = error.diagnostics
         return HTTPException(503, detail=detail)
     if isinstance(error, RouteEngineUnavailableError):
         detail["code"] = "route_engine_unavailable"

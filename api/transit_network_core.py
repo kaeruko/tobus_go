@@ -16,6 +16,20 @@ from transit_network import NetworkCosts, build_transit_network
 from transit_timetable_choices import NetworkRideEvent, NetworkJourney, NetworkSearchParameters, search_network
 
 
+def coordinate_pair_objective(*, preference, arrival_minute, destination_walk_minutes,
+                              planning_cost, transfers, origin_rank, destination_rank):
+    """Existing GTFS endpoint comparison, including the final access walk.
+
+    This compares completed v2 journeys only; it does not rank or prune labels.
+    """
+    final_arrival = arrival_minute + destination_walk_minutes
+    if preference == "time":
+        return (final_arrival, planning_cost, arrival_minute, origin_rank, destination_rank)
+    if preference == "fewTransfers":
+        return (transfers, planning_cost, final_arrival, arrival_minute, origin_rank, destination_rank)
+    raise ValueError("unsupported coordinate pair preference")
+
+
 @dataclass(frozen=True)
 class NetworkPairResult:
     origin_index: int

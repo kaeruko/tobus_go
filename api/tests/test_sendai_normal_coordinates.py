@@ -126,9 +126,10 @@ class SendaiNormalCoordinateTests(unittest.TestCase):
             response=client.post('/route',json={**base,**change})
             self.assertEqual(response.status_code,422,response.text)
 
-    def test_unreviewed_coordinates_other_poles_and_outside_scope_fail_closed(self):
+    def test_general_coordinate_reclassification_preserves_specific_poles_and_free_scope(self):
         base=body(self.cases[0]);client=make_client(self.adapter)
-        # A few metres near the known pole do not authorize any sidewalk.
+        # Newly permitted geometry is not a reviewed sidewalk. The exact bay
+        # keeps its original ID; excluded vehicle-run poles never enter scope.
         for lat,lon in [(base['alat']+.00005,base['alon']),
                         (38.224693,140.876349),  # bay 7 is a separate coordinate, not the reviewed bay-2 footprint
                         (38.2319,140.8893),     # hospital entrance access is not reviewed
@@ -138,13 +139,21 @@ class SendaiNormalCoordinateTests(unittest.TestCase):
                 endpoint=self.adapter.endpoint(GeoPoint(lat,lon),'origin')
                 self.assertEqual(endpoint['stop_id'],'sendai_bus:7111_11')
                 continue
-            response=client.post('/route',json={**base,'alat':lat,'alon':lon})
-            self.assertEqual(response.status_code,422,response.text)
-            self.assertIn('unreviewed_coordinate_access',response.text)
+            values,info=self.adapter.endpoint_candidates(GeoPoint(lat,lon),'origin')
+            self.assertEqual(info['scope'],'geometric_estimate')
+            for value in values:
+                self.assertEqual(value['basis'],'haversine_80m_per_minute_estimate')
+                self.assertFalse(value['connection_guaranteed'])
+                self.assertNotIn('source_sha256',value)
         for stop in ('sendai_bus:3253_10','sendai_bus:3255_50'):
             s=self.network.free_scope.snapshot.stops[stop]
-            response=client.post('/route',json={**base,'alat':s.lat,'alon':s.lon})
-            self.assertEqual(response.status_code,422,response.text)
+            values,info=self.adapter.endpoint_candidates(GeoPoint(s.lat,s.lon),'origin')
+            self.assertNotIn(stop,[v['stop_id'] for v in values])
+        # Outside the candidate radius is a no-candidate result, as in the
+        # common GTFS backend, rather than permission to increase the radius.
+        response=client.post('/route',json={**base,'alat':0,'alon':0})
+        self.assertEqual(response.status_code,200,response.text)
+        self.assertEqual(response.json()['candidates'],[])
 
     def test_finite_dates_and_last_day_preserved(self):
         client=make_client(self.adapter);base=body(self.cases[0])

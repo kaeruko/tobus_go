@@ -9,6 +9,9 @@ from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from fractions import Fraction
 from types import MappingProxyType
+from time import monotonic
+
+from route_engine import RouteSearchLimitError
 
 from sendai_shared_network import SendaiFureaiPassPolicy, SendaiFreeNetwork, build_sendai_free_network
 from fare_policy import FareQuote
@@ -126,6 +129,7 @@ class PracticalJourney:
     exact_arrival_verified: bool = False
     actual_connection_guaranteed: bool = False
     experimental_margin_formally_adopted: bool = False
+    planning_cost: float = 0.0  # Original v2 cost; not part of the practical wire schema.
 
 
 @dataclass(frozen=True)
@@ -182,44 +186,9 @@ def _civil(anchor, minute):
     return CivilMinute(anchor + timedelta(days=int(offset)), minute - offset * 1440)
 
 
-def search_practical_subway(network, origin, destination, *, civil_date,
-                             departure_minute, parameters, realtime=False, mode="time", bus_only=False):
-    if realtime is not False:
-        raise ValueError("practical subway search is static only")
-    if mode not in ("time", "fewTransfers"):
-        raise ValueError("practical profile supports time or fewTransfers")
-    if type(bus_only) is not bool:
-        raise ValueError("explicit boolean bus_only required")
-    if (not isinstance(network, PracticalFreeNetwork) or type(civil_date) is not date
-            or type(departure_minute) is not int or not 0 <= departure_minute < 1440
-            or not isinstance(parameters, NetworkSearchParameters)):
-        raise ValueError("explicit civil date/minute and network parameters required")
-    # Standard transfers already include all declared connection time. Avoid an
-    # implicit extra rail buffer, whose meaning would differ from this profile.
-    if (parameters.rail_boarding_minutes != 0 or parameters.rail_alighting_minutes != 0
-            or parameters.bus_alighting_minutes != 0):
-        raise ValueError("practical profile requires zero additional implicit boarding/alighting buffers")
-    source = network.source
-    if origin not in network.free_scope.snapshot.stops or destination not in network.free_scope.snapshot.stops:
-        raise ValueError("unknown practical origin/destination")
+def _materialize_practical_days(network, civil_date, days, bus_only):
+    """One request-local immutable network with unchanged service-day clocks."""
     originals = network.free_scope.snapshot.datasets
-    finish = Fraction(departure_minute) + Fraction(str(parameters.max_travel_minutes))
-    latest = max(r.arrival_minute or r.departure_minute or 0 for d in originals for r in d.stop_times)
-    first = -1 if departure_minute <= latest - 1440 else 0
-    last = int(finish // 1440)
-    days = tuple(civil_date + timedelta(days=i) for i in range(first, last + 1))
-    for day in days:
-        source.operating_days.kind_on(day)
-        if network.transfers is not None and day not in network.transfers.valid_days:
-            raise ValueError(f"standard transfer is not reviewed for operating day {day}")
-        if any(day not in r.valid_days for r in network.bus_transfers):
-            raise ValueError(f"bus transfer is not reviewed for operating day {day}")
-        for dataset in originals:
-            if dataset.metadata.feed_id == "sendai_bus":
-                # Finite approval dates are independent of the subway w/h table.
-                # Every materialized bus day must be explicitly reviewed too.
-                if day not in network.bus_reviewed_days:
-                    raise ValueError(f"bus service date is outside reviewed scope: {day}")
     anchor = civil_date - timedelta(days=1)
     identities, materialized, versions = {}, [], {}
     for original in originals:
@@ -261,7 +230,7 @@ def search_practical_subway(network, origin, destination, *, civil_date,
         materialized.append(TransitDataset(replace(original.metadata, version=version), original.stops,
             original.routes, MappingProxyType(trips), tuple(times), MappingProxyType(calendars), tuple(exceptions)))
     if not identities:
-        return ()
+        return None, identities, anchor
     def reversion(link):
         endpoints = link.link if hasattr(link, "link") else link
         return replace(link, from_feed_version=versions[endpoints.from_stop_id.split(':')[0]],
@@ -278,6 +247,64 @@ def search_practical_subway(network, origin, destination, *, civil_date,
                if not bus_only or original.routes[original.trips[tid].route_id].mode.value == "bus"}
     snapshot = build_transit_network(tuple(materialized), allowed_trip_ids=allowed, walking_links=walks,
         costs=network.free_scope.snapshot.costs, standard_transfers=tuple(links))
+    return snapshot, identities, anchor
+
+
+def search_practical_subway(network, origin, destination, *, civil_date,
+                             departure_minute, parameters, realtime=False, mode="time", bus_only=False,
+                             _request_materializations=None, _request_deadline=None):
+    if realtime is not False:
+        raise ValueError("practical subway search is static only")
+    if mode not in ("time", "fewTransfers"):
+        raise ValueError("practical profile supports time or fewTransfers")
+    if type(bus_only) is not bool:
+        raise ValueError("explicit boolean bus_only required")
+    if (not isinstance(network, PracticalFreeNetwork) or type(civil_date) is not date
+            or type(departure_minute) is not int or not 0 <= departure_minute < 1440
+            or not isinstance(parameters, NetworkSearchParameters)):
+        raise ValueError("explicit civil date/minute and network parameters required")
+    # Standard transfers already include all declared connection time. Avoid an
+    # implicit extra rail buffer, whose meaning would differ from this profile.
+    if (parameters.rail_boarding_minutes != 0 or parameters.rail_alighting_minutes != 0
+            or parameters.bus_alighting_minutes != 0):
+        raise ValueError("practical profile requires zero additional implicit boarding/alighting buffers")
+    source = network.source
+    if origin not in network.free_scope.snapshot.stops or destination not in network.free_scope.snapshot.stops:
+        raise ValueError("unknown practical origin/destination")
+    originals = network.free_scope.snapshot.datasets
+    finish = Fraction(departure_minute) + Fraction(str(parameters.max_travel_minutes))
+    latest = max(r.arrival_minute or r.departure_minute or 0 for d in originals for r in d.stop_times)
+    first = -1 if departure_minute <= latest - 1440 else 0
+    last = int(finish // 1440)
+    days = tuple(civil_date + timedelta(days=i) for i in range(first, last + 1))
+    for day in days:
+        source.operating_days.kind_on(day)
+        if network.transfers is not None and day not in network.transfers.valid_days:
+            raise ValueError(f"standard transfer is not reviewed for operating day {day}")
+        if any(day not in r.valid_days for r in network.bus_transfers):
+            raise ValueError(f"bus transfer is not reviewed for operating day {day}")
+        for dataset in originals:
+            if dataset.metadata.feed_id == "sendai_bus":
+                # Finite approval dates are independent of the subway w/h table.
+                # Every materialized bus day must be explicitly reviewed too.
+                if day not in network.bus_reviewed_days:
+                    raise ValueError(f"bus service date is outside reviewed scope: {day}")
+    key = (id(network), civil_date, days, bus_only)
+    if _request_materializations is None:
+        prepared = _materialize_practical_days(network, civil_date, days, bus_only)
+    else:
+        if key not in _request_materializations:
+            _request_materializations[key] = _materialize_practical_days(network, civil_date, days, bus_only)
+        prepared = _request_materializations[key]
+    snapshot, identities, anchor = prepared
+    if not identities:
+        return ()
+    if _request_deadline is not None:
+        remaining = _request_deadline - monotonic()
+        if remaining <= 0:
+            raise RouteSearchLimitError("Sendai coordinate request deadline exceeded during materialization",
+                                       reason="time_limit")
+        parameters = replace(parameters, time_limit_seconds=min(parameters.time_limit_seconds, remaining))
     start = 1440 + departure_minute
     journeys = search_network(snapshot, origin, destination, service_date=anchor,
         departure_minute=start, mode=mode, parameters=parameters)
@@ -326,5 +353,5 @@ def search_practical_subway(network, origin, destination, *, civil_date,
                 "transfers": [repr(r) for r in network.bus_transfers],
                 "subway_transfer": repr(network.transfers),
                 "walks": [repr(w) for w in network.walking_links],
-                "allowed": sorted(network.free_scope.allowed_trip_ids)})))
+                "allowed": sorted(network.free_scope.allowed_trip_ids)}), planning_cost=journey.cost))
     return tuple(result)
