@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import math
 from datetime import datetime
 from typing import Any
 from types import SimpleNamespace
@@ -17,7 +16,9 @@ from route_engine import (
     RoutePreference,
     RouteSearchRequest,
     RouteSearchResult,
+    WalkStep,
 )
+from walking_access import haversine_m as _haversine_m, nearby_stops, walking_minutes, walking_metrics
 from transit_network_core import NetworkSearchCore
 from transit_dataset import TransitDataset, TransitMode, TransitStop
 from transit_search_dto import (
@@ -28,19 +29,6 @@ from transit_search_dto import (
 )
 
 _JST = ZoneInfo("Asia/Tokyo")
-
-
-def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    radius = 6_371_000.0
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-    a = (
-        math.sin(dphi / 2) ** 2
-        + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-    )
-    return 2 * radius * math.asin(math.sqrt(a))
 
 
 def _clock(minute: int) -> str:
@@ -55,15 +43,6 @@ def _point(stop: TransitStop) -> dict[str, Any]:
         "lon": stop.lon,
         "id": stop.id,
     }
-
-
-def nearby_stops(stops, lat, lon, *, radius_m, candidate_limit):
-    """Geometric candidates only; callers must separately approve access."""
-    candidates = [(stop, _haversine_m(lat, lon, stop.lat, stop.lon))
-                  for stop in stops.values()]
-    candidates = [item for item in candidates if item[1] <= radius_m]
-    candidates.sort(key=lambda item: (item[1], item[0].id))
-    return candidates[:candidate_limit]
 
 
 class GtfsRouteEngine:
@@ -140,9 +119,7 @@ class GtfsRouteEngine:
         origin_endpoints = tuple(
             SearchEndpoint(
                 stop_id=origin.id,
-                walk_minutes=math.ceil(
-                    origin_distance / self.walk_speed_m_per_min
-                ),
+                walk_minutes=walking_minutes(origin_distance, speed_m_per_min=self.walk_speed_m_per_min),
                 walk_meters=origin_distance,
                 rank=index,
             )
@@ -151,9 +128,7 @@ class GtfsRouteEngine:
         destination_endpoints = tuple(
             SearchEndpoint(
                 stop_id=destination.id,
-                walk_minutes=math.ceil(
-                    destination_distance / self.walk_speed_m_per_min
-                ),
+                walk_minutes=walking_minutes(destination_distance, speed_m_per_min=self.walk_speed_m_per_min),
                 walk_meters=destination_distance,
                 rank=index,
             )
@@ -257,21 +232,11 @@ class GtfsRouteEngine:
     ) -> dict[str, Any]:
         steps: list[dict[str, Any]] = []
         points: list[list[float]] = [[alat, alon]]
-        origin_walk = math.ceil(origin_distance / self.walk_speed_m_per_min)
-        destination_walk = math.ceil(destination_distance / self.walk_speed_m_per_min)
+        origin_walk = walking_minutes(origin_distance, speed_m_per_min=self.walk_speed_m_per_min)
+        destination_walk = walking_minutes(destination_distance, speed_m_per_min=self.walk_speed_m_per_min)
         if origin_walk:
-            steps.append(
-                {
-                    "step_id": "walk-origin",
-                    "kind": "walk",
-                    "title": "徒歩",
-                    "from_": "現在地",
-                    "to": origin.name,
-                    "minutes": origin_walk,
-                    "meters": int(round(origin_distance)),
-                    "stops": [],
-                }
-            )
+            steps.append(WalkStep("徒歩", "現在地", origin.name, origin_walk,
+                int(round(origin_distance)), step_id="walk-origin", extra={"stops": []}).to_mapping())
         points.append([origin.lat, origin.lon])
 
         current_minute = departure.hour * 60 + departure.minute + origin_walk
@@ -287,15 +252,15 @@ class GtfsRouteEngine:
                     "departure_time": _clock(current_minute), "arrival_time": _clock(leg.departure_minute), "stops": []})
             if isinstance(leg, NetworkWalkEvent):
                 link = leg.pinned_link.link
-                steps.append({"step_id": f"walk-transfer-{index}", "kind": "walk", "title": "徒歩乗換",
-                    "from_": self.dataset.stops[link.from_stop_id].name,
-                    "to": self.dataset.stops[link.to_stop_id].name,
-                    "minutes": leg.arrival_minute - leg.departure_minute, "meters": link.walk_meters,
+                steps.append(WalkStep("徒歩乗換", self.dataset.stops[link.from_stop_id].name,
+                    self.dataset.stops[link.to_stop_id].name,
+                    leg.arrival_minute - leg.departure_minute, link.walk_meters,
+                    step_id=f"walk-transfer-{index}", extra={
                     "departure_time": _clock(leg.departure_minute), "arrival_time": _clock(leg.arrival_minute),
                     "departureStopId": link.from_stop_id, "arrivalPoleId": link.to_stop_id,
                     "walking_connection_verified": True, "walking_time_verified": True,
                     "evidence_url": link.official_evidence_url,
-                    "includes_station_access": link.includes_station_access, "stops": []})
+                    "includes_station_access": link.includes_station_access, "stops": []}).to_mapping())
                 stop = self.dataset.stops[link.to_stop_id]
                 points.append([stop.lat, stop.lon])
             elif isinstance(leg, NetworkRideEvent):
@@ -311,18 +276,8 @@ class GtfsRouteEngine:
             current_minute = leg.arrival_minute
 
         if destination_walk:
-            steps.append(
-                {
-                    "step_id": "walk-destination",
-                    "kind": "walk",
-                    "title": "徒歩",
-                    "from_": destination.name,
-                    "to": "目的地",
-                    "minutes": destination_walk,
-                    "meters": int(round(destination_distance)),
-                    "stops": [],
-                }
-            )
+            steps.append(WalkStep("徒歩", destination.name, "目的地", destination_walk,
+                int(round(destination_distance)), step_id="walk-destination", extra={"stops": []}).to_mapping())
         points.append([blat, blon])
         total_time = origin_walk + itinerary.total_minutes + destination_walk
         arrival = departure.hour * 60 + departure.minute + total_time
@@ -331,12 +286,7 @@ class GtfsRouteEngine:
             "id": f"{self.dataset.metadata.feed_id}:{trip_key}:{departure.date().isoformat()}:{departure.strftime('%H%M')}",
             "lines": lines,
             "rides": itinerary.rides,
-            "walking_distance_meters": sum(
-                int(step["meters"])
-                for step in steps
-                if step["kind"] == "walk"
-            ),
-            "walking_segment_count": sum(step["kind"] == "walk" for step in steps),
+            **walking_metrics(steps),
             "boards": itinerary.rides,
             "transfers": itinerary.transfers,
             "total": total_time,

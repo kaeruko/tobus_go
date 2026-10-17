@@ -6,10 +6,17 @@ on:
     paths:
       - '.github/workflows/sendai-normal-coordinates.yml'
       - 'api/sendai_coordinate_*.py'
+      - 'api/walking_access.py'
+      - 'api/gtfs_route_backend.py'
+      - 'api/tokyo_route_engine.py'
+      - 'api/toei_engine.py'
+      - 'api/reviewed_walk_time.py'
       - 'api/sendai_practical_network.py'
       - 'api/app/route_endpoint.py'
       - 'api/app/sendai_runtime.py'
       - 'api/tests/test_sendai_normal_coordinates.py'
+      - 'api/tests/test_walking_access.py'
+      - 'api/tests/fixtures/sendai_subway/normal_coordinate_parity_20261017.json'
       - 'api/tests/fixtures/sendai_subway/normal_coordinate_cases_20261017.json'
       - 'lib/pages/home_page.dart'
       - 'lib/pages/map_picker_page.dart'
@@ -55,7 +62,7 @@ jobs:
       - name: Focused normal boundary, oracle and Flutter result regressions
         run: |
           cd api
-          python -m unittest tests.test_sendai_normal_coordinates -v
+          python -m unittest tests.test_walking_access tests.test_route_initial_walk tests.test_gtfs_route_walking_distance tests.test_reviewed_walk_time tests.test_tokyo_walk_boarding_access tests.test_sendai_normal_coordinates -v
       - name: Retrieve the same approved GTFS; no new feed or old audit replay
         run: |
           python -B scripts/fetch_sendai_gtfs.py --output api/data/sendai/20261006_model \

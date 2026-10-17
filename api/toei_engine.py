@@ -241,6 +241,10 @@ from google.transit import gtfs_realtime_pb2
 from gtfs_loader import gtfs_repo
 from route_engine import RouteContractError, RouteSearchLimitError
 from reviewed_walk_time import ReviewedWalkingLink, walk_edge_elapsed_minutes
+from walking_access import (
+    haversine_m as haversine, distance_candidates, nearest_candidate,
+    walking_elapsed_minutes,
+)
 from tokyo_route_signatures import transit_path_signature
 from tokyo_route_geometry import path_to_route_geometry
 
@@ -507,13 +511,6 @@ def _bus_path_gtfs_stop_ids(G, path, board_index) -> list[str]:
         elif edge_type == "alight":
             break
     return stops
-
-def haversine(lat1, lon1, lat2, lon2):
-    R = 6371000.0
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1))*math.cos(math.radians(lat2))*math.sin(dlon/2)**2
-    return 2*R*math.asin(math.sqrt(a))
 
 def is_station_id(pid: str) -> bool:
     return isinstance(pid, str) and pid.startswith("odpt.Station:")
@@ -1470,7 +1467,7 @@ def connect_walk_edges_phys(G, radius_m=300):
             if u == v: continue
             dist = haversine(du["lat"], du["lon"], lat, lon)
             if dist <= radius_m:
-                 minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
+                 minutes = walking_elapsed_minutes(dist, speed_m_per_min=WALK_SPEED_M_PER_MIN, minimum_minutes=1.0)
                  w = WALK_COST * minutes
                  if not G.has_edge(u, v):
                      G.add_edge(u, v, w=w, etype="walk", meters=dist)
@@ -1480,29 +1477,18 @@ def connect_walk_edges_phys(G, radius_m=300):
 def get_virtual_connections(G, lat, lon, name="目的地", walk_radius=300, spatial_index=None):
     dest_id = f"dest:{lat:.6f},{lon:.6f}"
     dest_node = ("phys", dest_id)
-    connections = []
-    
     if spatial_index:
-        candidates = spatial_index.nearby_candidates(lat, lon, walk_radius)
-        for nid, nlat, nlon in candidates:
-             dist = haversine(lat, lon, nlat, nlon)
-             if dist <= walk_radius:
-                 minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
-                 w = WALK_COST * minutes
-                 connections.append((nid, w, dist))
+        points = spatial_index.nearby_candidates(lat, lon, walk_radius)
     else:
-        for n, d in G.nodes(data=True):
-            if n[0] != "phys": continue
-            dist = haversine(lat, lon, d.get("lat"), d.get("lon"))
-            if dist <= walk_radius:
-                minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
-                w = WALK_COST * minutes
-                connections.append((n, w, dist))
-                
+        points = ((n, d.get("lat"), d.get("lon"))
+                  for n, d in G.nodes(data=True) if n[0] == "phys")
+    connections = []
+    for node, dist in distance_candidates(points, lat, lon, radius_m=walk_radius, distance=haversine):
+        minutes = walking_elapsed_minutes(dist, speed_m_per_min=WALK_SPEED_M_PER_MIN, minimum_minutes=1.0)
+        connections.append((node, WALK_COST * minutes, dist))
     return dest_node, connections
 
 def nearest_phys(G, lat, lon, station_only=False, spatial_index=None):
-    best, bestd = None, 1e30
     candidates = []
     if spatial_index:
         raw_candidates = spatial_index.nearby_candidates(lat, lon, 1000)
@@ -1512,12 +1498,9 @@ def nearest_phys(G, lat, lon, station_only=False, spatial_index=None):
     else:
         candidates = G.nodes(data=True)
 
-    for n, d in candidates:
-        if n[0] != "phys": continue
-        if station_only and not is_station_id(n[1]): continue
-        dist = haversine(lat, lon, d["lat"], d["lon"])
-        if dist < bestd: best, bestd = n, dist
-    return best, bestd
+    points = ((n, d["lat"], d["lon"]) for n, d in candidates
+              if n[0] == "phys" and (not station_only or is_station_id(n[1])))
+    return nearest_candidate(points, lat, lon, distance=haversine)
 
 # -------------------- 共通ロジック: 時間計算ヘルパー --------------------
 def _edge_uses_rail(G, u, v):
@@ -2427,7 +2410,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 minutes = cur.pop("_walk_elapsed", None)
                 cur["minutes"] = max(1, math.ceil(
                     minutes if minutes is not None
-                    else cur.get("meters", 0) / WALK_SPEED_M_PER_MIN
+                    else walking_elapsed_minutes(cur.get("meters", 0), speed_m_per_min=WALK_SPEED_M_PER_MIN)
                 ))
                 reviewed = cur.pop("_reviewed_edges", 0)
                 unreviewed = cur.pop("_unreviewed_edges", 0)

@@ -60,6 +60,7 @@ class SendaiNormalCoordinateTests(unittest.TestCase):
         cls.adapter = SendaiCoordinateScope(cls.normal,cls.network,cls.period,
             environment='development', access_reviews=nagamachi_minami_access(cls.network))
         cls.cases = read('normal_coordinate_cases_20261017.json')['cases']
+        cls.walk_parity = read('normal_coordinate_parity_20261017.json')['cases']
 
     def test_normal_api_five_actual_journeys_match_raw_oracle_and_stop_contract(self):
         day = date(2026,11,19)
@@ -79,6 +80,14 @@ class SendaiNormalCoordinateTests(unittest.TestCase):
                 self.assertEqual(response.status_code,200,response.text)
                 payload=response.json();self.assertTrue(payload['meta']['development_only'])
                 candidate=payload['candidates'][0]
+                # Captured on the unchanged a028dbf8 main before extraction.
+                # Freeze every serialized walking field, including unknown
+                # physical distance, unmeasured time, margins and source IDs.
+                # Whole-journey input_version and derived IDs already vary
+                # between interpreter processes; the raw oracle below remains
+                # the independent authority for the complete concrete route.
+                self.assertEqual([s for s in candidate['steps'] if s['kind']=='walk'],
+                    self.walk_parity[case['name']]['walks'])
                 self.assertEqual(candidate['arrival_time'],f"{case['arrival_minute']//60:02d}:{case['arrival_minute']%60:02d}")
                 self.assertEqual(candidate['planning_journey'],serialize_practical_journey(observed[0]))
                 validate(observed[0],expected_raw,self.review,day,case['origin_stop_id'],case['destination_stop_id'],start)

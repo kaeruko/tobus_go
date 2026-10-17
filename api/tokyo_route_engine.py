@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime
 import gc
-import math
 from dataclasses import dataclass
 from typing import Any, Callable
 from zoneinfo import ZoneInfo
@@ -13,7 +12,9 @@ from route_engine import (
     RouteContractError,
     RouteSearchRequest,
     RouteSearchResult,
+    WalkStep,
 )
+from walking_access import walking_minutes, walking_metrics
 from toei_engine import (
     MAX_WALK_SEG_M,
     TokyoSearchCandidates,
@@ -234,7 +235,7 @@ class TokyoRouteEngine:
 
         initial_walk_minutes = 0
         if origin_distance and origin_distance > 0:
-            initial_walk_minutes = max(1, math.ceil(origin_distance / 80.0))
+            initial_walk_minutes = max(1, walking_minutes(origin_distance))
 
         active_start_time = start_time
         if initial_walk_minutes > 0:
@@ -340,17 +341,9 @@ class TokyoRouteEngine:
                 else:
                     candidate["steps"].insert(
                         0,
-                        {
-                            "kind": "walk",
-                            "title": "徒歩",
-                            "edges": 0,
-                            "from_": "現在地",
-                            "from_en": "Current location",
-                            "to": origin_name,
-                            "to_en": origin_name_en,
-                            "meters": int(origin_distance),
-                            "minutes": int(initial_walk_minutes),
-                        },
+                        WalkStep("徒歩", "現在地", origin_name, int(initial_walk_minutes),
+                            int(origin_distance), extra={"edges": 0, "from_en": "Current location",
+                                "to_en": origin_name_en}).to_mapping(),
                     )
                     candidate["points"].insert(0, [alat, alon])
                     candidate["total_time"] += initial_walk_minutes
@@ -384,10 +377,7 @@ class TokyoRouteEngine:
             ]
             for step in walk_steps:
                 step["meters"] = int(round(step.get("meters", 0)))
-            candidate["walking_distance_meters"] = sum(
-                step["meters"] for step in walk_steps
-            )
-            candidate["walking_segment_count"] = len(walk_steps)
+            candidate.update(walking_metrics(candidate["steps"]))
 
         fallback_distance_m = None
         fallback_node_name = None

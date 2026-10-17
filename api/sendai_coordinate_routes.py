@@ -10,11 +10,12 @@ from fractions import Fraction
 import hashlib
 import math
 
-from gtfs_route_backend import nearby_stops
-from route_engine import RouteCandidate, RouteInputError, RoutePreference, RouteSearchResult
+from route_engine import RouteCandidate, RouteInputError, RoutePreference, RouteSearchResult, WalkStep
+from sendai_coordinate_access import COORDINATE_ACCESS_RULES
 from sendai_practical_network import CivilMinute, PracticalRide, search_practical_subway
 from sendai_practical_serializer import civil_clock, serialize_practical_journey
 from transit_timetable_choices import NetworkSearchParameters
+from walking_access import reviewed_coordinate_endpoint, walking_metrics
 
 POLICY = "sendai_fureai_pass"
 NOTICE = ("仙台・開発検証用。地下鉄は公式発車時刻と到着目安、バスはGTFS予定時刻です。"
@@ -66,30 +67,9 @@ class SendaiCoordinateScope:
         return _SelectedScope(self)
 
     def endpoint(self, point, role):
-        candidates = nearby_stops(self.bus_stops, point.lat, point.lon,
-            radius_m=600, candidate_limit=len(self.bus_stops))
-        # Equality at source coordinate precision is not an inferred sidewalk,
-        # road crossing or inter-pole link. No radius-based walk is authorized.
-        exact = [s for s, distance in candidates if distance <= .01]
-        if role == 'origin' and len(exact) > 1:
-            boarding = [s for s in exact if s.id in self.boarding_stops]
-            if len(boarding) == 1:
-                exact = boarding
-        if role == 'destination' and len(exact) > 1:
-            # A source-defined alighting-only pole can uniquely identify an
-            # arrival at a terminal. No inter-pole edge or alias is created.
-            dedicated = [s for s in exact if s.id not in self.boarding_stops]
-            if len(dedicated) == 1:
-                exact = dedicated
-        if len(exact) == 1:
-            return {"stop_id": exact[0].id, "minutes": 0, "meters": 0,
-                    "basis": "gtfs_pole_position_only", "label": exact[0].name,
-                    "path_description": "GTFS具体標柱と同一地点。周辺からの徒歩は未承認。"}
-        matches = [r for r in self.access_reviews if r.matches(point, role)]
-        if len(matches) == 1:
-            return matches[0].endpoint()
-        raise RouteInputError(f"unreviewed_coordinate_access: {role} {point.lat},{point.lon}; "
-            "徒歩経路・出入口を確認できない地点です。近い標柱や反対側へ自動接続しません。")
+        return reviewed_coordinate_endpoint(point, role, stops=self.bus_stops,
+            boarding_stops=self.boarding_stops, reviews=self.access_reviews,
+            rules=COORDINATE_ACCESS_RULES)
 
 
 class _SelectedScope:
@@ -147,11 +127,16 @@ def _candidate(network, journey, request, origin, destination):
         duration = _absolute(arrival) - _absolute(departure)
         if duration < 0:
             raise ValueError("coordinate serialization reversed scheduled time")
-        steps.append({"step_id": f"sendai-{len(steps)}", "kind": kind, "title": title,
-            "from_": from_name, "to": to_name, "minutes": math.ceil(duration), "meters": meters,
+        extra = {
             "departure_time": civil_clock(departure, basis="display")["time"],
             "arrival_time": civil_clock(arrival, basis="display")["time"],
-            "planning_details": details, **extra})
+            "planning_details": details, **extra}
+        if kind == "walk":
+            steps.append(WalkStep(title, from_name, to_name, math.ceil(duration), meters,
+                step_id=f"sendai-{len(steps)}", extra=extra).to_mapping())
+        else:
+            steps.append({"step_id": f"sendai-{len(steps)}", "kind": kind, "title": title,
+                "from_": from_name, "to": to_name, "minutes": math.ceil(duration), "meters": meters, **extra})
     def access(endpoint, before):
         nonlocal clock
         if not endpoint["minutes"]:
@@ -202,8 +187,7 @@ def _candidate(network, journey, request, origin, destination):
     raw = {"id": "sendai-" + hashlib.sha256(repr((wire,origin,destination)).encode()).hexdigest()[:20],
         "lines": lines, "rides": len(lines), "boards": len(lines), "transfers": max(0,len(lines)-1),
         "total_time": math.ceil(_absolute(arrival)-_absolute(start)),
-        "walking_distance_meters": sum(s["meters"] for s in steps if s["kind"]=="walk"),
-        "walking_segment_count": sum(s["kind"]=="walk" for s in steps), "steps": steps,
+        **walking_metrics(steps), "steps": steps,
         "points": [[p["lat"],p["lon"]] for s in steps for p in s.get("stops",[])],
         "arrival_time": civil_clock(arrival,basis="arrival_estimate")["time"],
         "departure_date": request.departure_at.isoformat(), "preference": request.preference.api_value,

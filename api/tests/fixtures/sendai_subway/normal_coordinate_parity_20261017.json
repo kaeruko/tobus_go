@@ -1,0 +1,438 @@
+{
+  "baseline_main": "a028dbf847d527a622f82f35c64bb889de305664",
+  "description": "Complete serialized WalkStep projection captured before the shared walking refactor, using the unchanged five OD/date/pass/consent fixtures. Existing whole-journey input_version and derived candidate IDs vary between interpreter processes; they are not frozen here. Independent raw oracle remains the route authority.",
+  "cases": {
+    "bus_only": {
+      "arrival_time": "09:38",
+      "walks": []
+    },
+    "bus_subway": {
+      "arrival_time": "11:06",
+      "walks": [
+        {
+          "departure_time": "10:22",
+          "arrival_time": "10:36",
+          "planning_details": {
+            "kind": "standard_transfer",
+            "from_stop_id": "sendai_bus:50_210",
+            "to_stop_id": "sendai_subway:namboku/仙台",
+            "standard_minutes": 12,
+            "margin_minutes": 2,
+            "margin_status": "experimental_unvalidated",
+            "time_basis": "experimental_planning_assumption",
+            "path_description": "市営60番のりば→北2出入口→北改札へ連絡する構内通路→南北線B3ホーム",
+            "departure": {
+              "date": "2026-11-19",
+              "time": "10:22",
+              "minute": {
+                "numerator": 622,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "ready": {
+              "date": "2026-11-19",
+              "time": "10:36",
+              "minute": {
+                "numerator": 636,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "source_uri": "https://www.kotsu.city.sendai.jp/assets/img/shibus/noriba/sendai/r06_sendaieki.jpg",
+            "source_sha256": "271485553fae3e39e47607782104f6ce1761313c959c313b35ff286eec5eb8f7",
+            "physical_walk_meters": null,
+            "walking_time_measured": false,
+            "connection_guaranteed": false,
+            "role": "transfer",
+            "notice": "乗換の計画仮定 12分＋余裕2分。実歩行距離不明・時間未実測・接続保証なし。市営60番のりば→北2出入口→北改札へ連絡する構内通路→南北線B3ホーム"
+          },
+          "kind": "walk",
+          "title": "乗換（推定・未保証）",
+          "from_": "仙台駅前",
+          "to": "namboku/仙台",
+          "minutes": 14,
+          "meters": 0,
+          "step_id": "sendai-2"
+        },
+        {
+          "departure_time": "10:56",
+          "arrival_time": "11:06",
+          "planning_details": {
+            "kind": "standard_transfer",
+            "from_stop_id": "sendai_subway:namboku/泉中央",
+            "to_stop_id": "sendai_bus:1085_12",
+            "standard_minutes": 8,
+            "margin_minutes": 2,
+            "margin_status": "experimental_unvalidated",
+            "time_basis": "experimental_planning_assumption",
+            "path_description": "南北線ホーム→改札→東1出入口→市営2番のりば",
+            "departure": {
+              "date": "2026-11-19",
+              "time": "10:56",
+              "minute": {
+                "numerator": 656,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "ready": {
+              "date": "2026-11-19",
+              "time": "11:06",
+              "minute": {
+                "numerator": 666,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "source_uri": "https://www.kotsu.city.sendai.jp/assets/img/shibus/noriba/izumichuo/izumityuuou_h3004.jpg",
+            "source_sha256": "8a4625fef1bc5a8a414cb88f2e3a42c23ee8d12aaccee0fc6c7c76508516fc69",
+            "physical_walk_meters": null,
+            "walking_time_measured": false,
+            "connection_guaranteed": false,
+            "role": "destination_access",
+            "notice": "乗換の計画仮定 8分＋余裕2分。実歩行距離不明・時間未実測・接続保証なし。南北線ホーム→改札→東1出入口→市営2番のりば"
+          },
+          "kind": "walk",
+          "title": "駅アクセス（推定・未保証）",
+          "from_": "namboku/泉中央",
+          "to": "泉中央駅",
+          "minutes": 10,
+          "meters": 0,
+          "step_id": "sendai-5"
+        }
+      ]
+    },
+    "subway_bus": {
+      "arrival_time": "10:48",
+      "walks": [
+        {
+          "departure_time": "09:00",
+          "arrival_time": "09:11",
+          "planning_details": {
+            "kind": "standard_transfer",
+            "from_stop_id": "sendai_bus:50_850",
+            "to_stop_id": "sendai_subway:namboku/仙台",
+            "standard_minutes": 9,
+            "margin_minutes": 2,
+            "margin_status": "experimental_unvalidated",
+            "time_basis": "experimental_planning_assumption",
+            "path_description": "市営5番のりば→南4出入口→南改札→南北線B3ホーム",
+            "departure": {
+              "date": "2026-11-19",
+              "time": "09:00",
+              "minute": {
+                "numerator": 540,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "ready": {
+              "date": "2026-11-19",
+              "time": "09:11",
+              "minute": {
+                "numerator": 551,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "source_uri": "https://www.kotsu.city.sendai.jp/assets/img/shibus/noriba/sendai/r06_sendaieki.jpg",
+            "source_sha256": "271485553fae3e39e47607782104f6ce1761313c959c313b35ff286eec5eb8f7",
+            "physical_walk_meters": null,
+            "walking_time_measured": false,
+            "connection_guaranteed": false,
+            "role": "origin_access",
+            "notice": "乗換の計画仮定 9分＋余裕2分。実歩行距離不明・時間未実測・接続保証なし。市営5番のりば→南4出入口→南改札→南北線B3ホーム"
+          },
+          "kind": "walk",
+          "title": "駅アクセス（推定・未保証）",
+          "from_": "仙台駅前",
+          "to": "namboku/仙台",
+          "minutes": 11,
+          "meters": 0,
+          "step_id": "sendai-0"
+        },
+        {
+          "departure_time": "09:28",
+          "arrival_time": "09:38",
+          "planning_details": {
+            "kind": "standard_transfer",
+            "from_stop_id": "sendai_subway:namboku/泉中央",
+            "to_stop_id": "sendai_bus:1085_12",
+            "standard_minutes": 8,
+            "margin_minutes": 2,
+            "margin_status": "experimental_unvalidated",
+            "time_basis": "experimental_planning_assumption",
+            "path_description": "南北線ホーム→改札→東1出入口→市営2番のりば",
+            "departure": {
+              "date": "2026-11-19",
+              "time": "09:28",
+              "minute": {
+                "numerator": 568,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "ready": {
+              "date": "2026-11-19",
+              "time": "09:38",
+              "minute": {
+                "numerator": 578,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "source_uri": "https://www.kotsu.city.sendai.jp/assets/img/shibus/noriba/izumichuo/izumityuuou_h3004.jpg",
+            "source_sha256": "8a4625fef1bc5a8a414cb88f2e3a42c23ee8d12aaccee0fc6c7c76508516fc69",
+            "physical_walk_meters": null,
+            "walking_time_measured": false,
+            "connection_guaranteed": false,
+            "role": "transfer",
+            "notice": "乗換の計画仮定 8分＋余裕2分。実歩行距離不明・時間未実測・接続保証なし。南北線ホーム→改札→東1出入口→市営2番のりば"
+          },
+          "kind": "walk",
+          "title": "乗換（推定・未保証）",
+          "from_": "namboku/泉中央",
+          "to": "泉中央駅",
+          "minutes": 10,
+          "meters": 0,
+          "step_id": "sendai-3"
+        }
+      ]
+    },
+    "multiple_transfer": {
+      "arrival_time": "11:07",
+      "walks": [
+        {
+          "departure_time": "10:22",
+          "arrival_time": "10:36",
+          "planning_details": {
+            "kind": "standard_transfer",
+            "from_stop_id": "sendai_bus:50_210",
+            "to_stop_id": "sendai_subway:namboku/仙台",
+            "standard_minutes": 12,
+            "margin_minutes": 2,
+            "margin_status": "experimental_unvalidated",
+            "time_basis": "experimental_planning_assumption",
+            "path_description": "市営60番のりば→北2出入口→北改札へ連絡する構内通路→南北線B3ホーム",
+            "departure": {
+              "date": "2026-11-19",
+              "time": "10:22",
+              "minute": {
+                "numerator": 622,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "ready": {
+              "date": "2026-11-19",
+              "time": "10:36",
+              "minute": {
+                "numerator": 636,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "source_uri": "https://www.kotsu.city.sendai.jp/assets/img/shibus/noriba/sendai/r06_sendaieki.jpg",
+            "source_sha256": "271485553fae3e39e47607782104f6ce1761313c959c313b35ff286eec5eb8f7",
+            "physical_walk_meters": null,
+            "walking_time_measured": false,
+            "connection_guaranteed": false,
+            "role": "transfer",
+            "notice": "乗換の計画仮定 12分＋余裕2分。実歩行距離不明・時間未実測・接続保証なし。市営60番のりば→北2出入口→北改札へ連絡する構内通路→南北線B3ホーム"
+          },
+          "kind": "walk",
+          "title": "乗換（推定・未保証）",
+          "from_": "仙台駅前",
+          "to": "namboku/仙台",
+          "minutes": 14,
+          "meters": 0,
+          "step_id": "sendai-2"
+        },
+        {
+          "departure_time": "10:50",
+          "arrival_time": "10:58",
+          "planning_details": {
+            "kind": "standard_transfer",
+            "from_stop_id": "sendai_subway:namboku/長町南",
+            "to_stop_id": "sendai_bus:7111_10",
+            "standard_minutes": 6,
+            "margin_minutes": 2,
+            "margin_status": "experimental_unvalidated",
+            "time_basis": "experimental_planning_assumption",
+            "path_description": "南北線ホーム→改札→西2出入口→2番のりば（GTFS platform_code=2）",
+            "departure": {
+              "date": "2026-11-19",
+              "time": "10:50",
+              "minute": {
+                "numerator": 650,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "ready": {
+              "date": "2026-11-19",
+              "time": "10:58",
+              "minute": {
+                "numerator": 658,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "source_uri": "https://www.kotsu.city.sendai.jp/wp-content/uploads/2026/03/r06_nagamachi_minami.jpg",
+            "source_sha256": "623fdc87e7f9180adaebf5b2417541ddf8ec8a8ab380b46ef323e0bd5ae0faf7",
+            "physical_walk_meters": null,
+            "walking_time_measured": false,
+            "connection_guaranteed": false,
+            "role": "transfer",
+            "notice": "乗換の計画仮定 6分＋余裕2分。実歩行距離不明・時間未実測・接続保証なし。南北線ホーム→改札→西2出入口→2番のりば（GTFS platform_code=2）"
+          },
+          "kind": "walk",
+          "title": "乗換（推定・未保証）",
+          "from_": "namboku/長町南",
+          "to": "長町南駅・太白区役所前",
+          "minutes": 8,
+          "meters": 0,
+          "step_id": "sendai-5"
+        }
+      ]
+    },
+    "surface_access": {
+      "arrival_time": "09:24",
+      "walks": [
+        {
+          "departure_time": "09:00",
+          "arrival_time": "09:01",
+          "planning_details": {
+            "stop_id": "sendai_bus:7111_10",
+            "minutes": 1,
+            "meters": 8,
+            "basis": "reviewed_surface_planning_assumption",
+            "label": "長町南駅 西2側・市営2番待合歩道",
+            "path_description": "西2側の市営2番待合歩道から、道路を横断せず7111_10へ。区役所建物内・他標柱は対象外",
+            "source_uri": "https://www.kotsu.city.sendai.jp/wp-content/uploads/2026/03/r06_nagamachi_minami.jpg",
+            "source_sha256": "623fdc87e7f9180adaebf5b2417541ddf8ec8a8ab380b46ef323e0bd5ae0faf7",
+            "walking_time_measured": false,
+            "walking_distance_measured": false,
+            "notice": "西2側の市営2番待合歩道から、道路を横断せず7111_10へ。区役所建物内・他標柱は対象外。時間・距離は推定、未実測・未保証。"
+          },
+          "kind": "walk",
+          "title": "地点からの徒歩（推定）",
+          "from_": "現在地",
+          "to": "長町南駅・太白区役所前",
+          "minutes": 1,
+          "meters": 8,
+          "step_id": "sendai-0"
+        },
+        {
+          "departure_time": "09:01",
+          "arrival_time": "09:08",
+          "planning_details": {
+            "kind": "standard_transfer",
+            "from_stop_id": "sendai_bus:7111_10",
+            "to_stop_id": "sendai_subway:namboku/長町南",
+            "standard_minutes": 5,
+            "margin_minutes": 2,
+            "margin_status": "experimental_unvalidated",
+            "time_basis": "experimental_planning_assumption",
+            "path_description": "2番のりば（GTFS platform_code=2）→西2出入口→改札→南北線ホーム",
+            "departure": {
+              "date": "2026-11-19",
+              "time": "09:01",
+              "minute": {
+                "numerator": 541,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "ready": {
+              "date": "2026-11-19",
+              "time": "09:08",
+              "minute": {
+                "numerator": 548,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "source_uri": "https://www.kotsu.city.sendai.jp/wp-content/uploads/2026/03/r06_nagamachi_minami.jpg",
+            "source_sha256": "623fdc87e7f9180adaebf5b2417541ddf8ec8a8ab380b46ef323e0bd5ae0faf7",
+            "physical_walk_meters": null,
+            "walking_time_measured": false,
+            "connection_guaranteed": false,
+            "role": "origin_access",
+            "notice": "乗換の計画仮定 5分＋余裕2分。実歩行距離不明・時間未実測・接続保証なし。2番のりば（GTFS platform_code=2）→西2出入口→改札→南北線ホーム"
+          },
+          "kind": "walk",
+          "title": "駅アクセス（推定・未保証）",
+          "from_": "長町南駅・太白区役所前",
+          "to": "namboku/長町南",
+          "minutes": 7,
+          "meters": 0,
+          "step_id": "sendai-1"
+        },
+        {
+          "departure_time": "09:08",
+          "arrival_time": "09:17",
+          "planning_details": {
+            "kind": "standard_transfer",
+            "from_stop_id": "sendai_subway:namboku/長町南",
+            "to_stop_id": "sendai_bus:7111_11",
+            "standard_minutes": 7,
+            "margin_minutes": 2,
+            "margin_status": "experimental_unvalidated",
+            "time_basis": "experimental_planning_assumption",
+            "path_description": "南北線ホーム→改札→東1出入口→7番のりば（GTFS platform_code=7）",
+            "departure": {
+              "date": "2026-11-19",
+              "time": "09:08",
+              "minute": {
+                "numerator": 548,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "ready": {
+              "date": "2026-11-19",
+              "time": "09:17",
+              "minute": {
+                "numerator": 557,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "source_uri": "https://www.kotsu.city.sendai.jp/wp-content/uploads/2026/03/r06_nagamachi_minami.jpg",
+            "source_sha256": "623fdc87e7f9180adaebf5b2417541ddf8ec8a8ab380b46ef323e0bd5ae0faf7",
+            "physical_walk_meters": null,
+            "walking_time_measured": false,
+            "connection_guaranteed": false,
+            "role": "origin_access",
+            "notice": "乗換の計画仮定 7分＋余裕2分。実歩行距離不明・時間未実測・接続保証なし。南北線ホーム→改札→東1出入口→7番のりば（GTFS platform_code=7）"
+          },
+          "kind": "walk",
+          "title": "駅アクセス（推定・未保証）",
+          "from_": "namboku/長町南",
+          "to": "長町南駅・太白区役所前",
+          "minutes": 9,
+          "meters": 0,
+          "step_id": "sendai-2"
+        }
+      ]
+    }
+  }
+}
