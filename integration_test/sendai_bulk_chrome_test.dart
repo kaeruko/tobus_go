@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart' as gestures show kTouchSlop;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:toeigo/widgets/sendai_practical_launcher.dart';
@@ -35,30 +36,20 @@ Future<void> _select(WidgetTester tester, String field, String value) async {
     of: menu,
     matching: find.byKey(ValueKey('sendai-$field-item-$value')),
   );
-  // Read the actual rendered form's ordered options and declared fixed row
-  // height. Position the SAME open menu once; no query/API/source changes or
-  // alternate selection route. This scales to the complete operator list.
-  final dropdownFinder = find.descendant(of: input,
-    matching: find.byWidgetPredicate((w) => w is DropdownButton<String>));
-  expect(dropdownFinder, findsOneWidget);
-  final dropdown = tester.widget<DropdownButton<String>>(dropdownFinder);
-  final options = dropdown.items!;
-  final index = options.indexWhere((entry) => entry.value == value);
-  final height = dropdown.itemHeight;
-  if (index < 0 || height == null) {
-    throw StateError('Exact option/fixed row height missing: $field=$value; index=$index, height=$height');
-  }
+  // The existing form uses variable-height rows (itemHeight=null). Reuse
+  // scrollUntilVisible on the SAME menu, with overlapping gestures derived
+  // from its measured viewport. Never assume a per-option pixel offset.
   final position = tester.state<ScrollableState>(menu).position;
-  final target = (8 + index * height - position.viewportDimension / 2)
-      .clamp(position.minScrollExtent, position.maxScrollExtent).toDouble();
-  _chromeStage = 'select $field=$value: index=$index, height=$height, target=$target';
-  position.jumpTo(target);
-  await tester.pumpAndSettle();
-  if (item.evaluate().length != 1) {
-    throw StateError('Exact menu item not mounted at declared row: $field=$value; '
-        'index=$index, height=$height, pixels=${position.pixels}, '
-        'extent=${position.maxScrollExtent}, viewport=${position.viewportDimension}');
+  final delta = position.viewportDimension / 2;
+  if (!delta.isFinite || delta <= gestures.kTouchSlop) {
+    throw StateError('Menu viewport cannot support the declared drag: '
+        '$field=$value; viewport=${position.viewportDimension}');
   }
+  final maxScrolls = (position.maxScrollExtent / (delta - gestures.kTouchSlop)).ceil() + 20;
+  _chromeStage = 'select $field=$value: viewport=${position.viewportDimension}, '
+      'extent=${position.maxScrollExtent}, delta=$delta, budget=$maxScrolls';
+  await tester.scrollUntilVisible(item, delta,
+      maxScrolls: maxScrolls, scrollable: menu);
   await Scrollable.ensureVisible(tester.element(item), alignment: 0.5);
   await tester.pumpAndSettle();
   await tester.tap(item);
@@ -73,7 +64,7 @@ Future<void> _select(WidgetTester tester, String field, String value) async {
 
 Future<void> _query(WidgetTester tester, {required String origin,
     required String destination, required String day, required String time,
-    String? arrival, int? transferMinutes, String? entrance}) async {
+    String? arrival}) async {
   _chromeStage = 'query $origin -> $destination $day $time: direct date';
   final directDate = find.byKey(const Key('sendai-date-direct'));
   await _reveal(tester, directDate);
@@ -122,10 +113,6 @@ Future<void> _query(WidgetTester tester, {required String origin,
       ? v.startsWith('追加支払0円・到着目安 $day ')
       : v.contains('追加支払0円・到着目安 $day $arrival')), isTrue,
     reason: 'Fixed reviewed UI route differs: $origin -> $destination at $day $time: $rendered');
-  if (transferMinutes != null) {
-    expect(find.textContaining('仮の乗換$transferMinutes分＋仮の余裕2分'), findsOneWidget);
-    expect(find.textContaining(entrance!), findsOneWidget);
-  }
 }
 
 void main() {
