@@ -940,6 +940,6 @@ Flutterは第15節の通常画面内フォーム・従来の検証ページとca
 
 実装commitは **`fb6d7f1196fc11d9ec8ed923613921ac0a278699`**。専用CI [`39018704442`](https://github.com/kaeruko/tobus_go/actions/runs/39018704442) は同SHAで **completed/success**。新規Python7件、既存の公式ZIP/manifest/member SHAとsubset原行完全一致、7件の原行独立oracle・具体便witness/ASGI照合が成功し、`READ_ONLY_SENDAI_STAGE6_NEW_SEVEN_OK` を確認。同じ元GTFSから起動したlocalhost APIを使うFlutter Chromeの3実経路も `All tests passed.`。既存4経路Chrome [`39018704419`](https://github.com/kaeruko/tobus_go/actions/runs/39018704419) も同SHAで **completed/success**。
 
-通常CIは [`39018704501`](https://github.com/kaeruko/tobus_go/actions/runs/39018704501)（同SHA）。Python API884件、Windows277件、共通SearchCore v2 Python3.11/3.12各89件、Flutter659件、Android東京/仙台、repository safetyが成功した。Flutter解析は既存ゲートで成功・非致命的既存issue97件を保持。**iOSの最終CI判定はこの段落の作成時点では進行中**。最終判定は取得後に追記し、完了前に全7ジョブ成功とは書かない。
+通常CIは [`39018704501`](https://github.com/kaeruko/tobus_go/actions/runs/39018704501)（同SHA）。Python API884件、Windows277件、共通SearchCore v2 Python3.11/3.12各89件、Flutter659件、Android東京/仙台、repository safetyが成功した。Flutter解析は既存ゲートで成功・非致命的既存issue97件を保持。**通常CIもcompleted/success・全7ジョブ成功**。東京・仙台のiOS両flavorビルドとiOS identity/privacy/ATS/Firebase分離、両Androidビルド、Python API884件、Windows277件、SearchCore v2 Python3.11/3.12各89件、Flutter659件、repository safetyとLambda image build/import検査の成功を最終確認した。Lambda imageの検査はdeployではない。CI成功認定のSHAはコードcommit `fb6d7f1196fc11d9ec8ed923613921ac0a278699` であり、後続の文書のみ[skip ci]のSHAを新たなコード検証とみなさない。
 
 次の難所は仙台駅・長町などの未レビュー乗換拠点（Astra Proへの別作業）。宮城交通、一般住所、全市営バス対応、他の候補route、特別ダイヤ便別確定、12月以降の新feed、正式な乗換実測と実機検証は未対応。現行の検証用運行・乗換は実運行を保証しない。
