@@ -66,6 +66,12 @@ Future<void> _query(WidgetTester tester, {required String origin,
   await tester.pumpAndSettle();
   _chromeStage = 'query $day: search returned';
   final result = find.byKey(const Key('sendai-result'));
+  if (result.evaluate().isEmpty) {
+    final errorFinder = find.byKey(const Key('sendai-test-error'));
+    final diagnostic = errorFinder.evaluate().isNotEmpty
+        ? tester.widget<Text>(errorFinder).data : 'no error widget';
+    throw StateError('No result for $origin -> $destination on $day $time; UI error: $diagnostic');
+  }
   await _reveal(tester, result);
   final rendered = tester.widgetList<Text>(find.descendant(of: result,
     matching: find.byType(Text))).map((w) => w.data).whereType<String>().toList();

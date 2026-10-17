@@ -33,9 +33,17 @@ class _SendaiPracticalTestPageState extends State<SendaiPracticalTestPage> {
     final parts = _time.text.split(':');
     final hour = parts.length == 2 ? int.tryParse(parts[0]) : null;
     final minute = parts.length == 2 ? int.tryParse(parts[1]) : null;
-    if (_origin == null || _destination == null || _date == null || _pass == null || !_accept ||
-        hour == null || minute == null || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-      setState(() { _error = '出発地・目的地・対応日・時刻・パスと仮設定を選択してください'; _results = null; });
+    final missing = <String>[
+      if (_origin == null) '出発地',
+      if (_destination == null) '目的地',
+      if (_date == null) '対応日（未確認日を含む）',
+      if (_pass == null) '乗車証',
+      if (!_accept) '検証用乗換仮設定の同意',
+      if (hour == null || minute == null || hour < 0 || hour > 23 ||
+          minute < 0 || minute > 59) '出発時刻 HH:MM',
+    ];
+    if (missing.isNotEmpty) {
+      setState(() { _error = '入力不足: ${missing.join('・')}'; _results = null; });
       return;
     }
     setState(() { _busy = true; _error = null; _results = null; });
