@@ -891,3 +891,13 @@ Flutterは第15節の通常画面内フォーム・従来の検証ページとca
 新規 `tests.test_sendai_stage5` は既存raw oracle・ASGI比較、平土休日の29具体便、完全循環・乗降制約、旧review/接続/日付の保持、1番の方向と接続除去時の原データ期待、改変拒否、同番号・同全停車順の未知route非承認、186/14停留所・有限期間の境界を検証する。専用Actionsは承認元ZIP/member SHA・subset原行順、新6経路、実GTFSから起動したlocalhost APIと既存Flutter埋込みフォームの新3経路を対象とする。通常CIの回帰も実行する。確定SHA・CI成功結果は完了後に追記する。
 
 残課題は16逆循環等の次の市内完結路線、仙台駅・長町の公式方向別接続、未確認特別ダイヤの便別影響、12/1以降の新feedレビュー、正式乗換時間と実端末確認。宮城交通・一般住所・全路線一括・本番公開への接続は未対応のまま。本番API・東京公開機能・release・アプリID・Firebase・AWS/S3・deploy・storeは変更しない。
+
+### 17.5 確定コードと成功CI
+
+路線追加コードは **`a34c7e05c2ffb9bf8dc3d9c4b4db03825cfd45c9`**。第5段専用CI [39016735110](https://github.com/kaeruko/tobus_go/actions/runs/39016735110) は同SHAで **completed/success**。新規Python7件（28.920秒）、承認元ZIP・schema2 manifest・member SHAとsubset全原行順一致、新6経路の独立raw最適値・全具体便witness・ASGI比較が成功し、`READ_ONLY_SENDAI_STAGE5_NEW_SIX_OK` を確認した。同じ原GTFSから起動したlocalhost APIを使うChromeでは、既存Launcherの埋込みフォームから新3経路を選択・検索し、09:55／09:39／09:55の固定到着目安と、仮の5分＋2分・中央1出入口・市営1番のりば表示が成功、`All tests passed.`（08:22:11 UTC）を確認した。失敗時に別経路・別日付・別backendへ切り替える処理は追加していない。
+
+通常CI [39016735104](https://github.com/kaeruko/tobus_go/actions/runs/39016735104) は同SHAで **completed/success・全7job成功**。API **877件**、Windows **277件**、共通SearchCore v2 Python3.11/3.12 **各89件**、Flutter **659件**が成功した。解析は既存CI条件で成功し、従来の非致命的指摘97件は残る。東京・仙台のAndroid/iOS両flavorとiOS identity/privacy/ATS/Firebase分離、repository safety、Lambda image build/import検査が成功した。公開・deployではない。
+
+既存固定4経路のChrome [39016735119](https://github.com/kaeruko/tobus_go/actions/runs/39016735119) も同SHAで **completed/success**、`All tests passed.`（08:19:00 UTC）。共通loaderの明示stage5許可1行に伴う自動回帰であり、過去の成功runを手動再実行したものではない。共通SearchCore v2の探索・枝刈り・候補順位、Adapter・運行日モデル・無料判定本体、既存各接続、製品Flutterコードは変更していない。
+
+終了時に最新mainと未マージPRを再確認し、確定結果追記はこのコードを親とする文書だけの `[skip ci]` commitに分離する。文書追記で成功済みCIを再起動せず、後続文書SHAを新しいコード検証や正式な実運行認定として扱わない。
