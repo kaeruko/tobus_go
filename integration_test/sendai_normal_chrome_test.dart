@@ -61,7 +61,18 @@ Future<void> _place(WidgetTester tester, String role, String query) async {
   final field = find.descendant(of: find.byKey(Key('route-$role')),
       matching: find.byType(CupertinoTextField));
   await _reveal(tester, field);
+  // After a picker route is popped, explicitly perform the user's field tap
+  // and finish focus restoration before sending text through TestTextInput.
+  // Sending only enterText previously left this field empty and unfocused;
+  // no autocomplete request was sent. Never bypass the field via provider.
+  await tester.tap(field);
+  await tester.pumpAndSettle();
+  final editable = find.descendant(of:field, matching:find.byType(EditableText));
+  expect(tester.widget<EditableText>(editable).focusNode.hasFocus,isTrue,
+      reason:'$_stage: the actual input tap must acquire focus');
   await tester.enterText(field, query);
+  expect(tester.widget<CupertinoTextField>(field).controller!.text,query,
+      reason:'$_stage: preserve the declared query at the input boundary');
   final prediction = find.widgetWithText(CupertinoButton, query);
   await _wait(tester, () => prediction.evaluate().isNotEmpty, diagnostic: () {
     final input=tester.widget<CupertinoTextField>(field);
