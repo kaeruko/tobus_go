@@ -18,6 +18,7 @@ import 'package:toeigo/pages/map_picker_page.dart';
 import 'package:toeigo/pages/route_detail_page.dart';
 import 'package:toeigo/providers/route_search_provider.dart';
 import 'package:toeigo/widgets/route_card.dart';
+import 'package:toeigo/widgets/place_field.dart';
 
 class _MapSurface extends maps.GoogleMapsFlutterPlatform {
   final VoidCallback select;
@@ -45,13 +46,14 @@ Future<void> _reveal(WidgetTester tester, Finder target) async {
   await tester.pump(const Duration(milliseconds: 300));
 }
 
-Future<void> _wait(WidgetTester tester, bool Function() done) async {
+Future<void> _wait(WidgetTester tester, bool Function() done,
+    {String Function()? diagnostic}) async {
   for (var i=0;i<200;i++) {
     if (done()) return;
     await tester.pump(const Duration(milliseconds: 100));
     await Future<void>.delayed(const Duration(milliseconds: 100));
   }
-  throw StateError('bounded wait expired at $_stage');
+  throw StateError('bounded wait expired at $_stage; ${diagnostic?.call() ?? ""}');
 }
 
 Future<void> _place(WidgetTester tester, String role, String query) async {
@@ -61,7 +63,17 @@ Future<void> _place(WidgetTester tester, String role, String query) async {
   await _reveal(tester, field);
   await tester.enterText(field, query);
   final prediction = find.widgetWithText(CupertinoButton, query);
-  await _wait(tester, () => prediction.evaluate().isNotEmpty);
+  await _wait(tester, () => prediction.evaluate().isNotEmpty, diagnostic: () {
+    final input=tester.widget<CupertinoTextField>(field);
+    final editable=tester.widget<EditableText>(find.descendant(of:field,
+        matching:find.byType(EditableText)));
+    final place=tester.widget<PlaceField>(find.byKey(Key('route-$role')));
+    final labels=find.descendant(of:find.byKey(Key('route-$role')),
+        matching:find.byType(Text)).evaluate()
+        .map((e)=>(e.widget as Text).data).toList();
+    return 'controller=${input.controller!.value}; focus=${editable.focusNode.hasFocus}; '
+        'value=${place.value}; display=${place.displayValue}; labels=$labels';
+  });
   await tester.ensureVisible(prediction);
   await tester.tap(prediction);
   await tester.pump(const Duration(milliseconds: 300));

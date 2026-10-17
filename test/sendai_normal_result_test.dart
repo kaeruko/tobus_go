@@ -49,7 +49,8 @@ void main() {
     final value=jsonDecode(source) as Map<String,dynamic>;
     final rail=(value['candidates'][0]['steps'] as List).firstWhere((s)=>s['kind']=='rail');
     rail.remove('planning_details');
-    ApiClient.httpClient=MockClient((call)async=>http.Response(jsonEncode(value),200));
+    ApiClient.httpClient=MockClient((call)async=>http.Response(jsonEncode(value),200,
+      headers:{'content-type':'application/json; charset=utf-8'}));
     await expectLater(const ApiRouteSearchService(cityKey:'sendai').search(request()),throwsFormatException);
   });
 }
