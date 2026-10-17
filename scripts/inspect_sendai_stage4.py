@@ -50,22 +50,26 @@ def inspect(directory):
         for t in trips:
             seq=tuple(r['stop_id'] for r in sorted(times[t['trip_id']],key=lambda r:int(r['stop_sequence'])))
             patterns[seq].append(t)
+        hub_trips=[t for t in trips if any(r['stop_id'] in HUBS for r in times[t['trip_id']])]
         stop_ids={s for seq in patterns for s in seq}
         summary.append(dict(route_id=rid,number=routes[rid]['route_short_name'],trips=len(trips),
             daily=[sum(t['service_id'] in active for t in trips) for active in services],
+            hub_daily=[sum(t['service_id'] in active for t in hub_trips) for active in services],
             pattern_count=len(patterns),new_stops=len(stop_ids-known_stops),
             patterns=[dict(stop_ids=list(seq),stop_names=[stops[s]['stop_name'] for s in seq],
                 coordinates=[[stops[s]['stop_lat'],stops[s]['stop_lon']] for s in seq],
                 trips=len(tt),services=dict(Counter(t['service_id'] for t in tt))) for seq,tt in patterns.items()]))
-    summary.sort(key=lambda r:(-r['daily'][0],-r['new_stops'],r['route_id']))
+    summary.sort(key=lambda r:(-r['hub_daily'][0],-r['new_stops'],r['route_id']))
     # A bounded inventory selection, never an operational/free-scope decision.
-    selected=tuple(r['route_id'] for r in summary if r['pattern_count']<=4 and r['daily'][0]>0)[:3]
+    selected=tuple(r['route_id'] for r in summary if r['pattern_count']<=4 and r['hub_daily'][0]>0)[:3]
     if len(selected)!=3:raise ValueError('Expected three bounded hub-route candidates')
     source=dict(source_url=manifest['source_url'],source_zip_sha256=SHA,
         source_member_sha256={n:manifest['file_sha256'][n] for n in FILES},files=files)
-    subset=derive(source,selected)
+    # Retain the combined exact original row order so the existing source-row
+    # verifier can check a later expansion without weakening its comparison.
+    subset=derive(source,tuple(sorted(existing))+selected)
     return dict(hub_stop_ids=sorted(HUBS),daily_dates=[d.isoformat() for d in days],
-        selection='first three by weekday trips, new stop count, exact route ID; <=4 complete patterns; no free approval',
+        selection='first three by weekday trips on exact reviewed hub poles, new stop count, exact route ID; <=4 complete patterns; no free approval',
         selected_route_ids=selected,routes=summary),subset
 
 
