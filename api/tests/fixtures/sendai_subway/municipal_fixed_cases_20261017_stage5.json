@@ -1,0 +1,85 @@
+{
+  "parameters": {
+    "max_candidates": 1,
+    "max_boardings": 3,
+    "max_travel_minutes": 180
+  },
+  "cases": [
+    {
+      "category": "tsurumaki_15_only",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:5181_10",
+      "destination": "sendai_bus:4253_10",
+      "modes": [
+        "bus"
+      ],
+      "required_route_id": "sendai_bus:10019",
+      "expected_arrival_minute": 595
+    },
+    {
+      "category": "tsurumaki_15_rail",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:4135_50",
+      "destination": "sendai_subway:tozai/仙台",
+      "modes": [
+        "bus",
+        "rail"
+      ],
+      "required_route_id": "sendai_bus:10019",
+      "expected_arrival_minute": 579
+    },
+    {
+      "category": "rail_tsurumaki_15",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_subway:tozai/仙台",
+      "destination": "sendai_bus:4253_10",
+      "modes": [
+        "rail",
+        "bus"
+      ],
+      "required_route_id": "sendai_bus:10019",
+      "expected_arrival_minute": 595
+    },
+    {
+      "category": "tsurumaki_15_saturday",
+      "civil_date": "2026-11-21",
+      "departure_minute": 540,
+      "origin": "sendai_bus:5181_10",
+      "destination": "sendai_bus:4253_10",
+      "modes": [
+        "bus"
+      ],
+      "required_route_id": "sendai_bus:10019",
+      "expected_arrival_minute": 668
+    },
+    {
+      "category": "tsurumaki_15_holiday",
+      "civil_date": "2026-11-23",
+      "departure_minute": 540,
+      "origin": "sendai_bus:4135_50",
+      "destination": "sendai_subway:tozai/仙台",
+      "modes": [
+        "bus",
+        "rail"
+      ],
+      "required_route_id": "sendai_bus:10019",
+      "expected_arrival_minute": 579
+    },
+    {
+      "category": "tsurumaki_15_last_day",
+      "civil_date": "2026-11-30",
+      "departure_minute": 540,
+      "origin": "sendai_subway:tozai/仙台",
+      "destination": "sendai_bus:4253_10",
+      "modes": [
+        "rail",
+        "bus"
+      ],
+      "required_route_id": "sendai_bus:10019",
+      "expected_arrival_minute": 595
+    }
+  ]
+}
