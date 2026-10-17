@@ -203,6 +203,22 @@ void main() {
       expect(surface.errorMessage,isNull);expect(surface.candidates.first.arrivalTime,'09:24');
       expect(surface.candidates.first.steps.first.kind,'walk');
       expect(surface.candidates.first.steps.first.planningDetails!['walking_time_measured'],isFalse);
+      _stage='map-origin result card and route detail';
+      final resultScroll=find.descendant(of:find.byType(CustomScrollView).first,
+          matching:find.byType(Scrollable)).first;
+      tester.state<ScrollableState>(resultScroll).position.jumpTo(
+          tester.state<ScrollableState>(resultScroll).position.maxScrollExtent);
+      await tester.pump();
+      await _reveal(tester,find.byType(RouteCard).first);
+      expect(find.text('到着目安 09:24'),findsOneWidget);
+      await tester.tap(find.byType(RouteCard).first);
+      await tester.pumpAndSettle();
+      final surfaceDetail=tester.widget<RouteDetailPage>(find.byType(RouteDetailPage));
+      expect(surfaceDetail.candidate.id,surface.candidates.first.id);
+      expect(surfaceDetail.candidate.steps.first.planningDetails!['walking_time_measured'],isFalse);
+      expect(surfaceDetail.fare!.normalFareYen,isNull);
+      expect(surfaceDetail.fare!.payNowYen,0);
+      expect(find.textContaining('本人の有効なふれあい乗車証'),findsWidgets);
       print('NORMAL_SENDAI_REAL_ROUTE_UI_OK; Places upstream fixture; Maps picker contract fixture, live SDK unverified');
     } catch(error,stack) {
       print('NORMAL_UI_STAGE=$_stage\n$error\n$stack');
