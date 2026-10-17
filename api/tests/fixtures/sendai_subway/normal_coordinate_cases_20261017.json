@@ -1,0 +1,128 @@
+{
+  "source": "Independent retained raw oracle; frozen before normal coordinate search",
+  "cases": [
+    {
+      "name": "bus_only",
+      "origin_stop_id": "sendai_bus:2005_50",
+      "destination_stop_id": "sendai_bus:2041_0",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "bus_only": true,
+      "origin_access_minutes": 0,
+      "destination_access_minutes": 0,
+      "arrival_minute": 578,
+      "expected_modes": [
+        "bus"
+      ],
+      "origin": [
+        38.275804,
+        140.876702
+      ],
+      "origin_label": "附属小学校前",
+      "destination": [
+        38.282844,
+        140.924681
+      ],
+      "destination_label": "市営バス東仙台営業所前"
+    },
+    {
+      "name": "bus_subway",
+      "origin_stop_id": "sendai_bus:5227_10",
+      "destination_stop_id": "sendai_bus:1085_12",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "bus_only": false,
+      "origin_access_minutes": 0,
+      "destination_access_minutes": 0,
+      "arrival_minute": 666,
+      "expected_modes": [
+        "bus",
+        "rail"
+      ],
+      "origin": [
+        38.235139,
+        140.927499
+      ],
+      "origin_label": "霞の目",
+      "destination": [
+        38.322914,
+        140.881465
+      ],
+      "destination_label": "泉中央駅"
+    },
+    {
+      "name": "subway_bus",
+      "origin_stop_id": "sendai_bus:50_850",
+      "destination_stop_id": "sendai_bus:1155_0",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "bus_only": false,
+      "origin_access_minutes": 0,
+      "destination_access_minutes": 0,
+      "arrival_minute": 648,
+      "expected_modes": [
+        "rail",
+        "bus"
+      ],
+      "origin": [
+        38.259327,
+        140.880753
+      ],
+      "origin_label": "仙台駅前",
+      "destination": [
+        38.390049,
+        140.720145
+      ],
+      "destination_label": "泉岳自然ふれあい館"
+    },
+    {
+      "name": "multiple_transfer",
+      "origin_stop_id": "sendai_bus:5227_10",
+      "destination_stop_id": "sendai_bus:7605_10",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "bus_only": false,
+      "origin_access_minutes": 0,
+      "destination_access_minutes": 0,
+      "arrival_minute": 667,
+      "expected_modes": [
+        "bus",
+        "rail",
+        "bus"
+      ],
+      "origin": [
+        38.235139,
+        140.927499
+      ],
+      "origin_label": "霞の目",
+      "destination": [
+        38.229984,
+        140.856324
+      ],
+      "destination_label": "芦口小学校前"
+    },
+    {
+      "name": "surface_access",
+      "origin_stop_id": "sendai_bus:7111_10",
+      "destination_stop_id": "sendai_bus:6008_10",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "bus_only": true,
+      "origin_access_minutes": 1,
+      "destination_access_minutes": 0,
+      "arrival_minute": 564,
+    "expected_modes": null,
+    "mode_condition": "at_least_one_ride_all_bus",
+      "origin": [
+        38.22439,
+        140.87613
+      ],
+      "origin_label": "長町南駅 西2側・市営2番待合歩道",
+      "destination": [
+        38.226158,
+        140.883387
+      ],
+      "destination_label": "長町駅西口"
+    }
+  ]
+}

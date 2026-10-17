@@ -93,6 +93,7 @@ class RouteSearchRequest:
     preference: RoutePreference
     bus_only: bool = False
     limit: int = 5
+    accept_experimental_transfer_model: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.departure_at, datetime):
@@ -103,6 +104,8 @@ class RouteSearchRequest:
             raise RouteInputError("preference must be a RoutePreference")
         if not isinstance(self.bus_only, bool):
             raise RouteInputError("bus_only must be a boolean")
+        if not isinstance(self.accept_experimental_transfer_model, bool):
+            raise RouteInputError("experimental transfer consent must be a boolean")
         if isinstance(self.limit, bool) or not isinstance(self.limit, int):
             raise RouteInputError("limit must be an integer")
         if not 1 <= self.limit <= 20:
@@ -439,3 +442,4 @@ def serialize_route_result(result: RouteSearchResult) -> dict[str, Any]:
 class RouteEngine(Protocol):
     def search(self, request: RouteSearchRequest) -> RouteSearchResult:
         ...
+

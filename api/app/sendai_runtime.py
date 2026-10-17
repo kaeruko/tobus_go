@@ -45,6 +45,12 @@ async def setup_sendai_on_startup(app, mode: str) -> None:
     app.state.city_key = "sendai"
     app.state.realtime_bus_supported = True
 
+    coordinate_opt_in = os.getenv("SENDAI_REVIEWED_COORDINATES", "0")
+    if coordinate_opt_in not in {"0", "1"}:
+        raise RuntimeError("SENDAI_REVIEWED_COORDINATES must be 0 or 1")
+    if coordinate_opt_in == "1" and mode != "development":
+        raise RuntimeError("reviewed Sendai coordinates require the explicit development runtime")
+
     gtfs_dir = os.getenv("SENDAI_GTFS_DIR")
     if gtfs_dir is None or gtfs_dir == "":
         raise RuntimeError("SENDAI_GTFS_DIR is required for Sendai runtime")
@@ -64,13 +70,36 @@ async def setup_sendai_on_startup(app, mode: str) -> None:
         gtfs_dir,
         expected_service_date=expected_service_date,
     )
-    backend = SendaiRouteBackend(
-        dataset,
-        walk_radius_m=walk_radius_m,
-    )
+    def normal_backend_factory():
+        return SendaiRouteBackend(dataset, walk_radius_m=walk_radius_m)
+    backend = normal_backend_factory() if coordinate_opt_in == "0" else None
+    engine = backend
+    if coordinate_opt_in == "1":
+        import json
+        from pathlib import Path
+        from sendai_practical_bundle import load_reviewed_subway, build_reviewed_municipal_model
+        from sendai_operating_period import OperatingPeriodReview
+        from sendai_coordinate_routes import SendaiCoordinateScope
+        from sendai_coordinate_access import nagamachi_minami_access
+        def required_path(name):
+            value = os.getenv(name)
+            if not value:
+                raise RuntimeError(f"{name} is required for reviewed coordinate development")
+            return Path(value)
+        review = json.loads(required_path("SENDAI_MUNICIPAL_REVIEW").read_text(encoding="utf-8"))
+        period = OperatingPeriodReview.from_mapping(review["operating_period"])
+        subway, _ = load_reviewed_subway(required_path("SENDAI_SUBWAY_PUBLISHED"),
+            required_path("SENDAI_SUBWAY_REVIEW"), operating_period=period)
+        network = build_reviewed_municipal_model(subway, dataset, review,
+            accept_experimental_bus_transfers=True)
+        engine = SendaiCoordinateScope(backend, network, period, environment="development",
+            access_reviews=nagamachi_minami_access(network), normal_backend_factory=normal_backend_factory)
+        app.state.sendai_reviewed_network = network
+        app.state.sendai_operating_period = period
 
     app.state.transit_dataset = dataset
-    app.state.route_backend = backend
-    app.state.route_engine = backend
+    app.state.route_backend = backend if backend is not None else engine
+    app.state.route_engine = engine
     app.state.realtime_provider = create_sendai_realtime_provider()
     app.state.loading_status = "ready"
+

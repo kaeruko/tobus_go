@@ -183,9 +183,13 @@ def _civil(anchor, minute):
 
 
 def search_practical_subway(network, origin, destination, *, civil_date,
-                             departure_minute, parameters, realtime=False):
+                             departure_minute, parameters, realtime=False, mode="time", bus_only=False):
     if realtime is not False:
         raise ValueError("practical subway search is static only")
+    if mode not in ("time", "fewTransfers"):
+        raise ValueError("practical profile supports time or fewTransfers")
+    if type(bus_only) is not bool:
+        raise ValueError("explicit boolean bus_only required")
     if (not isinstance(network, PracticalFreeNetwork) or type(civil_date) is not date
             or type(departure_minute) is not int or not 0 <= departure_minute < 1440
             or not isinstance(parameters, NetworkSearchParameters)):
@@ -220,6 +224,10 @@ def search_practical_subway(network, origin, destination, *, civil_date,
     identities, materialized, versions = {}, [], {}
     for original in originals:
         feed = original.metadata.feed_id
+        if not (network.free_scope.allowed_trip_ids & original.trips.keys()):
+            # A transport-mode filter can legitimately remove this feed. Do
+            # not manufacture an invalid empty TransitDataset for that mode.
+            continue
         trips, times, calendars, exceptions = {}, [], {}, []
         rows = {}
         for row in original.stop_times:
@@ -258,14 +266,21 @@ def search_practical_subway(network, origin, destination, *, civil_date,
         endpoints = link.link if hasattr(link, "link") else link
         return replace(link, from_feed_version=versions[endpoints.from_stop_id.split(':')[0]],
                        to_feed_version=versions[endpoints.to_stop_id.split(':')[0]])
-    links = list(() if network.transfers is None else network.transfers.links(versions["sendai_subway"]))
-    links.extend(reversion(review.link) for review in network.bus_transfers)
+    links = list(() if network.transfers is None or "sendai_subway" not in versions
+                 else network.transfers.links(versions["sendai_subway"]))
+    links.extend(reversion(review.link) for review in network.bus_transfers
+                 if {review.link.from_stop_id.split(':')[0], review.link.to_stop_id.split(':')[0]} <= versions.keys())
     walks = tuple(reversion(link) for link in network.walking_links)
-    snapshot = build_transit_network(tuple(materialized), allowed_trip_ids=identities, walking_links=walks,
+    # Filtering allowed vehicle runs keeps the original station vertices and
+    # reviewed walking paths. Removing a rail Dataset would incorrectly remove
+    # its concourse access even when no train is boarded.
+    allowed = {key for key,(original,tid,day,offset) in identities.items()
+               if not bus_only or original.routes[original.trips[tid].route_id].mode.value == "bus"}
+    snapshot = build_transit_network(tuple(materialized), allowed_trip_ids=allowed, walking_links=walks,
         costs=network.free_scope.snapshot.costs, standard_transfers=tuple(links))
     start = 1440 + departure_minute
     journeys = search_network(snapshot, origin, destination, service_date=anchor,
-        departure_minute=start, mode="time", parameters=parameters)
+        departure_minute=start, mode=mode, parameters=parameters)
     result = []
     for journey in journeys:
         events, quoted_rides = [], []

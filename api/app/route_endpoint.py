@@ -6,7 +6,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, StrictStr, StrictBool
 
 from fare_policy import decorate_route_result_with_fare
 from route_fare_scope import search_with_fare_scope
@@ -38,6 +38,7 @@ class ApiRouteRequest(BaseModel):
     target_date_str: str | None = None
     limit: int = 5
     fare_policy_id: StrictStr | None = None
+    accept_experimental_transfer_model: StrictBool = False
 
 
 def to_domain_request(request: ApiRouteRequest) -> RouteSearchRequest:
@@ -62,6 +63,7 @@ def to_domain_request(request: ApiRouteRequest) -> RouteSearchRequest:
         preference=normalize_route_preference(request.pref),
         bus_only=request.bus_only,
         limit=request.limit,
+        accept_experimental_transfer_model=request.accept_experimental_transfer_model,
     )
 
 
@@ -123,7 +125,16 @@ def register_route_endpoint(
                     policy_id,
                 )
             payload = serialize_route_result(result)
-            if policy_id != "normal":
+            # A reviewed city scope may return quotes produced by its existing
+            # concrete-run Policy. Do not reinterpret those through a public
+            # policy registry which deliberately excludes development options.
+            prequoted = getattr(engine, "verified_quote_policy_ids", frozenset())
+            if policy_id in prequoted:
+                for candidate in payload["candidates"]:
+                    quote = candidate.get("fare", {})
+                    if quote.get("policyId") != policy_id or quote.get("status") != "available":
+                        raise RouteContractError("reviewed scope did not return its verified fare quote")
+            elif policy_id != "normal":
                 city_key = getattr(app.state, "city_key", None)
                 if not isinstance(city_key, str) or not city_key:
                     raise RouteContractError("Backend city is required for scoped route fares")
@@ -148,3 +159,4 @@ def register_route_endpoint(
     # cities declare their own input defaults before FastAPI builds the schema.
     route_start.__annotations__["request"] = request_model
     app.post("/route")(route_start)
+

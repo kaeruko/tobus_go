@@ -57,6 +57,15 @@ def _point(stop: TransitStop) -> dict[str, Any]:
     }
 
 
+def nearby_stops(stops, lat, lon, *, radius_m, candidate_limit):
+    """Geometric candidates only; callers must separately approve access."""
+    candidates = [(stop, _haversine_m(lat, lon, stop.lat, stop.lon))
+                  for stop in stops.values()]
+    candidates = [item for item in candidates if item[1] <= radius_m]
+    candidates.sort(key=lambda item: (item[1], item[0].id))
+    return candidates[:candidate_limit]
+
+
 class GtfsRouteEngine:
     """Coordinate-to-coordinate route backend backed only by TransitDataset.
 
@@ -109,13 +118,8 @@ class GtfsRouteEngine:
         self.max_rides = max_rides
 
     def _nearby(self, lat: float, lon: float) -> list[tuple[TransitStop, float]]:
-        candidates: list[tuple[TransitStop, float]] = []
-        for stop in self.dataset.stops.values():
-            distance = _haversine_m(lat, lon, stop.lat, stop.lon)
-            if distance <= self.walk_radius_m:
-                candidates.append((stop, distance))
-        candidates.sort(key=lambda item: (item[1], item[0].id))
-        return candidates[: self.endpoint_candidate_limit]
+        return nearby_stops(self.dataset.stops, lat, lon,
+            radius_m=self.walk_radius_m, candidate_limit=self.endpoint_candidate_limit)
 
     def _find_best(
         self,
