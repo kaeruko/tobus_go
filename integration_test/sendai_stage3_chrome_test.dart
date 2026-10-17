@@ -73,10 +73,18 @@ Future<void> _query(WidgetTester tester, {required String origin,
   await tester.pumpAndSettle();
   _chromeStage = 'query $day: search returned';
   final result = find.byKey(const Key('sendai-result'));
+  final errorFinder = find.byKey(const Key('sendai-test-error'));
+  // The live localhost HTTP request can outlast pumpAndSettle: settling frames
+  // is not proof that a real network Future completed. Poll the SAME request,
+  // once, with a finite wait; never retry the API or alter the search.
+  for (var attempt = 0; attempt < 100; attempt++) {
+    if (result.evaluate().isNotEmpty || errorFinder.evaluate().isNotEmpty) break;
+    await tester.pump(const Duration(milliseconds: 250));
+  }
   if (result.evaluate().isEmpty) {
-    final errorFinder = find.byKey(const Key('sendai-test-error'));
     final diagnostic = errorFinder.evaluate().isNotEmpty
-        ? tester.widget<Text>(errorFinder).data : 'no error widget';
+        ? tester.widget<Text>(errorFinder).data
+        : 'neither result nor error appeared after bounded wait';
     throw StateError('No result for $origin -> $destination on $day $time; UI error: $diagnostic');
   }
   await _reveal(tester, result);
