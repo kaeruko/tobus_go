@@ -4,6 +4,7 @@ import '../utils/string_utils.dart';
 import 'route_map_segment.dart';
 
 class RouteMeta {
+  final String? planningNotice;
   final bool destinationReachable;
   final String destinationLabel;
   final String? fallbackNodeName;
@@ -12,6 +13,7 @@ class RouteMeta {
   final int? walkLimitM;
 
   RouteMeta({
+    this.planningNotice,
     required this.destinationReachable,
     required this.destinationLabel,
     this.fallbackNodeName,
@@ -22,6 +24,7 @@ class RouteMeta {
 
   factory RouteMeta.fromJson(Map<String, dynamic> json) {
     return RouteMeta(
+      planningNotice: json['planning_notice']?.toString(),
       destinationReachable: json['destination_reachable'] == true,
       destinationLabel: json['destination_label']?.toString() ?? '目的地',
       fallbackNodeName: json['fallback_node_name']?.toString(),
@@ -39,6 +42,8 @@ class RouteMeta {
 }
 
 class Candidate {
+  final String? planningNotice;
+  final Map<String, dynamic>? planningJourney;
   final String id;
   final List<String> lines;
   final List<String> linesEn;
@@ -66,6 +71,8 @@ class Candidate {
   final DateTime? savedRouteSavedAt;
 
   Candidate({
+    this.planningNotice,
+    this.planningJourney,
     required this.id,
     required this.lines,
     this.linesEn = const [],
@@ -125,6 +132,8 @@ class Candidate {
       destinationNameEn,
     );
     return Candidate(
+      planningNotice: j['planning_notice']?.toString(),
+      planningJourney: j['planning_journey'] == null ? null : Map<String, dynamic>.from(j['planning_journey']),
       id: j['id']?.toString() ?? '',
       lines: (j['lines'] is List) ? List<String>.from(j['lines']) : const [],
       linesEn: (j['lines_en'] is List)
@@ -303,6 +312,9 @@ class Candidate {
   }
 
   static List<StepSeg> _moveLeadingWaitBeforeWalk(List<StepSeg> steps) {
+    // Estimate-aware municipal journeys retain the server's exact scheduled
+    // event order; Tokyo's existing departure-before-wait presentation stays.
+    if (steps.any((step) => step.planningDetails != null)) return steps;
     if (steps.length < 3) return steps;
 
     final walk = steps[0];
@@ -587,6 +599,7 @@ void validatePersistableBusIdentity(Candidate candidate) {
 
 
 class StepSeg {
+  final Map<String, dynamic>? planningDetails;
   final String stepId;
   final String kind; // 'walk', 'bus', 'rail', 'wait'
   final String title;
@@ -618,6 +631,7 @@ class StepSeg {
   final String arrivalPoleId;
 
   StepSeg({
+    this.planningDetails,
     required this.stepId,
     required this.kind,
     required this.title,
@@ -667,6 +681,7 @@ class StepSeg {
         .toList();
 
     return StepSeg(
+      planningDetails: json['planning_details'] == null ? null : Map<String, dynamic>.from(json['planning_details']),
       stepId: stepId,
       kind: json['kind'] ?? 'walk',
       title: json['title'] ?? '',
@@ -737,6 +752,7 @@ class StepSeg {
 
   Map<String, dynamic> toJson() {
     return {
+      if (planningDetails != null) 'planning_details': planningDetails,
       'step_id': stepId,
       'kind': kind,
       'title': title,
@@ -818,3 +834,4 @@ class StopPoint {
     };
   }
 }
+

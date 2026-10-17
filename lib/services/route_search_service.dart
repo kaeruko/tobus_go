@@ -18,6 +18,8 @@ class RouteSearchRequest {
   final DateTime startTime;
   final String? preference;
   final bool busOnly;
+  final String? farePolicyId;
+  final bool acceptExperimentalTransferModel;
 
   RouteSearchRequest({
     required this.origin,
@@ -29,6 +31,8 @@ class RouteSearchRequest {
     required this.startTime,
     this.preference,
     this.busOnly = false,
+    this.farePolicyId,
+    this.acceptExperimentalTransferModel = false,
   }) : originName = originName.trim(),
        destinationName = destinationName.trim(),
        originNameEn = _trimNullable(originNameEn),
@@ -46,6 +50,9 @@ class RouteSearchRequest {
       'blon': destination.longitude.toString(),
       'pref': normalizeRoutePreferenceForApi(preference),
       'bus_only': busOnly,
+      if (farePolicyId != null) 'fare_policy_id': farePolicyId,
+      if (farePolicyId == 'sendai_fureai_pass')
+        'accept_experimental_transfer_model': acceptExperimentalTransferModel,
       'start_time':
           '${localStartTime.hour.toString().padLeft(2, '0')}:'
           '${localStartTime.minute.toString().padLeft(2, '0')}',
@@ -85,7 +92,9 @@ abstract class RouteSearchService {
 }
 
 class ApiRouteSearchService implements RouteSearchService {
-  const ApiRouteSearchService();
+  final String? cityKey;
+  const ApiRouteSearchService({this.cityKey});
+  String get _cityKey => cityKey ?? configuredCityKey;
 
   static final _inFlight = <String, Future<RouteSearchResult>>{};
 
@@ -96,7 +105,7 @@ class ApiRouteSearchService implements RouteSearchService {
     // Names affect the parsed result even though they are absent from /route.
     final key = jsonEncode([
       kApiBase,
-      configuredCityKey,
+      _cityKey,
       apiBody,
       request.originName,
       request.destinationName,
@@ -128,7 +137,7 @@ class ApiRouteSearchService implements RouteSearchService {
       throw const FormatException('route response is missing meta object');
     }
 
-    if (_containsRailCandidate(rawCandidates)) {
+    if (_cityKey == 'tokyo' && _containsRailCandidate(rawCandidates)) {
       final identityResponse = await ApiClient.post(
         '/train/resolve-route-identities',
         body: {
@@ -155,6 +164,7 @@ class ApiRouteSearchService implements RouteSearchService {
     }
 
     final candidates = <Candidate>[];
+    final fares = <String, FareQuote>{};
     final candidateIds = <String>{};
     for (final rawCandidate in rawCandidates) {
       if (rawCandidate is! Map) {
@@ -163,6 +173,7 @@ class ApiRouteSearchService implements RouteSearchService {
       final map = Map<String, dynamic>.from(rawCandidate);
       _validateResolvedBusIdentity(map);
       _validateResolvedRailIdentity(map);
+      if (_cityKey == 'sendai') _validateSendaiPublishedRail(map);
       if (map['destination_name'] == null ||
           map['destination_name'].toString().trim().isEmpty) {
         map['destination_name'] = request.destinationName;
@@ -186,12 +197,16 @@ class ApiRouteSearchService implements RouteSearchService {
         throw FormatException('duplicate route candidate id: ${candidate.id}');
       }
       candidates.add(candidate);
+      if (map['fare'] != null) {
+        if (map['fare'] is! Map) throw const FormatException('route fare must be an object');
+        fares[candidate.id] = FareQuote.fromJson(Map<String, dynamic>.from(map['fare']));
+      }
     }
 
     return RouteSearchResult(
       candidates: List.unmodifiable(candidates),
       meta: RouteMeta.fromJson(Map<String, dynamic>.from(rawMeta)),
-      fareByCandidateId: const {},
+      fareByCandidateId: Map.unmodifiable(fares),
     );
   }
 
@@ -323,6 +338,21 @@ class ApiRouteSearchService implements RouteSearchService {
     return '鉄道便をGTFS trip_idで確定できる経路候補がありません: '
         '${details.join(' / ')}';
   }
+
+  static void _validateSendaiPublishedRail(Map<String, dynamic> candidate) {
+    for (final step in candidate['steps'] as List) {
+      if (step['kind'] != 'rail') continue;
+      final details = step['planning_details'];
+      if (!step['trip_id'].toString().startsWith('sendai_subway:') ||
+          !step['route_id'].toString().startsWith('sendai_subway:') ||
+          details is! Map || details['departure'] is! Map || details['arrival'] is! Map ||
+          details['departure']['basis'] != 'published_departure_minute' ||
+          details['arrival']['basis'] != 'published_clock_arrival_proxy' ||
+          details['departure_provenance'] is! Map || details['arrival_provenance'] is! Map) {
+        throw FormatException('Sendai rail lacks published departure / estimated arrival provenance: ${step['step_id']}');
+      }
+    }
+  }
 }
 
 String normalizeRoutePreferenceForApi(String? preference) {
@@ -330,3 +360,4 @@ String normalizeRoutePreferenceForApi(String? preference) {
   if (preference == null || preference.isEmpty) return 'cost';
   return preference;
 }
+

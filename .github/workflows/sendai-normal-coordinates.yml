@@ -1,0 +1,112 @@
+name: Sendai normal coordinate UI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sendai-normal-coordinates.yml'
+      - 'api/sendai_coordinate_*.py'
+      - 'api/sendai_practical_network.py'
+      - 'api/app/route_endpoint.py'
+      - 'api/app/sendai_runtime.py'
+      - 'api/tests/test_sendai_normal_coordinates.py'
+      - 'api/tests/fixtures/sendai_subway/normal_coordinate_cases_20261017.json'
+      - 'lib/pages/home_page.dart'
+      - 'lib/pages/map_picker_page.dart'
+      - 'lib/pages/fare_policy_settings_page.dart'
+      - 'lib/pages/route_detail_page.dart'
+      - 'lib/models/route_models.dart'
+      - 'lib/services/route_search_service.dart'
+      - 'lib/providers/route_search_provider.dart'
+      - 'lib/core/city_profile.dart'
+      - 'lib/widgets/route_card.dart'
+      - 'lib/widgets/route_detail_widgets.dart'
+      - 'scripts/*sendai_normal*.py'
+      - 'integration_test/sendai_normal_chrome_test.dart'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  normal-ui-real-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: api/requirements.txt
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: browser-actions/setup-chrome@v2
+        id: chrome
+        with:
+          chrome-version: stable
+          install-chromedriver: true
+      - name: Install dependencies
+        run: |
+          python -m pip install -r api/requirements.txt
+          flutter pub get
+      - name: Focused normal boundary, oracle and Flutter result regressions
+        run: |
+          cd api
+          python -m unittest tests.test_sendai_normal_coordinates -v
+      - name: Retrieve the same approved GTFS; no new feed or old audit replay
+        run: |
+          python -B scripts/fetch_sendai_gtfs.py --output api/data/sendai/20261006_model \
+            --expected-service-date 2026-10-16 \
+            --source-url 'https://api-public.odpt.org/api/v4/files/odpt/SendaiMunicipal/bus_realtime_information.zip?date=20261006' \
+            --expected-sha256 53a08400776b3229743b24eb53566eb523b354a5b783dcfffd3e40f39258e6a2
+      - name: Start normal development app; only Places upstream response is fixed
+        env:
+          APP_CITY: sendai
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B scripts/sendai_normal_places_fixture.py \
+            --bus-gtfs-dir api/data/sendai/20261006_model --expected-service-date 2026-10-16 \
+            --subway-published api/tests/fixtures/sendai_subway/published_20230701.json \
+            --subway-review api/tests/fixtures/sendai_subway/practical_review_20261016.json \
+            --municipal-review api/tests/fixtures/sendai_subway/municipal_review_20261017_bulk.json \
+            > "$RUNNER_TEMP/sendai-normal-api.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/sendai-normal-api.pid"
+          for attempt in {1..45}; do
+            if curl --fail --silent http://127.0.0.1:8000/warmup; then exit 0; fi
+            if ! kill -0 "$(cat "$RUNNER_TEMP/sendai-normal-api.pid")" 2>/dev/null; then
+              cat "$RUNNER_TEMP/sendai-normal-api.log"; exit 1
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/sendai-normal-api.log"
+          exit 1
+      - name: Real normal HTTP, concrete stop-ID equality and negative/date boundaries
+        run: python -B scripts/check_sendai_normal_http.py --base-url http://127.0.0.1:8000
+      - name: Same-condition stop-ID versus normal HTTP response time and peak RSS
+        run: python -B scripts/benchmark_sendai_normal_coordinates.py --bus-gtfs-dir api/data/sendai/20261006_model
+      - name: Launch Chrome driver
+        shell: bash
+        run: |
+          echo 'CHROME_EXECUTABLE=${{ steps.chrome.outputs.chrome-path }}' >> "$GITHUB_ENV"
+          '${{ steps.chrome.outputs.chromedriver-path }}' --port=4444 > "$RUNNER_TEMP/sendai-normal-driver.log" 2>&1 &
+      - name: Normal RouteSearchPage Places, real routes, cards and detail; Maps picker contract
+        run: |
+          flutter drive -d web-server --browser-name=chrome \
+            --driver=test_driver/integration_test.dart --target=integration_test/sendai_normal_chrome_test.dart \
+            --dart-define=APP_CITY=sendai --dart-define=SENDAI_REVIEWED_COORDINATES=true \
+            --dart-define=API_BASE=http://127.0.0.1:8000
+      - name: Existing four stop-ID Chrome routes on the same real server
+        run: |
+          flutter drive -d web-server --browser-name=chrome \
+            --driver=test_driver/integration_test.dart --target=integration_test/sendai_bulk_chrome_test.dart \
+            --dart-define=SENDAI_TEST_API_BASE=http://127.0.0.1:8000
+      - name: Preserve diagnostics on failure
+        if: failure()
+        shell: bash
+        run: |
+          if test -f "$RUNNER_TEMP/sendai-normal-api.log"; then tail -n 100 "$RUNNER_TEMP/sendai-normal-api.log"; fi
+          if test -f "$RUNNER_TEMP/sendai-normal-driver.log"; then tail -n 100 "$RUNNER_TEMP/sendai-normal-driver.log"; fi

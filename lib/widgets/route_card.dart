@@ -188,18 +188,21 @@ class RouteCard extends ConsumerWidget {
             spacing: 6,
             runSpacing: 4,
             children: [
-              _chip(arrivalChip),
+              _chip(candidate.planningNotice == null ? arrivalChip : '到着目安 ${candidate.arrivalTime}'),
               _chip(l10n.transfersChip(candidate.transfers)),
               _chip(l10n.ridesChip(candidate.rides)),
-              _chip(l10n.walkChip(candidate.walkingDistanceMeters)),
+              _chip(candidate.planningNotice == null ? l10n.walkChip(candidate.walkingDistanceMeters) : '徒歩・乗換は推定'),
               if (fareChip != null) _chip(fareChip),
             ],
           ),
+          if (candidate.planningNotice != null)
+            Text(candidate.planningNotice!, style: const TextStyle(fontSize: 12)),
           const SizedBox(height: 8),
           Text(
             candidate.steps
                 .map((seg) {
                   if (seg.kind == 'walk') {
+                    if (seg.planningDetails != null) return '徒歩・駅アクセス（推定・未実測）';
                     final m = seg.meters;
                     final dist = m >= 1000
                         ? '${(m / 1000).toStringAsFixed(1)}km'
@@ -248,3 +251,4 @@ class RouteCard extends ConsumerWidget {
     );
   }
 }
+

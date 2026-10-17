@@ -4,6 +4,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
 import '../services/route_search_service.dart';
+import '../services/fare_policy_preferences.dart';
+import '../core/city_profile.dart';
 
 class RouteSearchState {
   final String from;
@@ -16,6 +18,7 @@ class RouteSearchState {
   final String toNameEn;
   final String? pref;
   final bool busOnly;
+  final bool acceptExperimentalTransferModel;
   final DateTime? startTime;
   final bool isLoading;
   final bool hasSearched;
@@ -36,6 +39,7 @@ class RouteSearchState {
     this.toNameEn = '',
     this.pref,
     this.busOnly = false,
+    this.acceptExperimentalTransferModel = false,
     this.startTime,
     this.isLoading = false,
     this.hasSearched = false,
@@ -57,6 +61,7 @@ class RouteSearchState {
     String? toNameEn,
     String? pref,
     bool? busOnly,
+    bool? acceptExperimentalTransferModel,
     DateTime? startTime,
     bool? isLoading,
     bool? hasSearched,
@@ -80,6 +85,7 @@ class RouteSearchState {
       toNameEn: toNameEn ?? this.toNameEn,
       pref: pref ?? this.pref,
       busOnly: busOnly ?? this.busOnly,
+      acceptExperimentalTransferModel: acceptExperimentalTransferModel ?? this.acceptExperimentalTransferModel,
       startTime: clearStartTime ? null : (startTime ?? this.startTime),
       isLoading: isLoading ?? this.isLoading,
       hasSearched: hasSearched ?? this.hasSearched,
@@ -105,6 +111,13 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
       : super(const RouteSearchState());
 
   int _generation = 0;
+
+  void setExperimentalTransferConsent(bool value) {
+    _generation++;
+    state = state.copyWith(acceptExperimentalTransferModel: value,
+        candidates: const [], fareByCandidateId: const {}, hasSearched: false,
+        isLoading: false, clearMeta: true, clearErrorMessage: true);
+  }
 
   void prepareSavedRoute({
     required String from,
@@ -265,6 +278,9 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
       final origin = _parsePoint(state.from, label: '出発地');
       final destination = _parsePoint(state.to, label: '到着地');
       final searchTime = state.startTime ?? DateTime.now();
+      final farePolicy = sendaiCoordinateDevelopment && configuredCityKey == 'sendai'
+          ? await FarePolicyPreferences.load(configuredCityProfile) : null;
+      if (_generation != currentGen) return;
 
       final result = await _routeSearchService.search(
         RouteSearchRequest(
@@ -281,6 +297,8 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
           startTime: searchTime,
           preference: state.pref ?? 'fewTransfers',
           busOnly: state.busOnly,
+          farePolicyId: farePolicy,
+          acceptExperimentalTransferModel: state.acceptExperimentalTransferModel,
         ),
       );
 
@@ -327,3 +345,4 @@ final routeSearchProvider =
     StateNotifierProvider<RouteSearchNotifier, RouteSearchState>((ref) {
       return RouteSearchNotifier(ref.watch(routeSearchServiceProvider));
     });
+

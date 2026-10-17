@@ -1,0 +1,1041 @@
+{
+  "candidates": [
+    {
+      "rides": 2,
+      "departure_date": "2026-11-19T09:00:00+09:00",
+      "preference": "time",
+      "origin_coords": [
+        38.259327,
+        140.880753
+      ],
+      "destination_coords": [
+        38.390049,
+        140.720145
+      ],
+      "fare": {
+        "normalFareYen": null,
+        "payNowYen": 0,
+        "effectiveFareYen": 0,
+        "policyId": "sendai_fureai_pass",
+        "settlementType": "free_pass",
+        "status": "available",
+        "unavailableReason": null
+      },
+      "planning_notice": "仙台・開発検証用。地下鉄は公式発車時刻と到着目安、バスはGTFS予定時刻です。徒歩・乗換時間と余裕は未実測の計画仮定で、接続・到着を保証しません。通常運賃は不明。本人の有効なふれあい乗車証所持・明示選択が前提です。",
+      "planning_journey": {
+        "schema": "sendai_practical_route_v1",
+        "profile": "sendai_published_minute_v1",
+        "input_version": "54bdf4b7695d35879c406bf1777b2c4615f28074360c8d11347d0d2a6d8d4a4b",
+        "departure": {
+          "date": "2026-11-19",
+          "time": "09:00",
+          "minute": {
+            "numerator": 540,
+            "denominator": 1
+          },
+          "basis": "request",
+          "actual_arrival_verified": false
+        },
+        "arrival": {
+          "date": "2026-11-19",
+          "time": "10:48",
+          "minute": {
+            "numerator": 648,
+            "denominator": 1
+          },
+          "basis": "journey_arrival_estimate",
+          "actual_arrival_verified": false
+        },
+        "events": [
+          {
+            "kind": "standard_transfer",
+            "from_stop_id": "sendai_bus:50_850",
+            "to_stop_id": "sendai_subway:namboku/仙台",
+            "standard_minutes": 9,
+            "margin_minutes": 2,
+            "margin_status": "experimental_unvalidated",
+            "time_basis": "experimental_planning_assumption",
+            "path_description": "市営5番のりば→南4出入口→南改札→南北線B3ホーム",
+            "departure": {
+              "date": "2026-11-19",
+              "time": "09:00",
+              "minute": {
+                "numerator": 540,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "ready": {
+              "date": "2026-11-19",
+              "time": "09:11",
+              "minute": {
+                "numerator": 551,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "source_uri": "https://www.kotsu.city.sendai.jp/assets/img/shibus/noriba/sendai/r06_sendaieki.jpg",
+            "source_sha256": "271485553fae3e39e47607782104f6ce1761313c959c313b35ff286eec5eb8f7",
+            "physical_walk_meters": null,
+            "walking_time_measured": false,
+            "connection_guaranteed": false
+          },
+          {
+            "kind": "ride",
+            "mode": "rail",
+            "trip_id": "sendai_subway:namboku_w_north_20230701.csv/a8f57231a311cc45a76d1f863fa0600a93254aa2333a40b47102116dc083eca2/row-44",
+            "source_trip_id": "namboku_w_north_20230701.csv/a8f57231a311cc45a76d1f863fa0600a93254aa2333a40b47102116dc083eca2/row-44",
+            "service_date": "2026-11-19",
+            "route_id": "sendai_subway:namboku",
+            "feed_version": "68b9a8c58b82c7e6ea959d4216c45ed0e67ccfb84656315dcbac82d533167b85",
+            "from_stop_id": "sendai_subway:namboku/仙台",
+            "to_stop_id": "sendai_subway:namboku/泉中央",
+            "from_sequence": 7,
+            "to_sequence": 16,
+            "stop_ids": [
+              "sendai_subway:namboku/仙台",
+              "sendai_subway:namboku/広瀬通",
+              "sendai_subway:namboku/勾当台公園",
+              "sendai_subway:namboku/北四番丁",
+              "sendai_subway:namboku/北仙台",
+              "sendai_subway:namboku/台原",
+              "sendai_subway:namboku/旭ヶ丘",
+              "sendai_subway:namboku/黒松",
+              "sendai_subway:namboku/八乙女",
+              "sendai_subway:namboku/泉中央"
+            ],
+            "departure": {
+              "date": "2026-11-19",
+              "time": "09:12",
+              "minute": {
+                "numerator": 552,
+                "denominator": 1
+              },
+              "basis": "published_departure_minute",
+              "actual_arrival_verified": false
+            },
+            "arrival": {
+              "date": "2026-11-19",
+              "time": "09:28",
+              "minute": {
+                "numerator": 568,
+                "denominator": 1
+              },
+              "basis": "published_clock_arrival_proxy",
+              "actual_arrival_verified": false
+            },
+            "departure_provenance": {
+              "basis": "published_departure_minute",
+              "source_uri": "https://www.city.sendai.jp/joho-kikaku/shise/security/kokai/documents/namboku_w_north_20230701.csv",
+              "source_sha256": "a8f57231a311cc45a76d1f863fa0600a93254aa2333a40b47102116dc083eca2",
+              "row_number": 44,
+              "column_number": 10,
+              "published_clock": "9:12",
+              "service_minute": 552,
+              "precision_minutes": 1
+            },
+            "arrival_provenance": {
+              "basis": "published_clock_arrival_proxy",
+              "source_uri": "https://www.city.sendai.jp/joho-kikaku/shise/security/kokai/documents/namboku_w_north_20230701.csv",
+              "source_sha256": "a8f57231a311cc45a76d1f863fa0600a93254aa2333a40b47102116dc083eca2",
+              "row_number": 44,
+              "column_number": 19,
+              "published_clock": "9:28",
+              "service_minute": 568,
+              "precision_minutes": 1
+            }
+          },
+          {
+            "kind": "standard_transfer",
+            "from_stop_id": "sendai_subway:namboku/泉中央",
+            "to_stop_id": "sendai_bus:1085_12",
+            "standard_minutes": 8,
+            "margin_minutes": 2,
+            "margin_status": "experimental_unvalidated",
+            "time_basis": "experimental_planning_assumption",
+            "path_description": "南北線ホーム→改札→東1出入口→市営2番のりば",
+            "departure": {
+              "date": "2026-11-19",
+              "time": "09:28",
+              "minute": {
+                "numerator": 568,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "ready": {
+              "date": "2026-11-19",
+              "time": "09:38",
+              "minute": {
+                "numerator": 578,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "source_uri": "https://www.kotsu.city.sendai.jp/assets/img/shibus/noriba/izumichuo/izumityuuou_h3004.jpg",
+            "source_sha256": "8a4625fef1bc5a8a414cb88f2e3a42c23ee8d12aaccee0fc6c7c76508516fc69",
+            "physical_walk_meters": null,
+            "walking_time_measured": false,
+            "connection_guaranteed": false
+          },
+          {
+            "kind": "ride",
+            "mode": "bus",
+            "trip_id": "sendai_bus:50_1_15000500",
+            "source_trip_id": "50_1_15000500",
+            "service_date": "2026-11-19",
+            "route_id": "sendai_bus:10003",
+            "feed_version": "sha256:53a08400776b3229743b24eb53566eb523b354a5b783dcfffd3e40f39258e6a2",
+            "from_stop_id": "sendai_bus:1085_12",
+            "to_stop_id": "sendai_bus:1155_0",
+            "from_sequence": 1,
+            "to_sequence": 33,
+            "stop_ids": [
+              "sendai_bus:1085_12",
+              "sendai_bus:1091_50",
+              "sendai_bus:1095_50",
+              "sendai_bus:1099_50",
+              "sendai_bus:1103_50",
+              "sendai_bus:1107_50",
+              "sendai_bus:1109_50",
+              "sendai_bus:1111_50",
+              "sendai_bus:1113_50",
+              "sendai_bus:1115_50",
+              "sendai_bus:1117_50",
+              "sendai_bus:1119_50",
+              "sendai_bus:1121_50",
+              "sendai_bus:1122_10",
+              "sendai_bus:1123_50",
+              "sendai_bus:1124_10",
+              "sendai_bus:1125_50",
+              "sendai_bus:1127_50",
+              "sendai_bus:1129_50",
+              "sendai_bus:1128_50",
+              "sendai_bus:1132_10",
+              "sendai_bus:1133_10",
+              "sendai_bus:1135_10",
+              "sendai_bus:1137_50",
+              "sendai_bus:1139_50",
+              "sendai_bus:1141_10",
+              "sendai_bus:1143_10",
+              "sendai_bus:1145_10",
+              "sendai_bus:1147_10",
+              "sendai_bus:1149_10",
+              "sendai_bus:1151_10",
+              "sendai_bus:1153_10",
+              "sendai_bus:1155_0"
+            ],
+            "departure": {
+              "date": "2026-11-19",
+              "time": "10:10",
+              "minute": {
+                "numerator": 610,
+                "denominator": 1
+              },
+              "basis": "gtfs_scheduled_departure",
+              "actual_arrival_verified": false
+            },
+            "arrival": {
+              "date": "2026-11-19",
+              "time": "10:48",
+              "minute": {
+                "numerator": 648,
+                "denominator": 1
+              },
+              "basis": "gtfs_scheduled_arrival",
+              "actual_arrival_verified": false
+            },
+            "departure_provenance": null,
+            "arrival_provenance": null
+          }
+        ],
+        "fare": {
+          "policy_id": "sendai_fureai_pass",
+          "additional_payment_yen": 0,
+          "normal_fare_yen": null,
+          "entitlement_assumed": true
+        },
+        "normal_timetable_only": true,
+        "exact_arrival_verified": false,
+        "actual_connection_guaranteed": false,
+        "experimental_margin_formally_adopted": false
+      },
+      "access": {
+        "origin": {
+          "stop_id": "sendai_bus:50_850",
+          "minutes": 0,
+          "meters": 0,
+          "basis": "gtfs_pole_position_only",
+          "label": "仙台駅前",
+          "path_description": "GTFS具体標柱と同一地点。周辺からの徒歩は未承認。"
+        },
+        "destination": {
+          "stop_id": "sendai_bus:1155_0",
+          "minutes": 0,
+          "meters": 0,
+          "basis": "gtfs_pole_position_only",
+          "label": "泉岳自然ふれあい館",
+          "path_description": "GTFS具体標柱と同一地点。周辺からの徒歩は未承認。"
+        }
+      },
+      "arrival_is_estimate": true,
+      "id": "sendai-217b34aa0b36834b085f",
+      "lines": [
+        "namboku",
+        "10"
+      ],
+      "boards": 2,
+      "transfers": 1,
+      "total_time": 108,
+      "walking_distance_meters": 0,
+      "walking_segment_count": 2,
+      "steps": [
+        {
+          "departure_time": "09:00",
+          "arrival_time": "09:11",
+          "planning_details": {
+            "kind": "standard_transfer",
+            "from_stop_id": "sendai_bus:50_850",
+            "to_stop_id": "sendai_subway:namboku/仙台",
+            "standard_minutes": 9,
+            "margin_minutes": 2,
+            "margin_status": "experimental_unvalidated",
+            "time_basis": "experimental_planning_assumption",
+            "path_description": "市営5番のりば→南4出入口→南改札→南北線B3ホーム",
+            "departure": {
+              "date": "2026-11-19",
+              "time": "09:00",
+              "minute": {
+                "numerator": 540,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "ready": {
+              "date": "2026-11-19",
+              "time": "09:11",
+              "minute": {
+                "numerator": 551,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "source_uri": "https://www.kotsu.city.sendai.jp/assets/img/shibus/noriba/sendai/r06_sendaieki.jpg",
+            "source_sha256": "271485553fae3e39e47607782104f6ce1761313c959c313b35ff286eec5eb8f7",
+            "physical_walk_meters": null,
+            "walking_time_measured": false,
+            "connection_guaranteed": false,
+            "role": "origin_access",
+            "notice": "乗換の計画仮定 9分＋余裕2分。実歩行距離不明・時間未実測・接続保証なし。市営5番のりば→南4出入口→南改札→南北線B3ホーム"
+          },
+          "kind": "walk",
+          "title": "駅アクセス（推定・未保証）",
+          "from_": "仙台駅前",
+          "to": "namboku/仙台",
+          "minutes": 11,
+          "meters": 0,
+          "step_id": "sendai-0"
+        },
+        {
+          "departure_time": "09:11",
+          "arrival_time": "09:12",
+          "planning_details": {
+            "notice": "予定発車時刻までの待機。運行保証ではありません。"
+          },
+          "kind": "wait",
+          "title": "発車待ち",
+          "from_": "namboku/仙台",
+          "to": "namboku/仙台",
+          "minutes": 1,
+          "meters": 0,
+          "step_id": "sendai-1"
+        },
+        {
+          "departure_time": "09:12",
+          "arrival_time": "09:28",
+          "planning_details": {
+            "kind": "ride",
+            "mode": "rail",
+            "trip_id": "sendai_subway:namboku_w_north_20230701.csv/a8f57231a311cc45a76d1f863fa0600a93254aa2333a40b47102116dc083eca2/row-44",
+            "source_trip_id": "namboku_w_north_20230701.csv/a8f57231a311cc45a76d1f863fa0600a93254aa2333a40b47102116dc083eca2/row-44",
+            "service_date": "2026-11-19",
+            "route_id": "sendai_subway:namboku",
+            "feed_version": "68b9a8c58b82c7e6ea959d4216c45ed0e67ccfb84656315dcbac82d533167b85",
+            "from_stop_id": "sendai_subway:namboku/仙台",
+            "to_stop_id": "sendai_subway:namboku/泉中央",
+            "from_sequence": 7,
+            "to_sequence": 16,
+            "stop_ids": [
+              "sendai_subway:namboku/仙台",
+              "sendai_subway:namboku/広瀬通",
+              "sendai_subway:namboku/勾当台公園",
+              "sendai_subway:namboku/北四番丁",
+              "sendai_subway:namboku/北仙台",
+              "sendai_subway:namboku/台原",
+              "sendai_subway:namboku/旭ヶ丘",
+              "sendai_subway:namboku/黒松",
+              "sendai_subway:namboku/八乙女",
+              "sendai_subway:namboku/泉中央"
+            ],
+            "departure": {
+              "date": "2026-11-19",
+              "time": "09:12",
+              "minute": {
+                "numerator": 552,
+                "denominator": 1
+              },
+              "basis": "published_departure_minute",
+              "actual_arrival_verified": false
+            },
+            "arrival": {
+              "date": "2026-11-19",
+              "time": "09:28",
+              "minute": {
+                "numerator": 568,
+                "denominator": 1
+              },
+              "basis": "published_clock_arrival_proxy",
+              "actual_arrival_verified": false
+            },
+            "departure_provenance": {
+              "basis": "published_departure_minute",
+              "source_uri": "https://www.city.sendai.jp/joho-kikaku/shise/security/kokai/documents/namboku_w_north_20230701.csv",
+              "source_sha256": "a8f57231a311cc45a76d1f863fa0600a93254aa2333a40b47102116dc083eca2",
+              "row_number": 44,
+              "column_number": 10,
+              "published_clock": "9:12",
+              "service_minute": 552,
+              "precision_minutes": 1
+            },
+            "arrival_provenance": {
+              "basis": "published_clock_arrival_proxy",
+              "source_uri": "https://www.city.sendai.jp/joho-kikaku/shise/security/kokai/documents/namboku_w_north_20230701.csv",
+              "source_sha256": "a8f57231a311cc45a76d1f863fa0600a93254aa2333a40b47102116dc083eca2",
+              "row_number": 44,
+              "column_number": 19,
+              "published_clock": "9:28",
+              "service_minute": 568,
+              "precision_minutes": 1
+            },
+            "notice": "公式発車時刻 → 到着目安（公開発車時計による推定）。到着・接続保証なし。"
+          },
+          "trip_id": "sendai_subway:namboku_w_north_20230701.csv/a8f57231a311cc45a76d1f863fa0600a93254aa2333a40b47102116dc083eca2/row-44",
+          "route_id": "sendai_subway:namboku",
+          "departureStopId": "sendai_subway:namboku/仙台",
+          "arrivalPoleId": "sendai_subway:namboku/泉中央",
+          "boarding_minutes": 0,
+          "stops": [
+            {
+              "id": "sendai_subway:namboku/仙台",
+              "name": "namboku/仙台",
+              "lat": 38.2600281046349,
+              "lon": 140.879724540172
+            },
+            {
+              "id": "sendai_subway:namboku/広瀬通",
+              "name": "namboku/広瀬通",
+              "lat": 38.2629484757932,
+              "lon": 140.875456438224
+            },
+            {
+              "id": "sendai_subway:namboku/勾当台公園",
+              "name": "namboku/勾当台公園",
+              "lat": 38.2664454476831,
+              "lon": 140.871209418386
+            },
+            {
+              "id": "sendai_subway:namboku/北四番丁",
+              "name": "namboku/北四番丁",
+              "lat": 38.2721824998418,
+              "lon": 140.869043223942
+            },
+            {
+              "id": "sendai_subway:namboku/北仙台",
+              "name": "namboku/北仙台",
+              "lat": 38.2824451934748,
+              "lon": 140.868675826804
+            },
+            {
+              "id": "sendai_subway:namboku/台原",
+              "name": "namboku/台原",
+              "lat": 38.2884270154177,
+              "lon": 140.878563577582
+            },
+            {
+              "id": "sendai_subway:namboku/旭ヶ丘",
+              "name": "namboku/旭ヶ丘",
+              "lat": 38.2956488299812,
+              "lon": 140.88361085512
+            },
+            {
+              "id": "sendai_subway:namboku/黒松",
+              "name": "namboku/黒松",
+              "lat": 38.3031844317504,
+              "lon": 140.886429421609
+            },
+            {
+              "id": "sendai_subway:namboku/八乙女",
+              "name": "namboku/八乙女",
+              "lat": 38.3128326924461,
+              "lon": 140.884050282258
+            },
+            {
+              "id": "sendai_subway:namboku/泉中央",
+              "name": "namboku/泉中央",
+              "lat": 38.3232227840926,
+              "lon": 140.880728966975
+            }
+          ],
+          "edges": 9,
+          "kind": "rail",
+          "title": "namboku",
+          "from_": "namboku/仙台",
+          "to": "namboku/泉中央",
+          "minutes": 16,
+          "meters": 0,
+          "step_id": "sendai-2"
+        },
+        {
+          "departure_time": "09:28",
+          "arrival_time": "09:38",
+          "planning_details": {
+            "kind": "standard_transfer",
+            "from_stop_id": "sendai_subway:namboku/泉中央",
+            "to_stop_id": "sendai_bus:1085_12",
+            "standard_minutes": 8,
+            "margin_minutes": 2,
+            "margin_status": "experimental_unvalidated",
+            "time_basis": "experimental_planning_assumption",
+            "path_description": "南北線ホーム→改札→東1出入口→市営2番のりば",
+            "departure": {
+              "date": "2026-11-19",
+              "time": "09:28",
+              "minute": {
+                "numerator": 568,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "ready": {
+              "date": "2026-11-19",
+              "time": "09:38",
+              "minute": {
+                "numerator": 578,
+                "denominator": 1
+              },
+              "basis": "connection_model",
+              "actual_arrival_verified": false
+            },
+            "source_uri": "https://www.kotsu.city.sendai.jp/assets/img/shibus/noriba/izumichuo/izumityuuou_h3004.jpg",
+            "source_sha256": "8a4625fef1bc5a8a414cb88f2e3a42c23ee8d12aaccee0fc6c7c76508516fc69",
+            "physical_walk_meters": null,
+            "walking_time_measured": false,
+            "connection_guaranteed": false,
+            "role": "transfer",
+            "notice": "乗換の計画仮定 8分＋余裕2分。実歩行距離不明・時間未実測・接続保証なし。南北線ホーム→改札→東1出入口→市営2番のりば"
+          },
+          "kind": "walk",
+          "title": "乗換（推定・未保証）",
+          "from_": "namboku/泉中央",
+          "to": "泉中央駅",
+          "minutes": 10,
+          "meters": 0,
+          "step_id": "sendai-3"
+        },
+        {
+          "departure_time": "09:38",
+          "arrival_time": "10:10",
+          "planning_details": {
+            "notice": "予定発車時刻までの待機。運行保証ではありません。"
+          },
+          "kind": "wait",
+          "title": "発車待ち",
+          "from_": "泉中央駅",
+          "to": "泉中央駅",
+          "minutes": 32,
+          "meters": 0,
+          "step_id": "sendai-4"
+        },
+        {
+          "departure_time": "10:10",
+          "arrival_time": "10:48",
+          "planning_details": {
+            "kind": "ride",
+            "mode": "bus",
+            "trip_id": "sendai_bus:50_1_15000500",
+            "source_trip_id": "50_1_15000500",
+            "service_date": "2026-11-19",
+            "route_id": "sendai_bus:10003",
+            "feed_version": "sha256:53a08400776b3229743b24eb53566eb523b354a5b783dcfffd3e40f39258e6a2",
+            "from_stop_id": "sendai_bus:1085_12",
+            "to_stop_id": "sendai_bus:1155_0",
+            "from_sequence": 1,
+            "to_sequence": 33,
+            "stop_ids": [
+              "sendai_bus:1085_12",
+              "sendai_bus:1091_50",
+              "sendai_bus:1095_50",
+              "sendai_bus:1099_50",
+              "sendai_bus:1103_50",
+              "sendai_bus:1107_50",
+              "sendai_bus:1109_50",
+              "sendai_bus:1111_50",
+              "sendai_bus:1113_50",
+              "sendai_bus:1115_50",
+              "sendai_bus:1117_50",
+              "sendai_bus:1119_50",
+              "sendai_bus:1121_50",
+              "sendai_bus:1122_10",
+              "sendai_bus:1123_50",
+              "sendai_bus:1124_10",
+              "sendai_bus:1125_50",
+              "sendai_bus:1127_50",
+              "sendai_bus:1129_50",
+              "sendai_bus:1128_50",
+              "sendai_bus:1132_10",
+              "sendai_bus:1133_10",
+              "sendai_bus:1135_10",
+              "sendai_bus:1137_50",
+              "sendai_bus:1139_50",
+              "sendai_bus:1141_10",
+              "sendai_bus:1143_10",
+              "sendai_bus:1145_10",
+              "sendai_bus:1147_10",
+              "sendai_bus:1149_10",
+              "sendai_bus:1151_10",
+              "sendai_bus:1153_10",
+              "sendai_bus:1155_0"
+            ],
+            "departure": {
+              "date": "2026-11-19",
+              "time": "10:10",
+              "minute": {
+                "numerator": 610,
+                "denominator": 1
+              },
+              "basis": "gtfs_scheduled_departure",
+              "actual_arrival_verified": false
+            },
+            "arrival": {
+              "date": "2026-11-19",
+              "time": "10:48",
+              "minute": {
+                "numerator": 648,
+                "denominator": 1
+              },
+              "basis": "gtfs_scheduled_arrival",
+              "actual_arrival_verified": false
+            },
+            "departure_provenance": null,
+            "arrival_provenance": null,
+            "notice": "GTFS予定発車・予定到着。遅延・到着保証なし。"
+          },
+          "trip_id": "sendai_bus:50_1_15000500",
+          "route_id": "sendai_bus:10003",
+          "departureStopId": "sendai_bus:1085_12",
+          "arrivalPoleId": "sendai_bus:1155_0",
+          "boarding_minutes": 0,
+          "stops": [
+            {
+              "id": "sendai_bus:1085_12",
+              "name": "泉中央駅",
+              "lat": 38.322914,
+              "lon": 140.881465
+            },
+            {
+              "id": "sendai_bus:1091_50",
+              "name": "泉区役所・イズミティ２１前",
+              "lat": 38.325229,
+              "lon": 140.88161
+            },
+            {
+              "id": "sendai_bus:1095_50",
+              "name": "菅間",
+              "lat": 38.325095,
+              "lon": 140.878536
+            },
+            {
+              "id": "sendai_bus:1099_50",
+              "name": "朴木沢",
+              "lat": 38.325355,
+              "lon": 140.875403
+            },
+            {
+              "id": "sendai_bus:1103_50",
+              "name": "泉総合運動場・社会福祉センター前",
+              "lat": 38.326314,
+              "lon": 140.868605
+            },
+            {
+              "id": "sendai_bus:1107_50",
+              "name": "野村",
+              "lat": 38.325467,
+              "lon": 140.862461
+            },
+            {
+              "id": "sendai_bus:1109_50",
+              "name": "上野前",
+              "lat": 38.327085,
+              "lon": 140.84993
+            },
+            {
+              "id": "sendai_bus:1111_50",
+              "name": "泉パークタウン入口",
+              "lat": 38.32878,
+              "lon": 140.843371
+            },
+            {
+              "id": "sendai_bus:1113_50",
+              "name": "八沢川",
+              "lat": 38.328054,
+              "lon": 140.834577
+            },
+            {
+              "id": "sendai_bus:1115_50",
+              "name": "実沢",
+              "lat": 38.328293,
+              "lon": 140.820792
+            },
+            {
+              "id": "sendai_bus:1117_50",
+              "name": "小角",
+              "lat": 38.329148,
+              "lon": 140.815521
+            },
+            {
+              "id": "sendai_bus:1119_50",
+              "name": "鼻毛橋",
+              "lat": 38.329081,
+              "lon": 140.812747
+            },
+            {
+              "id": "sendai_bus:1121_50",
+              "name": "窪",
+              "lat": 38.328186,
+              "lon": 140.806471
+            },
+            {
+              "id": "sendai_bus:1122_10",
+              "name": "福沢入口",
+              "lat": 38.333516,
+              "lon": 140.802345
+            },
+            {
+              "id": "sendai_bus:1123_50",
+              "name": "判在家",
+              "lat": 38.336094,
+              "lon": 140.802158
+            },
+            {
+              "id": "sendai_bus:1124_10",
+              "name": "根白石デイサービスセンター入口",
+              "lat": 38.338334,
+              "lon": 140.801415
+            },
+            {
+              "id": "sendai_bus:1125_50",
+              "name": "根白石下町",
+              "lat": 38.340363,
+              "lon": 140.800888
+            },
+            {
+              "id": "sendai_bus:1127_50",
+              "name": "根白石小学校前",
+              "lat": 38.343309,
+              "lon": 140.798819
+            },
+            {
+              "id": "sendai_bus:1129_50",
+              "name": "根白石",
+              "lat": 38.343814,
+              "lon": 140.797371
+            },
+            {
+              "id": "sendai_bus:1128_50",
+              "name": "馬橋",
+              "lat": 38.346154,
+              "lon": 140.797016
+            },
+            {
+              "id": "sendai_bus:1132_10",
+              "name": "宝積寺前",
+              "lat": 38.347624,
+              "lon": 140.795401
+            },
+            {
+              "id": "sendai_bus:1133_10",
+              "name": "川向",
+              "lat": 38.350928,
+              "lon": 140.794039
+            },
+            {
+              "id": "sendai_bus:1135_10",
+              "name": "川崎入口",
+              "lat": 38.354893,
+              "lon": 140.786344
+            },
+            {
+              "id": "sendai_bus:1137_50",
+              "name": "泉川崎",
+              "lat": 38.355385,
+              "lon": 140.784103
+            },
+            {
+              "id": "sendai_bus:1139_50",
+              "name": "川崎上",
+              "lat": 38.357823,
+              "lon": 140.781657
+            },
+            {
+              "id": "sendai_bus:1141_10",
+              "name": "南切立",
+              "lat": 38.363737,
+              "lon": 140.776936
+            },
+            {
+              "id": "sendai_bus:1143_10",
+              "name": "七北田ダム入口",
+              "lat": 38.366593,
+              "lon": 140.773174
+            },
+            {
+              "id": "sendai_bus:1145_10",
+              "name": "旗枠",
+              "lat": 38.370881,
+              "lon": 140.767424
+            },
+            {
+              "id": "sendai_bus:1147_10",
+              "name": "金森橋",
+              "lat": 38.373298,
+              "lon": 140.760062
+            },
+            {
+              "id": "sendai_bus:1149_10",
+              "name": "笈坂東",
+              "lat": 38.375135,
+              "lon": 140.747428
+            },
+            {
+              "id": "sendai_bus:1151_10",
+              "name": "笈坂",
+              "lat": 38.379034,
+              "lon": 140.740272
+            },
+            {
+              "id": "sendai_bus:1153_10",
+              "name": "芳の平",
+              "lat": 38.381164,
+              "lon": 140.727607
+            },
+            {
+              "id": "sendai_bus:1155_0",
+              "name": "泉岳自然ふれあい館",
+              "lat": 38.390049,
+              "lon": 140.720145
+            }
+          ],
+          "edges": 32,
+          "kind": "bus",
+          "title": "10",
+          "from_": "泉中央駅",
+          "to": "泉岳自然ふれあい館",
+          "minutes": 38,
+          "meters": 0,
+          "step_id": "sendai-5"
+        }
+      ],
+      "points": [
+        [
+          38.2600281046349,
+          140.879724540172
+        ],
+        [
+          38.2629484757932,
+          140.875456438224
+        ],
+        [
+          38.2664454476831,
+          140.871209418386
+        ],
+        [
+          38.2721824998418,
+          140.869043223942
+        ],
+        [
+          38.2824451934748,
+          140.868675826804
+        ],
+        [
+          38.2884270154177,
+          140.878563577582
+        ],
+        [
+          38.2956488299812,
+          140.88361085512
+        ],
+        [
+          38.3031844317504,
+          140.886429421609
+        ],
+        [
+          38.3128326924461,
+          140.884050282258
+        ],
+        [
+          38.3232227840926,
+          140.880728966975
+        ],
+        [
+          38.322914,
+          140.881465
+        ],
+        [
+          38.325229,
+          140.88161
+        ],
+        [
+          38.325095,
+          140.878536
+        ],
+        [
+          38.325355,
+          140.875403
+        ],
+        [
+          38.326314,
+          140.868605
+        ],
+        [
+          38.325467,
+          140.862461
+        ],
+        [
+          38.327085,
+          140.84993
+        ],
+        [
+          38.32878,
+          140.843371
+        ],
+        [
+          38.328054,
+          140.834577
+        ],
+        [
+          38.328293,
+          140.820792
+        ],
+        [
+          38.329148,
+          140.815521
+        ],
+        [
+          38.329081,
+          140.812747
+        ],
+        [
+          38.328186,
+          140.806471
+        ],
+        [
+          38.333516,
+          140.802345
+        ],
+        [
+          38.336094,
+          140.802158
+        ],
+        [
+          38.338334,
+          140.801415
+        ],
+        [
+          38.340363,
+          140.800888
+        ],
+        [
+          38.343309,
+          140.798819
+        ],
+        [
+          38.343814,
+          140.797371
+        ],
+        [
+          38.346154,
+          140.797016
+        ],
+        [
+          38.347624,
+          140.795401
+        ],
+        [
+          38.350928,
+          140.794039
+        ],
+        [
+          38.354893,
+          140.786344
+        ],
+        [
+          38.355385,
+          140.784103
+        ],
+        [
+          38.357823,
+          140.781657
+        ],
+        [
+          38.363737,
+          140.776936
+        ],
+        [
+          38.366593,
+          140.773174
+        ],
+        [
+          38.370881,
+          140.767424
+        ],
+        [
+          38.373298,
+          140.760062
+        ],
+        [
+          38.375135,
+          140.747428
+        ],
+        [
+          38.379034,
+          140.740272
+        ],
+        [
+          38.381164,
+          140.727607
+        ],
+        [
+          38.390049,
+          140.720145
+        ]
+      ],
+      "arrival_time": "10:48"
+    }
+  ],
+  "meta": {
+    "destination_reachable": true,
+    "destination_label": "目的地",
+    "development_only": true,
+    "planning_notice": "仙台・開発検証用。地下鉄は公式発車時刻と到着目安、バスはGTFS予定時刻です。徒歩・乗換時間と余裕は未実測の計画仮定で、接続・到着を保証しません。通常運賃は不明。本人の有効なふれあい乗車証所持・明示選択が前提です。",
+    "access_scope": "exact_bus_poles_and_reviewed_directional_access_only",
+    "actual_connection_guaranteed": false,
+    "normal_fare_known": false
+  }
+}

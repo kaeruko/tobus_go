@@ -21,6 +21,7 @@ import '../services/trip_service.dart';
 import '../models/trip_models.dart';
 import 'leader_mode_page.dart';
 import '../services/route_search_service.dart';
+import '../services/fare_policy_preferences.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/route_map_preview.dart';
@@ -71,6 +72,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   @override
   void initState() {
     super.initState();
+    if (widget.candidate.planningJourney != null && widget.candidate.departureDate != null) {
+      _searchTime = widget.candidate.departureDate!.toLocal();
+    }
     if (widget.fromSavedRoute) {
       _isLoadingTrip = false;
     } else if (ref.read(cityProfileProvider).capabilities.features.groupTrips) {
@@ -937,6 +941,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       );
 
       final targetTime = overrideTime ?? _searchTime;
+      final developmentScope = sendaiCoordinateDevelopment && ref.read(cityProfileProvider).key == 'sendai';
+      final policyId = developmentScope
+          ? await FarePolicyPreferences.load(ref.read(cityProfileProvider)) : null;
       final result = await ref.read(routeSearchServiceProvider).search(
         RouteSearchRequest(
           origin: start,
@@ -945,6 +952,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
           destinationName: destinationLabel,
           startTime: targetTime,
           preference: original.preference ?? 'fewTransfers',
+          farePolicyId: policyId,
+          acceptExperimentalTransferModel: developmentScope && ref.read(routeSearchProvider).acceptExperimentalTransferModel,
+          busOnly: developmentScope && ref.read(routeSearchProvider).busOnly,
         ),
       );
       final list = result.candidates;
@@ -961,6 +971,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               candidate: list.first,
               isReturnSelection: startReturnFlow,
               meta: meta,
+              fare: result.fareByCandidateId[list.first.id],
             ),
           ),
         );
@@ -1170,6 +1181,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               ),
 
               SliverToBoxAdapter(child: FareSummary(fare: widget.fare)),
+              if (widget.candidate.planningNotice != null)
+                SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(16),
+                  child: Text(widget.candidate.planningNotice!))),
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
               SliverToBoxAdapter(
@@ -1220,7 +1234,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               ),
               if (features.groupTrips)
                 SliverToBoxAdapter(child: _roundTripComposer())
-              else if (profile.capabilities.realtime.vehiclePosition)
+              else if (profile.capabilities.realtime.vehiclePosition && widget.candidate.planningJourney == null)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1282,3 +1296,4 @@ class BusStopMapPage extends StatelessWidget {
     );
   }
 }
+

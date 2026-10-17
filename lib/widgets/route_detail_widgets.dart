@@ -285,7 +285,7 @@ class RouteSummary extends StatelessWidget {
                 ),
               ),
               Text(
-                arrival ?? '--:--',
+                candidate.planningNotice == null ? (arrival ?? '--:--') : '目安 ${arrival ?? '--:--'}',
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -308,7 +308,7 @@ class RouteSummary extends StatelessWidget {
               _stat(l10n.summaryRideSegments, candidate.rides.toString()),
               _stat(
                 l10n.summaryWalk,
-                '${candidate.walkingDistanceMeters}m',
+                candidate.planningNotice == null ? '${candidate.walkingDistanceMeters}m' : '未実測',
               ),
             ],
           ),
@@ -564,7 +564,9 @@ class RouteStepTile extends StatelessWidget {
                     if (segment.departureTime != null &&
                         segment.arrivalTime != null)
                       Text(
-                        '${segment.departureTime} → ${segment.arrivalTime}',
+                        segment.planningDetails == null
+                            ? '${segment.departureTime} → ${segment.arrivalTime}'
+                            : '${segment.departureTime} → ${segment.kind == 'rail' ? '到着目安 ' : ''}${segment.arrivalTime}',
                         style: const TextStyle(
                           fontSize: 13,
                           color: CupertinoColors.activeBlue,
@@ -580,6 +582,9 @@ class RouteStepTile extends StatelessWidget {
                         ),
                       ),
                     ],
+                    if (segment.planningDetails?['notice'] != null)
+                      Text(segment.planningDetails!['notice'].toString(),
+                        style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey)),
                   ],
                 ),
               ),
@@ -762,3 +767,4 @@ bool _isPlaceholder(String? value) {
   final trimmed = value.trim();
   return trimmed.isEmpty || placeholders.contains(trimmed);
 }
+

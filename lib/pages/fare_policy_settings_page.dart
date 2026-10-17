@@ -93,6 +93,8 @@ class _FarePolicySettingsPageState
         return l10n.farePolicyNormal;
       case 'tokyo_toei_transport_pass':
         return l10n.farePolicyTokyoMentalDisabilityPass;
+      case 'sendai_fureai_pass':
+        return option.displayName;
       default:
         throw StateError('Unsupported localized fare policy: ${option.id}');
     }
@@ -246,3 +248,4 @@ class _PolicyCard extends StatelessWidget {
     );
   }
 }
+

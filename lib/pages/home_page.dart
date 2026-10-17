@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../core/app_clock.dart';
+import '../core/city_profile.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
@@ -14,6 +15,7 @@ import '../widgets/place_field.dart';
 import '../widgets/route_card.dart';
 import 'map_picker_page.dart';
 import 'route_detail_page.dart';
+import 'fare_policy_settings_page.dart';
 import '../providers/effective_location_provider.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -132,7 +134,9 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
     final l10n = AppLocalizations.of(context);
     final res = await Navigator.of(context).push<LatLng>(
       CupertinoPageRoute(
-        builder: (_) => MapPickerPage(title: l10n.mapPickerTitle),
+        builder: (_) => MapPickerPage(title: l10n.mapPickerTitle,
+          initialCenter: ref.read(cityProfileProvider).key == 'sendai'
+              ? const LatLng(38.2601, 140.8815) : const LatLng(35.681236, 139.767125)),
       ),
     );
     if (res == null || !mounted) return;
@@ -255,7 +259,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
       cityProfileProvider.select((profile) => profile.capabilities.features),
     );
     final showTokyoTransportControl = ref.watch(
-      cityProfileProvider.select((profile) => profile.key == 'tokyo'),
+      cityProfileProvider.select((profile) => profile.key == 'tokyo' || (profile.key == 'sendai' && sendaiCoordinateDevelopment)),
     );
     final activeTripAsync = features.groupTrips
         ? ref.watch(activeTripProvider)
@@ -281,6 +285,25 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
             slivers: [
               if (kDebugMode && ref.watch(cityProfileProvider).key == 'sendai')
                 const SliverToBoxAdapter(child: SendaiPracticalLauncher(city: 'sendai')),
+              if (sendaiCoordinateDevelopment && ref.watch(cityProfileProvider).key == 'sendai')
+                SliverToBoxAdapter(child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('通常検索の仙台ネットワーク接続・開発検証用。運賃設定で本人所持のふれあい乗車証を明示選択してください。徒歩確認済み地点と具体標柱位置のみ対応。一般住所からの徒歩は未確認なら検索できません。'),
+                    CupertinoButton(key: const Key('sendai-coordinate-fare-settings'),
+                      onPressed: () async {
+                        notifier.setExperimentalTransferConsent(false);
+                        await Navigator.of(context).push(CupertinoPageRoute(
+                          builder: (_) => const FarePolicySettingsPage()));
+                      }, child: const Text('運賃設定（通常／本人所持のふれあい乗車証）')),
+                    Row(children: [
+                      CupertinoSwitch(key: const Key('sendai-coordinate-consent'),
+                        value: rs.acceptExperimentalTransferModel,
+                        onChanged: notifier.setExperimentalTransferConsent),
+                      const Expanded(child: Text('未実測の徒歩・乗換時間と仮の余裕、到着目安・接続非保証に同意する')),
+                    ]),
+                  ]),
+                )),
               // Active Trip Card
               if (activeTripAsync?.value != null &&
                   activeTripAsync!.value!.status != TripStatus.completed &&
@@ -359,6 +382,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: PlaceField(
+                        key: const Key('route-origin'),
                         label: l10n.departureSearch,
                         value: rs.from,
                         displayValue: _localizedSearchName(
@@ -411,6 +435,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                             ],
                           ),
                           CupertinoButton(
+                            key: const Key('route-map-origin'),
                             padding: const EdgeInsets.all(8),
                             child: const Icon(CupertinoIcons.map_pin),
                             onPressed: () => _openMap(true),
@@ -425,6 +450,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: PlaceField(
+                        key: const Key('route-destination'),
                         label: l10n.arrivalSearch,
                         value: rs.to,
                         displayValue: _localizedSearchName(
@@ -464,6 +490,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                       child: Align(
                         alignment: Alignment.centerRight,
                         child: CupertinoButton(
+                          key: const Key('route-map-destination'),
                           padding: const EdgeInsets.all(8),
                           child: const Icon(CupertinoIcons.map_pin),
                           onPressed: () => _openMap(false),
@@ -507,6 +534,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                       child: SizedBox(
                         width: double.infinity,
                         child: CupertinoButton.filled(
+                          key: const Key('route-search-submit'),
                           onPressed: () {
                             notifier.triggerSearch();
                           },
@@ -520,7 +548,8 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                 ),
               ),
 
-              if (rs.meta?.destinationReachable == false)
+              if (rs.meta?.destinationReachable == false &&
+                  (rs.meta?.planningNotice == null || rs.candidates.isNotEmpty))
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(

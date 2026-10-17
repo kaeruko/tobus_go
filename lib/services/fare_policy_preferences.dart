@@ -3,7 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/city_profile.dart';
 
 class FarePolicyPreferences {
-  static String _key(CityProfile profile) => 'farePolicyId:${profile.key}';
+  static String _key(CityProfile profile) =>
+      profile.key == 'sendai' && sendaiCoordinateDevelopment
+          ? 'farePolicyId:sendai:reviewed-coordinate-development'
+          : 'farePolicyId:${profile.key}';
 
   static Future<String> load(CityProfile profile) async {
     final prefs = await SharedPreferences.getInstance();
@@ -19,3 +22,4 @@ class FarePolicyPreferences {
     await prefs.setString(_key(profile), policyId);
   }
 }
+

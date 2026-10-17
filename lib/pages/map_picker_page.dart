@@ -5,13 +5,14 @@ import '../l10n/app_localizations.dart';
 
 class MapPickerPage extends StatefulWidget {
   final String? title;
-  const MapPickerPage({super.key, this.title});
+  final LatLng initialCenter;
+  const MapPickerPage({super.key, this.title,
+    this.initialCenter = const LatLng(35.681236, 139.767125)});
   @override
   State<MapPickerPage> createState() => _MapPickerPageState();
 }
 
 class _MapPickerPageState extends State<MapPickerPage> {
-  final LatLng _center = const LatLng(35.681236, 139.767125); // 東京駅あたり
   LatLng? _picked;
   @override
   Widget build(BuildContext context) {
@@ -25,7 +26,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
         child: Stack(
           children: [
             GoogleMap(
-              initialCameraPosition: CameraPosition(target: _center, zoom: 13),
+              initialCameraPosition: CameraPosition(target: widget.initialCenter, zoom: 13),
               myLocationEnabled: true,
               onLongPress: (latLng) => setState(() => _picked = latLng),
               markers: {
@@ -57,3 +58,4 @@ class _MapPickerPageState extends State<MapPickerPage> {
     );
   }
 }
+
