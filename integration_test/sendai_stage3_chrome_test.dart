@@ -34,8 +34,9 @@ Future<void> _select(WidgetTester tester, String field, String value) async {
     matching: find.byKey(ValueKey('sendai-$field-item-$value')),
   );
   _chromeStage = 'select $field=$value: find menu item';
-  await tester.scrollUntilVisible(item, 64, maxScrolls: 160,
-    alignment: 0.5, scrollable: menu);
+  await tester.scrollUntilVisible(item, 64, maxScrolls: 160, scrollable: menu);
+  await Scrollable.ensureVisible(tester.element(item), alignment: 0.5);
+  await tester.pumpAndSettle();
   await tester.tap(item);
   await tester.pumpAndSettle();
   final committed = tester.state<FormFieldState<String>>(input).value;
