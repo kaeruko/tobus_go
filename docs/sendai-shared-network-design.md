@@ -1362,6 +1362,8 @@ Z60の短patternは長町南を通らないが、長町南を通る56便だけ�
 
 仙台の鉄道便は既に具体ID・公開時計の根拠を持つため、東京専用 `/train/resolve-route-identities` を呼ばない。東京は従来どおり同APIで解決する。仙台の鉄道応答が発車/到着proxyの根拠を失った場合は停止する。予定モデルの経路では未接続の実時間ナビ開始ボタンを出さず、東京・従来仙台バスの実時間機能は保持する。
 
+端末のtime zoneがUTCなどでも仙台の予定時計を維持する。APIの `departure_date` は元のoffset付きinstantとして残し、`sendai_published_minute_v1` に限る派生値で日本時間のcivil clockを既存の詳細再検索pickerへ渡す。予定モデルのpickerを開く際に現在日時へ戻さない。バス時刻表の基準は、旅程の検索日から推測せず各具体rideの `planning_details.departure.date/time` を使い、翌日の便も区別する。時計が欠けた場合は現在日時や旧計算へfallbackしない。東京・従来の非予定モデルの日時処理は保持する。修正SHAは `1f645e911086c8ddcbc26ba637db6746f2fe76a6`。Flutterの追加境界テストは人工的なwire-contractケースであり、実便・実ODの成立証拠には数えない。元の固定5 OD・日付・期待到着は変更しない。
+
 バス限定は同じnetwork builderの許可具体便集合でrail乗車を除外する。駅の物理vertexとレビュー済み構内徒歩は消さない。初期実装で地下鉄Datasetを丸ごと除外すると、空Dataset例外に加えてバスだけの旅程に必要な構内徒歩まで失い、rawの09:24に対して09:48となることを検出した。便の許可集合だけを絞る最小修正で、入力・raw期待到着は変更せず解消した。探索・順位・枝刈りは変更していない。
 
 ### 22.2 開発用の明示選択と、今回承認する座標アクセスの限界
@@ -1387,12 +1389,65 @@ APIは `SENDAI_REVIEWED_COORDINATES=1` と明示 `development` runtime、およ�
 | 霞の目 `5227_10` → 芦口小学校前 `7605_10` | 11:07 | bus→南北線→bus |
 | 長町南西2側の確認済み待合歩道 → 長町駅西口 `6008_10` | 09:24 | 入場徒歩1分、bus限定、具体便・順序維持 |
 
-Pythonの新5境界回帰はローカルで成功し、追加した遅延構築回帰を含めてCIで再確認する。全5条件についてraw最適到着と実旅程の全witness（元便・運行日・sequence・乗降・clock・有向接続）を照合する。市外、未確認徒歩、他標柱への非alias、乗車証/同意不正、10/25・11/22・12/1・期間前の拒否、11/30 09:38を追加確認する。通常運賃未選択の同一ODは既存backendへ委譲され、元のmax_visited診断付き503となった。この失敗を無料検索の200に読み替えず保持する。通常運賃側の全OD性能改善は今回の変更対象ではない。
+Pythonの新6境界回帰（遅延構築を含む）はローカルとCIで成功した。全5条件についてraw最適到着と実旅程の全witness（元便・運行日・sequence・乗降・clock・有向接続）を照合する。市外、未確認徒歩、他標柱への非alias、乗車証/同意不正、10/25・11/22・12/1・期間前の拒否、11/30 09:38を追加確認する。通常運賃未選択の同一ODは既存backendへ委譲され、元のmax_visited診断付き503となった。この失敗を無料検索の200に読み替えず保持する。通常運賃側の全OD性能改善は今回の変更対象ではない。
 
 新ChromeはIDフォームを使わず、通常 `RouteSearchPage` のPlaces入力・候補選択、既存運賃設定、同意、検索ボタン、`RouteCard` と `RouteDetailPage` を操作する。キー不要CIではGoogle Placesの上流応答だけをv1契約で固定し、アプリ自身のautocomplete/details変換・HTTP・routingは実装を使う。これは実Placesへの疎通や、実際の施設検索が同じ座標を返す証明ではない。地図の基盤描画SDKは既存Flutter platform契約のCI表示面で置き換え、実 `MapPickerPage` の長押しcallback→選択点→確定→通常検索という契約を確認する。**実Google Maps SDKの地図配信・地図上のhit test・キー設定までをChrome成功と扱わない**。既存IDフォームのChrome4条件も別途維持する。
 
+初回コード `9e22e97d40fa1cdee10251c336444fd092172334` の通常CI [39034453535](https://github.com/kaeruko/tobus_go/actions/runs/39034453535) はFlutterの新しい負例fixtureで停止した。日本語JSONに実APIと同じUTF-8 Content-Typeがなく、期待する時計根拠検査より前に `Contains invalid characters` となっていた。`70f06734052b35abd0fdd6bd32867c6c365269bf` で正しいHTTPメタデータを明記し、意図的に根拠を落とした応答本文と期待するFormatExceptionは維持した。文字コードを順に試すfallbackは追加していない。
+
+新Chromeの先行run [39034453513](https://github.com/kaeruko/tobus_go/actions/runs/39034453513) と診断run [39044327132](https://github.com/kaeruko/tobus_go/actions/runs/39044327132) は、通常画面の最初の4 OD・カード・詳細まで成功したが、地図確定後の「長町駅西口」入力で停止した。診断は入力controllerが空、focus=falseで、autocomplete未送信だった。`0162184aae0f7671f194d2acc6b7e012a7ac586d` では実利用と同じ入力欄tapを行い、画面復帰時のfocus処理を終えてから入力し、focusと元のquery文字列も検査する。providerへ座標を直接代入して成功させる変更や、OD・日付・期待到着・backendの差し替えは行わない。これらの失敗runを成功根拠には使わない。
+
+run [39044787470](https://github.com/kaeruko/tobus_go/actions/runs/39044787470) では通常画面のChromeと地図確定後の09:24着まで成功したが、続く既存一括IDフォームの初期表示で `336/339` が見つからず停止した。開発サーバーが既存test APIへ `coverage_label` を渡しておらず、便数・路線数の表示metadataだけが欠けていた。`89c45aecc651b3198de0c95050a333bb0d518b2f` で同じmunicipal reviewのラベルを渡し、実HTTPにもその同一性検査を追加した。ローカルの実開発app startup/capabilitiesでも既存ラベルの保持を確認した。旧Chromeの期待する路線数・便数や製品フォームは変更しない。`0ee73d45be80ead003c32bf3c932cd02f19dd747` では地図始点の候補カードも実際に開き、同じ候補ID・推定徒歩・通常運賃不明・追加支払0円を詳細へ保持する検査を追加した。
+
 ### 22.4 性能と検証結果の記録先
 
-`benchmark_sendai_normal_coordinates.py` は同一原入力・同じ3 OD（上表のbus→rail、rail→bus、複数乗換）・日付/時刻/3乗車/180分・各3回を別プロセスの旧ID入口と通常入口で比較する。最大RSSはLinux high-water markで、保有heapだけの値ではない。最初のローカル比較は旧入口362,256 KiB、通常接続430,452 KiB、起動5.259→6.828秒だった。従来normal bus graphの重複構築が原因であり、開発opt-inのときだけ通常運賃が要求されるまで既存backendの構築を遅延する最小修正を行った。通常構成は従来どおりで、検索途中の代替backend選択はしない。修正後の同条件測定・通常CI全7ジョブ・新実データHTTP/Chromeの確定結果を本節へ追記する。
+`benchmark_sendai_normal_coordinates.py` は同一原入力・同じ3 OD（上表のbus→rail、rail→bus、複数乗換）・日付/時刻/3乗車/180分・各3回を別プロセスの旧ID入口と通常入口で比較する。最大RSSはLinux high-water markで、保有heapだけの値ではない。最初のローカル比較は旧入口362,256 KiB、通常接続430,452 KiB、起動5.259→6.828秒だった。従来normal bus graphの重複構築が原因であり、開発opt-inのときだけ通常運賃が要求されるまで既存backendの構築を遅延する最小修正を行った。通常構成は従来どおりで、検索途中の代替backend選択はしない。
+
+成功した実データrun [39046157376](https://github.com/kaeruko/tobus_go/actions/runs/39046157376)、実装 `1f645e911086c8ddcbc26ba637db6746f2fe76a6`、Linux Python 3.12の確定値は次のとおり。ローカルASGI/TestClientで通常HTTP契約の変換まで計時し、実インターネット往復・Places待ち・端末描画時間は含まない。
+
+| 同条件の測定 | 旧ID入口 | 通常座標入口 |
+| --- | ---: | ---: |
+| 起動 | 6.152秒 | 6.267秒 |
+| 最大RSS | 369,700 KiB（361.0 MiB） | 371,128 KiB（362.4 MiB） |
+| bus→rail→泉中央2番poleの中央値 | 1.935秒 | 2.150秒 |
+| 仙台5番pole→rail→busの中央値 | 3.619秒 | 3.570秒 |
+| bus→rail→busの中央値 | 1.983秒 | 1.962秒 |
+
+今回の3 ODは第21.6節の1.55〜1.92秒の3 ODとは異なるため、異なる経路同士を回帰倍率として比較しない。通常運賃backendを実際に要求した場合にはそのgraphも保持される。上表のメモリ比較は本人所持passを明示選択した入口の測定であり、全設定・全ODの上限ではない。
+
+通常入口の追加処理も、同じbenchmarkのnormal profile・同じ9検索で計時した。`search_practical_subway` 呼出し時間を外側のHTTP所要から引いた差は6.2〜10.0msで、両端の座標照合は計2.6〜3.4ms、Candidate変換は0.5〜0.7msだった（ローカルLinux、2026-10-17）。原関数をそのまま呼ぶ計時だけを加え、全期待到着を維持した。残る主な負荷は既存の日付別network構築・共通探索であり、別探索器や新しい結果cacheは追加しない。代表OD間やrunner間の秒数差を、座標境界だけの遅さや全OD性能の保証に読み替えない。
+
+別プロセスのCI比較ではbus→railだけ通常入口が約0.21〜0.30秒大きい結果が続いたため、同じ読込済みreviewed networkを同一プロセスで使い、normal/IDの先後を交互にした3回ずつの追加計時も行った。OD・日付・180分/3乗車・元期待到着は同じで、GC callbackは所要時間の観測だけを行い、回収実行やthreshold変更はしない。bus→rail中央値はID1.660404秒、normal1.660428秒、rail→busは3.003893/2.573932秒、複数乗換は1.846420/1.729619秒だった。各検索のGC所要は約0.07〜1.30秒と変動し、恒常的な入口だけの約0.3秒増は再現しなかった。この補助比較はローカル・同一プロセスであり、CIのfresh-process起動/RSS測定を置き換えない。日付別構築とGC負荷は今後の改善対象として残す。
 
 本番公開前には、一般住所/施設の実ジオコーディング点から具体標柱/出入口までの徒歩根拠の拡張、登録範囲の現場確認・利用者検証、実Google Places/Mapsのキー付き疎通と地図操作、通常運賃側の探索上限、未接続の実時間ナビ、公開表示・サポート範囲の整理が残る。東京、アプリID、Firebase、AWS/S3、配布・deployには変更を加えない。
+
+### 22.5 変更箇所と再利用の対応
+
+| ファイル | 変更理由・保持する既存実装 |
+| --- | --- |
+| `api/sendai_coordinate_routes.py`・`api/sendai_coordinate_access.py` | 通常座標入力の安全な入口と既存旅程→Candidate変換、有限な地上アクセスreview。探索は既存practical/shared v2の呼出しのみ |
+| `api/gtfs_route_backend.py`・`api/route_engine.py`・`api/app/route_endpoint.py` | 元の近傍候補計算を共用、明示同意の共通入力、実Policyが既にquoteした結果の維持。東京の探索・通常運賃のdecoratorは保持 |
+| `api/app/sendai_runtime.py`・`api/sendai_practical_network.py` | 開発opt-inと重複graphの遅延構築、既存networkの許可具体便集合によるbus限定。元Adapter・時計・駅リンク・Policyは保持 |
+| `lib/core/city_profile.dart`・`lib/services/fare_policy_preferences.dart`・`lib/pages/fare_policy_settings_page.dart` | debug opt-in時だけ既存運賃設定に本人所持passを追加。通常運賃の既定、東京選択肢、通常構成の保存keyは保持 |
+| `lib/pages/home_page.dart`・`lib/pages/map_picker_page.dart`・`lib/providers/route_search_provider.dart` | 既存通常画面・地図Picker・providerへ開発選択、同意、仙台の初期地図位置を接続。新検索画面や停留所一覧は作らない |
+| `lib/services/route_search_service.dart`・`lib/models/route_models.dart` | 通常 `/route` の既存モデルへ時計根拠・元ID・FareQuoteを保持し、仙台へ東京鉄道ID解決を適用しない。予定モデルの日本時間を明示し、東京の解決呼出し・日時処理は保持 |
+| `lib/widgets/route_card.dart`・`lib/widgets/route_detail_widgets.dart`・`lib/pages/route_detail_page.dart` | 既存カード/詳細で到着目安・未実測徒歩/乗換・本人所持条件を表示。予定モデルへ未接続Realtime開始を出さない |
+| `api/tests/test_sendai_normal_coordinates.py`・`api/tests/fixtures/sendai_subway/normal_coordinate_cases_20261017.json` | 新座標境界6回帰と固定5条件。既存raw oracle・元便witness・旧ID契約を正解基準として再利用 |
+| `test/sendai_normal_result_test.dart`・`test/fixtures/sendai_normal_result.json`・`integration_test/sendai_normal_chrome_test.dart` | 共通結果の保持/欠落拒否、通常RouteSearchPageの実操作と旧フォームとは別のChrome回帰 |
+| `scripts/serve_sendai_normal_local.py`・`scripts/check_sendai_normal_http.py`・`scripts/benchmark_sendai_normal_coordinates.py`・`scripts/sendai_normal_places_fixture.py`・`.github/workflows/sendai-normal-coordinates.yml` | localhost開発起動、実HTTP比較、同条件性能測定、CIのPlaces上流fixture、変更部分の実データgate。デプロイ工程は追加しない |
+
+`docs/sendai-shared-network-design.md` は本節の実装結果・検証・制約を追記する。第21節の承認路線review、manifest、8,142具体便・467pattern・2,127 bus pole、22方向リンクと運行期間のデータは変更しない。
+
+### 22.6 検証済み実装と成功CI
+
+接続境界の実装は [`6b4e7e3ef0b3295121df17adbe8e074e73572ba5`](https://github.com/kaeruko/tobus_go/commit/6b4e7e3ef0b3295121df17adbe8e074e73572ba5)、共通UI/契約の接続は [`9e22e97d40fa1cdee10251c336444fd092172334`](https://github.com/kaeruko/tobus_go/commit/9e22e97d40fa1cdee10251c336444fd092172334)。HTTP fixture・focus・旧capabilities metadata・地図始点の詳細検査を経て、日本時間の詳細再検索まで確認した最終実装は [`1f645e911086c8ddcbc26ba637db6746f2fe76a6`](https://github.com/kaeruko/tobus_go/commit/1f645e911086c8ddcbc26ba637db6746f2fe76a6)。
+
+| 成功した実行 | 確認した結果 |
+| --- | --- |
+| [通常CI #39046157369](https://github.com/kaeruko/tobus_go/actions/runs/39046157369) | `1f645e91`・completed/success、全7ジョブ成功。Python API912件（450.788秒）、Flutter662件（新3件含む）、共通SearchCore v2 Python 3.11/3.12、Windows、東京/仙台Android・iOS buildとidentity/Firebase分離、repository safety。Dart解析エラー0、非致命的lint100件 |
+| [通常座標・実データ/Chrome #39046157376](https://github.com/kaeruko/tobus_go/actions/runs/39046157376) | 同じSHA・completed/success。新6 Python回帰30.903秒、独立raw oracleの5条件・元具体便witness・実通常HTTP/旧ID wire一致、乗車証/同意/未承認座標・日付境界、同条件性能比較、通常RouteSearchPageのPlaces候補→検索→5候補カード/詳細、MapPicker選択/確定、11/19 09:00を保持する詳細再検索picker、同じserver上の既存一括IDフォーム4経路 |
+| [既存固定4経路Chrome #39034453664](https://github.com/kaeruko/tobus_go/actions/runs/39034453664) | `9e22e97d`・completed/success。元の固定4経路用form/API/入力/期待値を変更せず確認済み。その後の変更は通常座標UI・開発serverの表示metadataとその検査で、旧固定testと元reviewは保持 |
+
+実HTTPの成功markerは `NORMAL_SENDAI_REAL_HTTP_OK`。通常画面Chromeはrouting responseをmockせず、上流Places fixtureとMap描画面fixtureの検証限界は22.3節のとおり。期間末日11/30は09:38着、10/25・11/22・12/1・期間前は拒否し、pass未選択の通常運賃経路や不正な敬老選択を無料成功へ読み替えない。有効な本人の乗車証所持は利用者による前提・明示選択であり、実所持をオンライン認証したという意味ではない。新しい全路線監査や旧112組gateを別途繰り返さず、今回の境界と通常CIを検査した。
+
+最終の成功記録コミットは本書だけを変更し、上記の検証済みコード・テスト・データを保持する。本番公開は行わない。一般住所からの広い歩行接続、実Googleサービスのキー付き疎通、現場確認、通常運賃backendの上限/性能、未確認事業者・駅接続・市外部分区間・特別ダイヤと次版は残課題である。
