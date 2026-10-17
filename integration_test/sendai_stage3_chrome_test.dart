@@ -37,6 +37,11 @@ Future<void> _select(WidgetTester tester, String field, String value) async {
   await tester.scrollUntilVisible(item, 64, maxScrolls: 160, scrollable: menu);
   await tester.tap(item);
   await tester.pumpAndSettle();
+  final committed = tester.state<FormFieldState<String>>(input).value;
+  if (committed != value) {
+    throw StateError('Drop-down failed to commit $field=$value; '
+        'current FormFieldState.value=$committed; visible menu item=${item.evaluate().length}');
+  }
   _chromeStage = 'selected $field=$value';
 }
 
