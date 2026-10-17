@@ -1210,3 +1210,17 @@ Z60の短patternは長町南を通らないが、長町南を通る56便だけ�
 新reviewは `municipal_review_20261017_stage8.json`。既存起動コマンドで `--municipal-review` へ明示指定し、`--use-reviewed-operating-period --accept-experimental-transfer-model` を維持する。debug・明示テストAPIだけで既存フォームに新stop IDを表示する。本人の有効ふれあい乗車証所持・明示選択、通常運賃不明と追加支払0円の区別を保持し、敬老乗車証は無料化しない。48候補日・11/30まで、10/25/11/22除外、12/1・期間末日深夜の未確認翌日に関する422停止は同じである。
 
 残課題は仙台110/S110等の次候補、長町/長町南の他のりばと75/77等、八木山駅の公式方向別接続、特別ダイヤ便別影響、12月以降の新feed、正式乗換実測・実端末確認。宮城交通・一般住所・全市一括・本番API/公開接続は対象外。本番API・東京・アプリID・Firebase・AWS/S3・deploy・storeは変更しない。
+
+### 20.5 第8段の実装SHAと成功結果
+
+実装コミットは [`4d133ca7b6ed8e73b8314dee5439690cd5e34284`](https://github.com/kaeruko/tobus_go/commit/4d133ca7b6ed8e73b8314dee5439690cd5e34284)。以下は全てこの同一SHAでcompleted/successを確認した結果である。
+
+| 検証 | 成功した実行・結果 |
+| --- | --- |
+| [第8段実データ・Chrome #39025765004](https://github.com/kaeruko/tobus_go/actions/runs/39025765004) | 新8回帰155.138秒、承認原GTFSの18条件でraw optimum・具体便witness・ASGI一致、`READ_ONLY_SENDAI_STAGE8_NAGAMACHI_HUBS_OK`。追加地域の567/567組・到着SHA一致、`SENDAI_STAGE8_NEW_AREA_REACHABILITY_OK`。既存埋込みFlutterフォームの5条件Chrome成功 |
+| [通常CI #39025764981](https://github.com/kaeruko/tobus_go/actions/runs/39025764981) | 全7ジョブ成功。API900件、Windows277件、共通SearchCore v2 Python 3.11/3.12各89件、Flutter659件。東京・仙台Android/iOSビルドと分離確認、repository safetyも成功 |
+| [既存固定4経路Chrome #39025764992](https://github.com/kaeruko/tobus_go/actions/runs/39025764992) | 原GTFSを使う既存4経路のFlutter Chrome回帰成功 |
+
+新規Chromeの内訳はバス単独1条件、バス→地下鉄1条件、地下鉄→バス1条件、地下鉄＋長町西口徒歩接続2条件。新規5件全てをバス乗継として数えない。Dart解析は既存と同じ98指摘で新規増加なし（解析無指摘とはしない）。ローカル新8回帰も127.776秒で成功し、原GTFS全14 routeからの行選択と追加fixtureの完全一致も確認した。
+
+今回は成功済み旧監査を別途最初から再実行せず、通常CIの既存回帰と新規変更部分の検証を実施した。233便・48具体pole・新2拠点8方向を既存機構へ追加し、代表例の芦口小学校前→泉中央09:52、泉中央→芦口小学校前10:07、志波町→日赤病院前10:58（各11/19 09:00検索）が成立した。無料は有効な本人のふれあい乗車証を前提とする。全市対応・一般公開・実測による乗換保証には拡張していない。
