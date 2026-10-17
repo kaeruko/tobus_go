@@ -8,6 +8,8 @@ import 'package:http/testing.dart';
 import 'package:toeigo/constants.dart';
 import 'package:toeigo/core/api_client.dart';
 import 'package:toeigo/services/route_search_service.dart';
+import 'package:toeigo/models/route_models.dart';
+import 'package:toeigo/widgets/route_detail_widgets.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +36,7 @@ void main() {
     expect(paths,['/route']);
     final candidate=result.candidates.single;
     expect(candidate.arrivalTime,'10:48');
+    expect(candidate.sendaiPlanningDeparture,DateTime(2026,11,19,9));
     expect(candidate.steps.first.kind,'walk');
     final rail=candidate.steps.firstWhere((s)=>s.kind=='rail');
     expect(rail.tripId,startsWith('sendai_subway:'));
@@ -43,6 +46,27 @@ void main() {
     expect(result.fareByCandidateId[candidate.id]!.normalFareYen,isNull);
     expect(result.fareByCandidateId[candidate.id]!.payNowYen,0);
     expect(rail.toJson()['planning_details'],rail.planningDetails);
+    final bus=candidate.steps.firstWhere((s)=>s.kind=='bus');
+    expect(routeStepTimetableReferenceTime(candidate,bus),DateTime(2026,11,19,10,10));
+  });
+
+  test('Sendai civil clocks survive midnight and device timezone independently of the instant',(){
+    // Synthetic wire-contract boundary only; this is not a claimed real trip
+    // or a replacement for any frozen real-data OD or expected arrival.
+    final value=Map<String,dynamic>.from((jsonDecode(source) as Map)['candidates'][0]);
+    value['departure_date']='2026-11-19T00:05:00+09:00';
+    final bus=(value['steps'] as List).firstWhere((s)=>s['kind']=='bus');
+    bus['departure_time']='00:10';
+    bus['planning_details']['departure']['date']='2026-11-20';
+    bus['planning_details']['departure']['time']='00:10';
+    bus['planning_details']['departure']['minute']={'numerator':10,'denominator':1};
+    final candidate=Candidate.fromJson(value);
+    expect(candidate.departureDate,DateTime.utc(2026,11,18,15,5));
+    expect(candidate.sendaiPlanningDeparture,DateTime(2026,11,19,0,5));
+    final segment=candidate.steps.firstWhere((s)=>s.kind=='bus');
+    expect(routeStepTimetableReferenceTime(candidate,segment),DateTime(2026,11,20,0,10));
+    segment.planningDetails!.remove('departure');
+    expect(()=>routeStepTimetableReferenceTime(candidate,segment),throwsStateError);
   });
 
   test('Sendai rejects loss of published/estimated clock distinction',()async{

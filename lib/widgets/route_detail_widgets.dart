@@ -420,6 +420,18 @@ DateTime routeStepTimetableReferenceTime(
     );
   }
 
+  if (candidate.planningJourney != null) {
+    final clock = segment.planningDetails?['departure'];
+    if (clock is! Map || clock['date'] is! String || clock['time'] != segment.departureTime ||
+        !RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(clock['date'] as String) ||
+        !RegExp(r'^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$').hasMatch(clock['time'].toString())) {
+      throw StateError('Planned bus timetable requires its explicit civil departure clock');
+    }
+    final civil = DateTime.tryParse('${clock['date']}T${clock['time']}');
+    if (civil == null) throw StateError('Invalid planned bus civil departure clock');
+    return civil;
+  }
+
   final departureDate = candidate.departureDate;
   if (departureDate == null) {
     throw StateError(

@@ -72,8 +72,8 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.candidate.planningJourney != null && widget.candidate.departureDate != null) {
-      _searchTime = widget.candidate.departureDate!.toLocal();
+    if (widget.candidate.planningJourney != null) {
+      _searchTime = widget.candidate.sendaiPlanningDeparture;
     }
     if (widget.fromSavedRoute) {
       _isLoadingTrip = false;
@@ -715,7 +715,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   // --- 再検索機能 (既存維持) ---
   void _showReSearchPicker() {
     final l10n = AppLocalizations.of(context);
-    _searchTime = appClock.now();
+    if (widget.candidate.planningJourney == null) _searchTime = appClock.now();
     showCupertinoModalPopup(
       context: context,
       builder: (ctx) => Container(
@@ -1127,6 +1127,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
           children: [
             // 再検索ボタン
             CupertinoButton(
+              key: const Key('route-detail-research'),
               padding: EdgeInsets.zero,
               onPressed: _showReSearchPicker,
               child: const Icon(CupertinoIcons.clock),

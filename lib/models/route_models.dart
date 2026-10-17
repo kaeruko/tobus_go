@@ -118,6 +118,17 @@ class Candidate {
     }
   }
 
+  // The Sendai profile uses Japan civil clocks. Keep departureDate as the
+  // original instant, but give the existing date picker a local wall clock
+  // rather than converting the journey to the browser/device time zone.
+  DateTime get sendaiPlanningDeparture {
+    if (planningJourney?['profile'] != 'sendai_published_minute_v1' || departureDate == null) {
+      throw StateError('Sendai planning departure requires the explicit profile and instant');
+    }
+    final japan = departureDate!.toUtc().add(const Duration(hours: 9));
+    return DateTime(japan.year,japan.month,japan.day,japan.hour,japan.minute,japan.second);
+  }
+
   factory Candidate.fromJson(Map<String, dynamic> j) {
     final originName = j['origin_name']?.toString();
     final destinationName = j['destination_name']?.toString();

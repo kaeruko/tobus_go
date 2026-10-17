@@ -219,6 +219,12 @@ void main() {
       expect(surfaceDetail.fare!.normalFareYen,isNull);
       expect(surfaceDetail.fare!.payNowYen,0);
       expect(find.textContaining('本人の有効なふれあい乗車証'),findsWidgets);
+      _stage='preserve Japan civil query time in the existing detail date picker';
+      await tester.tap(find.byKey(const Key('route-detail-research')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<CupertinoDatePicker>(find.byType(CupertinoDatePicker)).initialDateTime,
+          DateTime(2026,11,19,9));
+      navigator.pop();await tester.pumpAndSettle();
       print('NORMAL_SENDAI_REAL_ROUTE_UI_OK; Places upstream fixture; Maps picker contract fixture, live SDK unverified');
     } catch(error,stack) {
       print('NORMAL_UI_STAGE=$_stage\n$error\n$stack');
