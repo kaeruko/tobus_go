@@ -127,6 +127,7 @@ class _SelectedScope:
         started = monotonic()
         deadline = started + parameters.time_limit_seconds
         materializations = {}  # Immutable date windows, released at request end.
+        source_metadata = {}  # One source range/version calculation per request.
         diagnostic = {"comparison_complete": False, "completed_pairs": 0, "non_transit_pairs": []}
         try:
             a.period.require_query_days(day, (day,), additional_reviewed_days=(a.network.bus_reviewed_days,))
@@ -158,7 +159,8 @@ class _SelectedScope:
                     parameters=replace(parameters, time_limit_seconds=remaining,
                         max_travel_minutes=180 - origin["minutes"] - destination["minutes"]),
                     mode=mode, bus_only=request.bus_only,
-                    _request_materializations=materializations, _request_deadline=deadline)
+                    _request_materializations=materializations, _request_deadline=deadline,
+                    _request_metadata=source_metadata)
                 if monotonic() > deadline:
                     raise RouteSearchLimitError("Sendai coordinate request deadline exceeded", reason="time_limit")
                 for journey in journeys:

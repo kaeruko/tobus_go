@@ -130,10 +130,12 @@ class SendaiNormalCoordinateTests(unittest.TestCase):
         base=body(self.cases[0]);client=make_client(self.adapter)
         # Newly permitted geometry is not a reviewed sidewalk. The exact bay
         # keeps its original ID; excluded vehicle-run poles never enter scope.
-        for lat,lon in [(base['alat']+.00005,base['alon']),
-                        (38.224693,140.876349),  # bay 7 is a separate coordinate, not the reviewed bay-2 footprint
-                        (38.2319,140.8893),     # hospital entrance access is not reviewed
-                        (38.2907,140.9997)]:   # unreviewed external area
+        # Counts independently derived from the original allowed trip/stop
+        # rows and spherical distances, not copied from this adapter.
+        for lat,lon,eligible_count in [(base['alat']+.00005,base['alon'],9),
+                        (38.224693,140.876349,None),  # exact bay 7 retains its independent ID
+                        (38.2319,140.8893,15),       # hospital area: estimates, not reviewed access
+                        (38.2907,140.9997,0)]:       # outside every allowed 600m candidate
             if (lat,lon)==(38.224693,140.876349):
                 # Its exact pole is a valid independent input, never an alias.
                 endpoint=self.adapter.endpoint(GeoPoint(lat,lon),'origin')
@@ -141,6 +143,8 @@ class SendaiNormalCoordinateTests(unittest.TestCase):
                 continue
             values,info=self.adapter.endpoint_candidates(GeoPoint(lat,lon),'origin')
             self.assertEqual(info['scope'],'geometric_estimate')
+            self.assertEqual(info['eligible_count'],eligible_count)
+            self.assertEqual(len(values),min(6,eligible_count))
             for value in values:
                 self.assertEqual(value['basis'],'haversine_80m_per_minute_estimate')
                 self.assertFalse(value['connection_guaranteed'])

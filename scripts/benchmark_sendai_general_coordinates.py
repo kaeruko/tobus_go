@@ -64,6 +64,13 @@ def worker(api_root,directory,profile):
                         start_time='09:00',pref='time',bus_only=case['bus_only'],fare_policy_id='sendai_fureai_pass',
                         accept_experimental_transfer_model=True))
                     elapsed=time.perf_counter()-begin
+                # Preserve every measurement and the HTTP/core diagnostic even
+                # when a later sample stops the parent comparison fail-fast.
+                print(json.dumps(dict(benchmark_sample=case['name'],profile=profile,
+                    status=response.status_code,http_seconds=elapsed,search_seconds=sum(core_seconds),
+                    searches=len(core_seconds),network_builds=builds.call_count,
+                    failure_response=response.json() if response.status_code>=400 else None),ensure_ascii=False),
+                    file=sys.stderr,flush=True)
                 if profile=='before' and case in general:
                     assert response.status_code==422,response.text
                     assert 'unreviewed_coordinate_access' in response.text,response.text

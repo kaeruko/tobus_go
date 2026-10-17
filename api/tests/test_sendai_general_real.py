@@ -38,13 +38,17 @@ class SendaiGeneralRealTests(unittest.TestCase):
                 def trace(*args,**kwargs):
                     result=search_practical_subway(*args,**kwargs);observed.extend(result);return result
                 with patch('sendai_coordinate_routes.search_practical_subway',side_effect=trace), \
-                     patch.object(practical,'build_transit_network',wraps=practical.build_transit_network) as builds:
+                     patch.object(practical,'build_transit_network',wraps=practical.build_transit_network) as builds, \
+                     patch.object(practical,'_latest_source_minute',wraps=practical._latest_source_minute) as source_scans, \
+                     patch.object(practical,'_practical_input_version',wraps=practical._practical_input_version) as versions:
                     response=normal.make_client(self.fixture.adapter).post('/route',json=normal.body(case))
                 self.assertEqual(response.status_code,200,response.text)
                 data=response.json();candidate=data['candidates'][0]
                 expected=f"{case['arrival_minute']//60:02d}:{case['arrival_minute']%60:02d}"
                 self.assertEqual(candidate['arrival_time'],expected)
                 self.assertEqual(builds.call_count,1)
+                self.assertEqual(source_scans.call_count,1)
+                self.assertEqual(versions.call_count,1)
                 diagnostic=data['meta']['coordinate_access']
                 self.assertTrue(diagnostic['comparison_complete'])
                 self.assertFalse(diagnostic['all_geographic_candidates_compared'])

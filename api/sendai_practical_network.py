@@ -186,6 +186,21 @@ def _civil(anchor, minute):
     return CivilMinute(anchor + timedelta(days=int(offset)), minute - offset * 1440)
 
 
+def _latest_source_minute(network):
+    return max(r.arrival_minute or r.departure_minute or 0
+               for d in network.free_scope.snapshot.datasets for r in d.stop_times)
+
+
+def _practical_input_version(network):
+    return _digest({
+        "feeds": dict(network.free_scope.snapshot.feed_versions),
+        "bus_reviewed_days": sorted(network.bus_reviewed_days),
+        "transfers": [repr(r) for r in network.bus_transfers],
+        "subway_transfer": repr(network.transfers),
+        "walks": [repr(w) for w in network.walking_links],
+        "allowed": sorted(network.free_scope.allowed_trip_ids)})
+
+
 def _materialize_practical_days(network, civil_date, days, bus_only):
     """One request-local immutable network with unchanged service-day clocks."""
     originals = network.free_scope.snapshot.datasets
@@ -252,7 +267,7 @@ def _materialize_practical_days(network, civil_date, days, bus_only):
 
 def search_practical_subway(network, origin, destination, *, civil_date,
                              departure_minute, parameters, realtime=False, mode="time", bus_only=False,
-                             _request_materializations=None, _request_deadline=None):
+                             _request_materializations=None, _request_deadline=None, _request_metadata=None):
     if realtime is not False:
         raise ValueError("practical subway search is static only")
     if mode not in ("time", "fewTransfers"):
@@ -273,7 +288,13 @@ def search_practical_subway(network, origin, destination, *, civil_date,
         raise ValueError("unknown practical origin/destination")
     originals = network.free_scope.snapshot.datasets
     finish = Fraction(departure_minute) + Fraction(str(parameters.max_travel_minutes))
-    latest = max(r.arrival_minute or r.departure_minute or 0 for d in originals for r in d.stop_times)
+    # Both values depend only on this immutable source network. Reuse the
+    # SAME calculations within one coordinate request, never across requests,
+    # instead of scanning every original stop-time row for each endpoint pair.
+    metadata = {} if _request_metadata is None else _request_metadata.setdefault(id(network), {})
+    if "latest_source_minute" not in metadata:
+        metadata["latest_source_minute"] = _latest_source_minute(network)
+    latest = metadata["latest_source_minute"]
     first = -1 if departure_minute <= latest - 1440 else 0
     last = int(finish // 1440)
     days = tuple(civil_date + timedelta(days=i) for i in range(first, last + 1))
@@ -346,12 +367,9 @@ def search_practical_subway(network, origin, destination, *, civil_date,
             else:
                 raise ValueError("unreviewed practical event type")
         quote = SendaiFureaiPassPolicy().quote(network.free_scope, replace(journey, events=tuple(quoted_rides)))
+        if "input_version" not in metadata:
+            metadata["input_version"] = _practical_input_version(network)
         result.append(PracticalJourney(CivilMinute(civil_date, Fraction(departure_minute)),
-            _civil(anchor, journey.arrival_minute), tuple(events), quote, PROFILE, _digest({
-                "feeds": dict(network.free_scope.snapshot.feed_versions),
-                "bus_reviewed_days": sorted(network.bus_reviewed_days),
-                "transfers": [repr(r) for r in network.bus_transfers],
-                "subway_transfer": repr(network.transfers),
-                "walks": [repr(w) for w in network.walking_links],
-                "allowed": sorted(network.free_scope.allowed_trip_ids)}), planning_cost=journey.cost))
+            _civil(anchor, journey.arrival_minute), tuple(events), quote, PROFILE,
+            metadata["input_version"], planning_cost=journey.cost))
     return tuple(result)
