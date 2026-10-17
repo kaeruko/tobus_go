@@ -133,10 +133,25 @@ class GeneralAccessContracts(unittest.TestCase):
         self.assertEqual(result.candidates,[('sendai_bus:a','sendai_bus:c')])
 
     def test_fewest_transfers_preserves_shared_cost_then_arrival_ties(self):
-        result,_=self.run_pairs((endpoint('a'),endpoint('b')), (endpoint('c'),),
+        result,search=self.run_pairs((endpoint('a'),endpoint('b')), (endpoint('c'),),
                 [(journey(550,boards=2,cost=1),),(journey(570,boards=1,cost=20),)],
                 preference=RoutePreference.FEWEST_TRANSFERS)
         self.assertEqual(result.candidates,[('sendai_bus:b','sendai_bus:c')])
+        self.assertEqual([call.kwargs['parameters'].max_boardings for call in search.call_args_list],[3,2])
+        self.assertEqual(result.meta['coordinate_access']['pair_boarding_limits'],[3,2])
+
+    def test_few_transfer_bound_keeps_equal_boardings_and_all_candidate_pairs(self):
+        origins=(endpoint('a'),endpoint('b'),endpoint('c'))
+        result,search=self.run_pairs(origins,(endpoint('d'),),
+            [(journey(550,boards=1,cost=20),),(journey(570,boards=1,cost=10),),()],
+            preference=RoutePreference.FEWEST_TRANSFERS)
+        self.assertEqual(result.candidates,[('sendai_bus:b','sendai_bus:d')])
+        self.assertEqual([c.kwargs['parameters'].max_boardings for c in search.call_args_list],[3,1,1])
+        self.assertEqual(result.meta['coordinate_access']['completed_pairs'],3)
+        result,search=self.run_pairs(origins,(endpoint('d'),),
+            [(journey(550,boards=1),),(journey(545,boards=3),),()])
+        self.assertEqual(result.candidates,[('sendai_bus:b','sendai_bus:d')])
+        self.assertEqual([c.kwargs['parameters'].max_boardings for c in search.call_args_list],[3,3,3])
 
     def test_missed_service_is_not_replaced_by_zero_walk_query(self):
         result,search=self.run_pairs((endpoint('a',2),),(endpoint('b',1),),[()])
@@ -154,6 +169,18 @@ class GeneralAccessContracts(unittest.TestCase):
         self.assertEqual(info['uncompared_pairs'],[['sendai_bus:b','sendai_bus:c']])
         self.assertFalse(info['comparison_complete'])
         self.assertEqual(error.diagnostics['visited'],100001)
+
+    def test_few_transfer_incumbent_does_not_hide_a_later_search_limit(self):
+        error=RouteSearchLimitError('fewTransfers original limit',reason='max_visited',diagnostics={'visited':100001})
+        with self.assertRaises(RouteSearchLimitError) as caught:
+            self.run_pairs((endpoint('a'),endpoint('b')),(endpoint('c'),),
+                [(journey(560,boards=1),),error],preference=RoutePreference.FEWEST_TRANSFERS)
+        self.assertIs(caught.exception,error)
+        diagnostic=error.diagnostics['coordinate_access']
+        self.assertEqual(diagnostic['pair_boarding_limits'],[3,1])
+        self.assertEqual(diagnostic['completed_pairs'],1)
+        self.assertFalse(diagnostic['comparison_complete'])
+        self.assertEqual(diagnostic['uncompared_pairs'],[['sendai_bus:b','sendai_bus:c']])
 
     def test_origin_walk_cannot_cross_civil_day(self):
         with self.assertRaisesRegex(RouteInputError,'civil-day'):

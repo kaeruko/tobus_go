@@ -82,6 +82,10 @@ class SendaiGeneralRealTests(unittest.TestCase):
                 self.assertEqual(candidate['boards'],frozen['boardings'])
                 self.assertAlmostEqual(journey.planning_cost,frozen['planning_cost_tenths']/10)
                 self.assertEqual(diagnostic['total_pairs'],len(case['origin_candidates'])*len(case['destination_candidates']))
+                self.assertEqual(len(diagnostic['pair_boarding_limits']),diagnostic['total_pairs'])
+                self.assertEqual(diagnostic['pair_boarding_limits'][0],3)
+                self.assertTrue(all(1<=cap<=3 for cap in diagnostic['pair_boarding_limits']))
+                self.assertEqual(diagnostic['boarding_bound_basis'],'completed_incumbent_primary_objective')
                 if case['name']=='ward_offices':
                     self.assertGreater(frozen['arrival_minute'],case['arrival_minute'])
                     self.assertEqual([s['trip_id'] for s in candidate['steps'] if s['kind']=='bus'],

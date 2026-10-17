@@ -130,7 +130,9 @@ class _SelectedScope:
         source_metadata = {}  # One source range/version calculation per request.
         timetable_choices = {}  # At most one existing same-condition provider.
         diagnostic = {"comparison_complete": False, "completed_pairs": 0,
-                      "minimum_transit_boardings": 1}
+                      "minimum_transit_boardings": 1, "pair_boarding_limits": [],
+                      "boarding_bound_basis": "completed_incumbent_primary_objective"
+                          if mode == "fewTransfers" else "unchanged_maximum"}
         try:
             a.period.require_query_days(day, (day,), additional_reviewed_days=(a.network.bus_reviewed_days,))
             origins, origin_scope = a.endpoint_candidates(request.origin, "origin")
@@ -143,12 +145,23 @@ class _SelectedScope:
                 raise RouteInputError("access walk crosses an unreviewed civil-day boundary")
             best = None
             for i, j, origin, destination in pairs:
+                # Since every accepted journey travels at least one ride,
+                # transfers = boardings - 1. In fewTransfers ONLY, a larger
+                # boarding count cannot beat a completed incumbent, regardless
+                # of cost/arrival. Keep ALL pairs and every equal/lower count;
+                # reuse the core's existing hard bound, never discard a pair.
+                boarding_limit=parameters.max_boardings
+                if mode == "fewTransfers" and best is not None:
+                    boarding_limit=min(boarding_limit,
+                        sum(isinstance(e,PracticalRide) for e in best[1].events))
+                diagnostic["pair_boarding_limits"].append(boarding_limit)
                 remaining = deadline - monotonic()
                 if remaining <= 0:
                     raise RouteSearchLimitError("Sendai coordinate request deadline exceeded", reason="time_limit")
                 journeys = search_practical_subway(a.network, origin["stop_id"], destination["stop_id"],
                     civil_date=day, departure_minute=start + origin["minutes"],
                     parameters=replace(parameters, time_limit_seconds=remaining,
+                        max_boardings=boarding_limit,
                         max_travel_minutes=180 - origin["minutes"] - destination["minutes"]),
                     mode=mode, bus_only=request.bus_only,
                     _request_materializations=materializations, _request_deadline=deadline,

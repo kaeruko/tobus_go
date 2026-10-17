@@ -1527,7 +1527,7 @@ APIの徒歩は既存共通 `WalkStep.to_mapping()` と徒歩集計へ接続し�
 
 最大36組を既存 `search_practical_subway → search_network → search_labels` で比較する。日付別networkの構築部分を抽出し、同じnetwork/日付窓/bus_onlyに限って1リクエスト内で再利用する。新しい探索器・枝刈り・永続cache・別backendは追加しない。通常GTFS batchの時計profile制限を迂回せず、既存の地下鉄推定時計・元便復元・provenance・Policyを保持する。
 
-GTFS座標backendの既存の完成旅程比較を `coordinate_pair_objective` へ抽出して共用する。最早到着は目的地への徒歩を加えた到着→既存planning cost→乗物到着→両端の候補順、少乗換は乗換数→既存planning cost→最終到着→乗物到着→候補順を維持する。出発前の徒歩を発車可能時計へ、到着後の徒歩を最終到着・総時間へ一度だけ加える。最大3乗車・全行程180分・各探索max_visited=100,000・リクエスト全体15秒を維持し、構築後にも残deadlineを既存探索へ渡す。
+GTFS座標backendの既存の完成旅程比較を `coordinate_pair_objective` へ抽出して共用する。最早到着は目的地への徒歩を加えた到着→既存planning cost→乗物到着→両端の候補順、少乗換は乗換数→既存planning cost→最終到着→乗物到着→候補順を維持する。出発前の徒歩を発車可能時計へ、到着後の徒歩を最終到着・総時間へ一度だけ加える。最大3乗車・全行程180分・各探索max_visited=100,000・リクエスト全体15秒を維持し、構築後にも残deadlineを既存探索へ渡す。少乗換の完了済み候補より乗車数が多い経路だけは順位上それを上回れないため、24.8の根拠に従い既存の乗車数上限へ渡す。全endpoint組と同数以下の乗車数は残す。
 
 候補比較の完了は選択された具体endpoint組の範囲に限る。`all_geographic_candidates_compared=false` と限定された最適性scopeを返す。deadline/max_visited等で失敗した場合は候補を返さず、同一の元例外・reason・core診断に完了組数/未比較組/構築数を付記してHTTP 503へ渡す。通常運賃側の既存503を無料成功へ読み替えない。当初の一般アクセス同一pole組の除外は24.7の修正で廃止し、明示/一般・同一/別IDとも最低1実乗車を到達条件とする。実在便による帰着は検索できるが、無料の徒歩経路や架空の循環便を作らない。
 
@@ -1575,13 +1575,16 @@ network構築は既に1回だったが、各組で約22万行の元stop_timesか
 | `api/sendai_practical_network.py` | 元の日付別構築を抽出し、request内の同じ日付窓と不変metadataを共有。元具体便・時計/provenance・Policyを保持 |
 | `api/app/route_endpoint.py` | 仙台の候補比較上限だけ追加診断をHTTPへ保持。東京の既存エラー本文は保持 |
 | `api/tests/test_sendai_normal_coordinates.py` | 固定5 OD/raw witness/全徒歩Stepを保持し、従来近接負例を原CSVの件数で個別に分類 |
-| `api/tests/test_sendai_general_access.py` | 13合成契約。具体ID・方向/制限・境界・候補順位・不成立・上限・例外同一性 |
-| `api/tests/test_sendai_general_real.py` | 3施設ODの独立raw最適到着/具体便witness、構築/元走査/version各1回、未承認日と候補なし |
+| `api/tests/test_sendai_general_access.py` | 15合成契約。具体ID・方向/制限・境界・候補順位・不成立・上限・例外同一性・完了済み候補による乗車数上限の根拠 |
+| `api/tests/test_transit_network.py` | 元graphを保つ実乗車必須の終点view、徒歩だけ/同一始終点/終点到達後の乗車/候補なし/元上限例外 |
+| `api/tests/test_sendai_general_real.py` | 3施設ODの最早/少乗換の独立raw期待/具体便witness、構築各1回、0乗車再現4条件・16分以内不成立・未承認日 |
+| `api/tests/sendai_municipal_oracle.py` | テスト専用の元CSV有限行走査へ、乗車数→独立費用→到着の期待値計算を追加。製品探索には使用しない |
+| `api/tests/fixtures/sendai_subway/general_few_transfers_20261018.json` | 変更後API照会前に固定した少乗換3施設・0乗車再現ODの費用/具体便/期待到着 |
 | `api/tests/fixtures/sendai_subway/general_coordinate_cases_20261018.json` | API照会前に固定した施設座標・両端候補・成立/不成立のraw組・期待到着 |
 | `scripts/check_sendai_normal_http.py` | 実通常HTTPの旧5＋新3 OD、元ID wire、日付/同意/無料条件と限定された比較範囲 |
 | `scripts/sendai_normal_places_fixture.py` | CIの上流Places fixtureに同じ施設座標を追加。routing responseは置換しない |
 | `scripts/benchmark_sendai_general_coordinates.py` | 同一runnerの開始main/変更後・各3回、構築/探索数・探索/HTTP時間・RSS、失敗sampleの診断保持 |
-| `integration_test/sendai_normal_chrome_test.dart` | 既存画面のPlaces7経路＋MapPicker2経路、既存カード/詳細の徒歩推定・元ID・本人所持条件 |
+| `integration_test/sendai_normal_chrome_test.dart` | 既存画面のPlaces最早7経路＋少乗換3経路＋MapPicker2経路、既存カード/詳細の徒歩推定・元ID・本人所持条件 |
 | `.github/workflows/sendai-normal-coordinates.yml` | 元実データ/HTTP/旧ID Chrome gateを保ち、新差分・同条件前後測定を追加 |
 | `docs/sendai-shared-network-design.md` | 第21〜23節を保持し、本節に範囲・限界・実装・検証・性能を記録 |
 
@@ -1617,4 +1620,10 @@ SearchCoreの終了条件へ直接フラグを追加する案は、既存静的�
 
 0乗車再現ODの独立期待は、2番→7番が最早/少乗換とも2乗車・09:25（少乗換費用35.6）、2番→同じ2番が最早09:24、少乗換は費用34.0を優先する実バス2乗車・11:14である。16分以内には両ODとも実乗車を伴う到着がなく、practical検索は例外や無料徒歩でなく候補なしになる。
 
-ローカルで少乗換36組のHTTP比較は15秒へ到達し、通常fixtureでは22組完了/14組未比較、未使用の通常運賃graphを遅延構築する実サーバー同様のfixtureでも24組完了/12組未比較の503となった。元のtime_limit_sec例外・100,000訪問上限・未比較組を保持し、独立期待到着を成功結果へ読み替えていない。候補6件・36組・時計/順位/探索条件は変更しない。最終の実HTTP・Chrome・通常CIの成否は次項へ記録する。
+試作中のローカル少乗換36組のHTTP比較は15秒へ到達し、通常fixtureでは22組完了/14組未比較、未使用の通常運賃graphを遅延構築する実サーバー同様のfixtureでも24組完了/12組未比較の503となった。終点view実装 `833fb7dee01fe443d0ccd1062b718db6a825c3c7` も、ローカル28組完了/8組未比較、[通常座標CI #39080391848](https://github.com/kaeruko/tobus_go/actions/runs/39080391848) では23組完了/13組未比較・15.230秒で停止した。CIの元 `time_limit_sec`、訪問22,604、100,000訪問上限、構築1回と未比較組を保持する。このrunの通常HTTP/Chrome後段は未実行であり、成功と記録しない。
+
+不成立の組で3乗車まで全探索する負荷が見つかったため、接続側で既存 `max_boardings` に完了済み少乗換候補の乗車数を渡す。全ての実乗車旅程は `乗換数=乗車数−1` であり、完了済み候補がk乗車ならkより多い旅程は、費用・待ち時間・徒歩・到着時刻によらず少乗換の第1順位で劣る。残り全endpoint組の1〜k乗車を既存探索で評価すれば、元の最大3乗車の完成順位を維持できる。同数の安価/早着経路を除かず、最早到着モードの上限は常に3のままである。
+
+これは測定値に合わせた候補数/固定閾値変更や例外後の再試行ではない。各組を検索する前に同じ既存順位契約から上限を決め、`pair_boarding_limits` と `boarding_bound_basis=completed_incumbent_primary_objective` を診断に記録する。未探索の多乗車数はこの第1順位で厳密に劣る範囲だけであり、36組自体を削減しない。完了候補がない間は最大3、以後も同数以下を比較し、期限/訪問上限に達したら元例外で停止して途中候補を返さない。探索器・順位器・枝刈り実装・証明契約には変更を加えない。
+
+この接続差分後、独立oracleは元の最大3乗車で全候補の期待値を計算し、APIの少乗換3施設すべてと一致した（合成14件＋実データ1件、ローカル20.437秒）。同数乗車の安価候補、最早到着の3乗車候補、完了候補がある後の元上限例外も検査する。候補6件・36/6/6組・180分・15秒・100,000訪問は維持する。最終の実HTTP・Chrome・通常CIの成否は次項へ記録する。
