@@ -94,7 +94,7 @@ void main() {
     await tester.scrollUntilVisible(button, 180, scrollable: pageScroll); await tester.tap(button); await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.byKey(const Key('sendai-test-error')), 100, scrollable: pageScroll);
     expect(find.byKey(const Key('sendai-test-error')), findsOneWidget);
-    expect(find.textContaining('選択してください'), findsOneWidget);
+    expect(find.textContaining('入力不足: 出発地・目的地・対応日'), findsOneWidget);
   });
   testWidgets('unsupported scope is visible and an API error is shown without retry', (tester) async {
     var routeCalls = 0;
