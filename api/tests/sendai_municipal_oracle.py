@@ -73,8 +73,14 @@ def links(review):
         (r['from_stop_id'],r['to_stop_id'],r['standard_minutes']+r['margin_minutes']) for r in review['bus_subway_transfers']]
 
 
-def optimum(raw_runs,review,origin,destination,start,*,max_boardings,max_minutes):
-    layer={origin:Fraction(start)};best=None
+def arrivals(raw_runs,review,origin,start,*,max_boardings,max_minutes):
+    """The same bounded raw scan, retaining all destination arrival values.
+
+    Bulk coverage needs one scan per origin, rather than repeating the exact
+    same layers for thousands of destinations. No production code is called.
+    Count>=1 still requires a ride, excluding bare transfer walks.
+    """
+    layer={origin:Fraction(start)};best={}
     for count in range(max_boardings+1):
         # Positive directed connection closure, independent of shared graph.
         for _ in range(len(links(review))+1):
@@ -83,8 +89,10 @@ def optimum(raw_runs,review,origin,destination,start,*,max_boardings,max_minutes
                 if a in layer and layer[a]+minutes<layer.get(b,Fraction(10**12)):
                     layer[b]=layer[a]+minutes;changed=True
             if not changed:break
-        if count and destination in layer and layer[destination]<=start+max_minutes:
-            best=layer[destination] if best is None else min(best,layer[destination])
+        if count:
+            for destination,minute in layer.items():
+                if minute<=start+max_minutes:
+                    best[destination]=min(best.get(destination,Fraction(10**12)),minute)
         next_layer={}
         for run in raw_runs:
             for i,a in enumerate(run['stops'][:-1]):
@@ -94,6 +102,10 @@ def optimum(raw_runs,review,origin,destination,start,*,max_boardings,max_minutes
                     b=run['stops'][j];next_layer[b]=min(next_layer.get(b,Fraction(10**12)),run['arrs'][j])
         layer=next_layer
     return best
+
+
+def optimum(raw_runs,review,origin,destination,start,*,max_boardings,max_minutes):
+    return arrivals(raw_runs,review,origin,start,max_boardings=max_boardings,max_minutes=max_minutes).get(destination)
 
 
 def validate(result,raw_runs,review,civil_day,origin,destination,start):

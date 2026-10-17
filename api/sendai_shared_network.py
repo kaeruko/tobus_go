@@ -110,6 +110,9 @@ def build_sendai_free_network(datasets, *, segment_reviews, reviewed_days,
         for row in dataset.stop_times:
             rows[row.trip_id].append(row)
     rows = {key: sorted(value, key=lambda r: r.sequence) for key, value in rows.items()}
+    source_pairs_by_trip = {key: {(a.sequence, b.sequence, a.stop_id, b.stop_id)
+                                 for a, b in zip(rr, rr[1:])}
+                            for key, rr in rows.items()}
     reviewed = set()
     for review in segment_reviews:
         if not isinstance(review, FreeSegmentReview) or review.trip_id not in all_trips:
@@ -120,8 +123,7 @@ def build_sendai_free_network(datasets, *, segment_reviews, reviewed_days,
                 or not isinstance(review.evidence, Evidence)):
             raise ValueError("segment is unverified, outside Sendai or unsupported")
         pair = (review.from_sequence, review.to_sequence, review.from_stop_id, review.to_stop_id)
-        source_pairs = {(a.sequence, b.sequence, a.stop_id, b.stop_id)
-                        for a, b in zip(rows[trip.id], rows[trip.id][1:])}
+        source_pairs = source_pairs_by_trip[trip.id]
         key = review.trip_id, pair
         if pair not in source_pairs or key in reviewed:
             raise ValueError("duplicate or non-adjacent concrete segment review")

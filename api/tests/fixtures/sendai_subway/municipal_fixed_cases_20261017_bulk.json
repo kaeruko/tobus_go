@@ -1,0 +1,97 @@
+{
+  "parameters": {
+    "max_candidates": 1,
+    "max_boardings": 3,
+    "max_travel_minutes": 180
+  },
+  "cases": [
+    {
+      "category": "110_bus",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:2005_50",
+      "destination": "sendai_bus:2041_0",
+      "expected_arrival_minute": 578
+    },
+    {
+      "category": "new_bus_rail",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:5227_10",
+      "destination": "sendai_subway:namboku/泉中央",
+      "expected_arrival_minute": 656
+    },
+    {
+      "category": "rail_new_bus",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_subway:namboku/仙台",
+      "destination": "sendai_bus:7211_0",
+      "expected_arrival_minute": null
+    },
+    {
+      "category": "rail_new_bus_izumi_existing_bay",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_subway:namboku/仙台",
+      "destination": "sendai_bus:1155_0",
+      "expected_arrival_minute": 648
+    },
+    {
+      "category": "multi_transfer",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:5227_10",
+      "destination": "sendai_bus:7605_10",
+      "expected_arrival_minute": 667
+    },
+    {
+      "category": "rural_complete",
+      "civil_date": "2026-11-19",
+      "departure_minute": 360,
+      "origin": "sendai_bus:8755_10",
+      "destination": "sendai_bus:8243_0",
+      "expected_arrival_minute": 400
+    },
+    {
+      "category": "circular",
+      "civil_date": "2026-11-19",
+      "departure_minute": 480,
+      "origin": "sendai_bus:2151_50",
+      "destination": "sendai_bus:2603_10",
+      "expected_arrival_minute": 513
+    },
+    {
+      "category": "same85_inside",
+      "civil_date": "2026-11-19",
+      "departure_minute": 600,
+      "origin": "sendai_bus:8668_10",
+      "destination": "sendai_bus:8226_0",
+      "expected_arrival_minute": 669
+    },
+    {
+      "category": "110_saturday",
+      "civil_date": "2026-11-21",
+      "departure_minute": 540,
+      "origin": "sendai_bus:2005_50",
+      "destination": "sendai_bus:2041_0",
+      "expected_arrival_minute": 567
+    },
+    {
+      "category": "110_holiday",
+      "civil_date": "2026-11-23",
+      "departure_minute": 540,
+      "origin": "sendai_bus:2005_50",
+      "destination": "sendai_bus:2041_0",
+      "expected_arrival_minute": 595
+    },
+    {
+      "category": "110_last_day",
+      "civil_date": "2026-11-30",
+      "departure_minute": 540,
+      "origin": "sendai_bus:2005_50",
+      "destination": "sendai_bus:2041_0",
+      "expected_arrival_minute": 578
+    }
+  ]
+}

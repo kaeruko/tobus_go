@@ -44,7 +44,7 @@ def load_reviewed_subway(published_path, review_path, *, operating_period=None):
 def _validate_expanded_period(subway, bus, review, days):
     """Bind the new finite review, bus exclusions and actual feed coverage."""
     from sendai_operating_period import OperatingPeriodReview
-    if review.get("stage_profile") not in {"sendai_municipal_stage1", "sendai_municipal_stage2", "sendai_municipal_stage3", "sendai_municipal_stage4", "sendai_municipal_stage5", "sendai_municipal_stage6", "sendai_municipal_stage7", "sendai_municipal_stage8"}:
+    if review.get("stage_profile") not in {"sendai_municipal_stage1", "sendai_municipal_stage2", "sendai_municipal_stage3", "sendai_municipal_stage4", "sendai_municipal_stage5", "sendai_municipal_stage6", "sendai_municipal_stage7", "sendai_municipal_stage8", "sendai_municipal_bulk_v1"}:
         raise ValueError("explicit supported municipal stage profile required")
     period = OperatingPeriodReview.from_mapping(review["operating_period"])
     table = period.operating_days()
@@ -87,25 +87,32 @@ def build_reviewed_municipal_model(subway, bus, review, *, accept_experimental_b
         _validate_expanded_period(subway, bus, review, days)
     rows = {}
     for row in bus.stop_times: rows.setdefault(row.trip_id,[]).append(row)
+    # Index complete concrete paths once. Matching remains exact route+ordered
+    # pole occurrences; route numbers, names and nearby poles never join runs.
+    paths = {}
+    for trip in bus.trips.values():
+        rr = tuple(sorted(rows[trip.id], key=lambda r: r.sequence))
+        rows[trip.id] = rr
+        paths.setdefault((trip.route_id, tuple(r.stop_id for r in rr)), []).append(trip.id)
     segments = []
+    seen_patterns = set()
     for pattern in review["bus_patterns"]:
         if pattern["entire_driven_path_municipality"] != "04100" or pattern["service_kind"] != "local":
             raise ValueError("bus pattern is outside or not verified free municipal scope")
         evidence = Evidence(**pattern["map_evidence"])
-        matched = []
-        for trip in bus.trips.values():
-            rr = sorted(rows[trip.id],key=lambda r:r.sequence)
-            if trip.route_id != pattern["route_id"]: continue
-            if tuple(r.stop_id for r in rr) != tuple(pattern["stop_ids"]):
-                # Different patterns on the route are excluded, never inferred free.
-                continue
-            if tuple(bus.stops[r.stop_id].name for r in rr) != tuple(pattern["stop_names"]):
-                raise ValueError("reviewed bus pattern stop names changed")
-            matched.append(trip.id)
-            segments.extend(FreeSegmentReview(trip.id,bus.metadata.version,a.sequence,b.sequence,a.stop_id,b.stop_id,
-                "SendaiMunicipal","local","04100",evidence) for a,b in zip(rr,rr[1:]))
+        key = pattern["route_id"], tuple(pattern["stop_ids"])
+        if key in seen_patterns:
+            raise ValueError("duplicate reviewed bus complete pattern")
+        seen_patterns.add(key)
+        matched = paths.get(key, ())
         if not matched or sorted(matched) != sorted(pattern["trip_ids"]):
             raise ValueError("exact reviewed bus concrete-trip set mismatch")
+        for trip_id in matched:
+            rr = rows[trip_id]
+            if tuple(bus.stops[r.stop_id].name for r in rr) != tuple(pattern["stop_names"]):
+                raise ValueError("reviewed bus pattern stop names changed")
+            segments.extend(FreeSegmentReview(trip_id,bus.metadata.version,a.sequence,b.sequence,a.stop_id,b.stop_id,
+                "SendaiMunicipal","local","04100",evidence) for a,b in zip(rr,rr[1:]))
     # Two city subway lines have an independently retained complete-path review.
     subway_rows = {}
     for row in subway.dataset.stop_times: subway_rows.setdefault(row.trip_id,[]).append(row)
