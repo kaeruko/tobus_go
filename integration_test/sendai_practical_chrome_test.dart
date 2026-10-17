@@ -105,7 +105,7 @@ void main() {
     await tester.tap(search);
     await tester.pumpAndSettle();
     await _reveal(tester, find.byKey(const Key('sendai-test-error')));
-    expect(find.textContaining('選択してください'), findsOneWidget);
+    expect(find.textContaining('入力不足: 出発地・目的地・対応日'), findsOneWidget);
 
     await _select(tester, 'date', _day);
     await _select(tester, 'pass', 'sendai_fureai_pass');
