@@ -1,4 +1,4 @@
-name: Sendai municipal stage6 expansion
+name: Sendai municipal stage7 expansion
 
 on:
   push:
@@ -15,9 +15,10 @@ on:
       - 'api/tests/test_sendai_stage4.py'
       - 'api/tests/test_sendai_stage5.py'
       - 'api/tests/test_sendai_stage6.py'
+      - 'api/tests/test_sendai_stage7.py'
       - 'api/tests/fixtures/sendai_subway/*stage5.json'
-      - 'api/tests/fixtures/sendai_subway/*stage6.json'
-      - 'integration_test/sendai_stage6_chrome_test.dart'
+      - 'api/tests/fixtures/sendai_subway/*stage7.json'
+      - 'integration_test/sendai_stage7_chrome_test.dart'
       - 'api/tests/fixtures/sendai_subway/*stage3.json'
       - 'lib/widgets/sendai_practical_launcher.dart'
       - 'test/sendai_practical_launcher_test.dart'
@@ -26,6 +27,7 @@ on:
       - 'api/tests/fixtures/sendai_subway/*stage1.json'
       - 'api/tests/fixtures/sendai_subway/*stage2.json'
       - 'scripts/check_sendai_expansion.py'
+      - 'scripts/check_sendai_stage7_reachability.py'
       - 'scripts/serve_sendai_practical_local.py'
       - 'lib/pages/sendai_practical_test_page.dart'
       - 'lib/models/sendai_practical_models.dart'
@@ -38,7 +40,7 @@ permissions:
 
 jobs:
   stage1-model:
-    name: Arai16 opposite-direction whole route at existing Arai bay1
+    name: Sendai station bay5 and bay60 with complete 308 and J308 routes
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -50,9 +52,9 @@ jobs:
           cache-dependency-path: api/requirements.txt
       - name: Install existing Python dependencies
         run: python -m pip install -r api/requirements.txt
-      - name: Stage6-specific regression module only
+      - name: Stage7-specific regression module only
         working-directory: api
-        run: python -B -m unittest -f tests.test_sendai_stage6
+        run: python -B -m unittest -f tests.test_sendai_stage7
       - name: Prepare exactly the approved official GTFS and manifest
         run: |
           python -B scripts/fetch_sendai_gtfs.py \
@@ -60,8 +62,10 @@ jobs:
             --expected-service-date 2026-10-16 \
             --source-url 'https://api-public.odpt.org/api/v4/files/odpt/SendaiMunicipal/bus_realtime_information.zip?date=20261006' \
             --expected-sha256 53a08400776b3229743b24eb53566eb523b354a5b783dcfffd3e40f39258e6a2
-      - name: Seven exact reverse16 original-source routes, existing oracle and API
-        run: python -B scripts/check_sendai_expansion.py --profile stage6 --bus-gtfs-dir api/data/sendai/20261006_model --expected-sha '${{ github.sha }}'
+      - name: Fourteen new Sendai original-source routes, existing oracle and API
+        run: python -B scripts/check_sendai_expansion.py --profile stage7 --bus-gtfs-dir api/data/sendai/20261006_model --expected-sha '${{ github.sha }}'
+      - name: Fixed new-area independent reachability
+        run: python -B scripts/check_sendai_stage7_reachability.py
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -84,12 +88,12 @@ jobs:
             --expected-service-date 2026-10-16 \
             --subway-published api/tests/fixtures/sendai_subway/published_20230701.json \
             --subway-review api/tests/fixtures/sendai_subway/practical_review_20261016.json \
-            --municipal-review api/tests/fixtures/sendai_subway/municipal_review_20261017_stage6.json \
+            --municipal-review api/tests/fixtures/sendai_subway/municipal_review_20261017_stage7.json \
             --use-reviewed-operating-period --accept-experimental-transfer-model > "$RUNNER_TEMP/sendai-stage1-api.log" 2>&1 &
           server_pid=$!
           for attempt in {1..45}; do
             if curl --fail --silent http://127.0.0.1:8000/test/sendai/capabilities > "$RUNNER_TEMP/sendai-stage1-capabilities.json"; then
-              python -c 'import json,os; from pathlib import Path; v=json.loads((Path(os.environ["RUNNER_TEMP"])/"sendai-stage1-capabilities.json").read_text()); assert len(v["operating_dates"])==48 and "2026-11-30" in v["operating_dates"] and not {"2026-10-25","2026-11-22","2026-12-01"}.intersection(v["operating_dates"]) and {"sendai_bus:5181_10","sendai_bus:4253_50","sendai_bus:4135_10"}.issubset({r["id"] for r in v["stops"]}), v'
+              python -c 'import json,os; from pathlib import Path; v=json.loads((Path(os.environ["RUNNER_TEMP"])/"sendai-stage1-capabilities.json").read_text()); assert len(v["operating_dates"])==48 and "2026-11-30" in v["operating_dates"] and not {"2026-10-25","2026-11-22","2026-12-01"}.intersection(v["operating_dates"]) and {"sendai_bus:50_850","sendai_bus:50_210","sendai_bus:4015_10","sendai_bus:4015_50"}.issubset({r["id"] for r in v["stops"]}), v'
               exit 0
             fi
             if ! kill -0 "$server_pid" 2>/dev/null; then cat "$RUNNER_TEMP/sendai-stage1-api.log"; exit 1; fi
@@ -103,11 +107,11 @@ jobs:
           set -euo pipefail
           echo 'CHROME_EXECUTABLE=${{ steps.chrome.outputs.chrome-path }}' >> "$GITHUB_ENV"
           '${{ steps.chrome.outputs.chromedriver-path }}' --port=4444 > "$RUNNER_TEMP/sendai-stage1-chromedriver.log" 2>&1 &
-      - name: Reverse16 real routes through the existing inline form in Flutter Chrome
+      - name: Sendai hub real routes through the existing inline form in Flutter Chrome
         run: |
           flutter drive -d web-server --browser-name=chrome \
             --driver=test_driver/integration_test.dart \
-            --target=integration_test/sendai_stage6_chrome_test.dart \
+            --target=integration_test/sendai_stage7_chrome_test.dart \
             --dart-define=SENDAI_TEST_API_BASE=http://127.0.0.1:8000
       - name: Show original diagnostics on failure
         if: failure()
