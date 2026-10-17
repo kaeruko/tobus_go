@@ -85,6 +85,39 @@ def main():
     p.add_argument('--bus-gtfs-dir',type=Path,required=True)
     args=p.parse_args()
     summary,fixture=inspect(args.bus_gtfs_dir)
+    # Independent preselected original-row oracle; this is an inspection,
+    # not a stage6 runtime approval and no search-core implementation is read.
+    from scripts.check_sendai_expansion import raw_day_kinds
+    from tests.sendai_municipal_oracle import optimum, runs
+    review=json.loads((F/'municipal_review_20261017_stage5.json').read_text(encoding='utf-8'))
+    pattern=dict(summary['pattern'])
+    pattern['entire_driven_path_municipality']='04100'
+    pattern['service_kind']='local'
+    pattern['map_evidence']=pattern['map_evidence'][0]
+    review['bus_patterns'].append(pattern)
+    pub=json.loads((F/'published_20230701.json').read_text(encoding='utf-8'))
+    subway={name:base64.b64decode(v['cp932_base64'],validate=True) for name,v in pub.items()}
+    days=raw_day_kinds(review['operating_period'])
+    seeds=[
+        ('reverse16_bus_only','2026-11-19',540,'sendai_bus:5181_10','sendai_bus:4253_50'),
+        ('reverse16_bus_return','2026-11-19',540,'sendai_bus:4135_10','sendai_bus:5181_0'),
+        ('reverse16_bus_rail','2026-11-19',540,'sendai_bus:4123_10','sendai_subway:tozai/仙台'),
+        ('reverse16_rail_bus','2026-11-19',540,'sendai_subway:tozai/仙台','sendai_bus:4253_50'),
+        ('reverse16_saturday','2026-11-21',540,'sendai_bus:5181_10','sendai_bus:4253_50'),
+        ('reverse16_holiday','2026-11-23',540,'sendai_bus:4135_10','sendai_bus:5181_0'),
+        ('reverse16_lastday','2026-11-30',540,'sendai_subway:tozai/仙台','sendai_bus:4253_50'),
+        ('reverse16_late_weekday','2026-11-19',660,'sendai_bus:5181_10','sendai_bus:4253_50'),
+        ('reverse16_late_weekend','2026-11-21',660,'sendai_bus:5181_10','sendai_bus:4253_50'),
+        ('reverse16_holiday_rail','2026-11-23',540,'sendai_bus:4123_10','sendai_subway:tozai/仙台'),
+    ]
+    computed={}
+    raw_cache={}
+    for name,day,minute,origin,destination in seeds:
+        if day not in raw_cache:raw_cache[day]=runs(fixture['files'],subway,days,date.fromisoformat(day),review)
+        ans=optimum(raw_cache[day],review,origin,destination,minute,max_boardings=3,max_minutes=180)
+        computed[name]={'day':day,'depart':minute,'origin':origin,'destination':destination,
+            'arrival':None if ans is None else int(ans)}
+    print('SENDAI_STAGE6_CASES='+json.dumps(computed,ensure_ascii=False,sort_keys=True),flush=True)
     print('SENDAI_STAGE6_INSPECTION='+json.dumps(summary,ensure_ascii=False,sort_keys=True),flush=True)
     data=(json.dumps(fixture,ensure_ascii=False,sort_keys=True,indent=2)+'\n').encode('utf-8')
     encoded=base64.b64encode(data).decode('ascii')
