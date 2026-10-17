@@ -1451,3 +1451,60 @@ run [39044787470](https://github.com/kaeruko/tobus_go/actions/runs/39044787470) 
 実HTTPの成功markerは `NORMAL_SENDAI_REAL_HTTP_OK`。通常画面Chromeはrouting responseをmockせず、上流Places fixtureとMap描画面fixtureの検証限界は22.3節のとおり。期間末日11/30は09:38着、10/25・11/22・12/1・期間前は拒否し、pass未選択の通常運賃経路や不正な敬老選択を無料成功へ読み替えない。有効な本人の乗車証所持は利用者による前提・明示選択であり、実所持をオンライン認証したという意味ではない。新しい全路線監査や旧112組gateを別途繰り返さず、今回の境界と通常CIを検査した。
 
 最終の成功記録コミットは本書だけを変更し、上記の検証済みコード・テスト・データを保持する。本番公開は行わない。一般住所からの広い歩行接続、実Googleサービスのキー付き疎通、現場確認、通常運賃backendの上限/性能、未確認事業者・駅接続・市外部分区間・特別ダイヤと次版は残課題である。
+
+## 23. 東京・仙台の徒歩アクセス処理を共通化（2026-10-18）
+
+### 23.1 既存挙動を維持する抽出
+
+開始main `a028dbf847d527a622f82f35c64bb889de305664`、通常CI [39047429833](https://github.com/kaeruko/tobus_go/actions/runs/39047429833) と通常座標/Chrome [39046157376](https://github.com/kaeruko/tobus_go/actions/runs/39046157376) は成功済み。開始時の未マージPR・進行中CIは0件だった。本段階は徒歩処理の共通化であり、対応路線・停留所・乗換拠点・徒歩許可範囲を追加する工程ではない。
+
+`api/walking_access.py` にHaversine距離、元の列挙順を保つ距離候補、同距離先着のnearest、GTFSの距離/ID順、徒歩換算、徒歩表示集計、方向別地上review照合を集約する。`api/toei_engine.py`・`api/tokyo_route_engine.py`・`api/gtfs_route_backend.py`・`api/sendai_coordinate_routes.py` はこの処理と既存 `WalkStep` を使う。`api/sendai_coordinate_access.py` は既存の許可設定と長町南の地上reviewデータを保持し、polygon判定やendpoint生成の都市別実装を持たない。graph辺の実経過時間は既存共通 `reviewed_walk_time.py` をそのまま使い、review済み例外と証明対象の実装を維持する。
+
+東京の空間indexの候補順・空の場合の元graph照合・駅filter・同距離先着、徒歩の距離切捨て/丸め順、先頭徒歩への合算、80m/分と最低1分/costの適用順を保持する。共通GTFSの候補距離→具体ID順、整数表示、レビュー済み明示徒歩分数も保持する。仙台では既存の600m候補調査範囲を徒歩許可半径として扱わず、0.01mの座標同一性か個別の方向別地上reviewを要求する。
+
+長町南2番 `7111_10` の既存polygon・原GTFS版・公式のりば図SHA・往復を別々に記載した説明・推定1分/8mを変更しない。8mから時間を再推定せず、公式実測値として扱わない。反対側・他の標柱・建物内へ拡張しない。既存22方向のbus/subwayリンクと地下鉄線間の標準時間/余裕は変更しない。
+
+### 23.2 表示・無料条件・回帰
+
+APIの徒歩は既存共通 `WalkStep.to_mapping()` と徒歩集計へ接続し、仙台の `planning_details`（具体ID、予定時計、標準時間と余裕、根拠SHA、`physical_walk_meters=null`、未実測・未保証）を維持する。未知の実歩行距離を実測0mと表示せず、Flutter側の既存Candidate/StepSeg・RouteCard/RouteDetailPageをそのまま使う。Flutterソース・検索画面の追加/改作は行わない。
+
+8,142具体便・467pattern・2,127 bus pole、乗降制限、無料scope、本人の有効な乗車証所持と明示選択/同意、通常運賃不明、敬老非無料、市外89便の除外、10/25・11/22の除外と11/30末日は従来どおり。SearchCore v2・GTFS Adapter・運賃Policy・駅レビューは変更しない。
+
+ローカルPython 3.12で徒歩関連31件が成功した（新共通境界8件と既存23件、23.387秒）。既存5 ODの通常座標APIは独立raw oracleと具体便witnessに一致し、徒歩全fieldを変更前fixtureと照合した。到着目安は順に附属小→東仙台09:38、霞の目→泉中央2番11:06、仙台5番→泉岳10:48、霞の目→芦口11:07、長町南の確認済み待合歩道→長町駅西口09:24のまま。同一プロセスで未変更mainの座標Adapterとも照合し、5 Candidateは全項目一致した。
+
+全応答の固定hashは、既存input_versionがreview内frozensetの日付reprに依存し、別プロセスでは変わるため回帰基準にできなかった。探索の期待値や実データを変更せず、変更前に採取した全徒歩Stepを `normal_coordinate_parity_20261017.json` へ保存する。新テストの未知距離・方向・曖昧標柱・未確認近接地点の負例と、既存oracleの5実経路・運賃/同意/日付負例を維持する。input_version生成の安定化は本段階には含めない。
+
+新共通module・東京入口・既存徒歩helperの変更も通常座標workflowの対象とし、同じ既存実データ/HTTP/Chrome gateを再利用する。実Places/Maps上流は第22節と同じCI契約fixtureであり、外部サービスの実疎通・現場の徒歩安全性まで認定しない。性能・GitHub Actionsの確定結果と実装SHAは次項へ追記する。
+
+一般地点からの徒歩根拠の拡張・現場確認・実Googleサービス・通常運賃backendの既存上限等は第22節の残課題のまま。本番公開、AWS/S3、Firebase、アプリID、配布・deploy操作は行わない。
+
+### 23.3 既存証明契約の維持
+
+最初の共通化 `e76861a8fd0bd6cd87978dd0f10d92c93b5a95c9` の通常CI [39050860721](https://github.com/kaeruko/tobus_go/actions/runs/39050860721) では、Windowsの既存静的time証明が `unreviewed_transition_implementation contract_index=7` を検出した。既存共通 `walk_edge_elapsed_minutes` 内の距離換算も新helper呼出しへ置き換えたため、証明対象のASTが変わっていた。徒歩の31差分回帰は成功していたが、このCIを成功として扱わない。
+
+`9136b02fb7a4b30fc1cd52c96e526c87d744bb51` で不要な `reviewed_walk_time.py` の変更全体を元mainのblob `dcb08364c20f9ca59ff663e239e5bd0e42bfb05a` に戻した。既存helperは元から都市共通であり、座標の距離候補/徒歩表示の抽出に変更は不要だった。証明ゲートの期待AST・判断条件・入力・経路期待値は変更せず、旧AST SHA256 `b5fe6b98356e9c1f70720418e8b874381a0acfac2f5d39278b6b599235548380` との一致と徒歩25件の再成功を確認した。座標アクセスの新共通化は保持する。
+
+### 23.4 最終の成功CI・実データ・性能
+
+検証済み実装は [`9136b02fb7a4b30fc1cd52c96e526c87d744bb51`](https://github.com/kaeruko/tobus_go/commit/9136b02fb7a4b30fc1cd52c96e526c87d744bb51)。初回の証明契約違反を修正したこの同一SHAで、次の2 workflowの `completed/success` を確認した。
+
+| 成功した実行 | 確認した範囲 |
+| --- | --- |
+| [通常CI #39051058234](https://github.com/kaeruko/tobus_go/actions/runs/39051058234) | 全7ジョブ成功。Python API920件（650.916秒）、Windows277件（54.408秒）、共通SearchCore Python 3.11/3.12各89件とLambda image import、Flutter analyze/unit・東京/仙台Android/iOS build・identity/Firebase分離。解析errorは0、非致命的lint100件は前段と同じ |
+| [通常座標・実データ/Chrome #39051058208](https://github.com/kaeruko/tobus_go/actions/runs/39051058208) | 差分31件（30.460秒）、既存独立raw oracleの5 OD/具体便witness、通常HTTP/旧ID旅程一致と負例、性能測定、通常RouteSearchPageの5経路・Places候補/MapPicker契約・カード/詳細・日本時間再検索、既存IDフォーム4経路がすべて成功 |
+
+実HTTPの成功markerは `NORMAL_SENDAI_REAL_HTTP_OK`。通常画面Chromeは16:54:04 UTC、既存ID Chromeは17:02:50 UTCに `All tests passed.` となった。Places/Map描画面のfixture範囲は第22節と同じで、実外部Googleサービスへの疎通成功に読み替えない。review済み9徒歩Stepの全fieldと5経路の元期待到着を維持した。
+
+同じbenchmark・同じ3 OD/日付/3乗車/180分・各3回のLinux Python3.12実測を示す。ASGI/TestClientの通常HTTP契約を含み、外部通信・Places応答・画面描画の所要ではない。
+
+| 同条件の測定 | 旧ID入口 | 共通化後の通常座標入口 |
+| --- | ---: | ---: |
+| 起動 | 6.055秒 | 6.179秒 |
+| 最大RSS | 370,128 KiB | 369,924 KiB |
+| bus→rail→泉中央2番poleの中央値 | 1.933秒 | 2.126秒 |
+| 仙台5番pole→rail→busの中央値 | 3.600秒 | 3.467秒 |
+| bus→rail→busの中央値 | 1.944秒 | 1.955秒 |
+
+第22.4節の共通化前の通常入口は起動6.267秒・371,128 KiB・同じ3 ODの中央値2.150/3.570/1.962秒。今回の測定に明確な増加は観測されなかった。runner・GC等を統制した速度向上の証明や全ODの時間上限は主張しない。新しいgraph・cache・探索器による性能調整は行っていない。
+
+この後の成功記録コミットは本書と共通設計書だけを変更し、検証済み実装の全コード・fixture・workflow・路線/駅レビューを保持する。公開可能範囲の拡張や本番公開は行わない。

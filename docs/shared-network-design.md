@@ -760,3 +760,22 @@ queue/g_scoreの固定閾値を超える巨大fixtureは追加していない。
 **最終CI結果。** 検証した実装SHAは `2c334b32531367915f23510c8c901a0665a03c23`。GitHub Actions [38795372872](https://github.com/kaeruko/tobus_go/actions/runs/38795372872) は `completed/success`、全7 jobが成功した。Linux APIは1001 test・skip 6、Windowsは236 testで成功し、両jobのlogから新規moduleの29件がそれぞれ全件 `ok` であることも確認した。Repository safety、Rust SearchCoreのPython 3.11/3.12、Flutter analyze/testとAndroid全4 flavor、iOS全4 flavorとidentity/privacy/ATS/Firebase分離検査も成功した。初回Windows失敗を成功へ読み替えた結果ではなく、負例を修正した別SHAでの検証結果である。
 
 今回認定するのは、閉包・遷移照合・実priority・各破棄の完走witness・最初のgoal popを検査できた合成の固定queryにおける主到着1件である。実ネットワークの全OD/時計での完走、同着cost副順位、候補class完全性、真のtop-k、無条件の探索正当性は引き続き未認定。既存の第1〜第4段階の実データ監査と36case比較は呼び直していない。実装/CI登録は予定の4ファイルだけで、最後の成功記録追記は設計書のみ。探索・枝刈り・guard・候補順位・本番設定の変更、本番切替・デプロイ・S3変更は行っていない。
+
+## 51. 東京・仙台の徒歩アクセス処理の共通化（2026-10-18）
+
+開始mainは `a028dbf847d527a622f82f35c64bb889de305664`。徒歩の計算・候補選択を `walking_access.py` へ抽出し、既存の東京ODPT入口、共通GTFS座標入口、仙台reviewed座標入口から利用する。新しい探索器・画面・徒歩ネットワークは作らず、SearchCore v2の探索・順位・枝刈りと既存有向リンクを維持する。
+
+| 共通部分 | 維持する契約 |
+| --- | --- |
+| Haversine距離・距離候補 | 地球半径6,371,000m、緯度/経度の順、半径境界を含む。東京の空間index/graph列挙順と同距離先着、GTFSの距離→stop ID順は元のまま |
+| 徒歩時間 | 80m/分の既存換算、整数表示の切上げ、東京virtual辺の最低1分・小数costと適用順序、zero/負の旧graph辺の1m扱いを保持。reviewの明示分数は距離から再計算しない |
+| 方向別地上アクセスreview | 同一標柱の数値許容、乗降制限による同一座標の標柱識別、方向別polygon照合、曖昧/未確認地点の拒否を共通化。都市側には版・具体標柱・範囲・方向・根拠・推定値を残す |
+| 表示契約 | 既存 `route_engine.WalkStep.to_mapping()` と徒歩距離/区間数の共通集計を使う。東京の先頭徒歩への合算・整数化順と英語、仙台の根拠/余裕/未実測/実歩行距離不明を保持。Flutterの既存共通Candidate/StepSeg・カード/詳細を再利用 |
+
+幾何候補は歩行可能・道路横断・駅出入口・乗換の許可ではない。東京の既存近接接続規則は本変更で拡張・縮小せず、仙台は既存の同一標柱またはreview済み地上範囲だけを許可する。仙台の22方向のbus/subway接続、地下鉄線間接続、本人所持pass・明示選択/同意、運賃Policy、運行日・除外日を変更しない。未確認の反対標柱へ自動接続しない。
+
+差分回帰は、新8件の共通徒歩境界、既存の東京先頭徒歩2件、GTFS表示集計1件、review済み徒歩6件、東京の徒歩経由乗車8件、仙台通常座標6件の計31件。仙台は既存5 ODの独立raw oracle・具体便witnessを再利用し、変更前に取得した全徒歩Stepのfieldも比較する。同一プロセスの変更前後の通常Candidateは5 ODすべて全項目一致した。別プロセスでは既存の `repr(frozenset(valid_days))` を含む入力版tokenと派生IDが変わるため、永続fixtureに全応答hashは用いない。入力版生成方式自体は本変更で修正せず、徒歩の全表示fieldを固定し、旅程本体は既存oracleで検査する。
+
+新共通moduleの変更も既存の `sendai-normal-coordinates.yml` を起動するようpath契約を追加した。承認済みGTFSの既存SHA取得、通常HTTP/ID同一性、性能測定、通常RouteSearchPageのChrome5 ODと既存ID Chrome4 ODを再利用する。旧全路線/112組監査の再実行は追加しない。成功CIの記録は仙台設計書第23節へ記す。
+
+最終実装は `9136b02fb7a4b30fc1cd52c96e526c87d744bb51`。既存graph共通helperの証明対象ASTも元実装のまま保持し、証明基準を変更しない。同じSHAの [通常CI #39051058234](https://github.com/kaeruko/tobus_go/actions/runs/39051058234) 全7ジョブと、[実データ/通常画面・旧ID Chrome #39051058208](https://github.com/kaeruko/tobus_go/actions/runs/39051058208) が成功した。Python API920件、Windows277件、差分徒歩31件と通常画面5/旧ID4経路を確認。初回の不要な既存helper変更の撤回、元の歩行許可範囲、性能測定と検証限界は仙台設計書第23節に記録した。
