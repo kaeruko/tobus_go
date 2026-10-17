@@ -1302,16 +1302,50 @@ Z60の短patternは長町南を通らないが、長町南を通る56便だけ�
 
 全49日分の巨大raw run配列を繰り返さず、各朝の固定queryに前日の24時超便が重ならず、期限が翌日へ達しないことを確認した同一入力窓を用いる。最初は地下鉄に24時超時計がないという強すぎる検証仮説で停止したため、実際に前日便がqueryへ重なり得るかという条件へ訂正した。時計・calendar・検索上限・元データ・期待到着は変えていない。
 
-到達範囲は11/19 09:00・最大3乗車・180分に固定し、全乗換拠点を除く地下鉄24駅から新規1,834 bus poleへの44,016組を対象とする。既存raw oracleの同じlayer scanを全目的地の最早値として一度返せるよう整理し、24始点について照合した。**新規736具体pole・530停留所名へ15,262組**が成立し、全24始点が少なくとも1つに到達する。起点に乗換リンクがなく終点も駅隣接リンクを持たないので、実際のrail乗車とbus乗車を伴う。前段では新pole未登録により0組。逆方向全組・全時刻・徒歩圏人口の成果には読み替えない。固定OD到着SHA `f1f98ca862863e8ed1261898346eebb59d86e11c0da4fc64da339ef00017a978` とpole別件数は `municipal_bulk_reachability_20261017.json` に保存した。
+到達範囲は11/19 09:00・最大3乗車・180分に固定し、全乗換拠点を除く地下鉄24駅から新規1,834 bus poleへの44,016組を対象とする。既存raw oracleの同じlayer scanを全目的地の最早値として一度返せるよう整理し、24始点について照合した。**新規736具体poleに対応する530停留所名へ15,262組**が成立し、全24始点が少なくとも1つに到達する。530名称のうち502は前段の全164停留所名に存在せず、28は前段と同名の追加標柱である。530全てを新しい場所とは数えない。起点に乗換リンクがなく終点も駅隣接リンクを持たないので、実際のrail乗車とbus乗車を伴う。前段では新pole未登録により0組。逆方向全組・全時刻・徒歩圏人口の成果には読み替えない。固定OD到着SHA `f1f98ca862863e8ed1261898346eebb59d86e11c0da4fc64da339ef00017a978` とpole別件数は `municipal_bulk_reachability_20261017.json` に保存した。
 
 新Chromeは既存フォームで、110のbus単独、霞の目→地下鉄、地下鉄→泉岳、南光台循環の4条件を実操作する。大きな選択一覧では、既存の `scrollUntilVisible` を同じ開いたmenuへ使い、実viewportの半分を進む重なりのあるgestureとextent由来の有限予算を用いる。要素が見つからなければviewport・extent・delta・予算・元例外を残して停止する。別APIで検索を代行したり、入力を変更したりせず、製品フォームも変更しない。
 
 初回実装 `8cdea1cd65ed05e08fa96d4b2c25169cccb50b56` の実データCI [39029293400](https://github.com/kaeruko/tobus_go/actions/runs/39029293400) は原GTFS全件・11条件・到達範囲・性能測定まで成功したが、新Chromeの乗車証選択で `Exact option/fixed row height missing: pass=sendai_fureai_pass; index=0, height=null` と停止した。テストヘルパーが固定行高を想定した誤りであり、成功と記録しない。実フォームの可変行高に合わせて上記の既存スクロール操作へ訂正し、別経路を順に試すfallbackは設けない。全query・期待到着・API・backend・承認データ・製品フォームは同じままである。
 
-ローカル新6回帰は88.394秒で成功。通常CI・実データ/Chromeと同一runnerの性能測定の結果は次項へ追記する。旧112組など成功済み監査を改めて呼び直さず、今回の全件整合性と代表query、通常CIの回帰を実行する。
+ローカル新6回帰は88.394秒で成功。通常CI・実データ/Chrome・同一runnerの性能測定の成功結果は21.6・21.7に記録する。旧112組など成功済み監査を改めて呼び直さず、今回の全件整合性と代表query、通常CIの回帰を実行した。
 
 ### 21.5 公開へ残る課題
 
 市外通過89便の市内部分はwhole-run scopeでは検索できない。具体便を分割・合成せず対象区間を扱う改善は別課題とする。全市営busを無条件無料とする入口は設けない。今回の公式版・市内完結patternレビューを別版へ自動継承せず、次版は同じ一括棚卸しとの差分を明示確認する。12月版取得は今回の主作業にしていない。
 
 全駅/全のりばへの乗換、八木山の新接続、一般住所・近接pole間の歩行、宮城交通、臨時ダイヤ・特別日の便別影響、実測乗換・実端末操作・大量停留所の操作性、日付別network構築コスト、本番公開は未完。今回の追加だけで全市・全事業者・任意日・全ODを保証しない。
+
+### 21.6 同一runnerでの性能比較
+
+成功した一括実データrun [39029801537](https://github.com/kaeruko/tobus_go/actions/runs/39029801537)、実装SHA `5ecaf526c2c18ca976dbfbdca2e9d975c72c26ac`、Linux Python 3.12.15で `benchmark_sendai_municipal_bulk.py` を実行した。同じ原GTFS・共通SearchCore・query条件を使い、前段752便scopeと8,142便scopeをそれぞれfreshな別プロセスで起動し、3経路を各3回測った。前段側も今回の同じloader索引を使い、ここでは路線網拡大による増加を比較する。
+
+| 測定 | 前段752便scope | 一括8,142便scope |
+| --- | ---: | ---: |
+| 元GTFS検証・読込 | 1.597秒 | 1.604秒 |
+| 地下鉄読込＋network構築 | 1.311秒 | 3.044秒 |
+| 起動合計 | 2.907秒 | 4.648秒 |
+| プロセス最大RSS | 201.2 MiB | 329.0 MiB |
+| 芦口小学校→泉中央の検索中央値 | 0.350秒 | 1.548秒 |
+| 泉中央→芦口小学校の検索中央値 | 0.459秒 | 1.791秒 |
+| 志波町→日赤病院の検索中央値 | 0.449秒 | 1.915秒 |
+
+各検索の到着値592/607/658分は全3回・両scopeで同じ。最大RSSはfixture JSONやretained heapのサイズではなく、読込・構築・検索を含むプロセスのhigh-water markである。query時間には現行の日付別network再構築を含み、coreのlabel探索だけの計測ではない。全OD・混雑時・実端末・本番APIの性能保証ではなく、路線増加に伴う処理/メモリ増を確認する代表測定である。数値を検証条件に合わせて丸めて通す閾値は設けていない。
+
+別途ローカルの同一原入力・全467patternについて、変更前と変更後のpattern照合部分だけを比較し、全8,142便の一致を確認した。反復全trip sort方式は8.1995秒、索引方式は0.0390秒。これは照合部分の比較で、API全体が同じ倍率で速くなるという意味ではない。大きくなったnetworkの構築・日付別再構築は残るため、次の性能改善候補として記録する。
+
+### 21.7 最終実装と成功CI
+
+一括データ・loader索引の実装は [`8cdea1cd65ed05e08fa96d4b2c25169cccb50b56`](https://github.com/kaeruko/tobus_go/commit/8cdea1cd65ed05e08fa96d4b2c25169cccb50b56)、Chromeヘルパー訂正後の検証済み実装は [`5ecaf526c2c18ca976dbfbdca2e9d975c72c26ac`](https://github.com/kaeruko/tobus_go/commit/5ecaf526c2c18ca976dbfbdca2e9d975c72c26ac)。後者の変更は新Chromeテストと本書だけで、路線・接続・query・期待到着・製品コードは前者と同じである。
+
+| 成功した実行 | SHA・結果 |
+| --- | --- |
+| [一括実データ・Chrome #39029801537](https://github.com/kaeruko/tobus_go/actions/runs/39029801537) | `5ecaf526`・completed/success。新6回帰71.810秒、全471pattern分類・承認8,142便/213,118行・49 review営業日整合性、固定11条件（成功10・不成立1）のraw/core/witness/API一致、15,262組の独立到達範囲と到着SHA一致、別プロセス性能比較、同じ既存フォームのChrome4条件成功 |
+| [通常CI #39029801540](https://github.com/kaeruko/tobus_go/actions/runs/39029801540) | `5ecaf526`・completed/success、全7ジョブ成功。Python API906件（616.731秒）、Windows277件、共通SearchCore v2 Python 3.11/3.12、Flutter659件、東京・仙台Android/iOSとidentity/privacy/ATS/Firebase分離、repository safety。Dart解析は従来と同じ98指摘、新規増加なし |
+| [既存固定4経路Chrome #39029293386](https://github.com/kaeruko/tobus_go/actions/runs/39029293386) | データ/製品コードの実装SHA `8cdea1cd`・completed/success。新Chromeだけを訂正した後者でも、この既存テスト・API・入力は変更していない |
+
+一括gateの成功markerは `READ_ONLY_SENDAI_MUNICIPAL_BULK_OK`、到達範囲は `SENDAI_BULK_NEW_AREA_REACHABILITY_OK`、性能比較は `SENDAI_BULK_PERFORMANCE_MEASURED`。初回のChrome失敗run39029293400は成功へ読み替えない。先行通常CI39029293384は後続SHAの起動時に既存concurrency制御でcancelledとなったため、通常CIの成功根拠には使わない。
+
+行政界の補助照合も、同じN03原ZIP由来のデータを逐次読み込みする単独処理で全2,149 poleを再確認して完了した。市外は上記4 poleだけであり、別の照合で全4点が多賀城市 `04209` に含まれることも確認した。このpole確認を全走行経路の承認規則に置き換えない。
+
+ここで完了したのは、承認済み有限feedの全路線一括評価、確認済みwhole-runの既存共通ネットワークへの登録、原データ/独立oracle/実UI/通常CIによる検証である。本番公開や未確認の駅接続・市外部分区間の追加は行っていない。最後の成功記録コミットは本書だけを変更し、同じ成功済みコードを保持する。
