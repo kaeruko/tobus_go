@@ -10,7 +10,6 @@ import math
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 from typing import Mapping, Any
-from walking_access import walking_elapsed_minutes, walking_minutes
 
 
 def validate_reviewed_walk_timing(meters: int, minutes: int) -> None:
@@ -18,7 +17,7 @@ def validate_reviewed_walk_timing(meters: int, minutes: int) -> None:
         raise ValueError("reviewed walking meters must be a nonnegative integer")
     if type(minutes) is not int or minutes < 0:
         raise ValueError("reviewed walking minutes must be a nonnegative integer")
-    if minutes < walking_minutes(meters):
+    if minutes < math.ceil(meters / 80):
         raise ValueError("reviewed walking minutes less than the distance minimum")
 
 
@@ -42,13 +41,13 @@ def walk_edge_elapsed_minutes(edge: Mapping[str, Any], *, speed_m_per_min: float
         # Preserve Tokyo's legacy 1-meter fallback for 0 or negative
         # synthetic/virtual walk edges. Only reviewed walking overrides
         # require actual nonnegative measured distance.
-        return walking_elapsed_minutes(meters if meters > 0 else 1.0, speed_m_per_min=speed_m_per_min)
+        return (meters if meters > 0 else 1.0) / speed_m_per_min
     if meters < 0:
         raise ValueError("reviewed walking meters must be nonnegative")
     minutes = edge["reviewed_walk_minutes"]
     if type(minutes) is not int or minutes < 0:
         raise ValueError("reviewed walk minutes must be nonnegative integer")
-    if minutes < walking_minutes(meters, speed_m_per_min=speed_m_per_min):
+    if minutes < math.ceil(meters / speed_m_per_min):
         raise ValueError("reviewed walk minutes shorter than distance minimum")
     return float(minutes)
 
