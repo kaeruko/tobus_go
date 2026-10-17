@@ -901,3 +901,45 @@ Flutterは第15節の通常画面内フォーム・従来の検証ページとca
 既存固定4経路のChrome [39016735119](https://github.com/kaeruko/tobus_go/actions/runs/39016735119) も同SHAで **completed/success**、`All tests passed.`（08:19:00 UTC）。共通loaderの明示stage5許可1行に伴う自動回帰であり、過去の成功runを手動再実行したものではない。共通SearchCore v2の探索・枝刈り・候補順位、Adapter・運行日モデル・無料判定本体、既存各接続、製品Flutterコードは変更していない。
 
 終了時に最新mainと未マージPRを再確認し、確定結果追記はこのコードを親とする文書だけの `[skip ci]` commitに分離する。文書追記で成功済みCIを再起動せず、後続文書SHAを新しいコード検証や正式な実運行認定として扱わない。
+
+## 18. 第6段：荒井16（鶴巻逆循環）を既存荒井hubに追加（2026-10-17）
+
+### 18.1 開始状態・差分対象・出典
+
+開始main `5c9c8caaae1187059890d9b8267e5645a9f6ac91`。第17節の第5段コード `a34c7e05c2ffb9bf8dc3d9c4b4db03825cfd45c9` と成功済み通常CI `39016735104`、市営stage5 CI `39016735110`、旧4経路Chrome `39016735119` を確認。開始時の未マージPR0・実行中CIなし。前段の設計や全データ監査を再実施せず、候補棚卸し `scripts/inspect_sendai_stage4.py` と同じ**公式GTFS・schema2 manifest/member SHA**だけを用いる。
+
+対象は荒井16（鶴巻逆循環）・正確なroute ID `sendai_bus:10022`、短縮番号「16」。同番号の泉地区別routeや15（`10019`）の逆向き仮想便を一切自動承認しない。承認元はODPT仙台市営バスGTFS-JP `20261007_20261130`、元ZIP SHA256 `53a08400776b3229743b24eb53566eb523b354a5b783dcfffd3e40f39258e6a2`、第17節の原manifestおよび原member SHAを維持。新しい `scripts/inspect_sendai_stage6.py` は既承認した8 routeの原行順を再現して変化がないことを確認したうえで、route10022の**全26便/全25停車**を抜き出す。新 `municipal_bus_subset_20261006_stage6.json` には元CSVの正確な原行順で9 routeを保持し、**稼働時にはこのfixtureへfallbackせず原GTFSを利用**する。CIは原ZIP・manifestに対してsubset原行の完全一致をチェックする。
+
+16は1完全pattern、26具体便、650 stop_times。サービスごとの便数は平日`O_20_1`12便、土曜`O_20_2`7便、日祝`O_20_3`7便。第5段310便・12pattern・8071 stop_times・186具体bus stop IDから、**336具体便・13完全pattern・8721 stop_times・201具体停留所ID**へ拡張。追加は**15具体stop ID**（`4039_50`, `4041_50`, `4042_50`, `4123_10`, `4125_10`, `4127_10`, `4129_10`, `4131_10`, `4133_10`, `4135_10`, `4217_50`, `4217_51`, `4219_50`, `4253_50`, `5189_50`）。旧レビューの全310便・全接続・日付はレコード単位で同一。
+
+### 18.2 全走行路線・公式のりば・仮の乗換時間
+
+第17節で保持済みの[令和8年4月霞の目系統図](https://www.kotsu.city.sendai.jp/wp-content/uploads/2026/03/r0804-4_kasuminome.pdf)（原bytes SHA256 `2b7191d3cc03de50f93ea4bfb3da9766abd8a86ccf624baf9b5c2290e64493e8`）を方向別に引き継ぐ。荒井駅1番 `5181_10` →荒井六丁目→六丁の目南町→若林体育館前 `4217_50` →東部工場団地→狐塚→岡田西町→鶴巻 `4253_50` →鶴巻保育所前 `4135_10` →福田町→扇町→宮城運輸支局前 `4123_10` →宮城県印刷会館→若林体育館前 `4217_51` →荒井到着用 `5181_0` の完全25停車。市内完結のwhole-runのみを採用する。同名の「鶴巻」でも15側の`4253_10`とは別poleで、既存の若林体育館や全乗降制約も具体IDを維持する。
+
+新しい乗換接続は**0件**。第17節で認定済みの `sendai_subway:tozai/荒井` → `sendai_bus:5181_10`（荒井駅1番、中央1出入口、仮の標準5分＋余裕2分）をそのまま共有する。bus5181_10→地下鉄は生成しない。元の到着5181_0→地下鉄と2番5181_11、泉中央の方向別リンクも保持する。5分＋2分は検証用計画仮定で、公式実測・接続保証・正式余裕時間ではない。
+
+### 18.3 固定原データ経路・新しいテスト
+
+`municipal_fixed_cases_20261017_stage6.json` は従来と同じ最早1候補、最大3乗車、180分、2026-11-30までの**通常運行日のみ**。原GTFS `trips/stop_times/calendar/calendar_dates` と地下鉄CP932原時刻表から独立に算出して、SearchCore v2の出力より前に以下の予定値を固定した。
+
+| 種別・OD | 2026年の検索日・時刻 | 到着目安 |
+| --- | --- | --- |
+| 16単独：荒井駅1番→鶴巻 | 11/19 09:00 | 09:23 |
+| 16単独：鶴巻保育所前→荒井到着用 | 11/19 09:00 | 09:42 |
+| 16→地下鉄東西線：宮城運輸支局前→地下鉄仙台 | 11/19 09:00 | 10:03 |
+| 地下鉄東西線→16：地下鉄仙台→鶴巻 | 11/19 09:00 | 10:51 |
+| 土曜16単独：荒井駅1番→鶴巻 | 11/21 09:00 | 09:59 |
+| 祝日16単独：鶴巻保育所前→荒井到着用 | 11/23 09:00 | 10:17 |
+| GTFS末日・地下鉄→16：地下鉄仙台→鶴巻 | 11/30 09:00 | 10:51 |
+
+新しい `tests.test_sendai_stage6` **7件**は原行oracle・具体便witness/API、平土祝26便、既存310便と全部の有向接続・日付固定、15/16の方向別pole差、改変拒否、同番号の別routeを拒否、201具体pole、対応外日付を検査する。11/3・11/23祝日サービス、48候補日、10/25と11/22除外、12/1・11/30深夜の未認定境界422停止は変更しない。有効ふれあい乗車証を明示選択する利用者のみ追加支払0円（通常運賃は不明）。
+
+製品の通常Flutter UIは変更しない。既存debug・明示localhostテストAPIの埋込みフォームに16の実stop IDsを追加表示し、`integration_test/sendai_stage6_chrome_test.dart` は上記の平日最初・バス→地下鉄・地下鉄→バスの3固定条件をChrome実操作で検証する。SearchCore v2、Adapter、探索/枝刈り/順位、東京公開機能、東京・仙台ID、AWS/S3、本番deploy、ストア提出は変更しない。
+
+### 18.4 検証根拠・残課題
+
+実装commitは **`fb6d7f1196fc11d9ec8ed923613921ac0a278699`**。専用CI [`39018704442`](https://github.com/kaeruko/tobus_go/actions/runs/39018704442) は同SHAで **completed/success**。新規Python7件、既存の公式ZIP/manifest/member SHAとsubset原行完全一致、7件の原行独立oracle・具体便witness/ASGI照合が成功し、`READ_ONLY_SENDAI_STAGE6_NEW_SEVEN_OK` を確認。同じ元GTFSから起動したlocalhost APIを使うFlutter Chromeの3実経路も `All tests passed.`。既存4経路Chrome [`39018704419`](https://github.com/kaeruko/tobus_go/actions/runs/39018704419) も同SHAで **completed/success**。
+
+通常CIは [`39018704501`](https://github.com/kaeruko/tobus_go/actions/runs/39018704501)（同SHA）。Python API884件、Windows277件、共通SearchCore v2 Python3.11/3.12各89件、Flutter659件、Android東京/仙台、repository safetyが成功した。Flutter解析は既存ゲートで成功・非致命的既存issue97件を保持。**iOSの最終CI判定はこの段落の作成時点では進行中**。最終判定は取得後に追記し、完了前に全7ジョブ成功とは書かない。
+
+次の難所は仙台駅・長町などの未レビュー乗換拠点（Astra Proへの別作業）。宮城交通、一般住所、全市営バス対応、他の候補route、特別ダイヤ便別確定、12月以降の新feed、正式な乗換実測と実機検証は未対応。現行の検証用運行・乗換は実運行を保証しない。
