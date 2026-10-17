@@ -1062,3 +1062,15 @@ Flutterは第15節の通常画面内フォーム・従来の検証ページとca
 新reviewは `municipal_review_20261017_stage7.json`。同じ起動コマンドの `--municipal-review` で明示指定し、`--use-reviewed-operating-period --accept-experimental-transfer-model` と、有効ふれあい乗車証の本人所持・明示選択を維持する。48候補日・11/30まで、10/25/11/22除外、12/1および末日深夜の未確認翌日を必要とする検索の422停止を保持する。追加支払0円と通常運賃不明を区別し、敬老乗車証を無料化しない。
 
 今回の仙台駅対応は5/60番と308/J308・地下鉄2線の上記動線に限定する。他のりばの全路線対応や正式な乗換所要時間、バリアフリー保証、実端末の認定ではない。長町・長町南は地下鉄の検索先として利用できるが、同駅の新しいバス乗換接続は今回追加しない。次工程は同駅の公式動線と具体poleのレビュー、仙台駅他のりばと候補路線、特別ダイヤの便別影響、新しい12月以降のfeed。宮城交通・一般住所・全市一括・本番API/公開接続は未対応。本番API・東京・アプリID・Firebase・AWS/S3・deploy・storeは変更しない。
+
+### 19.5 確定コード・実データ・Chrome・通常CI
+
+実装commitは **`0adc169972a1169730c6cb553eb58c8c6125f286`**。第7段専用CI [39023382619](https://github.com/kaeruko/tobus_go/actions/runs/39023382619) は同SHAで **completed/success**。新規Python8件（98.445秒）、承認元ZIP・schema2 manifest/member SHA・subset全原行順一致、新14条件の独立raw最早値・全具体便witness・ASGI照合が成功し、`READ_ONLY_SENDAI_STAGE7_SENDAI_HUB_OK` を確認した。新エリアの固定条件全組合せも616/560組・全OD到着値SHAまで再現し、`SENDAI_STAGE7_NEW_AREA_REACHABILITY_OK` を確認した。
+
+同じ原GTFSから起動したlocalhost APIを使うChromeでは、既存Launcherの埋込みフォームを展開して、308単独、J308→南北線、南北線→308、J308→東西線、東西線→308の**新5経路**を実操作で検索した。09:25/10:00/09:55/09:55/09:55の到着目安、60番の北2・5番の南4、方向別の仮の時間と余裕の表示を確認し、`All tests passed.`（10:17:46 UTC）。フォームやAPI、query、探索上限、元データを失敗時に変更する処理はない。
+
+通常CI [39023382953](https://github.com/kaeruko/tobus_go/actions/runs/39023382953) も同SHAで **completed/success・全7job成功**。API **892件**、Windows **277件**、共通SearchCore v2 Python3.11/3.12 **各89件**、Flutter **659件**が成功した。東京・仙台のAndroid/iOS両flavor（iOS各ビルド10:11:26/10:16:12 UTC）、iOS identity/privacy/ATS/Firebase分離、repository safety、Lambda image build/importも成功した。解析は既存CI条件で成功し、指摘は98件（従来97件＋新規Chromeテストの文字列補間の不要な波括弧info1件）。解析指摘0件とは扱わない。この書式infoの整理は挙動に影響しない小課題として残る。
+
+既存固定4経路のChrome [39023382732](https://github.com/kaeruko/tobus_go/actions/runs/39023382732) も同SHAで **completed/success**、`All tests passed.`（10:05:16 UTC）。共通loaderの明示profile許可に伴う自動回帰であり、旧成功runの手動再実行や過去全経路監査の再実施ではない。SearchCore v2・Adapter・運賃判定本体・Flutter製品フォームは全て同じコードを使っている。
+
+終了時mainは上記コードSHA・未マージPR0を再確認した。確定結果はこのコードを親とする文書だけの `[skip ci]` commitに分離し、成功済みCIを文書追記で再起動しない。後続の文書SHAは新しいコード検証や実運行の正式認定を意味しない。本番公開・deployは実施していない。
