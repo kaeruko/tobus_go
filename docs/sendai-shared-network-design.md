@@ -659,3 +659,29 @@ flutter run -d chrome -t lib/main.dart `
 既存の `SendaiPracticalTestPage` に `embedded` を設け、仙台debugかつ明示 `SENDAI_TEST_API_BASE` でだけ通常の検索画面からフォームを**展開**できるようにする。出発地・目的地・日付・時刻・有効ふれあい乗車証の明示選択・乗換仮設定、検索・目安結果を従来と同じテストAPIで表示する。従来の検証ページへの入口も維持する。Release/Tokyo/未指定URLでは入口は表示しない。一般住所・宮城交通・未確認路線は追加せず、通常 `/route` や利用者設定・東京・native ID・Firebase・AWS/S3・deploy・storeも変更しない。
 
 原ZIPを使う新専用CIの `--profile stage3` はstage2と同じ検証済みZIPとschema2 manifestを使い、新しい11月7ケース（平日バス、バス＋地下鉄、地下鉄→バス、2地下鉄、祝日、土曜、地下鉄単独）だけを原行oracle・具体便・APIと照合する。既存4経路と住吉台方面の回帰は通常CIに保持し、Chromeは11月の選択・検索を実画面で検査する。成功が確定する前にCI結果を記載しない。
+
+### 15.1 実装と実データ検証の確定結果
+
+コード・テストの最終認定sourceは **`c95ce0d1c0a1a8ec691dc64a0ab1ac5346324e98`**。第13・14節の197便・8pattern/99具体停留所、検証済み接続、公式GTFS-JP版とmanifestを保持した。第15節の新しいreviewの対象日だけを明示拡張し、共通SearchCore v2・東京API・本番release設定・アプリID・Firebase・AWS/S3・公開deployは変更していない。
+
+[11月専用CI `38985954491`](https://github.com/kaeruko/tobus_go/actions/runs/38985954491) はこのsourceで **completed/success**。新しいPython `tests.test_sendai_stage3` **3件**、承認済み原ZIP/schema2 manifest/member SHAとstage2 subset原行、7件の独立rawオラクル・具体trip witness・ASGI APIが成功し、`READ_ONLY_SENDAI_STAGE3_NOVEMBER_OK` を確認した。独立rawとの照合結果は以下（すべて2026年、出発・到着は計画値、接続/実到着の保証ではない）。
+
+| 検索日 | 原行で固定したOD | 出発条件 | 到着目安 | 利用モード |
+| --- | --- | --- | --- | --- |
+| 11/19 | 住吉台西三丁目→泉中央駅 | 09:00 | 09:49 | 市営バス |
+| 11/19 | 住吉台西三丁目→地下鉄仙台 | 09:00 | 10:16 | 市営バス＋南北線 |
+| 11/19 | 地下鉄仙台→住吉台西三丁目 | 08:20 | 09:57 | 南北線＋市営バス |
+| 11/19 | 住吉台西三丁目→地下鉄荒井 | 09:00 | 10:43 | 市営バス＋南北線＋東西線 |
+| 11/03 | 住吉台西三丁目→泉中央駅（祝日） | 09:00 | 10:09 | 市営バス |
+| 11/21 | 泉中央駅→住吉台西三丁目（土曜） | 09:00 | 10:23 | 市営バス |
+| 11/19 | 地下鉄仙台→泉中央駅 | 09:00 | 09:20 | 南北線 |
+
+同じrunの実Flutter/Chromeは**6件**（上表の2地下鉄線を使う3乗車経路以外）を、元GTFSから起動したlocalhost APIで選択・検索し、`All tests passed.` を確認。48候補日、10/25・11/22除外、11/03・11/23休日サービス、11/30日中の可否と12/01依存の拒否は新規Pythonテストが確認した。元GTFSをテスト用subsetへ差し替えたり、テストに都合の良いOD・APIや時刻を変更していない。
+
+[通常CI `38985954613`](https://github.com/kaeruko/tobus_go/actions/runs/38985954613) は同じ `c95ce0d1` で **completed/success・全7job成功**。Python API **862件**、Windows回帰 **277件**、共通SearchCore v2のPython 3.11/3.12 **各89件**、Flutterテスト **659件**が成功した。Flutter解析はジョブの既存判定条件で成功し、解析出力には非致命的なissueが97件ある（0件とは扱わない）。東京・仙台Android両flavor、iOS両flavorとidentity/privacy/ATS/Firebase分離、repository safety、Lambda image build/import検査も成功。本番デプロイは一切行っていない。
+
+旧4経路の独立Flutter/Chrome回帰も [`38984747227`](https://github.com/kaeruko/tobus_go/actions/runs/38984747227) で成功。そこからの変更は新規11月テストとフォームエラーテキストに対応するテストのみであり、旧4経路の入力・期待到着値・backendは保持されている。途中のChrome失敗は、直接日付入力後の候補タップ位置、非同期HTTP待ち、ListView遅延描画を原因別に診断し、無関係な経路やデータへ切り替えず最終成功とした。
+
+公開対応の残課題は、宮城交通・未認定市営pattern/駅接続、一般住所からのアクセス徒歩、本番で使える正式な乗換時間、全特別ダイヤの便別影響、12/01以降の新feed/日付レビュー、実端末と多言語・通常公開検索APIへの本接続。11/22の保守的な全検証モデル除外は地下鉄の運休を意味しない。11/30深夜も翌日の未確認サービスへ拡張しない。
+
+この最終反映は、成功の根拠を固定する文書のみの `[skip ci]` commitとする。後続の文書SHAをコードの新しい合格証拠として扱わず、上記 `c95ce0d1` とrun IDに結び付ける。
