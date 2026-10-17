@@ -54,8 +54,11 @@ def worker(api_root,directory,profile):
                 core_seconds=[]
                 original_search=practical.search_network
                 def traced(*args,**kwargs):
-                    begin=time.perf_counter();result=original_search(*args,**kwargs)
-                    core_seconds.append(time.perf_counter()-begin);return result
+                    begin=time.perf_counter()
+                    try:
+                        return original_search(*args,**kwargs)
+                    finally:
+                        core_seconds.append(time.perf_counter()-begin)
                 with patch.object(practical,'build_transit_network',wraps=practical.build_transit_network) as builds, \
                      patch.object(practical,'search_network',side_effect=traced):
                     begin=time.perf_counter()
@@ -108,7 +111,10 @@ def main():
         for profile,api_root in (('before',Path(directory)/'api'),('after',ROOT/'api')):
             completed=subprocess.run([sys.executable,__file__,'--worker',profile,'--api-root',str(api_root),
                 '--bus-gtfs-dir',str(args.bus_gtfs_dir.resolve())],check=True,stdout=subprocess.PIPE,text=True)
-            results.append(json.loads(completed.stdout))
+            value=json.loads(completed.stdout)
+            results.append(value)
+            print(json.dumps(dict(benchmark_profile_complete=profile,startup_seconds=value['startup_seconds'],
+                peak_rss_kib=value['peak_rss_kib']),ensure_ascii=False),file=sys.stderr,flush=True)
         print(json.dumps(dict(baseline=args.baseline_ref,scope='same runner, 3 fixed + 3 general OD, Nov19 09:00, 3 boards/180min, 3 repetitions; ASGI HTTP conversion, not internet latency',profiles=results),ensure_ascii=False,indent=2))
 
 

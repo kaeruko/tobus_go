@@ -279,6 +279,7 @@ def search_network(
     snapshot: TransitNetworkSnapshot, origin_stop_id: str, destination_stop_id: str,
     *, service_date: date, departure_minute: int | float | Fraction, mode: str,
     parameters: NetworkSearchParameters,
+    _request_choices=None,
 ) -> tuple[NetworkJourney, ...]:
     if origin_stop_id not in snapshot.stops or destination_stop_id not in snapshot.stops:
         raise ValueError("unknown network origin/destination stop")
@@ -289,13 +290,31 @@ def search_network(
     boarding_minutes = exact_minutes(parameters.rail_boarding_minutes, field="rail_boarding_minutes")
     bus_alighting = exact_minutes(parameters.bus_alighting_minutes, field="bus_alighting_minutes")
     rail_alighting = exact_minutes(parameters.rail_alighting_minutes, field="rail_alighting_minutes")
-    choices = DatasetTimetableChoices(snapshot, service_date=service_date,
-                                     deadline=departure_minute + travel_minutes)
+    # Coordinate destinations are distance ordered: later access walks narrow
+    # the transit window. Retain ONE existing provider for the same source,
+    # origin and start, while its lookup window covers the requested window.
+    # search_labels still rejects EVERY option after this pair's own deadline;
+    # no search limit, clock, accepted departure or transfer is extended.
+    choices_key = (id(snapshot), service_date, origin_stop_id, departure_minute, mode)
+    query_deadline = departure_minute + travel_minutes
+    if (_request_choices is None or _request_choices.get("key") != choices_key or
+            _request_choices["choices"].deadline < query_deadline):
+        choices = DatasetTimetableChoices(snapshot, service_date=service_date,
+                                         deadline=query_deadline)
+        if _request_choices is not None:
+            _request_choices.update(key=choices_key, choices=choices,
+                preparations=_request_choices.get("preparations", 0)+1)
+    else:
+        choices = _request_choices["choices"]
+        _request_choices["reuse_hits"] = _request_choices.get("reuse_hits", 0)+1
 
     def prepare_bounds(check_deadline, deadline):
         # Explicit correctness baseline, not recovery from a failed A* builder.
         check_deadline()
-        choices.prepare(check_deadline)
+        if choices.active_trips is None:
+            choices.prepare(check_deadline)
+        else:
+            check_deadline()
         return _ZeroBounds(mode), lambda cost, remaining: cost, lambda clock, remaining: clock
 
     def advance_time(u, v, clock, edge):

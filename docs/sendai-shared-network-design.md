@@ -1560,3 +1560,35 @@ fixtureは各候補の具体ID/距離/徒歩分、rawで成立する組/不成�
 初回実装 `dac58a6659cf56afbd0d8934730486059da01d1b` の実データrun [39054824284](https://github.com/kaeruko/tobus_go/actions/runs/39054824284) は、46差分回帰・実HTTP8 ODを成功したが、続く前後性能比較で `time_limit_sec`・HTTP 503となり停止した。直前の実HTTPの36組比較も14.861秒であり、15秒の既存上限に近かった。このrunを通常画面Chromeの成功根拠にはしない。
 
 network構築は既に1回だったが、各組で約22万行の元stop_timesから最大時計を再走査し、同じnetworkの入力versionも再計算していた。最大時計と入力versionの同じ計算をrequest-local metadataへ保持し、36組の各計算を1回にする。元の日時窓計算式・version生成式・時計・比較・候補6件・36組・3乗車/180分・15秒・max_visitedを変更しない。元の失敗ログ・例外は上記runに保持し、benchmarkも今後は各sampleの測定と失敗HTTP本文を即座に残してから停止する。
+
+この重複削減は探索36回そのものを減らすものではない。ローカルで最大時計の元計算は各9.4〜9.8ms、入力versionは3.4〜4.0msだったため、これだけで大幅な高速化を主張しない。主な追加負荷は候補組を既存探索で比較する回数であり、最終の同一runner測定で評価する。元データのテスト専用networkに `max_visited=1` を明示注入した別の負例でも、2訪問で元のcore例外がHTTP 503となり、完了0組・未比較6組・comparison_complete=falseを保持した。製品の100,000上限を変更したという意味ではない。
+
+### 24.5 変更ファイルと再利用箇所
+
+| 変更ファイル | 追加した接続・再利用する契約 |
+| --- | --- |
+| `api/walking_access.py` | 既存の明示接続照合に任意の分類結果を追加し、GTFSの整数距離表示を抽出。Haversine・候補順・80m/分・Walk集計を共用 |
+| `api/gtfs_route_backend.py` | 元の距離丸めと完成旅程比較を共通helper呼出しへ移す。既存GTFS batchの挙動・時計profile制限を保持 |
+| `api/transit_network_core.py` | 元GTFSの完成候補比較tupleを抽出。探索・順位・枝刈りアルゴリズムは追加しない |
+| `api/transit_timetable_choices.py` | 同じorigin/発車可能時計で検索窓を狭める連続比較に、既存DatasetTimetableChoicesを1個再利用。各組のdeadline・参照/継続処理・徒歩遷移・label探索は保持 |
+| `api/sendai_coordinate_routes.py` | 明示接続優先、役割別一般候補、同じ既存practical探索、徒歩を含む完成比較、期限と未比較診断 |
+| `api/sendai_practical_network.py` | 元の日付別構築を抽出し、request内の同じ日付窓と不変metadataを共有。元具体便・時計/provenance・Policyを保持 |
+| `api/app/route_endpoint.py` | 仙台の候補比較上限だけ追加診断をHTTPへ保持。東京の既存エラー本文は保持 |
+| `api/tests/test_sendai_normal_coordinates.py` | 固定5 OD/raw witness/全徒歩Stepを保持し、従来近接負例を原CSVの件数で個別に分類 |
+| `api/tests/test_sendai_general_access.py` | 13合成契約。具体ID・方向/制限・境界・候補順位・不成立・上限・例外同一性 |
+| `api/tests/test_sendai_general_real.py` | 3施設ODの独立raw最適到着/具体便witness、構築/元走査/version各1回、未承認日と候補なし |
+| `api/tests/fixtures/sendai_subway/general_coordinate_cases_20261018.json` | API照会前に固定した施設座標・両端候補・成立/不成立のraw組・期待到着 |
+| `scripts/check_sendai_normal_http.py` | 実通常HTTPの旧5＋新3 OD、元ID wire、日付/同意/無料条件と限定された比較範囲 |
+| `scripts/sendai_normal_places_fixture.py` | CIの上流Places fixtureに同じ施設座標を追加。routing responseは置換しない |
+| `scripts/benchmark_sendai_general_coordinates.py` | 同一runnerの開始main/変更後・各3回、構築/探索数・探索/HTTP時間・RSS、失敗sampleの診断保持 |
+| `integration_test/sendai_normal_chrome_test.dart` | 既存画面のPlaces7経路＋MapPicker2経路、既存カード/詳細の徒歩推定・元ID・本人所持条件 |
+| `.github/workflows/sendai-normal-coordinates.yml` | 元実データ/HTTP/旧ID Chrome gateを保ち、新差分・同条件前後測定を追加 |
+| `docs/sendai-shared-network-design.md` | 第21〜23節を保持し、本節に範囲・限界・実装・検証・性能を記録 |
+
+### 24.6 同条件の時刻表参照の再利用
+
+metadata共有後 `fb24e1c385296df2b853a89f6e4d51c091c39b47` のrun [39055509959](https://github.com/kaeruko/tobus_go/actions/runs/39055509959) も、実HTTP8 ODは成功したが性能比較の36組目で15秒へ到達して停止した。35組完了・未比較1組は `5055_51 → 7113_50`、HTTP 15.008秒、成功した35探索だけで12.803秒だった。当時の計時は失敗した探索の所要/回数を除外していたため、今後はfinallyで失敗回も計測する。元のcore `time_limit_sec` 例外・503本文・未比較診断を同runに保持し、途中の候補を最適結果として返さない。Chromeの通常画面はこのrunでも未実行であり、成功とは記録しない。
+
+1組の既存探索をprofileしたところ、約184万function call/0.512秒のうち既存 `board_options` が累積0.064秒を占めた。探索の主な追加負荷は36回のlabel/heap/Fraction比較であり、探索・順位・枝刈りは変更しない。既存 `DatasetTimetableChoices` は不変network/営業日/参照窓に対する時刻表lookupを既に保持する。同じsnapshot・origin・発車可能時計・modeで、検索窓が同じか狭くなる連続比較だけ、この既存providerを1個保持する。条件が変わるか検索窓を広げる場合はその1個を置き換えて解放し、次リクエストへ持ち越さない。新しいcache table・検索状態・結果cache・探索器は作らない。
+
+各組のSearchCoreは引き続き独立に起動し、その組の元の旅行時間上限・deadlineを毎回検査する。距離順の目的地候補は徒歩分数が単調非減少で、後続組の乗物検索窓は狭くなる。広い参照窓のboard候補を再利用しても、既存coreがその組のdeadline後の発車をoffer前に除外するため、受理する発車集合は元と同一である。検索窓・最大旅行時間・徒歩時間を延長したり、時刻表の別版を読んだりしない。source calendar準備は同じproviderで1回だけとし、再利用時にもwall deadlineを検査する。`board_options`・`ride_options`・walk時計遷移・SearchCoreのlabel/heap/評価/枝刈りは元のまま。metadata共有の前後に加え、provider再利用の有無でも同じ6組の実旅程wire全fieldが一致し、広い参照窓から短い検索へ遅い便が混入しないこと、徒歩遷移のASTが元のままであることを検査する。一般OD3件の構築1回/探索36・6・6回は保持し、時刻表準備は6・6・1回になる。最終性能とCI成功は別途確認し、単なるcache hitを全候補最適性の証明にはしない。

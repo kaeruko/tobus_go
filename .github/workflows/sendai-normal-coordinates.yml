@@ -9,6 +9,7 @@ on:
       - 'api/walking_access.py'
       - 'api/gtfs_route_backend.py'
       - 'api/transit_network_core.py'
+      - 'api/transit_timetable_choices.py'
       - 'api/tokyo_route_engine.py'
       - 'api/toei_engine.py'
       - 'api/reviewed_walk_time.py'

@@ -53,6 +53,8 @@ class SendaiGeneralRealTests(unittest.TestCase):
                 self.assertTrue(diagnostic['comparison_complete'])
                 self.assertFalse(diagnostic['all_geographic_candidates_compared'])
                 self.assertEqual(diagnostic['completed_pairs'],len(case['origin_candidates'])*len(case['destination_candidates']))
+                preparations={'ward_offices':6,'tai_to_izumi':6,'kasu_to_tai':1}
+                self.assertEqual(diagnostic['timetable_preparations'],preparations[case['name']])
                 origin,dest=(candidate['access'][role] for role in ('origin','destination'))
                 # Match the exact original-run wire, not only its final clock.
                 from sendai_practical_serializer import serialize_practical_journey
@@ -82,6 +84,35 @@ class SendaiGeneralRealTests(unittest.TestCase):
             self.assertEqual(response.json()['candidates'],[])
         response=client.post('/route',json={**base,'target_date_str':'2026-11-30','start_time':'23:59'})
         self.assertEqual(response.status_code,422,response.text)
+
+    def test_same_condition_choices_reuse_preserves_every_full_practical_wire(self):
+        from transit_timetable_choices import NetworkSearchParameters
+        from sendai_practical_serializer import serialize_practical_journey
+        case=self.cases[0];origin=case['origin_candidates'][0]
+        materializations={};metadata={};profiles=[]
+        for choices in (None,{}):
+            complete=[]
+            for _,destination,walk,_ in case['destination_candidates']:
+                values=search_practical_subway(self.fixture.network,origin[1],destination,
+                    civil_date=self.day,departure_minute=540+origin[2],
+                    parameters=NetworkSearchParameters(max_candidates=1,max_boardings=3,
+                        max_travel_minutes=180-origin[2]-walk),
+                    _request_materializations=materializations,_request_metadata=metadata,_request_choices=choices)
+                complete.append([serialize_practical_journey(v) for v in values])
+            profiles.append(complete)
+        self.assertEqual(profiles[0],profiles[1])
+        self.assertEqual(choices['preparations'],1)
+        self.assertEqual(choices['reuse_hits'],5)
+        # The lookup provider still holds later departures from the broad
+        # window. The unchanged core must reject them under a shorter query.
+        short=search_practical_subway(self.fixture.network,origin[1],case['destination_candidates'][0][1],
+            civil_date=self.day,departure_minute=540+origin[2],
+            parameters=NetworkSearchParameters(max_candidates=1,max_boardings=3,max_travel_minutes=1),
+            _request_materializations=materializations,_request_metadata=metadata,_request_choices=choices)
+        expected=arrivals(self.raw,self.fixture.review,origin[1],540+origin[2],max_boardings=3,max_minutes=1)
+        self.assertNotIn(case['destination_candidates'][0][1],expected)
+        self.assertEqual(short,())
+        self.assertEqual(choices['preparations'],1)
 
 
 if __name__=='__main__':unittest.main()

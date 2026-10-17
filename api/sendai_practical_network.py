@@ -267,7 +267,8 @@ def _materialize_practical_days(network, civil_date, days, bus_only):
 
 def search_practical_subway(network, origin, destination, *, civil_date,
                              departure_minute, parameters, realtime=False, mode="time", bus_only=False,
-                             _request_materializations=None, _request_deadline=None, _request_metadata=None):
+                             _request_materializations=None, _request_deadline=None, _request_metadata=None,
+                             _request_choices=None):
     if realtime is not False:
         raise ValueError("practical subway search is static only")
     if mode not in ("time", "fewTransfers"):
@@ -328,7 +329,7 @@ def search_practical_subway(network, origin, destination, *, civil_date,
         parameters = replace(parameters, time_limit_seconds=min(parameters.time_limit_seconds, remaining))
     start = 1440 + departure_minute
     journeys = search_network(snapshot, origin, destination, service_date=anchor,
-        departure_minute=start, mode=mode, parameters=parameters)
+        departure_minute=start, mode=mode, parameters=parameters, _request_choices=_request_choices)
     result = []
     for journey in journeys:
         events, quoted_rides = [], []

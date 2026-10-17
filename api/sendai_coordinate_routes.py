@@ -128,6 +128,7 @@ class _SelectedScope:
         deadline = started + parameters.time_limit_seconds
         materializations = {}  # Immutable date windows, released at request end.
         source_metadata = {}  # One source range/version calculation per request.
+        timetable_choices = {}  # At most one existing same-condition provider.
         diagnostic = {"comparison_complete": False, "completed_pairs": 0, "non_transit_pairs": []}
         try:
             a.period.require_query_days(day, (day,), additional_reviewed_days=(a.network.bus_reviewed_days,))
@@ -160,7 +161,7 @@ class _SelectedScope:
                         max_travel_minutes=180 - origin["minutes"] - destination["minutes"]),
                     mode=mode, bus_only=request.bus_only,
                     _request_materializations=materializations, _request_deadline=deadline,
-                    _request_metadata=source_metadata)
+                    _request_metadata=source_metadata, _request_choices=timetable_choices)
                 if monotonic() > deadline:
                     raise RouteSearchLimitError("Sendai coordinate request deadline exceeded", reason="time_limit")
                 for journey in journeys:
@@ -178,6 +179,8 @@ class _SelectedScope:
                 diagnostic["completed_pairs"] += 1
         except RouteSearchLimitError as error:
             diagnostic.update(network_builds=len(materializations),
+                timetable_preparations=timetable_choices.get("preparations", 0),
+                timetable_reuse_hits=timetable_choices.get("reuse_hits", 0),
                 uncompared_pairs=[[o["stop_id"], d["stop_id"]]
                     for _, _, o, d in pairs[diagnostic["completed_pairs"]:]],
                 elapsed_seconds=monotonic()-started)
@@ -189,6 +192,8 @@ class _SelectedScope:
             raise RouteInputError(str(error)) from error
         candidates = [] if best is None else [_candidate(a.network, best[1], request, best[2], best[3])]
         diagnostic.update(comparison_complete=True, uncompared_pairs=[], network_builds=len(materializations),
+            timetable_preparations=timetable_choices.get("preparations", 0),
+            timetable_reuse_hits=timetable_choices.get("reuse_hits", 0),
             elapsed_seconds=monotonic()-started, optimality_scope="selected_endpoint_pairs_only",
             all_geographic_candidates_compared=False)
         return RouteSearchResult(candidates, {"destination_reachable": bool(candidates),
