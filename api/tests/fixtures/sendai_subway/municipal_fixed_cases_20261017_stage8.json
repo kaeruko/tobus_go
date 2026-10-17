@@ -1,0 +1,235 @@
+{
+  "parameters": {
+    "max_candidates": 1,
+    "max_boardings": 3,
+    "max_travel_minutes": 180
+  },
+  "cases": [
+    {
+      "category": "58_bus_out",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:6008_50",
+      "destination": "sendai_bus:7605_10",
+      "modes": [
+        "bus"
+      ],
+      "expected_arrival_minute": 550,
+      "required_route_id": "sendai_bus:10102"
+    },
+    {
+      "category": "58_bus_in",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:7605_50",
+      "destination": "sendai_bus:7111_11",
+      "modes": [
+        "bus"
+      ],
+      "expected_arrival_minute": 551,
+      "required_route_id": "sendai_bus:10102"
+    },
+    {
+      "category": "z60_long",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:7111_10",
+      "destination": "sendai_bus:7253_10",
+      "modes": [
+        "bus"
+      ],
+      "expected_arrival_minute": 598,
+      "required_route_id": "sendai_bus:10357"
+    },
+    {
+      "category": "n60_return",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:7253_50",
+      "destination": "sendai_bus:7111_11",
+      "modes": [
+        "bus"
+      ],
+      "expected_arrival_minute": 571,
+      "required_route_id": "sendai_bus:10253"
+    },
+    {
+      "category": "z60_short_complete",
+      "civil_date": "2026-11-19",
+      "departure_minute": 390,
+      "origin": "sendai_bus:7265_10",
+      "destination": "sendai_bus:7051_0",
+      "modes": [
+        "bus"
+      ],
+      "expected_arrival_minute": 399,
+      "required_route_id": "sendai_bus:10357"
+    },
+    {
+      "category": "58_bus_namboku",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:7605_50",
+      "destination": "sendai_subway:namboku/泉中央",
+      "modes": [
+        "bus",
+        "rail"
+      ],
+      "expected_arrival_minute": 592,
+      "required_route_id": "sendai_bus:10102"
+    },
+    {
+      "category": "namboku_58",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_subway:namboku/泉中央",
+      "destination": "sendai_bus:7605_10",
+      "modes": [
+        "rail",
+        "bus"
+      ],
+      "expected_arrival_minute": 607,
+      "required_route_id": "sendai_bus:10102"
+    },
+    {
+      "category": "nagamachi_west_in",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:7501_10",
+      "destination": "sendai_subway:namboku/仙台",
+      "modes": [
+        "bus",
+        "rail"
+      ],
+      "expected_arrival_minute": 592
+    },
+    {
+      "category": "nagamachi_west_out_eastbound",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_subway:namboku/長町",
+      "destination": "sendai_bus:7501_0",
+      "modes": [
+        "rail",
+        "bus"
+      ],
+      "expected_arrival_minute": 556
+    },
+    {
+      "category": "nagamachi_west_out_westbound",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_subway:namboku/長町",
+      "destination": "sendai_bus:7605_10",
+      "modes": [
+        "rail",
+        "bus"
+      ],
+      "expected_arrival_minute": 577,
+      "required_route_id": "sendai_bus:10102"
+    },
+    {
+      "category": "58_to_existing_sendai308",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:7605_50",
+      "destination": "sendai_bus:4015_50",
+      "modes": [
+        "bus",
+        "rail",
+        "bus"
+      ],
+      "expected_arrival_minute": 626,
+      "required_route_id": "sendai_bus:10102"
+    },
+    {
+      "category": "existing_sendai_j308_to_z60",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:4015_10",
+      "destination": "sendai_bus:7253_10",
+      "modes": [
+        "bus",
+        "rail",
+        "bus"
+      ],
+      "expected_arrival_minute": 658,
+      "required_route_id": "sendai_bus:10357"
+    },
+    {
+      "category": "58_to_existing_tozai",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:7605_50",
+      "destination": "sendai_subway:tozai/荒井",
+      "modes": [
+        "bus",
+        "rail",
+        "rail"
+      ],
+      "expected_arrival_minute": 603,
+      "required_route_id": "sendai_bus:10102"
+    },
+    {
+      "category": "58_saturday",
+      "civil_date": "2026-11-21",
+      "departure_minute": 540,
+      "origin": "sendai_subway:namboku/泉中央",
+      "destination": "sendai_bus:7605_10",
+      "modes": [
+        "rail",
+        "bus"
+      ],
+      "expected_arrival_minute": 626,
+      "required_route_id": "sendai_bus:10102"
+    },
+    {
+      "category": "n60_holiday",
+      "civil_date": "2026-11-23",
+      "departure_minute": 540,
+      "origin": "sendai_bus:7253_50",
+      "destination": "sendai_subway:namboku/仙台",
+      "modes": [
+        "bus",
+        "rail"
+      ],
+      "expected_arrival_minute": 632,
+      "required_route_id": "sendai_bus:10253"
+    },
+    {
+      "category": "z60_lastday",
+      "civil_date": "2026-11-30",
+      "departure_minute": 540,
+      "origin": "sendai_subway:namboku/仙台",
+      "destination": "sendai_bus:7253_10",
+      "modes": [
+        "rail",
+        "bus"
+      ],
+      "expected_arrival_minute": 598,
+      "required_route_id": "sendai_bus:10357"
+    },
+    {
+      "category": "nagamachi_west_pole_to_rail",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_bus:6008_50",
+      "destination": "sendai_subway:namboku/仙台",
+      "modes": [
+        "rail"
+      ],
+      "expected_arrival_minute": 560
+    },
+    {
+      "category": "nagamachi_rail_to_west_pole",
+      "civil_date": "2026-11-19",
+      "departure_minute": 540,
+      "origin": "sendai_subway:namboku/仙台",
+      "destination": "sendai_bus:6008_50",
+      "modes": [
+        "rail"
+      ],
+      "expected_arrival_minute": 562
+    }
+  ]
+}

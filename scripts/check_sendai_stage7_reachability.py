@@ -20,13 +20,16 @@ from tests.sendai_municipal_oracle import optimum, rows, runs
 F=ROOT/'api/tests/fixtures/sendai_subway'
 
 
-def compute(source,review,previous,published):
+def compute(source,review,previous,published,*,scope=None):
     day=date(2026,11,19);start=540;limit=180
     old={s for p in previous['bus_patterns'] for s in p['stop_ids']}
     added={s for p in review['bus_patterns'] for s in p['stop_ids']}-old
-    hub_bus={'sendai_bus:50_850','sendai_bus:50_210'}
-    hub_rail={'sendai_subway:namboku/仙台','sendai_subway:tozai/仙台'}
-    if len(added)!=44 or not hub_bus<=added:raise ValueError('Explicit new-area scope changed')
+    scope=scope if scope is not None else dict(added_bus_poles=44,
+        hub_bus=['sendai_bus:50_850','sendai_bus:50_210'],hub_rail=['sendai_subway:namboku/仙台','sendai_subway:tozai/仙台'],
+        nonhub_bus_poles=42,rail_vertices=28,new_links=8,disconnected_key='without_sendai_links_pairs',
+        note='44 added concrete poles; exclude two Sendai bus poles and both Sendai rail vertices; bus+rail required by disjoint concrete topology')
+    hub_bus=set(scope['hub_bus']);hub_rail=set(scope['hub_rail'])
+    if len(added)!=scope['added_bus_poles'] or not hub_bus<=added:raise ValueError('Explicit new-area scope changed')
     new_paths={s for p in review['bus_patterns'][len(previous['bus_patterns']):] for s in p['stop_ids']}
     if new_paths!=added:raise ValueError('New bus paths must be concretely disjoint for this metric')
     names={'sendai_bus:'+r['stop_id']:r['stop_name'] for r in rows(source['files']['stops.txt'])}
@@ -38,20 +41,21 @@ def compute(source,review,previous,published):
     window=[r for r in all_runs if min(r['deps'])<=start+limit and max(r['arrs'])>=start]
     rail=sorted({s for r in all_runs if r['mode']=='rail' for s in r['stops']}-hub_rail)
     bus=sorted(added-hub_bus)
-    if len(rail)!=28 or len(bus)!=42:raise ValueError('Explicit non-hub OD universe changed')
+    if len(rail)!=scope['rail_vertices'] or len(bus)!=scope['nonhub_bus_poles']:raise ValueError('Explicit non-hub OD universe changed')
     # New bus paths share no concrete pole with the preceding bus scope.
     # With the eight Sendai links removed there is no edge to the rail/old
     # component; same names are not edges. Do not claim station-adjacent walks
     # alone as bus+rail trips: both Sendai bus poles/rail endpoints are omitted.
     new_links=review['bus_subway_transfers'][len(previous['bus_subway_transfers']):]
-    if len(new_links)!=8 or review['bus_subway_transfers'][:-8]!=previous['bus_subway_transfers']:
-        raise ValueError('Expected exactly eight new directed Sendai links')
+    if len(new_links)!=scope['new_links'] or review['bus_subway_transfers'][:-scope['new_links']]!=previous['bus_subway_transfers']:
+        raise ValueError('Expected the explicit number of new directed links')
     if any((l['from_stop_id'] in added or l['to_stop_id'] in added) for l in previous['bus_subway_transfers']):
         raise ValueError('New area already had an old rail connection')
     result=dict(civil_date=day.isoformat(),departure_minute=start,max_boardings=3,max_travel_minutes=limit,
-        scope='44 added concrete poles; exclude two Sendai bus poles and both Sendai rail vertices; bus+rail required by disjoint concrete topology',
-        added_bus_poles=44,nonhub_bus_poles=len(bus),nonhub_stop_names=len({names[b] for b in bus}),rail_vertices=len(rail),
-        previous_new_area_pairs=0,without_sendai_links_pairs=0)
+        scope=scope['note'],
+        added_bus_poles=scope['added_bus_poles'],nonhub_bus_poles=len(bus),nonhub_stop_names=len({names[b] for b in bus}),rail_vertices=len(rail),
+        previous_new_area_pairs=0)
+    result[scope['disconnected_key']]=0
     for direction in ('bus_to_rail','rail_to_bus'):
         found=[];by_bus={b:0 for b in bus};by_rail={r:0 for r in rail}
         for b in bus:

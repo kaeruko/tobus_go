@@ -1,0 +1,10 @@
+{
+  "added_bus_poles": 48,
+  "hub_bus": ["sendai_bus:6008_50", "sendai_bus:6008_10", "sendai_bus:7111_10", "sendai_bus:7111_11", "sendai_bus:7501_10", "sendai_bus:7501_0", "sendai_bus:7051_12", "sendai_bus:7051_0"],
+  "hub_rail": ["sendai_subway:namboku/長町", "sendai_subway:namboku/長町南", "sendai_subway:tozai/八木山動物公園"],
+  "nonhub_bus_poles": 40,
+  "rail_vertices": 27,
+  "new_links": 8,
+  "disconnected_key": "without_nagamachi_links_pairs",
+  "note": "48 added concrete poles; exclude eight station-adjacent bus poles at Nagamachi east/west, Nagamachi-minami and Yagiyama, and their three rail vertices; bus+rail required by disjoint concrete topology"
+}
