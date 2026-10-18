@@ -165,6 +165,12 @@ void main() {
         final candidate=state.candidates.first;
         expect(candidate.arrivalTime,c[2]);
         expect(candidate.steps.where((s)=>s.isRide).map((s)=>s.kind).join(','),c[3]);
+        for (final rail in candidate.steps.where((s) => s.kind == 'rail')) {
+          expect(rail.title, {
+            'sendai_subway:namboku': '南北線',
+            'sendai_subway:tozai': '東西線',
+          }[rail.routeId]);
+        }
         expect(candidate.planningJourney,isNotNull);
         if (index >= 4) {
           expect(candidate.steps.any((s) => s.kind == 'walk' &&
@@ -182,6 +188,12 @@ void main() {
         await tester.pump();
         await _reveal(tester,find.byType(RouteCard).first);
         expect(find.text('${c[2]}着'),findsOneWidget);
+        if (candidate.steps.any((s) => s.routeId == 'sendai_subway:namboku')) {
+          expect(find.descendant(of: find.byType(RouteCard).first,
+              matching: find.textContaining('南北線')), findsWidgets);
+          expect(find.descendant(of: find.byType(RouteCard).first,
+              matching: find.textContaining('namboku')), findsNothing);
+        }
         await tester.tap(find.byType(RouteCard).first);
         await tester.pumpAndSettle();
         expect(find.byType(RouteDetailPage),findsOneWidget);

@@ -27,6 +27,12 @@ GENERAL_CANDIDATE_LIMIT = 6
 
 POLICY = "sendai_fureai_pass"
 KEIRO_POLICY = "sendai_keiro_pass"
+# Source route IDs stay unchanged in the network, witnesses and ride identity.
+# Only the existing UI title/line fields use these passenger-facing names.
+_SUBWAY_LINE_TITLES = {
+    "sendai_subway:namboku": "南北線",
+    "sendai_subway:tozai": "東西線",
+}
 # This quote belongs only to the explicitly enabled reviewed route scope.
 # Public /fare/policies and /fare/apply must not accept either reviewed pass.
 _KEIRO_FARE_POLICY = StoredValuePassFarePolicy(
@@ -288,7 +294,8 @@ def _candidate(network, journey, request, origin, destination, *, fare_policy_id
         if isinstance(event, PracticalRide):
             ride = event.source
             route = snapshot.routes[ride.route_id]
-            title = route.short_name or route.long_name
+            title = (_SUBWAY_LINE_TITLES[ride.route_id] if ride.mode == "rail"
+                     else route.short_name or route.long_name)
             if _absolute(event.departure) > _absolute(clock):
                 add("wait", "発車待ち", snapshot.stops[ride.from_stop_id].name,
                     snapshot.stops[ride.from_stop_id].name, clock, event.departure,

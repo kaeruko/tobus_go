@@ -104,6 +104,12 @@ class SendaiNormalCoordinateTests(unittest.TestCase):
                     self.assertEqual((step['trip_id'],step['route_id'],step['departureStopId'],step['arrivalPoleId']),
                         (event.source.trip_id,event.source.route_id,event.source.from_stop_id,event.source.to_stop_id))
                     self.assertEqual([p['id'] for p in step['stops']],list(event.source.stop_ids))
+                    if step['kind'] == 'rail':
+                        self.assertEqual(step['title'], {
+                            'sendai_subway:namboku': '南北線',
+                            'sendai_subway:tozai': '東西線',
+                        }[step['route_id']])
+                self.assertEqual(candidate['lines'], [s['title'] for s in serialized])
                 if case['origin_access_minutes']:
                     self.assertEqual(candidate['steps'][0]['kind'],'walk')
                     self.assertEqual(candidate['steps'][0]['minutes'],1)
