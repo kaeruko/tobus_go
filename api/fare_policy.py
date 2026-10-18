@@ -66,6 +66,31 @@ class FareQuote:
             "unavailableReason": self.unavailable_reason,
         }
 
+@dataclass(frozen=True, slots=True)
+class StoredValuePassFarePolicy:
+    """A prepaid card route scope is not a free ride or a percentage discount.
+
+    Card balance, transfer fare and the actual per-ride debit are not in
+    the current reviewed timetable data. Never make up a ¥0 quote.
+    """
+    city_key: str
+    policy_id: str
+    display_name: str
+    source_uri: str
+    settlement_type: SettlementType = SettlementType.NORMAL
+
+    def apply(self, context: FarePolicyContext) -> FareQuote:
+        _require_city(self.city_key, context)
+        return FareQuote(
+            normal_fare_yen=None,
+            pay_now_yen=None,
+            effective_fare_yen=None,
+            policy_id=self.policy_id,
+            settlement_type=self.settlement_type,
+            status="unavailable",
+            unavailable_reason="stored_value_card_debit_not_calculable_from_current_route_data",
+        )
+
 
 class FarePolicy(Protocol):
     policy_id: str
@@ -224,6 +249,12 @@ _POLICY_REGISTRY: dict[str, dict[str, FarePolicy]] = {
     },
     "sendai": {
         "normal": NormalFarePolicy(city_key="sendai"),
+        "sendai_keiro_pass": StoredValuePassFarePolicy(
+            city_key="sendai",
+            policy_id="sendai_keiro_pass",
+            display_name="仙台市 敬老乗車証",
+            source_uri="https://www.city.sendai.jp/korekikaku-kikaku/kurashi/kenkotofukushi/korenokata/katsudo/sedo/joshasho/index.html",
+        ),
     },
 }
 
