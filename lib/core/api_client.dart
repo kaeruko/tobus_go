@@ -45,7 +45,18 @@ class ApiClient {
   }
 
   static Future<void> warmUp() {
-    return _warmUpFuture ??= _performWarmUp();
+    return _warmUpFuture ??= _performWarmUpAndForgetFailure();
+  }
+
+  static Future<void> _performWarmUpAndForgetFailure() async {
+    try {
+      await _performWarmUp();
+    } catch (_) {
+      // Share concurrent requests, but do not poison later retries when
+      // the backend temporarily fails during startup or a cold start.
+      _warmUpFuture = null;
+      rethrow;
+    }
   }
 
   static Future<void> _performWarmUp() async {
