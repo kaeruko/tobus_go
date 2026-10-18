@@ -200,6 +200,9 @@ void main() {
       _stage='existing MapPickerPage selection and confirm contract general=$generalMap';
       notifier.setFrom('');notifier.setTo('');
       notifier.setStartTime(DateTime(2026,11,19,9));notifier.setBusOnly(!generalMap);
+      notifier.setPref('shortTime');
+      expect(container.read(routeSearchProvider).pref,'shortTime',
+          reason:'Map regression retains its original earliest-arrival precondition');
       await tester.pump();
       await _reveal(tester,find.byKey(const Key('route-map-origin')));
       await tester.tap(find.byKey(const Key('route-map-origin')));
