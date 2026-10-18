@@ -676,10 +676,12 @@ class StepSeg {
     this.arrivalPoleId = '',
   });
 
-  // Preserve the original planning metadata; use it only to distinguish
-  // physically unknown walking distance from a measured distance.
+  // An unmeasured physical path can still have a displayable geometric
+  // estimate. Only suppress a misleading 0m for a timed, distance-less walk.
   bool get hasUnknownWalkingDistance =>
       kind == 'walk' &&
+      minutes > 0 &&
+      meters == 0 &&
       planningDetails?.containsKey('physical_walk_meters') == true &&
       planningDetails?['physical_walk_meters'] == null;
 
