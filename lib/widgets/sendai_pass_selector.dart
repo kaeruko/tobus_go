@@ -84,7 +84,9 @@ class _SendaiPassSelectorState extends State<SendaiPassSelector> {
               child: Text(japanese ? '敬老' : 'Senior'),
             ),
           },
-          onValueChanged: _busy ? null : _choose,
+          onValueChanged: (id) {
+            if (!_busy) _choose(id);
+          },
         ),
         if (_error != null)
           Text(_error!, style: const TextStyle(color: CupertinoColors.destructiveRed)),
