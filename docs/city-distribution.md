@@ -77,12 +77,14 @@ is enabled deliberately on both sides. The app can be built with
 Without this define (including the existing store build scripts), only
 `normal` is offered. Tokyo builds are unchanged.
 
-The Sendai Lambda runtime similarly requires `SENDAI_REVIEWED_COORDINATES=1`,
-the approved Sendai GTFS bundle/expected service date and the explicit
-`SENDAI_MUNICIPAL_REVIEW`, `SENDAI_SUBWAY_PUBLISHED` and
-`SENDAI_SUBWAY_REVIEW` files. It fails startup if the reviewed inputs are
-missing or inconsistent; no older feed or another city's API is a fallback.
-The development runtime retains the same opt-in. This only makes the
+The Sendai Lambda runtime similarly requires `SENDAI_REVIEWED_COORDINATES=1`
+and an approved city-owned GTFS S3 bundle that **also contains** the three
+reviewed sources and `sendai_review_manifest.json`. Source/review SHA and
+finite operating-period dates are bound in that manifest. Lambda never loads
+loose reviewed-file environment paths or test fixtures. Missing or inconsistent
+review inputs fail startup; no older feed or another city's API is a fallback.
+The local development runtime continues to use explicit reviewed-file paths.
+See [the staged review-bundle procedure](sendai-review-data-release.md). This only makes the
 validated finite-date bus/subway *pass-selected* network release-capable:
 `normal` still uses the unchanged bus GTFS backend, without inventing a
 subway fare. The 2026-11-30 limit and exclusions remain. Fureai eligibility
