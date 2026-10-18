@@ -53,7 +53,7 @@ void main() {
       expect(profile.capabilities.realtime.alerts, isTrue);
       expect(profile.farePolicies.map((option) => option.id),
           sendaiReviewedCoordinatesEnabled
-              ? ['normal', 'sendai_fureai_pass']
+              ? ['normal', 'sendai_fureai_pass', 'sendai_keiro_pass']
               : ['normal']);
       expect(profile.distribution.androidApplicationId, 'jp.cloxs.go.sendai');
       expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.go.sendai');

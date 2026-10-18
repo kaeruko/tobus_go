@@ -122,9 +122,61 @@ class SendaiNormalCoordinateTests(unittest.TestCase):
             self.assertIn('max_visited',response.json()['detail']['diagnostic'])
         for change in ({'accept_experimental_transfer_model':False},
                        {'accept_experimental_transfer_model':'true'},
-                       {'fare_policy_id':'sendai_keiro_pass'},{'fare_policy_id':'tokyo_toei_transport_pass'}):
+                       {'fare_policy_id':'tokyo_toei_transport_pass'}):
             response=client.post('/route',json={**base,**change})
             self.assertEqual(response.status_code,422,response.text)
+
+    def test_senior_card_reuses_same_reviewed_route_without_claiming_free_fare(self):
+        client = make_client(self.adapter)
+        case = self.cases[1]  # reviewed bus + rail, no invented new route.
+        base = body(case)
+        fureai = client.post("/route", json=base)
+        senior = client.post("/route", json={**base, "fare_policy_id": "sendai_keiro_pass"})
+        self.assertEqual(fureai.status_code, 200, fureai.text)
+        self.assertEqual(senior.status_code, 200, senior.text)
+        first, second = fureai.json()["candidates"][0], senior.json()["candidates"][0]
+        self.assertEqual(first["arrival_time"], second["arrival_time"])
+        self.assertEqual(
+            [(s["trip_id"], s["departureStopId"], s["arrivalPoleId"])
+             for s in first["steps"] if s["kind"] in ("bus", "rail")],
+            [(s["trip_id"], s["departureStopId"], s["arrivalPoleId"])
+             for s in second["steps"] if s["kind"] in ("bus", "rail")])
+        self.assertEqual(first["fare"]["payNowYen"], 0)
+        quote = second["fare"]
+        self.assertEqual(quote["policyId"], "sendai_keiro_pass")
+        self.assertEqual(quote["status"], "unavailable")
+        self.assertIsNone(quote["payNowYen"])
+        self.assertIsNone(quote["normalFareYen"])
+        self.assertIsNone(quote["effectiveFareYen"])
+        self.assertNotIn("0", str(quote["unavailableReason"]))
+        wire_fare = second["planning_journey"]["fare"]
+        self.assertEqual(wire_fare["policy_id"], "sendai_keiro_pass")
+        self.assertIsNone(wire_fare["additional_payment_yen"])
+        self.assertFalse(wire_fare["entitlement_assumed"])
+        self.assertEqual(senior.json()["meta"]["normal_fare_known"], False)
+        for bad in (False, "true"):
+            denied = client.post("/route", json={**base,
+                "fare_policy_id": "sendai_keiro_pass",
+                "accept_experimental_transfer_model": bad})
+            self.assertEqual(denied.status_code, 422)
+        excluded = client.post("/route", json={**base,
+            "fare_policy_id": "sendai_keiro_pass", "target_date_str": "2026-12-01"})
+        self.assertEqual(excluded.status_code, 422)
+
+    def test_opted_in_search_does_not_enable_public_pass_repricing(self):
+        from app.fare_routes import register_fare_routes
+
+        client = make_client(self.adapter)
+        register_fare_routes(client.app)
+        response = client.get("/fare/policies")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual([p["policyId"] for p in response.json()["policies"]], ["normal"])
+        for policy_id in ("sendai_fureai_pass", "sendai_keiro_pass"):
+            with self.subTest(policy_id=policy_id):
+                response = client.post("/fare/apply", json={
+                    "policy_id": policy_id, "candidates": [],
+                })
+                self.assertEqual(response.status_code, 422, response.text)
 
     def test_general_coordinate_reclassification_preserves_specific_poles_and_free_scope(self):
         base=body(self.cases[0]);client=make_client(self.adapter)

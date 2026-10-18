@@ -43,7 +43,17 @@ def main():
         base=dict(alat=cases[0]['origin'][0],alon=cases[0]['origin'][1],blat=cases[0]['destination'][0],blon=cases[0]['destination'][1],
             pref='time',target_date_str='2026-11-19',start_time='09:00',fare_policy_id='sendai_fureai_pass',
             accept_experimental_transfer_model=True)
-        for change in ({'accept_experimental_transfer_model':False},{'fare_policy_id':'sendai_keiro_pass'},
+        # Senior-card routes reuse the reviewed journey, but never quote ¥0.
+        senior=client.post('/route',json={**base,'fare_policy_id':'sendai_keiro_pass'})
+        senior.raise_for_status()
+        senior_route=senior.json()['candidates'][0]
+        fureai_route=client.post('/route',json=base).json()['candidates'][0]
+        assert senior_route['arrival_time']==fureai_route['arrival_time']
+        assert senior_route['fare']['policyId']=='sendai_keiro_pass'
+        assert senior_route['fare']['status']=='unavailable'
+        assert senior_route['fare']['payNowYen'] is None
+        assert senior_route['planning_journey']['fare']['entitlement_assumed'] is False
+        for change in ({'accept_experimental_transfer_model':False},
                        {'target_date_str':'2026-10-25'},{'target_date_str':'2026-11-22'},
                        {'target_date_str':'2026-12-01'}):
             response=client.post('/route',json={**base,**change})

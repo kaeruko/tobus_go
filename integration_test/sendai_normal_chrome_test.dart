@@ -115,14 +115,12 @@ void main() {
           supportedLocales:AppLocalizations.supportedLocales,
           home:const RouteSearchPage(title:'仙台でGO'))));
       await tester.pump(const Duration(milliseconds:500));
-      _stage='select actual existing fare settings';
-      await _reveal(tester,find.byKey(const Key('sendai-coordinate-fare-settings')));
-      await tester.tap(find.byKey(const Key('sendai-coordinate-fare-settings')));
-      await _wait(tester,()=>find.text('ふれあい乗車証').evaluate().isNotEmpty);
-      await tester.tap(find.text('ふれあい乗車証'));
+      _stage='select explicit Fureai on the normal search screen';
+      await _reveal(tester,find.byKey(const Key('sendai-pass-selector')));
+      await _wait(tester,()=>find.text('ふれあい').evaluate().isNotEmpty);
+      await tester.tap(find.text('ふれあい'));
       await _wait(tester,()=>prefs.getString('farePolicyId:sendai:reviewed-coordinate-development')=='sendai_fureai_pass');
       final navigator=tester.state<NavigatorState>(find.byType(Navigator).first);
-      navigator.pop();await tester.pumpAndSettle();
       // Set the same date/time as the independently frozen cases. No endpoint,
       // service/date, expected arrival or routing response is changed by CI.
       final cases = [

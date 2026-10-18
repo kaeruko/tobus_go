@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.route_endpoint import register_route_endpoint
 from route_engine import (
+    RouteCandidate,
     RouteContractError,
     RoutePreference,
     RouteSearchLimitError,
@@ -92,11 +93,13 @@ class SharedRouteEndpointTest(unittest.TestCase):
 
     def test_unavailable_fare_scope_does_not_run_normal_search(self) -> None:
         engine = _RecordingEngine()
-        response = _client(engine).post(
-            "/route", json=_payload(fare_policy_id="unsupported_fixture_pass"),
-        )
-        self.assertEqual(response.status_code, 422)
-        self.assertEqual(response.json()["detail"]["code"], "invalid_route_input")
+        for policy_id in ("unsupported_fixture_pass", "sendai_fureai_pass", "sendai_keiro_pass"):
+            with self.subTest(policy_id=policy_id):
+                response = _client(engine, city_key="sendai").post(
+                    "/route", json=_payload(fare_policy_id=policy_id),
+                )
+                self.assertEqual(response.status_code, 422)
+                self.assertEqual(response.json()["detail"]["code"], "invalid_route_input")
         self.assertEqual(engine.requests, [])
 
     def test_fare_scope_id_is_not_coerced_from_a_number(self) -> None:
@@ -104,6 +107,32 @@ class SharedRouteEndpointTest(unittest.TestCase):
         response = _client(engine).post("/route", json=_payload(fare_policy_id=123))
         self.assertEqual(response.status_code, 422)
         self.assertEqual(engine.requests, [])
+
+    def test_reviewed_quote_mismatch_fails_without_public_repricing(self) -> None:
+        for policy_id, quoted_policy, status in (
+            ("sendai_fureai_pass", "sendai_fureai_pass", "unavailable"),
+            ("sendai_keiro_pass", "sendai_keiro_pass", "available"),
+            ("sendai_keiro_pass", "sendai_fureai_pass", "unavailable"),
+        ):
+            with self.subTest(policy_id=policy_id, quoted_policy=quoted_policy, status=status):
+                candidate = RouteCandidate.from_mapping({
+                    "id": "fixture", "lines": ["bus"], "boards": 1, "transfers": 0,
+                    "total_time": 1, "walking_distance_meters": 0, "walking_segment_count": 0,
+                    "steps": [{"kind": "bus", "title": "bus", "from_": "A", "to": "B", "minutes": 1}],
+                    "points": [], "arrival_time": "09:56",
+                    "fare": {"policyId": quoted_policy, "status": status},
+                })
+                engine = _RecordingEngine(RouteSearchResult(candidates=[candidate]))
+                engine.for_fare_policy = lambda selected: engine
+                engine.verified_quote_policy_statuses = {
+                    "sendai_fureai_pass": "available", "sendai_keiro_pass": "unavailable",
+                }
+                response = _client(engine, city_key="sendai").post(
+                    "/route", json=_payload(fare_policy_id=policy_id),
+                )
+                self.assertEqual(response.status_code, 500, response.text)
+                self.assertEqual(response.json()["detail"]["code"], "route_contract_violation")
+                self.assertEqual(len(engine.requests), 1)
 
     def test_search_safety_limit_is_503_with_diagnostic(self) -> None:
         engine = _RecordingEngine(error=RouteSearchLimitError("visited=100"))

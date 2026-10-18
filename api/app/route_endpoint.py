@@ -128,13 +128,14 @@ def register_route_endpoint(
                 )
             payload = serialize_route_result(result)
             # A reviewed city scope may return quotes produced by its existing
-            # concrete-run Policy. Do not reinterpret those through a public
+            # concrete-run Policy, including an explicitly unavailable debit.
+            # Do not reinterpret those through a public
             # policy registry which deliberately excludes development options.
-            prequoted = getattr(engine, "verified_quote_policy_ids", frozenset())
+            prequoted = getattr(engine, "verified_quote_policy_statuses", {})
             if policy_id in prequoted:
                 for candidate in payload["candidates"]:
                     quote = candidate.get("fare", {})
-                    if quote.get("policyId") != policy_id or quote.get("status") != "available":
+                    if quote.get("policyId") != policy_id or quote.get("status") != prequoted[policy_id]:
                         raise RouteContractError("reviewed scope did not return its verified fare quote")
             elif policy_id != "normal":
                 city_key = getattr(app.state, "city_key", None)

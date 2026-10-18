@@ -41,6 +41,18 @@ class FareRoutesTest(unittest.TestCase):
         self.assertEqual(ids, ["normal"])
         self.assertNotIn("tokyo_toei_transport_pass", ids)
 
+    def test_public_apply_rejects_reviewed_sendai_passes(self):
+        for city in ("sendai", "tokyo"):
+            client = self._client(city)
+            for policy_id in ("sendai_fureai_pass", "sendai_keiro_pass"):
+                with self.subTest(city=city, policy_id=policy_id):
+                    response = client.post("/fare/apply", json={
+                        "policy_id": policy_id,
+                        "candidates": [{"id": "bus", "steps": [{"kind": "bus"}]}],
+                    })
+                    self.assertEqual(response.status_code, 422, response.text)
+                    self.assertIn("unsupported fare policy", response.json()["detail"])
+
     def test_tokyo_normal_fare_remains_unavailable_without_exact_step_fares(self):
         result = {
             "candidates": [

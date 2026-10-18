@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
+import '../core/city_profile.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
 import '../providers/route_search_provider.dart';
@@ -108,7 +109,9 @@ class RouteCard extends ConsumerWidget {
             (state) => state.fareByCandidateId[candidate.id],
           ),
         );
-    final fareChip = _fareChip(effectiveFare, l10n);
+    final fareChip = configuredCityKey == 'sendai' && sendaiReviewedCoordinatesEnabled
+        ? null
+        : _fareChip(effectiveFare, l10n);
     // Match the route detail's arrival clock. Do not estimate a new
     // arrival from totalTime: this field is already part of the API result.
     final arrivalTime = candidate.arrivalTime?.trim();

@@ -1181,7 +1181,8 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                 child: RouteSummary(candidate: widget.candidate),
               ),
 
-              SliverToBoxAdapter(child: FareSummary(fare: widget.fare)),
+              if (!(configuredCityKey == 'sendai' && sendaiReviewedCoordinatesEnabled))
+                SliverToBoxAdapter(child: FareSummary(fare: widget.fare)),
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
               SliverToBoxAdapter(

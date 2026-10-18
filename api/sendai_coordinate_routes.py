@@ -11,6 +11,7 @@ import hashlib
 import math
 from time import monotonic
 
+from fare_policy import FarePolicyContext, StoredValuePassFarePolicy
 from route_engine import RouteCandidate, RouteInputError, RoutePreference, RouteSearchLimitError, RouteSearchResult, WalkStep
 from sendai_coordinate_access import COORDINATE_ACCESS_RULES
 from sendai_practical_network import CivilMinute, PracticalRide, search_practical_subway
@@ -25,15 +26,24 @@ GENERAL_RADIUS_M = 600
 GENERAL_CANDIDATE_LIMIT = 6
 
 POLICY = "sendai_fureai_pass"
+KEIRO_POLICY = "sendai_keiro_pass"
+# This quote belongs only to the explicitly enabled reviewed route scope.
+# Public /fare/policies and /fare/apply must not accept either reviewed pass.
+_KEIRO_FARE_POLICY = StoredValuePassFarePolicy(
+    city_key="sendai", policy_id=KEIRO_POLICY, display_name="仙台市 敬老乗車証",
+    source_uri="https://www.city.sendai.jp/korekikaku-kikaku/kurashi/kenkotofukushi/korenokata/katsudo/sedo/joshasho/index.html",
+)
 NOTICE = ("仙台・開発検証用。地下鉄は公式発車時刻と到着目安、バスはGTFS予定時刻です。"
           "徒歩・乗換時間と余裕は未実測の計画仮定で、接続・到着を保証しません。"
           "通常運賃は不明。本人の有効なふれあい乗車証所持・明示選択が前提です。"
           "地図の線は停車点を結ぶ概略線で、実歩行経路ではありません。")
+KEIRO_NOTICE = ("敬老乗車証はチャージ残高から運賃が引かれます。実際の引落額は未計算です。"
+                "検索対象はレビュー済みの市営バス・地下鉄の区間に限定しています。")
 
 
 class SendaiCoordinateScope:
     """Connection adapter implementing the existing RouteEngine boundary."""
-    verified_quote_policy_ids = frozenset({POLICY})
+    verified_quote_policy_statuses = {POLICY: "available", KEIRO_POLICY: "unavailable"}
 
     def __init__(self, normal_backend, network, operating_period, *, environment, access_reviews=(),
                  normal_backend_factory=None):
@@ -70,9 +80,9 @@ class SendaiCoordinateScope:
         return self.normal_backend.search(request)
 
     def for_fare_policy(self, policy_id):
-        if policy_id != POLICY:
+        if policy_id not in (POLICY, KEIRO_POLICY):
             raise RouteInputError(f"unsupported Sendai reviewed fare scope: {policy_id!r}")
-        return _SelectedScope(self)
+        return _SelectedScope(self, policy_id)
 
     def endpoint(self, point, role):
         return reviewed_coordinate_endpoint(point, role, stops=self.bus_stops,
@@ -113,8 +123,9 @@ class SendaiCoordinateScope:
 
 
 class _SelectedScope:
-    def __init__(self, adapter):
+    def __init__(self, adapter, policy_id):
         self.adapter = adapter
+        self.policy_id = policy_id
 
     def search(self, request):
         a = self.adapter
@@ -208,7 +219,15 @@ class _SelectedScope:
             if isinstance(error, RouteInputError):
                 raise
             raise RouteInputError(str(error)) from error
-        candidates = [] if best is None else [_candidate(a.network, best[1], request, best[2], best[3])]
+        # Preserve the existing Fureai serializer call and its frozen regression
+        # contract. Only the senior case needs the additional fare selector.
+        if best is None:
+            candidates = []
+        elif self.policy_id == POLICY:
+            candidates = [_candidate(a.network, best[1], request, best[2], best[3])]
+        else:
+            candidates = [_candidate(a.network, best[1], request, best[2], best[3],
+                fare_policy_id=self.policy_id)]
         diagnostic.update(comparison_complete=True, uncompared_pairs=[], network_builds=len(materializations),
             timetable_preparations=timetable_choices.get("preparations", 0),
             timetable_reuse_hits=timetable_choices.get("reuse_hits", 0),
@@ -216,7 +235,7 @@ class _SelectedScope:
             all_geographic_candidates_compared=False)
         return RouteSearchResult(candidates, {"destination_reachable": bool(candidates),
             "destination_label": "目的地", "development_only": a.environment == "development",
-            "planning_notice": NOTICE,
+            "planning_notice": NOTICE if self.policy_id == POLICY else KEIRO_NOTICE,
             "access_scope": "explicit_access_first_then_unverified_geometric_bus_poles",
             "coordinate_access": diagnostic,
             "actual_connection_guaranteed": False, "normal_fare_known": False})
@@ -232,8 +251,8 @@ def _add(value, minutes):
     return CivilMinute(value.day + timedelta(days=int(days)), minute - days * 1440)
 
 
-def _candidate(network, journey, request, origin, destination):
-    wire = serialize_practical_journey(journey)
+def _candidate(network, journey, request, origin, destination, *, fare_policy_id=POLICY):
+    wire = serialize_practical_journey(journey, fare_policy_id=fare_policy_id)
     snapshot = network.free_scope.snapshot
     steps, lines = [], []
     clock = CivilMinute(request.departure_at.date(), Fraction(request.departure_at.hour*60 + request.departure_at.minute))
@@ -299,6 +318,14 @@ def _candidate(network, journey, request, origin, destination):
     arrival = clock
     # Details retain original service-day clocks/provenance, exact sequences,
     # and quote from the same concrete-run scope. UI integers are display only.
+    # No fictitious free fare for prepaid senior-card riders. Reuse the
+    # exact reviewed journey and the shared city fare-policy contract.
+    if fare_policy_id == POLICY:
+        fare_quote = journey.fare_quote
+    else:
+        fare_quote = _KEIRO_FARE_POLICY.apply(FarePolicyContext(
+            city_key="sendai", normal_fare_yen=None,
+            ride_modes=tuple(s["kind"] for s in steps if s["kind"] in ("bus", "rail"))))
     raw = {"id": "sendai-" + hashlib.sha256(repr((wire,origin,destination)).encode()).hexdigest()[:20],
         "lines": lines, "rides": len(lines), "boards": len(lines), "transfers": max(0,len(lines)-1),
         "total_time": math.ceil(_absolute(arrival)-_absolute(start)),
@@ -307,7 +334,8 @@ def _candidate(network, journey, request, origin, destination):
         "arrival_time": civil_clock(arrival,basis="arrival_estimate")["time"],
         "departure_date": request.departure_at.isoformat(), "preference": request.preference.api_value,
         "origin_coords": request.origin.to_list(), "destination_coords": request.destination.to_list(),
-        "fare": journey.fare_quote.to_api_dict(), "planning_notice": NOTICE,
+        "fare": fare_quote.to_api_dict(),
+        "planning_notice": NOTICE if fare_policy_id == POLICY else KEIRO_NOTICE,
         "planning_journey": wire, "access": {"origin": origin,"destination": destination},
         "arrival_is_estimate": True}
     return RouteCandidate.from_mapping(raw)

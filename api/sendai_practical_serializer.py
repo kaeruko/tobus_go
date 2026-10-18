@@ -23,7 +23,7 @@ def civil_clock(value, *, basis):
             "basis": basis, "actual_arrival_verified": False}
 
 
-def serialize_practical_journey(journey):
+def serialize_practical_journey(journey, *, fare_policy_id="sendai_fureai_pass"):
     events = []
     for event in journey.events:
         if isinstance(event, PracticalRide):
@@ -62,11 +62,18 @@ def serialize_practical_journey(journey):
             raise ValueError("unsupported practical event type")
     quote = journey.fare_quote
     if quote.policy_id != "sendai_fureai_pass" or quote.pay_now_yen != 0:
-        raise ValueError("only pre-scoped free-pass results may use this serializer")
+        raise ValueError("journey did not pass reviewed concrete-ride scope checks")
+    if fare_policy_id == "sendai_fureai_pass":
+        fare = {"policy_id": quote.policy_id, "additional_payment_yen": 0,
+                "normal_fare_yen": None, "entitlement_assumed": True}
+    elif fare_policy_id == "sendai_keiro_pass":
+        fare = {"policy_id": fare_policy_id, "additional_payment_yen": None,
+                "normal_fare_yen": None, "entitlement_assumed": False}
+    else:
+        raise ValueError("unsupported Sendai reviewed pass")
     return {"schema": SCHEMA, "profile": journey.profile, "input_version": journey.input_version,
         "departure": civil_clock(journey.departure, basis="request"),
         "arrival": civil_clock(journey.arrival_estimate, basis="journey_arrival_estimate"),
-        "events": events, "fare": {"policy_id": quote.policy_id, "additional_payment_yen": 0,
-            "normal_fare_yen": None, "entitlement_assumed": True},
+        "events": events, "fare": fare,
         "normal_timetable_only": True, "exact_arrival_verified": False,
         "actual_connection_guaranteed": False, "experimental_margin_formally_adopted": False}
