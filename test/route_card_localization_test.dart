@@ -278,6 +278,17 @@ void main() {
             'notice': 'internal walk provenance',
           },
         ),
+        StepSeg(
+          stepId: 'bus-planned',
+          kind: 'bus',
+          title: '上23 上野松坂屋前行',
+          titleEn: 'Ueno-Matsuzakaya',
+          fromName: '押上駅前',
+          fromNameEn: 'Oshiage Sta.',
+          toName: '上野松坂屋前',
+          toNameEn: 'Ueno-Matsuzakaya',
+          minutes: 20,
+        ),
       ],
     );
     expect(planned.hasUnknownWalkingDistance, isTrue);
