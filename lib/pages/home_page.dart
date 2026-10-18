@@ -259,7 +259,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
       cityProfileProvider.select((profile) => profile.capabilities.features),
     );
     final showTokyoTransportControl = ref.watch(
-      cityProfileProvider.select((profile) => profile.key == 'tokyo' || (profile.key == 'sendai' && sendaiCoordinateDevelopment)),
+      cityProfileProvider.select((profile) => profile.key == 'tokyo' || (profile.key == 'sendai' && sendaiReviewedCoordinatesEnabled)),
     );
     final activeTripAsync = features.groupTrips
         ? ref.watch(activeTripProvider)
