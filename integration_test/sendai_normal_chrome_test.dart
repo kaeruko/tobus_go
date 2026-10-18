@@ -183,11 +183,11 @@ void main() {
             tester.state<ScrollableState>(scroll).position.maxScrollExtent);
         await tester.pump();
         await _reveal(tester,find.byType(RouteCard).first);
-        expect(find.text('到着目安 ${c[2]}'),findsOneWidget);
+        expect(find.text('${c[2]}着'),findsOneWidget);
         await tester.tap(find.byType(RouteCard).first);
         await tester.pumpAndSettle();
         expect(find.byType(RouteDetailPage),findsOneWidget);
-        expect(find.textContaining('本人の有効なふれあい乗車証'),findsWidgets);
+        expect(find.textContaining('本人の有効なふれあい乗車証'),findsNothing);
         final detail=tester.widget<RouteDetailPage>(find.byType(RouteDetailPage));
         expect(detail.candidate.id,candidate.id);
         expect(detail.candidate.steps.where((s)=>s.isRide).every((s)=>
@@ -234,7 +234,7 @@ void main() {
           tester.state<ScrollableState>(resultScroll).position.maxScrollExtent);
       await tester.pump();
       await _reveal(tester,find.byType(RouteCard).first);
-      expect(find.text('到着目安 $mapArrival'),findsOneWidget);
+      expect(find.text('${mapArrival}着'),findsOneWidget);
       await tester.tap(find.byType(RouteCard).first);
       await tester.pumpAndSettle();
       final surfaceDetail=tester.widget<RouteDetailPage>(find.byType(RouteDetailPage));
@@ -242,7 +242,7 @@ void main() {
       expect(surfaceDetail.candidate.steps.first.planningDetails!['walking_time_measured'],isFalse);
       expect(surfaceDetail.fare!.normalFareYen,isNull);
       expect(surfaceDetail.fare!.payNowYen,0);
-      expect(find.textContaining('本人の有効なふれあい乗車証'),findsWidgets);
+      expect(find.textContaining('本人の有効なふれあい乗車証'),findsNothing);
       _stage='preserve Japan civil query time in the existing detail date picker';
       await tester.tap(find.byKey(const Key('route-detail-research')));
       await tester.pumpAndSettle();
