@@ -285,7 +285,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
             slivers: [
               if (kDebugMode && ref.watch(cityProfileProvider).key == 'sendai')
                 const SliverToBoxAdapter(child: SendaiPracticalLauncher(city: 'sendai')),
-              if (sendaiCoordinateDevelopment && ref.watch(cityProfileProvider).key == 'sendai')
+              if (sendaiReviewedCoordinatesEnabled && ref.watch(cityProfileProvider).key == 'sendai')
                 SliverToBoxAdapter(child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -299,7 +299,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                       CupertinoSwitch(key: const Key('sendai-coordinate-consent'),
                         value: rs.acceptExperimentalTransferModel,
                         onChanged: notifier.setExperimentalTransferConsent),
-                      const Expanded(child: Text('未実測の徒歩・乗換時間と仮の余裕、到着目安・接続非保証に同意する')),
+                      const Expanded(child: Text('乗換条件に同意する')),
                     ]),
                   ]),
                 )),
