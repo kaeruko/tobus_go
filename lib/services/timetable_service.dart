@@ -466,7 +466,9 @@ class _SavedBusSchedule {
           group['allTimes'] is! List) {
         throw const FormatException('Incomplete saved timetable destination');
       }
-      TimetableService._checkedFullDayTimes(group);
+      // JSON arrays lose their Dart element type when restored from storage.
+      // Keep the validated List<String> required by both timetable views.
+      group['allTimes'] = TimetableService._checkedFullDayTimes(group);
       groups.add(group);
     }
     return _SavedBusSchedule(

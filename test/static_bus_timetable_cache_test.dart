@@ -47,6 +47,7 @@ void main() {
     expect(firstDay, 'Weekday');
     expect(first.single['times'], ['15:37', '16:08', '16:37']);
     expect(first.single['allTimes'], hasLength(5));
+    expect(first.single['allTimes'], isA<List<String>>());
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.getKeys().where(
       (key) => key.startsWith('bus_static_schedule_v1:'),
@@ -59,6 +60,8 @@ void main() {
       onResolvedDayType: (day) => nextDay = day,
     );
     expect(nextDay, 'Weekday');
+    expect(reopened.single['allTimes'], isA<List<String>>());
+    expect(reopened.single['allTimes'], first.single['allTimes']);
     expect(reopened.single['times'], ['16:37', '25:10']);
     expect(requests, 1);
   });
@@ -136,6 +139,46 @@ void main() {
       throwsFormatException,
     );
     expect(calls, 1);
+  });
+
+  test('invalid saved allTimes is rejected without changing storage or requesting HTTP', () async {
+    final previous = ApiClient.httpClient;
+    var calls = 0;
+    ApiClient.httpClient = MockClient((request) async {
+      calls++;
+      return http.Response(_fullDayResponse, 200,
+        headers: const {'content-type': 'application/json; charset=utf-8'});
+    });
+    addTearDown(() => ApiClient.httpClient = previous);
+    final service = TimetableService();
+    final time = DateTime(2026, 10, 15, 15, 0);
+    await service.getSavedFullDayBusesFromApi('route-a', 'stop-a',
+      referenceTime: time);
+    final prefs = await SharedPreferences.getInstance();
+    final key = prefs.getKeys().singleWhere(
+      (value) => value.startsWith('bus_static_schedule_v1:'),
+    );
+    final validEntry = prefs.getString(key)!;
+    for (final invalidTimes in <Object?>[
+      ['15:37', 1608],
+      ['15:37', null],
+      ['bad'],
+      ['48:00'],
+      '15:37',
+    ]) {
+      final data = jsonDecode(validEntry) as Map<String, dynamic>;
+      (data['groups'] as List).single['allTimes'] = invalidTimes;
+      final invalidEntry = jsonEncode(data);
+      await prefs.setString(key, invalidEntry);
+      await expectLater(
+        service.getSavedFullDayBusesFromApi('route-a', 'stop-a',
+          referenceTime: time),
+        throwsFormatException,
+        reason: 'allTimes=$invalidTimes',
+      );
+      expect(prefs.getString(key), invalidEntry);
+      expect(calls, 1);
+    }
   });
 
   test('two simultaneous visits share one request and never cache a failure', () async {
