@@ -60,7 +60,7 @@ void main() {
     expect(image.height, 34);
   });
 
-  testWidgets('cities without a logo asset keep their localized title', (
+  testWidgets('Sendai brand header uses the 34px logo', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -77,7 +77,12 @@ void main() {
       ),
     );
 
-    expect(find.text('仙台でGO'), findsOneWidget);
-    expect(find.byType(Image), findsNothing);
+    final image = tester.widget<Image>(find.byType(Image));
+    final provider = image.image;
+    expect(provider, isA<AssetImage>());
+    expect((provider as AssetImage).assetName, 'assets/icon/sendai.png');
+    expect(image.height, 34);
+    expect(image.excludeFromSemantics, isTrue);
+    expect(find.text('仙台でGO'), findsNothing);
   });
 }
