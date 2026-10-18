@@ -87,6 +87,24 @@ void main() {
       );
     });
 
+    test('Sendai reviewed free pass is explicit and never inherited by Tokyo', () async {
+      if (!sendaiReviewedCoordinatesEnabled) {
+        expect(() => sendaiCityProfile.farePolicyById('sendai_fureai_pass'),
+            throwsStateError);
+        return;
+      }
+      final selected = sendaiCityProfile.farePolicyById('sendai_fureai_pass');
+      expect(selected.settlementType, 'free_pass');
+      expect(selected.sourceUri, isNotNull);
+      expect(() => tokyoCityProfile.farePolicyById('sendai_fureai_pass'),
+          throwsStateError);
+      expect(await FarePolicyPreferences.load(sendaiCityProfile), 'normal');
+      await FarePolicyPreferences.save(sendaiCityProfile, 'sendai_fureai_pass');
+      expect(await FarePolicyPreferences.load(sendaiCityProfile),
+          'sendai_fureai_pass');
+      expect(await FarePolicyPreferences.load(tokyoCityProfile), 'normal');
+    });
+
     test('stored policy from another city is not silently replaced', () async {
       SharedPreferences.setMockInitialValues({
         'farePolicyId:sendai': 'tokyo_toei_transport_pass',
