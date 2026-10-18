@@ -176,6 +176,13 @@ const sendaiCityProfile = CityProfile(
         settlementType: 'free_pass',
         sourceUri: 'https://www.city.sendai.jp/servicekanri/kurashi/kenkotofukushi/shogai/shakaisanka/waribiki/fureai.html',
       ),
+    if (sendaiReviewedCoordinatesEnabled)
+      FarePolicyOption(
+        id: 'sendai_keiro_pass',
+        displayName: '敬老乗車証',
+        settlementType: 'normal',
+        sourceUri: 'https://www.city.sendai.jp/korekikaku-kikaku/kurashi/kenkotofukushi/korenokata/katsudo/sedo/joshasho/index.html',
+      ),
   ],
   distribution: CityDistributionConfig(
     androidApplicationId: 'jp.cloxs.go.sendai',
