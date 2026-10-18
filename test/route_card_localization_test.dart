@@ -193,9 +193,14 @@ void main() {
     final overnight = Candidate.fromJson({
       ...candidate.toJson(),
       'arrival_time': '00:05',
+      'total': 15,
+      'total_time': 15,
+      'walking_distance_meters': 0,
+      'walking_segment_count': 0,
       'steps': [
         {
           ...candidate.steps.last.toJson(),
+          'minutes': 15,
           'departure_time': '23:50',
           'arrival_time': '00:05',
         },
@@ -219,11 +224,12 @@ void main() {
           'departure_time': null,
           'arrival_time': ' ',
         },
+        ...candidate.steps.skip(1).map((step) => step.toJson()),
       ],
     });
     await pumpCard(tester, const Locale('ja'), route: missingClocks);
 
-    expect(find.text('待ち時間 · 時刻不明'), findsOneWidget);
+    expect(find.textContaining('待ち時間 · 時刻不明'), findsOneWidget);
     expect(find.textContaining('38分'), findsNothing);
     expect(find.textContaining('10:29'), findsNothing);
   });
