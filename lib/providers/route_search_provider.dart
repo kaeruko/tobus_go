@@ -112,6 +112,9 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
 
   int _generation = 0;
 
+  // An explicit pass change invalidates any in-flight old-pass result.
+  void invalidateForFareSelection() => _changeCriteria(state);
+
   void setExperimentalTransferConsent(bool value) {
     _generation++;
     state = state.copyWith(acceptExperimentalTransferModel: value,
