@@ -89,6 +89,71 @@ jobs:
       - name: Build Tokyo Android flavor
         run: flutter build apk --debug --flavor tokyo --dart-define=APP_CITY=tokyo
 
+  android-release:
+    name: Tokyo Windows release AAB
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create validation-only release signing
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $keystorePath = Join-Path $env:RUNNER_TEMP 'tobus-ci-release.jks'
+          & keytool -genkeypair -keystore $keystorePath `
+            -storepass 'ci-release-only' -keypass 'ci-release-only' `
+            -alias 'ci-release' -keyalg RSA -keysize 2048 -validity 1 `
+            -dname 'CN=CI build only, O=CLOXS, C=JP'
+          if ($LASTEXITCODE -ne 0) {
+            throw "keytool failed with exit code $LASTEXITCODE."
+          }
+          $properties = @(
+            'storePassword=ci-release-only'
+            'keyPassword=ci-release-only'
+            'keyAlias=ci-release'
+            ('storeFile=' + $keystorePath.Replace('\', '/'))
+          )
+          $properties | Set-Content -LiteralPath android/key.properties -Encoding utf8
+
+      - name: Build Tokyo release AAB through the Windows script
+        shell: pwsh
+        env:
+          # This validation AAB is never uploaded and uses no production keys.
+          GOOGLE_MAPS_ANDROID_API_KEY: ci-build-check-only
+        run: ./scripts/build_aab.ps1 -City tokyo
+
+      - name: Verify pending test plugins are absent
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $metadata = Get-Content -LiteralPath .flutter-plugins-dependencies -Raw |
+            ConvertFrom-Json -Depth 100
+          $pending = @($metadata.plugins.android | Where-Object { $_.name -eq 'integration_test' })
+          if ($pending.Count -ne 0) {
+            throw 'The pending integration_test plugin entered the Tokyo dependency graph.'
+          }
+          $registrant = 'android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java'
+          if (Select-String -LiteralPath $registrant -Pattern 'IntegrationTestPlugin' -Quiet) {
+            throw 'The Tokyo release registrant contains the pending IntegrationTestPlugin.'
+          }
+
   ios:
     name: Tokyo iOS build and isolation
     runs-on: macos-latest

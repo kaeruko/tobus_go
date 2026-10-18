@@ -25,7 +25,7 @@ analyzer:
     - test/sendai_*.dart
     - test/route_only_active_trip_page_test.dart
     - test/route_only_detail_page_test.dart
-    - integration_test/sendai_*.dart
+    - .github/pending/sendai/**
 include: package:flutter_lints/flutter.yaml
 
 linter:

@@ -8,6 +8,11 @@
 - Androidの有効flavorとiOSの共有schemeは `tokyo` のみ。
 - 仙台専用ワークフロー5本は `.github/pending/sendai/workflows/` に退避。
   自動実行・手動実行・GTFS取得の対象になりません。
+- Chrome E2Eと共通ドライバーは `.github/pending/sendai/integration_test/` と
+  `.github/pending/sendai/test_driver/` に退避。
+  これらだけが使用していた `integration_test` SDK依存と専用の推移依存は、
+  通常アプリの `pubspec.yaml`・`pubspec.lock` から外しています。
+  東京のプラグイン登録・release AABに保留中のテスト用プラグインを含めません。
 - 通常CIとTestFlightのテストは `scripts/run_active_tests.py` を使用。
   仙台専用スイートを収集せず、Python側では共通テストからの仙台実装のimportもエラーにします。
 - Flutterの共通ファイル内に残る仙台用テストは `sendai` タグで識別し、
@@ -47,6 +52,9 @@ iOSの既存ビルドconfigurationは維持し、schemeは
    API Docker・Dart analyzeの除外も戻す。
 3. 専用テスト・混在テストのタグ除外とactiveテスト選択を見直す。
    起動拒否のテストは再開後の仕様に合わせて更新する。
+   退避した `integration_test/` と `test_driver/` をリポジトリ直下へ戻し、
+   `dev_dependencies` に `integration_test: {sdk: flutter}` を復元して
+   `flutter pub get` を実行する。再開するテストのanalyze対象も戻す。
 4. GTFS・manifest・レビュー資料の版・日付・SHA・利用条件を再検証する。
    過去データや別ソースへ暗黙に切り替えない。
 5. 仙台の単体テスト・実データ検証・Chrome E2E・Android/iOSビルドを確認してから、
