@@ -102,7 +102,7 @@ void main() {
     });
     addTearDown(() {maps.GoogleMapsFlutterPlatform.instance=oldMaps;container.dispose();});
     try {
-      expect(configuredCityKey,'sendai');expect(sendaiCoordinateDevelopment,isTrue);
+      expect(configuredCityKey,'sendai');expect(sendaiReviewedCoordinatesEnabled,isTrue);
       configureApiBase(Uri.parse(const String.fromEnvironment('API_BASE')));
       ApiClient.resetWarmUpForTesting();
       final prefs = await SharedPreferences.getInstance();
@@ -118,8 +118,8 @@ void main() {
       _stage='select actual existing fare settings';
       await _reveal(tester,find.byKey(const Key('sendai-coordinate-fare-settings')));
       await tester.tap(find.byKey(const Key('sendai-coordinate-fare-settings')));
-      await _wait(tester,()=>find.text('ふれあい乗車証（本人所持・開発検証用）').evaluate().isNotEmpty);
-      await tester.tap(find.text('ふれあい乗車証（本人所持・開発検証用）'));
+      await _wait(tester,()=>find.text('ふれあい乗車証').evaluate().isNotEmpty);
+      await tester.tap(find.text('ふれあい乗車証'));
       await _wait(tester,()=>prefs.getString('farePolicyId:sendai:reviewed-coordinate-development')=='sendai_fureai_pass');
       final navigator=tester.state<NavigatorState>(find.byType(Navigator).first);
       navigator.pop();await tester.pumpAndSettle();
