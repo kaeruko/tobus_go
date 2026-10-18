@@ -1,4 +1,4 @@
-"""Development coordinate/result adapter over the unchanged practical v2 clock.
+"""Opt-in Sendai coordinate/result adapter over the unchanged practical v2 clock.
 
 Exact poles and directional reviews take precedence. General coordinates use
 explicitly unverified geometric access to concrete bus poles only. Such access
@@ -37,8 +37,9 @@ class SendaiCoordinateScope:
 
     def __init__(self, normal_backend, network, operating_period, *, environment, access_reviews=(),
                  normal_backend_factory=None):
-        if environment != "development":
-            raise ValueError("Sendai coordinate scope is development-only")
+        if environment not in ("development", "lambda"):
+            raise ValueError("Sendai coordinate scope requires an explicit reviewed runtime")
+        self.environment = environment
         if normal_backend is None and not callable(normal_backend_factory):
             raise ValueError("explicit original normal backend or factory required")
         self._normal_backend = normal_backend
@@ -70,7 +71,7 @@ class SendaiCoordinateScope:
 
     def for_fare_policy(self, policy_id):
         if policy_id != POLICY:
-            raise RouteInputError(f"unsupported Sendai development fare scope: {policy_id!r}")
+            raise RouteInputError(f"unsupported Sendai reviewed fare scope: {policy_id!r}")
         return _SelectedScope(self)
 
     def endpoint(self, point, role):
@@ -214,7 +215,8 @@ class _SelectedScope:
             elapsed_seconds=monotonic()-started, optimality_scope="selected_endpoint_pairs_only",
             all_geographic_candidates_compared=False)
         return RouteSearchResult(candidates, {"destination_reachable": bool(candidates),
-            "destination_label": "目的地", "development_only": True, "planning_notice": NOTICE,
+            "destination_label": "目的地", "development_only": a.environment == "development",
+            "planning_notice": NOTICE,
             "access_scope": "explicit_access_first_then_unverified_geometric_bus_poles",
             "coordinate_access": diagnostic,
             "actual_connection_guaranteed": False, "normal_fare_known": False})
