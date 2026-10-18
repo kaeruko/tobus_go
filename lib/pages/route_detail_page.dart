@@ -941,7 +941,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       );
 
       final targetTime = overrideTime ?? _searchTime;
-      final developmentScope = sendaiCoordinateDevelopment && ref.read(cityProfileProvider).key == 'sendai';
+      final developmentScope = sendaiReviewedCoordinatesEnabled && ref.read(cityProfileProvider).key == 'sendai';
       final policyId = developmentScope
           ? await FarePolicyPreferences.load(ref.read(cityProfileProvider)) : null;
       final result = await ref.read(routeSearchServiceProvider).search(
