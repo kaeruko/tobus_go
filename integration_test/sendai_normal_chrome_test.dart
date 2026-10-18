@@ -120,6 +120,7 @@ void main() {
       await _wait(tester,()=>find.text('ふれあい').evaluate().isNotEmpty);
       await tester.tap(find.text('ふれあい'));
       await _wait(tester,()=>prefs.getString('farePolicyId:sendai:reviewed-coordinate-development')=='sendai_fureai_pass');
+      final navigator=tester.state<NavigatorState>(find.byType(Navigator).first);
       // Set the same date/time as the independently frozen cases. No endpoint,
       // service/date, expected arrival or routing response is changed by CI.
       final cases = [
