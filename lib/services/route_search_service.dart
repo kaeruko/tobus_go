@@ -51,7 +51,8 @@ class RouteSearchRequest {
       'pref': normalizeRoutePreferenceForApi(preference),
       'bus_only': busOnly,
       if (farePolicyId != null) 'fare_policy_id': farePolicyId,
-      if (farePolicyId == 'sendai_fureai_pass')
+      if (farePolicyId == 'sendai_fureai_pass' ||
+          farePolicyId == 'sendai_keiro_pass')
         'accept_experimental_transfer_model': acceptExperimentalTransferModel,
       'start_time':
           '${localStartTime.hour.toString().padLeft(2, '0')}:'
