@@ -284,6 +284,12 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
       final farePolicy = sendaiReviewedCoordinatesEnabled && configuredCityKey == 'sendai'
           ? await FarePolicyPreferences.load(configuredCityProfile) : null;
       if (_generation != currentGen) return;
+      // Pass ownership is never inferred from a missing/old normal setting.
+      if (sendaiReviewedCoordinatesEnabled && configuredCityKey == 'sendai' &&
+          farePolicy != 'sendai_fureai_pass' &&
+          farePolicy != 'sendai_keiro_pass') {
+        throw StateError('ふれあい・敬老の乗車証を選択してください');
+      }
 
       final result = await _routeSearchService.search(
         RouteSearchRequest(
