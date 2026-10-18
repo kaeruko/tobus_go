@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:toeigo/core/city_profile.dart';
+import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/services/route_search_service.dart';
 import 'package:toeigo/widgets/sendai_pass_selector.dart';
 
@@ -35,7 +36,8 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(CupertinoApp(
       locale: const Locale('ja'),
-      supportedLocales: const [Locale('ja'), Locale('en')],
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: CupertinoPageScaffold(
         child: Center(child: SendaiPassSelector(
           onSelectionChanged: () => changes++,
