@@ -304,6 +304,23 @@ void main() {
     expect(find.text('Arrive 11:33'), findsOneWidget);
     expect(find.textContaining('到着目安'), findsNothing);
     expect(tester.takeException(), isNull);
+
+    // Geometry-derived metres are still displayable even when the physical
+    // walking path has not been verified by the source.
+    final geometric = Candidate.fromJson({
+      ...planned.toJson(),
+      'walking_distance_meters': 124,
+      'steps': [
+        {...planned.steps.first.toJson(), 'meters': 124},
+        planned.steps.last.toJson(),
+      ],
+    });
+    expect(geometric.hasUnknownWalkingDistance, isFalse);
+    await pumpCard(tester, const Locale('ja'), route: geometric);
+    expect(find.text('徒歩 124m'), findsOneWidget);
+    expect(find.text('11:33着'), findsOneWidget);
+    expect(find.textContaining('到着目安'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
 }
