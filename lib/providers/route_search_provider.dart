@@ -278,7 +278,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
       final origin = _parsePoint(state.from, label: '出発地');
       final destination = _parsePoint(state.to, label: '到着地');
       final searchTime = state.startTime ?? DateTime.now();
-      final farePolicy = sendaiCoordinateDevelopment && configuredCityKey == 'sendai'
+      final farePolicy = sendaiReviewedCoordinatesEnabled && configuredCityKey == 'sendai'
           ? await FarePolicyPreferences.load(configuredCityProfile) : null;
       if (_generation != currentGen) return;
 
