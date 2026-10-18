@@ -82,6 +82,6 @@ Sendai runtimeはTokyoのgraph/timetable runtimeを初期化せず、`GtfsTransi
 現在は東京＝公開版、仙台＝開発版の2都市構成とする。
 仙台市営バス＋地下鉄とふれあい乗車証の独立実装・未認定範囲・解除条件は
 [仙台共通ネットワーク設計](sendai-shared-network-design.md) に記録する。
-現行runtimeと公開UIは従来の市営バス・通常運賃のまま。地下鉄を認定済みとして起動しない。
+既定のruntimeと通常UIは市営バス・通常運賃のまま。仙台市営バス＋地下鉄・ふれあい乗車証は、承認済みの有限範囲のデータと明示的な設定がそろった場合に限って、既存の共通通常画面から検索できる。Lambdaでは市営バスGTFSと地下鉄・自治体レビューを同一のSHA固定バンドルで検証する。
 
 2026-10-16更新: 仙台の実行時検索は共通v2へ統一した。旧 `GtfsRouteBackend` 互換名と `ROUTE_SEARCH_CORE` によるv1選択は使用しない。旧Python/Rust v1探索・selectorは削除済みであり、別backendへ再試行しない。地下鉄の分単位実用profile・有限運行日・到着目安の検証範囲は [共通ネットワーク設計第10節](sendai-shared-network-design.md#10-共通v2への統一旧実装の整理実用profileの実装2026-10-16) を参照。公開APIは既存の通常運賃バス入口を維持し、地下鉄/ふれあい選択の公開接続はまだ行わない。

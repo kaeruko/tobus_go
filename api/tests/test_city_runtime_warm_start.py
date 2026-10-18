@@ -100,10 +100,17 @@ class CityRuntimeWarmStartTest(unittest.IsolatedAsyncioTestCase):
                     return_value=()) as access,
                 patch("sendai_coordinate_routes.SendaiCoordinateScope",
                     return_value=reviewed_engine) as make_scope,
+                patch("app.services.sendai_review_bundle.validated_reviewed_paths",
+                    return_value={
+                        "municipal": review_path,
+                        "subway_published": Path(directory) / "published.json",
+                        "subway_review": Path(directory) / "subway_review.json",
+                    }) as verify_reviewed,
                 patch("app.sendai_runtime.create_sendai_realtime_provider",
                     return_value=object()),
             ):
                 await setup_sendai_on_startup(app, "lambda")
+                verify_reviewed.assert_called_once_with(Path("/validated/sendai"))
                 self.assertIs(app.state.route_engine, reviewed_engine)
                 self.assertIs(app.state.sendai_reviewed_network, network)
                 materialize.assert_called_once()
@@ -140,7 +147,9 @@ class CityRuntimeWarmStartTest(unittest.IsolatedAsyncioTestCase):
             for key in ("SENDAI_MUNICIPAL_REVIEW", "SENDAI_SUBWAY_PUBLISHED",
                         "SENDAI_SUBWAY_REVIEW"):
                 os.environ.pop(key, None)
-            with self.assertRaisesRegex(RuntimeError, "SENDAI_MUNICIPAL_REVIEW is required"):
+            # Lambda must not trust the obsolete loose-path environment.
+            # It requires a verified manifest in the same city GTFS bundle.
+            with self.assertRaises(FileNotFoundError):
                 await setup_sendai_on_startup(app, "lambda")
             normal_backend.assert_not_called()
             build_network.assert_not_called()
