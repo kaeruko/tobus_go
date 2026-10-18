@@ -17,6 +17,10 @@ def _configured_backend_city() -> str:
             f'Unsupported APP_CITY="{key}". '
             f"Expected one of: {', '.join(_SUPPORTED_BACKEND_CITIES)}"
         )
+    if key == "sendai":
+        raise RuntimeError(
+            'APP_CITY="sendai" is pending. See docs/sendai-pending.md before resuming.'
+        )
     return key
 
 

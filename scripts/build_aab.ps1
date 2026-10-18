@@ -31,6 +31,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+if ($City -eq 'sendai') {
+    throw 'Sendai is pending. See docs/sendai-pending.md before resuming builds.'
+}
+
 function Assert-LastExitCode {
     param(
         [Parameter(Mandatory = $true)]

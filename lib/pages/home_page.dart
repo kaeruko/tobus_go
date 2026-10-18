@@ -10,12 +10,10 @@ import '../l10n/trip_display_localizations.dart';
 import '../models/route_models.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/app_navigation_bar.dart';
-import '../widgets/sendai_practical_launcher.dart';
 import '../widgets/place_field.dart';
 import '../widgets/route_card.dart';
 import 'map_picker_page.dart';
 import 'route_detail_page.dart';
-import '../widgets/sendai_pass_selector.dart';
 import '../providers/effective_location_provider.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -283,8 +281,6 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
         child: SafeArea(
           child: CustomScrollView(
             slivers: [
-              if (kDebugMode && ref.watch(cityProfileProvider).key == 'sendai')
-                const SliverToBoxAdapter(child: SendaiPracticalLauncher(city: 'sendai')),
               // Active Trip Card
               if (activeTripAsync?.value != null &&
                   activeTripAsync!.value!.status != TripStatus.completed &&
@@ -508,32 +504,6 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                         },
                       ),
                     ),
-
-                    // Sendai's two transit cards use the same reviewed route
-                    // finder. Keep explicit pass selection on this screen,
-                    // immediately above Search, without adding a fare form.
-                    if (sendaiReviewedCoordinatesEnabled &&
-                        ref.watch(cityProfileProvider).key == 'sendai') ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CupertinoSwitch(
-                            key: const Key('sendai-coordinate-consent'),
-                            value: rs.acceptExperimentalTransferModel,
-                            onChanged: notifier.setExperimentalTransferConsent,
-                          ),
-                          const Text('乗換条件に同意する'),
-                        ],
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: SendaiPassSelector(
-                          onSelectionChanged: notifier.invalidateForFareSelection,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
 
                     // Search Button (Optional but useful if auto-search fails or purely manual)
                     Padding(

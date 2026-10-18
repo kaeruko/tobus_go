@@ -55,10 +55,8 @@ android {
             dimension = "city"
             applicationId = "jp.cloxs.toeigo"
         }
-        create("sendai") {
-            dimension = "city"
-            applicationId = "jp.cloxs.go.sendai"
-        }
+        // Sendai is pending. Its resources and applicationId are preserved
+        // for resumption: jp.cloxs.go.sendai (docs/sendai-pending.md).
     }
 
     signingConfigs {

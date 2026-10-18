@@ -39,7 +39,7 @@ void main() {
         () => sendaiCityProfile.farePolicyById(' normal'),
         throwsStateError,
       );
-    });
+    }, tags: 'sendai');
 
     test('sendai exposes planned realtime and separate distribution IDs', () {
       final profile = cityProfileForKey('sendai');
@@ -58,7 +58,7 @@ void main() {
       expect(profile.distribution.androidApplicationId, 'jp.cloxs.go.sendai');
       expect(profile.distribution.iosBundleIdentifier, 'jp.cloxs.go.sendai');
       expect(profile.distribution.firebaseEnabled, isFalse);
-    });
+    }, tags: 'sendai');
 
 
     test('APP_CITY values are exact and unsupported values fail fast', () {
@@ -72,12 +72,22 @@ void main() {
       }
     });
 
-    test('native flavor selects the same city without APP_CITY', () {
+    test('Tokyo remains active and Sendai cannot be selected while pending', () {
       expect(resolveConfiguredCityKey(flavor: 'tokyo', dartDefine: ''), 'tokyo');
-      expect(
-        resolveConfiguredCityKey(flavor: 'sendai', dartDefine: ''),
-        'sendai',
-      );
+      for (final selection in [
+        ('sendai', ''),
+        (null, 'sendai'),
+        ('sendai', 'sendai'),
+      ]) {
+        expect(
+          () => resolveConfiguredCityKey(
+            flavor: selection.$1, dartDefine: selection.$2,
+          ),
+          throwsA(isA<StateError>().having(
+            (error) => error.message, 'message', contains('is pending'),
+          )),
+        );
+      }
     });
 
     test('flavor and APP_CITY mismatch fails instead of choosing one', () {

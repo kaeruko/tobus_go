@@ -21,7 +21,6 @@ from route_engine import (
     serialize_route_candidate,
     serialize_route_result,
 )
-from sendai_transit import SENDAI_FEED_ID, SendaiRouteBackend
 from tokyo_route_engine import TokyoRouteDependencies, TokyoRouteEngine
 from transit_dataset import (
     FeedMetadata,
@@ -97,7 +96,6 @@ class RouteEngineContractTest(unittest.TestCase):
     def test_gtfs_city_engines_share_the_same_typed_contract(self) -> None:
         engines = (
             GtfsRouteEngine(_dataset("generic"), walk_radius_m=100),
-            SendaiRouteBackend(_dataset(SENDAI_FEED_ID), walk_radius_m=100),
         )
         for engine in engines:
             with self.subTest(engine=type(engine).__name__):

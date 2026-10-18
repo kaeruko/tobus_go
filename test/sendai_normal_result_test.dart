@@ -1,3 +1,5 @@
+@Tags(['sendai'])
+
 import 'dart:convert';
 import 'dart:io';
 

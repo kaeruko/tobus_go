@@ -1,0 +1,4 @@
+# Sendai is pending. Mixed shared suites keep their Tokyo tests enabled.
+exclude_tags: sendai
+tags:
+  sendai:
