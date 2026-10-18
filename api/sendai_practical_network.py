@@ -268,7 +268,7 @@ def _materialize_practical_days(network, civil_date, days, bus_only):
 def search_practical_subway(network, origin, destination, *, civil_date,
                              departure_minute, parameters, realtime=False, mode="time", bus_only=False,
                              _request_materializations=None, _request_deadline=None, _request_metadata=None,
-                             _request_choices=None):
+                             _request_choices=None, _request_arrival_ceiling=None):
     if realtime is not False:
         raise ValueError("practical subway search is static only")
     if mode not in ("time", "fewTransfers"):
@@ -328,6 +328,15 @@ def search_practical_subway(network, origin, destination, *, civil_date,
                                        reason="time_limit")
         parameters = replace(parameters, time_limit_seconds=min(parameters.time_limit_seconds, remaining))
     start = 1440 + departure_minute
+    # Validate/materialize the ORIGINAL reviewed date window above. Only the
+    # subsequent core search may exclude arrivals strictly worse than an
+    # already completed coordinate candidate. Preserve inclusive equal ties.
+    if _request_arrival_ceiling is not None:
+        if mode != "time":
+            raise ValueError("arrival ceiling requires the earliest-arrival objective")
+        parameters=replace(parameters,max_travel_minutes=min(
+            Fraction(str(parameters.max_travel_minutes)),
+            max(Fraction(0),_request_arrival_ceiling-departure_minute)))
     # The free transit policy requires a travelled ride. A walk-only arrival
     # (including origin==destination) must remain an intermediate state, so
     # it neither consumes the sole candidate nor hides a valid transit path.

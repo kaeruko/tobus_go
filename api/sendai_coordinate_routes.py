@@ -131,6 +131,9 @@ class _SelectedScope:
         timetable_choices = {}  # At most one existing same-condition provider.
         diagnostic = {"comparison_complete": False, "completed_pairs": 0,
                       "minimum_transit_boardings": 1, "pair_boarding_limits": [],
+                      "pair_transit_arrival_ceilings": [],
+                      "arrival_bound_basis": "completed_incumbent_final_arrival"
+                          if mode == "time" else "unchanged_maximum",
                       "boarding_bound_basis": "completed_incumbent_primary_objective"
                           if mode == "fewTransfers" else "unchanged_maximum"}
         try:
@@ -155,6 +158,15 @@ class _SelectedScope:
                     boarding_limit=min(boarding_limit,
                         sum(isinstance(e,PracticalRide) for e in best[1].events))
                 diagnostic["pair_boarding_limits"].append(boarding_limit)
+                # time's first completed objective already includes the final
+                # walk. Retain equal arrivals (including cheaper ties), using
+                # the existing travel-time bound only after original day-scope
+                # validation/materialization in the practical connection.
+                arrival_ceiling=None
+                if mode == "time" and best is not None:
+                    arrival_ceiling=best[0][0]-day.toordinal()*1440-destination["minutes"]
+                diagnostic["pair_transit_arrival_ceilings"].append(
+                    None if arrival_ceiling is None else str(arrival_ceiling))
                 remaining = deadline - monotonic()
                 if remaining <= 0:
                     raise RouteSearchLimitError("Sendai coordinate request deadline exceeded", reason="time_limit")
@@ -164,6 +176,7 @@ class _SelectedScope:
                         max_boardings=boarding_limit,
                         max_travel_minutes=180 - origin["minutes"] - destination["minutes"]),
                     mode=mode, bus_only=request.bus_only,
+                    _request_arrival_ceiling=arrival_ceiling,
                     _request_materializations=materializations, _request_deadline=deadline,
                     _request_metadata=source_metadata, _request_choices=timetable_choices)
                 if monotonic() > deadline:

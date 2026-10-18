@@ -168,6 +168,7 @@ class SendaiGeneralRealTests(unittest.TestCase):
                     self.assertNotEqual(origin['stop_id'],case['origin_candidates'][0][1])
 
     def test_unsupported_day_and_no_candidate_keep_fail_closed_contract(self):
+        from transit_timetable_choices import NetworkSearchParameters
         client=normal.make_client(self.fixture.adapter);base=normal.body(self.cases[1])
         for day in ('2026-10-25','2026-11-22','2026-12-01'):
             response=client.post('/route',json={**base,'target_date_str':day})
@@ -178,6 +179,13 @@ class SendaiGeneralRealTests(unittest.TestCase):
             self.assertEqual(response.json()['candidates'],[])
         response=client.post('/route',json={**base,'target_date_str':'2026-11-30','start_time':'23:59'})
         self.assertEqual(response.status_code,422,response.text)
+        # A derived arrival ceiling must not bypass the ORIGINAL date-window
+        # approval check, even if it would finish before midnight itself.
+        with self.assertRaisesRegex(ValueError,'2026-12-01'):
+            search_practical_subway(self.fixture.network,self.cases[1]['origin_candidates'][0][1],
+                self.cases[1]['destination_candidates'][0][1],civil_date=date(2026,11,30),
+                departure_minute=1430,_request_arrival_ceiling=1431,
+                parameters=NetworkSearchParameters(max_candidates=1,max_boardings=3,max_travel_minutes=180))
 
     def test_same_condition_choices_reuse_preserves_every_full_practical_wire(self):
         from transit_timetable_choices import NetworkSearchParameters
@@ -207,6 +215,18 @@ class SendaiGeneralRealTests(unittest.TestCase):
         self.assertNotIn(case['destination_candidates'][0][1],expected)
         self.assertEqual(short,())
         self.assertEqual(choices['preparations'],1)
+        first_destination=case['destination_candidates'][0]
+        frozen=next(p for p in case['pairs'] if p['origin']==origin[1] and p['destination']==first_destination[1])
+        for ceiling in (frozen['transit_arrival'],frozen['transit_arrival']-1):
+            bounded=search_practical_subway(self.fixture.network,origin[1],first_destination[1],
+                civil_date=self.day,departure_minute=540+origin[2],
+                parameters=NetworkSearchParameters(max_candidates=1,max_boardings=3,
+                    max_travel_minutes=180-origin[2]-first_destination[2]),
+                _request_materializations=materializations,_request_metadata=metadata,
+                _request_choices=choices,_request_arrival_ceiling=ceiling)
+            self.assertEqual([serialize_practical_journey(v) for v in bounded],
+                profiles[0][0] if ceiling==frozen['transit_arrival'] else [])
+        self.assertEqual(len(materializations),1)
 
 
 if __name__=='__main__':unittest.main()

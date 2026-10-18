@@ -128,9 +128,20 @@ class GeneralAccessContracts(unittest.TestCase):
                       search.call_args_list[1].kwargs['_request_materializations'])
 
     def test_destination_walk_reverses_arrival_order(self):
-        result,_=self.run_pairs((endpoint('a'),),(endpoint('b',8),endpoint('c',1)),
+        result,search=self.run_pairs((endpoint('a'),),(endpoint('b',8),endpoint('c',1)),
                                 [(journey(555),),(journey(559),)])
         self.assertEqual(result.candidates,[('sendai_bus:a','sendai_bus:c')])
+        self.assertIsNone(search.call_args_list[0].kwargs['_request_arrival_ceiling'])
+        self.assertEqual(search.call_args_list[1].kwargs['_request_arrival_ceiling'],562)
+
+    def test_arrival_ceiling_keeps_equal_final_arrival_and_cost_ties(self):
+        result,search=self.run_pairs((endpoint('a',2),),(endpoint('b',8),endpoint('c',1)),
+            [(journey(555,cost=20),),(journey(562,cost=10),)])
+        self.assertEqual(result.candidates,[('sendai_bus:a','sendai_bus:c')])
+        # Equal FINAL arrival 563 remains eligible; do not use transit 555.
+        self.assertEqual(search.call_args_list[1].kwargs['_request_arrival_ceiling'],562)
+        self.assertEqual(search.call_args_list[1].kwargs['parameters'].max_travel_minutes,177)
+        self.assertEqual(result.meta['coordinate_access']['pair_transit_arrival_ceilings'],[None,'562'])
 
     def test_fewest_transfers_preserves_shared_cost_then_arrival_ties(self):
         result,search=self.run_pairs((endpoint('a'),endpoint('b')), (endpoint('c'),),
@@ -139,6 +150,7 @@ class GeneralAccessContracts(unittest.TestCase):
         self.assertEqual(result.candidates,[('sendai_bus:b','sendai_bus:c')])
         self.assertEqual([call.kwargs['parameters'].max_boardings for call in search.call_args_list],[3,2])
         self.assertEqual(result.meta['coordinate_access']['pair_boarding_limits'],[3,2])
+        self.assertTrue(all(c.kwargs['_request_arrival_ceiling'] is None for c in search.call_args_list))
 
     def test_few_transfer_bound_keeps_equal_boardings_and_all_candidate_pairs(self):
         origins=(endpoint('a'),endpoint('b'),endpoint('c'))
