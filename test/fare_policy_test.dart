@@ -108,6 +108,8 @@ void main() {
     test('stored policy from another city is not silently replaced', () async {
       SharedPreferences.setMockInitialValues({
         'farePolicyId:sendai': 'tokyo_toei_transport_pass',
+        'farePolicyId:sendai:reviewed-coordinate-development':
+            'tokyo_toei_transport_pass',
       });
 
       await expectLater(
