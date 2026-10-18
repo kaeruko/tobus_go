@@ -515,12 +515,6 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                     if (sendaiReviewedCoordinatesEnabled &&
                         ref.watch(cityProfileProvider).key == 'sendai') ...[
                       const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: SendaiPassSelector(
-                          onSelectionChanged: notifier.invalidateForFareSelection,
-                        ),
-                      ),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -532,6 +526,13 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                           const Text('乗換条件に同意する'),
                         ],
                       ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: SendaiPassSelector(
+                          onSelectionChanged: notifier.invalidateForFareSelection,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                     ],
 
                     // Search Button (Optional but useful if auto-search fails or purely manual)
