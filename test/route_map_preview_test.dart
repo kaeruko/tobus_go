@@ -181,8 +181,6 @@ void main() {
   testWidgets('compact route expands with geometry and live vehicle updates', (
     tester,
   ) async {
-    final semantics = tester.ensureSemantics();
-    addTearDown(semantics.dispose);
     final vehicle = ValueNotifier(const LatLng(35.001, 139.0));
     addTearDown(vehicle.dispose);
     final geometry = [
@@ -223,7 +221,13 @@ void main() {
     ));
     await tester.pumpAndSettle();
     final miniMap = tester.widget<GoogleMap>(find.byType(GoogleMap));
-    expect(find.bySemanticsLabel('地図を拡大'), findsOneWidget);
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pump();
+      expect(find.bySemanticsLabel('地図を拡大'), findsOneWidget);
+    } finally {
+      semantics.dispose();
+    }
     await tester.tap(find.byKey(const ValueKey('route-map-expand')));
     await tester.pumpAndSettle();
 
