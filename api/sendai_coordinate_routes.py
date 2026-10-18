@@ -212,8 +212,15 @@ class _SelectedScope:
             if isinstance(error, RouteInputError):
                 raise
             raise RouteInputError(str(error)) from error
-        candidates = [] if best is None else [_candidate(a.network, best[1], request, best[2], best[3],
-            fare_policy_id=self.policy_id)]
+        # Preserve the existing Fureai serializer call and its frozen regression
+        # contract. Only the senior case needs the additional fare selector.
+        if best is None:
+            candidates = []
+        elif self.policy_id == POLICY:
+            candidates = [_candidate(a.network, best[1], request, best[2], best[3])]
+        else:
+            candidates = [_candidate(a.network, best[1], request, best[2], best[3],
+                fare_policy_id=self.policy_id)]
         diagnostic.update(comparison_complete=True, uncompared_pairs=[], network_builds=len(materializations),
             timetable_preparations=timetable_choices.get("preparations", 0),
             timetable_reuse_hits=timetable_choices.get("reuse_hits", 0),
