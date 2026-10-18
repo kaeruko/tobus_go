@@ -86,10 +86,23 @@ async def setup_sendai_on_startup(app, mode: str) -> None:
             if not value:
                 raise RuntimeError(f"{name} is required for reviewed Sendai coordinates")
             return Path(value)
-        review = json.loads(required_path("SENDAI_MUNICIPAL_REVIEW").read_text(encoding="utf-8"))
+        if mode == "lambda":
+            # The exact reviewed inputs live inside the SAME S3 GTFS bundle.
+            # Do not read loose Lambda environment paths, test fixtures or an
+            # unrelated source on production startup.
+            from app.services.sendai_review_bundle import validated_reviewed_paths
+            reviewed_paths = validated_reviewed_paths(Path(gtfs_dir))
+            review_path = reviewed_paths["municipal"]
+            published_path = reviewed_paths["subway_published"]
+            subway_review_path = reviewed_paths["subway_review"]
+        else:
+            review_path = required_path("SENDAI_MUNICIPAL_REVIEW")
+            published_path = required_path("SENDAI_SUBWAY_PUBLISHED")
+            subway_review_path = required_path("SENDAI_SUBWAY_REVIEW")
+        review = json.loads(review_path.read_text(encoding="utf-8"))
         period = OperatingPeriodReview.from_mapping(review["operating_period"])
-        subway, _ = load_reviewed_subway(required_path("SENDAI_SUBWAY_PUBLISHED"),
-            required_path("SENDAI_SUBWAY_REVIEW"), operating_period=period)
+        subway, _ = load_reviewed_subway(published_path,
+            subway_review_path, operating_period=period)
         network = build_reviewed_municipal_model(subway, dataset, review,
             accept_experimental_bus_transfers=True)
         engine = SendaiCoordinateScope(backend, network, period, environment=mode,
