@@ -85,6 +85,9 @@ jobs:
       - name: Run Flutter tests
         run: flutter test
 
+      - name: Verify explicitly opted-in Sendai policy on the shared Flutter UI
+        run: flutter test test/city_profile_test.dart test/fare_policy_test.dart --dart-define=SENDAI_REVIEWED_COORDINATES=true
+
       - name: Verify generated iOS project is committed
         run: ruby scripts/configure_ios_flavors.rb --check
 

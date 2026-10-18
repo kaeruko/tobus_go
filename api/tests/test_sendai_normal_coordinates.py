@@ -179,6 +179,24 @@ class SendaiNormalCoordinateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             SendaiCoordinateScope(self.normal,self.network,self.period,environment='production')
 
+    def test_lambda_opt_in_uses_the_same_reviewed_trip_and_fare(self):
+        # Opted-in Lambda is not a different search implementation or source.
+        # The environment flag changes only the deployment availability.
+        adapter = SendaiCoordinateScope(self.normal, self.network, self.period,
+            environment='lambda', access_reviews=nagamachi_minami_access(self.network))
+        response = make_client(adapter).post('/route', json=body(self.cases[0]))
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertIs(payload['meta']['development_only'], False)
+        self.assertEqual(payload['candidates'][0]['arrival_time'],
+            f"{self.cases[0]['arrival_minute']//60:02d}:{self.cases[0]['arrival_minute']%60:02d}")
+        quote = payload['candidates'][0]['fare']
+        self.assertEqual((quote['policyId'], quote['payNowYen'], quote['normalFareYen']),
+            ('sendai_fureai_pass', 0, None))
+        denied = make_client(adapter).post('/route',
+            json={**body(self.cases[0]), 'accept_experimental_transfer_model': False})
+        self.assertEqual(denied.status_code, 422, denied.text)
+
     def test_unchanged_normal_backend_is_constructed_once_on_explicit_demand(self):
         from unittest.mock import Mock
         factory=Mock(return_value=self.normal)

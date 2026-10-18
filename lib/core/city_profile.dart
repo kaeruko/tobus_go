@@ -1,8 +1,8 @@
 import 'package:flutter/services.dart' show appFlavor;
-import 'package:flutter/foundation.dart' show kDebugMode;
 
-// Store builds keep the normal-only policy list even with the opt-in define.
-const sendaiCoordinateDevelopment = kDebugMode && bool.fromEnvironment('SENDAI_REVIEWED_COORDINATES');
+// Explicit city-scoped opt-in for both debug and release builds. Without the
+// matching approved backend, this option is not enabled in distributed apps.
+const sendaiReviewedCoordinatesEnabled = bool.fromEnvironment('SENDAI_REVIEWED_COORDINATES');
 
 enum AppCity {
   tokyo,
@@ -169,10 +169,10 @@ const sendaiCityProfile = CityProfile(
       displayName: '通常運賃',
       settlementType: 'normal',
     ),
-    if (sendaiCoordinateDevelopment)
+    if (sendaiReviewedCoordinatesEnabled)
       FarePolicyOption(
         id: 'sendai_fureai_pass',
-        displayName: 'ふれあい乗車証（本人所持・開発検証用）',
+        displayName: 'ふれあい乗車証',
         settlementType: 'free_pass',
         sourceUri: 'https://www.city.sendai.jp/servicekanri/kurashi/kenkotofukushi/shogai/shakaisanka/waribiki/fureai.html',
       ),

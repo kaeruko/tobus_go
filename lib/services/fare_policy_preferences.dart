@@ -1,10 +1,11 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/city_profile.dart';
 
 class FarePolicyPreferences {
   static String _key(CityProfile profile) =>
-      profile.key == 'sendai' && sendaiCoordinateDevelopment
+      profile.key == 'sendai' && kDebugMode && sendaiReviewedCoordinatesEnabled
           ? 'farePolicyId:sendai:reviewed-coordinate-development'
           : 'farePolicyId:${profile.key}';
 
