@@ -103,6 +103,11 @@ void main() {
       expect(await FarePolicyPreferences.load(sendaiCityProfile),
           'sendai_fureai_pass');
       expect(await FarePolicyPreferences.load(tokyoCityProfile), 'normal');
+      final senior = sendaiCityProfile.farePolicyById('sendai_keiro_pass');
+      expect(senior.settlementType, 'normal');
+      await FarePolicyPreferences.save(sendaiCityProfile, 'sendai_keiro_pass');
+      expect(await FarePolicyPreferences.load(sendaiCityProfile), 'sendai_keiro_pass');
+      expect(await FarePolicyPreferences.load(tokyoCityProfile), 'normal');
     });
 
     test('stored policy from another city is not silently replaced', () async {
