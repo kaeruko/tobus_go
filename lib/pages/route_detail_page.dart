@@ -1182,9 +1182,6 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               ),
 
               SliverToBoxAdapter(child: FareSummary(fare: widget.fare)),
-              if (widget.candidate.planningNotice != null)
-                SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(16),
-                  child: Text(widget.candidate.planningNotice!))),
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
               SliverToBoxAdapter(

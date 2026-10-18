@@ -245,4 +245,82 @@ void main() {
     );
   });
 
+  testWidgets('common route card does not render development notices or unknown metres', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final planned = Candidate(
+      planningNotice: 'development notice must remain internal',
+      id: 'route-card-planned',
+      lines: const ['上23'],
+      linesEn: const ['Ueno-Matsuzakaya'],
+      rides: 1,
+      boards: 1,
+      transfers: 0,
+      total: 25,
+      totalTime: 25,
+      arrivalTime: '11:33',
+      points: const [],
+      walkingDistanceMeters: 0,
+      walkingSegmentCount: 1,
+      originName: '押上',
+      originNameEn: 'Oshiage',
+      destinationName: '上野',
+      destinationNameEn: 'Ueno',
+      steps: [
+        StepSeg(
+          stepId: 'walk-unverified',
+          kind: 'walk',
+          title: '地点からの徒歩（推定）',
+          minutes: 3,
+          meters: 0,
+          planningDetails: {
+            'physical_walk_meters': null,
+            'notice': 'internal walk provenance',
+          },
+        ),
+        StepSeg(
+          stepId: 'bus-planned',
+          kind: 'bus',
+          title: '上23 上野松坂屋前行',
+          titleEn: 'Ueno-Matsuzakaya',
+          fromName: '押上駅前',
+          fromNameEn: 'Oshiage Sta.',
+          toName: '上野松坂屋前',
+          toNameEn: 'Ueno-Matsuzakaya',
+          minutes: 20,
+        ),
+      ],
+    );
+    expect(planned.hasUnknownWalkingDistance, isTrue);
+    await pumpCard(tester, const Locale('ja'), route: planned);
+    expect(find.text('11:33着'), findsOneWidget);
+    expect(find.text('徒歩'), findsOneWidget);
+    expect(find.textContaining('到着目安'), findsNothing);
+    expect(find.textContaining('development notice'), findsNothing);
+    expect(find.textContaining('internal walk provenance'), findsNothing);
+    expect(find.textContaining('0m'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await pumpCard(tester, const Locale('en'), route: planned);
+    expect(find.text('Arrive 11:33'), findsOneWidget);
+    expect(find.textContaining('到着目安'), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    // Geometry-derived metres are still displayable even when the physical
+    // walking path has not been verified by the source.
+    final geometric = Candidate.fromJson({
+      ...planned.toJson(),
+      'walking_distance_meters': 124,
+      'steps': [
+        {...planned.steps.first.toJson(), 'meters': 124},
+        planned.steps.last.toJson(),
+      ],
+    });
+    expect(geometric.hasUnknownWalkingDistance, isFalse);
+    await pumpCard(tester, const Locale('ja'), route: geometric);
+    expect(find.text('徒歩 124m'), findsOneWidget);
+    expect(find.text('11:33着'), findsOneWidget);
+    expect(find.textContaining('到着目安'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
 }

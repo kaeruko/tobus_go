@@ -289,7 +289,6 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                 SliverToBoxAdapter(child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('通常検索の仙台ネットワーク接続・開発検証用。運賃設定で本人所持のふれあい乗車証を明示選択してください。徒歩確認済み地点と具体標柱位置のみ対応。一般住所からの徒歩は未確認なら検索できません。'),
                     CupertinoButton(key: const Key('sendai-coordinate-fare-settings'),
                       onPressed: () async {
                         notifier.setExperimentalTransferConsent(false);

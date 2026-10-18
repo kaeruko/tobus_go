@@ -118,6 +118,11 @@ class Candidate {
     }
   }
 
+  // Display-only data quality: a geometric walk need not have a verified
+  // physical walking distance. Unknown distance must not become 0m in UI.
+  bool get hasUnknownWalkingDistance =>
+      steps.any((step) => step.hasUnknownWalkingDistance);
+
   // The Sendai profile uses Japan civil clocks. Keep departureDate as the
   // original instant, but give the existing date picker a local wall clock
   // rather than converting the journey to the browser/device time zone.
@@ -670,6 +675,15 @@ class StepSeg {
     this.departureStopId = '',
     this.arrivalPoleId = '',
   });
+
+  // An unmeasured physical path can still have a displayable geometric
+  // estimate. Only suppress a misleading 0m for a timed, distance-less walk.
+  bool get hasUnknownWalkingDistance =>
+      kind == 'walk' &&
+      minutes > 0 &&
+      meters == 0 &&
+      planningDetails?.containsKey('physical_walk_meters') == true &&
+      planningDetails?['physical_walk_meters'] == null;
 
   bool get isRide => kind == 'bus' || kind == 'rail';
 

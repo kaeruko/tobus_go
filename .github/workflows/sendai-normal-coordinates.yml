@@ -39,6 +39,20 @@ on:
       - 'scripts/*sendai_normal*.py'
       - 'scripts/benchmark_sendai_general_coordinates.py'
       - 'integration_test/sendai_normal_chrome_test.dart'
+  # Verify the normal Sendai UI against real approved GTFS before merging
+  # a change to the shared Tokyo/Sendai route presentation.
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/sendai-normal-coordinates.yml'
+      - 'lib/widgets/route_card.dart'
+      - 'lib/widgets/route_detail_widgets.dart'
+      - 'lib/models/route_models.dart'
+      - 'lib/pages/home_page.dart'
+      - 'lib/pages/route_detail_page.dart'
+      - 'integration_test/sendai_normal_chrome_test.dart'
+      - 'test/route_card_localization_test.dart'
+      - 'test/route_detail_widgets_test.dart'
   workflow_dispatch:
 
 permissions:

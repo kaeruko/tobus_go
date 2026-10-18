@@ -285,7 +285,7 @@ class RouteSummary extends StatelessWidget {
                 ),
               ),
               Text(
-                candidate.planningNotice == null ? (arrival ?? '--:--') : '目安 ${arrival ?? '--:--'}',
+                arrival ?? '--:--',
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -308,7 +308,9 @@ class RouteSummary extends StatelessWidget {
               _stat(l10n.summaryRideSegments, candidate.rides.toString()),
               _stat(
                 l10n.summaryWalk,
-                candidate.planningNotice == null ? '${candidate.walkingDistanceMeters}m' : '未実測',
+                candidate.hasUnknownWalkingDistance
+                    ? '--'
+                    : '${candidate.walkingDistanceMeters}m',
               ),
             ],
           ),
@@ -576,9 +578,7 @@ class RouteStepTile extends StatelessWidget {
                     if (segment.departureTime != null &&
                         segment.arrivalTime != null)
                       Text(
-                        segment.planningDetails == null
-                            ? '${segment.departureTime} → ${segment.arrivalTime}'
-                            : '${segment.departureTime} → ${segment.kind == 'rail' ? '到着目安 ' : ''}${segment.arrivalTime}',
+                        '${segment.departureTime} → ${segment.arrivalTime}',
                         style: const TextStyle(
                           fontSize: 13,
                           color: CupertinoColors.activeBlue,
@@ -594,9 +594,6 @@ class RouteStepTile extends StatelessWidget {
                         ),
                       ),
                     ],
-                    if (segment.planningDetails?['notice'] != null)
-                      Text(segment.planningDetails!['notice'].toString(),
-                        style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey)),
                   ],
                 ),
               ),
@@ -688,7 +685,7 @@ class RouteStepTile extends StatelessWidget {
         field: 'walk_to_en',
       );
       if (from != null && to != null) return '$from → $to';
-      if (segment.meters > 0) {
+      if (segment.meters > 0 && !segment.hasUnknownWalkingDistance) {
         return l10n.walkSegment('${segment.meters.round()}m', '');
       }
       return l10n.walkTitle;
@@ -717,7 +714,7 @@ class RouteStepTile extends StatelessWidget {
   String _rightText(bool isWalk, AppLocalizations l10n) {
     if (segment.minutes > 0) return l10n.approximateMinutes(segment.minutes);
     if (!isWalk && segment.edges > 0) return l10n.stopCount(segment.edges);
-    if (isWalk && segment.meters > 0) {
+    if (isWalk && segment.meters > 0 && !segment.hasUnknownWalkingDistance) {
       return '${segment.meters.round()}m';
     }
     return '';

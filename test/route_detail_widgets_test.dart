@@ -282,4 +282,48 @@ void main() {
     expect(find.text('Pay now ¥0'), findsOneWidget);
   });
 
+  testWidgets('planned route keeps shared clock layout without warnings or fabricated distance', (tester) async {
+    final planned = Candidate(
+      planningNotice: 'internal provenance only',
+      id: 'shared-planned',
+      lines: const ['008'],
+      rides: 1,
+      boards: 1,
+      transfers: 0,
+      total: 20,
+      totalTime: 20,
+      walkingDistanceMeters: 0,
+      walkingSegmentCount: 1,
+      arrivalTime: '10:20',
+      points: const [],
+      steps: [
+        StepSeg(
+          stepId: 'planned-walk',
+          kind: 'walk',
+          title: '徒歩（推定）',
+          minutes: 3,
+          meters: 0,
+          departureTime: '10:00',
+          arrivalTime: '10:03',
+          planningDetails: {
+            'physical_walk_meters': null,
+            'notice': 'internal walk source',
+          },
+        ),
+      ],
+    );
+    await tester.pumpWidget(localizedApp(ListView(children: [
+      RouteSummary(candidate: planned),
+      RouteStepTile(segment: planned.steps.single),
+    ])));
+    await tester.pumpAndSettle();
+    expect(find.text('10:20'), findsOneWidget);
+    expect(find.text('--'), findsOneWidget);
+    expect(find.text('10:00 → 10:03'), findsOneWidget);
+    expect(find.textContaining('目安'), findsNothing);
+    expect(find.textContaining('internal'), findsNothing);
+    expect(find.text('0m'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
 }
