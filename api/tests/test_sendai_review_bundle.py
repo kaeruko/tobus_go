@@ -6,12 +6,17 @@ never accepted as independently reviewed operational Sendai transit data.
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+
+# API CI runs with api/ as its working directory; the preparer lives under
+# the repository's shared scripts/ namespace.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from app.services.sendai_review_bundle import (
     GTFS_MANIFEST, REVIEW_FILES, REVIEW_MANIFEST,
