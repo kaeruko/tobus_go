@@ -129,6 +129,73 @@ void main() {
     expect(find.text('出発駅前 → 山下公園前'), findsOneWidget);
   });
 
+  for (final kind in ['walk', 'wait', 'bus', 'rail']) {
+    testWidgets('$kind step shows its scheduled clock at narrow large text', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final segment = StepSeg(
+        stepId: 'clock-$kind',
+        kind: kind,
+        title: '深夜便',
+        fromName: '出発地',
+        toName: '到着地',
+        minutes: 7,
+        meters: kind == 'walk' ? 120 : 0,
+        edges: kind == 'bus' || kind == 'rail' ? 3 : 0,
+        departureTime: '25:10',
+        arrivalTime: '25:17',
+      );
+
+      await tester.pumpWidget(
+        localizedApp(
+          Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(2),
+              ),
+              child: ListView(children: [RouteStepTile(segment: segment)]),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('25:10 → 25:17'), findsOneWidget);
+      expect(find.textContaining('約'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('partial or missing step clocks stay explicit without estimates', (
+    tester,
+  ) async {
+    for (final clock in [
+      (departure: ' 10:02 ', arrival: null, label: '10:02発'),
+      (departure: null, arrival: '10:17', label: '10:17着'),
+      (departure: ' ', arrival: null, label: '時刻不明'),
+    ]) {
+      final segment = StepSeg(
+        stepId: 'partial-clock',
+        kind: 'walk',
+        title: '徒歩',
+        minutes: 15,
+        departureTime: clock.departure,
+        arrivalTime: clock.arrival,
+      );
+      await tester.pumpWidget(
+        localizedApp(ListView(children: [RouteStepTile(segment: segment)])),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(clock.label), findsOneWidget);
+      expect(find.textContaining('15分'), findsNothing);
+      expect(find.textContaining('→'), findsNothing);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('English leading wait renders the bilingual origin', (
     tester,
   ) async {

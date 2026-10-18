@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
 import '../l10n/app_localizations.dart';
+import '../l10n/route_step_time_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
@@ -575,16 +576,14 @@ class RouteStepTile extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    if (segment.departureTime != null &&
-                        segment.arrivalTime != null)
-                      Text(
-                        '${segment.departureTime} → ${segment.arrivalTime}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: CupertinoColors.activeBlue,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    Text(
+                      routeStepTimeLabel(segment, l10n),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: CupertinoColors.activeBlue,
+                        fontWeight: FontWeight.w600,
                       ),
+                    ),
                     if (subTitle != null) ...[
                       const SizedBox(height: 4),
                       Text(
@@ -712,7 +711,6 @@ class RouteStepTile extends StatelessWidget {
   }
 
   String _rightText(bool isWalk, AppLocalizations l10n) {
-    if (segment.minutes > 0) return l10n.approximateMinutes(segment.minutes);
     if (!isWalk && segment.edges > 0) return l10n.stopCount(segment.edges);
     if (isWalk && segment.meters > 0 && !segment.hasUnknownWalkingDistance) {
       return '${segment.meters.round()}m';
