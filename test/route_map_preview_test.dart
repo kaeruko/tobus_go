@@ -178,10 +178,136 @@ void main() {
     expect(map.myLocationButtonEnabled, isTrue);
   });
 
+  testWidgets('compact route expands with geometry and live vehicle updates', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    addTearDown(semantics.dispose);
+    final vehicle = ValueNotifier(const LatLng(35.001, 139.0));
+    addTearDown(vehicle.dispose);
+    final geometry = [
+      RouteMapSegment(
+        kind: 'walk',
+        points: const [LatLng(35, 139), LatLng(35.001, 139)],
+      ),
+      RouteMapSegment(
+        kind: 'bus',
+        points: const [LatLng(35.001, 139), LatLng(35.01, 139)],
+      ),
+      RouteMapSegment(
+        kind: 'rail',
+        points: const [LatLng(35.01, 139), LatLng(35.02, 139)],
+      ),
+    ];
+    await tester.pumpWidget(CupertinoApp(
+      locale: const Locale('ja'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: CupertinoPageScaffold(
+        child: Center(
+          child: ValueListenableBuilder<LatLng>(
+            valueListenable: vehicle,
+            builder: (context, position, _) => RouteMapPreview(
+              points: const [LatLng(35, 139), LatLng(35.02, 139)],
+              routeGeometry: geometry,
+              vehiclePosition: position,
+              height: 150,
+              showOpenButton: false,
+              openExternalOnTap: false,
+              rotateGesturesEnabled: false,
+              tiltGesturesEnabled: false,
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final miniMap = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(find.bySemanticsLabel('地図を拡大'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('route-map-expand')));
+    await tester.pumpAndSettle();
+
+    final expandedFinder = find.byKey(const ValueKey('expanded-route-map'));
+    final expanded = tester.widget<RouteMapPreview>(expandedFinder);
+    expect(expanded.routeGeometry, same(geometry));
+    expect(expanded.height, greaterThan(150));
+    expect(expanded.margin, EdgeInsets.zero);
+    expect(expanded.showExpandButton, isFalse);
+    final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(map.polylines, miniMap.polylines);
+    expect(map.markers, miniMap.markers);
+    expect(map.scrollGesturesEnabled, isTrue);
+    expect(map.zoomGesturesEnabled, isTrue);
+    expect(map.rotateGesturesEnabled, isFalse);
+    expect(map.tiltGesturesEnabled, isFalse);
+    expect(map.myLocationEnabled, isFalse);
+    expect(map.onTap, isNull);
+    expect(map.markers.every((marker) => marker.onTap == null), isTrue);
+    expect(find.byKey(const ValueKey('route-map-expand')), findsNothing);
+
+    vehicle.value = const LatLng(35.009, 139.0);
+    await tester.pumpAndSettle();
+    final updatedMap = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(updatedMap.markers.singleWhere(
+      (marker) => marker.markerId.value == 'realtime_vehicle',
+    ).position, vehicle.value);
+
+    await tester.tap(find.byKey(const ValueKey('expanded-route-map-back')));
+    await tester.pumpAndSettle();
+    expect(expandedFinder, findsNothing);
+    expect(find.byKey(const ValueKey('route-map-expand')), findsOneWidget);
+    expect(tester.widget<RouteMapPreview>(find.byType(RouteMapPreview)).height,
+        150);
+    expect(urlLauncher.urls, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('static preview can expand without enabling external navigation', (
+    tester,
+  ) async {
+    await tester.pumpWidget(CupertinoApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const CupertinoPageScaffold(
+        child: Center(child: RouteMapPreview(
+          points: [LatLng(35, 139)],
+          interactive: false,
+        )),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('route-map-expand')));
+    await tester.pumpAndSettle();
+    final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(map.zoomGesturesEnabled, isTrue);
+    expect(map.markers, hasLength(1));
+    expect(map.polylines, isEmpty);
+    expect(map.onTap, isNull);
+    expect(urlLauncher.urls, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('expand action can be explicitly disabled', (tester) async {
+    await tester.pumpWidget(CupertinoApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const CupertinoPageScaffold(
+        child: RouteMapPreview(
+          points: [LatLng(35, 139)],
+          showExpandButton: false,
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('route-map-expand')), findsNothing);
+    expect(find.byType(GoogleMap), findsOneWidget);
+  });
+
   testWidgets('no geometry means no external map action', (tester) async {
     await showMap(tester, points: const []);
     expect(find.byType(GoogleMap), findsNothing);
     expect(find.text('Google Mapsで開く'), findsNothing);
+    expect(find.byKey(const ValueKey('route-map-expand')), findsNothing);
     expect(urlLauncher.urls, isEmpty);
   });
 

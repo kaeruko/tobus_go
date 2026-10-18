@@ -1387,6 +1387,7 @@
   },
   "routeMapUnavailable": "Route map unavailable",
   "routeMapStart": "Start",
+  "routeMapExpand": "Expand map",
   "routeMapEnd": "Destination",
   "replanMapAnchor": "Route review point",
   "replanReviewAction": "Review route",

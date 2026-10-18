@@ -1387,6 +1387,7 @@
   },
   "routeMapUnavailable": "无法在地图上显示路线",
   "routeMapStart": "出发地",
+  "routeMapExpand": "放大地图",
   "routeMapEnd": "目的地",
   "replanMapAnchor": "路线重新规划地点",
   "replanReviewAction": "重新规划路线",

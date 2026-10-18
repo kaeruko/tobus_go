@@ -1387,6 +1387,7 @@
   },
   "routeMapUnavailable": "無法在地圖上顯示路線",
   "routeMapStart": "出發地",
+  "routeMapExpand": "放大地圖",
   "routeMapEnd": "目的地",
   "replanMapAnchor": "路線重新規劃地點",
   "replanReviewAction": "重新規劃路線",

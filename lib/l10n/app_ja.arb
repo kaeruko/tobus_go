@@ -1387,6 +1387,7 @@
   },
   "routeMapUnavailable": "経路を地図に表示できません",
   "routeMapStart": "出発地",
+  "routeMapExpand": "地図を拡大",
   "routeMapEnd": "目的地",
   "replanMapAnchor": "経路見直し地点",
   "replanReviewAction": "経路を見直す",

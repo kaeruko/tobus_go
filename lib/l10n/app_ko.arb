@@ -1387,6 +1387,7 @@
   },
   "routeMapUnavailable": "경로 지도를 사용할 수 없습니다",
   "routeMapStart": "출발",
+  "routeMapExpand": "지도 확대",
   "routeMapEnd": "도착지",
   "replanMapAnchor": "경로 재검토 지점",
   "replanReviewAction": "경로 다시 확인",
