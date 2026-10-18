@@ -245,4 +245,54 @@ void main() {
     );
   });
 
+  testWidgets('common route card does not render development notices or unknown metres', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final planned = Candidate(
+      planningNotice: 'development notice must remain internal',
+      id: 'route-card-planned',
+      lines: const ['上23'],
+      linesEn: const ['Ueno-Matsuzakaya'],
+      rides: 1,
+      boards: 1,
+      transfers: 0,
+      total: 25,
+      totalTime: 25,
+      arrivalTime: '11:33',
+      points: const [],
+      walkingDistanceMeters: 0,
+      walkingSegmentCount: 1,
+      originName: '押上',
+      originNameEn: 'Oshiage',
+      destinationName: '上野',
+      destinationNameEn: 'Ueno',
+      steps: [
+        StepSeg(
+          stepId: 'walk-unverified',
+          kind: 'walk',
+          title: '地点からの徒歩（推定）',
+          minutes: 3,
+          meters: 0,
+          planningDetails: {
+            'physical_walk_meters': null,
+            'notice': 'internal walk provenance',
+          },
+        ),
+      ],
+    );
+    expect(planned.hasUnknownWalkingDistance, isTrue);
+    await pumpCard(tester, const Locale('ja'), route: planned);
+    expect(find.text('11:33着'), findsOneWidget);
+    expect(find.text('徒歩'), findsOneWidget);
+    expect(find.textContaining('到着目安'), findsNothing);
+    expect(find.textContaining('development notice'), findsNothing);
+    expect(find.textContaining('internal walk provenance'), findsNothing);
+    expect(find.textContaining('0m'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await pumpCard(tester, const Locale('en'), route: planned);
+    expect(find.text('Arrive 11:33'), findsOneWidget);
+    expect(find.textContaining('到着目安'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
 }
