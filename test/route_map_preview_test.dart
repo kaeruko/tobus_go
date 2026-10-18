@@ -234,8 +234,14 @@ void main() {
     expect(expanded.margin, EdgeInsets.zero);
     expect(expanded.showExpandButton, isFalse);
     final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
-    expect(map.polylines, miniMap.polylines);
-    expect(map.markers, miniMap.markers);
+    expect(
+      map.polylines.map((line) => line.toJson()).toList(),
+      miniMap.polylines.map((line) => line.toJson()).toList(),
+    );
+    expect(
+      map.markers.map((marker) => marker.toJson()).toList(),
+      miniMap.markers.map((marker) => marker.toJson()).toList(),
+    );
     expect(map.scrollGesturesEnabled, isTrue);
     expect(map.zoomGesturesEnabled, isTrue);
     expect(map.rotateGesturesEnabled, isFalse);
