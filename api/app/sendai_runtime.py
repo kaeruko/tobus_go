@@ -48,8 +48,8 @@ async def setup_sendai_on_startup(app, mode: str) -> None:
     coordinate_opt_in = os.getenv("SENDAI_REVIEWED_COORDINATES", "0")
     if coordinate_opt_in not in {"0", "1"}:
         raise RuntimeError("SENDAI_REVIEWED_COORDINATES must be 0 or 1")
-    if coordinate_opt_in == "1" and mode != "development":
-        raise RuntimeError("reviewed Sendai coordinates require the explicit development runtime")
+    if coordinate_opt_in == "1" and mode not in {"development", "lambda"}:
+        raise RuntimeError("reviewed Sendai coordinates require development or lambda runtime")
 
     gtfs_dir = os.getenv("SENDAI_GTFS_DIR")
     if gtfs_dir is None or gtfs_dir == "":
@@ -84,7 +84,7 @@ async def setup_sendai_on_startup(app, mode: str) -> None:
         def required_path(name):
             value = os.getenv(name)
             if not value:
-                raise RuntimeError(f"{name} is required for reviewed coordinate development")
+                raise RuntimeError(f"{name} is required for reviewed Sendai coordinates")
             return Path(value)
         review = json.loads(required_path("SENDAI_MUNICIPAL_REVIEW").read_text(encoding="utf-8"))
         period = OperatingPeriodReview.from_mapping(review["operating_period"])
@@ -92,7 +92,7 @@ async def setup_sendai_on_startup(app, mode: str) -> None:
             required_path("SENDAI_SUBWAY_REVIEW"), operating_period=period)
         network = build_reviewed_municipal_model(subway, dataset, review,
             accept_experimental_bus_transfers=True)
-        engine = SendaiCoordinateScope(backend, network, period, environment="development",
+        engine = SendaiCoordinateScope(backend, network, period, environment=mode,
             access_reviews=nagamachi_minami_access(network), normal_backend_factory=normal_backend_factory)
         app.state.sendai_reviewed_network = network
         app.state.sendai_operating_period = period
