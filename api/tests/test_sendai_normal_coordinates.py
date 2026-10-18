@@ -163,6 +163,21 @@ class SendaiNormalCoordinateTests(unittest.TestCase):
             "fare_policy_id": "sendai_keiro_pass", "target_date_str": "2026-12-01"})
         self.assertEqual(excluded.status_code, 422)
 
+    def test_opted_in_search_does_not_enable_public_pass_repricing(self):
+        from app.fare_routes import register_fare_routes
+
+        client = make_client(self.adapter)
+        register_fare_routes(client.app)
+        response = client.get("/fare/policies")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual([p["policyId"] for p in response.json()["policies"]], ["normal"])
+        for policy_id in ("sendai_fureai_pass", "sendai_keiro_pass"):
+            with self.subTest(policy_id=policy_id):
+                response = client.post("/fare/apply", json={
+                    "policy_id": policy_id, "candidates": [],
+                })
+                self.assertEqual(response.status_code, 422, response.text)
+
     def test_general_coordinate_reclassification_preserves_specific_poles_and_free_scope(self):
         base=body(self.cases[0]);client=make_client(self.adapter)
         # Newly permitted geometry is not a reviewed sidewalk. The exact bay

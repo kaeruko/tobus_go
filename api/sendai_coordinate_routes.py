@@ -11,6 +11,7 @@ import hashlib
 import math
 from time import monotonic
 
+from fare_policy import FarePolicyContext, StoredValuePassFarePolicy
 from route_engine import RouteCandidate, RouteInputError, RoutePreference, RouteSearchLimitError, RouteSearchResult, WalkStep
 from sendai_coordinate_access import COORDINATE_ACCESS_RULES
 from sendai_practical_network import CivilMinute, PracticalRide, search_practical_subway
@@ -26,6 +27,12 @@ GENERAL_CANDIDATE_LIMIT = 6
 
 POLICY = "sendai_fureai_pass"
 KEIRO_POLICY = "sendai_keiro_pass"
+# This quote belongs only to the explicitly enabled reviewed route scope.
+# Public /fare/policies and /fare/apply must not accept either reviewed pass.
+_KEIRO_FARE_POLICY = StoredValuePassFarePolicy(
+    city_key="sendai", policy_id=KEIRO_POLICY, display_name="仙台市 敬老乗車証",
+    source_uri="https://www.city.sendai.jp/korekikaku-kikaku/kurashi/kenkotofukushi/korenokata/katsudo/sedo/joshasho/index.html",
+)
 NOTICE = ("仙台・開発検証用。地下鉄は公式発車時刻と到着目安、バスはGTFS予定時刻です。"
           "徒歩・乗換時間と余裕は未実測の計画仮定で、接続・到着を保証しません。"
           "通常運賃は不明。本人の有効なふれあい乗車証所持・明示選択が前提です。"
@@ -36,7 +43,7 @@ KEIRO_NOTICE = ("敬老乗車証はチャージ残高から運賃が引かれま
 
 class SendaiCoordinateScope:
     """Connection adapter implementing the existing RouteEngine boundary."""
-    verified_quote_policy_ids = frozenset({POLICY})
+    verified_quote_policy_statuses = {POLICY: "available", KEIRO_POLICY: "unavailable"}
 
     def __init__(self, normal_backend, network, operating_period, *, environment, access_reviews=(),
                  normal_backend_factory=None):
@@ -316,10 +323,9 @@ def _candidate(network, journey, request, origin, destination, *, fare_policy_id
     if fare_policy_id == POLICY:
         fare_quote = journey.fare_quote
     else:
-        from fare_policy import evaluate_candidate_fare
-        fare_quote = evaluate_candidate_fare(
-            city_key="sendai", candidate={"steps": steps},
-            policy_id=fare_policy_id, normal_fare_yen=None)
+        fare_quote = _KEIRO_FARE_POLICY.apply(FarePolicyContext(
+            city_key="sendai", normal_fare_yen=None,
+            ride_modes=tuple(s["kind"] for s in steps if s["kind"] in ("bus", "rail"))))
     raw = {"id": "sendai-" + hashlib.sha256(repr((wire,origin,destination)).encode()).hexdigest()[:20],
         "lines": lines, "rides": len(lines), "boards": len(lines), "transfers": max(0,len(lines)-1),
         "total_time": math.ceil(_absolute(arrival)-_absolute(start)),

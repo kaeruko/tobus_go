@@ -175,10 +175,10 @@ class SendaiSharedNetworkTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "static only"):
             query(build(self.bus), "sendai_bus:home", "sendai_bus:station", realtime=True)
         self.assertEqual([p.policy_id for p in list_fare_policies("sendai")],
-                         ["normal", "sendai_keiro_pass"])
-        senior = get_fare_policy("sendai", "sendai_keiro_pass")
-        self.assertEqual(senior.settlement_type.value, "normal")
-        with self.assertRaises(ValueError): get_fare_policy("sendai", "sendai_fureai_pass")
+                         ["normal"])
+        for policy_id in ("sendai_fureai_pass", "sendai_keiro_pass"):
+            with self.subTest(policy_id=policy_id), self.assertRaises(ValueError):
+                get_fare_policy("sendai", policy_id)
         self.assertEqual(SendaiFureaiPassPolicy().policy_id, "sendai_fureai_pass")
 
     def test_search_errors_propagate_and_forged_ride_is_not_quoted(self):

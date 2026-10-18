@@ -249,12 +249,6 @@ _POLICY_REGISTRY: dict[str, dict[str, FarePolicy]] = {
     },
     "sendai": {
         "normal": NormalFarePolicy(city_key="sendai"),
-        "sendai_keiro_pass": StoredValuePassFarePolicy(
-            city_key="sendai",
-            policy_id="sendai_keiro_pass",
-            display_name="仙台市 敬老乗車証",
-            source_uri="https://www.city.sendai.jp/korekikaku-kikaku/kurashi/kenkotofukushi/korenokata/katsudo/sedo/joshasho/index.html",
-        ),
     },
 }
 
