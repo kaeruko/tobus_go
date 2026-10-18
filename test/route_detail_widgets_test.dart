@@ -142,8 +142,8 @@ void main() {
         fromName: '出発地',
         toName: '到着地',
         minutes: 7,
-        meters: kind == 'walk' ? 120 : 0,
-        edges: kind == 'bus' || kind == 'rail' ? 3 : 0,
+        meters: kind == 'walk' ? 307 : 0,
+        edges: kind == 'bus' || kind == 'rail' ? 11 : 0,
         departureTime: '25:10',
         arrivalTime: '25:17',
       );
@@ -163,6 +163,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('25:10 → 25:17'), findsOneWidget);
+      expect(find.text('307m'), findsNothing);
+      expect(find.text('11停'), findsNothing);
       expect(find.textContaining('約'), findsNothing);
       expect(tester.takeException(), isNull);
     });

@@ -493,7 +493,6 @@ class RouteStepTile extends StatelessWidget {
     final locale = Localizations.localeOf(context);
     final isWalk = segment.kind == 'walk';
     final canShowStops = !isWalk && segment.stops.isNotEmpty;
-    final rightText = _rightText(isWalk, l10n);
     final displayTitle = switch (segment.kind) {
       'walk' => l10n.walkTitle,
       'wait' => l10n.waitTitle,
@@ -596,14 +595,6 @@ class RouteStepTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (rightText.isNotEmpty)
-                Text(
-                  rightText,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: CupertinoColors.systemGrey,
-                  ),
-                ),
               if (onTransferTap != null) ...[
                 const SizedBox(width: 8),
                 const Icon(
@@ -708,14 +699,6 @@ class RouteStepTile extends StatelessWidget {
       field: field,
       identity: 'stepId=${segment.stepId}',
     );
-  }
-
-  String _rightText(bool isWalk, AppLocalizations l10n) {
-    if (!isWalk && segment.edges > 0) return l10n.stopCount(segment.edges);
-    if (isWalk && segment.meters > 0 && !segment.hasUnknownWalkingDistance) {
-      return '${segment.meters.round()}m';
-    }
-    return '';
   }
 }
 

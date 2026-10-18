@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+from types import SimpleNamespace
 import unittest
 
 import networkx as nx
@@ -11,8 +12,10 @@ from reviewed_walk_time import (
     ReviewedWalkingLink, validate_reviewed_walk_timing, walk_edge_elapsed_minutes,
 )
 from toei_engine import (
-    WALK_COST, advance_time, apply_reviewed_walking_links, segments_detailed,
+    WALK_COST, advance_time, apply_reviewed_walking_links, find_fastest_path,
+    segments_detailed,
 )
+from tokyo_search_labels import SelectedPath
 
 
 def _link(first="pole-A", second="station-B", meters=392, minutes=10, access=True):
@@ -64,6 +67,8 @@ class ReviewedWalkingTimeTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["minutes"], 10)
         self.assertEqual(result[0]["meters"], 392)
+        self.assertEqual((result[0]["departure_time"], result[0]["arrival_time"]),
+                         ("10:00", "10:10"))
         self.assertTrue(result[0]["walking_connection_verified"])
         self.assertEqual(result[0]["walking_time_basis"], "official_reviewed")
         self.assertEqual(result[0]["evidence_urls"], [
@@ -81,8 +86,55 @@ class ReviewedWalkingTimeTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["minutes"], 11)
         self.assertEqual(result[0]["meters"], 472)
+        self.assertEqual((result[0]["departure_time"], result[0]["arrival_time"]),
+                         ("10:00", "10:11"))
         self.assertFalse(result[0]["walking_connection_verified"])
         self.assertEqual(result[0]["walking_time_basis"], "mixed_estimated")
+
+    def test_walk_clocks_keep_fractional_selected_timing_across_midnight(self):
+        graph = _graph()
+        nodes = [("phys", name) for name in ("pole-A", "station-B", "station-C")]
+        graph.edges[nodes[0], nodes[1]]["meters"] = 75
+        graph.edges[nodes[1], nodes[2]]["meters"] = 307
+        start = 23 * 60 + 58
+        clocks = [start + 75 / 80, start + 75 / 80 + 307 / 80]
+        selected = SelectedPath(
+            nodes, clocks, {},
+            SimpleNamespace(manager=object(), use_realtime=False), start,
+        )
+        for path in (nodes, selected):
+            with self.subTest(selected=isinstance(path, SelectedPath)), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                result = segments_detailed(graph, path, object(), start_time_str="23:58")
+            self.assertEqual(len(result), 1)
+            self.assertEqual((result[0]["departure_time"], result[0]["arrival_time"]),
+                             ("23:58", "24:02"))
+            self.assertEqual(result[0]["meters"], 382)
+            self.assertEqual(result[0]["minutes"], 5)
+        self.assertEqual(selected.edge_times, clocks)
+
+    def test_walk_after_train_uses_the_selected_arrival_and_alighting_clock(self):
+        from tests.test_tokyo_waiting_contract import (
+            _identity_graph, _manager, _physical, _run, _walk,
+        )
+
+        graph = _identity_graph(("A", "B"))
+        _walk(graph, _physical("B"), _physical("destination"), 307)
+        manager = _manager(_run("evening", (("A", 1260), ("B", 1270))))
+        with contextlib.redirect_stdout(io.StringIO()):
+            arrival, path = find_fastest_path(
+                graph, manager, _physical("A"), _physical("destination"),
+                start_time_str="20:58", use_realtime=False,
+            )
+            steps = segments_detailed(
+                graph, path, manager, start_time_str="20:58", use_realtime=False,
+            )
+        self.assertAlmostEqual(arrival, 1271 + 307 / 80)
+        self.assertEqual([step["kind"] for step in steps], ["rail", "walk"])
+        self.assertEqual((steps[0]["departure_time"], steps[0]["arrival_time"]),
+                         ("21:00", "21:10"))
+        self.assertEqual((steps[1]["departure_time"], steps[1]["arrival_time"]),
+                         ("21:11", "21:14"))
 
     def test_invalid_or_stale_batch_never_partially_changes_tokyo_graph(self):
         for bad in (

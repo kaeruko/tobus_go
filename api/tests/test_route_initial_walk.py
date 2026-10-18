@@ -74,6 +74,8 @@ class InitialWalkCandidateMetricsTest(unittest.TestCase):
                     "meters": 50,
                     "minutes": 1,
                     "edges": 1,
+                    "departure_time": "06:32",
+                    "arrival_time": "06:33",
                 }
             ],
             "points": [[35.7100, 139.8400]],
@@ -89,6 +91,8 @@ class InitialWalkCandidateMetricsTest(unittest.TestCase):
         self.assertEqual(result["steps"][0]["from_en"], "Current location")
         self.assertEqual(result["steps"][0]["meters"], 170)
         self.assertEqual(result["steps"][0]["minutes"], 3)
+        self.assertEqual(result["steps"][0]["departure_time"], "06:30")
+        self.assertEqual(result["steps"][0]["arrival_time"], "06:33")
         self.assertEqual(result["walking_distance_meters"], 170)
         self.assertEqual(result["walking_segment_count"], 1)
         self.assertEqual(result["total_time"], 12)
@@ -108,6 +112,8 @@ class InitialWalkCandidateMetricsTest(unittest.TestCase):
                     "to": "上野松坂屋前",
                     "to_en": "Ueno-Matsuzakaya-mae",
                     "minutes": 20,
+                    "departure_time": "06:32",
+                    "arrival_time": "06:52",
                     "stops": [
                         {
                             "name": "平井七丁目",
@@ -136,6 +142,9 @@ class InitialWalkCandidateMetricsTest(unittest.TestCase):
         self.assertEqual(first["to"], "平井七丁目")
         self.assertEqual(first["meters"], 120)
         self.assertEqual(first["minutes"], 2)
+        self.assertEqual(first["departure_time"], "06:30")
+        self.assertEqual(first["arrival_time"], "06:32")
+        self.assertEqual(first["arrival_time"], result["steps"][1]["departure_time"])
         self.assertEqual(result["walking_distance_meters"], 120)
         self.assertEqual(result["walking_segment_count"], 1)
         self.assertEqual(result["total_time"], 22)

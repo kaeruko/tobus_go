@@ -332,6 +332,7 @@ class TokyoRouteEngine:
                     first = candidate["steps"][0]
                     first["from_"] = "現在地"
                     first["from_en"] = "Current location"
+                    first["departure_time"] = start_time
                     first["minutes"] += int(initial_walk_minutes)
                     first["meters"] += int(origin_distance)
                     first["edges"] = first.get("edges", 0) + 1
@@ -343,7 +344,8 @@ class TokyoRouteEngine:
                         0,
                         WalkStep("徒歩", "現在地", origin_name, int(initial_walk_minutes),
                             int(origin_distance), extra={"edges": 0, "from_en": "Current location",
-                                "to_en": origin_name_en}).to_mapping(),
+                                "to_en": origin_name_en, "departure_time": start_time,
+                                "arrival_time": active_start_time}).to_mapping(),
                     )
                     candidate["points"].insert(0, [alat, alon])
                     candidate["total_time"] += initial_walk_minutes
