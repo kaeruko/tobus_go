@@ -34,6 +34,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(320, 480));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(CupertinoApp(
+      locale: const Locale('ja'),
       home: CupertinoPageScaffold(
         child: Center(child: SendaiPassSelector(
           onSelectionChanged: () => changes++,
