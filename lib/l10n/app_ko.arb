@@ -1689,5 +1689,9 @@
   "groupReportDemoFall": "넘어져 가벼운 부상",
   "groupReportDemoLost": "그룹에서 이탈",
   "groupReportDemoReunited": "그룹에 다시 합류",
-  "groupReportNotesHint": "특이 사항이나 대응 내용을 입력하세요"
+  "groupReportNotesHint": "특이 사항이나 대응 내용을 입력하세요",
+  "routeSearchErrorTitle": "경로를 검색할 수 없어요",
+  "routeSearchLimitMessage": "검색할 경로가 너무 많아 완료하지 못했어요. 출발지, 도착지 또는 출발 날짜와 시간을 변경한 후 다시 시도해 주세요.",
+  "routeSearchErrorMessage": "검색 중 문제가 발생했어요. 네트워크 연결을 확인하거나 잠시 후 다시 시도해 주세요.",
+  "routeSearchByTime": "최단 시간으로 검색"
 }

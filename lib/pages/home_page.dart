@@ -12,6 +12,7 @@ import '../widgets/bus_loading_indicator.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/place_field.dart';
 import '../widgets/route_card.dart';
+import '../widgets/route_search_error_notice.dart';
 import 'map_picker_page.dart';
 import 'route_detail_page.dart';
 import '../providers/effective_location_provider.dart';
@@ -564,16 +565,9 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                   ),
                 )
               else if (rs.errorMessage != null)
-                SliverFillRemaining(
+                const SliverFillRemaining(
                   hasScrollBody: false,
-                  child: Center(
-                    child: Text(
-                      l10n.errorWithMessage(rs.errorMessage!),
-                      style: const TextStyle(
-                        color: CupertinoColors.destructiveRed,
-                      ),
-                    ),
-                  ),
+                  child: RouteSearchErrorNotice(),
                 )
               else if (rs.candidates.isEmpty)
                 SliverFillRemaining(

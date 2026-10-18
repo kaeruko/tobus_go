@@ -1673,5 +1673,9 @@
   "groupReportDemoFall": "転倒により軽傷",
   "groupReportDemoLost": "はぐれてしまった",
   "groupReportDemoReunited": "合流完了",
-  "groupReportNotesHint": "特記事項や対応内容を入力してください"
+  "groupReportNotesHint": "特記事項や対応内容を入力してください",
+  "routeSearchErrorTitle": "経路を検索できませんでした",
+  "routeSearchLimitMessage": "経路の候補が多いため、検索を完了できませんでした。出発地・到着地や出発日時を変更して、もう一度お試しください。",
+  "routeSearchErrorMessage": "検索中に問題が発生しました。通信環境を確認するか、少し時間をおいてから、もう一度お試しください。",
+  "routeSearchByTime": "時間優先で検索"
 }

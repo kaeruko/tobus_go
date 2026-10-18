@@ -1689,5 +1689,9 @@
   "groupReportDemoFall": "跌倒後輕微受傷",
   "groupReportDemoLost": "與隊伍走散",
   "groupReportDemoReunited": "已歸隊",
-  "groupReportNotesHint": "請輸入注意事項或處理內容"
+  "groupReportNotesHint": "請輸入注意事項或處理內容",
+  "routeSearchErrorTitle": "暫時無法搜尋路線",
+  "routeSearchLimitMessage": "符合條件的路線太多，未能完成搜尋。請調整出發地、目的地或出發日期與時間後重試。",
+  "routeSearchErrorMessage": "搜尋時發生問題。請檢查網路連線，或稍後再試。",
+  "routeSearchByTime": "以最短時間搜尋"
 }
