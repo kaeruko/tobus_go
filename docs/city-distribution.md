@@ -69,6 +69,31 @@ Sendai route-only appはFirebaseを初期化しない。Tokyo設定へfallback�
 
 今後Firebaseが必要になった都市では、その都市専用Firebase appを登録し、native configと`firebase_options`相当を同一変更で追加してから `firebaseEnabled=true` にする。
 
+## Sendai reviewed route opt-in (not deployed)
+
+The regular Sendai release remains normal-only unless the same reviewed scope
+is enabled deliberately on both sides. The app can be built with
+`--flavor sendai --dart-define=APP_CITY=sendai --dart-define=SENDAI_REVIEWED_COORDINATES=true`.
+Without this define (including the existing store build scripts), only
+`normal` is offered. Tokyo builds are unchanged.
+
+The Sendai Lambda runtime similarly requires `SENDAI_REVIEWED_COORDINATES=1`,
+the approved Sendai GTFS bundle/expected service date and the explicit
+`SENDAI_MUNICIPAL_REVIEW`, `SENDAI_SUBWAY_PUBLISHED` and
+`SENDAI_SUBWAY_REVIEW` files. It fails startup if the reviewed inputs are
+missing or inconsistent; no older feed or another city's API is a fallback.
+The development runtime retains the same opt-in. This only makes the
+validated finite-date bus/subway *pass-selected* network release-capable:
+`normal` still uses the unchanged bus GTFS backend, without inventing a
+subway fare. The 2026-11-30 limit and exclusions remain. Fureai eligibility
+is explicitly selected by the holder; no entitlement is inferred.
+
+The review/launch steps are separate: acquire and independently approve a
+new official operating-period feed, validate practical Android/iOS and real
+Google services, configure a separately isolated Sendai backend, test it,
+then authorize deployment/store submission separately. **This change
+does not deploy, change S3/AWS/Firebase, or publish a store build.**
+
 ## Android store build
 
 ```powershell
