@@ -3,10 +3,12 @@ import 'package:flutter/cupertino.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/route_step_time_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
+import '../logic/transfer_walk_details.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
 import '../pages/segment_stops_page.dart';
 import 'timetable_view.dart';
+import 'transfer_walk_sheet.dart';
 
 class RouteFutureSuggestionAlert extends StatelessWidget {
   final DateTime? date;
@@ -487,12 +489,35 @@ class RouteStepTile extends StatelessWidget {
     this.onTransferTap,
   });
 
+  /// All route screens resolve transfers from the same ordered route steps.
+  factory RouteStepTile.forRoute({
+    Key? key,
+    required BuildContext context,
+    required Candidate candidate,
+    required int stepIndex,
+    bool showTimetable = false,
+  }) {
+    RangeError.checkValidIndex(stepIndex, candidate.steps, 'stepIndex');
+    final segment = candidate.steps[stepIndex];
+    final transfer = TransferWalkDetails.forStep(candidate.steps, stepIndex);
+    return RouteStepTile(
+      key: key,
+      segment: segment,
+      showTimetable: showTimetable,
+      timetableReferenceTime: showTimetable
+          ? routeStepTimetableReferenceTime(candidate, segment)
+          : null,
+      onTransferTap: transfer == null
+          ? null
+          : () => showTransferWalkSheet(context, transfer),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context);
-    final isWalk = segment.kind == 'walk';
-    final canShowStops = !isWalk && segment.stops.isNotEmpty;
+    final canShowStops = segment.isRide && segment.stops.isNotEmpty;
     final displayTitle = switch (segment.kind) {
       'walk' => l10n.walkTitle,
       'wait' => l10n.waitTitle,
