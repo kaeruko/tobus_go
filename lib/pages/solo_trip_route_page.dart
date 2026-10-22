@@ -79,15 +79,11 @@ class SoloTripRoutePage extends ConsumerWidget {
                         final segment = candidate.steps[index ~/ 2];
                         final showTimetable =
                             city == AppCity.tokyo && segment.kind == 'bus';
-                        return RouteStepTile(
-                          segment: segment,
+                        return RouteStepTile.forRoute(
+                          context: context,
+                          candidate: candidate,
+                          stepIndex: index ~/ 2,
                           showTimetable: showTimetable,
-                          timetableReferenceTime: showTimetable
-                              ? routeStepTimetableReferenceTime(
-                                  candidate,
-                                  segment,
-                                )
-                              : null,
                         );
                       },
                       childCount: candidate.steps.isEmpty

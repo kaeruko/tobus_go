@@ -238,6 +238,12 @@ String resolveConfiguredCityKey({
     );
   }
 
+  if (flavorKey == 'sendai' || dartDefine == 'sendai') {
+    throw StateError(
+      'APP_CITY="sendai" is pending. See docs/sendai-pending.md before resuming.',
+    );
+  }
+
   if (flavorKey.isNotEmpty) return flavorKey;
   if (dartDefine.isNotEmpty) return dartDefine;
 

@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_localizations.dart';
+import '../l10n/route_step_time_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../core/city_profile.dart';
 import '../models/fare_models.dart';
@@ -204,6 +205,7 @@ class RouteCard extends ConsumerWidget {
           Text(
             candidate.steps
                 .map((seg) {
+                  final clock = routeStepTimeLabel(seg, l10n);
                   if (seg.kind == 'walk') {
                     final m = seg.meters;
                     final dist = seg.hasUnknownWalkingDistance
@@ -211,22 +213,16 @@ class RouteCard extends ConsumerWidget {
                         : m >= 1000
                         ? '${(m / 1000).toStringAsFixed(1)}km'
                         : '${m.toInt()}m';
-                    final mm = seg.minutes > 0
-                        ? l10n.approxMinutes(seg.minutes)
-                        : '';
-                    return l10n.walkSegment(dist, mm);
+                    return '${l10n.walkSegment(dist, '').trim()} · $clock';
                   }
-                  final mm = seg.minutes > 0
-                      ? l10n.approxMinutes(seg.minutes)
-                      : '';
                   if (seg.kind == 'wait') {
-                    return '${l10n.waitTitle}$mm';
+                    return '${l10n.waitTitle} · $clock';
                   }
                   if (seg.isRide) {
                     final stops = seg.edges > 0
                         ? l10n.stopsCount(seg.edges)
                         : '';
-                    return '${localizedRideTitle(locale, seg)}$stops$mm';
+                    return '${localizedRideTitle(locale, seg)}$stops · $clock';
                   }
                   throw StateError(
                     'Unsupported route card step kind: '
@@ -234,9 +230,9 @@ class RouteCard extends ConsumerWidget {
                   );
                 })
                 .take(2)
-                .join(' / '),
+                .join('\n'),
             style: const TextStyle(color: CupertinoColors.inactiveGray),
-            maxLines: 2,
+            maxLines: 4,
             overflow: TextOverflow.ellipsis,
           ),
         ],

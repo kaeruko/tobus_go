@@ -1387,6 +1387,7 @@
   },
   "routeMapUnavailable": "无法在地图上显示路线",
   "routeMapStart": "出发地",
+  "routeMapExpand": "放大地图",
   "routeMapEnd": "目的地",
   "replanMapAnchor": "路线重新规划地点",
   "replanReviewAction": "重新规划路线",
@@ -1673,5 +1674,9 @@
   "groupReportDemoFall": "跌倒后轻微受伤",
   "groupReportDemoLost": "与队伍走散",
   "groupReportDemoReunited": "已归队",
-  "groupReportNotesHint": "请输入注意事项或处理内容"
+  "groupReportNotesHint": "请输入注意事项或处理内容",
+  "routeSearchErrorTitle": "暂时无法搜索路线",
+  "routeSearchLimitMessage": "符合条件的路线太多，未能完成搜索。请调整出发地、目的地或出发日期和时间后重试。",
+  "routeSearchErrorMessage": "搜索时出现问题。请检查网络连接，或稍后重试。",
+  "routeSearchByTime": "按最短时间搜索"
 }

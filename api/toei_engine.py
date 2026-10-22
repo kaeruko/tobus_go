@@ -2477,6 +2477,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     "to": None,
                     "to_en": None,
                     "meters": 0,
+                    "departure_time": min_to_time_str(curr_time),
                     "_walk_elapsed": 0.0,
                     "_reviewed_edges": 0,
                     "_unreviewed_edges": 0,
@@ -2507,6 +2508,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     cur["to_en"] = None
             # 徒歩速度で時間を加算(分)
             curr_time = selected_time if selected_path else curr_time + elapsed
+            cur["arrival_time"] = min_to_time_str(curr_time)
             continue
 
         node = v if v[0] == "line" else (u if u[0] == "line" else None)

@@ -6,6 +6,11 @@
 **/__pycache__/
 *.py[cod]
 tests/
+# Sendai is pending; keep its implementation out of the Tokyo Lambda image.
+sendai*.py
+app/sendai*.py
+app/services/sendai*.py
+transit_adapters/sendai*.py
 build/
 benchmarks/
 native/**/target/

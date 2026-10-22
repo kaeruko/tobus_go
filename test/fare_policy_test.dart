@@ -60,26 +60,13 @@ void main() {
       SharedPreferences.setMockInitialValues({});
     });
 
-    test('first use defaults to normal only when nothing is stored', () async {
-      final id = await FarePolicyPreferences.load(sendaiCityProfile);
-      expect(id, 'normal');
+    test('Tokyo first use defaults to normal only when nothing is stored', () async {
+      expect(await FarePolicyPreferences.load(tokyoCityProfile), 'normal');
     });
 
-
-
-    test('explicit selected policy is stored per city', () async {
+    test('explicit Tokyo policy selection is persisted', () async {
       await FarePolicyPreferences.save(
-        sendaiCityProfile,
-        'normal',
-      );
-      await FarePolicyPreferences.save(
-        tokyoCityProfile,
-        'tokyo_toei_transport_pass',
-      );
-
-      expect(
-        await FarePolicyPreferences.load(sendaiCityProfile),
-        'normal',
+        tokyoCityProfile, 'tokyo_toei_transport_pass',
       );
       expect(
         await FarePolicyPreferences.load(tokyoCityProfile),
@@ -87,52 +74,22 @@ void main() {
       );
     });
 
-    test('Sendai reviewed free pass is explicit and never inherited by Tokyo', () async {
-      if (!sendaiReviewedCoordinatesEnabled) {
-        expect(() => sendaiCityProfile.farePolicyById('sendai_fureai_pass'),
-            throwsStateError);
-        return;
-      }
-      final selected = sendaiCityProfile.farePolicyById('sendai_fureai_pass');
-      expect(selected.settlementType, 'free_pass');
-      expect(selected.sourceUri, isNotNull);
-      expect(() => tokyoCityProfile.farePolicyById('sendai_fureai_pass'),
-          throwsStateError);
-      expect(await FarePolicyPreferences.load(sendaiCityProfile), 'normal');
-      await FarePolicyPreferences.save(sendaiCityProfile, 'sendai_fureai_pass');
-      expect(await FarePolicyPreferences.load(sendaiCityProfile),
-          'sendai_fureai_pass');
-      expect(await FarePolicyPreferences.load(tokyoCityProfile), 'normal');
-      final senior = sendaiCityProfile.farePolicyById('sendai_keiro_pass');
-      expect(senior.settlementType, 'normal');
-      await FarePolicyPreferences.save(sendaiCityProfile, 'sendai_keiro_pass');
-      expect(await FarePolicyPreferences.load(sendaiCityProfile), 'sendai_keiro_pass');
-      expect(await FarePolicyPreferences.load(tokyoCityProfile), 'normal');
-    });
-
-    test('stored policy from another city is not silently replaced', () async {
+    test('stored unsupported policy is not silently replaced', () async {
       SharedPreferences.setMockInitialValues({
-        'farePolicyId:sendai': 'tokyo_toei_transport_pass',
-        'farePolicyId:sendai:reviewed-coordinate-development':
-            'tokyo_toei_transport_pass',
+        'farePolicyId:tokyo': 'unsupported_fixture_pass',
       });
-
       await expectLater(
-        FarePolicyPreferences.load(sendaiCityProfile),
-        throwsStateError,
+        FarePolicyPreferences.load(tokyoCityProfile), throwsStateError,
       );
     });
 
-    test('saving an unsupported policy fails before persistence', () async {
+    test('unsupported policy fails before persistence', () async {
       await expectLater(
-        FarePolicyPreferences.save(
-          sendaiCityProfile,
-          'tokyo_toei_transport_pass',
-        ),
+        FarePolicyPreferences.save(tokyoCityProfile, 'unsupported_fixture_pass'),
         throwsStateError,
       );
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('farePolicyId:sendai'), isNull);
+      expect(prefs.getString('farePolicyId:tokyo'), isNull);
     });
   });
 }

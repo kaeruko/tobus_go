@@ -38,7 +38,7 @@ BASE_TEST_CONFIGS = {
   'Profile' => '331C808A294A63A400263BE5'
 }.freeze
 
-CITIES = {
+ALL_CITIES = {
   'tokyo' => {
     configuration_ordinal: 1,
     bundle_id: 'jp.cloxs.go.tokyo',
@@ -54,6 +54,9 @@ CITIES = {
     exclude_tokyo_firebase_plist: true
   },
 }.freeze
+
+PENDING_CITIES = %w[sendai].freeze
+CITIES = ALL_CITIES.reject { |city, _config| PENDING_CITIES.include?(city) }.freeze
 
 BUILD_KINDS = %w[Debug Release Profile].freeze
 
@@ -188,7 +191,10 @@ end
 
 expected_names = CITIES.keys.product(BUILD_KINDS).map { |city, kind| "#{kind}-#{city}" }
 actual_names = text.scan(/\bname = "?((?:Debug|Release|Profile)-[^";\n]+)"?;/).flatten.uniq
-unexpected_names = actual_names - expected_names
+# Retain pending build configurations for resumption, without generating or
+# validating them as part of the active Tokyo build.
+known_names = ALL_CITIES.keys.product(BUILD_KINDS).map { |city, kind| "#{kind}-#{city}" }
+unexpected_names = actual_names - known_names
 abort "Unexpected iOS flavor configurations: #{unexpected_names.join(', ')}" unless unexpected_names.empty?
 scheme_dir = File.join(File.dirname(PROJECT_PATH), 'xcshareddata', 'xcschemes')
 actual_schemes = Dir.glob(File.join(scheme_dir, '*.xcscheme')).map { |path| File.basename(path, '.xcscheme') }

@@ -22,6 +22,7 @@ class RouteMapPreview extends StatefulWidget {
   final bool rotateGesturesEnabled;
   final bool tiltGesturesEnabled;
   final bool showUserLocation;
+  final bool showExpandButton;
 
   const RouteMapPreview({
     super.key,
@@ -36,6 +37,7 @@ class RouteMapPreview extends StatefulWidget {
     this.rotateGesturesEnabled = true,
     this.tiltGesturesEnabled = true,
     this.showUserLocation = false,
+    this.showExpandButton = true,
   }) : assert(height > 0);
 
   @override
@@ -45,6 +47,36 @@ class RouteMapPreview extends StatefulWidget {
 class _RouteMapPreviewState extends State<RouteMapPreview> {
   LatLng? _cameraTarget;
   bool _openingMaps = false;
+  late final ValueNotifier<RouteMapPreview> _expandedSource;
+
+  @override
+  void initState() {
+    super.initState();
+    _expandedSource = ValueNotifier(widget);
+  }
+
+  @override
+  void didUpdateWidget(covariant RouteMapPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Keep route geometry and live vehicle positions current while expanded.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _expandedSource.value = widget;
+    });
+  }
+
+  @override
+  void dispose() {
+    _expandedSource.dispose();
+    super.dispose();
+  }
+
+  void _expandMap() {
+    Navigator.of(context).push<void>(
+      CupertinoPageRoute<void>(
+        builder: (_) => _ExpandedRouteMapPage(source: _expandedSource),
+      ),
+    );
+  }
 
   Future<void> _openGoogleMaps(LatLng point) async {
     if (_openingMaps) return;
@@ -263,6 +295,24 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                   ),
               },
             ),
+            if (widget.showExpandButton)
+              Positioned(
+                top: 8,
+                left: 8,
+                child: Semantics(
+                  label: l10n.routeMapExpand,
+                  button: true,
+                  child: CupertinoButton(
+                    key: const ValueKey('route-map-expand'),
+                    color: CupertinoColors.systemBackground.resolveFrom(context),
+                    padding: const EdgeInsets.all(10),
+                    onPressed: _expandMap,
+                    child: const Icon(
+                      CupertinoIcons.arrow_up_left_arrow_down_right,
+                    ),
+                  ),
+                ),
+              ),
             if (widget.showOpenButton && widget.interactive)
               Positioned(
                 top: 8,
@@ -290,6 +340,47 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExpandedRouteMapPage extends StatelessWidget {
+  final ValueListenable<RouteMapPreview> source;
+
+  const _ExpandedRouteMapPage({required this.source});
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        automaticallyImplyLeading: false,
+        leading: CupertinoNavigationBarBackButton(
+          key: const ValueKey('expanded-route-map-back'),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        middle: Text(AppLocalizations.of(context).segmentGuideTitle),
+      ),
+      child: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) => ValueListenableBuilder<RouteMapPreview>(
+            valueListenable: source,
+            builder: (context, preview, _) => RouteMapPreview(
+              key: const ValueKey('expanded-route-map'),
+              points: preview.points,
+              routeGeometry: preview.routeGeometry,
+              vehiclePosition: preview.vehiclePosition,
+              height: constraints.maxHeight,
+              margin: EdgeInsets.zero,
+              showOpenButton: false,
+              showExpandButton: false,
+              openExternalOnTap: false,
+              showUserLocation: preview.showUserLocation,
+              rotateGesturesEnabled: preview.rotateGesturesEnabled,
+              tiltGesturesEnabled: preview.tiltGesturesEnabled,
+            ),
+          ),
         ),
       ),
     );

@@ -16,6 +16,16 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    # Pending Sendai code is retained outside the active analysis/build path.
+    - lib/main_sendai_practical.dart
+    - lib/models/sendai_*.dart
+    - lib/pages/sendai_*.dart
+    - lib/services/sendai_*.dart
+    - lib/widgets/sendai_*.dart
+    - test/sendai_*.dart
+    - test/route_only_active_trip_page_test.dart
+    - test/route_only_detail_page_test.dart
+    - .github/pending/sendai/**
 include: package:flutter_lints/flutter.yaml
 
 linter:

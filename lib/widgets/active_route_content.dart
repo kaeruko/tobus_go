@@ -177,10 +177,14 @@ class _ActiveRouteContentState extends State<ActiveRouteContent> {
           ),
         ],
         const SizedBox(height: 12),
-        for (final step in widget.candidate.steps)
+        for (var index = 0; index < widget.candidate.steps.length; index++)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: RouteStepTile(segment: step),
+            child: RouteStepTile.forRoute(
+              context: context,
+              candidate: widget.candidate,
+              stepIndex: index,
+            ),
           ),
         if (widget.onEnd != null) ...[
           const SizedBox(height: 4),

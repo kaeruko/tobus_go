@@ -67,4 +67,68 @@ void main() {
       await tester.pump();
     },
   );
+  for (final showFullDay in [false, true]) {
+    testWidgets(
+      '${showFullDay ? 'full-day' : 'upcoming'} timetable renders after reopening from saved JSON',
+      (tester) async {
+        final originalClient = ApiClient.httpClient;
+        configureApiBase(Uri.parse('https://api-reopened.example.test'));
+        var requestCount = 0;
+        ApiClient.httpClient = MockClient((request) async {
+          requestCount++;
+          expect(request.url.path, '/bus/next');
+          expect(request.url.queryParameters['include_all'], 'true');
+          return http.Response(
+            '{"day_type":"weekday","destinations":[{'
+            '"destination_pole_id":"stop-b",'
+            '"destination_name":"平井駅前",'
+            '"destination_name_en":"Hirai Station",'
+            '"times":["15:37","16:08"],'
+            '"all_times":["06:12","15:37","16:08","16:37","25:10"]}]}',
+            200,
+            headers: const {'content-type': 'application/json; charset=utf-8'},
+          );
+        });
+        addTearDown(() => ApiClient.httpClient = originalClient);
+
+        Widget timetable() => MaterialApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: TimetableView(
+              routeId: 'route-a',
+              stopId: 'stop-a',
+              showFullDay: showFullDay,
+              referenceTime: DateTime(2026, 10, 15, 15, 23),
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(timetable());
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(requestCount, 1);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await tester.pumpWidget(timetable());
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(requestCount, 1);
+        if (showFullDay) {
+          expect(find.byKey(const ValueKey('timetable-hour-25')), findsOneWidget);
+          expect(find.text('25'), findsOneWidget);
+        } else {
+          expect(find.text('15:37'), findsOneWidget);
+          expect(find.text('16:08'), findsOneWidget);
+          expect(find.text('16:37'), findsOneWidget);
+        }
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      },
+    );
+  }
 }

@@ -1,14 +1,28 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart'
     as maps;
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher_platform_interface/link.dart' as launcher_link;
 import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart'
     as launcher;
 import 'package:toeigo/l10n/app_localizations.dart';
+import 'package:toeigo/constants.dart';
+import 'package:toeigo/core/api_client.dart';
+import 'package:toeigo/core/city_profile.dart';
+import 'package:toeigo/logic/solo_trip_factory.dart';
 import 'package:toeigo/logic/transfer_walk_details.dart';
 import 'package:toeigo/models/route_models.dart';
+import 'package:toeigo/pages/route_detail_page.dart';
+import 'package:toeigo/pages/solo_trip_route_page.dart';
+import 'package:toeigo/providers/city_profile_provider.dart';
+import 'package:toeigo/providers/trip_provider.dart';
+import 'package:toeigo/services/storage_service.dart';
+import 'package:toeigo/widgets/active_route_content.dart';
 import 'package:toeigo/widgets/route_detail_widgets.dart';
 import 'package:toeigo/widgets/transfer_walk_sheet.dart';
 
@@ -39,7 +53,7 @@ class FakeTransferLauncher extends launcher.UrlLauncherPlatform {
 }
 
 StopPoint transferStop(String name, String english, double lat, double lon) =>
-    StopPoint(name: name, nameEn: english, point: LatLng(lat, lon));
+    StopPoint(name: name, nameEn: english, point: LatLng(lat, lon), stopId: name);
 
 List<StepSeg> buildTransferSteps() => [
   StepSeg(
@@ -47,8 +61,11 @@ List<StepSeg> buildTransferSteps() => [
     kind: 'bus',
     title: '上23 上野松坂屋前行',
     titleEn: 'Ue23 · Ueno-Matsuzakaya',
+    routeId: 'route-ue23',
+    tripId: 'trip-ue23',
     departureTime: '11:30',
     arrivalTime: '12:04',
+    minutes: 34,
     fromName: '平井七丁目',
     fromNameEn: 'Hirai 7-chome',
     toName: '浅草雷門',
@@ -68,6 +85,8 @@ List<StepSeg> buildTransferSteps() => [
     toNameEn: 'Asakusa-Kaminarimon-Minami',
     minutes: 3,
     meters: 210,
+    departureTime: '12:04',
+    arrivalTime: '12:07',
   ),
   StepSeg(
     stepId: 'waiting',
@@ -82,18 +101,24 @@ List<StepSeg> buildTransferSteps() => [
     minutes: 4,
     departureTime: '12:07',
     arrivalTime: '12:11',
+    stops: [
+      transferStop('浅草雷門南', 'Asakusa-Kaminarimon-Minami', 35.711, 139.795),
+    ],
   ),
   StepSeg(
     stepId: 'departing',
     kind: 'bus',
     title: '草64 池袋駅東口行',
     titleEn: 'Kusa64 · Ikebukuro East Exit',
+    routeId: 'route-kusa64',
+    tripId: 'trip-kusa64',
     fromName: '浅草雷門南',
     fromNameEn: 'Asakusa-Kaminarimon-Minami',
     toName: '池袋駅東口',
     toNameEn: 'Ikebukuro East Exit',
     departureTime: '12:11',
     arrivalTime: '13:11',
+    minutes: 60,
     stops: [
       transferStop('浅草雷門南', 'Asakusa-Kaminarimon-Minami', 35.711, 139.795),
       transferStop('池袋駅東口', 'Ikebukuro East Exit', 35.729, 139.712),
@@ -105,6 +130,7 @@ void main() {
   late FakeTransferLauncher urlLauncher;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     final oldMaps = maps.GoogleMapsFlutterPlatform.instance;
     final oldLauncher = launcher.UrlLauncherPlatform.instance;
     maps.GoogleMapsFlutterPlatform.instance = FakeTransferMaps();
@@ -146,7 +172,9 @@ void main() {
     expect(find.text('B 乗車予定'), findsNothing);
     expect(find.text('12:04'), findsOneWidget);
     expect(find.text('12:11'), findsOneWidget);
-    expect(find.text('🚶 徒歩 約3分 ・ 🕒 待ち 約4分'), findsOneWidget);
+    expect(find.text('🚶 徒歩 · 12:04 → 12:07'), findsOneWidget);
+    expect(find.text('🕒 待ち時間 · 12:07 → 12:11'), findsOneWidget);
+    expect(find.textContaining('約'), findsNothing);
     expect(find.textContaining('乗換時間'), findsNothing);
     expect(find.textContaining('地図は停留所の位置です'), findsNothing);
 
@@ -208,7 +236,9 @@ void main() {
     expect(find.text('Board'), findsOneWidget);
     expect(find.text('A Get off'), findsNothing);
     expect(find.text('B Board'), findsNothing);
-    expect(find.text('🚶 Walk ~3 min · 🕒 Wait ~4 min'), findsOneWidget);
+    expect(find.text('🚶 Walk · 12:04 → 12:07'), findsOneWidget);
+    expect(find.text('🕒 Wait · 12:07 → 12:11'), findsOneWidget);
+    expect(find.textContaining('~'), findsNothing);
     expect(find.textContaining('Transfer 7 min'), findsNothing);
     expect(find.textContaining('Pins show stop locations'), findsNothing);
     final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
@@ -244,4 +274,135 @@ void main() {
     expect(taps, 2);
     expect(tester.takeException(), isNull);
   });
+
+  for (final screen in [
+    'search detail', 'saved detail', 'solo overview', 'active route',
+  ]) {
+    testWidgets('$screen opens walk and wait transfer guides after saving', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1000, 2600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      configureApiBase(Uri.parse('https://api.example.test'));
+      final originalClient = ApiClient.httpClient;
+      final client = MockClient((request) async {
+        expect(request.url.path, '/bus/next');
+        return http.Response(
+          '{"day_type":"weekday","destinations":[]}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      ApiClient.httpClient = client;
+      addTearDown(() {
+        ApiClient.httpClient = originalClient;
+        client.close();
+      });
+      final candidate = Candidate(
+        id: 'saved-transfer',
+        lines: const ['上23', '草64'],
+        rides: 2,
+        boards: 2,
+        transfers: 1,
+        total: 101,
+        totalTime: 101,
+        departureDate: DateTime(2026, 10, 19, 11, 30),
+        savedRouteSavedAt: DateTime.utc(2026, 10, 19),
+        originName: '平井七丁目',
+        destinationName: '池袋駅東口',
+        steps: buildTransferSteps(),
+        points: const [LatLng(35.70, 139.84), LatLng(35.729, 139.712)],
+      );
+      final storage = StorageService();
+      await storage.saveRoutes([candidate]);
+      final restored = (await storage.loadRoutes()).single;
+      final solo = buildSoloTrip(
+        id: 'saved-solo',
+        userId: 'test-user',
+        userName: 'User',
+        candidate: restored,
+        now: DateTime(2026, 10, 19, 11, 30),
+      );
+      // Isolate guide navigation from group trips and live vehicle polling.
+      final noRealtimeProfile = CityProfile(
+        city: tokyoCityProfile.city,
+        key: tokyoCityProfile.key,
+        appName: tokyoCityProfile.appName,
+        farePolicies: tokyoCityProfile.farePolicies,
+        distribution: tokyoCityProfile.distribution,
+        capabilities: CityCapabilities(
+          features: const FeatureCapabilities(
+            routeSearchOnly: false,
+            outingDiscovery: true,
+            savedRoutes: true,
+            history: true,
+            groupTrips: false,
+          ),
+          realtime: const RealtimeCapabilities(
+            vehiclePosition: false,
+            tripUpdates: false,
+            alerts: false,
+          ),
+        ),
+      );
+      final Widget page = switch (screen) {
+        'search detail' => RouteDetailPage(candidate: candidate),
+        'saved detail' => RouteDetailPage(
+            candidate: restored,
+            fromSavedRoute: true,
+          ),
+        'solo overview' => const SoloTripRoutePage(tripId: 'saved-solo'),
+        'active route' => CupertinoPageScaffold(
+            child: ActiveRouteContent(
+              candidate: restored,
+              cityProfile: noRealtimeProfile,
+            ),
+          ),
+        _ => throw StateError('Unexpected test screen: $screen'),
+      };
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          cityProfileProvider.overrideWithValue(noRealtimeProfile),
+          tripRouteProvider('saved-solo').overrideWith(
+            (ref) => Stream.value(solo),
+          ),
+        ],
+        child: CupertinoApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: page,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      for (final stepId in ['walking', 'waiting']) {
+        final tile = find.byWidgetPredicate(
+          (widget) => widget is RouteStepTile && widget.segment.stepId == stepId,
+        );
+        await tester.ensureVisible(tile);
+        await tester.tap(tile);
+        await tester.pumpAndSettle();
+        expect(find.text('乗換案内'), findsOneWidget);
+        expect(find.text('12:04'), findsOneWidget);
+        expect(find.text('12:11'), findsOneWidget);
+        final map = tester.widget<GoogleMap>(find.byWidgetPredicate(
+          (widget) => widget is GoogleMap && widget.markers.any(
+            (marker) => marker.markerId.value == 'transfer_alight',
+          ),
+        ));
+        expect(map.markers.map((marker) => marker.position).toSet(), {
+          const LatLng(35.710, 139.796),
+          const LatLng(35.711, 139.795),
+        });
+        Navigator.of(tester.element(find.text('乗換案内'))).pop();
+        await tester.pumpAndSettle();
+        expect(find.text('乗換案内'), findsNothing);
+      }
+      expect(urlLauncher.urls, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

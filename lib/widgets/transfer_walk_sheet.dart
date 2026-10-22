@@ -4,6 +4,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/route_step_time_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../logic/transfer_walk_details.dart';
 import '../models/route_models.dart';
@@ -108,6 +110,7 @@ class _TransferWalkSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final a = transfer.alightingStop;
     final b = transfer.boardingStop;
     final boundsSpan = math.max(
@@ -179,15 +182,22 @@ class _TransferWalkSheet extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  _label(
-                    context,
-                    '🚶 徒歩 約${transfer.walkingStep.minutes}分'
-                        '${transfer.waitingStep == null ? '' : ' ・ 🕒 待ち 約${transfer.waitingStep!.minutes}分'}',
-                    '🚶 Walk ~${transfer.walkingStep.minutes} min'
-                        '${transfer.waitingStep == null ? '' : ' · 🕒 Wait ~${transfer.waitingStep!.minutes} min'}',
-                  ),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    Text(
+                      '🚶 ${l10n.walkTitle} · '
+                      '${routeStepTimeLabel(transfer.walkingStep, l10n)}',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    if (transfer.waitingStep != null)
+                      Text(
+                        '🕒 ${l10n.waitTitle} · '
+                        '${routeStepTimeLabel(transfer.waitingStep!, l10n)}',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 Expanded(

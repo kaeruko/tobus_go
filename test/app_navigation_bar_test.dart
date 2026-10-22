@@ -79,5 +79,5 @@ void main() {
 
     expect(find.text('仙台でGO'), findsOneWidget);
     expect(find.byType(Image), findsNothing);
-  });
+  }, tags: 'sendai');
 }

@@ -459,7 +459,7 @@ jobs:
           flutter --version
           flutter pub get
           flutter analyze --no-fatal-warnings --no-fatal-infos
-          flutter test
+          python3 scripts/run_active_tests.py flutter
           ruby scripts/configure_ios_flavors.rb --check
 
       - name: Install CocoaPods 1.16.2 and refresh specs

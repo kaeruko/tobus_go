@@ -8,7 +8,7 @@ from app.app_factory import create_app
 
 class WarmupRouteTest(unittest.TestCase):
     def test_warmup_route_reports_ready_city(self):
-        with patch.dict(os.environ, {"APP_CITY": "sendai"}, clear=False):
+        with patch.dict(os.environ, {"APP_CITY": "tokyo"}, clear=False):
             app = create_app("lambda")
 
         routes = [
@@ -20,7 +20,7 @@ class WarmupRouteTest(unittest.TestCase):
         self.assertIn("GET", routes[0].methods)
         self.assertEqual(
             asyncio.run(routes[0].endpoint()),
-            {"status": "ready", "city": "sendai"},
+            {"status": "ready", "city": "tokyo"},
         )
 
 

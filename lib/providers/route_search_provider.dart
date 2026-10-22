@@ -27,6 +27,9 @@ class RouteSearchState {
   final Map<String, FareQuote> fareByCandidateId;
   final RouteMeta? meta;
   final String? errorMessage;
+  // Keep the original failure for diagnostics; the UI uses localized copy.
+  final Object? error;
+  final StackTrace? errorStackTrace;
 
   const RouteSearchState({
     this.from = '',
@@ -48,6 +51,8 @@ class RouteSearchState {
     this.fareByCandidateId = const {},
     this.meta,
     this.errorMessage,
+    this.error,
+    this.errorStackTrace,
   });
 
   RouteSearchState copyWith({
@@ -70,6 +75,8 @@ class RouteSearchState {
     Map<String, FareQuote>? fareByCandidateId,
     RouteMeta? meta,
     String? errorMessage,
+    Object? error,
+    StackTrace? errorStackTrace,
     bool clearStartTime = false,
     bool clearMeta = false,
     bool clearErrorMessage = false,
@@ -96,6 +103,10 @@ class RouteSearchState {
       errorMessage: clearErrorMessage
           ? null
           : (errorMessage ?? this.errorMessage),
+      error: clearErrorMessage ? null : (error ?? this.error),
+      errorStackTrace: clearErrorMessage
+          ? null
+          : (errorStackTrace ?? this.errorStackTrace),
     );
   }
 }
@@ -328,6 +339,8 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
         fareByCandidateId: const {},
         clearMeta: true,
         errorMessage: e.toString(),
+        error: e,
+        errorStackTrace: st,
       );
       print('[RouteSearch] Error executing search: $e $st');
     }
