@@ -14,6 +14,59 @@ void main() {
     configureApiBase(Uri.parse('https://api.example.test'));
   });
 
+  group('ApiClient.warmUp', () {
+    late http.Client originalClient;
+
+    setUp(() {
+      originalClient = ApiClient.httpClient;
+      ApiClient.resetWarmUpForTesting();
+    });
+
+    tearDown(() {
+      ApiClient.httpClient = originalClient;
+      ApiClient.resetWarmUpForTesting();
+    });
+
+    test('retries a failed warmup and caches a successful result', () async {
+      var calls = 0;
+      ApiClient.httpClient = MockClient((request) async {
+        expect(request.url.path, '/warmup');
+        expect(request.headers['X-App-City'], 'tokyo');
+        calls++;
+        if (calls == 1) {
+          return http.Response('{"detail":"backend starting"}', 503);
+        }
+        return http.Response('{"status":"ready","city":"tokyo"}', 200);
+      });
+
+      await expectLater(ApiClient.warmUp(), throwsA(isA<ApiException>()));
+      await ApiClient.warmUp();
+      await ApiClient.warmUp();
+      expect(calls, 2);
+    });
+
+    test('concurrent callers share failure, then a later call retries', () async {
+      final pending = Completer<http.Response>();
+      var calls = 0;
+      ApiClient.httpClient = MockClient((request) async {
+        calls++;
+        if (calls == 1) return pending.future;
+        return http.Response('{"status":"ready","city":"tokyo"}', 200);
+      });
+
+      final first = ApiClient.warmUp();
+      final second = ApiClient.warmUp();
+      expect(identical(first, second), isTrue);
+      final firstFailure = expectLater(first, throwsA(isA<ApiException>()));
+      final secondFailure = expectLater(second, throwsA(isA<ApiException>()));
+      pending.complete(http.Response('{"detail":"backend starting"}', 503));
+      await Future.wait([firstFailure, secondFailure]);
+
+      await ApiClient.warmUp();
+      expect(calls, 2);
+    });
+  });
+
   group('ApiClient.fetchBusLocation', () {
     late http.Client originalClient;
 
