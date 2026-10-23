@@ -125,6 +125,15 @@ def register_route_endpoint(
         try:
             policy_id = request.fare_policy_id if request.fare_policy_id is not None else "normal"
             domain_request = to_domain_request(request)
+            city_key = getattr(app.state, "city_key", None)
+            if (
+                city_key == "tokyo"
+                and policy_id == "tokyo_toei_transport_pass"
+                and "tokyo_metro" in domain_request.transport_scope
+            ):
+                raise RouteInputError(
+                    "tokyo_toei_transport_pass cannot be used with Tokyo Metro scope"
+                )
             loop = asyncio.get_running_loop()
             async with route_lock:
                 result = await loop.run_in_executor(
@@ -146,7 +155,6 @@ def register_route_endpoint(
                     if quote.get("policyId") != policy_id or quote.get("status") != prequoted[policy_id]:
                         raise RouteContractError("reviewed scope did not return its verified fare quote")
             elif policy_id != "normal":
-                city_key = getattr(app.state, "city_key", None)
                 if not isinstance(city_key, str) or not city_key:
                     raise RouteContractError("Backend city is required for scoped route fares")
                 try:

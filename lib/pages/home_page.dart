@@ -713,6 +713,12 @@ class RouteTransportControl extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Text(
+                l10n.transportSelectionLabel,
+                key: const Key('transport-selection-label'),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
               _TransportCheckbox(
                 key: const Key('transport-toei-bus'),
                 label: l10n.transportToeiBus,

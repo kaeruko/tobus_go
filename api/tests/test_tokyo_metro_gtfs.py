@@ -142,7 +142,7 @@ def test_feed_audit_and_import_preserve_exact_runs_calendar_and_24_hour_times(tm
     assert selected["destination_gtfs_stop_id"] == "tokyo_metro:102"
 
 
-def test_only_official_connecting_station_creates_rail_transfer(tmp_path):
+def test_official_connection_requires_reviewed_transfer(tmp_path):
     gtfs, stations, railways = _fixture(tmp_path)
     graph = nx.DiGraph()
     toei = ("phys", "odpt.Station:Toei.Asakusa.X")
@@ -153,8 +153,57 @@ def test_only_official_connecting_station_creates_rail_transfer(tmp_path):
                              stations_path=str(stations), railways_path=str(railways))
     b = ("phys", "odpt.Station:TokyoMetro.Ginza.B")
     c = ("phys", "odpt.Station:TokyoMetro.Hanzomon.C")
-    assert graph.edges[b, c]["official_connection"] is True
+    assert not graph.has_edge(b, c)
     assert not graph.has_edge(b, toei)
+
+    reviewed = tmp_path / "reviewed-transfers.json"
+    reviewed.write_text(json.dumps({
+        "schema": "tokyo_metro_reviewed_transfer/v1",
+        "transfers": [{
+            "from_station_id": b[1],
+            "to_station_id": c[1],
+            "minimum_minutes": 4,
+            "walking_distance_meters": 120,
+            "evidence_urls": [
+                "https://www.tokyometro.jp/ticket/guide/transfertime/index.html"
+            ],
+            "reviewed_at": "2026-10-23",
+        }],
+    }), encoding="utf-8")
+    reviewed_graph = nx.DiGraph()
+    add_tokyo_metro_to_graph(
+        reviewed_graph, TimetableManager(), gtfs_dir=str(gtfs),
+        stations_path=str(stations), railways_path=str(railways),
+        reviewed_transfers_path=str(reviewed),
+    )
+    edge = reviewed_graph.edges[b, c]
+    assert edge["official_connection"] is True
+    assert edge["transfer_time_basis"] == "reviewed_station_path"
+    assert edge["reviewed_walk_minutes"] == 4
+    assert edge["meters"] == 120
+    assert reviewed_graph.edges[c, b] == edge
+
+
+def test_reviewed_transfer_without_official_relation_fails(tmp_path):
+    gtfs, stations, railways = _fixture(tmp_path)
+    reviewed = tmp_path / "reviewed-transfers.json"
+    reviewed.write_text(json.dumps({
+        "schema": "tokyo_metro_reviewed_transfer/v1",
+        "transfers": [{
+            "from_station_id": "odpt.Station:TokyoMetro.Ginza.A",
+            "to_station_id": "odpt.Station:TokyoMetro.Hanzomon.D",
+            "minimum_minutes": 2,
+            "walking_distance_meters": 80,
+            "evidence_urls": ["https://www.tokyometro.jp/station/index.html"],
+            "reviewed_at": "2026-10-23",
+        }],
+    }), encoding="utf-8")
+    with unittest.TestCase().assertRaisesRegex(ValueError, "connectingStation"):
+        add_tokyo_metro_to_graph(
+            nx.DiGraph(), TimetableManager(), gtfs_dir=str(gtfs),
+            stations_path=str(stations), railways_path=str(railways),
+            reviewed_transfers_path=str(reviewed),
+        )
 
 
 def test_boundary_pickup_restriction_is_excluded_and_interior_fails(tmp_path):
@@ -279,9 +328,9 @@ class TokyoMetroGtfsTest(unittest.TestCase):
                 Path(directory)
             )
 
-    def test_only_official_connection_creates_rail_transfer(self):
+    def test_official_connection_requires_reviewed_transfer(self):
         with tempfile.TemporaryDirectory() as directory:
-            test_only_official_connecting_station_creates_rail_transfer(
+            test_official_connection_requires_reviewed_transfer(
                 Path(directory)
             )
 
@@ -293,6 +342,10 @@ class TokyoMetroGtfsTest(unittest.TestCase):
             test_boundary_pickup_restriction_is_excluded_and_interior_fails(
                 Path(directory)
             )
+
+    def test_reviewed_transfer_requires_official_relation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            test_reviewed_transfer_without_official_relation_fails(Path(directory))
 
     def test_metro_only_exact_trip(self):
         with tempfile.TemporaryDirectory() as directory:

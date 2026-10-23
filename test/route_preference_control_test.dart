@@ -88,6 +88,7 @@ void main() {
     expect(find.text('都営バス'), findsOneWidget);
     expect(find.text('都営地下鉄'), findsOneWidget);
     expect(find.text('東京メトロ'), findsOneWidget);
+    expect(find.text('無料で利用できる交通機関を選択'), findsOneWidget);
 
     await tester.tap(find.text('東京メトロ'));
     await tester.pump();
@@ -98,10 +99,15 @@ void main() {
   });
 
   for (final entry in <Locale, List<String>>{
-    const Locale('en'): ['Toei Bus', 'Toei Subway', 'Tokyo Metro'],
-    const Locale('zh'): ['都营巴士', '都营地铁', '东京地铁'],
-    const Locale('zh', 'TW'): ['都營巴士', '都營地下鐵', '東京地鐵'],
-    const Locale('ko'): ['도에이 버스', '도에이 지하철', '도쿄 메트로'],
+    const Locale('en'): [
+      'Select transport you can use free of charge',
+      'Toei Bus',
+      'Toei Subway',
+      'Tokyo Metro',
+    ],
+    const Locale('zh'): ['选择可免费乘坐的交通工具', '都营巴士', '都营地铁', '东京地铁'],
+    const Locale('zh', 'TW'): ['選擇可免費搭乘的交通工具', '都營巴士', '都營地下鐵', '東京地鐵'],
+    const Locale('ko'): ['무료로 이용할 수 있는 교통수단 선택', '도에이 버스', '도에이 지하철', '도쿄 메트로'],
   }.entries) {
     testWidgets('transport choices are localized for ${entry.key}', (
       tester,

@@ -108,6 +108,20 @@ class SharedRouteEndpointTest(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
         self.assertEqual(engine.requests, [])
 
+    def test_tokyo_toei_pass_rejects_metro_scope_before_search(self) -> None:
+        engine = _RecordingEngine()
+        response = _client(engine, city_key="tokyo").post(
+            "/route",
+            json=_payload(
+                transport_scope=["toei_subway", "tokyo_metro"],
+                fare_policy_id="tokyo_toei_transport_pass",
+            ),
+        )
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertEqual(response.json()["detail"]["code"], "invalid_route_input")
+        self.assertIn("cannot be used with Tokyo Metro", response.json()["detail"]["message"])
+        self.assertEqual(engine.requests, [])
+
     def test_reviewed_quote_mismatch_fails_without_public_repricing(self) -> None:
         for policy_id, quoted_policy, status in (
             ("sendai_fureai_pass", "sendai_fureai_pass", "unavailable"),

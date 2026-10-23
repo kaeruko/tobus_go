@@ -14,6 +14,7 @@ import math
 import os
 from collections import defaultdict
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 from transport_scope import TOEI_BUS, TOEI_SUBWAY, TOKYO_METRO, transport_for_line_node
 from walking_access import walking_elapsed_minutes
@@ -31,7 +32,12 @@ REQUIRED_FILES = (
     "translations.txt",
     "trips.txt",
 )
-TRANSFER_EVIDENCE_URL = "https://www.tokyometro.jp/ticket/guide/transfertime/index.html"
+TRANSFER_SCHEMA = "tokyo_metro_reviewed_transfer/v1"
+_TRANSFER_EVIDENCE_HOSTS = frozenset((
+    "tokyometro.jp", "www.tokyometro.jp",
+    "kotsu.metro.tokyo.jp", "www.kotsu.metro.tokyo.jp",
+    "odpt.org", "www.odpt.org", "developer.odpt.org", "ckan.odpt.org",
+))
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +84,55 @@ def _distance_m(first: dict, second: dict) -> float:
     return 6_371_000 * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
+def _reviewed_transfers(path: str | None) -> dict[frozenset[str], dict]:
+    """Load explicit path distance/time evidence, or fail closed with none."""
+    if path is None:
+        return {}
+    payload = _json(path)
+    if not isinstance(payload, dict) or set(payload) != {"schema", "transfers"}:
+        raise ValueError("Tokyo Metro reviewed transfer manifest has an invalid envelope")
+    if payload["schema"] != TRANSFER_SCHEMA or not isinstance(payload["transfers"], list):
+        raise ValueError("Tokyo Metro reviewed transfer manifest has an unsupported schema")
+    result = {}
+    required = {
+        "from_station_id", "to_station_id", "minimum_minutes",
+        "walking_distance_meters", "evidence_urls", "reviewed_at",
+    }
+    for index, item in enumerate(payload["transfers"]):
+        if not isinstance(item, dict) or set(item) != required:
+            raise ValueError(f"Tokyo Metro reviewed transfer #{index} has invalid fields")
+        first, second = item["from_station_id"], item["to_station_id"]
+        if not all(isinstance(value, str) and value.startswith("odpt.Station:")
+                   for value in (first, second)) or first == second:
+            raise ValueError(f"Tokyo Metro reviewed transfer #{index} has invalid station IDs")
+        minutes, meters = item["minimum_minutes"], item["walking_distance_meters"]
+        if type(minutes) is not int or minutes < 1:
+            raise ValueError(f"Tokyo Metro reviewed transfer #{index} has invalid minutes")
+        if type(meters) not in (int, float) or not math.isfinite(meters) or not 0 < meters <= 600:
+            raise ValueError(f"Tokyo Metro reviewed transfer #{index} has invalid walking distance")
+        urls = item["evidence_urls"]
+        if not isinstance(urls, list) or not urls or any(
+            not isinstance(url, str) or urlparse(url).scheme != "https"
+            or urlparse(url).hostname not in _TRANSFER_EVIDENCE_HOSTS
+            for url in urls
+        ):
+            raise ValueError(f"Tokyo Metro reviewed transfer #{index} lacks official evidence")
+        try:
+            reviewed_at = dt.date.fromisoformat(item["reviewed_at"])
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"Tokyo Metro reviewed transfer #{index} has invalid review date") from error
+        pair = frozenset((first, second))
+        if pair in result:
+            raise ValueError(f"Tokyo Metro reviewed transfer #{index} duplicates a station pair")
+        result[pair] = {
+            "minutes": minutes,
+            "meters": float(meters),
+            "evidence_urls": tuple(urls),
+            "reviewed_at": reviewed_at.isoformat(),
+        }
+    return result
+
+
 def inspect_tokyo_metro_feed(gtfs_dir: str) -> TokyoMetroFeedInfo:
     root = os.path.realpath(gtfs_dir)
     missing = [name for name in REQUIRED_FILES if not os.path.isfile(os.path.join(root, name))]
@@ -113,11 +168,13 @@ def add_tokyo_metro_to_graph(
     gtfs_dir: str,
     stations_path: str,
     railways_path: str,
+    reviewed_transfers_path: str | None = None,
     walk_radius: int = 300,
 ) -> TokyoMetroFeedInfo:
     """Atomically validate inputs, then add Metro nodes, runs and allowed walks."""
 
     info = inspect_tokyo_metro_feed(gtfs_dir)
+    reviewed_transfers = _reviewed_transfers(reviewed_transfers_path)
     def qualified(source_id: str) -> str:
         return f"tokyo_metro:{source_id}"
 
@@ -359,38 +416,55 @@ def add_tokyo_metro_to_graph(
         dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
     )
 
-    # Rail transfers require an official ODPT connectingStation relation.
+    # Rail transfers require both an official ODPT connectingStation relation
+    # and reviewed path distance/time evidence. A relation alone verifies only
+    # topology; station-coordinate distance is not a platform/gate walk.
     mapped_station_ids = set(stop_to_station.values())
+    official_pairs = set()
     for station_id in mapped_station_ids:
         station = station_by_id[station_id]
-        source = ("phys", station_id)
         connections = station.get("odpt:connectingStation") or ()
         if isinstance(connections, str):
             connections = (connections,)
         for target_id in connections:
-            target = ("phys", target_id)
-            if target not in graph:
-                continue
-            target_services = set(graph.nodes[target].get("transport_services") or ())
-            if not target_services.intersection((TOKYO_METRO, TOEI_SUBWAY)):
-                continue
-            distance = _distance_m(graph.nodes[source], graph.nodes[target])
-            if distance > 600:
-                continue
-            minutes = max(1, math.ceil(walking_elapsed_minutes(distance, speed_m_per_min=80.0)))
-            edge = {
-                "w": WALK_COST * minutes,
-                "etype": "walk",
-                "meters": distance,
-                "reviewed_walk_minutes": minutes,
-                "evidence_url": TRANSFER_EVIDENCE_URL,
-                "official_connection": True,
-                "transfer_time_basis": "official_connection_coordinate_estimate",
-            }
-            graph.add_edge(source, target, **edge)
-            # ODPT records the official interchange relation on this Metro
-            # station. Pedestrian interchange is usable in both directions.
-            graph.add_edge(target, source, **edge)
+            official_pairs.add(frozenset((station_id, target_id)))
+
+    added_transfer_pairs = set()
+    for pair, review in reviewed_transfers.items():
+        if pair not in official_pairs:
+            raise ValueError(
+                "Tokyo Metro reviewed transfer lacks an official connectingStation relation: "
+                f"{sorted(pair)!r}"
+            )
+        first_id, second_id = sorted(pair)
+        source, target = ("phys", first_id), ("phys", second_id)
+        if source not in graph or target not in graph:
+            raise ValueError(f"Tokyo Metro reviewed transfer references an unloaded station: {sorted(pair)!r}")
+        services = (
+            set(graph.nodes[source].get("transport_services") or ()),
+            set(graph.nodes[target].get("transport_services") or ()),
+        )
+        if not all(value.intersection((TOKYO_METRO, TOEI_SUBWAY)) for value in services) \
+                or TOKYO_METRO not in services[0] | services[1]:
+            raise ValueError(f"Tokyo Metro reviewed transfer has invalid operators: {sorted(pair)!r}")
+        edge = {
+            "w": WALK_COST * review["minutes"],
+            "etype": "walk",
+            "meters": review["meters"],
+            "reviewed_walk_minutes": review["minutes"],
+            "evidence_urls": review["evidence_urls"],
+            "reviewed_at": review["reviewed_at"],
+            "official_connection": True,
+            "transfer_time_basis": "reviewed_station_path",
+        }
+        graph.add_edge(source, target, **edge)
+        graph.add_edge(target, source, **edge)
+        added_transfer_pairs.add(pair)
+
+    # Every reviewed entry must have been applied; unreviewed official
+    # connections deliberately remain absent from the search graph.
+    if added_transfer_pairs != set(reviewed_transfers):
+        raise RuntimeError("Tokyo Metro reviewed transfer application is incomplete")
 
     # Bus access is a pedestrian connection between official coordinates; it
     # does not create an unreviewed rail-to-rail interchange.

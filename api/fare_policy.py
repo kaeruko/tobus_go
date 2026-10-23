@@ -303,6 +303,19 @@ def evaluate_candidate_fare(
             raise ValueError("candidate step must be an object")
         kind = step.get("kind")
         if kind in {"bus", "rail"}:
+            if (
+                city_key == "tokyo"
+                and policy_id == "tokyo_toei_transport_pass"
+                and kind == "rail"
+                and (
+                    step.get("operator_id") == "tokyo_metro"
+                    or str(step.get("route_id") or "").startswith("tokyo_metro:")
+                    or str(step.get("trip_id") or "").startswith("tokyo_metro:")
+                )
+            ):
+                raise ValueError(
+                    "tokyo_toei_transport_pass cannot be applied to Tokyo Metro segments"
+                )
             ride_modes.append(kind)
     context = FarePolicyContext(
         city_key=city_key,

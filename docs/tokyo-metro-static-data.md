@@ -12,6 +12,9 @@ Tokyo Metro integration. Raw ODPT data is deliberately not committed.
 - Basic License: <https://developer.odpt.org/terms/data_basic_license.html>
 - Basic-data guideline: <https://developer.odpt.org/terms/data_basic_use_guideline.html>
 - Official interchange list: <https://www.tokyometro.jp/ticket/guide/transfertime/index.html>
+- Tokyo Metro/Toei through-ticket notes: <https://www.tokyometro.jp/ticket/types/connection/index.html>
+- Official station-map example: <https://www.tokyometro.jp/station/otemachi/yardmap/index_print.html>
+- Official station-navigation guide: <https://www.tokyometro.jp/mobiledevice/smartphone/my/howto08.html>
 
 The Basic License permits use in third-party applications, including commercial
 applications. An ODPT developer registration and consumer key are required for
@@ -69,17 +72,46 @@ Rail interchange edges require an official ODPT `connectingStation` relation;
 same names and proximity alone never create them. Bus-to-Metro access uses the
 existing pedestrian-distance model and the official stop/station coordinates.
 
-### Transfer-time limitation
+### Reviewed rail-interchange contract
 
 The official connection relation and Tokyo Metro's published interchange list
 verify that the interchange exists. The available static inputs do not provide
-platform/gate-specific minimum transfer durations. The current prototype uses a
-coordinate-distance estimate and labels it
-`official_connection_coordinate_estimate`; it does not label the duration as
-officially reviewed. Production enablement remains blocked until the required
-transfer durations and access paths are reviewed from an authoritative source.
+platform/gate-specific minimum transfer durations. Tokyo Metro's published
+60-minute rule describes the fare continuation window for listed out-of-gate
+transfers; it is not a minimum walk or connection time. Station maps and the
+official app can show paths, but the audited sources do not expose a complete,
+machine-readable duration table.
 
-## Local performance sample
+Consequently an ODPT relation, same station name, or straight-line coordinate
+distance is never enough to add a rail-to-rail walk edge. Runtime accepts an
+optional `tokyo_metro_reviewed_transfer/v1` manifest. Every entry must provide
+the two ODPT station IDs, reviewed minimum minutes, actual walking distance,
+review date, and official HTTPS evidence URLs. Import fails for an unknown
+pair, invalid operator, unapproved source, duplicate, or value outside the
+existing 600-metre per-walk limit. With no manifest, no Metro/Toei or Metro
+inter-line interchange edge is added. This is intentionally fail-closed.
+
+As of this audit there is no accepted production transfer manifest. Therefore
+Metro/Toei rail interchange and Metro inter-line interchange remain disabled,
+not estimated. The 57 Metro-to-Toei-family ODPT relations found in 54 Metro
+station objects include non-subway targets and line-specific station objects;
+each subway interchange still needs a path/time review. Bus-to-Metro outdoor
+access continues to use the existing coordinate walking model and is not
+described as a reviewed platform/gate transfer.
+
+### Fare/UI boundary
+
+The three checkboxes mean only “transport the user can use free of charge”. The
+app does not select a ticket and does not promise that a user is eligible. Tokyo
+route cards and details do not display a fare or `0` yen. Other cities retain
+their existing fare UI.
+
+The existing Tokyo Toei-pass policy remains for API compatibility, but requests
+that combine it with `tokyo_metro` fail validation and candidate-level
+evaluation also rejects explicit Metro operator/route/trip identifiers. No new
+fare policy, ticket type, or fare calculator was introduced.
+
+## Local performance audit
 
 Windows local process, one representative coordinate OD, 2026-10-23. These are
 limited development measurements, not Lambda or production percentiles.
@@ -94,24 +126,113 @@ search counts were unchanged. Graph size changed from 18,984 nodes / 63,970
 edges to 19,354 nodes / 66,648 edges. Static import added about 156.4 MiB RSS in
 this Windows process.
 
-For Tokyo Metro-only Shibuya to Asakusa at 10:00:
+### The 87,280-pop case
 
-| Objective | Warm time | Candidates | Maximum per-search pop | Limit reached |
+The original Draft implementation, Metro-only Shibuya (Ginza) to Asakusa at
+10:00 on 2026-10-23, produced:
+
+| Objective | Normal time | Candidates | Maximum per-search pop | Limit reached |
 | --- | ---: | ---: | ---: | --- |
 | `time` | 0.838 s | 1 | 166 | no |
 | `fewTransfers` | 2.671 s | 5 | 87,280 | no |
 
-The `fewTransfers` case retains only 12,720 pops (12.72%) below the unchanged
-100,000-pop limit. This is a high-priority performance risk before production;
-the limit must not be raised to hide it. No timeout-rate claim can be made from
-this small local sample.
+`fewTransfers` is lexicographic: number of boardings is primary, followed by
+the existing secondary components. The API contract asks for up to five
+distinct candidates. Candidate quotas of 1, 2, 3, 4, and 5 required 1,397,
+5,160, 11,245, 36,065, and 87,280 pops respectively. At five candidates the
+search held 91,896 frontier labels and 4,679 queued items. Popped-label counts
+by boardings were 3 / 2,700 / 24,995 / 51,031 / 5,625 / 2,926 for zero through
+five boardings. Later candidates repeatedly boarded concrete Ginza-line trips,
+so concrete-run state, boarding count, clock and walk resources prevented the
+ordinary dominance relation from collapsing them. The expensive tail is thus
+candidate enumeration under a boarding-first objective, amplified by
+unreviewed interchange edges; it is not a slow shortest single itinerary.
+
+An instrumented `tracemalloc` reproduction took 11.259 seconds and peaked at
+147.0 MiB of traced allocations. Instrumentation time is not compared with the
+normal time above.
+
+After removing all unreviewed rail-interchange estimates, the same isolated
+input and interpreter produced 19,004 pops, 20,027 frontier labels, five
+candidates, 4.588 instrumented seconds, and 122.0 MiB traced peak. This 78.2%
+pop reduction is primarily a correctness fix to the graph, not a general
+search-algorithm speedup. The first three direct candidates were preserved;
+later candidate content changed because routes that used unverified transfer
+edges were removed. In the full sequential seven-scope benchmark below the
+same OD used 19,529 pops; process/tool ordering and allocator effects make the
+timings and memory samples non-production measurements.
+
+### Safe pruning implemented
+
+Before invoking the exact search, the adapter now checks reachability in the
+directed, timetable-free scoped graph. That graph is a relaxation: it omits
+run clocks, service days, walk totals and elapsed-time limits. Every legal exact
+itinerary necessarily projects to a path in this graph. Therefore absence of a
+static path proves there can be no legal exact result; presence is not treated
+as proof and still runs the exact search. Tests cover both directions of that
+claim and verify that the exact search is skipped only for the proven
+disconnected case.
+
+For an unreviewed cross-operator sample this changed `time` from 32,522 pops and
+3.38 seconds to zero pops and 0.20 seconds, and `fewTransfers` from the 100,001
+pop error at 3.25 seconds to zero pops and 0.20 seconds. Candidate sets remained
+empty. All reachable benchmark candidates and pop counts were unchanged.
+
+An apparently stronger optimization—dropping later concrete trips that had the
+same remaining stop sequence and no-earlier arrivals—was rejected. Although it
+reduced the Metro sample to hundreds of pops, it changed candidates four and
+five and the concrete-trip ordering. The counterexample shows that a
+single-path dominance proof is insufficient for the existing five-candidate
+enumeration/tie contract. No A* bound, label dominance, or heuristic pruning
+without a proof was adopted.
+
+### Seven-scope sample after the correction
+
+Windows local process, official static data, no realtime/network/HTTP,
+`PYTHONHASHSEED=0`, 2026-10-23 10:00 representative OD per scope. Times include
+query-local preparation. RSS deltas are allocator/cache-sensitive and are not
+per-query peaks. Limits remain 15 seconds and 100,000 pops per exact search.
+
+| Scope | Mode | Time | Candidates | Max pop | Peak labels | Peak queue |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| bus | time | 7.18 s | 1 | 25,660 | 120,780 | 97,614 |
+| bus | fewTransfers | 1.11 s | 5 | 1,665 | 2,162 | 500 |
+| Toei subway | time | 0.67 s | 1 | 40 | 988 | 948 |
+| Toei subway | fewTransfers | 0.50 s | 5 | 4,014 | 4,978 | 964 |
+| Metro | time | 0.94 s | 1 | 130 | 2,287 | 2,157 |
+| Metro | fewTransfers | 1.30 s | 5 | 19,529 | 20,615 | 1,489 |
+| bus + Toei subway | time | 3.88 s | 1 | 8,914 | 66,307 | 61,487 |
+| bus + Toei subway | fewTransfers | 1.67 s | 5 | 4,655 | 6,291 | 1,638 |
+| bus + Metro | time | 1.35 s | 1 | 260 | 3,633 | 4,470 |
+| bus + Metro | fewTransfers | 1.40 s | 5 | 2,137 | 4,329 | 2,194 |
+| Toei subway + Metro | time | 1.26 s | 1 | 40 | 988 | 948 |
+| Toei subway + Metro | fewTransfers | 1.19 s | 5 | 4,014 | 4,978 | 964 |
+| all three | time | 1.87 s | 1 | 758 | 11,211 | 13,844 |
+| all three | fewTransfers | 1.83 s | 5 | 2,139 | 4,443 | 2,306 |
+
+The combined subway sample resolves entirely on Toei because cross-operator
+transfer paths are deliberately unavailable; it is not evidence that a
+Metro/Toei transfer works. With the new static check forced off, every reachable
+row had identical candidates, errors, pop counts and label counts. The
+unchanged Toei-only regression previously compared against pre-Metro main also
+kept routes, clocks, candidate counts and search counts identical.
+
+Saturday and holiday Metro samples returned the same candidate/pop pattern as
+their timetable permitted (121 `time`; 19,531 `fewTransfers`). Late-night
+probes exercised 1,903 source time values at/after 24:00: the 23:40 probe used
+81/494 pops, returned 1/2 candidates, and selected concrete trip
+`tokyo_metro:10B2341000` at 23:46–24:19. The 23:20 probe used 88/1,371 pops,
+returned 1/5 candidates, and selected `tokyo_metro:10B2335000` at 23:25–23:59.
+These are bounded cases, not a claim about production percentiles or all
+possible origin/destination pairs.
 
 ## Production blockers and follow-up
 
-1. Review and pin platform/gate-specific transfer paths and minimum durations.
-2. Decide how the existing Tokyo Toei free-pass policy must behave for a route
-   containing Tokyo Metro. The present policy is mode-based (`bus`/`rail`) and
-   is intentionally unchanged in this work; it is not operator-safe for Metro.
+1. Review and pin platform/gate-specific transfer paths and minimum durations;
+   until then real Metro/Toei and Metro inter-line transfers are unavailable.
+2. Run a larger fixed OD corpus. The Metro-only `fewTransfers` tail is improved
+   but still structurally grows when five distinct boarding histories are
+   requested; no safe general A*/dominance improvement has yet been proved.
 3. Run the complete CI matrix and Android UI/accessibility test from the PR.
 4. Build a versioned deployment artifact from freshly downloaded, hashed
    official inputs. Do not commit or redistribute the raw feed.

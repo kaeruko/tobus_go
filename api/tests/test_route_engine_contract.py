@@ -114,6 +114,9 @@ class RouteEngineContractTest(unittest.TestCase):
         graph = nx.DiGraph()
         graph.add_node(origin, name="Origin", lat=35.0, lon=139.0)
         graph.add_node(destination, name="Destination", lat=35.1, lon=139.1)
+        # The adapter's static impossibility proof requires the synthetic
+        # graph to model the path returned by its injected search dependency.
+        graph.add_edge(origin, destination, etype="fixture")
         app = SimpleNamespace(
             state=SimpleNamespace(G=graph, TM=object(), WALK_RAD=500, SI=object())
         )

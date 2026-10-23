@@ -137,6 +137,41 @@ def _require_official_english_candidate(candidate: dict[str, Any]) -> None:
                 )
 
 
+def _static_path_is_possible(graph, start, targets) -> bool:
+    """Return false only when a complete scoped graph proves disconnection.
+
+    The static graph is a relaxation of the production search: it ignores
+    clocks, concrete runs, walking totals and the travel-time deadline. Every
+    legal itinerary is therefore a directed graph path. Absence of such a path
+    is sufficient to return no candidate; presence says nothing about temporal
+    feasibility and must still run the exact search. Test doubles and other
+    incomplete graphs without transport metadata conservatively return true.
+    """
+    remaining = set(targets)
+    if not remaining:
+        return False
+    proof_nodes = remaining | {start}
+    if any(
+        node not in graph
+        or not set(graph.nodes[node].get("transport_services") or ())
+        for node in proof_nodes
+    ):
+        return True
+    if start in remaining:
+        return True
+    seen = {start}
+    stack = [start]
+    while stack:
+        current = stack.pop()
+        for following in graph.successors(current):
+            if following in remaining:
+                return True
+            if following not in seen:
+                seen.add(following)
+                stack.append(following)
+    return False
+
+
 class TokyoRouteEngine:
     """Adapter from the shared route contract to the existing ODPT engine."""
 
@@ -318,7 +353,10 @@ class TokyoRouteEngine:
         )
 
         results: list[dict[str, Any]] = []
-        if destination_reachable:
+        primary_graph_reachable = _static_path_is_possible(
+            g, origin_node, (item[0] for item in virtual_connections)
+        )
+        if destination_reachable and primary_graph_reachable:
             print(
                 "[ROUTE_DEBUG] Tokyo primary search start: "
                 f"pref={pref} target=virtual_destination "
@@ -346,7 +384,10 @@ class TokyoRouteEngine:
                 flush=True,
             )
 
-        if not results:
+        fallback_graph_reachable = _static_path_is_possible(
+            g, origin_node, (destination_node,)
+        )
+        if not results and fallback_graph_reachable:
             print(
                 "[ROUTE_DEBUG] Tokyo fallback search start: "
                 f"pref={pref} target={destination_node}",
@@ -370,6 +411,12 @@ class TokyoRouteEngine:
             print(
                 "[ROUTE_DEBUG] Tokyo fallback search done: "
                 f"pref={pref} candidates={len(results)}",
+                flush=True,
+            )
+        elif not results and not primary_graph_reachable and not fallback_graph_reachable:
+            print(
+                "[ROUTE_DEBUG] Tokyo exact search skipped: "
+                "timetable-free scoped graph has no directed path",
                 flush=True,
             )
 

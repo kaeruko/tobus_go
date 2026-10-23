@@ -30,6 +30,15 @@ class _FarePolicySettingsPageState
 
   Future<void> _load() async {
     final profile = ref.read(cityProfileProvider);
+    if (profile.city == AppCity.tokyo) {
+      if (!mounted) return;
+      setState(() {
+        _selectedPolicyId = null;
+        _loading = false;
+        _error = null;
+      });
+      return;
+    }
     try {
       final selected = await FarePolicyPreferences.load(profile);
       if (!mounted) return;
@@ -115,7 +124,9 @@ class _FarePolicySettingsPageState
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           children: [
             Text(
-              l10n.fareSettingsHeading,
+              profile.city == AppCity.tokyo
+                  ? l10n.transportSelectionLabel
+                  : l10n.fareSettingsHeading,
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -123,11 +134,15 @@ class _FarePolicySettingsPageState
             ),
             const SizedBox(height: 8),
             Text(
-              l10n.fareSettingsDescription,
+              profile.city == AppCity.tokyo
+                  ? l10n.tokyoTransportScopeDescription
+                  : l10n.fareSettingsDescription,
               style: const TextStyle(color: CupertinoColors.systemGrey),
             ),
             const SizedBox(height: 16),
-            if (_loading)
+            if (profile.city == AppCity.tokyo)
+              const SizedBox.shrink()
+            else if (_loading)
               const Center(child: CupertinoActivityIndicator())
             else if (_error != null)
               Text(
