@@ -212,3 +212,234 @@ The unchanged 15-second and 100,000-pop limits were used.  Weekend and holiday
 Metro searches were 27,262 pops, the 23:40 last-train probe returned two
 candidates at 629 pops, and the 23:20 date-crossing probe returned five at
 1,803 pops.  These local samples do not establish production p95/p99 behavior.
+
+## 2026-10-24 transfer-time policy proposal
+
+The current rule is safe but unnecessarily couples two different claims.  An
+operator can officially designate a connection and publish a usable station
+path without publishing a universal minimum platform-to-platform time.  The
+absence of that last number should not turn the official connection into an
+unknown topology.  Conversely, a connection relation alone still cannot prove
+that a particular train-to-train itinerary is feasible.
+
+The following evidence layers should remain distinct in data and UI:
+
+| Layer | What it establishes | What it does not establish |
+| --- | --- | --- |
+| ODPT connection relation | The operator identifies the stations as connected | Gate/platform path or duration |
+| Operator station/accessibility map | The path, gates, levels, equipment, direction and sometimes operating hours | A scaled path length or universal walk time |
+| Operator distance/time | A quantitative operator value for the stated route and conditions | A guarantee for every passenger |
+| Reviewed corridor | Every composed edge follows operator path evidence, with restrictions recorded | An operator-published minimum when none exists |
+| App scheduling allowance | The minimum time this app permits when joining concrete trips | An official minimum, accessibility guarantee or passenger entitlement |
+
+GTFS itself supports this separation.  `pathways.txt` and `levels.txt` model
+the station graph, while `transfers.txt` `min_transfer_time` is the time that
+should be sufficient for a typical rider and may include a reliability
+buffer.  OpenTripPlanner similarly combines micromapped station paths with a
+configurable walk speed and separate board/alight/transfer slack.  Therefore
+an app-owned conservative allowance can be defensible without being presented
+as an operator minimum, provided the path and the timing basis are auditable.
+
+Proposed acceptance policy, not implemented in this continuation:
+
+1. Keep ODPT `connectingStation` as a mandatory topology check.
+2. Represent a station complex as a directed graph whose nodes are platforms,
+   paid/unpaid gates, concourses and externally connected station areas.
+3. Require every corridor edge to cite an operator map and record direction,
+   paid-area transition, levels, equipment, opening hours and accessibility
+   applicability.  A diagram that is not to scale supplies topology only.
+4. Prefer an operator-published time or walked path distance.  If neither
+   exists, accept an app allowance only after a documented on-site timing or
+   independently measured *walked path* protocol, with repeated observations,
+   the slowest reviewed observation, and a separately versioned safety buffer.
+   Straight-line station coordinates and an unmeasured uniform value remain
+   prohibited.
+5. Compose a pair allowance as the sum of directed corridor allowances plus
+   existing boarding/alighting slack.  Never take the fastest of an unknown
+   edge, ignore a closed-time edge, or share a reverse value without review.
+6. Label the result `reviewed_app_allowance`, not `official_minimum`, and state
+   that individual walking time varies.  Accessibility-specific paths need
+   separate coverage; the ordinary path must not imply accessibility.
+
+This policy trades some false negatives for protection against false-positive
+connections.  A value that is too short creates an impossible itinerary; a
+value that is too long hides a legal itinerary.  Construction, gate closures,
+crowding, direction-dependent escalators and first/last-train access can make
+a once-reviewed value stale.  Each corridor therefore needs evidence dates,
+expiry/review triggers and asymmetric tests.
+
+Required tests before changing the runtime acceptance rule are: manifest
+schema rejection tests; directed and time-window corridor composition; paid
+and out-of-gate transitions; reverse/asymmetric paths; same-platform zero-walk
+topology with nonzero board/alight slack; accessibility variants; exact
+boundary tests where the earlier train is rejected and the next concrete trip
+is accepted; the unchanged 600 m/continuous/total walking constraints; and
+property tests that a composed allowance is never shorter than any constituent
+path.  No transfer was enabled under this proposal in this continuation.
+
+References for the model comparison:
+
+- <https://gtfs.org/documentation/schedule/reference/#transferstxt>
+- <https://gtfs.org/documentation/schedule/reference/#pathwaystxt>
+- <https://docs.opentripplanner.org/en/latest/In-Station-Navigation/>
+- <https://docs.opentripplanner.org/en/latest/RouteRequest/>
+
+## Priority station-complex graph design
+
+One reviewed corridor graph can safely support several ODPT pairs, but only
+through explicit path composition.  It must not create a clique merely because
+the stations share a complex name.
+
+- **Otemachi:** platform nodes for Marunouchi, Tozai, Chiyoda, Hanzomon and
+  Toei Mita connect through the exact concourses shown by the operator maps.
+  Tokyo Metro's accessibility descriptions identify several particular
+  line-to-line corridors, so these can become separately reviewed directed
+  edges instead of ten hand-written pair values.
+- **Akasaka-mitsuke / Nagatacho:** model the Ginza/Marunouchi platform
+  arrangement separately from the corridor to Nagatacho's Hanzomon,
+  Yurakucho and Namboku areas.  Same- or opposite-platform cases are special
+  platform adjacency edges, not generic station walks.  Elevator/escalator
+  operating hours belong on the applicable edge.
+- **Hibiya / Yurakucho:** keep paid/unpaid boundaries and the inter-station
+  underground route explicit.  An accessibility surface route is a different
+  path and cannot silently inherit the ordinary path's allowance.
+- **Iidabashi:** the official accessibility description identifies the Tozai
+  to Yurakucho/Namboku/Oedo transfer corridor.  Represent that shared corridor
+  once, with platform-specific access legs at each end, direction/equipment
+  restrictions and published operating hours.
+
+Official material reviewed for those structures:
+
+- <https://www.tokyometro.jp/station/otemachi/yardmap/index_print.html>
+- <https://www.tokyometro.jp/station/otemachi/accessibility/index.html>
+- <https://www.tokyometro.jp/station/akasaka-mitsuke/yardmap/index_print.html>
+- <https://www.tokyometro.jp/station/akasaka-mitsuke/accessibility/index.html>
+- <https://www.tokyometro.jp/lang_en/station/nagatacho/yardmap/index_print.html>
+- <https://www.tokyometro.jp/station/hibiya/yardmap/index_print.html>
+- <https://www.tokyometro.jp/station/yurakucho/yardmap/index_print.html>
+- <https://www.tokyometro.jp/safety/barrierfree/progress/hibiya/index.html?vm=r>
+- <https://www.tokyometro.jp/station/iidabashi/accessibility/index.html>
+- <https://www.tokyometro.jp/station/toppdf/iidabashi.pdf>
+- <https://www.kotsu.metro.tokyo.jp/subway/stations/iidabashi.html>
+
+The current 54-complex audit remains a topology/review queue, not an enabled
+network.  Its raw 123 pairs also contain a canonicalization detail: Metro's
+main Marunouchi and Marunouchi Branch station IDs at Nakano-sakaue share GTFS
+station code M06 and load as one physical graph node.  That one interchange is
+already operational without a walk edge.  The branch-to-Toei pair then
+duplicates the main-line-to-Toei physical pair.  The accounting is therefore
+4 reviewed manifest pairs, 1 same-physical-node interchange, 1 duplicate raw
+relation and 117 unique unresolved physical walk pairs.  This does not change
+the manifest count from four.
+
+## Development-only full-connection stress
+
+To estimate graph growth without asserting unverified facts, a fresh process
+loaded the production graph and added all 117 unique unresolved walk pairs in
+memory only.  The production manifest SHA-256 was checked before and after and
+did not change.  Two deliberately synthetic profiles were used:
+
+- short/adversarial: 3 minutes and 120 m per unresolved pair;
+- buffered: 8 minutes and 500 m per unresolved pair.
+
+Neither profile is an official value, a proposed manifest value or a valid
+passenger itinerary model.  They exist only to expose search branching.  The
+date was 2026-10-23 at 10:00, feed version `20261008`, with the unchanged
+15-second and 100,000-pop limits.  The following is the one-run Windows result;
+every row returned the requested candidates without an error.
+
+| Scope | Current `time` pop / s | Synthetic-short `time` pop / s | Current `fewTransfers` pop / s | Synthetic-short `fewTransfers` pop / s |
+| --- | ---: | ---: | ---: | ---: |
+| Toei bus | 25,660 / 5.32 | 25,660 / 4.88 | 1,665 / 0.66 | 1,665 / 0.63 |
+| Toei subway | 40 / 0.45 | 40 / 0.41 | 4,014 / 0.57 | 4,014 / 0.57 |
+| Tokyo Metro | 130 / 0.73 | 166 / 0.73 | 27,370 / 1.16 | 67,862 / 2.28 |
+| bus + Toei subway | 8,914 / 3.01 | 8,914 / 3.21 | 4,655 / 1.11 | 4,655 / 1.09 |
+| bus + Metro | 260 / 1.16 | 260 / 1.27 | 2,137 / 1.21 | 2,143 / 1.32 |
+| Toei subway + Metro | 40 / 1.09 | 40 / 1.17 | 4,014 / 1.06 | 4,015 / 1.11 |
+| all three | 758 / 1.70 | 951 / 1.85 | 2,139 / 1.63 | 2,170 / 1.75 |
+
+The six non-Metro rows had identical candidate hashes and pop counts where
+their scopes excluded Metro (bus, Toei subway, and their combination, both
+objectives).  This confirms scope isolation in this probe.  The fixed Metro
+Shibuya-to-Asakusa five-candidate case rose from 27,370 to 67,862 pops and its
+maximum retained frontier rose from 28,734 to 70,917.  The buffered profile
+still used 65,217 pops and 67,742 frontier labels, so the increase is mainly
+the added connectivity and five-candidate enumeration, not just unrealistically
+short transfers.
+
+Synthetic priority probes demonstrated the intended branching but do not
+validate the invented transfer duration:
+
+- Nijubashimae 10:04--10:06 to Otemachi, synthetic walk 10:07--10:10,
+  then an exact 10:12 train to Jimbocho: 5,340 `fewTransfers` pops;
+- Tameike-sanno 10:03--10:05 to Akasaka-mitsuke, synthetic walk to Nagatacho
+  10:06--10:09, then an exact 10:14 train to Kojimachi: 37,599 pops.
+
+An additional 60 Metro-heavy distant-OD calls plus the nine base/priority
+`fewTransfers` calls all returned five candidates without hitting the limit.
+The worst was Nakano-sakaue to Nishi-funabashi at 85,942 pops, 88,811 retained
+frontier labels and 3.01 seconds.  Only 14,058 pops (14.058%) remained.  This is
+not a network-wide limit-hit rate and cannot support a production p95/p99
+claim; it does show that full connectivity can move ordinary long Metro-only
+queries close to the existing cap.
+
+Candidate content is expected to change when real legal transfers are added.
+The stress assertion is instead that every synthetic transfer in an output is
+marked `synthetic_stress_only`, concrete GTFS trip IDs and board times are
+respected conditional on that synthetic allowance, excluded services do not
+enter their scopes, and no production file is mutated.
+
+### Linux memory check
+
+The same harness ran under local WSL Ubuntu with Python 3.12.  It read the
+Windows worktree through the WSL mount, so timings are not Lambda timings.
+Pops and candidate counts matched Windows exactly.
+
+| Phase | Reviewed graph RSS | Synthetic-short RSS |
+| --- | ---: | ---: |
+| base pickle loaded | 596.3 MiB | 596.3 MiB |
+| Toei bus GTFS loaded | 1,036.9 MiB | 1,036.8 MiB |
+| Metro loaded | 1,196.5 MiB | 1,195.5 MiB |
+| 117 synthetic pairs added | n/a | 1,195.5 MiB |
+| final RSS after suite | 1,237.8 MiB | 1,241.1 MiB |
+| process peak | 1,280.6 MiB | 1,281.1 MiB |
+
+The edges themselves added less than the measurement resolution; loaded base
+and bus data dominate.  The largest sampled frontier in the seven-scope suite
+was still the Toei-bus `time` case (120,780 labels).  The committed string
+sharing remains in use; no timetable structure was removed and no memory code
+changed in this continuation.  Docker Desktop's Linux engine was unavailable,
+so WSL was used locally.  No AWS login or resource access was performed.
+
+## Safe search work and release gates
+
+The current admissible lexicographic suffix bound is used for queue ordering.
+With the exact five-result contract, a simple "stop after the fifth result"
+branch-and-bound rule cannot reduce the work performed before that fifth
+candidate is popped.  Collapsing concrete-run/boarding/walk-resource state,
+fixed per-node label caps, bucket equality and heuristics based only on a
+station name all have known counterexamples and remain rejected.
+
+Two possible exact improvements deserve isolated proof and differential tests:
+
+1. a lower bound on remaining elapsed time used only to reject a label that
+   cannot satisfy the unchanged 180-minute deadline; it must cover every legal
+   rail, bus and walk suffix and include a floating-point safety guard;
+2. stronger route-based/RAPTOR-style admissible suffix preprocessing for
+   ordering, or exact dominance only after proving that the key contains the
+   complete future-equivalence state (concrete run and sequence, boarding
+   phase, counts and all walking resources).
+
+No new pruning was implemented because the present evidence does not prove
+that the same five candidates and order are preserved.
+
+Public release should remain blocked until: (a) useful origin-destination
+coverage is defined and its necessary complexes have reviewed directed paths
+and app allowances; (b) current, weekend/holiday, last-train, date-crossing,
+direction, closure and missed-transfer cases pass on those paths; (c) a much
+broader Metro-heavy corpus demonstrates acceptable cap margin and records any
+100,000-pop failures without raising the cap; (d) Linux/Lambda-like cold-load
+and search memory fit the intended deployment with operational headroom; and
+(e) the UI clearly calls values app scheduling allowances rather than official
+minimums or guarantees.  AWS/Lambda validation remains separate and was not
+performed here.
