@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:toeigo/models/fare_models.dart';
 import 'package:toeigo/models/route_models.dart';
+import 'package:toeigo/models/transport_scope.dart';
 import 'package:toeigo/providers/route_search_provider.dart';
 import 'package:toeigo/services/route_search_service.dart';
 
@@ -161,6 +162,20 @@ void main() {
     );
   }
 
+  test('empty transport scope blocks search before service access', () async {
+    final service = _ControlledSearchService();
+    final notifier = _prepare(service);
+
+    expect(notifier.state.transportScope, TransportServiceId.legacyDefault);
+    notifier.setTransportEnabled(TransportServiceId.toeiBus, false);
+    notifier.setTransportEnabled(TransportServiceId.toeiSubway, false);
+    expect(notifier.state.transportScope, isEmpty);
+
+    await notifier.triggerSearch();
+
+    expect(service.requests, isEmpty);
+    _expectWaitingForSearch(notifier.state);
+  });
 
   test('same criteria keep pending and completed searches intact', () async {
     final service = _ControlledSearchService();

@@ -34,6 +34,7 @@ class ApiRouteRequest(BaseModel):
     blon: float
     pref: str = "cost"
     bus_only: bool = False
+    transport_scope: list[StrictStr] | None = None
     start_time: str = "10:00"
     target_date_str: str | None = None
     limit: int = 5
@@ -42,6 +43,8 @@ class ApiRouteRequest(BaseModel):
 
 
 def to_domain_request(request: ApiRouteRequest) -> RouteSearchRequest:
+    from transport_scope import normalize_transport_scope
+
     date_value = request.target_date_str or datetime.now(_JST).date().isoformat()
     try:
         departure = datetime.strptime(
@@ -56,12 +59,17 @@ def to_domain_request(request: ApiRouteRequest) -> RouteSearchRequest:
         raise RouteInputError("target_date_str must be zero-padded YYYY-MM-DD")
     if departure.strftime("%H:%M") != request.start_time:
         raise RouteInputError("start_time must be zero-padded HH:MM")
+    scope = normalize_transport_scope(
+        request.transport_scope,
+        bus_only=request.bus_only,
+    )
     return RouteSearchRequest(
         origin=GeoPoint(request.alat, request.alon),
         destination=GeoPoint(request.blat, request.blon),
         departure_at=departure.replace(tzinfo=_JST),
         preference=normalize_route_preference(request.pref),
         bus_only=request.bus_only,
+        transport_scope=scope,
         limit=request.limit,
         accept_experimental_transfer_model=request.accept_experimental_transfer_model,
     )

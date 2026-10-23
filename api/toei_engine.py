@@ -2252,6 +2252,14 @@ def _route_stop_identity(G, phys_key, mode):
             )
         return str(stop_id).strip(), None
     if mode == "rail":
+        metro_stop_id = G.nodes[phys_key].get("gtfs_stop_id")
+        if metro_stop_id is not None:
+            normalized = str(metro_stop_id).strip()
+            if not normalized.startswith("tokyo_metro:"):
+                raise RouteContractError(
+                    f"rail station has an invalid Tokyo Metro GTFS stop_id: {source_id}"
+                )
+            return normalized, source_id
         station_code = G.nodes[phys_key].get("station_code")
         if station_code is None or not str(station_code).strip():
             raise RouteContractError(
@@ -2270,6 +2278,14 @@ def _selected_rail_run(path, state):
     metadata["segment_records"] = list(metadata.get("segment_records", ()))
     metadata.pop("stops", None)
     return metadata
+
+
+def _selected_rail_run_with_operator_identity(tm, path, state, operator_id):
+    selected = _selected_rail_run(path, state)
+    if operator_id == "tokyo_metro" and selected.get("segment_records"):
+        from tokyo_metro_gtfs import enrich_selected_metro_run
+        selected = enrich_selected_metro_run(tm, selected)
+    return selected
 
 
 def _selected_bus_leg(G, path, board_index, state):
@@ -2415,10 +2431,13 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 reviewed = cur.pop("_reviewed_edges", 0)
                 unreviewed = cur.pop("_unreviewed_edges", 0)
                 evidence = cur.pop("_evidence_urls", [])
+                time_bases = cur.pop("_walking_time_bases", [])
                 if reviewed:
                     cur["walking_connection_verified"] = unreviewed == 0
                     cur["walking_time_basis"] = (
-                        "official_reviewed" if unreviewed == 0 else "mixed_estimated"
+                        time_bases[0]
+                        if unreviewed == 0 and len(set(time_bases)) == 1
+                        else "mixed_estimated"
                     )
                     cur["evidence_urls"] = evidence
             elif cur["kind"] in ("bus", "rail"):
@@ -2482,6 +2501,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     "_reviewed_edges": 0,
                     "_unreviewed_edges": 0,
                     "_evidence_urls": [],
+                    "_walking_time_bases": [],
                 }
             cur["edges"] += 1
             cur["meters"] += edge.get("meters", 0)
@@ -2494,6 +2514,8 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 url = edge.get("evidence_url")
                 if url and url not in cur["_evidence_urls"]:
                     cur["_evidence_urls"].append(url)
+                time_basis = edge.get("transfer_time_basis", "official_reviewed")
+                cur["_walking_time_bases"].append(time_basis)
             else:
                 cur["_unreviewed_edges"] += 1
             if v[0] == "phys":
@@ -2550,6 +2572,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             phys_id = u[1]
             final_route_id = G.nodes[v].get("route_id")
             final_trip_id = None
+            operator_id = G.nodes[v].get("operator_id")
             if mode == "bus":
                 target_pid = _find_bus_alight_pole(G, path, i)
                 if selected_state is not None and selected_state.provider == "bus":
@@ -2645,6 +2668,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 ),
                 "route_id": final_route_id,
                 "trip_id": final_trip_id,
+                **({"operator_id": operator_id} if operator_id else {}),
             }
             if mode == "bus":
                 cur["departureStopId"] = active_bus_leg.origin_stop_id
@@ -2655,7 +2679,13 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     destination_sequence=active_bus_leg.destination_sequence,
                 )
             if selected_state is not None and selected_state.provider == "rail":
-                cur["selected_run"] = _selected_rail_run(path, selected_state)
+                selected_run = _selected_rail_run_with_operator_identity(
+                    tm, path, selected_state, operator_id
+                )
+                cur["selected_run"] = selected_run
+                for identity_key in ("trip_id", "route_id", "service_id"):
+                    if selected_run.get(identity_key):
+                        cur[identity_key] = selected_run[identity_key]
 
         elif etype == "ride":
             print(f"[segments_detailed] edge[{i}] ride mode={mode} node={node}", flush=True)
@@ -2691,7 +2721,13 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 if arr: curr_time = arr
                 else: curr_time += edge.get("w", 2.0)
                 if cur and selected_state is not None and selected_state.provider == "rail":
-                    cur["selected_run"] = _selected_rail_run(path, selected_state)
+                    selected_run = _selected_rail_run_with_operator_identity(
+                        tm, path, selected_state, cur.get("operator_id")
+                    )
+                    cur["selected_run"] = selected_run
+                    for identity_key in ("trip_id", "route_id", "service_id"):
+                        if selected_run.get(identity_key):
+                            cur[identity_key] = selected_run[identity_key]
             else:
                 if active_bus_leg is None:
                     return []

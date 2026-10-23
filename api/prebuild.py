@@ -13,6 +13,7 @@ except ImportError:
 import initialize_data
 from toei_engine import build_graph, TimetableManager, SpatialIndex
 from app.runtime import _paths
+from tokyo_metro_gtfs import add_tokyo_metro_to_graph
 
 OUTPUT_FILE = "api/data/app_data.pkl"
 
@@ -99,6 +100,32 @@ def main():
     tm.load_bus_timetables(p["BUS_TBL"])
     tm.load_bus_route_patterns(p["BUSROUTE"])
     tm.load_train_timetables(p["TRAIN_TBL"])
+    metro_enabled = os.getenv("ENABLE_TOKYO_METRO_STATIC", "0") == "1"
+    if metro_enabled:
+        metro_gtfs_dir = os.getenv(
+            "TOKYO_METRO_GTFS_DIR", os.path.join(data_dir, "TokyoMetro-Train-GTFS")
+        )
+        metro_stations = os.getenv(
+            "TOKYO_METRO_STATIONS", os.path.join(data_dir, "odpt_Station_TokyoMetro.json")
+        )
+        metro_railways = os.getenv(
+            "TOKYO_METRO_RAILWAYS", os.path.join(data_dir, "odpt_Railway_TokyoMetro.json")
+        )
+        for required in (metro_gtfs_dir, metro_stations, metro_railways):
+            if not os.path.exists(required):
+                raise RuntimeError(f"Tokyo Metro static input is missing: {required}")
+        info = add_tokyo_metro_to_graph(
+            g,
+            tm,
+            gtfs_dir=metro_gtfs_dir,
+            stations_path=metro_stations,
+            railways_path=metro_railways,
+            walk_radius=p["WALK_RAD"],
+        )
+        print(
+            "Tokyo Metro static GTFS loaded: "
+            f"version={info.version} period={info.start_date}..{info.end_date}"
+        )
     tm.build_name_index(g)
 
     # GTFS removed

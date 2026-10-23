@@ -26,7 +26,16 @@ from toei_engine import (
     nearest_phys,
     search_best_routes_once,
     time_str_to_min,
+    SpatialIndex,
 )
+from transport_scope import (
+    LEGACY_DEFAULT_SCOPE,
+    TOKYO_METRO,
+    normalize_transport_scope,
+    physical_transports,
+    transport_for_line_node,
+)
+from tokyo_metro_gtfs import scoped_timetable_manager
 
 
 _TOKYO_TIMEZONE = ZoneInfo("Asia/Tokyo")
@@ -139,6 +148,38 @@ class TokyoRouteEngine:
     ) -> None:
         self.app = app
         self.dependencies = dependencies or TokyoRouteDependencies()
+        self._scope_graphs: dict[frozenset[str], tuple[Any, Any]] = {}
+
+    def _graph_for_scope(self, scope: frozenset[str]):
+        graph = self.app.state.G
+        if scope == LEGACY_DEFAULT_SCOPE and not getattr(
+            self.app.state.TM, "tokyo_metro_feed_version", None
+        ):
+            return graph, self.app.state.SI
+        cached = self._scope_graphs.get(scope)
+        if cached is not None:
+            return cached
+
+        physical = {
+            node: physical_transports(graph, node)
+            for node in graph.nodes
+            if isinstance(node, tuple) and node and node[0] == "phys"
+        }
+
+        def include_node(node):
+            if not isinstance(node, tuple) or not node:
+                return False
+            if node[0] == "phys":
+                return bool(physical.get(node, frozenset()) & scope)
+            if node[0] == "line":
+                return transport_for_line_node(node, graph.nodes[node]) in scope
+            return False
+
+        scoped = graph.subgraph([node for node in graph.nodes if include_node(node)])
+        spatial = SpatialIndex(scoped)
+        cached = (scoped, spatial)
+        self._scope_graphs[scope] = cached
+        return cached
 
     def search(self, request: RouteSearchRequest) -> RouteSearchResult:
         payload = self.search_legacy(
@@ -148,6 +189,7 @@ class TokyoRouteEngine:
             blon=request.destination.lon,
             pref=request.preference.api_value,
             bus_only=request.bus_only,
+            transport_scope=request.transport_scope,
             start_time=request.departure_at.strftime("%H:%M"),
             date_str=request.departure_at.date().isoformat(),
             limit=request.limit,
@@ -177,6 +219,7 @@ class TokyoRouteEngine:
         blon: float,
         pref: str,
         bus_only: bool = False,
+        transport_scope: frozenset[str] | None = None,
         start_time: str = "10:00",
         date_str: str | None = None,
         limit: int = 5,
@@ -184,6 +227,7 @@ class TokyoRouteEngine:
         """Run Tokyo search and preserve its Flutter-compatible dictionary."""
 
         deps = self.dependencies
+        scope = normalize_transport_scope(transport_scope, bus_only=bus_only)
         use_realtime = _should_use_realtime(
             date_str=date_str,
             start_time=start_time,
@@ -192,16 +236,15 @@ class TokyoRouteEngine:
         print(f"[MEM] enter TokyoRouteEngine.search rss={deps.rss_mb():.1f}MB")
         print(
             "[USER_DEBUG] TokyoRouteEngine.search: "
-            f"pref={pref}, bus_only={bus_only}, "
+            f"pref={pref}, bus_only={bus_only}, transport_scope={sorted(scope)}, "
             f"start_time={start_time}, date_str={date_str}, "
             f"use_realtime={use_realtime}",
             flush=True,
         )
 
-        g = self.app.state.G
-        timetable = self.app.state.TM
+        g, spatial_index = self._graph_for_scope(scope)
+        source_timetable = self.app.state.TM
         walk_radius = self.app.state.WALK_RAD
-        spatial_index = self.app.state.SI
 
         origin_node, origin_distance = deps.nearest_phys(
             g,
@@ -255,6 +298,12 @@ class TokyoRouteEngine:
         )
         destination_reachable = bool(virtual_connections)
         day_type = deps.determine_day_type(date_str)
+        timetable = scoped_timetable_manager(
+            source_timetable,
+            g,
+            scope,
+            day_type,
+        )
 
         print(
             "[ROUTE_DEBUG] Tokyo destination setup: "
@@ -289,7 +338,7 @@ class TokyoRouteEngine:
                 virtual_dest_connections=virtual_connections,
                 target_coords=[blat, blon],
                 use_realtime=use_realtime,
-                bus_only=bus_only,
+                bus_only=False,
             )
             print(
                 "[ROUTE_DEBUG] Tokyo primary search done: "
@@ -316,7 +365,7 @@ class TokyoRouteEngine:
                 virtual_dest_connections=None,
                 target_coords=None,
                 use_realtime=use_realtime,
-                bus_only=bus_only,
+                bus_only=False,
             )
             print(
                 "[ROUTE_DEBUG] Tokyo fallback search done: "
@@ -418,6 +467,18 @@ class TokyoRouteEngine:
                 "walk_limit_m": MAX_WALK_SEG_M,
                 "realtime_applied": use_realtime,
                 "bus_only": bus_only,
+                "transport_scope": sorted(scope),
+                **(
+                    {
+                        "tokyo_metro_feed_version": timetable.tokyo_metro_feed_version,
+                        "tokyo_metro_feed_start_date": timetable.tokyo_metro_feed_start_date,
+                        "tokyo_metro_feed_end_date": timetable.tokyo_metro_feed_end_date,
+                        "tokyo_metro_data_obtained_at": timetable.tokyo_metro_data_obtained_at,
+                    }
+                    if TOKYO_METRO in scope
+                    and getattr(timetable, "tokyo_metro_feed_version", None)
+                    else {}
+                ),
                 **search_meta,
             },
         }

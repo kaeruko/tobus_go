@@ -7,6 +7,7 @@ import '../core/api_client.dart';
 import '../core/city_profile.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
+import '../models/transport_scope.dart';
 
 class RouteSearchRequest {
   final LatLng origin;
@@ -18,6 +19,7 @@ class RouteSearchRequest {
   final DateTime startTime;
   final String? preference;
   final bool busOnly;
+  final Set<String> transportScope;
   final String? farePolicyId;
   final bool acceptExperimentalTransferModel;
 
@@ -31,9 +33,14 @@ class RouteSearchRequest {
     required this.startTime,
     this.preference,
     this.busOnly = false,
+    Set<String>? transportScope,
     this.farePolicyId,
     this.acceptExperimentalTransferModel = false,
-  }) : originName = originName.trim(),
+  }) : transportScope = normalizeTransportScope(
+         transportScope,
+         busOnly: busOnly,
+       ),
+       originName = originName.trim(),
        destinationName = destinationName.trim(),
        originNameEn = _trimNullable(originNameEn),
        destinationNameEn = _trimNullable(destinationNameEn) {
@@ -50,6 +57,7 @@ class RouteSearchRequest {
       'blon': destination.longitude.toString(),
       'pref': normalizeRoutePreferenceForApi(preference),
       'bus_only': busOnly,
+      'transport_scope': transportScope.toList()..sort(),
       if (farePolicyId != null) 'fare_policy_id': farePolicyId,
       if (farePolicyId == 'sendai_fureai_pass' ||
           farePolicyId == 'sendai_keiro_pass')
@@ -102,6 +110,11 @@ class ApiRouteSearchService implements RouteSearchService {
   @override
   Future<RouteSearchResult> search(RouteSearchRequest request) async {
     final apiBody = request.toApiBody();
+    if (_cityKey != 'tokyo') {
+      // The new scope contract belongs to Tokyo. Other city backends retain
+      // their existing bus_only wire behavior unchanged.
+      apiBody.remove('transport_scope');
+    }
     // Share only unfinished identical searches, including identity resolution.
     // Names affect the parsed result even though they are absent from /route.
     final key = jsonEncode([
@@ -361,4 +374,3 @@ String normalizeRoutePreferenceForApi(String? preference) {
   if (preference == null || preference.isEmpty) return 'cost';
   return preference;
 }
-

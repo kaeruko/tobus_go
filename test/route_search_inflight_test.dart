@@ -213,6 +213,20 @@ void main() {
     );
   }
 
+  test('non-Tokyo backend keeps the legacy wire request', () async {
+    Map<String, dynamic>? body;
+    ApiClient.httpClient = MockClient((request) async {
+      body = jsonDecode(request.body) as Map<String, dynamic>;
+      return _routeResponse();
+    });
+
+    await const ApiRouteSearchService(cityKey: 'sendai').search(_request());
+
+    expect(body, isNotNull);
+    expect(body, isNot(contains('transport_scope')));
+    expect(body!['bus_only'], isFalse);
+  });
+
   test(
     'concurrent searches with different API endpoints stay distinct',
     () async {

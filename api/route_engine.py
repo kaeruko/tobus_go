@@ -94,6 +94,7 @@ class RouteSearchRequest:
     bus_only: bool = False
     limit: int = 5
     accept_experimental_transfer_model: bool = False
+    transport_scope: frozenset[str] | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.departure_at, datetime):
@@ -104,6 +105,12 @@ class RouteSearchRequest:
             raise RouteInputError("preference must be a RoutePreference")
         if not isinstance(self.bus_only, bool):
             raise RouteInputError("bus_only must be a boolean")
+        if self.transport_scope is not None:
+            if not isinstance(self.transport_scope, frozenset):
+                raise RouteInputError("transport_scope must be a frozenset")
+            from transport_scope import normalize_transport_scope
+
+            normalize_transport_scope(self.transport_scope, bus_only=self.bus_only)
         if not isinstance(self.accept_experimental_transfer_model, bool):
             raise RouteInputError("experimental transfer consent must be a boolean")
         if isinstance(self.limit, bool) or not isinstance(self.limit, int):
