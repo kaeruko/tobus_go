@@ -83,21 +83,23 @@ official app can show paths, but the audited sources do not expose a complete,
 machine-readable duration table.
 
 Consequently an ODPT relation, same station name, or straight-line coordinate
-distance is never enough to add a rail-to-rail walk edge. Runtime accepts an
-optional `tokyo_metro_reviewed_transfer/v1` manifest. Every entry must provide
+distance is never enough to add a rail-to-rail walk edge. Runtime accepts a
+`tokyo_metro_reviewed_transfer/v1` manifest. Every entry must provide
 the two ODPT station IDs, reviewed minimum minutes, actual walking distance,
 review date, and official HTTPS evidence URLs. Import fails for an unknown
 pair, invalid operator, unapproved source, duplicate, or value outside the
-existing 600-metre per-walk limit. With no manifest, no Metro/Toei or Metro
-inter-line interchange edge is added. This is intentionally fail-closed.
+existing 600-metre per-walk limit, or shorter than the official-path-distance
+walking floor. Missing configuration fails prebuild instead of silently
+disabling transfers.
 
-As of this audit there is no accepted production transfer manifest. Therefore
-Metro/Toei rail interchange and Metro inter-line interchange remain disabled,
-not estimated. The 57 Metro-to-Toei-family ODPT relations found in 54 Metro
-station objects include non-subway targets and line-specific station objects;
-each subway interchange still needs a path/time review. Bus-to-Metro outdoor
-access continues to use the existing coordinate walking model and is not
-described as a reviewed platform/gate transfer.
+The accepted ODPT snapshot has 123 relevant distinct pairs: 72 Metro-to-Metro
+and 51 Metro-to-Toei subway. Four reviewed pairs are enabled and 119 remain
+absent from the graph. The enabled pairs are Ningyocho–Suitengumae (Metro and
+Toei sides), Toranomon–Toranomon Hills, and Ginza–Ginza-itchome. See
+`docs/tokyo-metro-transfer-review.md` for evidence, route checks, and the
+explicit unresolved status. Bus-to-Metro outdoor access continues to use the
+existing coordinate walking model and is not described as a reviewed
+platform/gate transfer.
 
 ### Fare/UI boundary
 
@@ -156,11 +158,12 @@ After removing all unreviewed rail-interchange estimates, the same isolated
 input and interpreter produced 19,004 pops, 20,027 frontier labels, five
 candidates, 4.588 instrumented seconds, and 122.0 MiB traced peak. This 78.2%
 pop reduction is primarily a correctness fix to the graph, not a general
-search-algorithm speedup. The first three direct candidates were preserved;
-later candidate content changed because routes that used unverified transfer
-edges were removed. In the full sequential seven-scope benchmark below the
-same OD used 19,529 pops; process/tool ordering and allocator effects make the
-timings and memory samples non-production measurements.
+search-algorithm speedup. After adding the four reviewed transfers, the exact
+same input used 27,370 pops, five candidates, and 1.26 seconds in the full
+sequential benchmark. That is 68.6% below the original 87,280-pop Draft case
+and leaves 72.63% of the fixed per-search pop budget. Process/tool ordering and
+allocator effects make the timings and memory samples non-production
+measurements.
 
 ### Safe pruning implemented
 
@@ -195,41 +198,69 @@ per-query peaks. Limits remain 15 seconds and 100,000 pops per exact search.
 
 | Scope | Mode | Time | Candidates | Max pop | Peak labels | Peak queue |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| bus | time | 7.18 s | 1 | 25,660 | 120,780 | 97,614 |
-| bus | fewTransfers | 1.11 s | 5 | 1,665 | 2,162 | 500 |
-| Toei subway | time | 0.67 s | 1 | 40 | 988 | 948 |
-| Toei subway | fewTransfers | 0.50 s | 5 | 4,014 | 4,978 | 964 |
-| Metro | time | 0.94 s | 1 | 130 | 2,287 | 2,157 |
-| Metro | fewTransfers | 1.30 s | 5 | 19,529 | 20,615 | 1,489 |
-| bus + Toei subway | time | 3.88 s | 1 | 8,914 | 66,307 | 61,487 |
-| bus + Toei subway | fewTransfers | 1.67 s | 5 | 4,655 | 6,291 | 1,638 |
-| bus + Metro | time | 1.35 s | 1 | 260 | 3,633 | 4,470 |
-| bus + Metro | fewTransfers | 1.40 s | 5 | 2,137 | 4,329 | 2,194 |
-| Toei subway + Metro | time | 1.26 s | 1 | 40 | 988 | 948 |
-| Toei subway + Metro | fewTransfers | 1.19 s | 5 | 4,014 | 4,978 | 964 |
-| all three | time | 1.87 s | 1 | 758 | 11,211 | 13,844 |
-| all three | fewTransfers | 1.83 s | 5 | 2,139 | 4,443 | 2,306 |
+| bus | time | 4.93 s | 1 | 25,660 | 120,780 | 97,614 |
+| bus | fewTransfers | 0.68 s | 5 | 1,665 | 2,162 | 500 |
+| Toei subway | time | 0.44 s | 1 | 40 | 988 | 948 |
+| Toei subway | fewTransfers | 0.48 s | 5 | 4,014 | 4,978 | 964 |
+| Metro | time | 0.76 s | 1 | 130 | 2,289 | 2,159 |
+| Metro | fewTransfers | 1.26 s | 5 | 27,370 | 28,734 | 2,117 |
+| bus + Toei subway | time | 3.09 s | 1 | 8,914 | 66,307 | 61,487 |
+| bus + Toei subway | fewTransfers | 1.39 s | 5 | 4,655 | 6,291 | 1,638 |
+| bus + Metro | time | 1.21 s | 1 | 260 | 3,634 | 4,471 |
+| bus + Metro | fewTransfers | 1.25 s | 5 | 2,137 | 4,329 | 2,194 |
+| Toei subway + Metro | time | 1.37 s | 1 | 40 | 988 | 948 |
+| Toei subway + Metro | fewTransfers | 1.21 s | 5 | 4,014 | 4,978 | 964 |
+| all three | time | 1.74 s | 1 | 758 | 11,213 | 13,846 |
+| all three | fewTransfers | 1.73 s | 5 | 2,139 | 4,443 | 2,306 |
 
-The combined subway sample resolves entirely on Toei because cross-operator
-transfer paths are deliberately unavailable; it is not evidence that a
-Metro/Toei transfer works. With the new static check forced off, every reachable
-row had identical candidates, errors, pop counts and label counts. The
-unchanged Toei-only regression previously compared against pre-Metro main also
-kept routes, clocks, candidate counts and search counts identical.
+The original combined-subway representative still resolves entirely on Toei;
+separate reviewed-transfer probes are recorded in
+`docs/tokyo-metro-transfer-review.md`. With the static check forced off, every
+reachable row had identical candidates, errors, pop counts and label counts.
+The unchanged Toei-only regression previously compared against pre-Metro main
+also kept routes, clocks, candidate counts and search counts identical.
 
 Saturday and holiday Metro samples returned the same candidate/pop pattern as
-their timetable permitted (121 `time`; 19,531 `fewTransfers`). Late-night
+their timetable permitted (121 `time`; 27,262 `fewTransfers`). Late-night
 probes exercised 1,903 source time values at/after 24:00: the 23:40 probe used
-81/494 pops, returned 1/2 candidates, and selected concrete trip
+81/629 pops, returned 1/2 candidates, and selected concrete trip
 `tokyo_metro:10B2341000` at 23:46–24:19. The 23:20 probe used 88/1,371 pops,
-returned 1/5 candidates, and selected `tokyo_metro:10B2335000` at 23:25–23:59.
+returned 1/5 candidates; the current reviewed-transfer run used 1,803
+`fewTransfers` pops and selected `tokyo_metro:10B2335000` at 23:25–23:59.
 These are bounded cases, not a claim about production percentiles or all
 possible origin/destination pairs.
 
+### Process memory
+
+A fresh Windows process measured 39.7 MiB after imports, 597.4 MiB after the
+compiled base graph, 1,168.1 MiB after loading the existing Toei bus GTFS
+repository, 1,328.3 MiB after importing Metro, and a 1,359.8 MiB peak during
+the five-candidate Metro `fewTransfers` search. Metro itself added about
+160.1 MiB RSS in this process; most of the total was already present before
+Metro import.
+
+The query-local Metro timetable now shares immutable, exact-date-filtered
+source records instead of copying every active segment dictionary. Against a
+fresh-process reproduction of the previous copy behavior, the candidate JSON
+and ordering were identical and peak working set fell by about 35.3 MiB
+(1,394.5 to 1,359.2 MiB in the paired run). This is a representation change,
+not pruning: active services are still selected from GTFS `calendar` and
+`calendar_dates` before the records reach the unchanged timetable transition.
+
+The repository does not pin the existing Tokyo Lambda memory size. A read-only
+configuration query on 2026-10-23 could not complete because the local AWS
+session had expired. A 2,048 MiB allocation would nominally leave about
+688 MiB above this local peak, but OS/container differences, cold-start
+overlap, and Lambda `Max Memory Used` have not been measured for this artifact.
+Therefore production compatibility is not yet established and must be checked
+with a dedicated non-production Lambda before release; reducing duplicate base
+graph/Toei GTFS residency is the largest observed memory opportunity.
+
 ## Production blockers and follow-up
 
-1. Review and pin platform/gate-specific transfer paths and minimum durations;
-   until then real Metro/Toei and Metro inter-line transfers are unavailable.
+1. Continue reviewing the 119 unresolved platform/gate transfer paths. Four
+   pairs are now usable, but the network is not complete enough to claim full
+   Metro/Toei interchange coverage.
 2. Run a larger fixed OD corpus. The Metro-only `fewTransfers` tail is improved
    but still structurally grows when five distinct boarding histories are
    requested; no safe general A*/dominance improvement has yet been proved.

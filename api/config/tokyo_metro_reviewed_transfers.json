@@ -1,0 +1,52 @@
+{
+  "schema": "tokyo_metro_reviewed_transfer/v1",
+  "transfers": [
+    {
+      "from_station_id": "odpt.Station:TokyoMetro.Hibiya.Ningyocho",
+      "to_station_id": "odpt.Station:TokyoMetro.Hanzomon.Suitengumae",
+      "minimum_minutes": 7,
+      "walking_distance_meters": 150,
+      "evidence_urls": [
+        "https://www.tokyometro.jp/news/images_h/metroNews20180215_12.pdf",
+        "https://www.tokyometro.jp/info/ningyocho.pdf",
+        "https://www.tokyometro.jp/ticket/guide/transfertime/index.html"
+      ],
+      "reviewed_at": "2026-10-23"
+    },
+    {
+      "from_station_id": "odpt.Station:TokyoMetro.Hanzomon.Suitengumae",
+      "to_station_id": "odpt.Station:Toei.Asakusa.Ningyocho",
+      "minimum_minutes": 8,
+      "walking_distance_meters": 150,
+      "evidence_urls": [
+        "https://www.tokyometro.jp/news/images_h/metroNews20180215_12.pdf",
+        "https://www.tokyometro.jp/info/ningyocho.pdf",
+        "https://www.tokyometro.jp/ticket/guide/transfertime/index.html"
+      ],
+      "reviewed_at": "2026-10-23"
+    },
+    {
+      "from_station_id": "odpt.Station:TokyoMetro.Ginza.Toranomon",
+      "to_station_id": "odpt.Station:TokyoMetro.Hibiya.ToranomonHills",
+      "minimum_minutes": 6,
+      "walking_distance_meters": 450,
+      "evidence_urls": [
+        "https://www.tokyometro.jp/news/images_h/5dd3751942166712a7d85b7fa75bf25f_1.pdf",
+        "https://www.tokyometro.jp/ticket/guide/transfertime/index.html"
+      ],
+      "reviewed_at": "2026-10-23"
+    },
+    {
+      "from_station_id": "odpt.Station:TokyoMetro.Ginza.Ginza",
+      "to_station_id": "odpt.Station:TokyoMetro.Yurakucho.GinzaItchome",
+      "minimum_minutes": 4,
+      "walking_distance_meters": 300,
+      "evidence_urls": [
+        "https://www.tokyometro.jp/news/images_h/5dd3751942166712a7d85b7fa75bf25f_1.pdf",
+        "https://www.tokyometro.jp/info/files/200514_ginza_norikaeeki.pdf",
+        "https://www.tokyometro.jp/ticket/guide/transfertime/index.html"
+      ],
+      "reviewed_at": "2026-10-23"
+    }
+  ]
+}

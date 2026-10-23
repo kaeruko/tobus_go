@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 
 from transport_scope import TOEI_BUS, TOEI_SUBWAY, TOKYO_METRO, transport_for_line_node
 from walking_access import walking_elapsed_minutes
+from reviewed_walk_time import validate_reviewed_walk_timing
 from toei_engine import WALK_COST
 
 
@@ -110,6 +111,7 @@ def _reviewed_transfers(path: str | None) -> dict[frozenset[str], dict]:
             raise ValueError(f"Tokyo Metro reviewed transfer #{index} has invalid minutes")
         if type(meters) not in (int, float) or not math.isfinite(meters) or not 0 < meters <= 600:
             raise ValueError(f"Tokyo Metro reviewed transfer #{index} has invalid walking distance")
+        validate_reviewed_walk_timing(meters, minutes)
         urls = item["evidence_urls"]
         if not isinstance(urls, list) or not urls or any(
             not isinstance(url, str) or urlparse(url).scheme != "https"
@@ -383,9 +385,11 @@ def add_tokyo_metro_to_graph(
                 "service_id": service_id,
                 "trip_id": qualified_trip_id,
                 "route_id": qualified_route_id,
-                # The query-local timetable below replaces this label with
-                # the exact requested day after applying GTFS exceptions.
-                "calendar": "Weekday",
+                # Exact GTFS service activation is applied before these
+                # records reach TimetableChoices.  An empty legacy calendar
+                # marker therefore means "already filtered for this date"
+                # and lets immutable source records be shared per query.
+                "calendar": "",
                 "operator_id": "tokyo_metro",
                 "origin_gtfs_stop_id": qualified_stop_ids[stop_id],
                 "next_gtfs_stop_id": qualified_stop_ids[next_stop_id],
@@ -548,12 +552,7 @@ def scoped_timetable_manager(manager, graph, scope, day_type):
                 "Tokyo Metro service date is outside the loaded GTFS period: "
                 f"{feed_start.isoformat()}..{feed_end.isoformat()}"
             )
-        calendar_label = {
-            "weekday": "Weekday",
-            "saturday": "Saturday",
-            "holiday": "Holiday",
-        }.get(str(day_type))
-        if calendar_label is None:
+        if str(day_type) not in {"weekday", "saturday", "holiday"}:
             raise ValueError(f"unsupported Tokyo Metro day type: {day_type!r}")
         by_service = getattr(manager, "tokyo_metro_patterns_by_service", {})
         for service_id, records in by_service.items():
@@ -563,9 +562,7 @@ def scoped_timetable_manager(manager, graph, scope, day_type):
                 origin_id = source_record["origin_id"]
                 if origin_id not in allowed_stations:
                     continue
-                record = dict(source_record)
-                record["calendar"] = calendar_label
-                selected.setdefault(origin_id, []).append(record)
+                selected.setdefault(origin_id, []).append(source_record)
 
     for records in selected.values():
         records.sort(key=lambda row: (row["dep"], row.get("run_key", ""), row.get("stop_sequence", -1)))

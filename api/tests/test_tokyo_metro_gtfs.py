@@ -14,6 +14,7 @@ from app.services.train_route_identity import enrich_route_result_train_trip_ids
 from route_engine import RouteInputError
 from toei_engine import SpatialIndex, TimetableManager
 from tokyo_metro_gtfs import (
+    _reviewed_transfers,
     add_tokyo_metro_to_graph,
     inspect_tokyo_metro_feed,
     metro_service_is_active,
@@ -53,9 +54,15 @@ def _fixture(tmp_path):
     _write(gtfs, "feed_info.txt", "feed_publisher_name,feed_publisher_url,feed_lang,feed_start_date,feed_end_date,feed_version\n東京メトロ,https://www.tokyometro.jp/,ja,20260919,20270312,test-v1\n")
     _write(gtfs, "routes.txt", "route_id,agency_id,route_short_name,route_long_name,route_type\n1,tokyometro,,銀座線,1\n2,tokyometro,,半蔵門線,1\n")
     _write(gtfs, "stops.txt", "stop_id,stop_code,stop_name,stop_lat,stop_lon\n101,G01,A,35.681,139.761\n102,G02,B,35.682,139.762\n201,Z01,C,35.683,139.763\n202,Z02,D,35.684,139.764\n")
-    _write(gtfs, "trips.txt", "route_id,service_id,trip_id,trip_headsign,direction_id\n1,0,g-late,B,0\n2,1,z-holiday,D,0\n")
+    _write(gtfs, "trips.txt", "route_id,service_id,trip_id,trip_headsign,direction_id\n"
+           "1,0,g-late,B,0\n"
+           "2,0,z-too-early,D,0\n"
+           "2,0,z-after-transfer,D,0\n"
+           "2,1,z-holiday,D,0\n")
     _write(gtfs, "stop_times.txt", "trip_id,arrival_time,departure_time,stop_id,stop_sequence,pickup_type,drop_off_type\n"
            "g-late,23:55:00,23:55:00,101,1,0,0\ng-late,24:05:00,24:05:00,102,2,0,0\n"
+           "z-too-early,24:10:00,24:10:00,201,1,0,0\nz-too-early,24:14:00,24:14:00,202,2,0,0\n"
+           "z-after-transfer,24:12:00,24:12:00,201,1,0,0\nz-after-transfer,24:16:00,24:16:00,202,2,0,0\n"
            "z-holiday,10:00:00,10:00:00,201,1,0,0\nz-holiday,10:04:00,10:04:00,202,2,0,0\n")
     _write(gtfs, "calendar.txt", "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\n0,1,1,1,1,1,0,0,20260919,20270312\n1,0,0,0,0,0,1,1,20260919,20270312\n")
     _write(gtfs, "calendar_dates.txt", "service_id,date,exception_type\n0,20260921,2\n1,20260921,1\n")
@@ -106,7 +113,8 @@ def test_feed_audit_and_import_preserve_exact_runs_calendar_and_24_hour_times(tm
     scoped = scoped_timetable_manager(
         manager, graph, frozenset((TOKYO_METRO,)), weekday
     )
-    assert scoped.train_patterns_weekday[a][0]["calendar"] == "Weekday"
+    assert scoped.train_patterns_weekday[a][0] is record
+    assert scoped.train_patterns_weekday[a][0]["calendar"] == ""
     holiday = type("Day", (str,), {})("holiday")
     holiday.service_date = dt.date(2026, 9, 21)
     holiday_scoped = scoped_timetable_manager(
@@ -117,11 +125,13 @@ def test_feed_audit_and_import_preserve_exact_runs_calendar_and_24_hour_times(tm
         for records in holiday_scoped.train_patterns_weekend.values()
         for record in records
     )
+    weekend_record = manager.tokyo_metro_patterns_by_service["1"][0]
     assert any(
-        record["service_id"] == "1" and record["calendar"] == "Holiday"
+        candidate is weekend_record
         for records in holiday_scoped.train_patterns_weekend.values()
-        for record in records
+        for candidate in records
     )
+    assert weekend_record["calendar"] == ""
     outside = type("Day", (str,), {})("weekday")
     outside.service_date = dt.date(2027, 3, 15)
     with unittest.TestCase().assertRaisesRegex(RouteInputError, "outside"):
@@ -140,6 +150,36 @@ def test_feed_audit_and_import_preserve_exact_runs_calendar_and_24_hour_times(tm
     })
     assert selected["origin_gtfs_stop_id"] == "tokyo_metro:101"
     assert selected["destination_gtfs_stop_id"] == "tokyo_metro:102"
+
+
+def test_committed_transfer_manifest_is_strict_and_reviewed():
+    manifest = Path(__file__).resolve().parents[1] / "config" / "tokyo_metro_reviewed_transfers.json"
+    transfers = _reviewed_transfers(str(manifest))
+    assert len(transfers) == 4
+    assert {
+        tuple(sorted(pair))
+        for pair in transfers
+    } == {
+        tuple(sorted(pair))
+        for pair in (
+            (
+                "odpt.Station:TokyoMetro.Hibiya.Ningyocho",
+                "odpt.Station:TokyoMetro.Hanzomon.Suitengumae",
+            ),
+            (
+                "odpt.Station:TokyoMetro.Hanzomon.Suitengumae",
+                "odpt.Station:Toei.Asakusa.Ningyocho",
+            ),
+            (
+                "odpt.Station:TokyoMetro.Ginza.Toranomon",
+                "odpt.Station:TokyoMetro.Hibiya.ToranomonHills",
+            ),
+            (
+                "odpt.Station:TokyoMetro.Ginza.Ginza",
+                "odpt.Station:TokyoMetro.Yurakucho.GinzaItchome",
+            ),
+        )
+    }
 
 
 def test_official_connection_requires_reviewed_transfer(tmp_path):
@@ -199,6 +239,28 @@ def test_reviewed_transfer_without_official_relation_fails(tmp_path):
         }],
     }), encoding="utf-8")
     with unittest.TestCase().assertRaisesRegex(ValueError, "connectingStation"):
+        add_tokyo_metro_to_graph(
+            nx.DiGraph(), TimetableManager(), gtfs_dir=str(gtfs),
+            stations_path=str(stations), railways_path=str(railways),
+            reviewed_transfers_path=str(reviewed),
+        )
+
+
+def test_reviewed_transfer_cannot_be_faster_than_the_walk_distance(tmp_path):
+    gtfs, stations, railways = _fixture(tmp_path)
+    reviewed = tmp_path / "reviewed-transfers.json"
+    reviewed.write_text(json.dumps({
+        "schema": "tokyo_metro_reviewed_transfer/v1",
+        "transfers": [{
+            "from_station_id": "odpt.Station:TokyoMetro.Ginza.B",
+            "to_station_id": "odpt.Station:TokyoMetro.Hanzomon.C",
+            "minimum_minutes": 1,
+            "walking_distance_meters": 120,
+            "evidence_urls": ["https://www.tokyometro.jp/station/index.html"],
+            "reviewed_at": "2026-10-23",
+        }],
+    }), encoding="utf-8")
+    with unittest.TestCase().assertRaisesRegex(ValueError, "distance minimum"):
         add_tokyo_metro_to_graph(
             nx.DiGraph(), TimetableManager(), gtfs_dir=str(gtfs),
             stations_path=str(stations), railways_path=str(railways),
@@ -321,7 +383,73 @@ def test_metro_only_search_uses_exact_service_and_24_hour_trip(tmp_path):
     ]
 
 
+def test_reviewed_transfer_time_rejects_the_train_that_cannot_be_boarded(tmp_path):
+    gtfs, stations_path, railways_path = _fixture(tmp_path)
+    stations = json.loads(stations_path.read_text(encoding="utf-8"))
+    for station, lat in zip(stations, (35.60, 35.61, 35.62, 35.63)):
+        station["geo:lat"] = lat
+        station["geo:long"] = 139.70
+    stations_path.write_text(json.dumps(stations), encoding="utf-8")
+    reviewed = tmp_path / "reviewed-transfers.json"
+    reviewed.write_text(json.dumps({
+        "schema": "tokyo_metro_reviewed_transfer/v1",
+        "transfers": [{
+            "from_station_id": "odpt.Station:TokyoMetro.Ginza.B",
+            "to_station_id": "odpt.Station:TokyoMetro.Hanzomon.C",
+            "minimum_minutes": 4,
+            "walking_distance_meters": 120,
+            "evidence_urls": [
+                "https://www.tokyometro.jp/ticket/guide/transfertime/index.html"
+            ],
+            "reviewed_at": "2026-10-23",
+        }],
+    }), encoding="utf-8")
+
+    graph = nx.DiGraph()
+    manager = TimetableManager()
+    add_tokyo_metro_to_graph(
+        graph,
+        manager,
+        gtfs_dir=str(gtfs),
+        stations_path=str(stations_path),
+        railways_path=str(railways_path),
+        reviewed_transfers_path=str(reviewed),
+    )
+    app = SimpleNamespace(state=SimpleNamespace(
+        G=graph, TM=manager, SI=SpatialIndex(graph), WALK_RAD=300,
+    ))
+    result = TokyoRouteEngine(app).search_legacy(
+        alat=35.60,
+        alon=139.70,
+        blat=35.63,
+        blon=139.70,
+        pref="time",
+        transport_scope=frozenset((TOKYO_METRO,)),
+        start_time="23:49",
+        date_str="2026-09-24",
+        limit=1,
+    )
+
+    steps = result["candidates"][0]["steps"]
+    rails = [step for step in steps if step["kind"] == "rail"]
+    transfer = next(step for step in steps if step.get("walking_time_basis"))
+    assert [step["trip_id"] for step in rails] == [
+        "tokyo_metro:g-late",
+        "tokyo_metro:z-after-transfer",
+    ]
+    assert rails[0]["arrival_time"] == "24:05"
+    assert transfer["departure_time"] == "24:06"
+    assert transfer["arrival_time"] == "24:10"
+    assert transfer["minutes"] == 4
+    assert transfer["walking_connection_verified"] is True
+    assert transfer["evidence_urls"]
+    assert rails[1]["departure_time"] == "24:12"
+
+
 class TokyoMetroGtfsTest(unittest.TestCase):
+    def test_committed_transfer_manifest(self):
+        test_committed_transfer_manifest_is_strict_and_reviewed()
+
     def test_feed_audit_import_and_service_days(self):
         with tempfile.TemporaryDirectory() as directory:
             test_feed_audit_and_import_preserve_exact_runs_calendar_and_24_hour_times(
@@ -347,8 +475,20 @@ class TokyoMetroGtfsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             test_reviewed_transfer_without_official_relation_fails(Path(directory))
 
+    def test_reviewed_transfer_respects_walking_floor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            test_reviewed_transfer_cannot_be_faster_than_the_walk_distance(
+                Path(directory)
+            )
+
     def test_metro_only_exact_trip(self):
         with tempfile.TemporaryDirectory() as directory:
             test_metro_only_search_uses_exact_service_and_24_hour_trip(
+                Path(directory)
+            )
+
+    def test_reviewed_transfer_rejects_too_early_train(self):
+        with tempfile.TemporaryDirectory() as directory:
+            test_reviewed_transfer_time_rejects_the_train_that_cannot_be_boarded(
                 Path(directory)
             )

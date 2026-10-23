@@ -111,8 +111,13 @@ def main():
         metro_railways = os.getenv(
             "TOKYO_METRO_RAILWAYS", os.path.join(data_dir, "odpt_Railway_TokyoMetro.json")
         )
-        metro_reviewed_transfers = os.getenv("TOKYO_METRO_REVIEWED_TRANSFERS") or None
-        for required in (metro_gtfs_dir, metro_stations, metro_railways):
+        metro_reviewed_transfers = os.getenv(
+            "TOKYO_METRO_REVIEWED_TRANSFERS",
+            os.path.join(os.path.dirname(__file__), "config", "tokyo_metro_reviewed_transfers.json"),
+        )
+        for required in (
+            metro_gtfs_dir, metro_stations, metro_railways, metro_reviewed_transfers,
+        ):
             if not os.path.exists(required):
                 raise RuntimeError(f"Tokyo Metro static input is missing: {required}")
         info = add_tokyo_metro_to_graph(

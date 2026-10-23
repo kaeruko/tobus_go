@@ -2514,6 +2514,9 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 url = edge.get("evidence_url")
                 if url and url not in cur["_evidence_urls"]:
                     cur["_evidence_urls"].append(url)
+                for evidence_url in edge.get("evidence_urls") or ():
+                    if evidence_url and evidence_url not in cur["_evidence_urls"]:
+                        cur["_evidence_urls"].append(evidence_url)
                 time_basis = edge.get("transfer_time_basis", "official_reviewed")
                 cur["_walking_time_bases"].append(time_basis)
             else:
