@@ -2,6 +2,8 @@
 
 Review date: 2026-10-23 (Asia/Tokyo)
 
+Continuation review: 2026-10-24 (Asia/Tokyo)
+
 This review separates an official connection relation from a transfer path
 that this application can safely schedule. The authenticated ODPT station
 master is not committed. Run `scripts/audit_tokyo_metro_transfers.py` against
@@ -89,3 +91,124 @@ from a shared name, station coordinates, or the 60-minute fare rule.
 
 This is therefore a useful but deliberately incomplete transfer network. It is
 not ready to be described as full Tokyo Metro/Toei interchange coverage.
+
+## 2026-10-24 station-complex audit
+
+The official Metro GTFS snapshot has no `transfers.txt`, `pathways.txt`, or
+`levels.txt`.  Its stop records describe one stop per line station and cannot
+provide a platform/gate route or a minimum interchange time.  ODPT
+`odpt:connectingStation` remains topology evidence only.
+
+The audit script now groups the 123 pair relations into 54 connected station
+complexes.  This is a safe way to reduce review work: a future corridor model
+can represent platform/gate/corridor segments once and derive several pair
+paths by composing only reviewed segments.  A derived pair must satisfy all of
+these conditions before it can enter the runtime manifest:
+
+1. every segment and its direction are shown by an official operator map;
+2. every segment has an operator-published duration/distance, or another
+   reviewed non-coordinate timing basis;
+3. the composed allowance is no shorter than the sum of segment allowances;
+4. opening hours, out-of-gate transitions, and accessibility restrictions are
+   represented where applicable;
+5. the final pair still exists in ODPT `connectingStation`.
+
+Grouping never enables a transfer by itself.  A shared station name,
+straight-line coordinates, or the 60-minute fare continuation rule remains
+insufficient.  Tokyo Metro's public fare/transfer search also says that bulk
+access for secondary use is not intended, so it is not scraped to manufacture
+a transfer-time dataset.
+
+The reproducible topology-only review order is the number of unresolved pairs,
+then line count.  It measures review leverage, not passenger demand.
+
+| Priority | Station complex | Lines | Pairs | Unresolved |
+| ---: | --- | ---: | ---: | ---: |
+| 1 | Otemachi | 5 | 10 | 10 |
+| 2 | Akasaka-mitsuke / Nagatacho | 5 | 10 | 10 |
+| 3 | Hibiya / Yurakucho | 4 | 6 | 6 |
+| 4 | Iidabashi | 4 | 6 | 6 |
+| 5 | Kokkai-gijidomae / Tameike-sanno | 4 | 6 | 6 |
+| 6 | Kasuga / Korakuen | 4 | 5 | 5 |
+| 7 | Ginza / Ginza-itchome | 4 | 6 | 5 |
+| 17 | Omote-sando | 3 | 3 | 3 |
+| 20 | Jimbocho | 3 | 2 | 2 |
+
+Ueno (Ginza/Hibiya) is a single unresolved pair; the nearby
+Ueno-hirokoji/Naka-okachimachi/Ueno-okachimachi complex is a separate
+three-pair complex.  Official maps confirm routes at the named priority
+stations.  The operator also explicitly describes the Ginza and Hanzomon
+lines at Omote-sando as using the same platform.  None of those sources gives
+a reusable minimum platform-to-platform duration.  Adding `1 minute` or an
+invented metre value would violate the acceptance rule, so no new pair was
+enabled in this continuation.  Counts remain 4 reviewed and 119 unresolved.
+
+Reproduce the grouped inventory with:
+
+```text
+python scripts/audit_tokyo_metro_transfers.py \
+  --stations <authenticated odpt_Station_TokyoMetro.json> \
+  --output <local audit.json>
+```
+
+The output schema is `tokyo_metro_transfer_audit/v2`; the authenticated station
+master and generated audit remain untracked.
+
+Official sources reviewed for this continuation:
+
+- <https://www.tokyometro.jp/station/otemachi/yardmap/index_print.html>
+- <https://www.tokyometro.jp/station/iidabashi/yardmap/index_print.html>
+- <https://www.tokyometro.jp/station/omote-sando/yardmap/index_print.html>
+- <https://www.kotsu.metro.tokyo.jp/subway/stations/jimbocho.html>
+- <https://www.tokyometro.jp/news/2017/190616.html>
+- <https://ssl.tokyometro.jp/support/faq_answer?faqno=OpenFAQ-000204>
+- <https://www.tokyometro.jp/transit/terms/index.html>
+
+## 2026-10-24 performance and memory regression
+
+No transfer pair was added, so there is no synthetic "after each addition"
+measurement.  The fixed Shibuya to Asakusa Metro-only search remains five
+candidates and 27,370 pops in `fewTransfers` (1.175 seconds in this Windows
+run).  The four enabled-transfer probes also retained their concrete trips,
+clocks, order, and pop counts: 16,669; 21,783; 36,280; and 39,684.
+
+The GTFS loader now reuses the retained trip, stop, and route ID string objects
+when constructing stop-time and timetable indexes.  Values, mappings, compiled
+state, calendars, pickup/drop-off flags, and lookup behavior are unchanged.
+The same Shibuya to Asakusa response differed only in
+`tokyo_metro_data_obtained_at`; all five candidates were byte-equivalent after
+excluding the existing volatile `step_id` fields and that observation
+timestamp.
+
+Fresh-process Windows memory (`app_data.pkl`, Toei bus GTFS, Metro import, then
+the fixed search):
+
+| Phase | Before | After | Reduction |
+| --- | ---: | ---: | ---: |
+| after Toei bus GTFS | 1,168.1 MiB RSS | 1,042.1 MiB RSS | 126.0 MiB |
+| after Metro import | 1,328.3 MiB RSS | 1,200.7 MiB RSS | 127.6 MiB |
+| after search | 1,339.6 MiB RSS | 1,211.1 MiB RSS | 128.5 MiB |
+| process peak working set | 1,359.8 MiB | 1,233.2 MiB | 126.6 MiB |
+
+This reduces duplicate source-ID strings rather than deleting timetable data.
+It does not prove Lambda peak memory: allocator and pickle behavior differ on
+Linux, and the compiled bus asset must be regenerated with this loader to
+retain object sharing.  A read-only Lambda measurement remains a pre-release
+task; no AWS login or resource change was performed here.
+
+Current local representative results (seconds are single-run observations):
+
+| Scope | `time` pop / sec / candidates | `fewTransfers` pop / sec / candidates |
+| --- | --- | --- |
+| Toei bus | 25,660 / 4.488 / 1 | 1,665 / 0.609 / 5 |
+| Toei subway | 40 / 0.414 / 1 | 4,014 / 0.451 / 5 |
+| Tokyo Metro | 130 / 0.729 / 1 | 27,370 / 1.175 / 5 |
+| bus + Toei subway | 8,914 / 2.725 / 1 | 4,655 / 1.100 / 5 |
+| bus + Metro | 260 / 1.171 / 1 | 2,137 / 1.215 / 5 |
+| Toei subway + Metro | 40 / 1.134 / 1 | 4,014 / 1.085 / 5 |
+| all three | 758 / 1.671 / 1 | 2,139 / 1.606 / 5 |
+
+The unchanged 15-second and 100,000-pop limits were used.  Weekend and holiday
+Metro searches were 27,262 pops, the 23:40 last-train probe returned two
+candidates at 629 pops, and the 23:20 date-crossing probe returned five at
+1,803 pops.  These local samples do not establish production p95/p99 behavior.

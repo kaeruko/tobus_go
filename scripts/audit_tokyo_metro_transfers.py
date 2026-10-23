@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+from collections import defaultdict
 from pathlib import Path
 
 
@@ -31,6 +32,79 @@ def _connections(station: dict) -> tuple[str, ...]:
     if isinstance(value, str):
         return (value,)
     return tuple(str(item) for item in value)
+
+
+def _line_id(station_id: str) -> str:
+    parts = station_id.split(".")
+    if len(parts) < 3:
+        raise ValueError(f"unexpected ODPT station ID: {station_id!r}")
+    return ".".join(parts[:-1])
+
+
+def _complexes(rows: list[dict], names: dict[str, str | None]) -> list[dict]:
+    """Group pairwise ODPT relations into physical interchange complexes.
+
+    This is deliberately topology-only.  A component reduces repeated review
+    work (one validated corridor can be cited by several line pairs), but it
+    never turns an unreviewed relation into a routable transfer.
+    """
+
+    adjacency: dict[str, set[str]] = defaultdict(set)
+    row_by_pair = {}
+    for row in rows:
+        first, second = row["from_station_id"], row["to_station_id"]
+        adjacency[first].add(second)
+        adjacency[second].add(first)
+        row_by_pair[frozenset((first, second))] = row
+
+    components = []
+    pending = set(adjacency)
+    while pending:
+        root = min(pending)
+        stack = [root]
+        members = set()
+        while stack:
+            station_id = stack.pop()
+            if station_id in members:
+                continue
+            members.add(station_id)
+            stack.extend(adjacency[station_id] - members)
+        pending -= members
+        component_rows = [
+            row for pair, row in row_by_pair.items()
+            if pair.issubset(members)
+        ]
+        station_slugs = sorted({
+            station_id.rsplit(".", 1)[-1] for station_id in members
+        })
+        components.append({
+            "complex_id": min(members),
+            "station_slugs": station_slugs,
+            "station_ids": sorted(members),
+            "station_names_ja": sorted({
+                names.get(station_id) or station_id.rsplit(".", 1)[-1]
+                for station_id in members
+            }),
+            "line_ids": sorted({_line_id(station_id) for station_id in members}),
+            "line_count": len({_line_id(station_id) for station_id in members}),
+            "pair_count": len(component_rows),
+            "reviewed_pairs": sum(row["status"] == "reviewed" for row in component_rows),
+            "unresolved_pairs": sum(row["status"] == "unresolved" for row in component_rows),
+            "pair_station_ids": sorted(
+                [row["from_station_id"], row["to_station_id"]]
+                for row in component_rows
+            ),
+        })
+
+    # This order measures review leverage, not passenger demand: complexes
+    # covering the most still-disabled line pairs come first.
+    components.sort(key=lambda item: (
+        -item["unresolved_pairs"], -item["line_count"], item["complex_id"]
+    ))
+    for priority, component in enumerate(components, 1):
+        component["review_priority"] = priority
+        component["priority_basis"] = "unresolved_pair_count_then_line_count"
+    return components
 
 
 def build_audit(stations_path: Path, manifest_path: Path) -> dict:
@@ -74,8 +148,9 @@ def build_audit(stations_path: Path, manifest_path: Path) -> dict:
         else:
             row["reason"] = "official path distance/time evidence not yet complete"
         rows.append(row)
+    complexes = _complexes(rows, names)
     return {
-        "schema": "tokyo_metro_transfer_audit/v1",
+        "schema": "tokyo_metro_transfer_audit/v2",
         "generated_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat(),
         "counts": {
             "total": len(rows),
@@ -84,6 +159,16 @@ def build_audit(stations_path: Path, manifest_path: Path) -> dict:
             "metro_to_metro": sum(row["kind"] == "metro_to_metro" for row in rows),
             "metro_to_toei": sum(row["kind"] == "metro_to_toei" for row in rows),
         },
+        "complex_counts": {
+            "total": len(complexes),
+            "fully_reviewed": sum(item["unresolved_pairs"] == 0 for item in complexes),
+            "partially_reviewed": sum(
+                item["reviewed_pairs"] > 0 and item["unresolved_pairs"] > 0
+                for item in complexes
+            ),
+            "unreviewed": sum(item["reviewed_pairs"] == 0 for item in complexes),
+        },
+        "complexes": complexes,
         "connections": rows,
     }
 
