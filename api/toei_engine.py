@@ -2445,11 +2445,12 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 estimated = cur.pop("_estimated_transfer_edges", 0)
                 cur.pop("_scheduled_transfer_edges", None)
                 distance_known = cur.pop("_physical_distance_known", True)
-                distance_lower_bound = cur.pop(
-                    "_physical_distance_lower_bound_meters", cur.get("meters", 0)
+                reference_separations = cur.pop(
+                    "_station_reference_point_separations_meters", []
                 )
                 walk_constraint_verified = cur.pop("_walk_constraint_verified", True)
                 time_confidences = cur.pop("_transfer_time_confidences", [])
+                transfer_evidence = cur.pop("_transfer_evidence", None)
                 if reviewed:
                     cur["walking_connection_verified"] = unreviewed == 0 and estimated == 0
                     cur["walking_time_basis"] = (
@@ -2460,6 +2461,8 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     cur["evidence_urls"] = evidence
                     cur["walking_time_estimated"] = estimated > 0
                     cur["physical_walk_distance_known"] = distance_known
+                    if transfer_evidence is not None:
+                        cur["transfer_evidence"] = transfer_evidence
                     if not distance_known:
                         cur["planning_walk_resource_meters"] = resource_meters
                         # Keep the legacy numeric ``meters`` field for the
@@ -2467,7 +2470,9 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                         # unknown value so they never render it as observed 0m.
                         cur["planning_details"] = {
                             "physical_walk_meters": None,
-                            "physical_walk_lower_bound_meters": distance_lower_bound,
+                            "station_reference_point_separations_meters": (
+                                reference_separations
+                            ),
                             "planning_walk_resource_meters": resource_meters,
                             "walk_constraint_verified": walk_constraint_verified,
                             "walking_time_measured": False,
@@ -2544,9 +2549,10 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     "_estimated_transfer_edges": 0,
                     "_scheduled_transfer_edges": 0,
                     "_physical_distance_known": True,
-                    "_physical_distance_lower_bound_meters": 0.0,
+                    "_station_reference_point_separations_meters": [],
                     "_walk_constraint_verified": True,
                     "_transfer_time_confidences": [],
+                    "_transfer_evidence": None,
                 }
             cur["edges"] += 1
             cur["meters"] += edge.get("meters", 0)
@@ -2557,11 +2563,11 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 cur["_scheduled_transfer_edges"] += 1
             if edge.get("physical_walk_distance_known") is False:
                 cur["_physical_distance_known"] = False
-                cur["_physical_distance_lower_bound_meters"] += edge.get(
-                    "physical_walk_distance_lower_bound_meters", 0.0
-                )
-            else:
-                cur["_physical_distance_lower_bound_meters"] += edge.get("meters", 0.0)
+                separation = edge.get("station_reference_point_separation_meters")
+                if separation is not None:
+                    cur["_station_reference_point_separations_meters"].append(
+                        separation
+                    )
             if edge.get("walk_constraint_verified") is False:
                 cur["_walk_constraint_verified"] = False
             confidence = edge.get("transfer_time_confidence")
@@ -2573,6 +2579,31 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             cur["_walk_elapsed"] += elapsed
             if "reviewed_walk_minutes" in edge:
                 cur["_reviewed_edges"] += 1
+                evidence_flags = {
+                    "official_connection_verified": bool(
+                        edge.get("official_connection_verified", False)
+                    ),
+                    "path_verified": bool(edge.get("transfer_path_verified", False)),
+                    "physical_distance_verified": bool(
+                        edge.get("transfer_distance_verified", False)
+                    ),
+                    "minimum_time_verified": bool(
+                        edge.get("transfer_time_verified", False)
+                    ),
+                    "direction_restrictions_verified": bool(
+                        edge.get("transfer_direction_verified", False)
+                    ),
+                    "availability_hours_verified": bool(
+                        edge.get("transfer_hours_verified", False)
+                    ),
+                }
+                if cur["_transfer_evidence"] is None:
+                    cur["_transfer_evidence"] = evidence_flags
+                else:
+                    for key, value in evidence_flags.items():
+                        cur["_transfer_evidence"][key] = (
+                            cur["_transfer_evidence"][key] and value
+                        )
                 url = edge.get("evidence_url")
                 if url and url not in cur["_evidence_urls"]:
                     cur["_evidence_urls"].append(url)

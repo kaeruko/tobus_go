@@ -59,13 +59,12 @@ class TokyoMetroTransferAuditTest(unittest.TestCase):
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
             audit = MODULE.build_audit(station_path, manifest_path)
 
-        self.assertEqual(audit["schema"], "tokyo_metro_transfer_audit/v2")
+        self.assertEqual(audit["schema"], "tokyo_metro_transfer_audit/v3")
         self.assertEqual(audit["counts"], {
             "total": 4,
             "reviewed": 1,
             "automatic_same_station": 0,
             "nonreciprocal_same_station": 0,
-            "straight_line_exceeds_walk_limit": 0,
             "unresolved": 3,
             "metro_to_metro": 3,
             "metro_to_toei": 1,
@@ -107,7 +106,14 @@ class TokyoMetroTransferAuditTest(unittest.TestCase):
                 "official_minimum": False,
             },
             "overrides": [],
-            "exceptions": [],
+            "exceptions": [{
+                "from_station_id": "odpt.Station:TokyoMetro.A.Alpha",
+                "to_station_id": "odpt.Station:TokyoMetro.B.Alpha",
+                "directions": "from_to",
+                "available_windows": [{"start": "05:00", "end": "24:10"}],
+                "evidence_urls": ["https://www.tokyometro.jp/example"],
+                "reason": "fixture directed passage",
+            }],
         }
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -122,6 +128,14 @@ class TokyoMetroTransferAuditTest(unittest.TestCase):
         self.assertEqual(row["minimum_minutes"], 17)
         self.assertEqual(row["walk_resource_meters"], 550.0)
         self.assertIsNone(row["walking_distance_meters"])
+        self.assertEqual(row["evidence"], {
+            "official_connection_verified": True,
+            "path_verified": False,
+            "physical_distance_verified": False,
+            "minimum_time_verified": False,
+            "direction_restrictions_verified": True,
+            "availability_hours_verified": True,
+        })
 
 
 if __name__ == "__main__":

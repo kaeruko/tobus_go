@@ -156,7 +156,7 @@ python scripts/audit_tokyo_metro_transfers.py \
   --output <local audit.json>
 ```
 
-The output schema is `tokyo_metro_transfer_audit/v2`; the authenticated station
+The output schema is `tokyo_metro_transfer_audit/v3`; the authenticated station
 master and generated audit remain untracked.
 
 Official sources reviewed for this continuation:
@@ -512,24 +512,25 @@ The automatic gate was tightened without reducing the 89-pair topology:
 
 1. both endpoint station masters must contain the reciprocal official ODPT
    relation before a bidirectional edge is generated;
-2. the great-circle station-coordinate distance is retained only as a
-   mathematical lower bound, never as a walked distance;
-3. a pair is rejected if that lower bound alone exceeds the unchanged 600 m
-   continuous-walk cap, or if the allowance is below its 80 m/min time floor;
+2. the great-circle distance between station reference points is retained as
+   diagnostic metadata only; it is not a path-length lower bound and is never
+   used for pruning, walking-resource validation or a time floor;
+3. the unchanged 600 m continuous-walk resource is debited independently of
+   that diagnostic separation and remains explicitly unverified;
 4. an availability exception may specify `both`, `from_to` or `to_from`, so a
    known one-way corridor is no longer forced to be symmetric;
 5. the response represents physical metres as unknown and separately returns
-   the lower bound, the 600 m planning debit and
+   the reference-point separation, the 600 m planning debit and
    `walk_constraint_verified=false`. The Flutter model therefore does not
    render the legacy numeric compatibility value as an observed `0 m` walk.
 
 For this snapshot all 91 raw same-slug relations are reciprocal and have
-coordinates. Their straight-line lower bounds range from 0.0 m to 436.2 m
+coordinates. Their reference-point separations range from 0.0 m to 436.2 m
 (median 132.7 m; 90th percentile 257.5 m); none exceeds 600 m. The maximum is
-Toei Mita Otemachi to Metro Marunouchi Otemachi. These numbers prove only that
-the shortest possible physical separation is below the cap. They do **not**
-prove that the routed public corridor is at most 600 m, that it is open in
-both directions, or that 15 minutes is sufficient. Therefore topology is
+Toei Mita Otemachi to Metro Marunouchi Otemachi. These numbers do **not** prove
+anything about the length of the routed public corridor: the reference points
+are not known path endpoints or mandatory waypoints. Nor do they prove that a
+corridor is open in both directions or that 15 minutes is sufficient. Therefore topology is
 searchable for 95/123 raw relations, but only the 4 reviewed overrides have a
 reviewed path, distance and timing basis. The 89 automatic pairs remain
 experimental rather than production-certified coverage.
@@ -558,6 +559,12 @@ the production exception list is empty. Unknown one-way paths, out-of-gate
 conditions, equipment restrictions and closure windows remain release
 blockers; reciprocal `connectingStation` records are not evidence that those
 constraints are absent.
+
+The station-interior data-source audit and reusable directed-graph proposal
+are in `docs/tokyo-station-interior-data.md`. Runtime and audit output now
+report six evidence dimensions independently: official connection, path,
+physical distance, minimum time, direction restrictions and availability
+hours. The 89 automatic pairs have only the first dimension verified.
 
 ## Safe search work and release gates
 

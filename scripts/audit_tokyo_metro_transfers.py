@@ -189,20 +189,19 @@ def build_audit(
     for pair, row in sorted(pairs.items(), key=lambda item: tuple(sorted(item[0]))):
         first, second = sorted(pair)
         evidence = reviewed.get(pair)
+        exception = policy.exceptions.get(pair)
         path_class = automatic_path_class(first, second) if automatic_enabled else None
         reciprocal = (
             (first, second) in directed_relations
             and (second, first) in directed_relations
         )
-        lower_bound = (
+        reference_separation = (
             None if first not in by_id or second not in by_id
             else _distance_m(by_id[first], by_id[second])
         )
         automatic = (
             path_class is not None
             and reciprocal
-            and lower_bound is not None
-            and lower_bound <= policy.automatic_resource_meters
         )
         row["status"] = (
             "reviewed" if evidence else
@@ -210,7 +209,15 @@ def build_audit(
             "unresolved"
         )
         row["official_relation_reciprocal"] = reciprocal
-        row["straight_line_lower_bound_meters"] = lower_bound
+        row["station_reference_point_separation_meters"] = reference_separation
+        row["evidence"] = {
+            "official_connection_verified": True,
+            "path_verified": evidence is not None,
+            "physical_distance_verified": evidence is not None,
+            "minimum_time_verified": evidence is not None,
+            "direction_restrictions_verified": exception is not None,
+            "availability_hours_verified": exception is not None,
+        }
         if evidence:
             row["minimum_minutes"] = evidence["minutes"]
             row["walking_distance_meters"] = evidence["meters"]
@@ -224,16 +231,12 @@ def build_audit(
             row["reason"] = (
                 "official relation is not reciprocal"
                 if path_class and not reciprocal else
-                "official coordinates are missing"
-                if path_class and lower_bound is None else
-                "straight-line lower bound exceeds the walking resource limit"
-                if path_class and lower_bound > policy.automatic_resource_meters else
                 "official path distance/time evidence not yet complete"
             )
         rows.append(row)
     complexes = _complexes(rows, names)
     return {
-        "schema": "tokyo_metro_transfer_audit/v2",
+        "schema": "tokyo_metro_transfer_audit/v3",
         "generated_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat(),
         "counts": {
             "total": len(rows),
@@ -244,11 +247,6 @@ def build_audit(
             "nonreciprocal_same_station": sum(
                 row["status"] == "unresolved"
                 and row.get("reason") == "official relation is not reciprocal"
-                for row in rows
-            ),
-            "straight_line_exceeds_walk_limit": sum(
-                row["status"] == "unresolved"
-                and row.get("reason") == "straight-line lower bound exceeds the walking resource limit"
                 for row in rows
             ),
             "unresolved": sum(row["status"] == "unresolved" for row in rows),

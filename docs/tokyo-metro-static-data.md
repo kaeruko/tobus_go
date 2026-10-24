@@ -301,14 +301,16 @@ The exact 15-minute automatic transfer is enforced before boarding a concrete
 trip. It is an unverified application allowance, not a station-specific or
 operator-published minimum. Unit tests reject a departure that precedes the
 completed transfer, a walk that would extend beyond a known closing window, an
-unofficial/nonmatching station relation, a one-way ODPT relation, a coordinate
-lower bound beyond 600 m, and an unsupported different-station link. Existing
+unofficial/nonmatching station relation, a one-way ODPT relation, and an
+unsupported different-station link. A separate regression proves that station
+reference-point separation is not used as a walk lower bound. Existing
 reviewed route probes preserve the first result's exact trips and clocks.
 Newly enabled same-station routes may legitimately supersede an older path.
 
 All 91 raw same-slug relations in the accepted Metro/Toei station snapshots
-are reciprocal. Their coordinate separations are retained only as lower bounds
-(median 132.7 m, maximum 436.2 m), not as walking distances. The current
+are reciprocal. Their coordinate separations are retained only as diagnostic
+reference-point separations (median 132.7 m, maximum 436.2 m), not as walking
+distances, lower bounds, resource checks or pruning inputs. The current
 structured inputs contain no platform/gate paths, actual corridor lengths,
 minimum transfer times or opening windows, so the 89 unique automatic pairs
 cannot be classified safely as same-platform/near-platform/ordinary/long.

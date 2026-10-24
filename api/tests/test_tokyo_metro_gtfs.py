@@ -286,7 +286,13 @@ def test_common_model_generates_only_official_same_station_connections(tmp_path)
     assert edge["walk_constraint_verified"] is False
     assert edge["official_relation_reciprocal"] is True
     assert edge["transfer_time_confidence"] == "unverified_conservative"
-    assert 0 <= edge["physical_walk_distance_lower_bound_meters"] <= 600
+    assert edge["official_connection_verified"] is True
+    assert edge["transfer_path_verified"] is False
+    assert edge["transfer_distance_verified"] is False
+    assert edge["transfer_time_verified"] is False
+    assert edge["transfer_direction_verified"] is False
+    assert edge["transfer_hours_verified"] is False
+    assert edge["station_reference_point_separation_meters"] >= 0
     assert edge["reviewed_walk_minutes"] == 15
     assert edge["meters"] == 0.0
     assert edge["walk_resource_meters"] == 600.0
@@ -320,7 +326,7 @@ def test_common_model_does_not_symmetrize_a_one_way_official_relation(tmp_path):
     ] == 1
 
 
-def test_common_model_rejects_a_straight_line_beyond_the_walk_limit(tmp_path):
+def test_station_reference_separation_is_not_used_as_a_walk_lower_bound(tmp_path):
     gtfs, stations_path, railways = _fixture(tmp_path)
     first_id, second_id = _make_same_station_connection(stations_path)
     stations = json.loads(stations_path.read_text(encoding="utf-8"))
@@ -337,10 +343,13 @@ def test_common_model_rejects_a_straight_line_beyond_the_walk_limit(tmp_path):
         railways_path=str(railways),
         reviewed_transfers_path=str(_common_policy(tmp_path)),
     )
-    assert not graph.has_edge(("phys", first_id), ("phys", second_id))
-    assert manager.tokyo_metro_transfer_model_report[
-        "straight_line_exceeds_walk_limit"
-    ] == 1
+    edge = graph.edges[("phys", first_id), ("phys", second_id)]
+    # Representative station coordinates are neither path endpoints nor
+    # mandatory waypoints.  Even a large separation therefore cannot prove
+    # that the transfer corridor violates the walking cap.
+    assert edge["station_reference_point_separation_meters"] > 600
+    assert edge["walk_resource_meters"] == 600
+    assert edge["walk_constraint_verified"] is False
 
 
 def test_directional_exception_does_not_create_the_forbidden_reverse(tmp_path):
@@ -364,6 +373,9 @@ def test_directional_exception_does_not_create_the_forbidden_reverse(tmp_path):
     )
     assert graph.has_edge(("phys", first_id), ("phys", second_id))
     assert not graph.has_edge(("phys", second_id), ("phys", first_id))
+    edge = graph.edges[("phys", first_id), ("phys", second_id)]
+    assert edge["transfer_direction_verified"] is True
+    assert edge["transfer_hours_verified"] is True
 
 
 def test_common_model_keeps_different_station_relation_disabled(tmp_path):
@@ -464,12 +476,23 @@ def test_common_allowance_rejects_early_train_and_reports_estimate(tmp_path):
     assert transfer["walking_connection_verified"] is False
     assert transfer["walking_time_basis"] == "app_conservative_allowance"
     assert transfer["planning_details"]["physical_walk_meters"] is None
+    assert transfer["planning_details"][
+        "station_reference_point_separations_meters"
+    ]
     assert transfer["planning_details"]["planning_walk_resource_meters"] == 600
     assert transfer["planning_details"]["walk_constraint_verified"] is False
     assert transfer["planning_details"]["walking_time_measured"] is False
     assert transfer["planning_details"]["walking_time_confidence"] == (
         "unverified_conservative"
     )
+    assert transfer["transfer_evidence"] == {
+        "official_connection_verified": True,
+        "path_verified": False,
+        "physical_distance_verified": False,
+        "minimum_time_verified": False,
+        "direction_restrictions_verified": False,
+        "availability_hours_verified": False,
+    }
     assert rails[1]["departure_time"] == "24:25"
 
 
@@ -692,6 +715,14 @@ def test_reviewed_transfer_time_rejects_the_train_that_cannot_be_boarded(tmp_pat
     assert transfer["minutes"] == 4
     assert transfer["walking_connection_verified"] is True
     assert transfer["evidence_urls"]
+    assert transfer["transfer_evidence"] == {
+        "official_connection_verified": True,
+        "path_verified": True,
+        "physical_distance_verified": True,
+        "minimum_time_verified": True,
+        "direction_restrictions_verified": False,
+        "availability_hours_verified": False,
+    }
     assert rails[1]["departure_time"] == "24:12"
 
 
@@ -729,9 +760,9 @@ class TokyoMetroGtfsTest(unittest.TestCase):
                 Path(directory)
             )
 
-    def test_common_model_respects_straight_line_lower_bound(self):
+    def test_station_reference_separation_is_not_a_walk_lower_bound(self):
         with tempfile.TemporaryDirectory() as directory:
-            test_common_model_rejects_a_straight_line_beyond_the_walk_limit(
+            test_station_reference_separation_is_not_used_as_a_walk_lower_bound(
                 Path(directory)
             )
 

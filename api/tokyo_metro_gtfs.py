@@ -488,10 +488,18 @@ def add_tokyo_metro_to_graph(
                 "evidence_urls": review["evidence_urls"],
                 "reviewed_at": review["reviewed_at"],
                 "official_connection": True,
+                "official_connection_verified": True,
                 "transfer_path_class": review["path_class"],
                 "transfer_time_basis": "reviewed_station_path",
                 "transfer_time_estimated": False,
                 "physical_walk_distance_known": True,
+                "transfer_path_verified": True,
+                "transfer_distance_verified": True,
+                "transfer_time_verified": True,
+                # A reviewed path and duration do not by themselves prove
+                # that every direction is available at every time of day.
+                "transfer_direction_verified": False,
+                "transfer_hours_verified": False,
             }
             status = "reviewed_override"
         elif transfer_policy.automatic_enabled and path_class is not None:
@@ -503,22 +511,9 @@ def add_tokyo_metro_to_graph(
                     "reason": "automatic bidirectional transfer requires reciprocal ODPT records",
                 })
                 continue
-            straight_line_lower_bound = _distance_m(
+            station_reference_point_separation = _distance_m(
                 graph.nodes[source], graph.nodes[target]
             )
-            if straight_line_lower_bound > transfer_policy.automatic_resource_meters:
-                counts["straight_line_exceeds_walk_limit"] += 1
-                details.append({
-                    "pair": tuple(sorted(pair)),
-                    "status": "straight_line_exceeds_walk_limit",
-                    "straight_line_lower_bound_meters": straight_line_lower_bound,
-                })
-                continue
-            if math.ceil(straight_line_lower_bound / 80.0) > transfer_policy.automatic_minutes:
-                raise ValueError(
-                    "Tokyo Metro automatic transfer allowance is shorter than "
-                    f"its straight-line time floor: {sorted(pair)!r}"
-                )
             edge = {
                 "w": WALK_COST * transfer_policy.automatic_minutes,
                 "etype": "walk",
@@ -527,13 +522,25 @@ def add_tokyo_metro_to_graph(
                 "walk_resource_meters": transfer_policy.automatic_resource_meters,
                 "reviewed_walk_minutes": transfer_policy.automatic_minutes,
                 "official_connection": True,
+                "official_connection_verified": True,
                 "transfer_path_class": path_class,
                 "transfer_time_basis": "app_conservative_allowance",
                 "transfer_time_estimated": True,
                 "transfer_time_confidence": "unverified_conservative",
                 "physical_walk_distance_known": False,
-                "physical_walk_distance_lower_bound_meters": straight_line_lower_bound,
+                # ODPT coordinates are station reference points, not proven
+                # endpoints or mandatory waypoints of a transfer path.  Their
+                # separation is diagnostic only: it is not a lower bound on
+                # path length and must not drive pruning or resource checks.
+                "station_reference_point_separation_meters": (
+                    station_reference_point_separation
+                ),
                 "walk_constraint_verified": False,
+                "transfer_path_verified": False,
+                "transfer_distance_verified": False,
+                "transfer_time_verified": False,
+                "transfer_direction_verified": False,
+                "transfer_hours_verified": False,
                 "official_relation_reciprocal": True,
                 "transfer_model_schema": transfer_policy.schema,
             }
@@ -567,6 +574,8 @@ def add_tokyo_metro_to_graph(
                 directed_edge["transfer_availability_evidence_urls"] = exception["evidence_urls"]
                 directed_edge["transfer_availability_reason"] = exception["reason"]
                 directed_edge["transfer_direction_evidence"] = exception["directions"]
+                directed_edge["transfer_direction_verified"] = True
+                directed_edge["transfer_hours_verified"] = True
             graph.add_edge(from_node, to_node, **directed_edge)
             added_directions.append((from_id, to_id))
         if not added_directions:
