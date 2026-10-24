@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import math
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -49,6 +50,21 @@ def _line_id(station_id: str) -> str:
     if len(parts) < 3:
         raise ValueError(f"unexpected ODPT station ID: {station_id!r}")
     return ".".join(parts[:-1])
+
+
+def _distance_m(first: dict, second: dict) -> float | None:
+    values = tuple(first.get(key) for key in ("geo:lat", "geo:long")) + tuple(
+        second.get(key) for key in ("geo:lat", "geo:long")
+    )
+    if not all(type(value) in (int, float) and math.isfinite(value) for value in values):
+        return None
+    lat1, lon1, lat2, lon2 = map(math.radians, values)
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    value = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    )
+    return 6_371_000 * 2 * math.atan2(math.sqrt(value), math.sqrt(1 - value))
 
 
 def _complexes(rows: list[dict], names: dict[str, str | None]) -> list[dict]:
@@ -120,15 +136,35 @@ def _complexes(rows: list[dict], names: dict[str, str | None]) -> list[dict]:
     return components
 
 
-def build_audit(stations_path: Path, manifest_path: Path) -> dict:
+def build_audit(
+    stations_path: Path,
+    manifest_path: Path,
+    counterpart_stations_path: Path | None = None,
+) -> dict:
     stations = json.loads(stations_path.read_text(encoding="utf-8"))
+    counterpart_stations = (
+        [] if counterpart_stations_path is None
+        else json.loads(counterpart_stations_path.read_text(encoding="utf-8"))
+    )
+    if not isinstance(stations, list) or not isinstance(counterpart_stations, list):
+        raise ValueError("ODPT station audit inputs must be lists")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     policy = load_transfer_policy(manifest)
     automatic_enabled = policy.automatic_enabled
     reviewed = policy.overrides
     names = {
         _station_id(station): (station.get("odpt:stationTitle") or {}).get("ja")
-        for station in stations
+        for station in (*stations, *counterpart_stations)
+    }
+    by_id = {
+        _station_id(station): station for station in (*stations, *counterpart_stations)
+    }
+    directed_relations = {
+        (_station_id(station), target)
+        for station in (*stations, *counterpart_stations)
+        for target in _connections(station)
+        if target.startswith((METRO_PREFIX, *TOEI_SUBWAY_PREFIXES))
+        and target != _station_id(station)
     }
     pairs = {}
     for station in stations:
@@ -154,22 +190,46 @@ def build_audit(stations_path: Path, manifest_path: Path) -> dict:
         first, second = sorted(pair)
         evidence = reviewed.get(pair)
         path_class = automatic_path_class(first, second) if automatic_enabled else None
+        reciprocal = (
+            (first, second) in directed_relations
+            and (second, first) in directed_relations
+        )
+        lower_bound = (
+            None if first not in by_id or second not in by_id
+            else _distance_m(by_id[first], by_id[second])
+        )
+        automatic = (
+            path_class is not None
+            and reciprocal
+            and lower_bound is not None
+            and lower_bound <= policy.automatic_resource_meters
+        )
         row["status"] = (
             "reviewed" if evidence else
-            "automatic_same_station" if path_class else
+            "automatic_same_station" if automatic else
             "unresolved"
         )
+        row["official_relation_reciprocal"] = reciprocal
+        row["straight_line_lower_bound_meters"] = lower_bound
         if evidence:
             row["minimum_minutes"] = evidence["minutes"]
             row["walking_distance_meters"] = evidence["meters"]
             row["reviewed_at"] = evidence["reviewed_at"]
-        elif path_class:
+        elif automatic:
             row["minimum_minutes"] = policy.automatic_minutes
             row["walking_distance_meters"] = None
             row["walk_resource_meters"] = policy.automatic_resource_meters
             row["time_basis"] = "app_conservative_allowance"
         else:
-            row["reason"] = "official path distance/time evidence not yet complete"
+            row["reason"] = (
+                "official relation is not reciprocal"
+                if path_class and not reciprocal else
+                "official coordinates are missing"
+                if path_class and lower_bound is None else
+                "straight-line lower bound exceeds the walking resource limit"
+                if path_class and lower_bound > policy.automatic_resource_meters else
+                "official path distance/time evidence not yet complete"
+            )
         rows.append(row)
     complexes = _complexes(rows, names)
     return {
@@ -180,6 +240,16 @@ def build_audit(stations_path: Path, manifest_path: Path) -> dict:
             "reviewed": sum(row["status"] == "reviewed" for row in rows),
             "automatic_same_station": sum(
                 row["status"] == "automatic_same_station" for row in rows
+            ),
+            "nonreciprocal_same_station": sum(
+                row["status"] == "unresolved"
+                and row.get("reason") == "official relation is not reciprocal"
+                for row in rows
+            ),
+            "straight_line_exceeds_walk_limit": sum(
+                row["status"] == "unresolved"
+                and row.get("reason") == "straight-line lower bound exceeds the walking resource limit"
+                for row in rows
             ),
             "unresolved": sum(row["status"] == "unresolved" for row in rows),
             "metro_to_metro": sum(row["kind"] == "metro_to_metro" for row in rows),
@@ -212,9 +282,10 @@ def main() -> None:
         default=Path(__file__).resolve().parents[1]
         / "api" / "config" / "tokyo_metro_reviewed_transfers.json",
     )
+    parser.add_argument("--counterpart-stations", type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
-    audit = build_audit(args.stations, args.manifest)
+    audit = build_audit(args.stations, args.manifest, args.counterpart_stations)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(audit, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

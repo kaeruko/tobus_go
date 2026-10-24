@@ -152,6 +152,7 @@ Reproduce the grouped inventory with:
 ```text
 python scripts/audit_tokyo_metro_transfers.py \
   --stations <authenticated odpt_Station_TokyoMetro.json> \
+  --counterpart-stations <Toei odpt_Station.json> \
   --output <local audit.json>
 ```
 
@@ -436,9 +437,12 @@ preserved as baselines. The runtime now applies one fail-closed pipeline to all
    route can become a small reviewed override/exception without changing the
    common algorithm.
 
-The 15 minutes comprise the existing 600-metre resource at 80 m/min (7.5
-minutes) plus a conservative circulation/vertical-movement buffer, rounded up.
-It is deliberately serialized as `app_conservative_allowance`, with
+The 15 minutes are an application-owned conservative allowance: the existing
+600-metre planning resource would take 7.5 minutes at 80 m/min and the
+remaining 7.5 minutes are an unverified circulation/vertical-movement buffer.
+Neither component proves the actual path distance or a sufficient time for a
+particular station. It is deliberately serialized as
+`app_conservative_allowance`, with
 `walking_time_estimated=true`, `physical_walk_distance_known=false`, and a
 separate `planning_walk_resource_meters=600`. It is not described as an
 official minimum, measured distance, accessibility guarantee or entitlement.
@@ -491,6 +495,69 @@ Nakano-sakaue to Nishi-funabashi, used 45,939 pops under this common model;
 a 24-query sweep instead peaked at 75,316 for Nakano-sakaue to Myoden. No
 measured call hit 100,000, but the margin is not sufficient to infer a
 production p95/p99 or zero limit-hit rate.
+
+## Common-model quality audit (2026-10-24)
+
+The accepted structured inputs cannot support a platform-distance classifier.
+The Metro GTFS snapshot has no `transfers.txt`, `pathways.txt`, `levels.txt`,
+platform codes or level IDs. The ODPT station master supplies station
+coordinates and `connectingStation`, but no gate/platform path, path length,
+minimum transfer time, out-of-gate flag, direction restriction or opening
+window. Consequently the runtime now calls automatic paths
+`same_station_unclassified`, rather than claiming that they are ordinary
+same-station paths. It does not infer same-platform, near-platform, ordinary
+concourse or long-concourse classes from an ID suffix.
+
+The automatic gate was tightened without reducing the 89-pair topology:
+
+1. both endpoint station masters must contain the reciprocal official ODPT
+   relation before a bidirectional edge is generated;
+2. the great-circle station-coordinate distance is retained only as a
+   mathematical lower bound, never as a walked distance;
+3. a pair is rejected if that lower bound alone exceeds the unchanged 600 m
+   continuous-walk cap, or if the allowance is below its 80 m/min time floor;
+4. an availability exception may specify `both`, `from_to` or `to_from`, so a
+   known one-way corridor is no longer forced to be symmetric;
+5. the response represents physical metres as unknown and separately returns
+   the lower bound, the 600 m planning debit and
+   `walk_constraint_verified=false`. The Flutter model therefore does not
+   render the legacy numeric compatibility value as an observed `0 m` walk.
+
+For this snapshot all 91 raw same-slug relations are reciprocal and have
+coordinates. Their straight-line lower bounds range from 0.0 m to 436.2 m
+(median 132.7 m; 90th percentile 257.5 m); none exceeds 600 m. The maximum is
+Toei Mita Otemachi to Metro Marunouchi Otemachi. These numbers prove only that
+the shortest possible physical separation is below the cap. They do **not**
+prove that the routed public corridor is at most 600 m, that it is open in
+both directions, or that 15 minutes is sufficient. Therefore topology is
+searchable for 95/123 raw relations, but only the 4 reviewed overrides have a
+reviewed path, distance and timing basis. The 89 automatic pairs remain
+experimental rather than production-certified coverage.
+
+The unknown-distance resource is intentionally conservative in one dimension:
+an automatic transfer consumes the complete 600 m continuous-walk budget.
+An adjacent 1 m walk is rejected, a ride resets the continuous segment but not
+the 3,000 m total, five such transfers consume that total exactly, and a sixth
+is rejected. Tests pin all three behaviors. This can hide a legal itinerary
+whose real transfer is short. Conversely, because the actual corridor is
+unknown, the debit cannot prove that an enabled path really satisfies 600 m.
+The two uncertainties are now explicit rather than represented as zero metres.
+
+No defensible shorter or class-specific common duration can be derived from
+the current inputs. A synthetic timetable regression demonstrates the reason:
+an 8-minute reviewed path can catch a concrete 10:10 train that the 15-minute
+model loses, while a genuinely 16-minute path makes a 10:15 train accepted by
+the 15-minute model impossible. A development-only real-feed comparison also
+changed the Nakano-sakaue to Myoden five-candidate set between 8, 15 and 20
+minutes; this is a feasibility/model change, not an algorithmic speedup. The
+Shibuya to Asakusa set happened to remain identical across those three values.
+No alternative duration from that comparison was promoted to policy.
+
+The current runtime can now encode known direction and closure exceptions, but
+the production exception list is empty. Unknown one-way paths, out-of-gate
+conditions, equipment restrictions and closure windows remain release
+blockers; reciprocal `connectingStation` records are not evidence that those
+constraints are absent.
 
 ## Safe search work and release gates
 

@@ -27,8 +27,10 @@ TOEI_SUBWAY_PREFIXES = (
     "odpt.Station:Toei.Oedo.",
 )
 ALLOWED_PATH_CLASSES = frozenset((
-    "same_platform", "same_station", "out_of_gate", "linked_station",
+    "same_platform", "same_station", "same_station_unclassified",
+    "out_of_gate", "linked_station",
 ))
+ALLOWED_DIRECTIONS = frozenset(("both", "from_to", "to_from"))
 EVIDENCE_HOSTS = frozenset((
     "tokyometro.jp", "www.tokyometro.jp",
     "kotsu.metro.tokyo.jp", "www.kotsu.metro.tokyo.jp",
@@ -67,7 +69,11 @@ def automatic_path_class(first: str, second: str) -> str | None:
     valid linked-station transfer, but need an override because the common
     input has no walked-path evidence to prove the existing 600 m constraint.
     """
-    return "same_station" if station_slug(first) == station_slug(second) else None
+    return (
+        "same_station_unclassified"
+        if station_slug(first) == station_slug(second)
+        else None
+    )
 
 
 def _pair(item: dict, description: str) -> frozenset[str]:
@@ -169,13 +175,14 @@ def _exceptions(items) -> dict[frozenset[str], dict]:
     if not isinstance(items, list):
         raise ValueError("Tokyo Metro transfer exceptions must be a list")
     result = {}
-    required = {
+    legacy_fields = {
         "from_station_id", "to_station_id", "available_windows",
         "evidence_urls", "reason",
     }
+    directed_fields = legacy_fields | {"directions"}
     for index, item in enumerate(items):
         description = f"Tokyo Metro transfer exception #{index}"
-        if not isinstance(item, dict) or set(item) != required:
+        if not isinstance(item, dict) or set(item) not in (legacy_fields, directed_fields):
             raise ValueError(f"{description} has invalid fields")
         pair = _pair(item, description)
         if pair in result:
@@ -183,7 +190,13 @@ def _exceptions(items) -> dict[frozenset[str], dict]:
         reason = item["reason"]
         if not isinstance(reason, str) or not reason.strip():
             raise ValueError(f"{description} requires a reason")
+        directions = item.get("directions", "both")
+        if directions not in ALLOWED_DIRECTIONS:
+            raise ValueError(f"{description} has invalid directions")
         result[pair] = {
+            "from_station_id": item["from_station_id"],
+            "to_station_id": item["to_station_id"],
+            "directions": directions,
             "available_windows": _windows(item["available_windows"], description),
             "evidence_urls": _urls(item["evidence_urls"], description),
             "reason": reason.strip(),

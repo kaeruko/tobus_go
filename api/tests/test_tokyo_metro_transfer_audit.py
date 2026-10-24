@@ -17,6 +17,8 @@ def _station(station_id, name, connections):
         "owl:sameAs": station_id,
         "odpt:stationTitle": {"ja": name},
         "odpt:connectingStation": connections,
+        "geo:lat": 35.0,
+        "geo:long": 139.0,
     }
 
 
@@ -62,6 +64,8 @@ class TokyoMetroTransferAuditTest(unittest.TestCase):
             "total": 4,
             "reviewed": 1,
             "automatic_same_station": 0,
+            "nonreciprocal_same_station": 0,
+            "straight_line_exceeds_walk_limit": 0,
             "unresolved": 3,
             "metro_to_metro": 3,
             "metro_to_toei": 1,
@@ -86,7 +90,9 @@ class TokyoMetroTransferAuditTest(unittest.TestCase):
             _station("odpt.Station:TokyoMetro.A.Alpha", "甲", [
                 "odpt.Station:TokyoMetro.B.Alpha",
             ]),
-            _station("odpt.Station:TokyoMetro.B.Alpha", "甲", []),
+            _station("odpt.Station:TokyoMetro.B.Alpha", "甲", [
+                "odpt.Station:TokyoMetro.A.Alpha",
+            ]),
         ]
         manifest = {
             "schema": "tokyo_metro_transfer_policy/v2",

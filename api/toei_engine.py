@@ -2445,6 +2445,11 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 estimated = cur.pop("_estimated_transfer_edges", 0)
                 cur.pop("_scheduled_transfer_edges", None)
                 distance_known = cur.pop("_physical_distance_known", True)
+                distance_lower_bound = cur.pop(
+                    "_physical_distance_lower_bound_meters", cur.get("meters", 0)
+                )
+                walk_constraint_verified = cur.pop("_walk_constraint_verified", True)
+                time_confidences = cur.pop("_transfer_time_confidences", [])
                 if reviewed:
                     cur["walking_connection_verified"] = unreviewed == 0 and estimated == 0
                     cur["walking_time_basis"] = (
@@ -2457,6 +2462,22 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     cur["physical_walk_distance_known"] = distance_known
                     if not distance_known:
                         cur["planning_walk_resource_meters"] = resource_meters
+                        # Keep the legacy numeric ``meters`` field for the
+                        # shared route contract, but give clients an explicit
+                        # unknown value so they never render it as observed 0m.
+                        cur["planning_details"] = {
+                            "physical_walk_meters": None,
+                            "physical_walk_lower_bound_meters": distance_lower_bound,
+                            "planning_walk_resource_meters": resource_meters,
+                            "walk_constraint_verified": walk_constraint_verified,
+                            "walking_time_measured": False,
+                            "walking_time_basis": cur["walking_time_basis"],
+                            "walking_time_confidence": (
+                                time_confidences[0]
+                                if len(set(time_confidences)) == 1
+                                else "mixed_unverified"
+                            ),
+                        }
             elif cur["kind"] in ("bus", "rail"):
                 # 公共交通機関の所要時間計算
                 if cur.get("arrival_time"):
@@ -2523,6 +2544,9 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     "_estimated_transfer_edges": 0,
                     "_scheduled_transfer_edges": 0,
                     "_physical_distance_known": True,
+                    "_physical_distance_lower_bound_meters": 0.0,
+                    "_walk_constraint_verified": True,
+                    "_transfer_time_confidences": [],
                 }
             cur["edges"] += 1
             cur["meters"] += edge.get("meters", 0)
@@ -2533,6 +2557,16 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 cur["_scheduled_transfer_edges"] += 1
             if edge.get("physical_walk_distance_known") is False:
                 cur["_physical_distance_known"] = False
+                cur["_physical_distance_lower_bound_meters"] += edge.get(
+                    "physical_walk_distance_lower_bound_meters", 0.0
+                )
+            else:
+                cur["_physical_distance_lower_bound_meters"] += edge.get("meters", 0.0)
+            if edge.get("walk_constraint_verified") is False:
+                cur["_walk_constraint_verified"] = False
+            confidence = edge.get("transfer_time_confidence")
+            if confidence:
+                cur["_transfer_time_confidences"].append(confidence)
             elapsed = walk_edge_elapsed_minutes(
                 edge, speed_m_per_min=WALK_SPEED_M_PER_MIN
             )

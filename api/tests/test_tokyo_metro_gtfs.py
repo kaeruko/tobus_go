@@ -279,10 +279,14 @@ def test_common_model_generates_only_official_same_station_connections(tmp_path)
     )
     edge = graph.edges[("phys", first_id), ("phys", second_id)]
     assert edge["official_connection"] is True
-    assert edge["transfer_path_class"] == "same_station"
+    assert edge["transfer_path_class"] == "same_station_unclassified"
     assert edge["transfer_time_basis"] == "app_conservative_allowance"
     assert edge["transfer_time_estimated"] is True
     assert edge["physical_walk_distance_known"] is False
+    assert edge["walk_constraint_verified"] is False
+    assert edge["official_relation_reciprocal"] is True
+    assert edge["transfer_time_confidence"] == "unverified_conservative"
+    assert 0 <= edge["physical_walk_distance_lower_bound_meters"] <= 600
     assert edge["reviewed_walk_minutes"] == 15
     assert edge["meters"] == 0.0
     assert edge["walk_resource_meters"] == 600.0
@@ -293,6 +297,73 @@ def test_common_model_generates_only_official_same_station_connections(tmp_path)
         ("phys", "odpt.Station:TokyoMetro.Ginza.A"),
         ("phys", "odpt.Station:TokyoMetro.Hanzomon.D"),
     )
+
+
+def test_common_model_does_not_symmetrize_a_one_way_official_relation(tmp_path):
+    gtfs, stations_path, railways = _fixture(tmp_path)
+    first_id, second_id = _make_same_station_connection(stations_path)
+    stations = json.loads(stations_path.read_text(encoding="utf-8"))
+    target = next(row for row in stations if row.get("owl:sameAs") == second_id)
+    target["odpt:connectingStation"] = []
+    stations_path.write_text(json.dumps(stations), encoding="utf-8")
+    graph = nx.DiGraph()
+    manager = TimetableManager()
+    add_tokyo_metro_to_graph(
+        graph, manager, gtfs_dir=str(gtfs), stations_path=str(stations_path),
+        railways_path=str(railways),
+        reviewed_transfers_path=str(_common_policy(tmp_path)),
+    )
+    assert not graph.has_edge(("phys", first_id), ("phys", second_id))
+    assert not graph.has_edge(("phys", second_id), ("phys", first_id))
+    assert manager.tokyo_metro_transfer_model_report[
+        "nonreciprocal_official_relation"
+    ] == 1
+
+
+def test_common_model_rejects_a_straight_line_beyond_the_walk_limit(tmp_path):
+    gtfs, stations_path, railways = _fixture(tmp_path)
+    first_id, second_id = _make_same_station_connection(stations_path)
+    stations = json.loads(stations_path.read_text(encoding="utf-8"))
+    for row in stations:
+        if row.get("owl:sameAs") == first_id:
+            row["geo:lat"], row["geo:long"] = 35.60, 139.70
+        elif row.get("owl:sameAs") == second_id:
+            row["geo:lat"], row["geo:long"] = 35.61, 139.70
+    stations_path.write_text(json.dumps(stations), encoding="utf-8")
+    graph = nx.DiGraph()
+    manager = TimetableManager()
+    add_tokyo_metro_to_graph(
+        graph, manager, gtfs_dir=str(gtfs), stations_path=str(stations_path),
+        railways_path=str(railways),
+        reviewed_transfers_path=str(_common_policy(tmp_path)),
+    )
+    assert not graph.has_edge(("phys", first_id), ("phys", second_id))
+    assert manager.tokyo_metro_transfer_model_report[
+        "straight_line_exceeds_walk_limit"
+    ] == 1
+
+
+def test_directional_exception_does_not_create_the_forbidden_reverse(tmp_path):
+    gtfs, stations_path, railways = _fixture(tmp_path)
+    first_id, second_id = _make_same_station_connection(stations_path)
+    exception = {
+        "from_station_id": first_id,
+        "to_station_id": second_id,
+        "directions": "from_to",
+        "available_windows": [{"start": "05:00", "end": "24:10"}],
+        "evidence_urls": ["https://www.tokyometro.jp/station/index.html"],
+        "reason": "fixture directed passage",
+    }
+    graph = nx.DiGraph()
+    add_tokyo_metro_to_graph(
+        graph, TimetableManager(), gtfs_dir=str(gtfs),
+        stations_path=str(stations_path), railways_path=str(railways),
+        reviewed_transfers_path=str(_common_policy(
+            tmp_path, exceptions=(exception,)
+        )),
+    )
+    assert graph.has_edge(("phys", first_id), ("phys", second_id))
+    assert not graph.has_edge(("phys", second_id), ("phys", first_id))
 
 
 def test_common_model_keeps_different_station_relation_disabled(tmp_path):
@@ -316,7 +387,7 @@ def test_common_transfer_closure_rejects_the_concrete_connection(tmp_path):
     gtfs, stations_path, railways_path = _fixture(tmp_path)
     first_id, second_id = _make_same_station_connection(stations_path)
     stations = json.loads(stations_path.read_text(encoding="utf-8"))
-    for station, lat in zip(stations, (35.60, 35.61, 35.62, 35.63)):
+    for station, lat in zip(stations, (35.600, 35.610, 35.611, 35.630)):
         station["geo:lat"] = lat
         station["geo:long"] = 139.70
     stations_path.write_text(json.dumps(stations), encoding="utf-8")
@@ -340,7 +411,7 @@ def test_common_transfer_closure_rejects_the_concrete_connection(tmp_path):
         G=graph, TM=manager, SI=SpatialIndex(graph), WALK_RAD=300,
     ))
     result = TokyoRouteEngine(app).search_legacy(
-        alat=35.60, alon=139.70, blat=35.63, blon=139.70,
+        alat=35.600, alon=139.70, blat=35.630, blon=139.70,
         pref="time", transport_scope=frozenset((TOKYO_METRO,)),
         start_time="23:49", date_str="2026-09-24", limit=1,
     )
@@ -358,7 +429,7 @@ def test_common_allowance_rejects_early_train_and_reports_estimate(tmp_path):
         encoding="utf-8",
     )
     stations = json.loads(stations_path.read_text(encoding="utf-8"))
-    for station, lat in zip(stations, (35.60, 35.61, 35.62, 35.63)):
+    for station, lat in zip(stations, (35.600, 35.610, 35.611, 35.630)):
         station["geo:lat"] = lat
         station["geo:long"] = 139.70
     stations_path.write_text(json.dumps(stations), encoding="utf-8")
@@ -373,7 +444,7 @@ def test_common_allowance_rejects_early_train_and_reports_estimate(tmp_path):
         G=graph, TM=manager, SI=SpatialIndex(graph), WALK_RAD=300,
     ))
     result = TokyoRouteEngine(app).search_legacy(
-        alat=35.60, alon=139.70, blat=35.63, blon=139.70,
+        alat=35.600, alon=139.70, blat=35.630, blon=139.70,
         pref="time", transport_scope=frozenset((TOKYO_METRO,)),
         start_time="23:49", date_str="2026-09-24", limit=1,
     )
@@ -392,6 +463,13 @@ def test_common_allowance_rejects_early_train_and_reports_estimate(tmp_path):
     assert transfer["physical_walk_distance_known"] is False
     assert transfer["walking_connection_verified"] is False
     assert transfer["walking_time_basis"] == "app_conservative_allowance"
+    assert transfer["planning_details"]["physical_walk_meters"] is None
+    assert transfer["planning_details"]["planning_walk_resource_meters"] == 600
+    assert transfer["planning_details"]["walk_constraint_verified"] is False
+    assert transfer["planning_details"]["walking_time_measured"] is False
+    assert transfer["planning_details"]["walking_time_confidence"] == (
+        "unverified_conservative"
+    )
     assert rails[1]["departure_time"] == "24:25"
 
 
@@ -642,6 +720,24 @@ class TokyoMetroGtfsTest(unittest.TestCase):
     def test_common_model_keeps_different_station_relation_disabled(self):
         with tempfile.TemporaryDirectory() as directory:
             test_common_model_keeps_different_station_relation_disabled(
+                Path(directory)
+            )
+
+    def test_common_model_requires_reciprocal_official_relation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            test_common_model_does_not_symmetrize_a_one_way_official_relation(
+                Path(directory)
+            )
+
+    def test_common_model_respects_straight_line_lower_bound(self):
+        with tempfile.TemporaryDirectory() as directory:
+            test_common_model_rejects_a_straight_line_beyond_the_walk_limit(
+                Path(directory)
+            )
+
+    def test_directional_exception_forbids_reverse(self):
+        with tempfile.TemporaryDirectory() as directory:
+            test_directional_exception_does_not_create_the_forbidden_reverse(
                 Path(directory)
             )
 

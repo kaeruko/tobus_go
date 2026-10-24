@@ -126,6 +126,7 @@ def main():
             gtfs_dir=metro_gtfs_dir,
             stations_path=metro_stations,
             railways_path=metro_railways,
+            counterpart_stations_path=p["STATIONS"],
             reviewed_transfers_path=metro_reviewed_transfers,
             walk_radius=p["WALK_RAD"],
         )

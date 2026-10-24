@@ -133,6 +133,7 @@ def add_tokyo_metro_to_graph(
     gtfs_dir: str,
     stations_path: str,
     railways_path: str,
+    counterpart_stations_path: str | None = None,
     reviewed_transfers_path: str | None = None,
     walk_radius: int = 300,
 ) -> TokyoMetroFeedInfo:
@@ -384,20 +385,32 @@ def add_tokyo_metro_to_graph(
         dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
     )
 
-    # ODPT connectingStation is the only automatic topology source.  The
-    # common model accepts same-station identities and consumes the full
-    # existing per-segment walking budget without pretending that it measured
-    # a 600 m physical path.  Different-station links remain fail-closed unless
-    # they have a reviewed override.
+    # ODPT connectingStation is the only automatic topology source.  Automatic
+    # links additionally require the relation in both source records.  The
+    # common model consumes the full existing per-segment walking budget
+    # without pretending that it measured a 600 m physical path.  Different-
+    # station links remain fail-closed unless they have a reviewed override.
     mapped_station_ids = set(stop_to_station.values())
+    connection_station_by_id = dict(station_by_id)
+    if counterpart_stations_path is not None:
+        counterpart_stations = _json(counterpart_stations_path)
+        if not isinstance(counterpart_stations, list):
+            raise ValueError("Tokyo counterpart ODPT station master must be a list")
+        for station in counterpart_stations:
+            station_id = _id(station)
+            if station_id and relevant_connection(station_id):
+                connection_station_by_id[station_id] = station
+
+    directed_official_pairs = set()
     official_pairs = set()
-    for station_id, station in station_by_id.items():
+    for station_id, station in connection_station_by_id.items():
         connections = station.get("odpt:connectingStation") or ()
         if isinstance(connections, str):
             connections = (connections,)
         for target_id in connections:
             target_id = str(target_id)
             if relevant_connection(target_id) and station_id != target_id:
+                directed_official_pairs.add((station_id, target_id))
                 official_pairs.add(frozenset((station_id, target_id)))
 
     unknown_reviews = set(reviewed_transfers) - official_pairs
@@ -462,6 +475,10 @@ def add_tokyo_metro_to_graph(
 
         review = reviewed_transfers.get(pair)
         path_class = automatic_path_class(first_id, second_id)
+        reciprocal = (
+            (first_id, second_id) in directed_official_pairs
+            and (second_id, first_id) in directed_official_pairs
+        )
         if review is not None:
             edge = {
                 "w": WALK_COST * review["minutes"],
@@ -477,7 +494,31 @@ def add_tokyo_metro_to_graph(
                 "physical_walk_distance_known": True,
             }
             status = "reviewed_override"
-        elif transfer_policy.automatic_enabled and path_class == "same_station":
+        elif transfer_policy.automatic_enabled and path_class is not None:
+            if not reciprocal:
+                counts["nonreciprocal_official_relation"] += 1
+                details.append({
+                    "pair": tuple(sorted(pair)),
+                    "status": "nonreciprocal_official_relation",
+                    "reason": "automatic bidirectional transfer requires reciprocal ODPT records",
+                })
+                continue
+            straight_line_lower_bound = _distance_m(
+                graph.nodes[source], graph.nodes[target]
+            )
+            if straight_line_lower_bound > transfer_policy.automatic_resource_meters:
+                counts["straight_line_exceeds_walk_limit"] += 1
+                details.append({
+                    "pair": tuple(sorted(pair)),
+                    "status": "straight_line_exceeds_walk_limit",
+                    "straight_line_lower_bound_meters": straight_line_lower_bound,
+                })
+                continue
+            if math.ceil(straight_line_lower_bound / 80.0) > transfer_policy.automatic_minutes:
+                raise ValueError(
+                    "Tokyo Metro automatic transfer allowance is shorter than "
+                    f"its straight-line time floor: {sorted(pair)!r}"
+                )
             edge = {
                 "w": WALK_COST * transfer_policy.automatic_minutes,
                 "etype": "walk",
@@ -489,7 +530,11 @@ def add_tokyo_metro_to_graph(
                 "transfer_path_class": path_class,
                 "transfer_time_basis": "app_conservative_allowance",
                 "transfer_time_estimated": True,
+                "transfer_time_confidence": "unverified_conservative",
                 "physical_walk_distance_known": False,
+                "physical_walk_distance_lower_bound_meters": straight_line_lower_bound,
+                "walk_constraint_verified": False,
+                "official_relation_reciprocal": True,
                 "transfer_model_schema": transfer_policy.schema,
             }
             status = "automatic_same_station"
@@ -503,17 +548,35 @@ def add_tokyo_metro_to_graph(
             continue
         canonical_pairs[canonical_pair] = tuple(sorted(pair))
         exception = transfer_policy.exceptions.get(pair)
-        if exception is not None:
-            edge["transfer_available_windows"] = exception["available_windows"]
-            edge["transfer_availability_evidence_urls"] = exception["evidence_urls"]
-            edge["transfer_availability_reason"] = exception["reason"]
-        graph.add_edge(source, target, **edge)
-        graph.add_edge(target, source, **edge)
+        added_directions = []
+        for from_id, to_id, from_node, to_node in (
+            (first_id, second_id, source, target),
+            (second_id, first_id, target, source),
+        ):
+            if exception is not None:
+                direction_name = (
+                    "from_to"
+                    if from_id == exception["from_station_id"]
+                    else "to_from"
+                )
+                if exception["directions"] not in ("both", direction_name):
+                    continue
+            directed_edge = dict(edge)
+            if exception is not None:
+                directed_edge["transfer_available_windows"] = exception["available_windows"]
+                directed_edge["transfer_availability_evidence_urls"] = exception["evidence_urls"]
+                directed_edge["transfer_availability_reason"] = exception["reason"]
+                directed_edge["transfer_direction_evidence"] = exception["directions"]
+            graph.add_edge(from_node, to_node, **directed_edge)
+            added_directions.append((from_id, to_id))
+        if not added_directions:
+            raise ValueError(f"Tokyo Metro transfer exception disables every direction: {sorted(pair)!r}")
         added_transfer_pairs.add(pair)
         counts[status] += 1
         details.append({
             "pair": tuple(sorted(pair)), "status": status,
             "canonical_nodes": (source, target),
+            "added_directions": tuple(added_directions),
         })
 
     # Every reviewed override must have been applied.  Automatically unsupported

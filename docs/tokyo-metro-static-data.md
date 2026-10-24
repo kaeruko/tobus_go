@@ -298,13 +298,45 @@ hit the cap, but the worst sample leaves only 24.684% and does not establish a
 production limit-hit rate.
 
 The exact 15-minute automatic transfer is enforced before boarding a concrete
-trip. Unit tests reject a departure that precedes the completed transfer, a
-walk that would extend beyond a known closing window, an unofficial/nonmatching
-station relation, and an unsupported different-station link. Existing reviewed
-route probes preserve the first result's exact trips and clocks. Newly enabled
-same-station routes may legitimately supersede an older path.
+trip. It is an unverified application allowance, not a station-specific or
+operator-published minimum. Unit tests reject a departure that precedes the
+completed transfer, a walk that would extend beyond a known closing window, an
+unofficial/nonmatching station relation, a one-way ODPT relation, a coordinate
+lower bound beyond 600 m, and an unsupported different-station link. Existing
+reviewed route probes preserve the first result's exact trips and clocks.
+Newly enabled same-station routes may legitimately supersede an older path.
 
-Local WSL measurements (not Lambda measurements) were 39.8 MiB after imports,
+All 91 raw same-slug relations in the accepted Metro/Toei station snapshots
+are reciprocal. Their coordinate separations are retained only as lower bounds
+(median 132.7 m, maximum 436.2 m), not as walking distances. The current
+structured inputs contain no platform/gate paths, actual corridor lengths,
+minimum transfer times or opening windows, so the 89 unique automatic pairs
+cannot be classified safely as same-platform/near-platform/ordinary/long.
+Their response metadata keeps physical metres unknown, reports the full 600 m
+planning debit and marks the walking constraint unverified. Only four override
+pairs have reviewed path/distance/timing evidence.
+
+A development-only allowance comparison illustrates why the measured search
+differences must not be labelled optimization results:
+
+| Common allowance | Shibuya→Asakusa pop / candidate hash | Nakano-sakaue→Myoden pop / candidate hash |
+| ---: | --- | --- |
+| 8 min | 62,505 / unchanged from 15 min | 21,730 / different |
+| 15 min | 56,572 / baseline | 75,316 / baseline |
+| 20 min | 55,756 / unchanged from 15 min | 71,987 / different |
+
+Every run returned five candidates without an error. The changing Myoden
+candidate hashes show that duration changes concrete feasibility, while the
+unchanged Shibuya hashes show that pop can change even when the five outputs do
+not. None of 8/15/20 minutes was validated as universally sufficient; the
+comparison did not change the committed 15-minute policy.
+
+The latest fresh Windows run was 39.8 MiB after imports, 597.5 MiB after the
+base pickle, 1,040.5 MiB after Toei bus GTFS, 1,200.5 MiB after Metro, 1,219.2
+MiB final RSS, and 1,245.6 MiB process peak. Run-to-run allocator variation
+means the roughly 12 MiB difference from the preceding Windows observation is
+not attributed to the small metadata fields. The earlier local WSL measurement
+(not a Lambda measurement) was 39.8 MiB after imports,
 596.3 MiB after the base pickle, 1,037.0 MiB after Toei bus GTFS, 1,196.2 MiB
 after Metro, 1,242.8 MiB final RSS, and 1,280.8 MiB process peak. The four-edge
 reviewed run peaked at 1,280.6 MiB, so the additional transfer edges were below
@@ -321,8 +353,9 @@ changed here.
 
 1. Resolve or explicitly exclude the 28 different-station relations whose
    walked paths, directionality or opening restrictions cannot be proven by
-   the common input. Audit known time/direction restrictions for the 89
-   automatic walk pairs; absence of an exception is not proof of 24-hour use.
+   the common input. Audit actual corridor length/time and known
+   time/direction restrictions for the 89 automatic walk pairs; absence of an
+   exception is not proof of 24-hour, bidirectional or sub-600 m use.
 2. Run a larger fixed OD corpus. The Metro-only `fewTransfers` tail is improved
    but still structurally grows when five distinct boarding histories are
    requested; no safe general A*/dominance improvement has yet been proved.

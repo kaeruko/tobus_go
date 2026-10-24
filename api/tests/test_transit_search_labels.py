@@ -13,6 +13,7 @@ import unittest
 import networkx as nx
 
 from route_engine import RouteContractError, RouteSearchLimitError
+from reviewed_walk_time import walk_edge_elapsed_minutes, walk_edge_resource_meters
 import transit_search_labels as shared
 import tokyo_search_labels as tokyo
 
@@ -95,6 +96,31 @@ def _search(mode, **overrides):
         return list(shared.search_labels(graph, choices, "start", "target", **arguments))
 
 
+def _walk_resource_search(graph, target, *, max_total_walk=3000.0):
+    def prepare_bounds(check_deadline, deadline):
+        check_deadline()
+        return _ZeroBound("time"), lambda cost, remaining: cost, lambda clock, remaining: clock
+
+    with contextlib.redirect_stdout(io.StringIO()):
+        return list(shared.search_labels(
+            graph, SimpleNamespace(can_wait_offboard=True), "start", target,
+            mode="time", start_minute=0.0, max_search=1, max_visited=1000,
+            max_travel_min=240.0, time_limit_sec=15.0,
+            max_total_walk=max_total_walk, max_segment_walk=600.0,
+            walk_speed=80.0, rail_boarding_minutes=0.0,
+            advance_time=lambda u, v, clock, edge: clock + (
+                walk_edge_elapsed_minutes(edge)
+                if edge.get("etype") == "walk"
+                else edge.get("minutes", 0.0)
+            ),
+            virtual_connections={}, edge_uses_rail=lambda u, v: False,
+            prepare_bounds=prepare_bounds, path_signature=tuple,
+            path_factory=shared.SelectedPath, compact_queue=shared._compact_queue,
+            ride_options=lambda *args: (), alight_minutes=lambda ride: 0.0,
+            walk_meters=walk_edge_resource_meters,
+        ))
+
+
 class TransitSearchLabelsTest(unittest.TestCase):
     def test_virtual_walk_can_produce_another_certified_time_goal_bucket(self):
         graph = nx.DiGraph()
@@ -139,6 +165,42 @@ class TransitSearchLabelsTest(unittest.TestCase):
                 self.assertEqual(len(_search(mode, max_total_walk=160.0, max_segment_walk=80.0)), 1)
                 self.assertEqual(_search(mode, max_total_walk=159.0), [])
                 self.assertEqual(_search(mode, max_segment_walk=79.0), [])
+
+    def test_unknown_transfer_resource_is_conservative_for_adjacent_walks(self):
+        graph = nx.DiGraph()
+        graph.add_edge(
+            "start", "interchange", etype="walk", meters=0.0,
+            walk_resource_meters=600.0, reviewed_walk_minutes=15,
+        )
+        graph.add_edge("interchange", "target", etype="walk", meters=1.0)
+        # The actual unknown path might be short enough, but the common model
+        # deliberately cannot certify 600m plus an adjacent walk segment.
+        self.assertEqual(_walk_resource_search(graph, "target"), [])
+
+    def test_unknown_transfer_resource_resets_segment_but_not_total_walk(self):
+        graph = nx.DiGraph()
+        previous = "start"
+        for index in range(5):
+            walked = f"walked-{index}"
+            graph.add_edge(
+                previous, walked, etype="walk", meters=0.0,
+                walk_resource_meters=600.0, reviewed_walk_minutes=15,
+            )
+            if index < 4:
+                reset = f"reset-{index}"
+                graph.add_edge(walked, reset, etype="access", minutes=0.0)
+                previous = reset
+            else:
+                previous = walked
+        self.assertEqual(len(_walk_resource_search(graph, previous)), 1)
+
+        reset = "reset-5"
+        graph.add_edge(previous, reset, etype="access", minutes=0.0)
+        graph.add_edge(
+            reset, "sixth", etype="walk", meters=0.0,
+            walk_resource_meters=600.0, reviewed_walk_minutes=15,
+        )
+        self.assertEqual(_walk_resource_search(graph, "sixth"), [])
 
     def test_explicit_alighting_policy_changes_the_same_selected_run_clock(self):
         path = _search("time", alight_minutes=lambda ride: 1.25)[0]["path"]
