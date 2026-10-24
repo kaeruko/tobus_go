@@ -9,7 +9,11 @@ that this application can safely schedule. The authenticated ODPT station
 master is not committed. Run `scripts/audit_tokyo_metro_transfers.py` against
 that local input to reproduce the complete inventory.
 
-## Inventory and acceptance rule
+## Inventory and original reviewed-only acceptance rule
+
+This section records the four-edge baseline used before the common model. The
+current runtime policy is described under **Implemented common transfer
+model** below; the historical measurements remain useful for comparison.
 
 The accepted ODPT station snapshot contains 123 distinct relevant station
 pairs: 72 Tokyo Metro-to-Metro pairs and 51 Tokyo Metro-to-Toei subway pairs.
@@ -411,6 +415,83 @@ sharing remains in use; no timetable structure was removed and no memory code
 changed in this continuation.  Docker Desktop's Linux engine was unavailable,
 so WSL was used locally.  No AWS login or resource access was performed.
 
+## Implemented common transfer model
+
+The strict four-override state and the full-connection synthetic runs above are
+preserved as baselines. The runtime now applies one fail-closed pipeline to all
+123 official relations:
+
+1. Normalize the two ODPT station IDs to loaded physical nodes, including the
+   known Marunouchi-branch code alias.
+2. Require the exact official `connectingStation` pair. Do not complete a
+   station-complex clique.
+3. Prefer one of the four reviewed overrides.
+4. Otherwise, enable only pairs whose final ODPT station slug is identical.
+   Schedule a 15-minute application allowance, debit the full 600-metre
+   continuous/total walking resource, and keep physical distance unknown.
+5. Apply a cited availability-window exception when one exists; the complete
+   walk, not only its start, must fit the window.
+6. Leave different-slug relations disabled and report the reason. A station
+   map, direction-specific restriction, out-of-gate corridor or linked-station
+   route can become a small reviewed override/exception without changing the
+   common algorithm.
+
+The 15 minutes comprise the existing 600-metre resource at 80 m/min (7.5
+minutes) plus a conservative circulation/vertical-movement buffer, rounded up.
+It is deliberately serialized as `app_conservative_allowance`, with
+`walking_time_estimated=true`, `physical_walk_distance_known=false`, and a
+separate `planning_walk_resource_meters=600`. It is not described as an
+official minimum, measured distance, accessibility guarantee or entitlement.
+The previous four edges retain `reviewed_station_path`, known metres and cited
+operator evidence.
+
+### Resulting inventory
+
+The topology audit counts 91 raw same-slug relations. Runtime canonicalization
+reduces these to 89 unique automatic walk pairs because one raw relation is the
+same physical M06 node and one is a duplicate canonical pair. Together with 4
+reviewed pairs, the runtime result is:
+
+| Classification | Raw relations | New walk edges |
+| --- | ---: | ---: |
+| automatic same-station | 89 unique | 89 bidirectional pairs |
+| reviewed override | 4 | 4 bidirectional pairs |
+| same physical node | 1 | none required |
+| duplicate canonical relation | 1 | none required |
+| unsupported different-station | 28 | disabled |
+| **searchable / total** | **95 / 123** | **93 pairs** |
+
+This removes pair-by-pair timing entries for 89 connections. It does not remove
+manual work for the remaining 28 linked-station/out-of-gate relations or for
+known direction/opening/accessibility restrictions. The common ODPT snapshot
+does not contain platform paths, gate state, walked distance or opening hours;
+those facts cannot be safely inferred from a shared complex or coordinate.
+
+### Route and stress validation
+
+The three Metro-only reviewed-route first results retained the same exact trips
+and clocks after the common model:
+
+| Route probe | Transfer clock | Concrete trips |
+| --- | --- | --- |
+| Hatchobori to Kinshicho | 10:07–10:14 | `30B0958S00`, `70A0977S00` |
+| Toyosu to Shibuya | 10:09–10:13 | `61B0906M00`, `11A0957000` |
+| Ebisu to Asakusa | 10:15–10:21 | `30B1066S00`, `10B1005000` |
+
+The previous cross-operator sample now finds the official same-station
+Aoyama-itchome connection first; its 10:22–10:37 app allowance completes
+before the selected 10:40 Metro train. This is an intentional topology change,
+but the path/time remains marked estimated rather than reviewed.
+
+The seven-scope table and Linux memory phases are recorded in
+`tokyo-metro-static-data.md`. Shibuya-to-Asakusa `fewTransfers` rose from
+27,370 to 56,572 pops. Candidate limits 1..5 used 1,397 / 5,158 / 11,064 /
+28,836 / 56,572 pops. The former all-connection synthetic worst input,
+Nakano-sakaue to Nishi-funabashi, used 45,939 pops under this common model;
+a 24-query sweep instead peaked at 75,316 for Nakano-sakaue to Myoden. No
+measured call hit 100,000, but the margin is not sufficient to infer a
+production p95/p99 or zero limit-hit rate.
+
 ## Safe search work and release gates
 
 The current admissible lexicographic suffix bound is used for queue ordering.
@@ -423,7 +504,7 @@ station name all have known counterexamples and remain rejected.
 Two possible exact improvements deserve isolated proof and differential tests:
 
 1. a lower bound on remaining elapsed time used only to reject a label that
-   cannot satisfy the unchanged 180-minute deadline; it must cover every legal
+   cannot satisfy the unchanged Tokyo 240-minute deadline; it must cover every legal
    rail, bus and walk suffix and include a floating-point safety guard;
 2. stronger route-based/RAPTOR-style admissible suffix preprocessing for
    ordering, or exact dominance only after proving that the key contains the
@@ -432,6 +513,11 @@ Two possible exact improvements deserve isolated proof and differential tests:
 
 No new pruning was implemented because the present evidence does not prove
 that the same five candidates and order are preserved.
+
+The previously cited 180-minute limit was a documentation error caused by
+carrying over Sendai's parameter. The Tokyo engine defines
+`MAX_TRAVEL_MIN = 240.0`; a regression test now pins that value. The search
+limit itself was not changed.
 
 Public release should remain blocked until: (a) useful origin-destination
 coverage is defined and its necessary complexes have reviewed directed paths

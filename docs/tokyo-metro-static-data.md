@@ -72,7 +72,7 @@ Rail interchange edges require an official ODPT `connectingStation` relation;
 same names and proximity alone never create them. Bus-to-Metro access uses the
 existing pedestrian-distance model and the official stop/station coordinates.
 
-### Reviewed rail-interchange contract
+### Common rail-interchange contract
 
 The official connection relation and Tokyo Metro's published interchange list
 verify that the interchange exists. The available static inputs do not provide
@@ -82,24 +82,37 @@ transfers; it is not a minimum walk or connection time. Station maps and the
 official app can show paths, but the audited sources do not expose a complete,
 machine-readable duration table.
 
-Consequently an ODPT relation, same station name, or straight-line coordinate
-distance is never enough to add a rail-to-rail walk edge. Runtime accepts a
-`tokyo_metro_reviewed_transfer/v1` manifest. Every entry must provide
-the two ODPT station IDs, reviewed minimum minutes, actual walking distance,
-review date, and official HTTPS evidence URLs. Import fails for an unknown
-pair, invalid operator, unapproved source, duplicate, or value outside the
-existing 600-metre per-walk limit, or shorter than the official-path-distance
-walking floor. Missing configuration fails prebuild instead of silently
-disabling transfers.
+Runtime accepts `tokyo_metro_transfer_policy/v2`. ODPT
+`connectingStation` remains mandatory, so neither a common complex, same
+displayed name nor proximity creates a clique. The common rule additionally
+requires equal normalized ODPT station slugs. This identifies a same-station
+relation without making a claim about platform geometry. Different-station
+relations require a reviewed override because the available machine-readable
+input cannot prove that their walked path meets the existing 600-metre limit.
 
-The accepted ODPT snapshot has 123 relevant distinct pairs: 72 Metro-to-Metro
-and 51 Metro-to-Toei subway. Four reviewed pairs are enabled and 119 remain
-absent from the graph. The enabled pairs are Ningyocho–Suitengumae (Metro and
-Toei sides), Toranomon–Toranomon Hills, and Ginza–Ginza-itchome. See
-`docs/tokyo-metro-transfer-review.md` for evidence, route checks, and the
-explicit unresolved status. Bus-to-Metro outdoor access continues to use the
-existing coordinate walking model and is not described as a reviewed
-platform/gate transfer.
+The common same-station rule schedules 15 minutes. This is an application
+allowance, not an operator minimum: it is the full 600-metre walking resource
+at the existing 80 m/min floor (7.5 minutes), rounded up with a further 7-minute
+circulation/vertical-movement buffer. Because no physical path was measured,
+the response reports zero known physical metres, marks the time as estimated,
+and separately debits the full 600-metre search resource. Known official
+opening windows can be attached as exceptions; the complete walk must fit in a
+window. Unknown restrictions are not invented and remain a release caveat.
+
+Four existing reviewed values override the common model and preserve their
+official evidence, physical distances and exact allowances. The legacy
+`tokyo_metro_reviewed_transfer/v1` parser remains available for compatibility,
+but does not enable the automatic rule. Both schemas fail fast for an unknown
+official pair, invalid operator, invalid source, duplicate, malformed window,
+or a duration shorter than its distance/resource floor.
+
+For the accepted snapshot, the raw 123 relations classify as 89 unique
+automatic same-station walk pairs, 4 reviewed walk pairs, 1 same physical node,
+1 canonical duplicate and 28 unsupported different-station relations. Thus 95
+raw relations are searchable and 28 remain disabled. Bus-to-Metro outdoor
+access continues to use the existing coordinate walking model and is not
+described as a reviewed platform/gate transfer. See
+`docs/tokyo-metro-transfer-review.md` for the full accounting and limitations.
 
 ### Fare/UI boundary
 
@@ -256,11 +269,60 @@ Therefore production compatibility is not yet established and must be checked
 with a dedicated non-production Lambda before release; reducing duplicate base
 graph/Toei GTFS residency is the largest observed memory opportunity.
 
+## Common-model performance update (2026-10-24)
+
+The v2 common model was measured with the same feed, service date, limits and
+representative seven scopes. All 18 base/priority calls completed without a
+100,000-pop or 15-second search error. The three scopes that exclude Metro
+(bus, Toei subway, and bus + Toei subway) retained identical candidate hashes,
+candidate counts and pop counts in both objectives.
+
+| Scope | `time` pop / s / candidates | `fewTransfers` pop / s / candidates |
+| --- | --- | --- |
+| Toei bus | 25,660 / 5.544 / 1 | 1,665 / 0.633 / 5 |
+| Toei subway | 40 / 0.419 / 1 | 4,014 / 0.575 / 5 |
+| Tokyo Metro | 130 / 0.752 / 1 | 56,572 / 2.044 / 5 |
+| bus + Toei subway | 8,914 / 3.322 / 1 | 4,655 / 1.229 / 5 |
+| bus + Metro | 260 / 1.169 / 1 | 2,137 / 1.255 / 5 |
+| Toei subway + Metro | 40 / 1.169 / 1 | 4,014 / 1.229 / 5 |
+| all three | 758 / 1.768 / 1 | 2,139 / 1.639 / 5 |
+
+The fixed Metro Shibuya-to-Asakusa `fewTransfers` query rose from 27,370
+pops with four reviewed edges to 56,572 with the common network. Candidate
+limits 1 through 5 required 1,397, 5,158, 11,064, 28,836 and 56,572 pops. The
+previous development-only all-connection stress result of 85,942 pops for
+Nakano-sakaue to Nishi-funabashi became 45,939 under the common model. A
+24-query Metro corridor sweep found a higher common-model case,
+Nakano-sakaue to Myoden, at 75,316 pops and 77,851 retained labels. No sample
+hit the cap, but the worst sample leaves only 24.684% and does not establish a
+production limit-hit rate.
+
+The exact 15-minute automatic transfer is enforced before boarding a concrete
+trip. Unit tests reject a departure that precedes the completed transfer, a
+walk that would extend beyond a known closing window, an unofficial/nonmatching
+station relation, and an unsupported different-station link. Existing reviewed
+route probes preserve the first result's exact trips and clocks. Newly enabled
+same-station routes may legitimately supersede an older path.
+
+Local WSL measurements (not Lambda measurements) were 39.8 MiB after imports,
+596.3 MiB after the base pickle, 1,037.0 MiB after Toei bus GTFS, 1,196.2 MiB
+after Metro, 1,242.8 MiB final RSS, and 1,280.8 MiB process peak. The four-edge
+reviewed run peaked at 1,280.6 MiB, so the additional transfer edges were below
+meaningful process-level resolution. The earlier approximately 126.6 MiB string
+sharing reduction remains present. A dedicated Lambda artifact measurement is
+still required before release.
+
+Tokyo's actual `MAX_TRAVEL_MIN` is 240 minutes. The 180-minute value mentioned
+in an earlier audit note belongs to Sendai search parameters and was not a
+Tokyo runtime limit. Neither value nor the 100,000-pop/15-second limits was
+changed here.
+
 ## Production blockers and follow-up
 
-1. Continue reviewing the 119 unresolved platform/gate transfer paths. Four
-   pairs are now usable, but the network is not complete enough to claim full
-   Metro/Toei interchange coverage.
+1. Resolve or explicitly exclude the 28 different-station relations whose
+   walked paths, directionality or opening restrictions cannot be proven by
+   the common input. Audit known time/direction restrictions for the 89
+   automatic walk pairs; absence of an exception is not proof of 24-hour use.
 2. Run a larger fixed OD corpus. The Metro-only `fewTransfers` tail is improved
    but still structurally grows when five distinct boarding histories are
    requested; no safe general A*/dominance improvement has yet been proved.

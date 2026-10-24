@@ -12,15 +12,17 @@ import networkx as nx
 from app.services.train_realtime import StaticTrainGtfs
 from app.services.train_route_identity import enrich_route_result_train_trip_ids
 from route_engine import RouteInputError
-from toei_engine import SpatialIndex, TimetableManager
+from toei_engine import MAX_TRAVEL_MIN, SpatialIndex, TimetableManager
 from tokyo_metro_gtfs import (
     _reviewed_transfers,
+    _transfer_policy,
     add_tokyo_metro_to_graph,
     inspect_tokyo_metro_feed,
     metro_service_is_active,
     enrich_selected_metro_run,
     scoped_timetable_manager,
 )
+from tokyo_metro_transfer_model import POLICY_SCHEMA
 from transport_scope import TOEI_BUS, TOEI_SUBWAY, TOKYO_METRO
 from tokyo_route_engine import TokyoRouteEngine
 
@@ -82,6 +84,39 @@ def _fixture(tmp_path):
     railway_path = tmp_path / "railways.json"
     railway_path.write_text(json.dumps(railways, ensure_ascii=False), encoding="utf-8")
     return gtfs, station_path, railway_path
+
+
+def _common_policy(tmp_path, *, exceptions=(), overrides=()):
+    path = tmp_path / "transfer-policy.json"
+    path.write_text(json.dumps({
+        "schema": POLICY_SCHEMA,
+        "automatic_model": {
+            "version": "odpt_same_station_conservative/v1",
+            "eligible_relation": "same_station_slug",
+            "unmatched_relation_policy": "disabled_requires_override",
+            "minimum_minutes": 15,
+            "walk_resource_meters": 600,
+            "distance_basis": "unknown_consumes_full_segment_limit",
+            "time_basis": "app_conservative_allowance",
+            "official_minimum": False,
+        },
+        "overrides": list(overrides),
+        "exceptions": list(exceptions),
+    }), encoding="utf-8")
+    return path
+
+
+def _make_same_station_connection(stations_path):
+    stations = json.loads(stations_path.read_text(encoding="utf-8"))
+    old = "odpt.Station:TokyoMetro.Hanzomon.C"
+    new = "odpt.Station:TokyoMetro.Hanzomon.B"
+    stations[1]["odpt:connectingStation"] = [new]
+    stations[2]["owl:sameAs"] = new
+    stations[2]["odpt:connectingStation"] = [
+        "odpt.Station:TokyoMetro.Ginza.B"
+    ]
+    stations_path.write_text(json.dumps(stations, ensure_ascii=False), encoding="utf-8")
+    return "odpt.Station:TokyoMetro.Ginza.B", new
 
 
 def test_feed_audit_and_import_preserve_exact_runs_calendar_and_24_hour_times(tmp_path):
@@ -154,6 +189,12 @@ def test_feed_audit_and_import_preserve_exact_runs_calendar_and_24_hour_times(tm
 
 def test_committed_transfer_manifest_is_strict_and_reviewed():
     manifest = Path(__file__).resolve().parents[1] / "config" / "tokyo_metro_reviewed_transfers.json"
+    policy = _transfer_policy(str(manifest))
+    assert policy.schema == POLICY_SCHEMA
+    assert policy.automatic_enabled is True
+    assert policy.automatic_minutes == 15
+    assert policy.automatic_resource_meters == 600
+    assert policy.exceptions == {}
     transfers = _reviewed_transfers(str(manifest))
     assert len(transfers) == 4
     assert {
@@ -180,6 +221,8 @@ def test_committed_transfer_manifest_is_strict_and_reviewed():
             ),
         )
     }
+    assert {item["path_class"] for item in transfers.values()} == {"linked_station"}
+    assert MAX_TRAVEL_MIN == 240.0
 
 
 def test_official_connection_requires_reviewed_transfer(tmp_path):
@@ -222,6 +265,134 @@ def test_official_connection_requires_reviewed_transfer(tmp_path):
     assert edge["reviewed_walk_minutes"] == 4
     assert edge["meters"] == 120
     assert reviewed_graph.edges[c, b] == edge
+
+
+def test_common_model_generates_only_official_same_station_connections(tmp_path):
+    gtfs, stations, railways = _fixture(tmp_path)
+    first_id, second_id = _make_same_station_connection(stations)
+    graph = nx.DiGraph()
+    manager = TimetableManager()
+    add_tokyo_metro_to_graph(
+        graph, manager, gtfs_dir=str(gtfs), stations_path=str(stations),
+        railways_path=str(railways),
+        reviewed_transfers_path=str(_common_policy(tmp_path)),
+    )
+    edge = graph.edges[("phys", first_id), ("phys", second_id)]
+    assert edge["official_connection"] is True
+    assert edge["transfer_path_class"] == "same_station"
+    assert edge["transfer_time_basis"] == "app_conservative_allowance"
+    assert edge["transfer_time_estimated"] is True
+    assert edge["physical_walk_distance_known"] is False
+    assert edge["reviewed_walk_minutes"] == 15
+    assert edge["meters"] == 0.0
+    assert edge["walk_resource_meters"] == 600.0
+    assert manager.tokyo_metro_transfer_model_report["automatic_same_station"] == 1
+    # The unrelated A/D identities have no official relation and must not be
+    # turned into a clique by their presence in the same loaded graph.
+    assert not graph.has_edge(
+        ("phys", "odpt.Station:TokyoMetro.Ginza.A"),
+        ("phys", "odpt.Station:TokyoMetro.Hanzomon.D"),
+    )
+
+
+def test_common_model_keeps_different_station_relation_disabled(tmp_path):
+    gtfs, stations, railways = _fixture(tmp_path)
+    graph = nx.DiGraph()
+    manager = TimetableManager()
+    add_tokyo_metro_to_graph(
+        graph, manager, gtfs_dir=str(gtfs), stations_path=str(stations),
+        railways_path=str(railways),
+        reviewed_transfers_path=str(_common_policy(tmp_path)),
+    )
+    first = ("phys", "odpt.Station:TokyoMetro.Ginza.B")
+    second = ("phys", "odpt.Station:TokyoMetro.Hanzomon.C")
+    assert not graph.has_edge(first, second)
+    report = manager.tokyo_metro_transfer_model_report
+    assert report["unsupported_different_station"] == 1
+    assert report["searchable_raw_pairs"] == 0
+
+
+def test_common_transfer_closure_rejects_the_concrete_connection(tmp_path):
+    gtfs, stations_path, railways_path = _fixture(tmp_path)
+    first_id, second_id = _make_same_station_connection(stations_path)
+    stations = json.loads(stations_path.read_text(encoding="utf-8"))
+    for station, lat in zip(stations, (35.60, 35.61, 35.62, 35.63)):
+        station["geo:lat"] = lat
+        station["geo:long"] = 139.70
+    stations_path.write_text(json.dumps(stations), encoding="utf-8")
+    exception = {
+        "from_station_id": first_id,
+        "to_station_id": second_id,
+        "available_windows": [{"start": "05:00", "end": "24:10"}],
+        "evidence_urls": ["https://www.tokyometro.jp/station/index.html"],
+        "reason": "fixture closing time",
+    }
+    graph = nx.DiGraph()
+    manager = TimetableManager()
+    add_tokyo_metro_to_graph(
+        graph, manager, gtfs_dir=str(gtfs), stations_path=str(stations_path),
+        railways_path=str(railways_path),
+        reviewed_transfers_path=str(_common_policy(
+            tmp_path, exceptions=(exception,)
+        )),
+    )
+    app = SimpleNamespace(state=SimpleNamespace(
+        G=graph, TM=manager, SI=SpatialIndex(graph), WALK_RAD=300,
+    ))
+    result = TokyoRouteEngine(app).search_legacy(
+        alat=35.60, alon=139.70, blat=35.63, blon=139.70,
+        pref="time", transport_scope=frozenset((TOKYO_METRO,)),
+        start_time="23:49", date_str="2026-09-24", limit=1,
+    )
+    assert result["candidates"] == []
+
+
+def test_common_allowance_rejects_early_train_and_reports_estimate(tmp_path):
+    gtfs, stations_path, railways_path = _fixture(tmp_path)
+    _make_same_station_connection(stations_path)
+    stop_times = gtfs / "stop_times.txt"
+    text = stop_times.read_text(encoding="utf-8")
+    stop_times.write_text(
+        text.replace("24:12:00,24:12:00,201", "24:25:00,24:25:00,201")
+            .replace("24:16:00,24:16:00,202", "24:29:00,24:29:00,202"),
+        encoding="utf-8",
+    )
+    stations = json.loads(stations_path.read_text(encoding="utf-8"))
+    for station, lat in zip(stations, (35.60, 35.61, 35.62, 35.63)):
+        station["geo:lat"] = lat
+        station["geo:long"] = 139.70
+    stations_path.write_text(json.dumps(stations), encoding="utf-8")
+    graph = nx.DiGraph()
+    manager = TimetableManager()
+    add_tokyo_metro_to_graph(
+        graph, manager, gtfs_dir=str(gtfs), stations_path=str(stations_path),
+        railways_path=str(railways_path),
+        reviewed_transfers_path=str(_common_policy(tmp_path)),
+    )
+    app = SimpleNamespace(state=SimpleNamespace(
+        G=graph, TM=manager, SI=SpatialIndex(graph), WALK_RAD=300,
+    ))
+    result = TokyoRouteEngine(app).search_legacy(
+        alat=35.60, alon=139.70, blat=35.63, blon=139.70,
+        pref="time", transport_scope=frozenset((TOKYO_METRO,)),
+        start_time="23:49", date_str="2026-09-24", limit=1,
+    )
+    steps = result["candidates"][0]["steps"]
+    rails = [step for step in steps if step["kind"] == "rail"]
+    transfer = next(step for step in steps if step.get("walking_time_estimated"))
+    assert [step["trip_id"] for step in rails] == [
+        "tokyo_metro:g-late", "tokyo_metro:z-after-transfer",
+    ]
+    assert rails[0]["arrival_time"] == "24:05"
+    assert transfer["departure_time"] == "24:06"
+    assert transfer["arrival_time"] == "24:21"
+    assert transfer["minutes"] == 15
+    assert transfer["meters"] == 0
+    assert transfer["planning_walk_resource_meters"] == 600
+    assert transfer["physical_walk_distance_known"] is False
+    assert transfer["walking_connection_verified"] is False
+    assert transfer["walking_time_basis"] == "app_conservative_allowance"
+    assert rails[1]["departure_time"] == "24:25"
 
 
 def test_reviewed_transfer_without_official_relation_fails(tmp_path):
@@ -459,6 +630,30 @@ class TokyoMetroGtfsTest(unittest.TestCase):
     def test_official_connection_requires_reviewed_transfer(self):
         with tempfile.TemporaryDirectory() as directory:
             test_official_connection_requires_reviewed_transfer(
+                Path(directory)
+            )
+
+    def test_common_model_generates_only_official_same_station_connections(self):
+        with tempfile.TemporaryDirectory() as directory:
+            test_common_model_generates_only_official_same_station_connections(
+                Path(directory)
+            )
+
+    def test_common_model_keeps_different_station_relation_disabled(self):
+        with tempfile.TemporaryDirectory() as directory:
+            test_common_model_keeps_different_station_relation_disabled(
+                Path(directory)
+            )
+
+    def test_common_transfer_closure_rejects_concrete_connection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            test_common_transfer_closure_rejects_the_concrete_connection(
+                Path(directory)
+            )
+
+    def test_common_allowance_rejects_early_train_and_reports_estimate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            test_common_allowance_rejects_early_train_and_reports_estimate(
                 Path(directory)
             )
 

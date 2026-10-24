@@ -61,6 +61,7 @@ class TokyoMetroTransferAuditTest(unittest.TestCase):
         self.assertEqual(audit["counts"], {
             "total": 4,
             "reviewed": 1,
+            "automatic_same_station": 0,
             "unresolved": 3,
             "metro_to_metro": 3,
             "metro_to_toei": 1,
@@ -79,6 +80,42 @@ class TokyoMetroTransferAuditTest(unittest.TestCase):
         self.assertEqual(first["review_priority"], 1)
         self.assertEqual(second["station_slugs"], ["Beta"])
         self.assertEqual(second["unresolved_pairs"], 1)
+
+    def test_v2_audit_uses_the_validated_common_model_values(self):
+        stations = [
+            _station("odpt.Station:TokyoMetro.A.Alpha", "甲", [
+                "odpt.Station:TokyoMetro.B.Alpha",
+            ]),
+            _station("odpt.Station:TokyoMetro.B.Alpha", "甲", []),
+        ]
+        manifest = {
+            "schema": "tokyo_metro_transfer_policy/v2",
+            "automatic_model": {
+                "version": "odpt_same_station_conservative/v1",
+                "eligible_relation": "same_station_slug",
+                "unmatched_relation_policy": "disabled_requires_override",
+                "minimum_minutes": 17,
+                "walk_resource_meters": 550,
+                "distance_basis": "unknown_consumes_full_segment_limit",
+                "time_basis": "app_conservative_allowance",
+                "official_minimum": False,
+            },
+            "overrides": [],
+            "exceptions": [],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            station_path, manifest_path = root / "stations.json", root / "manifest.json"
+            station_path.write_text(json.dumps(stations), encoding="utf-8")
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            audit = MODULE.build_audit(station_path, manifest_path)
+
+        self.assertEqual(audit["counts"]["automatic_same_station"], 1)
+        row = audit["connections"][0]
+        self.assertEqual(row["status"], "automatic_same_station")
+        self.assertEqual(row["minimum_minutes"], 17)
+        self.assertEqual(row["walk_resource_meters"], 550.0)
+        self.assertIsNone(row["walking_distance_meters"])
 
 
 if __name__ == "__main__":

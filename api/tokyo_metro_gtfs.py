@@ -14,11 +14,16 @@ import math
 import os
 from collections import defaultdict
 from dataclasses import dataclass
-from urllib.parse import urlparse
 
 from transport_scope import TOEI_BUS, TOEI_SUBWAY, TOKYO_METRO, transport_for_line_node
 from walking_access import walking_elapsed_minutes
-from reviewed_walk_time import validate_reviewed_walk_timing
+from tokyo_metro_transfer_model import (
+    LEGACY_SCHEMA,
+    POLICY_SCHEMA,
+    automatic_path_class,
+    load_transfer_policy,
+    relevant_connection,
+)
 from toei_engine import WALK_COST
 
 
@@ -33,12 +38,8 @@ REQUIRED_FILES = (
     "translations.txt",
     "trips.txt",
 )
-TRANSFER_SCHEMA = "tokyo_metro_reviewed_transfer/v1"
-_TRANSFER_EVIDENCE_HOSTS = frozenset((
-    "tokyometro.jp", "www.tokyometro.jp",
-    "kotsu.metro.tokyo.jp", "www.kotsu.metro.tokyo.jp",
-    "odpt.org", "www.odpt.org", "developer.odpt.org", "ckan.odpt.org",
-))
+TRANSFER_SCHEMA = LEGACY_SCHEMA
+TRANSFER_POLICY_SCHEMA = POLICY_SCHEMA
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,54 +86,16 @@ def _distance_m(first: dict, second: dict) -> float:
     return 6_371_000 * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
-def _reviewed_transfers(path: str | None) -> dict[frozenset[str], dict]:
-    """Load explicit path distance/time evidence, or fail closed with none."""
+def _transfer_policy(path: str | None):
+    """Load the common model and its small reviewed-override layer."""
     if path is None:
-        return {}
-    payload = _json(path)
-    if not isinstance(payload, dict) or set(payload) != {"schema", "transfers"}:
-        raise ValueError("Tokyo Metro reviewed transfer manifest has an invalid envelope")
-    if payload["schema"] != TRANSFER_SCHEMA or not isinstance(payload["transfers"], list):
-        raise ValueError("Tokyo Metro reviewed transfer manifest has an unsupported schema")
-    result = {}
-    required = {
-        "from_station_id", "to_station_id", "minimum_minutes",
-        "walking_distance_meters", "evidence_urls", "reviewed_at",
-    }
-    for index, item in enumerate(payload["transfers"]):
-        if not isinstance(item, dict) or set(item) != required:
-            raise ValueError(f"Tokyo Metro reviewed transfer #{index} has invalid fields")
-        first, second = item["from_station_id"], item["to_station_id"]
-        if not all(isinstance(value, str) and value.startswith("odpt.Station:")
-                   for value in (first, second)) or first == second:
-            raise ValueError(f"Tokyo Metro reviewed transfer #{index} has invalid station IDs")
-        minutes, meters = item["minimum_minutes"], item["walking_distance_meters"]
-        if type(minutes) is not int or minutes < 1:
-            raise ValueError(f"Tokyo Metro reviewed transfer #{index} has invalid minutes")
-        if type(meters) not in (int, float) or not math.isfinite(meters) or not 0 < meters <= 600:
-            raise ValueError(f"Tokyo Metro reviewed transfer #{index} has invalid walking distance")
-        validate_reviewed_walk_timing(meters, minutes)
-        urls = item["evidence_urls"]
-        if not isinstance(urls, list) or not urls or any(
-            not isinstance(url, str) or urlparse(url).scheme != "https"
-            or urlparse(url).hostname not in _TRANSFER_EVIDENCE_HOSTS
-            for url in urls
-        ):
-            raise ValueError(f"Tokyo Metro reviewed transfer #{index} lacks official evidence")
-        try:
-            reviewed_at = dt.date.fromisoformat(item["reviewed_at"])
-        except (TypeError, ValueError) as error:
-            raise ValueError(f"Tokyo Metro reviewed transfer #{index} has invalid review date") from error
-        pair = frozenset((first, second))
-        if pair in result:
-            raise ValueError(f"Tokyo Metro reviewed transfer #{index} duplicates a station pair")
-        result[pair] = {
-            "minutes": minutes,
-            "meters": float(meters),
-            "evidence_urls": tuple(urls),
-            "reviewed_at": reviewed_at.isoformat(),
-        }
-    return result
+        return load_transfer_policy({"schema": LEGACY_SCHEMA, "transfers": []})
+    return load_transfer_policy(_json(path))
+
+
+def _reviewed_transfers(path: str | None) -> dict[frozenset[str], dict]:
+    """Backward-compatible test/helper view of reviewed overrides."""
+    return _transfer_policy(path).overrides
 
 
 def inspect_tokyo_metro_feed(gtfs_dir: str) -> TokyoMetroFeedInfo:
@@ -176,7 +139,8 @@ def add_tokyo_metro_to_graph(
     """Atomically validate inputs, then add Metro nodes, runs and allowed walks."""
 
     info = inspect_tokyo_metro_feed(gtfs_dir)
-    reviewed_transfers = _reviewed_transfers(reviewed_transfers_path)
+    transfer_policy = _transfer_policy(reviewed_transfers_path)
+    reviewed_transfers = transfer_policy.overrides
     def qualified(source_id: str) -> str:
         return f"tokyo_metro:{source_id}"
 
@@ -420,55 +384,153 @@ def add_tokyo_metro_to_graph(
         dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
     )
 
-    # Rail transfers require both an official ODPT connectingStation relation
-    # and reviewed path distance/time evidence. A relation alone verifies only
-    # topology; station-coordinate distance is not a platform/gate walk.
+    # ODPT connectingStation is the only automatic topology source.  The
+    # common model accepts same-station identities and consumes the full
+    # existing per-segment walking budget without pretending that it measured
+    # a 600 m physical path.  Different-station links remain fail-closed unless
+    # they have a reviewed override.
     mapped_station_ids = set(stop_to_station.values())
     official_pairs = set()
-    for station_id in mapped_station_ids:
-        station = station_by_id[station_id]
+    for station_id, station in station_by_id.items():
         connections = station.get("odpt:connectingStation") or ()
         if isinstance(connections, str):
             connections = (connections,)
         for target_id in connections:
-            official_pairs.add(frozenset((station_id, target_id)))
+            target_id = str(target_id)
+            if relevant_connection(target_id) and station_id != target_id:
+                official_pairs.add(frozenset((station_id, target_id)))
 
+    unknown_reviews = set(reviewed_transfers) - official_pairs
+    if unknown_reviews:
+        raise ValueError(
+            "Tokyo Metro reviewed transfer lacks an official connectingStation relation: "
+            f"{sorted(map(sorted, unknown_reviews))!r}"
+        )
+    unknown_exceptions = set(transfer_policy.exceptions) - official_pairs
+    if unknown_exceptions:
+        raise ValueError(
+            "Tokyo Metro transfer exception lacks an official connectingStation relation: "
+            f"{sorted(map(sorted, unknown_exceptions))!r}"
+        )
+
+    def canonical_station(station_id: str):
+        direct = ("phys", station_id)
+        if direct in graph:
+            return direct
+        station = station_by_id.get(station_id)
+        if station is not None:
+            canonical = station_by_code.get(str(station.get("odpt:stationCode") or ""))
+            if canonical is not None:
+                candidate = ("phys", _id(canonical))
+                if candidate in graph:
+                    return candidate
+        return None
+
+    counts = defaultdict(int)
+    details = []
+    canonical_pairs = {}
     added_transfer_pairs = set()
-    for pair, review in reviewed_transfers.items():
-        if pair not in official_pairs:
-            raise ValueError(
-                "Tokyo Metro reviewed transfer lacks an official connectingStation relation: "
-                f"{sorted(pair)!r}"
-            )
+    for pair in sorted(official_pairs, key=lambda value: tuple(sorted(value))):
+        counts["official_pairs"] += 1
         first_id, second_id = sorted(pair)
-        source, target = ("phys", first_id), ("phys", second_id)
-        if source not in graph or target not in graph:
-            raise ValueError(f"Tokyo Metro reviewed transfer references an unloaded station: {sorted(pair)!r}")
+        source, target = canonical_station(first_id), canonical_station(second_id)
+        if source is None or target is None:
+            counts["unloaded_station"] += 1
+            details.append({"pair": tuple(sorted(pair)), "status": "unloaded_station"})
+            continue
+        if source == target:
+            counts["same_physical_node"] += 1
+            details.append({"pair": tuple(sorted(pair)), "status": "same_physical_node"})
+            continue
+        canonical_pair = frozenset((source, target))
+        if canonical_pair in canonical_pairs:
+            counts["duplicate_canonical_pair"] += 1
+            details.append({
+                "pair": tuple(sorted(pair)), "status": "duplicate_canonical_pair",
+                "canonical_of": canonical_pairs[canonical_pair],
+            })
+            continue
         services = (
             set(graph.nodes[source].get("transport_services") or ()),
             set(graph.nodes[target].get("transport_services") or ()),
         )
         if not all(value.intersection((TOKYO_METRO, TOEI_SUBWAY)) for value in services) \
                 or TOKYO_METRO not in services[0] | services[1]:
-            raise ValueError(f"Tokyo Metro reviewed transfer has invalid operators: {sorted(pair)!r}")
-        edge = {
-            "w": WALK_COST * review["minutes"],
-            "etype": "walk",
-            "meters": review["meters"],
-            "reviewed_walk_minutes": review["minutes"],
-            "evidence_urls": review["evidence_urls"],
-            "reviewed_at": review["reviewed_at"],
-            "official_connection": True,
-            "transfer_time_basis": "reviewed_station_path",
-        }
+            counts["invalid_operators"] += 1
+            details.append({"pair": tuple(sorted(pair)), "status": "invalid_operators"})
+            continue
+
+        review = reviewed_transfers.get(pair)
+        path_class = automatic_path_class(first_id, second_id)
+        if review is not None:
+            edge = {
+                "w": WALK_COST * review["minutes"],
+                "etype": "walk",
+                "meters": review["meters"],
+                "reviewed_walk_minutes": review["minutes"],
+                "evidence_urls": review["evidence_urls"],
+                "reviewed_at": review["reviewed_at"],
+                "official_connection": True,
+                "transfer_path_class": review["path_class"],
+                "transfer_time_basis": "reviewed_station_path",
+                "transfer_time_estimated": False,
+                "physical_walk_distance_known": True,
+            }
+            status = "reviewed_override"
+        elif transfer_policy.automatic_enabled and path_class == "same_station":
+            edge = {
+                "w": WALK_COST * transfer_policy.automatic_minutes,
+                "etype": "walk",
+                # Unknown is not serialized as an invented physical distance.
+                "meters": 0.0,
+                "walk_resource_meters": transfer_policy.automatic_resource_meters,
+                "reviewed_walk_minutes": transfer_policy.automatic_minutes,
+                "official_connection": True,
+                "transfer_path_class": path_class,
+                "transfer_time_basis": "app_conservative_allowance",
+                "transfer_time_estimated": True,
+                "physical_walk_distance_known": False,
+                "transfer_model_schema": transfer_policy.schema,
+            }
+            status = "automatic_same_station"
+        else:
+            counts["unsupported_different_station"] += 1
+            details.append({
+                "pair": tuple(sorted(pair)),
+                "status": "unsupported_different_station",
+                "reason": "official relation has different station identities and no reviewed path override",
+            })
+            continue
+        canonical_pairs[canonical_pair] = tuple(sorted(pair))
+        exception = transfer_policy.exceptions.get(pair)
+        if exception is not None:
+            edge["transfer_available_windows"] = exception["available_windows"]
+            edge["transfer_availability_evidence_urls"] = exception["evidence_urls"]
+            edge["transfer_availability_reason"] = exception["reason"]
         graph.add_edge(source, target, **edge)
         graph.add_edge(target, source, **edge)
         added_transfer_pairs.add(pair)
+        counts[status] += 1
+        details.append({
+            "pair": tuple(sorted(pair)), "status": status,
+            "canonical_nodes": (source, target),
+        })
 
-    # Every reviewed entry must have been applied; unreviewed official
-    # connections deliberately remain absent from the search graph.
-    if added_transfer_pairs != set(reviewed_transfers):
+    # Every reviewed override must have been applied.  Automatically unsupported
+    # relations remain explicitly reported rather than silently receiving a
+    # guessed path or distance.
+    if not set(reviewed_transfers).issubset(added_transfer_pairs):
         raise RuntimeError("Tokyo Metro reviewed transfer application is incomplete")
+    timetable_manager.tokyo_metro_transfer_model_report = {
+        **dict(counts),
+        "searchable_raw_pairs": (
+            counts["reviewed_override"] + counts["automatic_same_station"]
+            + counts["same_physical_node"] + counts["duplicate_canonical_pair"]
+        ),
+        "added_unique_walk_pairs": len(added_transfer_pairs),
+        "policy_schema": transfer_policy.schema,
+        "details": tuple(details),
+    }
 
     # Bus access is a pedestrian connection between official coordinates; it
     # does not create an unreviewed rail-to-rail interchange.

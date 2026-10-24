@@ -10,8 +10,18 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import sys
 from collections import defaultdict
 from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPOSITORY_ROOT / "api"))
+
+from tokyo_metro_transfer_model import (  # noqa: E402
+    automatic_path_class,
+    load_transfer_policy,
+)
 
 
 TOEI_SUBWAY_PREFIXES = (
@@ -89,6 +99,9 @@ def _complexes(rows: list[dict], names: dict[str, str | None]) -> list[dict]:
             "line_count": len({_line_id(station_id) for station_id in members}),
             "pair_count": len(component_rows),
             "reviewed_pairs": sum(row["status"] == "reviewed" for row in component_rows),
+            "automatic_pairs": sum(
+                row["status"] == "automatic_same_station" for row in component_rows
+            ),
             "unresolved_pairs": sum(row["status"] == "unresolved" for row in component_rows),
             "pair_station_ids": sorted(
                 [row["from_station_id"], row["to_station_id"]]
@@ -110,10 +123,9 @@ def _complexes(rows: list[dict], names: dict[str, str | None]) -> list[dict]:
 def build_audit(stations_path: Path, manifest_path: Path) -> dict:
     stations = json.loads(stations_path.read_text(encoding="utf-8"))
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    reviewed = {
-        frozenset((item["from_station_id"], item["to_station_id"])): item
-        for item in manifest["transfers"]
-    }
+    policy = load_transfer_policy(manifest)
+    automatic_enabled = policy.automatic_enabled
+    reviewed = policy.overrides
     names = {
         _station_id(station): (station.get("odpt:stationTitle") or {}).get("ja")
         for station in stations
@@ -139,12 +151,23 @@ def build_audit(stations_path: Path, manifest_path: Path) -> dict:
             }
     rows = []
     for pair, row in sorted(pairs.items(), key=lambda item: tuple(sorted(item[0]))):
+        first, second = sorted(pair)
         evidence = reviewed.get(pair)
-        row["status"] = "reviewed" if evidence else "unresolved"
+        path_class = automatic_path_class(first, second) if automatic_enabled else None
+        row["status"] = (
+            "reviewed" if evidence else
+            "automatic_same_station" if path_class else
+            "unresolved"
+        )
         if evidence:
-            row["minimum_minutes"] = evidence["minimum_minutes"]
-            row["walking_distance_meters"] = evidence["walking_distance_meters"]
+            row["minimum_minutes"] = evidence["minutes"]
+            row["walking_distance_meters"] = evidence["meters"]
             row["reviewed_at"] = evidence["reviewed_at"]
+        elif path_class:
+            row["minimum_minutes"] = policy.automatic_minutes
+            row["walking_distance_meters"] = None
+            row["walk_resource_meters"] = policy.automatic_resource_meters
+            row["time_basis"] = "app_conservative_allowance"
         else:
             row["reason"] = "official path distance/time evidence not yet complete"
         rows.append(row)
@@ -155,6 +178,9 @@ def build_audit(stations_path: Path, manifest_path: Path) -> dict:
         "counts": {
             "total": len(rows),
             "reviewed": sum(row["status"] == "reviewed" for row in rows),
+            "automatic_same_station": sum(
+                row["status"] == "automatic_same_station" for row in rows
+            ),
             "unresolved": sum(row["status"] == "unresolved" for row in rows),
             "metro_to_metro": sum(row["kind"] == "metro_to_metro" for row in rows),
             "metro_to_toei": sum(row["kind"] == "metro_to_toei" for row in rows),
@@ -163,10 +189,14 @@ def build_audit(stations_path: Path, manifest_path: Path) -> dict:
             "total": len(complexes),
             "fully_reviewed": sum(item["unresolved_pairs"] == 0 for item in complexes),
             "partially_reviewed": sum(
-                item["reviewed_pairs"] > 0 and item["unresolved_pairs"] > 0
+                item["reviewed_pairs"] + item["automatic_pairs"] > 0
+                and item["unresolved_pairs"] > 0
                 for item in complexes
             ),
-            "unreviewed": sum(item["reviewed_pairs"] == 0 for item in complexes),
+            "unreviewed": sum(
+                item["reviewed_pairs"] + item["automatic_pairs"] == 0
+                for item in complexes
+            ),
         },
         "complexes": complexes,
         "connections": rows,

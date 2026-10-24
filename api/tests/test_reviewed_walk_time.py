@@ -10,6 +10,7 @@ import networkx as nx
 
 from reviewed_walk_time import (
     ReviewedWalkingLink, validate_reviewed_walk_timing, walk_edge_elapsed_minutes,
+    walk_edge_is_available, walk_edge_resource_meters,
 )
 from toei_engine import (
     WALK_COST, advance_time, apply_reviewed_walking_links, find_fastest_path,
@@ -51,6 +52,29 @@ class ReviewedWalkingTimeTests(unittest.TestCase):
         self.assertEqual(walk_edge_elapsed_minutes(
             {"meters": 392, "reviewed_walk_minutes": 10}
         ), 10.0)
+
+    def test_unknown_physical_distance_uses_separate_conservative_resource(self):
+        edge = {
+            "meters": 0.0,
+            "walk_resource_meters": 600.0,
+            "reviewed_walk_minutes": 15,
+            "transfer_time_estimated": True,
+        }
+        self.assertEqual(walk_edge_elapsed_minutes(edge), 15.0)
+        self.assertEqual(walk_edge_resource_meters(edge), 600.0)
+        self.assertEqual(edge["meters"], 0.0)
+
+    def test_known_transfer_closure_must_cover_the_complete_walk(self):
+        edge = {"transfer_available_windows": ((300, 610),)}
+        self.assertTrue(walk_edge_is_available(
+            edge, departure_minute=595, elapsed_minutes=15
+        ))
+        self.assertFalse(walk_edge_is_available(
+            edge, departure_minute=596, elapsed_minutes=15
+        ))
+        self.assertTrue(walk_edge_is_available(
+            {}, departure_minute=596, elapsed_minutes=15
+        ))
 
     def test_tokyo_correction_changes_routing_and_walk_display(self):
         graph = _graph()

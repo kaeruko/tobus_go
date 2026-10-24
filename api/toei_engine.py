@@ -240,7 +240,12 @@ from datetime import datetime as dt_class # datetime.datetimeと競合しない�
 from google.transit import gtfs_realtime_pb2
 from gtfs_loader import gtfs_repo
 from route_engine import RouteContractError, RouteSearchLimitError
-from reviewed_walk_time import ReviewedWalkingLink, walk_edge_elapsed_minutes
+from reviewed_walk_time import (
+    ReviewedWalkingLink,
+    walk_edge_elapsed_minutes,
+    walk_edge_is_available,
+    walk_edge_resource_meters,
+)
 from walking_access import (
     haversine_m as haversine, distance_candidates, nearest_candidate,
     walking_elapsed_minutes,
@@ -1526,9 +1531,12 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=Non
     meters = edge.get("meters", 0)
 
     if etype == "walk":
-        return curr_time + walk_edge_elapsed_minutes(
-            edge, speed_m_per_min=WALK_SPEED_M_PER_MIN
-        )
+        elapsed = walk_edge_elapsed_minutes(edge, speed_m_per_min=WALK_SPEED_M_PER_MIN)
+        if not walk_edge_is_available(
+            edge, departure_minute=curr_time, elapsed_minutes=elapsed
+        ):
+            return None
+        return curr_time + elapsed
 
     if etype == "board":
         node = v if v[0] == "line" else u
@@ -2418,7 +2426,8 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             if cur["kind"] == "walk":
                 # 距離0の徒歩セグメントだけを除外する。
                 # 表示名が同じでも、バス停と駅など別ノード間の移動はあり得る。
-                if cur.get("meters", 0) <= 0:
+                if (cur.get("meters", 0) <= 0
+                        and cur.get("_scheduled_transfer_edges", 0) == 0):
                     cur = None
                     return
                 # Keep search and displayed walking clocks aligned, including
@@ -2432,14 +2441,22 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 unreviewed = cur.pop("_unreviewed_edges", 0)
                 evidence = cur.pop("_evidence_urls", [])
                 time_bases = cur.pop("_walking_time_bases", [])
+                resource_meters = cur.pop("_walk_resource_meters", cur.get("meters", 0))
+                estimated = cur.pop("_estimated_transfer_edges", 0)
+                cur.pop("_scheduled_transfer_edges", None)
+                distance_known = cur.pop("_physical_distance_known", True)
                 if reviewed:
-                    cur["walking_connection_verified"] = unreviewed == 0
+                    cur["walking_connection_verified"] = unreviewed == 0 and estimated == 0
                     cur["walking_time_basis"] = (
                         time_bases[0]
                         if unreviewed == 0 and len(set(time_bases)) == 1
                         else "mixed_estimated"
                     )
                     cur["evidence_urls"] = evidence
+                    cur["walking_time_estimated"] = estimated > 0
+                    cur["physical_walk_distance_known"] = distance_known
+                    if not distance_known:
+                        cur["planning_walk_resource_meters"] = resource_meters
             elif cur["kind"] in ("bus", "rail"):
                 # 公共交通機関の所要時間計算
                 if cur.get("arrival_time"):
@@ -2502,9 +2519,20 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     "_unreviewed_edges": 0,
                     "_evidence_urls": [],
                     "_walking_time_bases": [],
+                    "_walk_resource_meters": 0.0,
+                    "_estimated_transfer_edges": 0,
+                    "_scheduled_transfer_edges": 0,
+                    "_physical_distance_known": True,
                 }
             cur["edges"] += 1
             cur["meters"] += edge.get("meters", 0)
+            cur["_walk_resource_meters"] += walk_edge_resource_meters(edge)
+            if edge.get("transfer_time_estimated") is True:
+                cur["_estimated_transfer_edges"] += 1
+            if "reviewed_walk_minutes" in edge:
+                cur["_scheduled_transfer_edges"] += 1
+            if edge.get("physical_walk_distance_known") is False:
+                cur["_physical_distance_known"] = False
             elapsed = walk_edge_elapsed_minutes(
                 edge, speed_m_per_min=WALK_SPEED_M_PER_MIN
             )

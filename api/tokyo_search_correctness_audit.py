@@ -27,6 +27,7 @@ from types import MappingProxyType
 import networkx as nx
 
 from route_engine import RouteContractError
+import reviewed_walk_time as walking
 import toei_engine as engine
 import tokyo_search_labels as integration
 import tokyo_timetable_choices as timetable
@@ -431,7 +432,7 @@ def _product_children(oracle, state, choices):
             continue
         kind, next_total, next_segment = edge["etype"], total, 0.0
         if kind == "walk":
-            meters = edge.get("meters", 0.0) if edge.get("meters", 0.0) > 0 else 1.0
+            meters = walking.walk_edge_resource_meters(edge)
             next_total, next_segment = total + meters, segment + meters
             if next_total > 3000.0 or next_segment > 600.0:
                 continue
