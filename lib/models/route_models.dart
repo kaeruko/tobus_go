@@ -11,6 +11,10 @@ class RouteMeta {
   final String? fallbackNodeNameEn;
   final double? fallbackDistanceM;
   final int? walkLimitM;
+  final String? tokyoMetroFeedVersion;
+  final String? tokyoMetroFeedStartDate;
+  final String? tokyoMetroFeedEndDate;
+  final String? tokyoMetroDataObtainedAt;
 
   RouteMeta({
     this.planningNotice,
@@ -20,6 +24,10 @@ class RouteMeta {
     this.fallbackNodeNameEn,
     this.fallbackDistanceM,
     this.walkLimitM,
+    this.tokyoMetroFeedVersion,
+    this.tokyoMetroFeedStartDate,
+    this.tokyoMetroFeedEndDate,
+    this.tokyoMetroDataObtainedAt,
   });
 
   factory RouteMeta.fromJson(Map<String, dynamic> json) {
@@ -31,6 +39,11 @@ class RouteMeta {
       fallbackNodeNameEn: json['fallback_node_name_en']?.toString(),
       fallbackDistanceM: (json['fallback_distance_m'] as num?)?.toDouble(),
       walkLimitM: (json['walk_limit_m'] as num?)?.toInt(),
+      tokyoMetroFeedVersion: json['tokyo_metro_feed_version']?.toString(),
+      tokyoMetroFeedStartDate: json['tokyo_metro_feed_start_date']?.toString(),
+      tokyoMetroFeedEndDate: json['tokyo_metro_feed_end_date']?.toString(),
+      tokyoMetroDataObtainedAt: json['tokyo_metro_data_obtained_at']
+          ?.toString(),
     );
   }
 

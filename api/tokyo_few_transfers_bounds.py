@@ -36,6 +36,8 @@ import heapq
 import math
 import time
 
+from reviewed_walk_time import walk_edge_resource_meters
+
 
 _INF_BOARDINGS = 2**32 - 1
 
@@ -53,12 +55,10 @@ def _cost(value, description):
 def _walk_meters(edge, description):
     # This is deliberately the same fallback as the common label search.
     try:
-        meters = float(edge.get("meters", 0.0))
+        meters = walk_edge_resource_meters(edge)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{description}: walking meters must be finite") from exc
-    if not math.isfinite(meters):
-        raise ValueError(f"{description}: walking meters must be finite")
-    return meters if meters > 0 else 1.0
+    return meters
 
 
 def _upper_product(first, second):

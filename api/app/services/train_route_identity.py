@@ -56,6 +56,21 @@ def route_result_has_rail(result: dict[str, Any]) -> bool:
     return False
 
 
+def route_result_has_toei_rail(result: dict[str, Any]) -> bool:
+    candidates = result.get("candidates")
+    if not isinstance(candidates, list):
+        raise TrainRouteIdentityError(
+            "route_candidates_invalid", "route result candidates must be a list"
+        )
+    return any(
+        isinstance(step, dict)
+        and step.get("kind") == "rail"
+        and step.get("operator_id") != "tokyo_metro"
+        for candidate in candidates if isinstance(candidate, dict)
+        for step in candidate.get("steps", ()) if isinstance(candidate.get("steps"), list)
+    )
+
+
 def enrich_route_result_train_trip_ids(
     result: dict[str, Any],
     *,
@@ -143,6 +158,9 @@ def _enrich_rail_step(
     day_type: Any,
     static_gtfs: StaticTrainGtfs,
 ) -> None:
+    if step.get("operator_id") == "tokyo_metro":
+        _validate_tokyo_metro_rail_step(step)
+        return
     step_id = _required_text(step.get("step_id"), "step_id")
     stops = _required_route_stops(step, step_id)
     boarding_minutes = step.get("boarding_minutes")
@@ -241,6 +259,82 @@ def _enrich_rail_step(
     step["minutes"] = duration_minutes
     # The verified static trip and clocks carry the selected run to clients.
     # The search's internal source records are no longer needed in the payload.
+    step.pop("selected_run", None)
+
+
+def _validate_tokyo_metro_rail_step(step: dict[str, Any]) -> None:
+    """Accept only the concrete GTFS run pinned by the Metro search feed."""
+
+    step_id = _required_text(step.get("step_id"), "step_id")
+    trip_id = _required_text(step.get("trip_id"), "trip_id")
+    route_id = _required_text(step.get("route_id"), "route_id")
+    service_id = _required_text(step.get("service_id"), "service_id")
+    if not trip_id.startswith("tokyo_metro:") or not route_id.startswith("tokyo_metro:"):
+        raise TrainRouteIdentityError(
+            "metro_gtfs_identity_invalid",
+            f"Tokyo Metro rail step has an unqualified GTFS identity: {step_id}",
+        )
+    stops = _required_route_stops(step, step_id)
+    if any(not stop["id"].startswith("tokyo_metro:") for stop in stops):
+        raise TrainRouteIdentityError(
+            "metro_gtfs_stop_identity_invalid",
+            f"Tokyo Metro rail step has a non-Metro stop identity: {step_id}",
+        )
+    selected = step.get("selected_run")
+    if not isinstance(selected, dict):
+        raise TrainRouteIdentityError(
+            "metro_selected_run_missing",
+            f"Tokyo Metro rail step has no concrete selected run: {step_id}",
+        )
+    expected = {
+        "trip_id": trip_id,
+        "route_id": route_id,
+        "service_id": service_id,
+        "origin_gtfs_stop_id": stops[0]["id"],
+        "destination_gtfs_stop_id": stops[-1]["id"],
+    }
+    for key, value in expected.items():
+        actual = selected.get(key)
+        if actual != value:
+            raise TrainRouteIdentityError(
+                "metro_selected_run_mismatch",
+                f"Tokyo Metro selected run {key} mismatch: step={step_id}",
+            )
+    records = selected.get("segment_records")
+    if not isinstance(records, list) or not records:
+        raise TrainRouteIdentityError(
+            "metro_selected_run_segments_missing",
+            f"Tokyo Metro selected run has no segment records: {step_id}",
+        )
+    if any(
+        not isinstance(record, dict)
+        or record.get("trip_id") != trip_id
+        or record.get("route_id") != route_id
+        or record.get("service_id") != service_id
+        or not isinstance(record.get("origin_gtfs_stop_id"), str)
+        or not isinstance(record.get("next_gtfs_stop_id"), str)
+        for record in records
+    ):
+        raise TrainRouteIdentityError(
+            "metro_selected_run_segments_invalid",
+            f"Tokyo Metro selected-run segments disagree with the GTFS trip: {step_id}",
+        )
+    if records[0]["origin_gtfs_stop_id"] != stops[0]["id"]:
+        raise TrainRouteIdentityError(
+            "metro_selected_run_origin_mismatch",
+            f"Tokyo Metro selected run starts at another GTFS stop: {step_id}",
+        )
+    if records[-1]["next_gtfs_stop_id"] != stops[-1]["id"]:
+        raise TrainRouteIdentityError(
+            "metro_selected_run_destination_mismatch",
+            f"Tokyo Metro selected run ends at another GTFS stop: {step_id}",
+        )
+    for previous, following in zip(records, records[1:]):
+        if previous["next_gtfs_stop_id"] != following["origin_gtfs_stop_id"]:
+            raise TrainRouteIdentityError(
+                "metro_selected_run_chain_invalid",
+                f"Tokyo Metro selected run has a discontinuous GTFS stop chain: {step_id}",
+            )
     step.pop("selected_run", None)
 
 

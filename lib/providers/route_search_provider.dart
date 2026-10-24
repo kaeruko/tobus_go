@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
+import '../models/transport_scope.dart';
 import '../services/route_search_service.dart';
 import '../services/fare_policy_preferences.dart';
 import '../core/city_profile.dart';
@@ -17,7 +18,10 @@ class RouteSearchState {
   final String fromNameEn;
   final String toNameEn;
   final String? pref;
-  final bool busOnly;
+  final Set<String> transportScope;
+  bool get busOnly =>
+      transportScope.length == 1 &&
+      transportScope.contains(TransportServiceId.toeiBus);
   final bool acceptExperimentalTransferModel;
   final DateTime? startTime;
   final bool isLoading;
@@ -41,7 +45,7 @@ class RouteSearchState {
     this.fromNameEn = '',
     this.toNameEn = '',
     this.pref,
-    this.busOnly = false,
+    this.transportScope = TransportServiceId.legacyDefault,
     this.acceptExperimentalTransferModel = false,
     this.startTime,
     this.isLoading = false,
@@ -66,6 +70,7 @@ class RouteSearchState {
     String? toNameEn,
     String? pref,
     bool? busOnly,
+    Set<String>? transportScope,
     bool? acceptExperimentalTransferModel,
     DateTime? startTime,
     bool? isLoading,
@@ -91,8 +96,16 @@ class RouteSearchState {
       fromNameEn: fromNameEn ?? this.fromNameEn,
       toNameEn: toNameEn ?? this.toNameEn,
       pref: pref ?? this.pref,
-      busOnly: busOnly ?? this.busOnly,
-      acceptExperimentalTransferModel: acceptExperimentalTransferModel ?? this.acceptExperimentalTransferModel,
+      transportScope:
+          transportScope ??
+          (busOnly == null
+              ? this.transportScope
+              : busOnly
+              ? const {TransportServiceId.toeiBus}
+              : TransportServiceId.legacyDefault),
+      acceptExperimentalTransferModel:
+          acceptExperimentalTransferModel ??
+          this.acceptExperimentalTransferModel,
       startTime: clearStartTime ? null : (startTime ?? this.startTime),
       isLoading: isLoading ?? this.isLoading,
       hasSearched: hasSearched ?? this.hasSearched,
@@ -119,7 +132,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
   final RouteSearchService _routeSearchService;
 
   RouteSearchNotifier(this._routeSearchService)
-      : super(const RouteSearchState());
+    : super(const RouteSearchState());
 
   int _generation = 0;
 
@@ -128,9 +141,15 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
 
   void setExperimentalTransferConsent(bool value) {
     _generation++;
-    state = state.copyWith(acceptExperimentalTransferModel: value,
-        candidates: const [], fareByCandidateId: const {}, hasSearched: false,
-        isLoading: false, clearMeta: true, clearErrorMessage: true);
+    state = state.copyWith(
+      acceptExperimentalTransferModel: value,
+      candidates: const [],
+      fareByCandidateId: const {},
+      hasSearched: false,
+      isLoading: false,
+      clearMeta: true,
+      clearErrorMessage: true,
+    );
   }
 
   void prepareSavedRoute({
@@ -163,17 +182,12 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
       fromNameEn: fromNameEn,
       toNameEn: toNameEn,
       pref: preference,
-      busOnly: false,
+      transportScope: TransportServiceId.legacyDefault,
       startTime: startTime,
     );
   }
 
-  void setFrom(
-    String from, {
-    String? name,
-    String? nameJa,
-    String? nameEn,
-  }) {
+  void setFrom(String from, {String? name, String? nameJa, String? nameEn}) {
     _generation++;
     state = state.copyWith(
       from: from,
@@ -189,12 +203,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     );
   }
 
-  void setTo(
-    String to, {
-    String? name,
-    String? nameJa,
-    String? nameEn,
-  }) {
+  void setTo(String to, {String? name, String? nameJa, String? nameEn}) {
     _generation++;
     state = state.copyWith(
       to: to,
@@ -223,7 +232,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
       fromNameEn: current.toNameEn,
       toNameEn: current.fromNameEn,
       pref: current.pref,
-      busOnly: current.busOnly,
+      transportScope: current.transportScope,
       startTime: current.startTime,
       isLoading: false,
       hasSearched: false,
@@ -240,6 +249,19 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
   void setBusOnly(bool busOnly) {
     if (state.busOnly == busOnly) return;
     _changeCriteria(state.copyWith(busOnly: busOnly));
+  }
+
+  void setTransportEnabled(String transport, bool enabled) {
+    if (!TransportServiceId.all.contains(transport)) {
+      throw ArgumentError.value(transport, 'transport');
+    }
+    final updated = <String>{...state.transportScope};
+    enabled ? updated.add(transport) : updated.remove(transport);
+    if (updated.length == state.transportScope.length &&
+        updated.containsAll(state.transportScope)) {
+      return;
+    }
+    _changeCriteria(state.copyWith(transportScope: Set.unmodifiable(updated)));
   }
 
   void setStartTime(DateTime? startTime) {
@@ -267,7 +289,9 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     _generation++;
     final currentGen = _generation;
 
-    if (state.from.trim().isEmpty || state.to.trim().isEmpty) {
+    if (state.from.trim().isEmpty ||
+        state.to.trim().isEmpty ||
+        state.transportScope.isEmpty) {
       state = state.copyWith(
         isLoading: false,
         hasSearched: false,
@@ -292,11 +316,14 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
       final origin = _parsePoint(state.from, label: '出発地');
       final destination = _parsePoint(state.to, label: '到着地');
       final searchTime = state.startTime ?? DateTime.now();
-      final farePolicy = sendaiReviewedCoordinatesEnabled && configuredCityKey == 'sendai'
-          ? await FarePolicyPreferences.load(configuredCityProfile) : null;
+      final farePolicy =
+          sendaiReviewedCoordinatesEnabled && configuredCityKey == 'sendai'
+          ? await FarePolicyPreferences.load(configuredCityProfile)
+          : null;
       if (_generation != currentGen) return;
       // Pass ownership is never inferred from a missing/old normal setting.
-      if (sendaiReviewedCoordinatesEnabled && configuredCityKey == 'sendai' &&
+      if (sendaiReviewedCoordinatesEnabled &&
+          configuredCityKey == 'sendai' &&
           farePolicy != 'sendai_fureai_pass' &&
           farePolicy != 'sendai_keiro_pass') {
         throw StateError('ふれあい・敬老の乗車証を選択してください');
@@ -317,8 +344,10 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
           startTime: searchTime,
           preference: state.pref ?? 'fewTransfers',
           busOnly: state.busOnly,
+          transportScope: state.transportScope,
           farePolicyId: farePolicy,
-          acceptExperimentalTransferModel: state.acceptExperimentalTransferModel,
+          acceptExperimentalTransferModel:
+              state.acceptExperimentalTransferModel,
         ),
       );
 
@@ -367,4 +396,3 @@ final routeSearchProvider =
     StateNotifierProvider<RouteSearchNotifier, RouteSearchState>((ref) {
       return RouteSearchNotifier(ref.watch(routeSearchServiceProvider));
     });
-

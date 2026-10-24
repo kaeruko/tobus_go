@@ -52,6 +52,57 @@ def walk_edge_elapsed_minutes(edge: Mapping[str, Any], *, speed_m_per_min: float
     return float(minutes)
 
 
+def walk_edge_resource_meters(
+    edge: Mapping[str, Any], *, zero_fallback: float = 1.0
+) -> float:
+    """Return the conservative walking-resource debit used by search.
+
+    ``meters`` remains the physical/reported distance.  A transfer whose
+    official topology is known but whose walked path has not been measured may
+    instead consume an explicit ``walk_resource_meters`` allowance.  Keeping
+    these fields separate prevents an unmeasured planning allowance from being
+    presented as an observed distance while preserving the existing walking
+    limits.  Existing edges retain their exact legacy behavior.
+    """
+    has_explicit_resource = "walk_resource_meters" in edge
+    value = edge.get("walk_resource_meters", edge.get("meters", 0))
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError("walking resource meters must be nonnegative and finite")
+    result = float(value)
+    if not math.isfinite(result) or (has_explicit_resource and result < 0):
+        raise ValueError("walking resource meters must be nonnegative and finite")
+    return result if result > 0 else float(zero_fallback)
+
+
+def walk_edge_is_available(
+    edge: Mapping[str, Any], *, departure_minute: float, elapsed_minutes: float
+) -> bool:
+    """Return whether a known transfer availability window covers the walk.
+
+    Missing windows preserve existing always-available walking edges.  Windows
+    use service-day minutes and may exceed 24:00.  Unknown opening restrictions
+    are never invented by this helper; known restrictions must be supplied by
+    official exception data.
+    """
+    windows = edge.get("transfer_available_windows")
+    if windows is None:
+        return True
+    if not isinstance(windows, (tuple, list)):
+        raise ValueError("transfer availability windows must be a sequence")
+    arrival = departure_minute + elapsed_minutes
+    for window in windows:
+        if (not isinstance(window, (tuple, list)) or len(window) != 2
+                or any(isinstance(value, bool) or not isinstance(value, (int, float))
+                       for value in window)):
+            raise ValueError("transfer availability window must contain two finite minutes")
+        start, end = map(float, window)
+        if not all(math.isfinite(value) for value in (start, end)) or not 0 <= start < end:
+            raise ValueError("transfer availability window must be finite and increasing")
+        if start <= departure_minute and arrival <= end:
+            return True
+    return False
+
+
 @dataclass(frozen=True, slots=True)
 class ReviewedWalkingLink:
     """Directed official link. Station-to-platform access must be reviewed.

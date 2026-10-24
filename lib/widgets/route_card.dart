@@ -110,7 +110,8 @@ class RouteCard extends ConsumerWidget {
             (state) => state.fareByCandidateId[candidate.id],
           ),
         );
-    final fareChip = configuredCityKey == 'sendai' && sendaiReviewedCoordinatesEnabled
+    final fareChip = configuredCityKey == 'tokyo' ||
+            configuredCityKey == 'sendai' && sendaiReviewedCoordinatesEnabled
         ? null
         : _fareChip(effectiveFare, l10n);
     // Match the route detail's arrival clock. Do not estimate a new

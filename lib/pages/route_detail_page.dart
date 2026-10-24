@@ -939,7 +939,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       );
 
       final targetTime = overrideTime ?? _searchTime;
-      final developmentScope = sendaiReviewedCoordinatesEnabled && ref.read(cityProfileProvider).key == 'sendai';
+      final cityKey = ref.read(cityProfileProvider).key;
+      final developmentScope = sendaiReviewedCoordinatesEnabled && cityKey == 'sendai';
+      final currentSearch = ref.read(routeSearchProvider);
       final policyId = developmentScope
           ? await FarePolicyPreferences.load(ref.read(cityProfileProvider)) : null;
       final result = await ref.read(routeSearchServiceProvider).search(
@@ -951,8 +953,11 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
           startTime: targetTime,
           preference: original.preference ?? 'fewTransfers',
           farePolicyId: policyId,
-          acceptExperimentalTransferModel: developmentScope && ref.read(routeSearchProvider).acceptExperimentalTransferModel,
-          busOnly: developmentScope && ref.read(routeSearchProvider).busOnly,
+          acceptExperimentalTransferModel: developmentScope && currentSearch.acceptExperimentalTransferModel,
+          busOnly: cityKey == 'tokyo'
+              ? currentSearch.busOnly
+              : developmentScope && currentSearch.busOnly,
+          transportScope: cityKey == 'tokyo' ? currentSearch.transportScope : null,
         ),
       );
       final list = result.candidates;
@@ -1179,7 +1184,8 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                 child: RouteSummary(candidate: widget.candidate),
               ),
 
-              if (!(configuredCityKey == 'sendai' && sendaiReviewedCoordinatesEnabled))
+              if (configuredCityKey != 'tokyo' &&
+                  !(configuredCityKey == 'sendai' && sendaiReviewedCoordinatesEnabled))
                 SliverToBoxAdapter(child: FareSummary(fare: widget.fare)),
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
@@ -1282,4 +1288,3 @@ class BusStopMapPage extends StatelessWidget {
     );
   }
 }
-

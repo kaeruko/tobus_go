@@ -34,6 +34,7 @@ class ApiRouteRequest(BaseModel):
     blon: float
     pref: str = "cost"
     bus_only: bool = False
+    transport_scope: list[StrictStr] | None = None
     start_time: str = "10:00"
     target_date_str: str | None = None
     limit: int = 5
@@ -42,6 +43,8 @@ class ApiRouteRequest(BaseModel):
 
 
 def to_domain_request(request: ApiRouteRequest) -> RouteSearchRequest:
+    from transport_scope import normalize_transport_scope
+
     date_value = request.target_date_str or datetime.now(_JST).date().isoformat()
     try:
         departure = datetime.strptime(
@@ -56,12 +59,17 @@ def to_domain_request(request: ApiRouteRequest) -> RouteSearchRequest:
         raise RouteInputError("target_date_str must be zero-padded YYYY-MM-DD")
     if departure.strftime("%H:%M") != request.start_time:
         raise RouteInputError("start_time must be zero-padded HH:MM")
+    scope = normalize_transport_scope(
+        request.transport_scope,
+        bus_only=request.bus_only,
+    )
     return RouteSearchRequest(
         origin=GeoPoint(request.alat, request.alon),
         destination=GeoPoint(request.blat, request.blon),
         departure_at=departure.replace(tzinfo=_JST),
         preference=normalize_route_preference(request.pref),
         bus_only=request.bus_only,
+        transport_scope=scope,
         limit=request.limit,
         accept_experimental_transfer_model=request.accept_experimental_transfer_model,
     )
@@ -117,6 +125,15 @@ def register_route_endpoint(
         try:
             policy_id = request.fare_policy_id if request.fare_policy_id is not None else "normal"
             domain_request = to_domain_request(request)
+            city_key = getattr(app.state, "city_key", None)
+            if (
+                city_key == "tokyo"
+                and policy_id == "tokyo_toei_transport_pass"
+                and "tokyo_metro" in domain_request.transport_scope
+            ):
+                raise RouteInputError(
+                    "tokyo_toei_transport_pass cannot be used with Tokyo Metro scope"
+                )
             loop = asyncio.get_running_loop()
             async with route_lock:
                 result = await loop.run_in_executor(
@@ -138,7 +155,6 @@ def register_route_endpoint(
                     if quote.get("policyId") != policy_id or quote.get("status") != prequoted[policy_id]:
                         raise RouteContractError("reviewed scope did not return its verified fare quote")
             elif policy_id != "normal":
-                city_key = getattr(app.state, "city_key", None)
                 if not isinstance(city_key, str) or not city_key:
                     raise RouteContractError("Backend city is required for scoped route fares")
                 try:

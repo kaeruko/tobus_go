@@ -8,6 +8,7 @@ import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
 import '../models/route_models.dart';
+import '../models/transport_scope.dart';
 import '../widgets/bus_loading_indicator.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/place_field.dart';
@@ -257,9 +258,12 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
     final features = ref.watch(
       cityProfileProvider.select((profile) => profile.capabilities.features),
     );
-    final showTokyoTransportControl = ref.watch(
-      cityProfileProvider.select((profile) => profile.key == 'tokyo' || (profile.key == 'sendai' && sendaiReviewedCoordinatesEnabled)),
+    final cityKey = ref.watch(
+      cityProfileProvider.select((profile) => profile.key),
     );
+    final showTokyoTransportControl = cityKey == 'tokyo';
+    final showLegacyTransportControl =
+        cityKey == 'sendai' && sendaiReviewedCoordinatesEnabled;
     final activeTripAsync = features.groupTrips
         ? ref.watch(activeTripProvider)
         : null;
@@ -482,10 +486,60 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         child: RouteTransportControl(
+                          selected: rs.transportScope,
+                          onChanged: (transport, enabled) {
+                            notifier.setTransportEnabled(transport, enabled);
+                            if (ref
+                                .read(routeSearchProvider)
+                                .transportScope
+                                .isNotEmpty) {
+                              notifier.triggerSearch();
+                            }
+                          },
+                        ),
+                      ),
+                      if (rs.transportScope.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                          child: Text(
+                            l10n.transportSelectionRequired,
+                            key: const Key('transport-selection-required'),
+                            style: const TextStyle(
+                              color: CupertinoColors.systemRed,
+                            ),
+                          ),
+                        ),
+                      if (rs.transportScope.contains(
+                        TransportServiceId.tokyoMetro,
+                      ))
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                          child: Text(
+                            rs.meta?.tokyoMetroFeedVersion == null
+                                ? l10n.tokyoMetroDataAttribution
+                                : l10n.tokyoMetroDataVersion(
+                                    rs.meta!.tokyoMetroFeedVersion!,
+                                    rs.meta!.tokyoMetroFeedStartDate ?? '-',
+                                    rs.meta!.tokyoMetroFeedEndDate ?? '-',
+                                    rs.meta!.tokyoMetroDataObtainedAt ?? '-',
+                                  ),
+                            key: const Key('tokyo-metro-data-attribution'),
+                            style: const TextStyle(
+                              color: CupertinoColors.systemGrey,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                    ],
+                    if (showLegacyTransportControl) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: LegacyRouteTransportControl(
                           busOnly: rs.busOnly,
-                          onValueChanged: (v) {
-                            if (v == null) return;
-                            notifier.setBusOnly(v == 'busOnly');
+                          onValueChanged: (value) {
+                            if (value == null) return;
+                            notifier.setBusOnly(value == 'busOnly');
                             notifier.triggerSearch();
                           },
                         ),
@@ -513,9 +567,13 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                         width: double.infinity,
                         child: CupertinoButton.filled(
                           key: const Key('route-search-submit'),
-                          onPressed: () {
-                            notifier.triggerSearch();
-                          },
+                          onPressed:
+                              showTokyoTransportControl &&
+                                  rs.transportScope.isEmpty
+                              ? null
+                              : () {
+                                  notifier.triggerSearch();
+                                },
                           child: Text(l10n.search),
                         ),
                       ),
@@ -634,12 +692,12 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
 class RouteTransportControl extends StatelessWidget {
   const RouteTransportControl({
     super.key,
-    required this.busOnly,
-    required this.onValueChanged,
+    required this.selected,
+    required this.onChanged,
   });
 
-  final bool busOnly;
-  final ValueChanged<String?> onValueChanged;
+  final Set<String> selected;
+  final void Function(String transport, bool enabled) onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -649,17 +707,105 @@ class RouteTransportControl extends StatelessWidget {
           return const SizedBox(height: 28);
         }
 
-        return CupertinoSlidingSegmentedControl<String>(
-          groupValue: busOnly ? 'busOnly' : 'subwayAndBus',
-          children: {
-            'subwayAndBus': Text(
-              AppLocalizations.of(context).transportSubwayAndBus,
-            ),
-            'busOnly': Text(AppLocalizations.of(context).transportBusOnly),
-          },
-          onValueChanged: onValueChanged,
+        final l10n = AppLocalizations.of(context);
+        return Semantics(
+          label: l10n.transportSelectionLabel,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                l10n.transportSelectionLabel,
+                key: const Key('transport-selection-label'),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              _TransportCheckbox(
+                key: const Key('transport-toei-bus'),
+                label: l10n.transportToeiBus,
+                value: selected.contains(TransportServiceId.toeiBus),
+                onChanged: (value) =>
+                    onChanged(TransportServiceId.toeiBus, value),
+              ),
+              _TransportCheckbox(
+                key: const Key('transport-toei-subway'),
+                label: l10n.transportToeiSubway,
+                value: selected.contains(TransportServiceId.toeiSubway),
+                onChanged: (value) =>
+                    onChanged(TransportServiceId.toeiSubway, value),
+              ),
+              _TransportCheckbox(
+                key: const Key('transport-tokyo-metro'),
+                label: l10n.transportTokyoMetro,
+                value: selected.contains(TransportServiceId.tokyoMetro),
+                onChanged: (value) =>
+                    onChanged(TransportServiceId.tokyoMetro, value),
+              ),
+            ],
+          ),
         );
       },
+    );
+  }
+}
+
+class LegacyRouteTransportControl extends StatelessWidget {
+  const LegacyRouteTransportControl({
+    super.key,
+    required this.busOnly,
+    required this.onValueChanged,
+  });
+
+  final bool busOnly;
+  final ValueChanged<String?> onValueChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoSlidingSegmentedControl<String>(
+      groupValue: busOnly ? 'busOnly' : 'subwayAndBus',
+      children: {
+        'subwayAndBus': Text(
+          AppLocalizations.of(context).transportSubwayAndBus,
+        ),
+        'busOnly': Text(AppLocalizations.of(context).transportBusOnly),
+      },
+      onValueChanged: onValueChanged,
+    );
+  }
+}
+
+class _TransportCheckbox extends StatelessWidget {
+  const _TransportCheckbox({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      checked: value,
+      button: true,
+      child: CupertinoButton(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        onPressed: () => onChanged(!value),
+        child: Row(
+          children: [
+            Icon(
+              value
+                  ? CupertinoIcons.check_mark_circled_solid
+                  : CupertinoIcons.circle,
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Text(label, style: const TextStyle(fontSize: 16))),
+          ],
+        ),
+      ),
     );
   }
 }
