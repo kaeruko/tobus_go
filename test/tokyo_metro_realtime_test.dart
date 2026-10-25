@@ -76,4 +76,33 @@ void main() {
     expect(step.isTokyoMetroRail, isTrue);
     expect(step.supportsRealtimeVehiclePosition, isFalse);
   });
+
+  test(
+    'an explicitly unknown rail operator never calls the Toei endpoint',
+    () async {
+      var requests = 0;
+      ApiClient.httpClient = MockClient((request) async {
+        requests++;
+        return http.Response('unexpected request', 500);
+      });
+      final step = StepSeg(
+        stepId: 'unknown-operator-rail',
+        kind: 'rail',
+        title: 'Unknown railway',
+        operatorId: 'third_party_operator',
+        tripId: 'third-party-trip',
+        routeId: 'third-party-route',
+        stops: [
+          StopPoint(name: 'A', point: const LatLng(35.0, 139.0), stopId: 'A'),
+          StopPoint(name: 'B', point: const LatLng(35.1, 139.1), stopId: 'B'),
+        ],
+      );
+
+      await expectLater(
+        const RealtimeTrainLocationSource().fetch(step: step),
+        throwsA(isA<TrainLocationNotAvailableException>()),
+      );
+      expect(requests, 0);
+    },
+  );
 }

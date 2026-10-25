@@ -694,6 +694,11 @@ void validatePersistableBusIdentity(Candidate candidate) {
 }
 
 class StepSeg {
+  static const _toeiRealtimeOperatorIds = {
+    TransportServiceId.toeiSubway,
+    'odpt.Operator:Toei',
+  };
+
   final Map<String, dynamic>? planningDetails;
   final String stepId;
   final String kind; // 'walk', 'bus', 'rail', 'wait'
@@ -774,8 +779,12 @@ class StepSeg {
           tripId?.startsWith('${TransportServiceId.tokyoMetro}:') == true ||
           routeId?.startsWith('${TransportServiceId.tokyoMetro}:') == true);
 
-  bool get supportsRealtimeVehiclePosition =>
-      kind == 'rail' && !isTokyoMetroRail;
+  bool get supportsRealtimeVehiclePosition {
+    if (kind != 'rail' || isTokyoMetroRail) return false;
+    // Existing Toei route payloads predate operator_id. Preserve that wire
+    // contract, but fail closed when a newer payload names another operator.
+    return operatorId == null || _toeiRealtimeOperatorIds.contains(operatorId);
+  }
 
   // Keep getters for compatibility if needed, or rely on public fields
   String? get from => fromName;

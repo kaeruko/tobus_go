@@ -55,6 +55,33 @@ void main() {
     expect(step.toJson()['operator_id'], TransportServiceId.tokyoMetro);
   });
 
+  test('rail realtime is allowlisted for Toei and legacy payloads only', () {
+    StepSeg rail({String? operatorId}) => StepSeg(
+      stepId: 'rail-${operatorId ?? 'legacy'}',
+      kind: 'rail',
+      title: '浅草線',
+      operatorId: operatorId,
+      tripId: 'toei-trip',
+      routeId: 'toei-route',
+    );
+
+    expect(rail().supportsRealtimeVehiclePosition, isTrue);
+    expect(
+      rail(
+        operatorId: TransportServiceId.toeiSubway,
+      ).supportsRealtimeVehiclePosition,
+      isTrue,
+    );
+    expect(
+      rail(operatorId: 'odpt.Operator:Toei').supportsRealtimeVehiclePosition,
+      isTrue,
+    );
+    expect(
+      rail(operatorId: 'third_party_operator').supportsRealtimeVehiclePosition,
+      isFalse,
+    );
+  });
+
   test('StepSeg rejects invalid explicit boarding time', () {
     expect(
       () => StepSeg.fromJson({
