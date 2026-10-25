@@ -4,7 +4,7 @@ Roadmap baseline: PR #253 commit `da22163dcc6048bc4793293b6300ee4476732e73`
 
 Phase 1 implementation baseline: `a97193658fe185b8f2cf7cd50c4f27cb7f3ddef8`
 
-Status date: 2026-10-25 (Asia/Tokyo)
+Status date: 2026-10-26 (Asia/Tokyo)
 
 ## Goal and change control
 
@@ -310,11 +310,16 @@ authorize merging, production deployment, AWS changes, Google Drive changes,
 or store operations.
 
 **Evidence:** [Phase 5 publication decision packet](tokyo-metro-phase5-publication-decision.md).
-Publication is not approved.
+The 2026-10-26 final-head audit found PR #253 clean and mergeable against the
+current `origin/main`, with all eight CI jobs passing at
+`cf9527eadc19692c5432544373f2c18597039c53` and no application/evidence change
+after the Phase 4 evidence head. The audit recommendation is conditional Go;
+publication is not approved.
 
-**Open items:** The product owner must explicitly accept or reject the residual
-risks in the decision packet and decide whether the PR may leave Draft. A merge,
-deployment, AWS, Google Drive, or store action remains separately unauthorized.
+**Open items:** The product owner must explicitly accept or reject the seven
+residual-risk classes in the decision packet, assign the GTFS refresh owner and
+next review date, and decide whether the PR may leave Draft. A merge, deployment,
+AWS, Google Drive, or store action remains separately unauthorized.
 
 **Next action:** Review the decision packet against the existing Phase 5
 completion conditions. Keep the PR Draft until an explicit publication-risk
