@@ -1,0 +1,165 @@
+{
+  "schema": "tokyo_metro_phase4_linux_summary/v1",
+  "environment": {
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "logical_cpu_count": 16,
+    "total_memory_bytes": 16326520832,
+    "measurement": "two fresh sequential worker processes; external monotonic startup-to-ready; 10ms RSS sampling plus Linux VmHWM; local WSL2, not Lambda"
+  },
+  "inputs": {
+    "app_data_sha256": "db10fc598e0da81e2ac200ba742ab75283440823651fb1d800037f7c0a74bae5",
+    "metro_archive_sha256": "c50ab5cc3489bf1ff67985491a4d00d25888655918ef887a6cc4887a007dfd73",
+    "transfer_manifest_sha256": "abd91114dc29042c4e4491f421a21555cc1504d90a4cc4dc2ef5262fdb966c5a",
+    "phase2_baseline_sha256": "2c7502629152ff94bbf131d9398d1db6788a4e02816a5d8feb68691f394f1d05"
+  },
+  "modes": {
+    "ordinary": {
+      "feed": {
+        "version": "20261008",
+        "valid_from": "2026-09-19",
+        "valid_until": "2027-03-12"
+      },
+      "external_process_start_to_ready_seconds": 12.674462299,
+      "stages": [
+        {
+          "name": "python_worker_entered",
+          "elapsed_seconds": 0.0,
+          "rss_bytes": 20709376,
+          "rss_delta_bytes": 0,
+          "process_hwm_bytes": 20709376
+        },
+        {
+          "name": "application_imports",
+          "elapsed_seconds": 4.079195053,
+          "rss_bytes": 43646976,
+          "rss_delta_bytes": 22937600,
+          "process_hwm_bytes": 43986944
+        },
+        {
+          "name": "base_pickle",
+          "elapsed_seconds": 1.4280972680000001,
+          "rss_bytes": 625946624,
+          "rss_delta_bytes": 582299648,
+          "process_hwm_bytes": 659423232
+        },
+        {
+          "name": "toei_bus_gtfs",
+          "elapsed_seconds": 5.492575245000001,
+          "rss_bytes": 1088094208,
+          "rss_delta_bytes": 462147584,
+          "process_hwm_bytes": 1091825664
+        },
+        {
+          "name": "tokyo_metro_gtfs_and_graph",
+          "elapsed_seconds": 1.3660197679999992,
+          "rss_bytes": 1255145472,
+          "rss_delta_bytes": 167051264,
+          "process_hwm_bytes": 1257132032
+        },
+        {
+          "name": "engine_ready",
+          "elapsed_seconds": 0.016157116999998777,
+          "rss_bytes": 1255145472,
+          "rss_delta_bytes": 0,
+          "process_hwm_bytes": 1257132032
+        }
+      ],
+      "search": {
+        "rows": 94,
+        "errors": 0,
+        "elapsed_over_15_seconds": 0,
+        "pop_limit_hits": 0,
+        "correctness_mismatches": 0,
+        "max_elapsed_seconds": 5.707677406000002,
+        "max_pop": 27370,
+        "max_sampled_peak_rss_bytes": 1349087232,
+        "max_process_hwm_bytes": 1349087232
+      },
+      "ready_rss_mib": 1197.0,
+      "search_peak_rss_mib": 1286.59
+    },
+    "estimated": {
+      "feed": {
+        "version": "20261008",
+        "valid_from": "2026-09-19",
+        "valid_until": "2027-03-12"
+      },
+      "external_process_start_to_ready_seconds": 12.271050193999997,
+      "stages": [
+        {
+          "name": "python_worker_entered",
+          "elapsed_seconds": 0.0,
+          "rss_bytes": 20971520,
+          "rss_delta_bytes": 0,
+          "process_hwm_bytes": 20971520
+        },
+        {
+          "name": "application_imports",
+          "elapsed_seconds": 3.734310488999995,
+          "rss_bytes": 42487808,
+          "rss_delta_bytes": 21516288,
+          "process_hwm_bytes": 42676224
+        },
+        {
+          "name": "base_pickle",
+          "elapsed_seconds": 1.484971186999985,
+          "rss_bytes": 626139136,
+          "rss_delta_bytes": 583651328,
+          "process_hwm_bytes": 659574784
+        },
+        {
+          "name": "toei_bus_gtfs",
+          "elapsed_seconds": 5.406269519000006,
+          "rss_bytes": 1088221184,
+          "rss_delta_bytes": 462082048,
+          "process_hwm_bytes": 1092059136
+        },
+        {
+          "name": "tokyo_metro_gtfs_and_graph",
+          "elapsed_seconds": 1.34058190799999,
+          "rss_bytes": 1255219200,
+          "rss_delta_bytes": 166998016,
+          "process_hwm_bytes": 1257263104
+        },
+        {
+          "name": "engine_ready",
+          "elapsed_seconds": 0.015998706999994283,
+          "rss_bytes": 1255219200,
+          "rss_delta_bytes": 0,
+          "process_hwm_bytes": 1257263104
+        }
+      ],
+      "search": {
+        "rows": 94,
+        "errors": 0,
+        "elapsed_over_15_seconds": 0,
+        "pop_limit_hits": 0,
+        "correctness_mismatches": 0,
+        "max_elapsed_seconds": 5.407140671999997,
+        "max_pop": 75316,
+        "max_sampled_peak_rss_bytes": 1349431296,
+        "max_process_hwm_bytes": 1349431296
+      },
+      "ready_rss_mib": 1197.07,
+      "search_peak_rss_mib": 1286.918
+    }
+  },
+  "comparison": {
+    "startup_to_ready_seconds": {
+      "ordinary": 12.674462299,
+      "estimated": 12.271050193999997
+    },
+    "search_peak_rss_bytes": {
+      "ordinary": 1349087232,
+      "estimated": 1349431296
+    },
+    "search_peak_rss_difference_bytes": 344064,
+    "memory_headroom_bytes": {
+      "ordinary": 14977433600,
+      "estimated": 14977089536
+    },
+    "all_188_rows_match_phase2": true
+  },
+  "warning": "Local WSL2 evidence only. This is not a Lambda measurement and does not establish Lambda memory compatibility."
+}

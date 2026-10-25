@@ -234,7 +234,7 @@ non-production Lambda without separate explicit authorization.
 
 ## Phase 4 — Complete release-equivalent verification
 
-**State:** Not started.
+**State:** Blocked.
 
 **Completion conditions:**
 
@@ -259,14 +259,31 @@ evidence and records Lambda as not executed rather than silently accessing AWS.
 - Current Windows process measurements and CI build results are documented in
   [Tokyo Metro transfer review](tokyo-metro-transfer-review.md); they do not
   replace Linux or Android hands-on evidence.
+- [Phase 4 release-equivalent verification](tokyo-metro-phase4.md)
+- [Static GTFS release runbook](tokyo-metro-gtfs-release-runbook.md)
+- Linux raw and summarized evidence in
+  `api/benchmarks/tokyo_metro_release_2026_10_25/phase4_linux_20261025.json.gz`
+  and `phase4_linux_summary_20261025.json`
+- Accepted release-input verification in
+  `api/benchmarks/tokyo_metro_release_2026_10_25/phase4_gtfs_verification_20261025.json`
 
-**Open items:** Linux measurement harness/result, Android interaction record,
-accessibility record, four-language screenshots/checklist, and GTFS operational
-runbook validation.
+Linux measurement, GTFS validation/runbook, Android emulator interaction, five-
+language automated layout, and TalkBack focus traversal are complete. The local
+Linux peak was 1,286.9 MiB and all 188 searches exactly matched Phase 2; this is
+not Lambda evidence. The AVD verified normal/estimated cards and details without
+fare display. No physical Android device was available, and the automation
+bridge could not reliably exercise TalkBack activation, so neither item is
+reported as complete.
 
-**Next action:** Execute the local Linux and Android release checklist after
-Phases 2 and 3 provide the fixed cases. Request separate authorization before
-any non-production Lambda action.
+**Open items:** Human physical-device interaction and human TalkBack activation
+for the fixed three-checkbox/estimated-mode/card/detail/back checklist. Lambda
+fit remains explicitly unverified but is not authorized or required by this
+phase.
+
+**Next action:** Connect one supported physical Android device and repeat the
+fixed interaction/accessibility checklist, recording device/API level and
+results. Do not begin Phase 5 or access Lambda until Phase 4 is complete; any
+non-production Lambda action still requires separate authorization.
 
 ## Phase 5 — Make the publication decision
 

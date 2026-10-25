@@ -146,6 +146,45 @@ void main() {
       expect(find.textContaining(entry.value[1]), findsOneWidget);
       expect(find.textContaining('600m'), findsNothing);
     });
+
+    testWidgets(
+      'estimated copy wraps on a 320dp screen at 130% text in ${entry.key}',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 568);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(
+          localizedApp(
+            entry.key,
+            MediaQuery(
+              data: const MediaQueryData(
+                size: Size(320, 568),
+                textScaler: TextScaler.linear(1.3),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    EstimatedTransferSearchControl(
+                      value: true,
+                      onChanged: (_) {},
+                    ),
+                    const SizedBox(height: 12),
+                    const EstimatedTransferWarning(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text(entry.value[0]), findsOneWidget);
+        expect(find.textContaining(entry.value[1]), findsNWidgets(2));
+        expect(find.textContaining('600m'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('search control changes only through its explicit switch', (

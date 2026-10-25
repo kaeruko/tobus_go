@@ -1,0 +1,17 @@
+{
+  "schema": "tokyo_metro_release_input_verification/v1",
+  "archive_sha256": "c50ab5cc3489bf1ff67985491a4d00d25888655918ef887a6cc4887a007dfd73",
+  "station_master_sha256": "542182aea888d559ca37433ed862248658ffb7ae08a9b7be5641b59eafd129ec",
+  "railway_master_sha256": "90b16083b4acfd73d4ad4dc840f6702e57799279d05d1e6781961c8ab3b97f6c",
+  "counterpart_station_master_sha256": "1b3007aaebc7a30f824f9c555913ecb15c0da9c83d389d2c5551e9c3930b0fe3",
+  "transfer_manifest_sha256": "abd91114dc29042c4e4491f421a21555cc1504d90a4cc4dc2ef5262fdb966c5a",
+  "base_app_data_sha256": "db10fc598e0da81e2ac200ba742ab75283440823651fb1d800037f7c0a74bae5",
+  "feed_version": "20261008",
+  "valid_from": "2026-09-19",
+  "valid_until": "2027-03-12",
+  "service_date": "2026-10-23",
+  "routes": 9,
+  "stops": 185,
+  "trips": 9706,
+  "status": "accepted"
+}
