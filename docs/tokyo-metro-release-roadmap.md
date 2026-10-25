@@ -234,14 +234,15 @@ non-production Lambda without separate explicit authorization.
 
 ## Phase 4 — Complete release-equivalent verification
 
-**State:** Blocked.
+**State:** Complete.
 
 **Completion conditions:**
 
 - measure Linux startup time, loaded memory, and search peak memory;
 - record the official GTFS acquisition method, version, validity dates, archive
   hash, update/fail-fast procedure, and attribution requirements;
-- complete Android hands-on interaction and accessibility checks;
+- complete Android emulator hands-on interaction and accessibility checks under
+  the product-owner-approved release-equivalent evidence policy;
 - verify Japanese, English, Chinese, and Korean UI and the three-checkbox
   behavior;
 - preserve timetable, exact-trip, transfer, fare-hidden, API-compatibility,
@@ -268,26 +269,33 @@ evidence and records Lambda as not executed rather than silently accessing AWS.
   `api/benchmarks/tokyo_metro_release_2026_10_25/phase4_gtfs_verification_20261025.json`
 
 Linux measurement, GTFS validation/runbook, Android emulator interaction, five-
-language automated layout, and TalkBack focus traversal are complete. The local
-Linux peak was 1,286.9 MiB and all 188 searches exactly matched Phase 2; this is
-not Lambda evidence. The AVD verified normal/estimated cards and details without
-fare display. No physical Android device was available, and the automation
-bridge could not reliably exercise TalkBack activation, so neither item is
-reported as complete.
+language automated layout, accessibility semantics, and TalkBack focus
+traversal are complete. The local Linux peak was 1,286.9 MiB and all 188
+searches exactly matched Phase 2; this is not Lambda evidence. The AVD verified
+normal/estimated cards and details without fare display. GitHub Actions run
+`40188956156` passed all eight jobs for evidence commit `e80fab6a`.
 
-**Open items:** Human physical-device interaction and human TalkBack activation
-for the fixed three-checkbox/estimated-mode/card/detail/back checklist. Lambda
-fit remains explicitly unverified but is not authorized or required by this
-phase.
+**Product-owner evidence decision (approved 2026-10-25):** Physical Android
+hardware is not mandatory for Phase 4. The emulator's actual GUI interaction,
+Flutter regressions, accessibility semantics, and observed TalkBack focus are
+accepted as the Android release-equivalent evidence. The reason is the product
+owner's explicit choice that these existing checks are sufficient for this
+phase; no additional feature or technical finding expanded the scope. The
+impact is limited to evidence interpretation: device-specific behavior and
+TalkBack double-tap activation remain unverified and must be stated as residual
+risks, but they do not block Phase 4. This approval does not assert that those
+checks occurred and does not itself approve publication.
 
-**Next action:** Connect one supported physical Android device and repeat the
-fixed interaction/accessibility checklist, recording device/API level and
-results. Do not begin Phase 5 or access Lambda until Phase 4 is complete; any
-non-production Lambda action still requires separate authorization.
+**Open items:** None for this phase. Lambda fit, physical-device behavior, and
+TalkBack activation remain explicitly unverified Phase 5 inputs, not completed
+checks. Lambda was neither authorized nor required by Phase 4.
+
+**Next action:** Use the fixed Phase 1–4 evidence and explicit residual-risk
+inventory for Phase 5. Do not access Lambda without separate authorization.
 
 ## Phase 5 — Make the publication decision
 
-**State:** Blocked by Phases 1–4.
+**State:** In progress.
 
 **Completion conditions:**
 
@@ -301,13 +309,16 @@ The PR remains Draft until these conditions are met. This roadmap does not
 authorize merging, production deployment, AWS changes, Google Drive changes,
 or store operations.
 
-**Evidence:** None; publication is not approved.
+**Evidence:** [Phase 5 publication decision packet](tokyo-metro-phase5-publication-decision.md).
+Publication is not approved.
 
-**Open items:** All incomplete items in Phases 1–4.
+**Open items:** The product owner must explicitly accept or reject the residual
+risks in the decision packet and decide whether the PR may leave Draft. A merge,
+deployment, AWS, Google Drive, or store action remains separately unauthorized.
 
-**Next action:** Re-evaluate only after Phases 1–4 are complete. If any item is
-still incomplete, report only why it blocks publication and the work required
-to resolve it.
+**Next action:** Review the decision packet against the existing Phase 5
+completion conditions. Keep the PR Draft until an explicit publication-risk
+decision is recorded; do not merge or deploy as part of that review.
 
 ## Separate Issue candidates (not PR #253 work)
 

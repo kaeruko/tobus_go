@@ -60,8 +60,16 @@ The operational procedure is [documented separately](tokyo-metro-gtfs-release-ru
 
 ## Android and accessibility
 
-No physical Android device was connected. Human physical-device verification
-is therefore incomplete and is not replaced by build or widget-test success.
+No physical Android device was connected. Physical-device behavior and human
+TalkBack activation therefore remain unverified; build or widget-test success
+is not represented as either check.
+
+On 2026-10-25, the product owner explicitly removed physical-device hands-on
+testing from the Phase 4 completion gate and accepted the Android emulator GUI,
+Flutter regressions, accessibility semantics, and observed TalkBack focus
+traversal as the release-equivalent Android evidence for this phase. This is an
+evidence-acceptance decision only: it does not claim that device-specific
+behavior or TalkBack double-tap activation was tested.
 
 The available Pixel 7 AVD (Android 16 / API 36, x86_64) built and installed the
 Tokyo debug APK with the explicit local endpoint override. A local UI-only
@@ -108,17 +116,21 @@ Focused results on this Phase 4 change:
   compatibility, search-state behavior, fares hidden, and five languages).
 - Android: `assembleTokyoDebug` succeeded and installed on API 36 emulator.
 
-The full GitHub Actions result is recorded after this evidence commit is pushed.
+GitHub Actions run `40188956156` passed all eight jobs for evidence commit
+`e80fab6a8f753cd2a275c4870fcdcc63f0668cb2`, including Flutter/Android, Windows
+release AAB, iOS isolation, Python API, shared-core, Windows probe, and
+repository-safety jobs.
 
 ## Completion decision
 
-Phase 4 is **not complete**. Local Linux, GTFS, emulator UI, language and
-automated accessibility evidence pass, but physical-device human testing and
-human TalkBack activation remain incomplete. Lambda was intentionally not run
-and is recorded as unverified rather than treated as a Phase 4 failure.
+Phase 4 is **complete** under the product-owner-approved evidence policy above.
+Local Linux, GTFS, emulator GUI, language, semantics, TalkBack focus, regression,
+and release CI gates pass. A physical Android device was not tested and the
+automation bridge could not reliably perform TalkBack double-tap activation;
+both facts remain explicit Phase 5 residual risks and are not silently treated
+as verified.
 
-To unblock Phase 4, connect one supported Android physical device and repeat
-the three-checkbox/estimated-mode/card/detail/back flow at normal and enlarged
-text, then have a human TalkBack user focus and activate all controls and both
-candidate types. Record device/API level and observed results; no new feature
-or roadmap change is required.
+Lambda was intentionally not run. This phase never authorized or required a
+Lambda measurement, so Lambda fit remains unverified rather than being inferred
+from local Linux memory. Phase 5 must use the recorded limitations without
+turning them into new Phase 4 requirements.
