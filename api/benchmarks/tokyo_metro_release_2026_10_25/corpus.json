@@ -95,9 +95,16 @@
       "scope": ["tokyo_metro"],
       "origin": [35.659097, 139.702673],
       "destination": [35.710746, 139.797774],
-      "date": "2026-10-25",
+      "date": "2026-10-12",
       "time": "10:00",
       "tags": ["public_holiday"],
+      "calendar_expectation": {
+        "official_holiday": true,
+        "official_name_en": "Sports Day",
+        "civil_day_type": "holiday",
+        "gtfs_removed_service_ids": ["0"],
+        "gtfs_added_service_ids": ["1"]
+      },
       "candidate_limits": [5]
     },
     {

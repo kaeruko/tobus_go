@@ -133,7 +133,7 @@ and opt-in searches independently.
 
 ## Phase 2 — Build the fixed OD regression corpus
 
-**State:** In progress.
+**State:** Complete.
 
 **Completion conditions:**
 
@@ -153,21 +153,36 @@ and opt-in searches independently.
 - [Initial 188-search result](../api/benchmarks/tokyo_metro_release_2026_10_25/RESULTS.md)
 - `baseline_windows_20261025.json.gz` in the same evidence directory contains
   ordered candidate/trip/time snapshots and performance counters.
+- `comparison_windows_20261025.json.gz` is an independent comparison-mode
+  rerun with zero correctness mismatches.
+- `snapshot_review_20261025.json` records raw-GTFS and transfer-chronology
+  review of representative and aggregate candidates.
+- `pre_metro_toei_baseline_20261025.json.gz` and
+  `pre_metro_toei_comparison_20261025.json` record the independent pre-Metro
+  Toei baseline and the zero-mismatch 30-row comparison.
 
-The first run completed all 188 calls without a search error, timeout, or pop
+The corrected run and independent comparison run each completed all 188 calls without a search error, timeout, or pop
 limit hit. Maximum pop was 75,316 and maximum retained labels was 120,780.
-Toei-only ordered candidate digests did not change when the estimated-transfer
-option was toggled. These results establish the initial corpus baseline, not
-Phase 2 completion.
+The real public-holiday case is 2026-10-12 (Sports Day); civil holiday status
+and the GTFS removal of service 0/addition of service 1 are both asserted.
+Every ordered candidate, concrete trip, clock, stop order, and expected failure
+matched on rerun. A separate review checked 428 Metro ride steps against raw
+GTFS and 140 transfer boardings with no violation. The ten zero-candidate rows
+are proven static disconnections in ordinary mode and become reachable only
+through marked estimated edges.
 
-**Open items:** Review the committed candidate snapshots, add the separate
-pre-Metro Toei-only comparison required by the completion condition, and rerun
-the baseline as an exact comparison. Raw authenticated data and secrets remain
+The current ordinary results also match 30 independently generated rows from
+the exact pre-Metro commit for bus-only, subway-only, and bus+subway. The first
+and third use legacy public API modes; subway-only is explicitly an induced
+rail-only measurement control because the old API did not expose that scope.
+Toei-only results also do not change when the estimated option is toggled.
+
+**Open items:** None for this phase. Raw authenticated data and secrets remain
 excluded.
 
-**Next action:** Complete snapshot review and pre-Metro Toei comparison, then
-run the fixed baseline in comparison mode. Do not start Phase 3 algorithm work
-unless the completed Phase 2 evidence fails its gate.
+**Next action:** Execute the existing Phase 3 measurement gate with this fixed
+corpus. No Phase 3 algorithm work has started; only consider it if the fixed
+measurement gate fails.
 
 ## Phase 3 — Decide search performance
 

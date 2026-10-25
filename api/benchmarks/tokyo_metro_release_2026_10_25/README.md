@@ -12,6 +12,11 @@ transfers), and a walking-access probe. Synthetic unit-test references cover mis
 connections and direction/closure exceptions without inventing production
 station data.
 
+The holiday case is Monday 2026-10-12 (Sports Day), not a Sunday carrying a
+holiday-shaped label. The runner requires it to be a Japanese public holiday,
+then checks the accepted Metro GTFS `calendar_dates.txt` removes weekday
+service `0` and adds weekend/holiday service `1` for that date.
+
 Ordinary and estimated searches are run independently. The runner passes the
 opt-in to the graph selector before exact enumeration; it never searches the
 larger graph and filters candidates afterward. It also fails if a normal result
@@ -41,15 +46,20 @@ api\.venv-route\Scripts\python.exe `
   --output .cache\pr253\phase2-observed.json
 ```
 
-After a reviewed baseline is committed, pass it with `--baseline` to compare
+Pass the reviewed baseline with `--baseline` to compare
 candidate count, order-sensitive digest, concrete run/trip identity, stop
 order, departure/arrival times, and expected failures. Timing, pop count, queue size and retained labels
 are recorded as measurements but are not treated as deterministic equality
 fields.
 
-The initial reviewed-format output is `baseline_windows_20261025.json.gz`; its
-measurement summary and current limitations are in [RESULTS.md](RESULTS.md).
+`review.py` independently checks every Metro ride in the snapshots against the
+official GTFS `trips.txt`, `stop_times.txt`, `calendar.txt`, and
+`calendar_dates.txt`; it also checks transfer chronology, candidate-limit
+prefix ordering, and the topology reason for every zero-candidate row.
+`run_pre_metro_toei.py` runs the exact pre-Metro commit and
+`compare_pre_metro_toei.py` compares its ordered candidates with the current
+ordinary-search rows.
 
-Phase 2 remains in progress until the generated baseline has been reviewed,
-committed, and the pre-Metro Toei-only reference has been compared. Creating
-the corpus and runner alone does not satisfy the release gate.
+The reviewed output is `baseline_windows_20261025.json.gz`; the independent
+rerun is `comparison_windows_20261025.json.gz`. Review and pre-Metro comparison
+evidence are committed beside them and summarized in [RESULTS.md](RESULTS.md).

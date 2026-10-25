@@ -16,13 +16,19 @@ import types
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import jpholiday
+import networkx as nx
+
 
 ROOT = Path(__file__).resolve().parents[3]
 API = ROOT / "api"
 sys.path.insert(0, str(API))
 
 import toei_engine as te  # noqa: E402
-from tokyo_metro_gtfs import add_tokyo_metro_to_graph  # noqa: E402
+from tokyo_metro_gtfs import (  # noqa: E402
+    add_tokyo_metro_to_graph,
+    metro_service_is_active,
+)
 from tokyo_route_engine import (  # noqa: E402
     TokyoRouteDependencies,
     TokyoRouteEngine,
@@ -100,6 +106,8 @@ def stable_candidate(candidate: dict) -> dict:
                     "service_id",
                     "origin_stop_id",
                     "destination_stop_id",
+                    "origin_gtfs_stop_id",
+                    "destination_gtfs_stop_id",
                     "scheduled_departure_minute",
                     "scheduled_arrival_minute",
                     "origin_sequence",
@@ -117,6 +125,8 @@ def stable_candidate(candidate: dict) -> dict:
                 "to_en": step.get("to_en"),
                 "departure_time": step.get("departure_time"),
                 "arrival_time": step.get("arrival_time"),
+                "minutes": step.get("minutes"),
+                "meters": step.get("meters"),
                 "route_id": step.get("route_id"),
                 "trip_id": step.get("trip_id"),
                 "selected_run": stable_run,
@@ -192,6 +202,21 @@ def validate_corpus(corpus: dict) -> None:
     if scopes != expected:
         raise ValueError("matrix must contain each of the seven transport scopes once")
 
+    holiday_cases = [
+        case
+        for case in corpus["supplemental_cases"]
+        if "public_holiday" in case["tags"]
+    ]
+    if len(holiday_cases) != 1:
+        raise ValueError("corpus must contain exactly one public-holiday case")
+    holiday = holiday_cases[0]
+    service_date = dt.date.fromisoformat(holiday["date"])
+    expectation = holiday.get("calendar_expectation", {})
+    if not expectation.get("official_holiday") or not jpholiday.is_holiday(service_date):
+        raise ValueError(f"public-holiday case is not a Japanese holiday: {service_date}")
+    if service_date.weekday() >= 5:
+        raise ValueError("public-holiday case must prove a holiday exception, not weekend service")
+
 
 def load_engine(args, corpus: dict):
     with args.app_data.open("rb") as source:
@@ -216,6 +241,7 @@ def load_engine(args, corpus: dict):
     }
     if observed != {key: expected[key] for key in observed}:
         raise RuntimeError(f"GTFS validity/version mismatch: {observed}")
+    validate_holiday_calendar(corpus, data["TM"])
     app = types.SimpleNamespace(state=types.SimpleNamespace(**data))
     engine = TokyoRouteEngine(
         app,
@@ -224,6 +250,37 @@ def load_engine(args, corpus: dict):
         ),
     )
     return engine, data, observed
+
+
+def validate_holiday_calendar(corpus: dict, manager) -> None:
+    case = next(
+        case
+        for case in corpus["supplemental_cases"]
+        if "public_holiday" in case["tags"]
+    )
+    service_date = dt.date.fromisoformat(case["date"])
+    expectation = case["calendar_expectation"]
+    observed_day_type = te.determine_day_type(service_date)
+    if observed_day_type != expectation["civil_day_type"]:
+        raise RuntimeError(
+            f"holiday day type mismatch: {service_date} -> {observed_day_type}"
+        )
+    exceptions = getattr(manager, "tokyo_metro_service_exceptions", {})
+    day_exceptions = exceptions.get(service_date.strftime("%Y%m%d"), {})
+    for service_id in expectation["gtfs_removed_service_ids"]:
+        if metro_service_is_active(manager, service_id, service_date):
+            raise RuntimeError(
+                f"GTFS removed service is active on holiday: {service_id} {service_date}"
+            )
+        if day_exceptions and int(day_exceptions.get(service_id, 0)) != 2:
+            raise RuntimeError(f"missing GTFS removal exception for service {service_id}")
+    for service_id in expectation["gtfs_added_service_ids"]:
+        if not metro_service_is_active(manager, service_id, service_date):
+            raise RuntimeError(
+                f"GTFS added service is inactive on holiday: {service_id} {service_date}"
+            )
+        if day_exceptions and int(day_exceptions.get(service_id, 0)) != 1:
+            raise RuntimeError(f"missing GTFS addition exception for service {service_id}")
 
 
 def run_search(
@@ -286,6 +343,26 @@ def run_search(
         ),
         "max_queue": max((row.get("queue", 0) for row in stats), default=0),
     }
+
+
+def fixed_station_topology(engine: TokyoRouteEngine, cases: list[dict]) -> dict:
+    evidence = {}
+    for case in cases:
+        if "origin_station_id" not in case or "destination_station_id" not in case:
+            continue
+        start = ("phys", case["origin_station_id"])
+        target = ("phys", case["destination_station_id"])
+        entry = {}
+        for estimated in (False, True):
+            graph, _ = engine._graph_for_scope(
+                frozenset(case["scope"]),
+                include_estimated_transfers=estimated,
+            )
+            entry["estimated" if estimated else "ordinary"] = nx.has_path(
+                graph, start, target
+            )
+        evidence[case["name"]] = entry
+    return evidence
 
 
 def compare_rows(observed: list[dict], expected_path: Path) -> list[str]:
@@ -351,6 +428,7 @@ def main() -> int:
         *(dict(case, _matrix=True) for case in corpus["matrix_cases"]),
         *(dict(case, _matrix=False) for case in corpus["supplemental_cases"]),
     ]
+    topology_evidence = fixed_station_topology(engine, cases)
     for case in cases:
         limits = (
             contract["candidate_limits"]
@@ -397,11 +475,13 @@ def main() -> int:
         or pair[False]["max_retained_labels"]
         != pair[True]["max_retained_labels"]
     ]
+    mismatches = [] if args.baseline is None else compare_rows(rows, args.baseline)
     output = {
         "schema": "tokyo_metro_release_corpus_result/v1",
         "feed": {**feed, "archive_sha256": archive_hash},
         "transfer_manifest_sha256": sha256(args.transfer_manifest),
         "contract": contract,
+        "fixed_station_topology": topology_evidence,
         "summary": {
             "rows": len(rows),
             "errors": sum(row["error"] is not None for row in rows),
@@ -415,6 +495,11 @@ def main() -> int:
                 (row["max_retained_labels"] for row in rows), default=0
             ),
             "toei_estimated_toggle_mismatches": toei_mode_mismatches,
+            "correctness_comparison": {
+                "performed": args.baseline is not None,
+                "baseline_sha256": sha256(args.baseline) if args.baseline else None,
+                "mismatches": len(mismatches),
+            },
         },
         "rows": rows,
     }
@@ -422,7 +507,6 @@ def main() -> int:
     args.output.write_text(
         json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    mismatches = [] if args.baseline is None else compare_rows(rows, args.baseline)
     if mismatches:
         for mismatch in mismatches:
             print(f"MISMATCH: {mismatch}", file=sys.stderr)

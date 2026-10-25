@@ -1,6 +1,9 @@
 import json
 import unittest
+from datetime import date
 from pathlib import Path
+
+import jpholiday
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -81,6 +84,27 @@ class TokyoMetroReleaseCorpusTests(unittest.TestCase):
         self.assertEqual(contract["max_travel_minutes"], 240)
         self.assertEqual(self.corpus["feed"]["version"], "20261008")
         self.assertEqual(len(self.corpus["feed"]["archive_sha256"]), 64)
+
+    def test_public_holiday_is_a_real_holiday_not_a_weekend_label(self):
+        holiday_cases = [
+            case
+            for case in self.corpus["supplemental_cases"]
+            if "public_holiday" in case["tags"]
+        ]
+        self.assertEqual(len(holiday_cases), 1)
+        case = holiday_cases[0]
+        service_date = date.fromisoformat(case["date"])
+        expectation = case["calendar_expectation"]
+
+        self.assertEqual(service_date, date(2026, 10, 12))
+        self.assertEqual(service_date.weekday(), 0)  # Monday, not a weekend.
+        self.assertTrue(jpholiday.is_holiday(service_date))
+        self.assertEqual(jpholiday.is_holiday_name(service_date), "スポーツの日")
+        self.assertEqual(expectation["official_name_en"], "Sports Day")
+        self.assertTrue(expectation["official_holiday"])
+        self.assertEqual(expectation["civil_day_type"], "holiday")
+        self.assertEqual(expectation["gtfs_removed_service_ids"], ["0"])
+        self.assertEqual(expectation["gtfs_added_service_ids"], ["1"])
 
     def test_corpus_contains_no_secret_or_authenticated_source_data(self):
         lowered = self.raw.lower()

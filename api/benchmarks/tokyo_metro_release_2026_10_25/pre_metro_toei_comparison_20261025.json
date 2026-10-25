@@ -1,0 +1,220 @@
+{
+  "schema": "pre_metro_toei_comparison/v1",
+  "pre_metro_commit": "be9c9d35f6babbf88f58c6a4f5013322a17b6c36",
+  "rows_compared": 30,
+  "mismatch_count": 0,
+  "mismatches": [],
+  "subway_only_note": "The pre-Metro public API exposed bus-only and bus+subway. Subway-only is an independent measurement control using the exact pre-Metro engine and timetable on an induced graph containing only its rail and rail-station nodes.",
+  "comparisons": [
+    {
+      "case": "toei_bus_only",
+      "mode": "time",
+      "candidate_limit": 1,
+      "baseline_method": "pre_metro_public_bus_only",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_only",
+      "mode": "time",
+      "candidate_limit": 2,
+      "baseline_method": "pre_metro_public_bus_only",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_only",
+      "mode": "time",
+      "candidate_limit": 3,
+      "baseline_method": "pre_metro_public_bus_only",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_only",
+      "mode": "time",
+      "candidate_limit": 4,
+      "baseline_method": "pre_metro_public_bus_only",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_only",
+      "mode": "time",
+      "candidate_limit": 5,
+      "baseline_method": "pre_metro_public_bus_only",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_only",
+      "mode": "fewTransfers",
+      "candidate_limit": 1,
+      "baseline_method": "pre_metro_public_bus_only",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_only",
+      "mode": "fewTransfers",
+      "candidate_limit": 2,
+      "baseline_method": "pre_metro_public_bus_only",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_only",
+      "mode": "fewTransfers",
+      "candidate_limit": 3,
+      "baseline_method": "pre_metro_public_bus_only",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_only",
+      "mode": "fewTransfers",
+      "candidate_limit": 4,
+      "baseline_method": "pre_metro_public_bus_only",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_only",
+      "mode": "fewTransfers",
+      "candidate_limit": 5,
+      "baseline_method": "pre_metro_public_bus_only",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_subway_only",
+      "mode": "time",
+      "candidate_limit": 1,
+      "baseline_method": "pre_metro_rail_only_graph_control",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_subway_only",
+      "mode": "time",
+      "candidate_limit": 2,
+      "baseline_method": "pre_metro_rail_only_graph_control",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_subway_only",
+      "mode": "time",
+      "candidate_limit": 3,
+      "baseline_method": "pre_metro_rail_only_graph_control",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_subway_only",
+      "mode": "time",
+      "candidate_limit": 4,
+      "baseline_method": "pre_metro_rail_only_graph_control",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_subway_only",
+      "mode": "time",
+      "candidate_limit": 5,
+      "baseline_method": "pre_metro_rail_only_graph_control",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_subway_only",
+      "mode": "fewTransfers",
+      "candidate_limit": 1,
+      "baseline_method": "pre_metro_rail_only_graph_control",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_subway_only",
+      "mode": "fewTransfers",
+      "candidate_limit": 2,
+      "baseline_method": "pre_metro_rail_only_graph_control",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_subway_only",
+      "mode": "fewTransfers",
+      "candidate_limit": 3,
+      "baseline_method": "pre_metro_rail_only_graph_control",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_subway_only",
+      "mode": "fewTransfers",
+      "candidate_limit": 4,
+      "baseline_method": "pre_metro_rail_only_graph_control",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_subway_only",
+      "mode": "fewTransfers",
+      "candidate_limit": 5,
+      "baseline_method": "pre_metro_rail_only_graph_control",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_and_subway",
+      "mode": "time",
+      "candidate_limit": 1,
+      "baseline_method": "pre_metro_public_bus_and_subway",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_and_subway",
+      "mode": "time",
+      "candidate_limit": 2,
+      "baseline_method": "pre_metro_public_bus_and_subway",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_and_subway",
+      "mode": "time",
+      "candidate_limit": 3,
+      "baseline_method": "pre_metro_public_bus_and_subway",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_and_subway",
+      "mode": "time",
+      "candidate_limit": 4,
+      "baseline_method": "pre_metro_public_bus_and_subway",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_and_subway",
+      "mode": "time",
+      "candidate_limit": 5,
+      "baseline_method": "pre_metro_public_bus_and_subway",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_and_subway",
+      "mode": "fewTransfers",
+      "candidate_limit": 1,
+      "baseline_method": "pre_metro_public_bus_and_subway",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_and_subway",
+      "mode": "fewTransfers",
+      "candidate_limit": 2,
+      "baseline_method": "pre_metro_public_bus_and_subway",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_and_subway",
+      "mode": "fewTransfers",
+      "candidate_limit": 3,
+      "baseline_method": "pre_metro_public_bus_and_subway",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_and_subway",
+      "mode": "fewTransfers",
+      "candidate_limit": 4,
+      "baseline_method": "pre_metro_public_bus_and_subway",
+      "changed_fields": []
+    },
+    {
+      "case": "toei_bus_and_subway",
+      "mode": "fewTransfers",
+      "candidate_limit": 5,
+      "baseline_method": "pre_metro_public_bus_and_subway",
+      "changed_fields": []
+    }
+  ]
+}

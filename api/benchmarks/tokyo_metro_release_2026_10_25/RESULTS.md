@@ -1,14 +1,14 @@
-# Phase 2 initial fixed-corpus result
+# Phase 2 fixed-corpus result
 
 Measured on 2026-10-25 on the local Windows development host with the accepted
 Tokyo Metro GTFS archive `20261008` and the reviewed-transfer manifest SHA-256
 `abd91114dc29042c4e4491f421a21555cc1504d90a4cc4dc2ef5262fdb966c5a`.
 This is local evidence, not Lambda or production evidence.
 
-The uncompressed JSON SHA-256 is
-`e91dfbcdff4c86ba6039fddeee3a74f0f4fd55403c203e487ed7fc3a21e8ae54`;
+The corrected baseline uncompressed SHA-256 is
+`1d970fefe18c7dcf962fb53c8111bac591a081c820e511fc0adfeb366d7d1416`;
 the deterministically compressed committed artifact SHA-256 is
-`3450c1dad45adcfb12303ab2c9f70436aa01bae73e85ff5d955ffe7da22ae4ec`.
+`2c7502629152ff94bbf131d9398d1db6788a4e02816a5d8feb68691f394f1d05`.
 
 The first run produced 188 independent searches:
 
@@ -42,13 +42,57 @@ Shibuya to Asakusa, Metro-only `fewTransfers`, returned five candidates at
 27,370 pops in ordinary mode and 56,572 in estimated mode. This difference is
 caused by the selected graph, not an exploration-algorithm optimization.
 
-All Toei-only cases tagged `legacy_toei` had identical ordered-candidate
-digests and errors with the estimate option both off and on. Comparison to a
-separately frozen pre-Metro baseline is still required before Phase 2 can be
-marked complete.
+The public-holiday case now uses Monday 2026-10-12 (Sports Day). The
+[Cabinet Office holiday calendar](https://www8.cao.go.jp/chosei/shukujitsu/syukujitsu.csv)
+classifies that date as a national holiday, and the accepted
+Metro GTFS explicitly removes service `0` and adds service `1` in
+`calendar_dates.txt`. The runner fails if either the civil-day classification
+or those GTFS exceptions change.
+
+## Independent candidate review
+
+`snapshot_review_20261025.json` records a zero-violation review of all 188
+rows. It checked 32 candidate-limit prefix groups, 428 Metro ride steps against
+raw `trips.txt`/`stop_times.txt` and exact service activation, and 140 boardings
+after a transfer walk. Representative checks include weekday and holiday
+trips, reviewed transfers in both directions, the last train, 24-hour date
+crossing, and the estimated-transfer stress case.
+
+The ten zero-candidate rows are exactly the ordinary-mode Nakano-sakaue to
+Myoden stress sweeps (two objectives times five limits). The ordinary scoped
+graph has no directed path between the fixed stations. The opt-in graph does,
+and all returned stress candidates actually traverse an estimated edge. No
+other row lost all candidates.
+
+Candidate rank was checked independently through the limit 1-to-5 prefix
+contract: each smaller result is the exact ordered prefix of the limit-5
+result for the same case, objective, and transfer mode. The second full run
+then reproduced every ordered candidate, concrete trip, clock, stop order and
+failure condition exactly. Its compressed SHA-256 is
+`d72604c6f0e81f2e325a855da7e53e5c472570455676f9f2655ff477efc4061f`;
+the correctness comparison reports zero mismatches. Elapsed time, pop and
+retained-label measurements were deliberately excluded from equality.
+
+## Pre-Metro Toei baseline
+
+The exact pre-Metro main commit
+`be9c9d35f6babbf88f58c6a4f5013322a17b6c36` was run independently. The old
+public paths were used for bus-only and bus+subway. Because the old public API
+did not expose subway-only, that scope is explicitly a measurement control:
+the same pre-Metro engine and timetable ran on an induced graph containing
+only its rail and rail-station nodes.
+
+All 30 rows (three scopes, two objectives, limits 1 through 5) matched the
+current ordinary-search candidate content, trip/time/stop details and order.
+The compressed baseline SHA-256 is
+`a3a8c46d6e156254246715d38e304e3a7f100675f208e49174eb3ad070a4b2d3`;
+`pre_metro_toei_comparison_20261025.json` reports zero mismatches. All
+Toei-only rows also remain identical with the estimated-transfer option off
+and on.
 
 The committed `baseline_windows_20261025.json.gz` preserves the ordered candidate
 summaries (including concrete run/trip IDs, stop order, and departure/arrival times), digests, pop
 counts, retained-label counts, queue peaks, and measured duration. Runtime
-duration and counters are evidence, not deterministic equality fields; reruns
-compare candidate content/order and failure conditions exactly.
+duration and counters are separate measurement evidence, not deterministic
+equality fields. Phase 2's correctness and legacy-compatibility gates are now
+complete; no Phase 3 algorithm change was made.
