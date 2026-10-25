@@ -2,7 +2,7 @@
 
 Prepared: 2026-10-25; final audit: 2026-10-26 (Asia/Tokyo)
 
-PR: Draft #253
+PR: #253; Draft removal approved for code review on 2026-10-26
 
 Evidence baseline: `e80fab6a8f753cd2a275c4870fcdcc63f0668cb2`
 
@@ -10,27 +10,23 @@ Audited technical head: `cf9527eadc19692c5432544373f2c18597039c53`
 
 ## Decision status
 
-Phases 1 through 4 are complete. This packet prepares, but does not make, the
-Phase 5 publication decision. The PR remains Draft. No merge, deployment, AWS,
-Lambda, Google Drive, or store operation is authorized by this document.
+Phases 1 through 4 are complete. On 2026-10-26, the product owner accepted all
+seven residual-risk classes below with their existing containment and known
+unknowns, assigned the GTFS refresh role and date, and approved removing Draft
+status so PR #253 can enter code review. Phase 5 is therefore **complete** with
+a **Go for code review** decision.
 
-The publication decision requires the product owner to explicitly accept or
-reject the residual risks below. Choice C for estimated transfers defines how
-the feature behaves; its earlier approval was not approval to publish.
-
-The final audit recommendation is **conditional Go**. The implementation and
-the frozen technical gates are suitable to proceed to a publication decision,
-but publication is not yet approved. The two outstanding Phase 5 decisions are
-the product owner's explicit disposition of every residual-risk class below
-and assignment of an owner and review date for the GTFS refresh procedure.
-These are existing Phase 5 conditions, not new release requirements.
+This decision is not a claim that Lambda performance or unverified transfers
+have been proven in production. It does not authorize merge, deployment, AWS,
+Lambda, Google Drive, or store operations. Each of those remains a separate
+action requiring its own approval.
 
 ## Final-head audit
 
 - At the audit point, PR #253 was Draft, open, mergeable, and clean against the
   current `origin/main` (`be9c9d35f6babbf88f58c6a4f5013322a17b6c36`). The audited
   technical head was 14 commits ahead and zero commits behind that base.
-- GitHub Actions run `40192458451` passed all eight jobs for final head
+- GitHub Actions run `40192458451` passed all eight jobs for the prior audit head
   `cf9527eadc19692c5432544373f2c18597039c53`, including Android/Flutter,
   Windows release AAB, iOS isolation, Python API, both shared-core jobs,
   Windows probe, and repository safety.
@@ -45,6 +41,10 @@ These are existing Phase 5 conditions, not new release requirements.
 - GitHub reports no unresolved review threads. This audit does not substitute
   for any human code-review policy the repository owner may apply at merge
   time.
+- The conditional-Go audit record at
+  `d2150ab2bc18351bc1b1bbfbb6329264e0972dce` also passed all eight jobs in
+  GitHub Actions run `40213999518` before the product-owner decision was
+  recorded.
 - The commit that records this audit changes only this decision packet and the
   fixed roadmap. Its GitHub checks are the authoritative final-head CI gate;
   recording a later CI run ID must not create an endless documentation-only
@@ -62,9 +62,9 @@ These are existing Phase 5 conditions, not new release requirements.
 | Linux startup and memory | Complete | Fresh-process startup is 12.271–12.674 seconds; full-data RSS is about 1,197 MiB and search peak is 1,286.9 MiB. This is local Linux, not Lambda. |
 | GTFS operations | Complete | Feed `20261008`, valid 2026-09-19 through 2027-03-12, archive SHA-256 pinned; fail-closed verifier and replacement-safe runbook pass. |
 | UI, language, and accessibility | Complete under approved Phase 4 policy | Android 16/API 36 emulator GUI, five-language layout, all seven scopes, semantics, and TalkBack focus pass; fares and physical `600m` are not displayed. |
-| CI | Complete for final head | GitHub Actions run `40192458451` passed all eight jobs for `cf9527e`; the preceding evidence run `40188956156` also passed 8/8 for `e80fab6a`. |
+| CI | Complete through the decision baseline | GitHub Actions run `40213999518` passed all eight jobs for `d2150ab`; the preceding evidence and audit runs also passed 8/8. The documentation-only decision-record commit is checked on the PR without creating another commit solely to record its run ID. |
 
-## Residual risks requiring an explicit publication decision
+## Residual risks accepted in the product decision
 
 | Risk | User impact | Existing containment | Decision or later work |
 | --- | --- | --- | --- |
@@ -78,16 +78,18 @@ These are existing Phase 5 conditions, not new release requirements.
 
 ## Phase 5 decision checklist
 
-- [x] confirm the final Draft PR head still passes all eight CI jobs;
+- [x] confirm the final pre-decision PR head passes all eight CI jobs;
 - [x] confirm no Phase 1–4 evidence or fixed limit changed after this packet;
-- explicitly accept or reject each residual-risk class above;
-- confirm GTFS refresh ownership before the current feed expires;
-- record whether the PR may leave Draft;
-- keep merge, deployment, AWS, Google Drive, and store actions separately
+- [x] explicitly accept all seven residual-risk classes above;
+- [x] assign `都営でGO運営担当` as GTFS refresh owner, with the next review
+  scheduled for 2026-11-30;
+- [x] approve removing Draft status for code review;
+- [x] keep merge, deployment, AWS, Google Drive, and store actions separately
   unauthorized until their own approval.
 
-Until those decisions are recorded, Phase 5 remains in progress and public
-release is not approved.
+All frozen Phase 5 decision conditions are recorded. CI for the
+documentation-only decision commit is verified on the PR before this work is
+reported complete.
 
 ## Product-owner decision record
 
@@ -95,19 +97,18 @@ Record the decision without changing the frozen roadmap conditions:
 
 | Decision | Status |
 | --- | --- |
-| 89 opt-in estimated-transfer risks | Pending explicit accept/reject |
-| Four reviewed-walk direction/hour limitations | Pending explicit accept/reject |
-| 28 disabled relations and incomplete coverage | Pending explicit accept/reject |
-| Fixed-corpus-only performance evidence | Pending explicit accept/reject |
-| No Lambda measurement for this build | Pending explicit accept/reject |
-| No physical-device or TalkBack double-tap check | Pending explicit accept/reject |
-| GTFS staleness/update risk | Pending explicit accept/reject |
-| GTFS refresh owner and next review date | Unassigned |
-| Permission to leave Draft | Not granted |
+| 89 opt-in estimated-transfer risks | Accepted as residual risk on 2026-10-26 |
+| Four reviewed-walk direction/hour limitations | Accepted as residual risk on 2026-10-26 |
+| 28 disabled relations and incomplete coverage | Accepted as residual risk on 2026-10-26 |
+| Fixed-corpus-only performance evidence | Accepted as residual risk on 2026-10-26 |
+| No Lambda measurement for this build | Accepted as residual risk on 2026-10-26 |
+| No physical-device or TalkBack double-tap check | Accepted as residual risk on 2026-10-26 |
+| GTFS staleness/update risk | Accepted with the assigned refresh control on 2026-10-26 |
+| GTFS refresh owner and next review date | `都営でGO運営担当`; 2026-11-30 |
+| Permission to leave Draft | Granted for code review on 2026-10-26 |
 
-If all seven risk classes are accepted, a refresh owner/date is recorded, and
-the final head remains green, this packet supports a **Go** decision and Draft
-removal. Rejecting a risk does not silently create a workaround: the associated
-feature must remain unpublished or the specifically requested evidence/fix must
-be completed before reconsideration. Merge, deployment, AWS, Google Drive, and
-store operations remain separate approvals in either case.
+The product owner made this decision with the existing mitigations and
+unverified facts understood. Draft removal means only that the PR may proceed
+to code review. Merge, deployment, AWS, Lambda, Google Drive, and store
+operations remain unauthorized, and this decision does not guarantee Lambda
+performance or the correctness of an unverified transfer.

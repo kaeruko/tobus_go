@@ -295,7 +295,7 @@ inventory for Phase 5. Do not access Lambda without separate authorization.
 
 ## Phase 5 — Make the publication decision
 
-**State:** In progress.
+**State:** Complete.
 
 **Completion conditions:**
 
@@ -305,25 +305,31 @@ inventory for Phase 5. Do not access Lambda without separate authorization.
 - CI and release-equivalent verification pass on the final PR head;
 - the product owner explicitly accepts the transfer policy and residual risk.
 
-The PR remains Draft until these conditions are met. This roadmap does not
-authorize merging, production deployment, AWS changes, Google Drive changes,
-or store operations.
+The PR remained Draft until these conditions were met. Draft removal for code
+review is now approved, but this roadmap does not authorize merging, production
+deployment, AWS changes, Google Drive changes, or store operations.
 
 **Evidence:** [Phase 5 publication decision packet](tokyo-metro-phase5-publication-decision.md).
-The 2026-10-26 final-head audit found PR #253 clean and mergeable against the
-current `origin/main`, with all eight CI jobs passing at
-`cf9527eadc19692c5432544373f2c18597039c53` and no application/evidence change
-after the Phase 4 evidence head. The audit recommendation is conditional Go;
-publication is not approved.
+The 2026-10-26 final audit found PR #253 clean and mergeable against the current
+`origin/main`; audit baseline `d2150ab2bc18351bc1b1bbfbb6329264e0972dce`
+passed all eight CI jobs in run `40213999518`, with no application/evidence
+change after the Phase 4 evidence head.
 
-**Open items:** The product owner must explicitly accept or reject the seven
-residual-risk classes in the decision packet, assign the GTFS refresh owner and
-next review date, and decide whether the PR may leave Draft. A merge, deployment,
-AWS, Google Drive, or store action remains separately unauthorized.
+On 2026-10-26 the product owner explicitly accepted all seven documented
+residual-risk classes, assigned the GTFS refresh role to `都営でGO運営担当` with
+the next review on 2026-11-30, and approved Draft removal for code review. The
+owner stated that this is not proof of production Lambda performance or
+unverified-transfer correctness. The decision-record commit is documentation
+only and its PR CI is checked before completion is reported.
 
-**Next action:** Review the decision packet against the existing Phase 5
-completion conditions. Keep the PR Draft until an explicit publication-risk
-decision is recorded; do not merge or deploy as part of that review.
+**Open items:** None for the frozen Phase 5 completion conditions. The accepted
+risks remain real limitations, and the scheduled GTFS review remains an
+operational obligation. Merge, deployment, AWS, Lambda, Google Drive, and store
+actions remain separately unauthorized.
+
+**Next action:** Proceed with code review. Do not merge, deploy, access AWS or
+Lambda, change Google Drive, or perform store operations without separate
+explicit approval.
 
 ## Separate Issue candidates (not PR #253 work)
 
