@@ -186,6 +186,11 @@ class ApiRouteSearchService implements RouteSearchService {
         throw const FormatException('route candidate must be an object');
       }
       final map = Map<String, dynamic>.from(rawCandidate);
+      if (_cityKey == 'tokyo') {
+        map['transport_scope'] = request.transportScope.toList()..sort();
+        map['accept_experimental_transfer_model'] =
+            request.acceptExperimentalTransferModel;
+      }
       _validateResolvedBusIdentity(map);
       _validateResolvedRailIdentity(map);
       if (_cityKey == 'sendai') _validateSendaiPublishedRail(map);

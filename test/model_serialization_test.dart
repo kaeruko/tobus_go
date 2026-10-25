@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/models/leg_models.dart';
 import 'package:toeigo/models/trip_models.dart';
+import 'package:toeigo/models/transport_scope.dart';
 
 void main() {
   test('StepSeg serialization with coordinates', () {
@@ -36,6 +37,22 @@ void main() {
 
     expect(step.boardingMinutes, 2);
     expect(step.toJson()['boarding_minutes'], 2);
+  });
+
+  test('StepSeg preserves operator identity and excludes Metro realtime', () {
+    final step = StepSeg.fromJson({
+      'step_id': 'metro-rail-1',
+      'kind': 'rail',
+      'title': '銀座線',
+      'operator_id': TransportServiceId.tokyoMetro,
+      'trip_id': 'tokyo_metro:trip-1',
+      'route_id': 'tokyo_metro:route-1',
+    });
+
+    expect(step.operatorId, TransportServiceId.tokyoMetro);
+    expect(step.isTokyoMetroRail, isTrue);
+    expect(step.supportsRealtimeVehiclePosition, isFalse);
+    expect(step.toJson()['operator_id'], TransportServiceId.tokyoMetro);
   });
 
   test('StepSeg rejects invalid explicit boarding time', () {
@@ -113,6 +130,52 @@ void main() {
     expect(restored.destinationNameEn, 'Ueno Station');
   });
 
+  test('Candidate preserves Tokyo search context across persistence', () {
+    final candidate = Candidate(
+      id: 'metro-search-context',
+      lines: const ['銀座線'],
+      rides: 1,
+      boards: 1,
+      transfers: 0,
+      total: 10,
+      totalTime: 10,
+      steps: const [],
+      points: const [],
+      transportScope: const {
+        TransportServiceId.toeiSubway,
+        TransportServiceId.tokyoMetro,
+      },
+      acceptExperimentalTransferModel: true,
+    );
+
+    final restored = Candidate.fromJson(candidate.toJson());
+
+    expect(restored.transportScope, {
+      TransportServiceId.toeiSubway,
+      TransportServiceId.tokyoMetro,
+    });
+    expect(restored.acceptExperimentalTransferModel, isTrue);
+  });
+
+  test('legacy Candidate without Tokyo search context remains readable', () {
+    final restored = Candidate.fromJson({
+      'id': 'legacy',
+      'lines': const [],
+      'rides': 0,
+      'walking_distance_meters': 0,
+      'walking_segment_count': 0,
+      'boards': 0,
+      'transfers': 0,
+      'total': 0,
+      'total_time': 0,
+      'steps': const [],
+      'points': const [],
+    });
+
+    expect(restored.transportScope, isNull);
+    expect(restored.acceptExperimentalTransferModel, isNull);
+  });
+
   test('Candidate keeps favorite memo only in local-storage serialization', () {
     final candidate = Candidate(
       id: 'favorite-memo',
@@ -153,12 +216,7 @@ void main() {
       'walking_distance_meters': 120,
       'walking_segment_count': 1,
       'steps': [
-        {
-          'step_id': 'walk-1',
-          'kind': 'walk',
-          'title': '徒歩',
-          'meters': 120,
-        },
+        {'step_id': 'walk-1', 'kind': 'walk', 'title': '徒歩', 'meters': 120},
       ],
     };
 
@@ -223,9 +281,7 @@ void main() {
       ),
     );
     expect(
-      () => leg(
-        railCandidate(tripId: '121603T0', routeId: '1'),
-      ).toFirestore(),
+      () => leg(railCandidate(tripId: '121603T0', routeId: '1')).toFirestore(),
       returnsNormally,
     );
   });
@@ -281,10 +337,7 @@ void main() {
     );
     expect(
       () => leg(
-        busCandidate(
-          tripId: '08501-1-09-170-2018',
-          routeId: '006',
-        ),
+        busCandidate(tripId: '08501-1-09-170-2018', routeId: '006'),
       ).toFirestore(),
       returnsNormally,
     );

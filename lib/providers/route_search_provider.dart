@@ -164,6 +164,8 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     required String toNameEn,
     required DateTime startTime,
     String? preference,
+    Set<String>? transportScope,
+    bool? acceptExperimentalTransferModel,
   }) {
     if (from.trim().isEmpty || to.trim().isEmpty) {
       throw ArgumentError('保存経路の始点・終点座標は空にできません');
@@ -183,8 +185,8 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
       fromNameEn: fromNameEn,
       toNameEn: toNameEn,
       pref: preference,
-      transportScope: TransportServiceId.legacyDefault,
-      acceptExperimentalTransferModel: state.acceptExperimentalTransferModel,
+      transportScope: normalizeTransportScope(transportScope, busOnly: false),
+      acceptExperimentalTransferModel: acceptExperimentalTransferModel ?? false,
       startTime: startTime,
     );
   }

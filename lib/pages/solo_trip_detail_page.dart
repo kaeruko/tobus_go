@@ -18,11 +18,7 @@ class SoloTripDetailPage extends ConsumerWidget {
 
   const SoloTripDetailPage({super.key, required this.trip});
 
-  void _planAgain(
-    BuildContext context,
-    WidgetRef ref,
-    Candidate candidate,
-  ) {
+  void _planAgain(BuildContext context, WidgetRef ref, Candidate candidate) {
     final origin = candidate.originCoords;
     final destination = candidate.destinationCoords;
     if (origin == null || destination == null) {
@@ -36,14 +32,10 @@ class SoloTripDetailPage extends ConsumerWidget {
     final originJa = candidate.originName?.trim();
     final destinationJa = candidate.destinationName?.trim();
     if (originJa == null || originJa.isEmpty) {
-      throw StateError(
-        '履歴経路に出発地名がありません: candidateId=${candidate.id}',
-      );
+      throw StateError('履歴経路に出発地名がありません: candidateId=${candidate.id}');
     }
     if (destinationJa == null || destinationJa.isEmpty) {
-      throw StateError(
-        '履歴経路に到着地名がありません: candidateId=${candidate.id}',
-      );
+      throw StateError('履歴経路に到着地名がありません: candidateId=${candidate.id}');
     }
 
     final originEn = candidate.originNameEn?.trim();
@@ -54,22 +46,29 @@ class SoloTripDetailPage extends ConsumerWidget {
         : originJa;
     final destinationDisplay =
         english && destinationEn != null && destinationEn.isNotEmpty
-            ? destinationEn
-            : destinationJa;
+        ? destinationEn
+        : destinationJa;
     final preference = candidate.preference?.trim();
 
-    ref.read(routeSearchProvider.notifier).prepareSavedRoute(
-      from: '${origin.latitude},${origin.longitude}',
-      to: '${destination.latitude},${destination.longitude}',
-      fromName: originDisplay,
-      toName: destinationDisplay,
-      fromNameJa: originJa,
-      toNameJa: destinationJa,
-      fromNameEn: originEn ?? '',
-      toNameEn: destinationEn ?? '',
-      startTime: appClock.now(),
-      preference: preference == null || preference.isEmpty ? null : preference,
-    );
+    ref
+        .read(routeSearchProvider.notifier)
+        .prepareSavedRoute(
+          from: '${origin.latitude},${origin.longitude}',
+          to: '${destination.latitude},${destination.longitude}',
+          fromName: originDisplay,
+          toName: destinationDisplay,
+          fromNameJa: originJa,
+          toNameJa: destinationJa,
+          fromNameEn: originEn ?? '',
+          toNameEn: destinationEn ?? '',
+          startTime: appClock.now(),
+          preference: preference == null || preference.isEmpty
+              ? null
+              : preference,
+          transportScope: candidate.transportScope,
+          acceptExperimentalTransferModel:
+              candidate.acceptExperimentalTransferModel,
+        );
 
     Navigator.of(context).popUntil((route) => route.isFirst);
     requestSearchTabRoot(ref);

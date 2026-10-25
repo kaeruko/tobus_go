@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:toeigo/models/transport_scope.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/providers/route_search_provider.dart';
 import 'package:toeigo/services/route_search_service.dart';
@@ -71,6 +72,52 @@ void main() {
       expectRequest(service, 'fewTransfers');
     },
   );
+
+  test('saved Metro route restores its explicit search context', () async {
+    final service = _RecordingSearchService();
+    final notifier = prepare(service);
+    notifier.prepareSavedRoute(
+      from: '35.6580,139.7016',
+      to: '35.7107,139.7976',
+      fromName: '渋谷',
+      toName: '浅草',
+      fromNameJa: '渋谷',
+      toNameJa: '浅草',
+      fromNameEn: 'Shibuya',
+      toNameEn: 'Asakusa',
+      startTime: departure,
+      transportScope: const {TransportServiceId.tokyoMetro},
+      acceptExperimentalTransferModel: true,
+    );
+
+    await notifier.triggerSearch();
+
+    expect(notifier.state.transportScope, {TransportServiceId.tokyoMetro});
+    expect(notifier.state.acceptExperimentalTransferModel, isTrue);
+    expect(service.body?['transport_scope'], [TransportServiceId.tokyoMetro]);
+    expect(service.body?['accept_experimental_transfer_model'], isTrue);
+  });
+
+  test('legacy saved route uses legacy scope and estimated transfers off', () {
+    final service = _RecordingSearchService();
+    final notifier = prepare(service);
+    notifier.setExperimentalTransferConsent(true);
+
+    notifier.prepareSavedRoute(
+      from: '35.708166,139.817434',
+      to: '35.6636842,139.6977409',
+      fromName: '十間橋',
+      toName: '渋谷区',
+      fromNameJa: '十間橋',
+      toNameJa: '渋谷区',
+      fromNameEn: 'Jukkembashi',
+      toNameEn: 'Shibuya',
+      startTime: departure,
+    );
+
+    expect(notifier.state.transportScope, TransportServiceId.legacyDefault);
+    expect(notifier.state.acceptExperimentalTransferModel, isFalse);
+  });
 
   test('explicit short-time selection sends time', () async {
     final service = _RecordingSearchService();

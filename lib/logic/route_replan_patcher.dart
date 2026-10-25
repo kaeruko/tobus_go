@@ -187,9 +187,7 @@ class RouteReplanPatcher {
             'anchor=${request.anchor.placeName}',
           );
         }
-        return List.unmodifiable(
-          candidate.steps.take(previousRideIndex + 1),
-        );
+        return List.unmodifiable(candidate.steps.take(previousRideIndex + 1));
       case ReplanAnchorSource.currentTransitPlace:
       case ReplanAnchorSource.predictedNextTransitPlace:
         if (!activeStep.isRide) {
@@ -212,10 +210,7 @@ class RouteReplanPatcher {
     }
   }
 
-  static int? _findPreviousRideIndex(
-    List<StepSeg> steps,
-    int startIndex,
-  ) {
+  static int? _findPreviousRideIndex(List<StepSeg> steps, int startIndex) {
     for (var index = startIndex; index >= 0; index--) {
       if (steps[index].isRide) return index;
     }
@@ -224,19 +219,12 @@ class RouteReplanPatcher {
 
   static bool _rideEndsAtAnchor(StepSeg ride, ReplanAnchor anchor) {
     if (!ride.isRide) {
-      throw StateError(
-        '降車地点の照合対象が乗車stepではありません: ${ride.stepId}',
-      );
+      throw StateError('降車地点の照合対象が乗車stepではありません: ${ride.stepId}');
     }
 
-    final anchorStopId = _requiredStopId(
-      anchor.stopId,
-      '再探索anchor',
-    );
+    final anchorStopId = _requiredStopId(anchor.stopId, '再探索anchor');
     if (ride.stops.isEmpty) {
-      throw StateError(
-        '降車地点をstopIdで照合できません: stepId=${ride.stepId}',
-      );
+      throw StateError('降車地点をstopIdで照合できません: stepId=${ride.stepId}');
     }
     final destinationStopId = _requiredStopId(
       ride.stops.last.stopId,
@@ -306,6 +294,7 @@ class RouteReplanPatcher {
       routeId: step.routeId,
       tripId: step.tripId,
       directionId: step.directionId,
+      operatorId: step.operatorId,
       edges: step.edges,
       departureStopId: step.departureStopId,
       arrivalPoleId: request.anchor.stopId ?? '',
@@ -440,6 +429,11 @@ class RouteReplanPatcher {
       destinationCoords:
           original.destinationCoords ?? selected.destinationCoords,
       arrivalTime: selected.arrivalTime,
+      containsEstimatedTransfer: selected.containsEstimatedTransfer,
+      transportScope: selected.transportScope ?? original.transportScope,
+      acceptExperimentalTransferModel:
+          selected.acceptExperimentalTransferModel ??
+          original.acceptExperimentalTransferModel,
     );
   }
 
@@ -447,10 +441,7 @@ class RouteReplanPatcher {
     List<StopPoint> stops,
     RouteReplanRequest request,
   ) {
-    final stopId = _requiredStopId(
-      request.anchor.stopId,
-      '再探索anchor',
-    );
+    final stopId = _requiredStopId(request.anchor.stopId, '再探索anchor');
     final matches = <int>[];
     for (var index = 0; index < stops.length; index++) {
       final candidateStopId = _requiredStopId(

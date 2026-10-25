@@ -5,6 +5,7 @@ import 'package:toeigo/logic/route_replan_patcher.dart';
 import 'package:toeigo/models/group_models.dart';
 import 'package:toeigo/models/leg_models.dart';
 import 'package:toeigo/models/route_models.dart';
+import 'package:toeigo/models/transport_scope.dart';
 import 'package:toeigo/models/trip_models.dart';
 import 'package:toeigo/services/route_replanner.dart';
 
@@ -61,11 +62,7 @@ void main() {
       stopId: 's0',
       isOrigin: true,
     ),
-    StopPoint(
-      name: '浅草橋',
-      point: const LatLng(35.697, 139.785),
-      stopId: 's1',
-    ),
+    StopPoint(name: '浅草橋', point: const LatLng(35.697, 139.785), stopId: 's1'),
     StopPoint(
       name: '東日本橋',
       point: const LatLng(35.692, 139.785),
@@ -118,7 +115,11 @@ void main() {
     );
   }
 
-  Candidate selectedCandidate({String firstStepId = 'new-walk'}) {
+  Candidate selectedCandidate({
+    String firstStepId = 'new-walk',
+    Set<String>? transportScope,
+    bool? acceptExperimentalTransferModel,
+  }) {
     return Candidate(
       id: 'selected',
       lines: const ['新宿線'],
@@ -171,6 +172,8 @@ void main() {
       departureDate: DateTime(2026, 8, 15, 10, 12),
       arrivalTime: '10:30',
       preference: 'shortTime',
+      transportScope: transportScope,
+      acceptExperimentalTransferModel: acceptExperimentalTransferModel,
     );
   }
 
@@ -227,40 +230,66 @@ void main() {
     );
   }
 
-  test('moving ride is split at predicted anchor and future route is replaced', () {
+  test(
+    'moving ride is split at predicted anchor and future route is replaced',
+    () {
+      final patch = RouteReplanPatcher.build(
+        trip: trip(),
+        request: movingRequest(),
+        selectedCandidate: selectedCandidate(),
+      );
+
+      final combined = patch.legs.single.candidate;
+      expect(combined.steps.map((step) => step.stepId), [
+        'old-walk-in',
+        'old-rail',
+        'new-walk',
+        'new-rail',
+      ]);
+      final oldRail = combined.steps[1];
+      expect(oldRail.toName, '浅草橋');
+      expect(oldRail.arrivalTime, '10:12');
+      expect(oldRail.minutes, 7);
+      expect(oldRail.stops.map((stop) => stop.name), ['本所吾妻橋', '浅草橋']);
+      expect(oldRail.stops.last.isDestination, isTrue);
+      expect(combined.arrivalTime, '10:30');
+
+      expect(
+        patch.schedule.any((entry) => entry.routeStepId == 'old-walk-out'),
+        isFalse,
+      );
+      expect(
+        patch.schedule.any((entry) => entry.routeStepId == 'new-walk'),
+        isTrue,
+      );
+      final splitArrival = patch.schedule.singleWhere(
+        (entry) =>
+            entry.routeStepId == 'old-rail' && entry.routeRole == 'arrival',
+      );
+      expect(splitArrival.plannedAt, DateTime(2026, 8, 15, 10, 12));
+      expect(splitArrival.label, contains('浅草橋に着く'));
+    },
+  );
+
+  test('replan preserves the selected Tokyo search context', () {
     final patch = RouteReplanPatcher.build(
       trip: trip(),
       request: movingRequest(),
-      selectedCandidate: selectedCandidate(),
+      selectedCandidate: selectedCandidate(
+        transportScope: const {
+          TransportServiceId.toeiSubway,
+          TransportServiceId.tokyoMetro,
+        },
+        acceptExperimentalTransferModel: true,
+      ),
     );
 
     final combined = patch.legs.single.candidate;
-    expect(
-      combined.steps.map((step) => step.stepId),
-      ['old-walk-in', 'old-rail', 'new-walk', 'new-rail'],
-    );
-    final oldRail = combined.steps[1];
-    expect(oldRail.toName, '浅草橋');
-    expect(oldRail.arrivalTime, '10:12');
-    expect(oldRail.minutes, 7);
-    expect(oldRail.stops.map((stop) => stop.name), ['本所吾妻橋', '浅草橋']);
-    expect(oldRail.stops.last.isDestination, isTrue);
-    expect(combined.arrivalTime, '10:30');
-
-    expect(
-      patch.schedule.any((entry) => entry.routeStepId == 'old-walk-out'),
-      isFalse,
-    );
-    expect(
-      patch.schedule.any((entry) => entry.routeStepId == 'new-walk'),
-      isTrue,
-    );
-    final splitArrival = patch.schedule.singleWhere(
-      (entry) =>
-          entry.routeStepId == 'old-rail' && entry.routeRole == 'arrival',
-    );
-    expect(splitArrival.plannedAt, DateTime(2026, 8, 15, 10, 12));
-    expect(splitArrival.label, contains('浅草橋に着く'));
+    expect(combined.transportScope, {
+      TransportServiceId.toeiSubway,
+      TransportServiceId.tokyoMetro,
+    });
+    expect(combined.acceptExperimentalTransferModel, isTrue);
   });
 
   test('replan geometry keeps prefix then selected route exactly once', () {
@@ -324,113 +353,123 @@ void main() {
     expect(retained.label, '休憩開始');
   });
 
-  test('walking after alighting keeps prior transit and drops active old walk', () {
-    final request = RouteReplanRequest(
-      anchor: ReplanAnchor(
-        placeName: '東日本橋',
-        stopId: 's2',
-        point: const LatLng(35.692, 139.785),
-        availableAt: DateTime(2026, 8, 15, 10, 23),
-        source: ReplanAnchorSource.lastConfirmedTransitPlace,
-      ),
-      activeStepId: 'old-walk-out',
-      originalCandidateId: 'original',
-      destination: const LatLng(35.680, 139.770),
-      destinationName: '目的地',
-      preference: 'shortTime',
-    );
-
-    final patch = RouteReplanPatcher.build(
-      trip: trip(),
-      request: request,
-      selectedCandidate: selectedCandidate(),
-    );
-
-    expect(
-      patch.legs.single.candidate.steps.map((step) => step.stepId),
-      ['old-walk-in', 'old-rail', 'new-walk', 'new-rail'],
-    );
-    expect(
-      patch.schedule.any((entry) => entry.routeStepId == 'old-walk-out'),
-      isFalse,
-    );
-  });
-
-  test('wait after transfer walk drops the unconfirmed walk before replanning', () {
-    final base = originalCandidate();
-    final waitingCandidate = Candidate(
-      id: base.id,
-      lines: base.lines,
-      linesEn: base.linesEn,
-      rides: base.rides,
-      boards: base.boards,
-      transfers: base.transfers,
-      total: 35,
-      totalTime: 35,
-      steps: [
-        ...base.steps,
-        StepSeg(
-          stepId: 'old-wait',
-          kind: 'wait',
-          title: '待ち時間',
-          fromName: '目的地',
-          toName: '目的地',
-          place: '目的地',
-          departureTime: '10:25',
-          arrivalTime: '10:35',
-          minutes: 10,
+  test(
+    'walking after alighting keeps prior transit and drops active old walk',
+    () {
+      final request = RouteReplanRequest(
+        anchor: ReplanAnchor(
+          placeName: '東日本橋',
+          stopId: 's2',
+          point: const LatLng(35.692, 139.785),
+          availableAt: DateTime(2026, 8, 15, 10, 23),
+          source: ReplanAnchorSource.lastConfirmedTransitPlace,
         ),
-      ],
-      points: base.points,
-      originName: base.originName,
-      destinationName: base.destinationName,
-      originNameEn: base.originNameEn,
-      destinationNameEn: base.destinationNameEn,
-      preference: base.preference,
-      departureDate: base.departureDate,
-      isFutureSuggestion: base.isFutureSuggestion,
-      originCoords: base.originCoords,
-      destinationCoords: base.destinationCoords,
-      arrivalTime: '10:35',
-    );
-    final request = RouteReplanRequest(
-      anchor: ReplanAnchor(
-        placeName: '東日本橋',
-        stopId: 's2',
-        point: const LatLng(35.692, 139.785),
-        availableAt: DateTime(2026, 8, 15, 10, 28),
-        source: ReplanAnchorSource.lastConfirmedTransitPlace,
-      ),
-      activeStepId: 'old-wait',
-      originalCandidateId: 'original',
-      destination: const LatLng(35.680, 139.770),
-      destinationName: '目的地',
-      preference: 'shortTime',
-    );
+        activeStepId: 'old-walk-out',
+        originalCandidateId: 'original',
+        destination: const LatLng(35.680, 139.770),
+        destinationName: '目的地',
+        preference: 'shortTime',
+      );
 
-    final patch = RouteReplanPatcher.build(
-      trip: trip(candidateOverride: waitingCandidate),
-      request: request,
-      selectedCandidate: selectedCandidate(),
-    );
+      final patch = RouteReplanPatcher.build(
+        trip: trip(),
+        request: request,
+        selectedCandidate: selectedCandidate(),
+      );
 
-    expect(
-      patch.legs.single.candidate.steps.map((step) => step.stepId),
-      ['old-walk-in', 'old-rail', 'new-walk', 'new-rail'],
-    );
-    expect(
-      patch.schedule.any((entry) => entry.routeStepId == 'old-walk-out'),
-      isFalse,
-    );
-    expect(
-      patch.schedule.any((entry) => entry.routeStepId == 'old-wait'),
-      isFalse,
-    );
-    expect(
-      patch.schedule.where((entry) => entry.routeStepId == 'new-walk').length,
-      1,
-    );
-  });
+      expect(patch.legs.single.candidate.steps.map((step) => step.stepId), [
+        'old-walk-in',
+        'old-rail',
+        'new-walk',
+        'new-rail',
+      ]);
+      expect(
+        patch.schedule.any((entry) => entry.routeStepId == 'old-walk-out'),
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'wait after transfer walk drops the unconfirmed walk before replanning',
+    () {
+      final base = originalCandidate();
+      final waitingCandidate = Candidate(
+        id: base.id,
+        lines: base.lines,
+        linesEn: base.linesEn,
+        rides: base.rides,
+        boards: base.boards,
+        transfers: base.transfers,
+        total: 35,
+        totalTime: 35,
+        steps: [
+          ...base.steps,
+          StepSeg(
+            stepId: 'old-wait',
+            kind: 'wait',
+            title: '待ち時間',
+            fromName: '目的地',
+            toName: '目的地',
+            place: '目的地',
+            departureTime: '10:25',
+            arrivalTime: '10:35',
+            minutes: 10,
+          ),
+        ],
+        points: base.points,
+        originName: base.originName,
+        destinationName: base.destinationName,
+        originNameEn: base.originNameEn,
+        destinationNameEn: base.destinationNameEn,
+        preference: base.preference,
+        departureDate: base.departureDate,
+        isFutureSuggestion: base.isFutureSuggestion,
+        originCoords: base.originCoords,
+        destinationCoords: base.destinationCoords,
+        arrivalTime: '10:35',
+      );
+      final request = RouteReplanRequest(
+        anchor: ReplanAnchor(
+          placeName: '東日本橋',
+          stopId: 's2',
+          point: const LatLng(35.692, 139.785),
+          availableAt: DateTime(2026, 8, 15, 10, 28),
+          source: ReplanAnchorSource.lastConfirmedTransitPlace,
+        ),
+        activeStepId: 'old-wait',
+        originalCandidateId: 'original',
+        destination: const LatLng(35.680, 139.770),
+        destinationName: '目的地',
+        preference: 'shortTime',
+      );
+
+      final patch = RouteReplanPatcher.build(
+        trip: trip(candidateOverride: waitingCandidate),
+        request: request,
+        selectedCandidate: selectedCandidate(),
+      );
+
+      expect(patch.legs.single.candidate.steps.map((step) => step.stepId), [
+        'old-walk-in',
+        'old-rail',
+        'new-walk',
+        'new-rail',
+      ]);
+      expect(
+        patch.schedule.any((entry) => entry.routeStepId == 'old-walk-out'),
+        isFalse,
+      );
+      expect(
+        patch.schedule.any((entry) => entry.routeStepId == 'old-wait'),
+        isFalse,
+      );
+      expect(
+        patch.schedule.where((entry) => entry.routeStepId == 'new-walk').length,
+        1,
+      );
+    },
+  );
 
   test('trip-origin replan replaces all route-generated steps', () {
     final request = RouteReplanRequest(
@@ -454,10 +493,10 @@ void main() {
       selectedCandidate: selectedCandidate(),
     );
 
-    expect(
-      patch.legs.single.candidate.steps.map((step) => step.stepId),
-      ['new-walk', 'new-rail'],
-    );
+    expect(patch.legs.single.candidate.steps.map((step) => step.stepId), [
+      'new-walk',
+      'new-rail',
+    ]);
     expect(
       patch.schedule.any((entry) => entry.routeStepId == 'old-walk-in'),
       isFalse,
@@ -530,5 +569,4 @@ void main() {
       throwsStateError,
     );
   });
-
 }

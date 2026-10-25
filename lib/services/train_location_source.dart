@@ -93,7 +93,8 @@ class TrainLocation {
     final tripHeadsign = json['trip_headsign']?.toString().trim();
     final tripHeadsignEn = json['trip_headsign_en']?.toString().trim();
     final vehicleId = json['vehicle_id']?.toString();
-    final currentStopSequence = (json['current_stop_sequence'] as num?)?.toInt();
+    final currentStopSequence = (json['current_stop_sequence'] as num?)
+        ?.toInt();
     final currentStatus = json['current_status']?.toString();
     final currentStopId = json['current_stop_id']?.toString();
     final currentStopName = json['current_stop_name']?.toString();
@@ -115,7 +116,9 @@ class TrainLocation {
       throw const FormatException('train location is missing vehicle_id');
     }
     if (currentStopSequence == null) {
-      throw const FormatException('train location is missing current_stop_sequence');
+      throw const FormatException(
+        'train location is missing current_stop_sequence',
+      );
     }
     if (currentStatus == null || currentStatus.isEmpty) {
       throw const FormatException('train location is missing current_status');
@@ -124,7 +127,9 @@ class TrainLocation {
       throw const FormatException('train location is missing current_stop_id');
     }
     if (currentStopName == null || currentStopName.isEmpty) {
-      throw const FormatException('train location is missing current_stop_name');
+      throw const FormatException(
+        'train location is missing current_stop_name',
+      );
     }
     if (boardingSequence == null || destinationSequence == null) {
       throw const FormatException(
@@ -143,9 +148,8 @@ class TrainLocation {
 
     final tripStops = rawTripStops
         .map(
-          (value) => TrainTripStop.fromJson(
-            Map<String, dynamic>.from(value as Map),
-          ),
+          (value) =>
+              TrainTripStop.fromJson(Map<String, dynamic>.from(value as Map)),
         )
         .toList(growable: false);
 
@@ -193,7 +197,16 @@ class RealtimeTrainLocationSource implements TrainLocationSource {
       );
     }
     if (step.kind != 'rail') {
-      throw ArgumentError('TrainLocationSource requires rail step: ${step.kind}');
+      throw ArgumentError(
+        'TrainLocationSource requires rail step: ${step.kind}',
+      );
+    }
+    if (!step.supportsRealtimeVehiclePosition) {
+      throw TrainLocationNotAvailableException(
+        code:
+            'realtime_vehicle_position_unsupported:'
+            '${step.operatorId ?? 'tokyo_metro'}',
+      );
     }
     final tripId = step.tripId?.trim();
     if (tripId == null || tripId.isEmpty) {

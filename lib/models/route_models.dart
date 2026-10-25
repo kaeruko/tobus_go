@@ -2,6 +2,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../utils/string_utils.dart';
 import 'route_map_segment.dart';
+import 'transport_scope.dart';
 
 class RouteMeta {
   final String? planningNotice;
@@ -81,6 +82,8 @@ class Candidate {
   final LatLng? destinationCoords;
   final String? arrivalTime;
   final bool containsEstimatedTransfer;
+  final Set<String>? transportScope;
+  final bool? acceptExperimentalTransferModel;
   final String? savedRouteMemo;
   final DateTime? savedRouteSavedAt;
 
@@ -111,9 +114,14 @@ class Candidate {
     this.destinationCoords,
     this.arrivalTime,
     this.containsEstimatedTransfer = false,
+    Set<String>? transportScope,
+    this.acceptExperimentalTransferModel,
     this.savedRouteMemo,
     this.savedRouteSavedAt,
-  }) : walkingDistanceMeters =
+  }) : transportScope = transportScope == null
+           ? null
+           : normalizeTransportScope(transportScope, busOnly: false),
+       walkingDistanceMeters =
            walkingDistanceMeters ?? _walkingDistanceMetersFrom(steps),
        walkingSegmentCount =
            walkingSegmentCount ?? _walkingSegmentCountFrom(steps) {
@@ -242,6 +250,11 @@ class Candidate {
           : null,
       arrivalTime: j['arrival_time']?.toString(),
       containsEstimatedTransfer: j['contains_estimated_transfer'] == true,
+      transportScope: _readOptionalTransportScope(j),
+      acceptExperimentalTransferModel: _readOptionalBoolean(
+        j,
+        'accept_experimental_transfer_model',
+      ),
       savedRouteMemo: j['saved_route_memo']?.toString(),
       savedRouteSavedAt: _readOptionalSavedRouteSavedAt(j),
     );
@@ -262,6 +275,36 @@ class Candidate {
       );
     }
     return parsed.toUtc();
+  }
+
+  static Set<String>? _readOptionalTransportScope(Map<String, dynamic> json) {
+    if (!json.containsKey('transport_scope')) return null;
+    final value = json['transport_scope'];
+    if (value is! List || value.any((entry) => entry is! String)) {
+      throw const FormatException(
+        'saved route transport_scope must be a list of strings',
+      );
+    }
+    final entries = value.cast<String>();
+    if (entries.length != entries.toSet().length) {
+      throw const FormatException(
+        'saved route transport_scope must not contain duplicates',
+      );
+    }
+    try {
+      return normalizeTransportScope(entries.toSet(), busOnly: false);
+    } on ArgumentError catch (error) {
+      throw FormatException('saved route has invalid transport_scope: $error');
+    }
+  }
+
+  static bool? _readOptionalBoolean(Map<String, dynamic> json, String key) {
+    if (!json.containsKey(key)) return null;
+    final value = json[key];
+    if (value is! bool) {
+      throw FormatException('saved route $key must be a boolean');
+    }
+    return value;
   }
 
   static int _readRequiredNonNegativeInt(
@@ -550,6 +593,8 @@ class Candidate {
       destinationCoords: destinationCoords,
       arrivalTime: arrivalTime,
       containsEstimatedTransfer: containsEstimatedTransfer,
+      transportScope: transportScope,
+      acceptExperimentalTransferModel: acceptExperimentalTransferModel,
       savedRouteMemo: memo,
       savedRouteSavedAt: savedAt,
     );
@@ -593,6 +638,10 @@ class Candidate {
           : null,
       'arrival_time': arrivalTime,
       'contains_estimated_transfer': containsEstimatedTransfer,
+      if (transportScope != null)
+        'transport_scope': transportScope!.toList()..sort(),
+      if (acceptExperimentalTransferModel != null)
+        'accept_experimental_transfer_model': acceptExperimentalTransferModel,
       if (includeSavedRouteMemo) 'saved_route_memo': savedRouteMemo,
       if (includeSavedRouteMemo)
         'saved_route_saved_at': savedRouteSavedAt?.toUtc().toIso8601String(),
@@ -670,6 +719,7 @@ class StepSeg {
   final String? routeId; // 系統ID
   final String? tripId; // 便ID (GTFS-RTとの紐付け用)
   final String? directionId; // 方向ID
+  final String? operatorId;
 
   // Compatibility / Legacy fields
   final int edges;
@@ -701,6 +751,7 @@ class StepSeg {
     this.routeId, // ★
     this.tripId, // ★
     this.directionId, // ★
+    this.operatorId,
     this.edges = 0,
     this.departureStopId = '',
     this.arrivalPoleId = '',
@@ -716,6 +767,15 @@ class StepSeg {
       planningDetails?['physical_walk_meters'] == null;
 
   bool get isRide => kind == 'bus' || kind == 'rail';
+
+  bool get isTokyoMetroRail =>
+      kind == 'rail' &&
+      (operatorId == TransportServiceId.tokyoMetro ||
+          tripId?.startsWith('${TransportServiceId.tokyoMetro}:') == true ||
+          routeId?.startsWith('${TransportServiceId.tokyoMetro}:') == true);
+
+  bool get supportsRealtimeVehiclePosition =>
+      kind == 'rail' && !isTokyoMetroRail;
 
   // Keep getters for compatibility if needed, or rely on public fields
   String? get from => fromName;
@@ -766,6 +826,7 @@ class StepSeg {
           json['routeId'], // Handle both snake and camel if possible, user snippet used snake
       tripId: json['trip_id'],
       directionId: json['direction_id'],
+      operatorId: json['operator_id']?.toString(),
 
       // Legacy
       edges: (json['edges'] as num? ?? 0).toInt(),
@@ -831,6 +892,7 @@ class StepSeg {
       'route_id': routeId,
       'trip_id': tripId,
       'direction_id': directionId,
+      'operator_id': operatorId,
       'edges': edges,
       'departureStopId': departureStopId,
       'arrivalPoleId': arrivalPoleId,

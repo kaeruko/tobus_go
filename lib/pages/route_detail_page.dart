@@ -9,6 +9,7 @@ import '../l10n/transit_name_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
 import '../models/route_models.dart';
 import '../models/fare_models.dart';
+import '../models/transport_scope.dart';
 import '../providers/city_profile_provider.dart';
 import '../providers/navigation_provider.dart';
 import '../providers/route_search_provider.dart';
@@ -376,6 +377,9 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
           preference: preference == null || preference.isEmpty
               ? null
               : preference,
+          transportScope: candidate.transportScope,
+          acceptExperimentalTransferModel:
+              candidate.acceptExperimentalTransferModel,
         );
 
     Navigator.of(context).popUntil((route) => route.isFirst);
@@ -944,6 +948,16 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       final developmentScope =
           sendaiReviewedCoordinatesEnabled && cityKey == 'sendai';
       final currentSearch = ref.read(routeSearchProvider);
+      final routeScope =
+          original.transportScope ??
+          (widget.fromSavedRoute
+              ? TransportServiceId.legacyDefault
+              : currentSearch.transportScope);
+      final estimatedTransfers =
+          original.acceptExperimentalTransferModel ??
+          (widget.fromSavedRoute
+              ? false
+              : currentSearch.acceptExperimentalTransferModel);
       final policyId = developmentScope
           ? await FarePolicyPreferences.load(ref.read(cityProfileProvider))
           : null;
@@ -960,13 +974,12 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               farePolicyId: policyId,
               acceptExperimentalTransferModel:
                   (cityKey == 'tokyo' || developmentScope) &&
-                  currentSearch.acceptExperimentalTransferModel,
+                  estimatedTransfers,
               busOnly: cityKey == 'tokyo'
-                  ? currentSearch.busOnly
+                  ? routeScope.length == 1 &&
+                        routeScope.contains(TransportServiceId.toeiBus)
                   : developmentScope && currentSearch.busOnly,
-              transportScope: cityKey == 'tokyo'
-                  ? currentSearch.transportScope
-                  : null,
+              transportScope: cityKey == 'tokyo' ? routeScope : null,
             ),
           );
       final list = result.candidates;
