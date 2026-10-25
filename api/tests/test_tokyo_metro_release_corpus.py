@@ -1,3 +1,4 @@
+import gzip
 import json
 import unittest
 from datetime import date
@@ -14,6 +15,10 @@ CORPUS = (
     / "tokyo_metro_release_2026_10_25"
     / "corpus.json"
 )
+EVIDENCE_DIR = CORPUS.parent
+PHASE2_BASELINE = EVIDENCE_DIR / "baseline_windows_20261025.json.gz"
+PHASE3_RUN = EVIDENCE_DIR / "phase3_windows_20261025.json.gz"
+PHASE3_SUMMARY = EVIDENCE_DIR / "phase3_summary_windows_20261025.json"
 
 
 class TokyoMetroReleaseCorpusTests(unittest.TestCase):
@@ -107,7 +112,15 @@ class TokyoMetroReleaseCorpusTests(unittest.TestCase):
         self.assertEqual(expectation["gtfs_added_service_ids"], ["1"])
 
     def test_corpus_contains_no_secret_or_authenticated_source_data(self):
-        lowered = self.raw.lower()
+        with gzip.open(PHASE3_RUN, "rt", encoding="utf-8") as source:
+            phase3_run = source.read()
+        evidence = "\n".join(
+            (
+                self.raw,
+                phase3_run,
+                PHASE3_SUMMARY.read_text(encoding="utf-8"),
+            )
+        ).lower()
         for forbidden in (
             "api_key",
             "apikey",
@@ -115,7 +128,65 @@ class TokyoMetroReleaseCorpusTests(unittest.TestCase):
             "authorization:",
             "bearer ",
         ):
-            self.assertNotIn(forbidden, lowered)
+            self.assertNotIn(forbidden, evidence)
+
+    def test_phase3_fixed_corpus_passes_unchanged_limits(self):
+        summary = json.loads(PHASE3_SUMMARY.read_text(encoding="utf-8"))
+        self.assertEqual(summary["schema"], "tokyo_metro_phase3_performance/v1")
+        self.assertEqual(
+            summary["source"]["phase2_baseline_sha256"],
+            "2c7502629152ff94bbf131d9398d1db6788a4e02816a5d8feb68691f394f1d05",
+        )
+        self.assertEqual(
+            summary["gate"],
+            {
+                "rows": 188,
+                "errors": 0,
+                "elapsed_over_15_seconds": 0,
+                "pop_limit_hits": 0,
+                "correctness_mismatches": 0,
+                "passed": True,
+            },
+        )
+        self.assertEqual(summary["maxima"]["max_pop"]["value"], 75316.0)
+        self.assertEqual(
+            summary["maxima"]["max_retained_labels"]["value"], 120780.0
+        )
+        references = summary["reference_cases"]
+        self.assertEqual(references["shibuya_asakusa_ordinary"]["max_pop"], 27370)
+        self.assertEqual(references["shibuya_asakusa_estimated"]["max_pop"], 56572)
+        self.assertEqual(
+            references["nakano_sakaue_myoden_estimated"]["max_pop"], 75316
+        )
+
+    def test_phase3_candidates_equal_the_phase2_snapshot(self):
+        with gzip.open(PHASE2_BASELINE, "rt", encoding="utf-8") as source:
+            baseline = json.load(source)
+        with gzip.open(PHASE3_RUN, "rt", encoding="utf-8") as source:
+            observed = json.load(source)
+
+        keys = ("case", "mode", "candidate_limit", "estimated_transfers")
+        stable_fields = (
+            "error",
+            "candidate_count",
+            "candidate_sha256",
+            "candidates",
+        )
+        expected = {
+            tuple(row[key] for key in keys): {
+                field: row[field] for field in stable_fields
+            }
+            for row in baseline["rows"]
+        }
+        actual = {
+            tuple(row[key] for key in keys): {
+                field: row[field] for field in stable_fields
+            }
+            for row in observed["rows"]
+        }
+        self.assertEqual(actual, expected)
+        self.assertTrue(all(row["elapsed_seconds"] <= 15 for row in observed["rows"]))
+        self.assertTrue(all(row["max_pop"] <= 100000 for row in observed["rows"]))
 
 
 if __name__ == "__main__":

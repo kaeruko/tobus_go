@@ -96,3 +96,72 @@ counts, retained-label counts, queue peaks, and measured duration. Runtime
 duration and counters are separate measurement evidence, not deterministic
 equality fields. Phase 2's correctness and legacy-compatibility gates are now
 complete; no Phase 3 algorithm change was made.
+
+## Phase 3 fixed-corpus performance gate
+
+The same 188 searches were rerun sequentially in one warm CPython 3.12.10
+process on the local Windows 11 AMD64 development host (16 logical CPUs).
+`time.perf_counter` covered `TokyoRouteEngine.search_legacy` only. A full
+`gc.collect` ran immediately before each search; initial pickle/GTFS loading
+and graph construction were excluded. Consequently, elapsed time is local-host
+evidence, while pop, queue and retained-label values are engine counters for
+the fixed inputs.
+
+All 188 rows matched the Phase 2 candidates, concrete trips, stop order,
+departure/arrival times, candidate order and expected failures. There were no
+search errors, measured calls over 15 seconds, or 100,000-pop limit hits.
+Type-7 linear interpolation is used for the fixed-sample percentiles below.
+These percentiles describe the corpus distribution, not production demand or
+all possible origin/destination pairs.
+
+| Metric | Median | p95 | p99 | Maximum |
+| --- | ---: | ---: | ---: | ---: |
+| Pop | 1,244.5 | 26,701.3 | 56,387.6 | 75,316 |
+| Elapsed seconds | 1.126 | 4.393 | 5.140 | 5.327 |
+| Maximum queue | 1,053 | 84,969.6 | 97,614 | 97,614 |
+| Retained labels | 3,113 | 105,754.9 | 120,780 | 120,780 |
+| Candidate count | 1 | 5 | 5 | 5 |
+
+Objective and estimated-transfer partitions remained distinct:
+
+| Partition | Rows | Pop median / p95 / p99 / max | Seconds median / p95 / p99 / max | Labels median / p95 / p99 / max |
+| --- | ---: | --- | --- | --- |
+| `time` | 94 | 130 / 25,660 / 25,660 / 25,660 | 1.174 / 5.014 / 5.200 / 5.327 | 2,300 / 120,780 / 120,780 / 120,780 |
+| `fewTransfers` | 94 | 2,052 / 43,497.1 / 57,884.1 / 75,316 | 1.107 / 1.856 / 2.051 / 2.432 | 3,316 / 45,533.5 / 60,231.2 / 77,851 |
+| Estimated OFF | 94 | 856.5 / 25,660 / 27,269.6 / 27,370 | 1.107 / 3.910 / 5.200 / 5.327 | 2,396 / 85,372.5 / 120,780 / 120,780 |
+| Estimated ON | 94 | 1,487.5 / 43,497.1 / 57,884.1 / 75,316 | 1.149 / 4.085 / 5.003 / 5.040 | 3,508 / 92,876.1 / 120,780 / 120,780 |
+
+The complete summary additionally records queue and candidate-count
+percentiles for each partition, each objective/estimated-mode combination and
+all seven scopes. Scope maxima were:
+
+| Scope | Max pop | Max seconds | Max queue | Max retained labels |
+| --- | ---: | ---: | ---: | ---: |
+| Toei bus | 25,660 | 5.327 | 97,614 | 120,780 |
+| Toei subway | 4,014 | 0.675 | 964 | 4,978 |
+| Tokyo Metro | 75,316 | 2.432 | 3,139 | 77,851 |
+| Toei bus + subway | 8,914 | 3.726 | 61,487 | 66,307 |
+| Toei bus + Metro | 2,137 | 1.409 | 4,477 | 4,329 |
+| Toei subway + Metro | 4,014 | 1.340 | 966 | 4,980 |
+| All three | 2,139 | 2.010 | 13,859 | 11,221 |
+
+The required references reproduced exactly:
+
+- Shibuya to Asakusa, Metro-only `fewTransfers`, five candidates: 27,370 pops
+  ordinary and 56,572 with estimated transfers;
+- Nakano-sakaue to Myoden, Metro-only `fewTransfers`, five candidates with
+  estimates: 75,316 pops;
+- fixed-corpus maximum retained labels: 120,780 (the existing Toei bus-only
+  `time` case, not the Metro stress case).
+
+The compressed raw run SHA-256 is
+`aa240be1f610a80da0ed97e8ab6406983f42d4aa9d2312f2f6bf5ffae31ed6b2`.
+The summary SHA-256 is
+`763da47a7993afe0deef35c5aa423e40dbc79dbbf1e8eb7da7a9bd3a2f8026e1`.
+The uncompressed raw SHA-256, input hashes and exact per-row measurements are
+recorded inside the summary.
+
+The fixed performance gate therefore passes without an exploration-algorithm
+change. This does not establish production p95/p99 or prove that every
+possible network query stays below either limit; those residual risks remain
+for the Phase 5 publication decision after Phase 4 release-equivalent evidence.

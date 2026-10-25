@@ -63,3 +63,25 @@ ordinary-search rows.
 The reviewed output is `baseline_windows_20261025.json.gz`; the independent
 rerun is `comparison_windows_20261025.json.gz`. Review and pre-Metro comparison
 evidence are committed beside them and summarized in [RESULTS.md](RESULTS.md).
+
+## Phase 3 performance evidence
+
+`phase3_windows_20261025.json.gz` is a fresh comparison-mode run of all 188
+fixed searches. It retains each row's candidates and the measured pop, elapsed
+time, maximum queue and retained-label counters. `phase3_summary_windows_20261025.json`
+contains the overall, objective, estimated-transfer and scope distributions.
+The summary uses Type-7 linear interpolation for p50, p95 and p99.
+
+Generate those artifacts from an uncompressed runner result with:
+
+```powershell
+python api\benchmarks\tokyo_metro_release_2026_10_25\summarize_phase3.py `
+  --input .cache\pr253\phase3_windows_20261025.json `
+  --summary api\benchmarks\tokyo_metro_release_2026_10_25\phase3_summary_windows_20261025.json `
+  --compressed-run api\benchmarks\tokyo_metro_release_2026_10_25\phase3_windows_20261025.json.gz
+```
+
+The summarizer fails unless all 188 rows match the Phase 2 baseline and finish
+without an error, a wall-clock measurement above 15 seconds, or a pop count
+above 100,000. Elapsed-time percentiles describe this fixed sequential local
+run, not production traffic or network-wide p95/p99.

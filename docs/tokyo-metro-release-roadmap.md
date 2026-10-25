@@ -186,7 +186,7 @@ measurement gate fails.
 
 ## Phase 3 — Decide search performance
 
-**State:** Not started.
+**State:** Complete.
 
 **Completion conditions:**
 
@@ -203,15 +203,34 @@ measurement gate fails.
 Changing candidate order, objectives, search limits, or walking constraints is
 not a performance fix and cannot satisfy this phase.
 
-**Evidence:** Current reference measurements are 56,572 pops for Shibuya to
-Asakusa and 75,316 for Nakano-sakaue to Myoden in Metro-only
-`fewTransfers`, both returning five candidates without reaching the cap. These
-are two probes, not the required distribution.
+**Evidence:**
 
-**Open items:** Phase 2 corpus and repeatable peak-label/timing capture.
+- [Phase 3 fixed-corpus results](../api/benchmarks/tokyo_metro_release_2026_10_25/RESULTS.md#phase-3-fixed-corpus-performance-gate)
+- `phase3_windows_20261025.json.gz` in the same evidence directory contains
+  all 188 per-search candidate snapshots and performance counters.
+- `phase3_summary_windows_20261025.json` records overall, objective,
+  estimated-transfer, combined and seven-scope distributions plus the exact
+  measurement environment and method.
+- `api/tests/test_tokyo_metro_release_corpus.py` verifies the unchanged limits,
+  required reference values and exact Phase 2/Phase 3 candidate equality.
 
-**Next action:** Run and summarize the fixed corpus after Phase 2 completes;
-do not begin algorithm changes beforehand.
+All 188 fixed searches completed without an error, a measured call over 15
+seconds or a 100,000-pop limit hit. Candidate/trip/time/order mismatches against
+Phase 2 were zero. Maximum pop remained 75,316 and maximum retained labels
+remained 120,780. Shibuya to Asakusa reproduced 27,370 ordinary and 56,572
+estimated pops; Nakano-sakaue to Myoden reproduced 75,316 estimated pops.
+No search-algorithm change was required or made.
+
+The elapsed-time p95/p99 values are distributions over this fixed local corpus,
+not production traffic percentiles or a network-wide guarantee. Possible
+unseen origin/destination inputs reaching a limit remain a Phase 5 publication
+risk after release-equivalent Phase 4 evidence.
+
+**Open items:** None for this phase.
+
+**Next action:** Proceed to the already-defined Phase 4 local Linux, Android,
+accessibility, language and GTFS operational checks. Do not access AWS or run a
+non-production Lambda without separate explicit authorization.
 
 ## Phase 4 — Complete release-equivalent verification
 
