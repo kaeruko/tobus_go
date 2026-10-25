@@ -13,6 +13,7 @@ import '../widgets/bus_loading_indicator.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/place_field.dart';
 import '../widgets/route_card.dart';
+import '../widgets/estimated_transfer_notice.dart';
 import '../widgets/route_search_error_notice.dart';
 import 'map_picker_page.dart';
 import 'route_detail_page.dart';
@@ -134,9 +135,12 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
     final l10n = AppLocalizations.of(context);
     final res = await Navigator.of(context).push<LatLng>(
       CupertinoPageRoute(
-        builder: (_) => MapPickerPage(title: l10n.mapPickerTitle,
+        builder: (_) => MapPickerPage(
+          title: l10n.mapPickerTitle,
           initialCenter: ref.read(cityProfileProvider).key == 'sendai'
-              ? const LatLng(38.2601, 140.8815) : const LatLng(35.681236, 139.767125)),
+              ? const LatLng(38.2601, 140.8815)
+              : const LatLng(35.681236, 139.767125),
+        ),
       ),
     );
     if (res == null || !mounted) return;
@@ -509,6 +513,21 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                             ),
                           ),
                         ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: EstimatedTransferSearchControl(
+                          value: rs.acceptExperimentalTransferModel,
+                          onChanged: (value) {
+                            notifier.setExperimentalTransferConsent(value);
+                            if (ref
+                                .read(routeSearchProvider)
+                                .transportScope
+                                .isNotEmpty) {
+                              notifier.triggerSearch();
+                            }
+                          },
+                        ),
+                      ),
                       if (rs.transportScope.contains(
                         TransportServiceId.tokyoMetro,
                       ))

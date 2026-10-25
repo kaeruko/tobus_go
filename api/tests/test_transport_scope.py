@@ -12,6 +12,7 @@ from toei_engine import SpatialIndex, TimetableManager
 from tokyo_route_engine import (
     TokyoRouteDependencies,
     TokyoRouteEngine,
+    _candidate_uses_estimated_transfer,
     _static_path_is_possible,
 )
 from transport_scope import (
@@ -50,6 +51,13 @@ class TransportScopeTest(unittest.TestCase):
     def test_legacy_bus_only_mapping_is_backward_compatible(self):
         self.assertEqual(to_domain_request(_api(bus_only=True)).transport_scope, frozenset((TOEI_BUS,)))
         self.assertEqual(to_domain_request(_api(bus_only=False)).transport_scope, LEGACY_DEFAULT_SCOPE)
+        self.assertFalse(to_domain_request(_api()).accept_experimental_transfer_model)
+
+    def test_estimated_transfer_opt_in_is_explicit_and_strict(self):
+        request = to_domain_request(_api(accept_experimental_transfer_model=True))
+        self.assertTrue(request.accept_experimental_transfer_model)
+        with self.assertRaises(ValueError):
+            _api(accept_experimental_transfer_model="true")
 
     def test_all_seven_explicit_nonempty_scopes_are_accepted(self):
         identifiers = sorted(ALL_TRANSPORTS)
@@ -87,6 +95,78 @@ class TransportScopeTest(unittest.TestCase):
         self.assertIn(bus, view)
         self.assertIn(subway, view)
         self.assertNotIn(metro, view)
+
+    def test_normal_scope_view_removes_only_estimated_transfer_edges(self):
+        graph = nx.DiGraph()
+        first = _line(graph, "first", "g", TOKYO_METRO)
+        reviewed = _line(graph, "reviewed", "h", TOKYO_METRO)
+        estimated = _line(graph, "estimated", "m", TOKYO_METRO)
+        graph.add_edge(
+            first,
+            reviewed,
+            etype="walk",
+            reviewed_walk_minutes=7,
+            transfer_time_estimated=False,
+        )
+        graph.add_edge(
+            first,
+            estimated,
+            etype="walk",
+            reviewed_walk_minutes=15,
+            transfer_time_estimated=True,
+        )
+        manager = TimetableManager()
+        manager.tokyo_metro_feed_version = "test"
+        app = SimpleNamespace(state=SimpleNamespace(
+            G=graph, TM=manager, SI=SpatialIndex(graph), WALK_RAD=300,
+        ))
+        engine = TokyoRouteEngine(app)
+
+        ordinary, _ = engine._graph_for_scope(frozenset((TOKYO_METRO,)))
+        opted_in, _ = engine._graph_for_scope(
+            frozenset((TOKYO_METRO,)),
+            include_estimated_transfers=True,
+        )
+
+        self.assertTrue(ordinary.has_edge(first, reviewed))
+        self.assertFalse(ordinary.has_edge(first, estimated))
+        self.assertTrue(opted_in.has_edge(first, reviewed))
+        self.assertTrue(opted_in.has_edge(first, estimated))
+
+    def test_candidate_estimate_marker_depends_on_traversed_steps(self):
+        reviewed = {"steps": [{
+            "kind": "walk", "walking_time_estimated": False,
+        }]}
+        estimated = {"steps": [{
+            "kind": "walk", "walking_time_estimated": True,
+        }]}
+        self.assertFalse(_candidate_uses_estimated_transfer(reviewed))
+        self.assertTrue(_candidate_uses_estimated_transfer(estimated))
+
+    def test_domain_opt_in_reaches_tokyo_graph_selection(self):
+        captured = []
+
+        class RecordingEngine(TokyoRouteEngine):
+            def search_legacy(self, **kwargs):
+                captured.append(kwargs)
+                return {"candidates": [], "meta": {}}
+
+        app = SimpleNamespace(state=SimpleNamespace())
+        engine = RecordingEngine(app)
+        request = RouteSearchRequest(
+            origin=GeoPoint(35.68, 139.76),
+            destination=GeoPoint(35.69, 139.77),
+            departure_at=dt.datetime(
+                2026, 10, 23, 10, tzinfo=ZoneInfo("Asia/Tokyo")
+            ),
+            preference=RoutePreference.FEWEST_TRANSFERS,
+            transport_scope=frozenset((TOKYO_METRO,)),
+            accept_experimental_transfer_model=True,
+        )
+
+        engine.search(request)
+
+        self.assertTrue(captured[0]["include_estimated_transfers"])
 
     def test_domain_request_rejects_empty_scope_even_without_api_model(self):
         with self.assertRaisesRegex(ValueError, "at least one"):

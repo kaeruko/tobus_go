@@ -22,6 +22,7 @@ import 'leader_mode_page.dart';
 import '../services/route_search_service.dart';
 import '../services/fare_policy_preferences.dart';
 import '../widgets/bus_loading_indicator.dart';
+import '../widgets/estimated_transfer_notice.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/route_map_preview.dart';
 import '../widgets/route_detail_widgets.dart';
@@ -342,14 +343,10 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     final originJa = candidate.originName?.trim();
     final destinationJa = candidate.destinationName?.trim();
     if (originJa == null || originJa.isEmpty) {
-      throw StateError(
-        '保存経路に出発地名がありません: candidateId=${candidate.id}',
-      );
+      throw StateError('保存経路に出発地名がありません: candidateId=${candidate.id}');
     }
     if (destinationJa == null || destinationJa.isEmpty) {
-      throw StateError(
-        '保存経路に到着地名がありません: candidateId=${candidate.id}',
-      );
+      throw StateError('保存経路に到着地名がありません: candidateId=${candidate.id}');
     }
 
     final originEn = candidate.originNameEn?.trim();
@@ -360,22 +357,26 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
         : originJa;
     final destinationDisplay =
         english && destinationEn != null && destinationEn.isNotEmpty
-            ? destinationEn
-            : destinationJa;
+        ? destinationEn
+        : destinationJa;
 
     final preference = candidate.preference?.trim();
-    ref.read(routeSearchProvider.notifier).prepareSavedRoute(
-      from: '${origin.latitude},${origin.longitude}',
-      to: '${destination.latitude},${destination.longitude}',
-      fromName: originDisplay,
-      toName: destinationDisplay,
-      fromNameJa: originJa,
-      toNameJa: destinationJa,
-      fromNameEn: originEn ?? '',
-      toNameEn: destinationEn ?? '',
-      startTime: appClock.now(),
-      preference: preference == null || preference.isEmpty ? null : preference,
-    );
+    ref
+        .read(routeSearchProvider.notifier)
+        .prepareSavedRoute(
+          from: '${origin.latitude},${origin.longitude}',
+          to: '${destination.latitude},${destination.longitude}',
+          fromName: originDisplay,
+          toName: destinationDisplay,
+          fromNameJa: originJa,
+          toNameJa: destinationJa,
+          fromNameEn: originEn ?? '',
+          toNameEn: destinationEn ?? '',
+          startTime: appClock.now(),
+          preference: preference == null || preference.isEmpty
+              ? null
+              : preference,
+        );
 
     Navigator.of(context).popUntil((route) => route.isFirst);
     requestSearchTabRoot(ref);
@@ -940,26 +941,34 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
 
       final targetTime = overrideTime ?? _searchTime;
       final cityKey = ref.read(cityProfileProvider).key;
-      final developmentScope = sendaiReviewedCoordinatesEnabled && cityKey == 'sendai';
+      final developmentScope =
+          sendaiReviewedCoordinatesEnabled && cityKey == 'sendai';
       final currentSearch = ref.read(routeSearchProvider);
       final policyId = developmentScope
-          ? await FarePolicyPreferences.load(ref.read(cityProfileProvider)) : null;
-      final result = await ref.read(routeSearchServiceProvider).search(
-        RouteSearchRequest(
-          origin: start,
-          destination: end,
-          originName: originLabel,
-          destinationName: destinationLabel,
-          startTime: targetTime,
-          preference: original.preference ?? 'fewTransfers',
-          farePolicyId: policyId,
-          acceptExperimentalTransferModel: developmentScope && currentSearch.acceptExperimentalTransferModel,
-          busOnly: cityKey == 'tokyo'
-              ? currentSearch.busOnly
-              : developmentScope && currentSearch.busOnly,
-          transportScope: cityKey == 'tokyo' ? currentSearch.transportScope : null,
-        ),
-      );
+          ? await FarePolicyPreferences.load(ref.read(cityProfileProvider))
+          : null;
+      final result = await ref
+          .read(routeSearchServiceProvider)
+          .search(
+            RouteSearchRequest(
+              origin: start,
+              destination: end,
+              originName: originLabel,
+              destinationName: destinationLabel,
+              startTime: targetTime,
+              preference: original.preference ?? 'fewTransfers',
+              farePolicyId: policyId,
+              acceptExperimentalTransferModel:
+                  (cityKey == 'tokyo' || developmentScope) &&
+                  currentSearch.acceptExperimentalTransferModel,
+              busOnly: cityKey == 'tokyo'
+                  ? currentSearch.busOnly
+                  : developmentScope && currentSearch.busOnly,
+              transportScope: cityKey == 'tokyo'
+                  ? currentSearch.transportScope
+                  : null,
+            ),
+          );
       final list = result.candidates;
       final meta = result.meta;
 
@@ -1173,6 +1182,14 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                   ),
                 ),
 
+              if (widget.candidate.containsEstimatedTransfer)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: EstimatedTransferWarning(),
+                  ),
+                ),
+
               SliverToBoxAdapter(
                 child: RouteEndpointSummary(
                   candidate: widget.candidate,
@@ -1185,7 +1202,8 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               ),
 
               if (configuredCityKey != 'tokyo' &&
-                  !(configuredCityKey == 'sendai' && sendaiReviewedCoordinatesEnabled))
+                  !(configuredCityKey == 'sendai' &&
+                      sendaiReviewedCoordinatesEnabled))
                 SliverToBoxAdapter(child: FareSummary(fare: widget.fare)),
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
@@ -1226,7 +1244,8 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
               ),
               if (features.groupTrips)
                 SliverToBoxAdapter(child: _roundTripComposer())
-              else if (profile.capabilities.realtime.vehiclePosition && widget.candidate.planningJourney == null)
+              else if (profile.capabilities.realtime.vehiclePosition &&
+                  widget.candidate.planningJourney == null)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),

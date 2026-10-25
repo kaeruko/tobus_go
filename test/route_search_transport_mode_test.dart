@@ -4,7 +4,11 @@ import 'package:toeigo/services/route_search_service.dart';
 import 'package:toeigo/models/transport_scope.dart';
 
 void main() {
-  RouteSearchRequest request({bool busOnly = false, Set<String>? scope}) {
+  RouteSearchRequest request({
+    bool busOnly = false,
+    Set<String>? scope,
+    bool estimatedTransfers = false,
+  }) {
     return RouteSearchRequest(
       origin: const LatLng(35.69, 139.78),
       destination: const LatLng(35.70, 139.79),
@@ -14,6 +18,7 @@ void main() {
       preference: 'shortTime',
       busOnly: busOnly,
       transportScope: scope,
+      acceptExperimentalTransferModel: estimatedTransfers,
     );
   }
 
@@ -45,6 +50,20 @@ void main() {
       seen.add((body['transport_scope'] as List).join(','));
     }
     expect(seen, hasLength(7));
+  });
+
+  test('estimated transfers are an independent explicit opt-in', () {
+    final ordinary = request(
+      scope: const {TransportServiceId.tokyoMetro},
+    ).toApiBody();
+    final optedIn = request(
+      scope: const {TransportServiceId.tokyoMetro},
+      estimatedTransfers: true,
+    ).toApiBody();
+
+    expect(ordinary, isNot(contains('accept_experimental_transfer_model')));
+    expect(optedIn['accept_experimental_transfer_model'], isTrue);
+    expect(optedIn['transport_scope'], [TransportServiceId.tokyoMetro]);
   });
 
   test('an empty explicit scope is rejected before network access', () {

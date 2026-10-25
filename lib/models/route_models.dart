@@ -80,6 +80,7 @@ class Candidate {
   final LatLng? originCoords;
   final LatLng? destinationCoords;
   final String? arrivalTime;
+  final bool containsEstimatedTransfer;
   final String? savedRouteMemo;
   final DateTime? savedRouteSavedAt;
 
@@ -109,6 +110,7 @@ class Candidate {
     this.originCoords,
     this.destinationCoords,
     this.arrivalTime,
+    this.containsEstimatedTransfer = false,
     this.savedRouteMemo,
     this.savedRouteSavedAt,
   }) : walkingDistanceMeters =
@@ -140,11 +142,21 @@ class Candidate {
   // original instant, but give the existing date picker a local wall clock
   // rather than converting the journey to the browser/device time zone.
   DateTime get sendaiPlanningDeparture {
-    if (planningJourney?['profile'] != 'sendai_published_minute_v1' || departureDate == null) {
-      throw StateError('Sendai planning departure requires the explicit profile and instant');
+    if (planningJourney?['profile'] != 'sendai_published_minute_v1' ||
+        departureDate == null) {
+      throw StateError(
+        'Sendai planning departure requires the explicit profile and instant',
+      );
     }
     final japan = departureDate!.toUtc().add(const Duration(hours: 9));
-    return DateTime(japan.year,japan.month,japan.day,japan.hour,japan.minute,japan.second);
+    return DateTime(
+      japan.year,
+      japan.month,
+      japan.day,
+      japan.hour,
+      japan.minute,
+      japan.second,
+    );
   }
 
   factory Candidate.fromJson(Map<String, dynamic> j) {
@@ -162,7 +174,9 @@ class Candidate {
     );
     return Candidate(
       planningNotice: j['planning_notice']?.toString(),
-      planningJourney: j['planning_journey'] == null ? null : Map<String, dynamic>.from(j['planning_journey']),
+      planningJourney: j['planning_journey'] == null
+          ? null
+          : Map<String, dynamic>.from(j['planning_journey']),
       id: j['id']?.toString() ?? '',
       lines: (j['lines'] is List) ? List<String>.from(j['lines']) : const [],
       linesEn: (j['lines_en'] is List)
@@ -227,22 +241,25 @@ class Candidate {
             )
           : null,
       arrivalTime: j['arrival_time']?.toString(),
+      containsEstimatedTransfer: j['contains_estimated_transfer'] == true,
       savedRouteMemo: j['saved_route_memo']?.toString(),
       savedRouteSavedAt: _readOptionalSavedRouteSavedAt(j),
     );
   }
 
-  static DateTime? _readOptionalSavedRouteSavedAt(
-    Map<String, dynamic> json,
-  ) {
+  static DateTime? _readOptionalSavedRouteSavedAt(Map<String, dynamic> json) {
     final value = json['saved_route_saved_at'];
     if (value == null) return null;
     if (value is! String || value.trim().isEmpty) {
-      throw FormatException('saved route has invalid saved_route_saved_at: $value');
+      throw FormatException(
+        'saved route has invalid saved_route_saved_at: $value',
+      );
     }
     final parsed = DateTime.tryParse(value);
     if (parsed == null) {
-      throw FormatException('saved route has invalid saved_route_saved_at: $value');
+      throw FormatException(
+        'saved route has invalid saved_route_saved_at: $value',
+      );
     }
     return parsed.toUtc();
   }
@@ -495,10 +512,7 @@ class Candidate {
   }
 
   Candidate withSavedRouteMemo(String? memo) {
-    return _copySavedRouteMetadata(
-      memo: memo,
-      savedAt: savedRouteSavedAt,
-    );
+    return _copySavedRouteMetadata(memo: memo, savedAt: savedRouteSavedAt);
   }
 
   Candidate withSavedRouteSavedAt(DateTime savedAt) {
@@ -535,6 +549,7 @@ class Candidate {
       originCoords: originCoords,
       destinationCoords: destinationCoords,
       arrivalTime: arrivalTime,
+      containsEstimatedTransfer: containsEstimatedTransfer,
       savedRouteMemo: memo,
       savedRouteSavedAt: savedAt,
     );
@@ -560,7 +575,9 @@ class Candidate {
           ? points.map((e) => [e.latitude, e.longitude]).toList()
           : [],
       if (includePoints && routeGeometry != null)
-        'route_geometry': routeGeometry!.map((segment) => segment.toJson()).toList(),
+        'route_geometry': routeGeometry!
+            .map((segment) => segment.toJson())
+            .toList(),
       'origin_name': originName,
       'destination_name': destinationName,
       'origin_name_en': originNameEn,
@@ -575,6 +592,7 @@ class Candidate {
           ? [destinationCoords!.latitude, destinationCoords!.longitude]
           : null,
       'arrival_time': arrivalTime,
+      'contains_estimated_transfer': containsEstimatedTransfer,
       if (includeSavedRouteMemo) 'saved_route_memo': savedRouteMemo,
       if (includeSavedRouteMemo)
         'saved_route_saved_at': savedRouteSavedAt?.toUtc().toIso8601String(),
@@ -625,7 +643,6 @@ void validatePersistableBusIdentity(Candidate candidate) {
     }
   }
 }
-
 
 class StepSeg {
   final Map<String, dynamic>? planningDetails;
@@ -719,7 +736,9 @@ class StepSeg {
         .toList();
 
     return StepSeg(
-      planningDetails: json['planning_details'] == null ? null : Map<String, dynamic>.from(json['planning_details']),
+      planningDetails: json['planning_details'] == null
+          ? null
+          : Map<String, dynamic>.from(json['planning_details']),
       stepId: stepId,
       kind: json['kind'] ?? 'walk',
       title: json['title'] ?? '',
@@ -762,9 +781,7 @@ class StepSeg {
         !value.isFinite ||
         value != value.roundToDouble() ||
         value < 0) {
-      throw FormatException(
-        'route step has invalid boarding_minutes: $value',
-      );
+      throw FormatException('route step has invalid boarding_minutes: $value');
     }
     return value.toInt();
   }
@@ -872,4 +889,3 @@ class StopPoint {
     };
   }
 }
-

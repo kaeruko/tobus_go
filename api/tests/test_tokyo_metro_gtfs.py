@@ -425,6 +425,7 @@ def test_common_transfer_closure_rejects_the_concrete_connection(tmp_path):
     result = TokyoRouteEngine(app).search_legacy(
         alat=35.600, alon=139.70, blat=35.630, blon=139.70,
         pref="time", transport_scope=frozenset((TOKYO_METRO,)),
+        include_estimated_transfers=True,
         start_time="23:49", date_str="2026-09-24", limit=1,
     )
     assert result["candidates"] == []
@@ -458,6 +459,7 @@ def test_common_allowance_rejects_early_train_and_reports_estimate(tmp_path):
     result = TokyoRouteEngine(app).search_legacy(
         alat=35.600, alon=139.70, blat=35.630, blon=139.70,
         pref="time", transport_scope=frozenset((TOKYO_METRO,)),
+        include_estimated_transfers=True,
         start_time="23:49", date_str="2026-09-24", limit=1,
     )
     steps = result["candidates"][0]["steps"]

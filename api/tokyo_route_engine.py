@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import Any, Callable
 from zoneinfo import ZoneInfo
 
+import networkx as nx
+
 from app.services.route_step_ids import assign_candidate_step_ids
 from route_engine import (
     RouteCandidate,
@@ -172,6 +174,17 @@ def _static_path_is_possible(graph, start, targets) -> bool:
     return False
 
 
+def _candidate_uses_estimated_transfer(candidate: dict[str, Any]) -> bool:
+    """Return whether an itinerary actually traverses an estimated transfer."""
+
+    return any(
+        isinstance(step, dict)
+        and step.get("kind") == "walk"
+        and step.get("walking_time_estimated") is True
+        for step in candidate.get("steps", [])
+    )
+
+
 class TokyoRouteEngine:
     """Adapter from the shared route contract to the existing ODPT engine."""
 
@@ -183,15 +196,21 @@ class TokyoRouteEngine:
     ) -> None:
         self.app = app
         self.dependencies = dependencies or TokyoRouteDependencies()
-        self._scope_graphs: dict[frozenset[str], tuple[Any, Any]] = {}
+        self._scope_graphs: dict[tuple[frozenset[str], bool], tuple[Any, Any]] = {}
 
-    def _graph_for_scope(self, scope: frozenset[str]):
+    def _graph_for_scope(
+        self,
+        scope: frozenset[str],
+        *,
+        include_estimated_transfers: bool = False,
+    ):
         graph = self.app.state.G
         if scope == LEGACY_DEFAULT_SCOPE and not getattr(
             self.app.state.TM, "tokyo_metro_feed_version", None
         ):
             return graph, self.app.state.SI
-        cached = self._scope_graphs.get(scope)
+        cache_key = (scope, include_estimated_transfers)
+        cached = self._scope_graphs.get(cache_key)
         if cached is not None:
             return cached
 
@@ -210,10 +229,22 @@ class TokyoRouteEngine:
                 return transport_for_line_node(node, graph.nodes[node]) in scope
             return False
 
-        scoped = graph.subgraph([node for node in graph.nodes if include_node(node)])
+        def include_edge(source, target):
+            if include_estimated_transfers:
+                return True
+            edge = graph.get_edge_data(source, target) or {}
+            return edge.get("transfer_time_estimated") is not True
+
+        # Filter before the exact search. Removing estimated candidates after
+        # enumeration could lose the correct top five ordinary candidates.
+        scoped = nx.subgraph_view(
+            graph,
+            filter_node=include_node,
+            filter_edge=include_edge,
+        )
         spatial = SpatialIndex(scoped)
         cached = (scoped, spatial)
-        self._scope_graphs[scope] = cached
+        self._scope_graphs[cache_key] = cached
         return cached
 
     def search(self, request: RouteSearchRequest) -> RouteSearchResult:
@@ -225,6 +256,7 @@ class TokyoRouteEngine:
             pref=request.preference.api_value,
             bus_only=request.bus_only,
             transport_scope=request.transport_scope,
+            include_estimated_transfers=request.accept_experimental_transfer_model,
             start_time=request.departure_at.strftime("%H:%M"),
             date_str=request.departure_at.date().isoformat(),
             limit=request.limit,
@@ -255,6 +287,7 @@ class TokyoRouteEngine:
         pref: str,
         bus_only: bool = False,
         transport_scope: frozenset[str] | None = None,
+        include_estimated_transfers: bool = False,
         start_time: str = "10:00",
         date_str: str | None = None,
         limit: int = 5,
@@ -272,12 +305,16 @@ class TokyoRouteEngine:
         print(
             "[USER_DEBUG] TokyoRouteEngine.search: "
             f"pref={pref}, bus_only={bus_only}, transport_scope={sorted(scope)}, "
+            f"include_estimated_transfers={include_estimated_transfers}, "
             f"start_time={start_time}, date_str={date_str}, "
             f"use_realtime={use_realtime}",
             flush=True,
         )
 
-        g, spatial_index = self._graph_for_scope(scope)
+        g, spatial_index = self._graph_for_scope(
+            scope,
+            include_estimated_transfers=include_estimated_transfers,
+        )
         source_timetable = self.app.state.TM
         walk_radius = self.app.state.WALK_RAD
 
@@ -421,6 +458,12 @@ class TokyoRouteEngine:
             )
 
         for candidate in results:
+            uses_estimated_transfer = _candidate_uses_estimated_transfer(candidate)
+            if uses_estimated_transfer and not include_estimated_transfers:
+                raise RouteContractError(
+                    "ordinary Tokyo search returned an estimated transfer"
+                )
+            candidate["contains_estimated_transfer"] = uses_estimated_transfer
             if initial_walk_minutes > 0:
                 origin_name = g.nodes[origin_node]["name"]
                 origin_name_en = g.nodes[origin_node].get("name_en")
@@ -515,6 +558,7 @@ class TokyoRouteEngine:
                 "realtime_applied": use_realtime,
                 "bus_only": bus_only,
                 "transport_scope": sorted(scope),
+                "estimated_transfers_enabled": include_estimated_transfers,
                 **(
                     {
                         "tokyo_metro_feed_version": timetable.tokyo_metro_feed_version,

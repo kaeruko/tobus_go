@@ -140,6 +140,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
   void invalidateForFareSelection() => _changeCriteria(state);
 
   void setExperimentalTransferConsent(bool value) {
+    if (state.acceptExperimentalTransferModel == value) return;
     _generation++;
     state = state.copyWith(
       acceptExperimentalTransferModel: value,
@@ -183,6 +184,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
       toNameEn: toNameEn,
       pref: preference,
       transportScope: TransportServiceId.legacyDefault,
+      acceptExperimentalTransferModel: state.acceptExperimentalTransferModel,
       startTime: startTime,
     );
   }
@@ -233,6 +235,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
       toNameEn: current.fromNameEn,
       pref: current.pref,
       transportScope: current.transportScope,
+      acceptExperimentalTransferModel: current.acceptExperimentalTransferModel,
       startTime: current.startTime,
       isLoading: false,
       hasSearched: false,

@@ -1,8 +1,10 @@
 # Tokyo Metro release roadmap
 
-Baseline: PR #253 commit `da22163dcc6048bc4793293b6300ee4476732e73`
+Roadmap baseline: PR #253 commit `da22163dcc6048bc4793293b6300ee4476732e73`
 
-Status date: 2026-10-24 (Asia/Tokyo)
+Phase 1 implementation baseline: `a97193658fe185b8f2cf7cd50c4f27cb7f3ddef8`
+
+Status date: 2026-10-25 (Asia/Tokyo)
 
 ## Goal and change control
 
@@ -30,8 +32,7 @@ but are not researched or implemented in this PR:
 
 ## Phase 1 — Freeze the public transfer policy
 
-**State:** In progress — decision evidence is complete; explicit product risk
-acceptance is still required.
+**State:** Complete.
 
 **Completion conditions:**
 
@@ -50,6 +51,9 @@ acceptance is still required.
 - [Station-data evidence and geometry audit](tokyo-station-interior-data.md)
 - Runtime evidence fields and regression tests in commit
   `da22163dcc6048bc4793293b6300ee4476732e73`
+- API graph-gating regressions in `api/tests/test_transport_scope.py`
+- Five-language option/result/detail UI regressions in
+  `test/estimated_transfer_ui_test.dart`
 
 **Decision inventory:**
 
@@ -60,19 +64,20 @@ edge.
 | Class | Raw relations | Runtime treatment | What is actually established |
 | --- | ---: | --- | --- |
 | Reviewed walk connections | 4 | Enabled with reviewed overrides | Official connection plus reviewed path, distance and scheduling allowance; direction/hours only when separately evidenced |
-| Automatic estimated connections | 89 | Enabled with 15 minutes and 600 m of walk-resource accounting | Official connection relation only; path, physical distance, time, direction and hours remain unverified |
+| Automatic estimated connections | 89 | Excluded from ordinary search; included only after the explicit estimated-transfer opt-in, with 15 minutes and 600 m of walk-resource accounting | Official connection relation only; path, physical distance, time, direction and hours remain unverified |
 | Same physical graph node | 1 | Connected without a walk edge | GTFS canonicalization identifies one physical node; this is not evidence for a general station walk time |
 | Duplicate raw relation | 1 | Reuses the canonical physical relation | No additional physical connection |
 | Unsupported connections | 28 | Disabled | Official relation exists, but the common same-station rule cannot represent it safely |
-| **Total** | **123** | **95 raw relations searchable, 28 disabled** | Topology coverage is not verified transfer-time coverage |
+| **Total** | **123** | **Six non-estimated relations available normally; 89 additional relations available only by opt-in; 28 disabled** | Topology coverage is not verified transfer-time coverage |
 
-The current searchable raw-relation coverage is 95/123 (77.2%). Only four
-walk connections have reviewed path/distance/time evidence. The 89 automatic
-connections must never be counted as verified merely because they are
-searchable. The 15 minutes are an application scheduling estimate and 600 m is
-a conservative resource debit, not a measured distance.
+The opt-in searchable raw-relation coverage is 95/123 (77.2%). Ordinary search
+does not use the 89 automatic connections. Only four walk connections have
+reviewed path/distance/time evidence. The 89 automatic connections must never
+be counted as verified merely because they are available after opt-in. The 15
+minutes are an application scheduling estimate and 600 m is a conservative
+resource debit, not a measured distance.
 
-**Public-policy choices requiring approval:**
+**Approved public policy (2026-10-25): Choice C.**
 
 | Choice | Coverage | Main benefit | Main risk | Required user-facing treatment |
 | --- | --- | --- | --- | --- |
@@ -80,9 +85,27 @@ a conservative resource debit, not a measured distance.
 | B. Publish the current 89 estimates | 95/123 raw relations searchable | Broadest current network without station-by-station measurements | 15 minutes can still be too short for a real path, while also being too long and hiding a legal train; unknown direction/hours can admit an unavailable path; 600 m can consume the walking budget without being physical distance | Mark affected interchange times as app estimates, not official or guaranteed; warn that individual/accessibility routes may differ |
 | C. Hybrid product gate | Keep reviewed connections public and expose the 89 estimates only under an explicitly approved, clearly labelled product policy | Separates known and estimated evidence while retaining an upgrade path | Adds a product-state distinction and still requires an explicit decision about when estimated results are shown | Use the same estimate disclaimer whenever an automatic edge appears; never silently fall back from verified to estimated |
 
-Choice C is a policy alternative, not an implemented new feature. This
-roadmap does not choose among A–C. In particular, current runtime availability
-does not constitute approval of Choice B.
+The product owner explicitly approved Choice C. Ordinary searches use the four
+reviewed walk connections, the same-physical-node relation, and other existing
+connections already allowed by the route engine; they exclude all 89 automatic
+estimated connections. The result screen provides a separate explicit control
+to include estimated transfers. It is not a fourth transport type, is never
+enabled automatically, and an empty ordinary result never triggers an
+estimated retry. The setting is sent into graph selection before exact top-N
+enumeration, rather than filtering an estimated result list afterward.
+
+A candidate that actually traverses an automatic edge carries a distinct
+estimated-transfer marker and displays the approved warning in Japanese,
+English, Simplified Chinese, Traditional Chinese, and Korean. The warning says
+that only the official station connection is known, while path, distance,
+time, and hours are unverified; it states that the app assumes 15 minutes and
+asks the user to check official station guidance. The 600 m planning resource
+is never displayed as physical walking distance.
+
+This approval covers the conditions for exposing estimated routes. It is not
+approval to publish, does not accept every remaining transfer risk, and does
+not make the four reviewed connections fully direction/hour verified. No route
+is described as officially certified or safety-guaranteed.
 
 **Risks that the decision must explicitly accept or avoid:**
 
@@ -102,15 +125,15 @@ total walking limits, objectives, candidate ordering, 15 seconds, and 100,000
 pops. Unknown values are not converted into measured distance or official
 minimum time.
 
-**Open item:** Product owner approval of A, B, or C and the exact Japanese,
-English, Chinese, and Korean estimate wording. No choice is inferred here.
+**Open item:** None for this phase. Direction/hour limitations remain release
+risks evaluated by the later fixed phases; they do not reopen Phase 1.
 
-**Next action:** Obtain that explicit decision, record it in this section, and
-then mark Phase 1 complete without changing its completion conditions.
+**Next action:** Keep the approved policy fixed while Phase 2 verifies ordinary
+and opt-in searches independently.
 
 ## Phase 2 — Build the fixed OD regression corpus
 
-**State:** Not started.
+**State:** In progress.
 
 **Completion conditions:**
 
@@ -124,16 +147,27 @@ then mark Phase 1 complete without changing its completion conditions.
 - compare Toei-only results with the pre-Metro baseline and preserve legacy API
   behavior.
 
-**Evidence:** None yet. Existing representative and stress measurements in
-[Tokyo Metro transfer review](tokyo-metro-transfer-review.md) are inputs, not
-a completed fixed corpus.
+**Evidence:**
 
-**Open items:** Select stable OD fixtures from the accepted official feed and
-define deterministic expected results without committing authenticated raw
-data or secrets.
+- [Fixed corpus definition and runner](../api/benchmarks/tokyo_metro_release_2026_10_25/README.md)
+- [Initial 188-search result](../api/benchmarks/tokyo_metro_release_2026_10_25/RESULTS.md)
+- `baseline_windows_20261025.json.gz` in the same evidence directory contains
+  ordered candidate/trip/time snapshots and performance counters.
 
-**Next action:** After Phase 1 approval, define the corpus manifest and
-baseline snapshots, then add parameterized regression tests.
+The first run completed all 188 calls without a search error, timeout, or pop
+limit hit. Maximum pop was 75,316 and maximum retained labels was 120,780.
+Toei-only ordered candidate digests did not change when the estimated-transfer
+option was toggled. These results establish the initial corpus baseline, not
+Phase 2 completion.
+
+**Open items:** Review the committed candidate snapshots, add the separate
+pre-Metro Toei-only comparison required by the completion condition, and rerun
+the baseline as an exact comparison. Raw authenticated data and secrets remain
+excluded.
+
+**Next action:** Complete snapshot review and pre-Metro Toei comparison, then
+run the fixed baseline in comparison mode. Do not start Phase 3 algorithm work
+unless the completed Phase 2 evidence fails its gate.
 
 ## Phase 3 — Decide search performance
 

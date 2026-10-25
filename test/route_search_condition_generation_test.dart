@@ -82,6 +82,10 @@ void _expectInputPreserved(RouteSearchState state, String changed) {
   expect(state.pref, changed == 'preference' ? 'shortTime' : 'cost');
   expect(state.busOnly, changed == 'transport');
   expect(
+    state.acceptExperimentalTransferModel,
+    changed == 'estimated transfer',
+  );
+  expect(
     state.startTime,
     changed == 'departure'
         ? _nextDeparture
@@ -106,6 +110,8 @@ void main() {
     'transport': (notifier) => notifier.setBusOnly(true),
     'departure': (notifier) => notifier.setStartTime(_nextDeparture),
     'cleared departure': (notifier) => notifier.setStartTime(null),
+    'estimated transfer': (notifier) =>
+        notifier.setExperimentalTransferConsent(true),
   };
 
   for (final change in changes.entries) {
@@ -184,6 +190,7 @@ void main() {
     final loadingState = notifier.state;
     notifier.setPref('cost');
     notifier.setBusOnly(false);
+    notifier.setExperimentalTransferConsent(false);
     notifier.setStartTime(DateTime(2099, 10, 12, 10));
     expect(notifier.state, same(loadingState));
 
@@ -218,6 +225,7 @@ void main() {
       expect(request.startTime.isAfter(after), isFalse);
       expect(request.preference, 'cost');
       expect(request.busOnly, isFalse);
+      expect(request.acceptExperimentalTransferModel, isFalse);
       expect(request.originName, '始点');
       expect(request.destinationNameEn, 'Destination');
       final loadingState = notifier.state;
@@ -242,4 +250,29 @@ void main() {
     _expectWaitingForSearch(notifier.state);
     _expectInputPreserved(notifier.state, 'preference');
   });
+
+  test(
+    'explicit estimated-transfer choice is sent and is never enabled after an empty result',
+    () async {
+      final service = _ControlledSearchService();
+      final notifier = _prepare(service);
+      notifier.setExperimentalTransferConsent(true);
+
+      final pending = notifier.triggerSearch();
+      expect(service.requests.single.acceptExperimentalTransferModel, isTrue);
+      service.pending.single.complete(
+        RouteSearchResult(
+          candidates: const [],
+          meta: RouteMeta(destinationReachable: true, destinationLabel: 'none'),
+          fareByCandidateId: const {},
+        ),
+      );
+      await pending;
+
+      expect(notifier.state.acceptExperimentalTransferModel, isTrue);
+      expect(notifier.state.candidates, isEmpty);
+      notifier.setExperimentalTransferConsent(false);
+      expect(notifier.state.acceptExperimentalTransferModel, isFalse);
+    },
+  );
 }

@@ -59,7 +59,8 @@ class RouteSearchRequest {
       'bus_only': busOnly,
       'transport_scope': transportScope.toList()..sort(),
       if (farePolicyId != null) 'fare_policy_id': farePolicyId,
-      if (farePolicyId == 'sendai_fureai_pass' ||
+      if (acceptExperimentalTransferModel ||
+          farePolicyId == 'sendai_fureai_pass' ||
           farePolicyId == 'sendai_keiro_pass')
         'accept_experimental_transfer_model': acceptExperimentalTransferModel,
       'start_time':
@@ -212,8 +213,12 @@ class ApiRouteSearchService implements RouteSearchService {
       }
       candidates.add(candidate);
       if (map['fare'] != null) {
-        if (map['fare'] is! Map) throw const FormatException('route fare must be an object');
-        fares[candidate.id] = FareQuote.fromJson(Map<String, dynamic>.from(map['fare']));
+        if (map['fare'] is! Map) {
+          throw const FormatException('route fare must be an object');
+        }
+        fares[candidate.id] = FareQuote.fromJson(
+          Map<String, dynamic>.from(map['fare']),
+        );
       }
     }
 
@@ -359,11 +364,16 @@ class ApiRouteSearchService implements RouteSearchService {
       final details = step['planning_details'];
       if (!step['trip_id'].toString().startsWith('sendai_subway:') ||
           !step['route_id'].toString().startsWith('sendai_subway:') ||
-          details is! Map || details['departure'] is! Map || details['arrival'] is! Map ||
+          details is! Map ||
+          details['departure'] is! Map ||
+          details['arrival'] is! Map ||
           details['departure']['basis'] != 'published_departure_minute' ||
           details['arrival']['basis'] != 'published_clock_arrival_proxy' ||
-          details['departure_provenance'] is! Map || details['arrival_provenance'] is! Map) {
-        throw FormatException('Sendai rail lacks published departure / estimated arrival provenance: ${step['step_id']}');
+          details['departure_provenance'] is! Map ||
+          details['arrival_provenance'] is! Map) {
+        throw FormatException(
+          'Sendai rail lacks published departure / estimated arrival provenance: ${step['step_id']}',
+        );
       }
     }
   }
