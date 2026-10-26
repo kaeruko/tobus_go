@@ -1,5 +1,10 @@
 # 都営バスGTFSの週次更新
 
+> **トポロジー整合性:** GTFSの停車順が変わる更新は、既存の
+> `app_data.pkl` と組み合わせて公開しないでください。ODPT基本グラフの更新、
+> 双方向整合性ゲート、再ビルド手順は
+> [都営バス静的トポロジー更新](toei-bus-static-release.md)を参照してください。
+
 公式ODPTのGTFS ZIPを条件付きGETし、ZIP全体を検証してから既存S3バケットへ保存します。バージョンZIPは不変オブジェクトとして保存します。
 
 Tokyo APIのcold startでは81MB前後の `stop_times.txt` を毎回CSV parseしないよう、更新Lambdaが同じGTFSからversion付きの `gtfs_state.pkl.gz` も生成します。raw ZIPとcompiled stateの両方を保存・検証した後、最後に `state.json` を置き換えることで現在版を原子的に切り替えます。

@@ -8,6 +8,7 @@ from unittest.mock import ANY, AsyncMock, patch
 
 from app.tokyo_runtime_fast import setup_on_startup
 from gtfs_state import LambdaCompiledAssets
+from tokyo_static_compatibility import TokyoStaticCompatibilityError
 
 
 class TokyoRuntimeFastTest(unittest.IsolatedAsyncioTestCase):
@@ -40,6 +41,10 @@ class TokyoRuntimeFastTest(unittest.IsolatedAsyncioTestCase):
                     ),
                 ),
                 patch("app.tokyo_runtime_fast.load_compiled_state") as load_state,
+                patch(
+                    "app.tokyo_runtime_fast.validate_toei_bus_graph_gtfs",
+                    return_value=SimpleNamespace(graph_adjacencies=123),
+                ) as validate_topology,
                 patch("app.tokyo_runtime_fast.prepare_static_time_index") as prepare_index,
                 patch(
                     "app.tokyo_runtime_fast.fetch_realtime_data_loop",
@@ -54,6 +59,7 @@ class TokyoRuntimeFastTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(app.state.TM, "timetable")
             self.assertEqual(app.state.SI, "spatial-index")
             load_state.assert_called_once()
+            validate_topology.assert_called_once_with("graph", "timetable", ANY)
             prepare_index.assert_called_once_with("timetable", ANY)
             periodic_refresh.assert_awaited_once_with("timetable")
 
@@ -70,6 +76,45 @@ class TokyoRuntimeFastTest(unittest.IsolatedAsyncioTestCase):
         ) as download:
             await setup_on_startup(app, "lambda")
         download.assert_not_called()
+
+    async def test_topology_mismatch_is_fatal_before_ready(self):
+        with tempfile.TemporaryDirectory() as directory:
+            prebuilt_path = os.path.join(directory, "app_data.pkl")
+            compiled_path = os.path.join(directory, "gtfs_state.pkl.gz")
+            with open(prebuilt_path, "wb") as file:
+                pickle.dump(
+                    {"G": "old-graph", "TM": "timetable", "SI": "spatial"},
+                    file,
+                )
+            with open(compiled_path, "wb") as file:
+                file.write(b"compiled-placeholder")
+
+            app = SimpleNamespace(state=SimpleNamespace())
+            with (
+                patch(
+                    "app.tokyo_runtime_fast.download_compiled_lambda_assets",
+                    return_value=LambdaCompiledAssets(
+                        prebuilt_path=prebuilt_path,
+                        compiled_state_path=compiled_path,
+                        source_sha256="a" * 64,
+                    ),
+                ),
+                patch("app.tokyo_runtime_fast.load_compiled_state"),
+                patch(
+                    "app.tokyo_runtime_fast.validate_toei_bus_graph_gtfs",
+                    side_effect=TokyoStaticCompatibilityError("stale topology"),
+                ),
+                patch(
+                    "app.tokyo_runtime_fast.prepare_static_time_index"
+                ) as prepare_index,
+            ):
+                with self.assertRaisesRegex(
+                    TokyoStaticCompatibilityError, "stale topology"
+                ):
+                    await setup_on_startup(app, "lambda")
+
+            self.assertEqual(app.state.loading_status, "starting")
+            prepare_index.assert_not_called()
 
     async def test_local_mode_keeps_existing_runtime_path(self):
         app = SimpleNamespace(state=SimpleNamespace())

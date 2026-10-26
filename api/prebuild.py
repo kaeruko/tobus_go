@@ -10,12 +10,15 @@ try:
 except ImportError:
     pass
 
-import initialize_data
 from toei_engine import build_graph, TimetableManager, SpatialIndex
 from app.runtime import _paths
+from gtfs_loader import GtfsRepository
+from tokyo_static_compatibility import (
+    validate_release_sources,
+    validate_toei_bus_graph_gtfs,
+)
 from tokyo_metro_gtfs import add_tokyo_metro_to_graph
 
-OUTPUT_FILE = "api/data/app_data.pkl"
 
 def ensure_required_files(data_dir):
     required = [
@@ -58,31 +61,31 @@ def validate_train_weekend(data_dir):
 def main():
     print("=== Pre-building Assets for Lambda ===")
     start_time = time.time()
-    
-    data_dir = "api/data"
+
+    api_dir = os.path.dirname(os.path.realpath(__file__))
+    data_dir = os.getenv("DATA_DIR", os.path.join(api_dir, "data"))
+    output_file = os.getenv(
+        "PREBUILT_OUTPUT", os.path.join(data_dir, "app_data.pkl")
+    )
     os.environ["DATA_DIR"] = data_dir
 
-    # 1. データの完全性チェック & 自動取得
-    need_fetch = False
-    try:
-        ensure_required_files(data_dir)
-        # 既存ファイルがあっても、中身が壊れてる（土日なし）なら再取得を試みる方が親切なのでチェックに含める
-        validate_train_weekend(data_dir)
-    except Exception as e:
-        print(f"[WARN] Data check failed: {e}")
-        need_fetch = True
+    release_manifest_path = os.getenv(
+        "TOEI_BUS_RELEASE_MANIFEST",
+        os.path.join(
+            api_dir,
+            "config",
+            "toei_bus_static_release.json",
+        ),
+    )
 
-    if need_fetch:
-        print("Fetching missing or incomplete data...")
-        initialize_data.main()
-
-    # 最終確認 (ダメなら止める)
+    # Release inputs are acquired explicitly by the reviewed sync procedures.
+    # A build must never replace missing/mismatched inputs behind the operator's
+    # back and accidentally combine a new source with an old artifact.
     ensure_required_files(data_dir)
     validate_train_weekend(data_dir)
+    release_inputs = validate_release_sources(data_dir, release_manifest_path)
 
     # 2. パス設定の取得
-    # 環境変数がセットされていない場合を考慮してデフォルトを使用
-    os.environ["DATA_DIR"] = "api/data"
     p = _paths()
 
     print("Building Graph (NetworkX)...")
@@ -136,30 +139,38 @@ def main():
         )
     tm.build_name_index(g)
 
-    # GTFS removed
-    # gtfs_dir = os.path.join(p["DATA_DIR"], "ToeiBus-GTFS")
-    # if os.path.exists(gtfs_dir):
-    #     tm.load_gtfs_mappings(gtfs_dir)
+    toei_gtfs_dir = os.getenv(
+        "TOEI_GTFS_DIR", os.path.join(p["DATA_DIR"], "ToeiBus-GTFS")
+    )
+    toei_gtfs = GtfsRepository("toei_bus").load_data(toei_gtfs_dir)
+    compatibility = validate_toei_bus_graph_gtfs(g, tm, toei_gtfs)
+    print(
+        "Toei Bus ODPT/GTFS topology validated: "
+        f"adjacencies={compatibility.graph_adjacencies}"
+    )
 
     # 3. 成果物を辞書にまとめてPickle化
     print("Building Spatial Index...")
     si = SpatialIndex(g)
 
-    print(f"Serializing to {OUTPUT_FILE} ...")
+    print(f"Serializing to {output_file} ...")
     
     export_data = {
         "G": g,
         "TM": tm,
         "SI": si,
-        "WALK_RAD": p["WALK_RAD"]
+        "WALK_RAD": p["WALK_RAD"],
+        "TOEI_BUS_RELEASE_INPUTS": release_inputs,
+        "TOEI_BUS_GTFS_COMPATIBILITY": compatibility.to_dict(),
     }
 
-    with open(OUTPUT_FILE, "wb") as f:
+    os.makedirs(os.path.dirname(os.path.realpath(output_file)), exist_ok=True)
+    with open(output_file, "wb") as f:
         pickle.dump(export_data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     elapsed = time.time() - start_time
     print(f"=== Done in {elapsed:.2f} seconds ===")
-    print(f"File size: {os.path.getsize(OUTPUT_FILE) / (1024*1024):.2f} MB")
+    print(f"File size: {os.path.getsize(output_file) / (1024*1024):.2f} MB")
 
 if __name__ == "__main__":
     main()
