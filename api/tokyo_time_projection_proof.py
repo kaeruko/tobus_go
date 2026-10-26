@@ -61,10 +61,13 @@ _CONTRACT_OBJECTS = {
     "TimeBounds": TimeBounds,
     "GtfsRepository.get_stop_time_boarding": GtfsRepository.get_stop_time_boarding,
 }
-# Generated from the reviewed transition ASTs. The 2026-10-24 update adds only
-# fail-closed walk availability and conservative resource accounting: a closed
-# edge removes an exact transition while the static projection keeps that edge,
-# so the projection remains a relaxation and its lower bound stays admissible.
+# Generated from the reviewed transition ASTs. The 2026-10-26 timetable update
+# memoizes only query-fixed bus occurrence compatibility. Its key contains the
+# exact board edge, trip and stop sequence; readiness and frozen realtime delay
+# still select departures on every call. Both accepted and rejected outcomes
+# are identical to the reviewed checks, while exceptions remain uncached. It
+# therefore does not add/remove an exact transition or change its clock, so the
+# static projection remains the same relaxation and lower bound.
 # Ignore only Python 3.12's added empty type_params field, not executable code.
 _REVIEWED_AST_SHA256 = {
     "forward.search_labels": "49f8b921f08f0910b1d641d242b34adaaee608d307bf14ce501e2bced8669475",
@@ -77,7 +80,7 @@ _REVIEWED_AST_SHA256 = {
     "walking.walk_edge_elapsed_minutes": "b5fe6b98356e9c1f70720418e8b874381a0acfac2f5d39278b6b599235548380",
     "walking.walk_edge_is_available": "9d1170a0dae0605fb54f02448bf9c96b30844ce90b0ee2a5f8dcf6425f0d8685",
     "walking.walk_edge_resource_meters": "b00038d1ec0db276e1fe537990f3b567041abf6c6eddbf579a235e2782be461f",
-    "timetable": "1a923900840b62cfdb475c7dd400c394b60369b48bbdbc5f9bcf3c5e1f9662bb",
+    "timetable": "88e6ee8e815bd3dafa786a0f88f92e4fd9996b23123cf6b0a6e9ea2560a73840",
     "rounding": "7598a5971723c1a49e770519129d0aeb8c8d28d0594931ee1126fb7ce158fe32",
     "TimeBounds": "6c5a77b3aa915378b64d3aba8aea6a12f86e9dd10282134cdb9e61e0248ec914",
     "GtfsRepository.get_stop_time_boarding": "8f1916cb58100ae85244de3592392df92ee9c537567106891650809bee0127fe",
@@ -541,7 +544,7 @@ def verify_static_time_projection(projection, inputs, bounds, guard, target, vir
         "static_time_priority_admissibility_verified": True,
         "proof": "cycle_erased_relaxed_projection_with_original_clock_increments",
         "proof_scope": "canonical_static_Tokyo_time_physical_start",
-        "reviewed_transition_contract": "b47721a_static_time_projection_v1",
+        "reviewed_transition_contract": "bus_compat_cache_20261026_static_time_projection_v1",
         "reviewed_contract_entries": len(_REVIEWED_AST_SHA256),
         "forward_transition_coverage_verified": True,
         "nondecreasing_operational_clocks_verified": True,

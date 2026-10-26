@@ -64,6 +64,18 @@ class _UncachedChoices(TimetableChoices):
     def _cached_concrete_board_options(self, u, v, ready, evaluate):
         return evaluate(u, v, ready)
 
+    def _compatible_bus_boarding(self, u, v, trip_id, sequence, terminal):
+        # Re-evaluate the complete compatibility predicate on every call. This
+        # is the cache-free oracle used by the all-mode path comparison below.
+        saved = self._bus_boarding_compatibility
+        self._bus_boarding_compatibility = {}
+        try:
+            return super()._compatible_bus_boarding(
+                u, v, trip_id, sequence, terminal
+            )
+        finally:
+            self._bus_boarding_compatibility = saved
+
 
 class TokyoTimetableChoiceCacheTest(unittest.TestCase):
     def test_repeated_inputs_keep_order_exact_readiness_and_empty_results(self):
@@ -155,6 +167,61 @@ class TokyoTimetableChoiceCacheTest(unittest.TestCase):
                 self.assertEqual(evaluate.call_count, 2)
             self.assertEqual(_identities(choices.board_options(physical("A"), line("A"), 599)),
                              [(600.0, "slow"), (605.0, "fast")])
+
+    def test_bus_pattern_compatibility_is_reused_across_readiness_windows(self):
+        _, _, _, choices, physical, line = _fixture("bus")
+        with patch.object(
+            choices,
+            "_compatible_bus_boarding",
+            wraps=choices._compatible_bus_boarding,
+        ) as compatibility:
+            self.assertEqual(
+                _identities(choices.board_options(physical("A"), line("A"), 599)),
+                [(600.0, "slow"), (605.0, "fast")],
+            )
+            first_calls = compatibility.call_count
+            # The timetable index also contains one inactive-service row. It
+            # is rejected by compatibility and that rejection is reusable.
+            self.assertEqual(first_calls, 3)
+            self.assertEqual(
+                _identities(choices.board_options(physical("A"), line("A"), 600)),
+                [(600.0, "slow"), (605.0, "fast")],
+            )
+            self.assertEqual(
+                _identities(choices.board_options(physical("A"), line("A"), 600.000001)),
+                [(605.0, "fast")],
+            )
+            # The helper is still called for each selected timetable entry,
+            # while the exact occurrence result comes from its query-local
+            # cache.  No readiness value is part of that compatibility key.
+            self.assertEqual(compatibility.call_count, first_calls + 5)
+            self.assertEqual(len(choices._bus_boarding_compatibility), 3)
+
+    def test_bus_compatibility_errors_are_not_cached(self):
+        _, _, repository, choices, physical, line = _fixture("bus")
+        original = repository.get_stop_time_boarding
+
+        def malformed_once(trip_id, sequence):
+            if trip_id == "slow":
+                raise ValueError("malformed boarding flags")
+            return original(trip_id, sequence)
+
+        with patch.object(
+            repository, "get_stop_time_boarding", side_effect=malformed_once
+        ) as boarding:
+            for _ in range(2):
+                with self.assertRaisesRegex(ValueError, "malformed boarding flags"):
+                    choices.board_options(physical("A"), line("A"), 599)
+            self.assertEqual(boarding.call_count, 2)
+            self.assertNotIn(
+                (physical("A"), line("A"), "slow", 1),
+                choices._bus_boarding_compatibility,
+            )
+
+        self.assertEqual(
+            _identities(choices.board_options(physical("A"), line("A"), 599)),
+            [(600.0, "slow"), (605.0, "fast")],
+        )
 
     def test_opaque_fallback_is_evaluated_for_each_request(self):
         events = []
