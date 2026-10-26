@@ -78,7 +78,10 @@ def validate_release_sources(data_dir: str, manifest_path: str) -> dict[str, Any
             or os.path.basename(filename) != filename
             or not isinstance(expected_sha256, str)
             or len(expected_sha256) != 64
-            or any(character not in "0123456789abcdef" for character in expected_sha256)
+            or any(
+                character not in "0123456789abcdef"
+                for character in expected_sha256
+            )
             or type(expected_records) is not int
             or expected_records <= 0
         ):

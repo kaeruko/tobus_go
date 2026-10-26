@@ -61,8 +61,9 @@ def validate_train_weekend(data_dir):
 def main():
     print("=== Pre-building Assets for Lambda ===")
     start_time = time.time()
-    
-    data_dir = os.getenv("DATA_DIR", "api/data")
+
+    api_dir = os.path.dirname(os.path.realpath(__file__))
+    data_dir = os.getenv("DATA_DIR", os.path.join(api_dir, "data"))
     output_file = os.getenv(
         "PREBUILT_OUTPUT", os.path.join(data_dir, "app_data.pkl")
     )
@@ -70,7 +71,11 @@ def main():
 
     release_manifest_path = os.getenv(
         "TOEI_BUS_RELEASE_MANIFEST",
-        os.path.join("api", "config", "toei_bus_static_release.json"),
+        os.path.join(
+            api_dir,
+            "config",
+            "toei_bus_static_release.json",
+        ),
     )
 
     # Release inputs are acquired explicitly by the reviewed sync procedures.
