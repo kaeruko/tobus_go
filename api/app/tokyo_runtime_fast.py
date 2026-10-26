@@ -9,6 +9,7 @@ from gtfs_loader import gtfs_repo
 from gtfs_state import download_compiled_lambda_assets, load_compiled_state
 from toei_engine import SpatialIndex, ensure_train_run_metadata
 from tokyo_route_engine import TokyoRouteEngine
+from tokyo_static_compatibility import validate_toei_bus_graph_gtfs
 from tokyo_time_bounds import prepare_static_time_index
 
 from .runtime import LAMBDA_TMP_DIR, fetch_realtime_data_loop
@@ -83,6 +84,14 @@ async def setup_on_startup(app, mode: str) -> None:
         gtfs_repo,
         assets.compiled_state_path,
         expected_source_sha256=assets.source_sha256,
+    )
+
+    compatibility = validate_toei_bus_graph_gtfs(
+        app.state.G, app.state.TM, gtfs_repo
+    )
+    print(
+        "[INFO] Toei Bus ODPT/GTFS topology validated: "
+        f"adjacencies={compatibility.graph_adjacencies}"
     )
 
     # Reuse interval minima in every query, including frozen Realtime copies.
