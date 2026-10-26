@@ -163,6 +163,7 @@ class TimetableChoices:
         self._line_route_cache = {}
         self._bus_pattern_terminals = {}
         self._bus_pole_stop_ids = {}
+        self._bus_boarding_compatibility = {}
         self._concrete_board_options = {}
         self._delays = dict(getattr(self.manager, "realtime_delays", {}))
         self._has_rail_data = hasattr(self.manager, "train_patterns_weekday")
@@ -464,6 +465,59 @@ class TimetableChoices:
         self._bus_run_cache[trip_id] = run
         return run
 
+    def _compatible_bus_boarding(self, u, v, trip_id, sequence,
+                                 required_terminal_stop_id):
+        """Return the fixed concrete run when this exact boarding is legal.
+
+        Graph, repository, service day and boarding metadata are immutable for
+        one ``TimetableChoices`` query.  Readiness and a frozen realtime delay
+        only select the departure window; they cannot change whether a trip
+        occurrence belongs to the requested pattern.  Cache both accepted and
+        rejected occurrences, but never cache an exception from malformed
+        source data.
+        """
+        key = (u, v, trip_id, sequence)
+        if key in self._bus_boarding_compatibility:
+            return self._bus_boarding_compatibility[key]
+
+        trip = self.repository.trips.get(trip_id)
+        run = None
+        if (
+            trip
+            and (
+                self.active_services is None
+                or trip.get("service_id") in self.active_services
+            )
+        ):
+            candidate = self._bus_run(trip_id)
+            if candidate is not None and (
+                required_terminal_stop_id is None
+                or candidate.stops[-1].stop_id == required_terminal_stop_id
+            ):
+                position = self._positions[("bus", candidate.run_id)].get(sequence)
+                if position is not None and position + 1 < len(candidate.stops):
+                    pickup, _ = self.repository.get_stop_time_boarding(
+                        trip_id, sequence
+                    )
+                    if pickup in (2, 3):
+                        raise ValueError(
+                            "Tokyo conditional pickup is unsupported: "
+                            f"trip={trip_id} sequence={sequence} "
+                            f"pickup_type={pickup}"
+                        )
+                    if pickup != 1:
+                        following = candidate.stops[position + 1].stop_id
+                        if any(
+                            edge.get("etype") == "ride"
+                            and edge.get("mode", "bus") == "bus"
+                            and self._stop_id(node[1]) == following
+                            for node, edge in self.graph[v].items()
+                        ):
+                            run = candidate
+
+        self._bus_boarding_compatibility[key] = run
+        return run
+
     def _bus_options(self, u, v, ready):
         route = self._bus_route(v)
         stop_id = self._stop_id(u[1])
@@ -483,34 +537,10 @@ class TimetableChoices:
             departure = float(scheduled) + delay
             if departure > self.deadline:
                 break
-            trip = self.repository.trips.get(trip_id)
-            if not trip or self.active_services is not None and trip.get("service_id") not in self.active_services:
-                continue
-            run = self._bus_run(trip_id)
+            run = self._compatible_bus_boarding(
+                u, v, trip_id, sequence, required_terminal_stop_id
+            )
             if run is None:
-                continue
-            if (
-                required_terminal_stop_id is not None
-                and run.stops[-1].stop_id != required_terminal_stop_id
-            ):
-                continue
-            position = self._positions[("bus", run.run_id)].get(sequence)
-            if position is None or position + 1 == len(run.stops):
-                continue
-            pickup, _ = self.repository.get_stop_time_boarding(trip_id, sequence)
-            if pickup == 1:
-                continue
-            if pickup in (2, 3):
-                raise ValueError(f'Tokyo conditional pickup is unsupported: trip={trip_id} sequence={sequence} pickup_type={pickup}')
-            following = run.stops[position + 1].stop_id
-            # The graph may contain multiple patterns of the same route.  A
-            # selected trip must have an actual next stop reachable in this
-            # pattern; matching only route_id would permit direction changes.
-            if not any(
-                edge.get("etype") == "ride" and edge.get("mode", "bus") == "bus"
-                and self._stop_id(node[1]) == following
-                for node, edge in self.graph[v].items()
-            ):
                 continue
             state = RideState("bus", self.service_key, run.run_id, self._line_id(v),
                               sequence, sequence, departure, trip_id=trip_id,
