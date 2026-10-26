@@ -185,6 +185,36 @@ class GtfsMultiFeedTest(unittest.TestCase):
             self.assertEqual(leg.departure_minute, 13 * 60 + 30)
             self.assertEqual(leg.arrival_minute, 13 * 60 + 40)
 
+    def test_repeated_source_ids_share_retained_string_objects(self):
+        with tempfile.TemporaryDirectory() as directory:
+            _write_feed(
+                directory,
+                route_name="上２３",
+                origin_name="平井七丁目",
+                destination_name="社会福祉会館前",
+            )
+            repository = GtfsRepository("canonical_ids")
+            repository.load_data(directory)
+
+            retained_trip_id = next(iter(repository.trips))
+            retained_route_id = next(iter(repository.routes))
+            retained_stop_ids = {stop_id: stop_id for stop_id in repository.stops}
+            timetable_trip_ids = {
+                id(item[2])
+                for schedule in repository.timetable_index.values()
+                for item in schedule
+            }
+
+            self.assertIs(
+                repository.trips[retained_trip_id]["trip_id"], retained_trip_id
+            )
+            self.assertIs(
+                repository.trips[retained_trip_id]["route_id"], retained_route_id
+            )
+            self.assertEqual(timetable_trip_ids, {id(retained_trip_id)})
+            for stop_time in repository.stop_times[retained_trip_id].values():
+                self.assertIs(stop_time[0], retained_stop_ids[stop_time[0]])
+
 
 if __name__ == "__main__":
     unittest.main()

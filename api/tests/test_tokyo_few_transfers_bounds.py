@@ -11,7 +11,7 @@ import unittest
 import networkx as nx
 
 import tokyo_search_labels as labels
-from tokyo_few_transfers_bounds import CostRoundingGuard, make_bounds
+from tokyo_few_transfers_bounds import CostRoundingGuard, _walk_meters, make_bounds
 
 
 def _phys(name):
@@ -39,7 +39,7 @@ def _continuations(graph, node, target, segment=0.0, total=0.0,
         if blocked(node, following):
             continue
         walk = edge["etype"] == "walk"
-        meters = edge.get("meters", 0.0)
+        meters = edge.get("walk_resource_meters", edge.get("meters", 0.0))
         consumed = meters if meters > 0 else 1.0
         next_segment = segment + consumed if walk else 0.0
         next_total = total + consumed if walk else total
@@ -147,6 +147,27 @@ class RelaxedLowerBoundTest(unittest.TestCase):
                 self._assert_admissible(fallback, target)
                 self.assertEqual(_continuations(fallback, b, target, 599), [(0, 1.0)])
                 self.assertEqual(_continuations(fallback, b, target, 600), [])
+
+    def test_unknown_physical_distance_uses_the_same_conservative_resource(self):
+        start, interchange, target = map(
+            _phys, ("start", "interchange", "target")
+        )
+        graph = nx.DiGraph()
+        graph.add_edge(
+            start,
+            interchange,
+            etype="walk",
+            w=15.0,
+            meters=0.0,
+            walk_resource_meters=600.0,
+        )
+        _edge(graph, interchange, target, "walk", 1.0, 1.0)
+
+        bound = make_bounds(graph, target)
+        self.assertEqual(_walk_meters(graph.edges[start, interchange], "test"), 600.0)
+        self.assertEqual(bound(start, 0.0), (0, 16.0))
+        self.assertEqual(_continuations(graph, start, target), [])
+        self.assertEqual(bound(interchange, 599.0), (0, 1.0))
 
     def test_virtual_destination_consumes_exact_walk_and_has_zero_goal_bound(self):
         start, stop, target = map(_phys, ("start", "stop", "virtual-target"))

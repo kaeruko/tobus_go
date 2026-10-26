@@ -82,10 +82,7 @@ final trainLocationSourceProvider = Provider<TrainLocationSource>((ref) {
   return const RealtimeTrainLocationSource();
 });
 
-void validateBusRealtimeIdentity({
-  required Trip trip,
-  required StepSeg step,
-}) {
+void validateBusRealtimeIdentity({required Trip trip, required StepSeg step}) {
   if (step.kind != 'bus') {
     throw StateError(
       'bus identity検証対象がbus stepではありません: '
@@ -377,7 +374,15 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
         forceRefresh: forceRefresh,
       );
     } else if (activeStep != null && activeStep.kind == 'rail') {
-      await _updateRailProgress(activeStep, forceRefresh: forceRefresh);
+      if (activeStep.supportsRealtimeVehiclePosition) {
+        await _updateRailProgress(activeStep, forceRefresh: forceRefresh);
+      } else {
+        state = RealtimeTransitState(
+          trackedStepId: activeStep.stepId,
+          replanTransitMemory: state.replanTransitMemory
+              .markRideRealtimeUnavailable(activeStep.stepId),
+        );
+      }
     } else {
       // 徒歩などに移っても、最後に確定した駅/停留所は再探索用に保持する。
       if (activeStep != null && !activeStep.isRide) {
@@ -402,10 +407,12 @@ class MemberModeController extends StateNotifier<RealtimeTransitState> {
       if (!mounted) return null;
       final sameTrackedStep = state.trackedStepId == resolvedEntry.routeStepId;
       final rideRealtimeUnavailable =
-          sameTrackedStep &&
-          state.replanTransitMemory.knownOnboardStepId ==
-              resolvedEntry.routeStepId &&
-          state.replanTransitMemory.ridingTransit == null;
+          (activeStep?.kind == 'rail' &&
+              !activeStep!.supportsRealtimeVehiclePosition) ||
+          (sameTrackedStep &&
+              state.replanTransitMemory.knownOnboardStepId ==
+                  resolvedEntry.routeStepId &&
+              state.replanTransitMemory.ridingTransit == null);
       progressNotifier.updateFromSchedule(
         trip,
         resolvedEntry,

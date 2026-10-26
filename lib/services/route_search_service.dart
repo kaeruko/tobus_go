@@ -7,6 +7,7 @@ import '../core/api_client.dart';
 import '../core/city_profile.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
+import '../models/transport_scope.dart';
 
 class RouteSearchRequest {
   final LatLng origin;
@@ -18,6 +19,7 @@ class RouteSearchRequest {
   final DateTime startTime;
   final String? preference;
   final bool busOnly;
+  final Set<String> transportScope;
   final String? farePolicyId;
   final bool acceptExperimentalTransferModel;
 
@@ -31,9 +33,14 @@ class RouteSearchRequest {
     required this.startTime,
     this.preference,
     this.busOnly = false,
+    Set<String>? transportScope,
     this.farePolicyId,
     this.acceptExperimentalTransferModel = false,
-  }) : originName = originName.trim(),
+  }) : transportScope = normalizeTransportScope(
+         transportScope,
+         busOnly: busOnly,
+       ),
+       originName = originName.trim(),
        destinationName = destinationName.trim(),
        originNameEn = _trimNullable(originNameEn),
        destinationNameEn = _trimNullable(destinationNameEn) {
@@ -50,8 +57,10 @@ class RouteSearchRequest {
       'blon': destination.longitude.toString(),
       'pref': normalizeRoutePreferenceForApi(preference),
       'bus_only': busOnly,
+      'transport_scope': transportScope.toList()..sort(),
       if (farePolicyId != null) 'fare_policy_id': farePolicyId,
-      if (farePolicyId == 'sendai_fureai_pass' ||
+      if (acceptExperimentalTransferModel ||
+          farePolicyId == 'sendai_fureai_pass' ||
           farePolicyId == 'sendai_keiro_pass')
         'accept_experimental_transfer_model': acceptExperimentalTransferModel,
       'start_time':
@@ -102,6 +111,11 @@ class ApiRouteSearchService implements RouteSearchService {
   @override
   Future<RouteSearchResult> search(RouteSearchRequest request) async {
     final apiBody = request.toApiBody();
+    if (_cityKey != 'tokyo') {
+      // The new scope contract belongs to Tokyo. Other city backends retain
+      // their existing bus_only wire behavior unchanged.
+      apiBody.remove('transport_scope');
+    }
     // Share only unfinished identical searches, including identity resolution.
     // Names affect the parsed result even though they are absent from /route.
     final key = jsonEncode([
@@ -172,6 +186,11 @@ class ApiRouteSearchService implements RouteSearchService {
         throw const FormatException('route candidate must be an object');
       }
       final map = Map<String, dynamic>.from(rawCandidate);
+      if (_cityKey == 'tokyo') {
+        map['transport_scope'] = request.transportScope.toList()..sort();
+        map['accept_experimental_transfer_model'] =
+            request.acceptExperimentalTransferModel;
+      }
       _validateResolvedBusIdentity(map);
       _validateResolvedRailIdentity(map);
       if (_cityKey == 'sendai') _validateSendaiPublishedRail(map);
@@ -199,8 +218,12 @@ class ApiRouteSearchService implements RouteSearchService {
       }
       candidates.add(candidate);
       if (map['fare'] != null) {
-        if (map['fare'] is! Map) throw const FormatException('route fare must be an object');
-        fares[candidate.id] = FareQuote.fromJson(Map<String, dynamic>.from(map['fare']));
+        if (map['fare'] is! Map) {
+          throw const FormatException('route fare must be an object');
+        }
+        fares[candidate.id] = FareQuote.fromJson(
+          Map<String, dynamic>.from(map['fare']),
+        );
       }
     }
 
@@ -346,11 +369,16 @@ class ApiRouteSearchService implements RouteSearchService {
       final details = step['planning_details'];
       if (!step['trip_id'].toString().startsWith('sendai_subway:') ||
           !step['route_id'].toString().startsWith('sendai_subway:') ||
-          details is! Map || details['departure'] is! Map || details['arrival'] is! Map ||
+          details is! Map ||
+          details['departure'] is! Map ||
+          details['arrival'] is! Map ||
           details['departure']['basis'] != 'published_departure_minute' ||
           details['arrival']['basis'] != 'published_clock_arrival_proxy' ||
-          details['departure_provenance'] is! Map || details['arrival_provenance'] is! Map) {
-        throw FormatException('Sendai rail lacks published departure / estimated arrival provenance: ${step['step_id']}');
+          details['departure_provenance'] is! Map ||
+          details['arrival_provenance'] is! Map) {
+        throw FormatException(
+          'Sendai rail lacks published departure / estimated arrival provenance: ${step['step_id']}',
+        );
       }
     }
   }
@@ -361,4 +389,3 @@ String normalizeRoutePreferenceForApi(String? preference) {
   if (preference == null || preference.isEmpty) return 'cost';
   return preference;
 }
-

@@ -54,22 +54,29 @@ _CONTRACT_OBJECTS = {
     "engine._edge_uses_rail": engine._edge_uses_rail,
     "engine.time_str_to_min": engine.time_str_to_min,
     "walking.walk_edge_elapsed_minutes": walking.walk_edge_elapsed_minutes,
+    "walking.walk_edge_is_available": walking.walk_edge_is_available,
+    "walking.walk_edge_resource_meters": walking.walk_edge_resource_meters,
     "timetable": timetable,
     "rounding": rounding,
     "TimeBounds": TimeBounds,
     "GtfsRepository.get_stop_time_boarding": GtfsRepository.get_stop_time_boarding,
 }
-# Generated from the reviewed main b47721a ASTs, independently of this gate.
+# Generated from the reviewed transition ASTs. The 2026-10-24 update adds only
+# fail-closed walk availability and conservative resource accounting: a closed
+# edge removes an exact transition while the static projection keeps that edge,
+# so the projection remains a relaxation and its lower bound stays admissible.
 # Ignore only Python 3.12's added empty type_params field, not executable code.
 _REVIEWED_AST_SHA256 = {
     "forward.search_labels": "49f8b921f08f0910b1d641d242b34adaaee608d307bf14ce501e2bced8669475",
-    "integration.search_labels": "02ec2ea77a42ede791b54ab8475159f7a6c2888e9ad92f4185d45835cb44df2d",
+    "integration.search_labels": "3dde3b854fc3a6072184129c7386655a1a2150fe2692ce3cc36a810ca42e6375",
     "integration._alight_minutes": "b12f86c9f461e9269ec5df73c7c1456f8ace23fcf425e1db6260344110d50bf7",
     "engine._tokyo_label_search": "8c4f330b3b7e01596402ae5390b684dd27877910871945dbe070c400c8c8a8a6",
-    "engine.advance_time": "f8467b52451de65b40f9d93a9434ae7f0fe4648808fbfb26d86ecdc423069ed0",
+    "engine.advance_time": "d8323f8f8046a46d1f35bb46f0c7cf586ed9a446163e3d12b15585dee484dcf9",
     "engine._edge_uses_rail": "131d5efe0129771b745203e425ef73b6321217f600ae22a56ce2e4975e1cc451",
     "engine.time_str_to_min": "d0f4bd80a6985fd7b4dc53be59b68c06b4197927663ccb5fbec31e9f000b37e5",
     "walking.walk_edge_elapsed_minutes": "b5fe6b98356e9c1f70720418e8b874381a0acfac2f5d39278b6b599235548380",
+    "walking.walk_edge_is_available": "9d1170a0dae0605fb54f02448bf9c96b30844ce90b0ee2a5f8dcf6425f0d8685",
+    "walking.walk_edge_resource_meters": "b00038d1ec0db276e1fe537990f3b567041abf6c6eddbf579a235e2782be461f",
     "timetable": "1a923900840b62cfdb475c7dd400c394b60369b48bbdbc5f9bcf3c5e1f9662bb",
     "rounding": "7598a5971723c1a49e770519129d0aeb8c8d28d0594931ee1126fb7ce158fe32",
     "TimeBounds": "6c5a77b3aa915378b64d3aba8aea6a12f86e9dd10282134cdb9e61e0248ec914",
@@ -121,6 +128,8 @@ def _check_reviewed_contract(choices, checkpoint):
         "engine._edge_uses_rail": engine._edge_uses_rail,
         "engine.time_str_to_min": engine.time_str_to_min,
         "walking.walk_edge_elapsed_minutes": walking.walk_edge_elapsed_minutes,
+        "walking.walk_edge_is_available": walking.walk_edge_is_available,
+        "walking.walk_edge_resource_meters": walking.walk_edge_resource_meters,
         "timetable": timetable, "rounding": rounding, "TimeBounds": TimeBounds,
         "GtfsRepository.get_stop_time_boarding": GtfsRepository.get_stop_time_boarding,
     }
@@ -144,7 +153,9 @@ def _check_reviewed_contract(choices, checkpoint):
             or integration._shared_search_labels is not forward.search_labels
             or integration.TimeRoundingGuard is not rounding.TimeRoundingGuard
             or integration._alight_minutes is not _CONTRACT_OBJECTS["integration._alight_minutes"]
-            or engine.walk_edge_elapsed_minutes is not walking.walk_edge_elapsed_minutes):
+            or engine.walk_edge_elapsed_minutes is not walking.walk_edge_elapsed_minutes
+            or engine.walk_edge_is_available is not walking.walk_edge_is_available
+            or integration.walk_edge_resource_meters is not walking.walk_edge_resource_meters):
         _stop("different_transition_parameters_or_hooks")
 
 

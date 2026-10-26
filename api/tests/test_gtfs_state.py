@@ -98,6 +98,20 @@ class CompiledGtfsStateTest(unittest.TestCase):
                 "Asakusa-kaminarimon",
             )
             self.assertEqual(artifact.record_counts["stop_times"], 2)
+            retained_trip_id = next(iter(repository.trips))
+            retained_route_id = next(iter(repository.routes))
+            retained_stop_ids = {stop_id: stop_id for stop_id in repository.stops}
+            self.assertIs(
+                repository.trips[retained_trip_id]["trip_id"], retained_trip_id
+            )
+            self.assertIs(
+                repository.trips[retained_trip_id]["route_id"], retained_route_id
+            )
+            for stop_time in repository.stop_times[retained_trip_id].values():
+                self.assertIs(stop_time[0], retained_stop_ids[stop_time[0]])
+            for schedule_rows in repository.timetable_index.values():
+                for _departure, _sequence, trip_id in schedule_rows:
+                    self.assertIs(trip_id, retained_trip_id)
 
     def test_same_repository_state_serializes_to_identical_bytes(self):
         with tempfile.TemporaryDirectory() as directory:

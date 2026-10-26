@@ -2,6 +2,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../utils/string_utils.dart';
 import 'route_map_segment.dart';
+import 'transport_scope.dart';
 
 class RouteMeta {
   final String? planningNotice;
@@ -11,6 +12,10 @@ class RouteMeta {
   final String? fallbackNodeNameEn;
   final double? fallbackDistanceM;
   final int? walkLimitM;
+  final String? tokyoMetroFeedVersion;
+  final String? tokyoMetroFeedStartDate;
+  final String? tokyoMetroFeedEndDate;
+  final String? tokyoMetroDataObtainedAt;
 
   RouteMeta({
     this.planningNotice,
@@ -20,6 +25,10 @@ class RouteMeta {
     this.fallbackNodeNameEn,
     this.fallbackDistanceM,
     this.walkLimitM,
+    this.tokyoMetroFeedVersion,
+    this.tokyoMetroFeedStartDate,
+    this.tokyoMetroFeedEndDate,
+    this.tokyoMetroDataObtainedAt,
   });
 
   factory RouteMeta.fromJson(Map<String, dynamic> json) {
@@ -31,6 +40,11 @@ class RouteMeta {
       fallbackNodeNameEn: json['fallback_node_name_en']?.toString(),
       fallbackDistanceM: (json['fallback_distance_m'] as num?)?.toDouble(),
       walkLimitM: (json['walk_limit_m'] as num?)?.toInt(),
+      tokyoMetroFeedVersion: json['tokyo_metro_feed_version']?.toString(),
+      tokyoMetroFeedStartDate: json['tokyo_metro_feed_start_date']?.toString(),
+      tokyoMetroFeedEndDate: json['tokyo_metro_feed_end_date']?.toString(),
+      tokyoMetroDataObtainedAt: json['tokyo_metro_data_obtained_at']
+          ?.toString(),
     );
   }
 
@@ -67,6 +81,9 @@ class Candidate {
   final LatLng? originCoords;
   final LatLng? destinationCoords;
   final String? arrivalTime;
+  final bool containsEstimatedTransfer;
+  final Set<String>? transportScope;
+  final bool? acceptExperimentalTransferModel;
   final String? savedRouteMemo;
   final DateTime? savedRouteSavedAt;
 
@@ -96,9 +113,15 @@ class Candidate {
     this.originCoords,
     this.destinationCoords,
     this.arrivalTime,
+    this.containsEstimatedTransfer = false,
+    Set<String>? transportScope,
+    this.acceptExperimentalTransferModel,
     this.savedRouteMemo,
     this.savedRouteSavedAt,
-  }) : walkingDistanceMeters =
+  }) : transportScope = transportScope == null
+           ? null
+           : normalizeTransportScope(transportScope, busOnly: false),
+       walkingDistanceMeters =
            walkingDistanceMeters ?? _walkingDistanceMetersFrom(steps),
        walkingSegmentCount =
            walkingSegmentCount ?? _walkingSegmentCountFrom(steps) {
@@ -127,11 +150,21 @@ class Candidate {
   // original instant, but give the existing date picker a local wall clock
   // rather than converting the journey to the browser/device time zone.
   DateTime get sendaiPlanningDeparture {
-    if (planningJourney?['profile'] != 'sendai_published_minute_v1' || departureDate == null) {
-      throw StateError('Sendai planning departure requires the explicit profile and instant');
+    if (planningJourney?['profile'] != 'sendai_published_minute_v1' ||
+        departureDate == null) {
+      throw StateError(
+        'Sendai planning departure requires the explicit profile and instant',
+      );
     }
     final japan = departureDate!.toUtc().add(const Duration(hours: 9));
-    return DateTime(japan.year,japan.month,japan.day,japan.hour,japan.minute,japan.second);
+    return DateTime(
+      japan.year,
+      japan.month,
+      japan.day,
+      japan.hour,
+      japan.minute,
+      japan.second,
+    );
   }
 
   factory Candidate.fromJson(Map<String, dynamic> j) {
@@ -149,7 +182,9 @@ class Candidate {
     );
     return Candidate(
       planningNotice: j['planning_notice']?.toString(),
-      planningJourney: j['planning_journey'] == null ? null : Map<String, dynamic>.from(j['planning_journey']),
+      planningJourney: j['planning_journey'] == null
+          ? null
+          : Map<String, dynamic>.from(j['planning_journey']),
       id: j['id']?.toString() ?? '',
       lines: (j['lines'] is List) ? List<String>.from(j['lines']) : const [],
       linesEn: (j['lines_en'] is List)
@@ -214,24 +249,62 @@ class Candidate {
             )
           : null,
       arrivalTime: j['arrival_time']?.toString(),
+      containsEstimatedTransfer: j['contains_estimated_transfer'] == true,
+      transportScope: _readOptionalTransportScope(j),
+      acceptExperimentalTransferModel: _readOptionalBoolean(
+        j,
+        'accept_experimental_transfer_model',
+      ),
       savedRouteMemo: j['saved_route_memo']?.toString(),
       savedRouteSavedAt: _readOptionalSavedRouteSavedAt(j),
     );
   }
 
-  static DateTime? _readOptionalSavedRouteSavedAt(
-    Map<String, dynamic> json,
-  ) {
+  static DateTime? _readOptionalSavedRouteSavedAt(Map<String, dynamic> json) {
     final value = json['saved_route_saved_at'];
     if (value == null) return null;
     if (value is! String || value.trim().isEmpty) {
-      throw FormatException('saved route has invalid saved_route_saved_at: $value');
+      throw FormatException(
+        'saved route has invalid saved_route_saved_at: $value',
+      );
     }
     final parsed = DateTime.tryParse(value);
     if (parsed == null) {
-      throw FormatException('saved route has invalid saved_route_saved_at: $value');
+      throw FormatException(
+        'saved route has invalid saved_route_saved_at: $value',
+      );
     }
     return parsed.toUtc();
+  }
+
+  static Set<String>? _readOptionalTransportScope(Map<String, dynamic> json) {
+    if (!json.containsKey('transport_scope')) return null;
+    final value = json['transport_scope'];
+    if (value is! List || value.any((entry) => entry is! String)) {
+      throw const FormatException(
+        'saved route transport_scope must be a list of strings',
+      );
+    }
+    final entries = value.cast<String>();
+    if (entries.length != entries.toSet().length) {
+      throw const FormatException(
+        'saved route transport_scope must not contain duplicates',
+      );
+    }
+    try {
+      return normalizeTransportScope(entries.toSet(), busOnly: false);
+    } on ArgumentError catch (error) {
+      throw FormatException('saved route has invalid transport_scope: $error');
+    }
+  }
+
+  static bool? _readOptionalBoolean(Map<String, dynamic> json, String key) {
+    if (!json.containsKey(key)) return null;
+    final value = json[key];
+    if (value is! bool) {
+      throw FormatException('saved route $key must be a boolean');
+    }
+    return value;
   }
 
   static int _readRequiredNonNegativeInt(
@@ -482,10 +555,7 @@ class Candidate {
   }
 
   Candidate withSavedRouteMemo(String? memo) {
-    return _copySavedRouteMetadata(
-      memo: memo,
-      savedAt: savedRouteSavedAt,
-    );
+    return _copySavedRouteMetadata(memo: memo, savedAt: savedRouteSavedAt);
   }
 
   Candidate withSavedRouteSavedAt(DateTime savedAt) {
@@ -522,6 +592,9 @@ class Candidate {
       originCoords: originCoords,
       destinationCoords: destinationCoords,
       arrivalTime: arrivalTime,
+      containsEstimatedTransfer: containsEstimatedTransfer,
+      transportScope: transportScope,
+      acceptExperimentalTransferModel: acceptExperimentalTransferModel,
       savedRouteMemo: memo,
       savedRouteSavedAt: savedAt,
     );
@@ -547,7 +620,9 @@ class Candidate {
           ? points.map((e) => [e.latitude, e.longitude]).toList()
           : [],
       if (includePoints && routeGeometry != null)
-        'route_geometry': routeGeometry!.map((segment) => segment.toJson()).toList(),
+        'route_geometry': routeGeometry!
+            .map((segment) => segment.toJson())
+            .toList(),
       'origin_name': originName,
       'destination_name': destinationName,
       'origin_name_en': originNameEn,
@@ -562,6 +637,11 @@ class Candidate {
           ? [destinationCoords!.latitude, destinationCoords!.longitude]
           : null,
       'arrival_time': arrivalTime,
+      'contains_estimated_transfer': containsEstimatedTransfer,
+      if (transportScope != null)
+        'transport_scope': transportScope!.toList()..sort(),
+      if (acceptExperimentalTransferModel != null)
+        'accept_experimental_transfer_model': acceptExperimentalTransferModel,
       if (includeSavedRouteMemo) 'saved_route_memo': savedRouteMemo,
       if (includeSavedRouteMemo)
         'saved_route_saved_at': savedRouteSavedAt?.toUtc().toIso8601String(),
@@ -613,8 +693,12 @@ void validatePersistableBusIdentity(Candidate candidate) {
   }
 }
 
-
 class StepSeg {
+  static const _toeiRealtimeOperatorIds = {
+    TransportServiceId.toeiSubway,
+    'odpt.Operator:Toei',
+  };
+
   final Map<String, dynamic>? planningDetails;
   final String stepId;
   final String kind; // 'walk', 'bus', 'rail', 'wait'
@@ -640,6 +724,7 @@ class StepSeg {
   final String? routeId; // 系統ID
   final String? tripId; // 便ID (GTFS-RTとの紐付け用)
   final String? directionId; // 方向ID
+  final String? operatorId;
 
   // Compatibility / Legacy fields
   final int edges;
@@ -671,6 +756,7 @@ class StepSeg {
     this.routeId, // ★
     this.tripId, // ★
     this.directionId, // ★
+    this.operatorId,
     this.edges = 0,
     this.departureStopId = '',
     this.arrivalPoleId = '',
@@ -686,6 +772,19 @@ class StepSeg {
       planningDetails?['physical_walk_meters'] == null;
 
   bool get isRide => kind == 'bus' || kind == 'rail';
+
+  bool get isTokyoMetroRail =>
+      kind == 'rail' &&
+      (operatorId == TransportServiceId.tokyoMetro ||
+          tripId?.startsWith('${TransportServiceId.tokyoMetro}:') == true ||
+          routeId?.startsWith('${TransportServiceId.tokyoMetro}:') == true);
+
+  bool get supportsRealtimeVehiclePosition {
+    if (kind != 'rail' || isTokyoMetroRail) return false;
+    // Existing Toei route payloads predate operator_id. Preserve that wire
+    // contract, but fail closed when a newer payload names another operator.
+    return operatorId == null || _toeiRealtimeOperatorIds.contains(operatorId);
+  }
 
   // Keep getters for compatibility if needed, or rely on public fields
   String? get from => fromName;
@@ -706,7 +805,9 @@ class StepSeg {
         .toList();
 
     return StepSeg(
-      planningDetails: json['planning_details'] == null ? null : Map<String, dynamic>.from(json['planning_details']),
+      planningDetails: json['planning_details'] == null
+          ? null
+          : Map<String, dynamic>.from(json['planning_details']),
       stepId: stepId,
       kind: json['kind'] ?? 'walk',
       title: json['title'] ?? '',
@@ -734,6 +835,7 @@ class StepSeg {
           json['routeId'], // Handle both snake and camel if possible, user snippet used snake
       tripId: json['trip_id'],
       directionId: json['direction_id'],
+      operatorId: json['operator_id']?.toString(),
 
       // Legacy
       edges: (json['edges'] as num? ?? 0).toInt(),
@@ -749,9 +851,7 @@ class StepSeg {
         !value.isFinite ||
         value != value.roundToDouble() ||
         value < 0) {
-      throw FormatException(
-        'route step has invalid boarding_minutes: $value',
-      );
+      throw FormatException('route step has invalid boarding_minutes: $value');
     }
     return value.toInt();
   }
@@ -801,6 +901,7 @@ class StepSeg {
       'route_id': routeId,
       'trip_id': tripId,
       'direction_id': directionId,
+      'operator_id': operatorId,
       'edges': edges,
       'departureStopId': departureStopId,
       'arrivalPoleId': arrivalPoleId,
@@ -859,4 +960,3 @@ class StopPoint {
     };
   }
 }
-

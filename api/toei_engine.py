@@ -240,7 +240,12 @@ from datetime import datetime as dt_class # datetime.datetimeと競合しない�
 from google.transit import gtfs_realtime_pb2
 from gtfs_loader import gtfs_repo
 from route_engine import RouteContractError, RouteSearchLimitError
-from reviewed_walk_time import ReviewedWalkingLink, walk_edge_elapsed_minutes
+from reviewed_walk_time import (
+    ReviewedWalkingLink,
+    walk_edge_elapsed_minutes,
+    walk_edge_is_available,
+    walk_edge_resource_meters,
+)
 from walking_access import (
     haversine_m as haversine, distance_candidates, nearest_candidate,
     walking_elapsed_minutes,
@@ -1526,9 +1531,12 @@ def advance_time(G, tm, u, v, curr_time, day_type="weekday", delays_snapshot=Non
     meters = edge.get("meters", 0)
 
     if etype == "walk":
-        return curr_time + walk_edge_elapsed_minutes(
-            edge, speed_m_per_min=WALK_SPEED_M_PER_MIN
-        )
+        elapsed = walk_edge_elapsed_minutes(edge, speed_m_per_min=WALK_SPEED_M_PER_MIN)
+        if not walk_edge_is_available(
+            edge, departure_minute=curr_time, elapsed_minutes=elapsed
+        ):
+            return None
+        return curr_time + elapsed
 
     if etype == "board":
         node = v if v[0] == "line" else u
@@ -2252,6 +2260,14 @@ def _route_stop_identity(G, phys_key, mode):
             )
         return str(stop_id).strip(), None
     if mode == "rail":
+        metro_stop_id = G.nodes[phys_key].get("gtfs_stop_id")
+        if metro_stop_id is not None:
+            normalized = str(metro_stop_id).strip()
+            if not normalized.startswith("tokyo_metro:"):
+                raise RouteContractError(
+                    f"rail station has an invalid Tokyo Metro GTFS stop_id: {source_id}"
+                )
+            return normalized, source_id
         station_code = G.nodes[phys_key].get("station_code")
         if station_code is None or not str(station_code).strip():
             raise RouteContractError(
@@ -2270,6 +2286,14 @@ def _selected_rail_run(path, state):
     metadata["segment_records"] = list(metadata.get("segment_records", ()))
     metadata.pop("stops", None)
     return metadata
+
+
+def _selected_rail_run_with_operator_identity(tm, path, state, operator_id):
+    selected = _selected_rail_run(path, state)
+    if operator_id == "tokyo_metro" and selected.get("segment_records"):
+        from tokyo_metro_gtfs import enrich_selected_metro_run
+        selected = enrich_selected_metro_run(tm, selected)
+    return selected
 
 
 def _selected_bus_leg(G, path, board_index, state):
@@ -2402,7 +2426,8 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             if cur["kind"] == "walk":
                 # 距離0の徒歩セグメントだけを除外する。
                 # 表示名が同じでも、バス停と駅など別ノード間の移動はあり得る。
-                if cur.get("meters", 0) <= 0:
+                if (cur.get("meters", 0) <= 0
+                        and cur.get("_scheduled_transfer_edges", 0) == 0):
                     cur = None
                     return
                 # Keep search and displayed walking clocks aligned, including
@@ -2415,12 +2440,49 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 reviewed = cur.pop("_reviewed_edges", 0)
                 unreviewed = cur.pop("_unreviewed_edges", 0)
                 evidence = cur.pop("_evidence_urls", [])
+                time_bases = cur.pop("_walking_time_bases", [])
+                resource_meters = cur.pop("_walk_resource_meters", cur.get("meters", 0))
+                estimated = cur.pop("_estimated_transfer_edges", 0)
+                cur.pop("_scheduled_transfer_edges", None)
+                distance_known = cur.pop("_physical_distance_known", True)
+                reference_separations = cur.pop(
+                    "_station_reference_point_separations_meters", []
+                )
+                walk_constraint_verified = cur.pop("_walk_constraint_verified", True)
+                time_confidences = cur.pop("_transfer_time_confidences", [])
+                transfer_evidence = cur.pop("_transfer_evidence", None)
                 if reviewed:
-                    cur["walking_connection_verified"] = unreviewed == 0
+                    cur["walking_connection_verified"] = unreviewed == 0 and estimated == 0
                     cur["walking_time_basis"] = (
-                        "official_reviewed" if unreviewed == 0 else "mixed_estimated"
+                        time_bases[0]
+                        if unreviewed == 0 and len(set(time_bases)) == 1
+                        else "mixed_estimated"
                     )
                     cur["evidence_urls"] = evidence
+                    cur["walking_time_estimated"] = estimated > 0
+                    cur["physical_walk_distance_known"] = distance_known
+                    if transfer_evidence is not None:
+                        cur["transfer_evidence"] = transfer_evidence
+                    if not distance_known:
+                        cur["planning_walk_resource_meters"] = resource_meters
+                        # Keep the legacy numeric ``meters`` field for the
+                        # shared route contract, but give clients an explicit
+                        # unknown value so they never render it as observed 0m.
+                        cur["planning_details"] = {
+                            "physical_walk_meters": None,
+                            "station_reference_point_separations_meters": (
+                                reference_separations
+                            ),
+                            "planning_walk_resource_meters": resource_meters,
+                            "walk_constraint_verified": walk_constraint_verified,
+                            "walking_time_measured": False,
+                            "walking_time_basis": cur["walking_time_basis"],
+                            "walking_time_confidence": (
+                                time_confidences[0]
+                                if len(set(time_confidences)) == 1
+                                else "mixed_unverified"
+                            ),
+                        }
             elif cur["kind"] in ("bus", "rail"):
                 # 公共交通機関の所要時間計算
                 if cur.get("arrival_time"):
@@ -2482,18 +2544,74 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     "_reviewed_edges": 0,
                     "_unreviewed_edges": 0,
                     "_evidence_urls": [],
+                    "_walking_time_bases": [],
+                    "_walk_resource_meters": 0.0,
+                    "_estimated_transfer_edges": 0,
+                    "_scheduled_transfer_edges": 0,
+                    "_physical_distance_known": True,
+                    "_station_reference_point_separations_meters": [],
+                    "_walk_constraint_verified": True,
+                    "_transfer_time_confidences": [],
+                    "_transfer_evidence": None,
                 }
             cur["edges"] += 1
             cur["meters"] += edge.get("meters", 0)
+            cur["_walk_resource_meters"] += walk_edge_resource_meters(edge)
+            if edge.get("transfer_time_estimated") is True:
+                cur["_estimated_transfer_edges"] += 1
+            if "reviewed_walk_minutes" in edge:
+                cur["_scheduled_transfer_edges"] += 1
+            if edge.get("physical_walk_distance_known") is False:
+                cur["_physical_distance_known"] = False
+                separation = edge.get("station_reference_point_separation_meters")
+                if separation is not None:
+                    cur["_station_reference_point_separations_meters"].append(
+                        separation
+                    )
+            if edge.get("walk_constraint_verified") is False:
+                cur["_walk_constraint_verified"] = False
+            confidence = edge.get("transfer_time_confidence")
+            if confidence:
+                cur["_transfer_time_confidences"].append(confidence)
             elapsed = walk_edge_elapsed_minutes(
                 edge, speed_m_per_min=WALK_SPEED_M_PER_MIN
             )
             cur["_walk_elapsed"] += elapsed
             if "reviewed_walk_minutes" in edge:
                 cur["_reviewed_edges"] += 1
+                evidence_flags = {
+                    "official_connection_verified": bool(
+                        edge.get("official_connection_verified", False)
+                    ),
+                    "path_verified": bool(edge.get("transfer_path_verified", False)),
+                    "physical_distance_verified": bool(
+                        edge.get("transfer_distance_verified", False)
+                    ),
+                    "minimum_time_verified": bool(
+                        edge.get("transfer_time_verified", False)
+                    ),
+                    "direction_restrictions_verified": bool(
+                        edge.get("transfer_direction_verified", False)
+                    ),
+                    "availability_hours_verified": bool(
+                        edge.get("transfer_hours_verified", False)
+                    ),
+                }
+                if cur["_transfer_evidence"] is None:
+                    cur["_transfer_evidence"] = evidence_flags
+                else:
+                    for key, value in evidence_flags.items():
+                        cur["_transfer_evidence"][key] = (
+                            cur["_transfer_evidence"][key] and value
+                        )
                 url = edge.get("evidence_url")
                 if url and url not in cur["_evidence_urls"]:
                     cur["_evidence_urls"].append(url)
+                for evidence_url in edge.get("evidence_urls") or ():
+                    if evidence_url and evidence_url not in cur["_evidence_urls"]:
+                        cur["_evidence_urls"].append(evidence_url)
+                time_basis = edge.get("transfer_time_basis", "official_reviewed")
+                cur["_walking_time_bases"].append(time_basis)
             else:
                 cur["_unreviewed_edges"] += 1
             if v[0] == "phys":
@@ -2550,6 +2668,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
             phys_id = u[1]
             final_route_id = G.nodes[v].get("route_id")
             final_trip_id = None
+            operator_id = G.nodes[v].get("operator_id")
             if mode == "bus":
                 target_pid = _find_bus_alight_pole(G, path, i)
                 if selected_state is not None and selected_state.provider == "bus":
@@ -2645,6 +2764,7 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 ),
                 "route_id": final_route_id,
                 "trip_id": final_trip_id,
+                **({"operator_id": operator_id} if operator_id else {}),
             }
             if mode == "bus":
                 cur["departureStopId"] = active_bus_leg.origin_stop_id
@@ -2655,7 +2775,13 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     destination_sequence=active_bus_leg.destination_sequence,
                 )
             if selected_state is not None and selected_state.provider == "rail":
-                cur["selected_run"] = _selected_rail_run(path, selected_state)
+                selected_run = _selected_rail_run_with_operator_identity(
+                    tm, path, selected_state, operator_id
+                )
+                cur["selected_run"] = selected_run
+                for identity_key in ("trip_id", "route_id", "service_id"):
+                    if selected_run.get(identity_key):
+                        cur[identity_key] = selected_run[identity_key]
 
         elif etype == "ride":
             print(f"[segments_detailed] edge[{i}] ride mode={mode} node={node}", flush=True)
@@ -2691,7 +2817,13 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                 if arr: curr_time = arr
                 else: curr_time += edge.get("w", 2.0)
                 if cur and selected_state is not None and selected_state.provider == "rail":
-                    cur["selected_run"] = _selected_rail_run(path, selected_state)
+                    selected_run = _selected_rail_run_with_operator_identity(
+                        tm, path, selected_state, cur.get("operator_id")
+                    )
+                    cur["selected_run"] = selected_run
+                    for identity_key in ("trip_id", "route_id", "service_id"):
+                        if selected_run.get(identity_key):
+                            cur[identity_key] = selected_run[identity_key]
             else:
                 if active_bus_leg is None:
                     return []

@@ -13,7 +13,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('Tokyo fare settings render English policy names', (
+  testWidgets('Tokyo settings do not offer ticket or fare policy selection', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -29,16 +29,25 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Fares & passes'), findsOneWidget);
-    expect(find.text('Regular fare'), findsWidgets);
     expect(
-      find.text('Toei Transportation Pass for People with Mental Disabilities'),
+      find.text('Select transport you can use free of charge'),
       findsOneWidget,
     );
-    expect(find.text('Free pass'), findsOneWidget);
-    expect(find.text('View official information'), findsOneWidget);
+    expect(
+      find.text(
+        'On the search screen, select the transport services you can use free '
+        'of charge. The app does not determine or guarantee your eligibility.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Regular fare'), findsNothing);
+    expect(
+      find.text('Toei Transportation Pass for People with Mental Disabilities'),
+      findsNothing,
+    );
+    expect(find.text('Free pass'), findsNothing);
+    expect(find.text('View official information'), findsNothing);
     await tester.scrollUntilVisible(find.text('Open other settings'), 200);
     expect(find.text('Open other settings'), findsOneWidget);
   });
-
 }

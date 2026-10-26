@@ -1,0 +1,76 @@
+{
+  "schema": "tokyo_metro_release_snapshot_review/v1",
+  "result_rows": 188,
+  "candidate_prefix_groups_checked": 32,
+  "metro_trip_steps_checked_against_gtfs": 428,
+  "transfer_boardings_checked": 140,
+  "zero_candidate_rows": 10,
+  "zero_candidate_classification": {
+    "case": "estimated_transfer_stress",
+    "reason": "ordinary scoped graph has no directed path; opt-in graph has a path and exact candidates traverse estimated edges",
+    "ordinary_topology_path": false,
+    "estimated_topology_path": true
+  },
+  "representative_cases": {
+    "tokyo_metro_only": {
+      "candidate_count": 5,
+      "ordered_candidate_sha256": "6dffc02725ffa1f78d704140520dc175ab2948acd2345e6e5bad48b9458df86b",
+      "first_candidate_trip_ids": [
+        "tokyo_metro:10B1047000"
+      ],
+      "first_candidate_arrival": "10:39"
+    },
+    "metro_public_holiday": {
+      "candidate_count": 5,
+      "ordered_candidate_sha256": "3af82fcc602c82d2a87aab2f49b27ec9d88fb07f515e669e1646653e80dd4235",
+      "first_candidate_trip_ids": [
+        "tokyo_metro:12B1011000"
+      ],
+      "first_candidate_arrival": "10:39"
+    },
+    "metro_last_train": {
+      "candidate_count": 2,
+      "ordered_candidate_sha256": "455cb5de5a322b277e2c9f2f0e32d27849eda8042dbdeb77c3b3555c5f0876a8",
+      "first_candidate_trip_ids": [
+        "tokyo_metro:10B2341000"
+      ],
+      "first_candidate_arrival": "24:20"
+    },
+    "metro_date_crossing": {
+      "candidate_count": 5,
+      "ordered_candidate_sha256": "0ed6ebe627a9cd1c1bfd3fddaec05175ac64afcfbe2d39a97452d5f778a092ba",
+      "first_candidate_trip_ids": [
+        "tokyo_metro:10B2335000"
+      ],
+      "first_candidate_arrival": "24:00"
+    },
+    "reviewed_transfer_forward": {
+      "candidate_count": 5,
+      "ordered_candidate_sha256": "0fc85c3cce1bde1745e5ee9282e9dad449771709eee9f8acb1eb6de47bced986",
+      "first_candidate_trip_ids": [
+        "tokyo_metro:30B0958S00",
+        "tokyo_metro:70A0977S00"
+      ],
+      "first_candidate_arrival": "10:25"
+    },
+    "reviewed_transfer_reverse": {
+      "candidate_count": 5,
+      "ordered_candidate_sha256": "0931ce26fd53181ac525a1b9c526b1f03ae8183e31a864b1238d838035be1843",
+      "first_candidate_trip_ids": [
+        "tokyo_metro:71B0962T00",
+        "tokyo_metro:31A0901T00"
+      ],
+      "first_candidate_arrival": "10:28"
+    },
+    "estimated_transfer_stress": {
+      "candidate_count": 5,
+      "ordered_candidate_sha256": "9fcebc4f2ac20f8adc68a81cf092d16d18cd00e044f7aa998c227e3d7df0dbf2",
+      "first_candidate_trip_ids": [
+        "tokyo_metro:20B0907000",
+        "tokyo_metro:40A1029S00"
+      ],
+      "first_candidate_arrival": "11:17"
+    }
+  },
+  "violations": []
+}

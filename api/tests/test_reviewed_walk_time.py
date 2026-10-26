@@ -10,6 +10,7 @@ import networkx as nx
 
 from reviewed_walk_time import (
     ReviewedWalkingLink, validate_reviewed_walk_timing, walk_edge_elapsed_minutes,
+    walk_edge_is_available, walk_edge_resource_meters,
 )
 from toei_engine import (
     WALK_COST, advance_time, apply_reviewed_walking_links, find_fastest_path,
@@ -51,6 +52,50 @@ class ReviewedWalkingTimeTests(unittest.TestCase):
         self.assertEqual(walk_edge_elapsed_minutes(
             {"meters": 392, "reviewed_walk_minutes": 10}
         ), 10.0)
+
+    def test_unknown_physical_distance_uses_separate_conservative_resource(self):
+        edge = {
+            "meters": 0.0,
+            "walk_resource_meters": 600.0,
+            "reviewed_walk_minutes": 15,
+            "transfer_time_estimated": True,
+        }
+        self.assertEqual(walk_edge_elapsed_minutes(edge), 15.0)
+        self.assertEqual(walk_edge_resource_meters(edge), 600.0)
+        self.assertEqual(edge["meters"], 0.0)
+
+    def test_known_transfer_closure_must_cover_the_complete_walk(self):
+        edge = {"transfer_available_windows": ((300, 610),)}
+        self.assertTrue(walk_edge_is_available(
+            edge, departure_minute=595, elapsed_minutes=15
+        ))
+        self.assertFalse(walk_edge_is_available(
+            edge, departure_minute=596, elapsed_minutes=15
+        ))
+        self.assertTrue(walk_edge_is_available(
+            {}, departure_minute=596, elapsed_minutes=15
+        ))
+
+    def test_one_unverified_allowance_cannot_certify_short_and_long_paths(self):
+        common = {"etype": "walk", "meters": 0, "reviewed_walk_minutes": 15}
+        reviewed_short = {"etype": "walk", "meters": 320, "reviewed_walk_minutes": 8}
+        reviewed_long = {"etype": "walk", "meters": 600, "reviewed_walk_minutes": 16}
+        graph = nx.DiGraph()
+        graph.add_edge("from", "to", **common)
+        common_ready = advance_time(graph, None, "from", "to", 600)
+        graph.edges["from", "to"].update(reviewed_short)
+        short_ready = advance_time(graph, None, "from", "to", 600)
+        graph.edges["from", "to"].update(reviewed_long)
+        long_ready = advance_time(graph, None, "from", "to", 600)
+
+        # A 10:10 departure is legal for a verified 8-minute path but is lost
+        # under the 15-minute common allowance.
+        self.assertLessEqual(short_ready, 610)
+        self.assertGreater(common_ready, 610)
+        # Conversely, a 10:15 departure accepted by the common allowance is
+        # not legal when the actual reviewed path takes 16 minutes.
+        self.assertLessEqual(common_ready, 615)
+        self.assertGreater(long_ready, 615)
 
     def test_tokyo_correction_changes_routing_and_walk_display(self):
         graph = _graph()

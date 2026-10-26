@@ -13,6 +13,7 @@ import time
 from dataclasses import replace
 
 from route_engine import RouteContractError, RouteSearchLimitError
+from reviewed_walk_time import walk_edge_resource_meters
 from tokyo_few_transfers_bounds import CostRoundingGuard, make_bounds
 from tokyo_time_bounds import make_time_bounds
 from tokyo_time_rounding import TimeRoundingGuard
@@ -133,6 +134,5 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
         path_signature=lambda nodes: transit_path_signature(graph, nodes, transit_only=True),
         path_factory=SelectedPath, compact_queue=_compact_queue,
         ride_options=ride_options, alight_minutes=_alight_minutes,
-        walk_meters=lambda edge: (edge.get("meters", 0.0)
-                                 if edge.get("meters", 0.0) > 0 else 1.0),
+        walk_meters=walk_edge_resource_meters,
     )

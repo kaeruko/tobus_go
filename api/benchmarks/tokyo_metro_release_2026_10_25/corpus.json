@@ -1,0 +1,189 @@
+{
+  "schema": "tokyo_metro_release_corpus/v1",
+  "feed": {
+    "version": "20261008",
+    "valid_from": "2026-09-19",
+    "valid_until": "2027-03-12",
+    "archive_sha256": "c50ab5cc3489bf1ff67985491a4d00d25888655918ef887a6cc4887a007dfd73"
+  },
+  "fixed_contract": {
+    "modes": ["time", "fewTransfers"],
+    "candidate_limits": [1, 2, 3, 4, 5],
+    "estimated_transfer_modes": [false, true],
+    "time_limit_seconds": 15,
+    "pop_limit": 100000,
+    "max_travel_minutes": 240
+  },
+  "matrix_cases": [
+    {
+      "name": "toei_bus_only",
+      "scope": ["toei_bus"],
+      "origin": [35.708166, 139.817434],
+      "destination": [35.659097, 139.702673],
+      "date": "2026-10-23",
+      "time": "10:00",
+      "tags": ["weekday", "legacy_toei"]
+    },
+    {
+      "name": "toei_subway_only",
+      "scope": ["toei_subway"],
+      "origin": [35.688433, 139.698418],
+      "destination": [35.708920, 139.796542],
+      "date": "2026-10-23",
+      "time": "10:00",
+      "tags": ["weekday", "legacy_toei"]
+    },
+    {
+      "name": "tokyo_metro_only",
+      "scope": ["tokyo_metro"],
+      "origin": [35.659097, 139.702673],
+      "destination": [35.710746, 139.797774],
+      "date": "2026-10-23",
+      "time": "10:00",
+      "tags": ["weekday"]
+    },
+    {
+      "name": "toei_bus_and_subway",
+      "scope": ["toei_bus", "toei_subway"],
+      "origin": [35.708166, 139.817434],
+      "destination": [35.659097, 139.702673],
+      "date": "2026-10-23",
+      "time": "10:00",
+      "tags": ["weekday", "legacy_toei"]
+    },
+    {
+      "name": "toei_bus_and_metro",
+      "scope": ["toei_bus", "tokyo_metro"],
+      "origin": [35.708166, 139.817434],
+      "destination": [35.659097, 139.702673],
+      "date": "2026-10-23",
+      "time": "10:00",
+      "tags": ["weekday"]
+    },
+    {
+      "name": "toei_subway_and_metro",
+      "scope": ["toei_subway", "tokyo_metro"],
+      "origin": [35.688433, 139.698418],
+      "destination": [35.708920, 139.796542],
+      "date": "2026-10-23",
+      "time": "10:00",
+      "tags": ["weekday"]
+    },
+    {
+      "name": "all_three_services",
+      "scope": ["toei_bus", "toei_subway", "tokyo_metro"],
+      "origin": [35.708166, 139.817434],
+      "destination": [35.659097, 139.702673],
+      "date": "2026-10-23",
+      "time": "10:00",
+      "tags": ["weekday"]
+    }
+  ],
+  "supplemental_cases": [
+    {
+      "name": "metro_weekend",
+      "scope": ["tokyo_metro"],
+      "origin": [35.659097, 139.702673],
+      "destination": [35.710746, 139.797774],
+      "date": "2026-10-24",
+      "time": "10:00",
+      "tags": ["weekend"],
+      "candidate_limits": [5]
+    },
+    {
+      "name": "metro_public_holiday",
+      "scope": ["tokyo_metro"],
+      "origin": [35.659097, 139.702673],
+      "destination": [35.710746, 139.797774],
+      "date": "2026-10-12",
+      "time": "10:00",
+      "tags": ["public_holiday"],
+      "calendar_expectation": {
+        "official_holiday": true,
+        "official_name_en": "Sports Day",
+        "civil_day_type": "holiday",
+        "gtfs_removed_service_ids": ["0"],
+        "gtfs_added_service_ids": ["1"]
+      },
+      "candidate_limits": [5]
+    },
+    {
+      "name": "metro_last_train",
+      "scope": ["tokyo_metro"],
+      "origin": [35.659097, 139.702673],
+      "destination": [35.710746, 139.797774],
+      "date": "2026-10-23",
+      "time": "23:40",
+      "tags": ["last_train"],
+      "candidate_limits": [5]
+    },
+    {
+      "name": "metro_date_crossing",
+      "scope": ["tokyo_metro"],
+      "origin": [35.659097, 139.702673],
+      "destination": [35.710746, 139.797774],
+      "date": "2026-10-23",
+      "time": "23:20",
+      "tags": ["date_crossing"],
+      "candidate_limits": [5]
+    },
+    {
+      "name": "reviewed_transfer_forward",
+      "scope": ["tokyo_metro"],
+      "origin_station_id": "odpt.Station:TokyoMetro.Hibiya.Hatchobori",
+      "destination_station_id": "odpt.Station:TokyoMetro.Hanzomon.Kinshicho",
+      "date": "2026-10-23",
+      "time": "10:00",
+      "tags": ["reviewed_transfer", "direction_forward", "multi_line"],
+      "candidate_limits": [5]
+    },
+    {
+      "name": "reviewed_transfer_reverse",
+      "scope": ["tokyo_metro"],
+      "origin_station_id": "odpt.Station:TokyoMetro.Hanzomon.Kinshicho",
+      "destination_station_id": "odpt.Station:TokyoMetro.Hibiya.Hatchobori",
+      "date": "2026-10-23",
+      "time": "10:00",
+      "tags": ["reviewed_transfer", "direction_reverse", "multi_line"],
+      "candidate_limits": [5]
+    },
+    {
+      "name": "estimated_transfer_stress",
+      "scope": ["tokyo_metro"],
+      "origin_station_id": "odpt.Station:TokyoMetro.Marunouchi.NakanoSakaue",
+      "destination_station_id": "odpt.Station:TokyoMetro.Tozai.Myoden",
+      "date": "2026-10-23",
+      "time": "10:00",
+      "tags": ["estimated_transfer", "multi_line", "performance_reference_75316", "unreachable_without_estimated_transfers"],
+      "candidate_limits": [1, 2, 3, 4, 5]
+    },
+    {
+      "name": "metro_walking_access_probe",
+      "scope": ["tokyo_metro"],
+      "origin": [35.708166, 139.817434],
+      "destination": [35.659097, 139.702673],
+      "date": "2026-10-23",
+      "time": "10:00",
+      "tags": ["walking_access_probe"],
+      "candidate_limits": [5]
+    }
+  ],
+  "synthetic_contract_tests": [
+    {
+      "test": "tests.test_tokyo_metro_gtfs.TokyoMetroGtfsTests.test_reviewed_transfer_rejects_too_early_train",
+      "covers": ["transfer_feasibility", "missed_train_rejected"]
+    },
+    {
+      "test": "tests.test_tokyo_metro_gtfs.TokyoMetroGtfsTests.test_directional_exception_forbids_reverse",
+      "covers": ["direction_exception"]
+    },
+    {
+      "test": "tests.test_tokyo_metro_gtfs.TokyoMetroGtfsTests.test_common_transfer_closure_rejects_concrete_connection",
+      "covers": ["closed_time_window"]
+    },
+    {
+      "test": "tests.test_tokyo_metro_gtfs.TokyoMetroGtfsTests.test_reviewed_transfer_respects_walking_floor",
+      "covers": ["walking_resource_limit"]
+    }
+  ]
+}

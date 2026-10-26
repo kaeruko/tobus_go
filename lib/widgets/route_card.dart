@@ -8,6 +8,7 @@ import '../core/city_profile.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
 import '../providers/route_search_provider.dart';
+import 'estimated_transfer_notice.dart';
 
 class RouteCard extends ConsumerWidget {
   final Candidate candidate;
@@ -110,7 +111,9 @@ class RouteCard extends ConsumerWidget {
             (state) => state.fareByCandidateId[candidate.id],
           ),
         );
-    final fareChip = configuredCityKey == 'sendai' && sendaiReviewedCoordinatesEnabled
+    final fareChip =
+        configuredCityKey == 'tokyo' ||
+            configuredCityKey == 'sendai' && sendaiReviewedCoordinatesEnabled
         ? null
         : _fareChip(effectiveFare, l10n);
     // Match the route detail's arrival clock. Do not estimate a new
@@ -195,12 +198,18 @@ class RouteCard extends ConsumerWidget {
               _chip(arrivalChip),
               _chip(l10n.transfersChip(candidate.transfers)),
               _chip(l10n.ridesChip(candidate.rides)),
-              _chip(candidate.hasUnknownWalkingDistance
-                  ? l10n.walkTitle
-                  : l10n.walkChip(candidate.walkingDistanceMeters)),
+              _chip(
+                candidate.hasUnknownWalkingDistance
+                    ? l10n.walkTitle
+                    : l10n.walkChip(candidate.walkingDistanceMeters),
+              ),
               if (fareChip != null) _chip(fareChip),
             ],
           ),
+          if (candidate.containsEstimatedTransfer) ...[
+            const SizedBox(height: 8),
+            const EstimatedTransferWarning(compact: true),
+          ],
           const SizedBox(height: 8),
           Text(
             candidate.steps
@@ -251,4 +260,3 @@ class RouteCard extends ConsumerWidget {
     );
   }
 }
-

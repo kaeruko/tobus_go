@@ -1,0 +1,1135 @@
+{
+  "schema": "tokyo_metro_phase3_performance/v1",
+  "source": {
+    "uncompressed_sha256": "7ad4558b3597ec30280130ff4e1e4bfca4a2906843cd8c4b497bb1daac6ffb8b",
+    "phase2_baseline_sha256": "2c7502629152ff94bbf131d9398d1db6788a4e02816a5d8feb68691f394f1d05",
+    "correctness_mismatches": 0,
+    "feed": {
+      "version": "20261008",
+      "valid_from": "2026-09-19",
+      "valid_until": "2027-03-12",
+      "archive_sha256": "c50ab5cc3489bf1ff67985491a4d00d25888655918ef887a6cc4887a007dfd73"
+    },
+    "transfer_manifest_sha256": "abd91114dc29042c4e4491f421a21555cc1504d90a4cc4dc2ef5262fdb966c5a"
+  },
+  "measurement": {
+    "method": "188 searches executed sequentially in one warm Python process; time.perf_counter covered TokyoRouteEngine.search_legacy only; gc.collect ran immediately before each search; initial pickle/GTFS load and graph construction were excluded",
+    "percentile_method": "Type-7 linear interpolation over the 188 fixed searches",
+    "runtime_warning": "elapsed time is local-host evidence; pop, queue and retained-label counters are engine measurements for the fixed inputs",
+    "environment": {
+      "system": "Windows",
+      "release": "11",
+      "machine": "AMD64",
+      "python": "3.12.10",
+      "implementation": "CPython",
+      "logical_cpu_count": 16,
+      "processor": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD"
+    }
+  },
+  "gate": {
+    "rows": 188,
+    "errors": 0,
+    "elapsed_over_15_seconds": 0,
+    "pop_limit_hits": 0,
+    "correctness_mismatches": 0,
+    "passed": true
+  },
+  "distributions": {
+    "overall": {
+      "rows": 188,
+      "metrics": {
+        "max_pop": {
+          "median": 1244.5,
+          "p95": 26701.30000000001,
+          "p99": 56387.56,
+          "max": 75316.0
+        },
+        "elapsed_seconds": {
+          "median": 1.1263735000393353,
+          "p95": 4.393211864988558,
+          "p99": 5.14018953801482,
+          "max": 5.326526000048034
+        },
+        "max_queue": {
+          "median": 1053.0,
+          "p95": 84969.5500000002,
+          "p99": 97614.0,
+          "max": 97614.0
+        },
+        "max_retained_labels": {
+          "median": 3113.0,
+          "p95": 105754.85000000024,
+          "p99": 120780.0,
+          "max": 120780.0
+        },
+        "candidate_count": {
+          "median": 1.0,
+          "p95": 5.0,
+          "p99": 5.0,
+          "max": 5.0
+        }
+      }
+    },
+    "by_objective": {
+      "fewTransfers": {
+        "rows": 94,
+        "metrics": {
+          "max_pop": {
+            "median": 2052.0,
+            "p95": 43497.14999999997,
+            "p99": 57884.07999999987,
+            "max": 75316.0
+          },
+          "elapsed_seconds": {
+            "median": 1.1068059000535868,
+            "p95": 1.8555046149762346,
+            "p99": 2.0510386299923966,
+            "max": 2.432374899974093
+          },
+          "max_queue": {
+            "median": 825.0,
+            "p95": 2487.449999999999,
+            "p99": 2825.7199999999993,
+            "max": 2915.0
+          },
+          "max_retained_labels": {
+            "median": 3316.0,
+            "p95": 45533.49999999997,
+            "p99": 60231.21999999987,
+            "max": 77851.0
+          },
+          "candidate_count": {
+            "median": 3.0,
+            "p95": 5.0,
+            "p99": 5.0,
+            "max": 5.0
+          }
+        }
+      },
+      "time": {
+        "rows": 94,
+        "metrics": {
+          "max_pop": {
+            "median": 130.0,
+            "p95": 25660.0,
+            "p99": 25660.0,
+            "max": 25660.0
+          },
+          "elapsed_seconds": {
+            "median": 1.174416449968703,
+            "p95": 5.013930349989096,
+            "p99": 5.200276268016314,
+            "max": 5.326526000048034
+          },
+          "max_queue": {
+            "median": 2171.5,
+            "p95": 97614.0,
+            "p99": 97614.0,
+            "max": 97614.0
+          },
+          "max_retained_labels": {
+            "median": 2300.0,
+            "p95": 120780.0,
+            "p99": 120780.0,
+            "max": 120780.0
+          },
+          "candidate_count": {
+            "median": 1.0,
+            "p95": 1.0,
+            "p99": 1.0,
+            "max": 1.0
+          }
+        }
+      }
+    },
+    "by_estimated_transfer_mode": {
+      "False": {
+        "rows": 94,
+        "metrics": {
+          "max_pop": {
+            "median": 856.5,
+            "p95": 25660.0,
+            "p99": 27269.559999999998,
+            "max": 27370.0
+          },
+          "elapsed_seconds": {
+            "median": 1.1068059000535868,
+            "p95": 3.9096186950046015,
+            "p99": 5.200276268016314,
+            "max": 5.326526000048034
+          },
+          "max_queue": {
+            "median": 948.0,
+            "p95": 74131.44999999981,
+            "p99": 97614.0,
+            "max": 97614.0
+          },
+          "max_retained_labels": {
+            "median": 2396.0,
+            "p95": 85372.5499999997,
+            "p99": 120780.0,
+            "max": 120780.0
+          },
+          "candidate_count": {
+            "median": 1.0,
+            "p95": 5.0,
+            "p99": 5.0,
+            "max": 5.0
+          }
+        }
+      },
+      "True": {
+        "rows": 94,
+        "metrics": {
+          "max_pop": {
+            "median": 1487.5,
+            "p95": 43497.14999999997,
+            "p99": 57884.07999999987,
+            "max": 75316.0
+          },
+          "elapsed_seconds": {
+            "median": 1.1494549000053667,
+            "p95": 4.0852576349803655,
+            "p99": 5.002652790007414,
+            "max": 5.04011039994657
+          },
+          "max_queue": {
+            "median": 1403.0,
+            "p95": 74131.44999999981,
+            "p99": 97614.0,
+            "max": 97614.0
+          },
+          "max_retained_labels": {
+            "median": 3508.0,
+            "p95": 92876.14999999976,
+            "p99": 120780.0,
+            "max": 120780.0
+          },
+          "candidate_count": {
+            "median": 1.0,
+            "p95": 5.0,
+            "p99": 5.0,
+            "max": 5.0
+          }
+        }
+      }
+    },
+    "by_objective_and_estimated_transfer_mode": {
+      "fewTransfers / False": {
+        "rows": 47,
+        "metrics": {
+          "max_pop": {
+            "median": 1939.0,
+            "p95": 24084.099999999955,
+            "p99": 27320.32,
+            "max": 27370.0
+          },
+          "elapsed_seconds": {
+            "median": 1.1015471999999136,
+            "p95": 1.73657734998269,
+            "p99": 1.7707271799701265,
+            "max": 1.79138209996745
+          },
+          "max_queue": {
+            "median": 593.0,
+            "p95": 2105.0,
+            "p99": 2254.4799999999996,
+            "max": 2306.0
+          },
+          "max_retained_labels": {
+            "median": 2908.0,
+            "p95": 25371.599999999955,
+            "p99": 28682.94,
+            "max": 28734.0
+          },
+          "candidate_count": {
+            "median": 3.0,
+            "p95": 5.0,
+            "p99": 5.0,
+            "max": 5.0
+          }
+        }
+      },
+      "fewTransfers / True": {
+        "rows": 47,
+        "metrics": {
+          "max_pop": {
+            "median": 2139.0,
+            "p95": 56360.0,
+            "p99": 66693.75999999998,
+            "max": 75316.0
+          },
+          "elapsed_seconds": {
+            "median": 1.1187281000893563,
+            "p95": 1.977054579998366,
+            "p99": 2.2437569599831475,
+            "max": 2.432374899974093
+          },
+          "max_queue": {
+            "median": 830.0,
+            "p95": 2759.0,
+            "p99": 2870.84,
+            "max": 2915.0
+          },
+          "max_retained_labels": {
+            "median": 3346.0,
+            "p95": 58705.0,
+            "p99": 69135.83999999998,
+            "max": 77851.0
+          },
+          "candidate_count": {
+            "median": 3.0,
+            "p95": 5.0,
+            "p99": 5.0,
+            "max": 5.0
+          }
+        }
+      },
+      "time / False": {
+        "rows": 47,
+        "metrics": {
+          "max_pop": {
+            "median": 130.0,
+            "p95": 25660.0,
+            "p99": 25660.0,
+            "max": 25660.0
+          },
+          "elapsed_seconds": {
+            "median": 1.1869439999572933,
+            "p95": 5.109690089989453,
+            "p99": 5.264079896032344,
+            "max": 5.326526000048034
+          },
+          "max_queue": {
+            "median": 2159.0,
+            "p95": 97614.0,
+            "p99": 97614.0,
+            "max": 97614.0
+          },
+          "max_retained_labels": {
+            "median": 2289.0,
+            "p95": 120780.0,
+            "p99": 120780.0,
+            "max": 120780.0
+          },
+          "candidate_count": {
+            "median": 1.0,
+            "p95": 1.0,
+            "p99": 1.0,
+            "max": 1.0
+          }
+        }
+      },
+      "time / True": {
+        "rows": 47,
+        "metrics": {
+          "max_pop": {
+            "median": 260.0,
+            "p95": 25660.0,
+            "p99": 25660.0,
+            "max": 25660.0
+          },
+          "elapsed_seconds": {
+            "median": 1.1729898999910802,
+            "p95": 4.918449179991148,
+            "p99": 5.021582979976666,
+            "max": 5.04011039994657
+          },
+          "max_queue": {
+            "median": 3139.0,
+            "p95": 97614.0,
+            "p99": 97614.0,
+            "max": 97614.0
+          },
+          "max_retained_labels": {
+            "median": 3508.0,
+            "p95": 120780.0,
+            "p99": 120780.0,
+            "max": 120780.0
+          },
+          "candidate_count": {
+            "median": 1.0,
+            "p95": 1.0,
+            "p99": 1.0,
+            "max": 1.0
+          }
+        }
+      }
+    },
+    "by_scope": {
+      "toei_bus": {
+        "rows": 20,
+        "metrics": {
+          "max_pop": {
+            "median": 13662.5,
+            "p95": 25660.0,
+            "p99": 25660.0,
+            "max": 25660.0
+          },
+          "elapsed_seconds": {
+            "median": 2.8094896000111476,
+            "p95": 5.197561220015632,
+            "p99": 5.300733044041554,
+            "max": 5.326526000048034
+          },
+          "max_queue": {
+            "median": 49057.0,
+            "p95": 97614.0,
+            "p99": 97614.0,
+            "max": 97614.0
+          },
+          "max_retained_labels": {
+            "median": 61471.0,
+            "p95": 120780.0,
+            "p99": 120780.0,
+            "max": 120780.0
+          },
+          "candidate_count": {
+            "median": 1.0,
+            "p95": 5.0,
+            "p99": 5.0,
+            "max": 5.0
+          }
+        }
+      },
+      "toei_bus+toei_subway": {
+        "rows": 20,
+        "metrics": {
+          "max_pop": {
+            "median": 6784.5,
+            "p95": 8914.0,
+            "p99": 8914.0,
+            "max": 8914.0
+          },
+          "elapsed_seconds": {
+            "median": 2.2718970000278205,
+            "p95": 3.3739043750334536,
+            "p99": 3.6555630349833512,
+            "max": 3.7259776999708265
+          },
+          "max_queue": {
+            "median": 31562.5,
+            "p95": 61487.0,
+            "p99": 61487.0,
+            "max": 61487.0
+          },
+          "max_retained_labels": {
+            "median": 36299.0,
+            "p95": 66307.0,
+            "p99": 66307.0,
+            "max": 66307.0
+          },
+          "candidate_count": {
+            "median": 1.0,
+            "p95": 5.0,
+            "p99": 5.0,
+            "max": 5.0
+          }
+        }
+      },
+      "toei_bus+toei_subway+tokyo_metro": {
+        "rows": 20,
+        "metrics": {
+          "max_pop": {
+            "median": 758.0,
+            "p95": 2139.0,
+            "p99": 2139.0,
+            "max": 2139.0
+          },
+          "elapsed_seconds": {
+            "median": 1.833769150020089,
+            "p95": 1.9973710300168022,
+            "p99": 2.007335085975938,
+            "max": 2.0098260999657214
+          },
+          "max_queue": {
+            "median": 8076.0,
+            "p95": 13859.0,
+            "p99": 13859.0,
+            "max": 13859.0
+          },
+          "max_retained_labels": {
+            "median": 7828.0,
+            "p95": 11221.0,
+            "p99": 11221.0,
+            "max": 11221.0
+          },
+          "candidate_count": {
+            "median": 1.0,
+            "p95": 5.0,
+            "p99": 5.0,
+            "max": 5.0
+          }
+        }
+      },
+      "toei_bus+tokyo_metro": {
+        "rows": 20,
+        "metrics": {
+          "max_pop": {
+            "median": 487.0,
+            "p95": 2137.0,
+            "p99": 2137.0,
+            "max": 2137.0
+          },
+          "elapsed_seconds": {
+            "median": 1.2744903499842621,
+            "p95": 1.383294424961787,
+            "p99": 1.4037084049521944,
+            "max": 1.4088118999497965
+          },
+          "max_queue": {
+            "median": 3332.5,
+            "p95": 4477.0,
+            "p99": 4477.0,
+            "max": 4477.0
+          },
+          "max_retained_labels": {
+            "median": 3634.0,
+            "p95": 4329.0,
+            "p99": 4329.0,
+            "max": 4329.0
+          },
+          "candidate_count": {
+            "median": 1.0,
+            "p95": 5.0,
+            "p99": 5.0,
+            "max": 5.0
+          }
+        }
+      },
+      "toei_subway": {
+        "rows": 20,
+        "metrics": {
+          "max_pop": {
+            "median": 431.0,
+            "p95": 4014.0,
+            "p99": 4014.0,
+            "max": 4014.0
+          },
+          "elapsed_seconds": {
+            "median": 0.5084057999774814,
+            "p95": 0.6525877300009597,
+            "p99": 0.6703600260487292,
+            "max": 0.6748031000606716
+          },
+          "max_queue": {
+            "median": 948.0,
+            "p95": 964.0,
+            "p99": 964.0,
+            "max": 964.0
+          },
+          "max_retained_labels": {
+            "median": 1004.5,
+            "p95": 4978.0,
+            "p99": 4978.0,
+            "max": 4978.0
+          },
+          "candidate_count": {
+            "median": 1.0,
+            "p95": 5.0,
+            "p99": 5.0,
+            "max": 5.0
+          }
+        }
+      },
+      "toei_subway+tokyo_metro": {
+        "rows": 20,
+        "metrics": {
+          "max_pop": {
+            "median": 431.0,
+            "p95": 4014.0,
+            "p99": 4014.0,
+            "max": 4014.0
+          },
+          "elapsed_seconds": {
+            "median": 1.173597599961795,
+            "p95": 1.2165470850479323,
+            "p99": 1.315421336997533,
+            "max": 1.3401398999849334
+          },
+          "max_queue": {
+            "median": 948.0,
+            "p95": 964.0999999999999,
+            "p99": 965.62,
+            "max": 966.0
+          },
+          "max_retained_labels": {
+            "median": 1008.5,
+            "p95": 4978.1,
+            "p99": 4979.62,
+            "max": 4980.0
+          },
+          "candidate_count": {
+            "median": 1.0,
+            "p95": 5.0,
+            "p99": 5.0,
+            "max": 5.0
+          }
+        }
+      },
+      "tokyo_metro": {
+        "rows": 68,
+        "metrics": {
+          "max_pop": {
+            "median": 250.5,
+            "p95": 52806.44999999998,
+            "p99": 62757.519999999975,
+            "max": 75316.0
+          },
+          "elapsed_seconds": {
+            "median": 0.7802051000180654,
+            "p95": 1.8243036900821608,
+            "p99": 2.1576487699872806,
+            "max": 2.432374899974093
+          },
+          "max_queue": {
+            "median": 1381.0,
+            "p95": 3139.0,
+            "p99": 3139.0,
+            "max": 3139.0
+          },
+          "max_retained_labels": {
+            "median": 2294.0,
+            "p95": 55248.399999999994,
+            "p99": 65157.179999999964,
+            "max": 77851.0
+          },
+          "candidate_count": {
+            "median": 1.0,
+            "p95": 5.0,
+            "p99": 5.0,
+            "max": 5.0
+          }
+        }
+      }
+    }
+  },
+  "maxima": {
+    "max_pop": {
+      "value": 75316.0,
+      "rows": [
+        {
+          "case": "estimated_transfer_stress",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        }
+      ]
+    },
+    "elapsed_seconds": {
+      "value": 5.326526000048034,
+      "rows": [
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 1,
+          "estimated_transfers": false
+        }
+      ]
+    },
+    "max_queue": {
+      "value": 97614.0,
+      "rows": [
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 1,
+          "estimated_transfers": false
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 2,
+          "estimated_transfers": false
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 3,
+          "estimated_transfers": false
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 4,
+          "estimated_transfers": false
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 5,
+          "estimated_transfers": false
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 1,
+          "estimated_transfers": true
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 2,
+          "estimated_transfers": true
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 3,
+          "estimated_transfers": true
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 4,
+          "estimated_transfers": true
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        }
+      ]
+    },
+    "max_retained_labels": {
+      "value": 120780.0,
+      "rows": [
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 1,
+          "estimated_transfers": false
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 2,
+          "estimated_transfers": false
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 3,
+          "estimated_transfers": false
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 4,
+          "estimated_transfers": false
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 5,
+          "estimated_transfers": false
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 1,
+          "estimated_transfers": true
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 2,
+          "estimated_transfers": true
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 3,
+          "estimated_transfers": true
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 4,
+          "estimated_transfers": true
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "time",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        }
+      ]
+    },
+    "candidate_count": {
+      "value": 5.0,
+      "rows": [
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": false
+        },
+        {
+          "case": "toei_bus_only",
+          "scope": [
+            "toei_bus"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        },
+        {
+          "case": "toei_subway_only",
+          "scope": [
+            "toei_subway"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": false
+        },
+        {
+          "case": "toei_subway_only",
+          "scope": [
+            "toei_subway"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        },
+        {
+          "case": "tokyo_metro_only",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": false
+        },
+        {
+          "case": "tokyo_metro_only",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        },
+        {
+          "case": "toei_bus_and_subway",
+          "scope": [
+            "toei_bus",
+            "toei_subway"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": false
+        },
+        {
+          "case": "toei_bus_and_subway",
+          "scope": [
+            "toei_bus",
+            "toei_subway"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        },
+        {
+          "case": "toei_bus_and_metro",
+          "scope": [
+            "toei_bus",
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": false
+        },
+        {
+          "case": "toei_bus_and_metro",
+          "scope": [
+            "toei_bus",
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        },
+        {
+          "case": "toei_subway_and_metro",
+          "scope": [
+            "toei_subway",
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": false
+        },
+        {
+          "case": "toei_subway_and_metro",
+          "scope": [
+            "toei_subway",
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        },
+        {
+          "case": "all_three_services",
+          "scope": [
+            "toei_bus",
+            "toei_subway",
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": false
+        },
+        {
+          "case": "all_three_services",
+          "scope": [
+            "toei_bus",
+            "toei_subway",
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        },
+        {
+          "case": "metro_weekend",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": false
+        },
+        {
+          "case": "metro_weekend",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        },
+        {
+          "case": "metro_public_holiday",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": false
+        },
+        {
+          "case": "metro_public_holiday",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        },
+        {
+          "case": "metro_date_crossing",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": false
+        },
+        {
+          "case": "metro_date_crossing",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        },
+        {
+          "case": "reviewed_transfer_forward",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": false
+        },
+        {
+          "case": "reviewed_transfer_forward",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        },
+        {
+          "case": "reviewed_transfer_reverse",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": false
+        },
+        {
+          "case": "reviewed_transfer_reverse",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        },
+        {
+          "case": "estimated_transfer_stress",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        },
+        {
+          "case": "metro_walking_access_probe",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": false
+        },
+        {
+          "case": "metro_walking_access_probe",
+          "scope": [
+            "tokyo_metro"
+          ],
+          "mode": "fewTransfers",
+          "candidate_limit": 5,
+          "estimated_transfers": true
+        }
+      ]
+    }
+  },
+  "reference_cases": {
+    "shibuya_asakusa_ordinary": {
+      "case": "tokyo_metro_only",
+      "scope": [
+        "tokyo_metro"
+      ],
+      "mode": "fewTransfers",
+      "candidate_limit": 5,
+      "estimated_transfers": false,
+      "max_pop": 27370,
+      "elapsed_seconds": 1.610050999908708,
+      "max_queue": 2117,
+      "max_retained_labels": 28734,
+      "candidate_count": 5,
+      "candidate_sha256": "6dffc02725ffa1f78d704140520dc175ab2948acd2345e6e5bad48b9458df86b",
+      "error": null
+    },
+    "shibuya_asakusa_estimated": {
+      "case": "tokyo_metro_only",
+      "scope": [
+        "tokyo_metro"
+      ],
+      "mode": "fewTransfers",
+      "candidate_limit": 5,
+      "estimated_transfers": true,
+      "max_pop": 56572,
+      "elapsed_seconds": 2.0223358999937773,
+      "max_queue": 2819,
+      "max_retained_labels": 58905,
+      "candidate_count": 5,
+      "candidate_sha256": "6dffc02725ffa1f78d704140520dc175ab2948acd2345e6e5bad48b9458df86b",
+      "error": null
+    },
+    "nakano_sakaue_myoden_estimated": {
+      "case": "estimated_transfer_stress",
+      "scope": [
+        "tokyo_metro"
+      ],
+      "mode": "fewTransfers",
+      "candidate_limit": 5,
+      "estimated_transfers": true,
+      "max_pop": 75316,
+      "elapsed_seconds": 2.432374899974093,
+      "max_queue": 2915,
+      "max_retained_labels": 77851,
+      "candidate_count": 5,
+      "candidate_sha256": "9fcebc4f2ac20f8adc68a81cf092d16d18cd00e044f7aa998c227e3d7df0dbf2",
+      "error": null
+    }
+  }
+}

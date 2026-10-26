@@ -86,10 +86,7 @@ void main() {
     'points': [],
   };
 
-  Map<String, dynamic> busCandidate({
-    String? tripId,
-    String? routeId,
-  }) => {
+  Map<String, dynamic> busCandidate({String? tripId, String? routeId}) => {
     'id': 'BusFastest',
     'lines': ['都01'],
     'rides': 1,
@@ -125,57 +122,62 @@ void main() {
     'walk_limit_m': 1000,
   };
 
-  test('rail candidates are resolved to exact trip_id before route parsing', () async {
-    final calls = <String>[];
-    ApiClient.httpClient = MockClient((request) async {
-      calls.add(request.url.path);
-      if (request.url.path == '/route') {
-        return http.Response(
-          jsonEncode({
-            'candidates': [railCandidate()],
-            'meta': meta(),
-          }),
-          200,
-          headers: {'content-type': 'application/json; charset=utf-8'},
-        );
-      }
-      if (request.url.path == '/train/resolve-route-identities') {
-        final body = jsonDecode(request.body) as Map<String, dynamic>;
-        expect(body['target_date_str'], '2026-08-15');
-        return http.Response(
-          jsonEncode({
-            'candidates': [
-              railCandidate(
-                tripId: '121603T0',
-                routeId: '1',
-                stopIds: const ['115', '116', '117'],
-              ),
-            ],
-            'rejections': [],
-          }),
-          200,
-          headers: {'content-type': 'application/json; charset=utf-8'},
-        );
-      }
-      return http.Response('not found', 404);
-    });
+  test(
+    'rail candidates are resolved to exact trip_id before route parsing',
+    () async {
+      final calls = <String>[];
+      ApiClient.httpClient = MockClient((request) async {
+        calls.add(request.url.path);
+        if (request.url.path == '/route') {
+          return http.Response(
+            jsonEncode({
+              'candidates': [railCandidate()],
+              'meta': meta(),
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
+        if (request.url.path == '/train/resolve-route-identities') {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['target_date_str'], '2026-08-15');
+          return http.Response(
+            jsonEncode({
+              'candidates': [
+                railCandidate(
+                  tripId: '121603T0',
+                  routeId: '1',
+                  stopIds: const ['115', '116', '117'],
+                ),
+              ],
+              'rejections': [],
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
+        return http.Response('not found', 404);
+      });
 
-    final result = await const ApiRouteSearchService().search(request());
+      final result = await const ApiRouteSearchService().search(request());
 
-    expect(calls, [
-      '/route',
-      '/train/resolve-route-identities',
-    ]);
-    expect(result.candidates, hasLength(1));
-    expect(result.candidates.single.steps.single.tripId, '121603T0');
-    expect(result.candidates.single.steps.single.routeId, '1');
-    expect(result.candidates.single.steps.single.boardingMinutes, 2);
-    expect(
-      result.candidates.single.steps.single.stops.map((stop) => stop.stopId),
-      ['115', '116', '117'],
-    );
-    expect(result.fareByCandidateId, isEmpty);
-  });
+      expect(calls, ['/route', '/train/resolve-route-identities']);
+      expect(result.candidates, hasLength(1));
+      expect(result.candidates.single.steps.single.tripId, '121603T0');
+      expect(result.candidates.single.steps.single.routeId, '1');
+      expect(result.candidates.single.steps.single.boardingMinutes, 2);
+      expect(result.candidates.single.transportScope, {
+        'toei_bus',
+        'toei_subway',
+      });
+      expect(result.candidates.single.acceptExperimentalTransferModel, isFalse);
+      expect(
+        result.candidates.single.steps.single.stops.map((stop) => stop.stopId),
+        ['115', '116', '117'],
+      );
+      expect(result.fareByCandidateId, isEmpty);
+    },
+  );
 
   test('resolved rail identity without boarding time fails fast', () async {
     ApiClient.httpClient = MockClient((request) async {
@@ -191,8 +193,7 @@ void main() {
       }
       if (request.url.path == '/train/resolve-route-identities') {
         final resolved = railCandidate(tripId: '121603T0', routeId: '1');
-        final step =
-            (resolved['steps'] as List).single as Map<String, dynamic>;
+        final step = (resolved['steps'] as List).single as Map<String, dynamic>;
         step.remove('boarding_minutes');
         return http.Response(
           jsonEncode({
@@ -218,35 +219,38 @@ void main() {
     );
   });
 
-  test('bus candidate with exact identity is accepted without resolver', () async {
-    final calls = <String>[];
-    ApiClient.httpClient = MockClient((request) async {
-      calls.add(request.url.path);
-      if (request.url.path == '/route') {
-        return http.Response(
-          jsonEncode({
-            'candidates': [
-              busCandidate(
-                tripId: '08501-1-09-170-1600',
-                routeId: '006',
-              ),
-            ],
-            'meta': meta(),
-          }),
-          200,
-          headers: {'content-type': 'application/json; charset=utf-8'},
-        );
-      }
-      return http.Response('not found', 404);
-    });
+  test(
+    'bus candidate with exact identity is accepted without resolver',
+    () async {
+      final calls = <String>[];
+      ApiClient.httpClient = MockClient((request) async {
+        calls.add(request.url.path);
+        if (request.url.path == '/route') {
+          return http.Response(
+            jsonEncode({
+              'candidates': [
+                busCandidate(tripId: '08501-1-09-170-1600', routeId: '006'),
+              ],
+              'meta': meta(),
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
+        return http.Response('not found', 404);
+      });
 
-    final result = await const ApiRouteSearchService().search(request());
+      final result = await const ApiRouteSearchService().search(request());
 
-    expect(calls, ['/route']);
-    expect(result.candidates, hasLength(1));
-    expect(result.candidates.single.steps.single.tripId, '08501-1-09-170-1600');
-    expect(result.candidates.single.steps.single.routeId, '006');
-  });
+      expect(calls, ['/route']);
+      expect(result.candidates, hasLength(1));
+      expect(
+        result.candidates.single.steps.single.tripId,
+        '08501-1-09-170-1600',
+      );
+      expect(result.candidates.single.steps.single.routeId, '006');
+    },
+  );
 
   for (final missingField in ['trip_id', 'route_id']) {
     test('bus candidate missing $missingField fails fast', () async {

@@ -74,5 +74,39 @@ class FareRoutesTest(unittest.TestCase):
         self.assertIsNone(quote["normalFareYen"])
         self.assertIsNone(quote["payNowYen"])
 
+    def test_tokyo_toei_pass_rejects_tokyo_metro_segment(self):
+        client = self._client("tokyo")
+        response = client.post(
+            "/fare/apply",
+            json={
+                "policy_id": "tokyo_toei_transport_pass",
+                "candidates": [{
+                    "id": "metro",
+                    "steps": [{
+                        "kind": "rail",
+                        "operator_id": "tokyo_metro",
+                        "route_id": "tokyo_metro:1",
+                    }],
+                }],
+            },
+        )
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertIn("cannot be applied to Tokyo Metro", response.json()["detail"])
+
+    def test_tokyo_toei_pass_keeps_legacy_toei_candidate_compatible(self):
+        client = self._client("tokyo")
+        response = client.post(
+            "/fare/apply",
+            json={
+                "policy_id": "tokyo_toei_transport_pass",
+                "candidates": [{
+                    "id": "toei",
+                    "steps": [{"kind": "rail", "route_id": "toei_rail:Asakusa"}],
+                }],
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["candidates"][0]["fare"]["payNowYen"], 0)
+
 if __name__ == "__main__":
     unittest.main()

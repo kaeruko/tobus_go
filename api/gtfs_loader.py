@@ -180,7 +180,9 @@ class GtfsRepository:
         stop_times = defaultdict(dict)
         stop_time_boarding = defaultdict(dict)
         stops = {}
+        canonical_stop_ids = {}
         routes = {}
+        canonical_route_ids = {}
         route_name_to_id = {}
         timetable_index = defaultdict(list)
         service_calendar = {}
@@ -224,6 +226,7 @@ class GtfsRepository:
         with open(paths["stops.txt"], encoding="utf-8") as file:
             for row in csv.DictReader(file):
                 stop_id = row["stop_id"]
+                canonical_stop_ids[stop_id] = stop_id
                 stop_name = row["stop_name"]
                 by_id = stop_translations_by_id.get(stop_id)
                 by_name = stop_translations_by_name.get(stop_name)
@@ -243,35 +246,48 @@ class GtfsRepository:
         with open(paths["routes.txt"], encoding="utf-8") as file:
             for row in csv.DictReader(file):
                 route_id = row["route_id"]
+                canonical_route_ids[route_id] = route_id
+                row["route_id"] = route_id
                 routes[route_id] = row
                 short_name = row.get("route_short_name")
                 if short_name:
                     route_name_to_id[_normalize_route_name(short_name)] = route_id
 
         trip_to_route = {}
+        canonical_trip_ids = {}
         with open(paths["trips.txt"], encoding="utf-8") as file:
             for row in csv.DictReader(file):
                 trip_id = row["trip_id"]
-                route_id = row["route_id"]
-                if route_id not in routes:
+                source_route_id = row["route_id"]
+                route_id = canonical_route_ids.get(source_route_id)
+                if route_id is None:
                     raise ValueError(
-                        f"GTFS trip {trip_id!r} references unknown route_id {route_id!r}"
+                        f"GTFS trip {trip_id!r} references unknown route_id {source_route_id!r}"
                     )
+                canonical_trip_ids[trip_id] = trip_id
+                # Reuse the retained dictionary-key objects. A large feed
+                # repeats these IDs in every stop_time and timetable entry;
+                # keeping one object per source ID avoids duplicate strings
+                # without changing any public value or lookup contract.
+                row["trip_id"] = trip_id
+                row["route_id"] = route_id
                 trips[trip_id] = row
                 trip_to_route[trip_id] = route_id
 
         count = 0
         with open(paths["stop_times.txt"], encoding="utf-8") as file:
             for row in csv.DictReader(file):
-                trip_id = row["trip_id"]
-                if trip_id not in trip_to_route:
+                source_trip_id = row["trip_id"]
+                trip_id = canonical_trip_ids.get(source_trip_id)
+                if trip_id is None:
                     raise ValueError(
-                        f"GTFS stop_time references unknown trip_id {trip_id!r}"
+                        f"GTFS stop_time references unknown trip_id {source_trip_id!r}"
                     )
-                stop_id = row["stop_id"]
-                if stop_id not in stops:
+                source_stop_id = row["stop_id"]
+                stop_id = canonical_stop_ids.get(source_stop_id)
+                if stop_id is None:
                     raise ValueError(
-                        f"GTFS stop_time for trip {trip_id!r} references unknown stop_id {stop_id!r}"
+                        f"GTFS stop_time for trip {trip_id!r} references unknown stop_id {source_stop_id!r}"
                     )
                 sequence = int(row["stop_sequence"])
                 if sequence in stop_times[trip_id]:
