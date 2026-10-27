@@ -137,7 +137,8 @@ class TimetableChoices:
 
     def __init__(self, graph, manager, day_type="weekday", use_realtime=True,
                  delays_snapshot=None, deadline=float("inf"),
-                 bus_repository=None, rail_boarding_minutes=2):
+                 bus_repository=None, rail_boarding_minutes=2,
+                 search_mode=None, earliest_ready_minute=None):
         self.graph = graph
         self.day_type = day_type
         self.use_realtime = use_realtime
@@ -164,7 +165,10 @@ class TimetableChoices:
         self._bus_pattern_terminals = {}
         self._bus_pole_stop_ids = {}
         self._bus_boarding_compatibility = {}
+        self._bus_option_streams = {}
         self._concrete_board_options = {}
+        self.search_mode = search_mode
+        self.earliest_ready_minute = earliest_ready_minute
         self._delays = dict(getattr(self.manager, "realtime_delays", {}))
         self._has_rail_data = hasattr(self.manager, "train_patterns_weekday")
         self._has_bus_data = hasattr(self.manager, "bus_departures_weekday")
@@ -518,11 +522,19 @@ class TimetableChoices:
         self._bus_boarding_compatibility[key] = run
         return run
 
-    def _bus_options(self, u, v, ready):
+    def _build_bus_option_stream(self, u, v):
+        """Build the ordered legal occurrences for one boarding edge.
+
+        Service day, graph, timetable and the realtime-delay snapshot are
+        immutable for a ``TimetableChoices`` instance.  Build this stream once
+        rather than rescanning inactive and pattern-incompatible trips for
+        every distinct ready minute.  Publish only a completely validated
+        stream so malformed source data remains fail-fast and is not cached.
+        """
         route = self._bus_route(v)
         stop_id = self._stop_id(u[1])
         if route is None or stop_id is None:
-            return ()
+            return (), ()
         key = (route, stop_id)
         if key not in self._bus_departures:
             entries = tuple(getattr(self.repository, "timetable_index", {}).get(
@@ -531,7 +543,8 @@ class TimetableChoices:
         entries, clocks = self._bus_departures[key]
         required_terminal_stop_id = self._bus_pattern_terminal_stop_id(v)
         delay = self._bus_delay(v)
-        start = bisect.bisect_left(clocks, ready - delay)
+        start = (0 if self.earliest_ready_minute is None else
+                 bisect.bisect_left(clocks, self.earliest_ready_minute - delay))
         out = []
         for scheduled, sequence, trip_id in entries[start:]:
             departure = float(scheduled) + delay
@@ -546,7 +559,65 @@ class TimetableChoices:
                               sequence, sequence, departure, trip_id=trip_id,
                               route_id=run.route_id, service_id=run.service_id)
             out.append((departure, state))
-        return tuple(out)
+        stream = tuple(out)
+        return stream, tuple(item[0] for item in stream)
+
+    def _bus_option_stream(self, u, v):
+        key = (u, v)
+        if key not in self._bus_option_streams:
+            self._bus_option_streams[key] = self._build_bus_option_stream(u, v)
+        return self._bus_option_streams[key]
+
+    def _bus_future_profile(self, state):
+        """Return the exact searchable stop suffix and arrival vector."""
+        run = self._runs.get((state.provider, state.run_id))
+        if run is None:
+            return None
+        position = self._positions[(state.provider, state.run_id)].get(state.sequence)
+        if position is None or position + 1 >= len(run.stops):
+            return None
+        board = run.stops[position]
+        delay = state.departure_minute - board.departure
+        following = run.stops[position + 1:]
+        return (
+            tuple(stop.stop_id for stop in following),
+            tuple(stop.arrival + delay for stop in following),
+        )
+
+    def _time_bus_skyline(self, options):
+        """Drop only later occurrences strictly worse at every future stop.
+
+        All compared occurrences use the same boarding edge, cost and boarding
+        count.  Equal arrival at even one stop is retained so the existing
+        concrete-trip tie and candidate identity cannot change.  Different
+        stop suffixes, overtaking trips and short turns are never compared.
+        This rule is intentionally limited to earliest-arrival search; the
+        multi-candidate objectives retain every concrete occurrence.
+        """
+        prior = defaultdict(list)
+        kept = []
+        for option in options:
+            profile = self._bus_future_profile(option[1])
+            if profile is None:
+                kept.append(option)
+                continue
+            stop_suffix, arrivals = profile
+            if any(
+                all(first < second for first, second in zip(earlier, arrivals))
+                for earlier in prior[stop_suffix]
+            ):
+                continue
+            prior[stop_suffix].append(arrivals)
+            kept.append(option)
+        return tuple(kept)
+
+    def _bus_options(self, u, v, ready):
+        stream, clocks = self._bus_option_stream(u, v)
+        start = bisect.bisect_left(clocks, ready)
+        options = stream[start:]
+        if self.search_mode == "time" and len(options) > 1:
+            return self._time_bus_skyline(options)
+        return options
 
     def _fallback_options(self, u, v, ready, mode):
         # Only managers without concrete timetable data use this compatibility
@@ -576,7 +647,11 @@ class TimetableChoices:
         # Exact readiness retains float boundaries and the original tuple
         # order; frozen states can be shared while ride transitions replace
         # them. Cache empty results too, but only after successful evaluation.
-        key = (u, v, ready_minute)
+        # The earliest-arrival objective may use a strictly dominated-trip
+        # skyline while the other objectives intentionally retain every
+        # concrete occurrence.  Keep those results in separate cache slots so
+        # a diagnostic caller cannot change modes and observe stale options.
+        key = (u, v, ready_minute, self.search_mode)
         if key not in self._concrete_board_options:
             self._concrete_board_options[key] = evaluate(u, v, ready_minute)
         return self._concrete_board_options[key]

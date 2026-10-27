@@ -62,25 +62,29 @@ _CONTRACT_OBJECTS = {
     "GtfsRepository.get_stop_time_boarding": GtfsRepository.get_stop_time_boarding,
 }
 # Generated from the reviewed transition ASTs. The 2026-10-26 timetable update
-# memoizes only query-fixed bus occurrence compatibility. Its key contains the
-# exact board edge, trip and stop sequence; readiness and frozen realtime delay
-# still select departures on every call. Both accepted and rejected outcomes
-# are identical to the reviewed checks, while exceptions remain uncached. It
-# therefore does not add/remove an exact transition or change its clock, so the
-# static projection remains the same relaxation and lower bound.
+# memoizes the query-fixed legal bus occurrence stream and, for time searches
+# only, removes a later occurrence when an earlier occurrence on the same
+# boarding edge has the exact same remaining stop suffix and arrives strictly
+# earlier at every one of those stops. The earlier run has identical boarding,
+# cost and walking resources and can wait to reproduce every continuation of
+# the removed run. Equal clocks, different suffixes, overtaking and short turns
+# remain. This can only remove forward transitions; it cannot invalidate the
+# unchanged static projection as a lower bound. Frozen realtime delay and the
+# exact query clock still select departures, and source exceptions remain
+# fail-fast rather than cached as successful transitions.
 # Ignore only Python 3.12's added empty type_params field, not executable code.
 _REVIEWED_AST_SHA256 = {
     "forward.search_labels": "49f8b921f08f0910b1d641d242b34adaaee608d307bf14ce501e2bced8669475",
     "integration.search_labels": "3dde3b854fc3a6072184129c7386655a1a2150fe2692ce3cc36a810ca42e6375",
     "integration._alight_minutes": "b12f86c9f461e9269ec5df73c7c1456f8ace23fcf425e1db6260344110d50bf7",
-    "engine._tokyo_label_search": "8c4f330b3b7e01596402ae5390b684dd27877910871945dbe070c400c8c8a8a6",
+    "engine._tokyo_label_search": "ce77628fb97323157cfc4e86f33aef7ddd8be61c47ef7f4fd589c28bcad299f2",
     "engine.advance_time": "d8323f8f8046a46d1f35bb46f0c7cf586ed9a446163e3d12b15585dee484dcf9",
     "engine._edge_uses_rail": "131d5efe0129771b745203e425ef73b6321217f600ae22a56ce2e4975e1cc451",
     "engine.time_str_to_min": "d0f4bd80a6985fd7b4dc53be59b68c06b4197927663ccb5fbec31e9f000b37e5",
     "walking.walk_edge_elapsed_minutes": "b5fe6b98356e9c1f70720418e8b874381a0acfac2f5d39278b6b599235548380",
     "walking.walk_edge_is_available": "9d1170a0dae0605fb54f02448bf9c96b30844ce90b0ee2a5f8dcf6425f0d8685",
     "walking.walk_edge_resource_meters": "b00038d1ec0db276e1fe537990f3b567041abf6c6eddbf579a235e2782be461f",
-    "timetable": "88e6ee8e815bd3dafa786a0f88f92e4fd9996b23123cf6b0a6e9ea2560a73840",
+    "timetable": "a4421f994332d61c2b83d42b6fbd277259b353db2b010c695c6865d689351055",
     "rounding": "7598a5971723c1a49e770519129d0aeb8c8d28d0594931ee1126fb7ce158fe32",
     "TimeBounds": "6c5a77b3aa915378b64d3aba8aea6a12f86e9dd10282134cdb9e61e0248ec914",
     "GtfsRepository.get_stop_time_boarding": "8f1916cb58100ae85244de3592392df92ee9c537567106891650809bee0127fe",
@@ -544,7 +548,7 @@ def verify_static_time_projection(projection, inputs, bounds, guard, target, vir
         "static_time_priority_admissibility_verified": True,
         "proof": "cycle_erased_relaxed_projection_with_original_clock_increments",
         "proof_scope": "canonical_static_Tokyo_time_physical_start",
-        "reviewed_transition_contract": "bus_compat_cache_20261026_static_time_projection_v1",
+        "reviewed_transition_contract": "bus_time_skyline_20261026_static_time_projection_v1",
         "reviewed_contract_entries": len(_REVIEWED_AST_SHA256),
         "forward_transition_coverage_verified": True,
         "nondecreasing_operational_clocks_verified": True,

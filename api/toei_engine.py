@@ -2064,11 +2064,19 @@ def _tokyo_label_search(G, tm, start_node, target_node, start_time_str, day_type
 
     start_min = time_str_to_min(start_time_str)
     factory = TimetableChoices if choices_factory is None else choices_factory
-    choices = factory(
-        G, tm, day_type=day_type, use_realtime=use_realtime,
-        delays_snapshot=delays_snapshot, deadline=start_min + max_travel_min,
-        bus_repository=gtfs_repo,
-    )
+    choice_kwargs = {
+        "day_type": day_type, "use_realtime": use_realtime,
+        "delays_snapshot": delays_snapshot,
+        "deadline": start_min + max_travel_min,
+        "bus_repository": gtfs_repo,
+    }
+    if choices_factory is None:
+        # Concrete Tokyo choices may apply objective-specific reductions whose
+        # proof does not extend to the other objectives.  No forward label can
+        # become ready before the query clock, so earlier source rows cannot be
+        # part of this query's transition set.
+        choice_kwargs.update(search_mode=mode, earliest_ready_minute=start_min)
+    choices = factory(G, tm, **choice_kwargs)
     target_lat, target_lon = target_coords if target_coords else (None, None)
     if target_lat is None and target_node in G:
         target_lat = G.nodes[target_node].get("lat")

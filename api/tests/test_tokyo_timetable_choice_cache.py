@@ -76,6 +76,14 @@ class _UncachedChoices(TimetableChoices):
         finally:
             self._bus_boarding_compatibility = saved
 
+    def _bus_option_stream(self, u, v):
+        saved = self._bus_option_streams
+        self._bus_option_streams = {}
+        try:
+            return super()._bus_option_stream(u, v)
+        finally:
+            self._bus_option_streams = saved
+
 
 class TokyoTimetableChoiceCacheTest(unittest.TestCase):
     def test_repeated_inputs_keep_order_exact_readiness_and_empty_results(self):
@@ -191,11 +199,52 @@ class TokyoTimetableChoiceCacheTest(unittest.TestCase):
                 _identities(choices.board_options(physical("A"), line("A"), 600.000001)),
                 [(605.0, "fast")],
             )
-            # The helper is still called for each selected timetable entry,
-            # while the exact occurrence result comes from its query-local
-            # cache.  No readiness value is part of that compatibility key.
-            self.assertEqual(compatibility.call_count, first_calls + 5)
+            # Later readiness windows bisect the already validated active-day
+            # stream.  They do not rescan timetable rows or recheck patterns.
+            self.assertEqual(compatibility.call_count, first_calls)
             self.assertEqual(len(choices._bus_boarding_compatibility), 3)
+
+    def test_time_skyline_removes_only_strictly_worse_later_bus(self):
+        graph = _bus_graph(("A", "B"), ("B", "C"))
+        repository = _repository(
+            ("first", "active", (("A", 600, 600), ("B", 610, 610), ("C", 620, 620))),
+            ("strictly-worse", "active", (("A", 602, 602), ("B", 612, 612), ("C", 622, 622))),
+            # Equality at B keeps the concrete identity available for a B goal.
+            ("equal-at-b", "active", (("A", 603, 603), ("B", 610, 610), ("C", 623, 623))),
+            # A later express is not removed by an earlier, slower occurrence.
+            ("overtaking", "active", (("A", 605, 605), ("B", 608, 608), ("C", 611, 611))),
+        )
+        choices = TimetableChoices(
+            graph, engine.TimetableManager(), _day("active"),
+            use_realtime=False, deadline=630, bus_repository=repository,
+        )
+
+        ordinary = choices.board_options(_bus_phys("A"), _bus_line("A"), 599)
+        self.assertEqual(
+            _identities(ordinary),
+            [(600.0, "first"), (602.0, "strictly-worse"),
+             (603.0, "equal-at-b"), (605.0, "overtaking")],
+        )
+        choices.search_mode = "time"
+        self.assertEqual(
+            _identities(choices.board_options(_bus_phys("A"), _bus_line("A"), 599)),
+            [(600.0, "first"), (603.0, "equal-at-b"), (605.0, "overtaking")],
+        )
+        # Once the dominating first trip is no longer boardable, the later
+        # trip remains.  Readiness is never rounded or bucketed.
+        self.assertEqual(
+            _identities(choices.board_options(_bus_phys("A"), _bus_line("A"), 600.000001)),
+            [(602.0, "strictly-worse"), (603.0, "equal-at-b"),
+             (605.0, "overtaking")],
+        )
+
+    def test_time_skyline_never_changes_few_transfer_choices(self):
+        _, _, _, choices, physical, line = _fixture("bus")
+        choices.search_mode = "fewTransfers"
+        self.assertEqual(
+            _identities(choices.board_options(physical("A"), line("A"), 599)),
+            [(600.0, "slow"), (605.0, "fast")],
+        )
 
     def test_bus_compatibility_errors_are_not_cached(self):
         _, _, repository, choices, physical, line = _fixture("bus")
@@ -222,6 +271,26 @@ class TokyoTimetableChoiceCacheTest(unittest.TestCase):
             _identities(choices.board_options(physical("A"), line("A"), 599)),
             [(600.0, "slow"), (605.0, "fast")],
         )
+
+    def test_query_floor_does_not_validate_unreachable_past_occurrences(self):
+        graph, _, repository, _, physical, line = _fixture("bus")
+        choices = TimetableChoices(
+            graph, engine.TimetableManager(), _day("active"),
+            use_realtime=False, deadline=630, bus_repository=repository,
+            search_mode="time", earliest_ready_minute=604,
+        )
+        original = repository.get_stop_time_boarding
+
+        def reject_past(trip_id, sequence):
+            if trip_id == "slow":
+                raise AssertionError("past occurrence was evaluated")
+            return original(trip_id, sequence)
+
+        with patch.object(repository, "get_stop_time_boarding", side_effect=reject_past):
+            self.assertEqual(
+                _identities(choices.board_options(physical("A"), line("A"), 604)),
+                [(605.0, "fast")],
+            )
 
     def test_opaque_fallback_is_evaluated_for_each_request(self):
         events = []
