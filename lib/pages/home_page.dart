@@ -27,7 +27,7 @@ import '../models/trip_models.dart';
 import 'leader_mode_page.dart';
 import 'trip_page.dart';
 
-import 'package:flutter/material.dart' show Colors, Icons;
+import 'package:flutter/material.dart' show Colors, Icons, Tooltip, TooltipTriggerMode;
 
 // UI enum values differ from backend search modes:
 // - 'shortTime' is converted to 'time' on the API side
@@ -738,26 +738,43 @@ class RouteTransportControl extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 4),
-              _TransportCheckbox(
-                key: const Key('transport-toei-bus'),
-                label: l10n.transportToeiBus,
-                value: selected.contains(TransportServiceId.toeiBus),
-                onChanged: (value) =>
-                    onChanged(TransportServiceId.toeiBus, value),
-              ),
-              _TransportCheckbox(
-                key: const Key('transport-toei-subway'),
-                label: l10n.transportToeiSubway,
-                value: selected.contains(TransportServiceId.toeiSubway),
-                onChanged: (value) =>
-                    onChanged(TransportServiceId.toeiSubway, value),
-              ),
-              _TransportCheckbox(
-                key: const Key('transport-tokyo-metro'),
-                label: l10n.transportTokyoMetro,
-                value: selected.contains(TransportServiceId.tokyoMetro),
-                onChanged: (value) =>
-                    onChanged(TransportServiceId.tokyoMetro, value),
+              Row(
+                children: [
+                  Expanded(
+                    child: _TransportCheckbox(
+                      key: const Key('transport-toei-bus'),
+                      label: l10n.transportToeiBus,
+                      icon: const Text('🚌', style: TextStyle(fontSize: 27)),
+                      value: selected.contains(TransportServiceId.toeiBus),
+                      onChanged: (value) =>
+                          onChanged(TransportServiceId.toeiBus, value),
+                    ),
+                  ),
+                  Expanded(
+                    child: _TransportCheckbox(
+                      key: const Key('transport-toei-subway'),
+                      label: l10n.transportToeiSubway,
+                      icon: const Text('🚇', style: TextStyle(fontSize: 27)),
+                      value: selected.contains(TransportServiceId.toeiSubway),
+                      onChanged: (value) =>
+                          onChanged(TransportServiceId.toeiSubway, value),
+                    ),
+                  ),
+                  Expanded(
+                    child: _TransportCheckbox(
+                      key: const Key('transport-tokyo-metro'),
+                      label: l10n.transportTokyoMetro,
+                      icon: Image.asset(
+                        'assets/images/tokyo_metro_mark.png',
+                        width: 30,
+                        height: 30,
+                      ),
+                      value: selected.contains(TransportServiceId.tokyoMetro),
+                      onChanged: (value) =>
+                          onChanged(TransportServiceId.tokyoMetro, value),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -796,33 +813,47 @@ class _TransportCheckbox extends StatelessWidget {
   const _TransportCheckbox({
     super.key,
     required this.label,
+    required this.icon,
     required this.value,
     required this.onChanged,
   });
 
   final String label;
+  final Widget icon;
   final bool value;
   final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
+      label: label,
       checked: value,
       button: true,
-      child: CupertinoButton(
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        onPressed: () => onChanged(!value),
-        child: Row(
-          children: [
-            Icon(
-              value
-                  ? CupertinoIcons.check_mark_circled_solid
-                  : CupertinoIcons.circle,
-              size: 22,
+      child: Tooltip(
+        message: label,
+        triggerMode: TooltipTriggerMode.longPress,
+        excludeFromSemantics: true,
+        child: CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: () => onChanged(!value),
+          child: SizedBox(
+            height: 48,
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    value
+                        ? CupertinoIcons.check_mark_circled_solid
+                        : CupertinoIcons.circle,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 8),
+                  ExcludeSemantics(child: icon),
+                ],
+              ),
             ),
-            const SizedBox(width: 8),
-            Expanded(child: Text(label, style: const TextStyle(fontSize: 16))),
-          ],
+          ),
         ),
       ),
     );
