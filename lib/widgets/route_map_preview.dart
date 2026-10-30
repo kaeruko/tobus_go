@@ -250,7 +250,7 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                     }
                   : const <Factory<OneSequenceGestureRecognizer>>{},
               onCameraMove: widget.interactive
-                  ? (position) => _cameraPosition = position.target
+                  ? (position) => _cameraPosition = position
                   : null,
               onTap: widget.interactive && widget.openExternalOnTap
                   ? _openGoogleMapsCoordinate
