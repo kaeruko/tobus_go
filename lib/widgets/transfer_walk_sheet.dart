@@ -187,13 +187,13 @@ class _TransferWalkSheet extends StatelessWidget {
                   runSpacing: 4,
                   children: [
                     Text(
-                      '🚶 ${l10n.walkTitle} · '
+                      '🚶 '
                       '${routeStepTimeLabel(transfer.walkingStep, l10n)}',
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                     ),
                     if (transfer.waitingStep != null)
                       Text(
-                        '🕒 ${l10n.waitTitle} · '
+                        '🕒 '
                         '${routeStepTimeLabel(transfer.waitingStep!, l10n)}',
                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                       ),

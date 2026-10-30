@@ -172,8 +172,8 @@ void main() {
     expect(find.text('B 乗車予定'), findsNothing);
     expect(find.text('12:04'), findsOneWidget);
     expect(find.text('12:11'), findsOneWidget);
-    expect(find.text('🚶 徒歩 · 12:04 → 12:07'), findsOneWidget);
-    expect(find.text('🕒 待ち時間 · 12:07 → 12:11'), findsOneWidget);
+    expect(find.text('🚶 12:04 → 12:07'), findsOneWidget);
+    expect(find.text('🕒 12:07 → 12:11'), findsOneWidget);
     expect(find.textContaining('約'), findsNothing);
     expect(find.textContaining('乗換時間'), findsNothing);
     expect(find.textContaining('地図は停留所の位置です'), findsNothing);
@@ -236,8 +236,8 @@ void main() {
     expect(find.text('Board'), findsOneWidget);
     expect(find.text('A Get off'), findsNothing);
     expect(find.text('B Board'), findsNothing);
-    expect(find.text('🚶 Walk · 12:04 → 12:07'), findsOneWidget);
-    expect(find.text('🕒 Wait · 12:07 → 12:11'), findsOneWidget);
+    expect(find.text('🚶 12:04 → 12:07'), findsOneWidget);
+    expect(find.text('🕒 12:07 → 12:11'), findsOneWidget);
     expect(find.textContaining('~'), findsNothing);
     expect(find.textContaining('Transfer 7 min'), findsNothing);
     expect(find.textContaining('Pins show stop locations'), findsNothing);
