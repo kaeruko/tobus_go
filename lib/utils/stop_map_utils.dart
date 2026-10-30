@@ -28,6 +28,32 @@ Uri buildGoogleMapsCoordinateUri({
   });
 }
 
+/// Opens a map view centered on the route area without inventing a place pin.
+/// Google Maps URLs support integer zoom levels from 0 to 21.
+Uri buildGoogleMapsMapViewUri({
+  required double latitude,
+  required double longitude,
+  required int zoom,
+}) {
+  if (!hasUsableTransitCoordinate(latitude, longitude)) {
+    throw ArgumentError.value(
+      '$latitude,$longitude',
+      'coordinate',
+      'A valid map center coordinate is required',
+    );
+  }
+  if (zoom < 0 || zoom > 21) {
+    throw RangeError.range(zoom, 0, 21, 'zoom');
+  }
+
+  return Uri.https('www.google.com', '/maps/@', {
+    'api': '1',
+    'map_action': 'map',
+    'center': '$latitude,$longitude',
+    'zoom': '$zoom',
+  });
+}
+
 /// Shows the area around a transit stop so people can choose a nearby
 /// attraction and read that attraction's reviews in Google Maps.
 /// This is not a direct link to a specific business or its reviews.

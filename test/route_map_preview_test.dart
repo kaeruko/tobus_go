@@ -73,7 +73,7 @@ void main() {
   }
 
   for (final language in ['ja', 'en']) {
-    testWidgets('$language button opens the visible map center externally',
+    testWidgets('$language button opens the visible map without a center pin',
         (tester) async {
       await showMap(tester, language: language);
       final label =
@@ -81,10 +81,12 @@ void main() {
       await tester.tap(find.text(label));
       await tester.pumpAndSettle();
       expect(urlLauncher.urls.single.host, 'www.google.com');
-      expect(urlLauncher.urls.single.path, '/maps/search/');
+      expect(urlLauncher.urls.single.path, '/maps/@');
       expect(urlLauncher.urls.single.queryParameters, {
         'api': '1',
-        'query': '35.5,139.5',
+        'map_action': 'map',
+        'center': '35.5,139.5',
+        'zoom': '9',
       });
       expect(urlLauncher.modes.single,
           launcher.PreferredLaunchMode.externalApplication);
@@ -94,7 +96,13 @@ void main() {
           const CameraPosition(target: LatLng(35.7, 139.8), zoom: 14));
       await tester.tap(find.text(label));
       await tester.pumpAndSettle();
-      expect(urlLauncher.urls.last.queryParameters['query'], '35.7,139.8');
+      expect(urlLauncher.urls.last.path, '/maps/@');
+      expect(urlLauncher.urls.last.queryParameters, {
+        'api': '1',
+        'map_action': 'map',
+        'center': '35.7,139.8',
+        'zoom': '14',
+      });
     });
   }
 

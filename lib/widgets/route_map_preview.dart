@@ -45,7 +45,7 @@ class RouteMapPreview extends StatefulWidget {
 }
 
 class _RouteMapPreviewState extends State<RouteMapPreview> {
-  LatLng? _cameraTarget;
+  CameraPosition? _cameraPosition;
   bool _openingMaps = false;
   late final ValueNotifier<RouteMapPreview> _expandedSource;
 
@@ -78,12 +78,21 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
     );
   }
 
-  Future<void> _openGoogleMaps(LatLng point) async {
+  Future<void> _openGoogleMapsCoordinate(LatLng point) =>
+      _openGoogleMapsUri(buildGoogleMapsCoordinateUri(
+        latitude: point.latitude,
+        longitude: point.longitude,
+      ));
+
+  Future<void> _openGoogleMapsView(CameraPosition camera) =>
+      _openGoogleMapsUri(buildGoogleMapsMapViewUri(
+        latitude: camera.target.latitude,
+        longitude: camera.target.longitude,
+        zoom: camera.zoom.round(),
+      ));
+
+  Future<void> _openGoogleMapsUri(Uri uri) async {
     if (_openingMaps) return;
-    final uri = buildGoogleMapsCoordinateUri(
-      latitude: point.latitude,
-      longitude: point.longitude,
-    );
     setState(() => _openingMaps = true);
     try {
       final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -241,10 +250,10 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                     }
                   : const <Factory<OneSequenceGestureRecognizer>>{},
               onCameraMove: widget.interactive
-                  ? (position) => _cameraTarget = position.target
+                  ? (position) => _cameraPosition = position.target
                   : null,
               onTap: widget.interactive && widget.openExternalOnTap
-                  ? _openGoogleMaps
+                  ? _openGoogleMapsCoordinate
                   : null,
               mapToolbarEnabled: false,
               myLocationEnabled: widget.showUserLocation,
@@ -262,7 +271,7 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                   markerId: const MarkerId('start'),
                   position: points.first,
                   onTap: widget.interactive && widget.openExternalOnTap
-                      ? () => _openGoogleMaps(points.first)
+                      ? () => _openGoogleMapsCoordinate(points.first)
                       : null,
                   consumeTapEvents:
                       widget.interactive && widget.openExternalOnTap,
@@ -273,7 +282,7 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                     markerId: const MarkerId('end'),
                     position: points.last,
                     onTap: widget.interactive && widget.openExternalOnTap
-                        ? () => _openGoogleMaps(points.last)
+                        ? () => _openGoogleMapsCoordinate(points.last)
                         : null,
                     consumeTapEvents:
                         widget.interactive && widget.openExternalOnTap,
@@ -284,7 +293,7 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                     markerId: const MarkerId('realtime_vehicle'),
                     position: vehiclePosition,
                     onTap: widget.interactive && widget.openExternalOnTap
-                        ? () => _openGoogleMaps(vehiclePosition)
+                        ? () => _openGoogleMapsCoordinate(vehiclePosition)
                         : null,
                     consumeTapEvents:
                         widget.interactive && widget.openExternalOnTap,
@@ -325,7 +334,10 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                   ),
                   onPressed: _openingMaps
                       ? null
-                      : () => _openGoogleMaps(_cameraTarget ?? center),
+                      : () => _openGoogleMapsView(
+                          _cameraPosition ??
+                              CameraPosition(target: center, zoom: zoom),
+                        ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

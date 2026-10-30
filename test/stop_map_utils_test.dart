@@ -22,6 +22,53 @@ void main() {
     });
   });
 
+  group('buildGoogleMapsMapViewUri', () {
+    test('opens a map area with no place-search pin', () {
+      final uri = buildGoogleMapsMapViewUri(
+        latitude: 35.700193,
+        longitude: 139.802249,
+        zoom: 13,
+      );
+
+      expect(uri.scheme, 'https');
+      expect(uri.host, 'www.google.com');
+      expect(uri.path, '/maps/@');
+      expect(uri.queryParameters, {
+        'api': '1',
+        'map_action': 'map',
+        'center': '35.700193,139.802249',
+        'zoom': '13',
+      });
+    });
+
+    test('rejects invalid coordinates or zoom levels', () {
+      expect(
+        () => buildGoogleMapsMapViewUri(
+          latitude: 0,
+          longitude: 0,
+          zoom: 13,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => buildGoogleMapsMapViewUri(
+          latitude: 35.7,
+          longitude: 139.8,
+          zoom: 22,
+        ),
+        throwsRangeError,
+      );
+      expect(
+        () => buildGoogleMapsMapViewUri(
+          latitude: 35.7,
+          longitude: 139.8,
+          zoom: -1,
+        ),
+        throwsRangeError,
+      );
+    });
+  });
+
   group('buildGoogleMapsNearbyAreaUri', () {
     test('centers a free Google Maps area view on the exact stop', () {
       final uri = buildGoogleMapsNearbyAreaUri(
