@@ -9,7 +9,6 @@ import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../l10n/city_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
-import '../models/group_models.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../providers/city_profile_provider.dart';
@@ -318,10 +317,15 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
           trip: trip,
           entry: entry,
         ),
-        onTapEntry: (entry) {
-          if (entry.itemKind != ScheduleEntryKind.ride) return;
-          openRideStops(context: context, trip: trip, entry: entry);
-        },
+        entryTapEnabled: (entry) => canOpenScheduleEntryDetails(
+          trip: trip,
+          entry: entry,
+        ),
+        onTapEntry: (entry) => openScheduleEntryDetails(
+          context: context,
+          trip: trip,
+          entry: entry,
+        ),
       ),
       afterScheduleSections: [
         Column(

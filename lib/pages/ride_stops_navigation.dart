@@ -1,9 +1,109 @@
 import 'package:flutter/material.dart';
 
+import '../logic/transfer_walk_details.dart';
 import '../models/group_models.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
+import '../widgets/route_detail_widgets.dart';
+import '../widgets/transfer_walk_sheet.dart';
 import 'segment_stops_page.dart';
+
+enum _ScheduleEntryDetailsKind { stops, transfer }
+
+class _ScheduleEntryDetailsTarget {
+  final _ScheduleEntryDetailsKind kind;
+  final Candidate candidate;
+  final StepSeg step;
+  final TransferWalkDetails? transfer;
+
+  const _ScheduleEntryDetailsTarget({
+    required this.kind,
+    required this.candidate,
+    required this.step,
+    this.transfer,
+  });
+}
+
+/// 「経路全体を見る」の各ステップと同じ詳細を開ける予定行か判定する。
+bool canOpenScheduleEntryDetails({
+  required Trip trip,
+  required ScheduleEntry entry,
+}) {
+  return _scheduleEntryDetailsTarget(trip: trip, entry: entry) != null;
+}
+
+/// 予定行から、経路全体画面と同じ停留所一覧または乗換案内を開く。
+void openScheduleEntryDetails({
+  required BuildContext context,
+  required Trip trip,
+  required ScheduleEntry entry,
+}) {
+  final target = _scheduleEntryDetailsTarget(trip: trip, entry: entry);
+  if (target == null) return;
+
+  switch (target.kind) {
+    case _ScheduleEntryDetailsKind.stops:
+      _openRideStepStops(
+        context: context,
+        step: target.step,
+        referenceTime: target.step.kind == 'bus'
+            ? routeStepTimetableReferenceTime(target.candidate, target.step)
+            : null,
+      );
+      return;
+    case _ScheduleEntryDetailsKind.transfer:
+      showTransferWalkSheet(context, target.transfer!);
+      return;
+  }
+}
+
+_ScheduleEntryDetailsTarget? _scheduleEntryDetailsTarget({
+  required Trip trip,
+  required ScheduleEntry entry,
+}) {
+  if (entry.generatedBy != ScheduleEntrySource.route) return null;
+
+  final stepId = entry.routeStepId?.trim();
+  if (stepId == null || stepId.isEmpty) return null;
+
+  final step = trip.stepsById[stepId];
+  final candidate = trip.candidatesByStepId[stepId];
+  if (step == null || candidate == null) {
+    throw StateError(
+      '予定行が存在しないrouteStepIdを参照しています: '
+      'entryId=${entry.id}, routeStepId=$stepId',
+    );
+  }
+
+  if (step.isRide) {
+    if (step.stops.isEmpty) return null;
+    return _ScheduleEntryDetailsTarget(
+      kind: _ScheduleEntryDetailsKind.stops,
+      candidate: candidate,
+      step: step,
+    );
+  }
+
+  if (step.kind != 'walk' && step.kind != 'wait') return null;
+  final stepIndex = candidate.steps.indexWhere(
+    (candidateStep) => candidateStep.stepId == stepId,
+  );
+  if (stepIndex < 0) {
+    throw StateError(
+      '予定行のrouteStepIdがCandidateにありません: '
+      'entryId=${entry.id}, routeStepId=$stepId, '
+      'candidateId=${candidate.id}',
+    );
+  }
+  final transfer = TransferWalkDetails.forStep(candidate.steps, stepIndex);
+  if (transfer == null) return null;
+  return _ScheduleEntryDetailsTarget(
+    kind: _ScheduleEntryDetailsKind.transfer,
+    candidate: candidate,
+    step: step,
+    transfer: transfer,
+  );
+}
 
 void openRideStops({
   required BuildContext context,
@@ -193,10 +293,14 @@ void openCurrentRideStops({
 void _openRideStepStops({
   required BuildContext context,
   required StepSeg step,
+  DateTime? referenceTime,
 }) {
   Navigator.of(context).push(
     MaterialPageRoute(
-      builder: (_) => SegmentStopsPage(segment: step),
+      builder: (_) => SegmentStopsPage(
+        segment: step,
+        referenceTime: referenceTime,
+      ),
     ),
   );
 }

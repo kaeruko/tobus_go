@@ -17,6 +17,7 @@ typedef TripScheduleEntryLabelBuilder = String Function(ScheduleEntry entry);
 typedef TripScheduleEntryDescriptionBuilder = String Function(
   ScheduleEntry entry,
 );
+typedef TripScheduleEntryTapPredicate = bool Function(ScheduleEntry entry);
 
 class TripScheduleWindowCard extends StatelessWidget {
   final String title;
@@ -29,6 +30,7 @@ class TripScheduleWindowCard extends StatelessWidget {
   final TripScheduleEntryLabelBuilder? entryLabelBuilder;
   final TripScheduleEntryDescriptionBuilder? entryDescriptionBuilder;
   final ValueChanged<ScheduleEntry>? onTapEntry;
+  final TripScheduleEntryTapPredicate? entryTapEnabled;
   final TripScheduleWindowAppearance appearance;
   final String? emptyLabel;
   final Widget? activeDetail;
@@ -46,6 +48,7 @@ class TripScheduleWindowCard extends StatelessWidget {
     this.entryDescriptionBuilder,
     this.totalCount,
     this.onTapEntry,
+    this.entryTapEnabled,
     this.emptyLabel,
     this.activeDetail,
   });
@@ -206,6 +209,18 @@ class TripScheduleWindowCard extends StatelessWidget {
               ],
             ),
           ),
+          if (onTap != null) ...[
+            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Icon(
+                CupertinoIcons.chevron_right,
+                key: ValueKey('schedule-details-${entry.id}'),
+                size: 16,
+                color: CupertinoColors.systemGrey,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -298,6 +313,7 @@ class TripScheduleWindowCard extends StatelessWidget {
   VoidCallback? _entryTap(ScheduleEntry entry) {
     final callback = onTapEntry;
     if (callback == null || entry.routeStepId == null) return null;
+    if (!(entryTapEnabled?.call(entry) ?? true)) return null;
     return () => callback(entry);
   }
 
@@ -360,7 +376,7 @@ class _BoxedScheduleRow extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withValues(alpha: 0.08),
                   blurRadius: 6,
                   offset: const Offset(0, 4),
                 ),

@@ -198,6 +198,176 @@ void main() {
       throwsStateError,
     );
   });
+
+  test('予定行は全体経路と同じ停留所一覧・乗換案内だけを開ける', () {
+    StopPoint stop(String name, double lat, double lon) => StopPoint(
+          name: name,
+          point: LatLng(lat, lon),
+          stopId: 'stop-$name',
+        );
+
+    final originWalk = StepSeg(
+      stepId: 'origin-walk',
+      kind: 'walk',
+      title: '徒歩',
+      minutes: 5,
+    );
+    final arrivingBus = StepSeg(
+      stepId: 'arriving-bus',
+      kind: 'bus',
+      title: '上23',
+      routeId: 'route-ueno-23',
+      tripId: 'trip-ueno-23',
+      departureTime: '12:00',
+      arrivalTime: '12:10',
+      stops: [
+        stop('中居堀', 35.710, 139.810),
+        stop('上野松坂屋前', 35.711, 139.795),
+      ],
+    );
+    final transferWalk = StepSeg(
+      stepId: 'transfer-walk',
+      kind: 'walk',
+      title: '徒歩',
+      minutes: 3,
+    );
+    final transferWait = StepSeg(
+      stepId: 'transfer-wait',
+      kind: 'wait',
+      title: '待ち時間',
+      minutes: 4,
+    );
+    final departingRail = StepSeg(
+      stepId: 'departing-rail',
+      kind: 'rail',
+      title: '大江戸線',
+      departureTime: '12:17',
+      arrivalTime: '12:30',
+      stops: [
+        stop('上野御徒町', 35.712, 139.794),
+        stop('東新宿', 35.698, 139.707),
+      ],
+    );
+    final destinationWalk = StepSeg(
+      stepId: 'destination-walk',
+      kind: 'walk',
+      title: '徒歩',
+      minutes: 5,
+    );
+    final candidate = Candidate(
+      id: 'schedule-details',
+      lines: const ['上23', '大江戸線'],
+      rides: 2,
+      boards: 2,
+      transfers: 1,
+      total: 0,
+      totalTime: 35,
+      departureDate: DateTime(2026, 11, 1, 12),
+      steps: [
+        originWalk,
+        arrivingBus,
+        transferWalk,
+        transferWait,
+        departingRail,
+        destinationWalk,
+      ],
+      points: const [],
+    );
+    final trip = _tripWithCandidate(
+      tripType: TripType.solo,
+      candidate: candidate,
+    );
+
+    ScheduleEntry entry(
+      String id,
+      StepSeg step,
+      ScheduleEntryKind kind,
+      String role,
+    ) {
+      return ScheduleEntry(
+        id: id,
+        plannedAt: DateTime(2026, 11, 1, 12),
+        label: id,
+        itemKind: kind,
+        generatedBy: ScheduleEntrySource.route,
+        routeStepId: step.stepId,
+        routeRole: role,
+      );
+    }
+
+    expect(
+      canOpenScheduleEntryDetails(
+        trip: trip,
+        entry: entry(
+          'bus-board',
+          arrivingBus,
+          ScheduleEntryKind.ride,
+          'ride',
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      canOpenScheduleEntryDetails(
+        trip: trip,
+        entry: entry(
+          'bus-arrive',
+          arrivingBus,
+          ScheduleEntryKind.arrival,
+          'arrival',
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      canOpenScheduleEntryDetails(
+        trip: trip,
+        entry: entry(
+          'transfer-walk',
+          transferWalk,
+          ScheduleEntryKind.walk,
+          'walk',
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      canOpenScheduleEntryDetails(
+        trip: trip,
+        entry: entry(
+          'transfer-wait',
+          transferWait,
+          ScheduleEntryKind.event,
+          'wait_start',
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      canOpenScheduleEntryDetails(
+        trip: trip,
+        entry: entry(
+          'origin-walk',
+          originWalk,
+          ScheduleEntryKind.walk,
+          'walk',
+        ),
+      ),
+      isFalse,
+    );
+    expect(
+      canOpenScheduleEntryDetails(
+        trip: trip,
+        entry: entry(
+          'destination-walk',
+          destinationWalk,
+          ScheduleEntryKind.walk,
+          'walk',
+        ),
+      ),
+      isFalse,
+    );
+  });
 }
 
 Trip _tripWithCandidate({

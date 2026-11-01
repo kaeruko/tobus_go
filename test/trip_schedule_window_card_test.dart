@@ -95,6 +95,66 @@ void main() {
     expect(find.text('バスの位置を確認中…'), findsOneWidget);
   });
 
+  testWidgets('listTilesは詳細を開ける行だけ右矢印とtapを有効にする', (tester) async {
+    final ride = ScheduleEntry(
+      id: 'ride-details',
+      plannedAt: DateTime(2026, 11, 1, 16, 53),
+      label: '上23に乗る',
+      itemKind: ScheduleEntryKind.ride,
+      generatedBy: ScheduleEntrySource.route,
+      routeStepId: 'bus-1',
+    );
+    final originWalk = ScheduleEntry(
+      id: 'origin-walk',
+      plannedAt: DateTime(2026, 11, 1, 16, 46),
+      label: '中居堀まで歩く',
+      itemKind: ScheduleEntryKind.walk,
+      generatedBy: ScheduleEntrySource.route,
+      routeStepId: 'walk-1',
+    );
+    final tapped = <String>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TripScheduleWindowCard(
+            title: '今回の経路',
+            resolvedEntry: null,
+            entries: [originWalk, ride],
+            completedCount: 0,
+            totalCount: 2,
+            activeLabel: 'いま',
+            counterLabelBuilder: (completedCount, totalCount) =>
+                '$completedCount / $totalCount ステップ',
+            appearance: TripScheduleWindowAppearance.listTiles,
+            entryTapEnabled: (entry) => entry.id == ride.id,
+            onTapEntry: (entry) => tapped.add(entry.id),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('schedule-details-ride-details')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('schedule-details-origin-walk')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('中居堀まで歩く'));
+    await tester.pump();
+    expect(tapped, isEmpty);
+
+    await tester.tap(find.text('上23に乗る'));
+    await tester.pump();
+    expect(tapped, ['ride-details']);
+  });
+
   testWidgets('listTiles can render a localized entry label', (tester) async {
     final entry = ScheduleEntry(
       id: 'ride-en',
