@@ -13,7 +13,6 @@ import '../widgets/bus_loading_indicator.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/place_field.dart';
 import '../widgets/route_card.dart';
-import '../widgets/estimated_transfer_notice.dart';
 import '../widgets/route_search_error_notice.dart';
 import 'map_picker_page.dart';
 import 'route_detail_page.dart';
