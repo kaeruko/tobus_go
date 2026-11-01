@@ -513,21 +513,6 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                             ),
                           ),
                         ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                        child: EstimatedTransferSearchControl(
-                          value: rs.acceptExperimentalTransferModel,
-                          onChanged: (value) {
-                            notifier.setExperimentalTransferConsent(value);
-                            if (ref
-                                .read(routeSearchProvider)
-                                .transportScope
-                                .isNotEmpty) {
-                              notifier.triggerSearch();
-                            }
-                          },
-                        ),
-                      ),
                       if (rs.transportScope.contains(
                         TransportServiceId.tokyoMetro,
                       ))
