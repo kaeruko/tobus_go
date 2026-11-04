@@ -98,6 +98,61 @@ void main() {
     expect(service.body?['accept_experimental_transfer_model'], isTrue);
   });
 
+  test(
+    'Kita-ayase to Shibuya Metro search implicitly enables estimated transfers',
+    () async {
+      final service = _RecordingSearchService();
+      final notifier = prepare(service);
+      notifier.setFrom('35.7770135,139.8321012', name: '北綾瀬駅');
+      notifier.setTo('35.6580339,139.7016358', name: '渋谷駅');
+      notifier.setTransportEnabled(TransportServiceId.toeiBus, false);
+      notifier.setTransportEnabled(TransportServiceId.toeiSubway, false);
+      notifier.setTransportEnabled(TransportServiceId.tokyoMetro, true);
+      notifier.setStartTime(DateTime(2026, 11, 5, 12, 38));
+
+      await notifier.triggerSearch();
+
+      expect(service.body?['transport_scope'], [TransportServiceId.tokyoMetro]);
+      expect(service.body?['start_time'], '12:38');
+      expect(service.body?['target_date_str'], '2026-11-05');
+      expect(service.body?['pref'], 'fewTransfers');
+      expect(service.body?['accept_experimental_transfer_model'], isTrue);
+    },
+  );
+
+  test('saved Metro search enables estimates even if previously saved as off', () async {
+    final service = _RecordingSearchService();
+    final notifier = prepare(service);
+    notifier.prepareSavedRoute(
+      from: '35.7770135,139.8321012',
+      to: '35.6580339,139.7016358',
+      fromName: '北綾瀬駅',
+      toName: '渋谷駅',
+      fromNameJa: '北綾瀬駅',
+      toNameJa: '渋谷駅',
+      fromNameEn: 'Kita-ayase',
+      toNameEn: 'Shibuya',
+      startTime: DateTime(2026, 11, 5, 12, 38),
+      transportScope: const {TransportServiceId.tokyoMetro},
+      acceptExperimentalTransferModel: false,
+    );
+
+    await notifier.triggerSearch();
+
+    expect(service.body?['transport_scope'], [TransportServiceId.tokyoMetro]);
+    expect(service.body?['accept_experimental_transfer_model'], isTrue);
+  });
+
+  test('ordinary Toei-only searches do not enable estimated Metro transfers', () async {
+    final service = _RecordingSearchService();
+    final notifier = prepare(service);
+
+    await notifier.triggerSearch();
+
+    expect(service.body?['transport_scope'], ['toei_bus', 'toei_subway']);
+    expect(service.body, isNot(contains('accept_experimental_transfer_model')));
+  });
+
   test('legacy saved route uses legacy scope and estimated transfers off', () {
     final service = _RecordingSearchService();
     final notifier = prepare(service);

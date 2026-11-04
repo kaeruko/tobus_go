@@ -351,8 +351,14 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
           busOnly: state.busOnly,
           transportScope: state.transportScope,
           farePolicyId: farePolicy,
+          // Tokyo has no estimated-transfer toggle. Include its officially
+          // connected but unreviewed Metro interchanges using the existing
+          // 15-minute allowance; keep the legacy and Sendai scope unchanged.
           acceptExperimentalTransferModel:
-              state.acceptExperimentalTransferModel,
+              configuredCityKey == 'tokyo' &&
+                  state.transportScope.contains(TransportServiceId.tokyoMetro)
+              ? true
+              : state.acceptExperimentalTransferModel,
         ),
       );
 
