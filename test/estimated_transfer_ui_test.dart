@@ -210,7 +210,7 @@ void main() {
     expect(selected, isTrue);
   });
 
-  testWidgets('estimated candidate is labelled on the result card', (
+  testWidgets('estimated candidate hides warning banner on the result card', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -220,12 +220,12 @@ void main() {
       ),
     );
 
-    expect(find.text('推定乗換を含む経路'), findsOneWidget);
-    expect(find.textContaining('実際の通路・徒歩距離'), findsOneWidget);
+    expect(find.text('推定乗換を含む経路'), findsNothing);
+    expect(find.textContaining('実際の通路・徒歩距離'), findsNothing);
     expect(find.textContaining('600m'), findsNothing);
   });
 
-  testWidgets('estimated candidate is labelled on route detail', (
+  testWidgets('estimated candidate hides warning banner on route detail', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -240,8 +240,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Route with estimated transfers'), findsOneWidget);
-    expect(find.textContaining('walking route, distance'), findsOneWidget);
+    expect(find.text('Route with estimated transfers'), findsNothing);
+    expect(find.textContaining('walking route, distance'), findsNothing);
     expect(find.textContaining('600m'), findsNothing);
   });
 }

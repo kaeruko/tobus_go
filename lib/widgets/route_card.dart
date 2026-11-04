@@ -8,7 +8,6 @@ import '../core/city_profile.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
 import '../providers/route_search_provider.dart';
-import 'estimated_transfer_notice.dart';
 
 class RouteCard extends ConsumerWidget {
   final Candidate candidate;
@@ -206,10 +205,6 @@ class RouteCard extends ConsumerWidget {
               if (fareChip != null) _chip(fareChip),
             ],
           ),
-          if (candidate.containsEstimatedTransfer) ...[
-            const SizedBox(height: 8),
-            const EstimatedTransferWarning(compact: true),
-          ],
           const SizedBox(height: 8),
           Text(
             candidate.steps

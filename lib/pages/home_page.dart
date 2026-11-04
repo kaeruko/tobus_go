@@ -512,27 +512,6 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                             ),
                           ),
                         ),
-                      if (rs.transportScope.contains(
-                        TransportServiceId.tokyoMetro,
-                      ))
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                          child: Text(
-                            rs.meta?.tokyoMetroFeedVersion == null
-                                ? l10n.tokyoMetroDataAttribution
-                                : l10n.tokyoMetroDataVersion(
-                                    rs.meta!.tokyoMetroFeedVersion!,
-                                    rs.meta!.tokyoMetroFeedStartDate ?? '-',
-                                    rs.meta!.tokyoMetroFeedEndDate ?? '-',
-                                    rs.meta!.tokyoMetroDataObtainedAt ?? '-',
-                                  ),
-                            key: const Key('tokyo-metro-data-attribution'),
-                            style: const TextStyle(
-                              color: CupertinoColors.systemGrey,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
                       const SizedBox(height: 8),
                     ],
                     if (showLegacyTransportControl) ...[

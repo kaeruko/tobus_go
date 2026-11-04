@@ -23,7 +23,6 @@ import 'leader_mode_page.dart';
 import '../services/route_search_service.dart';
 import '../services/fare_policy_preferences.dart';
 import '../widgets/bus_loading_indicator.dart';
-import '../widgets/estimated_transfer_notice.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/route_map_preview.dart';
 import '../widgets/route_detail_widgets.dart';
@@ -1192,14 +1191,6 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: RouteFallbackDestinationNotice(meta: widget.meta!),
-                  ),
-                ),
-
-              if (widget.candidate.containsEstimatedTransfer)
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    child: EstimatedTransferWarning(),
                   ),
                 ),
 

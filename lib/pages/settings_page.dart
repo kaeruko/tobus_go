@@ -17,6 +17,8 @@ import '../models/leg_models.dart';
 import '../models/group_models.dart';
 import '../models/route_models.dart';
 import '../l10n/app_localizations.dart';
+import '../core/city_profile.dart';
+import '../providers/route_search_provider.dart';
 import 'trip_list_page.dart';
 import 'trip_page.dart';
 
@@ -563,6 +565,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         : null;
     final currentOffset = AppClock.instance.offset;
     final simulatedTime = AppClock.instance.now();
+    final metroMeta = configuredCityKey == 'tokyo'
+        ? ref.watch(routeSearchProvider.select((state) => state.meta))
+        : null;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.tabSettings)),
@@ -719,6 +724,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   },
                 ),
               ],
+            ),
+          ],
+
+          // Keep ODPT data provenance and disclaimer accessible in settings
+          // while leaving the compact route search screen uncluttered.
+          if (configuredCityKey == 'tokyo') ...[
+            const Divider(),
+            ListTile(
+              key: const Key('tokyo-metro-data-attribution'),
+              leading: const Icon(Icons.info_outline),
+              title: Text(l10n.transportTokyoMetro),
+              subtitle: Text(
+                metroMeta?.tokyoMetroFeedVersion == null
+                    ? l10n.tokyoMetroDataAttribution
+                    : l10n.tokyoMetroDataVersion(
+                        metroMeta!.tokyoMetroFeedVersion!,
+                        metroMeta.tokyoMetroFeedStartDate ?? '-',
+                        metroMeta.tokyoMetroFeedEndDate ?? '-',
+                        metroMeta.tokyoMetroDataObtainedAt ?? '-',
+                      ),
+              ),
             ),
           ],
 
