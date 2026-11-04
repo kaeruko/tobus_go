@@ -308,7 +308,12 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
         raise RouteContractError("initial_nodes must include start")
     if len(set(source_nodes)) != len(source_nodes):
         raise RouteContractError("initial_nodes must not contain duplicates")
-    missing_sources = [node for node in source_nodes if node not in graph]
+    missing_sources = []
+    for source_node in source_nodes:
+        try:
+            graph[source_node]
+        except KeyError:
+            missing_sources.append(source_node)
     if missing_sources:
         raise RouteContractError(
             f"initial_nodes contain nodes outside graph: {missing_sources!r}"
