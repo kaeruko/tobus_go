@@ -108,6 +108,70 @@ class SharedRouteEndpointTest(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
         self.assertEqual(engine.requests, [])
 
+    def test_tokyo_metro_omission_includes_estimated_connections(self) -> None:
+        # Same Android search parameters as the Kita-ayase -> Shibuya report.
+        engine = _RecordingEngine()
+        response = _client(engine, city_key="tokyo").post(
+            "/route", json=_payload(
+                alat=35.777013499999995, alon=139.83210119999998,
+                blat=35.6580339, blon=139.7016358,
+                pref="fewTransfers", transport_scope=["tokyo_metro"],
+                start_time="12:38", target_date_str="2026-11-05",
+            ),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(len(engine.requests), 1)
+        request = engine.requests[0]
+        self.assertEqual(request.transport_scope, frozenset(("tokyo_metro",)))
+        self.assertTrue(request.accept_experimental_transfer_model)
+        self.assertEqual(request.departure_at.strftime("%Y-%m-%d %H:%M"), "2026-11-05 12:38")
+        self.assertEqual(request.preference, RoutePreference.FEWEST_TRANSFERS)
+
+    def test_tokyo_metro_explicit_estimated_transfer_flag_wins(self) -> None:
+        for flag in (False, True):
+            with self.subTest(flag=flag):
+                engine = _RecordingEngine()
+                response = _client(engine, city_key="tokyo").post(
+                    "/route", json=_payload(
+                        transport_scope=["tokyo_metro"],
+                        accept_experimental_transfer_model=flag,
+                    ),
+                )
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(len(engine.requests), 1)
+                self.assertIs(engine.requests[0].accept_experimental_transfer_model, flag)
+
+    def test_tokyo_non_metro_keeps_default_off(self) -> None:
+        for scope in (None, ["toei_bus"], ["toei_subway"], ["toei_bus", "toei_subway"]):
+            with self.subTest(scope=scope):
+                engine = _RecordingEngine()
+                body = _payload() if scope is None else _payload(transport_scope=scope)
+                response = _client(engine, city_key="tokyo").post("/route", json=body)
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(len(engine.requests), 1)
+                self.assertFalse(engine.requests[0].accept_experimental_transfer_model)
+
+    def test_non_tokyo_scope_does_not_inherit_metro_default(self) -> None:
+        engine = _RecordingEngine()
+        response = _client(engine, city_key="sendai").post(
+            "/route", json=_payload(transport_scope=["tokyo_metro"]),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertFalse(engine.requests[0].accept_experimental_transfer_model)
+
+    def test_tokyo_estimated_transfer_input_remains_strict(self) -> None:
+        for invalid in ("true", 1, None):
+            with self.subTest(invalid=invalid):
+                engine = _RecordingEngine()
+                response = _client(engine, city_key="tokyo").post(
+                    "/route", json=_payload(
+                        transport_scope=["tokyo_metro"],
+                        accept_experimental_transfer_model=invalid,
+                    ),
+                )
+                self.assertEqual(response.status_code, 422, response.text)
+                self.assertEqual(engine.requests, [])
+
     def test_tokyo_toei_pass_rejects_metro_scope_before_search(self) -> None:
         engine = _RecordingEngine()
         response = _client(engine, city_key="tokyo").post(

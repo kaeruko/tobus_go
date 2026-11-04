@@ -42,7 +42,9 @@ class ApiRouteRequest(BaseModel):
     accept_experimental_transfer_model: StrictBool = False
 
 
-def to_domain_request(request: ApiRouteRequest) -> RouteSearchRequest:
+def to_domain_request(
+    request: ApiRouteRequest, *, city_key: str | None = None
+) -> RouteSearchRequest:
     from transport_scope import normalize_transport_scope
 
     date_value = request.target_date_str or datetime.now(_JST).date().isoformat()
@@ -63,6 +65,16 @@ def to_domain_request(request: ApiRouteRequest) -> RouteSearchRequest:
         request.transport_scope,
         bus_only=request.bus_only,
     )
+    # Distinguish omission from explicit False without changing the wire type.
+    # In Tokyo, a Metro search defaults to the existing 15-minute estimated
+    # interchange network when this option was not sent by an older client.
+    include_estimated_transfers = request.accept_experimental_transfer_model
+    if (
+        city_key == "tokyo"
+        and "tokyo_metro" in scope
+        and "accept_experimental_transfer_model" not in request.model_fields_set
+    ):
+        include_estimated_transfers = True
     return RouteSearchRequest(
         origin=GeoPoint(request.alat, request.alon),
         destination=GeoPoint(request.blat, request.blon),
@@ -71,7 +83,7 @@ def to_domain_request(request: ApiRouteRequest) -> RouteSearchRequest:
         bus_only=request.bus_only,
         transport_scope=scope,
         limit=request.limit,
-        accept_experimental_transfer_model=request.accept_experimental_transfer_model,
+        accept_experimental_transfer_model=include_estimated_transfers,
     )
 
 
@@ -124,8 +136,8 @@ def register_route_endpoint(
 
         try:
             policy_id = request.fare_policy_id if request.fare_policy_id is not None else "normal"
-            domain_request = to_domain_request(request)
             city_key = getattr(app.state, "city_key", None)
+            domain_request = to_domain_request(request, city_key=city_key)
             if (
                 city_key == "tokyo"
                 and policy_id == "tokyo_toei_transport_pass"
