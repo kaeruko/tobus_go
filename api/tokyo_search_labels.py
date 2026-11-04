@@ -54,7 +54,8 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
                   max_total_walk, max_segment_walk, walk_speed,
                   rail_boarding_minutes, advance_time, virtual_connections,
                   edge_uses_rail, heuristic=lambda node: 0.0,
-                  max_expanded=None, prepare_choices=None, time_bounds_choices=None):
+                  max_expanded=None, prepare_choices=None, time_bounds_choices=None,
+                  initial_nodes=None):
     """Delegate with the unchanged Tokyo clocks, bounds and selected runs."""
     def prepare_bounds(check_deadline, deadline):
         if prepare_choices is not None:
@@ -134,5 +135,5 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
         path_signature=lambda nodes: transit_path_signature(graph, nodes, transit_only=True),
         path_factory=SelectedPath, compact_queue=_compact_queue,
         ride_options=ride_options, alight_minutes=_alight_minutes,
-        walk_meters=walk_edge_resource_meters,
+        walk_meters=walk_edge_resource_meters, initial_nodes=initial_nodes,
     )

@@ -180,7 +180,7 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
                   prepare_bounds, path_signature, path_factory, compact_queue,
                   ride_options, alight_minutes, walk_meters,
                   max_expanded=None, max_boardings=None, few_transfers_tiebreak="cost",
-                  arrival_tie_key=None):
+                  arrival_tie_key=None, initial_nodes=None):
     """Yield feasible paths, using one frontier at generation and pop time.
 
     fewTransfers orders its lexicographic objective with a relaxed reverse
@@ -301,6 +301,19 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
     # propagate without selecting another bound, provider or backend.
     bounds, cost_bound, arrival_bound = prepare_bounds(check_deadline, deadline)
 
+    source_nodes = (start,) if initial_nodes is None else tuple(initial_nodes)
+    if not source_nodes:
+        raise RouteContractError("initial_nodes must not be empty")
+    if start not in source_nodes:
+        raise RouteContractError("initial_nodes must include start")
+    if len(set(source_nodes)) != len(source_nodes):
+        raise RouteContractError("initial_nodes must not contain duplicates")
+    missing_sources = [node for node in source_nodes if node not in graph]
+    if missing_sources:
+        raise RouteContractError(
+            f"initial_nodes contain nodes outside graph: {missing_sources!r}"
+        )
+
     # With no walking edge or virtual walk, every completed time label has
     # segment_walk=0 and the SAME frontier goal key. After its primary wave
     # is certified, all future goals are dominated by that representative.
@@ -319,7 +332,8 @@ def search_labels(graph, choices, start, target, *, mode, start_minute,
                 break
         check_deadline()
 
-    offer(_Label(start, 0.0, start_minute, 0.0, 0.0, 0))
+    for source_node in source_nodes:
+        offer(_Label(source_node, 0.0, start_minute, 0.0, 0.0, 0))
     pending_goals = []
     pending_objective = None
 

@@ -13,6 +13,7 @@ from tokyo_route_engine import (
     TokyoRouteDependencies,
     TokyoRouteEngine,
     _candidate_uses_estimated_transfer,
+    _origin_station_access_nodes,
     _static_path_is_possible,
 )
 from transport_scope import (
@@ -132,6 +133,110 @@ class TransportScopeTest(unittest.TestCase):
         self.assertFalse(ordinary.has_edge(first, estimated))
         self.assertTrue(opted_in.has_edge(first, reviewed))
         self.assertTrue(opted_in.has_edge(first, estimated))
+
+    def test_origin_same_station_estimate_becomes_alternate_start_only(self):
+        graph = nx.DiGraph()
+        ginza = _line(
+            graph, "odpt.Station:TokyoMetro.Ginza.AkasakaMitsuke",
+            "ginza", TOKYO_METRO,
+        )
+        marunouchi = _line(
+            graph, "odpt.Station:TokyoMetro.Marunouchi.AkasakaMitsuke",
+            "marunouchi", TOKYO_METRO,
+        )
+        graph.add_edge(
+            ginza, marunouchi,
+            etype="walk", w=22.5, meters=0.0,
+            official_connection=True,
+            transfer_time_estimated=True,
+            transfer_path_class="same_station_unclassified",
+        )
+        graph.add_edge(
+            marunouchi, ginza,
+            etype="walk", w=22.5, meters=0.0,
+            official_connection=True,
+            transfer_time_estimated=True,
+            transfer_path_class="same_station_unclassified",
+        )
+
+        self.assertEqual(
+            _origin_station_access_nodes(graph, ginza),
+            (ginza, marunouchi),
+        )
+        self.assertEqual(graph.edges[ginza, marunouchi]["w"], 22.5)
+        self.assertTrue(graph.edges[ginza, marunouchi]["transfer_time_estimated"])
+
+    def test_origin_access_does_not_bypass_reviewed_or_unofficial_walks(self):
+        graph = nx.DiGraph()
+        origin = _line(graph, "origin", "g", TOKYO_METRO)
+        reviewed = _line(graph, "reviewed", "m", TOKYO_METRO)
+        nearby = _line(graph, "nearby", "h", TOKYO_METRO)
+        graph.add_edge(
+            origin, reviewed, etype="walk", w=3,
+            official_connection=True, transfer_time_estimated=False,
+            transfer_path_class="same_station_unclassified",
+        )
+        graph.add_edge(
+            origin, nearby, etype="walk", w=1,
+            official_connection=False, transfer_time_estimated=True,
+            transfer_path_class="same_station_unclassified",
+        )
+        self.assertEqual(_origin_station_access_nodes(graph, origin), (origin,))
+
+    def test_route_adapter_passes_same_station_sources_to_exact_search(self):
+        graph = nx.DiGraph()
+        ginza = _line(
+            graph, "odpt.Station:TokyoMetro.Ginza.AkasakaMitsuke",
+            "ginza", TOKYO_METRO,
+        )
+        marunouchi = _line(
+            graph, "odpt.Station:TokyoMetro.Marunouchi.AkasakaMitsuke",
+            "marunouchi", TOKYO_METRO,
+        )
+        destination = _line(graph, "destination", "dest", TOKYO_METRO)
+        graph.add_edge(
+            ginza, marunouchi,
+            etype="walk", w=22.5, meters=0.0,
+            official_connection=True,
+            transfer_time_estimated=True,
+            transfer_path_class="same_station_unclassified",
+        )
+        graph.add_edge(
+            marunouchi, ginza,
+            etype="walk", w=22.5, meters=0.0,
+            official_connection=True,
+            transfer_time_estimated=True,
+            transfer_path_class="same_station_unclassified",
+        )
+        graph.add_edge(marunouchi, destination, etype="walk", w=1, meters=10)
+        manager = TimetableManager()
+        manager.tokyo_metro_feed_version = "test"
+        nearest = iter(((ginza, 24.0), (destination, 10.0)))
+        captured = []
+        app = SimpleNamespace(state=SimpleNamespace(
+            G=graph, TM=manager, SI=SpatialIndex(graph), WALK_RAD=300,
+        ))
+        route_engine = TokyoRouteEngine(
+            app,
+            dependencies=TokyoRouteDependencies(
+                nearest_phys=lambda *args, **kwargs: next(nearest),
+                get_virtual_connections=lambda *args, **kwargs: (
+                    ("phys", "dest:test"), [(destination, 1.0, 10.0)]
+                ),
+                search_best_routes_once=lambda *args, **kwargs: captured.append(kwargs) or [],
+                determine_day_type=lambda value: "weekday",
+                rss_mb=lambda: -1.0,
+            ),
+        )
+        route_engine.search_legacy(
+            alat=35.68, alon=139.76, blat=35.69, blon=139.77,
+            pref="fewTransfers", transport_scope=frozenset((TOKYO_METRO,)),
+            include_estimated_transfers=True,
+            start_time="11:07", date_str="2026-11-05",
+        )
+        self.assertEqual(len(captured), 2)
+        self.assertEqual(captured[0]["initial_nodes"], (ginza, marunouchi))
+        self.assertEqual(captured[1]["initial_nodes"], (ginza, marunouchi))
 
     def test_candidate_estimate_marker_depends_on_traversed_steps(self):
         reviewed = {"steps": [{

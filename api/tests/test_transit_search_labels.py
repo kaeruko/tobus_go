@@ -122,6 +122,45 @@ def _walk_resource_search(graph, target, *, max_total_walk=3000.0):
 
 
 class TransitSearchLabelsTest(unittest.TestCase):
+    def test_multiple_initial_nodes_share_query_clock_without_transfer_edge(self):
+        graph = nx.DiGraph()
+        graph.add_edge("line-a", "target", etype="access", minutes=20.0, w=0.0)
+        graph.add_edge("line-b", "target", etype="access", minutes=5.0, w=0.0)
+
+        def prepare_bounds(check_deadline, deadline):
+            check_deadline()
+            return _ZeroBound("time"), lambda cost, remaining: cost, lambda clock, remaining: clock
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            result = list(shared.search_labels(
+                graph, SimpleNamespace(can_wait_offboard=True), "line-a", "target",
+                mode="time", start_minute=100.0, max_search=1, max_visited=100,
+                max_travel_min=240.0, time_limit_sec=15.0,
+                max_total_walk=3000.0, max_segment_walk=600.0,
+                walk_speed=80.0, rail_boarding_minutes=0.0,
+                advance_time=lambda u, v, clock, edge: clock + edge["minutes"],
+                virtual_connections={}, edge_uses_rail=lambda u, v: False,
+                prepare_bounds=prepare_bounds, path_signature=tuple,
+                path_factory=shared.SelectedPath, compact_queue=shared._compact_queue,
+                ride_options=lambda *args: (), alight_minutes=lambda ride: 0.0,
+                walk_meters=lambda edge: edge.get("meters", 0.0),
+                initial_nodes=("line-a", "line-b"),
+            ))
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["path"], ["line-b", "target"])
+        self.assertEqual(result[0]["path"].arrival_minute, 105.0)
+
+    def test_multiple_initial_nodes_fail_fast_on_invalid_contract(self):
+        for initial_nodes, message in (
+            ((), "must not be empty"),
+            (("start", "start"), "duplicates"),
+            (("start", "missing"), "outside graph"),
+        ):
+            with self.subTest(initial_nodes=initial_nodes), self.assertRaisesRegex(
+                RouteContractError, message
+            ):
+                _search("time", initial_nodes=initial_nodes)
+
     def test_virtual_walk_can_produce_another_certified_time_goal_bucket(self):
         graph = nx.DiGraph()
         graph.add_edge('start', 'target', etype='access', minutes=1, w=0)

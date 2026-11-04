@@ -185,6 +185,37 @@ def _candidate_uses_estimated_transfer(candidate: dict[str, Any]) -> bool:
     )
 
 
+def _origin_station_access_nodes(graph, origin_node) -> tuple:
+    """Return official same-station alternatives that are valid query starts.
+
+    This is origin-only access. Mid-route transfer edges keep their existing
+    estimated duration and availability rules unchanged.
+    """
+    if origin_node not in graph:
+        raise RouteContractError(f"Tokyo origin node is missing from graph: {origin_node!r}")
+    found = []
+    seen = {origin_node}
+    queue = [origin_node]
+    while queue:
+        current = queue.pop(0)
+        found.append(current)
+        for following in graph.successors(current):
+            edge = graph.get_edge_data(current, following) or {}
+            if (
+                following not in seen
+                and isinstance(following, tuple)
+                and following
+                and following[0] == "phys"
+                and edge.get("etype") == "walk"
+                and edge.get("official_connection") is True
+                and edge.get("transfer_time_estimated") is True
+                and edge.get("transfer_path_class") == "same_station_unclassified"
+            ):
+                seen.add(following)
+                queue.append(following)
+    return tuple(found)
+
+
 class TokyoRouteEngine:
     """Adapter from the shared route contract to the existing ODPT engine."""
 
@@ -352,6 +383,7 @@ class TokyoRouteEngine:
         if origin_distance and origin_distance > 0:
             initial_walk_minutes = max(1, walking_minutes(origin_distance))
 
+        initial_nodes = _origin_station_access_nodes(g, origin_node)
         active_start_time = start_time
         if initial_walk_minutes > 0:
             active_start_time = deps.min_to_time_str(
@@ -414,6 +446,7 @@ class TokyoRouteEngine:
                 target_coords=[blat, blon],
                 use_realtime=use_realtime,
                 bus_only=False,
+                initial_nodes=initial_nodes,
             )
             print(
                 "[ROUTE_DEBUG] Tokyo primary search done: "
@@ -444,6 +477,7 @@ class TokyoRouteEngine:
                 target_coords=None,
                 use_realtime=use_realtime,
                 bus_only=False,
+                initial_nodes=initial_nodes,
             )
             print(
                 "[ROUTE_DEBUG] Tokyo fallback search done: "

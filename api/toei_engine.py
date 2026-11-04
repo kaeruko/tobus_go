@@ -1675,7 +1675,7 @@ _TOKYO_PARTIAL_SEARCH_REASONS = frozenset({
 })
 
 
-def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
+def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date_str=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False, initial_nodes=None):
     d = datetime.date.today()
     if target_date_str:
         try:
@@ -1698,7 +1698,7 @@ def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limi
     
     # メインの探索ロジック(search_best_routes)を呼び出し
     # ここで graph探索(Dijkstra/A*) が走る
-    candidates = search_best_routes(G, tm, a_phys, mode, start_time, limit, start_dt, target_node=target_node, day_type=day_type, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime, bus_only=bus_only)
+    candidates = search_best_routes(G, tm, a_phys, mode, start_time, limit, start_dt, target_node=target_node, day_type=day_type, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime, bus_only=bus_only, initial_nodes=initial_nodes)
     
     # 探索結果があれば、メタデータ（出発日時、提案タイプなど）を付与して返す
     if candidates:
@@ -1710,7 +1710,7 @@ def search_best_routes_once(G, tm, a_phys, mode="cost", start_time="10:00", limi
     # 候補が見つからなかった場合は空リストを返す
     return []
 
-def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
+def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, target_date=None, target_node=None, day_type=None, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False, initial_nodes=None):
     """
     指定された出発地(a_phys)から目的地(b_phys)までの経路を探索し、候補リストを返す関数。
     
@@ -1776,7 +1776,7 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
             f"start_time={start_time} day_type={day_type}",
             flush=True,
         )
-        arr_min, path = find_fastest_path(G, tm, a_phys, target_node, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime, bus_only=bus_only)
+        arr_min, path = find_fastest_path(G, tm, a_phys, target_node, start_time, day_type=day_type, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime, bus_only=bus_only, initial_nodes=initial_nodes)
         print(
             "[ROUTE_DEBUG] fastest search raw result: "
             f"arr_min={arr_min} path_found={path is not None} "
@@ -1846,9 +1846,9 @@ def search_best_routes(G, tm, a_phys, mode="cost", start_time="10:00", limit=5, 
         # コスト/楽さ優先モード (Comfort Path)
         # A*探索などで複数の経路候補をジェネレータとして取得
         if mode == "fewTransfers":
-            path_gen = find_few_transfers_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime, bus_only=bus_only)
+            path_gen = find_few_transfers_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime, bus_only=bus_only, initial_nodes=initial_nodes)
         else:
-            path_gen = find_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime, bus_only=bus_only)
+            path_gen = find_paths_generator(G, tm, a_phys, target_node, start_time, day_type=day_type, max_search=30000, max_visited=100000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=delays_snapshot, virtual_dest_connections=virtual_dest_connections, target_coords=target_coords, use_realtime=use_realtime, bus_only=bus_only, initial_nodes=initial_nodes)
         # Examine only the same raw candidate budget requested by the caller.
         # Do not search farther merely to replace duplicate walk detours.
         raw_candidates = []
@@ -2058,7 +2058,8 @@ def ensure_train_run_metadata(tm, source_path):
 def _tokyo_label_search(G, tm, start_node, target_node, start_time_str, day_type,
                         mode, max_search, max_visited, max_travel_min,
                         delays_snapshot, time_limit_sec, virtual_dest_connections,
-                        target_coords, use_realtime, bus_only, max_expanded=None, *, choices_factory=None):
+                        target_coords, use_realtime, bus_only, max_expanded=None, *,
+                        choices_factory=None, initial_nodes=None):
     from tokyo_search_labels import search_labels
     from tokyo_timetable_choices import TimetableChoices
 
@@ -2107,15 +2108,17 @@ def _tokyo_label_search(G, tm, start_node, target_node, start_time_str, day_type
         heuristic=legacy_cost_heuristic, max_expanded=max_expanded,
         prepare_choices=None if choices_factory is None else choices.prepare,
         time_bounds_choices=None if choices_factory is None else choices.time_bounds_choices,
+        initial_nodes=initial_nodes,
     )
 
 
-def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_search=30000, max_visited=15000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, time_limit_sec=15.0, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
+def find_paths_generator(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_search=30000, max_visited=15000, max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, time_limit_sec=15.0, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False, initial_nodes=None):
     """Legacy comfort priority with safe time/walking/vehicle labels."""
     yield from _tokyo_label_search(
         G, tm, start_node, target_node, start_time_str, day_type, "cost",
         max_search, max_visited, max_travel_min, delays_snapshot, time_limit_sec,
         virtual_dest_connections, target_coords, use_realtime, bus_only,
+        initial_nodes=initial_nodes,
     )
 
 
@@ -2123,23 +2126,24 @@ def find_few_transfers_paths_generator(
     G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday",
     max_search=30000, max_visited=15000, max_travel_min=MAX_TRAVEL_MIN,
     delays_snapshot=None, time_limit_sec=15.0, virtual_dest_connections=None,
-    target_coords=None, use_realtime=True, bus_only=False,
+    target_coords=None, use_realtime=True, bus_only=False, initial_nodes=None,
 ):
     """A* for (boardings, comfort cost), retaining non-dominated labels."""
     yield from _tokyo_label_search(
         G, tm, start_node, target_node, start_time_str, day_type, "fewTransfers",
         max_search, max_visited, max_travel_min, delays_snapshot, time_limit_sec,
         virtual_dest_connections, target_coords, use_realtime, bus_only,
+        initial_nodes=initial_nodes,
     )
 
 
-def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False):
+def find_fastest_path(G, tm, start_node, target_node, start_time_str="10:00", day_type="weekday", max_travel_min=MAX_TRAVEL_MIN, delays_snapshot=None, virtual_dest_connections=None, target_coords=None, use_realtime=True, bus_only=False, initial_nodes=None):
     """Earliest-arrival A* with unchanged exact run and walking constraints."""
     generator = _tokyo_label_search(
         G, tm, start_node, target_node, start_time_str, day_type, "time", 1,
         200000, max_travel_min, delays_snapshot, 15.0,
         virtual_dest_connections, target_coords, use_realtime, bus_only,
-        max_expanded=100000,
+        max_expanded=100000, initial_nodes=initial_nodes,
     )
     try:
         candidate = next(generator, None)
