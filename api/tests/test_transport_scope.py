@@ -224,7 +224,6 @@ class TransportScopeTest(unittest.TestCase):
                     ("phys", "dest:test"), [(destination, 1.0, 10.0)]
                 ),
                 search_best_routes_once=lambda *args, **kwargs: captured.append(kwargs) or [],
-                determine_day_type=lambda value: "weekday",
                 rss_mb=lambda: -1.0,
             ),
         )
