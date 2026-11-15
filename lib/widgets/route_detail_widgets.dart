@@ -7,7 +7,6 @@ import '../logic/transfer_walk_details.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
 import '../pages/segment_stops_page.dart';
-import 'timetable_view.dart';
 import 'transfer_walk_sheet.dart';
 
 class RouteFutureSuggestionAlert extends StatelessWidget {
@@ -526,48 +525,6 @@ class RouteStepTile extends StatelessWidget {
     };
     final subTitle = _localizedSubTitle(locale, l10n);
 
-    String? timetableRouteId;
-    String? timetableOriginStopId;
-    String? timetableDestinationStopId;
-    String? timetablePatternTripId;
-    if (showTimetable && segment.kind == 'bus') {
-      if (timetableReferenceTime == null) {
-        throw StateError(
-          'バス時刻表の基準時刻がありません: stepId=${segment.stepId}',
-        );
-      }
-      final routeId = segment.routeId?.trim();
-      if (routeId != null && routeId.isNotEmpty) {
-        if (segment.stops.isEmpty) {
-          throw StateError(
-            'バス時刻表の停留所一覧がありません: stepId=${segment.stepId}',
-          );
-        }
-        final originStopId = segment.stops.first.stopId?.trim();
-        final destinationStopId = segment.stops.last.stopId?.trim();
-        if (originStopId == null || originStopId.isEmpty) {
-          throw StateError(
-            'バス時刻表の乗車停留所IDがありません: stepId=${segment.stepId}',
-          );
-        }
-        if (destinationStopId == null || destinationStopId.isEmpty) {
-          throw StateError(
-            'バス時刻表の降車停留所IDがありません: stepId=${segment.stepId}',
-          );
-        }
-        final tripId = segment.tripId?.trim();
-        if (tripId == null || tripId.isEmpty) {
-          throw StateError(
-            'バス時刻表の便IDがありません: stepId=${segment.stepId}',
-          );
-        }
-        timetableRouteId = routeId;
-        timetableOriginStopId = originStopId;
-        timetableDestinationStopId = destinationStopId;
-        timetablePatternTripId = tripId;
-      }
-    }
-
     final content = Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
@@ -630,22 +587,6 @@ class RouteStepTile extends StatelessWidget {
               ],
             ],
           ),
-          if (timetableRouteId != null) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Container(height: 1, color: CupertinoColors.systemGrey5),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: TimetableView(
-                routeId: timetableRouteId,
-                stopId: timetableOriginStopId!,
-                targetPoleId: timetableDestinationStopId!,
-                patternTripId: timetablePatternTripId!,
-                referenceTime: timetableReferenceTime!,
-              ),
-            ),
-          ],
         ],
       ),
     );
