@@ -304,27 +304,15 @@ void main() {
   );
 
   testWidgets(
-    'route step timetable uses stop IDs from the canonical stops list',
+    'route step hides the compact next-bus timetable without fetching it',
     (tester) async {
       final originalClient = ApiClient.httpClient;
       configureApiBase(Uri.parse('https://api.example.test'));
+      var requestCount = 0;
       ApiClient.httpClient = MockClient((request) async {
-        expect(request.url.path, '/bus/next');
-        expect(request.url.queryParameters['pole_id'], 'stop-kameido');
-        expect(request.url.queryParameters['date'], '2026-10-09');
-        expect(request.url.queryParameters['time'], '18:21');
-        expect(
-          request.url.queryParameters['target_pole_id'],
-          'stop-nippori',
-        );
-        expect(
-          request.url.queryParameters['pattern_trip_id'],
-          'trip-sato22-nippori',
-        );
-        return http.Response(
-          '{"day_type":"weekday","destinations":[]}',
-          200,
-          headers: const {'content-type': 'application/json; charset=utf-8'},
+        requestCount++;
+        throw StateError(
+          'Unexpected timetable request from route step: ${request.url}',
         );
       });
       addTearDown(() => ApiClient.httpClient = originalClient);
@@ -347,6 +335,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(find.textContaining('次のバス'), findsNothing);
+      expect(requestCount, 0);
       expect(tester.takeException(), isNull);
     },
   );
