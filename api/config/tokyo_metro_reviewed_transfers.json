@@ -1,13 +1,10 @@
 {
-  "schema": "tokyo_metro_transfer_policy/v2",
+  "schema": "tokyo_metro_transfer_policy/v3",
   "automatic_model": {
-    "version": "odpt_same_station_conservative/v1",
-    "eligible_relation": "same_station_slug",
-    "unmatched_relation_policy": "disabled_requires_override",
-    "minimum_minutes": 15,
-    "walk_resource_meters": 600,
-    "distance_basis": "unknown_consumes_full_segment_limit",
-    "time_basis": "app_conservative_allowance",
+    "version": "odpt_connecting_station_geometry/v1",
+    "eligible_relation": "official_connecting_station",
+    "distance_basis": "station_reference_point_haversine",
+    "time_basis": "toei_legacy_walk_speed",
     "official_minimum": false
   },
   "overrides": [

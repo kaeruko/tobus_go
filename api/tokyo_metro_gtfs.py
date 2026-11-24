@@ -20,11 +20,12 @@ from walking_access import walking_elapsed_minutes
 from tokyo_metro_transfer_model import (
     LEGACY_SCHEMA,
     POLICY_SCHEMA,
+    GEOMETRIC_SCHEMA,
     automatic_path_class,
     load_transfer_policy,
     relevant_connection,
 )
-from toei_engine import WALK_COST
+from toei_engine import WALK_COST, WALK_SPEED_M_PER_MIN
 
 
 REQUIRED_FILES = (
@@ -385,11 +386,10 @@ def add_tokyo_metro_to_graph(
         dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
     )
 
-    # ODPT connectingStation is the only automatic topology source.  Automatic
-    # links additionally require the relation in both source records.  The
-    # common model consumes the full existing per-segment walking budget
-    # without pretending that it measured a 600 m physical path.  Different-
-    # station links remain fail-closed unless they have a reviewed override.
+    # ODPT connectingStation is the only rail-transfer topology source.
+    # The current v3 model follows the Toei subway rule: any official pair
+    # receives a bidirectional geometric walk with the same speed and cost.
+    # The historical v2 model remains available only for explicit v2 inputs.
     mapped_station_ids = set(stop_to_station.values())
     connection_station_by_id = dict(station_by_id)
     if counterpart_stations_path is not None:
@@ -502,6 +502,35 @@ def add_tokyo_metro_to_graph(
                 "transfer_hours_verified": False,
             }
             status = "reviewed_override"
+        elif transfer_policy.geometric_enabled:
+            # Match Toei's ConnectingStation edge calculation exactly.
+            # This is station-reference-point geometry, not a measured
+            # platform-to-platform path or an official interchange duration.
+            distance = _distance_m(graph.nodes[source], graph.nodes[target])
+            if not math.isfinite(distance) or distance < 0:
+                raise ValueError(
+                    f"Tokyo Metro official transfer has invalid station coordinates: {sorted(pair)!r}"
+                )
+            minutes = max(1.0, distance / WALK_SPEED_M_PER_MIN)
+            edge = {
+                "w": WALK_COST * minutes,
+                "etype": "walk",
+                "meters": distance,
+                "official_connection": True,
+                "official_connection_verified": True,
+                "transfer_path_class": "official_connecting_station",
+                "transfer_time_basis": "toei_legacy_walk_speed",
+                "transfer_time_confidence": "unverified_geometry",
+                "physical_walk_distance_known": False,
+                "station_reference_point_separation_meters": distance,
+                "transfer_path_verified": False,
+                "transfer_distance_verified": False,
+                "transfer_time_verified": False,
+                "transfer_direction_verified": False,
+                "transfer_hours_verified": False,
+                "transfer_model_schema": transfer_policy.schema,
+            }
+            status = "coordinate_estimate"
         elif transfer_policy.automatic_enabled and path_class is not None:
             if not reciprocal:
                 counts["nonreciprocal_official_relation"] += 1
@@ -588,15 +617,15 @@ def add_tokyo_metro_to_graph(
             "added_directions": tuple(added_directions),
         })
 
-    # Every reviewed override must have been applied.  Automatically unsupported
-    # relations remain explicitly reported rather than silently receiving a
-    # guessed path or distance.
+    # Every reviewed override must have been applied. Unsupported pairs in
+    # the historical v2 policy remain explicitly reported.
     if not set(reviewed_transfers).issubset(added_transfer_pairs):
         raise RuntimeError("Tokyo Metro reviewed transfer application is incomplete")
     timetable_manager.tokyo_metro_transfer_model_report = {
         **dict(counts),
         "searchable_raw_pairs": (
-            counts["reviewed_override"] + counts["automatic_same_station"]
+            counts["reviewed_override"] + counts["coordinate_estimate"]
+            + counts["automatic_same_station"]
             + counts["same_physical_node"] + counts["duplicate_canonical_pair"]
         ),
         "added_unique_walk_pairs": len(added_transfer_pairs),

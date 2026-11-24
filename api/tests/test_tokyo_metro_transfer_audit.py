@@ -64,6 +64,7 @@ class TokyoMetroTransferAuditTest(unittest.TestCase):
             "total": 4,
             "reviewed": 1,
             "automatic_same_station": 0,
+            "coordinate_estimate": 0,
             "nonreciprocal_same_station": 0,
             "unresolved": 3,
             "metro_to_metro": 3,
@@ -123,6 +124,7 @@ class TokyoMetroTransferAuditTest(unittest.TestCase):
             audit = MODULE.build_audit(station_path, manifest_path)
 
         self.assertEqual(audit["counts"]["automatic_same_station"], 1)
+        self.assertEqual(audit["counts"]["coordinate_estimate"], 0)
         row = audit["connections"][0]
         self.assertEqual(row["status"], "automatic_same_station")
         self.assertEqual(row["minimum_minutes"], 17)
@@ -136,6 +138,40 @@ class TokyoMetroTransferAuditTest(unittest.TestCase):
             "direction_restrictions_verified": True,
             "availability_hours_verified": True,
         })
+
+
+    def test_v3_audit_accepts_official_different_station_relation(self):
+        stations = [
+            _station("odpt.Station:TokyoMetro.A.Alpha", "甲", [
+                "odpt.Station:TokyoMetro.B.Beta",
+            ]),
+            _station("odpt.Station:TokyoMetro.B.Beta", "乙", [
+                "odpt.Station:TokyoMetro.A.Alpha",
+            ]),
+        ]
+        stations[1]["geo:lat"] = 35.001
+        manifest = {
+            "schema": "tokyo_metro_transfer_policy/v3",
+            "automatic_model": {
+                "version": "odpt_connecting_station_geometry/v1",
+                "eligible_relation": "official_connecting_station",
+                "distance_basis": "station_reference_point_haversine",
+                "time_basis": "toei_legacy_walk_speed",
+                "official_minimum": False,
+            },
+            "overrides": [],
+            "exceptions": [],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            station_path, manifest_path = root / "stations.json", root / "manifest.json"
+            station_path.write_text(json.dumps(stations), encoding="utf-8")
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            audit = MODULE.build_audit(station_path, manifest_path)
+        self.assertEqual(audit["counts"]["coordinate_estimate"], 1)
+        self.assertEqual(audit["counts"]["unresolved"], 0)
+        self.assertEqual(audit["connections"][0]["status"], "coordinate_estimate")
+        self.assertGreater(audit["connections"][0]["estimated_walk_minutes"], 1.0)
 
 
 if __name__ == "__main__":

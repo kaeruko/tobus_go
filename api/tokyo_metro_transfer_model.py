@@ -18,7 +18,9 @@ from reviewed_walk_time import validate_reviewed_walk_timing
 
 LEGACY_SCHEMA = "tokyo_metro_reviewed_transfer/v1"
 POLICY_SCHEMA = "tokyo_metro_transfer_policy/v2"
+GEOMETRIC_SCHEMA = "tokyo_metro_transfer_policy/v3"
 MODEL_VERSION = "odpt_same_station_conservative/v1"
+GEOMETRIC_MODEL_VERSION = "odpt_connecting_station_geometry/v1"
 METRO_PREFIX = "odpt.Station:TokyoMetro."
 TOEI_SUBWAY_PREFIXES = (
     "odpt.Station:Toei.Asakusa.",
@@ -46,6 +48,7 @@ class TransferPolicy:
     automatic_resource_meters: float
     overrides: dict[frozenset[str], dict]
     exceptions: dict[frozenset[str], dict]
+    geometric_enabled: bool = False
 
 
 def station_slug(station_id: str) -> str:
@@ -215,6 +218,28 @@ def load_transfer_policy(payload: object) -> TransferPolicy:
             schema=schema, automatic_enabled=False, automatic_minutes=0,
             automatic_resource_meters=0.0,
             overrides=_legacy_overrides(payload["transfers"]), exceptions={},
+        )
+    if schema == GEOMETRIC_SCHEMA:
+        if set(payload) != {"schema", "automatic_model", "overrides", "exceptions"}:
+            raise ValueError("Tokyo Metro coordinate transfer policy has an invalid envelope")
+        model = payload["automatic_model"]
+        if not isinstance(model, dict) or set(model) != {
+            "version", "eligible_relation", "distance_basis", "time_basis",
+            "official_minimum",
+        }:
+            raise ValueError("Tokyo Metro coordinate transfer model has invalid fields")
+        if (model["version"] != GEOMETRIC_MODEL_VERSION
+                or model["eligible_relation"] != "official_connecting_station"
+                or model["distance_basis"] != "station_reference_point_haversine"
+                or model["time_basis"] != "toei_legacy_walk_speed"
+                or model["official_minimum"] is not False):
+            raise ValueError("Tokyo Metro coordinate transfer model contract is unsupported")
+        return TransferPolicy(
+            schema=schema, automatic_enabled=False, automatic_minutes=0,
+            automatic_resource_meters=0.0,
+            overrides=_overrides(payload["overrides"]),
+            exceptions=_exceptions(payload["exceptions"]),
+            geometric_enabled=True,
         )
     if schema != POLICY_SCHEMA or set(payload) != {
         "schema", "automatic_model", "overrides", "exceptions"

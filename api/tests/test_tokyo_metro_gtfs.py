@@ -22,7 +22,7 @@ from tokyo_metro_gtfs import (
     enrich_selected_metro_run,
     scoped_timetable_manager,
 )
-from tokyo_metro_transfer_model import POLICY_SCHEMA
+from tokyo_metro_transfer_model import POLICY_SCHEMA, GEOMETRIC_SCHEMA
 from transport_scope import TOEI_BUS, TOEI_SUBWAY, TOKYO_METRO
 from tokyo_route_engine import TokyoRouteEngine
 
@@ -190,10 +190,11 @@ def test_feed_audit_and_import_preserve_exact_runs_calendar_and_24_hour_times(tm
 def test_committed_transfer_manifest_is_strict_and_reviewed():
     manifest = Path(__file__).resolve().parents[1] / "config" / "tokyo_metro_reviewed_transfers.json"
     policy = _transfer_policy(str(manifest))
-    assert policy.schema == POLICY_SCHEMA
-    assert policy.automatic_enabled is True
-    assert policy.automatic_minutes == 15
-    assert policy.automatic_resource_meters == 600
+    assert policy.schema == GEOMETRIC_SCHEMA
+    assert policy.automatic_enabled is False
+    assert policy.geometric_enabled is True
+    assert policy.automatic_minutes == 0
+    assert policy.automatic_resource_meters == 0
     assert policy.exceptions == {}
     transfers = _reviewed_transfers(str(manifest))
     assert len(transfers) == 4
@@ -498,6 +499,82 @@ def test_common_allowance_rejects_early_train_and_reports_estimate(tmp_path):
     assert rails[1]["departure_time"] == "24:25"
 
 
+
+def test_official_different_station_connections_use_toei_geometry_in_ordinary_scope(tmp_path):
+    gtfs, stations_path, railways_path = _fixture(tmp_path)
+    graph = nx.DiGraph()
+    manager = TimetableManager()
+    manifest = Path(__file__).resolve().parents[1] / "config" / "tokyo_metro_reviewed_transfers.json"
+    add_tokyo_metro_to_graph(
+        graph, manager, gtfs_dir=str(gtfs),
+        stations_path=str(stations_path), railways_path=str(railways_path),
+        reviewed_transfers_path=str(manifest),
+    )
+    first = ("phys", "odpt.Station:TokyoMetro.Ginza.B")
+    second = ("phys", "odpt.Station:TokyoMetro.Hanzomon.C")
+    edge = graph.edges[first, second]
+    assert graph.edges[second, first] == edge
+    assert edge["official_connection_verified"] is True
+    assert edge["transfer_path_class"] == "official_connecting_station"
+    assert edge["transfer_time_basis"] == "toei_legacy_walk_speed"
+    assert edge["transfer_time_verified"] is False
+    assert edge["transfer_distance_verified"] is False
+    assert edge["physical_walk_distance_known"] is False
+    assert edge["meters"] > 0
+    from toei_engine import WALK_SPEED_M_PER_MIN, WALK_COST
+    from tokyo_metro_gtfs import _distance_m
+    distance = _distance_m(graph.nodes[first], graph.nodes[second])
+    assert abs(edge["meters"] - distance) < 0.0001
+    assert abs(edge["w"] - WALK_COST * max(1.0, distance / WALK_SPEED_M_PER_MIN)) < 0.0001
+    assert manager.tokyo_metro_transfer_model_report["coordinate_estimate"] == 1
+    assert manager.tokyo_metro_transfer_model_report["unsupported_different_station"] == 0
+    assert manager.tokyo_metro_transfer_model_report["searchable_raw_pairs"] == 1
+    app = SimpleNamespace(state=SimpleNamespace(
+        G=graph, TM=manager, SI=SpatialIndex(graph), WALK_RAD=300,
+    ))
+    ordinary, _ = TokyoRouteEngine(app)._graph_for_scope(frozenset((TOKYO_METRO,)))
+    assert ordinary.has_edge(first, second)
+    assert ordinary.has_edge(second, first)
+    # Nearby stations without an official relation must not be linked.
+    assert not ordinary.has_edge(
+        ("phys", "odpt.Station:TokyoMetro.Ginza.A"),
+        ("phys", "odpt.Station:TokyoMetro.Hanzomon.D"),
+    )
+
+
+def test_coordinate_transfer_uses_toei_one_way_relation_symmetrically(tmp_path):
+    gtfs, stations_path, railways_path = _fixture(tmp_path)
+    stations = json.loads(stations_path.read_text(encoding="utf-8"))
+    stations[2]["odpt:connectingStation"] = []
+    stations_path.write_text(json.dumps(stations, ensure_ascii=False), encoding="utf-8")
+    graph = nx.DiGraph()
+    manager = TimetableManager()
+    manifest = Path(__file__).resolve().parents[1] / "config" / "tokyo_metro_reviewed_transfers.json"
+    add_tokyo_metro_to_graph(
+        graph, manager, gtfs_dir=str(gtfs), stations_path=str(stations_path),
+        railways_path=str(railways_path), reviewed_transfers_path=str(manifest),
+    )
+    first = ("phys", "odpt.Station:TokyoMetro.Ginza.B")
+    second = ("phys", "odpt.Station:TokyoMetro.Hanzomon.C")
+    assert graph.has_edge(first, second)
+    assert graph.has_edge(second, first)
+    assert manager.tokyo_metro_transfer_model_report["coordinate_estimate"] == 1
+
+
+def test_coordinate_transfer_rejects_nonfinite_station_separation(tmp_path):
+    gtfs, stations_path, railways_path = _fixture(tmp_path)
+    stations = json.loads(stations_path.read_text(encoding="utf-8"))
+    stations[1]["geo:lat"] = float("nan")
+    stations_path.write_text(json.dumps(stations, ensure_ascii=False), encoding="utf-8")
+    manifest = Path(__file__).resolve().parents[1] / "config" / "tokyo_metro_reviewed_transfers.json"
+    with unittest.TestCase().assertRaisesRegex(ValueError, "coordinates"):
+        add_tokyo_metro_to_graph(
+            nx.DiGraph(), TimetableManager(), gtfs_dir=str(gtfs),
+            stations_path=str(stations_path), railways_path=str(railways_path),
+            reviewed_transfers_path=str(manifest),
+        )
+
+
 def test_reviewed_transfer_without_official_relation_fails(tmp_path):
     gtfs, stations, railways = _fixture(tmp_path)
     reviewed = tmp_path / "reviewed-transfers.json"
@@ -792,6 +869,24 @@ class TokyoMetroGtfsTest(unittest.TestCase):
     def test_pickup_dropoff_contract(self):
         with tempfile.TemporaryDirectory() as directory:
             test_boundary_pickup_restriction_is_excluded_and_interior_fails(
+                Path(directory)
+            )
+
+    def test_coordinate_automatic_different_station_connection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            test_official_different_station_connections_use_toei_geometry_in_ordinary_scope(
+                Path(directory)
+            )
+
+    def test_coordinate_automatic_one_way_relation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            test_coordinate_transfer_uses_toei_one_way_relation_symmetrically(
+                Path(directory)
+            )
+
+    def test_coordinate_transfer_invalid_geometry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            test_coordinate_transfer_rejects_nonfinite_station_separation(
                 Path(directory)
             )
 

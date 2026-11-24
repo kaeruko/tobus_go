@@ -199,12 +199,16 @@ def build_audit(
             None if first not in by_id or second not in by_id
             else _distance_m(by_id[first], by_id[second])
         )
-        automatic = (
-            path_class is not None
-            and reciprocal
+        automatic = path_class is not None and reciprocal
+        geometry = (
+            policy.geometric_enabled
+            and first in by_id and second in by_id
+            and reference_separation is not None
+            and math.isfinite(reference_separation)
         )
         row["status"] = (
             "reviewed" if evidence else
+            "coordinate_estimate" if geometry else
             "automatic_same_station" if automatic else
             "unresolved"
         )
@@ -222,6 +226,10 @@ def build_audit(
             row["minimum_minutes"] = evidence["minutes"]
             row["walking_distance_meters"] = evidence["meters"]
             row["reviewed_at"] = evidence["reviewed_at"]
+        elif geometry:
+            row["station_reference_point_separation_meters"] = reference_separation
+            row["estimated_walk_minutes"] = max(1.0, reference_separation / 80.0)
+            row["time_basis"] = "toei_legacy_walk_speed"
         elif automatic:
             row["minimum_minutes"] = policy.automatic_minutes
             row["walking_distance_meters"] = None
@@ -243,6 +251,9 @@ def build_audit(
             "reviewed": sum(row["status"] == "reviewed" for row in rows),
             "automatic_same_station": sum(
                 row["status"] == "automatic_same_station" for row in rows
+            ),
+            "coordinate_estimate": sum(
+                row["status"] == "coordinate_estimate" for row in rows
             ),
             "nonreciprocal_same_station": sum(
                 row["status"] == "unresolved"

@@ -55,7 +55,21 @@ but are not researched or implemented in this PR:
 - Five-language option/result/detail UI regressions in
   `test/estimated_transfer_ui_test.dart`
 
-**Decision inventory:**
+> **2026-11-25 implementation update (Toei-style Metro transfers):** The
+> committed runtime policy is now `tokyo_metro_transfer_policy/v3`.
+> For each official ODPT `connectingStation` pair with graph nodes loaded,
+> Metro transfer edges use the same bidirectional station-coordinate Haversine
+> distance, 80 m/min walking speed, minimum one-minute weighted cost, and
+> existing walking limits as the Toei subway graph. Matching station-ID slugs,
+> reciprocal ODPT records, and estimated-transfer opt-in are **not required**
+> by this new mode. Four reviewed station walks still override geometry.
+> Station coordinates are not measured platform/gate routes: displayed walking
+> distances and inferred times can differ from real walks. The 123-pair
+> inventory and the Choice C discussion below document the **superseded
+> v2 policy**, not the new release behavior. The deployment and on-site
+> validation status of the v3 policy has not been established by this edit.
+>
+**Decision inventory (historical v2 policy):**
 
 The 123 raw ODPT relations currently resolve as follows. The duplicate raw
 relation maps to an already represented physical pair; it is not another walk
