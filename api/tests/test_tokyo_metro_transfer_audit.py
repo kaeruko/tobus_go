@@ -170,6 +170,10 @@ class TokyoMetroTransferAuditTest(unittest.TestCase):
             audit = MODULE.build_audit(station_path, manifest_path)
         self.assertEqual(audit["counts"]["coordinate_estimate"], 1)
         self.assertEqual(audit["counts"]["unresolved"], 0)
+        self.assertEqual(audit["complex_counts"]["fully_reviewed"], 0)
+        self.assertEqual(audit["complex_counts"]["unreviewed"], 1)
+        self.assertEqual(audit["complexes"][0]["coordinate_pairs"], 1)
+        self.assertEqual(audit["complexes"][0]["unverified_pairs"], 1)
         self.assertEqual(audit["connections"][0]["status"], "coordinate_estimate")
         self.assertGreater(audit["connections"][0]["estimated_walk_minutes"], 1.0)
 

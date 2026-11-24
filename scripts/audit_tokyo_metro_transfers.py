@@ -118,21 +118,25 @@ def _complexes(rows: list[dict], names: dict[str, str | None]) -> list[dict]:
             "automatic_pairs": sum(
                 row["status"] == "automatic_same_station" for row in component_rows
             ),
+            "coordinate_pairs": sum(
+                row["status"] == "coordinate_estimate" for row in component_rows
+            ),
             "unresolved_pairs": sum(row["status"] == "unresolved" for row in component_rows),
+            "unverified_pairs": sum(row["status"] != "reviewed" for row in component_rows),
             "pair_station_ids": sorted(
                 [row["from_station_id"], row["to_station_id"]]
                 for row in component_rows
             ),
         })
 
-    # This order measures review leverage, not passenger demand: complexes
-    # covering the most still-disabled line pairs come first.
+    # Prioritize the most unverified connections (including geometric
+    # estimates); modelled connections must not be called reviewed paths.
     components.sort(key=lambda item: (
-        -item["unresolved_pairs"], -item["line_count"], item["complex_id"]
+        -item["unverified_pairs"], -item["line_count"], item["complex_id"]
     ))
     for priority, component in enumerate(components, 1):
         component["review_priority"] = priority
-        component["priority_basis"] = "unresolved_pair_count_then_line_count"
+        component["priority_basis"] = "unverified_pair_count_then_line_count"
     return components
 
 
@@ -266,16 +270,14 @@ def build_audit(
         },
         "complex_counts": {
             "total": len(complexes),
-            "fully_reviewed": sum(item["unresolved_pairs"] == 0 for item in complexes),
+            "fully_reviewed": sum(
+                item["reviewed_pairs"] == item["pair_count"] for item in complexes
+            ),
             "partially_reviewed": sum(
-                item["reviewed_pairs"] + item["automatic_pairs"] > 0
-                and item["unresolved_pairs"] > 0
+                0 < item["reviewed_pairs"] < item["pair_count"]
                 for item in complexes
             ),
-            "unreviewed": sum(
-                item["reviewed_pairs"] + item["automatic_pairs"] == 0
-                for item in complexes
-            ),
+            "unreviewed": sum(item["reviewed_pairs"] == 0 for item in complexes),
         },
         "complexes": complexes,
         "connections": rows,
