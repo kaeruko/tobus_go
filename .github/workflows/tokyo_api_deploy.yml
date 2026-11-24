@@ -1,0 +1,240 @@
+name: Tokyo API deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and validate without pushing to ECR or changing Lambda"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tokyo-api-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # The automatic path is inert until the repository owner explicitly enables it.
+    # Never grant production AWS credentials to PR-origin workflow_run events.
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       vars.TOKYO_API_AUTO_DEPLOY == 'true') ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    environment: tokyo-api-production
+    timeout-minutes: 50
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: us-west-2
+      EXPECTED_AWS_ACCOUNT: "667674573054"
+      ECR_REPOSITORY: toeigo-api
+      LAMBDA_FUNCTION: toeigo-api
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      AWS_ROLE_ARN: ${{ vars.TOKYO_API_DEPLOY_ROLE_ARN }}
+      DATA_BASELINE_SHA: ${{ vars.TOKYO_API_DATA_BASELINE_SHA }}
+      EXPECTED_PREBUILT_SHA256: ${{ vars.TOKYO_API_PREBUILT_SHA256 }}
+      HEALTH_URL: ${{ vars.TOKYO_API_HEALTH_URL }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+
+    steps:
+      - name: Check out the exact CI commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+
+      - name: Require current main and a validated prebuilt baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA" || {
+            echo "::error::Checked-out commit differs from the CI result"; exit 1;
+          }
+          current="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$current" = "$SOURCE_SHA" || {
+            echo "::error::Main moved since CI; refusing to deploy a superseded commit"; exit 1;
+          }
+          [[ "$DATA_BASELINE_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "::error::Set TOKYO_API_DATA_BASELINE_SHA to the exact source commit of the approved S3 prebuilt graph"; exit 1;
+          }
+          [[ "$EXPECTED_PREBUILT_SHA256" =~ ^[0-9a-f]{64}$ ]] || {
+            echo "::error::Set TOKYO_API_PREBUILT_SHA256 to the approved S3 prebuilt object's SHA-256"; exit 1;
+          }
+          git cat-file -e "${DATA_BASELINE_SHA}^{commit}"
+          git merge-base --is-ancestor "$DATA_BASELINE_SHA" "$SOURCE_SHA" || {
+            echo "::error::The approved data source commit is not an ancestor of this release"; exit 1;
+          }
+
+          # Changing a graph builder without rebuilding the S3 pickle would
+          # silently deploy old station-transfer edges. Block that release.
+          graph_changes="$(git diff --name-only "$DATA_BASELINE_SHA" "$SOURCE_SHA" -- \
+            api/toei_engine.py \
+            api/tokyo_metro_gtfs.py \
+            api/tokyo_metro_transfer_model.py \
+            api/config/tokyo_metro_reviewed_transfers.json \
+            api/prebuild.py \
+            api/gtfs_loader.py \
+            api/timetable_loader.py \
+            api/tokyo_metro_release_inputs.py \
+            api/transport_scope.py \
+            api/reviewed_walk_time.py \
+            api/gtfs_state.py)"
+          if [[ -n "$graph_changes" ]]; then
+            echo "::error::Graph-sensitive sources changed since the approved prebuilt data. Rebuild and verify the S3 data, then update both data baseline variables."
+            printf '%s\n' "$graph_changes"
+            exit 1
+          fi
+          [[ "$AWS_ROLE_ARN" == "arn:aws:iam::$EXPECTED_AWS_ACCOUNT:role/"* ]] || {
+            echo "::error::Set TOKYO_API_DEPLOY_ROLE_ARN to an OIDC role in the exact Tokyo AWS account"; exit 1;
+          }
+          [[ "$HEALTH_URL" == https://*/healthz ]] || {
+            echo "::error::TOKYO_API_HEALTH_URL must be the exact public HTTPS /healthz URL"; exit 1;
+          }
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: api/requirements.txt
+
+      - name: Run API regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -r api/requirements.txt -r scripts/requirements_explore_cms.txt
+          cd api
+          python ../scripts/run_active_tests.py python
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: tokyo-api-${{ github.run_id }}
+
+      - name: Validate production target and exact S3 prebuilt asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          test "$account" = "$EXPECTED_AWS_ACCOUNT" || {
+            echo "::error::AWS account mismatch: $account"; exit 1;
+          }
+          aws ecr describe-repositories \
+            --repository-names "$ECR_REPOSITORY" \
+            --region "$AWS_REGION" --output json >/dev/null
+          config="$(aws lambda get-function-configuration \
+            --function-name "$LAMBDA_FUNCTION" --region "$AWS_REGION" \
+            --query '{Type:PackageType,Architecture:Architectures[0],City:Environment.Variables.APP_CITY,Bucket:Environment.Variables.S3_BUCKET_NAME,Key:Environment.Variables.S3_PREBUILT_KEY}' \
+            --output json)"
+          jq -e '.Type == "Image" and .Architecture == "x86_64" and (.City == null or .City == "tokyo") and (.Bucket | type == "string" and length > 0) and (.Key | type == "string" and length > 0)' <<< "$config" >/dev/null || {
+            echo "::error::Lambda image, architecture, city, or explicit S3 bucket/prebuilt key differs from the Tokyo deployment contract"; exit 1;
+          }
+          bucket="$(jq -r '.Bucket' <<< "$config")"
+          key="$(jq -r '.Key' <<< "$config")"
+          prebuilt="$RUNNER_TEMP/tokyo-api-approved-app_data.pkl"
+          aws s3api head-object --bucket "$bucket" --key "$key" >/dev/null
+          aws s3 cp "s3://$bucket/$key" "$prebuilt" --only-show-errors
+          actual="$(sha256sum "$prebuilt" | cut -d' ' -f1)"
+          rm -- "$prebuilt"
+          if [[ "$actual" != "$EXPECTED_PREBUILT_SHA256" ]]; then
+            echo "::error::S3 prebuilt SHA-256 mismatch (expected=$EXPECTED_PREBUILT_SHA256 actual=$actual)"; exit 1;
+          fi
+          echo "Approved S3 prebuilt SHA-256 verified."
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build exact Lambda image and verify transfer manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${SOURCE_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          registry="${EXPECTED_AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          image="$registry/$ECR_REPOSITORY:$tag"
+          echo "IMAGE_TAG=$tag" >> "$GITHUB_ENV"
+          echo "IMAGE=$image" >> "$GITHUB_ENV"
+          docker buildx build --platform linux/amd64 --provenance=false \
+            --load --file api/Dockerfile --tag "$image" api
+          docker run --rm --entrypoint python "$image" -c \
+            'import json; from tokyo_metro_transfer_model import GEOMETRIC_SCHEMA, load_transfer_policy; p=load_transfer_policy(json.load(open("config/tokyo_metro_reviewed_transfers.json", encoding="utf-8"))); assert p.schema == GEOMETRIC_SCHEMA and p.geometric_enabled'
+
+      - name: Stop after dry-run build
+        if: env.DRY_RUN == 'true'
+        shell: bash
+        run: echo "Dry run passed. Production ECR and Lambda were not changed."
+
+      - name: Publish to ECR and update only the Tokyo Lambda
+        if: env.DRY_RUN != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$current" = "$SOURCE_SHA" || {
+            echo "::error::Main moved while building; refusing to deploy a superseded commit"; exit 1;
+          }
+          registry="${EXPECTED_AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          aws ecr get-login-password --region "$AWS_REGION" | \
+            docker login --username AWS --password-stdin "$registry"
+          docker push "$IMAGE"
+          media="$(aws ecr batch-get-image --region "$AWS_REGION" \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$IMAGE_TAG" \
+            --query 'images[0].imageManifestMediaType' --output text)"
+          case "$media" in
+            application/vnd.docker.distribution.manifest.v2+json|application/vnd.oci.image.manifest.v1+json) ;;
+            *) echo "::error::Unsupported Lambda image manifest: $media"; exit 1 ;;
+          esac
+          digest="$(aws ecr describe-images --region "$AWS_REGION" \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$IMAGE_TAG" \
+            --query 'imageDetails[0].imageDigest' --output text)"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "::error::Invalid ECR image digest: $digest"; exit 1;
+          }
+          image_uri="$registry/$ECR_REPOSITORY@$digest"
+          aws lambda update-function-code \
+            --region "$AWS_REGION" --function-name "$LAMBDA_FUNCTION" \
+            --image-uri "$image_uri" --output json >/dev/null
+          aws lambda wait function-updated \
+            --region "$AWS_REGION" --function-name "$LAMBDA_FUNCTION"
+          deployed="$(aws lambda get-function \
+            --region "$AWS_REGION" --function-name "$LAMBDA_FUNCTION" \
+            --query 'Code.ResolvedImageUri' --output text)"
+          [[ "$deployed" == "$image_uri" ]] || {
+            echo "::error::Lambda did not resolve the approved image digest. Expected=$image_uri Actual=$deployed"; exit 1;
+          }
+          echo "Updated Tokyo Lambda to $image_uri"
+          echo "### Tokyo API deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Source commit: $SOURCE_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ECR digest: $digest" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify public API is ready
+        if: env.DRY_RUN != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --fail-with-body --silent --show-error \
+            --max-time 120 "$HEALTH_URL")"
+          jq -e '.ok == true and .status == "ready"' <<< "$response" >/dev/null || {
+            echo "::error::Tokyo API health response did not report ok=true and status=ready"
+            echo "$response"
+            exit 1
+          }
+          echo "Tokyo production health check passed."
