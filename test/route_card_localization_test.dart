@@ -102,6 +102,7 @@ void main() {
       showRank: false,
     );
 
+    expect(find.text('1'), findsNothing);
     expect(find.text('C1'), findsNothing);
     expect(find.text('Ueno-Matsuzakaya'), findsOneWidget);
   });
@@ -133,6 +134,8 @@ void main() {
   ) async {
     await pumpCard(tester, const Locale('ja'));
 
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('C1'), findsNothing);
     expect(find.text('11:33着'), findsOneWidget);
     expect(find.text('所要 64分'), findsNothing);
   });

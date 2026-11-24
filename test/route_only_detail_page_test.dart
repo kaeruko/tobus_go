@@ -53,8 +53,8 @@ void main() {
     );
 
     expect(find.text('この経路で行く'), findsOneWidget);
-    expect(find.text('所要時間'), findsOneWidget);
-    expect(find.text('乗車区間'), findsOneWidget);
+    expect(find.text('所要時間'), findsNothing);
+    expect(find.text('乗車区間'), findsNothing);
     expect(find.text('8系統'), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.bookmark), findsNothing);
     expect(find.text('お気に入りに追加'), findsNothing);
@@ -99,8 +99,8 @@ void main() {
     );
 
     expect(find.text('Start this route'), findsOneWidget);
-    expect(find.text('Duration'), findsOneWidget);
-    expect(find.text('Ride segments'), findsOneWidget);
+    expect(find.text('Duration'), findsNothing);
+    expect(find.text('Ride segments'), findsNothing);
     expect(find.text('Route 8'), findsNWidgets(2));
     expect(
       find.text(

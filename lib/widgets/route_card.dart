@@ -144,7 +144,7 @@ class RouteCard extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'C$rank',
+                    '$rank',
                     style: const TextStyle(color: CupertinoColors.white),
                   ),
                 ),

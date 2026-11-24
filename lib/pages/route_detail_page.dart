@@ -1201,10 +1201,6 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
                 ),
               ),
 
-              SliverToBoxAdapter(
-                child: RouteSummary(candidate: widget.candidate),
-              ),
-
               if (configuredCityKey != 'tokyo' &&
                   !(configuredCityKey == 'sendai' &&
                       sendaiReviewedCoordinatesEnabled))
