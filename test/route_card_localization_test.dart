@@ -182,7 +182,8 @@ void main() {
     expect(find.text('乗換 0'), findsOneWidget);
     expect(find.text('乗車区間 1'), findsOneWidget);
     expect(find.textContaining('待ち時間 ·'), findsNothing);
-    expect(find.textContaining('徒歩 556m'), findsNothing);
+    expect(find.text('徒歩 556m'), findsOneWidget);
+    expect(find.textContaining('徒歩 556m ·'), findsNothing);
     expect(find.textContaining('10:29'), findsNothing);
     expect(find.textContaining('11:07'), findsNothing);
   });
@@ -192,7 +193,8 @@ void main() {
 
     expect(find.text('Arrive 11:33'), findsOneWidget);
     expect(find.textContaining('Wait ·'), findsNothing);
-    expect(find.textContaining('Walk 556m'), findsNothing);
+    expect(find.text('Walk: 556 m'), findsOneWidget);
+    expect(find.textContaining('Walk 556m ·'), findsNothing);
     expect(find.textContaining('10:29'), findsNothing);
     expect(find.textContaining('11:07'), findsNothing);
   });
