@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_localizations.dart';
-import '../l10n/route_step_time_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../core/city_profile.dart';
 import '../models/fare_models.dart';
@@ -204,40 +203,6 @@ class RouteCard extends ConsumerWidget {
               ),
               if (fareChip != null) _chip(fareChip),
             ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            candidate.steps
-                .map((seg) {
-                  final clock = routeStepTimeLabel(seg, l10n);
-                  if (seg.kind == 'walk') {
-                    final m = seg.meters;
-                    final dist = seg.hasUnknownWalkingDistance
-                        ? ''
-                        : m >= 1000
-                        ? '${(m / 1000).toStringAsFixed(1)}km'
-                        : '${m.toInt()}m';
-                    return '${l10n.walkSegment(dist, '').trim()} · $clock';
-                  }
-                  if (seg.kind == 'wait') {
-                    return '${l10n.waitTitle} · $clock';
-                  }
-                  if (seg.isRide) {
-                    final stops = seg.edges > 0
-                        ? l10n.stopsCount(seg.edges)
-                        : '';
-                    return '${localizedRideTitle(locale, seg)}$stops · $clock';
-                  }
-                  throw StateError(
-                    'Unsupported route card step kind: '
-                    'stepId=${seg.stepId}, kind=${seg.kind}',
-                  );
-                })
-                .take(2)
-                .join('\n'),
-            style: const TextStyle(color: CupertinoColors.inactiveGray),
-            maxLines: 4,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

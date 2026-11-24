@@ -175,24 +175,31 @@ void main() {
     expect(find.text('所要 64分'), findsNothing);
   });
 
-  testWidgets('English route card shows wait and walk clocks', (tester) async {
-    await pumpCard(tester, const Locale('en'));
-
-    expect(find.textContaining('Wait · 10:29 → 11:07'), findsOneWidget);
-    expect(find.textContaining('Walk 556m · 11:07 → 11:14'), findsOneWidget);
-    expect(find.textContaining('about'), findsNothing);
-    expect(find.textContaining('待ち時間'), findsNothing);
-  });
-
-  testWidgets('Japanese route card shows wait and walk clocks', (tester) async {
+  testWidgets('Japanese route card omits partial step preview', (tester) async {
     await pumpCard(tester, const Locale('ja'));
 
-    expect(find.textContaining('待ち時間 · 10:29 → 11:07'), findsOneWidget);
-    expect(find.textContaining('徒歩 556m · 11:07 → 11:14'), findsOneWidget);
-    expect(find.textContaining('約'), findsNothing);
+    expect(find.text('11:33着'), findsOneWidget);
+    expect(find.text('乗換 0'), findsOneWidget);
+    expect(find.text('乗車区間 1'), findsOneWidget);
+    expect(find.textContaining('待ち時間 ·'), findsNothing);
+    expect(find.textContaining('徒歩 556m'), findsNothing);
+    expect(find.textContaining('10:29'), findsNothing);
+    expect(find.textContaining('11:07'), findsNothing);
   });
 
-  testWidgets('route card uses each ride clock across midnight', (tester) async {
+  testWidgets('English route card omits partial step preview', (tester) async {
+    await pumpCard(tester, const Locale('en'));
+
+    expect(find.text('Arrive 11:33'), findsOneWidget);
+    expect(find.textContaining('Wait ·'), findsNothing);
+    expect(find.textContaining('Walk 556m'), findsNothing);
+    expect(find.textContaining('10:29'), findsNothing);
+    expect(find.textContaining('11:07'), findsNothing);
+  });
+
+  testWidgets('route card retains overnight arrival without step clocks', (
+    tester,
+  ) async {
     final overnight = Candidate.fromJson({
       ...candidate.toJson(),
       'arrival_time': '00:05',
@@ -211,30 +218,8 @@ void main() {
     });
     await pumpCard(tester, const Locale('ja'), route: overnight);
 
-    expect(find.textContaining('23:50 → 00:05'), findsOneWidget);
     expect(find.text('00:05着'), findsOneWidget);
-    expect(find.textContaining('約'), findsNothing);
-  });
-
-  testWidgets('missing segment clocks do not become estimates from minutes', (
-    tester,
-  ) async {
-    final missingClocks = Candidate.fromJson({
-      ...candidate.toJson(),
-      'steps': [
-        {
-          ...candidate.steps.first.toJson(),
-          'departure_time': null,
-          'arrival_time': ' ',
-        },
-        ...candidate.steps.skip(1).map((step) => step.toJson()),
-      ],
-    });
-    await pumpCard(tester, const Locale('ja'), route: missingClocks);
-
-    expect(find.textContaining('待ち時間 · 時刻不明'), findsOneWidget);
-    expect(find.textContaining('38分'), findsNothing);
-    expect(find.textContaining('10:29'), findsNothing);
+    expect(find.textContaining('23:50'), findsNothing);
   });
 
   testWidgets('English route card localizes current location', (tester) async {
