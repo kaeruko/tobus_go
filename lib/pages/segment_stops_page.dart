@@ -77,10 +77,10 @@ class _SegmentStopsPageState extends State<SegmentStopsPage> {
                   Expanded(
                     child: Text(
                       localizedRideTitle(locale, widget.segment),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
-                        color: CupertinoColors.label,
+                        color: CupertinoColors.label.resolveFrom(context),
                       ),
                     ),
                   ),
@@ -90,14 +90,14 @@ class _SegmentStopsPageState extends State<SegmentStopsPage> {
                         ? CupertinoIcons.chevron_up
                         : CupertinoIcons.chevron_down,
                     size: 20,
-                    color: CupertinoColors.secondaryLabel,
+                    color: CupertinoColors.secondaryLabel.resolveFrom(context),
                   ),
                 ],
               ),
             ),
             Container(
               height: 0.5,
-              color: CupertinoColors.separator,
+              color: CupertinoColors.separator.resolveFrom(context),
             ),
             if (_expanded) ...[
               const SizedBox(height: 12),
@@ -116,7 +116,7 @@ class _SegmentStopsPageState extends State<SegmentStopsPage> {
               Container(
                 height: 0.5,
                 margin: const EdgeInsets.symmetric(horizontal: 16),
-                color: CupertinoColors.separator,
+                color: CupertinoColors.separator.resolveFrom(context),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
@@ -168,9 +168,9 @@ class _SegmentSummary extends StatelessWidget {
           child: Text(
             l10n.segmentRideSummary(segment.minutes, segment.stops.length),
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
-              color: CupertinoColors.secondaryLabel,
+              color: CupertinoColors.secondaryLabel.resolveFrom(context),
             ),
           ),
         ),
@@ -244,21 +244,25 @@ class _StopRow extends StatelessWidget {
               alignment: Alignment.topCenter,
               children: [
                 if (!isFirst)
-                  const Positioned(
+                  Positioned(
                     top: 0,
                     height: 10,
                     child: SizedBox(
                       width: 2,
-                      child: ColoredBox(color: CupertinoColors.systemGrey4),
+                      child: ColoredBox(
+                        color: CupertinoColors.systemGrey4.resolveFrom(context),
+                      ),
                     ),
                   ),
                 if (!isLast)
-                  const Positioned(
+                  Positioned(
                     top: 10,
                     bottom: 0,
                     child: SizedBox(
                       width: 2,
-                      child: ColoredBox(color: CupertinoColors.systemGrey4),
+                      child: ColoredBox(
+                        color: CupertinoColors.systemGrey4.resolveFrom(context),
+                      ),
                     ),
                   ),
                 Positioned(
@@ -270,13 +274,13 @@ class _StopRow extends StatelessWidget {
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: isOutsideRide
-                            ? CupertinoColors.systemGrey3
-                            : CupertinoColors.activeGreen,
+                            ? CupertinoColors.systemGrey3.resolveFrom(context)
+                            : CupertinoColors.activeGreen.resolveFrom(context),
                         width: 2,
                       ),
                       color: isEndpoint
-                          ? CupertinoColors.activeGreen
-                          : CupertinoColors.systemBackground,
+                          ? CupertinoColors.activeGreen.resolveFrom(context)
+                          : CupertinoColors.systemBackground.resolveFrom(context),
                     ),
                   ),
                 ),
@@ -297,7 +301,7 @@ class _StopRow extends StatelessWidget {
                           width: 22,
                           height: 22,
                           decoration: BoxDecoration(
-                            color: CupertinoColors.activeBlue.withValues(
+                            color: CupertinoColors.activeBlue.resolveFrom(context).withValues(
                               alpha: 0.12,
                             ),
                             borderRadius: BorderRadius.circular(5),
@@ -312,20 +316,20 @@ class _StopRow extends StatelessWidget {
                         const SizedBox(width: 7),
                         Text(
                           isBoardingStop ? l10n.boarding : l10n.alighting,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: CupertinoColors.secondaryLabel,
+                            color: CupertinoColors.secondaryLabel.resolveFrom(context),
                           ),
                         ),
                         const Spacer(),
                         if (endpointTimeLabel != null)
                           Text(
                             endpointTimeLabel,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: CupertinoColors.label,
+                              color: CupertinoColors.label.resolveFrom(context),
                             ),
                           ),
                       ],
@@ -343,8 +347,8 @@ class _StopRow extends StatelessWidget {
                             fontWeight:
                                 isEndpoint ? FontWeight.w700 : FontWeight.w400,
                             color: isOutsideRide
-                                ? CupertinoColors.secondaryLabel
-                                : CupertinoColors.label,
+                                ? CupertinoColors.secondaryLabel.resolveFrom(context)
+                                : CupertinoColors.label.resolveFrom(context),
                           ),
                         ),
                       ),
@@ -490,7 +494,7 @@ class _StopTimetableSheet extends StatelessWidget {
               ),
               Container(
                 height: 0.5,
-                color: CupertinoColors.separator,
+                color: CupertinoColors.separator.resolveFrom(context),
               ),
               Expanded(
                 child: Padding(

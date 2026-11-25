@@ -126,7 +126,7 @@ void main() {
   );
 
   testWidgets(
-    'bus stop guide shows the full trip and dims stops outside the ridden range',
+    'bus stop guide resolves readable colors in light and dark mode',
     (tester) async {
       final segment = StepSeg(
         stepId: 'full-trip-bus',
@@ -191,29 +191,68 @@ void main() {
         ],
       );
 
-      await tester.pumpWidget(
-        CupertinoApp(
-          locale: const Locale('ja'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: SegmentStopsPage(segment: segment),
-        ),
-      );
-      await tester.pumpAndSettle();
+      for (final brightness in Brightness.values) {
+        await tester.pumpWidget(
+          CupertinoApp(
+            theme: CupertinoThemeData(brightness: brightness),
+            locale: const Locale('ja'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: SegmentStopsPage(segment: segment),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('浅草寿町'), findsOneWidget);
-      expect(find.text('四ツ木橋南詰'), findsOneWidget);
-      expect(find.text('東向島六丁目'), findsOneWidget);
-      expect(find.text('東向島五丁目'), findsOneWidget);
-      expect(find.text('金町駅前'), findsOneWidget);
-      expect(find.text('乗車1分 / 3停留所'), findsOneWidget);
+        final context = tester.element(find.byType(SegmentStopsPage));
+        final primary = CupertinoColors.label.resolveFrom(context);
+        final secondary = CupertinoColors.secondaryLabel.resolveFrom(context);
+        final background = CupertinoColors.systemBackground.resolveFrom(context);
 
-      final beforeRide = tester.widget<Text>(find.text('浅草寿町'));
-      final duringRide = tester.widget<Text>(find.text('東向島六丁目'));
-      final afterRide = tester.widget<Text>(find.text('金町駅前'));
-      expect(beforeRide.style?.color, CupertinoColors.secondaryLabel);
-      expect(duringRide.style?.color, CupertinoColors.label);
-      expect(afterRide.style?.color, CupertinoColors.secondaryLabel);
+        expect(find.text('浅草寿町'), findsOneWidget);
+        expect(find.text('四ツ木橋南詰'), findsOneWidget);
+        expect(find.text('東向島六丁目'), findsOneWidget);
+        expect(find.text('東向島五丁目'), findsOneWidget);
+        expect(find.text('金町駅前'), findsOneWidget);
+        expect(find.text('乗車1分 / 3停留所'), findsOneWidget);
+
+        for (final label in [
+          '草39 浅草寿町行',
+          '四ツ木橋南詰',
+          '東向島六丁目',
+          '東向島五丁目',
+        ]) {
+          final text = tester.widget<Text>(find.text(label));
+          expect(text.style?.color, primary, reason: label);
+        }
+        for (final label in [
+          '浅草寿町',
+          '金町駅前',
+          '乗車',
+          '降車',
+          '乗車1分 / 3停留所',
+        ]) {
+          final text = tester.widget<Text>(find.text(label));
+          expect(text.style?.color, secondary, reason: label);
+        }
+        for (final label in ['18:21発', '18:22着']) {
+          final endpoint = tester.widgetList<Text>(find.text(label))
+              .where((text) => text.style?.color != null)
+              .single;
+          expect(endpoint.style?.color, primary, reason: label);
+        }
+
+        // Secondary labels may be translucent; measure the painted color.
+        final foreground = Color.alphaBlend(secondary, background);
+        final lighter = foreground.computeLuminance();
+        final darker = background.computeLuminance();
+        final contrast = lighter >= darker
+            ? (lighter + 0.05) / (darker + 0.05)
+            : (darker + 0.05) / (lighter + 0.05);
+        expect(contrast, greaterThanOrEqualTo(3.0));
+        expect(primary.toARGB32(), brightness == Brightness.dark
+            ? 0xFFFFFFFF : 0xFF000000);
+        expect(tester.takeException(), isNull);
+      }
     },
   );
 
