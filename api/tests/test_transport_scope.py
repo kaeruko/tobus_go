@@ -211,6 +211,9 @@ class TransportScopeTest(unittest.TestCase):
         graph.add_edge(marunouchi, destination, etype="walk", w=1, meters=10)
         manager = TimetableManager()
         manager.tokyo_metro_feed_version = "test"
+        manager.tokyo_metro_feed_start_date = "2026-09-19"
+        manager.tokyo_metro_feed_end_date = "2027-03-12"
+        manager.tokyo_metro_data_obtained_at = "2026-10-08T00:00:00+00:00"
         nearest = iter(((ginza, 24.0), (destination, 10.0)))
         captured = []
         app = SimpleNamespace(state=SimpleNamespace(
