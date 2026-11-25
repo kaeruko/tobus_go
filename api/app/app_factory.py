@@ -89,7 +89,10 @@ def create_app(mode: str) -> FastAPI:
     if city == "tokyo":
         from .places_access_log import PlacesAccessLogMiddleware
 
+        from .transit_access_log import TransitAccessLogMiddleware
+
         app.add_middleware(PlacesAccessLogMiddleware)
+        app.add_middleware(TransitAccessLogMiddleware)
 
     @app.on_event("startup")
     async def _startup() -> None:
