@@ -764,6 +764,13 @@ jobs:
           CURRENT_BUILD_NAME="${BASH_REMATCH[1]}"
           CURRENT_PUBSPEC_BUILD_NUMBER="${BASH_REMATCH[3]}"
 
+          # Android advances the pubspec suffix independently of the iOS
+          # marketing version. Preserve its latest value, never roll it back.
+          [[ "$CURRENT_PUBSPEC_BUILD_NUMBER" -ge "$PUBSPEC_BUILD_NUMBER" ]] || {
+            echo "::error::pubspec build number regressed while TestFlight was building. Started at $PUBSPEC_BUILD_NUMBER, got $CURRENT_PUBSPEC_BUILD_NUMBER"
+            exit 1
+          }
+
           if [[ "$CURRENT_BUILD_NAME" == "$BUILD_NAME" ]]; then
             echo "pubspec.yaml is already at $BUILD_NAME; no version commit is needed."
             exit 0
@@ -773,14 +780,9 @@ jobs:
             echo "::error::pubspec version changed while TestFlight was building. Expected $SOURCE_BUILD_NAME or $BUILD_NAME, got $CURRENT_BUILD_NAME"
             exit 1
           }
-          [[ "$CURRENT_PUBSPEC_BUILD_NUMBER" == "$PUBSPEC_BUILD_NUMBER" ]] || {
-            echo "::error::pubspec build number changed while TestFlight was building. Expected $PUBSPEC_BUILD_NUMBER, got $CURRENT_PUBSPEC_BUILD_NUMBER"
-            exit 1
-          }
-
           SOURCE_BUILD_NAME="$SOURCE_BUILD_NAME" \
           BUILD_NAME="$BUILD_NAME" \
-          PUBSPEC_BUILD_NUMBER="$PUBSPEC_BUILD_NUMBER" \
+          PUBSPEC_BUILD_NUMBER="$CURRENT_PUBSPEC_BUILD_NUMBER" \
           python3 - <<'PY'
           import os
           import re
@@ -807,7 +809,7 @@ jobs:
           path.write_text(updated, encoding="utf-8")
           PY
 
-          EXPECTED_VERSION_LINE="version: $BUILD_NAME+$PUBSPEC_BUILD_NUMBER"
+          EXPECTED_VERSION_LINE="version: $BUILD_NAME+$CURRENT_PUBSPEC_BUILD_NUMBER"
           ACTUAL_VERSION_LINE="$(awk '/^version:/{print; exit}' pubspec.yaml)"
           [[ "$ACTUAL_VERSION_LINE" == "$EXPECTED_VERSION_LINE" ]] || {
             echo "::error::pubspec version update mismatch. Expected '$EXPECTED_VERSION_LINE', got '$ACTUAL_VERSION_LINE'"
@@ -825,7 +827,7 @@ jobs:
           git commit -m "Bump app version to $BUILD_NAME"
           git push origin HEAD:main
 
-          echo "- Persisted pubspec.yaml: $BUILD_NAME+$PUBSPEC_BUILD_NUMBER" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Persisted pubspec.yaml: $BUILD_NAME+$CURRENT_PUBSPEC_BUILD_NUMBER" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Clean up signing material
         if: always()
