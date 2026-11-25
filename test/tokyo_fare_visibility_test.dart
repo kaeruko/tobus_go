@@ -76,5 +76,13 @@ void main() {
 
     expect(find.textContaining('0円'), findsNothing);
     expect(find.textContaining('今回の支払'), findsNothing);
+    final logo = tester.widget<Image>(
+      find.descendant(
+        of: find.byType(CupertinoNavigationBar),
+        matching: find.byType(Image),
+      ),
+    );
+    expect((logo.image as AssetImage).assetName, 'assets/icon/tokyo.png');
+    expect(find.byKey(const Key('route-detail-research')), findsOneWidget);
   });
 }

@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart'
     as maps;
+import 'package:toeigo/core/city_profile.dart';
+import 'package:toeigo/providers/city_profile_provider.dart';
 import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/logic/solo_trip_factory.dart';
 import 'package:toeigo/models/leg_models.dart';
@@ -104,7 +106,10 @@ void main() {
       addTearDown(controller.close);
 
       await tester.pumpWidget(ProviderScope(
-        overrides: [tripRouteProvider('active-trip').overrideWith((ref) => controller.stream)],
+        overrides: [
+          cityProfileProvider.overrideWithValue(tokyoCityProfile),
+          tripRouteProvider('active-trip').overrideWith((ref) => controller.stream),
+        ],
         child: CupertinoApp(
           locale: Locale(language),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -130,6 +135,18 @@ void main() {
       controller.add(trip(original));
       await tester.pumpAndSettle();
 
+      final headerLogo = tester.widget<Image>(
+        find.descendant(
+          of: find.byType(CupertinoNavigationBar),
+          matching: find.byType(Image),
+        ),
+      );
+      expect(
+        (headerLogo.image as AssetImage).assetName,
+        language == 'ja' ? 'assets/icon/tokyo.png' : 'assets/icon/tokyo_en.png',
+      );
+      expect(find.text('上23 上野松坂屋前行 → 浅草線'), findsNothing);
+      expect(find.text('Ueno-Matsuzakaya → Asakusa Line'), findsNothing);
       expect(find.byType(RouteEndpointSummary), findsOneWidget);
       expect(find.byType(RouteSummary), findsOneWidget);
       expect(find.text('356m'), findsOneWidget);
@@ -138,7 +155,6 @@ void main() {
       expect(tester.widgetList<RouteStepTile>(find.byType(RouteStepTile)).map((tile) => tile.segment.stepId),
         ['wait', 'walk-in', 'bus', 'rail', 'walk-out']);
       if (language == 'en') {
-        expect(find.text('Ueno-Matsuzakaya → Asakusa Line'), findsOneWidget);
         expect(find.text('Hirai-nanachome (平井七丁目) → Honjo-azumabashi (本所吾妻橋)'), findsOneWidget);
       }
 

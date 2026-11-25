@@ -7,6 +7,7 @@ import '../core/app_clock.dart';
 import '../core/city_profile.dart';
 import '../logic/solo_trip_factory.dart';
 import '../l10n/app_localizations.dart';
+import '../l10n/city_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
 import '../models/route_models.dart';
@@ -1171,9 +1172,12 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
 
     return CupertinoPageScaffold(
       navigationBar: buildAppNavigationBar(
-        middle: Text(
-          localizedCandidateLines(locale, widget.candidate).join(' → '),
-        ),
+        middle: profile.city == AppCity.tokyo
+            ? cityBrandNavigationTitle(
+                city: profile.city,
+                fallbackTitle: localizedCityAppName(l10n, profile.city),
+              )
+            : Text(localizedCandidateLines(locale, widget.candidate).join(' → ')),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/city_profile.dart';
 import '../l10n/app_localizations.dart';
+import '../l10n/city_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../providers/city_profile_provider.dart';
 import '../providers/trip_provider.dart';
@@ -24,6 +25,13 @@ class SoloTripRoutePage extends ConsumerWidget {
     final city = ref.watch(cityProfileProvider).city;
     final tripAsync = ref.watch(tripRouteProvider(tripId));
 
+    Widget navigationTitle(String title) => city == AppCity.tokyo
+        ? cityBrandNavigationTitle(
+            city: city,
+            fallbackTitle: localizedCityAppName(l10n, city),
+          )
+        : Text(title);
+
     return tripAsync.when(
       skipLoadingOnRefresh: false,
       skipLoadingOnReload: false,
@@ -39,7 +47,9 @@ class SoloTripRoutePage extends ConsumerWidget {
         final candidate = leg.candidate;
         return CupertinoPageScaffold(
           navigationBar: buildAppNavigationBar(
-            middle: Text(localizedCandidateLines(locale, candidate).join(' → ')),
+            middle: navigationTitle(
+              localizedCandidateLines(locale, candidate).join(' → '),
+            ),
           ),
           child: SafeArea(
             child: CustomScrollView(
@@ -98,11 +108,15 @@ class SoloTripRoutePage extends ConsumerWidget {
         );
       },
       loading: () => CupertinoPageScaffold(
-        navigationBar: buildAppNavigationBar(middle: Text(l10n.viewFullRoute)),
+        navigationBar: buildAppNavigationBar(
+          middle: navigationTitle(l10n.viewFullRoute),
+        ),
         child: const Center(child: CupertinoActivityIndicator()),
       ),
       error: (error, stackTrace) => CupertinoPageScaffold(
-        navigationBar: buildAppNavigationBar(middle: Text(l10n.viewFullRoute)),
+        navigationBar: buildAppNavigationBar(
+          middle: navigationTitle(l10n.viewFullRoute),
+        ),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
