@@ -16,6 +16,7 @@ _AUTOCOMPLETE_FIELD_MASK = (
     "suggestions.placePrediction.text.text"
 )
 _DETAILS_FIELD_MASK = "id,displayName,formattedAddress,location"
+_ESSENTIALS_FIELD_MASK = "id,formattedAddress,location"
 _SUPPORTED_LANGUAGES = {"ja", "en"}
 
 
@@ -92,14 +93,20 @@ def _decode_google_response(response: httpx.Response, *, operation: str) -> dict
     return payload
 
 
-async def _request_autocomplete(q: str, language: str) -> dict[str, Any]:
+async def _request_autocomplete(
+    q: str, language: str, *, include_main_text: bool = False
+) -> dict[str, Any]:
     language = _require_language(language)
     key = _require_api_key()
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
                 _AUTOCOMPLETE_URL,
-                headers=_google_headers(key, _AUTOCOMPLETE_FIELD_MASK),
+                headers=_google_headers(
+                    key,
+                    _AUTOCOMPLETE_FIELD_MASK + ",suggestions.placePrediction.structuredFormat.mainText.text"
+                    if include_main_text else _AUTOCOMPLETE_FIELD_MASK,
+                ),
                 json={
                     "input": q,
                     "languageCode": language,
@@ -120,7 +127,9 @@ async def _request_autocomplete(q: str, language: str) -> dict[str, Any]:
     return _decode_google_response(response, operation="autocomplete")
 
 
-async def _request_details(place_id: str, language: str) -> dict[str, Any]:
+async def _request_details(
+    place_id: str, language: str, *, essentials: bool = False
+) -> dict[str, Any]:
     language = _require_language(language)
     key = _require_api_key()
     encoded_place_id = quote(place_id, safe="")
@@ -128,7 +137,7 @@ async def _request_details(place_id: str, language: str) -> dict[str, Any]:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
                 f"{_DETAILS_BASE_URL}/{encoded_place_id}",
-                headers=_google_headers(key, _DETAILS_FIELD_MASK),
+                headers=_google_headers(key, _ESSENTIALS_FIELD_MASK if essentials else _DETAILS_FIELD_MASK),
                 params={
                     "languageCode": language,
                     "regionCode": "JP",
@@ -147,7 +156,9 @@ async def _request_details(place_id: str, language: str) -> dict[str, Any]:
     return _decode_google_response(response, operation="details")
 
 
-def _legacy_autocomplete_payload(payload: dict[str, Any]) -> dict[str, Any]:
+def _legacy_autocomplete_payload(
+    payload: dict[str, Any], *, include_main_text: bool = False
+) -> dict[str, Any]:
     suggestions = payload.get("suggestions", [])
     if not isinstance(suggestions, list):
         raise HTTPException(
@@ -201,20 +212,32 @@ def _legacy_autocomplete_payload(payload: dict[str, Any]) -> dict[str, Any]:
                     "message": "placePrediction.text.text is missing",
                 },
             )
-        predictions.append(
-            {
-                "place_id": place_id,
-                "description": description,
-            }
-        )
+        entry = {"place_id": place_id, "description": description}
+        if include_main_text:
+            structured = prediction.get("structuredFormat")
+            main = structured.get("mainText") if isinstance(structured, dict) else None
+            name = main.get("text") if isinstance(main, dict) else None
+            if not isinstance(name, str) or not name.strip():
+                raise HTTPException(
+                    status_code=502,
+                    detail={
+                        "code": "google_places_invalid_response",
+                        "operation": "autocomplete",
+                        "message": "structuredFormat.mainText.text is missing",
+                    },
+                )
+            entry["main_text"] = name
+        predictions.append(entry)
 
     return {"predictions": predictions}
 
 
-def _legacy_details_payload(payload: dict[str, Any]) -> dict[str, Any]:
+def _legacy_details_payload(
+    payload: dict[str, Any], *, essentials: bool = False
+) -> dict[str, Any]:
     display_name = payload.get("displayName")
     name = display_name.get("text") if isinstance(display_name, dict) else None
-    if not isinstance(name, str) or name == "":
+    if not essentials and (not isinstance(name, str) or name == ""):
         raise HTTPException(
             status_code=502,
             detail={
@@ -224,13 +247,13 @@ def _legacy_details_payload(payload: dict[str, Any]) -> dict[str, Any]:
             },
         )
 
-    result: dict[str, Any] = {"name": name}
+    result: dict[str, Any] = {} if essentials else {"name": name}
     formatted_address = payload.get("formattedAddress")
     if isinstance(formatted_address, str):
         result["formatted_address"] = formatted_address
 
     location = payload.get("location")
-    if location is not None:
+    if essentials or location is not None:
         if not isinstance(location, dict):
             raise HTTPException(
                 status_code=502,
@@ -273,14 +296,16 @@ def register_route_only_places_routes(app) -> None:
     async def autocomplete(
         q: str = Query(...),
         lang: str = Query("ja"),
+        include_main_text: bool = Query(False),
     ):
-        payload = await _request_autocomplete(q, lang)
-        return _legacy_autocomplete_payload(payload)
+        payload = await _request_autocomplete(q, lang, include_main_text=include_main_text)
+        return _legacy_autocomplete_payload(payload, include_main_text=include_main_text)
 
     @app.get("/details")
     async def details(
         place_id: str = Query(...),
         lang: str = Query("ja"),
+        essentials: bool = Query(False),
     ):
-        payload = await _request_details(place_id, lang)
-        return _legacy_details_payload(payload)
+        payload = await _request_details(place_id, lang, essentials=essentials)
+        return _legacy_details_payload(payload, essentials=essentials)

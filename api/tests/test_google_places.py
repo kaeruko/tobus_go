@@ -131,6 +131,41 @@ class GooglePlacesNewTests(unittest.IsolatedAsyncioTestCase):
             "id,displayName,formattedAddress,location",
         )
 
+    async def test_compact_autocomplete_uses_structured_main_text(self):
+        response = httpx.Response(200, json={"suggestions": [{
+            "placePrediction": {
+                "placeId": "station",
+                "text": {"text": "東京駅, 東京都"},
+                "structuredFormat": {"mainText": {"text": "東京駅"}},
+            }
+        }]})
+        fake = _FakeAsyncClient(response=response)
+        with patch.dict(os.environ, {"GOOGLE_MAPS_API_KEY": "test"}, clear=False):
+            with patch.object(google_places.httpx, "AsyncClient", return_value=fake):
+                result = await google_places.autocomplete_legacy_response(
+                    "東京駅", include_main_text=True
+                )
+        self.assertEqual(result["predictions"], [{
+            "place_id": "station", "description": "東京駅, 東京都", "main_text": "東京駅"
+        }])
+        self.assertEqual(len(fake.calls), 1)
+
+    async def test_essentials_details_never_requests_display_name(self):
+        response = httpx.Response(200, json={
+            "id": "station", "formattedAddress": "東京都",
+            "location": {"latitude": 35.0, "longitude": 139.0},
+        })
+        fake = _FakeAsyncClient(response=response)
+        with patch.dict(os.environ, {"GOOGLE_MAPS_API_KEY": "test"}, clear=False):
+            with patch.object(google_places.httpx, "AsyncClient", return_value=fake):
+                result = await google_places.details_legacy_response("station", essentials=True)
+        self.assertEqual(len(fake.calls), 1)
+        self.assertEqual(fake.calls[0][2]["headers"]["X-Goog-FieldMask"], "id,formattedAddress,location")
+        self.assertEqual(result["result"], {
+            "formatted_address": "東京都",
+            "geometry": {"location": {"lat": 35.0, "lng": 139.0}},
+        })
+
     async def test_missing_api_key_fails_instead_of_returning_empty_results(self):
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaises(HTTPException) as caught:

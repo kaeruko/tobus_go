@@ -50,7 +50,7 @@ void main() {
         return _jsonResponse(
           jsonEncode({
             'predictions': [
-              {'place_id': 'tokyo', 'description': '東京駅'},
+              {'place_id': 'tokyo', 'description': '東京駅', 'main_text': '東京駅'},
             ],
           }),
           200,
@@ -85,7 +85,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('東京駅'));
     await tester.pump();
-    expect(details.keys, unorderedEquals(['ja', 'en']));
+    expect(details.keys, ['ja']);
     locale.value = const Locale('zh');
     await tester.pump();
     await tester.pump();
@@ -106,12 +106,12 @@ void main() {
     }
     await tester.pumpAndSettle();
     expect(selectedValue, '35.0,139.0');
-    expect(selectedName, 'Tokyo Station');
+    expect(selectedName, '東京駅');
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-    'Chinese IME waits for confirmation and reuses two details calls',
+    'Chinese IME waits for confirmation and uses one details call',
     (tester) async {
       final autocompleteLanguages = <String?>[];
       final detailLanguages = <String?>[];
@@ -123,7 +123,7 @@ void main() {
           return _jsonResponse(
             jsonEncode({
               'predictions': [
-                {'place_id': 'tokyo', 'description': 'Tokyo Station'},
+                {'place_id': 'tokyo', 'description': 'Tokyo Station', 'main_text': 'Tokyo Station'},
               ],
             }),
             200,
@@ -182,7 +182,7 @@ void main() {
       expect(autocompleteLanguages, ['en']);
       await tester.tap(find.text('Tokyo Station'));
       await tester.pumpAndSettle();
-      expect(detailLanguages, unorderedEquals(['ja', 'en']));
+      expect(detailLanguages, ['en']);
       expect(selected, '35.0,139.0');
       expect(tester.takeException(), isNull);
     },
@@ -293,20 +293,25 @@ void main() {
   ) async {
     var value = '';
     var description = '';
+    var detailsCount = 0;
 
     ApiClient.httpClient = MockClient((request) async {
       if (request.url.path.endsWith('/warmup')) {
         return _warmupResponse();
       }
       if (request.url.path.endsWith('/autocomplete')) {
+        expect(request.url.queryParameters['include_main_text'], 'true');
         return _jsonResponse(
-          '{"predictions":[{"place_id":"tokyo-station","description":"東京駅, 東京都"}]}',
+          '{"predictions":[{"place_id":"tokyo-station","description":"東京駅, 東京都","main_text":"東京駅"}]}',
           200,
         );
       }
       if (request.url.path.endsWith('/details')) {
+        detailsCount++;
+        expect(request.url.queryParameters['essentials'], 'true');
+        expect(request.url.queryParameters['lang'], 'ja');
         return _jsonResponse(
-          '{"result":{"name":"東京駅","geometry":{"location":{"lat":35.681236,"lng":139.767125}}}}',
+          '{"result":{"geometry":{"location":{"lat":35.681236,"lng":139.767125}}}}',
           200,
         );
       }
@@ -344,6 +349,7 @@ void main() {
 
     expect(value, '35.681236,139.767125');
     expect(description, '東京駅');
+    expect(detailsCount, 1);
   });
 
   testWidgets(
@@ -360,7 +366,7 @@ void main() {
         }
         if (request.url.path.endsWith('/autocomplete')) {
           return _jsonResponse(
-            '{"predictions":[{"place_id":"hirai-7","description":"日本、東京都江戸川区平井7丁目8-8"}]}',
+            '{"predictions":[{"place_id":"hirai-7","description":"日本、東京都江戸川区平井7丁目8-8","main_text":"7丁目"}]}',
             200,
           );
         }
@@ -416,7 +422,7 @@ void main() {
       expect(resolvedValue, '35.706,139.842');
       expect(resolvedDisplay, '平井7丁目');
       expect(resolvedJa, '平井7丁目');
-      expect(resolvedEn, 'Hirai 7-chome');
+      expect(resolvedEn, isEmpty);
       expect(
         tester
             .widget<CupertinoTextField>(find.byType(CupertinoTextField))
@@ -439,7 +445,7 @@ void main() {
       }
       if (request.url.path.endsWith('/autocomplete')) {
         return _jsonResponse(
-          '{"predictions":[{"place_id":"broken-place","description":"壊れた候補"}]}',
+          '{"predictions":[{"place_id":"broken-place","description":"壊れた候補","main_text":"壊れた候補"}]}',
           200,
         );
       }
@@ -523,7 +529,7 @@ void main() {
     expect(find.textContaining('場所候補を取得できませんでした'), findsOneWidget);
     expect(find.textContaining('HTTP 503'), findsOneWidget);
   });
-  testWidgets('Korean locale uses English place search and keeps Japanese names', (
+  testWidgets('Korean locale uses English place search and one details call', (
     tester,
   ) async {
     var autocompleteLang = '';
@@ -539,7 +545,7 @@ void main() {
       if (request.url.path.endsWith('/autocomplete')) {
         autocompleteLang = request.url.queryParameters['lang'] ?? '';
         return _jsonResponse(
-          '{"predictions":[{"place_id":"tokyo-station","description":"Tokyo Station, Tokyo"}]}',
+          '{"predictions":[{"place_id":"tokyo-station","description":"Tokyo Station, Tokyo","main_text":"Tokyo Station"}]}',
           200,
         );
       }
@@ -586,14 +592,14 @@ void main() {
     await tester.tap(find.text('Tokyo Station, Tokyo'));
     await tester.pumpAndSettle();
 
-    expect(detailsLangs, {'ja', 'en'});
+    expect(detailsLangs, {'en'});
     expect(resolvedDisplay, 'Tokyo Station');
-    expect(resolvedJa, '東京駅');
+    expect(resolvedJa, isEmpty);
     expect(resolvedEn, 'Tokyo Station');
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('English locale resolves both Japanese and English place names', (
+  testWidgets('English locale preserves the selected English place name', (
     tester,
   ) async {
     var autocompleteLang = '';
@@ -609,7 +615,7 @@ void main() {
       if (request.url.path.endsWith('/autocomplete')) {
         autocompleteLang = request.url.queryParameters['lang'] ?? '';
         return _jsonResponse(
-          '{"predictions":[{"place_id":"tokyo-station","description":"Tokyo Station, Tokyo"}]}',
+          '{"predictions":[{"place_id":"tokyo-station","description":"Tokyo Station, Tokyo","main_text":"Tokyo Station"}]}',
           200,
         );
       }
@@ -656,9 +662,9 @@ void main() {
     await tester.tap(find.text('Tokyo Station, Tokyo'));
     await tester.pumpAndSettle();
 
-    expect(detailsLangs, {'ja', 'en'});
+    expect(detailsLangs, {'en'});
     expect(resolvedDisplay, 'Tokyo Station');
-    expect(resolvedJa, '東京駅');
+    expect(resolvedJa, isEmpty);
     expect(resolvedEn, 'Tokyo Station');
   });
 }

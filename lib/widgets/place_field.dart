@@ -106,6 +106,7 @@ String _resolvedPlaceName(
 _ResolvedPlaceDetail _parsePlaceDetail(
   Map<String, dynamic> json, {
   required String language,
+  required String predictionName,
 }) {
   final result = json['result'];
   if (result is! Map) {
@@ -113,10 +114,10 @@ _ResolvedPlaceDetail _parsePlaceDetail(
       'Place details response is missing result object: language=$language',
     );
   }
-  final name = result['name']?.toString().trim();
-  if (name == null || name.isEmpty) {
+  final name = predictionName.trim();
+  if (name.isEmpty) {
     throw StateError(
-      'Place details response is missing a display name: language=$language',
+      'Autocomplete prediction is missing a main text: language=$language',
     );
   }
   final formattedAddress = result['formatted_address']?.toString().trim();
@@ -214,8 +215,8 @@ class _PlaceFieldState extends State<PlaceField> {
     final code = Localizations.localeOf(context).languageCode;
     if (_lastLocaleCode != null && _lastLocaleCode != code) {
       _autocompleteTimer?.cancel();
-      // The details pair already contains both names. Keep an active selection
-      // and choose its display name using the new locale when it completes.
+      // Preserve a pending selection with its original search-language name.
+      // Changing the UI language must not trigger another Places request.
       if (!_resolvingPlace) ++_inputGeneration;
       _preds = [];
       _loading = _resolvingPlace;
@@ -290,7 +291,11 @@ class _PlaceFieldState extends State<PlaceField> {
       if (!mounted || generation != _inputGeneration) return;
       final json = await ApiClient.get(
         '/autocomplete',
-        params: {'q': query, 'lang': _placeLanguageCode()},
+        params: {
+          'q': query,
+          'lang': _placeLanguageCode(),
+          'include_main_text': 'true',
+        },
       );
       final raw = json['predictions'];
       if (raw is! List) {
@@ -338,35 +343,35 @@ class _PlaceFieldState extends State<PlaceField> {
       return;
     }
 
+    final language = _placeLanguageCode();
     setState(() {
       _resolvingPlace = true;
       _loading = true;
+      _preds = [];
       _errorMessage = null;
     });
 
     try {
-      final detailResponses = await Future.wait([
-        ApiClient.get('/details', params: {'place_id': placeId, 'lang': 'ja'}),
-        ApiClient.get('/details', params: {'place_id': placeId, 'lang': 'en'}),
-      ]);
-      final japanese = _parsePlaceDetail(detailResponses[0], language: 'ja');
-      final english = _parsePlaceDetail(detailResponses[1], language: 'en');
-
-      if ((japanese.lat - english.lat).abs() > 0.0000001 ||
-          (japanese.lon - english.lon).abs() > 0.0000001) {
-        throw StateError(
-          'Japanese/English place details coordinates disagree: '
-          'ja=${japanese.lat},${japanese.lon} '
-          'en=${english.lat},${english.lon}',
-        );
+      final mainText = prediction['main_text'];
+      if (mainText is! String || mainText.trim().isEmpty) {
+        throw StateError('Autocomplete prediction is missing main_text');
       }
-
-      final resolvedNameJa = _resolvedPlaceName(japanese, language: 'ja');
-      final resolvedNameEn = _resolvedPlaceName(english, language: 'en');
-      if (!mounted || generation != _inputGeneration) return;
-      final displayName = _placeLanguageCode() == 'en'
-          ? resolvedNameEn
-          : resolvedNameJa;
+      final response = await ApiClient.get(
+        '/details',
+        params: {
+          'place_id': placeId,
+          'lang': language,
+          'essentials': 'true',
+        },
+      );
+      final detail = _parsePlaceDetail(
+        response,
+        language: language,
+        predictionName: mainText,
+      );
+      final displayName = _resolvedPlaceName(detail, language: language);
+      final resolvedNameJa = language == 'ja' ? displayName : '';
+      final resolvedNameEn = language == 'en' ? displayName : '';
 
       if (!mounted || generation != _inputGeneration) return;
 
@@ -383,7 +388,7 @@ class _PlaceFieldState extends State<PlaceField> {
         _preds = [];
         _errorMessage = null;
       });
-      final value = '${japanese.lat},${japanese.lon}';
+      final value = '${detail.lat},${detail.lon}';
       final resolved = widget.onResolved;
       if (resolved != null) {
         resolved(value, displayName, resolvedNameJa, resolvedNameEn);

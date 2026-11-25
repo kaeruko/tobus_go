@@ -1030,19 +1030,23 @@ def register_routes(app):
     async def autocomplete(
         q: str = Query(...),
         lang: str = Query("ja"),
+        include_main_text: bool = Query(False),
     ):
         from app.services.google_places import autocomplete_legacy_response
 
-        return await autocomplete_legacy_response(q, language=lang)
+        return await autocomplete_legacy_response(
+            q, language=lang, include_main_text=include_main_text
+        )
 
     @app.get("/details")
     async def details(
         place_id: str = Query(...),
         lang: str = Query("ja"),
+        essentials: bool = Query(False),
     ):
         from app.services.google_places import details_legacy_response
 
-        return await details_legacy_response(place_id, language=lang)
+        return await details_legacy_response(place_id, language=lang, essentials=essentials)
 
     @app.get("/healthz")
     async def healthz():

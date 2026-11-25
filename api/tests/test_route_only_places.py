@@ -154,6 +154,35 @@ class RouteOnlyPlacesTest(unittest.TestCase):
             {"languageCode": "ja", "regionCode": "JP"},
         )
 
+    def test_compact_autocomplete_and_essentials_details(self) -> None:
+        fake = _FakeAsyncClient(
+            _response(200, {"suggestions": [{"placePrediction": {
+                "placeId": "station", "text": {"text": "出発駅, 例示市"},
+                "structuredFormat": {"mainText": {"text": "出発駅"}},
+            }}]}),
+            _response(200, {"id": "station", "formattedAddress": "例示市",
+                "location": {"latitude": 35.0, "longitude": 139.0}}),
+        )
+        with (
+            patch.dict(os.environ, {"GOOGLE_MAPS_API_KEY": "test-key"}, clear=False),
+            patch("app.route_only_places.httpx.AsyncClient", return_value=fake),
+            _client() as client,
+        ):
+            suggestions = client.get("/autocomplete", params={
+                "q": "出発駅", "include_main_text": "true",
+            })
+            detail = client.get("/details", params={
+                "place_id": "station", "essentials": "true",
+            })
+        self.assertEqual(suggestions.status_code, 200)
+        self.assertEqual(suggestions.json()["predictions"][0]["main_text"], "出発駅")
+        self.assertEqual(detail.status_code, 200)
+        self.assertNotIn("name", detail.json()["result"])
+        self.assertEqual(detail.json()["result"]["geometry"]["location"], {"lat": 35.0, "lng": 139.0})
+        self.assertEqual(len(fake.calls), 2)
+        self.assertIn("structuredFormat.mainText.text", fake.calls[0][2]["headers"]["X-Goog-FieldMask"])
+        self.assertEqual(fake.calls[1][2]["headers"]["X-Goog-FieldMask"], "id,formattedAddress,location")
+
     def test_missing_key_fails_instead_of_returning_empty_predictions(self) -> None:
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("GOOGLE_MAPS_API_KEY", None)

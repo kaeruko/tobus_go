@@ -7,6 +7,7 @@ from fastapi import HTTPException
 PLACES_AUTOCOMPLETE_URL = "https://places.googleapis.com/v1/places:autocomplete"
 PLACES_DETAILS_URL = "https://places.googleapis.com/v1/places"
 PLACES_DETAILS_FIELD_MASK = "id,displayName,formattedAddress,location"
+PLACES_ESSENTIALS_FIELD_MASK = "id,formattedAddress,location"
 SUPPORTED_LANGUAGES = {"ja", "en"}
 
 
@@ -45,7 +46,9 @@ def _upstream_json(response: httpx.Response, operation: str) -> dict:
     return payload
 
 
-async def autocomplete_legacy_response(query: str, language: str = "ja") -> dict:
+async def autocomplete_legacy_response(
+    query: str, language: str = "ja", *, include_main_text: bool = False
+) -> dict:
     query = query.strip()
     language = _require_language(language)
     if not query:
@@ -112,17 +115,22 @@ async def autocomplete_legacy_response(query: str, language: str = "ja") -> dict
                 "Places API (New) autocomplete placePrediction is missing text.text",
             )
 
-        predictions.append(
-            {
-                "place_id": place_id,
-                "description": description,
-            }
-        )
+        entry = {"place_id": place_id, "description": description}
+        if include_main_text:
+            structured = prediction.get("structuredFormat")
+            main = structured.get("mainText") if isinstance(structured, dict) else None
+            name = main.get("text") if isinstance(main, dict) else None
+            if not isinstance(name, str) or not name.strip():
+                raise HTTPException(502, "Places autocomplete missing structuredFormat.mainText.text")
+            entry["main_text"] = name
+        predictions.append(entry)
 
     return {"predictions": predictions, "status": "OK"}
 
 
-async def details_legacy_response(place_id: str, language: str = "ja") -> dict:
+async def details_legacy_response(
+    place_id: str, language: str = "ja", *, essentials: bool = False
+) -> dict:
     place_id = place_id.strip()
     language = _require_language(language)
     if not place_id:
@@ -132,7 +140,9 @@ async def details_legacy_response(place_id: str, language: str = "ja") -> dict:
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": _api_key(),
-        "X-Goog-FieldMask": PLACES_DETAILS_FIELD_MASK,
+        "X-Goog-FieldMask": (
+            PLACES_ESSENTIALS_FIELD_MASK if essentials else PLACES_DETAILS_FIELD_MASK
+        ),
     }
     params = {"languageCode": language, "regionCode": "JP"}
 
@@ -158,7 +168,7 @@ async def details_legacy_response(place_id: str, language: str = "ja") -> dict:
     longitude = location.get("longitude") if isinstance(location, dict) else None
     formatted_address = payload.get("formattedAddress")
 
-    if not isinstance(name, str) or not name:
+    if not essentials and (not isinstance(name, str) or not name):
         raise HTTPException(
             502,
             "Places API (New) details response is missing displayName.text",
@@ -175,7 +185,6 @@ async def details_legacy_response(place_id: str, language: str = "ja") -> dict:
         )
 
     result = {
-        "name": name,
         "geometry": {
             "location": {
                 "lat": float(latitude),
@@ -183,6 +192,8 @@ async def details_legacy_response(place_id: str, language: str = "ja") -> dict:
             }
         },
     }
+    if not essentials:
+        result["name"] = name
     if formatted_address:
         result["formatted_address"] = formatted_address
 
