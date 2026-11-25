@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  FLUTTER_VERSION: '3.47.9'
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -65,10 +68,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
       - name: Show Flutter version
@@ -87,7 +97,9 @@ jobs:
         run: ruby scripts/configure_ios_flavors.rb --check
 
       - name: Build Tokyo Android flavor
-        run: flutter build apk --debug --flavor tokyo --dart-define=APP_CITY=tokyo
+        run: |
+          flutter config --jdk-dir "$JAVA_HOME"
+          flutter build apk --debug --flavor tokyo --dart-define=APP_CITY=tokyo
 
   android-release:
     name: Tokyo Windows release AAB
@@ -112,6 +124,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
       - name: Create validation-only release signing
@@ -168,6 +181,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
       - name: Install Flutter dependencies

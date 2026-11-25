@@ -72,12 +72,16 @@ _CONTRACT_OBJECTS = {
 # unchanged static projection as a lower bound. Frozen realtime delay and the
 # exact query clock still select departures, and source exceptions remain
 # fail-fast rather than cached as successful transitions.
+# Origin access can now pass validated graph nodes as additional seeds. This
+# proof still covers suffixes from one physical start. With initial_nodes unset,
+# the search offers the same single zero-resource label and uses the same
+# transition rules after seeding.
 # Ignore only Python 3.12's added empty type_params field, not executable code.
 _REVIEWED_AST_SHA256 = {
-    "forward.search_labels": "49f8b921f08f0910b1d641d242b34adaaee608d307bf14ce501e2bced8669475",
-    "integration.search_labels": "3dde3b854fc3a6072184129c7386655a1a2150fe2692ce3cc36a810ca42e6375",
+    "forward.search_labels": "7d337b1cbda6a90d01ac8418b809c7aa05fe62b1178a07d21723d17ca6d06bb0",
+    "integration.search_labels": "5521d55b8ee51e993180eedcc5a7c64167199ef8919882f2a0634d89b26ebff4",
     "integration._alight_minutes": "b12f86c9f461e9269ec5df73c7c1456f8ace23fcf425e1db6260344110d50bf7",
-    "engine._tokyo_label_search": "ce77628fb97323157cfc4e86f33aef7ddd8be61c47ef7f4fd589c28bcad299f2",
+    "engine._tokyo_label_search": "2dc1334b171a279055810a3b22a78e8f092b4b9eb4f055820645d7b039359015",
     "engine.advance_time": "d8323f8f8046a46d1f35bb46f0c7cf586ed9a446163e3d12b15585dee484dcf9",
     "engine._edge_uses_rail": "131d5efe0129771b745203e425ef73b6321217f600ae22a56ce2e4975e1cc451",
     "engine.time_str_to_min": "d0f4bd80a6985fd7b4dc53be59b68c06b4197927663ccb5fbec31e9f000b37e5",

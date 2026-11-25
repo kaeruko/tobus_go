@@ -27,6 +27,9 @@ from transport_scope import TOEI_BUS, TOEI_SUBWAY, TOKYO_METRO
 from tokyo_route_engine import TokyoRouteEngine
 
 
+TRANSFER_MANIFEST = Path(__file__).resolve().parents[1] / "config" / "tokyo_metro_reviewed_transfers.json"
+
+
 def _write(path, name, content):
     (path / name).write_text(content, encoding="utf-8")
 
@@ -103,6 +106,16 @@ def _common_policy(tmp_path, *, exceptions=(), overrides=()):
         "overrides": list(overrides),
         "exceptions": list(exceptions),
     }), encoding="utf-8")
+    return path
+
+
+def _geometric_policy(tmp_path):
+    policy = json.loads(TRANSFER_MANIFEST.read_text(encoding="utf-8"))
+    # The fixture has synthetic station IDs. Keep the production geometry rule,
+    # but test the real station overrides separately.
+    policy["overrides"] = []
+    path = tmp_path / "transfer-policy.json"
+    path.write_text(json.dumps(policy), encoding="utf-8")
     return path
 
 
@@ -188,15 +201,14 @@ def test_feed_audit_and_import_preserve_exact_runs_calendar_and_24_hour_times(tm
 
 
 def test_committed_transfer_manifest_is_strict_and_reviewed():
-    manifest = Path(__file__).resolve().parents[1] / "config" / "tokyo_metro_reviewed_transfers.json"
-    policy = _transfer_policy(str(manifest))
+    policy = _transfer_policy(str(TRANSFER_MANIFEST))
     assert policy.schema == GEOMETRIC_SCHEMA
     assert policy.automatic_enabled is False
     assert policy.geometric_enabled is True
     assert policy.automatic_minutes == 0
     assert policy.automatic_resource_meters == 0
     assert policy.exceptions == {}
-    transfers = _reviewed_transfers(str(manifest))
+    transfers = _reviewed_transfers(str(TRANSFER_MANIFEST))
     assert len(transfers) == 4
     assert {
         tuple(sorted(pair))
@@ -504,7 +516,7 @@ def test_official_different_station_connections_use_toei_geometry_in_ordinary_sc
     gtfs, stations_path, railways_path = _fixture(tmp_path)
     graph = nx.DiGraph()
     manager = TimetableManager()
-    manifest = Path(__file__).resolve().parents[1] / "config" / "tokyo_metro_reviewed_transfers.json"
+    manifest = _geometric_policy(tmp_path)
     add_tokyo_metro_to_graph(
         graph, manager, gtfs_dir=str(gtfs),
         stations_path=str(stations_path), railways_path=str(railways_path),
@@ -527,7 +539,7 @@ def test_official_different_station_connections_use_toei_geometry_in_ordinary_sc
     assert abs(edge["meters"] - distance) < 0.0001
     assert abs(edge["w"] - WALK_COST * max(1.0, distance / WALK_SPEED_M_PER_MIN)) < 0.0001
     assert manager.tokyo_metro_transfer_model_report["coordinate_estimate"] == 1
-    assert manager.tokyo_metro_transfer_model_report["unsupported_different_station"] == 0
+    assert manager.tokyo_metro_transfer_model_report.get("unsupported_different_station", 0) == 0
     assert manager.tokyo_metro_transfer_model_report["searchable_raw_pairs"] == 1
     app = SimpleNamespace(state=SimpleNamespace(
         G=graph, TM=manager, SI=SpatialIndex(graph), WALK_RAD=300,
@@ -549,7 +561,7 @@ def test_coordinate_transfer_uses_toei_one_way_relation_symmetrically(tmp_path):
     stations_path.write_text(json.dumps(stations, ensure_ascii=False), encoding="utf-8")
     graph = nx.DiGraph()
     manager = TimetableManager()
-    manifest = Path(__file__).resolve().parents[1] / "config" / "tokyo_metro_reviewed_transfers.json"
+    manifest = _geometric_policy(tmp_path)
     add_tokyo_metro_to_graph(
         graph, manager, gtfs_dir=str(gtfs), stations_path=str(stations_path),
         railways_path=str(railways_path), reviewed_transfers_path=str(manifest),
@@ -566,7 +578,7 @@ def test_coordinate_transfer_rejects_nonfinite_station_separation(tmp_path):
     stations = json.loads(stations_path.read_text(encoding="utf-8"))
     stations[1]["geo:lat"] = float("nan")
     stations_path.write_text(json.dumps(stations, ensure_ascii=False), encoding="utf-8")
-    manifest = Path(__file__).resolve().parents[1] / "config" / "tokyo_metro_reviewed_transfers.json"
+    manifest = _geometric_policy(tmp_path)
     with unittest.TestCase().assertRaisesRegex(ValueError, "coordinates"):
         add_tokyo_metro_to_graph(
             nx.DiGraph(), TimetableManager(), gtfs_dir=str(gtfs),

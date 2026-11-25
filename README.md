@@ -320,6 +320,10 @@ GTFSの週次更新は [GTFS更新手順](docs/gtfs-refresh.md) を参照する�
 
 ## 東京APIのLambdaデプロイ
 
+GitHub Actions の `Tokyo API deploy` は、`main` の CI が成功したコミットを対象にします。本番の初期設定、ドライラン、自動化の有効化は [東京 API 自動デプロイ手順](docs/tokyo-api-github-actions-deploy.md) を参照してください。
+
+### 手動デプロイ
+
 本番のデータ契約と対象mainのCIを確認し、AWS CLIの認証・Docker Desktop起動を済ませる。
 承認後にリポジトリ直下で実行する。
 

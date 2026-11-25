@@ -16,10 +16,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: tokyo-api-production
-  cancel-in-progress: false
-
 jobs:
   deploy:
     # The automatic path is inert until the repository owner explicitly enables it.
@@ -35,13 +31,16 @@ jobs:
        github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     environment: tokyo-api-production
+    concurrency:
+      group: tokyo-api-production
+      cancel-in-progress: false
     timeout-minutes: 50
     permissions:
       contents: read
       id-token: write
     env:
       AWS_REGION: us-west-2
-      EXPECTED_AWS_ACCOUNT: "667674573054"
+      EXPECTED_AWS_ACCOUNT: "314267685786"
       ECR_REPOSITORY: toeigo-api
       LAMBDA_FUNCTION: toeigo-api
       SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
@@ -141,10 +140,10 @@ jobs:
             --region "$AWS_REGION" --output json >/dev/null
           config="$(aws lambda get-function-configuration \
             --function-name "$LAMBDA_FUNCTION" --region "$AWS_REGION" \
-            --query '{Type:PackageType,Architecture:Architectures[0],City:Environment.Variables.APP_CITY,Bucket:Environment.Variables.S3_BUCKET_NAME,Key:Environment.Variables.S3_PREBUILT_KEY}' \
+            --query '{Type:PackageType,Architecture:Architectures[0],City:Environment.Variables.APP_CITY,Bucket:Environment.Variables.S3_BUCKET_NAME,Key:Environment.Variables.S3_PREBUILT_KEY,RevisionId:RevisionId}' \
             --output json)"
-          jq -e '.Type == "Image" and .Architecture == "x86_64" and (.City == null or .City == "tokyo") and (.Bucket | type == "string" and length > 0) and (.Key | type == "string" and length > 0)' <<< "$config" >/dev/null || {
-            echo "::error::Lambda image, architecture, city, or explicit S3 bucket/prebuilt key differs from the Tokyo deployment contract"; exit 1;
+          jq -e '.Type == "Image" and .Architecture == "x86_64" and (.City == null or .City == "tokyo") and (.Bucket | type == "string" and length > 0) and (.Key | type == "string" and length > 0) and (.RevisionId | type == "string" and length > 0)' <<< "$config" >/dev/null || {
+            echo "::error::Could not verify the Tokyo Lambda image, architecture, city, S3 configuration, and revision"; exit 1;
           }
           bucket="$(jq -r '.Bucket' <<< "$config")"
           key="$(jq -r '.Key' <<< "$config")"
@@ -156,6 +155,7 @@ jobs:
           if [[ "$actual" != "$EXPECTED_PREBUILT_SHA256" ]]; then
             echo "::error::S3 prebuilt SHA-256 mismatch (expected=$EXPECTED_PREBUILT_SHA256 actual=$actual)"; exit 1;
           fi
+          echo "LAMBDA_REVISION_ID=$(jq -r '.RevisionId' <<< "$config")" >> "$GITHUB_ENV"
           echo "Approved S3 prebuilt SHA-256 verified."
 
       - name: Set up Docker Buildx
@@ -209,9 +209,13 @@ jobs:
             echo "::error::Invalid ECR image digest: $digest"; exit 1;
           }
           image_uri="$registry/$ECR_REPOSITORY@$digest"
+          current="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$current" = "$SOURCE_SHA" || {
+            echo "::error::Main moved while publishing; refusing to update Lambda with a superseded commit"; exit 1;
+          }
           aws lambda update-function-code \
             --region "$AWS_REGION" --function-name "$LAMBDA_FUNCTION" \
-            --image-uri "$image_uri" --output json >/dev/null
+            --image-uri "$image_uri" --revision-id "$LAMBDA_REVISION_ID" --output json >/dev/null
           aws lambda wait function-updated \
             --region "$AWS_REGION" --function-name "$LAMBDA_FUNCTION"
           deployed="$(aws lambda get-function \
