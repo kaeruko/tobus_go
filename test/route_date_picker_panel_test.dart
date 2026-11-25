@@ -36,13 +36,23 @@ void main() {
       final surface = tester.widget<Container>(
         find.descendant(of: panel, matching: find.byType(Container)).first,
       );
-      final expected = brightness == Brightness.dark
-          ? CupertinoColors.black
-          : CupertinoColors.white;
-      expect(surface.color, expected);
+      // Cupertino modal popups establish elevated interface level.
+      // Dark systemBackground is therefore darkElevatedColor, not black.
       expect(
-        CupertinoTheme.of(context).textTheme.dateTimePickerTextStyle.color,
-        CupertinoDynamicColor.resolve(CupertinoColors.label, context),
+        CupertinoUserInterfaceLevel.of(context),
+        CupertinoUserInterfaceLevelData.elevated,
+      );
+      final expected = brightness == Brightness.dark
+          ? CupertinoColors.systemBackground.darkElevatedColor
+          : CupertinoColors.systemBackground.elevatedColor;
+      expect(surface.color!.toARGB32(), expected.toARGB32());
+      final expectedLabel = brightness == Brightness.dark
+          ? CupertinoColors.white
+          : CupertinoColors.black;
+      expect(
+        CupertinoTheme.of(context).textTheme.dateTimePickerTextStyle.color!
+            .toARGB32(),
+        expectedLabel.toARGB32(),
       );
       expect(find.byType(CupertinoDatePicker), findsOneWidget);
       expect(tester.takeException(), isNull);
