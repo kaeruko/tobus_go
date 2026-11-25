@@ -35,6 +35,11 @@
 	<key>GoogleMapsApiKey</key>
 	<string>$(GOOGLE_MAPS_IOS_API_KEY)</string>
 
+	<!-- Official sample app ID for local test ads only. Replace before distribution. -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<key>GADDelayAppMeasurementInit</key>
+	<true/>
 	<key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
 	<false/>
 	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS</key>

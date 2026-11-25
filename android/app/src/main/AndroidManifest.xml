@@ -30,6 +30,9 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Official sample app ID for local test ads only. Replace before distribution. -->
+        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713" />
         <!-- Usage analytics only; no advertising ID or ad personalization. -->
         <meta-data android:name="firebase_analytics_collection_enabled" android:value="false" />
         <meta-data android:name="google_analytics_adid_collection_enabled" android:value="false" />

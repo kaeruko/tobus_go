@@ -39,6 +39,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prevent upload of sample AdMob configuration
+        run: |
+          echo '::error::TestFlight uploads are blocked during AdMob test integration. See docs/admob-rollout.md.'
+          exit 1
+
       - name: Select Xcode 26.6
         shell: bash
         run: |

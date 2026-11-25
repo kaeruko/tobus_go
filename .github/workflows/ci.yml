@@ -152,7 +152,7 @@ jobs:
         env:
           # This validation AAB is never uploaded and uses no production keys.
           GOOGLE_MAPS_ANDROID_API_KEY: ci-build-check-only
-        run: ./scripts/build_aab.ps1 -City tokyo
+        run: ./scripts/build_aab.ps1 -City tokyo -ValidationOnly
 
       - name: Verify pending test plugins are absent
         shell: pwsh

@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../core/app_clock.dart';
 import '../core/city_profile.dart';
+import '../core/test_banner_policy.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
@@ -15,6 +16,7 @@ import '../widgets/place_field.dart';
 import '../widgets/route_card.dart';
 import '../widgets/route_date_picker_panel.dart';
 import '../widgets/route_search_error_notice.dart';
+import '../widgets/test_route_banner.dart';
 import 'map_picker_page.dart';
 import 'route_detail_page.dart';
 import '../providers/effective_location_provider.dart';
@@ -23,6 +25,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/route_search_provider.dart';
 import '../providers/active_trip_provider.dart';
 import '../providers/city_profile_provider.dart';
+import '../providers/navigation_provider.dart';
 import '../models/trip_models.dart';
 import 'leader_mode_page.dart';
 import 'trip_page.dart';
@@ -264,6 +267,14 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
     final cityKey = ref.watch(
       cityProfileProvider.select((profile) => profile.key),
     );
+    final testBannerId = configuredTestBannerUnitId(cityKey);
+    final showTestBanner = testBannerId != null &&
+        ref.watch(tabIndexProvider) == 0 &&
+        (ModalRoute.isCurrentOf(context) ?? false) &&
+        !rs.isLoading &&
+        rs.errorMessage == null &&
+        rs.candidates.isNotEmpty &&
+        MediaQuery.sizeOf(context).width >= 320;
     final showTokyoTransportControl = cityKey == 'tokyo';
     final showLegacyTransportControl =
         cityKey == 'sendai' && sendaiReviewedCoordinatesEnabled;
@@ -674,6 +685,10 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                   }, childCount: rs.candidates.length),
                 ),
 
+              if (showTestBanner)
+                SliverToBoxAdapter(
+                  child: TestRouteBanner(adUnitId: testBannerId!),
+                ),
               const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
             ],
           ),
