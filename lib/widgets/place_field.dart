@@ -424,8 +424,11 @@ class _PlaceFieldState extends State<PlaceField> {
           padding: const EdgeInsets.only(left: 4, bottom: 6),
           child: Text(
             widget.label,
-            style: const TextStyle(
-              color: CupertinoColors.inactiveGray,
+            style: TextStyle(
+              color: CupertinoDynamicColor.resolve(
+                CupertinoColors.secondaryLabel,
+                context,
+              ),
               fontSize: 12,
             ),
           ),
@@ -465,7 +468,10 @@ class _PlaceFieldState extends State<PlaceField> {
             child: Container(
               margin: const EdgeInsets.only(top: 6),
               decoration: BoxDecoration(
-                color: CupertinoColors.systemGrey6,
+                color: CupertinoDynamicColor.resolve(
+                  CupertinoColors.systemGrey6,
+                  context,
+                ),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: ListView.builder(

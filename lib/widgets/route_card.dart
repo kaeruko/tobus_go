@@ -102,6 +102,11 @@ class RouteCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context);
+    final label = CupertinoDynamicColor.resolve(CupertinoColors.label, context);
+    final secondaryLabel = CupertinoDynamicColor.resolve(
+      CupertinoColors.secondaryLabel,
+      context,
+    );
     final effectiveFare =
         fare ??
         ref.watch(
@@ -123,7 +128,10 @@ class RouteCard extends ConsumerWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: CupertinoColors.systemGrey6,
+        color: CupertinoDynamicColor.resolve(
+          CupertinoColors.systemGrey6,
+          context,
+        ),
         borderRadius: BorderRadius.circular(16),
       ),
       padding: const EdgeInsets.all(12),
@@ -139,7 +147,7 @@ class RouteCard extends ConsumerWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: CupertinoColors.activeBlue,
+                    color: const Color(0xFF0057B8),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -152,9 +160,10 @@ class RouteCard extends ConsumerWidget {
               Expanded(
                 child: Text(
                   localizedCandidateLines(locale, candidate).join(' → '),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
+                    color: label,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -178,9 +187,9 @@ class RouteCard extends ConsumerWidget {
               Expanded(
                 child: Text(
                   '${_origin(l10n, locale)} → ${_destination(l10n, locale)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: CupertinoColors.systemGrey,
+                    color: secondaryLabel,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -193,15 +202,16 @@ class RouteCard extends ConsumerWidget {
             spacing: 6,
             runSpacing: 4,
             children: [
-              _chip(arrivalChip),
-              _chip(l10n.transfersChip(candidate.transfers)),
-              _chip(l10n.ridesChip(candidate.rides)),
+              _chip(context, arrivalChip),
+              _chip(context, l10n.transfersChip(candidate.transfers)),
+              _chip(context, l10n.ridesChip(candidate.rides)),
               _chip(
+                context,
                 candidate.hasUnknownWalkingDistance
                     ? l10n.walkTitle
                     : l10n.walkChip(candidate.walkingDistanceMeters),
               ),
-              if (fareChip != null) _chip(fareChip),
+              if (fareChip != null) _chip(context, fareChip),
             ],
           ),
         ],
@@ -209,14 +219,23 @@ class RouteCard extends ConsumerWidget {
     );
   }
 
-  Widget _chip(String text) {
+  Widget _chip(BuildContext context, String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: CupertinoColors.white,
+        color: CupertinoDynamicColor.resolve(
+          CupertinoColors.systemBackground,
+          context,
+        ),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(text, style: const TextStyle(fontSize: 12)),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          color: CupertinoDynamicColor.resolve(CupertinoColors.label, context),
+        ),
+      ),
     );
   }
 }

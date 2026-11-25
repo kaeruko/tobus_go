@@ -13,6 +13,7 @@ import '../widgets/bus_loading_indicator.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/place_field.dart';
 import '../widgets/route_card.dart';
+import '../widgets/route_date_picker_panel.dart';
 import '../widgets/route_search_error_notice.dart';
 import 'map_picker_page.dart';
 import 'route_detail_page.dart';
@@ -166,9 +167,8 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
     final l10n = AppLocalizations.of(context);
     showCupertinoModalPopup(
       context: context,
-      builder: (ctx) => Container(
+      builder: (ctx) => RouteDatePickerPanel(
         height: 250,
-        color: CupertinoColors.systemBackground,
         child: Column(
           children: [
             SizedBox(
@@ -335,10 +335,16 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                             vertical: 12,
                           ),
                           decoration: BoxDecoration(
-                            color: CupertinoColors.white,
+                            color: CupertinoDynamicColor.resolve(
+                              CupertinoColors.systemBackground,
+                              context,
+                            ),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: CupertinoColors.separator,
+                              color: CupertinoDynamicColor.resolve(
+                                CupertinoColors.separator,
+                                context,
+                              ),
                             ),
                           ),
                           child: Row(
@@ -346,14 +352,23 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                             children: [
                               Text(
                                 l10n.departureDateTime,
-                                style: const TextStyle(fontSize: 14),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: CupertinoDynamicColor.resolve(
+                                    CupertinoColors.label,
+                                    context,
+                                  ),
+                                ),
                               ),
                               Text(
                                 '${startTime.month}/${startTime.day} ${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: CupertinoColors.activeBlue,
+                                  color: CupertinoDynamicColor.resolve(
+                                    CupertinoColors.systemBlue,
+                                    context,
+                                  ),
                                 ),
                               ),
                             ],
@@ -587,7 +602,10 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                       width: 160,
                       height: 160,
                       decoration: BoxDecoration(
-                        color: CupertinoColors.systemBackground,
+                        color: CupertinoDynamicColor.resolve(
+                          CupertinoColors.systemBackground,
+                          context,
+                        ),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(

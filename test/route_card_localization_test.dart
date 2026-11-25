@@ -74,11 +74,13 @@ void main() {
     bool showRank = true,
     Widget? titleTrailing,
     Candidate? route,
+    Brightness? brightness,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
         child: CupertinoApp(
           locale: locale,
+          theme: CupertinoThemeData(brightness: brightness),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: CupertinoPageScaffold(
@@ -93,6 +95,35 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+  }
+
+  for (final brightness in Brightness.values) {
+    testWidgets('route card resolves surface and label in $brightness', (tester) async {
+      await pumpCard(tester, const Locale('ja'), brightness: brightness);
+      final title = find.text('上23');
+      final chip = find.text('11:33着');
+      final cardContext = tester.element(find.byType(RouteCard));
+      final label = CupertinoDynamicColor.resolve(CupertinoColors.label, cardContext);
+      final background = CupertinoDynamicColor.resolve(
+        CupertinoColors.systemBackground,
+        cardContext,
+      );
+      final cardBackground = CupertinoDynamicColor.resolve(
+        CupertinoColors.systemGrey6,
+        cardContext,
+      );
+      expect(tester.widget<Text>(title).style!.color, label);
+      expect(tester.widget<Text>(chip).style!.color, label);
+      final chipContainer = tester.widget<Container>(
+        find.ancestor(of: chip, matching: find.byType(Container)).first,
+      );
+      expect((chipContainer.decoration! as BoxDecoration).color, background);
+      final card = tester.widget<Container>(
+        find.descendant(of: find.byType(RouteCard), matching: find.byType(Container)).first,
+      );
+      expect((card.decoration! as BoxDecoration).color, cardBackground);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('saved-route style card can hide candidate rank', (tester) async {

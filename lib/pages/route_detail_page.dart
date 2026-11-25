@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import '../widgets/route_date_picker_panel.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -720,9 +721,8 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     if (widget.candidate.planningJourney == null) _searchTime = appClock.now();
     showCupertinoModalPopup(
       context: context,
-      builder: (ctx) => Container(
+      builder: (ctx) => RouteDatePickerPanel(
         height: 280,
-        color: CupertinoColors.systemBackground,
         child: Column(
           children: [
             Container(
@@ -771,9 +771,8 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
 
     showCupertinoModalPopup(
       context: context,
-      builder: (ctx) => Container(
+      builder: (ctx) => RouteDatePickerPanel(
         height: 280,
-        color: CupertinoColors.systemBackground,
         child: Column(
           children: [
             Container(
