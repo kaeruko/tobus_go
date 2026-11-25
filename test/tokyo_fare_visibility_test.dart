@@ -7,6 +7,7 @@ import 'package:toeigo/models/fare_models.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/pages/route_detail_page.dart';
 import 'package:toeigo/widgets/route_card.dart';
+import 'package:toeigo/widgets/route_detail_widgets.dart';
 
 void main() {
   final candidate = Candidate(
@@ -84,5 +85,6 @@ void main() {
     );
     expect((logo.image as AssetImage).assetName, 'assets/icon/tokyo.png');
     expect(find.byKey(const Key('route-detail-research')), findsOneWidget);
+    expect(find.byType(RouteSummary), findsNothing);
   });
 }

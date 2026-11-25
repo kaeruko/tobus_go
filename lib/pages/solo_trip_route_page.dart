@@ -58,7 +58,10 @@ class SoloTripRoutePage extends ConsumerWidget {
                 SliverToBoxAdapter(
                   child: RouteEndpointSummary(candidate: candidate),
                 ),
-                SliverToBoxAdapter(child: RouteSummary(candidate: candidate)),
+                // Keep Tokyo's overview consistent with the search detail:
+                // endpoints, map and individual steps, without duplicate totals.
+                if (city != AppCity.tokyo)
+                  SliverToBoxAdapter(child: RouteSummary(candidate: candidate)),
                 const SliverToBoxAdapter(child: SizedBox(height: 12)),
                 if (leg.routeGeometryIsApproximate && candidate.points.isNotEmpty)
                   SliverToBoxAdapter(

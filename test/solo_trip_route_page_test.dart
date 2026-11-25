@@ -148,9 +148,18 @@ void main() {
       expect(find.text('上23 上野松坂屋前行 → 浅草線'), findsNothing);
       expect(find.text('Ueno-Matsuzakaya → Asakusa Line'), findsNothing);
       expect(find.byType(RouteEndpointSummary), findsOneWidget);
-      expect(find.byType(RouteSummary), findsOneWidget);
-      expect(find.text('356m'), findsOneWidget);
-      expect(find.text('07:17'), findsOneWidget);
+      expect(find.byType(RouteSummary), findsNothing);
+      expect(find.text('356m'), findsNothing);
+      expect(find.text('07:17'), findsNothing);
+      final l10n = AppLocalizations.of(tester.element(find.byType(SoloTripRoutePage)));
+      for (final label in [
+        l10n.summaryDuration,
+        l10n.summaryTransfers,
+        l10n.summaryRideSegments,
+        l10n.summaryWalk,
+      ]) {
+        expect(find.text(label), findsNothing, reason: label);
+      }
       expect(tester.widget<RouteMapPreview>(find.byType(RouteMapPreview)).points, original.points);
       expect(tester.widgetList<RouteStepTile>(find.byType(RouteStepTile)).map((tile) => tile.segment.stepId),
         ['wait', 'walk-in', 'bus', 'rail', 'walk-out']);
@@ -165,15 +174,17 @@ void main() {
       );
       controller.add(trip(updated));
       await tester.pumpAndSettle();
-      expect(tester.widget<RouteSummary>(find.byType(RouteSummary)).candidate.id, 'replanned');
-      expect(find.text('07:25'), findsOneWidget);
-      expect(find.text('07:17'), findsNothing);
+      expect(tester.widget<RouteEndpointSummary>(find.byType(RouteEndpointSummary)).candidate.id, 'replanned');
+      final lastStep = tester.widgetList<RouteStepTile>(find.byType(RouteStepTile)).last;
+      expect(lastStep.segment.arrivalTime, '07:25');
+      expect(find.byType(RouteSummary), findsNothing);
       expect(tester.widget<RouteMapPreview>(find.byType(RouteMapPreview)).points, updated.points);
 
       controller.addError(StateError('route subscription failed'));
       await tester.pumpAndSettle();
       expect(find.textContaining('route subscription failed'), findsOneWidget);
-      expect(find.byType(RouteSummary), findsNothing);
+      expect(find.byType(RouteEndpointSummary), findsNothing);
+      expect(find.byType(RouteStepTile), findsNothing);
 
       controller.add(trip(updated));
       await tester.pumpAndSettle();
