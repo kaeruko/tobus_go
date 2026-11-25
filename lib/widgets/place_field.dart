@@ -164,9 +164,11 @@ _ResolvedPlaceDetail _parsePlaceDetail(
 }
 
 class _PlaceFieldState extends State<PlaceField> {
-  static const _autocompleteDebounce = Duration(milliseconds: 300);
+  static const _autocompleteDebounce = Duration(milliseconds: 500);
 
   late final TextEditingController _ctrl;
+  late String _lastInputText;
+  late bool _lastInputComposing;
   Timer? _autocompleteTimer;
   List<Map<String, dynamic>> _preds = [];
   bool _loading = false;
@@ -196,6 +198,8 @@ class _PlaceFieldState extends State<PlaceField> {
   void initState() {
     super.initState();
     _ctrl = TextEditingController(text: widget.displayValue);
+    _lastInputText = _ctrl.text;
+    _lastInputComposing = !_ctrl.value.composing.isCollapsed;
     _ctrl.addListener(_onInputChanged);
     unawaited(_primeBackend());
   }
@@ -247,9 +251,16 @@ class _PlaceFieldState extends State<PlaceField> {
   }
 
   void _onInputChanged() {
-    if (_isSyncing) return;
-
     final text = _ctrl.text;
+    final composing = !_ctrl.value.composing.isCollapsed;
+    final changed =
+        text != _lastInputText || composing != _lastInputComposing;
+    // Track programmatic changes too, but ignore selection/cursor-only events.
+    // A transition out of IME composition still counts as an input change.
+    _lastInputText = text;
+    _lastInputComposing = composing;
+    if (_isSyncing || !changed) return;
+
     final query = text.trim();
     final generation = ++_inputGeneration;
     _autocompleteTimer?.cancel();
@@ -268,7 +279,7 @@ class _PlaceFieldState extends State<PlaceField> {
     }
 
     // Wait for IME confirmation; pinyin/kana composition is not a search yet.
-    if (query.isEmpty || !_ctrl.value.composing.isCollapsed) return;
+    if (query.isEmpty || composing) return;
 
     _autocompleteTimer = Timer(
       _autocompleteDebounce,
@@ -289,13 +300,9 @@ class _PlaceFieldState extends State<PlaceField> {
       // same request instead of racing autocomplete against another cold start.
       await ApiClient.warmUp();
       if (!mounted || generation != _inputGeneration) return;
-      final json = await ApiClient.get(
-        '/autocomplete',
-        params: {
-          'q': query,
-          'lang': _placeLanguageCode(),
-          'include_main_text': 'true',
-        },
+      final json = await ApiClient.autocompletePlace(
+        query: query,
+        language: _placeLanguageCode(),
       );
       final raw = json['predictions'];
       if (raw is! List) {

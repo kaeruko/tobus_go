@@ -81,7 +81,7 @@ void main() {
       ),
     );
     await tester.enterText(find.byType(CupertinoTextField), 'Tokyo');
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
     await tester.tap(find.text('東京駅'));
     await tester.pump();
@@ -177,7 +177,7 @@ void main() {
           selection: TextSelection.collapsed(offset: 2),
         ),
       );
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
       expect(autocompleteLanguages, ['en']);
       await tester.tap(find.text('Tokyo Station'));
@@ -230,19 +230,29 @@ void main() {
 
     expect(warmupRequestCount, 1);
 
+    await tester.enterText(find.byType(CupertinoTextField), '東');
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.enterText(find.byType(CupertinoTextField), '東京駅');
 
     expect(value, isEmpty);
     expect(description, '東京駅');
     expect(autocompleteRequestCount, 0);
 
-    await tester.pump(const Duration(milliseconds: 299));
+    await tester.pump(const Duration(milliseconds: 499));
     expect(autocompleteRequestCount, 0);
 
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pump();
     expect(autocompleteRequestCount, 1);
     expect(warmupRequestCount, 1);
+
+    final controller = tester
+        .widget<CupertinoTextField>(find.byType(CupertinoTextField))
+        .controller!;
+    controller.selection = const TextSelection.collapsed(offset: 0);
+    await tester.pump(const Duration(seconds: 1));
+    expect(autocompleteRequestCount, 1);
+    expect(description, '東京駅');
   });
 
   testWidgets('multiple place fields share one startup warmup request', (
@@ -286,6 +296,85 @@ void main() {
     await tester.pump();
 
     expect(warmupRequestCount, 1);
+  });
+
+  testWidgets('identical in-flight autocomplete requests are shared, not cached', (
+    tester,
+  ) async {
+    final responses = <Completer<http.Response>>[];
+    final queries = <String?>[];
+    ApiClient.httpClient = MockClient((request) async {
+      if (request.url.path == '/warmup') return _warmupResponse();
+      if (request.url.path == '/autocomplete') {
+        queries.add(request.url.queryParameters['q']);
+        final response = Completer<http.Response>();
+        responses.add(response);
+        return response.future;
+      }
+      return http.Response('unexpected request', 500);
+    });
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        locale: const Locale('ja'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: CupertinoPageScaffold(
+          child: PlaceField(
+            label: '到着(検索)',
+            value: '',
+            displayValue: '',
+            onChanged: (_, _) {},
+          ),
+        ),
+      ),
+    );
+
+    final field = find.byType(CupertinoTextField);
+    await tester.enterText(field, '東京駅');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    expect(queries, ['東京駅']);
+
+    await tester.enterText(field, '新宿駅');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    expect(queries, ['東京駅', '新宿駅']);
+
+    await tester.enterText(field, '東京駅');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    expect(queries, ['東京駅', '新宿駅']);
+
+    responses[1].complete(_jsonResponse(
+      '{"predictions":[{"place_id":"shinjuku","description":"新宿駅","main_text":"新宿駅"}]}',
+      200,
+    ));
+    responses[0].complete(_jsonResponse(
+      '{"predictions":[{"place_id":"tokyo","description":"東京駅, 東京都","main_text":"東京駅"}]}',
+      200,
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('東京駅, 東京都'), findsOneWidget);
+    expect(find.text('新宿駅'), findsNothing);
+
+    await tester.enterText(field, '');
+    await tester.enterText(field, '東京駅');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    expect(queries, ['東京駅', '新宿駅', '東京駅']);
+    responses[2].complete(_jsonResponse('{"detail":"quota exceeded"}', 429));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('HTTP 429'), findsOneWidget);
+
+    await tester.enterText(field, '');
+    await tester.enterText(field, '東京駅');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    expect(queries, ['東京駅', '新宿駅', '東京駅', '東京駅']);
+    responses[3].complete(_jsonResponse('{"predictions":[]}', 200));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('HTTP 429'), findsNothing);
   });
 
   testWidgets('selecting a suggestion commits only resolved coordinates', (
@@ -340,13 +429,22 @@ void main() {
     await tester.enterText(find.byType(CupertinoTextField), '東京駅');
     expect(value, isEmpty);
 
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.pump();
 
     expect(find.text('東京駅, 東京都'), findsOneWidget);
     await tester.tap(find.text('東京駅, 東京都'));
     await tester.pumpAndSettle();
 
+    expect(value, '35.681236,139.767125');
+    expect(description, '東京駅');
+    expect(detailsCount, 1);
+
+    final controller = tester
+        .widget<CupertinoTextField>(find.byType(CupertinoTextField))
+        .controller!;
+    controller.selection = const TextSelection.collapsed(offset: 0);
+    await tester.pump(const Duration(seconds: 1));
     expect(value, '35.681236,139.767125');
     expect(description, '東京駅');
     expect(detailsCount, 1);
@@ -412,7 +510,7 @@ void main() {
       );
 
       await tester.enterText(find.byType(CupertinoTextField), '平井七丁目');
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 500));
       await tester.pump();
 
       expect(find.text('日本、東京都江戸川区平井7丁目8-8'), findsOneWidget);
@@ -475,7 +573,7 @@ void main() {
     );
 
     await tester.enterText(find.byType(CupertinoTextField), '壊れた');
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.pump();
     await tester.tap(find.text('壊れた候補'));
     await tester.pumpAndSettle();
@@ -522,7 +620,7 @@ void main() {
     await tester.pump();
 
     await tester.enterText(find.byType(CupertinoTextField), '東京');
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.pump();
 
     expect(autocompleteRequestCount, 0);
@@ -583,7 +681,7 @@ void main() {
     );
 
     await tester.enterText(find.byType(CupertinoTextField), 'Tokyo');
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.pump();
 
     expect(autocompleteLang, 'en');
@@ -653,7 +751,7 @@ void main() {
     );
 
     await tester.enterText(find.byType(CupertinoTextField), 'Tokyo');
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.pump();
 
     expect(autocompleteLang, 'en');

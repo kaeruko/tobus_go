@@ -31,6 +31,7 @@ class ApiClient {
 
   static http.Client _httpClient = http.Client();
   static Future<void>? _warmUpFuture;
+  static final _autocompleteInFlight = <String, Future<Map<String, dynamic>>>{};
 
   static http.Client get httpClient => _httpClient;
 
@@ -111,6 +112,28 @@ class ApiClient {
       code: code,
       message: message ?? 'API request failed',
       diagnostic: diagnostic,
+    );
+  }
+
+  /// Share only identical unfinished autocomplete requests. No response cache:
+  /// a later explicit search is fresh, and failures never poison new searches.
+  static Future<Map<String, dynamic>> autocompletePlace({
+    required String query,
+    required String language,
+  }) {
+    final key = jsonEncode([kApiBase, configuredCityKey, query, language]);
+    return _autocompleteInFlight.putIfAbsent(
+      key,
+      () => get(
+        '/autocomplete',
+        params: {
+          'q': query,
+          'lang': language,
+          'include_main_text': 'true',
+        },
+      ).whenComplete(() {
+        _autocompleteInFlight.remove(key);
+      }),
     );
   }
 
