@@ -4,6 +4,8 @@ from urllib.parse import quote
 import httpx
 from fastapi import HTTPException
 
+from app.places_access_log import record_upstream_attempt, record_upstream_status
+
 PLACES_AUTOCOMPLETE_URL = "https://places.googleapis.com/v1/places:autocomplete"
 PLACES_DETAILS_URL = "https://places.googleapis.com/v1/places"
 PLACES_DETAILS_FIELD_MASK = "id,displayName,formattedAddress,location"
@@ -66,11 +68,13 @@ async def autocomplete_legacy_response(
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
+            record_upstream_attempt("autocomplete")
             response = await client.post(
                 PLACES_AUTOCOMPLETE_URL,
                 headers=headers,
                 json=body,
             )
+            record_upstream_status(response.status_code)
     except httpx.RequestError as exc:
         raise HTTPException(
             502,
@@ -148,11 +152,13 @@ async def details_legacy_response(
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
+            record_upstream_attempt("essentials" if essentials else "pro")
             response = await client.get(
                 f"{PLACES_DETAILS_URL}/{encoded_place_id}",
                 headers=headers,
                 params=params,
             )
+            record_upstream_status(response.status_code)
     except httpx.RequestError as exc:
         raise HTTPException(
             502,

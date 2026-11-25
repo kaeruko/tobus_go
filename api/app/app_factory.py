@@ -86,6 +86,10 @@ def create_app(mode: str) -> FastAPI:
         allow_headers=["*"],
     )
     install_city_isolation(app, city)
+    if city == "tokyo":
+        from .places_access_log import PlacesAccessLogMiddleware
+
+        app.add_middleware(PlacesAccessLogMiddleware)
 
     @app.on_event("startup")
     async def _startup() -> None:
