@@ -2,5 +2,7 @@
     <!-- Development-only network access for Flutter tooling and the local API.
          Release manifests do not enable cleartext traffic. -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <application android:usesCleartextTraffic="true" />
+    <application android:usesCleartextTraffic="true">
+        <meta-data android:name="firebase_analytics_collection_deactivated" android:value="true" />
+    </application>
 </manifest>

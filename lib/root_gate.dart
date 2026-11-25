@@ -13,6 +13,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'api_endpoint_source.dart';
 import 'constants.dart';
 import 'core/city_profile.dart';
+import 'core/usage_analytics.dart';
 import 'firebase_options.dart';
 import 'l10n/app_localizations.dart';
 import 'pages/force_update_page.dart';
@@ -113,6 +114,7 @@ class _RootGateState extends ConsumerState<RootGate> {
         }
       }
 
+      UsageAnalytics.start(cityProfile);
       await ref.read(appSessionProvider.notifier).initialize();
       return _BootstrapResult(
         runtimeConfig: runtimeConfig,
