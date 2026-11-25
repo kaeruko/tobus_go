@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import gzip
+import hashlib
 import json
 from collections import defaultdict
 from pathlib import Path
@@ -65,11 +66,29 @@ def main() -> int:
     parser.add_argument("--corpus", type=Path, required=True)
     parser.add_argument("--metro-gtfs", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--transfer-manifest",
+        type=Path,
+        help="Check the result against this manifest's hash and transfer policy",
+    )
     args = parser.parse_args()
 
     result = load_json(args.result)
     corpus = load_json(args.corpus)
     rows = result["rows"]
+    geometric = False
+    if args.transfer_manifest is not None:
+        manifest = args.transfer_manifest.read_bytes()
+        if hashlib.sha256(manifest).hexdigest() != result["transfer_manifest_sha256"]:
+            parser.error("transfer manifest SHA-256 does not match the search result")
+        schema = json.loads(manifest)["schema"]
+        if schema not in {
+            "tokyo_metro_transfer_policy/v1",
+            "tokyo_metro_transfer_policy/v2",
+            "tokyo_metro_transfer_policy/v3",
+        }:
+            parser.error(f"unsupported transfer manifest schema: {schema}")
+        geometric = schema == "tokyo_metro_transfer_policy/v3"
     cases = {
         case["name"]: case
         for case in (*corpus["matrix_cases"], *corpus["supplemental_cases"])
@@ -176,7 +195,7 @@ def main() -> int:
                 if minute(candidate["arrival_time"]) < previous_arrival:
                     violations.append(f"{row['case']}/{row['mode']}/rank{rank}: candidate arrival conflicts with steps")
 
-    expected_zero_keys = {
+    expected_zero_keys = set() if geometric else {
         ("estimated_transfer_stress", mode, limit, False)
         for mode in corpus["fixed_contract"]["modes"]
         for limit in corpus["fixed_contract"]["candidate_limits"]
@@ -190,21 +209,38 @@ def main() -> int:
             f"zero-candidate set changed: expected={sorted(expected_zero_keys)!r}, observed={sorted(observed_zero_keys)!r}"
         )
     topology = result.get("fixed_station_topology", {}).get("estimated_transfer_stress", {})
-    if topology != {"ordinary": False, "estimated": True}:
+    if topology != {"ordinary": geometric, "estimated": True}:
         violations.append(f"zero-case topology proof changed: {topology!r}")
-    stress_estimated = [
+    stress_rows = [
         row
         for row in rows
         if row["case"] == "estimated_transfer_stress"
-        and row["estimated_transfers"]
         and row["candidate_limit"] == 5
     ]
-    if not stress_estimated or any(
-        not candidate["contains_estimated_transfer"]
-        for row in stress_estimated
-        for candidate in row["candidates"]
-    ):
-        violations.append("estimated stress candidates are not marked as estimated")
+    if geometric:
+        for mode in corpus["fixed_contract"]["modes"]:
+            by_opt_in = {
+                row["estimated_transfers"]: row
+                for row in stress_rows if row["mode"] == mode
+            }
+            if (
+                set(by_opt_in) != {False, True}
+                or by_opt_in[False]["candidates"] != by_opt_in[True]["candidates"]
+                or not by_opt_in[False]["candidates"]
+                or any(
+                    candidate["contains_estimated_transfer"]
+                    for candidate in by_opt_in[False]["candidates"]
+                )
+            ):
+                violations.append(f"{mode}: v3 stress route differs by transfer opt-in")
+    else:
+        stress_estimated = [row for row in stress_rows if row["estimated_transfers"]]
+        if not stress_estimated or any(
+            not candidate["contains_estimated_transfer"]
+            for row in stress_estimated
+            for candidate in row["candidates"]
+        ):
+            violations.append("estimated stress candidates are not marked as estimated")
 
     representative = {}
     for case_name in (
@@ -222,7 +258,9 @@ def main() -> int:
             if row["case"] == case_name
             and row["mode"] == "fewTransfers"
             and row["candidate_limit"] == 5
-            and row["estimated_transfers"] == (case_name == "estimated_transfer_stress")
+            and row["estimated_transfers"] == (
+                not geometric and case_name == "estimated_transfer_stress"
+            )
         ]
         if len(selected) != 1:
             violations.append(f"missing representative row: {case_name}")
@@ -248,7 +286,11 @@ def main() -> int:
         "zero_candidate_rows": len(zero_rows),
         "zero_candidate_classification": {
             "case": "estimated_transfer_stress",
-            "reason": "ordinary scoped graph has no directed path; opt-in graph has a path and exact candidates traverse estimated edges",
+            "reason": (
+                "v3 connects the stress journey in both search modes with the same candidates"
+                if geometric else
+                "ordinary scoped graph has no directed path; opt-in graph has a path and exact candidates traverse estimated edges"
+            ),
             "ordinary_topology_path": topology.get("ordinary"),
             "estimated_topology_path": topology.get("estimated"),
         },
