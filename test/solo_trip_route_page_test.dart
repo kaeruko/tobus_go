@@ -156,10 +156,22 @@ void main() {
         l10n.summaryDuration,
         l10n.summaryTransfers,
         l10n.summaryRideSegments,
-        l10n.summaryWalk,
       ]) {
         expect(find.text(label), findsNothing, reason: label);
       }
+      // The walking summary label can equal the individual walk title.
+      // Keep both walk steps, but reject any extra summary label.
+      expect(
+        find.descendant(
+          of: find.byType(RouteStepTile),
+          matching: find.text(l10n.walkTitle),
+        ),
+        findsNWidgets(2),
+      );
+      expect(
+        find.text(l10n.summaryWalk),
+        l10n.summaryWalk == l10n.walkTitle ? findsNWidgets(2) : findsNothing,
+      );
       expect(tester.widget<RouteMapPreview>(find.byType(RouteMapPreview)).points, original.points);
       expect(tester.widgetList<RouteStepTile>(find.byType(RouteStepTile)).map((tile) => tile.segment.stepId),
         ['wait', 'walk-in', 'bus', 'rail', 'walk-out']);

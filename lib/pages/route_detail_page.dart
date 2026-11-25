@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_clock.dart';
 import '../core/city_profile.dart';
+import '../core/usage_analytics.dart';
 import '../logic/solo_trip_factory.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/city_localizations.dart';
@@ -74,6 +75,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   @override
   void initState() {
     super.initState();
+    UsageAnalytics.trackRouteDetail();
     if (widget.candidate.planningJourney != null) {
       _searchTime = widget.candidate.sendaiPlanningDeparture;
     }

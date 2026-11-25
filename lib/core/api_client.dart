@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
 import 'city_profile.dart';
+import 'usage_analytics.dart';
 
 class ApiException implements Exception {
   final int statusCode;
@@ -147,6 +148,7 @@ class ApiClient {
     _log('GET $uri');
 
     try {
+      UsageAnalytics.trackApiRequest('GET', path);
       final request = _httpClient.get(uri, headers: _baseHeaders());
       final r = timeout == null ? await request : await request.timeout(timeout);
       _log('GET $uri -> ${r.statusCode}');
@@ -184,6 +186,7 @@ class ApiClient {
     _log('POST $uri body=$bodyString');
 
     try {
+      UsageAnalytics.trackApiRequest('POST', path);
       final r = await _httpClient
           .post(uri, body: bodyString, headers: headers)
           .timeout(const Duration(seconds: 60));
