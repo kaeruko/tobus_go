@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/test_banner_policy.dart';
+import '../providers/ad_consent_provider.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/city_localizations.dart';
 import '../providers/city_profile_provider.dart';
@@ -117,6 +119,9 @@ class _RootTabsState extends ConsumerState<RootTabs> {
       });
     });
 
+    if (configuredConsentTestEnabled(ref.watch(cityProfileProvider).key)) {
+      ref.watch(adConsentProvider);
+    }
     final currentIndex = ref.watch(tabIndexProvider);
     final entries = _buildEntries(context);
 

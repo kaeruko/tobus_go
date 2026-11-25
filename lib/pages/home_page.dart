@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../core/app_clock.dart';
 import '../core/city_profile.dart';
 import '../core/test_banner_policy.dart';
+import '../providers/ad_consent_provider.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
@@ -268,7 +269,11 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
       cityProfileProvider.select((profile) => profile.key),
     );
     final testBannerId = configuredTestBannerUnitId(cityKey);
+    final consentAllowsAds = !configuredConsentTestEnabled(cityKey) ||
+        ref.watch(adConsentProvider).canRequestAds;
     final showTestBanner = testBannerId != null &&
+        consentAllowsAds &&
+        MediaQuery.viewInsetsOf(context).bottom == 0 &&
         ref.watch(tabIndexProvider) == 0 &&
         (ModalRoute.isCurrentOf(context) ?? false) &&
         !rs.isLoading &&
@@ -298,398 +303,402 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
           ),
         ),
         child: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              // Active Trip Card
-              if (activeTripAsync?.value != null &&
-                  activeTripAsync!.value!.status != TripStatus.completed &&
-                  activeTripAsync.value!.status != TripStatus.cancelled)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: _ActiveTripCard(
-                      trip: activeTripAsync.value!,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          CupertinoPageRoute(
-                            builder: (_) => activeTripAsync.value!.isSolo
-                                ? TripPage(tripId: activeTripAsync.value!.id)
-                                : LeaderModePage(
-                                    tripId: activeTripAsync.value!.id,
-                                  ),
-                          ),
-                        ).then((_) {
-                          ref.read(activeTripProvider.notifier).refresh();
-                        });
-                      },
-                    ),
-                  ),
-                ),
-
-              SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 8),
-
-                    // Date Time
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0,
-                        vertical: 8.0,
-                      ),
-                      child: GestureDetector(
-                        onTap: () => _showTimePicker(startTime),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: CupertinoDynamicColor.resolve(
-                              CupertinoColors.systemBackground,
-                              context,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: CupertinoDynamicColor.resolve(
-                                CupertinoColors.separator,
+          child: Column(
+            children: [
+              Expanded(
+                child: CustomScrollView(
+                  slivers: [
+                    // Active Trip Card
+                    if (activeTripAsync?.value != null &&
+                        activeTripAsync!.value!.status != TripStatus.completed &&
+                        activeTripAsync.value!.status != TripStatus.cancelled)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: _ActiveTripCard(
+                            trip: activeTripAsync.value!,
+                            onTap: () {
+                              Navigator.push(
                                 context,
+                                CupertinoPageRoute(
+                                  builder: (_) => activeTripAsync.value!.isSolo
+                                      ? TripPage(tripId: activeTripAsync.value!.id)
+                                      : LeaderModePage(
+                                          tripId: activeTripAsync.value!.id,
+                                        ),
+                                ),
+                              ).then((_) {
+                                ref.read(activeTripProvider.notifier).refresh();
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+
+                    SliverToBoxAdapter(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 8),
+
+                          // Date Time
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                              vertical: 8.0,
+                            ),
+                            child: GestureDetector(
+                              onTap: () => _showTimePicker(startTime),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: CupertinoDynamicColor.resolve(
+                                    CupertinoColors.systemBackground,
+                                    context,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: CupertinoDynamicColor.resolve(
+                                      CupertinoColors.separator,
+                                      context,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      l10n.departureDateTime,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: CupertinoDynamicColor.resolve(
+                                          CupertinoColors.label,
+                                          context,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      '${startTime.month}/${startTime.day} ${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: CupertinoDynamicColor.resolve(
+                                          CupertinoColors.systemBlue,
+                                          context,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                l10n.departureDateTime,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: CupertinoDynamicColor.resolve(
-                                    CupertinoColors.label,
-                                    context,
-                                  ),
-                                ),
+                          const SizedBox(height: 8),
+
+                          // From
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: PlaceField(
+                              key: const Key('route-origin'),
+                              label: l10n.departureSearch,
+                              value: rs.from,
+                              displayValue: _localizedSearchName(
+                                locale: locale,
+                                fallback: rs.fromName,
+                                japanese: rs.fromNameJa,
+                                english: rs.fromNameEn,
                               ),
-                              Text(
-                                '${startTime.month}/${startTime.day} ${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: CupertinoDynamicColor.resolve(
-                                    CupertinoColors.systemBlue,
-                                    context,
-                                  ),
-                                ),
-                              ),
-                            ],
+                              onChanged: (val, desc) {
+                                notifier.setFrom(
+                                  val,
+                                  name: desc.isNotEmpty ? desc : val,
+                                );
+                                if (_isCoordinate(val) &&
+                                    _canAutoSearchAfterEditingFrom()) {
+                                  notifier.triggerSearch();
+                                }
+                              },
+                              onResolved: (val, desc, nameJa, nameEn) {
+                                notifier.setFrom(
+                                  val,
+                                  name: desc,
+                                  nameJa: nameJa,
+                                  nameEn: nameEn,
+                                );
+                                if (_canAutoSearchAfterEditingFrom()) {
+                                  notifier.triggerSearch();
+                                }
+                              },
+                              onCurrentLocationPressed: _useEffectiveLocation,
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                          const SizedBox(height: 4),
 
-                    // From
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: PlaceField(
-                        key: const Key('route-origin'),
-                        label: l10n.departureSearch,
-                        value: rs.from,
-                        displayValue: _localizedSearchName(
-                          locale: locale,
-                          fallback: rs.fromName,
-                          japanese: rs.fromNameJa,
-                          english: rs.fromNameEn,
-                        ),
-                        onChanged: (val, desc) {
-                          notifier.setFrom(
-                            val,
-                            name: desc.isNotEmpty ? desc : val,
-                          );
-                          if (_isCoordinate(val) &&
-                              _canAutoSearchAfterEditingFrom()) {
-                            notifier.triggerSearch();
-                          }
-                        },
-                        onResolved: (val, desc, nameJa, nameEn) {
-                          notifier.setFrom(
-                            val,
-                            name: desc,
-                            nameJa: nameJa,
-                            nameEn: nameEn,
-                          );
-                          if (_canAutoSearchAfterEditingFrom()) {
-                            notifier.triggerSearch();
-                          }
-                        },
-                        onCurrentLocationPressed: _useEffectiveLocation,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
+                          // Swap & Map
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    CupertinoButton(
+                                      padding: const EdgeInsets.all(8),
+                                      child: const Icon(
+                                        CupertinoIcons.arrow_up_arrow_down,
+                                      ),
+                                      onPressed: _swapRouteEndpoints,
+                                    ),
+                                  ],
+                                ),
+                                CupertinoButton(
+                                  key: const Key('route-map-origin'),
+                                  padding: const EdgeInsets.all(8),
+                                  child: const Icon(CupertinoIcons.map_pin),
+                                  onPressed: () => _openMap(true),
+                                ),
+                              ],
+                            ),
+                          ),
 
-                    // Swap & Map
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              CupertinoButton(
+                          const SizedBox(height: 8),
+
+                          // To
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: PlaceField(
+                              key: const Key('route-destination'),
+                              label: l10n.arrivalSearch,
+                              value: rs.to,
+                              displayValue: _localizedSearchName(
+                                locale: locale,
+                                fallback: rs.toName,
+                                japanese: rs.toNameJa,
+                                english: rs.toNameEn,
+                              ),
+                              onChanged: (val, desc) {
+                                notifier.setTo(
+                                  val,
+                                  name: desc.isNotEmpty ? desc : val,
+                                );
+                                if (_isCoordinate(val) &&
+                                    _canAutoSearchAfterEditingTo()) {
+                                  notifier.triggerSearch();
+                                }
+                              },
+                              onResolved: (val, desc, nameJa, nameEn) {
+                                notifier.setTo(
+                                  val,
+                                  name: desc,
+                                  nameJa: nameJa,
+                                  nameEn: nameEn,
+                                );
+                                if (_canAutoSearchAfterEditingTo()) {
+                                  notifier.triggerSearch();
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+
+                          // Map (To)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: CupertinoButton(
+                                key: const Key('route-map-destination'),
                                 padding: const EdgeInsets.all(8),
-                                child: const Icon(
-                                  CupertinoIcons.arrow_up_arrow_down,
-                                ),
-                                onPressed: _swapRouteEndpoints,
+                                child: const Icon(CupertinoIcons.map_pin),
+                                onPressed: () => _openMap(false),
                               ),
-                            ],
+                            ),
                           ),
-                          CupertinoButton(
-                            key: const Key('route-map-origin'),
-                            padding: const EdgeInsets.all(8),
-                            child: const Icon(CupertinoIcons.map_pin),
-                            onPressed: () => _openMap(true),
+
+                          const SizedBox(height: 8),
+
+                          if (showTokyoTransportControl) ...[
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: RouteTransportControl(
+                                selected: rs.transportScope,
+                                onChanged: (transport, enabled) {
+                                  notifier.setTransportEnabled(transport, enabled);
+                                  if (ref
+                                      .read(routeSearchProvider)
+                                      .transportScope
+                                      .isNotEmpty) {
+                                    notifier.triggerSearch();
+                                  }
+                                },
+                              ),
+                            ),
+                            if (rs.transportScope.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                                child: Text(
+                                  l10n.transportSelectionRequired,
+                                  key: const Key('transport-selection-required'),
+                                  style: const TextStyle(
+                                    color: CupertinoColors.systemRed,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 8),
+                          ],
+                          if (showLegacyTransportControl) ...[
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: LegacyRouteTransportControl(
+                                busOnly: rs.busOnly,
+                                onValueChanged: (value) {
+                                  if (value == null) return;
+                                  notifier.setBusOnly(value == 'busOnly');
+                                  notifier.triggerSearch();
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+
+                          // Preference
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: RoutePreferenceControl(
+                              groupValue: rs.pref ?? 'fewTransfers',
+                              onValueChanged: (v) {
+                                if (v == null) return;
+                                notifier.setPref(v);
+                                notifier.triggerSearch();
+                              },
+                            ),
                           ),
+
+                          // Search Button (Optional but useful if auto-search fails or purely manual)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: CupertinoButton.filled(
+                                key: const Key('route-search-submit'),
+                                onPressed:
+                                    showTokyoTransportControl &&
+                                        rs.transportScope.isEmpty
+                                    ? null
+                                    : () {
+                                        notifier.triggerSearch();
+                                      },
+                                child: Text(l10n.search),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 24),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 8),
-
-                    // To
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: PlaceField(
-                        key: const Key('route-destination'),
-                        label: l10n.arrivalSearch,
-                        value: rs.to,
-                        displayValue: _localizedSearchName(
-                          locale: locale,
-                          fallback: rs.toName,
-                          japanese: rs.toNameJa,
-                          english: rs.toNameEn,
-                        ),
-                        onChanged: (val, desc) {
-                          notifier.setTo(
-                            val,
-                            name: desc.isNotEmpty ? desc : val,
-                          );
-                          if (_isCoordinate(val) &&
-                              _canAutoSearchAfterEditingTo()) {
-                            notifier.triggerSearch();
-                          }
-                        },
-                        onResolved: (val, desc, nameJa, nameEn) {
-                          notifier.setTo(
-                            val,
-                            name: desc,
-                            nameJa: nameJa,
-                            nameEn: nameEn,
-                          );
-                          if (_canAutoSearchAfterEditingTo()) {
-                            notifier.triggerSearch();
-                          }
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-
-                    // Map (To)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: CupertinoButton(
-                          key: const Key('route-map-destination'),
-                          padding: const EdgeInsets.all(8),
-                          child: const Icon(CupertinoIcons.map_pin),
-                          onPressed: () => _openMap(false),
+                    if (rs.meta?.destinationReachable == false &&
+                        (rs.meta?.planningNotice == null || rs.candidates.isNotEmpty))
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0,
+                            vertical: 8.0,
+                          ),
+                          child: _FallbackNotice(meta: rs.meta!),
                         ),
                       ),
-                    ),
 
-                    const SizedBox(height: 8),
-
-                    if (showTokyoTransportControl) ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: RouteTransportControl(
-                          selected: rs.transportScope,
-                          onChanged: (transport, enabled) {
-                            notifier.setTransportEnabled(transport, enabled);
-                            if (ref
-                                .read(routeSearchProvider)
-                                .transportScope
-                                .isNotEmpty) {
-                              notifier.triggerSearch();
-                            }
-                          },
-                        ),
-                      ),
-                      if (rs.transportScope.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                          child: Text(
-                            l10n.transportSelectionRequired,
-                            key: const Key('transport-selection-required'),
-                            style: const TextStyle(
-                              color: CupertinoColors.systemRed,
+                    // Loading / Results / Error
+                    if (rs.isLoading)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Container(
+                            width: 160,
+                            height: 160,
+                            decoration: BoxDecoration(
+                              color: CupertinoDynamicColor.resolve(
+                                CupertinoColors.systemBackground,
+                                context,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: CupertinoColors.systemGrey.withOpacity(0.2),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: BusLoadingIndicator(),
                             ),
                           ),
                         ),
-                      const SizedBox(height: 8),
-                    ],
-                    if (showLegacyTransportControl) ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: LegacyRouteTransportControl(
-                          busOnly: rs.busOnly,
-                          onValueChanged: (value) {
-                            if (value == null) return;
-                            notifier.setBusOnly(value == 'busOnly');
-                            notifier.triggerSearch();
-                          },
+                      )
+                    else if (rs.errorMessage != null)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: RouteSearchErrorNotice(),
+                      )
+                    else if (rs.candidates.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Text(
+                            rs.hasSearched
+                                ? l10n.routeNotFound
+                                : l10n.selectDepartureAndArrival,
+                            style: TextStyle(
+                              color: rs.hasSearched
+                                  ? CupertinoColors.systemRed
+                                  : CupertinoColors.systemGrey,
+                            ),
+                          ),
                         ),
+                      )
+                    else
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate((context, i) {
+                          final c = rs.candidates[i];
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                              vertical: 6.0,
+                            ),
+                            child: GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  CupertinoPageRoute(
+                                    builder: (_) => RouteDetailPage(
+                                      candidate: c,
+                                      meta: rs.meta,
+                                      fare: rs.fareByCandidateId[c.id],
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: RouteCard(
+                                candidate: c,
+                                rank: i + 1,
+                                meta: rs.meta,
+                              ),
+                            ),
+                          );
+                        }, childCount: rs.candidates.length),
                       ),
-                      const SizedBox(height: 8),
-                    ],
 
-                    // Preference
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: RoutePreferenceControl(
-                        groupValue: rs.pref ?? 'fewTransfers',
-                        onValueChanged: (v) {
-                          if (v == null) return;
-                          notifier.setPref(v);
-                          notifier.triggerSearch();
-                        },
-                      ),
-                    ),
-
-                    // Search Button (Optional but useful if auto-search fails or purely manual)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: CupertinoButton.filled(
-                          key: const Key('route-search-submit'),
-                          onPressed:
-                              showTokyoTransportControl &&
-                                  rs.transportScope.isEmpty
-                              ? null
-                              : () {
-                                  notifier.triggerSearch();
-                                },
-                          child: Text(l10n.search),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
+                    const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
                   ],
                 ),
               ),
-
-              if (rs.meta?.destinationReachable == false &&
-                  (rs.meta?.planningNotice == null || rs.candidates.isNotEmpty))
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 8.0,
-                    ),
-                    child: _FallbackNotice(meta: rs.meta!),
-                  ),
-                ),
-
-              // Loading / Results / Error
-              if (rs.isLoading)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Container(
-                      width: 160,
-                      height: 160,
-                      decoration: BoxDecoration(
-                        color: CupertinoDynamicColor.resolve(
-                          CupertinoColors.systemBackground,
-                          context,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: CupertinoColors.systemGrey.withOpacity(0.2),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: BusLoadingIndicator(),
-                      ),
-                    ),
-                  ),
-                )
-              else if (rs.errorMessage != null)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: RouteSearchErrorNotice(),
-                )
-              else if (rs.candidates.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Text(
-                      rs.hasSearched
-                          ? l10n.routeNotFound
-                          : l10n.selectDepartureAndArrival,
-                      style: TextStyle(
-                        color: rs.hasSearched
-                            ? CupertinoColors.systemRed
-                            : CupertinoColors.systemGrey,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                SliverList(
-                  delegate: SliverChildBuilderDelegate((context, i) {
-                    final c = rs.candidates[i];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0,
-                        vertical: 6.0,
-                      ),
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            CupertinoPageRoute(
-                              builder: (_) => RouteDetailPage(
-                                candidate: c,
-                                meta: rs.meta,
-                                fare: rs.fareByCandidateId[c.id],
-                              ),
-                            ),
-                          );
-                        },
-                        child: RouteCard(
-                          candidate: c,
-                          rank: i + 1,
-                          meta: rs.meta,
-                        ),
-                      ),
-                    );
-                  }, childCount: rs.candidates.length),
-                ),
-
               if (showTestBanner)
-                SliverToBoxAdapter(
-                  child: TestRouteBanner(adUnitId: testBannerId!),
-                ),
-              const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
+                TestRouteBanner(adUnitId: testBannerId!),
             ],
           ),
         ),

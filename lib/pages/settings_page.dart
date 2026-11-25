@@ -18,6 +18,8 @@ import '../models/group_models.dart';
 import '../models/route_models.dart';
 import '../l10n/app_localizations.dart';
 import '../core/city_profile.dart';
+import '../core/test_banner_policy.dart';
+import '../providers/ad_consent_provider.dart';
 import '../providers/route_search_provider.dart';
 import 'trip_list_page.dart';
 import 'trip_page.dart';
@@ -565,6 +567,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         : null;
     final currentOffset = AppClock.instance.offset;
     final simulatedTime = AppClock.instance.now();
+    final adConsent = configuredConsentTestEnabled(configuredCityKey)
+        ? ref.watch(adConsentProvider)
+        : null;
     final metroMeta = configuredCityKey == 'tokyo'
         ? ref.watch(routeSearchProvider.select((state) => state.meta))
         : null;
@@ -724,6 +729,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   },
                 ),
               ],
+            ),
+          ],
+
+          if (adConsent?.privacyOptionsRequired == true) ...[
+            const Divider(),
+            ListTile(
+              key: const Key('ad-privacy-options'),
+              leading: const Icon(Icons.privacy_tip_outlined),
+              title: Text(l10n.adPrivacyOptions),
+              onTap: adConsent!.busy
+                  ? null
+                  : () => ref.read(adConsentProvider.notifier).showPrivacyOptions(),
             ),
           ],
 

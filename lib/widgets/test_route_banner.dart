@@ -72,7 +72,7 @@ class _TestRouteBannerState extends State<TestRouteBanner> {
     final banner = _banner;
     if (!_loaded || banner == null) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       child: Center(
         child: SizedBox(
           width: banner.size.width.toDouble(),

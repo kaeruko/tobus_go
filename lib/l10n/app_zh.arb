@@ -1693,5 +1693,6 @@
   "routeSearchErrorTitle": "暂时无法搜索路线",
   "routeSearchLimitMessage": "符合条件的路线太多，未能完成搜索。请调整出发地、目的地或出发日期和时间后重试。",
   "routeSearchErrorMessage": "搜索时出现问题。请检查网络连接，或稍后重试。",
-  "routeSearchByTime": "按最短时间搜索"
+  "routeSearchByTime": "按最短时间搜索",
+  "adPrivacyOptions": "广告隐私设置"
 }

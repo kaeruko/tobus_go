@@ -1693,5 +1693,6 @@
   "routeSearchErrorTitle": "Couldn't search for a route",
   "routeSearchLimitMessage": "There were too many route options to finish this search. Try changing your departure point, destination or departure date and time.",
   "routeSearchErrorMessage": "Something went wrong while searching. Check your connection or wait a moment, then try again.",
-  "routeSearchByTime": "Search by shortest time"
+  "routeSearchByTime": "Search by shortest time",
+  "adPrivacyOptions": "Ad privacy settings"
 }

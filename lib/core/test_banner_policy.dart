@@ -28,3 +28,8 @@ String? configuredTestBannerUnitId(String cityKey) => testBannerUnitId(
   platform: defaultTargetPlatform,
   cityKey: cityKey,
 );
+
+const _testUmpRequested = bool.fromEnvironment('TOEIGO_TEST_UMP');
+
+bool configuredConsentTestEnabled(String cityKey) =>
+    _testUmpRequested && configuredTestBannerUnitId(cityKey) != null;
