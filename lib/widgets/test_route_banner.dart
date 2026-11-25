@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-/// Local test-only banner. No route, location or user data is supplied.
+/// Route result banner. No route, location or search text is supplied in the request.
 class TestRouteBanner extends StatefulWidget {
   const TestRouteBanner({super.key, required this.adUnitId});
 

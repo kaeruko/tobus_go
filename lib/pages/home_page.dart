@@ -268,10 +268,10 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
     final cityKey = ref.watch(
       cityProfileProvider.select((profile) => profile.key),
     );
-    final testBannerId = configuredTestBannerUnitId(cityKey);
-    final consentAllowsAds = !configuredConsentTestEnabled(cityKey) ||
+    final bannerId = configuredBannerUnitId(cityKey);
+    final consentAllowsAds = !configuredAdConsentRequired(cityKey) ||
         ref.watch(adConsentProvider).canRequestAds;
-    final showTestBanner = testBannerId != null &&
+    final showBanner = bannerId != null &&
         consentAllowsAds &&
         MediaQuery.viewInsetsOf(context).bottom == 0 &&
         ref.watch(tabIndexProvider) == 0 &&
@@ -697,8 +697,8 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                   ],
                 ),
               ),
-              if (showTestBanner)
-                TestRouteBanner(adUnitId: testBannerId!),
+              if (showBanner)
+                TestRouteBanner(adUnitId: bannerId!),
             ],
           ),
         ),

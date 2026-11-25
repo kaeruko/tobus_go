@@ -567,7 +567,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         : null;
     final currentOffset = AppClock.instance.offset;
     final simulatedTime = AppClock.instance.now();
-    final adConsent = configuredConsentTestEnabled(configuredCityKey)
+    final adConsent = configuredAdConsentRequired(configuredCityKey)
         ? ref.watch(adConsentProvider)
         : null;
     final metroMeta = configuredCityKey == 'tokyo'

@@ -33,3 +33,42 @@ const _testUmpRequested = bool.fromEnvironment('TOEIGO_TEST_UMP');
 
 bool configuredConsentTestEnabled(String cityKey) =>
     _testUmpRequested && configuredTestBannerUnitId(cityKey) != null;
+
+const _productionAdsRequested = bool.fromEnvironment('TOEIGO_PRODUCTION_ADS');
+
+/// No profile-build ads, no debug production ads and no non-Tokyo ads.
+/// Production requires an explicit release build define and UMP permission.
+String? productionBannerUnitId({
+  required bool release,
+  required bool requested,
+  required bool web,
+  required TargetPlatform platform,
+  required String cityKey,
+}) {
+  if (!release || !requested || web || cityKey != 'tokyo') return null;
+  switch (platform) {
+    case TargetPlatform.android:
+      return 'ca-app-pub-1701253412237513/5953725636';
+    case TargetPlatform.iOS:
+      return 'ca-app-pub-1701253412237513/2050652992';
+    default:
+      return null;
+  }
+}
+
+String? configuredProductionBannerUnitId(String cityKey) =>
+    productionBannerUnitId(
+      release: kReleaseMode,
+      requested: _productionAdsRequested,
+      web: kIsWeb,
+      platform: defaultTargetPlatform,
+      cityKey: cityKey,
+    );
+
+String? configuredBannerUnitId(String cityKey) => kReleaseMode
+    ? configuredProductionBannerUnitId(cityKey)
+    : configuredTestBannerUnitId(cityKey);
+
+bool configuredAdConsentRequired(String cityKey) => kReleaseMode
+    ? configuredProductionBannerUnitId(cityKey) != null
+    : configuredConsentTestEnabled(cityKey);

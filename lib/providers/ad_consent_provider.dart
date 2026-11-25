@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-/// The production gate remains closed. Only the explicitly enabled UMP
-/// debug mode uses this provider until the real AdMob app IDs are configured.
+/// Shared consent gate for explicitly enabled production and UMP debug modes.
+/// Fail closed if update, required form or permission checks fail.
 final adConsentProvider =
     StateNotifierProvider<AdConsentController, AdConsentState>((ref) {
   final controller = AdConsentController(const GoogleConsentGateway());

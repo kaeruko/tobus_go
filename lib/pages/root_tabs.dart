@@ -119,7 +119,7 @@ class _RootTabsState extends ConsumerState<RootTabs> {
       });
     });
 
-    if (configuredConsentTestEnabled(ref.watch(cityProfileProvider).key)) {
+    if (configuredAdConsentRequired(ref.watch(cityProfileProvider).key)) {
       ref.watch(adConsentProvider);
     }
     final currentIndex = ref.watch(tabIndexProvider);

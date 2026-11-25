@@ -33,9 +33,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# The native AdMob configuration still uses Google sample IDs. Never distribute it.
+# AdMob production privacy review and store declarations are not yet complete.
 if (-not $ValidationOnly -or $env:GITHUB_ACTIONS -ne 'true' -or $env:GOOGLE_MAPS_ANDROID_API_KEY -ne 'ci-build-check-only') {
-    throw 'Store AAB builds are blocked during AdMob test integration. CI validation only; see docs/admob-rollout.md.'
+    throw 'Store AAB builds are blocked pending AdMob privacy and release review. CI validation only; see docs/admob-rollout.md.'
 }
 
 if ($City -eq 'sendai') {

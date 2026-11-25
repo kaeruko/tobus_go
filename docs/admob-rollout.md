@@ -1,10 +1,12 @@
-# Tokyo AdMob rollout — local testing only
+# Tokyo AdMob rollout — publisher IDs configured, distribution gated
 
-The app-ads.txt ownership check is independent of local testing. The native
-app IDs and banner unit IDs are Google's published samples; no publisher ad
-unit is requested. Existing Firebase advertising consent settings and Android
-AD_ID removal remain unchanged. No location, route or search text is passed
-in the test request.
+The Android and iOS native app IDs are now the actual Tokyo publisher IDs.
+The test banner units remain Google's published sample units; no publisher
+unit is used in debug/profile builds. Existing Firebase advertising consent
+settings and Android AD_ID removal remain unchanged. ATT is not requested.
+No coordinates, route or search text is passed in the ad request.
+Requests specify non-personalized ads; this does not eliminate SDK data
+collection or the need for consent and store disclosure.
 
 ## Local debug test
 
@@ -13,56 +15,55 @@ flutter pub get
 flutter run --flavor tokyo --dart-define=APP_CITY=tokyo --dart-define=TOEIGO_TEST_ADS=true
 ```
 
-Use an Android device/emulator or an iOS device/simulator with the usual
-platform-specific Maps setup. Search for a route. Expect one Google test banner fixed above the tab bar,
-separated from route cards and tabs. No ad on empty results, loading, errors,
-keyboard open, other tabs or detail/navigation screens. Without the explicit define, or in profile/release, there is no
-Dart ad initialization or request. Network or SDK failure is logged and
-does not retry through another ad source.
+Search for a route. One Google test banner is fixed above the tab bar.
+No ad on empty results, loading, errors, keyboard open, other tabs or detail
+navigation screens. SDK failures are logged without alternate ad sources.
 
-## UMP test mode (separate from layout testing)
+## Test UMP against actual publisher app ID
+
+First configure and publish privacy messages in the AdMob console for both
+apps. This mode tests UMP with the actual native app ID, but still requests
+only Google's sample banner units.
 
 ```powershell
 flutter run --flavor tokyo --dart-define=APP_CITY=tokyo --dart-define=TOEIGO_TEST_ADS=true --dart-define=TOEIGO_TEST_UMP=true
 ```
 
-The UMP test path updates consent when RootTabs is first shown, presents any
-required form, then checks canRequestAds. Settings shows the privacy options
-entry when required. On any UMP error the ad remains disabled; there is no
-automatic retry or switch to the layout-only mode. Google's sample app ID
-may not have a usable publisher privacy message; real-ID consent testing is
-still required. Both modes use sample banner units only.
+On RootTabs startup, update consent, show any required form, then check
+canRequestAds. Settings exposes privacy options if required. On any UMP
+error, ads remain disabled, without automatic retry or switch to layout
+test mode. Verify on Android and iOS, including required consent regions
+using UMP test-device/debug geography configuration before release.
 
 ## Distribution gate
 
-Store AAB and TestFlight scripts are intentionally blocked until the native
-sample IDs are replaced and production privacy/configuration is complete.
-The CI-only Android release build uses a validation signing key and explicit
-ValidationOnly switch; it is never for distribution. Do not manually upload
-any artifact from this stage. The existing already-uploaded version is
-unaffected.
+The publisher ad units are wired, but require BOTH a release build and
+explicit TOEIGO_PRODUCTION_ADS=true plus a successful UMP permission check.
+Do not use the release define for local testing. Store AAB and TestFlight
+scripts remain blocked pending review. CI builds validation artifacts with
+no production ad define, and must never be distributed.
 
 Before enabling distribution:
 
-- Obtain both platform-specific AdMob app IDs and banner unit IDs.
-- Complete ownership/readiness checks; create privacy messages in AdMob.
-- Enable the prepared UMP flow for real ads, remove the test-only flag for
-  production, verify the actual privacy message and consent in target regions.
-  Do not request ATT or enable AD_ID unless separately agreed and privacy
-  disclosures are updated.
-- Replace sample native IDs, verify required iOS SKAdNetwork entries, and
-  update app privacy policy, App Store privacy details, Google Play data
-  safety and contains-ads declaration based on actual SDK data use.
-- Separate development/test units from production units. Confirm on devices
-  (including dark mode, narrow screens, route errors and navigation), review
-  merged manifests, run CI, commit generated dependency locks, then remove
-  distribution guards as part of the reviewed production change.
+- Confirm both apps' ownership and serving readiness in AdMob.
+- Publish applicable privacy messages and verify UMP with the real app IDs,
+  including required form, no-consent and failure paths, privacy options.
+- Verify iOS device behavior and Android merged manifest, including no
+  AD_ID permission; review SDK privacy manifests and SKAdNetwork list.
+- Publish the actual app privacy policy; update App Store privacy details,
+  Google Play data safety and contains-ads declarations based on actual SDK
+  data use. Non-personalized ads are not equivalent to no data collection.
+- Commit generated dependency lockfiles from a successful resolution.
+- After approval, remove distribution guards and explicitly pass the
+  production define in reviewed store build scripts, not in debug builds.
 
 Official guides:
 - https://developers.google.com/admob/flutter/quick-start
 - https://developers.google.com/admob/flutter/test-ads
 - https://developers.google.com/admob/flutter/privacy
-- https://codelabs.developers.google.com/codelabs/admob-ads-in-flutter
+- https://developers.google.com/admob/ios/quick-start
+- https://developers.google.com/admob/ios/privacy/data-disclosure
+- https://developers.google.com/admob/android/privacy/play-data-disclosure
 
 ## Privacy policy review before release
 

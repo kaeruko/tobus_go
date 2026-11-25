@@ -39,9 +39,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prevent upload of sample AdMob configuration
+      - name: Prevent upload before AdMob release review
         run: |
-          echo '::error::TestFlight uploads are blocked during AdMob test integration. See docs/admob-rollout.md.'
+          echo '::error::TestFlight uploads are blocked pending AdMob privacy and release review. See docs/admob-rollout.md.'
           exit 1
 
       - name: Select Xcode 26.6
