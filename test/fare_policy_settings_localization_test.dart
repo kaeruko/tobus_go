@@ -30,7 +30,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Select transport you can use free of charge'),
+      find.text('Select transport services'),
       findsOneWidget,
     );
     expect(
