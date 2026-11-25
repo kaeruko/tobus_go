@@ -4,12 +4,16 @@ from urllib.parse import quote
 import httpx
 from fastapi import HTTPException
 
-from app.places_access_log import record_upstream_attempt, record_upstream_status
+from app.places_access_log import (
+    record_place_types,
+    record_upstream_attempt,
+    record_upstream_status,
+)
 
 PLACES_AUTOCOMPLETE_URL = "https://places.googleapis.com/v1/places:autocomplete"
 PLACES_DETAILS_URL = "https://places.googleapis.com/v1/places"
-PLACES_DETAILS_FIELD_MASK = "id,displayName,formattedAddress,location"
-PLACES_ESSENTIALS_FIELD_MASK = "id,formattedAddress,location"
+PLACES_DETAILS_FIELD_MASK = "id,displayName,formattedAddress,location,types"
+PLACES_ESSENTIALS_FIELD_MASK = "id,formattedAddress,location,types"
 SUPPORTED_LANGUAGES = {"ja", "en"}
 
 
@@ -203,4 +207,5 @@ async def details_legacy_response(
     if formatted_address:
         result["formatted_address"] = formatted_address
 
+    record_place_types(payload.get("types"))
     return {"result": result, "status": "OK"}

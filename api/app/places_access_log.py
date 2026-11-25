@@ -23,6 +23,7 @@ class _Upstream:
     attempts: int = 0
     status: int | None = None
     tier: str | None = None
+    place_category: str | None = None
 
 
 _upstream: ContextVar[_Upstream | None] = ContextVar("places_upstream", default=None)
@@ -39,6 +40,37 @@ def record_upstream_status(status: int) -> None:
     observation = _upstream.get()
     if observation is not None:
         observation.status = status
+
+
+def _classify_place_types(types: object) -> str:
+    # Only fixed categories leave this function. Missing/malformed metadata is
+    # explicitly unknown, not evidence for a non-transit place.
+    if not isinstance(types, list) or not types or any(
+        not isinstance(value, str) or not value.strip() for value in types
+    ):
+        return "unknown"
+    values = set(types)
+    rail = bool(values & {"train_station", "subway_station", "light_rail_station"})
+    bus = bool(values & {"bus_stop", "bus_station"})
+    if rail and bus:
+        return "transit_unspecified"
+    if rail:
+        return "rail_station"
+    if bus:
+        return "bus_stop"
+    if values & {"transit_station", "transit_stop"}:
+        return "transit_unspecified"
+    if values & {"street_address", "premise", "subpremise", "route", "intersection"} and not (
+        values & {"establishment", "point_of_interest"}
+    ):
+        return "address"
+    return "other"
+
+
+def record_place_types(types: object) -> None:
+    observation = _upstream.get()
+    if observation is not None:
+        observation.place_category = _classify_place_types(types)
 
 
 def _client_hash(scope: Scope, day: str) -> tuple[str | None, str]:
@@ -111,5 +143,6 @@ class PlacesAccessLogMiddleware:
                 "upstream_attempts": observation.attempts,
                 "upstream_status": observation.status,
                 "upstream_tier": observation.tier,
+                "place_category": observation.place_category,
                 "duration_ms": round((perf_counter() - started) * 1000, 1),
             }, separators=(",", ":")), flush=True)

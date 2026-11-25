@@ -11,7 +11,9 @@ from fastapi import FastAPI, Query
 from fastapi.testclient import TestClient
 
 from app.app_factory import install_city_isolation
-from app.places_access_log import PlacesAccessLogMiddleware, _client_hash
+from app.places_access_log import (
+    PlacesAccessLogMiddleware, _classify_place_types, _client_hash,
+)
 from app.services import google_places
 
 
@@ -133,11 +135,87 @@ class PlacesAccessLogTest(unittest.TestCase):
         self.assertEqual([row["upstream_status"] for row in logs], [200, 429, 200, None, None, None])
         self.assertEqual([row["upstream_tier"] for row in logs],
                          ["autocomplete", "pro", "essentials", "autocomplete", None, None])
+        self.assertEqual([row["place_category"] for row in logs],
+                         [None, None, "unknown", None, None, None])
         self.assertEqual(len({row["client_hash"] for row in logs}), 1)
         self.assertTrue(all(row["client_hash_status"] == "ok" for row in logs))
         self.assertTrue(all(row["event"] == "places_access" for row in logs))
         for private in (_IP, _KEY, "private-key", "private-query", "private-place",
                         "private-upstream", "private-network-error"):
+            self.assertNotIn(private, out.getvalue())
+
+    def test_place_category_uses_only_explicit_type_metadata(self):
+        cases = [
+            (["train_station", "transit_station", "point_of_interest"], "rail_station"),
+            (["subway_station"], "rail_station"),
+            (["light_rail_station"], "rail_station"),
+            (["bus_stop", "transit_station"], "bus_stop"),
+            (["bus_station"], "bus_stop"),
+            (["train_station", "bus_station"], "transit_unspecified"),
+            (["transit_station"], "transit_unspecified"),
+            (["transit_stop"], "transit_unspecified"),
+            (["street_address"], "address"),
+            (["premise", "shopping_mall", "point_of_interest"], "other"),
+            (["restaurant"], "other"),
+            (None, "unknown"),
+            ([], "unknown"),
+            ("bus_stop", "unknown"),
+            (["train_station", 1], "unknown"),
+            ([""], "unknown"),
+        ]
+        for types, expected in cases:
+            with self.subTest(types=types):
+                self.assertEqual(_classify_place_types(types), expected)
+
+    def test_details_logs_category_without_exposing_raw_metadata(self):
+        payloads = [
+            {"types": ["train_station", "private-type"]},
+            {"types": ["bus_stop"]},
+            {"types": ["street_address"]},
+            {"types": ["restaurant"]},
+            {"types": ["transit_station"]},
+            {},
+            {"types": ["train_station", 1]},
+        ]
+        google = _Google(*[
+            httpx.Response(200, json={
+                "location": {"latitude": 35.123456, "longitude": 139.123456},
+                "formattedAddress": "private-address",
+                **payload,
+            })
+            for payload in payloads
+        ])
+        out = io.StringIO()
+        with (
+            patch.dict(os.environ, {
+                "GOOGLE_MAPS_API_KEY": "private-key",
+                "PLACES_ACCESS_LOG_HMAC_KEY": "",
+            }),
+            patch.object(google_places.httpx, "AsyncClient", return_value=google),
+            redirect_stdout(out),
+            _app() as client,
+        ):
+            for _ in payloads:
+                response = client.get("/details", params={
+                    "place_id": "private-place", "essentials": True,
+                })
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json(), {
+                    "result": {
+                        "geometry": {"location": {"lat": 35.123456, "lng": 139.123456}},
+                        "formatted_address": "private-address",
+                    },
+                    "status": "OK",
+                })
+        rows = [json.loads(line) for line in out.getvalue().splitlines()]
+        self.assertEqual([row["place_category"] for row in rows], [
+            "rail_station", "bus_stop", "address", "other",
+            "transit_unspecified", "unknown", "unknown",
+        ])
+        self.assertTrue(all(row["upstream_attempts"] == 1 for row in rows))
+        self.assertTrue(all(row["upstream_tier"] == "essentials" for row in rows))
+        for private in ("private-type", "private-address", "private-place",
+                        "35.123456", "139.123456", "train_station"):
             self.assertNotIn(private, out.getvalue())
 
     def test_missing_hash_key_does_not_block_search(self):
