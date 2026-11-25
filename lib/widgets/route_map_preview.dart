@@ -225,8 +225,12 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
       );
     }
 
+    final osmWalks = widget.routeGeometry
+            ?.where((segment) => segment.source == 'openstreetmap') ??
+        const <RouteMapSegment>[];
     final cameraPoints = <LatLng>[
       ...points,
+      for (final segment in osmWalks) ...segment.points,
       if (vehiclePosition != null) vehiclePosition,
     ];
     final center = _centerOf(cameraPoints);
@@ -304,6 +308,28 @@ class _RouteMapPreviewState extends State<RouteMapPreview> {
                   ),
               },
             ),
+            if (osmWalks.isNotEmpty)
+              Positioned(
+                bottom: 16,
+                right: 8,
+                child: CupertinoButton(
+                  color: CupertinoColors.systemBackground.resolveFrom(context),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  onPressed: () async {
+                    final uri = Uri.parse('https://www.openstreetmap.org/copyright');
+                    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                      throw StateError('Could not open OpenStreetMap attribution: $uri');
+                    }
+                  },
+                  child: Text(
+                    '© OpenStreetMap contributors',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: CupertinoColors.activeBlue.resolveFrom(context),
+                    ),
+                  ),
+                ),
+              ),
             if (widget.showExpandButton)
               Positioned(
                 top: 8,

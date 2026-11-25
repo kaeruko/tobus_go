@@ -9,6 +9,7 @@ from gtfs_loader import gtfs_repo
 from gtfs_state import download_compiled_lambda_assets, load_compiled_state
 from toei_engine import SpatialIndex, ensure_train_run_metadata
 from tokyo_route_engine import TokyoRouteEngine
+from tokyo_osm_walk import loaded_network, network_required
 from tokyo_static_compatibility import validate_toei_bus_graph_gtfs
 from tokyo_time_bounds import prepare_static_time_index
 
@@ -64,6 +65,7 @@ async def setup_on_startup(app, mode: str) -> None:
             "Tokyo prebuilt data is missing required keys: " + ", ".join(missing)
         )
 
+    loaded_network(data["G"], required=network_required())
     app.state.G = data["G"]
     app.state.TM = data["TM"]
     ensure_train_run_metadata(

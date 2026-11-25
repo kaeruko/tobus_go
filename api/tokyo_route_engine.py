@@ -38,6 +38,7 @@ from transport_scope import (
     transport_for_line_node,
 )
 from tokyo_metro_gtfs import scoped_timetable_manager
+from tokyo_osm_walk import coordinate_routes, endpoint_graph, loaded_network
 
 
 _TOKYO_TIMEZONE = ZoneInfo("Asia/Tokyo")
@@ -349,66 +350,96 @@ class TokyoRouteEngine:
         source_timetable = self.app.state.TM
         walk_radius = self.app.state.WALK_RAD
 
-        origin_node, origin_distance = deps.nearest_phys(
-            g,
-            alat,
-            alon,
-            station_only=False,
-            spatial_index=spatial_index,
-        )
-        destination_node, destination_distance = deps.nearest_phys(
-            g,
-            blat,
-            blon,
-            station_only=True,
-            spatial_index=spatial_index,
-        )
-        if not destination_node or destination_distance > 500:
-            destination_node, _ = deps.nearest_phys(
+        timetable_graph = g
+        destination_label = "目的地"
+        destination_walk_radius = MAX_WALK_SEG_M
+        network = loaded_network(g)
+        walk_meta = {}
+        if network is not None:
+            access, origin_status = coordinate_routes(network, g, (alat, alon), MAX_WALK_SEG_M)
+            egress, destination_status = coordinate_routes(
+                network, g, (blat, blon), MAX_WALK_SEG_M, reverse=True
+            )
+            g, origin_node, virtual_destination = endpoint_graph(
+                g, (alat, alon), (blat, blon), access, egress
+            )
+            walk_meta = {"walking_network": {
+                **network["source"], "schema": network["schema"], "bounds": network["bounds"],
+                "origin": origin_status, "destination": destination_status,
+            }}
+            destination_reachable = bool(egress)
+            destination_node = None
+            virtual_connections = None
+            active_start_time = start_time
+            initial_nodes = (origin_node,)
+            initial_walk_minutes = 0
+            primary_graph_reachable = bool(access and egress) and nx.has_path(
+                g, origin_node, virtual_destination
+            )
+        else:
+            origin_node, origin_distance = deps.nearest_phys(
                 g,
-                blat,
-                blon,
+                alat,
+                alon,
                 station_only=False,
                 spatial_index=spatial_index,
             )
+            destination_node, destination_distance = deps.nearest_phys(
+                g,
+                blat,
+                blon,
+                station_only=True,
+                spatial_index=spatial_index,
+            )
+            if not destination_node or destination_distance > 500:
+                destination_node, _ = deps.nearest_phys(
+                    g,
+                    blat,
+                    blon,
+                    station_only=False,
+                    spatial_index=spatial_index,
+                )
 
-        if not origin_node or not destination_node:
-            return {
-                "error": "Nearby stations or busstops not found",
-                "candidates": [],
-                "meta": {},
-            }
+            if not origin_node or not destination_node:
+                return {
+                    "error": "Nearby stations or busstops not found",
+                    "candidates": [],
+                    "meta": {},
+                }
 
-        initial_walk_minutes = 0
-        if origin_distance and origin_distance > 0:
-            initial_walk_minutes = max(1, walking_minutes(origin_distance))
+            initial_walk_minutes = 0
+            if origin_distance and origin_distance > 0:
+                initial_walk_minutes = max(1, walking_minutes(origin_distance))
 
-        initial_nodes = _origin_station_access_nodes(g, origin_node)
-        active_start_time = start_time
-        if initial_walk_minutes > 0:
-            active_start_time = deps.min_to_time_str(
-                deps.time_str_to_min(start_time) + initial_walk_minutes
+            initial_nodes = _origin_station_access_nodes(g, origin_node)
+            active_start_time = start_time
+            if initial_walk_minutes > 0:
+                active_start_time = deps.min_to_time_str(
+                    deps.time_str_to_min(start_time) + initial_walk_minutes
+                )
+
+            virtual_destination, virtual_connections = deps.get_virtual_connections(
+                g,
+                blat,
+                blon,
+                name=destination_label,
+                walk_radius=destination_walk_radius,
+                spatial_index=spatial_index,
+            )
+            destination_reachable = bool(virtual_connections)
+            primary_graph_reachable = _static_path_is_possible(
+                g, origin_node, (item[0] for item in virtual_connections)
             )
 
-        destination_label = "目的地"
-        destination_walk_radius = MAX_WALK_SEG_M
-        virtual_destination, virtual_connections = deps.get_virtual_connections(
-            g,
-            blat,
-            blon,
-            name=destination_label,
-            walk_radius=destination_walk_radius,
-            spatial_index=spatial_index,
-        )
-        destination_reachable = bool(virtual_connections)
         day_type = deps.determine_day_type(date_str)
         timetable = scoped_timetable_manager(
             source_timetable,
-            g,
+            timetable_graph,
             scope,
             day_type,
         )
 
+        connection_count = len(egress) if network is not None else len(virtual_connections)
         print(
             "[ROUTE_DEBUG] Tokyo destination setup: "
             f"pref={pref} origin_node={origin_node} "
@@ -416,20 +447,17 @@ class TokyoRouteEngine:
             f"graph_walk_radius={walk_radius} "
             f"destination_walk_radius={destination_walk_radius} "
             f"virtual_destination={virtual_destination} "
-            f"virtual_connections={len(virtual_connections)} "
+            f"virtual_connections={connection_count} "
             f"destination_reachable={destination_reachable}",
             flush=True,
         )
 
         results: list[dict[str, Any]] = []
-        primary_graph_reachable = _static_path_is_possible(
-            g, origin_node, (item[0] for item in virtual_connections)
-        )
         if destination_reachable and primary_graph_reachable:
             print(
                 "[ROUTE_DEBUG] Tokyo primary search start: "
                 f"pref={pref} target=virtual_destination "
-                f"connections={len(virtual_connections)}",
+                f"connections={connection_count}",
                 flush=True,
             )
             results = deps.search_best_routes_once(
@@ -454,7 +482,7 @@ class TokyoRouteEngine:
                 flush=True,
             )
 
-        fallback_graph_reachable = _static_path_is_possible(
+        fallback_graph_reachable = network is None and _static_path_is_possible(
             g, origin_node, (destination_node,)
         )
         if not results and fallback_graph_reachable:
@@ -557,7 +585,7 @@ class TokyoRouteEngine:
         fallback_distance_m = None
         fallback_node_name = None
         fallback_node_name_en = None
-        if destination_node in g:
+        if destination_node is not None and destination_node in g:
             fallback_node_name = g.nodes[destination_node].get("name")
             fallback_node_name_en = g.nodes[destination_node].get("name_en")
             fallback_lat = g.nodes[destination_node].get("lat")
@@ -604,6 +632,7 @@ class TokyoRouteEngine:
                     and getattr(timetable, "tokyo_metro_feed_version", None)
                     else {}
                 ),
+                **walk_meta,
                 **search_meta,
             },
         }

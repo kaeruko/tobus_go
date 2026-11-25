@@ -116,7 +116,11 @@ class Leg {
           }
           points.add([lat.toDouble(), lon.toDouble()]);
         }
-        decoded.add({'kind': segment['kind'], 'points': points});
+        decoded.add({
+          'kind': segment['kind'],
+          'points': points,
+          if (segment.containsKey('source')) 'source': segment['source'],
+        });
       }
       candidateJson['route_geometry'] = decoded;
     }
@@ -198,6 +202,7 @@ class Leg {
           for (final segment in candidate.routeGeometry!)
             {
               'kind': segment.kind,
+              if (segment.source != null) 'source': segment.source,
               'coordinates': [
                 for (final point in segment.points)
                   ...[point.latitude, point.longitude],

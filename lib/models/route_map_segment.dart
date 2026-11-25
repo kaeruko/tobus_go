@@ -1,17 +1,18 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-/// Schematic stop-to-stop geometry supplied by a route backend.
-///
-/// It is not a pedestrian street route. Absence of route_geometry indicates
-/// an older/other-city route response; malformed provided geometry fails fast.
+/// Geometry for one walking or transit leg. OSM walks carry source attribution.
 class RouteMapSegment {
   final String kind; // walk, bus, rail
   final List<LatLng> points;
+  final String? source;
 
-  RouteMapSegment({required this.kind, required List<LatLng> points})
+  RouteMapSegment({required this.kind, required List<LatLng> points, this.source})
       : points = List<LatLng>.unmodifiable(points) {
     if (kind != 'walk' && kind != 'bus' && kind != 'rail') {
       throw FormatException('Unknown route geometry kind: $kind');
+    }
+    if (source != null && (source != 'openstreetmap' || kind != 'walk')) {
+      throw FormatException('Invalid route geometry source for $kind: $source');
     }
     if (points.length < 2) {
       throw FormatException(
@@ -41,6 +42,10 @@ class RouteMapSegment {
     }
     final kind = raw['kind'];
     final rawPoints = raw['points'];
+    final source = raw['source'];
+    if (source != null && source is! String) {
+      throw FormatException('Invalid route geometry source: $source');
+    }
     if (kind is! String || rawPoints is! List) {
       throw FormatException('route_geometry requires kind and points: $raw');
     }
@@ -59,7 +64,7 @@ class RouteMapSegment {
         ),
       );
     }
-    return RouteMapSegment(kind: kind, points: points);
+    return RouteMapSegment(kind: kind, points: points, source: source as String?);
   }
 
   static List<RouteMapSegment> listFromJson(Object? raw) {
@@ -73,6 +78,7 @@ class RouteMapSegment {
 
   Map<String, Object> toJson() => {
         'kind': kind,
+        if (source != null) 'source': source!,
         'points': points
             .map((point) => <double>[point.latitude, point.longitude])
             .toList(),

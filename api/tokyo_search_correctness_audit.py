@@ -297,10 +297,13 @@ class CompletionOracle:
                 continue
             if kind == "walk":
                 meters = edge.get("meters", 0.0)
-                meters = meters if meters > 0 else 1.0
+                floor = 0.0 if "osm_points" in edge else 1.0
+                resource = edge.get("walk_resource_meters", meters)
+                resource = resource if resource > 0 else floor
+                meters = meters if meters > 0 else floor
                 elapsed = (float(edge["reviewed_walk_minutes"])
                            if "reviewed_walk_minutes" in edge else meters / 80.0)
-                child = State(following, clock + elapsed, total + meters, segment + meters)
+                child = State(following, clock + elapsed, total + resource, segment + resource)
                 yield child, self.reason(child, clock)
             elif kind == "board":
                 mode = self.graph.nodes[following]["mode"]

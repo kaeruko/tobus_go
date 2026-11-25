@@ -84,6 +84,8 @@ jobs:
           graph_changes="$(git diff --name-only "$DATA_BASELINE_SHA" "$SOURCE_SHA" -- \
             api/toei_engine.py \
             api/tokyo_metro_gtfs.py \
+            api/tokyo_osm_build.py \
+            api/tokyo_osm_walk.py \
             api/tokyo_metro_transfer_model.py \
             api/config/tokyo_metro_reviewed_transfers.json \
             api/prebuild.py \

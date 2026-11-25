@@ -37,7 +37,11 @@ def walk_edge_elapsed_minutes(edge: Mapping[str, Any], *, speed_m_per_min: float
         raise ValueError("walking meters must be nonnegative and finite")
     if not math.isfinite(meters):
         raise ValueError("walking meters must be finite")
+    if "osm_points" in edge and meters < 0:
+        raise ValueError("OSM walking meters must be nonnegative")
     if "reviewed_walk_minutes" not in edge:
+        if "osm_points" in edge:
+            return meters / speed_m_per_min
         # Preserve Tokyo's legacy 1-meter fallback for 0 or negative
         # synthetic/virtual walk edges. Only reviewed walking overrides
         # require actual nonnegative measured distance.
@@ -71,6 +75,10 @@ def walk_edge_resource_meters(
     result = float(value)
     if not math.isfinite(result) or (has_explicit_resource and result < 0):
         raise ValueError("walking resource meters must be nonnegative and finite")
+    if "osm_points" in edge:
+        if result < 0:
+            raise ValueError("OSM walking resource must be nonnegative")
+        return result
     return result if result > 0 else float(zero_fallback)
 
 

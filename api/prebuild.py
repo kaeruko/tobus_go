@@ -1,7 +1,7 @@
 import json
 import os
 import sys
-import pickle
+from pathlib import Path
 import time
 
 try:
@@ -137,6 +137,10 @@ def main():
             "Tokyo Metro static GTFS loaded: "
             f"version={info.version} period={info.start_date}..{info.end_date}"
         )
+    from tokyo_osm_build import bind_network, compile_network, load_config, write_prebuilt
+    if "TOKYO_OSM_WALK_CONFIG" in os.environ:
+        network = compile_network(load_config(Path(os.environ["TOKYO_OSM_WALK_CONFIG"])))
+        print("OSM walking network:", bind_network(g, network, p["WALK_RAD"]))
     tm.build_name_index(g)
 
     toei_gtfs_dir = os.getenv(
@@ -165,8 +169,7 @@ def main():
     }
 
     os.makedirs(os.path.dirname(os.path.realpath(output_file)), exist_ok=True)
-    with open(output_file, "wb") as f:
-        pickle.dump(export_data, f, protocol=pickle.HIGHEST_PROTOCOL)
+    write_prebuilt(export_data, output_file)
 
     elapsed = time.time() - start_time
     print(f"=== Done in {elapsed:.2f} seconds ===")

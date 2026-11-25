@@ -10,6 +10,7 @@ import httpx
 import initialize_data
 from toei_engine import build_graph, TimetableManager, parse_realtime_gtfs
 from gtfs_loader import gtfs_repo
+from tokyo_osm_walk import loaded_network, network_required
 
 LAMBDA_TMP_DIR = "/tmp/data"
 _REALTIME_REFRESH_LOCK = asyncio.Lock()
@@ -254,54 +255,56 @@ async def setup_on_startup(app, mode: str) -> None:
         os.environ["DATA_DIR"] = os.getenv("DATA_DIR", LAMBDA_TMP_DIR)
         prebuilt_data_path = _download_lambda_data(os.environ["DATA_DIR"])
 
+    require_osm_walk = network_required()
+    if require_osm_walk and not os.path.isfile(prebuilt_data_path):
+        raise FileNotFoundError(f"OSM walking requires the prebuilt transit network: {prebuilt_data_path}")
+
     # 1. 高速起動パス: Pickleファイルからのロード
     if os.path.exists(prebuilt_data_path):
         print(f"[INFO] Loading prebuilt data from {prebuilt_data_path}...")
-        try:
-            with open(prebuilt_data_path, "rb") as f:
-                data = pickle.load(f)
+        with open(prebuilt_data_path, "rb") as f:
+            data = pickle.load(f)
 
-            app.state.G = data["G"]
-            app.state.TM = data["TM"]
-            app.state.SI = data.get("SI")
-            app.state.WALK_RAD = data.get("WALK_RAD", 300)
+        loaded_network(data["G"], required=require_osm_walk)
+        app.state.G = data["G"]
+        app.state.TM = data["TM"]
+        app.state.SI = data.get("SI")
+        app.state.WALK_RAD = data.get("WALK_RAD", 300)
 
-            if not app.state.SI:
-                from toei_engine import SpatialIndex
-                app.state.SI = SpatialIndex(app.state.G)
+        if not app.state.SI:
+            from toei_engine import SpatialIndex
+            app.state.SI = SpatialIndex(app.state.G)
 
-            # Ensure GTFS repo is loaded (critical for ID injection)
-            # The pickle only includes TM/G/SI, not the singleton state of gtfs_repo
-            paths = _paths()
-            from toei_engine import ensure_train_run_metadata
-            ensure_train_run_metadata(app.state.TM, paths["TRAIN_TBL"])
-            gtfs_dir = os.path.join(paths["DATA_DIR"], "ToeiBus-GTFS")
-            if os.path.exists(gtfs_dir):
-                print(f"[INFO] Explicitly loading GTFS data from {gtfs_dir}...")
-                gtfs_repo.load_data(gtfs_dir)
-            else:
-                print(f"[WARN] GTFS directory {gtfs_dir} not found. Reverse lookup may fail.")
+        # Ensure GTFS repo is loaded (critical for ID injection)
+        # The pickle only includes TM/G/SI, not the singleton state of gtfs_repo
+        paths = _paths()
+        from toei_engine import ensure_train_run_metadata
+        ensure_train_run_metadata(app.state.TM, paths["TRAIN_TBL"])
+        gtfs_dir = os.path.join(paths["DATA_DIR"], "ToeiBus-GTFS")
+        if os.path.exists(gtfs_dir):
+            print(f"[INFO] Explicitly loading GTFS data from {gtfs_dir}...")
+            gtfs_repo.load_data(gtfs_dir)
+        else:
+            print(f"[WARN] GTFS directory {gtfs_dir} not found. Reverse lookup may fail.")
 
-            from tokyo_time_bounds import prepare_static_time_index
-            prepare_static_time_index(app.state.TM, gtfs_repo)
+        from tokyo_time_bounds import prepare_static_time_index
+        prepare_static_time_index(app.state.TM, gtfs_repo)
 
-            print(f"[INFO] Data loaded in {time.time() - start_time:.2f}s")
+        print(f"[INFO] Data loaded in {time.time() - start_time:.2f}s")
 
-            # Lambdaはレスポンス後にイベントループを凍結するため、
-            # 初回分だけは起動完了前に待って取得する。
-            await refresh_realtime_bus_positions(
-                app.state.TM,
-                max_age_seconds=0,
-            )
-            asyncio.create_task(fetch_realtime_data_loop(app.state.TM))
+        # Lambdaはレスポンス後にイベントループを凍結するため、
+        # 初回分だけは起動完了前に待って取得する。
+        await refresh_realtime_bus_positions(
+            app.state.TM,
+            max_age_seconds=0,
+        )
+        asyncio.create_task(fetch_realtime_data_loop(app.state.TM))
 
-            from tokyo_route_engine import TokyoRouteEngine
+        from tokyo_route_engine import TokyoRouteEngine
 
-            app.state.route_engine = TokyoRouteEngine(app)
-            app.state.loading_status = "ready"
-            return
-        except Exception as e:
-            print(f"[WARNING] Failed to load prebuilt data: {e}. Falling back to slow load.")
+        app.state.route_engine = TokyoRouteEngine(app)
+        app.state.loading_status = "ready"
+        return
 
     # 2. 低速起動パス (フォールバック): 生データから構築
     # Lambda環境で事前データを読み込めなかった場合のみ生データから再生成

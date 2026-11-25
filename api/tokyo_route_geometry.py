@@ -1,6 +1,6 @@
 """Draw Tokyo route legs by search edge type, without fabricating streets.
 
-These stop-to-stop lines are schematic. Only explicit 'walk' and 'ride' edges
+Ground walks follow the selected OSM edges. Other stop-to-stop lines are schematic. Only explicit 'walk' and 'ride' edges
 produce geometry; boarding, alighting, and waiting never invent a connection.
 """
 
@@ -94,10 +94,20 @@ def path_to_route_geometry(graph, path, *, virtual_dest_connections=None):
                 f"{source!r} -> {destination!r}, etype={etype!r}"
             )
 
-        a, b = _node_point(graph, source), _node_point(graph, destination)
-        if segments and segments[-1]["kind"] == kind and segments[-1]["points"][-1] == a:
-            if a != b:
-                segments[-1]["points"].append(b)
+        osm = "osm_points" in edge
+        if osm:
+            if kind != "walk" or len(edge["osm_points"]) < 2:
+                raise RouteContractError("OSM geometry requires a walk with at least two points")
+            points = [list(point) for point in edge["osm_points"]]
         else:
-            segments.append({"kind": kind, "points": [a, b]})
+            points = [_node_point(graph, source), _node_point(graph, destination)]
+        attribution = {"source": "openstreetmap"} if osm else {}
+        if (segments and segments[-1]["kind"] == kind
+                and segments[-1].get("source") == attribution.get("source")
+                and segments[-1]["points"][-1] == points[0]):
+            segments[-1]["points"].extend(
+                b for a, b in zip(points, points[1:]) if a != b
+            )
+        else:
+            segments.append({"kind": kind, "points": points, **attribution})
     return segments

@@ -1398,8 +1398,8 @@ def build_graph(busstop_poles_path, busroute_patterns_path, stations_path, railw
                     
                     minutes = max(1.0, dist / WALK_SPEED_M_PER_MIN)
                     w = WALK_COST * minutes
-                    G.add_edge(u, v, w=w, etype="walk", meters=dist)
-                    G.add_edge(v, u, w=w, etype="walk", meters=dist)
+                    G.add_edge(u, v, w=w, etype="walk", meters=dist, connecting_station=True)
+                    G.add_edge(v, u, w=w, etype="walk", meters=dist, connecting_station=True)
                     count_connect += 1
     print(f"[INFO] Added {count_connect} connecting station edges.", flush=True)
 
@@ -2449,6 +2449,10 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     minutes if minutes is not None
                     else walking_elapsed_minutes(cur.get("meters", 0), speed_m_per_min=WALK_SPEED_M_PER_MIN)
                 ))
+                if cur.get("contains_osm_walk"):
+                    cur["minutes"] = max(
+                        1, time_str_to_min(cur["arrival_time"]) - time_str_to_min(cur["departure_time"])
+                    )
                 reviewed = cur.pop("_reviewed_edges", 0)
                 unreviewed = cur.pop("_unreviewed_edges", 0)
                 evidence = cur.pop("_evidence_urls", [])
@@ -2567,6 +2571,8 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     "_transfer_evidence": None,
                 }
             cur["edges"] += 1
+            if "osm_points" in edge:
+                cur["contains_osm_walk"] = True
             cur["meters"] += edge.get("meters", 0)
             cur["_walk_resource_meters"] += walk_edge_resource_meters(edge)
             if edge.get("transfer_time_estimated") is True:
@@ -2638,7 +2644,9 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     cur["to_en"] = None
             # 徒歩速度で時間を加算(分)
             curr_time = selected_time if selected_path else curr_time + elapsed
-            cur["arrival_time"] = min_to_time_str(curr_time)
+            cur["arrival_time"] = min_to_time_str(
+                math.ceil(curr_time) if cur.get("contains_osm_walk") else curr_time
+            )
             continue
 
         node = v if v[0] == "line" else (u if u[0] == "line" else None)
@@ -2729,10 +2737,12 @@ def segments_detailed(G, path, tm, start_time_str="10:00", day_type="weekday", d
                     segment.get("kind") in ("bus", "rail")
                     for segment in segs
                 )
-                wait_start_minute = serialized_transfer_wait_start_minute(
-                    curr_time,
-                    has_prior_ride=has_prior_ride,
-                )
+                if segs and segs[-1].get("contains_osm_walk"):
+                    wait_start_minute = math.ceil(curr_time)
+                else:
+                    wait_start_minute = serialized_transfer_wait_start_minute(
+                        curr_time, has_prior_ride=has_prior_ride,
+                    )
                 if dep > wait_start_minute:
                     wait_min = int(dep - wait_start_minute)
                     if wait_min > 0:

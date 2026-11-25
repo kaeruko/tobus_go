@@ -359,7 +359,8 @@ void main() {
     final geometry = <RouteMapSegment>[
       RouteMapSegment(
         kind: 'walk',
-        points: const [LatLng(35.0, 139.0), LatLng(35.001, 139.0)],
+        source: 'openstreetmap',
+        points: const [LatLng(35.0, 139.0), LatLng(35.0, 139.03), LatLng(35.001, 139.0)],
       ),
       RouteMapSegment(
         kind: 'bus',
@@ -384,6 +385,10 @@ void main() {
     await tester.pumpAndSettle();
 
     final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(map.initialCameraPosition.target.longitude, closeTo(139.015, 1e-8));
+    await tester.tap(find.text('© OpenStreetMap contributors'));
+    await tester.pumpAndSettle();
+    expect(urlLauncher.urls.single.toString(), 'https://www.openstreetmap.org/copyright');
     expect(map.polylines, hasLength(3));
     final segments = {
       for (final line in map.polylines) line.polylineId.value: line,

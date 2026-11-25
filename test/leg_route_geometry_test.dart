@@ -17,6 +17,7 @@ void main() {
     'route_geometry': [
       {
         'kind': 'walk',
+        'source': 'openstreetmap',
         'points': [[35.1, 139.1], [35.123456789, 139.234567891]],
       },
       {
@@ -54,6 +55,7 @@ void main() {
     final persistedSegments = persistedLeg['routeGeometrySegments'] as List;
     expect(persistedSegments, hasLength(2));
     expect((persistedSegments.first as Map)['kind'], 'walk');
+    expect((persistedSegments.first as Map)['source'], 'openstreetmap');
     expect((persistedSegments.first as Map)['coordinates'], [
       35.1, 139.1, 35.123456789, 139.234567891,
     ]);
@@ -61,6 +63,7 @@ void main() {
     expect(restored.candidate.points, route.points);
     expect(restored.candidate.routeGeometry, hasLength(2));
     expect(restored.candidate.routeGeometry!.first.kind, 'walk');
+    expect(restored.candidate.routeGeometry!.first.source, 'openstreetmap');
     expect(restored.candidate.routeGeometry!.first.points,
         route.routeGeometry!.first.points);
     expect(restored.candidate.routeGeometry!.last.kind, 'bus');

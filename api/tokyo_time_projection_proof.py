@@ -61,6 +61,9 @@ _CONTRACT_OBJECTS = {
     "TimeBounds": TimeBounds,
     "GtfsRepository.get_stop_time_boarding": GtfsRepository.get_stop_time_boarding,
 }
+# A mapped zero-distance endpoint advances neither the clock nor the resource.
+# Reverse projection and forward traversal use the same nonnegative duration;
+# zero cycles add no benefit to identical (clock, resource, ride) frontier labels.
 # Generated from the reviewed transition ASTs. The 2026-10-26 timetable update
 # memoizes the query-fixed legal bus occurrence stream and, for time searches
 # only, removes a later occurrence when an earlier occurrence on the same
@@ -85,9 +88,9 @@ _REVIEWED_AST_SHA256 = {
     "engine.advance_time": "d8323f8f8046a46d1f35bb46f0c7cf586ed9a446163e3d12b15585dee484dcf9",
     "engine._edge_uses_rail": "131d5efe0129771b745203e425ef73b6321217f600ae22a56ce2e4975e1cc451",
     "engine.time_str_to_min": "d0f4bd80a6985fd7b4dc53be59b68c06b4197927663ccb5fbec31e9f000b37e5",
-    "walking.walk_edge_elapsed_minutes": "b5fe6b98356e9c1f70720418e8b874381a0acfac2f5d39278b6b599235548380",
+    "walking.walk_edge_elapsed_minutes": "bdfc8fa53f5a47b64b3bf90f59a80aa26585223eac586abf32117b2e36adea1f",
     "walking.walk_edge_is_available": "9d1170a0dae0605fb54f02448bf9c96b30844ce90b0ee2a5f8dcf6425f0d8685",
-    "walking.walk_edge_resource_meters": "b00038d1ec0db276e1fe537990f3b567041abf6c6eddbf579a235e2782be461f",
+    "walking.walk_edge_resource_meters": "f57db94431c491f7719899c8202d70e38bf7a7c526667bc3cda5451b98d41fc9",
     "timetable": "a4421f994332d61c2b83d42b6fbd277259b353db2b010c695c6865d689351055",
     "rounding": "7598a5971723c1a49e770519129d0aeb8c8d28d0594931ee1126fb7ce158fe32",
     "TimeBounds": "6c5a77b3aa915378b64d3aba8aea6a12f86e9dd10282134cdb9e61e0248ec914",
