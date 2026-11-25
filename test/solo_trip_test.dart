@@ -10,6 +10,29 @@ import 'package:toeigo/providers/trip_provider.dart';
 import 'fixtures/navigation_v2_fixture.dart';
 
 void main() {
+  group('new solo route start validation', () {
+    final candidate = navigationV2Candidate();
+
+    test('accepts a future route or the displayed departure minute', () {
+      validateSoloRouteStart(candidate, DateTime(2025, 1, 1, 9, 59));
+      validateSoloRouteStart(candidate, DateTime(2025, 1, 1, 10, 0, 59));
+    });
+
+    test('rejects a route once its movement start minute has passed', () {
+      for (final now in [
+        DateTime(2025, 1, 1, 10, 1),
+        DateTime(2025, 1, 1, 10, 30),
+        DateTime(2025, 1, 1, 10, 51),
+        DateTime(2025, 1, 2, 9),
+      ]) {
+        expect(
+          () => validateSoloRouteStart(candidate, now),
+          throwsA(isA<SoloRouteExpiredException>()),
+        );
+      }
+    });
+  });
+
   group('solo Trip factory', () {
     test(
       'builds the existing Trip model without group-only schedule entries',

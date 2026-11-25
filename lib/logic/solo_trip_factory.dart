@@ -3,6 +3,41 @@ import '../models/leg_models.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
 
+/// Reject a new trip when its first actual movement minute has passed.
+/// Use the same schedule calculation as navigation, including leading waits.
+/// The displayed departure minute remains startable until its end.
+class SoloRouteExpiredException implements Exception {
+  final String candidateId;
+  final DateTime movementStart;
+  final DateTime now;
+
+  const SoloRouteExpiredException(this.candidateId, this.movementStart, this.now);
+
+  @override
+  String toString() =>
+      'Route start expired: candidateId=$candidateId, '
+      'movementStart=$movementStart, now=$now';
+}
+
+void validateSoloRouteStart(Candidate candidate, DateTime now) {
+  final departure = candidate.departureDate;
+  if (departure == null) {
+    throw StateError(
+      'Missing route departure date: candidateId=${candidate.id}',
+    );
+  }
+  final schedule = createScheduleFromRoute(
+    candidate,
+    startDateTime: departure,
+    legIndex: 0,
+    includeMeeting: false,
+  );
+  final movementStart = plannedMovementStartForLeg(schedule, legIndex: 0);
+  if (!now.isBefore(movementStart.add(const Duration(minutes: 1)))) {
+    throw SoloRouteExpiredException(candidate.id, movementStart, now);
+  }
+}
+
 Trip buildSoloTrip({
   required String id,
   required String userId,

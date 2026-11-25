@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_clock.dart';
 import '../core/city_profile.dart';
+import '../logic/solo_trip_factory.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
@@ -820,22 +821,50 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
     );
   }
 
-  Future<void> _startSoloTrip() async {
-    final existing = await _tripService.getActiveTrip();
-    if (!mounted) return;
-    if (existing != null) {
-      await _showActiveTripDialog(existing);
-      return;
+  Future<void> _showExpiredRouteDialog() async {
+    final l10n = AppLocalizations.of(context);
+    final research = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(l10n.expiredRouteTitle),
+        content: Text(l10n.expiredRouteMessage),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.expiredRouteResearch),
+          ),
+        ],
+      ),
+    );
+    if (research == true && mounted) {
+      await _executeReSearch(overrideTime: appClock.now());
     }
+  }
 
+  Future<void> _startSoloTrip() async {
+    if (_isCreatingSolo) return;
     setState(() => _isCreatingSolo = true);
     try {
+      validateSoloRouteStart(widget.candidate, appClock.now());
+      final existing = await _tripService.getActiveTrip();
+      if (!mounted) return;
+      if (existing != null) {
+        await _showActiveTripDialog(existing);
+        return;
+      }
       final tripId = await _tripService.createSoloTrip(widget.candidate);
       if (!mounted) return;
       await Navigator.of(
         context,
       ).push(CupertinoPageRoute(builder: (_) => TripPage(tripId: tripId)));
       await _checkActiveTrip();
+    } on SoloRouteExpiredException {
+      if (mounted) await _showExpiredRouteDialog();
     } on ActiveTripExistsException catch (error) {
       final activeTrip = await _tripService.getTrip(error.tripId);
       if (mounted && activeTrip != null) {

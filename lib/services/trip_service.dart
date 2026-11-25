@@ -67,13 +67,15 @@ class TripService {
     final userName = await _userService.getUserName();
     if (uid == null) throw Exception("ユーザーIDが初期化されていません");
 
+    final now = appClock.now();
+    validateSoloRouteStart(candidate, now);
     final tripRef = _db.collection('trips').doc();
     final trip = buildSoloTrip(
       id: tripRef.id,
       userId: uid,
       userName: userName,
       candidate: candidate,
-      now: appClock.now(),
+      now: now,
     );
     await _createTripWithClaim(uid: uid, trip: trip, tripRef: tripRef);
     return tripRef.id;
