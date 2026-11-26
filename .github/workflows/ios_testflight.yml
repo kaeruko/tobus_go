@@ -39,11 +39,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prevent upload before AdMob release review
-        run: |
-          echo '::error::TestFlight uploads are blocked pending AdMob privacy and release review. See docs/admob-rollout.md.'
-          exit 1
-
       - name: Select Xcode 26.6
         shell: bash
         run: |
@@ -500,6 +495,7 @@ jobs:
             --release \
             --flavor tokyo \
             --dart-define="APP_CITY=$APP_CITY" \
+            --dart-define=TOEIGO_PRODUCTION_ADS=true \
             --build-name "$BUILD_NAME" \
             --build-number "$BUILD_NUMBER" \
             --config-only \
@@ -532,10 +528,12 @@ jobs:
               except Exception as exc:
                   raise SystemExit(f'Could not decode DART_DEFINES entry: {exc}') from exc
 
-          expected = {f"APP_CITY={os.environ['APP_CITY']}"}
+          expected = {f"APP_CITY={os.environ['APP_CITY']}", 'TOEIGO_PRODUCTION_ADS=true'}
           missing = expected.difference(decoded)
           if missing:
               raise SystemExit(f'Generated iOS configuration is missing required Dart defines: {sorted(missing)}')
+          if any(item.startswith(('TOEIGO_TEST_ADS=', 'TOEIGO_TEST_UMP=')) for item in decoded):
+              raise SystemExit('Release build must not embed ad test defines')
           if any(item.startswith('API_BASE=') for item in decoded):
               raise SystemExit('Release build must not embed API_BASE; the city endpoint is resolved from Google Drive at runtime')
           PY

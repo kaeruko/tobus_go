@@ -1,4 +1,4 @@
-# Tokyo AdMob rollout — publisher IDs configured, distribution gated
+# Tokyo AdMob rollout — production release enabled
 
 The Android and iOS native app IDs are now the actual Tokyo publisher IDs.
 The test banner units remain Google's published sample units; no publisher
@@ -39,11 +39,14 @@ using UMP test-device/debug geography configuration before release.
 
 The publisher ad units are wired, but require BOTH a release build and
 explicit TOEIGO_PRODUCTION_ADS=true plus a successful UMP permission check.
-Do not use the release define for local testing. Store AAB and TestFlight
-scripts remain blocked pending review. CI builds validation artifacts with
-no production ad define, and must never be distributed.
+Do not use the release define for local testing. Following the maintainer's
+release authorization on 2026-11-27, the Tokyo TestFlight workflow and
+store AAB script explicitly enable production ads. CI validation AABs
+explicitly disable production ads and must never be distributed. Sendai
+remains blocked. UMP failure still disables ads.
 
-Before enabling distribution:
+Release review checklist (external console and device checks are not verified
+by this repository change):
 
 - Confirm both apps' ownership and serving readiness in AdMob.
 - Publish applicable privacy messages and verify UMP with the real app IDs,
@@ -54,8 +57,8 @@ Before enabling distribution:
   Google Play data safety and contains-ads declarations based on actual SDK
   data use. Non-personalized ads are not equivalent to no data collection.
 - Commit generated dependency lockfiles from a successful resolution.
-- After approval, remove distribution guards and explicitly pass the
-  production define in reviewed store build scripts, not in debug builds.
+- Confirm that release builds use the production define and debug and CI
+  validation builds do not enable production ads.
 
 Official guides:
 - https://developers.google.com/admob/flutter/quick-start

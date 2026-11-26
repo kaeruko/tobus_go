@@ -33,9 +33,18 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# AdMob production privacy review and store declarations are not yet complete.
-if (-not $ValidationOnly -or $env:GITHUB_ACTIONS -ne 'true' -or $env:GOOGLE_MAPS_ANDROID_API_KEY -ne 'ci-build-check-only') {
-    throw 'Store AAB builds are blocked pending AdMob privacy and release review. CI validation only; see docs/admob-rollout.md.'
+# Validation artifacts are CI-only and must never request production ads.
+if ($ValidationOnly) {
+    if ($env:GITHUB_ACTIONS -ne 'true' -or $env:GOOGLE_MAPS_ANDROID_API_KEY -ne 'ci-build-check-only') {
+        throw 'ValidationOnly is restricted to CI with the validation Maps key.'
+    }
+    $productionAds = 'false'
+}
+else {
+    if ($env:GOOGLE_MAPS_ANDROID_API_KEY -eq 'ci-build-check-only' -or $env:GITHUB_ACTIONS -eq 'true') {
+        throw 'Store AAB builds require a real restricted Maps key and must not use the CI validation environment.'
+    }
+    $productionAds = 'true'
 }
 
 if ($City -eq 'sendai') {
@@ -117,6 +126,7 @@ try {
         --release `
         --flavor $City `
         --dart-define="APP_CITY=$City" `
+        --dart-define="TOEIGO_PRODUCTION_ADS=$productionAds" `
         --build-name $appVersion `
         --build-number $nextBuildNumber
     Assert-LastExitCode 'flutter build appbundle'
