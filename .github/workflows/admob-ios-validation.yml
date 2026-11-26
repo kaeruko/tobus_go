@@ -1,0 +1,89 @@
+name: AdMob iOS validation
+
+on:
+  push:
+    branches: [codex/admob-ios-validation]
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.9'
+          cache: true
+
+      - name: Verify Flutter dependencies and iOS project
+        run: |
+          flutter pub get --enforce-lockfile
+          ruby scripts/configure_ios_flavors.rb --check
+
+      - name: Run advertising tests
+        run: flutter test --no-pub --fail-fast test/ad_consent_provider_test.dart test/test_banner_policy_test.dart
+
+      - name: Build Tokyo simulator app with sample ads
+        run: |
+          flutter build ios --simulator --debug --flavor tokyo --dart-define=APP_CITY=tokyo \
+            --dart-define=TOEIGO_TEST_ADS=true --dart-define=TOEIGO_TEST_UMP=true
+
+      - name: Verify app identity and collect CocoaPods and privacy evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import plistlib
+          import shutil
+          from pathlib import Path
+
+          app = Path('build/ios/iphonesimulator/Runner.app')
+          with (app / 'Info.plist').open('rb') as f:
+              info = plistlib.load(f)
+          assert info['CFBundleIdentifier'] == 'jp.cloxs.go.tokyo'
+          assert info['GADApplicationIdentifier'] == 'ca-app-pub-1701253412237513~2728475696'
+          assert info['GADDelayAppMeasurementInit'] is True
+          assert 'NSUserTrackingUsageDescription' not in info
+          with Path('ios/Runner/Info.plist').open('rb') as f:
+              source = plistlib.load(f)
+          assert info['SKAdNetworkItems'] == source['SKAdNetworkItems']
+
+          lock = Path('ios/Podfile.lock')
+          text = lock.read_text()
+          for pod in ('google_mobile_ads', 'Google-Mobile-Ads-SDK', 'GoogleUserMessagingPlatform', 'firebase_analytics'):
+              assert f'  - {pod} (' in text, f'{pod} missing from resolved Podfile.lock'
+
+          evidence = Path('build/admob-ios-evidence')
+          evidence.mkdir()
+          shutil.copyfile(lock, evidence / 'Podfile.lock')
+          observed = set()
+          for root in (app, Path('ios/Pods')):
+              for manifest in root.rglob('PrivacyInfo.xcprivacy'):
+                  origin = manifest.relative_to(root)
+                  origin_name = origin.as_posix().lower()
+                  if 'usermessagingplatform' in origin_name:
+                      sdk = 'UMP'
+                  elif 'googlemobileads' in origin_name or 'google-mobile-ads' in origin_name:
+                      sdk = 'Mobile Ads'
+                  else:
+                      continue
+                  with manifest.open('rb') as f:
+                      plistlib.load(f)
+                  observed.add(sdk)
+                  target = evidence / ('app' if root == app else 'pods') / origin
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copyfile(manifest, target)
+                  print(target.relative_to(evidence))
+          assert observed == {'Mobile Ads', 'UMP'}, f'missing Ads or UMP privacy manifest: {observed}'
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: admob-ios-validation-evidence
+          path: build/admob-ios-evidence
+          if-no-files-found: error
+          retention-days: 3

@@ -3,6 +3,25 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+class RouteBannerSlot extends StatelessWidget {
+  const RouteBannerSlot({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    // CupertinoTabScaffold consumes the bottom inset before building its tabs.
+    return MediaQuery.fromView(
+      view: View.of(context),
+      child: Builder(
+        builder: (context) => MediaQuery.viewInsetsOf(context).bottom == 0
+            ? child
+            : const SizedBox.shrink(),
+      ),
+    );
+  }
+}
+
 /// Route result banner. No route, location or search text is supplied in the request.
 class TestRouteBanner extends StatefulWidget {
   const TestRouteBanner({super.key, required this.adUnitId});

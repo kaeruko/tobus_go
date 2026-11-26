@@ -1,8 +1,36 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:toeigo/core/test_banner_policy.dart';
+import 'package:toeigo/widgets/test_route_banner.dart';
 
 void main() {
+  testWidgets('banner hides when a parent consumes the keyboard inset', (
+    tester,
+  ) async {
+    const banner = Key('sample-banner');
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: Builder(
+          builder: (context) => MediaQuery.removeViewInsets(
+            context: context,
+            removeBottom: true,
+            child: const RouteBannerSlot(child: SizedBox(key: banner)),
+          ),
+        ),
+      ),
+    );
+    expect(find.byKey(banner), findsOneWidget);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    await tester.pump();
+    expect(find.byKey(banner), findsNothing);
+
+    tester.view.resetViewInsets();
+    await tester.pump();
+    expect(find.byKey(banner), findsOneWidget);
+  });
+
   String? unit({
     bool debug = true,
     bool requested = true,
