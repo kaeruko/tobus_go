@@ -7,6 +7,7 @@ import '../core/app_clock.dart';
 import '../core/city_profile.dart';
 import '../core/usage_analytics.dart';
 import '../logic/solo_trip_factory.dart';
+import '../logic/expired_route_research.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/city_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
@@ -30,6 +31,7 @@ import '../widgets/bus_loading_indicator.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/route_map_preview.dart';
 import '../widgets/route_detail_widgets.dart';
+import '../widgets/route_card.dart';
 import 'trip_page.dart';
 import 'active_route_page.dart';
 
@@ -845,7 +847,10 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       ),
     );
     if (research == true && mounted) {
-      await _executeReSearch(overrideTime: appClock.now());
+      await _executeReSearch(
+        overrideTime: appClock.now(),
+        preserveSelectedRoute: true,
+      );
     }
   }
 
@@ -925,10 +930,14 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
   Future<void> _executeReSearch({
     bool reverse = false,
     bool startReturnFlow = false,
+    bool preserveSelectedRoute = false,
     DateTime? overrideTime,
   }) async {
     final l10n = AppLocalizations.of(context);
     final original = widget.candidate;
+    if (preserveSelectedRoute && (reverse || startReturnFlow)) {
+      throw StateError('Selected-route refresh requires the original direction');
+    }
     if (original.points.isEmpty) return;
 
     final originLabel = reverse
@@ -1019,17 +1028,32 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
       Navigator.of(context, rootNavigator: true).pop(); // Close loading
 
       if (list.isNotEmpty) {
-        // Push new result page
-        Navigator.of(context).push(
-          CupertinoPageRoute(
-            builder: (_) => RouteDetailPage(
-              candidate: list.first,
-              isReturnSelection: startReturnFlow,
-              meta: meta,
-              fare: result.fareByCandidateId[list.first.id],
+        // Only the expired-route flow preserves the user's selected route.
+        // Other research/return flows keep their existing behavior.
+        final selected = preserveSelectedRoute
+            ? (meta.destinationReachable &&
+                    widget.meta?.destinationReachable != false
+                ? matchingRefreshedRoute(original, list)
+                : null)
+            : list.first;
+        if (selected != null) {
+          Navigator.of(context).push(
+            CupertinoPageRoute(
+              builder: (_) => RouteDetailPage(
+                candidate: selected,
+                isReturnSelection: startReturnFlow,
+                meta: meta,
+                fare: result.fareByCandidateId[selected.id],
+              ),
             ),
-          ),
-        );
+          );
+        } else {
+          Navigator.of(context).push(
+            CupertinoPageRoute(
+              builder: (_) => _RefreshedRouteChoices(result: result),
+            ),
+          );
+        }
       } else {
         showCupertinoDialog(
           context: context,
@@ -1337,6 +1361,54 @@ class BusStopMapPage extends StatelessWidget {
           ),
           // 下部に住所や情報を出すパネルがあればここに配置
         ],
+      ),
+    );
+  }
+}
+
+
+/// An expired selection has no verified match in the fresh search results.
+/// Never choose an unrelated candidate on behalf of the user.
+class _RefreshedRouteChoices extends StatelessWidget {
+  final RouteSearchResult result;
+
+  const _RefreshedRouteChoices({required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(l10n.chooseDifferentRoute),
+      ),
+      child: SafeArea(
+        child: ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: result.candidates.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final candidate = result.candidates[index];
+            final fare = result.fareByCandidateId[candidate.id];
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(context).push(
+                CupertinoPageRoute(
+                  builder: (_) => RouteDetailPage(
+                    candidate: candidate,
+                    meta: result.meta,
+                    fare: fare,
+                  ),
+                ),
+              ),
+              child: RouteCard(
+                candidate: candidate,
+                rank: index + 1,
+                meta: result.meta,
+                fare: fare,
+              ),
+            );
+          },
+        ),
       ),
     );
   }
