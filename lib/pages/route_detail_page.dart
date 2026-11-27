@@ -380,6 +380,7 @@ class _RouteDetailPageState extends ConsumerState<RouteDetailPage> {
           fromNameEn: originEn ?? '',
           toNameEn: destinationEn ?? '',
           startTime: appClock.now(),
+          savedRouteReference: candidate,
           preference: preference == null || preference.isEmpty
               ? null
               : preference,

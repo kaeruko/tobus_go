@@ -34,6 +34,8 @@
   "savedRouteMemoPlaceholder": "この経路について覚えておきたいこと",
   "savedRoutesEmpty": "保存された経路はありません",
   "planSavedRoute": "この経路でおでかけ",
+  "savedRouteMatchFound": "保存した経路と同じ乗車経路を先頭に表示しています",
+  "savedRouteMatchNotFound": "同じ乗車経路は今回の検索候補にありません。別の経路を選択してください。",
   "addToMyRoute": "お気に入りに追加",
   "removeFromMyRoute": "お気に入りから削除",
   "tabHistory": "履歴",

@@ -612,6 +612,22 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                         ),
                       ),
 
+                    if (rs.savedRouteReference != null &&
+                        rs.hasSearched &&
+                        !rs.isLoading &&
+                        rs.errorMessage == null)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                          child: Text(
+                            rs.matchingSavedRoute != null
+                                ? l10n.savedRouteMatchFound
+                                : l10n.savedRouteMatchNotFound,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+
                     // Loading / Results / Error
                     if (rs.isLoading)
                       SliverFillRemaining(
@@ -687,6 +703,10 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                                 candidate: c,
                                 rank: i + 1,
                                 meta: rs.meta,
+                                titleTrailing: identical(c, rs.matchingSavedRoute)
+                                    ? const Icon(CupertinoIcons.check_mark_circled,
+                                        color: CupertinoColors.activeGreen)
+                                    : null,
                               ),
                             ),
                           );

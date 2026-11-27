@@ -34,6 +34,8 @@
   "savedRouteMemoPlaceholder": "Something you want to remember about this route",
   "savedRoutesEmpty": "No saved routes",
   "planSavedRoute": "Plan a trip with this route",
+  "savedRouteMatchFound": "The same saved transit itinerary is shown first.",
+  "savedRouteMatchNotFound": "The same transit itinerary is not in these search results. Choose a different route.",
   "addToMyRoute": "Add to Favorites",
   "removeFromMyRoute": "Remove from Favorites",
   "tabHistory": "History",

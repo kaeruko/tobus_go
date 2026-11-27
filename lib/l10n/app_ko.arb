@@ -34,6 +34,8 @@
   "savedRouteMemoPlaceholder": "이 경로에 대해 기억해 둘 내용을 입력하세요",
   "savedRoutesEmpty": "저장된 경로가 없습니다",
   "planSavedRoute": "이 경로로 일정 만들기",
+  "savedRouteMatchFound": "저장한 경로와 동일한 탑승 경로를 먼저 표시합니다.",
+  "savedRouteMatchNotFound": "이번 검색 결과에 동일한 탑승 경로가 없습니다. 다른 경로를 선택해 주세요.",
   "addToMyRoute": "즐겨찾기에 추가",
   "removeFromMyRoute": "즐겨찾기에서 삭제",
   "tabHistory": "기록",

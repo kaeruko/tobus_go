@@ -34,6 +34,8 @@
   "savedRouteMemoPlaceholder": "记录这条路线需要记住的内容",
   "savedRoutesEmpty": "暂无已保存的路线",
   "planSavedRoute": "使用此路线规划行程",
+  "savedRouteMatchFound": "已将与保存路线相同的乘车路线显示在首位。",
+  "savedRouteMatchNotFound": "本次搜索结果中没有相同的乘车路线。请选择其他路线。",
   "addToMyRoute": "添加到收藏",
   "removeFromMyRoute": "从收藏中移除",
   "tabHistory": "历史记录",

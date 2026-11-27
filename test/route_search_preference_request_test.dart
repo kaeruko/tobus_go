@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:toeigo/models/transport_scope.dart';
 import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/providers/route_search_provider.dart';
@@ -6,12 +7,13 @@ import 'package:toeigo/services/route_search_service.dart';
 
 class _RecordingSearchService implements RouteSearchService {
   Map<String, dynamic>? body;
+  List<Candidate> candidates = const [];
 
   @override
   Future<RouteSearchResult> search(RouteSearchRequest request) async {
     body = request.toApiBody();
     return RouteSearchResult(
-      candidates: const [],
+      candidates: candidates,
       meta: RouteMeta(destinationReachable: true, destinationLabel: '渋谷区'),
       fareByCandidateId: const {},
     );
@@ -172,6 +174,66 @@ void main() {
 
     expect(notifier.state.transportScope, TransportServiceId.legacyDefault);
     expect(notifier.state.acceptExperimentalTransferModel, isFalse);
+  });
+
+  test('saved itinerary ranks its matching later service first until endpoints change', () async {
+    Candidate route(String id, String routeId) => Candidate(
+      id: id,
+      lines: [routeId],
+      rides: 1,
+      boards: 1,
+      transfers: 0,
+      total: 20,
+      totalTime: 20,
+      points: const [],
+      steps: [
+        StepSeg(
+          stepId: id,
+          kind: 'bus',
+          title: routeId,
+          routeId: routeId,
+          departureStopId: 'A',
+          arrivalPoleId: 'B',
+          stops: [
+            StopPoint(name: 'A', point: const LatLng(35, 139), stopId: 'A'),
+            StopPoint(name: 'B', point: const LatLng(35, 139), stopId: 'B'),
+          ],
+        ),
+      ],
+    );
+    final original = route('saved', '23');
+    final other = route('rank-1', '64');
+    final same = route('rank-2', '23');
+    final service = _RecordingSearchService()..candidates = [other, same];
+    final notifier = prepare(service);
+    notifier.prepareSavedRoute(
+      from: '35.708166,139.817434',
+      to: '35.6636842,139.6977409',
+      fromName: '十間橋',
+      toName: '渋谷区',
+      fromNameJa: '十間橋',
+      toNameJa: '渋谷区',
+      fromNameEn: 'Jukkembashi',
+      toNameEn: 'Shibuya',
+      startTime: departure,
+      savedRouteReference: original,
+    );
+    notifier.setStartTime(departure.add(const Duration(hours: 1)));
+    await notifier.triggerSearch();
+    expect(notifier.state.candidates, [same, other]);
+    expect(notifier.state.matchingSavedRoute, same);
+
+    service.candidates = [other];
+    await notifier.triggerSearch();
+    expect(notifier.state.candidates, [other]);
+    expect(notifier.state.matchingSavedRoute, isNull);
+    expect(notifier.state.savedRouteReference, original);
+
+    service.candidates = [other, same];
+    notifier.setTo('35.7,139.7', name: '別の目的地');
+    await notifier.triggerSearch();
+    expect(notifier.state.savedRouteReference, isNull);
+    expect(notifier.state.candidates, [other, same]);
   });
 
   test('explicit short-time selection sends time', () async {

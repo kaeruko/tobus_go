@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../logic/expired_route_research.dart';
 import '../models/fare_models.dart';
 import '../models/route_models.dart';
 import '../models/transport_scope.dart';
@@ -28,6 +29,12 @@ class RouteSearchState {
   final bool hasSearched;
   final String? jobId;
   final List<Candidate> candidates;
+  final Candidate? savedRouteReference;
+
+  Candidate? get matchingSavedRoute =>
+      savedRouteReference == null || meta?.destinationReachable != true
+      ? null
+      : matchingRefreshedRoute(savedRouteReference!, candidates);
   final Map<String, FareQuote> fareByCandidateId;
   final RouteMeta? meta;
   final String? errorMessage;
@@ -52,6 +59,7 @@ class RouteSearchState {
     this.hasSearched = false,
     this.jobId,
     this.candidates = const [],
+    this.savedRouteReference,
     this.fareByCandidateId = const {},
     this.meta,
     this.errorMessage,
@@ -83,6 +91,7 @@ class RouteSearchState {
     Object? error,
     StackTrace? errorStackTrace,
     bool clearStartTime = false,
+    bool clearSavedRouteReference = false,
     bool clearMeta = false,
     bool clearErrorMessage = false,
   }) {
@@ -111,6 +120,7 @@ class RouteSearchState {
       hasSearched: hasSearched ?? this.hasSearched,
       jobId: jobId ?? this.jobId,
       candidates: candidates ?? this.candidates,
+      savedRouteReference: clearSavedRouteReference ? null : savedRouteReference,
       fareByCandidateId: fareByCandidateId ?? this.fareByCandidateId,
       meta: clearMeta ? null : (meta ?? this.meta),
       errorMessage: clearErrorMessage
@@ -144,6 +154,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     _generation++;
     state = state.copyWith(
       acceptExperimentalTransferModel: value,
+      clearSavedRouteReference: true,
       candidates: const [],
       fareByCandidateId: const {},
       hasSearched: false,
@@ -163,6 +174,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     required String fromNameEn,
     required String toNameEn,
     required DateTime startTime,
+    Candidate? savedRouteReference,
     String? preference,
     Set<String>? transportScope,
     bool? acceptExperimentalTransferModel,
@@ -188,6 +200,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
       transportScope: normalizeTransportScope(transportScope, busOnly: false),
       acceptExperimentalTransferModel: acceptExperimentalTransferModel ?? false,
       startTime: startTime,
+      savedRouteReference: savedRouteReference,
     );
   }
 
@@ -195,6 +208,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     _generation++;
     state = state.copyWith(
       from: from,
+      clearSavedRouteReference: from != state.from,
       fromName: name ?? from,
       fromNameJa: nameJa ?? '',
       fromNameEn: nameEn ?? '',
@@ -211,6 +225,7 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     _generation++;
     state = state.copyWith(
       to: to,
+      clearSavedRouteReference: to != state.to,
       toName: name ?? to,
       toNameJa: nameJa ?? '',
       toNameEn: nameEn ?? '',
@@ -273,14 +288,19 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
     if (state.startTime == startTime) return;
     _changeCriteria(
       state.copyWith(startTime: startTime, clearStartTime: startTime == null),
+      preserveSavedRoute: true,
     );
   }
 
-  void _changeCriteria(RouteSearchState updated) {
+  void _changeCriteria(
+    RouteSearchState updated, {
+    bool preserveSavedRoute = false,
+  }) {
     // Invalidate a pending result as soon as the user edits a condition,
     // including while the time picker is still open before another search.
     _generation++;
     state = updated.copyWith(
+      clearSavedRouteReference: !preserveSavedRoute,
       isLoading: false,
       hasSearched: false,
       candidates: const [],
@@ -364,10 +384,17 @@ class RouteSearchNotifier extends StateNotifier<RouteSearchState> {
 
       if (_generation != currentGen) return;
 
+      final reference = state.savedRouteReference;
+      final match = reference != null && result.meta.destinationReachable
+          ? matchingRefreshedRoute(reference, result.candidates)
+          : null;
+      final ordered = match == null
+          ? result.candidates
+          : [match, ...result.candidates.where((c) => !identical(c, match))];
       state = state.copyWith(
         isLoading: false,
         meta: result.meta,
-        candidates: result.candidates,
+        candidates: ordered,
         fareByCandidateId: result.fareByCandidateId,
         clearErrorMessage: true,
       );

@@ -34,6 +34,8 @@
   "savedRouteMemoPlaceholder": "記錄這條路線需要記住的內容",
   "savedRoutesEmpty": "尚未儲存任何路線",
   "planSavedRoute": "使用這條路線規劃行程",
+  "savedRouteMatchFound": "已將與儲存路線相同的乘車路線顯示在首位。",
+  "savedRouteMatchNotFound": "本次搜尋結果中沒有相同的乘車路線。請選擇其他路線。",
   "addToMyRoute": "加入收藏",
   "removeFromMyRoute": "從收藏中移除",
   "tabHistory": "紀錄",
