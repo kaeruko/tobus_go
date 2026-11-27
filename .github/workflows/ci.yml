@@ -154,6 +154,28 @@ jobs:
           GOOGLE_MAPS_ANDROID_API_KEY: ci-build-check-only
         run: ./scripts/build_aab.ps1 -City tokyo -ValidationOnly
 
+      - name: Verify Tokyo release advertising ID permissions and AdMob app ID
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $path = 'build/app/intermediates/packaged_manifests/tokyoRelease/processTokyoReleaseManifestForPackage/AndroidManifest.xml'
+          [xml]$manifest = Get-Content -LiteralPath $path -Raw
+          $android = 'http://schemas.android.com/apk/res/android'
+          $permissions = $manifest.SelectNodes('/manifest/*[starts-with(local-name(), "uses-permission")]')
+          $blocked = @('com.google.android.gms.permission.AD_ID', 'android.permission.ACCESS_ADSERVICES_AD_ID')
+          foreach ($permission in $permissions) {
+            $name = $permission.GetAttribute('name', $android)
+            if ($name -in $blocked) {
+              throw "Unexpected advertising ID permission in Tokyo release: $name"
+            }
+          }
+          $admob = @($manifest.SelectNodes('/manifest/application/meta-data') | Where-Object {
+            $_.GetAttribute('name', $android) -eq 'com.google.android.gms.ads.APPLICATION_ID'
+          })
+          if ($admob.Count -ne 1 -or $admob[0].GetAttribute('value', $android) -ne 'ca-app-pub-1701253412237513~1176167982') {
+            throw 'Unexpected AdMob app ID in Tokyo release.'
+          }
+
       - name: Verify pending test plugins are absent
         shell: pwsh
         run: |

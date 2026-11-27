@@ -273,7 +273,6 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
         ref.watch(adConsentProvider).canRequestAds;
     final showBanner = bannerId != null &&
         consentAllowsAds &&
-        MediaQuery.viewInsetsOf(context).bottom == 0 &&
         ref.watch(tabIndexProvider) == 0 &&
         (ModalRoute.isCurrentOf(context) ?? false) &&
         !rs.isLoading &&
@@ -718,7 +717,7 @@ class RouteSearchPageState extends ConsumerState<RouteSearchPage> {
                 ),
               ),
               if (showBanner)
-                TestRouteBanner(adUnitId: bannerId!),
+                RouteBannerSlot(child: TestRouteBanner(adUnitId: bannerId!)),
             ],
           ),
         ),
