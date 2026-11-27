@@ -48,9 +48,9 @@ Solo を基底 class にして Group が `extends` する構造にはしない�
 - `resolvedDelayImpactProvider`
 - `replanAnchorProvider`
 - `currentRouteReplanRequestProvider`
-- `RouteReplanPresentation`
+- `RouteReplanPresentation`（既存の判定ロジック。ナビ画面の表示条件には使用しない）
 - `TripNavigationStatusCard`
-- `DelayRecoveryCard`
+- `RouteReplanPreviewButton`（乗換予測警告を表示せず、手動操作でのみ再探索）
 - `SegmentStopsPage`
 
 この層は今後も Solo / Group を分岐させない。

@@ -8,13 +8,11 @@ import '../l10n/trip_display_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../logic/active_trip_navigation_schedule.dart';
-import '../logic/route_replan_presentation.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
 import '../providers/app_session_provider.dart';
 import '../providers/city_profile_provider.dart';
-import '../providers/delay_impact_provider.dart';
 import '../providers/group_schedule_impact_provider.dart';
 import '../providers/trip_provider.dart';
 import '../providers/member_mode_provider.dart';
@@ -22,7 +20,6 @@ import '../providers/member_nav_progress_provider.dart';
 import '../widgets/active_trip_navigation_view.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/active_trip_realtime_actions.dart';
-import '../widgets/delay_recovery_card.dart';
 import '../widgets/group_schedule_impact_card.dart';
 import '../widgets/trip_schedule_window_card.dart';
 import 'group_detail_page.dart';
@@ -70,12 +67,6 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
     final appBrand = cityBrandNavigationTitle(
       city: city,
       fallbackTitle: appName,
-    );
-    final delayResolution = ref.watch(resolvedDelayImpactProvider);
-    final delayImpact = delayResolution.impact;
-    final delayPresentation = RouteReplanPresentation.fromDelayImpact(
-      delayImpact,
-      nextRideRealtime: delayResolution.nextRideRealtime,
     );
     final scheduleImpact = ref.watch(groupScheduleImpactProvider);
 
@@ -140,14 +131,6 @@ class _MemberModePageState extends ConsumerState<MemberModePage> {
             ),
           ),
         ];
-        if (delayPresentation.showWarning) {
-          beforeScheduleSections.add(
-            DelayRecoveryCard(
-              impact: delayImpact!,
-              nextRideRealtime: delayResolution.nextRideRealtime,
-            ),
-          );
-        }
         if (scheduleImpact != null) {
           beforeScheduleSections.add(
             GroupScheduleImpactCard(

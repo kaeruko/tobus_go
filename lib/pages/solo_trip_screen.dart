@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
-import '../logic/route_replan_presentation.dart';
 import '../logic/solo_trip_lifecycle.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/transit_name_localizations.dart';
@@ -12,7 +11,6 @@ import '../l10n/trip_display_localizations.dart';
 import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../providers/city_profile_provider.dart';
-import '../providers/delay_impact_provider.dart';
 import '../providers/member_mode_provider.dart';
 import '../providers/member_nav_progress_provider.dart';
 import '../providers/saved_routes_provider.dart';
@@ -21,7 +19,6 @@ import '../services/trip_service.dart';
 import '../widgets/active_trip_navigation_view.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/active_trip_realtime_actions.dart';
-import '../widgets/delay_recovery_card.dart';
 import '../widgets/route_replan_preview_button.dart';
 import '../widgets/trip_schedule_window_card.dart';
 import 'ride_stops_navigation.dart';
@@ -200,19 +197,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
     final appName = localizedCityAppName(l10n, cityProfile.city);
     final locale = Localizations.localeOf(context);
     final tripTitle = localizedSoloTripTitle(locale, trip);
-    final delayResolution = ref.watch(resolvedDelayImpactProvider);
-    final delayImpact = delayResolution.impact;
-    final presentation = RouteReplanPresentation.fromDelayImpact(
-      delayImpact,
-      nextRideRealtime: delayResolution.nextRideRealtime,
-    );
-    final showDelayWarning =
-        !completed && !terminalArrival && presentation.showWarning;
-    final showStandaloneReplan =
-        !completed &&
-        !terminalArrival &&
-        !showDelayWarning &&
-        presentation.showAction;
+    final showStandaloneReplan = !completed && !terminalArrival;
     if (!trip.isSolo || trip.legs.length != 1) {
       throw StateError(
         'SoloTripView requires a single-leg solo trip: '
@@ -247,15 +232,7 @@ class _SoloTripViewState extends ConsumerState<SoloTripView> {
         ),
       ),
     ];
-    if (showDelayWarning) {
-      beforeScheduleSections.add(
-        DelayRecoveryCard(
-          impact: delayImpact!,
-          nextRideRealtime: delayResolution.nextRideRealtime,
-          action: RouteReplanPreviewButton(trip: trip),
-        ),
-      );
-    } else if (showStandaloneReplan) {
+    if (showStandaloneReplan) {
       beforeScheduleSections.add(RouteReplanPreviewButton(trip: trip));
     }
 

@@ -37,27 +37,19 @@ class _RouteReplanPreviewButtonState
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final locale = Localizations.localeOf(context);
     final request = ref.watch(currentRouteReplanRequestProvider);
     final blockedReason = ref.watch(routeReplanBlockedReasonProvider);
     if (request == null) {
       if (blockedReason == null) return const SizedBox.shrink();
       return Padding(
         padding: const EdgeInsets.only(top: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            OutlinedButton.icon(
-              onPressed: null,
-              icon: const Icon(Icons.alt_route),
-              label: Text(l10n.replanReviewAction),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              locale.languageCode == 'ja' ? blockedReason : l10n.replanBlocked,
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
-            ),
-          ],
+        child: Tooltip(
+          message: l10n.replanBlocked,
+          child: OutlinedButton.icon(
+            onPressed: null,
+            icon: const Icon(Icons.alt_route),
+            label: Text(l10n.replanReviewAction),
+          ),
         ),
       );
     }

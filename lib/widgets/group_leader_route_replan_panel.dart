@@ -2,13 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_localizations.dart';
-import '../logic/route_replan_presentation.dart';
 import '../models/trip_models.dart';
-import '../providers/delay_impact_provider.dart';
 import '../providers/group_schedule_impact_provider.dart';
 import '../providers/trip_provider.dart';
 import '../services/trip_service.dart';
-import 'delay_recovery_card.dart';
 import 'group_schedule_impact_card.dart';
 import 'group_schedule_shift_button.dart';
 import 'route_replan_preview_button.dart';
@@ -85,12 +82,6 @@ class GroupLeaderRouteReplanContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final tripAsync = ref.watch(tripStreamProvider);
-    final delayResolution = ref.watch(resolvedDelayImpactProvider);
-    final delayImpact = delayResolution.impact;
-    final presentation = RouteReplanPresentation.fromDelayImpact(
-      delayImpact,
-      nextRideRealtime: delayResolution.nextRideRealtime,
-    );
     final scheduleImpact = ref.watch(groupScheduleImpactProvider);
 
     return tripAsync.when(
@@ -133,20 +124,7 @@ class GroupLeaderRouteReplanContent extends ConsumerWidget {
         );
         final warnings = <Widget>[];
 
-        if (presentation.showWarning) {
-          warnings.add(
-            DelayRecoveryCard(
-              impact: delayImpact!,
-              nextRideRealtime: delayResolution.nextRideRealtime,
-              action: replanButton,
-            ),
-          );
-        }
-
         if (scheduleImpact != null) {
-          if (warnings.isNotEmpty) {
-            warnings.add(const SizedBox(height: 10));
-          }
           warnings.add(
             GroupScheduleImpactCard(
               impact: scheduleImpact,
@@ -167,24 +145,11 @@ class GroupLeaderRouteReplanContent extends ConsumerWidget {
           );
         }
 
-        if (presentation.showWarning) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: warnings,
-          );
-        }
-
-        if (!presentation.showAction && !alwaysShowAction) {
-          if (warnings.isEmpty) return const SizedBox.shrink();
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: warnings,
-          );
-        }
-
-        final defaultReplanCard = _DefaultGroupReplanCard(
-          replanButton: replanButton,
-        );
+        // Route review is a manual action, independent of delayed transfer
+        // predictions. Keep the separate group schedule-conflict notice.
+        final defaultReplanCard = alwaysShowAction
+            ? _DefaultGroupReplanCard(replanButton: replanButton)
+            : replanButton;
 
         if (warnings.isNotEmpty) {
           return Column(
