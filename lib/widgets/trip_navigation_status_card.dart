@@ -6,6 +6,13 @@ import '../l10n/transit_name_localizations.dart';
 import '../logic/trip_navigator.dart';
 import '../models/route_models.dart';
 
+// A scheduled ride's stop list is available even without realtime progress.
+// Do not offer a stop-list action for walking or missing route data.
+bool _canOpenNextStopList(NavigationState state) {
+  final step = state.step;
+  return step != null && step.isRide && step.stops.isNotEmpty;
+}
+
 /// Shared navigation status card used by both solo and group navigation.
 ///
 /// The changing route state (waiting, approaching, riding, arrival, etc.) is
@@ -226,7 +233,14 @@ class TripNavigationStatusCard extends StatelessWidget {
                     ),
                   if ((nextStopName?.isNotEmpty ?? false) &&
                       !_usesStructuredWalkToRideHeading())
-                    Chip(label: Text(l10n.nextStop(nextStopName!))),
+                    if (_canOpenNextStopList(navState))
+                      ActionChip(
+                        label: Text(l10n.nextStop(nextStopName!)),
+                        avatar: const Icon(Icons.chevron_right, size: 18),
+                        onPressed: onTapStops,
+                      )
+                    else
+                      Chip(label: Text(l10n.nextStop(nextStopName!))),
                 ],
               ),
             ],
@@ -1309,13 +1323,38 @@ class TripNavigationInlineStatus extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               if ((nextStopName?.isNotEmpty ?? false))
-                Text(
-                  l10n.nextStop(nextStopName!),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                if (_canOpenNextStopList(navState))
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: onTapStops,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 2,
+                        vertical: 2,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            l10n.nextStop(nextStopName!),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right, size: 16),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Text(
+                    l10n.nextStop(nextStopName!),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
               if (navState.remainingStops != null)
                 InkWell(
                   borderRadius: BorderRadius.circular(6),

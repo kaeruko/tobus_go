@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:toeigo/l10n/app_localizations.dart';
 import 'package:toeigo/logic/trip_navigator.dart';
 import 'package:toeigo/models/group_models.dart';
@@ -8,6 +9,69 @@ import 'package:toeigo/models/route_models.dart';
 import 'package:toeigo/widgets/trip_navigation_status_card.dart';
 
 void main() {
+  for (final inline in [false, true]) {
+    for (final kind in ['bus', 'rail']) {
+      testWidgets('next stop opens ride stops without remaining count ($kind, inline=$inline)', (
+        tester,
+      ) async {
+        var taps = 0;
+        final step = StepSeg(
+          stepId: 'ride',
+          kind: kind,
+          title: kind == 'bus' ? '上23' : '浅草線',
+          fromName: '乗車地点',
+          toName: '浅草雷門',
+          stops: [
+            StopPoint(
+              name: '乗車地点',
+              point: const LatLng(35.7, 139.8),
+              stopId: 'A',
+            ),
+            StopPoint(
+              name: '浅草雷門',
+              point: const LatLng(35.71, 139.8),
+              stopId: 'B',
+            ),
+          ],
+        );
+        final navigation = NavigationState(
+          mainText: '移動中',
+          subText: '到着予定',
+          color: Colors.blue,
+          statusLabel: '乗車中',
+          nextStopName: '浅草雷門',
+          step: step,
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: const Locale('ja'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: inline
+                  ? TripNavigationInlineStatus(
+                      navState: navigation,
+                      onTapStops: () => taps++,
+                    )
+                  : TripNavigationStatusCard(
+                      navState: navigation,
+                      tripTitle: '出発地 → 目的地',
+                      onTapStops: () => taps++,
+                    ),
+            ),
+          ),
+        );
+
+        final next = find.text('次: 浅草雷門');
+        expect(next, findsOneWidget);
+        await tester.tap(next);
+        expect(taps, 1);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   testWidgets('compact inline status hides generic waiting heading', (
     tester,
   ) async {
