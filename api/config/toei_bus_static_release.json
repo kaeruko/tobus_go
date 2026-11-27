@@ -1,7 +1,7 @@
 {
   "schema": "toei_bus_static_release/v1",
-  "snapshot_id": "2026-10-26-current-odpt",
-  "observed_at": "2026-10-26T16:42:53+09:00",
+  "snapshot_id": "2026-11-27-current-odpt",
+  "observed_at": "2026-11-27T17:01:21+09:00",
   "operator": "odpt.Operator:Toei",
   "license": "CC BY 4.0",
   "attribution": [
@@ -12,23 +12,23 @@
     {
       "filename": "odpt_BusroutePattern.json",
       "endpoint": "https://api-public.odpt.org/api/v4/odpt:BusroutePattern?odpt:operator=odpt.Operator:Toei",
-      "sha256": "a3809dcc76c600290fc1523f758f6bb91201f9d0ac01742c9689826d9641638e",
+      "sha256": "5d75ef81747cfcb13b2ae3e82201653d558d6757280b26ffca0916551ae5f4f0",
       "records": 757,
-      "record_date": "2026-09-03T03:08:13+09:00"
+      "record_date": "2026-10-29T03:11:42+09:00"
     },
     {
       "filename": "odpt_BusstopPole.json",
       "endpoint": "https://api-public.odpt.org/api/v4/odpt:BusstopPole?odpt:operator=odpt.Operator:Toei",
-      "sha256": "afe8e0ad609f917afedc2b880f2cad95c8721a5d80d97aaaba9134cceed26771",
+      "sha256": "ac2606700e38145eb2b4ac5163c3bfaa179e73835580f66c9ded112d0b3343a0",
       "records": 3690,
-      "record_date": "2026-10-26T03:07:40+09:00"
+      "record_date": "2026-11-26T03:08:07+09:00"
     }
   ],
   "compatibility_evidence": {
-    "toei_bus_gtfs_zip_sha256": "271e59c0a0e1ad629141114edc415c710c9cf614721e5c83c7c53d862efc06e0",
-    "toei_bus_gtfs_feed_version": "20261025_030830",
-    "toei_bus_gtfs_valid_from": "2026-10-25",
-    "toei_bus_gtfs_valid_until": "2029-10-24",
+    "toei_bus_gtfs_zip_sha256": "5928ac943679228c271458598a3b8644d15e5ac8cb3e3075310ffec88f26f4b8",
+    "toei_bus_gtfs_feed_version": "20261127_030813",
+    "toei_bus_gtfs_valid_from": "2026-11-27",
+    "toei_bus_gtfs_valid_until": "2029-11-26",
     "graph_only_adjacencies": 0,
     "gtfs_only_adjacencies": 0
   }
