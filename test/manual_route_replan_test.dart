@@ -36,9 +36,9 @@ void main() {
         ProviderScope(
           overrides: [
             tripStreamProvider.overrideWith((ref) => Stream.value(trip)),
-            groupScheduleImpactProvider.overrideWithValue(null),
-            currentRouteReplanRequestProvider.overrideWithValue(null),
-            routeReplanBlockedReasonProvider.overrideWithValue(reason),
+            groupScheduleImpactProvider.overrideWith((ref) => null),
+            currentRouteReplanRequestProvider.overrideWith((ref) => null),
+            routeReplanBlockedReasonProvider.overrideWith((ref) => reason),
           ],
           child: MaterialApp(
             locale: const Locale('ja'),
