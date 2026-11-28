@@ -312,7 +312,8 @@ class RouteReplanPatcher {
     final retained = <ScheduleEntry>[];
     for (final entry in trip.schedule) {
       if (entry.legIndex != targetLegIndex ||
-          entry.generatedBy == ScheduleEntrySource.manual) {
+          entry.generatedBy == ScheduleEntrySource.manual ||
+          entry.itemKind == ScheduleEntryKind.meeting) {
         retained.add(entry);
         continue;
       }
