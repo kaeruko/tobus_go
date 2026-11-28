@@ -53,10 +53,11 @@ class _RouteReplanPreviewButtonState
               icon: const Icon(Icons.alt_route),
               label: Text(l10n.replanReviewAction),
             ),
-            Text(
-              blockedReason ?? l10n.replanBlocked,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            if (widget.allowGroupLeaderApply)
+              Text(
+                l10n.replanBlocked,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
           ],
         ),
       );
