@@ -141,7 +141,7 @@ jobs:
           }
           [IO.File]::WriteAllBytes($keystore, [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))
           if ((Get-Item -LiteralPath $keystore).Length -eq 0) { throw 'Decoded keystore is empty.' }
-          $details = & keytool -J-Duser.language=en -J-Duser.country=US -list -v -keystore $keystore -alias $env:ANDROID_KEY_ALIAS -storepass:env ANDROID_STORE_PASSWORD
+          $details = & keytool '-J-Duser.language=en' '-J-Duser.country=US' -list -v -keystore $keystore -alias $env:ANDROID_KEY_ALIAS '-storepass:env' ANDROID_STORE_PASSWORD
           if ($LASTEXITCODE -ne 0) { throw 'Upload key inspection failed.' }
           $details = $details -join [Environment]::NewLine
           if ($details -notmatch '(?m)^Entry type:\s*PrivateKeyEntry\s*$') { throw 'Expected a private key entry.' }
@@ -176,11 +176,11 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $aab = 'build/app/outputs/bundle/tokyoRelease/app-tokyo-release.aab'
-          $verification = & jarsigner -J-Duser.language=en -J-Duser.country=US -verify $aab
+          $verification = & jarsigner '-J-Duser.language=en' '-J-Duser.country=US' -verify $aab
           if ($LASTEXITCODE -ne 0 -or ($verification -join [Environment]::NewLine) -notmatch '(?m)^jar verified\.\s*$') {
             throw 'AAB signature verification failed.'
           }
-          $certs = & keytool -J-Duser.language=en -J-Duser.country=US -printcert -jarfile $aab
+          $certs = & keytool '-J-Duser.language=en' '-J-Duser.country=US' -printcert -jarfile $aab
           if ($LASTEXITCODE -ne 0) { throw 'AAB certificate inspection failed.' }
           $cert = [regex]::Match(($certs -join [Environment]::NewLine), '(?m)^\s*SHA256:\s*([0-9A-Fa-f:]+)\s*$')
           if (-not $cert.Success -or $cert.Groups[1].Value.Replace(':','').ToUpperInvariant() -ne $env:ANDROID_UPLOAD_CERT_SHA256.Replace(':','').Trim().ToUpperInvariant()) {
