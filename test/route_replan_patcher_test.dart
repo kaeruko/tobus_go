@@ -678,10 +678,54 @@ void main() {
     final request = RouteReplanRequestBuilder.buildPredeparture(
       trip: group, anchor: anchor,
     );
-    final tooEarly = Candidate.fromJson({
-      ...selectedCandidate().toJson(),
-      'departure_date': DateTime(2026, 8, 15, 9, 58).toIso8601String(),
-    });
+    final base = selectedCandidate();
+    final tooEarly = Candidate(
+      id: 'too-early',
+      lines: base.lines,
+      rides: base.rides,
+      boards: base.boards,
+      transfers: base.transfers,
+      total: base.total,
+      totalTime: base.totalTime,
+      steps: [
+        walk(
+          id: 'too-early-walk',
+          from: '自宅',
+          to: '駅',
+          departure: '09:58',
+          arrival: '10:00',
+          minutes: 2,
+        ),
+        rail(
+          id: 'too-early-rail',
+          from: '駅',
+          to: '目的地',
+          departure: '10:02',
+          arrival: '10:18',
+          stops: [
+            StopPoint(
+              name: '駅',
+              point: const LatLng(35.697, 139.785),
+              stopId: 'n0',
+              isOrigin: true,
+            ),
+            StopPoint(
+              name: '目的地',
+              point: const LatLng(35.680, 139.770),
+              stopId: 'n1',
+              isDestination: true,
+            ),
+          ],
+        ),
+      ],
+      points: const [],
+      originName: '自宅',
+      destinationName: '目的地',
+      originCoords: const LatLng(35.710, 139.840),
+      destinationCoords: const LatLng(35.680, 139.770),
+      departureDate: DateTime(2026, 8, 15, 9, 58),
+      arrivalTime: '10:18',
+    );
     expect(
       () => RouteReplanPatcher.build(
         trip: group,
