@@ -6,7 +6,7 @@ import '../services/trip_service.dart';
 import '../widgets/history_trip_card.dart';
 import 'solo_trip_detail_page.dart';
 import 'trip_page.dart';
-import 'trip_report_page.dart';
+import 'group_trip_detail_page.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -223,7 +223,7 @@ class _HistoryPageState extends State<HistoryPage> {
       case TravelPhase.completed:
         return trip.isSolo
             ? SoloTripDetailPage(trip: trip)
-            : TripReportPage(trip: trip);
+            : GroupTripDetailPage(trip: trip);
       case TravelPhase.planning:
       case TravelPhase.cancelled:
         throw StateError(

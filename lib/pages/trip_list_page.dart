@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/trip_models.dart';
 import '../services/trip_service.dart';
-import 'trip_report_page.dart'; // 次に作るファイル
+import 'group_trip_detail_page.dart';
 import 'solo_trip_detail_page.dart';
+import 'trip_page.dart';
 
 class TripListPage extends StatefulWidget {
   const TripListPage({super.key});
@@ -64,9 +65,11 @@ class _TripListPageState extends State<TripListPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => trip.isSolo
-                            ? SoloTripDetailPage(trip: trip)
-                            : TripReportPage(trip: trip),
+                        builder: (_) => trip.travelPhase != TravelPhase.completed
+                            ? TripPage(tripId: trip.id)
+                            : trip.isSolo
+                                ? SoloTripDetailPage(trip: trip)
+                                : GroupTripDetailPage(trip: trip),
                       ),
                     );
                   },
