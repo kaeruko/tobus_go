@@ -10,7 +10,8 @@ import 'replan_anchor.dart';
 class RouteReplanPatch {
   final int legIndex;
   final String expectedCandidateId;
-  final String expectedActiveStepId;
+  final String? expectedActiveStepId;
+  final int expectedCompletedLegIndex;
   final List<Leg> legs;
   final List<ScheduleEntry> schedule;
 
@@ -18,6 +19,7 @@ class RouteReplanPatch {
     required this.legIndex,
     required this.expectedCandidateId,
     required this.expectedActiveStepId,
+    required this.expectedCompletedLegIndex,
     required this.legs,
     required this.schedule,
   });
@@ -36,15 +38,40 @@ class RouteReplanPatcher {
     required RouteReplanRequest request,
     required Candidate selectedCandidate,
   }) {
+    if (request.predepartureLegIndex != null) {
+      final legIndex = request.predepartureLegIndex!;
+      if (legIndex < 0 || legIndex >= trip.legs.length ||
+          legIndex != trip.activeLegIndex) {
+        throw StateError('集合前の再探索対象legが変更されました: leg=$legIndex');
+      }
+      final meetingEntries = trip.schedule.where((entry) =>
+          entry.legIndex == legIndex &&
+          entry.itemKind == ScheduleEntryKind.meeting).toList();
+      if (meetingEntries.length != 1) {
+        throw StateError('集合予定を特定できません: leg=$legIndex');
+      }
+      final movement = trip.schedule.where((entry) =>
+          entry.legIndex == legIndex &&
+          (entry.itemKind == ScheduleEntryKind.walk ||
+              entry.itemKind == ScheduleEntryKind.ride)).toList();
+      if (movement.isEmpty) throw StateError('現行legに移動予定がありません');
+      final firstMovementAt = movement.map((e) => e.plannedAt).reduce(
+          (a, b) => a.isBefore(b) ? a : b);
+      if (firstMovementAt.isBefore(request.anchor.availableAt)) {
+        throw StateError('集合前の再探索時刻が既存の移動開始以降です。再検索してください');
+      }
+    }
     final position = _findActiveStep(trip, request);
     final oldLeg = trip.legs[position.legIndex];
     final oldCandidate = oldLeg.candidate;
 
-    final retainedSteps = _retainedSteps(
-      candidate: oldCandidate,
-      activeStepIndex: position.stepIndex,
-      request: request,
-    );
+    final retainedSteps = request.predepartureLegIndex != null
+        ? <StepSeg>[]
+        : _retainedSteps(
+            candidate: oldCandidate,
+            activeStepIndex: position.stepIndex,
+            request: request,
+          );
     final combinedSteps = <StepSeg>[
       ...retainedSteps,
       ...selectedCandidate.steps,
@@ -104,6 +131,7 @@ class RouteReplanPatcher {
       legIndex: position.legIndex,
       expectedCandidateId: request.originalCandidateId,
       expectedActiveStepId: request.activeStepId,
+      expectedCompletedLegIndex: trip.completedLegIndex,
       legs: List.unmodifiable(legs),
       schedule: List.unmodifiable(schedule),
     );
@@ -113,6 +141,21 @@ class RouteReplanPatcher {
     Trip trip,
     RouteReplanRequest request,
   ) {
+    if (request.predepartureLegIndex != null) {
+      final legIndex = request.predepartureLegIndex!;
+      if (trip.tripType != TripType.group ||
+          legIndex != trip.activeLegIndex ||
+          legIndex >= trip.legs.length ||
+          request.anchor.source != ReplanAnchorSource.tripOrigin) {
+        throw StateError('集合前の再探索対象legが変化しました: leg=$legIndex');
+      }
+      if (trip.legs[legIndex].candidate.id != request.originalCandidateId) {
+        throw StateError('集合前の再探索対象候補が変化しました: leg=$legIndex');
+      }
+      return _ActiveStepPosition(legIndex: legIndex, stepIndex: 0);
+    }
+    final activeStepId = request.activeStepId;
+    if (activeStepId == null) throw StateError('移動中の再探索stepがありません');
     final matches = <_ActiveStepPosition>[];
     for (var legIndex = 0; legIndex < trip.legs.length; legIndex++) {
       final candidate = trip.legs[legIndex].candidate;
@@ -349,6 +392,26 @@ class RouteReplanPatcher {
       startDateTime: request.anchor.availableAt.toLocal(),
       legIndex: targetLegIndex,
     );
+    if (request.predepartureLegIndex != null) {
+      final movement = suffix.where((entry) =>
+          entry.itemKind == ScheduleEntryKind.walk ||
+          entry.itemKind == ScheduleEntryKind.ride).toList();
+      if (movement.isEmpty) throw StateError('新しい経路に移動予定がありません');
+      final meetings = retained.where((entry) =>
+          entry.legIndex == targetLegIndex &&
+          entry.itemKind == ScheduleEntryKind.meeting).toList();
+      if (meetings.length != 1) {
+        throw StateError('集合予定を一意に特定できません: count=${meetings.length}');
+      }
+      final firstMovementAt = movement.map((entry) => entry.plannedAt).reduce(
+          (a, b) => a.isBefore(b) ? a : b);
+      if (firstMovementAt.isBefore(request.anchor.availableAt)) {
+        throw StateError('新しい経路の出発が再探索開始時刻より前です');
+      }
+      if (firstMovementAt.isBefore(meetings.single.plannedAt)) {
+        throw StateError('新しい経路の出発が集合予定より前です');
+      }
+    }
     retained.addAll(suffix);
     sortScheduleEntries(retained);
     return retained;
@@ -424,7 +487,7 @@ class RouteReplanPatcher {
       destinationNameEn:
           original.destinationNameEn ?? selected.destinationNameEn,
       preference: original.preference ?? selected.preference,
-      departureDate: original.departureDate,
+      departureDate: retainedSteps.isEmpty ? selected.departureDate : original.departureDate,
       isFutureSuggestion: false,
       originCoords: original.originCoords,
       destinationCoords:

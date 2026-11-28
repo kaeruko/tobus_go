@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_clock.dart';
+import '../logic/group_predeparture_replan.dart';
 import '../logic/replan_debug_log.dart';
 import '../services/route_replanner.dart';
 import 'member_mode_provider.dart';
@@ -194,6 +195,17 @@ final currentRouteReplanRequestProvider =
 
       final activeStepId = uiState.resolvedEntry?.routeStepId;
       if (activeStepId == null) {
+        final memory = ref.watch(effectiveReplanTransitMemoryProvider).memory;
+        final now = ref.watch(minuteTickerProvider).value ?? appClock.now();
+        if (memory != null &&
+            GroupPredepartureReplan.eligible(
+              trip: trip, resolvedEntry: uiState.resolvedEntry,
+              memory: memory, now: now,
+            )) {
+          return RouteReplanRequestBuilder.buildPredeparture(
+            trip: trip, anchor: anchor,
+          );
+        }
         ReplanDebugLog.emit('replan_request_eval', {
           'outcome': 'blocked',
           'reason': 'active_step_missing',
@@ -235,4 +247,5 @@ final currentRouteReplanRequestProvider =
       memberModeControllerProvider,
       routeReplanBlockedReasonProvider,
       replanAnchorProvider,
+      effectiveReplanTransitMemoryProvider,
     ]);

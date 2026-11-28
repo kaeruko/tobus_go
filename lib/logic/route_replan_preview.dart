@@ -27,6 +27,23 @@ class RouteReplanPreview {
     required RouteReplanRequest request,
     required RouteSearchResult result,
   }) {
+    final predepartureLegIndex = request.predepartureLegIndex;
+    if (predepartureLegIndex != null) {
+      if (predepartureLegIndex != trip.activeLegIndex ||
+          predepartureLegIndex >= trip.legs.length) {
+        throw StateError('集合前の比較対象legが変化しました: index=$predepartureLegIndex');
+      }
+      final original = trip.legs[predepartureLegIndex].candidate;
+      if (original.id != request.originalCandidateId) {
+        throw StateError('集合前の経路候補が変化しました: candidate=${original.id}');
+      }
+      return RouteReplanPreview(
+        request: request,
+        originalCandidate: original,
+        newCandidates: List.unmodifiable(result.candidates),
+        originalFuturePoints: List.unmodifiable(_buildOriginalFuturePoints(original, request)),
+      );
+    }
     final matches = <Candidate>[];
     for (final leg in trip.legs) {
       final candidate = leg.candidate;
@@ -145,9 +162,11 @@ class RouteReplanPreview {
     Candidate candidate,
     RouteReplanRequest request,
   ) {
-    final activeIndex = candidate.steps.indexWhere(
-      (step) => step.stepId == request.activeStepId,
-    );
+    final activeIndex = request.predepartureLegIndex != null
+        ? 0
+        : candidate.steps.indexWhere(
+            (step) => step.stepId == request.activeStepId,
+          );
     if (activeIndex < 0) {
       throw StateError(
         '現在stepが比較対象Candidateにありません: ${request.activeStepId}',

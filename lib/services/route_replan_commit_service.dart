@@ -67,6 +67,11 @@ class RouteReplanCommitService {
         actorUserId: normalizedActorUserId,
       );
 
+      final completedIndex = data['completedLegIndex'] as int? ?? -1;
+      if (completedIndex != patch.expectedCompletedLegIndex ||
+          patch.legIndex != completedIndex + 1) {
+        throw StateError('再探索中に移動済みlegが変化しました。再度検索してください');
+      }
       final rawLegs = data['legs'];
       if (rawLegs is! List) {
         throw StateError('Tripのlegsが不正です');
@@ -91,13 +96,17 @@ class RouteReplanCommitService {
           'expected=${patch.expectedCandidateId}, actual=$currentCandidateId',
         );
       }
+      if (patch.expectedActiveStepId == null && rawCandidate['steps'] is! List) {
+        throw StateError('集合前の再探索対象Candidateにstep一覧がありません');
+      }
       final rawSteps = rawCandidate['steps'];
-      if (rawSteps is! List ||
+      if (patch.expectedActiveStepId != null &&
+          (rawSteps is! List ||
           !rawSteps.any(
             (rawStep) =>
                 rawStep is Map &&
                 rawStep['step_id']?.toString() == patch.expectedActiveStepId,
-          )) {
+          ))) {
         throw StateError(
           '比較表示後に現在stepが経路からなくなりました。もう一度経路を見直してください: '
           '${patch.expectedActiveStepId}',

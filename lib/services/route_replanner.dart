@@ -8,7 +8,8 @@ import 'route_search_service.dart';
 
 class RouteReplanRequest {
   final ReplanAnchor anchor;
-  final String activeStepId;
+  final String? activeStepId;
+  final int? predepartureLegIndex;
   final String originalCandidateId;
   final LatLng destination;
   final String destinationName;
@@ -16,17 +17,29 @@ class RouteReplanRequest {
 
   RouteReplanRequest({
     required this.anchor,
-    required String activeStepId,
+    String? activeStepId,
+    this.predepartureLegIndex,
     required String originalCandidateId,
     required this.destination,
     required String destinationName,
     String? preference,
-  }) : activeStepId = activeStepId.trim(),
+  }) : activeStepId = activeStepId?.trim(),
        originalCandidateId = originalCandidateId.trim(),
        destinationName = destinationName.trim(),
        preference = _normalizeReplanPreference(preference) {
-    if (this.activeStepId.isEmpty) {
+    if ((this.activeStepId == null) == (predepartureLegIndex == null)) {
+      throw ArgumentError('exactly one of activeStepId or predepartureLegIndex is required');
+    }
+    if (this.activeStepId != null && this.activeStepId!.isEmpty) {
       throw ArgumentError.value(activeStepId, 'activeStepId', 'must not be empty');
+    }
+    if (predepartureLegIndex != null && predepartureLegIndex! < 0) {
+      throw ArgumentError.value(predepartureLegIndex, 'predepartureLegIndex');
+    }
+    if (predepartureLegIndex != null &&
+        (anchor.source != ReplanAnchorSource.tripOrigin ||
+         anchor.routeStepId != null)) {
+      throw ArgumentError('predeparture replan requires a tripOrigin anchor');
     }
     if (this.originalCandidateId.isEmpty) {
       throw ArgumentError.value(originalCandidateId, 'originalCandidateId', 'must not be empty');
@@ -63,6 +76,7 @@ bool sameRouteReplanRequestState(
   RouteReplanRequest b,
 ) {
   return a.activeStepId == b.activeStepId &&
+      a.predepartureLegIndex == b.predepartureLegIndex &&
       a.originalCandidateId == b.originalCandidateId &&
       a.destination == b.destination &&
       a.destinationName == b.destinationName &&
@@ -86,6 +100,40 @@ bool _sameRouteApiMinute(DateTime a, DateTime b) {
 
 class RouteReplanRequestBuilder {
   const RouteReplanRequestBuilder._();
+
+  static RouteReplanRequest buildPredeparture({
+    required Trip trip,
+    required ReplanAnchor anchor,
+  }) {
+    if (trip.tripType != TripType.group ||
+        trip.travelPhase != TravelPhase.active ||
+        anchor.source != ReplanAnchorSource.tripOrigin ||
+        anchor.routeStepId != null) {
+      throw StateError('集合前の再探索条件が不正です: tripId=${trip.id}');
+    }
+    final legIndex = trip.activeLegIndex;
+    if (legIndex < 0 || legIndex >= trip.legs.length) {
+      throw StateError('再探索対象legがありません: legIndex=$legIndex');
+    }
+    final candidate = trip.legs[legIndex].candidate;
+    final destination = candidate.destinationCoords;
+    final name = candidate.destinationName?.trim();
+    if (destination == null || name == null || name.isEmpty) {
+      throw StateError('集合前の再探索目的地がありません: candidate=${candidate.id}');
+    }
+    if (candidate.originCoords != anchor.point ||
+        candidate.originName?.trim() != anchor.placeName) {
+      throw StateError('保存された出発地点と再探索起点が一致しません: candidate=${candidate.id}');
+    }
+    return RouteReplanRequest(
+      anchor: anchor,
+      predepartureLegIndex: legIndex,
+      originalCandidateId: candidate.id,
+      destination: destination,
+      destinationName: name,
+      preference: candidate.preference,
+    );
+  }
 
   static RouteReplanRequest build({
     required Trip trip,

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_clock.dart';
+import '../logic/group_predeparture_replan.dart';
 import '../logic/replan_anchor.dart';
 import '../logic/replan_anchor_context.dart';
 import '../logic/replan_debug_log.dart';
@@ -58,6 +59,14 @@ final replanAnchorProvider = Provider.autoDispose<ReplanAnchor?>((ref) {
   }
 
   final activeStepId = uiState.resolvedEntry?.routeStepId;
+  final now = nowTick.value ?? appClock.now();
+  if (activeStepId == null &&
+      GroupPredepartureReplan.eligible(
+        trip: trip, resolvedEntry: uiState.resolvedEntry,
+        memory: memory, now: now,
+      )) {
+    return GroupPredepartureReplan.anchor(trip: trip, now: now);
+  }
   if (activeStepId == null) {
     ReplanDebugLog.emit('anchor_eval', {
       'outcome': 'blocked',
@@ -79,7 +88,6 @@ final replanAnchorProvider = Provider.autoDispose<ReplanAnchor?>((ref) {
     return null;
   }
 
-  final now = nowTick.value ?? appClock.now();
   final ridingTransit = memory.ridingTransit;
   if (ridingTransit != null && !ridingTransit.canResolveAnchorAt(now)) {
     // The realtime position itself may still be valid while the derived
