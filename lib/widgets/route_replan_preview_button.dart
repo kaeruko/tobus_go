@@ -40,16 +40,24 @@ class _RouteReplanPreviewButtonState
     final request = ref.watch(currentRouteReplanRequestProvider);
     final blockedReason = ref.watch(routeReplanBlockedReasonProvider);
     if (request == null) {
-      if (blockedReason == null) return const SizedBox.shrink();
+      if (blockedReason == null && !widget.allowGroupLeaderApply) {
+        return const SizedBox.shrink();
+      }
       return Padding(
         padding: const EdgeInsets.only(top: 10),
-        child: Tooltip(
-          message: l10n.replanBlocked,
-          child: OutlinedButton.icon(
-            onPressed: null,
-            icon: const Icon(Icons.alt_route),
-            label: Text(l10n.replanReviewAction),
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OutlinedButton.icon(
+              onPressed: null,
+              icon: const Icon(Icons.alt_route),
+              label: Text(l10n.replanReviewAction),
+            ),
+            Text(
+              blockedReason ?? l10n.replanBlocked,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
         ),
       );
     }
