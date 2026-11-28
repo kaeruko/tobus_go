@@ -735,4 +735,102 @@ void main() {
       throwsStateError,
     );
   });
+
+  test('group inbound replan preserves completed outbound leg and entries', () {
+    final outbound = originalCandidate();
+    Candidate inboundCandidate(String id, String walkId, String railId,
+        String depart, String arrive) {
+      return Candidate(
+        id: id, lines: const ['浅草線'], rides: 1, boards: 1,
+        transfers: 0, total: 23, totalTime: 23,
+        steps: [
+          walk(
+            id: walkId, from: '目的地', to: '東日本橋',
+            departure: depart, arrival: '12:17',
+          ),
+          rail(
+            id: railId, from: '東日本橋', to: '本所吾妻橋',
+            departure: '12:20', arrival: arrive,
+            stops: [
+              StopPoint(name: '東日本橋',
+                  point: const LatLng(35.692, 139.785),
+                  stopId: 'return-1', isOrigin: true),
+              StopPoint(name: '本所吾妻橋',
+                  point: const LatLng(35.708, 139.804),
+                  stopId: 'return-2', isDestination: true),
+            ],
+          ),
+        ],
+        points: const [],
+        originName: '目的地',
+        destinationName: '自宅',
+        originCoords: const LatLng(35.680, 139.770),
+        destinationCoords: const LatLng(35.710, 139.840),
+        departureDate: DateTime(2026, 8, 15, 12, 12),
+        arrivalTime: arrive,
+      );
+    }
+    final incoming = inboundCandidate(
+        'return-old', 'return-old-walk', 'return-old-rail', '12:12', '12:35');
+    final newReturn = inboundCandidate(
+        'return-new', 'return-new-walk', 'return-new-rail', '12:12', '12:35');
+    final outboundSchedule = createScheduleFromRoute(
+      outbound, startDateTime: DateTime(2026, 8, 15, 10), legIndex: 0,
+    );
+    final inboundSchedule = createScheduleFromRoute(
+      incoming, startDateTime: DateTime(2026, 8, 15, 12, 12),
+      legIndex: 1,
+    );
+    final meeting = ScheduleEntry(
+      id: 'return-meeting',
+      plannedAt: DateTime(2026, 8, 15, 12, 2),
+      label: '帰りの集合',
+      itemKind: ScheduleEntryKind.meeting,
+      legIndex: 1,
+      generatedBy: ScheduleEntrySource.route,
+    );
+    final schedule = [
+      ...outboundSchedule, ...inboundSchedule, meeting,
+    ];
+    sortScheduleEntries(schedule);
+    final group = Trip(
+      tripType: TripType.group,
+      id: 'return-group', joinCode: 'group', leaderId: 'user-1',
+      title: '帰り道', travelPhase: TravelPhase.active,
+      date: date, plannedDepartureAt: DateTime(2026, 8, 15, 10),
+      actualDepartureAt: DateTime(2026, 8, 15, 10),
+      legs: [
+        Leg(direction: LegDirection.outbound,
+            status: LegStatus.confirmed, candidate: outbound),
+        Leg(direction: LegDirection.inbound,
+            status: LegStatus.confirmed, candidate: incoming),
+      ],
+      schedule: schedule, participants: const [],
+      memberIds: const ['user-1'], completedLegIndex: 0,
+    );
+    final now = DateTime(2026, 8, 15, 11, 45);
+    expect(GroupPredepartureReplan.eligible(
+      trip: group, resolvedEntry: null,
+      memory: const ReplanTransitMemory(), now: now,
+    ), isTrue);
+    final request = RouteReplanRequestBuilder.buildPredeparture(
+      trip: group,
+      anchor: GroupPredepartureReplan.anchor(trip: group, now: now),
+    );
+    expect(request.predepartureLegIndex, 1);
+    final patch = RouteReplanPatcher.build(
+      trip: group, request: request, selectedCandidate: newReturn,
+    );
+    expect(patch.expectedCompletedLegIndex, 0);
+    expect(patch.legs.first, same(group.legs.first));
+    expect(patch.legs[1].candidate.id, contains('return-new'));
+    final retainedOutbound = patch.schedule
+        .where((entry) => entry.legIndex == 0)
+        .map((entry) => entry.id).toList();
+    expect(retainedOutbound,
+        outboundSchedule.map((entry) => entry.id).toList());
+    expect(patch.schedule.singleWhere(
+        (entry) => entry.id == 'return-meeting').plannedAt,
+        meeting.plannedAt);
+  });
 }
