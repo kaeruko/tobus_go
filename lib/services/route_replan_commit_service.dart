@@ -72,6 +72,26 @@ class RouteReplanCommitService {
           patch.legIndex != completedIndex + 1) {
         throw StateError('再探索中に移動済みlegが変化しました。再度検索してください');
       }
+      final rawSchedule = data['schedule'];
+      if (rawSchedule is! List) {
+        throw StateError('再探索適用時にTripの予定一覧が不正です');
+      }
+      if (patch.expectedActiveStepId == null) {
+        final currentMeetings = rawSchedule.where((entry) =>
+            entry is Map &&
+            entry['legIndex'] == patch.legIndex &&
+            entry['itemKind'] == 'meeting').toList();
+        final patchedMeetings = patch.schedule.where((entry) =>
+            entry.legIndex == patch.legIndex &&
+            entry.itemKind.name == 'meeting').toList();
+        if (currentMeetings.length != 1 ||
+            patchedMeetings.length != 1 ||
+            currentMeetings.single['id'] != patchedMeetings.single.id ||
+            currentMeetings.single['plannedAt'] !=
+                Timestamp.fromDate(patchedMeetings.single.plannedAt)) {
+          throw StateError('比較表示後に集合予定が変更されました。もう一度経路を見直してください');
+        }
+      }
       final rawLegs = data['legs'];
       if (rawLegs is! List) {
         throw StateError('Tripのlegsが不正です');
