@@ -27,18 +27,35 @@ param(
     [ValidateSet('tokyo', 'sendai')]
     [string]$City = 'tokyo',
 
-    [switch]$ValidationOnly
+    [switch]$ValidationOnly,
+
+    [switch]$GitHubRelease
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # Validation artifacts are CI-only and must never request production ads.
+if ($ValidationOnly -and $GitHubRelease) {
+    throw 'ValidationOnly and GitHubRelease are mutually exclusive.'
+}
 if ($ValidationOnly) {
     if ($env:GITHUB_ACTIONS -ne 'true' -or $env:GOOGLE_MAPS_ANDROID_API_KEY -ne 'ci-build-check-only') {
         throw 'ValidationOnly is restricted to CI with the validation Maps key.'
     }
     $productionAds = 'false'
+}
+elseif ($GitHubRelease) {
+    if ($env:GITHUB_ACTIONS -ne 'true' -or
+        $env:GITHUB_EVENT_NAME -ne 'workflow_dispatch' -or
+        $env:GITHUB_REF -ne 'refs/heads/main' -or
+        $env:GITHUB_WORKFLOW_REF -ne "$env:GITHUB_REPOSITORY/.github/workflows/android_release_aab.yml@refs/heads/main") {
+        throw 'GitHubRelease is restricted to the dedicated manual Android release workflow on main.'
+    }
+    if ($env:GOOGLE_MAPS_ANDROID_API_KEY -eq 'ci-build-check-only') {
+        throw 'GitHubRelease requires a real restricted Maps key.'
+    }
+    $productionAds = 'true'
 }
 else {
     if ($env:GOOGLE_MAPS_ANDROID_API_KEY -eq 'ci-build-check-only' -or $env:GITHUB_ACTIONS -eq 'true') {

@@ -1,0 +1,273 @@
+name: Android Release AAB
+
+on:
+  workflow_dispatch:
+    inputs:
+      play_max_version_code:
+        description: 'Highest versionCode already used in Google Play (all tracks)'
+        required: true
+        type: string
+      acknowledge_public_artifact:
+        description: 'I understand the signed AAB artifact is downloadable by signed-in GitHub users (public repository)'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-aab
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.47.9'
+
+jobs:
+  release:
+    name: Build signed Tokyo AAB
+    runs-on: windows-latest
+    timeout-minutes: 60
+    environment: android-release
+    permissions:
+      contents: write
+    steps:
+      - name: Check release dispatch
+        shell: pwsh
+        env:
+          ACK_PUBLIC: ${{ inputs.acknowledge_public_artifact }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_REF -ne 'refs/heads/main' -or $env:GITHUB_EVENT_NAME -ne 'workflow_dispatch') {
+            throw 'Android releases must be dispatched from main.'
+          }
+          if ($env:ACK_PUBLIC -ne 'true') {
+            throw 'Public artifact download must be explicitly acknowledged.'
+          }
+
+      - name: Checkout exact release source
+        uses: actions/checkout@v4
+
+      - name: Resolve and validate next Android version
+        shell: pwsh
+        env:
+          PLAY_MAX_VERSION_CODE: ${{ inputs.play_max_version_code }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git fetch origin main
+          if ($LASTEXITCODE -ne 0) { throw 'git fetch failed.' }
+          $remote = git rev-parse FETCH_HEAD
+          if ($LASTEXITCODE -ne 0 -or $remote -ne $env:GITHUB_SHA) {
+            throw 'main changed since dispatch. Start a new run from current main.'
+          }
+          $path = 'pubspec.yaml'
+          $original = [IO.File]::ReadAllText((Resolve-Path $path))
+          $pattern = '(?m)^version:[ \t]*([0-9]+[.][0-9]+[.][0-9]+)[+]([1-9][0-9]*)[ \t]*(\r?)$'
+          $matches = [regex]::Matches($original, $pattern)
+          if ($matches.Count -ne 1) { throw 'Expected exactly one valid pubspec version.' }
+          $m = $matches[0]
+          $current = [long]::Parse($m.Groups[2].Value)
+          if ($current -ge 2100000000) { throw 'Android versionCode limit reached.' }
+          if ($env:PLAY_MAX_VERSION_CODE -notmatch '^(0|[1-9][0-9]{0,9})$') {
+            throw 'Enter the highest versionCode used in Google Play as an integer.'
+          }
+          $playMax = [long]::Parse($env:PLAY_MAX_VERSION_CODE)
+          $next = $current + 1
+          if ($next -le $playMax) {
+            throw "Next versionCode $next is not above Google Play maximum $playMax. Reconcile pubspec.yaml on main first."
+          }
+          $version = $m.Groups[1].Value
+          $expected = $original.Substring(0, $m.Index) + "version: $version+$next" + $m.Groups[3].Value + $original.Substring($m.Index + $m.Length)
+          [IO.File]::WriteAllText((Join-Path $env:RUNNER_TEMP 'expected-pubspec.yaml'), $expected, [Text.UTF8Encoding]::new($false))
+          "BUILD_NAME=$version" >> $env:GITHUB_ENV
+          "BUILD_NUMBER=$next" >> $env:GITHUB_ENV
+          "Source: $env:GITHUB_SHA; Android version: $version+$next" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run active Flutter tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          flutter pub get
+          if ($LASTEXITCODE -ne 0) { throw 'flutter pub get failed.' }
+          $tests = @(python scripts/run_active_tests.py flutter --list)
+          if ($LASTEXITCODE -ne 0 -or $tests.Count -eq 0) { throw 'Active test discovery failed.' }
+          flutter test --fail-fast @tests
+          if ($LASTEXITCODE -ne 0) { throw 'Active Flutter tests failed.' }
+
+      - name: Install and verify existing Google Play upload key
+        shell: pwsh
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_UPLOAD_CERT_SHA256: ${{ vars.ANDROID_UPLOAD_CERT_SHA256 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($name in @('ANDROID_KEYSTORE_BASE64','ANDROID_STORE_PASSWORD','ANDROID_KEY_PASSWORD','ANDROID_KEY_ALIAS','ANDROID_UPLOAD_CERT_SHA256')) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              throw "Missing Android release configuration: $name"
+            }
+          }
+          $fingerprint = $env:ANDROID_UPLOAD_CERT_SHA256.Replace(':','').Trim().ToUpperInvariant()
+          if ($fingerprint -notmatch '^[0-9A-F]{64}$') { throw 'Invalid upload certificate SHA-256.' }
+          $keystore = Join-Path $env:RUNNER_TEMP 'tokyo-upload.jks'
+          $keyProperties = 'android/key.properties'
+          if ((Test-Path -LiteralPath $keystore) -or (Test-Path -LiteralPath $keyProperties)) {
+            throw 'Unexpected pre-existing signing material.'
+          }
+          [IO.File]::WriteAllBytes($keystore, [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))
+          if ((Get-Item -LiteralPath $keystore).Length -eq 0) { throw 'Decoded keystore is empty.' }
+          $details = & keytool -J-Duser.language=en -J-Duser.country=US -list -v -keystore $keystore -alias $env:ANDROID_KEY_ALIAS -storepass:env ANDROID_STORE_PASSWORD
+          if ($LASTEXITCODE -ne 0) { throw 'Upload key inspection failed.' }
+          $details = $details -join [Environment]::NewLine
+          if ($details -notmatch '(?m)^Entry type:\s*PrivateKeyEntry\s*$') { throw 'Expected a private key entry.' }
+          $cert = [regex]::Match($details, '(?m)^\s*SHA256:\s*([0-9A-Fa-f:]+)\s*$')
+          if (-not $cert.Success -or $cert.Groups[1].Value.Replace(':','').ToUpperInvariant() -ne $fingerprint) {
+            throw 'Keystore certificate does not match the registered Google Play upload certificate.'
+          }
+          # Encode Java Properties values exactly, including backslashes,
+          # spaces, separators and non-ASCII characters.
+          function ConvertTo-JavaProperty([string]$value) {
+            return (($value.ToCharArray() | ForEach-Object { '\u{0:x4}' -f [int]$_ }) -join '')
+          }
+          $properties = @(
+            'storeFile=' + (ConvertTo-JavaProperty $keystore)
+            'storePassword=' + (ConvertTo-JavaProperty $env:ANDROID_STORE_PASSWORD)
+            'keyAlias=' + (ConvertTo-JavaProperty $env:ANDROID_KEY_ALIAS)
+            'keyPassword=' + (ConvertTo-JavaProperty $env:ANDROID_KEY_PASSWORD)
+          )
+          [IO.File]::WriteAllLines((Join-Path $env:GITHUB_WORKSPACE $keyProperties), [string[]]$properties, [Text.Encoding]::ASCII)
+
+      - name: Build production Tokyo AAB
+        shell: pwsh
+        env:
+          GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+        run: ./scripts/build_aab.ps1 -City tokyo -GitHubRelease
+
+      - name: Verify release signature, manifest and version
+        shell: pwsh
+        env:
+          ANDROID_UPLOAD_CERT_SHA256: ${{ vars.ANDROID_UPLOAD_CERT_SHA256 }}
+          GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $aab = 'build/app/outputs/bundle/tokyoRelease/app-tokyo-release.aab'
+          $verification = & jarsigner -J-Duser.language=en -J-Duser.country=US -verify $aab
+          if ($LASTEXITCODE -ne 0 -or ($verification -join [Environment]::NewLine) -notmatch '(?m)^jar verified\.\s*$') {
+            throw 'AAB signature verification failed.'
+          }
+          $certs = & keytool -J-Duser.language=en -J-Duser.country=US -printcert -jarfile $aab
+          if ($LASTEXITCODE -ne 0) { throw 'AAB certificate inspection failed.' }
+          $cert = [regex]::Match(($certs -join [Environment]::NewLine), '(?m)^\s*SHA256:\s*([0-9A-Fa-f:]+)\s*$')
+          if (-not $cert.Success -or $cert.Groups[1].Value.Replace(':','').ToUpperInvariant() -ne $env:ANDROID_UPLOAD_CERT_SHA256.Replace(':','').Trim().ToUpperInvariant()) {
+            throw 'AAB signer does not match the registered upload certificate.'
+          }
+          $path = 'build/app/intermediates/packaged_manifests/tokyoRelease/processTokyoReleaseManifestForPackage/AndroidManifest.xml'
+          [xml]$manifest = Get-Content -LiteralPath $path -Raw
+          $android = 'http://schemas.android.com/apk/res/android'
+          $root = $manifest.DocumentElement
+          if ($root.GetAttribute('package') -ne 'jp.cloxs.toeigo' -or
+              $root.GetAttribute('versionName', $android) -ne $env:BUILD_NAME -or
+              $root.GetAttribute('versionCode', $android) -ne $env:BUILD_NUMBER) {
+            throw 'Unexpected Tokyo release package or version.'
+          }
+          foreach ($permission in $manifest.SelectNodes('/manifest/*[starts-with(local-name(), "uses-permission")]')) {
+            if ($permission.GetAttribute('name', $android) -in @('com.google.android.gms.permission.AD_ID','android.permission.ACCESS_ADSERVICES_AD_ID')) {
+              throw 'Unexpected advertising ID permission.'
+            }
+          }
+          $metadata = $manifest.SelectNodes('/manifest/application/meta-data')
+          $ads = @($metadata | Where-Object { $_.GetAttribute('name', $android) -eq 'com.google.android.gms.ads.APPLICATION_ID' })
+          $maps = @($metadata | Where-Object { $_.GetAttribute('name', $android) -eq 'com.google.android.geo.API_KEY' })
+          if ($ads.Count -ne 1 -or $ads[0].GetAttribute('value', $android) -ne 'ca-app-pub-1701253412237513~1176167982') { throw 'Unexpected AdMob app ID.' }
+          if ($maps.Count -ne 1 -or $maps[0].GetAttribute('value', $android) -cne $env:GOOGLE_MAPS_ANDROID_API_KEY) { throw 'Unexpected Maps key.' }
+          $expected = [IO.File]::ReadAllText((Join-Path $env:RUNNER_TEMP 'expected-pubspec.yaml'))
+          if ([IO.File]::ReadAllText((Resolve-Path 'pubspec.yaml')) -cne $expected) {
+            throw 'Unexpected pubspec change after build.'
+          }
+
+      - name: Persist successful build number on main
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          function Assert-GitExit([string]$step) {
+            if ($LASTEXITCODE -ne 0) { throw "$step failed with exit code $LASTEXITCODE." }
+          }
+          git fetch origin main
+          Assert-GitExit 'git fetch'
+          $remote = git rev-parse FETCH_HEAD
+          Assert-GitExit 'git rev-parse'
+          if ($remote -ne $env:GITHUB_SHA) {
+            throw 'main changed during the build. No AAB will be published; dispatch a new run.'
+          }
+          git diff --check -- pubspec.yaml
+          Assert-GitExit 'git diff'
+          git config user.name 'github-actions[bot]'
+          Assert-GitExit 'git config name'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          Assert-GitExit 'git config email'
+          git add -- pubspec.yaml
+          Assert-GitExit 'git add'
+          $staged = @(git diff --cached --name-only)
+          Assert-GitExit 'git diff staged'
+          if ($staged.Count -ne 1 -or $staged[0] -ne 'pubspec.yaml') { throw 'Unexpected staged files.' }
+          git commit -m "Bump Android build number to $env:BUILD_NUMBER"
+          Assert-GitExit 'git commit'
+          git push origin HEAD:main
+          Assert-GitExit 'git push'
+          "Persisted Android version: $env:BUILD_NAME+$env:BUILD_NUMBER" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Prepare artifact and SHA-256
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:RUNNER_TEMP 'android-release-artifact'
+          New-Item -ItemType Directory -Path $dir | Out-Null
+          $name = "toeigo-android-$env:BUILD_NAME-$env:BUILD_NUMBER.aab"
+          $file = Join-Path $dir $name
+          Copy-Item -LiteralPath 'build/app/outputs/bundle/tokyoRelease/app-tokyo-release.aab' -Destination $file
+          $sha = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+          @("$sha  $name", "source_commit=$env:GITHUB_SHA", "version=$env:BUILD_NAME+$env:BUILD_NUMBER") | Set-Content -LiteralPath (Join-Path $dir 'release-info.txt') -Encoding utf8
+
+      - name: Upload signed AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: toeigo-android-${{ env.BUILD_NAME }}-${{ env.BUILD_NUMBER }}
+          path: |
+            ${{ runner.temp }}/android-release-artifact/*.aab
+            ${{ runner.temp }}/android-release-artifact/release-info.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove signing material
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($path in @('android/key.properties', (Join-Path $env:RUNNER_TEMP 'tokyo-upload.jks'))) {
+            if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
+          }
