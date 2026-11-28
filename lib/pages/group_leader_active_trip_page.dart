@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/city_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
+import '../l10n/transit_name_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../logic/active_trip_navigation_schedule.dart';
 import '../logic/group_leader_active_navigation.dart';
 import '../models/group_models.dart';
+import '../models/route_models.dart';
 import '../models/trip_models.dart';
 import '../providers/city_profile_provider.dart';
 import '../providers/member_mode_provider.dart';
@@ -16,7 +19,6 @@ import '../widgets/active_trip_navigation_view.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/active_trip_realtime_actions.dart';
 import '../widgets/group_leader_route_replan_panel.dart';
-import '../widgets/trip_navigation_status_card.dart';
 import '../widgets/trip_schedule_window_card.dart';
 import 'group_detail_page.dart';
 import 'ride_stops_navigation.dart';
@@ -154,6 +156,9 @@ class _GroupLeaderActiveTripBodyState
       resolvedEntry: uiState.resolvedEntry,
     );
 
+    final activeLeg = resolveGroupActiveLeg(trip);
+    final activeCandidate = activeLeg.candidate;
+
     return ActiveTripNavigationView(
       navState: uiState.navState,
       tripTitle: displayTitle,
@@ -188,7 +193,33 @@ class _GroupLeaderActiveTripBodyState
         trip: trip,
         currentStepId: ref.read(memberNavProgressProvider).currentStepId,
       ),
-      beforeScheduleSections: const [GroupLeaderRouteReplanContent()],
+      beforeScheduleSections: [
+        ActiveTripRouteOverview(
+          navState: uiState.navState,
+          tripTitle: displayTitle,
+          originLabel: AppLocalizations.of(context).originFallback,
+          originPlace: _localizedCandidateEndpoint(
+            activeCandidate,
+            origin: true,
+          ),
+          destinationLabel: AppLocalizations.of(context).destinationFallback,
+          destinationPlace: _localizedCandidateEndpoint(
+            activeCandidate,
+            origin: false,
+          ),
+          routePoints: activeCandidate.points,
+          routeGeometry: activeLeg.routeGeometryIsApproximate
+              ? null
+              : activeCandidate.routeGeometry,
+          onTapStops: () => openNavigationRideStops(
+            context: context,
+            trip: trip,
+            resolvedEntry: uiState.resolvedEntry,
+            currentStepId: ref.read(memberNavProgressProvider).currentStepId,
+          ),
+        ),
+        const GroupLeaderRouteReplanContent(),
+      ],
       scheduleSection: TripScheduleWindowCard(
         title: AppLocalizations.of(context).groupTodaySchedule,
         resolvedEntry: uiState.resolvedEntry,
@@ -209,14 +240,6 @@ class _GroupLeaderActiveTripBodyState
               trip: trip,
               entry: entry,
             ),
-        activeDetail: TripNavigationInlineStatus(
-          navState: uiState.navState,
-          onTapStops: () => openCurrentRideStops(
-            context: context,
-            trip: trip,
-            currentStepId: ref.read(memberNavProgressProvider).currentStepId,
-          ),
-        ),
         emptyLabel: AppLocalizations.of(context).groupScheduleAllCompleted,
         onTapEntry: (entry) {
           if (entry.itemKind != ScheduleEntryKind.ride) return;
@@ -237,6 +260,29 @@ class _GroupLeaderActiveTripBodyState
               running: _primaryActionRunning,
               onPressed: () => _runPrimaryAction(trip, primaryAction),
             ),
+    );
+  }
+
+  String _localizedCandidateEndpoint(
+    Candidate candidate, {
+    required bool origin,
+  }) {
+    final japanese = origin
+        ? candidate.originName?.trim()
+        : candidate.destinationName?.trim();
+    if (japanese == null || japanese.isEmpty) {
+      throw StateError(
+        'Groupのactive legに地点名がありません: '
+        'candidateId=${candidate.id}, endpoint=${origin ? "origin" : "destination"}',
+      );
+    }
+
+    return localizedOptionalPlaceName(
+      Localizations.localeOf(context),
+      japanese: japanese,
+      english: origin ? candidate.originNameEn : candidate.destinationNameEn,
+      field: origin ? 'origin_name_en' : 'destination_name_en',
+      identity: 'candidateId=${candidate.id}',
     );
   }
 
