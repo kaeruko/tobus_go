@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/city_localizations.dart';
 import '../l10n/trip_display_localizations.dart';
@@ -163,6 +164,7 @@ class _GroupLeaderActiveTripBodyState
       navState: uiState.navState,
       tripTitle: displayTitle,
       appBar: AppBar(
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: ActiveTripAppBarTitle(
