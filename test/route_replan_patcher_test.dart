@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:toeigo/logic/group_predeparture_replan.dart';
 import 'package:toeigo/logic/replan_anchor.dart';
 import 'package:toeigo/logic/route_replan_patcher.dart';
+import 'package:toeigo/logic/replan_transit_memory.dart';
 import 'package:toeigo/models/group_models.dart';
 import 'package:toeigo/models/leg_models.dart';
 import 'package:toeigo/models/route_models.dart';
@@ -565,6 +567,126 @@ void main() {
         trip: trip(),
         request: request,
         selectedCandidate: selectedCandidate(),
+      ),
+      throwsStateError,
+    );
+  });
+
+  Trip groupTripBeforeMeeting() {
+    final current = originalCandidate();
+    final meeting = ScheduleEntry(
+      id: 'group-meeting',
+      plannedAt: DateTime(2026, 8, 15, 9, 50),
+      label: '出発の集合',
+      itemKind: ScheduleEntryKind.meeting,
+      legIndex: 0,
+      generatedBy: ScheduleEntrySource.route,
+    );
+    final manual = ScheduleEntry(
+      id: 'group-manual',
+      plannedAt: DateTime(2026, 8, 15, 10, 30),
+      label: '立ち寄り',
+      itemKind: ScheduleEntryKind.event,
+      legIndex: 0,
+      generatedBy: ScheduleEntrySource.manual,
+    );
+    final entries = createScheduleFromRoute(
+      current, startDateTime: DateTime(2026, 8, 15, 10), legIndex: 0,
+    )..addAll([meeting, manual]);
+    sortScheduleEntries(entries);
+    return Trip(
+      tripType: TripType.group,
+      id: 'group-1',
+      joinCode: '123',
+      leaderId: 'user-1',
+      title: 'おでかけ',
+      travelPhase: TravelPhase.active,
+      date: date,
+      plannedDepartureAt: DateTime(2026, 8, 15, 10),
+      actualDepartureAt: null,
+      legs: [
+        Leg(direction: LegDirection.outbound,
+            status: LegStatus.confirmed, candidate: current),
+      ],
+      schedule: entries,
+      participants: const [],
+      memberIds: const ['user-1'],
+    );
+  }
+
+  test('group pre-meeting search uses active leg and retains meeting', () {
+    final group = groupTripBeforeMeeting();
+    final now = DateTime(2026, 8, 15, 9, 40);
+    expect(GroupPredepartureReplan.eligible(
+      trip: group,
+      resolvedEntry: null,
+      memory: const ReplanTransitMemory(),
+      now: now,
+    ), isTrue);
+    final anchor = GroupPredepartureReplan.anchor(trip: group, now: now);
+    expect(anchor.source, ReplanAnchorSource.tripOrigin);
+    expect(anchor.availableAt, DateTime(2026, 8, 15, 10));
+    final request = RouteReplanRequestBuilder.buildPredeparture(
+      trip: group, anchor: anchor,
+    );
+    expect(request.activeStepId, isNull);
+    expect(request.predepartureLegIndex, 0);
+
+    final patch = RouteReplanPatcher.build(
+      trip: group, request: request, selectedCandidate: selectedCandidate(),
+    );
+    expect(patch.expectedCompletedLegIndex, -1);
+    expect(patch.expectedActiveStepId, isNull);
+    expect(patch.legs.single.candidate.steps.map((s) => s.stepId),
+        ['new-walk', 'new-rail']);
+    expect(patch.schedule.singleWhere((e) => e.id == 'group-meeting').plannedAt,
+        DateTime(2026, 8, 15, 9, 50));
+    expect(patch.schedule.singleWhere((e) => e.id == 'group-manual').plannedAt,
+        DateTime(2026, 8, 15, 10, 30));
+    expect(patch.schedule.any((e) => e.routeStepId == 'old-rail'), isFalse);
+  });
+
+  test('group meeting allows search but excludes a boarded vehicle', () {
+    final group = groupTripBeforeMeeting();
+    final meeting = group.schedule.singleWhere((entry) =>
+        entry.itemKind == ScheduleEntryKind.meeting);
+    expect(GroupPredepartureReplan.eligible(
+      trip: group,
+      resolvedEntry: meeting,
+      memory: const ReplanTransitMemory(),
+      now: DateTime(2026, 8, 15, 9, 55),
+    ), isTrue);
+    expect(GroupPredepartureReplan.eligible(
+      trip: group,
+      resolvedEntry: meeting,
+      memory: const ReplanTransitMemory(knownOnboardStepId: 'old-rail'),
+      now: DateTime(2026, 8, 15, 9, 55),
+    ), isFalse);
+    expect(GroupPredepartureReplan.eligible(
+      trip: group,
+      resolvedEntry: meeting,
+      memory: const ReplanTransitMemory(),
+      now: DateTime(2026, 8, 15, 10),
+    ), isFalse);
+  });
+
+  test('group predeparture rejects departure before gathering finishes', () {
+    final group = groupTripBeforeMeeting();
+    final anchor = GroupPredepartureReplan.anchor(
+      trip: group, now: DateTime(2026, 8, 15, 9, 55),
+    );
+    final request = RouteReplanRequestBuilder.buildPredeparture(
+      trip: group, anchor: anchor,
+    );
+    final tooEarly = Candidate.fromJson({
+      ...selectedCandidate().toJson(),
+      'departure_date': DateTime(2026, 8, 15, 9, 58).toIso8601String(),
+    });
+    expect(
+      () => RouteReplanPatcher.build(
+        trip: group,
+        request: request,
+        selectedCandidate: tooEarly,
       ),
       throwsStateError,
     );
