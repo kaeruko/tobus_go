@@ -54,8 +54,9 @@ class GroupPredepartureReplan {
     if (meetings.length != 1) {
       throw StateError('集合予定を一意に特定できません: leg=$legIndex, count=${meetings.length}');
     }
-    final availableAt = now.isAfter(meetings.single.plannedAt)
-        ? now : meetings.single.plannedAt;
+    final earliestMovement = meetings.single.plannedAt.add(groupMeetingLeadTime);
+    final availableAt = now.isAfter(earliestMovement)
+        ? now : earliestMovement;
     return ReplanAnchor(
       placeName: name, stopId: null, point: point,
       availableAt: availableAt, source: ReplanAnchorSource.tripOrigin,
